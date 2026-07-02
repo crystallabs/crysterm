@@ -38,10 +38,9 @@ module Crysterm
         super **input
 
         @wrap = wrap
-        # Never store an inverted range (mirrors `Mixin::RangedValue#set_range`),
-        # which would otherwise leave `#value` permanently stuck after `clamp`.
-        @maximum = Math.max(@minimum, @maximum)
-        @value = (value || @minimum).clamp(@minimum, @maximum)
+        # Guarded range+value init: never store an inverted range (which would
+        # leave `#value` stuck after `clamp`). Shared with `Slider`/`ScrollBar`.
+        init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
 

@@ -91,16 +91,31 @@ module Crysterm
         Math.max(0, @maximum - @minimum)
       end
 
+      # Constructor-time range+value initialiser: stores a non-inverted range and
+      # a clamped value *directly* (no `Event::RangeChange`/`ValueChange` — nothing
+      # is listening during construction). Call from a subclass constructor so the
+      # "never store an inverted range" guard (which `#value=`/`#value_span`/the
+      # percent helpers all assume) can't be forgotten — `ScrollBar` forgot it and
+      # `ScrollBar.new(minimum: 100, maximum: 0)` stored an inverted range.
+      protected def init_range(min : Int32, max : Int32, value : Int32? = nil) : Nil
+        @minimum = min
+        @maximum = Math.max(min, max)
+        @value = (value || @minimum).clamp(@minimum, @maximum)
+      end
+
       # Handles a mouse-wheel notch on a ranged control: wheel-up steps the
       # value up by `#step`, wheel-down steps it down. Accepts *e* and returns
       # `true` when the event was a wheel notch (so callers can `next`).
-      def ranged_wheel(e) : Bool
+      #
+      # `invert: true` swaps the two (wheel-up decrements) — a vertical
+      # `ScrollBar`, whose value grows downward, wants that.
+      def ranged_wheel(e, invert : Bool = false) : Bool
         if e.action.wheel_up?
-          increment
+          invert ? decrement : increment
           e.accept
           true
         elsif e.action.wheel_down?
-          decrement
+          invert ? increment : decrement
           e.accept
           true
         else
@@ -108,29 +123,41 @@ module Crysterm
         end
       end
 
-      # Handles the stepping keys shared by `Widget::Slider` and `Widget::Dial`:
-      # Up/Right (and `k`/`l`) step up, Down/Left (and `j`/`h`) step down, Page
-      # Up/Down move by `#page_step`, and Home/End jump to the bounds. Accepts
-      # *e* and returns `true` when a key was handled. Stepping routes through
-      # `#value=`, which repaints only on an actual change.
-      def ranged_step_key(e) : Bool
+      # Handles the stepping keys shared by `Widget::Slider`, `Widget::Dial` and
+      # `Widget::ScrollBar`: Right (and `l`) steps up, Left (and `h`) steps down,
+      # Up/Down (and `k`/`j`) and Page Up/Down step the vertical axis, and
+      # Home/End jump to the bounds. Accepts *e* and returns `true` when a key was
+      # handled; stepping routes through `#value=`, which repaints only on a real
+      # change.
+      #
+      # `invert: true` flips only the *vertical* keys (Up/Down, PageUp/PageDown,
+      # `k`/`j`) so a scroll bar's up-arrow decreases the value while its
+      # left/right stay conventional — the exact asymmetry `ScrollBar` hand-rolled
+      # (and which had drifted to miss the `h`/`j`/`k`/`l` keys the family gained).
+      def ranged_step_key(e, invert : Bool = false) : Bool
         case e.key
-        when Tput::Key::Right, Tput::Key::Up
+        when Tput::Key::Right
           increment
-        when Tput::Key::Left, Tput::Key::Down
+        when Tput::Key::Left
           decrement
+        when Tput::Key::Up
+          invert ? decrement : increment
+        when Tput::Key::Down
+          invert ? increment : decrement
         when Tput::Key::PageUp
-          increment page_step
+          invert ? decrement(page_step) : increment(page_step)
         when Tput::Key::PageDown
-          decrement page_step
+          invert ? increment(page_step) : decrement(page_step)
         when Tput::Key::Home
           self.value = @minimum
         when Tput::Key::End
           self.value = @maximum
         else
           case e.char
-          when 'l', 'k' then increment
-          when 'h', 'j' then decrement
+          when 'l' then increment
+          when 'h' then decrement
+          when 'k' then invert ? decrement : increment
+          when 'j' then invert ? increment : decrement
           else
             return false
           end

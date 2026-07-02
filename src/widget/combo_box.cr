@@ -50,6 +50,11 @@ module Crysterm
         # keyboard navigation and click-to-commit are unaffected.
         @hover_select = true
 
+        # The wheel scrolls the viewport under a stationary pointer (see
+        # `Mixin::ItemView#wheel_scroll`), so it and hover-select agree instead
+        # of fighting over the selection.
+        @wheel_mode = Mixin::ItemView::WheelMode::ScrollViewUnderPointer
+
         # How many option rows the owning combo wants visible. The popup's outer
         # height is this plus its own border/padding (`#iheight`), set by
         # `ComboBox#position_popup` and re-applied at render (see `#render`).
@@ -89,29 +94,6 @@ module Crysterm
             self.height = h unless height == h
           end
           super
-        end
-
-        # Wheel scrolls the drop-down under a (near-)stationary pointer and
-        # re-selects the entry that lands under the cursor, so the wheel and
-        # hover-select agree instead of fighting (which snaps the selection back
-        # to the pointer's row mid-scroll). At the top/bottom edges, where the
-        # view can no longer scroll, it steps the selection within the visible
-        # page so the first/last entries stay reachable. Mirrors
-        # `Completer::Popup#wheel_scroll`; *dir* is `-1` up / `+1` down.
-        def wheel_scroll(dir : Int32) : Nil
-          return if dir == 0 || @items.empty?
-          step = dir > 0 ? 1 : -1
-          visible = visible_content_rows
-          visible = 1 if visible < 1
-          max_base = Math.max(0, @items.size - visible)
-          row = @child_offset # selection's viewport row == where the pointer hovered
-          nb = (@child_base + step).clamp(0, max_base)
-          if nb != @child_base
-            @child_base = nb
-            selekt (nb + row).clamp(0, @items.size - 1)
-          else
-            selekt (@selected + step).clamp(0, @items.size - 1)
-          end
         end
       end
 

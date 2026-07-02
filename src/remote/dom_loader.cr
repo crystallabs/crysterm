@@ -103,8 +103,15 @@ module Crysterm
       return nil unless factory = registry[type]?
       widget = factory.call(window)
       node.attr.each { |a| widget.dom_apply(a.key, a.val) }
-      each_element_child(node) do |child|
-        build(child, window).try { |c| widget.append c }
+      # Item views rebuild their rows from replayed state (`List`'s `items=`
+      # applied just above), so their children are *not* reconstructable box
+      # nodes. Re-appending serialized `<w-box>` children would double the rows
+      # (mirror of the save-side skip in `to_layout_html`); also defends against
+      # stale layouts written before that skip existed.
+      unless widget.is_a?(Mixin::ItemView)
+        each_element_child(node) do |child|
+          build(child, window).try { |c| widget.append c }
+        end
       end
       widget
     end

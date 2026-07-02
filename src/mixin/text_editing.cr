@@ -169,10 +169,14 @@ module Crysterm
               @selection_anchor = a
               @cursor_pos = b
             elsif clicks == 2
-              # Double-click selects the word under the pointer (empty range —
-              # i.e. just the caret — when the click is on non-word text).
+              # Double-click selects the word under the pointer. On non-word text
+              # `word_bounds_at` returns an empty `{pos, pos}`; seeding the anchor
+              # there leaves the same dangling-anchor-equal-to-caret landmine the
+              # single-click branch nils out below (a later edit shrinks `@value`
+              # and resurrects it as an out-of-bounds range → IndexError). So nil
+              # the anchor when the word is empty; only seed a real selection.
               a, b = word_bounds_at(pos)
-              @selection_anchor = a
+              @selection_anchor = (a == b ? nil : a)
               @cursor_pos = b
             else
               @cursor_pos = pos

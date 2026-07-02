@@ -122,8 +122,15 @@ module Crysterm
 
         fixed = 0
         grow = 0
+        # The render pipeline shifts every laid child outward by its near margin
+        # (`_get_coords`), and a Box-assigned size is a fixed `Int32` that (unlike
+        # an auto fill) never folds its margin in. So each child's main-axis
+        # margins consume space the packing must reserve — exactly as the `Flow`
+        # engine does — or children overlap and flex over-allocates.
+        margins = 0
         @measured.clear
         each_arrangeable container do |el|
+          margins += main_margin el
           if main_flex? el
             grow += grow_of el
           else
@@ -135,7 +142,7 @@ module Crysterm
 
         @total_grow = grow
         @grow_seen = 0
-        @avail = main - fixed - gaps
+        @avail = main - fixed - gaps - margins
         @avail = 0 if @avail < 0
 
         lead = 0
@@ -169,9 +176,16 @@ module Crysterm
         cross = cross_extent interior
         if @align.stretch?
           if cross_flex? el
-            set_cross_size el, cross
+            # Fill the interior *minus* the child's cross-axis margins: the
+            # assigned size is fixed (no auto margin-fold), and the render shift
+            # pushes it out by the near margin, so a full-extent size would clip
+            # by `near + far`. Setting pos 0 lets that shift place it at the near
+            # margin; the reduced size then lands flush against the far margin.
+            cs = cross - cross_margin(el)
+            cs = 0 if cs < 0
+            set_cross_size el, cs
             @filled << el
-            @filled_size[el] = cross
+            @filled_size[el] = cs
           end
           set_cross_pos el, 0
         else
@@ -224,7 +238,11 @@ module Crysterm
         # leftover and the last child lands flush against the far edge.
         gap_after = justify_before(@just_k + 1) - justify_before(@just_k)
         @just_k += 1
-        @cursor += size + @gap + gap_after
+        # Advance past this child's whole margin box: the near margin (the render
+        # shift already placed the border box at `@cursor + near`), the border
+        # size, and the far margin — plus the base gap and justify share. Without
+        # the margin term the next child's `@cursor` would land inside this one.
+        @cursor += size + main_margin(el) + @gap + gap_after
       end
 
       # Cumulative justify offset laid down *before* the `j`-th placed child, so a
@@ -252,6 +270,22 @@ module Crysterm
 
       private def grow_of(el : Widget) : Int32
         (el.layout_hint.as?(Hint)).try(&.grow) || 1
+      end
+
+      # The child's total margin along the main axis (near + far): left+right for
+      # a horizontal box, top+bottom for a vertical one. The render pipeline
+      # shifts a laid child out by its near margin without shrinking a fixed size,
+      # so the packing must reserve both.
+      private def main_margin(el : Widget) : Int32
+        m = el.style.margin
+        orientation.horizontal? ? m.left + m.right : m.top + m.bottom
+      end
+
+      # The child's total margin along the cross axis (top+bottom for a
+      # horizontal box, left+right for a vertical one).
+      private def cross_margin(el : Widget) : Int32
+        m = el.style.margin
+        orientation.horizontal? ? m.top + m.bottom : m.left + m.right
       end
 
       # Whether the child's main-axis size is decided by this layout: either its

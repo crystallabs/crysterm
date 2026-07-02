@@ -18,7 +18,11 @@ module Crysterm
     # a submenu chain rather than a single child, so it manages its own lifecycle.)
     module Popup
       @open = false
-      @ev_outside : ::Crysterm::Event::Mouse::Wrapper?
+      # The grab + outside-press-watcher lifecycle, delegated to a shared
+      # `Overlay::DismissSession` (also used by `Completer`/`Menu`) instead of
+      # hand-rolled `grab`/`on_press_outside`/`off` bookkeeping. The `@open` flag
+      # and `focus_popup:` focus policy stay here (they're the owner's business).
+      @dismiss : ::Crysterm::Overlay::DismissSession?
 
       # NOTE: the including widget must define `#popup_widget : Widget?` — its
       # current pop-up (or `nil`). Left duck-typed rather than `abstract def`,
@@ -39,11 +43,14 @@ module Crysterm
         pop.show
         pop.front!
         pop.focus if focus_popup
-        window.grab self
-        # Shared "click-away to dismiss" (same `Window#on_press_outside` used by
-        # pop-up menus and the `Completer` drop-down): a press outside this
-        # widget *and* its pop-up closes it.
-        @ev_outside ||= window.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
+        # Modal grab + "click-away to dismiss" (a press outside this widget *and*
+        # its pop-up closes it), owned by a fresh session bound to the current
+        # window. Recreated each open so a re-attach to a different window works.
+        s = ::Crysterm::Overlay::DismissSession.new(
+          window, grab_owner: self,
+          inside: ->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
+        s.open
+        @dismiss = s
         request_render
       end
 
@@ -51,27 +58,11 @@ module Crysterm
       # whether it had been open, so `#close` can early-return when it wasn't.
       protected def teardown_popup : Bool
         return false unless @open
-        release_grab
-        detach_outside_watcher
+        @open = false
+        @dismiss.try &.close
         popup_widget.try &.hide
         request_render
         true
-      end
-
-      # Marks the pop-up closed and releases the modal window grab. Both teardown
-      # paths do this: unconditionally after the open-guard in `#teardown_popup`,
-      # and under `if @open` in `#teardown_popup_on_destroy`.
-      private def release_grab : Nil
-        @open = false
-        window?.try &.ungrab self
-      end
-
-      # Removes the outside-click watcher from the window (if installed) and
-      # clears the stored handle. Both teardown paths (`#teardown_popup` and
-      # `#teardown_popup_on_destroy`) detach it identically.
-      private def detach_outside_watcher : Nil
-        @ev_outside.try { |w| window?.try &.off ::Crysterm::Event::Mouse, w }
-        @ev_outside = nil
       end
 
       # Modal grab region (see `Widget#grab_contains?`): this widget plus its
@@ -84,12 +75,13 @@ module Crysterm
       # Detaches + destroys the pop-up and removes the watcher. Call from the
       # including widget's `#destroy` (before `super`).
       protected def teardown_popup_on_destroy : Nil
-        # Release the modal grab if destroyed while still open. `#close` does
-        # this via `#teardown_popup`, but destroy can run without a prior close,
-        # leaving the dead widget lingering in `@grabs` — keeping
-        # `Window#grabbing?` true and routing mouse presses to a dead widget.
-        release_grab if @open
-        detach_outside_watcher
+        # Release the modal grab + watcher if destroyed while still open. The
+        # session's `#close` is idempotent and holds its own window reference, so
+        # it works even though destroy can run without a prior `#close` (which
+        # would otherwise leave the dead widget lingering in `@grabs`, keeping
+        # `Window#grabbing?` true and routing presses to a dead widget).
+        @open = false
+        @dismiss.try &.close
         if pop = popup_widget
           window?.try &.remove pop
           pop.destroy

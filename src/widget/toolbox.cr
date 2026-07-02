@@ -86,6 +86,11 @@ module Crysterm
 
       # The currently expanded item's content widget, or `nil` when empty.
       def current_widget : Widget?
+        # Guard the `-1` sentinel explicitly (same hazard `Mixin::PagedContainer#current_page`
+        # documents): Crystal's `[]?` treats a negative index as counting from the
+        # end, so `@sections[-1]?` would wrongly return the *last* section for an
+        # empty/unset toolbox instead of `nil`.
+        return nil if @current_index < 0
         @sections[@current_index]?.try &.widget
       end
 

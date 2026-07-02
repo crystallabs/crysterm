@@ -55,10 +55,13 @@ module Crysterm
         getter grow : Array(String) = DEFAULT_GROW
 
         # :ditto:
-        # An empty ramp would crash the render fiber (`@grow[…].clamp` / `[0]`), so
-        # it is rejected in favour of the default.
+        # An empty ramp — or one that only *contains* empty strings — would crash
+        # the render fiber (`recompute` reads `@grow[…][0]`, and `""[0]` raises
+        # `IndexError`). Drop empty entries and fall back to the default if nothing
+        # usable remains.
         def grow=(value : Array(String)) : Array(String)
-          @grow = value.empty? ? DEFAULT_GROW.dup : value
+          cleaned = value.reject(&.empty?)
+          @grow = cleaned.empty? ? DEFAULT_GROW.dup : cleaned
         end
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.

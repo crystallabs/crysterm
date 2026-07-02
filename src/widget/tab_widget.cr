@@ -122,8 +122,12 @@ module Crysterm
         on(::Crysterm::Event::PreRender) { sync_tab_style }
 
         # Carousel auto-advance: start once attached to a window (the timer needs
-        # one), and stop on destroy so it doesn't poke a dead widget.
+        # one), and stop on destroy so it doesn't poke a dead widget. Also stop on
+        # a plain detach (`remove` without `destroy`): otherwise the `FrameClock`
+        # timer keeps firing `next_tab` on the now-windowless widget forever,
+        # pinning it alive via the closure. A later re-attach re-arms via `Attach`.
         on(::Crysterm::Event::Attach) { start_carousel }
+        on(::Crysterm::Event::Detach) { stop_carousel }
         on(::Crysterm::Event::Destroy) { stop_carousel }
         start_carousel # in case we are already on a window (parent: window)
       end

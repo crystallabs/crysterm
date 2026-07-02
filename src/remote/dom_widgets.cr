@@ -19,8 +19,16 @@ module Crysterm
 
       def dom_apply(key : String, value : String?) : Bool
         case key
-        when "items" then value.try &.split('\n').each { |item| append_item item }
-        else              return super
+        when "items"
+          # Replace, don't append: the bridge's `setAttribute` documents replace
+          # semantics (`dom_http.cr`), and at load time the list is empty so
+          # clearing first is a no-op. Without the clear, a repeated
+          # `setAttribute("items", …)` (or a re-applied attribute) would grow the
+          # list on every call — the same accumulation bug the `class` handler
+          # avoids.
+          clear_items
+          value.try &.split('\n').each { |item| append_item item }
+        else return super
         end
         true
       end

@@ -35,6 +35,10 @@ module Crysterm
       # re-applied across hot-reloads; `@event_wired` dedups per widget+event.
       @subscriptions = [] of Tuple(String, String)
       @event_wired = Set(String).new
+      # Detachers for the live forwarders installed by `forward_event`, keyed by
+      # "uid:event", so `unsubscribe` can actually stop delivery instead of
+      # deferring to a reload that (with the fswatch stub) never runs.
+      @forwarders = {} of String => Proc(Nil)
       # Dedups declarative `on*` bindings across repeated `rewire`s (each
       # `append`/`remove` re-runs it).
       @declarative_wired = Set(String).new
@@ -89,6 +93,7 @@ module Crysterm
       # the rebuild).
       @window.children.dup.each(&.destroy)
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
+      @forwarders.clear        # their forwarders died with them (widgets destroyed)
       @declarative_wired.clear # ...and their declarative on* bindings
       DOM.load html, @window
       rewire
@@ -145,9 +150,10 @@ module Crysterm
     end
 
     private def forward_event(widget : Widget, event : String) : Nil
-      DOM.on_widget_event(widget, event) do |type, value|
+      detacher = DOM.on_widget_event(widget, event) do |type, value|
         publish_event type, widget, value: value
       end
+      @forwarders["#{widget.uid}:#{event}"] = detacher if detacher
     end
 
     # ---- HTTP routing -------------------------------------------------------
@@ -332,7 +338,18 @@ module Crysterm
         event = string_param params, "event"
         sel = selector || raise BadParams.new(%(missing param "selector"))
         @subscriptions.reject! { |s| s == {sel, event} }
-        0 # already-attached handlers detach on the next reload
+        # Detach the live forwarders now. The forwarder is installed via
+        # `Widget#on`, so it must be removed via `Widget#off` — dropping the
+        # `@subscriptions`/`@event_wired` bookkeeping alone leaves the handler
+        # firing until a reload that no longer happens (fswatch is a stub).
+        on_ui do
+          match(sel).each do |widget|
+            key = "#{widget.uid}:#{event}"
+            @event_wired.delete key
+            @forwarders.delete(key).try &.call
+          end
+        end
+        0
       when "query"
         on_ui { match(selector).compact_map { |w| w.css_id.try { |id| "##{id}" } } }
       when "snapshot"

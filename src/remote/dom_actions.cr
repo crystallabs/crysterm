@@ -50,8 +50,12 @@ module Crysterm
     # concrete `Event` class and subscribes to it, yielding `(canonical_type,
     # value)` when it fires — `value` carries the event's payload or `nil`.
     # Shared by the action wiring here and the HTTP bridge's runtime
-    # subscriptions. Unknown names are ignored.
-    def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Nil
+    # subscriptions.
+    #
+    # Returns a detacher `Proc` that removes exactly this handler (so the bridge
+    # can honor `unsubscribe`), or `nil` for an unknown event name (nothing was
+    # wired).
+    def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Proc(Nil)?
       case event_name
       when "click", "press"
         # `Event::Press` is emitted only by `Widget::AbstractButton#activate`,
@@ -63,18 +67,26 @@ module Crysterm
         # press over any hit-tested widget; registering it also makes the widget
         # mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
-          widget.on(::Crysterm::Event::Press) { block.call "press", nil }
+          h = widget.on(::Crysterm::Event::Press) { block.call "press", nil }
+          -> { widget.off(::Crysterm::Event::Press, h); nil }
         else
-          widget.on(::Crysterm::Event::Click) { block.call "click", nil }
+          h = widget.on(::Crysterm::Event::Click) { block.call "click", nil }
+          -> { widget.off(::Crysterm::Event::Click, h); nil }
         end
       when "submit"
-        widget.on(::Crysterm::Event::Submit) { |e| block.call "submit", e.value }
+        h = widget.on(::Crysterm::Event::Submit) { |e| block.call "submit", e.value }
+        -> { widget.off(::Crysterm::Event::Submit, h); nil }
       when "focus"
-        widget.on(::Crysterm::Event::Focus) { block.call "focus", nil }
+        h = widget.on(::Crysterm::Event::Focus) { block.call "focus", nil }
+        -> { widget.off(::Crysterm::Event::Focus, h); nil }
       when "blur"
-        widget.on(::Crysterm::Event::Blur) { block.call "blur", nil }
+        h = widget.on(::Crysterm::Event::Blur) { block.call "blur", nil }
+        -> { widget.off(::Crysterm::Event::Blur, h); nil }
       when "select", "change"
-        widget.on(::Crysterm::Event::SelectItem) { |e| block.call event_name, e.index.to_s }
+        h = widget.on(::Crysterm::Event::SelectItem) { |e| block.call event_name, e.index.to_s }
+        -> { widget.off(::Crysterm::Event::SelectItem, h); nil }
+      else
+        nil
       end
     end
 

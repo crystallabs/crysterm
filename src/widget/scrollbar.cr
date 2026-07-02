@@ -125,22 +125,17 @@ module Crysterm
       )
         super **input
 
-        @value = (value || @minimum).clamp(@minimum, @maximum)
+        # Guarded range+value init (mirrors `Slider`/`Dial`): a directly-assigned
+        # `minimum`/`maximum` could otherwise store an inverted range and leave
+        # `#value` stuck after `clamp`.
+        init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
 
         on(Crysterm::Event::Mouse) do |e|
-          if e.action.wheel_up?
-            decrement
-            e.accept
-            request_render
-            next
-          elsif e.action.wheel_down?
-            increment
-            e.accept
-            request_render
-            next
-          end
+          # Wheel steps the value (inverted: wheel-up scrolls toward the top =
+          # smaller value). Shared with the other ranged widgets.
+          next if ranged_wheel e, invert: true
 
           # Commit an untracked drag on release.
           if e.action.up?
@@ -362,26 +357,12 @@ module Crysterm
         end
       end
 
+      # Up/Left (and `k`/`h`) step toward the top/start, Down/Right (and `j`/`l`)
+      # toward the bottom/end, Page Up/Down by `#page_step`, Home/End to the
+      # bounds — the invert-aware stepping shared with `Slider`/`Dial`. (This
+      # replaces a hand-rolled copy that had never gained the vi keys.)
       def on_keypress(e)
-        k = e.key
-        case
-        when k == Tput::Key::Up || k == Tput::Key::Left
-          decrement
-        when k == Tput::Key::Down || k == Tput::Key::Right
-          increment
-        when k == Tput::Key::PageUp
-          decrement @page_step
-        when k == Tput::Key::PageDown
-          increment @page_step
-        when k == Tput::Key::Home
-          self.value = @minimum
-        when k == Tput::Key::End
-          self.value = @maximum
-        else
-          return
-        end
-        e.accept
-        request_render
+        ranged_step_key e, invert: true
       end
 
       def destroy

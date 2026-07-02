@@ -63,8 +63,16 @@ module Crysterm
         self.width = w
         self.height = h
 
-        self.left = x.clamp(0, Math.max(0, s.awidth - w))
-        self.top = y.clamp(0, Math.max(0, s.aheight - h))
+        # (*x*, *y*) are absolute screen coordinates, but the tooltip is a
+        # top-level child whose `left`/`top` are relative to the window's content
+        # origin (`aleft == window.ileft + left`). Subtract the window insets so
+        # it lands under the pointer, and clamp to the *inner content* size
+        # (`awidth - iwidth`, where `iwidth` is the total inset) so it can't
+        # overshoot into the border/padding on a bordered/padded window.
+        inner_w = s.awidth - s.iwidth
+        inner_h = s.aheight - s.iheight
+        self.left = (x - s.ileft).clamp(0, Math.max(0, inner_w - w))
+        self.top = (y - s.itop).clamp(0, Math.max(0, inner_h - h))
 
         front!
         show

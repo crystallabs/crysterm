@@ -50,6 +50,10 @@ module Crysterm
       # Moving the pointer onto a row highlights it (box keeps focus, so the
       # list gets these as hover, not key, events).
       @hover_select = true
+      # The wheel scrolls the viewport under a stationary pointer (see
+      # `Mixin::ItemView#wheel_scroll`), agreeing with hover-select rather than
+      # fighting it.
+      @wheel_mode = Mixin::ItemView::WheelMode::ScrollViewUnderPointer
       # The drop-down never takes focus — the box keeps it the whole time (so
       # typing keeps filtering). Otherwise a wheel/click over the popup would
       # auto-focus it (`Window#dispatch_mouse` focuses the topmost focusable
@@ -94,35 +98,6 @@ module Crysterm
         selekt @selected + (offset > 0 ? 1 : -1)
       end
 
-      # The wheel scrolls the drop-down *under* a (near-)stationary pointer rather
-      # than dragging the selection around like an arrow key. It shifts the
-      # viewport one row (`#child_base`) and re-selects whatever entry lands under
-      # the cursor — i.e. the selection's current viewport row (`@child_offset`,
-      # which `#hover_item` keeps pinned to the pointer). This makes the wheel and
-      # hover-select agree on a single rule ("selected == entry under the cursor"),
-      # instead of the wheel nudging the selection only for the next hover to snap
-      # it back to the pointer's row (the "jumps back under the cursor" bug).
-      #
-      # At the top/bottom edges, where the view can no longer scroll, it steps the
-      # selection within the visible page instead, so the first/last entries stay
-      # reachable by the wheel alone (without moving the mouse). *dir* is `-1` up /
-      # `+1` down.
-      def wheel_scroll(dir : Int32) : Nil
-        return if dir == 0 || @items.empty?
-        step = dir > 0 ? 1 : -1
-        visible = visible_content_rows
-        visible = 1 if visible < 1
-        max_base = Math.max(0, @items.size - visible)
-        row = @child_offset # selection's viewport row == where the pointer hovered
-        nb = (@child_base + step).clamp(0, max_base)
-        if nb != @child_base
-          @child_base = nb
-          selekt (nb + row).clamp(0, @items.size - 1)
-        else
-          selekt (@selected + step).clamp(0, @items.size - 1)
-        end
-      end
-
       # The drop-down's auto-created scrollbar (appears once the match set
       # overflows `max_visible`) must not steal focus either — same reason as
       # `@focus_on_click = false` above.
@@ -155,9 +130,11 @@ module Crysterm
     @ev_focus : Crysterm::Event::Focus::Wrapper?
     @ev_blur : Crysterm::Event::Blur::Wrapper?
     @ev_click : Crysterm::Event::Mouse::Wrapper?
-    # Window-level "click-away to dismiss" watcher, live only while the drop-down
-    # is open (the same `Window#on_press_outside` the pop-up menus use).
-    @ev_outside : Crysterm::Event::Mouse::Wrapper?
+    # "Click-away to dismiss" lifecycle, live only while the drop-down is open.
+    # A shared `Overlay::DismissSession` with *no* grab (grab_owner: nil) — the
+    # box must keep reacting to keystrokes — replacing hand-rolled
+    # `on_press_outside`/`off` bookkeeping. Same object `Mixin::Popup`/`Menu` use.
+    @dismiss : Crysterm::Overlay::DismissSession?
     # Set when the intercept handler has consumed a key, so the filter handler
     # skips that same keypress.
     @suppress_filter = false
@@ -207,13 +184,13 @@ module Crysterm
         @ev_focus.try { |h| w.off Crysterm::Event::Focus, h }
         @ev_blur.try { |h| w.off Crysterm::Event::Blur, h }
         @ev_click.try { |h| w.off Crysterm::Event::Mouse, h }
-        @ev_outside.try { |h| w.window?.try &.off Crysterm::Event::Mouse, h }
       end
+      @dismiss.try &.close
+      @dismiss = nil
       @intercept = @filter = nil
       @ev_focus = nil
       @ev_blur = nil
       @ev_click = nil
-      @ev_outside = nil
       if pop = @popup
         pop.window?.try &.remove pop
         pop.destroy
@@ -322,10 +299,15 @@ module Crysterm
       pop.front!
       @open = true
       # Dismiss on a press outside both the drop-down and its box (a press on
-      # the box itself is "inside" — its own handler toggles the list).
-      @ev_outside ||= widget.window.on_press_outside(->(x : Int32, y : Int32) {
-        (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
-      }) { close }
+      # the box itself is "inside" — its own handler toggles the list). No modal
+      # grab: the box keeps focus and keeps filtering as you type.
+      s = Crysterm::Overlay::DismissSession.new(
+        widget.window, grab_owner: nil,
+        inside: ->(x : Int32, y : Int32) {
+          (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
+        }) { close }
+      s.open
+      @dismiss = s
       widget.request_render
     end
 
@@ -354,8 +336,8 @@ module Crysterm
       return unless @open
       @open = false
       @popup.try &.hide
-      @ev_outside.try { |h| @widget.try &.window?.try &.off Crysterm::Event::Mouse, h }
-      @ev_outside = nil
+      @dismiss.try &.close
+      @dismiss = nil
       @widget.try &.request_render
     end
 

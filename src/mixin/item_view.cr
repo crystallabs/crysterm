@@ -14,6 +14,22 @@ module Crysterm
     # duck-typed hooks the renderer keys off — see `Widget#item_selected?` and
     # `widget_rendering.cr` — so no `is_a?(List)` check is needed.
     module ItemView
+      # How a mouse-wheel notch is interpreted (see `#wheel_scroll`). The two
+      # drop-down popups (`ComboBox::Popup`, `Completer::Popup`) used to each
+      # override `#wheel_scroll` with a byte-identical body; this flag replaces
+      # that copy-paste — they just set `wheel_mode = ScrollViewUnderPointer`.
+      enum WheelMode
+        # Wheel behaves like the arrow keys: it moves the selection, scrolling
+        # only to keep it visible (plain `List`/`Tree`/`Menu`).
+        MoveSelection
+        # Wheel scrolls the *viewport* under a stationary pointer; the selection
+        # tracks the entry under the cursor (`#hover_select?` drop-downs), so the
+        # wheel and hover-select don't fight over the selection.
+        ScrollViewUnderPointer
+      end
+
+      property wheel_mode : WheelMode = WheelMode::MoveSelection
+
       property ignore_keys = true
       property scrollable = true
       # Auto-show the scroll bar when items overflow (Qt `AsNeeded`); thumb size
@@ -619,15 +635,43 @@ module Crysterm
         selekt selected + offset
       end
 
-      # Handles one mouse-wheel notch (*dir* is `-1` up / `+1` down). The default
-      # treats the wheel like the arrow keys — it moves the selection, scrolling
-      # only as a side-effect to keep it visible (two rows per notch, matching the
-      # historical feel). Drop-downs that highlight the row under the pointer
-      # (`#hover_select?`) override this to scroll the *view* under a stationary
-      # cursor instead, so the wheel and hover-select don't fight over the
-      # selection (see `Completer::Popup#wheel_scroll`).
+      # Handles one mouse-wheel notch (*dir* is `-1` up / `+1` down). Branches on
+      # `#wheel_mode`: `MoveSelection` (default) treats the wheel like the arrow
+      # keys — two rows per notch, scrolling only to keep the selection visible;
+      # `ScrollViewUnderPointer` scrolls the viewport under a stationary pointer
+      # (drop-downs), keeping the selection on the entry under the cursor.
       def wheel_scroll(dir : Int32) : Nil
-        move dir * 2
+        if @wheel_mode.scroll_view_under_pointer?
+          scroll_view_under_pointer dir
+        else
+          move dir * 2
+        end
+      end
+
+      # The `ScrollViewUnderPointer` body (used by the drop-down popups). Shifts
+      # the viewport one row (`#child_base`) and re-selects whatever entry lands
+      # under the cursor — i.e. the selection's current viewport row
+      # (`@child_offset`, which `#hover_item` keeps pinned to the pointer). This
+      # makes the wheel and hover-select agree on a single rule ("selected ==
+      # entry under the cursor") instead of the wheel nudging the selection only
+      # for the next hover to snap it back (the "jumps back under the cursor"
+      # bug). At the top/bottom edges, where the view can no longer scroll, it
+      # steps the selection within the visible page so the first/last entries
+      # stay reachable by the wheel alone.
+      private def scroll_view_under_pointer(dir : Int32) : Nil
+        return if dir == 0 || @items.empty?
+        step = dir > 0 ? 1 : -1
+        visible = visible_content_rows
+        visible = 1 if visible < 1
+        max_base = Math.max(0, @items.size - visible)
+        row = @child_offset # selection's viewport row == where the pointer hovered
+        nb = (@child_base + step).clamp(0, max_base)
+        if nb != @child_base
+          @child_base = nb
+          selekt (nb + row).clamp(0, @items.size - 1)
+        else
+          selekt (@selected + step).clamp(0, @items.size - 1)
+        end
       end
 
       def up(offset = 1)

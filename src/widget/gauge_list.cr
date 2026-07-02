@@ -96,7 +96,10 @@ module Crysterm
         return "" if cols <= 0 || rows <= 0 || @gauges.empty?
 
         lw = @label_width
-        lw = (@gauges.max_of?(&.label.size) || 0) if lw <= 0
+        # Size the label column by *display width*, not codepoint count: a wide
+        # (CJK/emoji) grapheme is one codepoint but two terminal columns, so
+        # `.size` under-measures and the label overflows into the bar.
+        lw = (@gauges.max_of? { |g| str_width(g.label) } || 0) if lw <= 0
         lw = lw.clamp(0, Math.max(0, cols - 8)) # leave room for bar + " nn%"
 
         pct_w = 5 # " 100%"
@@ -115,10 +118,20 @@ module Crysterm
         cells = Array(Char).new(cap)
         colors = Array(String?).new(cap)
 
-        # Label (default style), padded/truncated to the label column.
-        label = item.label
-        lw.times do |i|
-          cells << (label[i]? || ' ')
+        # Label (default style), fit to exactly `lw` *display columns* so a wide
+        # grapheme (1 codepoint, 2 columns) doesn't push the bar/percentage past
+        # the border and wrap the row. Emit chars until the next would overflow
+        # the column, then pad the remaining columns with spaces.
+        used = 0
+        item.label.each_char do |ch|
+          cw = str_width(ch.to_s)
+          break if used + cw > lw
+          cells << ch
+          colors << nil
+          used += cw
+        end
+        (lw - used).times do
+          cells << ' '
           colors << nil
         end
         cells << ' '

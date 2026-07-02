@@ -68,9 +68,11 @@ module Crysterm
         end
 
         # Formats a numeric value compactly: integers lose their `.0`, others
-        # are rounded to one decimal.
+        # are rounded to one decimal. Uses `to_i64` (not `to_i`, which is Int32
+        # and raises `OverflowError` on ordinary large data — byte counts,
+        # populations, timestamps ≥ 2³¹) when dropping the fractional part.
         def self.fmt(v : Float64) : String
-          v == v.round ? v.to_i.to_s : v.round(1).to_s
+          v == v.round ? v.to_i64.to_s : v.round(1).to_s
         end
       end
 

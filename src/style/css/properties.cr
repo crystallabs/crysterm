@@ -692,9 +692,15 @@ module Crysterm
       # any line/fill keyword (`solid`/`line`/`dashed`/`dotted`/`double`/`bg`)
       # sets the type and enables the sides.
       private def self.apply_border_style(border : Border, value : String, sides : Tuple) : Nil
-        if Case.fold_keyword(value.strip) == "none"
+        # CSS `border-style` accepts 1–4 space-separated keywords (TRBL). `Border#type`
+        # is whole-border (no per-side type), so honor the *first* token rather
+        # than folding the whole multi-value string and matching nothing — which
+        # silently dropped the declaration.
+        first = value.strip.split.first?
+        return unless first
+        if Case.fold_keyword(first) == "none"
           sides.each { |side| set_side border, side, 0 }
-        elsif type = border_type_keyword(value)
+        elsif type = border_type_keyword(first)
           border.type = type
           sides.each { |side| ensure_side border, side }
         end
