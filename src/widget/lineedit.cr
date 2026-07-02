@@ -138,20 +138,15 @@ module Crysterm
       @view_start : Int32 = 0
 
       def value=(value = nil)
-        # A non-nil argument is an external set (cursor to the end); `nil` is a
-        # redisplay that preserves the cursor (see `PlainTextEdit#value=`).
-        external = !value.nil?
-        value ||= @value
-        value = value.gsub /\n/, ""
-        # Always record the authoritative value, even when the display doesn't
-        # need refreshing. `_listener` mutates `@value` directly, so the
-        # `@_value` (last-displayed) guard alone can wrongly no-op an external
-        # set like `input.value = ""`, leaving stale text across submits.
-        @value = value
-        @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
-        # An external set replaces the content out from under any selection
-        # indices; mirror `Mixin::TextEditing#value=` (this override bypasses it).
-        clear_selection if external
+        # Shared prologue (authoritative-value + caret + selection); a non-nil
+        # argument is an external set (cursor to the end), `nil` a redisplay that
+        # preserves the cursor (see `PlainTextEdit#value=`). The block strips
+        # newlines — this is single-line — on both paths, as before. `_listener`
+        # mutates `@value` directly, so `assign_value` recording it before the
+        # display dedup guard is what keeps an external set like `input.value =
+        # ""` from being no-op'd (and leaving stale text across submits) when the
+        # `@_value` last-displayed cache is stale.
+        assign_value(value, &.gsub(/\n/, ""))
 
         # `@_value` caches the *displayed* text so the dedup guard also fires
         # the first time an empty box needs to paint its placeholder.

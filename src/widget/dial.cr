@@ -76,13 +76,7 @@ module Crysterm
           pointer_bottom = show_value? ? Math.max(yi, yl - 2) : yl
           cx = xi + (xl - xi) // 2
           cy = yi + (pointer_bottom - yi) // 2
-          window.lines[cy]?.try do |line|
-            line[cx]?.try do |cell|
-              cell.char = pointer
-              cell.attr = sattr style.indicator
-            end
-            line.dirty = true
-          end
+          window.poke cx, cy, pointer, sattr(style.indicator)
 
           # Draw the value on the reserved bottom row, but only when it does not
           # land on the pointer row: on a 1-row dial there is no spare row, so

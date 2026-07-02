@@ -333,27 +333,14 @@ module Crysterm
       # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*:
       # for a vertical bar *m* is a row (fill columns `xi...xl`); for a
       # horizontal bar *m* is a column (fill rows `yi...yl`).
+      # A contiguous 1-cell-thick run across the cross axis, so it goes through
+      # the batched `fill_region` (skips unchanged cells, narrow dirty range)
+      # rather than a per-cell loop.
       private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
         if horizontal
-          (yi...yl).each do |y|
-            window.lines[y]?.try do |line|
-              line[m]?.try do |cell|
-                cell.char = ch
-                cell.attr = attr
-              end
-              line.dirty = true
-            end
-          end
+          window.fill_region attr, ch, m, m + 1, yi, yl
         else
-          window.lines[m]?.try do |line|
-            (xi...xl).each do |x|
-              line[x]?.try do |cell|
-                cell.char = ch
-                cell.attr = attr
-              end
-            end
-            line.dirty = true
-          end
+          window.fill_region attr, ch, xi, xl, m, m + 1
         end
       end
 

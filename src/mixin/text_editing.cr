@@ -1060,27 +1060,32 @@ module Crysterm
         ensure_cursor_visible_x
       end
 
-      def value=(value = nil)
-        # A non-nil argument is an external set: record it, cursor to the end.
-        # `nil` means "redisplay the current value" (e.g. from `render`): keep
-        # the cursor where it is, just clamped in case content changed
-        # underneath (typing/deletion updates `@cursor_pos` in `_listener`).
+      # Records `value` as the authoritative content and repositions the caret,
+      # shared by this `#value=` and `LineEdit#value=` (which overrides only the
+      # display half). A non-nil `value` is an external set: record it, cursor
+      # to the end, and drop any selection whose indices the new content
+      # invalidates. `nil` is a redisplay (e.g. from `render`): keep the cursor
+      # where it is, just clamped in case the content changed underneath
+      # (typing/deletion updates `@cursor_pos` in `_listener`). The block
+      # normalizes the resolved value before storing it — the multi-line editor
+      # keeps newlines, `LineEdit` strips them. Returns whether this was an
+      # external set. The authoritative value is stored *before* the display
+      # dedup guard the caller applies, so an external set (e.g. clearing) is
+      # never lost when the last-displayed cache is stale.
+      protected def assign_value(value : String?, & : String -> String) : Bool
         external = !value.nil?
-        if value.nil?
-          value = @value
-        end
-
-        # Record the authoritative value before the display dedup guard, so an
-        # external set (e.g. clearing) is never lost when `@_value` is stale.
-        @value = value
+        @value = yield(value || @value)
         @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
-        # An external set replaces the content out from under any selection
-        # indices; a redisplay of the same content has nothing to invalidate.
         clear_selection if external
-        return if @_value == value
+        external
+      end
 
-        @_value = value
-        set_content value
+      def value=(value = nil)
+        assign_value(value) { |v| v }
+        return if @_value == @value
+
+        @_value = @value
+        set_content @value
         _type_scroll
         _update_cursor
       end

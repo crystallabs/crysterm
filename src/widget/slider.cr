@@ -126,15 +126,7 @@ module Crysterm
           while tv <= @maximum
             tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless tx == hx
-              rows.each do |ty|
-                window.lines[ty]?.try do |line|
-                  line[tx]?.try do |cell|
-                    cell.char = @tick_char
-                    cell.attr = attr
-                  end
-                  line.dirty = true
-                end
-              end
+              rows.each { |ty| window.poke tx, ty, @tick_char, attr }
             end
             tv += interval
           end
@@ -149,15 +141,7 @@ module Crysterm
           while tv <= @maximum
             ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless ty == hy
-              window.lines[ty]?.try do |line|
-                cols.each do |cx|
-                  line[cx]?.try do |cell|
-                    cell.char = @tick_char
-                    cell.attr = attr
-                  end
-                end
-                line.dirty = true
-              end
+              cols.each { |cx| window.poke cx, ty, @tick_char, attr }
             end
             tv += interval
           end
@@ -170,28 +154,15 @@ module Crysterm
           window.fill_region track_attr, @track_char, xi, xl, yi, yl
 
           handle_attr = sattr style.indicator
+          # The handle is a contiguous 1-cell-wide run across the cross axis, so
+          # it goes through `fill_region` (batched, skips unchanged cells) like
+          # the track above — not a per-cell loop.
           if @orientation.horizontal?
             hx = xi + handle_offset(xl - xi - 1)
-            (yi...yl).each do |y|
-              window.lines[y]?.try do |line|
-                line[hx]?.try do |cell|
-                  cell.char = @handle_char
-                  cell.attr = handle_attr
-                end
-                line.dirty = true
-              end
-            end
+            window.fill_region handle_attr, @handle_char, hx, hx + 1, yi, yl
           else
             hy = (yl - 1) - handle_offset(yl - yi - 1)
-            window.lines[hy]?.try do |line|
-              (xi...xl).each do |x|
-                line[x]?.try do |cell|
-                  cell.char = @handle_char
-                  cell.attr = handle_attr
-                end
-              end
-              line.dirty = true
-            end
+            window.fill_region handle_attr, @handle_char, xi, xl, hy, hy + 1
           end
 
           draw_ticks(xi, xl, yi, yl) unless @tick_position.none?
