@@ -87,6 +87,13 @@ module Crysterm
       )
         super **input
 
+        # Never start with an inverted range: `#filled`/`#span`/the `%p` text all
+        # assume `minimum <= maximum`, and `#set_range` already refuses to store
+        # one — guard the direct-`@ivar` constructor path too (mirrors the
+        # `#init_range` guard `Slider`/`Dial`/`ScrollBar` run). A `maximum` below
+        # `minimum` collapses the range to `minimum`, matching Qt's `setRange`.
+        @maximum = @minimum if @maximum < @minimum
+
         # `value` (domain units) takes precedence; otherwise honor `filled`
         # (percentage). Default to the minimum (empty bar).
         if value
