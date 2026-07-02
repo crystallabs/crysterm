@@ -46,8 +46,9 @@ module Crysterm
       # filename containing `{...}` or a trailing `@`.
       @entry_names = [] of String
 
-      @ev_file : Crysterm::Event::OpenFile::Wrapper?
-      @ev_cancel : Crysterm::Event::Cancel::Wrapper?
+      # The OpenFile/Cancel handlers live only for the duration of one `#pick`,
+      # torn down together by `resume`.
+      @pick_subs = Crysterm::Subscriptions.new
 
       def initialize(cwd : String? = nil, label : String? = nil, keys = nil, **list)
         # `keys` is absorbed here: an item view always enables key handling, so
@@ -139,21 +140,18 @@ module Crysterm
         was_hidden = !style.visible?
 
         resume = -> {
-          @ev_file.try { |w| off Crysterm::Event::OpenFile, w }
-          @ev_cancel.try { |w| off Crysterm::Event::Cancel, w }
-          @ev_file = nil
-          @ev_cancel = nil
+          @pick_subs.off
           hide if was_hidden
           window.restore_focus unless was_focused
           request_render
         }
 
-        @ev_file = on(Crysterm::Event::OpenFile) do |e|
+        @pick_subs.on(self, Crysterm::Event::OpenFile) do |e|
           resume.call
           callback.call e.path
         end
 
-        @ev_cancel = on(Crysterm::Event::Cancel) do
+        @pick_subs.on(self, Crysterm::Event::Cancel) do
           resume.call
           callback.call nil
         end

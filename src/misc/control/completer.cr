@@ -124,12 +124,13 @@ module Crysterm
     @open = false
     @matches = [] of String
 
-    # Key-handler wrappers, kept so `#detach` can remove them.
-    @intercept : Crysterm::Event::KeyPress::Wrapper?
-    @filter : Crysterm::Event::KeyPress::Wrapper?
-    @ev_focus : Crysterm::Event::Focus::Wrapper?
-    @ev_blur : Crysterm::Event::Blur::Wrapper?
-    @ev_click : Crysterm::Event::Mouse::Wrapper?
+    # The box handlers installed for the completer's lifetime, torn down together
+    # in `#detach`. Each `Subscription` captures the box, so teardown reaches it
+    # without re-fetching `@widget` (which `#detach` may already have nilled).
+    @subs = Crysterm::Subscriptions.new
+    # The per-keystroke filter, re-armed at the tail on every focus (a `Subscription`
+    # so re-arming cancels the previous one — see `#install_filter`).
+    @filter = Crysterm::Subscription.new
     # "Click-away to dismiss" lifecycle, live only while the drop-down is open.
     # A shared `Overlay::DismissSession` with *no* grab (grab_owner: nil) — the
     # box must keep reacting to keystrokes — replacing hand-rolled
@@ -152,7 +153,7 @@ module Crysterm
       # Runs *before* the box's input handler: when the popup is open it owns the
       # navigation keys (and neutralizes them so the box ignores them); when
       # closed, Down opens the popup.
-      @intercept = widget.on(Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) do |e|
+      @subs.on(widget, Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) do |e|
         handle_intercept e
       end
 
@@ -162,35 +163,26 @@ module Crysterm
       # filter would, from the second focus on, run before the box updates
       # `#value` and miss the keystroke. Re-appending on each focus keeps the
       # filter last.
-      @ev_focus = widget.on(Crysterm::Event::Focus) { install_filter widget }
+      @subs.on(widget, Crysterm::Event::Focus) { install_filter widget }
       install_filter widget if widget.focused?
 
       # A press on the box while already focused toggles the popup. `Event::Mouse`
       # is emitted before click-to-focus is applied, so on the press that first
       # focuses the box `focused?` is still false here — that press only focuses.
-      @ev_click = widget.on(Crysterm::Event::Mouse) do |e|
+      @subs.on(widget, Crysterm::Event::Mouse) do |e|
         toggle if e.action.down? && widget.focused?
       end
 
       # Don't leave an orphaned popup behind when focus leaves the box.
-      @ev_blur = widget.on(Crysterm::Event::Blur) { close }
+      @subs.on(widget, Crysterm::Event::Blur) { close }
     end
 
     # Removes all handlers and tears down the popup.
     def detach : Nil
-      if w = @widget
-        @intercept.try { |h| w.off Crysterm::Event::KeyPress, h }
-        @filter.try { |h| w.off Crysterm::Event::KeyPress, h }
-        @ev_focus.try { |h| w.off Crysterm::Event::Focus, h }
-        @ev_blur.try { |h| w.off Crysterm::Event::Blur, h }
-        @ev_click.try { |h| w.off Crysterm::Event::Mouse, h }
-      end
+      @subs.off
+      @filter.off
       @dismiss.try &.close
       @dismiss = nil
-      @intercept = @filter = nil
-      @ev_focus = nil
-      @ev_blur = nil
-      @ev_click = nil
       if pop = @popup
         pop.window?.try &.remove pop
         pop.destroy
@@ -209,8 +201,8 @@ module Crysterm
     # prior one) so it always runs after the box's input handler and sees the
     # post-keystroke `#value`.
     private def install_filter(widget : Widget::LineEdit) : Nil
-      @filter.try { |h| widget.off Crysterm::Event::KeyPress, h }
-      @filter = widget.on(Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
+      # `#on` cancels the previously-armed filter, so re-focusing can't stack them.
+      @filter.on(widget, Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
         if @suppress_filter
           @suppress_filter = false
         else

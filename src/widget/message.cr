@@ -11,7 +11,7 @@ module Crysterm
       @resizable = true
       @parse_tags = true
 
-      @ev_keypress : Crysterm::Event::KeyPress::Wrapper?
+      @ev_keypress = Crysterm::Subscription.new
 
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
         if scrollable?
@@ -27,10 +27,8 @@ module Crysterm
         if !time || time.to_f <= 0
           # No timeout: dismiss on next keypress. (Previously slept 10s first,
           # making the message un-dismissable for 10s then linger until a key.)
-          @ev_keypress = window.on(Crysterm::Event::KeyPress) do |_|
-            @ev_keypress.try do |w|
-              window.off ::Crysterm::Event::KeyPress, w
-            end
+          @ev_keypress.on(window, Crysterm::Event::KeyPress) do |_|
+            @ev_keypress.off
             end_it do
               callback.try &.call
             end

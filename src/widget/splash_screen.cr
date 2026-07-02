@@ -46,8 +46,10 @@ module Crysterm
       getter! message_box : Box
 
       # The window-level key listener (key presses are not positional, so we
-      # watch the whole window rather than just the splash).
-      @ev_keys : Crysterm::Event::KeyPress::Wrapper?
+      # watch the whole window rather than just the splash). A `Subscription`
+      # captures the window it installed on, so teardown reaches the right one
+      # even on `Detach`, where `window?` may already have moved on.
+      @ev_keys = Crysterm::Subscription.new
       @finished = false
 
       def initialize(content : Widget? = nil, message_height = 1, dismiss_on_event : Bool? = nil, **box)
@@ -84,24 +86,25 @@ module Crysterm
         on(Crysterm::Event::Attach) { install_key_dismiss }
         # `Widget#remove` nulls `parent`/`window` before `Window#detach` emits
         # `Event::Detach`, so the previous window comes via the payload.
-        on(Crysterm::Event::Detach) { |e| remove_key_dismiss e.object.as?(Crysterm::Window) }
+        on(Crysterm::Event::Detach) { remove_key_dismiss }
         install_key_dismiss
       end
 
       # Installs the window-level key-press accelerator (idempotent).
       private def install_key_dismiss : Nil
-        return if @ev_keys
-        @ev_keys = window?.try &.on(Crysterm::Event::KeyPress) do
-          finish if dismiss_on_event?
+        return if @ev_keys.active?
+        if w = window?
+          @ev_keys.on(w, Crysterm::Event::KeyPress) do
+            finish if dismiss_on_event?
+          end
         end
       end
 
-      # Withdraws the key-press accelerator from *w* (the window the splash is
-      # leaving, supplied via the `Detach` payload; falls back to the current
-      # window for direct teardown).
-      private def remove_key_dismiss(w : Crysterm::Window? = window?) : Nil
-        @ev_keys.try { |h| w.try &.off Crysterm::Event::KeyPress, h }
-        @ev_keys = nil
+      # Withdraws the key-press accelerator (from whichever window it was
+      # installed on — the `Subscription` captured it, so this works from
+      # `Detach` too, without being handed the leaving window).
+      private def remove_key_dismiss : Nil
+        @ev_keys.off
       end
 
       # Sets (replacing any previous) the splash's content widget, filling the
@@ -125,7 +128,7 @@ module Crysterm
         @finished = true
         # Capture the window before detaching — `window?` goes nil once removed.
         scr = window?
-        remove_key_dismiss scr
+        remove_key_dismiss
         emit ::Crysterm::Event::Complete
         scr.try &.remove self
         destroy

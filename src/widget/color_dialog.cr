@@ -110,13 +110,18 @@ module Crysterm
       # Window-move (drag the border/empty area to reposition the dialog). While
       # a move is in flight, a window-level listener owns the pointer so the drag
       # keeps tracking even off the dialog.
-      @ev_move : Crysterm::Event::Mouse::Wrapper?
+      # A `Subscription` (not a bare wrapper) so teardown removes from the exact
+      # window it subscribed on, even if the dialog detached meanwhile.
+      @ev_move = Crysterm::Subscription.new
       @move_dx = 0
       @move_dy = 0
 
       # Window color pick ("eyedropper"): after the "Pick" button, the next click
-      # anywhere reads the color under it into a custom slot.
-      @ev_pick : Crysterm::Event::Mouse::Wrapper?
+      # anywhere reads the color under it into a custom slot. Same captured-target
+      # `Subscription` as `@ev_move` — `#end_pick` and `#release_window_state`
+      # both tear it down, and each formerly used `window?`, which could differ
+      # from the `scr` it subscribed on.
+      @ev_pick = Crysterm::Subscription.new
       @picking = false
 
       def initialize(colors : Array(String)? = nil, **box)
@@ -448,8 +453,7 @@ module Crysterm
       private def release_window_state : Nil
         if @picking
           @picking = false
-          @ev_pick.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
-          @ev_pick = nil
+          @ev_pick.off
           window?.try &.ungrab self
         end
         uninstall_dialog_keys
@@ -548,8 +552,9 @@ module Crysterm
       private def begin_move(x : Int32, y : Int32) : Nil
         @move_dx = x - aleft
         @move_dy = y - atop
-        return if @ev_move
-        @ev_move = window?.try &.on(Crysterm::Event::Mouse) do |e|
+        return if @ev_move.active?
+        w = window? || return
+        @ev_move.on(w, Crysterm::Event::Mouse) do |e|
           if e.action.move?
             self.left = (e.x - @move_dx).clamp(0, drag_max_left)
             self.top = (e.y - @move_dy).clamp(0, drag_max_top)
@@ -562,8 +567,7 @@ module Crysterm
       end
 
       private def end_move : Nil
-        @ev_move.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
-        @ev_move = nil
+        @ev_move.off
       end
 
       # ------------------------------------------------- window color pick
@@ -577,7 +581,7 @@ module Crysterm
         scr = window? || return
         @picking = true
         scr.grab self
-        @ev_pick = scr.on(Crysterm::Event::Mouse) do |e|
+        @ev_pick.on(scr, Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           e.accept
           end_pick e.x, e.y
@@ -588,10 +592,8 @@ module Crysterm
       private def end_pick(x : Int32, y : Int32) : Nil
         return unless @picking
         @picking = false
-        scr = window?
-        @ev_pick.try { |w| scr.try &.off Crysterm::Event::Mouse, w }
-        @ev_pick = nil
-        scr.try &.ungrab self
+        @ev_pick.off
+        window?.try &.ungrab self
         if hex = screen_color_at x, y
           set_color hex
           store_custom

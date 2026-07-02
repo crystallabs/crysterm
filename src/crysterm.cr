@@ -24,6 +24,7 @@ require "./geometry"
 require "./easing"
 require "./frame_clock"
 require "./docking"
+require "./subscription"
 require "./overlay/dismiss_session"
 require "pnggif"
 

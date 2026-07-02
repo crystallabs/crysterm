@@ -20,8 +20,10 @@ module Crysterm
     # `window?` has already been nilled (the `window` vs `window?` hazard that
     # made hand-rolled teardowns leak).
     class DismissSession
-      # The live outside-press watcher handle (nil while closed).
-      @ev : ::Crysterm::Event::Mouse::Wrapper?
+      # The live outside-press watcher, as a tracked `Subscription` (captures the
+      # window, so `#close` detaches from the right emitter even after the owner
+      # detaches — see `Subscription`). Idle while closed.
+      @watcher = ::Crysterm::Subscription.new
       @open = false
 
       # * *grab_owner* — the widget to take a modal window grab for, or `nil` for
@@ -42,7 +44,10 @@ module Crysterm
           @window.grab owner
         end
         cb = @on_dismiss
-        @ev = @window.on_press_outside(@inside) { cb.call }
+        inside = @inside
+        @watcher.on(@window, ::Crysterm::Event::Mouse) do |e|
+          cb.call if e.action.down? && !inside.call(e.x, e.y)
+        end
       end
 
       # Releases the grab and detaches the watcher. Idempotent, so it is safe to
@@ -53,8 +58,7 @@ module Crysterm
         if owner = @grab_owner
           @window.ungrab owner
         end
-        @ev.try { |w| @window.off ::Crysterm::Event::Mouse, w }
-        @ev = nil
+        @watcher.off
       end
 
       # Whether the grab/watcher are currently installed.
