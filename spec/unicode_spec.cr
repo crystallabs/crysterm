@@ -58,6 +58,51 @@ describe Crysterm::Unicode do
     end
   end
 
+  # `width(String::Grapheme)` reads the stdlib-internal `@cluster` ivar
+  # (`Char | String`) to skip the `String` allocation `grapheme.to_s` incurs
+  # for the common Char-backed cluster. These pin the equivalence with the old
+  # `width(grapheme.to_s)` path across every cluster shape, and — by exercising
+  # both `@cluster` variants — pin the `Char | String` layout it depends on.
+  describe ".width(String::Grapheme) via @cluster (equivalence with to_s path)" do
+    it "matches width(grapheme.to_s) for every cluster category" do
+      samples = [
+        "a", "Z", " ", "~",             # ASCII (Char)
+        "中", "日", "한", "Ａ",             # CJK / fullwidth, wide (Char)
+        "ｶ",                            # halfwidth katakana, narrow (Char)
+        "é",                            # precomposed accent (Char)
+        "e\u{0301}",                    # combining sequence (String)
+        "\u{0301}",                     # lone combining mark (Char)
+        "👍", "🚀", "🟠", "⭐",             # emoji, wide (Char)
+        "✌\u{FE0F}",                    # VS16 promotion (String)
+        "👨\u{200D}👩\u{200D}👧\u{200D}👦", # ZWJ family (String)
+        "🇯🇵", "🇺🇸",                     # regional-indicator flags (String)
+        "\u{1F1EF}",                    # lone regional indicator (Char)
+        "x\u{0301}\u{0302}",            # multi-combining cluster (String)
+      ]
+      samples.each do |s|
+        s.each_grapheme do |g|
+          Crysterm::Unicode.width(g).should eq Crysterm::Unicode.width(g.to_s)
+        end
+      end
+    end
+
+    it "exercises both @cluster variants (pins the Char | String layout)" do
+      seen = Set(String).new
+      "a中é\u{0301}👍🇯🇵".each_grapheme { |g| seen << g.@cluster.class.name }
+      # Both a single-codepoint (Char) and a multi-codepoint (String) cluster
+      # must be present, or the `@cluster` case would not be fully exercised.
+      seen.should contain "Char"
+      seen.should contain "String"
+    end
+
+    it "measures a lone regional indicator (a Char cluster) as width 2" do
+      "\u{1F1EF}".each_grapheme do |g|
+        g.@cluster.should be_a Char
+        Crysterm::Unicode.width(g).should eq 2
+      end
+    end
+  end
+
   describe ".display_width (whole string)" do
     it "sums grapheme-cluster widths" do
       Crysterm::Unicode.display_width("").should eq 0

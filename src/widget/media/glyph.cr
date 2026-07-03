@@ -145,7 +145,7 @@ module Crysterm
         # Braille is one color per cell, so it needs a single global on/off
         # threshold (per-cell would just produce ~50% noise). Skipped under
         # `#alpha_key?`, where opacity drives the dots instead.
-        thr = (@mode.braille? && !alpha_key?) ? @threshold_memo.get(bmp) { global_threshold bmp } : 0.0
+        thr = (@mode.braille? && !alpha_key?) ? @threshold_memo.get(anim_index, bmp) { global_threshold bmp } : 0.0
 
         (yi...yl).each do |y|
           cy = y - yi
@@ -362,9 +362,20 @@ module Crysterm
         (px.r << 16) | (px.g << 8) | px.b
       end
 
-      # Memoizes the braille on/off threshold (whole-bitmap luminance mean),
-      # recomputed only when the sample bitmap changes (see `SampleMemo`).
-      @threshold_memo = SampleMemo(Float64).new
+      # Memoizes the braille on/off threshold (whole-bitmap luminance mean) per
+      # animation frame index, so a looping animation reuses each frame's
+      # threshold across loops instead of recomputing it every frame; a still uses
+      # index 0 (see `FrameMemo`). Cleared via `#clear_frame_derived` wherever the
+      # base drops `@frame_cache`.
+      @threshold_memo = FrameMemo(Float64).new
+
+      protected def clear_frame_derived(idx : Int32? = nil)
+        if idx
+          @threshold_memo.delete idx
+        else
+          @threshold_memo.clear
+        end
+      end
 
       private def global_threshold(sub) : Float64
         total = 0.0

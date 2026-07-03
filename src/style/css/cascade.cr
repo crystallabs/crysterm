@@ -124,7 +124,10 @@ module Crysterm
               # trailing scrollbar/track/label nodes. Only the *sub-element*
               # pseudo-nodes (`::scrollbar`/`::track`/`::label`, no `:` in the
               # slot) still come from the full document, where alone they exist.
-              sdoc = structural_doc ||= HTML5.parse(window.to_html(structural: true))
+              # Cached on the `Window` across cascades (invalidated when the
+              # structural serialization changes); the `||=` still memoizes
+              # within this cascade so the string isn't re-serialized per rule.
+              sdoc = structural_doc ||= window.css_structural_document
               real = matched_nodes(sheet, sdoc, rule, structural_cache)
               slots = matched_nodes(sheet, doc, rule, selector_cache).select do |node|
                 next false unless k = node["data-uid"]?

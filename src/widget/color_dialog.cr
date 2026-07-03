@@ -124,6 +124,20 @@ module Crysterm
       @ev_pick = Crysterm::Subscription.new
       @picking = false
 
+      # Per-frame draw caches (mirroring `Gradient#render`). The 2-D field's
+      # cell background colors depend only on `@hue` (and the style flags folded
+      # into each packed attr); the hue bar's depend on nothing. Rather than run
+      # `hsv_to_rgb` + a full `sattr` derivation for all 260 cells every frame,
+      # cache the packed attrs and rebuild only when the key changes. The marker
+      # cell (its position tracks `@saturation`/`@value_v` for the field and
+      # `@hue` for the bar) is still drawn per frame via `put_cell`, so it stays
+      # byte-identical.
+      @field_attrs = [] of Int64
+      @field_attrs_hue : Float64? = nil # `@hue` the field cache was built for
+      @field_attrs_flags : Int64? = nil # style flags folded into that cache
+      @hue_attrs = [] of Int64
+      @hue_attrs_flags : Int64? = nil # style flags folded into the hue cache
+
       def initialize(colors : Array(String)? = nil, **box)
         @colors = colors || DEFAULT_COLORS
         # One custom slot per basic color, minus its first cell (taken by the
@@ -636,43 +650,102 @@ module Crysterm
       def render
         ret = super
         return ret unless ret && window?
-        draw_field
-        draw_hue
+        # Style flags are invariant across every cell of both the field and the
+        # hue bar (only fg/bg vary), so derive them once and fold them into the
+        # cached packed attrs (see `field_attrs`/`hue_attrs`).
+        flags = Attr.flags sattr(style)
+        draw_field flags
+        draw_hue flags
         ret
       end
 
-      private def draw_field : Nil
+      # The field's 240 packed cell attrs, keyed on `{@hue, flags}`. Cell
+      # backgrounds are `hsv_to_rgb(@hue, s, v)` — a pure function of the hue and
+      # the cell's grid position — so the whole array only changes when `@hue`
+      # (or the folded style flags) changes. Rebuilt lazily on a key mismatch.
+      private def field_attrs(flags : Int64) : Array(Int64)
+        if @field_attrs_hue != @hue || @field_attrs_flags != flags
+          @field_attrs_hue = @hue
+          @field_attrs_flags = flags
+          attrs = @field_attrs
+          attrs.clear
+          (0...FIELD_H).each do |row|
+            v = 1.0 - row / (FIELD_H - 1).to_f
+            (0...FIELD_W).each do |col|
+              s = col / (FIELD_W - 1).to_f
+              r, g, b = hsv_to_rgb @hue, s, v
+              bg = (r << 16) | (g << 8) | b
+              # Unmarked cell: fg == bg, matching `put_cell(..., marked: false)`.
+              attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
+            end
+          end
+        end
+        @field_attrs
+      end
+
+      # The hue bar's 20 packed cell attrs, keyed on `flags` alone — the bar's
+      # colors (`hsv_to_rgb(h, 1, 1)` per row) never change, so this is built
+      # once (and only rebuilt if the style flags ever change).
+      private def hue_attrs(flags : Int64) : Array(Int64)
+        if @hue_attrs_flags != flags
+          @hue_attrs_flags = flags
+          attrs = @hue_attrs
+          attrs.clear
+          (0...HUE_H).each do |row|
+            h = row / (HUE_H - 1).to_f * 360.0
+            r, g, b = hsv_to_rgb h, 1.0, 1.0
+            bg = (r << 16) | (g << 8) | b
+            (0...HUE_W).each do
+              attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
+            end
+          end
+        end
+        @hue_attrs
+      end
+
+      private def draw_field(flags : Int64) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_sx = ox + FIELD_X + (@saturation * (FIELD_W - 1)).round.to_i
         cur_sy = oy + FIELD_Y + ((1.0 - @value_v) * (FIELD_H - 1)).round.to_i
+        attrs = field_attrs flags
 
         (0...FIELD_H).each do |row|
-          v = 1.0 - row / (FIELD_H - 1).to_f
           y = oy + FIELD_Y + row
           (0...FIELD_W).each do |col|
-            s = col / (FIELD_W - 1).to_f
-            r, g, b = hsv_to_rgb @hue, s, v
             x = ox + FIELD_X + col
-            marker = (x == cur_sx && y == cur_sy)
-            put_cell x, y, (marker ? '+' : ' '), (r << 16) | (g << 8) | b, marker
+            if x == cur_sx && y == cur_sy
+              # The lone marker cell needs a contrasting fg; recompute just this
+              # one bg (its position tracks saturation/value, not `@hue`).
+              v = 1.0 - row / (FIELD_H - 1).to_f
+              s = col / (FIELD_W - 1).to_f
+              r, g, b = hsv_to_rgb @hue, s, v
+              put_cell x, y, '+', (r << 16) | (g << 8) | b, true
+            else
+              put_cell_attr x, y, ' ', attrs[row * FIELD_W + col]
+            end
           end
         end
       end
 
-      private def draw_hue : Nil
+      private def draw_hue(flags : Int64) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_hy = oy + HUE_Y + (@hue / 360.0 * (HUE_H - 1)).round.to_i
+        attrs = hue_attrs flags
 
         (0...HUE_H).each do |row|
-          h = row / (HUE_H - 1).to_f * 360.0
-          r, g, b = hsv_to_rgb h, 1.0, 1.0
           y = oy + HUE_Y + row
           (0...HUE_W).each do |col|
             x = ox + HUE_X + col
-            marker = (y == cur_hy && col == HUE_W - 1)
-            put_cell x, y, (marker ? '<' : ' '), (r << 16) | (g << 8) | b, marker
+            if y == cur_hy && col == HUE_W - 1
+              # Marker: recompute just this row's bg for the contrasting fg.
+              h = row / (HUE_H - 1).to_f * 360.0
+              r, g, b = hsv_to_rgb h, 1.0, 1.0
+              put_cell x, y, '<', (r << 16) | (g << 8) | b, true
+            else
+              put_cell_attr x, y, ' ', attrs[row * HUE_W + col]
+            end
           end
         end
       end
@@ -681,7 +754,12 @@ module Crysterm
       # When *marked*, the glyph is drawn in a contrasting fg over the swatch.
       private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
-        attr = sattr style, fg, bg
+        put_cell_attr x, y, ch, sattr(style, fg, bg)
+      end
+
+      # Writes one cell with an already-packed attr (the cached-swatch fast path,
+      # bypassing per-cell `hsv_to_rgb`/`sattr`).
+      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64) : Nil
         window.lines[y]?.try do |line|
           line[x]?.try do |cell|
             cell.char = ch

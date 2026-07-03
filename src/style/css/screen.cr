@@ -53,6 +53,17 @@ module Crysterm
     @css_parsed_doc_string : String?
     @css_node_index : Hash(String, HTML5::Node)?
 
+    # Cached parsed *structural* document (the `to_html(structural: true)`
+    # variant, which omits sub-element pseudo-nodes) and the string it was
+    # parsed from. The cascade builds this only when a rule uses a backward/only
+    # structural pseudo (`:last-child`, `:nth-last-child`, …) against a tree
+    # that has sub-elements — previously it was re-serialized *and* re-parsed on
+    # every such cascade (the `||=` only memoized within one `apply_sheets`
+    # call). Reused across cascades and invalidated whenever the structural
+    # serialization changes (see `#css_structural_document`).
+    @css_structural_doc : HTML5::Node?
+    @css_structural_doc_string : String?
+
     # Whether the widget tree *structure* changed (insert/remove) since the last
     # parse — if so the cached parse can't be patched and must be rebuilt.
     @css_structural = false
@@ -299,6 +310,34 @@ module Crysterm
         @css_parsed_doc_string = document
       end
       cached
+    end
+
+    # The parsed *structural* document (`to_html(structural: true)`), cached
+    # across cascades. Called by the cascade only when a backward/only
+    # structural pseudo (`:last-child`, …) must be matched against a tree with
+    # sub-elements (see `Cascade.apply_sheets`).
+    #
+    # Invalidation: the structural serialization is compared byte-for-byte with
+    # the cached string; any difference re-parses. This shares the main cache's
+    # correctness — a structural (insert/remove) *or* attribute change both alter
+    # the serialization and force a fresh parse — but is deliberately coarser: it
+    # does not implement the main cache's attribute-only in-place *patch* path
+    # (`css_patch_nodes`), so an attribute-only change re-parses the structural
+    # doc rather than patching it. That is always correct (never a stale
+    # `:last-child`) and avoids a subtle staleness hazard: this doc is built only
+    # on the cascades where such a rule fires, so `@css_structural` may be
+    # cleared (by the main cache's `clear_css_dirty`) on a cascade that never
+    # built it — a patch path keyed on `@css_structural` could then miss a real
+    # structural change. The string compare cannot. (Finer patch path deferred.)
+    def css_structural_document : HTML5::Node
+      document = to_html(structural: true)
+      if (cached = @css_structural_doc) && document == @css_structural_doc_string
+        return cached
+      end
+      parsed = HTML5.parse(document)
+      @css_structural_doc = parsed
+      @css_structural_doc_string = document
+      parsed
     end
 
     # Patches the cached document's changed nodes in place: each tracked widget's

@@ -619,19 +619,52 @@ module Crysterm
         (base + unexpand_col(@value[base...line_end], exp_col)).clamp(0, @value.size)
       end
 
+      # Cached logical-line-start offsets into `@value` (`@_line_offsets`), plus
+      # the exact `@value` object they were computed for (`@_line_offsets_value`).
+      # `@_line_offsets[k]` is the codepoint index where fake line *k* begins:
+      # `[0, first_nl+1, second_nl+1, …]`, always at least `[0]`. Rebuilt lazily
+      # by `#line_offsets` whenever `@value` is reassigned.
+      @_line_offsets = [0]
+      @_line_offsets_value : String? = nil
+
+      # Line-start offsets for the current `@value`, rebuilding the cache only
+      # when `@value` is a different object than last time. Keyed on the `@value`
+      # String *identity* (`same?`) rather than `@_content_version`: `@value` is
+      # exactly what `#fake_line_bounds` scans, Crystal Strings are immutable, and
+      # every edit reassigns `@value` — so a fresh object always means fresh
+      # newlines, and an unchanged object always means unchanged ones. That is
+      # strictly tighter than `@_content_version`, which only bumps on the later
+      # `set_content` at render time (a keystroke mutates `@value` first, and
+      # `#pos_from_rowcol`/`#line_display_width` can run — e.g. Up/Down's
+      # `move_cursor_vertically` — before that bump, when the version would be
+      # stale relative to `@value`).
+      private def line_offsets : Array(Int32)
+        cached = @_line_offsets_value
+        return @_line_offsets if cached && cached.same?(@value)
+        offsets = [0]
+        @value.each_char_with_index do |ch, i|
+          offsets << i + 1 if ch == '\n'
+        end
+        @_line_offsets = offsets
+        @_line_offsets_value = @value
+        offsets
+      end
+
       # The `@value` span (as `{start, end}` indices, half-open) of the fake
       # (logical, `\n`-delimited) line numbered *fake_line*. `@_clines.fake` is
-      # TAB-expanded, so its codepoint sizes can't index raw `@value`; this walks
-      # `@value`'s own newlines instead. Shared by `#pos_from_rowcol` and
+      # TAB-expanded, so its codepoint sizes can't index raw `@value`; this reads
+      # the cached newline offsets (`#line_offsets`) instead of rescanning
+      # `@value` from 0 on every call. Byte-identical to the old scan: `base` is
+      # the line's start, `line_end` is the following `\n` (or `@value.size` for
+      # the last line); a *fake_line* past the last line clamps to it, exactly as
+      # the old `break`-on-no-newline walk did. Shared by `#pos_from_rowcol` and
       # `#position_at`.
       private def fake_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
-        base = 0
-        fake_line.times do
-          nl = @value.index('\n', base)
-          break unless nl
-          base = nl + 1
-        end
-        {base, @value.index('\n', base) || @value.size}
+        starts = line_offsets
+        k = fake_line.clamp(0, starts.size - 1)
+        base = starts[k]
+        line_end = k + 1 < starts.size ? starts[k + 1] - 1 : @value.size
+        {base, line_end}
       end
 
       # The full display width (in the same tab-expanded codepoint units the caret

@@ -133,6 +133,8 @@ module Crysterm
                        kind : Series::Kind = Series::Kind::Line) : Series
           s = Series.new name, points, color || PALETTE[@series.size % PALETTE.size], kind
           @series << s
+          # The plot Canvas draws the series, so its content is now stale.
+          plot?.try &.invalidate_paint
           request_render
           s
         end
@@ -152,11 +154,14 @@ module Crysterm
         # Removes all series.
         def clear_series : Nil
           @series.clear
+          plot?.try &.invalidate_paint
           request_render
         end
 
         # Re-renders (e.g. after mutating a series' `points` in place).
         def refresh : Nil
+          # Series points may have been mutated in place, so the plot is stale.
+          plot?.try &.invalidate_paint
           request_render
         end
 

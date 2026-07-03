@@ -219,6 +219,41 @@ module Crysterm
       window?.try &.damage_mark_dirty(self)
     end
 
+    # Assigns all four geometry ivars (`left`/`top`/`width`/`height`) in one
+    # shot, coalescing the side effects the four independent setters would each
+    # run on their own. It:
+    #
+    # * is a full no-op when nothing changed (no `mark_dirty`, no events) — same
+    #   change-guard semantics as `left=`/`top=`/`width=`/`height=`;
+    # * assigns all four ivars *before* any dispatch, so in-tree listeners see
+    #   the final geometry (matches each setter assigning before it emits);
+    # * calls `mark_dirty` at most **once** instead of up to four times — the
+    #   walk is idempotent within a frame (sets `@render_dirty`, drops the
+    #   frame-memoized style/minrect on self + ancestors, re-registers window
+    #   damage), so one call leaves the exact same state as four;
+    # * emits `Move` only if `left`/`top` changed and `Resize` only if
+    #   `width`/`height` changed, so `process_content` (subscribed to `Resize`
+    #   by every widget) runs exactly once on a size change — not twice as when
+    #   `width=` and `height=` each emit.
+    #
+    # Used by `Layout#place_child` to reposition/resize a child in a single pass.
+    # The individual setters keep their per-axis behavior for direct callers;
+    # only this primitive coalesces.
+    def set_geometry(left, top, width, height) : Nil
+      moved = (@left != left) || (@top != top)
+      resized = (@width != width) || (@height != height)
+      return unless moved || resized
+
+      @left = left
+      @top = top
+      @width = width
+      @height = height
+
+      mark_dirty
+      emit ::Crysterm::Event::Move if moved
+      emit ::Crysterm::Event::Resize if resized
+    end
+
     # Requests a re-render of the owning `Window`, if attached. Safe form of
     # `window.render` for use after a state change (no-op when detached). Also
     # flags this widget for damage tracking.

@@ -121,12 +121,16 @@ module Crysterm
                        color : Int32 = 0xE05050, label : String? = nil) : Marker
           m = Marker.new latitude.to_f, longitude.to_f, char, color, label
           @markers << m
+          # Markers are a *text overlay* (`#draw_markers`), not part of the coastline
+          # Canvas paint (`#paint_map`), so deliberately do NOT invalidate the
+          # Canvas here: its content is unchanged and it can reuse the last raster.
           request_render
           m
         end
 
         def clear_markers : Nil
           @markers.clear
+          # Overlay-only change (see `#add_marker`): the coastline Canvas is unaffected.
           request_render
         end
 
@@ -137,10 +141,15 @@ module Crysterm
           @max_lat = lat.to_f + span_lat.to_f / 2
           @min_lon = lon.to_f - span_lon.to_f / 2
           @max_lon = lon.to_f + span_lon.to_f / 2
+          # The coastline projection depends on the viewport, so repaint the Canvas.
+          canvas?.try &.invalidate_paint
           request_render
         end
 
         def refresh : Nil
+          # Explicit "redraw everything" entry point: repaint the coastline Canvas
+          # too (markers are a text overlay redrawn by `#draw_markers` regardless).
+          canvas?.try &.invalidate_paint
           request_render
         end
 

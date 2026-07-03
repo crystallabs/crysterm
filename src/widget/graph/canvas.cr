@@ -60,6 +60,16 @@ module Crysterm
         @bmp_w = 0
         @bmp_h = 0
 
+        # Whether the painted content is stale and must be re-rasterized. Set on
+        # `#refresh`, on `#on_paint` (re)assignment, and whenever the bitmap is
+        # (re)allocated in `#paint_frame` (first paint / resize). While clear,
+        # `#paint_frame` skips the whole raster→resample→encode pipeline (and the
+        # `device.bitmap=` that resets the backend's sample cache), so a static
+        # chart landing in an unrelated render doesn't repaint. Owning container
+        # widgets (`Donut`/`Map`/`LineChart`) call `#invalidate_paint` from their
+        # state mutators so a value/viewport/series change still repaints.
+        @paint_dirty = true
+
         def initialize(
           type : Media::Type? = nil,
           @glyph_mode : Media::Glyph::Mode = Media::Glyph::Mode::Braille,
@@ -93,11 +103,23 @@ module Crysterm
         # Registers the drawing callback, invoked with a `Painter` each render.
         def on_paint(&block : Painter ->) : Nil
           @on_paint = block
+          @paint_dirty = true
         end
 
         # Requests a repaint + redraw (the paint callback re-runs next frame).
         def refresh : Nil
+          @paint_dirty = true
           request_render
+        end
+
+        # Marks the painted content stale so the next render re-runs the paint
+        # callback, *without* itself scheduling a render. For a container widget
+        # that owns this Canvas and issues its own `request_render` (for a text
+        # overlay drawn atop the chart): it just needs the Canvas to repaint on
+        # that same frame. Cheaper than `#refresh` (no second render schedule),
+        # and leaves the container's damage/overlay behavior untouched.
+        def invalidate_paint : Nil
+          @paint_dirty = true
         end
 
         # Paints the current frame into the backend's bitmap at its native
@@ -114,9 +136,20 @@ module Crysterm
 
           bmp = @bitmap
           if bmp.nil? || @bmp_w != w || @bmp_h != h
+            # First paint or a resize: (re)allocate and force a repaint (the new
+            # buffer starts cleared, and the backend must be re-fed at the new size).
             bmp = @bitmap = Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
             @bmp_w, @bmp_h = w, h
+            @paint_dirty = true
           end
+
+          # Nothing changed since the last paint: the backend already holds this
+          # exact bitmap (with a valid sample cache), so skip re-rasterizing,
+          # re-sampling and re-encoding — and skip `dev.bitmap=`, which would
+          # needlessly drop that cache. `bmp` is guaranteed non-nil here (the
+          # branch above allocates when it was nil, and sets `@paint_dirty`).
+          return unless @paint_dirty
+          @paint_dirty = false
 
           painter = Painter.new(bmp)
           painter.pixel_aspect = dev.native_pixel_aspect

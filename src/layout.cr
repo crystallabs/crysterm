@@ -117,10 +117,11 @@ module Crysterm
     # follows with `#render_child` (so engines placing several children before
     # rendering them, e.g. `Form`'s label/field pair, stay in control of order).
     protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
-      el.left = left
-      el.top = top
-      el.width = width
-      el.height = height
+      # One combined geometry write: a single `mark_dirty` (parent-chain walk +
+      # minrect invalidation + window-damage registration) and at most one
+      # `Move` + one `Resize` for the whole rectangle, rather than four
+      # independent setter runs. See `Widget#set_geometry`.
+      el.set_geometry left, top, width, height
     end
 
     # Places `el`'s full rectangle and immediately renders it — the

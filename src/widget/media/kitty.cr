@@ -173,11 +173,93 @@ module Crysterm
       # alternation (which defeats tearing) freezes to a per-index parity. Doing
       # the swap here, per emit, keeps alternation tied to emit order. When not
       # double-buffering there is a single buffer (`@id_a`) and no swap.
+      #
+      # Kept as the string-returning contract (exercised directly by specs); the
+      # per-emit hot path is `#emit_payload`, which streams the same bytes into the
+      # output builder without materializing the full substituted payload.
       def finalize_payload(payload : String) : String
-        return payload.gsub(ID_PLACEHOLDER, @id_a.to_s) unless double_buffer?
-        primary, other = @buffer_parity ? {@id_b, @id_a} : {@id_a, @id_b}
-        @buffer_parity = !@buffer_parity # next emit targets the other buffer
-        payload.gsub(ID_PLACEHOLDER, primary.to_s).gsub(OTHER_PLACEHOLDER, other.to_s)
+        io = String::Builder.new
+        emit_payload io, payload
+        io.to_s
+      end
+
+      # Streams the payload with its `{i}`/`{o}` id placeholders resolved straight
+      # into *io*. The literal runs around the placeholders are split once per
+      # distinct cached payload (`#payload_segments`, keyed on object identity) and
+      # reused across emits, so a looping animation/video no longer `gsub`-copies
+      # the whole (multi-MB) base64 frame twice per emitted frame — it just writes
+      # the cached segments + the current ids. Buffer parity toggles once per emit,
+      # exactly as before (see `#finalize_payload`).
+      protected def emit_payload(io : String::Builder, payload : String) : Nil
+        literals, keys = payload_segments payload
+        if double_buffer?
+          primary, other = @buffer_parity ? {@id_b, @id_a} : {@id_a, @id_b}
+          @buffer_parity = !@buffer_parity # next emit targets the other buffer
+          write_segments io, literals, keys, primary, other
+        else
+          # Single buffer: `{i}` -> @id_a, and any (never-present) `{o}` is left
+          # literal, matching the old `gsub(ID_PLACEHOLDER, ...)`-only behavior.
+          write_segments io, literals, keys, @id_a, nil
+        end
+      end
+
+      # Interleaves the literal *literals* runs with the per-gap id chosen by
+      # *keys* (`'i'` -> *id_i*, `'o'` -> *id_o*, or the placeholder left literal
+      # when *id_o* is nil). `literals.size == keys.size + 1`.
+      private def write_segments(io : String::Builder, literals : Array(String),
+                                 keys : Array(Char), id_i : UInt32, id_o : UInt32?)
+        literals.each_with_index do |lit, k|
+          io << lit
+          next unless k < keys.size
+          case keys[k]
+          when 'i' then io << id_i
+          when 'o'
+            if id_o
+              io << id_o
+            else
+              io << OTHER_PLACEHOLDER
+            end
+          end
+        end
+      end
+
+      # Split of the current cached payload into literal runs around the id
+      # placeholders, plus the ordered placeholder key (`'i'`/`'o'`) sitting in
+      # each gap. Cached by payload object identity: `payload_for` hands back the
+      # same `String` object for every emit of a given frame, so the scan/split
+      # runs once per distinct frame instead of once per emit.
+      @seg_for : String?
+      @seg_literals : Array(String)?
+      @seg_keys : Array(Char)?
+
+      private def payload_segments(payload : String) : Tuple(Array(String), Array(Char))
+        f = @seg_for
+        if f && f.same?(payload)
+          return {@seg_literals.as(Array(String)), @seg_keys.as(Array(Char))}
+        end
+        literals = [] of String
+        keys = [] of Char
+        pos = 0
+        loop do
+          ii = payload.index(ID_PLACEHOLDER, pos)
+          oo = payload.index(OTHER_PLACEHOLDER, pos)
+          if ii && (oo.nil? || ii < oo)
+            literals << payload[pos...ii]
+            keys << 'i'
+            pos = ii + ID_PLACEHOLDER.size
+          elsif oo
+            literals << payload[pos...oo]
+            keys << 'o'
+            pos = oo + OTHER_PLACEHOLDER.size
+          else
+            literals << payload[pos..]
+            break
+          end
+        end
+        @seg_for = payload
+        @seg_literals = literals
+        @seg_keys = keys
+        {literals, keys}
       end
 
       # A Kitty image is a separate layer the terminal's cells never overdraw,

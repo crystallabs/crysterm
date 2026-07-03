@@ -100,6 +100,9 @@ module Crysterm
           @value = v
           emit Crysterm::Event::DoubleValueChange, @value
           emit Crysterm::Event::Complete if @value == @maximum && @maximum > @minimum
+          # The ring geometry depends on `@value`, so the Canvas content is now
+          # stale: mark it for repaint (it skips otherwise, under `@paint_dirty`).
+          canvas?.try &.invalidate_paint
           request_render
           @value
         end

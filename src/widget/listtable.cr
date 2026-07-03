@@ -146,9 +146,19 @@ module Crysterm
 
         on(Crysterm::Event::Attach) { set_data @rows }
         on(Crysterm::Event::Resize) do
-          sel = selected
-          set_data @rows
-          selekt sel
+          # `set_data` rebuilds `@maxes`/width and every item — only needed when
+          # the column layout depends on the widget's own width, i.e. a
+          # fixed- or percent-width table (`@content_sized == false`, since a
+          # given `width:` — int or `"50%"` — leaves `@width` non-nil). A
+          # content-sized table's columns are content-driven and don't change
+          # with the parent, so skip the full rebuild (which an interactive
+          # resize drag would otherwise fire on every step). Percent-width
+          # tables keep rebuilding here, as their columns do track the parent.
+          unless @content_sized
+            sel = selected
+            set_data @rows
+            selekt sel
+          end
           request_render
         end
 
@@ -175,10 +185,16 @@ module Crysterm
           # `alternate-background-color`, held on the normal style's
           # `alternate_row` (table-wide, independent of focus/selection), so
           # read it from there and overlay onto the row's own CSS style.
-          # `alternate_row?` gates before the O(items) `@items.index` scan, so
-          # an unstyled table skips it for every row.
+          # `alternate_row?` gates before the index lookup, so an unstyled table
+          # skips it for every row. The lookup is the mixin's O(1) identity map
+          # (`item_index_of`), not the O(n) `@items.index` scan — with
+          # `alternate_rows: true` the plain branch below ran that scan for every
+          # row of every frame (O(n²)/frame). `item_index_of` returns nil for a
+          # non-item child (the pinned header, a scroll bar), so those keep
+          # falling through — matching `@items.index`, and unlike a naive
+          # `item.top`-as-index map, whose header `top` tracks `@child_base`.
           n = styles.normal
-          if alternate_rows? && n.alternate_row? && (i = @items.index item) && i > 0 && i.even?
+          if alternate_rows? && n.alternate_row? && (i = item_index_of item) && i > 0 && i.even?
             return overlay_colors(base, n.alternate_row)
           end
           return base
@@ -186,7 +202,7 @@ module Crysterm
 
         return item_render_style(true) if item_selected?(item)
 
-        if alternate_rows? && (i = @items.index item) && i > 0 && i.even?
+        if alternate_rows? && (i = item_index_of item) && i > 0 && i.even?
           return without_border(style.alternate_row)
         end
 

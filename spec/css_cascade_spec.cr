@@ -1082,6 +1082,96 @@ describe "CSS cascade" do
     c.styles.normal.fg.should eq rgb("blue")
   end
 
+  # The backward/only structural pseudos (`:last-child`, `:nth-last-child`, …)
+  # match against a cached *structural* document (`to_html(structural: true)`,
+  # sub-element pseudo-nodes omitted) reused across cascades. These lock that the
+  # cache is invalidated correctly on child insert/remove — a stale structural
+  # doc would keep styling the old last/nth-last child. A child carries a `label`
+  # so the tree has a sub-element node, forcing the structural-document path.
+  it "keeps :last-child / :nth-last-child correct after adding children (structural-doc cache)" do
+    screen = headless_screen
+    form = Widget::Form.new
+    a = Widget::Box.new
+    b = Widget::Box.new
+    c = Widget::Box.new
+    a.label = "x" # gives the tree an `::label` sub-element => structural-doc path
+    form.append a
+    form.append b
+    form.append c
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form Box:last-child { color: blue; }
+      Form Box:nth-last-child(2) { color: green; }
+    CSS
+    screen.apply_stylesheet
+
+    c.styles.normal.fg.should eq rgb("blue")  # last child
+    b.styles.normal.fg.should eq rgb("green") # 2nd from last
+
+    # Add a child: the last/nth-last positions shift. A stale cached structural
+    # doc would keep c styled as the last child.
+    d = Widget::Box.new
+    form.append d
+    screen.apply_stylesheet
+
+    d.styles.normal.fg.should eq rgb("blue")     # new last child
+    c.styles.normal.fg.should eq rgb("green")    # now 2nd from last
+    c.styles.normal.fg.should_not eq rgb("blue") # no longer last
+    b.styles.normal.fg.should_not eq rgb("green")
+  end
+
+  it "keeps :last-child / :nth-last-child correct after removing children (structural-doc cache)" do
+    screen = headless_screen
+    form = Widget::Form.new
+    a = Widget::Box.new
+    b = Widget::Box.new
+    c = Widget::Box.new
+    d = Widget::Box.new
+    a.label = "x"
+    form.append a
+    form.append b
+    form.append c
+    form.append d
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form Box:last-child { color: blue; }
+      Form Box:nth-last-child(2) { color: green; }
+    CSS
+    screen.apply_stylesheet
+
+    d.styles.normal.fg.should eq rgb("blue")
+    c.styles.normal.fg.should eq rgb("green")
+
+    # Remove the last child: c becomes the last child, b the 2nd from last.
+    d.remove_from_parent
+    screen.apply_stylesheet
+
+    c.styles.normal.fg.should eq rgb("blue")
+    b.styles.normal.fg.should eq rgb("green")
+    c.styles.normal.fg.should_not eq rgb("green")
+  end
+
+  it "reuses the cached structural document when the tree is unchanged, rebuilds on change" do
+    screen = headless_screen
+    form = Widget::Form.new
+    a = Widget::Box.new
+    a.label = "x"
+    form.append a
+    form.append Widget::Box.new
+    screen.append form
+    screen.stylesheet = "Form Box:last-child { color: blue; }"
+    screen.apply_stylesheet
+
+    first = screen.css_structural_document
+    # No structural change => byte-identical serialization => same parsed object.
+    screen.css_structural_document.should be first
+    # A structural change alters the serialization => a fresh parse.
+    form.append Widget::Box.new
+    screen.css_structural_document.should_not be first
+  end
+
   it "supports attribute operators including quoted values" do
     screen = headless_screen
     box = Widget::Box.new

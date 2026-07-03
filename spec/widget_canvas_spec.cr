@@ -100,6 +100,71 @@ describe Crysterm::Widget::Graph::Canvas do
     found = (0...3).any? { |y| (0...6).any? { |x| s.lines[y][x].char == full } }
     found.should be_true
   end
+
+  # --- M1: content-dirty flag skips the re-raster/resample/encode when clean ---
+
+  it "runs the paint callback once for a static chart, skipping unchanged re-renders" do
+    s = render_screen
+    paints = 0
+    frac = 0.5
+    cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 10, height: 5,
+      type: Crysterm::Widget::Media::Type::Glyph
+    cv.on_paint do |p|
+      paints += 1
+      w, h = cv.device.native_resolution(10, 5)
+      p.pen = 0x40E0D0
+      p.fill_rect 0, 0, (w * frac).to_i, h
+    end
+
+    s._render
+    paints.should eq 1
+    snap = s.lines.map(&.map { |c| {c.char, c.attr} })
+
+    # Several renders with no state change: no extra paints, identical cells.
+    3.times { s._render }
+    paints.should eq 1
+    s.lines.map(&.map { |c| {c.char, c.attr} }).should eq snap
+  end
+
+  it "repaints after #refresh (and reflects the mutated state)" do
+    s = render_screen
+    paints = 0
+    frac = 0.25
+    cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 10, height: 5,
+      type: Crysterm::Widget::Media::Type::Glyph
+    cv.on_paint do |p|
+      paints += 1
+      w, h = cv.device.native_resolution(10, 5)
+      p.pen = 0x40E0D0
+      p.fill_rect 0, 0, (w * frac).to_i, h
+    end
+    s._render
+    before = s.lines.map(&.map { |c| {c.char, c.attr} })
+
+    frac = 0.95
+    cv.refresh
+    s._render
+    paints.should eq 2 # refresh forced exactly one more paint
+    s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq before
+  end
+end
+
+describe Crysterm::Widget::Graph::Donut do
+  # A container widget that owns a Canvas must repaint it when its own state
+  # changes (value=), even though the Canvas's paint-dirty flag is otherwise off.
+  it "repaints the ring when #value changes; stays byte-identical when static" do
+    s = render_screen
+    d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 18, height: 9,
+      value: 20, type: Crysterm::Widget::Media::Type::Glyph
+    s._render
+    a = s.lines.map(&.map { |c| {c.char, c.attr} })
+    s._render
+    s.lines.map(&.map { |c| {c.char, c.attr} }).should eq a # static: unchanged
+
+    d.value = 95
+    s._render
+    s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq a # mutation repaints
+  end
 end
 
 describe "Media painter backend resolution" do

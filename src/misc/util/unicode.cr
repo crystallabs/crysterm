@@ -50,8 +50,25 @@ module Crysterm
     end
 
     # Display width of a single grapheme cluster (yielded by `each_grapheme`).
+    #
+    # Reads the stdlib-internal `@cluster` ivar (`Char | String`) directly to
+    # avoid the fresh `String` `grapheme.to_s` allocates for the common
+    # Char-backed cluster (every CJK ideograph, precomposed accent, narrow
+    # glyph). Behavior-identical to the old `width(grapheme.to_s)`: for a
+    # single codepoint no VS16 promotion is possible (a lone codepoint can't
+    # carry a following U+FE0F), so the `String` overload's VS16 scan — which
+    # only fires for `size > 1` — would be a no-op anyway; a lone regional
+    # indicator still renders wide. Multi-codepoint clusters take the `String`
+    # branch, preserving VS16/flag handling exactly. Pinned by a spec against
+    # the `@cluster` layout (`Char | String`, stable since graphemes landed).
     def width(grapheme : String::Grapheme) : Int32
-      width grapheme.to_s
+      case cluster = grapheme.@cluster
+      in Char
+        return 2 if regional_indicator? cluster.ord
+        codepoint_width cluster
+      in String
+        width cluster
+      end
     end
 
     # Display width of a single grapheme cluster given as a `String`.

@@ -296,5 +296,61 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       # A soft wrap is not a real newline in `@value`.
       pte.selected_text.should_not contain "\n"
     end
+
+    # Regression coverage for the cached logical-line-offset lookup that backs
+    # `#fake_line_bounds` (OPT.md G3). These exercise it through the public
+    # `#position_at` (mouse mapping) / Up-Down (`#pos_from_rowcol`) surface: a
+    # wrong or stale offset table lands the caret on the wrong logical line.
+    it "maps a click on a later logical line past a TAB-containing line to the right index" do
+      s = sel_screen
+      pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
+      # Line 0 "\tab" holds a TAB (renders as 4 columns) but is only 3 chars in
+      # `@value`; line 1 "xy" starts at raw index 4. `#fake_line_bounds(1)` must
+      # return the RAW span {4, 6}, not a tab-expanded one.
+      pte.value = "\tab\nxy"
+      s._render
+
+      press s, 1, 1 # row 1, col 1 -> "xy"[1] -> raw index 4 + 1 = 5
+      pte.cursor_pos.should eq 5
+
+      press s, 0, 1 # row 1, col 0 -> raw index 4
+      pte.cursor_pos.should eq 4
+    end
+
+    it "rebuilds the line-offset cache after the buffer changes (no stale mapping)" do
+      s = sel_screen
+      pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
+      pte.value = "\tab\nxy"
+      s._render
+      # Assert straight through `#position_at` (the mouse-coord → raw-index map
+      # that reads `#fake_line_bounds` → `#line_offsets`) rather than through a
+      # `press`: consecutive mouse-Downs across an external `value=` have their
+      # own caret-arming semantics unrelated to the offset cache under test.
+      pte.position_at(0, 1).should eq 4 # row 1 ("xy") begins at raw index 4
+
+      # Shrink line 0: row 1 now begins at raw index 2. A stale offset cache would
+      # keep mapping row 1 to the old index 4.
+      pte.value = "z\nxy"
+      s._render
+      pte.position_at(0, 1).should eq 2
+      pte.position_at(1, 1).should eq 3 # "xy"[1] -> raw index 2 + 1
+    end
+
+    it "keeps a selection's highlight stable across repeated renders (warm cache)" do
+      s = sel_screen
+      pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
+      pte.value = "a\tb\ncde\nfgh"
+      s._render
+
+      press s, 0, 0
+      drag_move s, 2, 2 # extend down two rows
+
+      first = pte.selected_text
+      # Re-render several times: the cache is reused, the mapping must not drift.
+      3.times { s._render }
+      pte.selected_text.should eq first
+      pte.selection_range.should eq(0...pte.cursor_pos)
+      pte.selected_text.should contain "\n"
+    end
   end
 end

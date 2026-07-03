@@ -686,6 +686,14 @@ module Crysterm
       outbuf.push line
       ftor[no].push(outbuf.size - 1)
       rtof.push(no)
+      # Accumulate the widest real line here (R3) instead of a second full pass
+      # that would re-`str_width` (re-strip SGR of) every output line. `line` is
+      # the already-aligned content, so this matches the old
+      # `outbuf.reduce { |c, l| Math.max str_width(l), c }`. The one later
+      # in-place mutation of a pushed line (`outbuf[...] += line` for a trailing
+      # SGR-only tail) only appends zero-width SGR, so the width is unchanged.
+      w = str_width line
+      outbuf.max_width = w if w > outbuf.max_width
     end
 
     # Wraps content based on available widget width.
@@ -713,6 +721,9 @@ module Crysterm
       # arrays directly. (The empty-content branch returns before these are used.)
       outbuf.reset
       outbuf.full_width = 0
+      # `reset` doesn't touch scalar `max_width`; zero it so `push_real_line` can
+      # accumulate the widest real line as they're emitted (R3).
+      outbuf.max_width = 0
       rtof = outbuf.rtof
       ftor = outbuf.ftor
 
@@ -792,8 +803,17 @@ module Crysterm
 
         # If the string could be too long, check it in more detail and wrap it if needed.
         # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+        #
+        # Track the remaining line's visible width incrementally (R1 step 2)
+        # rather than re-measuring the whole tail with `str_width(line)` (which
+        # re-strips SGR into a fresh String) on every iteration — O(L²) for one
+        # long line. Each cut lands on a grapheme/codepoint boundary and never
+        # inside an SGR run (see `wrap_cut_index`/backscan below), so width is
+        # additive across the split: `remaining_width` after subtracting the cut
+        # prefix's width equals `str_width` of the new tail.
+        remaining_width = str_width(line)
         loop_ret = loop do
-          break unless str_width(line) > colwidth
+          break unless remaining_width > colwidth
 
           # Character index at which to cut so the kept prefix fits `colwidth`
           # columns. SGR consumes no width; under `full_unicode?` widths are
@@ -829,6 +849,10 @@ module Crysterm
 
           part = line[0...i]
           line = line[i..]
+          # `part`'s width is bounded by ~`colwidth` (plus the backscan slack),
+          # so this measures O(colwidth) rather than the O(remaining) the old
+          # per-iteration `str_width(line)` gate did.
+          remaining_width -= str_width(part)
 
           push_real_line outbuf, ftor, rtof, no, _align(part, colwidth, align, align_left_too)
 
@@ -856,12 +880,11 @@ module Crysterm
       outbuf.fake = lines
       outbuf.real = outbuf
 
-      # Saves the longest line's length to outbuf.max_width. If text was
-      # aligned, padding spaces lengthen it, so max_width then reflects the
-      # surrounding box's width rather than the actual longest line.
-      outbuf.max_width = outbuf.reduce(0) do |current, line|
-        Math.max str_width(line), current
-      end
+      # `outbuf.max_width` was accumulated at each `push_real_line` (R3) — the
+      # widest real line's `str_width`. If text was aligned, padding spaces
+      # lengthen it, so max_width then reflects the surrounding box's width
+      # rather than the actual longest line. (Previously a second full pass here
+      # re-`str_width`'d every line, re-stripping SGR each time.)
 
       outbuf
     end
@@ -1573,13 +1596,17 @@ module Crysterm
         end
 
         # Contiguous run of visible text up to the next SGR (or end of line).
-        run_byte_start = reader.pos
-        run_cp_start = cp
-        while reader.pos < bytesize && reader.current_char != '\e'
-          reader.next_char; cp += 1
-        end
-
         if full
+          # Grapheme/East-Asian widths: segment the run's bytes as clusters.
+          # This path still measures the whole run (grapheme presentation
+          # selectors like VS16/VS15 can flip a cluster's width, so a bounded
+          # window is not provably byte-identical — see R1 note); step 2 already
+          # removed the dominant per-row `str_width` cost for it.
+          run_byte_start = reader.pos
+          run_cp_start = cp
+          while reader.pos < bytesize && reader.current_char != '\e'
+            reader.next_char; cp += 1
+          end
           pos = run_cp_start
           line.byte_slice(run_byte_start, reader.pos - run_byte_start).each_grapheme do |g|
             gs = g.to_s
@@ -1590,9 +1617,16 @@ module Crysterm
             pos += gs.size
           end
         else
-          (run_cp_start...cp).each do |k|
+          # One column per visible codepoint (legacy). Walk only until the
+          # column budget is met (R1 step 1): stop at `colwidth` instead of
+          # scanning to the end of the run. Before reading the char at codepoint
+          # index `c`, `cp == c`; after advancing, `cp == c + 1`, which equals
+          # the `k + 1` the old `(run_cp_start...cp).each` returned for that char.
+          while reader.pos < bytesize && reader.current_char != '\e'
+            reader.next_char
+            cp += 1
             total += 1
-            return k + 1 if total == colwidth
+            return cp if total == colwidth
           end
         end
       end

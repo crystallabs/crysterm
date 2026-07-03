@@ -396,11 +396,13 @@ module Crysterm
         io << "\e[?2026h" if double_buffer?               # BSU: begin synchronized update
         io << "\e7"                                       # DECSC: save cursor
         io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H' # CUP to content top-left (1-based)
-        # `#finalize_payload` runs once per *emit* (not per cache-fill), letting a
+        # `#emit_payload` runs once per *emit* (not per cache-fill), letting a
         # double-buffering backend choose its target buffer by emit order rather
         # than baking it into the cached bytes. Reached only on a real emit (past
         # the emit-skip above), so any per-emit state it advances stays in sync.
-        io << finalize_payload(payload)
+        # Streams straight into `io`, avoiding a full substituted-payload copy per
+        # frame (see `Media::Kitty#emit_payload`).
+        emit_payload io, payload
         io << "\e8"                         # DECRC: restore cursor
         io << "\e[?2026l" if double_buffer? # ESU: end synchronized update — present atomically
         s.tput._oprint io.to_s
@@ -424,6 +426,16 @@ module Crysterm
       # Public so the emit-order contract can be exercised directly.
       def finalize_payload(payload : String) : String
         payload
+      end
+
+      # Streams the emit-time-finalized *payload* straight into *io*, the hot
+      # path used by `#redraw_image` once per emit. The default routes through
+      # `#finalize_payload` (identity for the pixel-exact backends). `Media::Kitty`
+      # overrides it to interleave cached literal segments with the concrete image
+      # ids, avoiding the per-frame full-payload copy the `String` return of
+      # `#finalize_payload` forces.
+      protected def emit_payload(io : String::Builder, payload : String) : Nil
+        io << finalize_payload(payload)
       end
 
       # Draw into the *content* area, inside any border/padding (the in-band

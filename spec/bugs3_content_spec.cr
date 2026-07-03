@@ -27,6 +27,15 @@ private def sized_screen(w, h)
     width: w, height: h)
 end
 
+# A wrap box whose `_wrap_content` we call directly with an explicit column
+# width (border/margin math kept out of the assertion). Non-`full_unicode`.
+private def wc_box
+  s = sized_screen 200, 50
+  Widget::Box.new(
+    parent: s, top: 0, left: 0, width: 100, height: 40,
+    parse_tags: false, wrap_content: true)
+end
+
 # A wrapped-content box whose real (wrapped) rows we can inspect.
 private def wrapped_box(s, content, w, h)
   b = Widget::Box.new(
@@ -99,6 +108,44 @@ describe "widget_content SGR word-wrap (bugs3)" do
       %w[alpha beta gamma delta].each do |w|
         visible.includes?(w).should be_true
       end
+    end
+  end
+
+  # Locks in the OPT R1/R3 `_wrap_content` rewrite (bounded `wrap_cut_index`
+  # scan, incremental `remaining_width` instead of per-iteration `str_width`,
+  # and `max_width` accumulated at each `push_real_line` instead of a second
+  # pass). Output must stay byte-identical; these assert exact wrapped rows +
+  # `max_width` for tricky inputs. `_wrap_content` is called directly with an
+  # explicit column width so border/margin math doesn't blur the assertion.
+  describe "_wrap_content R1/R3 optimization keeps exact output" do
+    it "character-wraps a long spaceless run" do
+      cl = wc_box._wrap_content("aaaaaaaaaa", 4)
+      cl.lines.should eq ["aaaa", "aaaa", "aa"]
+      cl.max_width.should eq 4
+    end
+
+    it "word-wraps on spaces via the backscan" do
+      cl = wc_box._wrap_content("lorem ipsum dolor sit amet", 10)
+      cl.lines.should eq ["lorem ", "ipsum ", "dolor sit ", "amet"]
+      cl.max_width.should eq 10
+    end
+
+    it "never splits an inline SGR run and carries color across the wrap" do
+      cl = wc_box._wrap_content("\e[31mword more text\e[0m", 6)
+      cl.lines.should eq ["\e[31mword ", "more ", "text\e[0m"]
+      cl.max_width.should eq 5 # SGR stripped before measuring
+    end
+
+    it "folds a trailing SGR-only tail back onto the last row" do
+      cl = wc_box._wrap_content(("x" * 8) + "\e[31m", 5)
+      cl.lines.should eq ["xxxxx", "xxx\e[31m"]
+      cl.max_width.should eq 5
+    end
+
+    it "wraps by codepoint count without full_unicode" do
+      cl = wc_box._wrap_content("你好世界你好", 5)
+      cl.lines.should eq ["你好世界你", "好"]
+      cl.max_width.should eq 5
     end
   end
 

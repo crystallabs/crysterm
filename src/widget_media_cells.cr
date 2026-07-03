@@ -13,23 +13,42 @@ module Crysterm
     # resolution (`#compose`) and the per-cell painting (`#draw_sample`).
     abstract class Media::Cells < Media::Base
       # Memoizes a value derived from the *whole* current sample bitmap (e.g. a
-      # dithered colour plane, a luminance threshold), keyed on the bitmap's
-      # identity, so the expensive whole-bitmap pass runs once per `@sample`
-      # and is reused on repeated renders of the same still. Every resample
-      # (resize, reload, `bitmap=`, `reset_sample_cache`) and animation frame
-      # yields a fresh bitmap object, forcing a recompute. Shared by
-      # `Media::Ansi` and `Media::Glyph`.
-      class SampleMemo(T)
-        @value : T?
-        @for : PNGGIF::Bitmap?
+      # dithered colour plane, a luminance threshold), keyed by **animation frame
+      # index** (parallel to `@frame_cache`) and identity-validated against the
+      # bitmap it was computed for. The expensive whole-bitmap pass runs once per
+      # composed frame and is reused on every later render of that frame — so a
+      # looping GIF that cycles N distinct frame bitmaps no longer misses on every
+      # frame change (the old single-slot memo, keyed only on the current bitmap,
+      # thrashed once per frame, forever). A still uses index 0, where its stable
+      # `@sample` gives the same reuse the single-slot memo did.
+      #
+      # The identity check keeps it correct even if a frame index is reused with
+      # new content (streaming video pins index 0): the derived value is dropped
+      # when its bitmap no longer matches, and the owning `Media::Cells` also
+      # clears the matching entry wherever it clears `@frame_cache` (resize,
+      # reload, `bitmap=`/`reset_sample_cache`, streaming `invalidate_frame`).
+      # Memory is bounded by the frame count `@frame_cache` already accepts.
+      # Shared by `Media::Ansi` and `Media::Glyph`.
+      class FrameMemo(T)
+        @cache = {} of Int32 => Tuple(PNGGIF::Bitmap, T)
 
-        def get(bmp : PNGGIF::Bitmap, & : -> T) : T
-          cached = @value
-          return cached if cached && @for.try(&.same?(bmp))
+        def get(idx : Int32, bmp : PNGGIF::Bitmap, & : -> T) : T
+          if (entry = @cache[idx]?) && entry[0].same?(bmp)
+            return entry[1]
+          end
           val = yield
-          @value = val
-          @for = bmp
+          @cache[idx] = {bmp, val}
           val
+        end
+
+        # Drops every frame's derived value (a full resample: resize/reload/reset).
+        def clear : Nil
+          @cache.clear
+        end
+
+        # Drops just frame *idx*'s derived value (its composed frame changed).
+        def delete(idx : Int32) : Nil
+          @cache.delete idx
         end
       end
 
@@ -51,6 +70,7 @@ module Crysterm
         @source = nil
         @src_frames = nil
         @frame_cache.clear
+        clear_frame_derived
         @anim_index = 0
         @rendered_size = nil
         @sample = nil
@@ -92,6 +112,16 @@ module Crysterm
       # sample so `#render` re-samples the fresh bitmap instead of the stale one.
       protected def invalidate_frame(idx : Int32)
         @frame_cache.delete idx
+        clear_frame_derived idx
+      end
+
+      # Hook: a subclass memoizes data derived from the *whole* composed frame
+      # bitmap (a dither plane, a luminance threshold) in a `FrameMemo`, keyed by
+      # animation frame index in lockstep with `@frame_cache`. Called at every
+      # point `@frame_cache` is invalidated so the derived data can never outlive
+      # the frame it was computed for. *idx* `nil` drops every frame's derived
+      # data; a value drops only that frame's. No-op by default.
+      protected def clear_frame_derived(idx : Int32? = nil)
       end
 
       # A directly-injected bitmap (`Media::Base#bitmap=`) changes content without
@@ -100,6 +130,7 @@ module Crysterm
       protected def reset_sample_cache : Nil
         @animated = false
         @frame_cache.clear
+        clear_frame_derived
         @rendered_size = nil
         @sample = nil
       end
@@ -154,6 +185,7 @@ module Crysterm
             if @rendered_size != {cols, rows}
               @rendered_size = {cols, rows}
               @frame_cache.clear
+              clear_frame_derived
               @sample = nil unless @animated
             end
             if @animated
