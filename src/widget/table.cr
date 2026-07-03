@@ -262,14 +262,18 @@ module Crysterm
               # further. On an internal separator row, continue the rule across
               # the spare column and place ┤ on the border itself — a naive
               # `xi + rx` would leave a stray char short of the border.
+              #
+              # Positions are `xi + ileft + rx` (content begins at the left inset
+              # `ileft`, not a hardcoded one column); `rx` is the content-column
+              # offset. The old `xi + rx + 1` assumed `ileft == 1`.
               internal = ry != 0 && (ry // 2) != rows_n
-              if cell = line[xi + rx + 1]?
+              if cell = line[xi + ileft + rx]?
                 rx += 1
                 cell.attr = battr
                 cell.char = '─' if internal
                 line.dirty = true
               end
-              if internal && (cell = line[xi + rx + 1]?)
+              if internal && (cell = line[xi + ileft + rx]?)
                 cell.attr = battr
                 cell.char = border.right > 0 ? '┤' : '─'
                 line.dirty = true
@@ -278,10 +282,10 @@ module Crysterm
             end
 
             # Center junction between this column and the next (never reached for
-            # the last column, which returned above).
-            next unless line[xi + rx + 1]?
-            rx += 1
-            if cell = line[xi + rx]?
+            # the last column, which returned above). Painted at `xi + ileft + rx`
+            # (see the last-column note); `rx += 1` steps past the separator.
+            next unless line[xi + ileft + rx]?
+            if cell = line[xi + ileft + rx]?
               if ry == 0
                 cell.attr = battr
                 cell.char = border.top > 0 ? '┬' : '│'
@@ -294,6 +298,7 @@ module Crysterm
               end
               line.dirty = true
             end
+            rx += 1
           end
 
           ry += 2
@@ -308,7 +313,9 @@ module Crysterm
           if ry.odd?
             draw_vertical_separators line, xi, battr
           else
-            rx = 1
+            # Horizontal `─` fill across each column's content cells. Start at the
+            # left content inset (`ileft`), not a hardcoded column 1.
+            rx = ileft
             @maxes.each do |max|
               max.times do
                 break unless line[xi + rx + 1]?

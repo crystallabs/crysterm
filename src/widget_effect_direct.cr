@@ -27,6 +27,10 @@ module Crysterm
         # The frame clock; non-nil while running. The loop lives in `FrameClock`.
         @animation : FrameClock?
 
+        # Whether the one-time `Event::Destroy` teardown hook has been installed
+        # (lazily, on first `#start`), so it isn't registered on every start.
+        @animation_hooks_installed = false
+
         # Whether the effect is currently animating.
         def running? : Bool
           @animation.try(&.running?) || false
@@ -53,6 +57,14 @@ module Crysterm
         # A no-op if already running.
         def start
           return if running?
+          # Stop the frame clock when the widget is destroyed. Without this the
+          # `FrameClock` fiber keeps ticking `step` + `request_render` on the dead
+          # widget for the process lifetime (e.g. a `SplashScreen`'s `Effect::Matrix`
+          # after `finish`). Installed once, on first start.
+          unless @animation_hooks_installed
+            @animation_hooks_installed = true
+            on(::Crysterm::Event::Destroy) { stop }
+          end
           @animation = FrameClock.new(@interval) do
             step
             request_render

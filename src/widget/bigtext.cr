@@ -66,9 +66,21 @@ module Crysterm
         mark_dirty
       end
 
+      # The rendered column width of one grapheme's glyph: the glyph's own column
+      # count (a full-width CJK/emoji glyph decodes to 2×`@ratio.width`), falling
+      # back to the cell width for a missing glyph. Shared by the shrink-to-content
+      # width and the right-align offset so both match the pen advance in `#render`.
+      private def glyph_width(g : String) : Int32
+        @active_font.glyph(g)[0]?.try(&.size) || @ratio.width
+      end
+
       def render
         if @width.nil? || @_shrink_width
-          @width = @ratio.width * @text.size
+          # Sum per-grapheme glyph widths, not `@ratio.width * codepoints`: the
+          # renderer advances the pen by each glyph's own column count, so a
+          # codepoint-count width sized a CJK/emoji box half as wide as its glyphs
+          # need and clipped the text.
+          @width = @text.each_grapheme.sum { |g| glyph_width(g.to_s) }
           @_shrink_width = true
         end
         if @height.nil? || @_shrink_height
@@ -98,7 +110,12 @@ module Crysterm
         graphemes = @text.each_grapheme.to_a
         max_chars = Math.min graphemes.size, (right - left)//@ratio.width
 
-        x = @align.right? ? (right - max_chars*@ratio.width) : left
+        # Right-align by the glyphs' actual advance sum (per-glyph widths, matching
+        # the pen), not `max_chars*@ratio.width`, which under-counts full-width
+        # glyphs and pushed the text off the right edge.
+        advance = 0
+        max_chars.times { |i| advance += glyph_width(graphemes[i].to_s) }
+        x = @align.right? ? (right - advance) : left
         max_chars.times do |i|
           ch = graphemes[i].to_s
           # `Font#glyph` falls back to "?" then a blank glyph, and pads every

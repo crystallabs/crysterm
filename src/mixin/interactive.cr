@@ -36,6 +36,10 @@ module Crysterm
             # reading routes Up/Down/Ctrl-U/… to its editor and must not also
             # scroll the viewport (see `viewer_scroll_keys?`).
             next unless viewer_scroll_keys?
+            # Only the vertical-navigation keys are ours; anything else falls
+            # through to ancestors untouched.
+            intent = nav_intent(e)
+            next if intent.none?
             # Page scrolling uses `visible_content_rows` (the actual scrollable
             # viewport, excluding borders and a shown horizontal bar's row) rather
             # than the raw `height` property, mirroring `ScrollableBox#on_keypress`
@@ -44,7 +48,7 @@ module Crysterm
             # (`-x // 2` would floor asymmetrically); at least one row.
             page = visible_content_rows
             half = Math.max(page // 2, 1)
-            case nav_intent(e)
+            case intent
             when .backward?      then scroll(-1); request_render
             when .forward?       then scroll(1); request_render
             when .half_backward? then page_scroll(-half, -1)
@@ -54,6 +58,9 @@ module Crysterm
             when .first?         then scroll_to 0; request_render
             when .last?          then scroll_to get_scroll_height; request_render
             end
+            # Consume the handled key — don't also drive an ancestor (matches
+            # `ScrollableBox#on_keypress`/`ItemView#on_keypress`).
+            e.accept
           end
         end
       end

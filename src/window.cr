@@ -45,6 +45,26 @@ module Crysterm
     def screen=(new_screen : Screen) : Screen
       return new_screen if new_screen.same? @screen
       old = @screen
+
+      # Whether the new device is genuinely new — not already backing another
+      # registered window. Computed *before* the swap, while `#screens` still
+      # reflects this window on `old`; afterwards this window already points at
+      # `new_screen`, so `screens.includes?(new_screen)` would always be true.
+      # Gates `ScreenAdded` the way `Application#add` does, so moving a window
+      # onto a device a sibling already uses doesn't fire a duplicate.
+      new_device = application.try { |app| !app.screens.includes?(new_screen) }
+
+      # Before swapping, tear down the old device's terminal when this was its
+      # last live window — otherwise it's stranded in the alternate buffer with
+      # raw mode + mouse reporting on and its input fiber still running, and no
+      # later path restores it (`at_exit -> destroy -> disconnect` only touches
+      # the current device). A sibling window still on the old device keeps it.
+      # Mirrors `#disconnect`'s last-user logic.
+      unless other_live_window_on_device?
+        restore_terminal
+        @screen.stop_keys
+      end
+
       @screen = new_screen
       # Re-enter + repaint invalidates descendants' memoized device.
       enter
@@ -54,7 +74,7 @@ module Crysterm
         # so its input read fiber routes here.
         new_screen.application = app
         app.emit ::Crysterm::Event::ScreenRemoved, old unless app.screens.includes? old
-        app.emit ::Crysterm::Event::ScreenAdded, new_screen
+        app.emit ::Crysterm::Event::ScreenAdded, new_screen if new_device
       end
       render
       new_screen

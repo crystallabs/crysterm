@@ -72,10 +72,16 @@ module Crysterm
       def partial
         return unless tristate?
         return if partial?
+        was_checked = checked?
         @checked = false
         @partial = true
         @value = false
         invalidate_css
+        # A checked→partial transition drops the checked state, so announce it
+        # (before `PartialCheck`) — otherwise a listener mirroring `checked?`
+        # (`ButtonGroup`, a bound model) keeps believing the box is checked while
+        # it renders `[-]`. `#check`/`#uncheck` handle their edges symmetrically.
+        emit Crysterm::Event::UnCheck, false if was_checked
         emit Crysterm::Event::PartialCheck, @value
         request_render # repaint the `-` marker
       end

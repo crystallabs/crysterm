@@ -296,17 +296,22 @@ module Crysterm
     # left content origin (`coords.xi`).
     def draw_vertical_separators(line, xi : Int32, battr : Int64,
                                  start_col : Int32 = 0, width : Int32? = nil) : Nil
+      # `rx` is the pure within-content column offset (0 == first content
+      # column); the separator after column `mi` sits at content offset
+      # `sum(maxes[..mi])`. Paint it at `xi + ileft + rx`: content begins at the
+      # left inset (`ileft`), not a hardcoded one column. The old `xi + rx + 1`
+      # assumed `ileft == 1`, so a bordered+padded table drew separators one
+      # cell short of the cells they divide.
       rx = 0
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
         break if width && rx >= width
-        next unless line[xi + rx + 1]?
-        rx += 1
-        if cell = line[xi + rx]?
+        if cell = line[xi + ileft + rx]?
           cell.attr = junction_attr(battr, cell.attr)
           cell.char = '│'
           line.dirty = true
         end
+        rx += 1
       end
     end
   end

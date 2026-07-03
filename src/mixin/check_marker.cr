@@ -23,11 +23,17 @@ module Crysterm
         # the marker is the three glyphs at the start of the first content row.
         on(Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
-          marker_start = aleft + ileft
+          # Compute the marker cell from the *painted* position (`@lpos`), not
+          # the layout coords (`atop`/`aleft`): inside a scrolled container the
+          # painted row is shifted up by the scroll base, and mouse dispatch
+          # hit-tests against `@lpos`. Using `atop`/`aleft` made the marker click
+          # dead once the container scrolled. Mirrors `on_focus`.
+          next unless lpos = @lpos
+          marker_start = lpos.xi + ileft
           # Row check needed because `Mouse` fires for clicks anywhere in the
           # widget's rect — without it, a taller control (border/explicit
           # height) would toggle on any row at the marker's column.
-          marker_row = atop + itop
+          marker_row = lpos.yi + itop
           if e.y == marker_row && e.x >= marker_start && e.x < marker_start + 3
             toggle
             request_render

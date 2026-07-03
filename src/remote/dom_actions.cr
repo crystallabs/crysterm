@@ -9,26 +9,40 @@ module Crysterm
     # The handler receives `(widget, event_name, action, value)` where `value`
     # is the event's payload when meaningful (a `Submit`'s text, a `SelectItem`'s
     # index) and `nil` otherwise.
-    # `seen`, when given, dedups subscriptions across repeated calls: each
-    # `(widget, event)` pair is wired at most once. The HTTP bridge re-runs this
-    # on every `append`/`remove`, so without it bindings would fire 2x, 3x, ...
-    # per event.
-    def self.each_binding(window : Window, seen : Set(String)? = nil,
+    # `wired`, when given, tracks each `(widget, event)` binding's *current
+    # action* plus its detacher, keyed by "uid:event". The HTTP bridge re-runs
+    # this on every `append`/`remove`/`setAttribute`, so without dedup bindings
+    # would fire 2x, 3x, ... per event. Crucially it dedups *by action*: an
+    # unchanged action is left alone, but a changed one (e.g.
+    # `setAttribute("onclick","delete")` over a previous `"save"`) detaches the
+    # stale binding and wires the new one — otherwise the old action keeps
+    # publishing forever.
+    def self.each_binding(window : Window, wired : Hash(String, Tuple(String, Proc(Nil)))? = nil,
                           &handler : Widget, String, String, String? ->) : Nil
       window.children.each do |top|
         top.self_and_each_descendant do |widget|
           widget.dom_events.each do |event_name, action|
-            if seen
-              next unless seen.add? "#{widget.uid}:#{event_name}"
+            if wired
+              key = "#{widget.uid}:#{event_name}"
+              if existing = wired[key]?
+                next if existing[0] == action # same action already wired
+                existing[1].call              # action changed: detach the stale binding
+              end
+              detacher = subscribe_binding widget, event_name, action, handler
+              wired[key] = {action, detacher} if detacher
+            else
+              subscribe_binding widget, event_name, action, handler
             end
-            subscribe_binding widget, event_name, action, handler
           end
         end
       end
     end
 
+    # Wires `event_name` on `widget`, invoking `handler` with the bound `action`.
+    # Returns the detacher from `on_widget_event` (or `nil` for an unknown event
+    # name) so a caller can later replace or remove this exact binding.
     private def self.subscribe_binding(widget : Widget, event_name : String, action : String,
-                                       handler : Widget, String, String, String? ->) : Nil
+                                       handler : Widget, String, String, String? ->) : Proc(Nil)?
       on_widget_event(widget, event_name) do |type, value|
         handler.call widget, type, action, value
       end

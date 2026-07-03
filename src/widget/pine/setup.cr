@@ -74,6 +74,7 @@ module Crysterm
         def on_keypress(e)
           if e.char == ' '
             toggle_selected
+            e.accept
             return
           end
           super

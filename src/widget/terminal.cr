@@ -148,7 +148,13 @@ module Crysterm
           # Child closed the PTY: reap it, surface exit status, tear down.
           code = pty.reap
           emit ::Crysterm::Event::Exit, code
-          emit ::Crysterm::Event::Destroy
+          # Marshal the real teardown onto the render fiber. Emitting a bare
+          # `Event::Destroy` here (without calling `#destroy`) left the widget
+          # attached, keyable, and focusable while listeners believed it dead —
+          # and a later `#destroy` would emit `Event::Destroy` a second time.
+          # `#destroy` emits it once, off the render fiber; `#kill` is idempotent
+          # for the already-reaped PTY.
+          window?.try &.post { destroy }
         end
       end
 

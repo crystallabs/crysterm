@@ -66,6 +66,17 @@ module Crysterm
         display(text, time, &callback)
       end
 
+      # Remove the keypress-dismiss subscription (armed on the *window* by a
+      # timeout-less `#display`) before teardown. Otherwise, if the message is
+      # destroyed before any key is pressed, the next keypress runs `end_it`
+      # against the destroyed widget — hiding it, re-rendering, and possibly
+      # yanking focus in the rebuilt UI. `Subscription#off` is idempotent and
+      # captures the window, so it works even after detach.
+      def destroy
+        @ev_keypress.off
+        super
+      end
+
       def end_it(gen : Int32? = nil, &callback : Proc(Nil))
         # A stale timer/keypress fiber from a superseded `#display` captured an
         # older generation; ignore it so it can't dismiss a newer message early.

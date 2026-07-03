@@ -113,7 +113,22 @@ module Crysterm
       type = node.data.lchop("w-")
       return nil unless factory = registry[type]?
       widget = factory.call(window)
-      node.attr.each { |a| widget.dom_apply(a.key, a.val) }
+      # Apply `content` *last*. A widget whose value/format setter refreshes its
+      # own displayed text (e.g. `DoubleSpinBox#decimals=` rebuilds content from
+      # the value) would otherwise clobber an explicitly serialized `content`
+      # when that setter's attribute is replayed after it — breaking the
+      # serialize -> load -> serialize round-trip invariant now that generated
+      # `dom_apply` routes through real setters (finding 6). Deferring content
+      # lets the serialized text win, matching the saved display state.
+      content_attr = nil
+      node.attr.each do |a|
+        if a.key == "content"
+          content_attr = a
+        else
+          widget.dom_apply(a.key, a.val)
+        end
+      end
+      content_attr.try { |a| widget.dom_apply(a.key, a.val) }
       # Item views rebuild their rows from replayed state (`List`'s `items=`
       # applied just above), so their children are *not* reconstructable box
       # nodes. Re-appending serialized `<w-box>` children would double the rows

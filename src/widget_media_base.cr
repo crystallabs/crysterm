@@ -314,7 +314,14 @@ module Crysterm
       private def tick_frame : Nil
         return unless @playing
         if st = @stream
-          advance_stream st
+          # Mirror `#stream_loop`'s termination: a false return means EOF with a
+          # failed restart (or playback stopped). Without honoring it, the shared
+          # clock keeps calling `advance_stream` every tick — relaunching (and
+          # killing) an ffmpeg per frame forever with `playing?` stuck true.
+          unless advance_stream st
+            @playing = false
+            unsubscribe_clock
+          end
         else
           advance_shared
         end
@@ -466,7 +473,13 @@ module Crysterm
           # object nothing owns (never closed/reaped). The loop's post-check
           # closes our captured stream instead.
           return false unless stream.same?(@stream)
-          stream.restart || return false # loop the video; bail if it won't reopen
+          # Latch a permanently failed restart so no playback path retries a dead
+          # source every frame (file deleted/moved/truncated mid-playback). `#source`
+          # then returns nil, so a later `#play` won't respawn ffmpeg either.
+          unless stream.restart # loop the video; bail if it won't reopen
+            @load_failed = true
+            return false
+          end
           bmp = stream.next_frame || return false
         end
         delay = stream.delay
@@ -545,6 +558,34 @@ module Crysterm
       protected def register_render_hook(s : ::Crysterm::Window, &block : ::Crysterm::Event::Rendered ->)
         @listener_screen = s
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &block)
+      end
+
+      # Paint block captured for a detached construction, replayed once a window
+      # is available (see `#register_render_hook_deferred`).
+      @deferred_render_hook : (::Crysterm::Event::Rendered ->)?
+
+      # Registers *block* now when a window is resolvable, else defers to a
+      # one-shot `Attach`/`Reparent` hook. A backend built detached
+      # (compose-then-attach, or a parent not yet on a `Window`) has no window at
+      # construction, so calling the raising `window` accessor here would crash.
+      protected def register_render_hook_deferred(&block : ::Crysterm::Event::Rendered ->)
+        if s = window?
+          register_render_hook(s, &block)
+        else
+          @deferred_render_hook = block
+          on(::Crysterm::Event::Attach) { try_register_render_hook_deferred }
+          on(::Crysterm::Event::Reparent) { try_register_render_hook_deferred }
+        end
+      end
+
+      # Fires from the deferred hook: registers the captured block once a window
+      # exists, guarded on `@listener_screen` so a re-attach doesn't double-register.
+      private def try_register_render_hook_deferred
+        return if @listener_screen
+        s = window? || return
+        blk = @deferred_render_hook || return
+        register_render_hook(s, &blk)
+        @deferred_render_hook = nil
       end
 
       # Removes the listener registered above and forgets the window.

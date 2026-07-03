@@ -47,7 +47,9 @@ module Crysterm
         # hook that. `PreRender` runs before flush; used to clean up the overlay
         # left at our previous position when we move (see
         # `#invalidate_old_position`). Mirrors Blessed's `onScreenEvent('render')`.
-        register_overlay_listeners window
+        # When built detached (compose-then-attach), this defers registration
+        # until the widget is attached to a window.
+        register_overlay_listeners_deferred
       end
 
       def load(file : String)

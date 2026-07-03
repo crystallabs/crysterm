@@ -39,8 +39,14 @@ module Crysterm
       if n = name
         attrs["name"] = n unless n.empty?
       end
-      attrs["parse-tags"] = "true" if parse_tags?
-      attrs["wrap-content"] = "false" unless wrap_content?
+      # Emit both booleans *explicitly* (never rely on a Widget-level default):
+      # a subclass may flip the default (e.g. `Table#wrap_content = false`,
+      # `Calendar#parse_tags = true`), so a one-sided emit ("only when true" /
+      # "only when false") would drop the attribute and let the subclass's
+      # constructor default win on reload — `snapshot -> load_layout` would not
+      # be a fixed point. `dom_coerce_bool` accepts both "true" and "false".
+      attrs["parse-tags"] = parse_tags? ? "true" : "false"
+      attrs["wrap-content"] = wrap_content? ? "true" : "false"
       c = content
       attrs["content"] = c unless c.empty?
       # Named-action bindings (`onclick="save"`), so they survive a round-trip

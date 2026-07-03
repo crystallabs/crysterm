@@ -19,11 +19,20 @@ module Crysterm
       # axis is flipped so the low end sits at the *bottom*, matching a
       # `Slider`/`ProgressBar` that fills bottom→top.
       protected def pointer_offset(e, invert : Bool = false) : {Int32, Int32}
+        # Resolve the pointer position against the *painted* origin (`@lpos`)
+        # when rendered: inside a scrolled container the painted position is
+        # shifted from the layout coords (`atop`/`aleft`) by the scroll base,
+        # while `e.x`/`e.y` are painted coordinates. Using the layout coords
+        # mapped a vertical track's clicks N cells off inside a scrolled
+        # container. Falls back to layout coords before the first render.
+        lp = @lpos
         if @orientation.horizontal?
-          {e.x - aleft - ileft, awidth - iwidth - 1}
+          origin_x = lp ? lp.xi : aleft
+          {e.x - origin_x - ileft, awidth - iwidth - 1}
         else
           span = aheight - iheight - 1
-          pos = e.y - atop - itop
+          origin_y = lp ? lp.yi : atop
+          pos = e.y - origin_y - itop
           {invert ? span - pos : pos, span}
         end
       end

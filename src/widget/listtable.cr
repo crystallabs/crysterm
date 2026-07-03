@@ -534,13 +534,15 @@ module Crysterm
           line = lines[yi + ry]?
           break unless line
 
+          # `rx` is the within-content column offset; the junction after column
+          # `mi` is painted at `xi + ileft + rx` (content begins at the left
+          # inset, not a hardcoded one column — matches
+          # `TableLayout#draw_vertical_separators`).
           rx = 0
           (@first_col...last).each do |mi|
             rx += @maxes[mi]
             break if rx >= width
-            next unless line[xi + rx + 1]?
-            rx += 1
-            if cell = line[xi + rx]?
+            if cell = line[xi + ileft + rx]?
               if ry == 0
                 cell.attr = battr
                 cell.char = border.top > 0 ? '┬' : '│'
@@ -551,6 +553,7 @@ module Crysterm
                 line.dirty = true
               end
             end
+            rx += 1
           end
 
           ry += 1

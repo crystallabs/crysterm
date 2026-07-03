@@ -64,7 +64,6 @@ module Crysterm
         return
       end
       stops = resolve_keyframes raw
-      st = style
       total = spec.duration.total_seconds
       total = 0.001 if total <= 0
       step = 1.0 / 30
@@ -83,14 +82,18 @@ module Crysterm
           # Settle on the final frame (honoring alternate parity), stop, and mark
           # finished so the next render doesn't restart it.
           frac = (alt && (iters - 1).odd?) ? 0.0 : 1.0
-          apply_keyframe stops, st, frac
+          # Resolve `style` per tick rather than capturing it once: a recascade
+          # replaces the widget's `Style` wholesale (`css_base_styles.deep_dup`),
+          # so a captured object would be orphaned — the clock would mutate a
+          # `Style` nothing renders while the animation appears frozen.
+          apply_keyframe stops, style, frac
           @css_animation_finished = true
           clock.stop
         else
           n = cycles.to_i
           frac = cycles - n
           frac = 1.0 - frac if alt && n.odd?
-          apply_keyframe stops, st, spec.easing.apply(frac)
+          apply_keyframe stops, style, spec.easing.apply(frac)
         end
         request_render
       end

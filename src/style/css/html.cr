@@ -87,8 +87,17 @@ module Crysterm
       # Child widgets first, so they occupy clean `:nth-child` positions
       # (1..N) — important for list items / table rows styled positionally.
       children.each &.to_html(io, structural)
+      # Extra widget-specific nodes (e.g. a table's per-cell `Row`/`Cell` grid)
+      # come *immediately* after the real children — before the sub-element
+      # pseudo-nodes below — in *both* the full and structural documents, so a
+      # `Row`'s `:nth-child`/`:nth-last-child` index counts only real children and
+      # its own siblings, never the scrollbar/track/label sub-element nodes (whose
+      # presence varies with widget state and would offset the parity/end-count).
+      # Emitting them in the structural document too lets backward structural
+      # pseudo-classes count rows with the sub-elements excluded.
+      css_render_extra io
       unless structural
-        # Sub-element pseudo-nodes (scrollbar, track, ...) come after the children.
+        # Sub-element pseudo-nodes (scrollbar, track, ...) come after those.
         # Each carries a `uid::slot` writeback key routing computed style back into
         # the matching sub-`Style`, classed with the capitalized slot name (e.g.
         # `Scrollbar`) so `Scrollbar { ... }` / `Box Scrollbar { ... }` styles it.
@@ -96,8 +105,6 @@ module Crysterm
           io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
           io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
         end
-        # Extra widget-specific nodes (e.g. a table's per-cell grid).
-        css_render_extra io
       end
       io << "</" << tag << '>'
     end

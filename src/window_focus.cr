@@ -66,8 +66,23 @@ module Crysterm
       # not itself gate on visibility, so without this it would focus an
       # invisible widget and emit `Event::Focus`. If no valid target remains,
       # leave focus as-is, as the other two focus paths do for a hidden candidate.
-      sf.focus if sf.window? == self && displayed_in_tree?(sf)
+      #
+      # `!sf.disabled?`: the saved widget may have been disabled while the dialog
+      # was open (a wizard disabling a field). `WidgetState` is single-valued and
+      # `_focus` sets `state = :focused`, so re-focusing a disabled widget would
+      # silently clobber `Disabled` back to keyable and hand it keys the app
+      # disabled — every other focus entry point (`focus_offset`) already guards
+      # on this (BUGS-F2 #26).
+      sf.focus if sf.window? == self && displayed_in_tree?(sf) && !sf.disabled?
       focused
+    end
+
+    # Discards the saved-focus slot without restoring it. Used by callers that
+    # finish a focus-owning interaction (e.g. a reading text field that ended
+    # while still focused, or after focus deliberately moved elsewhere) so the
+    # stale save can't be replayed by an unrelated later `#restore_focus`.
+    def clear_saved_focus
+      @_saved_focus = nil
     end
 
     # "Rewinds" focus to the most recent visible and attached element.
@@ -112,9 +127,16 @@ module Crysterm
         # widget lingers in `WidgetState::Focused` (e.g. reappears visually
         # focused on `#show`) with no listener ever seeing focus leave it. `nil`
         # payload: no widget is taking over focus.
+        # Mirror `_focus`'s guard: only blur-reset a widget that is actually
+        # Focused. `WidgetState` is single-valued, so an unconditional
+        # `state = :normal` re-enables a widget disabled while focused and
+        # clobbers a Selected/Hovered state — and would emit `Blur` for a widget
+        # that wasn't focused (BUGS-F2 #27).
         old.try do |o|
-          o.state = :normal
-          o.emit Crysterm::Event::Blur, nil
+          if o.state.focused?
+            o.state = :normal
+            o.emit Crysterm::Event::Blur, nil
+          end
         end
         return
       end

@@ -63,6 +63,23 @@ module Crysterm
         index * (1 + @item_spacing)
       end
 
+      # The item index whose box occupies content *row* — the inverse of
+      # `#item_row`, flooring a gap row onto the item above it. With spacing `0`
+      # this is just *row*. Used wherever a viewport/content *row* must be mapped
+      # back to an item *index* (vi H/M/L, wheel scroll, hover clamp), which naive
+      # `@child_base`-as-index arithmetic conflated once `item_spacing > 0`.
+      private def item_at_row(row : Int) : Int32
+        return row if @item_spacing.zero?
+        row // (1 + @item_spacing)
+      end
+
+      # How many whole items fit in the visible viewport, accounting for
+      # inter-item gaps — the natural unit for half/page navigation moves (which
+      # step by *items*, not rows). At least 1.
+      private def items_per_page : Int32
+        Math.max(1, visible_content_rows // (1 + @item_spacing))
+      end
+
       # Total content height in rows, including inter-item gaps, so scrollbar/
       # overflow logic sees the real extent (`_scroll_bottom` otherwise counts
       # items, ignoring spacing). Unchanged when not spaced.
@@ -607,7 +624,11 @@ module Crysterm
       def hover_item(i : Int)
         vis = visible_content_rows
         vis = 1 if vis < 1
-        selekt i.clamp(@child_base, @child_base + vis - 1)
+        # Clamp to the visible *item* range: `@child_base`/`vis` are content rows,
+        # so with `item_spacing > 0` a bare `clamp(@child_base, …)` would compare
+        # an item index against row bounds and snap a legitimately-visible item to
+        # a different one. Convert the row bounds to item indices first.
+        selekt i.clamp(item_at_row(@child_base), item_at_row(@child_base + vis - 1))
       end
 
       def clear_items
@@ -667,12 +688,17 @@ module Crysterm
         step = dir > 0 ? 1 : -1
         visible = visible_content_rows
         visible = 1 if visible < 1
-        max_base = Math.max(0, @items.size - visible)
+        # The scrollable extent is in content *rows* (`get_scroll_height` includes
+        # the inter-item gaps); `@items.size - visible` under-counts a spaced list
+        # and stopped the wheel short of the bottom.
+        max_base = Math.max(0, get_scroll_height - visible)
         row = @child_offset # selection's viewport row == where the pointer hovered
         nb = (@child_base + step).clamp(0, max_base)
         if nb != @child_base
           @child_base = nb
-          selekt (nb + row).clamp(0, @items.size - 1)
+          # `nb + row` is the content row under the cursor; map it back to the item
+          # index there so a spaced list selects the right entry.
+          selekt item_at_row(nb + row).clamp(0, @items.size - 1)
         else
           selekt (@selected + step).clamp(0, @items.size - 1)
         end
@@ -894,7 +920,11 @@ module Crysterm
 
       def on_keypress(e)
         visible = visible_content_rows
-        half = Math.max visible // 2, 1
+        # Half/page navigation steps by *items*, not rows: with `item_spacing > 0`
+        # a page of `visible` rows holds only `items_per_page` items, so moving by
+        # `visible` jumped ~two pages.
+        per_page = items_per_page
+        half = Math.max per_page // 2, 1
 
         # Vertical navigation (Up/Down/paging/Home-End + vi k/j/g/G) is
         # classified once in `Mixin::NavKeys` and shared with `Interactive`; here
@@ -906,16 +936,19 @@ module Crysterm
         when .last?          then selekt @items.size - 1
         when .half_backward? then move -half
         when .half_forward?  then move half
-        when .page_backward? then move -visible
-        when .page_forward?  then move visible
+        when .page_backward? then move -per_page
+        when .page_forward?  then move per_page
         else
           case
+          # vi H/M/L target the item at the top/middle/bottom *row* of the
+          # viewport; `@child_base` is a content row, so convert to an item index
+          # (a bare `@child_base + …` would select a far-off item when spaced).
           when @vi && e.char == 'H'
-            selekt @child_base
+            selekt item_at_row(@child_base)
           when @vi && e.char == 'M'
-            selekt @child_base + visible // 2
+            selekt item_at_row(@child_base + visible // 2)
           when @vi && e.char == 'L'
-            selekt @child_base + visible - 1
+            selekt item_at_row(@child_base + visible - 1)
           when search? && e.char == '/'
             start_search false
           when search? && e.char == '?'

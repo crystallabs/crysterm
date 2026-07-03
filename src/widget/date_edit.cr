@@ -152,9 +152,16 @@ module Crysterm
         end
       end
 
+      # Places the calendar against the field: below when its full height fits,
+      # otherwise flipped above (Qt opens upward when it would run off the
+      # bottom), clamped on-window. `Overlay.place_child` owns the below/above
+      # fit choice, the on-window clamp, and the single absolute→window-local
+      # inset conversion (a window-appended popup's `left`/`top` are relative to
+      # the window content origin), fixing the invisible/near-bottom popup and
+      # the bordered-window shift the raw `atop + aheight` placement had.
       private def position_popup(pop : Calendar) : Nil
-        pop.top = atop + aheight
-        pop.left = aleft
+        Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
+          [Overlay::Side::Below, Overlay::Side::Above])
       rescue
         # Not laid out yet.
       end

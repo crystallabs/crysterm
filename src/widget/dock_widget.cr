@@ -34,8 +34,18 @@ module Crysterm
         Floating
       end
 
-      property title : String
+      getter title : String
       property area : Area
+
+      # Updates the stored title and the rendered title-bar text at runtime. A
+      # plain `property` left the title-bar content a construction-time snapshot,
+      # so `dock.title = "…"` never changed anything on screen.
+      def title=(value : String) : String
+        @title = value
+        @titlebar.try &.set_content(value)
+        request_render
+        value
+      end
 
       # Extent along the docking axis: width when docked Left/Right, height when
       # docked Top/Bottom. Ignored while `Floating` (the dock keeps its own size).

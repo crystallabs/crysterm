@@ -104,7 +104,7 @@ module Crysterm
 
         super **box
 
-        register_render_hook(window) { draw_tek }
+        register_render_hook_deferred { draw_tek }
 
         on(::Crysterm::Event::Destroy) { teardown }
       end

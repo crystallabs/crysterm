@@ -207,6 +207,11 @@ module Crysterm
         # Keep edit buffer empty so the box shows the committed value (matches `#set_value`).
         @text = ""
         refilter
+        # An open drop-down must be re-fitted to the new options, or a click on a
+        # visible row resolves against the new `@filtered` and commits a value the
+        # user never saw (or silently no-ops when there are fewer options than
+        # rows). `#refresh_popup` guards on `@open` and re-runs `position_popup`.
+        refresh_popup
         update_content
         request_render
       end

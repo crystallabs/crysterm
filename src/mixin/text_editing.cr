@@ -906,6 +906,13 @@ module Crysterm
         # (any other action breaks the run via `kill_ring.interrupt` below).
         rl = Crysterm::Config.input_readline_keys
         killed = false
+        # Whether the editor consumed this keystroke. Used to `#accept` the event
+        # so sibling window-level accelerators (ActionBar hotkeys, `Question#ask`,
+        # dialog Escape) stand down for keys the field handled — `grab_keys` stops
+        # propagation *up the widget tree* but not other window-level KeyPress
+        # listeners on the same emission. Keys the editor ignores stay
+        # un-accepted so those accelerators still fire for them (BUGS-F2 #7).
+        handled = false
 
         if k = e.key
           # return if k == Tput::Key::Return
@@ -1015,6 +1022,8 @@ module Crysterm
           # here.
           clipboard = Crysterm::Config.input_clipboard_keys
 
+          # Track whether one of the editing keys below consumed the keystroke.
+          edited = true
           if k == Tput::Key::Escape
             done.try &.call nil
           elsif clipboard && k == Tput::Key::CtrlC # copy selection
@@ -1062,7 +1071,12 @@ module Crysterm
               clear_selection
               insert_at_cursor text
             end
+          else
+            edited = false
           end
+
+          # A cursor movement or an editing action consumed this key.
+          handled = true if moved || edited
         end
 
         if !read_only? && e.char && (!e.key || also_check_char)
@@ -1078,6 +1092,9 @@ module Crysterm
             delete_selection
             at_limit = (ml = @max_length) ? @value.size >= ml : false
             insert_at_cursor ch unless at_limit
+            # A printable character was consumed (even if the field was full and
+            # the insert was suppressed) — don't let it also trigger a hotkey.
+            handled = true
           end
         end
 
@@ -1089,6 +1106,10 @@ module Crysterm
         # Any keystroke that wasn't itself a kill ends the consecutive-kill run,
         # so the next kill starts a fresh ring entry (emacs semantics).
         kill_ring.interrupt if rl && !killed
+
+        # Consume the event so window-level accelerators don't double-act on a
+        # key this reading field already handled (BUGS-F2 #7).
+        e.accept if handled
       end
 
       def _type_scroll
@@ -1118,6 +1139,12 @@ module Crysterm
         @value = yield(value || @value)
         @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
         clear_selection if external
+        # An external set moves the caret to the end; drop the vertical goal
+        # column so the next Up/Down tracks the caret's actual column, not a
+        # stale one from before the set. The redisplay path (`nil` value) must
+        # leave `@goal_col` intact so an in-progress Up/Down sequence survives a
+        # `render` (BUGS-F2 #35).
+        @goal_col = nil if external
         external
       end
 
@@ -1235,8 +1262,18 @@ module Crysterm
         window.hide_cursor
         window.grab_keys = false
 
-        unless focused?
+        # Restore the pre-read focus only when the read ended with focus cleared
+        # (blur-to-nil, hide/detach) — NOT when the user deliberately moved focus
+        # to another widget (Tab to a button, click on a sibling field), which
+        # sets `@_skip_rewind`. Restoring then would yank focus back to the
+        # pre-dialog widget, escaping the still-open modal dialog and, in the
+        # field1→field2 chain, starting a read on a not-actually-focused field
+        # (BUGS-F2 #4). Otherwise drop the stale saved slot so a later unrelated
+        # `restore_focus` can't replay it.
+        if !focused? && !@_skip_rewind
           window.restore_focus
+        else
+          window.clear_saved_focus
         end
 
         if @input_on_focus && !@_skip_rewind && rewind_on_done?

@@ -71,6 +71,7 @@ module Crysterm
       # Reloads the listing for `cwd` (defaulting to the current directory).
       # Returns `self`.
       def refresh(cwd : String? = nil)
+        prev_cwd = @cwd
         if cwd
           @cwd = cwd
         else
@@ -84,6 +85,12 @@ module Crysterm
           @cwd = cwd != home ? home : "/"
           return refresh
         rescue
+          # Unreadable dir (e.g. `File::AccessDeniedError` on a `chmod 000`
+          # directory): roll `@cwd` back so it, the `%path` label, and the shown
+          # rows all stay on the last good directory rather than pointing at a
+          # dir whose listing we never loaded. `open_selected` commits the label
+          # and `ChangeDir` only after this returns with `@cwd == target`.
+          @cwd = prev_cwd
           return self
         end
 
@@ -197,10 +204,16 @@ module Crysterm
 
         if info.directory?
           old = @cwd
-          @cwd = target
-          @label_format.try { |fmt| set_label fmt.gsub("%path", target) if fmt.includes?("%path") }
-          emit Crysterm::Event::ChangeDir, target, old
-          refresh
+          # Attempt the listing before committing the navigation: `refresh target`
+          # rolls `@cwd` back to `old` if `target` is unreadable. Announce the
+          # navigation (label + `ChangeDir`) only when it actually landed on
+          # `target`, so a failed entry updates nothing and emits no spurious
+          # `ChangeDir` for a move that never happened.
+          refresh target
+          if @cwd == target
+            @label_format.try { |fmt| set_label fmt.gsub("%path", target) if fmt.includes?("%path") }
+            emit Crysterm::Event::ChangeDir, target, old
+          end
         else
           emit Crysterm::Event::OpenFile, target
         end

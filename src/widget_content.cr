@@ -195,7 +195,12 @@ module Crysterm
       # `@_parse_attr_default` path in `process_content`, unaffected by this.
       # The first parse still happens regardless via the CLines/version mismatch
       # in `process_content` (CLines starts at version -1).
-      return if content == @content
+      #
+      # A repeated set of the *same* string but a different `no_tags` mode must
+      # still reparse (`@_content_no_tags`'s own contract): otherwise the widget
+      # stays stuck in the old tag mode permanently, since `process_content`'s
+      # cache key also omits the mode. So gate on both content and mode.
+      return if content == @content && no_tags == @_content_no_tags
 
       # Previously this erased the widget's last-rendered footprint (unless
       # `no_clear`) to avoid stale cells when content shrank. Now handled
@@ -452,12 +457,15 @@ module Crysterm
       da = sattr(style)
       if da != @_parse_attr_default
         @_parse_attr_default = da
-        # `@_clines.attr` is read by the render loop only on a non-first
-        # wrapped/scrolled line (`_render` checks `@_clines.attr[base]` under
-        # `if ci > 0`), which requires multi-line content or a non-zero scroll
-        # base. For the common single-line, unscrolled widget the array is never
-        # read, so skip the `O(content)` `_parse_attr` scan there.
-        @_clines.attr = _parse_attr(@_clines) if @_clines.size > 1 || @child_base > 0
+        # Recompute whenever a packed attr array already exists: leaving it
+        # populated-but-stale (the old size gate skipped a ≤1-line unscrolled
+        # widget) let `append_content`'s fast path seed every appended line's
+        # starting attr from the stale `attrs[0]`, and — since `da` then equalled
+        # `@_parse_attr_default` forever after — the refresh never fired again, so
+        # a later `scroll` painted with the old default attr permanently. The
+        # skipped case has ≤1 line, so the recompute is negligible. When no array
+        # exists yet (`nil`) `_render` never reads it, so nothing to refresh.
+        @_clines.attr = _parse_attr(@_clines) unless @_clines.attr.nil?
       end
 
       false

@@ -519,12 +519,27 @@ module Crysterm
         in_hue = e.x >= ox + HUE_X && e.x < ox + HUE_X + HUE_W &&
                  e.y >= oy + HUE_Y && e.y < oy + HUE_Y + HUE_H
 
+        # Gate the wheel like the press branch: it nudges the hue over the hue
+        # strip and the value over the 2-D field, but a wheel on the border, the
+        # blank separators, or the gaps around the palette/buttons must fall
+        # through unaccepted (so an ancestor scroll can act) instead of silently
+        # darkening/lightening the current color.
         if e.action.wheel_up?
-          in_hue ? set_hsv(@hue + 10, @saturation, @value_v) : set_hsv(@hue, @saturation, @value_v + 0.05)
-          e.accept
+          if in_hue
+            set_hsv(@hue + 10, @saturation, @value_v)
+            e.accept
+          elsif in_field
+            set_hsv(@hue, @saturation, @value_v + 0.05)
+            e.accept
+          end
         elsif e.action.wheel_down?
-          in_hue ? set_hsv(@hue - 10, @saturation, @value_v) : set_hsv(@hue, @saturation, @value_v - 0.05)
-          e.accept
+          if in_hue
+            set_hsv(@hue - 10, @saturation, @value_v)
+            e.accept
+          elsif in_field
+            set_hsv(@hue, @saturation, @value_v - 0.05)
+            e.accept
+          end
         elsif e.action.down? || (e.action.move? && !e.button.none?)
           if in_field
             s = (e.x - (ox + FIELD_X)) / (FIELD_W - 1).to_f

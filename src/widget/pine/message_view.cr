@@ -32,7 +32,9 @@ module Crysterm
 
           set_message from: from, to: to, date: date, subject: subject, body: body
 
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+          # `ScrollableBox#initialize` already registered `on_keypress` (via
+          # virtual dispatch it reaches this override). Registering it again here
+          # would fire the handler twice per key — scrolling double.
         end
 
         # Replaces the displayed message. Empty header fields are omitted, so the
@@ -62,23 +64,23 @@ module Crysterm
           case e.key
           when ::Tput::Key::Up
             scroll -1
-            request_render
           when ::Tput::Key::Down
             scroll 1
-            request_render
           when ::Tput::Key::PageUp
             scroll -(aheight // 2)
-            request_render
           when ::Tput::Key::PageDown
             scroll aheight // 2
-            request_render
           when ::Tput::Key::Home
             scroll_to 0
-            request_render
           when ::Tput::Key::End
             scroll_to get_scroll_height
-            request_render
+          else
+            return
           end
+          # Consume the handled key so it doesn't also drive an ancestor, and
+          # repaint (mirrors the base `ScrollableBox#on_keypress`).
+          e.accept
+          request_render
         end
       end
     end

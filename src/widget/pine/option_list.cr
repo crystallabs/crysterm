@@ -278,6 +278,7 @@ module Crysterm
             o = records[selected]?
             if o && o.kind.toggle?
               toggle_selected
+              e.accept
               return
             end
           end
@@ -301,6 +302,10 @@ module Crysterm
           else
             insert_char e.char
           end
+          # While inline-editing, every key belongs to the editor — consume it so
+          # Enter/Escape/typed chars don't also drive a host dialog/wizard or
+          # window-level hotkeys (`Wizard#dialog_keys_active?` is `!e.accepted?`).
+          e.accept
         end
 
         # Appends a printable character to the edit buffer, enforcing the

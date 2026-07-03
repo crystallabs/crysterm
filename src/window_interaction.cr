@@ -125,7 +125,7 @@ module Crysterm
     # listeners that want every transition.
     #
     # :nodoc:
-    def handle_input(e : Tput::InputEvent) : Nil
+    def handle_input(e : Tput::InputEvent) : Crysterm::Event::KeyPress?
       if m = e.mouse
         dispatch_mouse m
       elsif pasted = e.paste
@@ -149,17 +149,20 @@ module Crysterm
           @pending_inband_size = {r.cols, r.rows}
         end
         schedule_resize
-      else
-        ev = if e.release?
-               Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
-             else
-               Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
-             end
+      elsif e.release?
+        ev = Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
         emit ev
-        if handlers(Crysterm::Event::Key).any?
-          emit Crysterm::Event::Key, ev
-        end
+        emit Crysterm::Event::Key, ev if handlers(Crysterm::Event::Key).any?
+      else
+        # Return the emitted `KeyPress` so `Application#route_input` can apply the
+        # default quit keys as a *fallback* — only when no widget/handler
+        # `#accept`ed the key (BUGS-F2 #1).
+        press = Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
+        emit press
+        emit Crysterm::Event::Key, press if handlers(Crysterm::Event::Key).any?
+        return press
       end
+      nil
     end
 
     # Disabled since they exist, but nothing calls them within blessed:

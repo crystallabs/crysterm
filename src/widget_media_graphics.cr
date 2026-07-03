@@ -95,20 +95,46 @@ module Crysterm
         super **box
         setup_animate animate
 
+        # Remember which dimensions the caller left to auto-detect (0), before
+        # the fallback below overwrites them — so a detached construction can
+        # still adopt the window's real cell size once attached.
+        @cell_pixel_auto_w = @cell_pixel_width <= 0
+        @cell_pixel_auto_h = @cell_pixel_height <= 0
+
         # Resolve the cell pixel size: when the caller didn't pin it, reuse what
         # the Window already detected at startup (shared TIOCGWINSZ / XTWINOPS
-        # probe), falling back to a typical monospace cell if unreported.
-        if s = window?
-          @cell_pixel_width = s.cell_pixel_width if @cell_pixel_width <= 0
-          @cell_pixel_height = s.cell_pixel_height if @cell_pixel_height <= 0
-        end
+        # probe). Fall back to a typical monospace cell if there's no window yet
+        # (detached construction) or it didn't report pixel dimensions.
+        window?.try { |s| resolve_cell_pixels s }
         @cell_pixel_width = 10 if @cell_pixel_width <= 0
         @cell_pixel_height = 20 if @cell_pixel_height <= 0
 
         # Mirror Media::Overlay: repaint after the window finishes each render
         # (cells flushed by then, so the graphic lands on top), and use
-        # PreRender for the graphic left at the previous position.
-        register_overlay_listeners window
+        # PreRender for the graphic left at the previous position. When built
+        # detached, this defers registration (and a real cell-size re-resolve)
+        # until the widget is attached to a window.
+        register_overlay_listeners_deferred
+      end
+
+      # Whether the corresponding cell pixel dimension was left to auto-detect.
+      @cell_pixel_auto_w = false
+      @cell_pixel_auto_h = false
+
+      # Fills in the auto-detect (0) cell pixel dimensions from what the window
+      # detected at startup, keeping any dimension the caller pinned. Skips a
+      # dimension the window can't report (leaves the current value, e.g. the
+      # 10×20 fallback).
+      protected def resolve_cell_pixels(s : ::Crysterm::Window) : Nil
+        @cell_pixel_width = s.cell_pixel_width if @cell_pixel_auto_w && s.cell_pixel_width > 0
+        @cell_pixel_height = s.cell_pixel_height if @cell_pixel_auto_h && s.cell_pixel_height > 0
+      end
+
+      # On (deferred) attach, re-resolve the real cell size from the window that
+      # now knows it, then register the overlay listeners.
+      protected def on_overlay_window(s : ::Crysterm::Window)
+        resolve_cell_pixels s
+        register_overlay_listeners s
       end
 
       # The terminal's real cell size in pixels, read from `TIOCGWINSZ`

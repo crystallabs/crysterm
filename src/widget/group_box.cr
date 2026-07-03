@@ -22,11 +22,40 @@ module Crysterm
       # `#apply_substyle`, used by the `PreRender` handler below.
       include Mixin::SubStyle
 
-      property title : String = ""
+      getter title : String = ""
+
+      # Updates the stored title and the rendered border label at runtime. A
+      # plain `property` left the label a construction-time snapshot, so
+      # `gb.title = "…"` never changed anything on screen.
+      def title=(value : String) : String
+        @title = value
+        update_label
+        request_render
+        value
+      end
 
       # Whether the group has a checkable title that enables/disables its
       # contents (Qt's `QGroupBox#checkable`).
-      property? checkable : Bool = false
+      getter? checkable : Bool = false
+
+      # Enabling checkability at runtime must also add the `[x]` marker and wire
+      # the title-row click/adopt handlers, which construction only did when
+      # `checkable?` was already set.
+      def checkable=(value : Bool) : Bool
+        return value if value == @checkable
+        @checkable = value
+        update_label
+        if value
+          install_checkable_handlers
+          apply_enabled
+        end
+        request_render
+        value
+      end
+
+      # Guards `#install_checkable_handlers` against double-registration when
+      # `checkable=` is toggled more than once.
+      @checkable_wired = false
 
       # Checked state of a `#checkable?` group; when false the children render
       # disabled.
@@ -68,24 +97,33 @@ module Crysterm
           end
         end
 
-        if checkable?
-          # Toggle only when the *title* row is clicked (Qt toggles via the group's
-          # checkbox, not the whole area) — toggling on any click made stray clicks
-          # near the controls disable everything. Uses `Mouse` (not `Click`)
-          # because only it carries coordinates.
-          on(Crysterm::Event::Mouse) do |e|
-            next unless e.action.down?
-            if e.y == atop && e.x >= aleft && e.x < aleft + awidth
-              toggle
-              e.accept
-            end
-          end
+        install_checkable_handlers if checkable?
+      end
 
-          # A child added to an unchecked group must come up disabled. Children
-          # are appended after construction, so reflect state on each as it's
-          # adopted, not just on toggle.
-          on(Crysterm::Event::Adopt) { apply_enabled }
+      # Wires the title-row toggle-click and the child-adopt reflect handlers.
+      # Extracted so `checkable=` can install them when checkability is enabled
+      # after construction; idempotent via `@checkable_wired`.
+      private def install_checkable_handlers : Nil
+        return if @checkable_wired
+        @checkable_wired = true
+
+        # Toggle only when the *title* row is clicked (Qt toggles via the group's
+        # checkbox, not the whole area) — toggling on any click made stray clicks
+        # near the controls disable everything. Uses `Mouse` (not `Click`)
+        # because only it carries coordinates. Guarded on `checkable?` so a later
+        # `checkable = false` stops it from toggling.
+        on(Crysterm::Event::Mouse) do |e|
+          next unless checkable? && e.action.down?
+          if e.y == atop && e.x >= aleft && e.x < aleft + awidth
+            toggle
+            e.accept
+          end
         end
+
+        # A child added to an unchecked group must come up disabled. Children
+        # are appended after construction, so reflect state on each as it's
+        # adopted, not just on toggle.
+        on(Crysterm::Event::Adopt) { apply_enabled if checkable? }
       end
 
       private def label_text : String

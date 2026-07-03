@@ -59,6 +59,36 @@ module Crysterm
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
+      # Registers the overlay listeners now when a window is resolvable, else
+      # defers to a one-shot `Attach`/`Reparent` hook. A backend built detached
+      # (the standard compose-then-attach pattern, or a parent not yet on a
+      # `Window`) has no window at construction, so calling the raising `window`
+      # accessor to register would crash — this waits until the widget lands on
+      # a window.
+      protected def register_overlay_listeners_deferred
+        if s = window?
+          on_overlay_window s
+        else
+          on(::Crysterm::Event::Attach) { try_register_overlay_deferred }
+          on(::Crysterm::Event::Reparent) { try_register_overlay_deferred }
+        end
+      end
+
+      # Fires from the deferred `Attach`/`Reparent` hook: registers once a window
+      # exists, guarded on `@listener_screen` so a re-attach doesn't double-register.
+      private def try_register_overlay_deferred
+        return if @listener_screen
+        s = window? || return
+        on_overlay_window s
+      end
+
+      # Hook invoked with the window the overlay is (finally) on. The default
+      # just registers the listeners; `Media::Graphics` overrides it to also
+      # re-resolve the terminal's real cell pixel size from that window.
+      protected def on_overlay_window(s : ::Crysterm::Window)
+        register_overlay_listeners s
+      end
+
       # Removes the listeners registered above and forgets the window.
       protected def teardown_overlay_listeners
         s = @listener_screen || return

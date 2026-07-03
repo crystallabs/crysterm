@@ -38,10 +38,16 @@ module Crysterm
 
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
+            # Discard any in-progress edit first, matching `#stepping_key`: while
+            # `@editing` is non-nil the box shows the buffer, so a wheel step would
+            # change the committed value invisibly (then be revealed by Escape or
+            # overwritten by Enter).
+            cancel_edit
             increment
             e.accept
             request_render
           elsif e.action.wheel_down?
+            cancel_edit
             decrement
             e.accept
             request_render

@@ -549,6 +549,11 @@ module Crysterm
       YEAR_MENU_RADIUS = 100
 
       private def open_month_menu(col : Int32) : Nil
+        # Close the sibling first: the nav bar is part of each open menu's grab
+        # region (`popup_nav_menu`), so a click on the year field while the month
+        # menu is open passes through instead of dismissing it — without this both
+        # dropdowns would end up open with two stacked modal grabs.
+        @year_menu.try &.hide_popup
         @month_menu.try &.destroy
         return unless menu = new_nav_menu do |m|
                         MONTHS.each_with_index do |name, i|
@@ -562,6 +567,9 @@ module Crysterm
       end
 
       private def open_year_menu(col : Int32) : Nil
+        # Close the sibling first (see `#open_month_menu`) so opening one nav
+        # dropdown never leaves the other open with a second modal grab.
+        @month_menu.try &.hide_popup
         @year_menu.try &.destroy
         return unless menu = new_nav_menu do |m|
                         base = @shown_year
@@ -615,6 +623,11 @@ module Crysterm
       # ── Keyboard ──────────────────────────────────────────────────────────
 
       def on_keypress(e)
+        # A display-only calendar (`SelectionMode::NoSelection`) must not move a
+        # selection or emit `Event::Action`/`DateChange` from the keyboard —
+        # matching `activate_day` (mouse) and `render_day` (marker), which already
+        # suppress selection. Leave the keys unaccepted so they can propagate.
+        return if selection_mode.no_selection?
         case e.key
         when Tput::Key::Left
           shift_selection_days -1

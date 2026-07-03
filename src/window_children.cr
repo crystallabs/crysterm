@@ -1,30 +1,61 @@
 module Crysterm
   class Window
     def insert(element, i = -1)
-      # Prevents adding an element twice
-      super || return
+      # Reorder of an existing top-level child (`prepend`/`insert_before`/
+      # `insert_after` on a widget already listed here). The bare
+      # `Mixin::Children#insert` rejects a duplicate before any list mutation, so
+      # it can't reposition — the old `super || return` therefore made a reorder a
+      # silent no-op. Do the remove-then-add in place, mirroring `Widget#insert`.
+      # The widget stays on this same window, so none of the attach/detach/focus/
+      # registry churn is needed; just relist and mark the structure changed.
+      if old_i = children.index(element)
+        # Correct the caller's index (computed against the pre-removal list) for
+        # the removal that shifts later siblings left, then normalize a negative
+        # (append) target against the post-removal list. Mirrors `Widget#insert`'s
+        # F1-14 index correction.
+        target = i
+        target -= 1 if target >= 0 && old_i < target
+        children.delete_at old_i
+        target += children.size + 1 if target < 0
+        children.insert target.clamp(0, children.size), element
+        mark_structure_changed
+        return element
+      end
+
+      # A same-window nested→top-level move must not churn the window-level
+      # `Detach`/`Attach` events or rewind focus — the widget never leaves this
+      # window. Detected before the unlink severs the `#parent` link the window is
+      # derived through. (A cross-window move keeps the normal churn.)
+      same_screen_move = !element.parent.nil? && element.window? == self
 
       # An element moved here from another home must first be unlinked from it,
       # or it is left double-parented — listed in both its old container's
       # `children` and ours (rendered twice, stale repaints on the old
-      # container). A *nested* element unlinks from its widget parent; a
-      # genuine *top-level* element (listed directly in another screen's
-      # `children`, which `remove_from_parent` can't touch since it has no
-      # widget `@parent`) is removed from that screen instead. Mirrors the
-      # detach-from-old-home `Widget#insert` performs for the reverse move;
-      # without it, moving a widget *onto* a screen leaked.
+      # container). A *nested* element unlinks from its widget parent (Detach
+      # suppressed for a same-window move via `reparenting_same_screen`, as
+      # `Widget#insert` does); a genuine *top-level* element (listed directly in
+      # another screen's `children`, which `remove_from_parent` can't touch since
+      # it has no widget `@parent`) is removed from that screen instead.
       if element.parent
+        element.reparenting_same_screen = same_screen_move
         element.remove_from_parent
+        element.reparenting_same_screen = false
       elsif (prev_screen = element.window?) && prev_screen != self && prev_screen.children.includes?(element)
         prev_screen.remove element
       end
 
+      # Prevents adding an element twice (any residual duplicate is a no-op).
+      super || return
+
       # A top-level widget (added straight to a Window) is the single element
       # that actually stores its screen; descendants derive it from the tree.
       # `previous` lets `attach` emit a `Detach` if moved here from another
-      # screen. The unlink above already detached it from its old home (emitting
-      # that `Detach`), so `previous` is now nil and `attach` just emits `Attach`.
-      previous = element.window?
+      # screen. For a same-window move hand `attach` this window so it no-ops
+      # (returns early when `previous == self`), suppressing the spurious
+      # `Attach`. Otherwise the unlink above already detached it from its old home
+      # (emitting `Detach`), so `previous` is now nil and `attach` just emits
+      # `Attach`.
+      previous = same_screen_move ? self : element.window?
       element.window = self
       attach element, previous
 

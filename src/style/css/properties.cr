@@ -616,6 +616,10 @@ module Crysterm
           elsif type = border_type_keyword(token)
             border.type = type
             type_seen = true
+          elsif nw = named_width(token)
+            # Named width (`thin`/`medium`/`thick`) before the color fallback, so
+            # `border-left: thin solid red` sets a 1-cell edge, not a bogus color.
+            explicit_width = nw
           elsif w = Length.to_cells(token, vertical)
             explicit_width = w
           else
@@ -764,6 +768,21 @@ module Crysterm
         Length.to_cells(value, vertical) || 0
       end
 
+      # Maps a CSS named border width (`thin`/`medium`/`thick`) to a cell count,
+      # or `nil` for any other token. Per CSS `thin < medium < thick`; in the
+      # terminal cell model `thin`/`medium` both round to a single-cell line and
+      # `thick` to two. Checked before the length/color parsing in the `border`
+      # shorthand and the width resolvers, so these keywords aren't mistaken for
+      # a color (`border: thin solid red` would otherwise set the border color to
+      # the unknown-name `-1` sentinel or, in the shorthand, drop the width to 0).
+      private def self.named_width(token : String) : Int32?
+        case Case.fold_keyword(token.strip)
+        when "thin", "medium" then 1
+        when "thick"          then 2
+        else                       nil
+        end
+      end
+
       # Like `cells`, but a positive sub-cell width (e.g. `2px` with the default
       # `px` divisor, which rounds to 0) clamps up to 1 so a declared border
       # doesn't vanish. An explicit `0`, negative width, or non-length value
@@ -773,6 +792,9 @@ module Crysterm
       # resolve the fractional cells in one pass (`to_cells_f`) and clamp from it.
       # Only a rare `calc()` border falls back to `to_cells`.
       private def self.border_cells(value : String, vertical : Bool = false) : Int32
+        if nw = named_width(value)
+          return nw
+        end
         if frac = Length.to_cells_f(value, vertical)
           cells = Length.to_cell_count(frac)
           return cells if cells > 0
@@ -886,6 +908,11 @@ module Crysterm
         split_top_level(value).each do |token|
           if type = border_type_keyword(token)
             border.type = type
+          elsif nw = named_width(token)
+            # A named width (`thin`/`medium`/`thick`) sizes all four sides; must
+            # be checked before the color fallback so it isn't treated as an
+            # unknown color name.
+            border.left = border.right = border.top = border.bottom = nw
           elsif w = Length.to_cells(token)
             # One width for all four sides, honored at its rounded cell count
             # rather than clamping a sub-cell hairline up to a full-cell box.
@@ -896,7 +923,16 @@ module Crysterm
             # Whole-border color: keep the resolved form (`Int32`/`String`) via
             # `Colorizable`. A `nil` (`inherit`/`initial`/`currentColor` with no
             # text color) is dropped so it doesn't clobber the color with "unset".
-            ColorValue.resolve(token, el_color).try { |c| border.fg = c }
+            # A named/hex string that `Colors.convert` can't recognize collapses
+            # to the `-1` sentinel (a stray keyword — e.g. a misspelled width);
+            # drop it too rather than storing a bogus border color. `transparent`
+            # resolves to a genuine `Int32` `-1` and is kept.
+            resolved = ColorValue.resolve(token, el_color)
+            if resolved.is_a?(String)
+              border.fg = resolved unless Colors.convert_cached(resolved) == -1
+            elsif resolved
+              border.fg = resolved
+            end
           end
         end
         border

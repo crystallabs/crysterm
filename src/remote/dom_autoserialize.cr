@@ -103,19 +103,46 @@ macro dom_autoserialize_body(mode)
       case key
       {% for n in names %}
         {% kind = supported[n][0] %}{% nilable = supported[n][1] %}{% key = n.split("_").join("-") %}
+        # Prefer the public setter over a raw ivar write when one exists: a
+        # custom setter (e.g. `ProgressBar#value=` clamps + emits `ValueChange`,
+        # `#maximum=` re-clamps) carries side effects the bridge's runtime
+        # `setAttribute` must not skip (finding 6). A plain `property` setter is
+        # equivalent to the ivar write, so this is safe as a blanket rule; only
+        # ivars with no setter at all fall back to `@ivar =`.
+        {% setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == n + "=" } } %}
         when {{ key }}
           {% if kind == "bool" %}
-            @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
+            {% if setter %}
+              self.{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
+            {% else %}
+              @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
+            {% end %}
           {% elsif kind == "dim" %}
-            @{{ n.id }} = dom_coerce_dimension(value)
+            {% if setter %}
+              self.{{ n.id }} = dom_coerce_dimension(value)
+            {% else %}
+              @{{ n.id }} = dom_coerce_dimension(value)
+            {% end %}
           {% elsif kind == "int" %}
             {% if nilable %}
-              @{{ n.id }} = value.try(&.to_i?)
+              {% if setter %}
+                self.{{ n.id }} = value.try(&.to_i?)
+              {% else %}
+                @{{ n.id }} = value.try(&.to_i?)
+              {% end %}
             {% else %}
-              value.try(&.to_i?).try { |i| @{{ n.id }} = i }
+              {% if setter %}
+                value.try(&.to_i?).try { |i| self.{{ n.id }} = i }
+              {% else %}
+                value.try(&.to_i?).try { |i| @{{ n.id }} = i }
+              {% end %}
             {% end %}
           {% else %} # str
-            @{{ n.id }} = {% if nilable %}value{% else %}value || ""{% end %}
+            {% if setter %}
+              self.{{ n.id }} = {% if nilable %}value{% else %}value || ""{% end %}
+            {% else %}
+              @{{ n.id }} = {% if nilable %}value{% else %}value || ""{% end %}
+            {% end %}
           {% end %}
       {% end %}
       else

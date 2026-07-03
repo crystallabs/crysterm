@@ -80,6 +80,13 @@ module Crysterm
     # Widget's parent `Widget`, if any.
     getter parent : Widget?
 
+    # Whether this widget *is* a label box (the child created by `#set_label` to
+    # render a widget's title over its border). Distinct from `@_label`, which is
+    # non-nil when a widget *has* a label. `_get_coords`' scrollable-ancestor
+    # clip uses this to exempt a label from border compensation (a label sits ON
+    # its parent's border, so its clip must not be pushed inside by that border).
+    protected property? _is_label : Bool = false
+
     # (Defined here rather than in src/mixin/children.cr because classes with
     # children do not necessarily have a parent, e.g. `Window`.)
 

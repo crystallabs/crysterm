@@ -219,7 +219,12 @@ module Crysterm
           # `when CheckBox` alone wouldn't match `RadioButton`.
         when RadioButton then el.checked?.to_s
         when CheckBox    then el.checked?.to_s
-        when List        then el.value
+          # Match the mixin, not `List`: `ListTable`/`Tree` are *siblings* of
+          # `List` (both `AbstractItemView` + `Mixin::ItemView`), so `when List`
+          # dropped their value on submit. A `FileManager` is a picker, not a
+          # form field, so it's excluded first (matched before the mixin arm).
+        when FileManager     then nil
+        when Mixin::ItemView then el.value
           # Numeric spin boxes (`< Input`, `Int32`/`Float64` value).
           # `DoubleSpinBox` renders to `#decimals` places, so use `#formatted_value`.
         when SpinBox       then el.value.to_s
@@ -252,7 +257,9 @@ module Crysterm
       private def reset_children(el : Widget)
         case el
         when FileManager then el.refresh
-        when List        then el.selekt 0
+          # Reset every item view (`List`/`ListTable`/`Tree`), not just `List`
+          # (siblings, see `#field_value`). `FileManager` is handled above.
+        when Mixin::ItemView then el.selekt 0
           # As in `#field_value`: clear via `Mixin::TextEditing` so `LineEdit`
           # (an `Input`, not a `PlainTextEdit`) is reset too.
         when Mixin::TextEditing then el.clear_value

@@ -113,6 +113,14 @@ module Crysterm
     # parameter parsing stays numeric, and so `c`/`n` finals can tell a secondary
     # DA (`CSI > c`) or DEC-private DSR (`CSI ? 6 n`) from their plain forms.
     @csi_prefix : Char? = nil
+    # True once an intermediate byte (0x20-0x2f, e.g. the `$` of DECCARA
+    # `CSI … $ r` or the SP of SL `CSI … SP @`) has been seen in the current
+    # CSI. None of the CSI finals implemented here take an intermediate, and the
+    # final byte alone collides with an unrelated command (`$ r` vs DECSTBM `r`,
+    # `SP @` vs ICH `@`), so `#dispatch_csi` ignores any sequence that carries
+    # one. Tracked separately from `@csi_prefix` and kept out of `@csi_buf` so
+    # parameter parsing stays numeric.
+    @csi_intermediate : Bool = false
     @osc_buf = IO::Memory.new
     @osc_esc : Bool = false
     # True while the string is a DCS/SOS/PM/APC payload (entered via
@@ -387,6 +395,7 @@ module Crysterm
         @csi_buf.clear
         @csi_private = false
         @csi_prefix = nil
+        @csi_intermediate = false
       when ']'
         @state = :osc
         @osc_buf.clear
@@ -432,14 +441,27 @@ module Crysterm
         end
         # A lone ESC not forming ST (ESC \) was part of the string payload;
         # restore it before handling the current byte so an OSC containing a
-        # literal ESC + non-`\` isn't silently corrupted.
-        @osc_buf << '\e'
+        # literal ESC + non-`\` isn't silently corrupted — but only for a real
+        # OSC; a discarded DCS/SOS/PM/APC payload is never materialized.
+        @osc_buf << '\e' unless @osc_string
       end
       case c.ord
       when 0x07 then finish_osc; @state = :ground # BEL terminator
       when 0x1b then @osc_esc = true
-      else           @osc_buf << c
+        # A DCS/SOS/PM/APC string (`@osc_string`) is swallowed only to find its
+        # ST/BEL terminator — its payload is discarded, never parsed as a title.
+        # Don't append it to `@osc_buf`: otherwise a long payload (e.g. a
+        # full-screen sixel image) grows the buffer, whose capacity is then
+        # retained for the widget's lifetime. Still run the ESC-pending logic
+        # above so ST is detected.
+      else @osc_buf << c unless @osc_string
       end
+    end
+
+    # :nodoc: bytes currently buffered for the pending OSC/DCS string. Exposed
+    # for tests asserting a discarded DCS/SOS/PM/APC payload is not accumulated.
+    def osc_buffer_size : Int32
+      @osc_buf.size.to_i
     end
 
     private def finish_osc : Nil
@@ -465,8 +487,15 @@ module Crysterm
         @csi_private = (c == '?')
         return
       end
-      if o >= 0x20 && o <= 0x3f
-        @csi_buf.write_byte(o.to_u8) # parameter / intermediate bytes (all ASCII)
+      if o >= 0x20 && o <= 0x2f
+        # Intermediate byte (space through '/'): mark the sequence and keep it
+        # out of the numeric parameter buffer. `dispatch_csi` ignores any
+        # sequence carrying one (see `@csi_intermediate`).
+        @csi_intermediate = true
+        return
+      end
+      if o >= 0x30 && o <= 0x3f
+        @csi_buf.write_byte(o.to_u8) # parameter bytes (digits, ';', ':', private markers)
         return
       end
       dispatch_csi c # final byte (0x40..0x7e)
@@ -582,6 +611,12 @@ module Crysterm
 
     # ameba:disable Metrics/CyclomaticComplexity
     private def dispatch_csi(c : Char) : Nil
+      # An intermediate byte (0x20-0x2f) makes this a different command from the
+      # bare final: `CSI … $ r` (DECCARA) is not DECSTBM `r`, `CSI … SP @` (SL)
+      # is not ICH `@`. None of the finals below take an intermediate, so a
+      # sequence carrying one is not one we implement — ignore it rather than
+      # execute the wrong command on its parameters.
+      return if @csi_intermediate
       case c
       when 'A'      then cursor_up(param(0, 1)); @wrap_pending = false
       when 'B'      then cursor_down(param(0, 1)); @wrap_pending = false
@@ -1153,6 +1188,7 @@ module Crysterm
       @csi_buf.clear
       @csi_private = false
       @csi_prefix = nil
+      @csi_intermediate = false
       # RIS also resets the DECSC/DECRC save slot (and the alt-buffer cursor
       # save) to defaults; otherwise a DECRC (`ESC 8`) after `ESC c` would
       # restore the pre-reset cursor position/attribute/charset.

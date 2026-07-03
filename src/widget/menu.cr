@@ -892,6 +892,15 @@ module Crysterm
       def destroy
         hide_popup
         close_submenu
+        # Drop every per-action `Changed` handler and association, so destroying
+        # this menu (including submenus rebuilt on each open/close) doesn't leave
+        # stale handlers running `sync_items`/`selekt`/`request_render` against a
+        # destroyed widget, nor a dead `Menu` pinned in `action.associated_widgets`.
+        @actions.each do |a|
+          unwatch_action a
+          a.dissociate self
+        end
+        @actions.clear
         super
       end
     end

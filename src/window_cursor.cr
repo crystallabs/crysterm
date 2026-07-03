@@ -121,8 +121,6 @@ module Crysterm
       end
     end
 
-    alias_previous reset_cursor
-
     # :nodoc:
     def _artificial_cursor_attr(cursor, attr : Int64 = @default_attr)
       ch = nil
@@ -211,6 +209,8 @@ module Crysterm
       # Repaint to clear the previously-drawn artificial cursor cell.
       render_if_active if was_artificial
     end
+
+    alias_previous reset_cursor
     # end
   end
 end

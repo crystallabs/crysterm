@@ -45,10 +45,11 @@ module Crysterm
         # command (Qt's `QToolBar#addSeparator`).
         property? separator = false
 
-        # Window-level handler installed for this command's global hotkeys
-        # (`#keys`). Retained so it can be removed when the command or bar is
-        # torn down, instead of leaking onto the window.
-        property key_handler : ::Crysterm::Event::KeyPress::Wrapper?
+        # Window-level subscription for this command's global hotkeys (`#keys`).
+        # A `Subscription` captures the *window it was installed on* at subscribe
+        # time, so `#off` removes it from that exact window regardless of the
+        # bar's later `window?` — no leak after a reparent/detach.
+        property key_handler : ::Crysterm::Subscription?
 
         def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
         end
@@ -106,6 +107,14 @@ module Crysterm
         # widget instead of leaking on the window.
 
         on(::Crysterm::Event::Focus) { selekt selected }
+
+        # Command hotkeys are window-level accelerators, so they must be tied to
+        # the window lifecycle (mirroring `MenuBar`'s menu-shortcut handling):
+        # (re)install on attach, uninstall on detach. Without this, a bar that
+        # merely `remove`s (toolbar swap) leaves its hotkeys firing on a window
+        # it's no longer on, and one added while detached would never install.
+        on(::Crysterm::Event::Attach) { install_command_hotkeys }
+        on(::Crysterm::Event::Detach) { uninstall_command_hotkeys }
       end
 
       # Currently-selected absolute index.
@@ -213,17 +222,9 @@ module Crysterm
         append item
 
         # Per-command hotkeys are global accelerators (fire regardless of focus,
-        # like a toolbar shortcut). The handler wrapper is stored on the command
-        # so it can be removed (see `#detach_command`).
-        cmd.keys.try do |keys|
-          if cmd.callback
-            cmd.key_handler = window.on(::Crysterm::Event::KeyPress) do |e|
-              if keys.includes? e.char.to_s
-                trigger cmd
-              end
-            end
-          end
-        end
+        # like a toolbar shortcut). Installed only when the bar is attached; the
+        # `Event::Attach` handler re-covers commands added while detached.
+        install_command_hotkey cmd
 
         if @mouse && !cmd.separator?
           item.on(::Crysterm::Event::Click) do
@@ -328,7 +329,16 @@ module Crysterm
         # `#last_rendered_position` raises when unrendered, so it can't be used
         # as a predicate here).
         unless @lpos
-          el.try { |e| emit ::Crysterm::Event::SelectItem, e, offset }
+          # Before the first render there's no layout for the horizontal-scroll
+          # math, but `selected` (== `@left_base + @left_offset`) must still move
+          # to *offset* — otherwise the highlight/`SelectItem` point at *offset*
+          # while Enter (`fire selected`) fires the old command. Record the index
+          # (exactly what `#add`'s auto-select does) before emitting.
+          el.try do |e|
+            @left_base = 0
+            @left_offset = offset
+            emit ::Crysterm::Event::SelectItem, e, offset
+          end
           return
         end
 
@@ -472,10 +482,41 @@ module Crysterm
         end
       end
 
+      # Installs *cmd*'s global-hotkey handler on the current window, if the bar
+      # is attached and the command actually has keys + a callback. Idempotent:
+      # `Subscription#on` cancels any prior handler first, so a re-install after
+      # a detach/attach can't stack duplicates.
+      private def install_command_hotkey(cmd : Command) : Nil
+        return unless w = window?
+        keys = cmd.keys
+        return unless keys && cmd.callback
+        sub = (cmd.key_handler ||= ::Crysterm::Subscription.new)
+        sub.on(w, ::Crysterm::Event::KeyPress) do |e|
+          # Don't act on a character another widget already consumed (a focused
+          # editor typing the hotkey char) — mirrors `Action#install_shortcut`.
+          next if e.accepted?
+          if keys.includes? e.char.to_s
+            trigger cmd
+          end
+        end
+      end
+
+      # (Re)installs every command's global-hotkey handler on the current window.
+      private def install_command_hotkeys : Nil
+        @commands.each { |cmd| install_command_hotkey cmd }
+      end
+
+      # Uninstalls every command's global-hotkey handler. The `Subscription`
+      # captured its window at install time, so this works even after the bar
+      # has detached (`window?` gone nil).
+      private def uninstall_command_hotkeys : Nil
+        @commands.each { |cmd| cmd.key_handler.try &.off }
+      end
+
       # Removes a command's global-hotkey handler from the window, so it stops
       # firing once the command is gone.
       private def detach_command(cmd : Command)
-        cmd.key_handler.try { |w| window?.try &.off ::Crysterm::Event::KeyPress, w }
+        cmd.key_handler.try &.off
         cmd.key_handler = nil
       end
 

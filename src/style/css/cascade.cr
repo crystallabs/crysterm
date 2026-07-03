@@ -117,14 +117,19 @@ module Crysterm
               next unless mq.matches?(media_width, media_height, media_colors)
             end
             if has_slots && backward_structural?(rule.selector)
-              # Real child widgets are matched against the pseudo-node-free
-              # structural document so their backward/only structural pseudos
-              # count only real siblings; slot/extra nodes (whose `data-uid`
-              # bears `::`) still come from the full document, where they exist.
+              # Real child widgets *and* extra pseudo-nodes (table `Row`/`Cell`,
+              # which carry a `:` in their slot key) are matched against the
+              # sub-element-free structural document, so their backward/only
+              # structural pseudos count only real siblings and rows — not the
+              # trailing scrollbar/track/label nodes. Only the *sub-element*
+              # pseudo-nodes (`::scrollbar`/`::track`/`::label`, no `:` in the
+              # slot) still come from the full document, where alone they exist.
               sdoc = structural_doc ||= HTML5.parse(window.to_html(structural: true))
               real = matched_nodes(sheet, sdoc, rule, structural_cache)
               slots = matched_nodes(sheet, doc, rule, selector_cache).select do |node|
-                (k = node["data-uid"]?) ? k.val.includes?("::") : false
+                next false unless k = node["data-uid"]?
+                sep = k.val.index("::")
+                sep ? !k.val[(sep + 2)..].includes?(':') : false
               end
               nodes = real + slots
             else
@@ -147,6 +152,14 @@ module Crysterm
                 if state = rule.state
                   (acc[{key, state}] ||= [] of Entry).concat entries
                   (stated_keys[key] ||= Set(WidgetState).new) << state
+                  # A state rule on a sub-element (`uid::slot:hover`) marks only
+                  # the slot key stated. But `touched` derives the *parent* uid
+                  # (via `key.partition("::")[0]`), so the parent's Hovered style
+                  # gets materialized — and unless the parent uid is also stated,
+                  # the base fold never folds the parent's base rules into that
+                  # state, so it renders as a pristine pre-CSS dup (widget flashes
+                  # unstyled while hovered/focused). Mark the parent stated too.
+                  mark_parent_stated stated_keys, key, state
                 else
                   (base[key] ||= [] of Entry).concat entries
                 end
@@ -157,6 +170,7 @@ module Crysterm
               unless sel_entries.empty?
                 (sel_acc[key] ||= [] of Entry).concat sel_entries
                 (stated_keys[key] ||= Set(WidgetState).new) << WidgetState::Selected
+                mark_parent_stated stated_keys, key, WidgetState::Selected
               end
             end
           end
@@ -249,7 +263,14 @@ module Crysterm
         # Sub-element styles build on the now-current per-state style. Extra
         # slots (those with a `:` — e.g. a table cell `cell:0:1`) are routed to
         # the widget's own per-slot storage instead of a `Style` sub-style.
-        acc.each do |(key, state), entries|
+        #
+        # A whole-row extra slot (`::row:N`, `Row { ... }`) fans its computed
+        # style out onto the row's cells (see `TableCells#css_set_extra_style`),
+        # establishing the per-cell base a `Cell`/`Cell:nth-child(...)` rule then
+        # layers on top. So row slots must be applied *before* cell slots; `acc`
+        # is an unordered hash, so sort row slots first (order among cells, or
+        # among rows, is immaterial — each targets an independent cell).
+        acc.to_a.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 }.each do |(key, state), entries|
           next unless key.includes?("::")
           next unless target = index[key]?
           widget, slot = target
@@ -426,6 +447,15 @@ module Crysterm
       # sheet tier (so an author base rule still overrides it).
       private def self.state_tier(base_tier : Int32) : Int32
         base_tier == TIER_AUTHOR ? TIER_AUTHOR_STATE : base_tier
+      end
+
+      # When a state rule lands on a sub-element key (`uid::slot`), records the
+      # same state under the *parent* uid so the parent's base rules fold into
+      # that state's materialized style. A no-op for a top-level (`::`-free) key.
+      private def self.mark_parent_stated(stated_keys : Hash(String, Set(WidgetState)), key : String, state : WidgetState) : Nil
+        if sep = key.index("::")
+          (stated_keys[key[0, sep]] ||= Set(WidgetState).new) << state
+        end
       end
 
       # The cascade entries a rule contributes: its normal declarations at

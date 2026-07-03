@@ -58,7 +58,7 @@ module Crysterm
 
         @file.try { |f| load f }
 
-        register_render_hook(window) { redraw_image }
+        register_render_hook_deferred { redraw_image }
 
         on(::Crysterm::Event::Hide) { remove }
         on(::Crysterm::Event::Detach) { remove }

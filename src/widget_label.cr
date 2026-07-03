@@ -50,6 +50,9 @@ module Crysterm
         style: style.label,
         resizable: true,
       )
+      # Mark the box as a label so `_get_coords`' scrollable-ancestor clip
+      # exempts it from border compensation (blessed's `_isLabel`).
+      _label._is_label = true
 
       if side != "right"
         _label.left = 2 - ileft

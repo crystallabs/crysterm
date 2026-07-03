@@ -229,7 +229,13 @@ module Crysterm
       # CSS is active whenever either an author or the default (theme)
       # stylesheet has rules; with neither, widgets keep their programmatic look.
       if (author.nil? || author.rules.empty?) && default.rules.empty?
-        clear_css_dirty
+        # No active rules: nothing to cascade. Clear only the dirty/scope flags,
+        # but keep `@css_structural`/`@css_patch_widgets` (and the parse cache)
+        # intact — structural/attribute changes made during this unstyled period
+        # must still be reflected when a stylesheet is (re)assigned. Wiping them
+        # here (as the full `clear_css_dirty` does) would leave the next active
+        # cascade patching a stale cached document against an empty patch set.
+        clear_css_dirty_scope
         return
       end
       document = to_html
@@ -327,11 +333,19 @@ module Crysterm
     end
 
     private def clear_css_dirty : Nil
+      clear_css_dirty_scope
+      @css_structural = false
+      @css_patch_widgets.clear
+    end
+
+    # Clears only the dirty/scope flags, leaving the structural-change and
+    # per-widget patch tracking (and the parse cache) untouched. Used by the
+    # no-rules early exit in `#apply_stylesheet`, which must not discard
+    # invalidation state accumulated while no stylesheet is active.
+    private def clear_css_dirty_scope : Nil
       @css_dirty = false
       @css_full = false
-      @css_structural = false
       @css_dirty_roots.clear
-      @css_patch_widgets.clear
     end
 
     # Expands the dirty subtree roots into the full set of widgets to recompute.

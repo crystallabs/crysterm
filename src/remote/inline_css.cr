@@ -11,12 +11,35 @@ module Crysterm
     # layout hot-reload).
     @css_inline_source : String?
 
+    # A stylesheet assigned as an *already-parsed* object (`window.stylesheet =
+    # CSS::Stylesheet.parse(app_css)`), recorded so a later inline recompose
+    # (triggered by any `load_layout`/`reload_layout`) doesn't silently discard
+    # it — the remote overlay otherwise tracks only the two *text* sources. See
+    # finding 52.
+    @css_object_source : CSS::Stylesheet?
+
+    # True while `recompose_stylesheet` applies its own composed result, so the
+    # `stylesheet=(CSS::Stylesheet?)` override below doesn't mistake that
+    # internal apply for a user-assigned object source (which would record — and
+    # then re-merge — the recompose output into itself).
+    @recomposing = false
+
     # Overrides the core setter to *record* the external source (so it can be
     # recomposed with the inline source), instead of applying it directly.
     def stylesheet=(css : String) : String
       @css_loaded_source = css
       recompose_stylesheet
       css
+    end
+
+    # Overrides the core object setter to *record* a parsed stylesheet as a
+    # tracked source (unless the assignment is `recompose_stylesheet`'s own
+    # internal apply), then apply it via the core `previous_def`. Without this a
+    # `window.stylesheet = CSS::Stylesheet.parse(...)` was invisible to the
+    # remote overlay and got clobbered by the next layout load's recompose.
+    def stylesheet=(sheet : CSS::Stylesheet?) : CSS::Stylesheet?
+      @css_object_source = sheet unless @recomposing
+      previous_def(sheet)
     end
 
     # Overrides the core file-source application to compose with inline CSS, so
@@ -39,7 +62,8 @@ module Crysterm
     end
 
     # Builds the active stylesheet from external source + inline source,
-    # concatenated and handed to the one CSS parser. No-op if neither is set.
+    # concatenated and handed to the one CSS parser, then merges in any
+    # object-assigned author sheet. No-op if nothing is set.
     private def recompose_stylesheet(base_path : String? = nil) : Nil
       external = @css_loaded_source
       inline = @css_inline_source
@@ -49,11 +73,43 @@ module Crysterm
         else
           external || inline
         end
-      # `combined.nil?` here means a *cleared* source (e.g. a hot-reload to a
-      # layout with no `<style>` and no external sheet): parse an empty document
-      # so the previously composed rules are dropped rather than left stale. An
-      # early return would leave the old inline CSS active.
-      self.stylesheet = CSS::Stylesheet.parse(combined || "", base_path: base_path)
+      object = @css_object_source
+
+      sheet =
+        if combined
+          parsed = CSS::Stylesheet.parse(combined, base_path: base_path)
+          # Object sheet acts like the external/linked sheet: text (inline)
+          # rules come after it, so they win on equal specificity.
+          object ? merge_stylesheet(object, parsed) : parsed
+        elsif object
+          # No text source, but an object sheet was assigned (finding 52): keep
+          # it verbatim rather than clobbering it with an empty parse — the very
+          # bug where `stylesheet = CSS::Stylesheet.parse(css)` then
+          # `load_layout(...)` discarded the whole author sheet.
+          object
+        else
+          # Everything cleared (e.g. a hot-reload to a `<style>`-less layout with
+          # no external/object sheet): parse an empty document so previously
+          # composed rules are dropped rather than left stale.
+          CSS::Stylesheet.parse("", base_path: base_path)
+        end
+
+      @recomposing = true
+      self.stylesheet = sheet
+      @recomposing = false
+    end
+
+    # Combines two parsed stylesheets into one, `base` first so `extra`'s rules
+    # win on equal specificity (like a `<style>` block after a linked sheet).
+    # Used to layer the recomposed text sources over an object-assigned author
+    # sheet without needing that sheet's original source text.
+    private def merge_stylesheet(base : CSS::Stylesheet, extra : CSS::Stylesheet) : CSS::Stylesheet
+      CSS::Stylesheet.new(
+        base.rules + extra.rules,
+        base.variables.merge(extra.variables),
+        base.warnings + extra.warnings,
+        base.keyframes.merge(extra.keyframes),
+      )
     end
   end
 end

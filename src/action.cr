@@ -427,7 +427,14 @@ module Crysterm
         return
       end
       k = e.key
-      return unless k
+      unless k
+        # A plain character (no named `#key`) can neither extend a chord prefix
+        # nor begin a fresh shortcut, so it clears any half-entered prefix —
+        # otherwise typing ordinary text between the two strokes of a chord would
+        # leave the prefix live and let the chord complete spuriously later.
+        @shortcut_pending.delete window
+        return
+      end
 
       pending = @shortcut_pending[window]?
       # First try to extend a chord already in progress.

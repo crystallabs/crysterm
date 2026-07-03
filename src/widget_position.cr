@@ -448,7 +448,12 @@ module Crysterm
         # XXX
         # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
         # if @left < 0 || @right < 0 || @top < 0 || @bottom < 0
-        if @_label
+        # This exempts a widget that *is* a label (sits ON the parent's border)
+        # from border compensation — blessed's `if (this._isLabel) b = 0`. The
+        # old `if @_label` tested "widget HAS a label", the wrong direction: it
+        # clipped labels out of scrollable widgets and zeroed all four
+        # compensations for any labeled child in a scrolled container.
+        if _is_label?
           b = 0
           bb = 0
           bl = 0

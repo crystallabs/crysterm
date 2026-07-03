@@ -31,6 +31,12 @@ module Crysterm
       # The action backing each button box (absent for plain buttons/separators).
       @item_actions = {} of Widget::Box => Action
 
+      # Per-action `Event::Changed` handler, kept so it can be removed in
+      # `#destroy` (mirroring `Menu`'s `@action_changed`); otherwise destroying
+      # the bar leaves a stale handler running `refresh`/`request_render` on a
+      # destroyed widget for every future change of that action.
+      @action_changed = {} of Action => ::Proc(::Crysterm::Event::Changed, ::Nil)
+
       def initialize(**listbar)
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
@@ -55,10 +61,13 @@ module Crysterm
         action.tool_tip.try { |t| item.tool_tip = t }
         # Reflect external state changes (Qt's `QAction::changed()`): toggling a
         # checkable action's `checked` from elsewhere must re-light its button.
-        action.on(::Crysterm::Event::Changed) do
+        handler = ->(_e : ::Crysterm::Event::Changed) do
           refresh
           request_render
+          nil
         end
+        action.on ::Crysterm::Event::Changed, handler
+        @action_changed[action] = handler
         # Wire the accelerator now if already on a window; otherwise
         # `install_action_shortcuts` does it on attach.
         window?.try { |w| action.install_shortcut w, self }
@@ -105,6 +114,22 @@ module Crysterm
       # `Action#changed`, `#activate_action`, add-time state).
       private def refresh : Nil
         reapply_highlight
+      end
+
+      # Remove every per-action `Changed` handler and association before teardown,
+      # so no stale handler fires against the destroyed bar and no dead bar lingers
+      # in `action.associated_widgets`. (Keyboard accelerators are withdrawn on the
+      # `Detach` emitted during teardown.)
+      def destroy
+        @item_actions.each_value do |action|
+          if h = @action_changed.delete action
+            action.off ::Crysterm::Event::Changed, h
+          end
+          action.dissociate self
+        end
+        @action_changed.clear
+        @item_actions.clear
+        super
       end
     end
   end

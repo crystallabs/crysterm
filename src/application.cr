@@ -70,21 +70,27 @@ module Crysterm
     # resolves the active `Window` on that device, and the window does the
     # mouse/paste/key demux and focus walk (`Window#handle_input`).
     #
-    # Also home for **app-global hotkeys**, intercepted before any widget sees
-    # the key. Default quit keys (`q` / Ctrl-Q): a press (never release) on a
-    # window with `default_quit_keys?` tears it down and exits. Windows that opt
-    # out (`default_quit_keys: false`) fall through, so their own widgets' `q`
-    # bindings — or `Application.exec_all`'s graceful quit — still run.
+    # Also home for **app-global hotkeys**, applied as a *fallback* after the
+    # window has had its say. Default quit keys (`q` / Ctrl-Q): a press (never
+    # release) on a window with `default_quit_keys?` tears it down and exits —
+    # but only when no widget/handler `#accept`ed the key and no widget has
+    # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
+    # edits instead of quitting the app. Windows that opt out
+    # (`default_quit_keys: false`) never quit here, so their own `q` bindings —
+    # or `Application.exec_all`'s graceful quit — run instead.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
       win = active_window_for(screen)
       return unless win
 
-      if win.default_quit_keys? && !e.release? && quit_key?(e.char, e.key)
+      # Dispatch to the window first (mirroring how Tab-navigation defers in
+      # `_listen_keys`), then quit only if the resulting `KeyPress` came back
+      # un-`accepted?` and no widget is grabbing the keyboard (BUGS-F2 #1).
+      ev = win.handle_input e
+
+      if ev && win.default_quit_keys? && !win.grab_keys? && !ev.accepted? && quit_key?(ev.char, ev.key)
         win.destroy
         exit
       end
-
-      win.handle_input e
     end
 
     # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).

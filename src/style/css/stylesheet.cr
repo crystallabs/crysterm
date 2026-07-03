@@ -73,6 +73,22 @@ module Crysterm
           # A non-empty query that produced no usable condition (a media type
           # like `print`, or an unparsable feature) must not match everywhere.
           matchable = false if conditions.empty? && !query.strip.empty?
+          # Examine the text *outside* the `(...)` feature groups — the media
+          # type and logical keywords. `not` inverts the whole query; crysterm
+          # can't represent a negated media query, so treat it as unmatchable
+          # (never applies) rather than applying the un-negated feature (the
+          # inverted meaning). An unsupported media type (`print`/`speech`/…)
+          # AND-ed with a feature must not match a terminal either — only
+          # `screen`/`all` do; `and`/`only` are mere connectors.
+          query.gsub(GROUP_RE, ' ').split.each do |word|
+            case word.downcase
+            when "and", "only", "screen", "all"
+              # connector, or a media type a terminal satisfies: no effect
+            else
+              # `not`, or a media type we don't match (`print`/`speech`/…)
+              matchable = false
+            end
+          end
           {conditions, matchable}
         end
         new groups
@@ -674,6 +690,14 @@ module Crysterm
           return
         end
         if name.starts_with?("--")
+          # A custom property may itself carry a trailing `!important` (which in
+          # real CSS raises the property's own cascade priority). The value that
+          # `var(--name)` substitutes must *not* include the marker, or every
+          # consumer inherits a bogus `red !important` value that then fails to
+          # parse — poisoning every `var()` reference. Strip it before storing.
+          if m = value.match(IMPORTANT_RE)
+            value = m.pre_match.rstrip
+          end
           ctx.variables[name] = value # custom property, case-sensitive name
           return
         end

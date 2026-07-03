@@ -43,9 +43,19 @@ module Crysterm
       # "uid:event", so `unsubscribe` can actually stop delivery instead of
       # deferring to a reload that (with the fswatch stub) never runs.
       @forwarders = {} of String => Proc(Nil)
-      # Dedups declarative `on*` bindings across repeated `rewire`s (each
-      # `append`/`remove` re-runs it).
-      @declarative_wired = Set(String).new
+      # The forwarder keys ("uid:event") wired for each `{selector, event}`
+      # runtime subscription, captured at wire time. `unsubscribe` detaches by
+      # this recorded set rather than re-resolving the selector — a widget that
+      # stopped matching in the meantime (a class was removed) would otherwise
+      # keep its forwarder firing forever.
+      @wired_keys = {} of Tuple(String, String) => Set(String)
+      # Tracks each declarative `on*` binding's current action + its detacher,
+      # keyed by "uid:event", so a repeated `rewire` (each `append`/`remove`, or
+      # a `setAttribute("onclick", …)`) can *replace* a changed action — detach
+      # the stale binding, wire the new one — instead of leaving the old one
+      # firing forever. A flat "already wired" set couldn't tell a changed action
+      # from an unchanged one.
+      @declarative_wired = {} of String => Tuple(String, Proc(Nil))
       @on_quit = -> { quit; nil }
     end
 
@@ -117,6 +127,7 @@ module Crysterm
       @window.children.dup.each(&.destroy)
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
       @forwarders.clear        # their forwarders died with them (widgets destroyed)
+      @wired_keys.clear        # ...and the forwarder keys we recorded for them are stale
       @declarative_wired.clear # ...and their declarative on* bindings
       # Hot-reload replaces the whole layout, so the new markup's inline `<style>`
       # replaces the previous one (`replace_styles: true`). A selector-less
@@ -166,8 +177,13 @@ module Crysterm
       # subscriptions while none can ever fire.
       return 0 unless DOM.known_event? event
       matches = match selector
+      # Record every forwarder key we wire (or already have wired) for this
+      # subscription so `unsubscribe` can detach by this set — not by re-running
+      # the selector, which misses widgets that stopped matching since subscribe.
+      keys = (@wired_keys[{selector, event}] ||= Set(String).new)
       matches.each do |widget|
         key = "#{widget.uid}:#{event}"
+        keys << key
         next if @event_wired.includes? key
         @event_wired << key
         forward_event widget, event
@@ -324,7 +340,14 @@ module Crysterm
       when "setAttribute"
         name = string_param params, "name"
         attr_value = params.try(&.["value"]?).try(&.as_s)
-        each_match(selector) { |w| set_attribute w, name, attr_value }
+        n = each_match(selector) { |w| set_attribute w, name, attr_value }
+        # An `on*` change only updates `widget.dom_events`; the binding is wired
+        # by `rewire`, which `setAttribute` never called (only `remove`/`append`
+        # did) — so a new `onclick` stayed dormant and a changed one kept firing
+        # the old action. Re-wire on the render fiber, like `remove` does; the
+        # replaceable declarative-binding tracking detaches the stale action.
+        on_ui { rewire } if name.starts_with?("on")
+        n
       when "addClass"
         klass = string_param params, "class"
         each_match(selector, &.add_css_class(klass))
@@ -369,21 +392,27 @@ module Crysterm
       when "subscribe"
         event = string_param params, "event"
         sel = selector || raise BadParams.new(%(missing param "selector"))
+        # Reject an unknown event up front (mirroring the missing-param errors):
+        # otherwise it would be recorded and re-attempted (always a no-op) on
+        # every future `rewire` for the process lifetime, with no client error.
+        raise BadParams.new(%(unknown event "#{event}")) unless DOM.known_event? event
         @subscriptions << {sel, event} unless @subscriptions.includes?({sel, event})
         on_ui { wire_subscription sel, event }
       when "unsubscribe"
         event = string_param params, "event"
         sel = selector || raise BadParams.new(%(missing param "selector"))
         @subscriptions.reject! { |s| s == {sel, event} }
-        # Detach the live forwarders now. The forwarder is installed via
-        # `Widget#on`, so it must be removed via `Widget#off` — dropping the
-        # `@subscriptions`/`@event_wired` bookkeeping alone leaves the handler
-        # firing until a reload that no longer happens (fswatch is a stub).
+        # Detach the live forwarders now, by the uids recorded at wire time — not
+        # by re-resolving the selector, which misses a widget that stopped
+        # matching (e.g. `removeClass`) between subscribe and unsubscribe and
+        # would leave its forwarder firing forever. The forwarder is installed
+        # via `Widget#on`, so it must be removed via its `Widget#off` detacher.
         on_ui do
-          match(sel).each do |widget|
-            key = "#{widget.uid}:#{event}"
-            @event_wired.delete key
-            @forwarders.delete(key).try &.call
+          if keys = @wired_keys.delete({sel, event})
+            keys.each do |key|
+              @event_wired.delete key
+              @forwarders.delete(key).try &.call
+            end
           end
         end
         0
@@ -413,6 +442,12 @@ module Crysterm
         value.try &.split.each { |c| widget.add_css_class c unless c.empty? }
       else
         widget.dom_apply name, value
+        # Universal backstop for the generated `dom_apply` (finding 6): a runtime
+        # `setAttribute` must repaint and re-match CSS even for keys whose setter
+        # is a plain ivar write (no `invalidate_css`/`mark_dirty` of its own), so
+        # `:checked`/`[value]`-style selectors and damage tracking stay correct.
+        widget.invalidate_css
+        widget.mark_dirty
       end
     end
 
