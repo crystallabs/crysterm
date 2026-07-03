@@ -102,11 +102,18 @@ module Crysterm
             under = ba.unsafe_fetch(x)
             folded = Colors.composite(patt, under)
             result = opaque ? folded : Colors.blend(folded, under, op)
-            if under != result || bc.unsafe_fetch(x) != ch
+            # The base `char` array stores only a cluster's BASE codepoint, so the
+            # attr/char compare above is blind to grapheme-overlay differences
+            # (e.g. base "e" under an overlay painting "é" with identical style).
+            # Include the overlay in the change test so the accent is installed,
+            # and so a stale cluster under a matching base cell is cleared
+            # (BUGS-F1 finding 28).
+            pg = pr_has_g ? pr.grapheme_at?(x) : nil
+            if under != result || bc.unsafe_fetch(x) != ch || br.grapheme_at?(x) != pg
               ba[x] = result
               bc[x] = ch
-              if pr_has_g && (g = pr.grapheme_at?(x))
-                br.set_grapheme x, g
+              if pg
+                br.set_grapheme x, pg
               else
                 br.delete_grapheme x
               end

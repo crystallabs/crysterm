@@ -149,7 +149,11 @@ module Crysterm
   end
 
   at_exit do
-    Window.instances.each &.destroy
+    # Iterate a copy: `Window#destroy` calls `@@instances.delete self`, so
+    # iterating the live registry in place shifts elements under the index-based
+    # iterator and skips some windows — leaving their terminal unrestored
+    # (finding 8).
+    Window.instances.dup.each &.destroy
   end
 end
 

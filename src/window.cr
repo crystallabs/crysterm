@@ -641,6 +641,12 @@ module Crysterm
       @render_stop = true
       schedule_render
 
+      # Same for the resize fiber (finding 12): flag it, then poke the channel
+      # so it wakes and exits instead of looping forever on `receive`, pinning
+      # this destroyed window and possibly resizing it after teardown.
+      @resize_stop = true
+      schedule_resize
+
       # Stop the stylesheet hot-reload monitor thread, if one is running.
       unwatch_stylesheet
 

@@ -465,8 +465,19 @@ module Crysterm
           # claim happens even off-window to stay in step; only the write is gated.
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
-              nxt.attr = highlighted_attr(attr, sel_cols, x + 1 - xi)
-              nxt.continuation!
+              if x >= 0
+                # Lead cell was actually painted; claim the next cell as its
+                # continuation so 1 cell == 1 terminal column.
+                nxt.attr = highlighted_attr(attr, sel_cols, x + 1 - xi)
+                nxt.continuation!
+              else
+                # Lead cell fell at x == -1 (clipped by the left screen edge) and
+                # was never painted. Marking column 0 as a continuation with no
+                # lead anywhere would leave column 0 never repainted and shift the
+                # whole row left (see BUGS-F1 findings 10/11). Write a plain blank
+                # into column 0 instead, mirroring the end-of-line blanking above.
+                nxt.set_if_changed(highlighted_attr(attr, sel_cols, x + 1 - xi), ' ')
+              end
               line.mark_dirty(x + 1)
             end
             x += 1

@@ -124,6 +124,12 @@ module Crysterm
 
       bce_opt = @optimization.bce?
       fu = full_unicode?
+      # When full_unicode is on but the terminal declares neither unicode nor U8,
+      # non-ASCII glyphs are reduced to a 1-column ASCII fallback (see the emit
+      # path). A wide (2-column) cell whose glyph is reduced must still pad its
+      # output so the terminal cursor advances two columns, matching the claimed
+      # continuation cell. Constant for the frame.
+      ascii_reduce = !term_unicode && (u8 != 1)
       # Whether the per-row scan may be bounded to the dirty-column range.
       # BCE's clear look-ahead reaches past the changed span and full_unicode's
       # wide-grapheme continuations straddle cell boundaries, so both force a
@@ -573,7 +579,7 @@ module Crysterm
             # but a terminal declaring neither ACS nor U8 likely doesn't support
             # UTF8 either, so reducing to ASCII is the safest choice (fixes things
             # like sun-color).
-            if !term_unicode && (u8 != 1)
+            if ascii_reduce
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
@@ -591,25 +597,49 @@ module Crysterm
               # and the width below, instead of letting `current.width` repeat
               # the `@graphemes` lookup `grapheme_overlay` already did.
               g = current.grapheme_overlay
-              if g
-                @outbuf.print g
-              else
-                @outbuf.print desired_char
-              end
               # Equivalent to `current.width` here: the continuation case is
               # excluded by the `unless` above, so width comes from the overlay
               # cluster if present, else from the cell's own codepoint (NOT
               # `desired_char`, which may have been ACS-reduced for output).
               w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(current.char)
+              if g
+                if ascii_reduce
+                  # Non-UTF8 terminal: never emit the raw multibyte cluster (it
+                  # would print several bytes for one cell). Reduce to the base
+                  # codepoint's ASCII fallback, mirroring the lone-codepoint
+                  # reduction above (BUGS-F1 finding 29).
+                  base = current.char
+                  @outbuf.print(base > '~' ? (Tput::ACSC::Data[base]?.try(&.[2]) || '?') : base)
+                else
+                  @outbuf.print g
+                end
+              else
+                @outbuf.print desired_char
+              end
               # `o[x + 1]?` can only be nil at the last column, but a width-2 cell
-              # is never placed there: `widget_rendering.cr:433-438` blanks any
-              # lead cell that would lack an in-region continuation, so this claim
-              # never over-runs the buffer. The nil-guard is thus defensive only.
+              # is never placed there: `widget_rendering.cr` blanks any lead cell
+              # that would lack an in-region continuation, so this claim never
+              # over-runs the buffer. The nil-guard is thus defensive only.
               if w == 2 && (oc = o[x + 1]?)
                 oc.attr = desired_attr
                 oc.continuation!
                 skip_next = true
+                # A 2-column cell whose glyph was ASCII-reduced only printed ONE
+                # column, but `skip_next` advances the cell index by two. Pad with
+                # a space so the terminal cursor also advances two columns and
+                # stays in step (BUGS-F1 finding 29).
+                @outbuf.print ' ' if ascii_reduce
               end
+            else
+              # Orphan continuation cell reached WITHOUT `skip_next` (its lead was
+              # unchanged and skipped, or clipped off the left edge). Nothing is
+              # printed for it, so the terminal cursor did NOT advance. Force the
+              # next changed cell to reposition absolutely — otherwise it would
+              # assume the cursor moved and print one column too far left, shifting
+              # the whole run and persisting the error into @olines (BUGS-F1
+              # finding 10).
+              lx = x
+              ly = -1
             end
           else
             @outbuf.print desired_char

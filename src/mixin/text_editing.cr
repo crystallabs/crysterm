@@ -78,6 +78,15 @@ module Crysterm
         @selection_anchor = nil
       end
 
+      # Overrides `Mixin::Interactive#viewer_scroll_keys?`: while this widget is
+      # reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End are editing keys
+      # routed to `#_listener`, so the Interactive scroll handler must stand down
+      # to avoid double-handling them (scrolling the viewport AND moving the
+      # caret/killing text). Outside reading, viewer scrolling is fine.
+      def viewer_scroll_keys? : Bool
+        !@_reading
+      end
+
       # Max characters the user may type, `nil` for unlimited (Qt's
       # `QLineEdit#maxLength`). Enforced only for interactive input; `value=`
       # set programmatically is not truncated.
@@ -162,11 +171,16 @@ module Crysterm
             pos = position_at(e.x, e.y)
             clicks = window?.try(&.click_count) || 1
             if clicks >= 3
-              # Triple-click selects the whole logical line.
+              # Triple-click selects the whole logical line. On an empty logical
+              # line `line_start_pos == line_end_pos`, so seeding the anchor there
+              # leaves the same dangling-anchor-equal-to-caret landmine the
+              # double-click branch nils out below (a later edit shrinks `@value`
+              # and resurrects it as an out-of-bounds range → IndexError). So nil
+              # the anchor when the span is empty; only seed a real selection.
               @cursor_pos = pos
               a = line_start_pos
               b = line_end_pos
-              @selection_anchor = a
+              @selection_anchor = (a == b ? nil : a)
               @cursor_pos = b
             elsif clicks == 2
               # Double-click selects the word under the pointer. On non-word text
@@ -477,7 +491,14 @@ module Crysterm
       # selection vs. plain edit". Used by typing/Backspace/Delete/cut/paste to
       # make a selection behave as a single replaceable unit.
       private def delete_selection : Bool
-        return false unless r = selection_range
+        # Even when there's no live range (collapsed selection, anchor == cursor),
+        # drop the anchor: a stale collapsed anchor would otherwise resurrect as a
+        # phantom 1-char selection once the next edit moves the cursor off it,
+        # swallowing the following keystroke.
+        unless r = selection_range
+          clear_selection
+          return false
+        end
         @goal_col = nil
         @value = @value[0...r.begin] + @value[r.end..]
         @cursor_pos = r.begin
@@ -557,12 +578,12 @@ module Crysterm
         reals = @_clines.ftor[fake_line]?
         if reals.nil? || reals.empty?
           rl = Math.max(0, @_clines.size - 1)
-          return {rl, (@_clines[rl]? || "").size}
+          return {rl, line_display_width(rl)}
         end
 
         rcol = col
         reals.each_with_index do |r, idx|
-          w = (@_clines[r]? || "").size
+          w = line_display_width(r)
           last = idx == reals.size - 1
           # `rcol < w` keeps a mid-line position here; a boundary (`rcol == w`)
           # moves to the next wrapped piece, except on the final piece (line end).
@@ -571,7 +592,7 @@ module Crysterm
         end
 
         last_r = reals[-1]
-        {last_r, (@_clines[last_r]? || "").size}
+        {last_r, line_display_width(last_r)}
       end
 
       # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a tab-expanded
@@ -611,6 +632,26 @@ module Crysterm
           base = nl + 1
         end
         {base, @value.index('\n', base) || @value.size}
+      end
+
+      # The full display width (in the same tab-expanded codepoint units the caret
+      # math and `@_clines` use) of the real (post-wrap) line *rl*.
+      #
+      # In wrap mode `@_clines[rl]` is the whole wrapped piece, so its size IS the
+      # width. In non-wrap mode `@_clines[rl]` is only the horizontally *sliced*
+      # viewport window (`_hslice`), so its size undercounts a line wider than the
+      # viewport — reconstruct the real line from `@value` instead (as
+      # `#position_at`'s and `#_update_cursor`'s non-wrap branches do). Without
+      # this, Up/Down snaps a caret past the viewport back to ~viewport width and
+      # a selection entirely right of `content_width` paints no highlight.
+      private def line_display_width(rl : Int32) : Int32
+        if wrap_content?
+          (@_clines[rl]? || "").size
+        else
+          fake_line = @_clines.rtof[rl]? || 0
+          base, line_end = fake_line_bounds(fake_line)
+          expanded_width(@value[base...line_end])
+        end
       end
 
       # Maps an absolute screen point (as delivered by `Event::Mouse`) to the
@@ -717,7 +758,7 @@ module Crysterm
         target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
         return if target == rl
 
-        width = (@_clines[target]? || "").size
+        width = line_display_width(target)
         @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
       end
 
@@ -800,7 +841,7 @@ module Crysterm
         return nil if rl < 0 || rl >= @_clines.size
 
         line_start = pos_from_rowcol(rl, 0)
-        line_end = pos_from_rowcol(rl, (@_clines[rl]? || "").size)
+        line_end = pos_from_rowcol(rl, line_display_width(rl))
 
         lo = Math.max(range.begin, line_start)
         hi = Math.min(range.end, line_end)

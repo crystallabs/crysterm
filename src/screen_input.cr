@@ -11,6 +11,14 @@ module Crysterm
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?
 
+    # Cooperative stop flag for the input read fiber. `#stop_keys` sets it; the
+    # `#listen_keys` loop checks it before dispatching each event so that, once a
+    # device is disconnected, no further events are routed to a screen that may
+    # already be torn down (finding 13). The fiber blocked in `tput.listen` still
+    # can't be interrupted mid-read without changing `tput`, so it may consume one
+    # more byte before it sees the flag and exits — but it will not dispatch it.
+    @_keys_stopped = false
+
     # Spawns the device's input read fiber: `tput.listen` parses each byte
     # sequence into a `Tput::InputEvent` and routes it *up* to the `Application`
     # dispatcher (`Application#route_input` → `Window#handle_input`), which picks
@@ -23,10 +31,27 @@ module Crysterm
     # is a no-op.
     def listen_keys : Nil
       return if @_keys_fiber
+      @_keys_stopped = false
       @_keys_fiber = spawn {
         begin
-          tput.listen { |e| (application || Application.global).route_input self, e }
-        rescue
+          tput.listen do |e|
+            # Cooperative stop (finding 13): after `#stop_keys` (device
+            # disconnect), drop any further event instead of routing it to a
+            # possibly dead screen, and exit the read loop.
+            break if @_keys_stopped
+
+            # Isolate user-handler exceptions per event (finding 1). A single
+            # raising key/mouse/drag handler must not unwind `tput.listen` and
+            # kill the one input fiber, making the app permanently deaf. Report
+            # and keep looping so subsequent events still dispatch.
+            begin
+              (application || Application.global).route_input self, e
+            rescue ex
+              ::Log.error(exception: ex) { "Crysterm: input handler raised; continuing input loop" }
+            end
+          end
+        rescue IO::Error
+          # Input fd closed mid-read (`Window#disconnect`); normal teardown.
         end
       }
     end
@@ -37,10 +62,13 @@ module Crysterm
       !@_keys_fiber.nil?
     end
 
-    # Drops the input-fiber handle so a later `#listen_keys` can start fresh.
-    # The fiber itself ends when its input is closed (see `#listen_keys`); this
-    # just clears the reference (`Window#disconnect`).
+    # Drops the input-fiber handle so a later `#listen_keys` can start fresh,
+    # and raises the cooperative stop flag so the loop (if it is unowned STDIN
+    # and thus not ended by a closed fd) stops dispatching to this now-detached
+    # screen and exits on its next wake-up (finding 13). The fiber blocked in
+    # `tput.listen` also ends when its input is closed (see `#listen_keys`).
     def stop_keys : Nil
+      @_keys_stopped = true
       @_keys_fiber = nil
     end
 

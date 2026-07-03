@@ -7,6 +7,11 @@ module Crysterm
     # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
     TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
 
+    # Convenience regex for matching line-alignment tags (`{center}`, `{/right}`,
+    # ...). Used to decide whether `append_content`'s fast path could drop
+    # alignment state carried across lines (finding 33).
+    ALIGN_TAG_REGEX = /\{\/?(?:left|center|right)\}/
+
     # Convenience regex for matching SGR sequences.
     SGR_REGEX = /\e\[[\d;]*m/
 
@@ -21,6 +26,43 @@ module Crysterm
 
     # Alignment of contained text
     Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
+
+    # `wrap_content`/`parse_tags`/`align` all change wrap output, but the plain
+    # macro-generated setters neither bump `@_content_version` nor `mark_dirty`,
+    # so a change on an attached, already-rendered widget had no effect until an
+    # unrelated reparse (finding 35). Redefine the setters to no-op on an equal
+    # value, then invalidate the wrap cache and mark dirty — matching
+    # `set_content`/`width=`.
+    def wrap_content=(value : Bool)
+      return value if value == @wrap_content
+      @wrap_content = value
+      @_content_version += 1
+      mark_dirty
+      value
+    end
+
+    def parse_tags=(value : Bool)
+      return value if value == @parse_tags
+      @parse_tags = value
+      @_content_version += 1
+      mark_dirty
+      value
+    end
+
+    def align=(value : Tput::AlignFlag)
+      return value if value == @align
+      @align = value
+      @_content_version += 1
+      mark_dirty
+      value
+    end
+
+    # Shorthand form (`:center`, `"right"`, `{:vcenter, :right}`) mirroring the
+    # `enum_property` macro; delegates to the typed setter above so the
+    # cache-invalidation logic runs once.
+    def align=(value : ::Crystallabs::Helpers::Enums::Shorthands)
+      self.align = ::Crystallabs::Helpers::Enums.from(Tput::AlignFlag, value)
+    end
 
     # Widget's user-set content in original form. Includes any attributes and tags.
     # Materialized lazily: `append_content` defers the O(total) string concat by
@@ -123,6 +165,14 @@ module Crysterm
     # `no_tags`, only force the (correct) slow path. Defaults false.
     @_content_has_sgr = false
 
+    # Whether `@content` contains any line-alignment tag (`{center}` etc.),
+    # decided in `#set_content`. `append_content`'s fast path wraps the appended
+    # segment standalone from the widget's default `@align`, so an unclosed
+    # alignment opener in existing content — whose carried `default_state` a full
+    # reparse would propagate to later lines — must force the slow path (finding
+    # 33). Defaults false.
+    @_content_has_align_tag = false
+
     # The `sattr(style)` value the cached `@_clines.attr` was computed against.
     # `_parse_attr` depends only on content (unchanged on the cached path) and
     # this base attribute, so it's skipped when the style's packed attr is
@@ -164,6 +214,9 @@ module Crysterm
       # Cheap byte search: records whether inline SGR is present so `_parse_attr`
       # can skip its per-line scan for plain text.
       @_content_has_sgr = content.includes? '\e'
+      # Records whether alignment tags are present so `append_content` can bail to
+      # the slow path rather than dropping carried alignment state (finding 33).
+      @_content_has_align_tag = content.includes?('{') && content.matches?(ALIGN_TAG_REGEX)
       @_content_version += 1
 
       process_content(no_tags)
@@ -955,6 +1008,17 @@ module Crysterm
       # there would desync `fake` from `lines`; let the full path handle it.
       return false if @_clines.fake.empty?
 
+      # An unclosed `{center}`/`{right}` alignment opener mutates `_wrap_content`'s
+      # carried `default_state` for all following lines in a full reparse, but the
+      # fast path wraps the appended segment standalone from the widget's default
+      # `@align`, dropping that carry (finding 33). Conservatively bail whenever
+      # tag parsing is on and alignment tags are present in existing content or the
+      # appended text, so the slow path keeps the result byte-identical to a full
+      # reparse.
+      if @parse_tags && (@_content_has_align_tag || (text.includes?('{') && text.matches?(ALIGN_TAG_REGEX)))
+        return false
+      end
+
       # Clean control chars on just the appended text (same rule as
       # `process_content`, via `#clean_content_chars`), then tag-parse only the
       # new segment.
@@ -1167,7 +1231,11 @@ module Crysterm
       # if they're the same, or if they fit in the visible region entirely.
       start = @_clines.size
       # diff
-      real = @_clines.ftor[i][0]
+      # `ftor` is empty when content was seeded before attach (`push_line`/
+      # `set_line` fill `fake` but `process_content` bails until `window?`), so
+      # `ftor[i]` would raise `IndexError` despite `fake` being non-empty (finding
+      # 32). Fall back to real line 0; the fake splice + rebuild below still works.
+      real = @_clines.ftor[i]?.try(&.[0]?) || 0
 
       n.times { @_clines.fake.delete_at i }
 
@@ -1200,7 +1268,10 @@ module Crysterm
     end
 
     def insert_bottom(line)
-      h = (@child_base) + aheight - iheight
+      # Use the centralized viewport-height helper (which subtracts the horizontal
+      # scroll bar's reserved row) instead of the pre-hscrollbar `aheight - iheight`
+      # so we don't insert after a line hidden under the bar (finding 34).
+      h = @child_base + visible_content_rows
       i = Math.min(h, @_clines.size)
       fake = rtof_index(i - 1) + 1
 
@@ -1213,7 +1284,10 @@ module Crysterm
     end
 
     def delete_bottom(n)
-      h = (@child_base) + aheight - 1 - iheight
+      # Mirror `insert_bottom`: use `visible_content_rows` (accounts for the
+      # horizontal scroll bar's reserved row) so we delete the visible bottom row,
+      # not one hidden below the bar (finding 34).
+      h = @child_base + visible_content_rows - 1
       i = Math.min(h, @_clines.size - 1)
       fake = rtof_index(i)
 

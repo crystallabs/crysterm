@@ -16,6 +16,12 @@ module Crysterm
     @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
 
+    # Set by `#destroy` to make `resize_loop` exit on its next wake-up (finding
+    # 12). Without it the resize fiber loops forever on `@_resize_channel.receive`,
+    # pinning the destroyed window (and possibly running `#resize` on it after
+    # teardown). Mirrors the render fiber's `@render_stop`.
+    @resize_stop = false
+
     # Notifies `resize_loop` that the terminal size changed. A capacity of 1
     # is enough: while a redraw is in progress any number of incoming events
     # collapse into a single pending notification.
@@ -79,16 +85,19 @@ module Crysterm
       loop do
         # Block until at least one resize is requested.
         @_resize_channel.receive
+        break if @resize_stop # woken by `#destroy` to exit cleanly
         # Keep draining further resize events, restarting the timer each time,
         # until the terminal has been quiet for `resize_interval`.
         loop do
           select
           when @_resize_channel.receive
+            break if @resize_stop
             # Another resize arrived; keep waiting for things to settle.
           when timeout(@resize_interval)
             break
           end
         end
+        break if @resize_stop
         resize
       end
     end
