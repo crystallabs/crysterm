@@ -122,9 +122,10 @@ require "http/client"
       s.find_by_id("x").not_nil!.css_classes.to_a.sort.should eq ["c"]
     end
 
-    # Bug 5 (Low): subscribing to an unknown event wires nothing, so it must
-    # report 0 rather than the match count.
-    it "reports 0 subscriptions for an unknown event name" do
+    # Bug 5 (Low): subscribing to an unknown event wires nothing. It is rejected
+    # up front with a JSON-RPC -32602 error rather than being silently recorded
+    # and re-attempted (always a no-op) on every future rewire.
+    it "rejects an unknown event name with a -32602 error" do
       s = headless_screen
       s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7205).start
@@ -133,7 +134,7 @@ require "http/client"
 
       unknown = HTTP::Client.post(base,
         body: %({"jsonrpc":"2.0","id":1,"method":"subscribe","params":{"selector":"#ok","event":"bogus"}}))
-      JSON.parse(unknown.body)["result"].as_i.should eq 0
+      JSON.parse(unknown.body)["error"]["code"].as_i.should eq -32_602
 
       # Sanity: a known event still wires and reports its match count.
       known = HTTP::Client.post(base,

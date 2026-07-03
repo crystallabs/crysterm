@@ -9,7 +9,7 @@ require "../src/crysterm"
 # A box is filled with multi-line text and `_render`ed in a tight loop.
 # Content is unchanged between frames, so `process_content` takes its
 # cache-hit path and cost is dominated by the per-cell loop. Output never
-# touches the terminal (headless Screen over /dev/null).
+# touches the terminal (headless Window over /dev/null).
 #
 # Deterministic metric: bytes allocated per render (should be ~0 in steady
 # state). ips is CPU-noise-dominated; read as a coarse trend only.
@@ -24,10 +24,7 @@ devin = File.open("/dev/null", "r")
 W = 200
 H =  60
 
-screen = Screen.new output: devnull, input: devin, width: W, height: H
-screen.width = W
-screen.height = H
-screen.realloc
+screen = Window.new output: devnull, input: devin, width: W, height: H
 
 # A large content box: plain ASCII paragraph that fills the whole interior.
 line_text = "The quick brown fox jumps over the lazy dog. "

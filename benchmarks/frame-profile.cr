@@ -12,7 +12,7 @@ include Crysterm
 # Pinned to the full-recomposite path to measure baseline per-frame compositing
 # cost. Damage tracking is the default, so without this the STATIC pass would
 # hit the no-change fast-path skip; OFF/ON passes below do the damage comparison.
-screen = Screen.new(
+screen = Window.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 120, height: 40,
   optimization: Crysterm::OptimizationFlag::None)
@@ -79,7 +79,7 @@ STDERR.printf "delta (4 content updates + list sel): %d bytes/frame (~%d per con
 # re-composites all ~41 widgets every frame (O(N)); on, only the changed
 # subtree is repainted (O(changed)).
 private def build_scene(damage)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
@@ -127,7 +127,7 @@ end
 # pull every panel into one cluster, degenerating to a full recomposite — the
 # gain here depends on clusters staying small relative to the widget count.
 private def build_overlap_scene(damage)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
@@ -167,7 +167,7 @@ end
 # and its overlay re-blends. Off, every panel and blend is recomputed each
 # frame; on, only the changed cluster's pair is recomposited.
 private def build_alpha_scene(damage)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
@@ -211,7 +211,7 @@ end
 # rebuilt (O(changed ∪ covered)). Before Phase 4, ON matched OFF here (planes
 # always fell back to the full path).
 private def build_plane_scene(damage)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)

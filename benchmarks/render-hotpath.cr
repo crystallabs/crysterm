@@ -18,11 +18,11 @@ require "../src/crysterm"
 include Crysterm
 
 WIDTH  = 200
-attr = Crysterm::Screen::DEFAULT_ATTR
+attr = Crysterm::Window::DEFAULT_ATTR
 ROUNDS = 5000
 
 # A typical text row: mostly single-codepoint ASCII cells.
-row = Crysterm::Screen::Row.new
+row = Crysterm::Window::Row.new
 WIDTH.times { |i| row.push attr, ('a' + (i % 26)) }
 
 # MB allocated while running `block` `n` times (deterministic).
@@ -95,7 +95,7 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { io.clear; WIDTH.times { io << Colors.sgr
 #     and skips redundant rescans (O(width)). Metric: cell comparisons performed.
 section "#6  BCE look-ahead  (\"spaces then content\" line)"
 split = WIDTH // 2
-bce_row = Crysterm::Screen::Row.new
+bce_row = Crysterm::Window::Row.new
 WIDTH.times { |i| i < split ? bce_row.push(attr, ' ') : bce_row.push(attr, 'x') }
 da = attr
 
@@ -184,7 +184,7 @@ puts "not measured above (it is a cache hit, i.e. zero work)."
 #     frame for colored content. OLD did `code[2...-1].split(';')` (substring +
 #     Array(String)); NEW parses the bytes in place.
 section "#9  attr2code  (per SGR sequence, every frame)"
-dfl = Crysterm::Screen::DEFAULT_ATTR
+dfl = Crysterm::Window::DEFAULT_ATTR
 codes = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
 Benchmark.ips do |x|
   # OLD allocation source: the split that NEW removes (rest of attr2code is

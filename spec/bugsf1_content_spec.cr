@@ -52,7 +52,7 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
 
     # And concretely: the appended "subtitle" row is centered (leading pad),
     # not left-aligned as the fast path produced before the fix.
-    sub = box._clines.lines.find(&.includes?("subtitle"))
+    sub = box._clines.lines.map(&.to_s).find!(&.includes?("subtitle"))
     sub.should start_with(" ")
     sub.strip.should eq "subtitle"
   end

@@ -15,7 +15,7 @@ include Crysterm
 
 SECONDS = 12.0
 
-screen = Screen.new(
+screen = Window.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 200, height: 60)
 
