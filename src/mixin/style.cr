@@ -16,6 +16,11 @@ module Crysterm
         # can tween to the new state's values.
         prev = transition_from
         @state = value
+        # The resolved style depends on the state (per-state lookup + highlight
+        # fallbacks), so drop the frame-memoized resolution. Must run AFTER the
+        # `transition_from` snapshot above, which resolves (and re-caches) the
+        # OLD state's style.
+        invalidate_frame_style
         # The style swap is in-place and invisible to the tracked geometry
         # setters, so flag damage explicitly — otherwise the optimized render
         # leaves the previous state's pixels behind (a stale highlight).
@@ -38,7 +43,13 @@ module Crysterm
       # List of styles corresponding to different widget states.
       #
       # Only one style, `normal` is initialized by default, others default to it if `nil`.
-      property styles : ::Crysterm::Styles = ::Crysterm::Styles.default
+      getter styles : ::Crysterm::Styles = ::Crysterm::Styles.default
+
+      # :ditto:
+      def styles=(styles : ::Crysterm::Styles) : ::Crysterm::Styles
+        invalidate_frame_style
+        @styles = styles
+      end
 
       # Pristine, pre-CSS snapshot of `#styles`, captured lazily on first cascade
       # use. Each cascade rebuilds from a fresh dup of this snapshot, so removed
@@ -65,7 +76,10 @@ module Crysterm
       end
 
       # User may set specific style for this widget
-      setter style : ::Crysterm::Style?
+      def style=(style : ::Crysterm::Style?)
+        invalidate_frame_style
+        @style = style
+      end
 
       # The raw inline style (the `@style` override), before any CSS folding.
       # The CSS cascade reads this to fold inline declarations into the computed
@@ -78,7 +92,14 @@ module Crysterm
       # (folding in any inline `@style`). When set, `#style` returns the computed
       # per-state style rather than short-circuiting to the raw inline `@style`,
       # so author `!important` rules can outrank inline.
-      property? css_styled : Bool = false
+      getter? css_styled : Bool = false
+
+      # :ditto: — the cascade flips this around every (re)apply, so it doubles
+      # as the cascade's invalidation hook for the frame-memoized style.
+      def css_styled=(value : Bool) : Bool
+        invalidate_frame_style
+        @css_styled = value
+      end
 
       # The raw, persistent backing `Style` for the current state — `#style`
       # without the unstyled-floor highlight fallbacks.
@@ -102,8 +123,46 @@ module Crysterm
         @styles.for_state(@state)
       end
 
+      # The resolved `Style` for the current frame, memoized per widget per
+      # window frame. Resolution (`#resolve_style`: floor-border sync, per-state
+      # dispatch, highlight fallbacks — worst case a heap `Style#dup` per call
+      # for a focused/selected floor widget) runs ~15-25× per widget per frame
+      # otherwise, and was the hottest render leaf.
+      @_frame_style : ::Crysterm::Style?
+
+      # `Window#renders` value `@_frame_style` was resolved at; a stamp mismatch
+      # (new frame) re-resolves, so cross-frame mutations of `@styles`' contents
+      # are picked up without any explicit invalidation.
+      @_frame_style_stamp : Int32 = -1
+
+      # Drops the frame-memoized style resolution (and the insets derived from
+      # it — see `Widget#frame_insets`). Called by every same-frame-visible
+      # style change: `#state=`, `#style=`, `#styles=`, and the CSS cascade via
+      # `#css_styled=`. Rendering is single-fiber, so these hooks plus the
+      # per-frame stamp cover all reachable staleness.
+      def invalidate_frame_style : Nil
+        @_frame_style = nil
+        @_frame_insets = nil
+      end
+
       # If specific style is not set, it will depend on current state
       def style : ::Crysterm::Style
+        if (fs = @_frame_style) && (scr = window?) && @_frame_style_stamp == scr.renders
+          return fs
+        end
+        st = resolve_style
+        # The insets cache is derived from the resolved style, so its validity
+        # is exactly "the frame cache was not refreshed since" — reset together.
+        @_frame_insets = nil
+        if scr = window?
+          @_frame_style = st
+          @_frame_style_stamp = scr.renders
+        end
+        st
+      end
+
+      # Uncached style resolution — the former body of `#style`.
+      private def resolve_style : ::Crysterm::Style
         # When CSS has computed this widget's styles, inline `@style` is already
         # folded in, so use the per-state style. Otherwise inline `@style` wins
         # wholesale, and the floor border is installed lazily here (the one

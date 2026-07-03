@@ -45,7 +45,7 @@ def spiral_order(w, h)
 end
 
 def run(label, opt)
-  s = Screen.new(
+  s = Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     optimization: opt)
   w = s.awidth
@@ -145,7 +145,7 @@ def run(label, opt)
   end
 end
 
-probe = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+probe = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 STDERR.puts "\n=== #{probe.awidth}x#{probe.aheight} = #{probe.awidth*probe.aheight} cells (≈#{probe.awidth*probe.aheight + 6} widgets), #{FRAMES} frames ==="
 run "OFF (full recomposite)", OptimizationFlag::None
 run "ON  (damage tracking)", OptimizationFlag::DamageTracking

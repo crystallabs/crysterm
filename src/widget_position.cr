@@ -26,9 +26,45 @@ module Crysterm
       end
 
       pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
-      # `to_f?` (not `to_f`) so a non-clean percentage (e.g. `0.5em` -> `0.5e`)
-      # yields 0 rather than raising — last-line guard so layout never aborts.
-      pct = (expr.byte_slice(0, pct_end).to_f? || 0.0) / 100
+      # Parse the percentage number in place (optional sign, digits, one dot) —
+      # `byte_slice(...).to_f?` heap-allocated a String per call, and this runs
+      # for every string-positioned widget every frame. A non-clean percentage
+      # (e.g. `0.5em` -> `0.5e`) yields 0 rather than raising — last-line guard
+      # so layout never aborts (matches the previous `to_f? || 0.0`).
+      k = 0
+      neg_pct = false
+      if pct_end > 0
+        b0 = bytes.unsafe_fetch(0)
+        if b0 == '-'.ord
+          neg_pct = true
+          k = 1
+        elsif b0 == '+'.ord
+          k = 1
+        end
+      end
+      num = 0.0
+      scale = 0.0         # 0 while in the integer part, then the next fraction digit's weight
+      valid = pct_end > k # an empty number (or bare sign) is invalid -> 0
+      while k < pct_end
+        b = bytes.unsafe_fetch(k)
+        if b == '.'.ord && scale == 0.0
+          scale = 0.1
+        elsif '0'.ord <= b <= '9'.ord
+          d = (b - '0'.ord).to_f64
+          if scale == 0.0
+            num = num * 10 + d
+          else
+            num += d * scale
+            scale /= 10
+          end
+        else
+          valid = false
+          break
+        end
+        k += 1
+      end
+      num = -num if neg_pct
+      pct = valid ? num / 100 : 0.0
 
       off = 0
       if sep != -1
@@ -148,8 +184,18 @@ module Crysterm
       if expr == aliased
         expr = "50%"
       elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')
-        # `center+5`/`half-3`: map the alias prefix to `50%`, keeping the offset.
-        expr = "50%" + expr[aliased.size..]
+        # `center+5`/`half-3`: 50% of the parent plus the offset, parsed in
+        # place — the previous `"50%" + expr[aliased.size..]` rebuild allocated
+        # two Strings per call, every frame.
+        bytes = expr.to_slice
+        off = 0
+        j = aliased.size + 1
+        while j < bytes.size
+          off = off * 10 + (bytes.unsafe_fetch(j).to_i - '0'.ord)
+          j += 1
+        end
+        off = -off if c == '-'
+        return (parent_dim * 0.5).to_i + off
       end
       Widget.dimension(expr, parent_dim)
     end

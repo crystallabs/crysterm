@@ -13,7 +13,7 @@ require "../src/crysterm"
 include Crysterm
 
 def build_chain(depth)
-  screen = Crysterm::Screen.new
+  screen = Crysterm::Window.new
   screen.width = 200
   screen.height = 200
   root = Crysterm::Widget::Box.new

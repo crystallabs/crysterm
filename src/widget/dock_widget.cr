@@ -181,6 +181,10 @@ module Crysterm
           @area = Area::Floating
         end
         refresh_buttons
+        # `floor_border_value` depends on `@area` (full frame while floating,
+        # content-facing edge while docked) — drop the frame-memoized style so
+        # `ensure_floor_border` re-syncs on the next `#style` read.
+        invalidate_frame_style
         emit ::Crysterm::Event::Float, floating?
         window?.try &.schedule_render
       end

@@ -21,7 +21,7 @@ def make_rows(cols, body)
 end
 
 def bench_table(label, cols, body)
-  s = Screen.new(
+  s = Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: Crysterm::OptimizationFlag::None)
@@ -42,7 +42,7 @@ def bench_table(label, cols, body)
 end
 
 def bench_listtable(label, cols, body)
-  s = Screen.new(
+  s = Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: Crysterm::OptimizationFlag::None)

@@ -23,7 +23,7 @@ require "../src/crysterm"
 include Crysterm
 
 def make_box(parse_tags = false, width = 80)
-  screen = Crysterm::Screen.new
+  screen = Crysterm::Window.new
   screen.width = 120
   screen.height = 40
   box = Crysterm::Widget::Box.new(width: width, height: 20)

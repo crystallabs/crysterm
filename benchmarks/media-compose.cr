@@ -31,7 +31,7 @@ def make_bitmap(w : Int32, h : Int32) : PNGGIF::Bitmap
 end
 
 def bench(label, widget)
-  s = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  s = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   s.append widget
   widget.render # build + cache the sample for the box
   GC.collect

@@ -67,7 +67,7 @@ puts "\n#2 screenshot per-row buffer (#{height}x#{width})"
 puts "   OLD #{old_ss.round(3)} MB   NEW #{new_ss.round(3)} MB"
 
 # 3. table calculate_maxes: cache hit vs forced recompute -------------------
-s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 rows = Array.new(20) { |r| Array.new(6) { |c| "cell-#{r}-#{c}" } }
 t = Crysterm::Widget::Table.new parent: s, rows: rows
 

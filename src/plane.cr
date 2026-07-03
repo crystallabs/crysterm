@@ -93,7 +93,11 @@ module Crysterm
         # below is skipped; the base cell's overlay is still cleared so an
         # opaque plane cell never inherits a stale cluster.
         pr_has_g = pr.has_graphemes?
-        changed = false
+        # Same gate for the BASE row's overlay: with none, the per-cell
+        # `br.grapheme_at?` probe and `delete_grapheme` are skipped. Installing
+        # an overlay below flips the flag; installs happen at already-visited
+        # columns, so probes at the current `x` stay exact.
+        br_has_g = br.has_graphemes?
         x = xi < 0 ? 0 : xi
         while x < cols
           patt = pa.unsafe_fetch(x)
@@ -109,20 +113,24 @@ module Crysterm
             # and so a stale cluster under a matching base cell is cleared
             # (BUGS-F1 finding 28).
             pg = pr_has_g ? pr.grapheme_at?(x) : nil
-            if under != result || bc.unsafe_fetch(x) != ch || br.grapheme_at?(x) != pg
+            bg = br_has_g ? br.grapheme_at?(x) : nil
+            if under != result || bc.unsafe_fetch(x) != ch || bg != pg
               ba[x] = result
               bc[x] = ch
               if pg
                 br.set_grapheme x, pg
-              else
+                br_has_g = true
+              elsif br_has_g
                 br.delete_grapheme x
               end
-              changed = true
+              # Narrow the dirty range to the changed columns (a plain
+              # `dirty = true` widened it to full width, defeating draw's
+              # scan-bounding for plane frames).
+              br.mark_dirty x
             end
           end
           x += 1
         end
-        br.dirty = true if changed
         y += 1
       end
     end

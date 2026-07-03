@@ -12,7 +12,7 @@ require "../src/crysterm"
 #   (linear int-left/nil-width was already ~250ns and is unchanged.)
 
 def build_chain(depth, &block : Crysterm::Widget::Box -> Nil)
-  screen = Crysterm::Screen.new
+  screen = Crysterm::Window.new
   screen.width = 200
   screen.height = 200
   root = Crysterm::Widget::Box.new

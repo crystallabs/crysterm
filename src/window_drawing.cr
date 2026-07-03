@@ -273,8 +273,10 @@ module Crysterm
           desired_attr = l_attrs.unsafe_fetch(x)
           desired_char = l_chars.unsafe_fetch(x)
 
-          # Render the artificial cursor.
-          if c_artificial && !c._hidden && (c._state != 0) && (x == cursor_x) && (y == cursor_y)
+          # Render the artificial cursor. `acur_col` already encodes the whole
+          # `c_artificial && !c._hidden && c._state != 0 && y == cursor_y`
+          # condition per row (or -1), so this is one compare per cell.
+          if x == acur_col
             desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
             desired_char = tmpch if tmpch
             # XXX Is this needed:
@@ -358,9 +360,19 @@ module Crysterm
               end
               @outbuf.write el
 
-              (x...line_size).each do |xx|
-                o[xx].attr = desired_attr
-                o[xx].char = ' '
+              # Mirror the cleared run into `@olines` through the hoisted
+              # backing arrays — `o[xx].attr=`/`.char=` built two bounds-checked
+              # `Cell` handles per cell. Overlay cleanup (the `char=` side
+              # effect) is needed only when the old row carries any overlay;
+              # writes never install one at ≥ x mid-row, so the row-start
+              # `o_has_g` still decides.
+              o_stop = line_size < o_size ? line_size : o_size
+              (x...o_stop).each do |xx|
+                o_attrs.unsafe_put(xx, desired_attr)
+                o_chars.unsafe_put(xx, ' ')
+              end
+              if o_has_g
+                (x...o_stop).each { |xx| o.delete_grapheme xx }
               end
 
               break
@@ -481,7 +493,10 @@ module Crysterm
             # without re-checking.
             ox = o.unsafe_fetch(x)
             ox.attr = desired_attr
-            if fu && (g = line[x].grapheme_overlay)
+            # `line.grapheme_at?(x)` is `line[x].grapheme_overlay` without the
+            # bounds-checked `Cell` handle; rows with no overlay skip the probe
+            # entirely via `l_has_g`.
+            if fu && l_has_g && (g = line.grapheme_at?(x))
               ox.grapheme = g
             else
               ox.char = desired_char
@@ -591,8 +606,11 @@ module Crysterm
           # a wide cell claims its continuation cell, which the next iteration
           # skips (keeping cell index == terminal column).
           if fu
-            current = line[x]
-            if current.continuation?
+            # The cell's base codepoint, straight from the hoisted `chars` array
+            # (`line[x]` built a second bounds-checked `Cell` handle per changed
+            # cell). NOT `desired_char`, which may have been ACS-reduced above.
+            base_char = l_chars.unsafe_fetch(x)
+            if base_char == Cell::CONTINUATION
               # Orphan continuation cell reached WITHOUT `skip_next` (its lead was
               # unchanged and skipped, or clipped off the left edge). Nothing is
               # printed for it, so the terminal cursor did NOT advance. Force the
@@ -604,22 +622,20 @@ module Crysterm
               ly = -1
             else
               # Fetch the grapheme overlay once and reuse it for both the emit
-              # and the width below, instead of letting `current.width` repeat
-              # the `@graphemes` lookup `grapheme_overlay` already did.
-              g = current.grapheme_overlay
+              # and the width below; rows with no overlay (`l_has_g` false, the
+              # common case) skip the `@graphemes` probe entirely.
+              g = l_has_g ? line.grapheme_at?(x) : nil
               # Equivalent to `current.width` here: the continuation case is
               # excluded by the `unless` above, so width comes from the overlay
-              # cluster if present, else from the cell's own codepoint (NOT
-              # `desired_char`, which may have been ACS-reduced for output).
-              w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(current.char)
+              # cluster if present, else from the cell's own codepoint.
+              w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(base_char)
               if g
                 if ascii_reduce
                   # Non-UTF8 terminal: never emit the raw multibyte cluster (it
                   # would print several bytes for one cell). Reduce to the base
                   # codepoint's ASCII fallback, mirroring the lone-codepoint
                   # reduction above (BUGS-F1 finding 29).
-                  base = current.char
-                  @outbuf.print(base > '~' ? (Tput::ACSC::Data[base]?.try(&.[2]) || '?') : base)
+                  @outbuf.print(base_char > '~' ? (Tput::ACSC::Data[base_char]?.try(&.[2]) || '?') : base_char)
                 else
                   @outbuf.print g
                 end

@@ -97,6 +97,37 @@ module Crysterm
       '┼' => BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE,
     }
 
+    # Packed lookup tables over the contiguous U+2500..U+253C span all eleven
+    # box-drawing glyphs live in, replacing the per-cell Hash probes and tuple
+    # scans (`GLYPH_BITS[ch]?`, `ANGLES.includes?`, the four directional
+    # `*_ANGLES.includes?`, `ANGLE_TABLE[...]?`) with array reads + bit tests.
+    #
+    # `GLYPH_BITS_BY_ORD[ord - 0x2500]` is the glyph's 4-bit stroke pattern
+    # (`[L][U][R][D]`, same encoding as `GLYPH_BITS`), `0` for a non-box char —
+    # so "is an angle" == "bits != 0", and the directional memberships collapse
+    # to arm tests: e.g. `L_ANGLES.includes?(c)` == "c has a RIGHT arm".
+    GLYPH_BITS_BY_ORD = begin
+      arr = StaticArray(UInt8, 0x3D).new(0_u8)
+      GLYPH_BITS.each { |ch, bits| arr[ch.ord - 0x2500] = bits.to_u8 }
+      arr
+    end
+
+    # `ANGLE_TABLE` as a flat array; `'\0'` marks the absent `0` entry (no
+    # reciprocating neighbor — caller keeps the original char).
+    ANGLE_BY_BITS = begin
+      arr = StaticArray(Char, 16).new('\0')
+      ANGLE_TABLE.each { |k, v| arr[k] = v }
+      arr
+    end
+
+    # The stroke pattern of `c`'s glyph, or 0 for a non-box-drawing char.
+    # Packed-table equivalent of `GLYPH_BITS[c]? || 0`.
+    @[AlwaysInline]
+    private def glyph_bits(c : Char) : Int32
+      o = c.ord
+      (0x2500 <= o <= 0x253C) ? GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500).to_i : 0
+    end
+
     # Reusable scratch buffer for the sorted stop rows, mutated and reused by
     # every `#dock` call instead of allocating a fresh array per frame. `#dock`
     # runs once per frame from `Window#_dock` (and on demand from
@@ -166,16 +197,18 @@ module Crysterm
       ch = row.chars.unsafe_fetch(x)
 
       # The arms this cell's own glyph already draws (0 for a non-box char).
-      self_bits = GLYPH_BITS[ch]? || 0
+      self_bits = glyph_bits ch
 
       # Evaluate each of the four neighbors (left, up, right, down); `each`
       # over a tuple unrolls at compile time. A `nil` result means `DontDock`
       # hit a contrasting neighbor, in which case we keep the original character.
-      { {-1, 0, L_ANGLES, BITWISE_L_ANGLE},
-       {0, -1, U_ANGLES, BITWISE_U_ANGLE},
-       {1, 0, R_ANGLES, BITWISE_R_ANGLE},
-       {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
-        result = neighbor_angle lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast
+      # `opp_bit` is the arm a neighbor must draw to point back at this cell
+      # (the packed-table form of the old `L_ANGLES`/... membership tuples).
+      { {-1, 0, BITWISE_R_ANGLE, BITWISE_L_ANGLE},
+       {0, -1, BITWISE_D_ANGLE, BITWISE_U_ANGLE},
+       {1, 0, BITWISE_L_ANGLE, BITWISE_R_ANGLE},
+       {0, 1, BITWISE_U_ANGLE, BITWISE_D_ANGLE} }.each do |(dx, dy, opp_bit, bit)|
+        result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast
         return ch if result.nil?
         recip |= result
 
@@ -204,17 +237,21 @@ module Crysterm
       # also subsumes the isolated-glyph rule (no neighbors → `recip == 0`).
       return ch if recip == 0
 
-      ANGLE_TABLE[(recip | preserve)]? || ch
+      # `recip | preserve` only ever carries the four arm bits, so it indexes
+      # the 16-entry table directly; `'\0'` (the absent `0` entry) keeps `ch`.
+      a = ANGLE_BY_BITS.unsafe_fetch(recip | preserve)
+      a == '\0' ? ch : a
     end
 
     # Whether `c` is one of the box-drawing glyphs in `ANGLES`. All eleven live
     # in the contiguous U+2500..U+253C span, so a range pre-check cheaply rejects
     # the typically many blank/non-box cells before the tuple membership test.
-    # Identical result to `ANGLES.includes?(c)`.
+    # Identical result to `ANGLES.includes?(c)` (every `ANGLES` glyph has a
+    # non-zero stroke pattern), via one packed-table read.
     @[AlwaysInline]
     private def angle?(c : Char) : Bool
       o = c.ord
-      0x2500 <= o <= 0x253C && ANGLES.includes?(c)
+      0x2500 <= o <= 0x253C && GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500) != 0
     end
 
     # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its
@@ -241,15 +278,17 @@ module Crysterm
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
     # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
-    # character from `angles`, `0` if it does not participate, or `nil` to
+    # character pointing back at this cell (drawing the `opp_bit` arm — the
+    # packed-table form of the old `angles` membership tuple), `0` if it does
+    # not participate, or `nil` to
     # signal the caller to abort docking (`DontDock` with a contrasting
     # neighbor). For `Blend`, the cell's attribute is blended with the
     # neighbor's as a side effect.
-    private def neighbor_angle(lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast)
+    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast)
       return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
 
-      return 0 unless angles.includes? nrow.chars.unsafe_fetch(nx)
+      return 0 unless (glyph_bits(nrow.chars.unsafe_fetch(nx)) & opp_bit) != 0
 
       nattr = nrow.attrs.unsafe_fetch(nx)
       if nattr != attr

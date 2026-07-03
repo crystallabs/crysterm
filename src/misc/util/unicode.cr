@@ -37,7 +37,11 @@ module Crysterm
       # `ascii_only?` alone is not enough: it is also true for C0 controls
       # (TAB/CR/ESC) and DEL, which `codepoint_width` maps to 0 — the fast path
       # would miscount those, so fall through to the grapheme walk instead.
-      if string.ascii_only? && string.each_char.all? { |c| 0x20 <= c.ord <= 0x7E }
+      # Scanning the raw bytes subsumes the `ascii_only?` check (any byte ≥ 0x80
+      # fails the range test) and, unlike the blockless `each_char.all?` this
+      # replaces, allocates no iterator — this runs per append/wrap while
+      # streaming content.
+      if string.to_slice.all? { |b| 0x20_u8 <= b <= 0x7E_u8 }
         return string.bytesize
       end
       w = 0
@@ -87,9 +91,22 @@ module Crysterm
       return 1 if 0x20 <= cp <= 0x7E
       return 0 if cp == 0
       return 0 if char.control?
+      if cp < 0x1100
+        # Below the first WIDE range: never wide, so skip that binary search.
+        return 0 if char.mark? # combining marks (see NOTE above re: Mc)
+        return 0 if zero_width? cp
+        return 1
+      end
+      # `wide?` first: CJK/emoji cells resolve on one binary search instead of
+      # paying the `mark?` category search (a miss for them) before it. The only
+      # zero-width marks *inside* WIDE blocks are U+302A..302F and U+3099..309A —
+      # excluded here so they keep width 0 (order elsewhere doesn't matter:
+      # every other mark/zero-width codepoint is outside the WIDE ranges).
+      unless (0x302A <= cp <= 0x302F) || (0x3099 <= cp <= 0x309A)
+        return 2 if wide? cp
+      end
       return 0 if char.mark? # combining marks (see NOTE above re: Mc)
       return 0 if zero_width? cp
-      return 2 if wide? cp
       1
     end
 

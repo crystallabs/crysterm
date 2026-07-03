@@ -1464,6 +1464,12 @@ module Crysterm
     # for the common lone-codepoint cell. Mirrors `#extend_grapheme`'s start
     # conditions exactly.
     def needs_cluster?(base : Char, nxt : Char?) : Bool
+      # Fast rejection for the dominant plain-text path: every cluster-relevant
+      # `base` is ≥ U+0300 (combining marks; regional indicators sit higher) and
+      # every cluster-relevant `nxt` is ≥ U+200D (ZWJ — the lowest of ZWJ,
+      # marks, variation selectors, skin tones). Two integer compares replace
+      # the `mark?` Unicode-category binary searches per ASCII/Latin cell.
+      return false if base.ord < 0x300 && (nxt.nil? || nxt.ord < 0x200D)
       return true if base.mark? # a leading combining mark (zero-width; merges back)
       bp = base.ord
       return true if 0x1F1E6 <= bp <= 0x1F1FF # regional indicator (flag pair)

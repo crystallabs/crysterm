@@ -12,7 +12,7 @@ include Crysterm
 FRAMES = (ENV["FRAMES"]? || "4000").to_i
 
 def bench_bar(label, bar_width, bar_spacing, n)
-  s = Screen.new(
+  s = Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 120, height: 40,
     optimization: Crysterm::OptimizationFlag::None)

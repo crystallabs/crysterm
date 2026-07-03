@@ -129,6 +129,8 @@ module Crysterm
       # so suppress the render-time self-blend while painting into the plane.
       style_alpha = @compositing ? nil : style.alpha?
       padding = style.padding
+      # Hoisted out of the content loop, which read it per cell.
+      fill = style.fill?
       xi = coords.xi
       xl = coords.xl
       yi = coords.yi
@@ -198,8 +200,22 @@ module Crysterm
         xi, xl, yi, yl = border.adjust xi, xl, yi, yl
       end
 
-      # Padding/valign make the content loop skip some cells/lines, so fill the
-      # whole box ahead of time.
+      # Reserve the bottom row(s) for a shown horizontal scroll bar so content
+      # never paints under it. `may_scroll` skips this for the common
+      # non-scrollable case, but still reconciles a widget that *was* scrollable
+      # so its bar gets hidden when scrolling is turned off. `hsr` is reused by
+      # the restore below. (Computed here, before the pre-fill, which needs it
+      # to size the bottom band.)
+      may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
+      hsr = may_scroll ? hscrollbar_rows : 0
+
+      # Padding/valign make the content loop skip some cells/lines, so fill
+      # those ahead of time. On the common opaque-fill path only the cells the
+      # content loop won't visit need pre-filling: the padding bands and the
+      # scrollbar-reserved rows (the loop paints the valign gap itself — a
+      # negative `ci` indexes to nil, i.e. the `bch` fill). Alpha, `fill: false`
+      # and background-image widgets keep the whole-box fill: their content
+      # loop leaves cells untouched, so the old all-cells behavior must stay.
       if padding.any? || !@align.top?
         if alpha = style_alpha
           (Math.max(yi, 0)...yl).each do |y|
@@ -217,6 +233,16 @@ module Crysterm
               line.mark_dirty x
             end
           end
+        elsif fill && style.background_image.nil?
+          pd = padding
+          bot = pd.bottom + hsr
+          # Degenerate boxes (padding thicker than the box) make bands overlap
+          # or ranges invert; `fill_region` clamps and empty ranges no-op, and a
+          # double-filled cell is change-skipped on the second write.
+          scr.fill_region(default_attr, bch, xi, xl, yi, yi + pd.top) if pd.top > 0
+          scr.fill_region(default_attr, bch, xi, xl, yl - bot, yl) if bot > 0
+          scr.fill_region(default_attr, bch, xi, xi + pd.left, yi + pd.top, yl - bot) if pd.left > 0
+          scr.fill_region(default_attr, bch, xl - pd.right, xl, yi + pd.top, yl - bot) if pd.right > 0
         else
           scr.fill_region(default_attr, bch, xi, xl, yi, yl)
         end
@@ -231,14 +257,6 @@ module Crysterm
 
       p = padding
       xi, xl, yi, yl = p.adjust xi, xl, yi, yl
-
-      # Reserve the bottom row(s) for a shown horizontal scroll bar so content
-      # never paints under it. `may_scroll` skips this for the common
-      # non-scrollable case, but still reconciles a widget that *was* scrollable
-      # so its bar gets hidden when scrolling is turned off. `hsr` is reused by
-      # the restore below.
-      may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
-      hsr = may_scroll ? hscrollbar_rows : 0
       yl -= hsr
 
       # Determine where to place the text if it's vertically aligned.
@@ -262,6 +280,18 @@ module Crysterm
         parent2._is_list && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
       end || false
 
+      # Whether a row whose content is exhausted may be painted as one
+      # `fill_region` sweep instead of walking the full per-cell machinery (the
+      # very common "large box, little content" case — most cells on screen are
+      # fill cells). Requires the constant `{attr, bch}` write to be exactly
+      # what the per-cell path does — everything except the alpha blend, which
+      # keeps the per-cell path. (Even a wide `bch` matches: fill cells have
+      # `has_content == false`, so the per-cell path never measures/clusters
+      # them either — one glyph per cell, no continuation claim.) Selection is
+      # checked per row (`sel_cols`); it can't actually reach rows past the
+      # content end, so that guard is defensive.
+      bulk_fill_ok = style_alpha.nil?
+
       # Draw the content and background.
       (yi...yl).each do |y|
         line = lines[y]?
@@ -284,6 +314,23 @@ module Crysterm
         # `y - yi` assumes top alignment, like `#selection_columns_for_row`'s
         # own doc notes.
         sel_cols = selection_columns_for_row(coords.base + (y - yi))
+
+        # Content exhausted: every remaining cell of this row is the constant
+        # `{attr, bch}` fill — no SGR can arrive (`content[ci]?` stays nil), the
+        # single-column `bch` never clusters, and with no selection on the row
+        # `highlighted_attr` is `attr` itself. Delegate to `fill_region`, whose
+        # per-cell write matches `set_if_changed` exactly (change-skip, overlay
+        # drop, dirty-range narrowing). `ci` intentionally stays put: every
+        # later read is `content[>= size]` → nil regardless. A `Media::Cells`
+        # background or `fill == false` paints nothing for such a row (the
+        # per-cell path would `next` every cell).
+        if bulk_fill_ok && ci >= content.size && sel_cols.nil?
+          if fill && !bg_cells && draw_row
+            scr.fill_region(attr, bch, xi, xl, y, y + 1)
+          end
+          next
+        end
+
         # TODO - make cell exist only if there's something to be drawn there?
         x = xi - 1
         while x < xl - 1
@@ -416,7 +463,7 @@ module Crysterm
             end
           end
 
-          unless style.fill?
+          unless fill
             next
           end
 
@@ -548,20 +595,31 @@ module Crysterm
           next if in_top && coords.no_top?
           next if in_bot && coords.no_bottom?
 
-          (xi...xl).each do |x|
-            next if x < 0 # off the left edge (a negative index would wrap)
+          # Only border cells are visited: a middle (non-band) row jumps from
+          # the end of the left band straight to the right band instead of
+          # walking (and skipping) every interior cell — O(perimeter) instead of
+          # O(area) for the whole loop. Band rows still walk full width.
+          x = xi < 0 ? 0 : xi # off the left edge (a negative index would wrap)
+          while x < xl
+            # Interior (content) region on a middle row: skip it in one jump.
+            if !in_top && !in_bot && x >= in_xi && x < in_xl
+              x = in_xl
+              next
+            end
 
             in_left = x < in_xi   # within the left band
             in_right = x >= in_xl # within the right band
 
-            # Only border cells: skip the interior (content) region.
-            next unless in_top || in_bot || in_left || in_right
-
-            next if in_left && coords.no_left?
-            next if in_right && coords.no_right?
+            if (in_left && coords.no_left?) || (in_right && coords.no_right?)
+              x += 1
+              next
+            end
 
             cell = line[x]?
-            next unless cell
+            unless cell
+              x += 1
+              next
+            end
 
             ch = border_char border, glyphs, in_top, in_bot, in_left, in_right
             # Horizontal (top/bottom) cells — including corners, which the old
@@ -578,6 +636,7 @@ module Crysterm
             battr = Attr.pack(Attr.flags(battr), Attr.fg(battr), Attr.bg(cell.attr)) if border_bg_transparent
 
             cell.set_if_changed(battr, ch)
+            x += 1
           end
         end
       end

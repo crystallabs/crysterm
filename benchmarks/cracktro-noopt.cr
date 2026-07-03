@@ -41,7 +41,7 @@ def spiral_order(w, h)
   cells
 end
 
-s = Screen.new(
+s = Window.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: WIDTH, height: HEIGHT)
 w = s.awidth

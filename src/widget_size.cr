@@ -194,13 +194,24 @@ module Crysterm
       # them what we have so far.
       if get
         _lpos = @lpos
-        @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
+        # A reused per-widget scratch (children only read it transiently via
+        # `parent.lpos` during this pass), NOT `@lpos` itself — provisional and
+        # final coords differ.
+        @lpos = (@_shrink_lpos ||= LPos.new).reset(
+          xi: xi, xl: xl, yi: yi, yl: yl, base: 0,
+          no_left: false, no_right: false, no_top: false, no_bottom: false,
+          renders: 0)
         # D O:
         # @resizable = false
       end
 
+      # One reused scratch for every child's coordinate result: it's read (and
+      # for anchored children adjusted) within the iteration only, so a heap
+      # `LPos` per child per frame was pure garbage. Distinct from
+      # `@_shrink_lpos` above, which is exposed via `@lpos` for the same pass.
+      scratch = (@_shrink_child_lpos ||= LPos.new)
       @children.each do |el|
-        ret = el._get_coords(get)
+        ret = el._get_coords(get, into: scratch)
 
         # D O:
         # Or just (seemed to work, but probably not good):
@@ -313,8 +324,33 @@ module Crysterm
       Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
     end
 
+    # Frame memo for `_minimal_rectangle`: nested resizable widgets re-derive
+    # the same subtree rectangle once per ancestor shrink pass plus their own
+    # render — O(depth × subtree) per frame without this. Keyed on the exact
+    # arguments plus `Window#renders`, so a moved/resized caller or a new frame
+    # recomputes; `#mark_dirty` (content/geometry changes) clears it eagerly.
+    @_minrect : Rectangle?
+    @_minrect_key : Tuple(Int32, Int32, Int32, Int32, Bool, Int32)?
+
+    # Drops the frame-memoized `_minimal_rectangle` result.
+    def invalidate_minrect : Nil
+      @_minrect = nil
+    end
+
     # Returns minimum widget size
     def _minimal_rectangle(xi, xl, yi, yl, get)
+      key = {xi, xl, yi, yl, get, window?.try(&.renders) || -1}
+      if (r = @_minrect) && @_minrect_key == key
+        return r
+      end
+      r = _minimal_rectangle_uncached(xi, xl, yi, yl, get)
+      @_minrect = r
+      @_minrect_key = key
+      r
+    end
+
+    # :ditto: — the uncached computation.
+    private def _minimal_rectangle_uncached(xi, xl, yi, yl, get)
       minimal_children_rectangle = _minimal_children_rectangle(xi, xl, yi, yl, get)
       minimal_content_rectangle = _minimal_content_rectangle(xi, xl, yi, yl)
       xll = xl

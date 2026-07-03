@@ -15,9 +15,13 @@ include Crysterm
 
 SECONDS = 12.0
 
+# Pinned to the full-recomposite path: damage tracking is on by default and
+# a static scene would hit the no-change fast path (~0.2 µs/frame), leaving
+# nothing for the profiler to attribute.
 screen = Window.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-  width: 200, height: 60)
+  width: 200, height: 60,
+  optimization: Crysterm::OptimizationFlag::None)
 
 # ~150 bordered panels laid across the screen — heavy but realistic load.
 15.times do |row|

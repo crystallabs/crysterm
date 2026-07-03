@@ -18,7 +18,7 @@ def per_call(label, &block)
   STDERR.printf "%-34s %7.3f B/call  (%d calls)\n", label, total.to_f / N, N
 end
 
-s = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+s = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 120, height: 40, optimization: Crysterm::OptimizationFlag::None)
 w = Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 5,
   style: Style.new(border: true, padding: 1, fg: "red", bg: "blue"))
@@ -45,7 +45,7 @@ end
 STDERR.puts "\n--- edge paths ---"
 # Non-css_styled widget (no theme reaching it), focused, opting into floor
 # reverse-highlight: `.style` takes a `dup` — the one allocating path.
-s2 = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+s2 = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 80, height: 24, optimization: Crysterm::OptimizationFlag::None)
 btn = Widget::Button.new(parent: s2, top: 0, left: 0, content: "OK")
 btn.css_styled = false # no theme reached this widget

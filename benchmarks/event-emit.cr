@@ -13,7 +13,7 @@ include Crysterm
 WIDGETS =  200
 FRAMES  = 2000
 
-screen = Screen.new(
+screen = Window.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 120, height: 40)
 

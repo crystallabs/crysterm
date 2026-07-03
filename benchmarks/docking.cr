@@ -21,8 +21,8 @@ include Crysterm
 WIDTH  = 200
 HEIGHT =  50
 
-def build : {Crysterm::Screen, Hash(Int32, Bool)}
-  s = Screen.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+def build : {Crysterm::Window, Hash(Int32, Bool)}
+  s = Window.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: WIDTH, height: HEIGHT
   s.dock_borders = true
 

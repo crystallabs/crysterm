@@ -185,6 +185,9 @@ module Crysterm
       # (same trap `#set_visible` avoids).
       self.state_style.alpha = value
       persist_inline_style(&.alpha=(value))
+      # The frame-memoized `#style` may hold a detached floor-highlight `dup`
+      # of the state style — drop it so the new alpha is visible immediately.
+      invalidate_frame_style
     end
 
     # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).
@@ -195,6 +198,8 @@ module Crysterm
         s.tint = color
         s.tint_alpha = alpha
       end
+      # See `#set_alpha`.
+      invalidate_frame_style
     end
   end
 end

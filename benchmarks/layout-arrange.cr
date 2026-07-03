@@ -22,7 +22,7 @@ N = 12 # children per container
 # Builds a fresh headless screen with one container using `layout`, populated
 # by the block, primes it, and returns {layout, container}.
 def make(layout : Layout, & : Widget -> _) : {Layout, Widget}
-  s = Screen.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new
+  s = Window.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new
   box = Widget::Box.new parent: s, left: 0, top: 0, width: 60, height: 20,
     layout: layout, overflow: Crysterm::Overflow::Ignore
   yield box

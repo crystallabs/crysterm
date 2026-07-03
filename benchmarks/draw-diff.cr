@@ -23,7 +23,7 @@ ATTR_A = Attr.pack(0_i64, Attr.pack_color(0xFF5050), Attr.pack_color(0x101010))
 ATTR_B = Attr.pack(0_i64, Attr.pack_color(0x50A0FF), Attr.pack_color(0x101010))
 
 def make_screen(devnull) : Screen
-  s = Screen.new input: IO::Memory.new, output: devnull, error: IO::Memory.new,
+  s = Window.new input: IO::Memory.new, output: devnull, error: IO::Memory.new,
     width: W, height: H
   s.width = W
   s.height = H

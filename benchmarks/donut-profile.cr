@@ -10,7 +10,7 @@ include Crysterm
 FRAMES = (ENV["FRAMES"]? || "600").to_i
 
 def run(label, opt)
-  s = Screen.new(
+  s = Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     optimization: opt)
 
@@ -59,7 +59,7 @@ def run(label, opt)
   end
 end
 
-probe = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+probe = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 STDERR.puts "\n=== donut: #{probe.awidth}x#{probe.aheight}, #{FRAMES} frames (4 disjoint top-level widgets, all update/frame) ==="
 run "OFF (full recomposite)", OptimizationFlag::None
 run "ON  (damage tracking)", OptimizationFlag::DamageTracking

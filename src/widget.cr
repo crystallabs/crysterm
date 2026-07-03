@@ -203,6 +203,19 @@ module Crysterm
     # in-place change the tracked setters don't see (e.g. mutating a `Style` directly).
     def mark_dirty : Nil
       @render_dirty = true
+      # A dirtying change can alter the resolved style within the same frame
+      # (e.g. `hide`/`show` writing `state_style.visible` — the frame-memoized
+      # `#style` may hold a detached floor-highlight `dup` that misses it).
+      invalidate_frame_style
+      # A dirtying change (content, geometry, visibility) can change the
+      # shrink-to-content size of this widget AND of any shrink ancestor within
+      # the same frame, so drop the whole chain's frame-memoized rectangles.
+      invalidate_minrect
+      p = @parent
+      while p
+        p.invalidate_minrect
+        p = p.parent
+      end
       window?.try &.damage_mark_dirty(self)
     end
 

@@ -2,42 +2,62 @@ module Crysterm
   class Widget
     # Widget decorations
 
+    # The `{ileft, itop, iright, ibottom}` inner insets, cached per frame. Each
+    # getter previously resolved `#style` twice (border + padding), and they
+    # fire many times per widget per frame: per auto-sized child (`awidth`'s nil
+    # branch reads the parent's), ×4 per container in `Layout#interior_coords`,
+    # and inside `_render`'s clip guards. Validity is tied to the frame-memoized
+    # style: `#style` clears this on every (re)resolution, and
+    # `#invalidate_frame_style` clears both.
+    @_frame_insets : Tuple(Int32, Int32, Int32, Int32)?
+
+    private def frame_insets : Tuple(Int32, Int32, Int32, Int32)
+      # `#style` first: on a new frame (or after invalidation) it re-resolves
+      # and resets `@_frame_insets`, so a surviving value is current.
+      st = style
+      if fi = @_frame_insets
+        return fi
+      end
+      p = st.padding
+      fi = if b = st.border
+             {b.left + p.left, b.top + p.top, b.right + p.right, b.bottom + p.bottom}
+           else
+             {p.left, p.top, p.right, p.bottom}
+           end
+      @_frame_insets = fi
+      fi
+    end
+
     # Returns computed content offset from left
     def ileft
-      (style.border.try(&.left) || 0) + style.padding.left
+      frame_insets[0]
     end
 
     # Returns computed content offset from top
     def itop
-      (style.border.try(&.top) || 0) + style.padding.top
+      frame_insets[1]
     end
 
     # Returns computed content offset from right
     def iright
-      (style.border.try(&.right) || 0) + style.padding.right
+      frame_insets[2]
     end
 
     # Returns computed content offset from bottom
     def ibottom
-      (style.border.try(&.bottom) || 0) + style.padding.bottom
+      frame_insets[3]
     end
 
     # Returns summed amount of content offset from left and right
     def iwidth
-      # return (style.border
-      #   ? ((style.border.left ? 1 : 0) + (style.border.right ? 1 : 0)) : 0)
-      #   + style.padding.left + style.padding.right
-      (style.border.try { |border| border.left + border.right } || 0) +
-        (style.padding.try { |p| p.left + p.right })
+      fi = frame_insets
+      fi[0] + fi[2]
     end
 
     # Returns summed amount of content offset from top and bottom
     def iheight
-      # return (style.border
-      #   ? ((style.border.top ? 1 : 0) + (style.border.bottom ? 1 : 0)) : 0)
-      #   + style.padding.top + style.padding.bottom
-      (style.border.try { |border| border.top + border.bottom } || 0) +
-        (style.padding.try { |p| p.top + p.bottom })
+      fi = frame_insets
+      fi[1] + fi[3]
     end
 
     # Outer (margin) offsets. Counterpart to the inner `i*` offsets above,

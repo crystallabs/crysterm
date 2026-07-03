@@ -25,7 +25,7 @@ def walk_to_screen(w : Widget) : Crysterm::Screen?
 end
 
 def leaf_at(depth) : Widget
-  screen = Crysterm::Screen.new
+  screen = Crysterm::Window.new
   screen.width = 200
   screen.height = 200
   node = Crysterm::Widget::Box.new

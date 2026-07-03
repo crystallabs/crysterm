@@ -17,7 +17,7 @@ include Crysterm
 
 devnull = File.open("/dev/null", "w")
 devin = File.open("/dev/null", "r")
-screen = Screen.new output: devnull, input: devin, width: 200, height: 60
+screen = Window.new output: devnull, input: devin, width: 200, height: 60
 screen.width = 200
 screen.height = 60
 screen.realloc
