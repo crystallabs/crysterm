@@ -296,7 +296,10 @@ module Crysterm
     # animations have no settled state and are not counted here.
     def animating? : Bool
       found = false
-      each_descendant { |w| found = true if w.transition_running? }
+      each_descendant do |w|
+        next if found
+        found = true if w.transition_running?
+      end
       found
     end
   end

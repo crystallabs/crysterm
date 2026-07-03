@@ -85,8 +85,19 @@ module Crysterm
         request_render
       end
 
+      # Snapshot of every input `build_content` reads. Rebuilding the tagged
+      # content allocates per-cell arrays + a `String.build` per gauge every
+      # frame; skip it while nothing observable changed. `Item` is a reference
+      # type mutated in place (`item.value=`), so snapshot its fields by value
+      # rather than storing the array reference.
+      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Array(Tuple(String, Float64, Int32)))? = nil
+
       def render
-        self.content = build_content
+        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @gauges.map { |g| {g.label, g.value, g.color} }}
+        if key != @content_key
+          @content_key = key
+          self.content = build_content
+        end
         super
       end
 

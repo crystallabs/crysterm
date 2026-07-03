@@ -1000,16 +1000,21 @@ module Crysterm
       else
         top = @ybase + @scroll_top
         bot = @ybase + @scroll_bottom
-        @lines.delete_at top
-        @lines.insert bot, blank_line
+        # Recycle the scrolled-off top line's storage as the fresh blank bottom
+        # row instead of allocating a new `blank_line` (mirrors recycle_top_row).
+        line = @lines.delete_at top
+        blank_in_place line
+        @lines.insert bot, line
       end
     end
 
     private def scroll_down : Nil
       top = @ybase + @scroll_top
       bot = @ybase + @scroll_bottom
-      @lines.delete_at bot
-      @lines.insert top, blank_line
+      # Recycle the scrolled-off bottom line as the fresh blank top row.
+      line = @lines.delete_at bot
+      blank_in_place line
+      @lines.insert top, line
     end
 
     private def erase_display(mode : Int32) : Nil
@@ -1043,16 +1048,17 @@ module Crysterm
     end
 
     private def clear_screen_line(yy : Int32) : Nil
-      @lines[@ybase + yy] = blank_line
+      # Blank the visible row in place — visible rows are never aliased by
+      # scrollback (scrollback lines live above @ybase) — instead of allocating
+      # a fresh blank_line and discarding the old array.
+      blank_in_place @lines[@ybase + yy]
     end
 
     private def erase_in_line(from : Int32, to : Int32) : Nil
       line = cur_line
-      ea = erase_attr
-      blank = Cell.new(ea, ' ')
-      (from..to).each do |xx|
-        line[xx] = blank if xx < line.size
-      end
+      blank = Cell.new(erase_attr, ' ')
+      to = Math.min(to, line.size - 1)
+      line.fill(blank, from, to - from + 1) if to >= from
     end
 
     # IL: open *n* blank lines at the cursor inside the scroll region, pushing the
@@ -1071,8 +1077,10 @@ module Crysterm
       return if n <= 0
       bot = @ybase + @scroll_bottom
       n.times do
-        @lines.delete_at bot
-        @lines.insert @ybase + @y, blank_line
+        # Recycle the discarded bottom line as the blank line opened at the cursor.
+        line = @lines.delete_at bot
+        blank_in_place line
+        @lines.insert @ybase + @y, line
       end
     end
 
@@ -1087,8 +1095,10 @@ module Crysterm
       return if n <= 0
       bot = @ybase + @scroll_bottom
       n.times do
-        @lines.delete_at @ybase + @y
-        @lines.insert bot, blank_line
+        # Recycle the removed line as the blank line backfilled at the bottom.
+        line = @lines.delete_at @ybase + @y
+        blank_in_place line
+        @lines.insert bot, line
       end
     end
 

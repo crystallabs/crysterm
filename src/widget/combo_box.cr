@@ -193,7 +193,8 @@ module Crysterm
       private def refilter
         @filtered =
           if editable? && !@text.empty?
-            @options.select(&.downcase.includes?(@text.downcase))
+            q = @text.downcase
+            @options.select(&.downcase.includes?(q))
           else
             @options.dup
           end

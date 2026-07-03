@@ -56,30 +56,46 @@ module Crysterm
           io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
         end
 
+        # Reusable scratch reused across all bands instead of a fresh `Hash` +
+        # per-color `Array(UInt8)(pw)` per band: one `pw`-wide sixel row per
+        # palette color (`PALETTE.size` = 252), the list of colors first touched
+        # this band (in first-touch order, so emission matches the old `Hash`
+        # insertion order exactly), and `band_of[ci]` = the band that last touched
+        # color `ci` (the allocation-free "seen this band?" test).
+        scratch = Array(Array(UInt8)).new(PALETTE.size) { Array(UInt8).new(pw, 0u8) }
+        seen = [] of Int32
+        band_of = Array(Int32).new(PALETTE.size, -1)
+
         bands = (ph + 5) // 6
         bands.times do |band|
           y0 = band * 6
-          # color index -> one 6-bit sixel value per column
-          col_runs = Hash(Int32, Array(UInt8)).new
+          seen.clear
           pw.times do |x|
             6.times do |dy|
               y = y0 + dy
               break if y >= ph
               ci = idx[y][x]
               next if ci < 0 # transparent (e.g. Contain letterbox margin)
-              arr = col_runs[ci] ||= Array(UInt8).new(pw, 0u8)
+              if band_of[ci] != band
+                band_of[ci] = band
+                seen << ci
+              end
+              arr = scratch[ci]
               arr[x] = (arr[x] | (1u8 << dy))
             end
           end
 
           first = true
-          col_runs.each do |ci, vals|
+          seen.each do |ci|
             io << '$' unless first # graphics CR: overlay next color in same band
             first = false
             io << '#' << ci
-            emit_rle io, vals, pw
+            emit_rle io, scratch[ci], pw
           end
           io << '-' # graphics NL: advance to next band
+
+          # Reset only the rows this band touched, ready for the next band.
+          seen.each { |ci| scratch[ci].fill(0u8) }
         end
 
         io << "\e\\" # ST

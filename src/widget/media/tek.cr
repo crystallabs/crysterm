@@ -192,15 +192,19 @@ module Crysterm
       # delay), leaving Tek mode when stopped. Loops until `#stop`/destroy.
       private def animate_loop(s : ::Crysterm::Window, ox : Int32, oy : Int32, gen : Int32)
         frames = @src_frames || return
+        # The frame list is fixed and cycles, so dither + build each frame's
+        # vector payload once up front (mirrors `Media::Graphics`' `@frame_payloads`)
+        # instead of re-running `to_bits` + string-building it every tick.
+        payloads = frames.map { |(bmp, _delay)| build_frame(bmp, ox, oy) }
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush
         idx = 0
         # Exit as soon as a newer loop has taken over, even if `@playing` was
         # flipped back to true under us by that new loop.
         while @playing && gen == @anim_gen
-          bmp, delay = frames[idx]
+          _bmp, delay = frames[idx]
           @anim_index = idx
-          s.tput._oprint build_frame(bmp, ox, oy)
+          s.tput._oprint payloads[idx]
           s.tput.flush
           idx = (idx + 1) % frames.size
           ms = (delay / @speed).to_i
@@ -237,21 +241,22 @@ module Crysterm
               x0 = 0 if x0 < 0
               x1 = TEK_W - 1 if x1 > TEK_W - 1
               next if x1 < x0 || x0 > TEK_W - 1
-              io << GS << tek_coord(x0, ty) << tek_coord(x1, ty)
+              io << GS
+              tek_coord io, x0, ty
+              tek_coord io, x1, ty
             end
           end
           io << US
         end
       end
 
-      # 4014 10-bit coordinate: HiY, LoY, HiX, LoX.
-      private def tek_coord(x : Int32, y : Int32) : String
-        String.build do |s|
-          s << (0x20 | ((y >> 5) & 0x1f)).chr
-          s << (0x60 | (y & 0x1f)).chr
-          s << (0x20 | ((x >> 5) & 0x1f)).chr
-          s << (0x40 | (x & 0x1f)).chr
-        end
+      # 4014 10-bit coordinate: HiY, LoY, HiX, LoX, appended straight into *io*
+      # (no intermediate 4-char `String` per run endpoint).
+      private def tek_coord(io : IO, x : Int32, y : Int32) : Nil
+        io << (0x20 | ((y >> 5) & 0x1f)).chr
+        io << (0x60 | (y & 0x1f)).chr
+        io << (0x20 | ((x >> 5) & 0x1f)).chr
+        io << (0x40 | (x & 0x1f)).chr
       end
 
       # Resolves `Auto` to a concrete method: ordered (frame-stable) while an

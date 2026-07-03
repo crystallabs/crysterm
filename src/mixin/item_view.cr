@@ -130,6 +130,14 @@ module Crysterm
       # whenever `@ritems` is mutated.
       @clean_tags_index : Hash(String, Int32)? = nil
 
+      # Lazily-built identity map `item widget => its index in @items`, mirroring
+      # `@items`. The `multi_select?` render path resolves an item's index once
+      # per child per frame; without this map that was `@items.index item` — a
+      # linear scan per item ⇒ O(n²)/frame. Keyed by reference identity
+      # (`Reference#hash`/`#==` are by `object_id`), matching `Array#index`'s
+      # `==`. Invalidated by `invalidate_item_index` whenever `@items` is mutated.
+      @item_index : Hash(Widget, Int32)? = nil
+
       @_is_list = true
       @interactive = true
 
@@ -232,7 +240,7 @@ module Crysterm
           # Multi-select: cursor item gets the full `:selected` highlight, other
           # checked items stay normal but underlined.
           if multi_select?
-            i = @items.index item
+            i = item_index_of item
             item.state = (i == @selected) ? WidgetState::Selected : WidgetState::Normal
             style = item.style
             if i == @selected
@@ -256,7 +264,7 @@ module Crysterm
           return item_render_style(@items[@selected]? == item)
         end
 
-        i = @items.index item
+        i = item_index_of item
         return item_render_style(true) if i == @selected
 
         if i && @selected_indices.includes?(i)
@@ -299,7 +307,7 @@ module Crysterm
         # cursor item (runs once per item per frame from `Widget#_render`).
         return @items[@selected]? == item unless multi_select?
 
-        i = @items.index item
+        i = item_index_of item
         return false unless i
         i == @selected || @selected_indices.includes?(i)
       end
@@ -551,6 +559,20 @@ module Crysterm
       # Called from every method that mutates `@ritems`.
       private def invalidate_item_index
         @clean_tags_index = nil
+        @item_index = nil
+      end
+
+      # O(1) index of item widget *item* in `@items` (nil when absent), via the
+      # lazily-built `@item_index` map (rebuilt on first use after
+      # `invalidate_item_index`). Same result as `@items.index item`, without the
+      # per-item linear scan on the hot render path.
+      private def item_index_of(item : Widget) : Int32?
+        index = @item_index ||= begin
+          h = {} of Widget => Int32
+          @items.each_with_index { |it, i| h[it] = i }
+          h
+        end
+        index[item]?
       end
 
       # Accepts any `Widget` (not only `Widget::Box`) so callers holding a

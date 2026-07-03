@@ -230,8 +230,11 @@ module Crysterm
         asum = 0.0
         i = 0
         sy.times do |dy|
+          # Fetch this sub-row once, then index columns off it (instead of a
+          # `sub[r]?` row lookup + nil check per sub-pixel via `pix`).
+          row0 = sub[cy * sy + dy]?
           sx.times do |dx|
-            if p = pix(sub, cx * sx + dx, cy * sy + dy)
+            if row0 && (p = row0[cx * sx + dx]?)
               count += 1
               asum += p.a
               if p.a > 0
@@ -286,8 +289,12 @@ module Crysterm
         off_asum = 0.0 # alpha of the unlit in-bounds dots
         total = 0
         4.times do |dy|
+          # Fetch this sub-row once, then index columns off it (rather than a
+          # `sub[r]?` row lookup + nil check per dot via `pix`).
+          row0 = sub[cy * 4 + dy]?
+          next unless row0
           2.times do |dx|
-            p = pix(sub, cx * 2 + dx, cy * 4 + dy)
+            p = row0[cx * 2 + dx]?
             next unless p
             total += 1
             on = alpha_key? ? p.a >= 128 : lum(p) >= thr

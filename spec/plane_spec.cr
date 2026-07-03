@@ -62,6 +62,26 @@ describe Crysterm::Plane do
     bg_at(s, 2, 10).should eq 0x7f007f # mix(red, blue): base shows through overlay
   end
 
+  it "clear resets previously painted rows to the transparent sentinel (dirty-row clear)" do
+    s = sized_screen 20, 3
+    fill_base s, 0x0000ff # blue base
+    pl = Plane.new(0, 20, 3)
+    pl.clear
+    red = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0xff0000))
+    paint pl, 0, 20, red # paint every row red (all rows now dirty)
+    pl.clear             # `#clear` resets only dirty rows -> every painted row reverts to sentinel
+    # Repaint only row 0 so rows 1..2 stay cleared; if `clear` had left them
+    # painted+dirty, `composite_onto` would fold stale red over the base there.
+    row0 = pl.cells[0]
+    (0...20).each { |x| c = row0[x]; c.attr = red; c.char = ' ' }
+    row0.dirty = true
+    pl.opacity = 1.0
+    pl.composite_onto s.lines
+
+    bg_at(s, 0, 5).should eq 0xff0000 # repainted row -> red
+    bg_at(s, 1, 5).should eq 0x0000ff # cleared row -> base shows (no stale overlay)
+  end
+
   it "honors per-cell Transparent and HighContrast alpha modes" do
     s = sized_screen 20, 3
     fill_base s, 0x0000ff

@@ -137,7 +137,7 @@ module Crysterm
               ch = @chars[idx]
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
-              fgf = rainbow? ? Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)) : deff
+              fgf = rainbow? ? Attr.pack_color(Colors::HSV_LUT[(x * @hue_spread + f * @hue_speed) % 360]) : deff
               window.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
             end
           end

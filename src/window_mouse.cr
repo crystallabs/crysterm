@@ -402,21 +402,17 @@ module Crysterm
         next if skip && el == skip
         # The transient drag ghost is decorative, never a drop target.
         next if (g = @_drag_ghost) && el == g
-        next unless el.wants_mouse?
-        # `#visible?` reflects only the widget's own flag, not its ancestors' —
-        # require the whole chain visible so a "shown" widget inside a hidden
-        # container (e.g. a non-current tab page) can't intercept clicks.
-        next unless displayed_in_tree? el
 
-        # Hit-test against the widget's *painted* rectangle (`lpos`), not the raw
-        # `aleft/atop/awidth/aheight` geometry. `lpos` is what `_render` laid down:
-        # it folds in the margin shift AND the enclosing-scroll offset (`base`) and
-        # clips to every clipping ancestor's viewport, so a scrolled list item is
-        # matched where it actually appears (and a `resizable` widget by its shrunk
-        # content box, not the full slot `awidth` reports). Raw geometry ignored all
-        # of that and hit-tested scrolled/shrunk children by their unscrolled,
-        # unclipped rectangle. `render_children` refreshes every descendant's `lpos`
-        # each frame, so it is current once the window has painted.
+        # Cheapest check first: hit-test against the widget's *painted* rectangle
+        # (`lpos`), not the raw `aleft/atop/awidth/aheight` geometry. `lpos` is
+        # what `_render` laid down: it folds in the margin shift AND the
+        # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
+        # viewport, so a scrolled list item is matched where it actually appears
+        # (and a `resizable` widget by its shrunk content box, not the full slot
+        # `awidth` reports). Raw geometry ignored all of that and hit-tested
+        # scrolled/shrunk children by their unscrolled, unclipped rectangle.
+        # `render_children` refreshes every descendant's `lpos` each frame, so it
+        # is current once the window has painted.
         lp = el.lpos
         if lp
           next unless x >= lp.xi && x < lp.xl
@@ -433,6 +429,12 @@ module Crysterm
           next unless x >= left && x < left + el.awidth
           next unless y >= top && y < top + el.aheight
         end
+
+        next unless el.wants_mouse?
+        # `#visible?` reflects only the widget's own flag, not its ancestors' —
+        # require the whole chain visible so a "shown" widget inside a hidden
+        # container (e.g. a non-current tab page) can't intercept clicks.
+        next unless displayed_in_tree? el
 
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
@@ -465,9 +467,12 @@ module Crysterm
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not
     # merely flagged visible while sitting in a hidden container.
     private def displayed_in_tree?(el : Widget) : Bool
-      shown = true
-      el.self_and_each_ancestor { |a| shown = false unless a.style.visible? }
-      shown
+      a : Widget? = el
+      while a
+        return false unless a.style.visible?
+        a = a.parent
+      end
+      true
     end
 
     # Registers *el* as a widget that wants mouse input. Mirrors

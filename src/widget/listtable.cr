@@ -215,20 +215,27 @@ module Crysterm
 
         descending = @sort_descending
         head = @rows.first
-        body = @rows[1..].sort do |a, b|
-          cmp = compare_cells(a[col]? || "", b[col]? || "")
+        # Schwartzian transform: precompute one `{Float64?, String}` sort key per
+        # body row (O(n) `clean_tags` + `to_f?`) and sort the keyed pairs, rather
+        # than re-stripping tags for both operands inside the O(n log n)
+        # comparator (which the old `compare_cells` did per comparison).
+        keyed = @rows[1..].map do |r|
+          c = clean_tags(r[col]? || "")
+          {c.to_f?, c, r}
+        end
+        keyed.sort! do |a, b|
+          cmp = compare_keys(a[0], a[1], b[0], b[1])
           descending ? -cmp : cmp
         end
 
         @rows = [head]
-        @rows.concat body
+        keyed.each { |k| @rows << k[2] }
       end
 
-      private def compare_cells(a : String, b : String) : Int32
-        ca = clean_tags a
-        cb = clean_tags b
-        an = ca.to_f?
-        bn = cb.to_f?
+      # Compares two precomputed cell keys. When both cells parse as numbers they
+      # compare numerically; otherwise their tag-stripped text compares. Mirrors
+      # the old per-comparison `compare_cells`.
+      private def compare_keys(an : Float64?, ca : String, bn : Float64?, cb : String) : Int32
         if an && bn
           (an <=> bn) || 0
         else
@@ -335,8 +342,11 @@ module Crysterm
           text = render_row row, @first_col
           if i == 0
             header.set_content text
-          elsif item = @items[i]?
-            set_item item, content: text
+          elsif @items[i]?
+            # Pass the index (not the widget): `set_item(widget, …)` re-resolves
+            # it with `@items.index` (O(n)) inside this per-row loop — O(n²) per
+            # scroll tick. The loop already has `i`.
+            set_item i, content: text
           end
         end
       end

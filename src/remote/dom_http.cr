@@ -506,6 +506,8 @@ module Crysterm
 
     private def publish_event(type : String, widget : Widget? = nil, action : String? = nil,
                               *, value : String? = nil, char : Char? = nil, key : String? = nil) : Nil
+      # No `/events` client connected: skip building the JSON and duping the list.
+      return if @subscribers.empty?
       message = JSON.build do |json|
         json.object do
           json.field "jsonrpc", "2.0"

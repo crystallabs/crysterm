@@ -97,22 +97,33 @@ module Crysterm
           base = (h - 1) * w
           w.times { |x| @heat[base + x] = @ignition + rand * (1.0 - @ignition) }
 
+          # Peel the two edge columns (which have one fewer neighbour) out of the
+          # inner loop, so the interior runs a branch-free 3-tap average. All
+          # indices are in-bounds (the `@heat.size != w * h` guard above), so the
+          # reads/writes use `unsafe_fetch`/`unsafe_put`. Addition is commutative
+          # in IEEE-754, so the regrouped sums are bit-identical to the originals.
           (h - 2).downto(0) do |y|
             row = y * w
             below = (y + 1) * w
-            w.times do |x|
-              sum = @heat[below + x]
-              cnt = 1
-              if x > 0
-                sum += @heat[below + x - 1]
-                cnt += 1
-              end
-              if x < w - 1
-                sum += @heat[below + x + 1]
-                cnt += 1
-              end
-              @heat[row + x] = (sum / cnt) * @decay
+            if w == 1
+              @heat.unsafe_put(row, @heat.unsafe_fetch(below) * @decay)
+              next
             end
+            wm = w - 1
+            # x == 0: self + right neighbour.
+            s0 = @heat.unsafe_fetch(below) + @heat.unsafe_fetch(below + 1)
+            @heat.unsafe_put(row, (s0 / 2) * @decay)
+            # Interior columns 1..w-2: left + self + right.
+            x = 1
+            while x < wm
+              b = below + x
+              sum = @heat.unsafe_fetch(b - 1) + @heat.unsafe_fetch(b) + @heat.unsafe_fetch(b + 1)
+              @heat.unsafe_put(row + x, (sum / 3) * @decay)
+              x += 1
+            end
+            # x == w-1: left + self.
+            se = @heat.unsafe_fetch(below + wm - 1) + @heat.unsafe_fetch(below + wm)
+            @heat.unsafe_put(row + wm, (se / 2) * @decay)
           end
         end
 

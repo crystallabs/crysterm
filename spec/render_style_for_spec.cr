@@ -48,3 +48,56 @@ describe "Widget#render_style_for" do
     list.render_style_for(list.items[0]).reverse?.should be_false
   end
 end
+
+# The multi-select render path (`render_style_for`/`item_selected?`) resolves an
+# item widget to its index via a lazily-built identity map (`@item_index`),
+# invalidated on every `@items` mutation. These lock in that the map returns each
+# item's *current* index after add/remove/insert reorders — a stale map would
+# report a pre-mutation index and mis-highlight rows.
+describe "Mixin::ItemView multi-select index map" do
+  it "tracks the same item widget's index after appending" do
+    s = headless_screen
+    list = Widget::List.new parent: s, multi_select: true, items: ["a", "b", "c"]
+    b = list.items[1]
+    list.select_item 1
+
+    list.item_selected?(b).should be_true
+    list.append_item "d"
+    # `b` is still at index 1, and index 1 is still marked.
+    list.item_selected?(b).should be_true
+    list.item_selected?(list.items[3]).should be_false
+  end
+
+  it "resolves an item's shifted index after inserting before it" do
+    s = headless_screen
+    list = Widget::List.new parent: s, multi_select: true, items: ["a", "b", "c"]
+    b = list.items[1]
+    list.select_item 1 # marks index 1 (b)
+
+    # Inserting at the front slides every item down one: b moves to index 2 and
+    # `@selected_indices` slides {1} -> {2}. `item_selected?(b)` is only true if
+    # the rebuilt map reports b's new index (2), not the stale 1.
+    list.insert_item 0, "z"
+    list.items[2].should be(b)
+    list.item_selected?(b).should be_true
+    # Only b is in the multi-selection — `selected_values` reflects the set
+    # alone (cursor-independent, unlike `item_selected?` which also honors the
+    # single-select cursor `@selected`).
+    list.selected_values.should eq ["b"]
+  end
+
+  it "resolves an item's shifted index after removing before it" do
+    s = headless_screen
+    list = Widget::List.new parent: s, multi_select: true, items: ["a", "b", "c", "d"]
+    c = list.items[2]
+    list.select_item 2 # marks index 2 (c)
+
+    # Removing the first item slides c up to index 1; `@selected_indices` slides
+    # {2} -> {1}. Correct only if the map reports c's new index.
+    list.remove_item list.items[0]
+    list.items[1].should be(c)
+    list.item_selected?(c).should be_true
+    # Only c remains in the multi-selection (cursor-independent check).
+    list.selected_values.should eq ["c"]
+  end
+end

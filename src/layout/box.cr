@@ -108,11 +108,13 @@ module Crysterm
       # Measures the main axis: total fixed size, total grow weight, the leftover
       # to distribute, and (when nothing grows) the `justify` lead/extra-gap.
       private def measure(container : Widget, interior : LPos) : Nil
-        children = container.children
-        @flex.select! { |el| children.includes? el }
-        @filled.select! { |el| children.includes? el }
-        @flex_size.select! { |el, _| children.includes? el }
-        @filled_size.select! { |el, _| children.includes? el }
+        # O(1) `child?` (backed by `@children_set`) instead of `children.includes?`
+        # (a linear scan): pruning four sets by a linear membership test was
+        # O(tracked × children) per arrange, pure steady-state overhead.
+        @flex.select! { |el| container.child? el }
+        @filled.select! { |el| container.child? el }
+        @flex_size.select! { |el, _| container.child? el }
+        @filled_size.select! { |el, _| container.child? el }
 
         main = main_extent interior
         # Only children this engine actually arranges (see `#each_arrangeable`)

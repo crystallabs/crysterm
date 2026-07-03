@@ -68,7 +68,8 @@ module Crysterm
       # case-insensitive; the slice offsets callers use afterward are by the
       # (fixed) name length, so they hold for any casing.
       def self.at_rule?(prelude : String, name : String) : Bool
-        prelude.downcase.starts_with?("@#{name}")
+        return false unless prelude.starts_with?('@')
+        prelude[1, name.size].compare(name, case_insensitive: true) == 0
       end
 
       # Matches a `var(` function-call opener, case-insensitively (`VAR(--x)` is

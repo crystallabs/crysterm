@@ -159,7 +159,7 @@ module Crysterm
         # display dedup guard is what keeps an external set like `input.value =
         # ""` from being no-op'd (and leaving stale text across submits) when the
         # `@_value` last-displayed cache is stale.
-        assign_value(value, &.gsub(/\n/, ""))
+        assign_value(value, &.delete('\n'))
 
         # `@_value` caches the *displayed* text so the dedup guard also fires
         # the first time an empty box needs to paint its placeholder.
@@ -297,7 +297,10 @@ module Crysterm
       # The tab-expanded value as shown by `#compute_display` (`@view_start` and
       # the caret indices are codepoint offsets into this).
       private def expanded_value : String
-        @value.gsub /\t/, style.tab_char * style.tab_size
+        # No tabs ⇒ the value is already its own expansion; skip the scan/alloc
+        # (this runs several times per frame per visible field).
+        return @value unless @value.includes?('\t')
+        @value.gsub('\t', style.tab_char * style.tab_size)
       end
 
       # Caret's *display* column within the shown window (see `#compute_display`),

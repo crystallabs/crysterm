@@ -758,7 +758,7 @@ module Crysterm
         # form, silently dropping the alignment and leaking literal
         # `{center}`/`{/center}` text into output. Allow surrounding SGR in the
         # match and re-prepend/-append it so only the alignment tag is consumed.
-        if @parse_tags
+        if @parse_tags && line.includes?('{')
           if cap = line.match /^((?:\e\[[\d;]*m)*){(left|center|right)}/
             align_left_too = true
             # Drop the tag, keep any leading SGR that preceded it.

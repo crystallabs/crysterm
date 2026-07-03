@@ -178,6 +178,20 @@ describe Crysterm::TerminalEmulator do
       row(em, 1).should eq ""
     end
 
+    it "leaves scrollback intact when ED 2 blanks the visible rows in place" do
+      # ED 2 now blanks each visible row in place (recycling its storage) rather
+      # than replacing it with a fresh array. Visible rows are never aliased by
+      # scrollback, so the history above @ybase must be untouched.
+      em = emu(4, 2)
+      em.feed "L0\r\nL1\r\nL2\r\nL3" # L0/L1 -> scrollback; L2/L3 visible
+      em.ybase.should eq 2
+      em.feed "\e[2J" # clear the visible window
+      row(em, 0).should eq ""
+      row(em, 1).should eq ""
+      em.lines[0].map(&.char).join.delete('\u0000').rstrip.should eq "L0"
+      em.lines[1].map(&.char).join.delete('\u0000').rstrip.should eq "L1"
+    end
+
     it "drops only the scrollback on ED 3, leaving the visible screen intact" do
       # `CSI 3 J` (xterm "Erase Saved Lines") must discard scrollback only,
       # never the visible page.
@@ -430,6 +444,24 @@ describe Crysterm::TerminalEmulator do
       row(em, 1).should eq "L3"
       row(em, 2).should eq ""
       row(em, 3).should eq ""
+    end
+
+    it "recycles the scrolled-off line as a full-width blank in a partial scroll region" do
+      # Scrolling a partial region (one that excludes a status line) now recycles
+      # the discarded line's storage as the fresh blank instead of allocating.
+      # The recycled line must be blank across every column at the current width.
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3
+      em.feed "\e[1;3r"                             # scroll region rows 1..3 (0-based 0..2); row 3 excluded
+      em.feed "\e[3;1H"                             # cursor to the region bottom (0-based row 2)
+      em.feed "\n"                                  # LF at the region bottom scrolls the region up
+      row(em, 0).should eq "L1"
+      row(em, 1).should eq "L2"
+      row(em, 2).should eq ""   # recycled blank line
+      row(em, 3).should eq "L3" # outside the region: untouched
+      recycled = em.lines[em.ydisp + 2]
+      recycled.size.should eq 4
+      recycled.all? { |c| c.char == ' ' }.should be_true
     end
 
     it "caps an adversarial huge SU count at the region height" do

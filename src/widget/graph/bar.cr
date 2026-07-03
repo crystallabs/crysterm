@@ -35,6 +35,18 @@ module Crysterm
       class Bar < Box
         include BarChart
 
+        # A getter plus a setter that also bumps the content-cache version, so a
+        # decoration change invalidates the per-frame build cache (see `BarChart`).
+        private macro chart_prop(name, type)
+          getter {{name.id}} : {{type}}
+
+          def {{name.id}}=(value : {{type}})
+            @{{name.id}} = value
+            bump_data_version
+            value
+          end
+        end
+
         # The data series. Each element is one bar. `getter` with an explicit
         # setter below (not `property`) so every assignment routes through the
         # repaint-scheduling `#values=`.
@@ -42,27 +54,33 @@ module Crysterm
 
         # Category captions drawn (centered, one row) under each bar. `nil` or
         # empty for none.
-        property labels : Array(String)?
+        chart_prop labels, Array(String)?
 
         # Bottom of the scale (the baseline a zero-height bar sits at).
-        property min : Float64
+        chart_prop min, Float64
 
         # Top of the scale. `nil` auto-scales to the largest shown value each
         # frame; set a fixed value for a stable axis (no jumping).
-        property max : Float64?
+        chart_prop max, Float64?
 
         # Width of each bar, in columns.
-        property bar_width : Int32
+        chart_prop bar_width, Int32
 
         # Empty columns between adjacent bars.
-        property bar_spacing : Int32
+        chart_prop bar_spacing, Int32
 
         # Whether to draw each bar's numeric value (centered, one row) under it.
-        property? show_values : Bool
+        getter? show_values : Bool
+
+        def show_values=(value : Bool)
+          @show_values = value
+          bump_data_version
+          value
+        end
 
         # Per-bar foreground colors, cycled across bars. `nil` uses the widget's
         # own `style.fg`.
-        property colors : Array(String)?
+        chart_prop colors, Array(String)?
 
         def initialize(
           values : Array = [] of Float64,
@@ -84,6 +102,7 @@ module Crysterm
         # Accepts any numeric array, coercing to `Float64`.
         def values=(vals : Array)
           @values = vals.map(&.to_f)
+          bump_data_version
           mark_dirty # repaint on data change, as in `StackedBar`
         end
 

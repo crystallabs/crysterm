@@ -172,4 +172,20 @@ describe Crysterm::Attr do
       end
     end
   end
+
+  # `HSV_LUT` precomputes `hsv_i` for every integer hue at full saturation and
+  # value, so effects that tint by an integer hue (`Effect::Spray`,
+  # `Effect::SineScroller`) can index it instead of recomputing the chroma math
+  # each frame. It must be bit-identical to a direct `hsv_i(h)` call.
+  describe "HSV_LUT" do
+    it "has one entry per integer hue 0...360" do
+      Colors::HSV_LUT.size.should eq 360
+    end
+
+    it "is bit-identical to hsv_i(h) at s = v = 1 for every hue" do
+      360.times do |h|
+        Colors::HSV_LUT[h].should eq Colors.hsv_i(h)
+      end
+    end
+  end
 end

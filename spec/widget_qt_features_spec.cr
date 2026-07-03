@@ -431,6 +431,21 @@ describe Crysterm::Widget::ListTable do
     lt.sort_by_column 0
     lt.rows[1..].map(&.first).should eq ["Alice", "Bob", "Carol"]
   end
+
+  it "sorts on tag-stripped cell values (numeric under markup)" do
+    s = qt_mem_screen
+    # The precomputed sort key runs `clean_tags` once per row, so the `{...}`
+    # colour markup must not affect ordering: these compare as 2 < 10 < 30,
+    # not lexically ("10" < "2" < "30").
+    lt = Crysterm::Widget::ListTable.new parent: s, rows: [
+      ["Name", "Score"],
+      ["Alice", "{red-fg}10{/red-fg}"],
+      ["Bob", "{green-fg}2{/green-fg}"],
+      ["Carol", "{blue-fg}30{/blue-fg}"],
+    ]
+    lt.sort_by_column 1
+    lt.rows[1..].map(&.first).should eq ["Bob", "Alice", "Carol"]
+  end
 end
 
 describe Crysterm::Widget::Slider do
@@ -975,6 +990,42 @@ describe Crysterm::Widget::Tree do
 
     tree.collapse a
     collapsed.should eq [0]
+  end
+
+  it "coalesces rebuilds inside begin_update/end_update" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+
+    tree.begin_update
+    100.times { |i| tree.add "n#{i}" }
+    # The re-flatten is deferred until the batch closes, so the view is still
+    # empty mid-batch (no per-`add` rebuild).
+    tree.nodes.should be_empty
+    tree.end_update
+
+    # One rebuild at end_update produces the full, correctly-ordered view.
+    tree.nodes.map(&.text).should eq (0...100).map { |i| "n#{i}" }
+  end
+
+  it "rebuilds immediately for a lone add (outside a batch)" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    tree.add "a"
+    tree.nodes.map(&.text).should eq ["a"]
+    tree.add "b"
+    tree.nodes.map(&.text).should eq ["a", "b"]
+  end
+
+  it "runs a single deferred rebuild for the update block form" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    tree.update do
+      root = tree.add "root"
+      root.add "child"
+      root.expanded = true
+      tree.nodes.should be_empty # nothing rebuilt yet
+    end
+    tree.nodes.map(&.text).should eq ["root", "child"]
   end
 
   it "navigates with Right/Left/Space" do

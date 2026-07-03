@@ -152,14 +152,14 @@ module Crysterm
       elsif e.release?
         ev = Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
         emit ev
-        emit Crysterm::Event::Key, ev if handlers(Crysterm::Event::Key).any?
+        emit Crysterm::Event::Key, ev if has_handlers?(Crysterm::Event::Key)
       else
         # Return the emitted `KeyPress` so `Application#route_input` can apply the
         # default quit keys as a *fallback* — only when no widget/handler
         # `#accept`ed the key (BUGS-F2 #1).
         press = Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
         emit press
-        emit Crysterm::Event::Key, press if handlers(Crysterm::Event::Key).any?
+        emit Crysterm::Event::Key, press if has_handlers?(Crysterm::Event::Key)
         return press
       end
       nil
@@ -224,8 +224,12 @@ module Crysterm
         # anything else so a drag fully owns the keyboard while it is in flight.
         next if _drag_key_handled e
 
+        # Whether this key is on the always-propagate list — scanned once and
+        # reused across the three checks below.
+        always_propagate = @always_propagate.includes?(e.key)
+
         # Not propagating and key isn't on the always-propagate list: done.
-        if !@propagate_keys && !@always_propagate.includes?(e.key)
+        if !@propagate_keys && !always_propagate
           next
         end
 
@@ -236,7 +240,7 @@ module Crysterm
         grab_keys = @grab_keys
         # If key grab is not active, or key is whitelisted, announce it.
         # (emit_key emits both the generic key press and the specific key event.)
-        if !grab_keys || @always_propagate.includes?(e.key)
+        if !grab_keys || always_propagate
           # XXX
           # emit_key self, e
         end
@@ -256,7 +260,7 @@ module Crysterm
         # inside a `vi:`-enabled `Form` would both insert the character and
         # trigger the form's navigation. `always_propagate` keys (Tab, etc.) are
         # the deliberate exception: they still bubble so the form can navigate.
-        grabbed = @grab_keys && !@always_propagate.includes?(e.key)
+        grabbed = @grab_keys && !always_propagate
 
         focused.try do |el2|
           while el2 && el2.is_a? Widget
@@ -301,12 +305,12 @@ module Crysterm
     # instead of checking `#key` on the generic event.
     @[AlwaysInline]
     def emit_key(el, e : Event)
-      if el.handlers(e.class).any?
+      if el.has_handlers?(e.class)
         el.emit e
       end
       if e.key
         Crysterm::Event::KeyPress::KEYS[e.key]?.try do |keycls|
-          if el.handlers(keycls).any?
+          if el.has_handlers?(keycls)
             # Forward `key_event` so the specific-key event carries the same
             # enhanced-protocol info (modifiers, repeat, codepoint) as `e`, and
             # propagate a handler's `accept` back onto `e` so the shared

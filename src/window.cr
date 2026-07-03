@@ -462,8 +462,8 @@ module Crysterm
         # size while `add_row` below pushes to both, so `@olines` grew
         # unbounded across resizes and its rows no longer lined up with
         # `@lines`, corrupting the frame diff in `draw`.
-        @lines = Array(Row).new
-        @olines = Array(Row).new
+        @lines = Array(Row).new aheight
+        @olines = Array(Row).new aheight
         old_height = 0
         old_width = 0
       end
@@ -508,7 +508,7 @@ module Crysterm
     # `add_row` to grow `@lines` and `@olines` in lock-step.
     @[AlwaysInline]
     private def push_row(buf, dirty)
-      col = Row.new
+      col = Row.new awidth
       adjust_width col, 0, awidth, dirty
       buf.push col
       buf[-1].dirty = dirty

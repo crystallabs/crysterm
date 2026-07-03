@@ -95,6 +95,24 @@ module Crysterm
       # tagged-content builder. Including types are `Box` subclasses that declare
       # `@bar_width`/`@bar_spacing` (`Int32`) and a private `#build_content`.
       module BarChart
+        # Bumped by `values=` and every decoration setter of the including chart,
+        # so `#render` can tell when the plotted inputs changed. Together with the
+        # interior size it keys the built-content cache below.
+        @data_version = 0
+
+        # The last built tagged-content string and the `{cols, rows, version}` key
+        # it was built for. When nothing that affects the plot has changed since
+        # the last frame, `#render` reuses the string instead of rebuilding it
+        # (per-row char/string arrays, `String.build` per row, the final join).
+        @content_cache : String?
+        @content_cache_key : Tuple(Int32, Int32, Int32)?
+
+        # Invalidate the built-content cache. Called from `values=` and each
+        # decoration setter (see `Bar`/`StackedBar`).
+        protected def bump_data_version : Nil
+          @data_version &+= 1
+        end
+
         # How many bars fit across `cols` columns at the current width/spacing.
         private def bar_capacity(cols : Int32) : Int32
           unit = @bar_width + @bar_spacing
@@ -104,7 +122,15 @@ module Crysterm
         end
 
         def render
-          self.content = build_content
+          key = {awidth - iwidth, aheight - iheight, @data_version}
+          content =
+            if @content_cache_key == key && (cached = @content_cache)
+              cached
+            else
+              @content_cache_key = key
+              @content_cache = build_content
+            end
+          self.content = content
           super
         end
 

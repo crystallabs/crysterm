@@ -36,31 +36,50 @@ module Crysterm
         # Default segment palette, cycled by stack level.
         DEFAULT_COLORS = %w[green magenta cyan red blue yellow]
 
+        # A getter plus a setter that also bumps the content-cache version, so a
+        # decoration change invalidates the per-frame build cache (see `BarChart`).
+        private macro chart_prop(name, type)
+          getter {{name.id}} : {{type}}
+
+          def {{name.id}}=(value : {{type}})
+            @{{name.id}} = value
+            bump_data_version
+            value
+          end
+        end
+
         # The data series. Each element is one bar: an array of segment values,
-        # bottom-most first.
-        property values : Array(Array(Float64))
+        # bottom-most first. `getter` with the coercing `#values=` below as the
+        # sole setter, so every assignment bumps the content-cache version.
+        getter values : Array(Array(Float64))
 
         # Category captions drawn (centered, one row) under each bar.
-        property labels : Array(String)?
+        chart_prop labels, Array(String)?
 
         # Names of the stack levels, shown in the legend (see `#show_legend?`).
-        property segment_labels : Array(String)?
+        chart_prop segment_labels, Array(String)?
 
         # Per-stack-level foreground colors, cycled by level.
-        property colors : Array(String)
+        chart_prop colors, Array(String)
 
         # Top of the scale (a bar's full height equals its summed value reaching
         # this). `nil` auto-scales to the largest bar's sum each frame.
-        property max : Float64?
+        chart_prop max, Float64?
 
         # Width of each bar, in columns.
-        property bar_width : Int32
+        chart_prop bar_width, Int32
 
         # Empty columns between adjacent bars.
-        property bar_spacing : Int32
+        chart_prop bar_spacing, Int32
 
         # Whether to draw the color-key legend (needs `#segment_labels`).
-        property? show_legend : Bool
+        getter? show_legend : Bool
+
+        def show_legend=(value : Bool)
+          @show_legend = value
+          bump_data_version
+          value
+        end
 
         def initialize(
           values : Array = [] of Array(Float64),
@@ -81,6 +100,7 @@ module Crysterm
         # Accepts any array-of-numeric-arrays, coercing to `Float64`.
         def values=(vals : Array)
           @values = vals.map { |bar| bar.map(&.to_f) }
+          bump_data_version
           mark_dirty # repaint on data change (Qt's property-change-triggers-update)
         end
 

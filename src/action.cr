@@ -441,6 +441,10 @@ module Crysterm
       return if pending && advance_shortcut(window, e, pending + [k])
       # Otherwise drop any stale prefix and try *k* as a fresh first stroke.
       @shortcut_pending.delete window if pending
+      # Allocation-free pre-reject: unless some shortcut *begins* with *k*, there
+      # is no candidate to materialize (`advance_shortcut` would only return
+      # false), so skip building the throwaway `[k]` array.
+      return unless @shortcuts.any? { |seq| seq.first? == k }
       advance_shortcut window, e, [k]
     end
 

@@ -203,6 +203,15 @@ module Crysterm
     # string) live in the `TermColors` shard and are reached through
     # `extend ::TermColors` above.
 
+    # Precomputed `hsv_i` for every integer hue `0...360` at full saturation and
+    # value (`s = v = 1`). Effects that tint per-cell or per-column by an integer
+    # hue (`Effect::Spray`, `Effect::SineScroller`) index this instead of
+    # re-running the float chroma math each frame — the callers already reduce
+    # their hue with `% 360`, so `HSV_LUT[h]` is bit-identical to `hsv_i(h)`.
+    # (Cases with a variable `s`/`v` — e.g. `Effect::Plasma` — or a custom color
+    # are unaffected and keep calling `hsv_i`.)
+    HSV_LUT = Array(Int32).new(360) { |h| hsv_i(h) }
+
     # Allocation-free counterpart of `TermColors#sgr_color`: writes the SGR
     # parameter fragment for one color straight into `io` instead of building
     # and returning a fresh `String`. The draw loop emits a color on every

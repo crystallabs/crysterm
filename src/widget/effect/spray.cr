@@ -238,7 +238,17 @@ module Crysterm
           @slots.each_with_index do |(dx, dy, ch), i|
             launch = i * @spacing
             if f < launch
-              gx, gy, gch, phase = ox, oy, '·', :pending
+              # Slots are ordered by increasing `launch`, so once one is still
+              # pending every later slot is too, and they all resolve to the same
+              # emitter cell/glyph `'·'`. Whichever pending slot the loop wrote
+              # last (the highest index, `@slots.size - 1`) is what survives, so
+              # set that once and stop — the whole pending tail is redundant work.
+              if 0 <= ox < w && 0 <= oy < h
+                idx = oy * w + ox
+                @cell_glyph[idx] = '·'
+                @cell_color[idx] = colorize @slots.size - 1, :pending
+              end
+              break
             elsif f < launch + @travel
               p = (f - launch) / @travel.to_f
               gx = (ox + (dx - ox) * p).round.to_i
@@ -269,8 +279,8 @@ module Crysterm
           end
           case phase
           when :pending then @spark_colors[(@frame // 3) % @spark_colors.size]
-          when :flight  then Colors.hsv_i((i * 9 + @frame * 9) % 360)
-          else               Colors.hsv_i((i * 9 + @frame * 6) % 360)
+          when :flight  then Colors::HSV_LUT[(i * 9 + @frame * 9) % 360]
+          else               Colors::HSV_LUT[(i * 9 + @frame * 6) % 360]
           end
         end
 

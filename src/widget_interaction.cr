@@ -18,17 +18,17 @@ module Crysterm
       clickable? || input? || keyable? || scrollable? || draggable? ||
         # A widget listening for drops is a drop target and must be hit-testable
         # so an in-flight drag can target it.
-        handlers(Crysterm::Event::DragEnter).any? ||
-        handlers(Crysterm::Event::DragOver).any? ||
-        handlers(Crysterm::Event::DragLeave).any? ||
-        handlers(Crysterm::Event::Drop).any? ||
-        handlers(Crysterm::Event::Click).any? ||
-        handlers(Crysterm::Event::Mouse).any? ||
+        has_handlers?(Crysterm::Event::DragEnter) ||
+        has_handlers?(Crysterm::Event::DragOver) ||
+        has_handlers?(Crysterm::Event::DragLeave) ||
+        has_handlers?(Crysterm::Event::Drop) ||
+        has_handlers?(Crysterm::Event::Click) ||
+        has_handlers?(Crysterm::Event::Mouse) ||
         # Hover events subclass `Mouse` but are emitted/registered separately;
         # check explicitly or a widget with only hover handlers is never hit-tested.
-        handlers(Crysterm::Event::MouseOver).any? ||
-        handlers(Crysterm::Event::MouseMove).any? ||
-        handlers(Crysterm::Event::MouseOut).any?
+        has_handlers?(Crysterm::Event::MouseOver) ||
+        has_handlers?(Crysterm::Event::MouseMove) ||
+        has_handlers?(Crysterm::Event::MouseOut)
     end
 
     # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)

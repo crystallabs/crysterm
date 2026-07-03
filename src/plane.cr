@@ -50,6 +50,7 @@ module Crysterm
     # before the layer's widgets render into this plane.
     def clear : Nil
       @cells.each do |row|
+        next unless row.dirty # untouched since last clear ⇒ already the sentinel
         row.clear_to CLEAR_ATTR, ' '
         row.dirty = false
       end

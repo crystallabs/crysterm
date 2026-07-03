@@ -114,8 +114,20 @@ module Crysterm
         percent_of @value
       end
 
+      # Snapshot of every input `build_content` reads. Rebuilding the tagged
+      # content string allocates per-cell arrays + a `String.build` per row every
+      # frame; `set_content` already dedups an identical result, but not the
+      # build itself. Skip it while nothing observable changed. `@segments.dup`
+      # snapshots the array by value so an in-place `push`/replace is still
+      # caught (a `Segment` is a struct, so array elements can't mutate in place).
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Array(Segment)?)? = nil
+
       def render
-        self.content = build_content
+        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments.dup}
+        if key != @content_key
+          @content_key = key
+          self.content = build_content
+        end
         super
       end
 

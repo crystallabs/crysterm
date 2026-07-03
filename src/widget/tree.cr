@@ -117,6 +117,41 @@ module Crysterm
 
       # `initialize` is inherited from `Mixin::ItemView` unchanged.
 
+      # Depth of the active `begin_update`/`end_update` batch (nestable), and
+      # whether a `rebuild` was requested while batching.
+      @update_depth : Int32 = 0
+      @rebuild_pending : Bool = false
+
+      # Suspends view rebuilds until the matching `#end_update`. Structural edits
+      # (`#add`, `Node#add`, expand/collapse) made in between coalesce into a
+      # single re-flatten, turning an O(N²) bulk load (one rebuild per `add`)
+      # into O(N). Nestable; a lone `add` outside a batch rebuilds immediately as
+      # before.
+      def begin_update : Nil
+        @update_depth += 1
+      end
+
+      # Ends a `#begin_update` batch, running the single deferred rebuild once the
+      # outermost batch closes (and only if something requested one).
+      def end_update : Nil
+        @update_depth -= 1 if @update_depth > 0
+        if @update_depth == 0 && @rebuild_pending
+          @rebuild_pending = false
+          rebuild
+        end
+      end
+
+      # Runs *block* inside a `#begin_update`/`#end_update` batch, flushing even if
+      # it raises.
+      def update(&) : Nil
+        begin_update
+        begin
+          yield
+        ensure
+          end_update
+        end
+      end
+
       # Appends a top-level node (given as text, or an existing `Node`) and
       # refreshes the view. Returns the node.
       def add(text : String, data : String? = nil) : Node
@@ -140,10 +175,17 @@ module Crysterm
       # Re-flattens the visible node hierarchy into the underlying list rows,
       # preserving the cursor on the same node when it is still visible.
       def rebuild : Nil
+        # Inside a `begin_update` batch, defer the (potentially repeated) work to
+        # the single flush in `end_update`.
+        if @update_depth > 0
+          @rebuild_pending = true
+          return
+        end
+
         prev = selected_node
         @nodes.clear
         rows = [] of String
-        @roots.each { |n| flatten n, rows }
+        @roots.each { |n| flatten n, rows, 0 }
         set_items rows
         if prev
           if i = @nodes.index prev
@@ -168,17 +210,19 @@ module Crysterm
         nil
       end
 
-      private def flatten(node : Node, rows : Array(String)) : Nil
+      # *depth* is threaded down the recursion (top-level nodes at 0) rather than
+      # recomputed per node via `Node#depth` (an O(depth) parent-chain walk).
+      private def flatten(node : Node, rows : Array(String), depth : Int32) : Nil
         @nodes << node
-        rows << row_text node
+        rows << row_text node, depth
         if node.expanded?
-          node.children.each { |c| flatten c, rows }
+          node.children.each { |c| flatten c, rows, depth + 1 }
         end
       end
 
-      private def row_text(node : Node) : String
+      private def row_text(node : Node, depth : Int32) : String
         marker = node.leaf? ? @leaf_char : (node.expanded? ? @expanded_char : @collapsed_char)
-        "#{" " * (node.depth * @indent)}#{marker} #{node.text}"
+        "#{" " * (depth * @indent)}#{marker} #{node.text}"
       end
 
       # Expands *node* (a no-op for a leaf or an already-expanded node), refreshes

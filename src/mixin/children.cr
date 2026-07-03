@@ -22,6 +22,13 @@ module Crysterm
         remove widget
       end
 
+      # O(1) direct-child membership test, backed by `@children_set`. Use in
+      # place of `children.includes? element` (a linear `@children` scan) on hot
+      # paths that repeatedly probe membership.
+      def child?(element) : Bool
+        @children_set.includes? element
+      end
+
       # Appends `element` to list of children
       def append(element)
         insert element

@@ -31,7 +31,22 @@ module Crysterm
     end
 
     # The completion candidates.
-    property model : Array(String)
+    getter model : Array(String)
+
+    # A case-folded (downcased) mirror of `#model`, indices aligned with it, used
+    # for the default case-insensitive matching. Memoized and rebuilt only when
+    # `#model=` replaces the model, so a keystroke's refilter doesn't re-downcase
+    # the whole model each time.
+    @folded_model : Array(String)?
+
+    def model=(model : Array(String)) : Array(String)
+      @folded_model = nil
+      @model = model
+    end
+
+    private def folded_model : Array(String)
+      @folded_model ||= @model.map &.downcase
+    end
 
     # Whether matching is case-sensitive (Qt's `QCompleter#caseSensitivity`).
     property? case_sensitive : Bool = false
@@ -252,10 +267,20 @@ module Crysterm
     # settings (empty for empty input).
     def completions(text : String) : Array(String)
       return [] of String if text.empty?
-      needle = case_sensitive? ? text : text.downcase
-      @model.select do |c|
-        hay = case_sensitive? ? c : c.downcase
-        mode.prefix_match? ? hay.starts_with?(needle) : hay.includes?(needle)
+      if case_sensitive?
+        needle = text
+        @model.select do |c|
+          mode.prefix_match? ? c.starts_with?(needle) : c.includes?(needle)
+        end
+      else
+        needle = text.downcase
+        folded = folded_model
+        result = [] of String
+        folded.each_with_index do |hay, i|
+          match = mode.prefix_match? ? hay.starts_with?(needle) : hay.includes?(needle)
+          result << @model[i] if match
+        end
+        result
       end
     end
 

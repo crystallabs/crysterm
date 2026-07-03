@@ -46,6 +46,15 @@ describe Crysterm::CSS::Case do
       Crysterm::CSS::Case.at_rule?("@media screen", "layer").should be_false
       Crysterm::CSS::Case.at_rule?("color: red", "media").should be_false
     end
+
+    it "matches an exact @<name> prelude with no trailing text" do
+      Crysterm::CSS::Case.at_rule?("@media", "media").should be_true
+    end
+
+    it "rejects a prelude too short to hold the name" do
+      Crysterm::CSS::Case.at_rule?("@me", "media").should be_false
+      Crysterm::CSS::Case.at_rule?("@", "media").should be_false
+    end
   end
 
   describe "VAR_CALL" do
