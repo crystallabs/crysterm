@@ -72,6 +72,16 @@ module Crysterm
       # resolved to `VideoSource::Mode::Stream`; `nil` for eager sources.
       @stream : Media::VideoSource::Stream? = nil
 
+      # Generation token for the self-paced streaming playback loop
+      # (`#stream_loop`), mirroring `Media::Tek#anim_gen`. Bumped on every
+      # `#play`/`#pause`/`#stop`; each `#stream_loop` captures the value when
+      # spawned and exits as soon as it no longer matches. Without it a
+      # pause→play or stop→play within a frame period would leave the old loop
+      # fiber (still sleeping between frames) running alongside the new one —
+      # double-speed playback, racing `restart`s, and a discarded ffmpeg that
+      # nothing ever closes. Exposed for tests.
+      getter stream_gen : Int32 = 0
+
       # Set once a source fails to load, so `#source` returns `nil` without
       # re-attempting (re-opening ffmpeg) on every render. Reset on new file load.
       @load_failed = false
@@ -260,7 +270,9 @@ module Crysterm
           if @clock
             subscribe_clock
           else
-            spawn stream_loop
+            # Capture a fresh generation for this loop; a superseding
+            # play/pause/stop bumps `@stream_gen` so this fiber exits.
+            spawn stream_loop((@stream_gen += 1))
           end
         elsif @src_frames
           start_playback
@@ -332,6 +344,7 @@ module Crysterm
       # (ffmpeg blocks on the full pipe) so `#play` resumes promptly.
       def pause
         @playing = false
+        @stream_gen += 1 # retire any running stream loop
         @animation.try &.stop
         unsubscribe_clock
       end
@@ -341,6 +354,7 @@ module Crysterm
       # `#source`.
       def stop
         @playing = false
+        @stream_gen += 1 # retire any running stream loop
         @animation.try &.stop
         unsubscribe_clock
         @anim_index = 0
@@ -403,7 +417,7 @@ module Crysterm
       # memory regardless of length. At end-of-stream the decoder restarts.
       # Honours `speed`; stops when `@playing` clears (`#stop` closes the pipe,
       # unblocking a pending read).
-      private def stream_loop
+      private def stream_loop(gen : Int32)
         stream = @stream || return
         # Deadline-based pacing: decode + render takes real time, so a plain
         # `sleep(delay)` would drift the video slower than its true fps. Instead
@@ -411,7 +425,9 @@ module Crysterm
         # remainder, absorbing decode time into the period. If decode falls
         # behind, reset the deadline rather than burst-rendering to catch up.
         next_at = Time.instant
-        while @playing
+        # Exit as soon as a newer play/pause/stop has bumped the generation,
+        # even if `@playing` was flipped back to true under us by a fresh loop.
+        while @playing && gen == @stream_gen
           break unless advance_stream stream
 
           ms = stream.delay / @speed
@@ -424,7 +440,15 @@ module Crysterm
             next_at = now # fell behind: don't accumulate a catch-up burst
           end
         end
-        @playing = false
+        if gen == @stream_gen
+          # Still the live loop: end playback (EOF/close reached the loop).
+          @playing = false
+        elsif !stream.same?(@stream)
+          # Superseded, and our captured stream has been discarded (stop nilled
+          # or a new play replaced `@stream`): close it to reap its ffmpeg.
+          # Don't touch `@playing` — the loop that replaced us owns it now.
+          stream.close
+        end
       end
 
       # Pulls the next live frame from *stream* into the single reused
@@ -437,6 +461,11 @@ module Crysterm
         bmp = stream.next_frame
         if bmp.nil?
           return false unless @playing
+          # Only loop a stream we still own. A superseded loop reaching EOF must
+          # not `restart` a discarded stream — that relaunches an ffmpeg on an
+          # object nothing owns (never closed/reaped). The loop's post-check
+          # closes our captured stream instead.
+          return false unless stream.same?(@stream)
           stream.restart || return false # loop the video; bail if it won't reopen
           bmp = stream.next_frame || return false
         end

@@ -13,7 +13,14 @@ module Crysterm
 
       @ev_keypress = Crysterm::Subscription.new
 
+      # Bumped on every `#display`. A timed (or keypress) dismissal fiber
+      # captures the value current when it was armed; when a newer `#display`
+      # supersedes it the captured value no longer matches, so `#end_it`
+      # no-ops — a stale timer can't dismiss a later message early (Finding 37).
+      @generation = 0
+
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        gen = @generation += 1
         if scrollable?
           window.save_focus
           focus
@@ -29,7 +36,7 @@ module Crysterm
           # making the message un-dismissable for 10s then linger until a key.)
           @ev_keypress.on(window, Crysterm::Event::KeyPress) do |_|
             @ev_keypress.off
-            end_it do
+            end_it gen do
               callback.try &.call
             end
           end
@@ -41,18 +48,28 @@ module Crysterm
 
             # Route through `end_it` (as the keypress path does) so a
             # scrollable message restores focus instead of leaving it stranded.
-            end_it do
+            end_it gen do
               callback.try &.call
             end
           end
         end
       end
 
-      alias_previous log
+      # blessed's `Message#log` — a plain alias of `#display`. `alias_previous`
+      # can't forward a block and `#display` requires one, so it's spelled out.
+      # A block-less overload is provided for the common fire-and-forget call.
+      def log(text, time : Time::Span? = Crysterm::Config.message_display_time)
+        display(text, time) { }
+      end
 
-      def end_it(&callback : Proc(Nil))
-        # return if end_it.done # XXX
-        # end_it.done = true
+      def log(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display(text, time, &callback)
+      end
+
+      def end_it(gen : Int32? = nil, &callback : Proc(Nil))
+        # A stale timer/keypress fiber from a superseded `#display` captured an
+        # older generation; ignore it so it can't dismiss a newer message early.
+        return if gen && gen != @generation
         if scrollable?
           begin
             window.restore_focus

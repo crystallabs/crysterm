@@ -26,6 +26,10 @@ module Crysterm
   class HTTPBridge
     getter? running = false
     @on_quit : Proc(Nil)
+    # The listening server, kept so `quit` can close it (and its listener fibers).
+    # A local var would leak the socket when an embedder calls `quit` without
+    # exiting the process.
+    @server : HTTP::Server?
 
     def initialize(@window : Window, @host : String = "127.0.0.1", @port : Int32 = 7000, @token : String? = nil)
       @subscribers = [] of Channel(String)
@@ -54,11 +58,25 @@ module Crysterm
     def start : Nil
       return if @running
       return unless Crysterm::Remote.enabled?
-      @running = true
       rewire
       server = HTTP::Server.new { |context| handle context }
+      # Bind BEFORE latching `@running`: if the bind raises (port in use),
+      # `@running` must stay false so a later `start` can retry — otherwise the
+      # bridge could never come up in this process.
       server.bind_tcp @host, @port
-      spawn { server.listen }
+      @server = server
+      @running = true
+      # `listen` blocks until the server is closed. Guard the closed-server race:
+      # a very early `quit` can `close` the server before this fiber schedules,
+      # and `listen` on an already-closed server raises "Can't re-start closed
+      # server" — a benign shutdown, not a failure to surface.
+      spawn do
+        begin
+          server.listen
+        rescue ex
+          raise ex unless server.closed?
+        end
+      end
     end
 
     # Full blocking lifecycle: start the server, paint, take over input, and
@@ -74,6 +92,11 @@ module Crysterm
     # Tears the app down cleanly: restores the terminal and unblocks `#run`.
     def quit : Nil
       @window.destroy rescue nil
+      # Close the listener socket and its fibers; a local-var server would leak
+      # them when an embedder calls `quit` without exiting the process.
+      @server.try &.close rescue nil
+      @server = nil
+      @running = false
       @shutdown.send(nil) rescue nil
     end
 
@@ -95,7 +118,10 @@ module Crysterm
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
       @forwarders.clear        # their forwarders died with them (widgets destroyed)
       @declarative_wired.clear # ...and their declarative on* bindings
-      DOM.load html, @window
+      # Hot-reload replaces the whole layout, so the new markup's inline `<style>`
+      # replaces the previous one (`replace_styles: true`). A selector-less
+      # `append` (below) instead merges, so it never wipes the page's CSS.
+      DOM.load html, @window, replace_styles: true
       rewire
       @window.render
     end
@@ -189,6 +215,13 @@ module Crysterm
       response = context.response
       response.content_type = "text/event-stream"
       response.headers["Cache-Control"] = "no-cache"
+      # Flush the status line + headers (and a comment line) immediately.
+      # `HTTP::Server` sends headers lazily on first write, so without this an
+      # EventSource client that waits for the stream to *open* before issuing
+      # RPCs would stall until the first event or the 15 s ping — up to 15 s of
+      # dead air on connect.
+      response.print ": connected\n\n"
+      response.flush
       begin
         loop do
           select
@@ -245,7 +278,11 @@ module Crysterm
       JSON.build(context.response) do |json|
         json.object do
           json.field "jsonrpc", "2.0"
-          id.try { |v| json.field "id", v }
+          # JSON-RPC 2.0 requires `id` in every response; when the request id
+          # couldn't be determined (parse error / invalid request) it must be
+          # `null`, not omitted, so a conforming client can still match/validate
+          # the error envelope instead of timing out.
+          json.field("id") { id ? id.to_json(json) : json.null }
           yield json
         end
       end

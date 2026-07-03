@@ -241,10 +241,11 @@ module Crysterm
       # Shows this menu as a floating context menu at absolute (*x*, *y*), sized
       # to its content, focused, and dismissed on an outside click, after a leaf
       # action fires, or on Escape (Qt's `QMenu#popup`/`#exec`). The menu must be
-      # on a window (created with `window:` / `parent:`).
+      # on a window (created with `parent:`, or `window:` — `#popup` appends a
+      # `window:`-only menu into the window's children so it actually renders).
       #
       # ```
-      # menu = Widget::Menu.new window: window, style: Style.new(border: true)
+      # menu = Widget::Menu.new parent: window, style: Style.new(border: true)
       # menu.add("Copy") { copy }
       # menu.add("Paste") { paste }
       # menu.popup e.x, e.y # e.g. from a right-click handler
@@ -254,6 +255,11 @@ module Crysterm
         # A (re)opened menu starts with no row highlighted — it's transient
         # interaction state, not carried across opens.
         @show_highlight = false
+        # A menu created with only `window:` (not `parent:`) sets `@window` but is
+        # not in the window's `children`, so `front!`/`set_index` find no index and
+        # the menu never renders — while `popup` still opens a modal grab. Attach it
+        # to the window's children when it isn't in the tree so it actually paints.
+        window.append self unless @parent || window.children.includes?(self)
         fit_to_content
         # Open at the cursor, clamped on-window. `Overlay.place_child` owns the
         # clamp and the single absolute→window-local inset conversion (a

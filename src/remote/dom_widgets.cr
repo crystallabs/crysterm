@@ -27,7 +27,11 @@ module Crysterm
           # list on every call — the same accumulation bug the `class` handler
           # avoids.
           clear_items
-          value.try &.split('\n').each { |item| append_item item }
+          # Skip the append for an empty value: `"".split('\n') == [""]`, so an
+          # empty string (the natural way a bridge client clears the rows via
+          # `setAttribute("items", "")`) would otherwise add one empty item
+          # instead of leaving the list cleared.
+          value.try { |v| v.split('\n').each { |item| append_item item } unless v.empty? }
         else return super
         end
         true

@@ -150,7 +150,10 @@ module Crysterm
           cy = yi + (yl - yi - 1) // 2
           pct = formatted_text
           put_centered pct, xi, xl, cy, overlay_attr(@fill_color)
-          unless @label.empty?
+          # `put_text` clips columns but not rows, so only draw the caption when
+          # its row is still inside the interior — otherwise a 1-row interior
+          # would stamp it onto the bottom border (or the widget below).
+          unless @label.empty? || cy + 1 >= yl
             put_centered @label, xi, xl, cy + 1, sattr(style, style.fg, style.bg)
           end
         end

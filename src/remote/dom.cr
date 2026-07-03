@@ -67,8 +67,8 @@ module Crysterm
       when "right"             then value.try(&.to_i?).try { |i| self.right = i }
       when "bottom"            then value.try(&.to_i?).try { |i| self.bottom = i }
       when "name"              then self.name = value
-      when "parse-tags"        then self.parse_tags = (value == "true")
-      when "wrap-content"      then self.wrap_content = (value != "false")
+      when "parse-tags"        then self.parse_tags = dom_coerce_bool(value)
+      when "wrap-content"      then self.wrap_content = dom_coerce_bool(value)
       when "content"           then set_content(value || "")
       when "id"                then self.css_id = value
       when "class"             then value.try &.split.each { |c| add_css_class c unless c.empty? }
@@ -87,6 +87,17 @@ module Crysterm
     protected def dom_coerce_dimension(value : String?) : Int32 | String | Nil
       return nil unless value
       value.to_i? || value
+    end
+
+    # Coerces a layout-DOM boolean attribute. Follows HTML boolean-attribute
+    # semantics: a present-but-valueless attribute (`<w-box parse-tags>`, which
+    # the serializer documents as "a bare boolean attribute" via a nil-valued
+    # entry) is `true`, as is `="true"`; only `="false"` (or any other explicit
+    # value) is `false`. Shared by the hand-written keys here and the generated
+    # bool branches in `dom_autoserialize.cr`, so bare attributes parse
+    # consistently everywhere.
+    protected def dom_coerce_bool(value : String?) : Bool
+      value.nil? || value.empty? || value == "true"
     end
 
     # Serializes this widget and its subtree as layout DOM. Unlike `#to_html`,

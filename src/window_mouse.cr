@@ -190,7 +190,7 @@ module Crysterm
       # Press over a draggable widget. Two-click mode lifts it immediately
       # (fallback for terminals with no motion reporting); otherwise *arm* and
       # wait for motion, so a plain click still works.
-      if ev.action.down? && w && w.draggable?
+      if ev.action.down? && w && w.draggable? && !w.disabled?
         if drag_two_click?
           # This press is consumed by the two-click drag and never reaches the
           # widget as an `Event::Click`, so undo the count bumped above —

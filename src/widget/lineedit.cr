@@ -37,9 +37,12 @@ module Crysterm
       # pre-seed or inspect it.
       getter history = [] of String
 
-      # Cursor into `@history`. `history.size` is the sentinel "on the live
-      # line you're typing", so Up steps back from there and Down returns to it.
-      @history_pos = 0
+      # Cursor into `@history`; `nil` is the sentinel "on the live line you're
+      # typing" (Up steps back from the newest entry, Down returns here). Kept
+      # lazily as `nil` rather than eagerly set to `history.size`, so a
+      # pre-seeded history is reachable from the start (resolve as
+      # `@history_pos || @history.size` at each walker).
+      @history_pos : Int32? = nil
       # The half-typed line stashed on the first Up, restored when Down walks
       # back past the newest entry — so browsing history never loses your draft.
       @history_draft = ""
@@ -102,30 +105,40 @@ module Crysterm
       # live line. Blank lines and an immediate repeat of the last entry are
       # skipped (shell `ignoredups`), so Up gives back meaningful commands.
       private def record_history(line)
-        @history_pos = @history.size
+        @history_pos = nil
         @history_draft = ""
         return if line.empty?
         return if !@history.empty? && @history.last == line
         @history << line
-        @history_pos = @history.size
       end
 
       # Up: recall an older entry. On the first step off the live line, stash the
       # draft so Down can bring it back.
       private def history_prev
-        return if @history.empty? || @history_pos == 0
-        @history_draft = @value if @history_pos == @history.size
-        @history_pos -= 1
+        return if @history.empty?
+        # `nil` (live line) resolves to the sentinel `history.size`.
+        pos = @history_pos || @history.size
+        return if pos == 0
+        @history_draft = @value if pos == @history.size
+        pos -= 1
+        @history_pos = pos
         # A non-nil `value=` is an external set, which parks the cursor at the end.
-        self.value = @history[@history_pos]
+        self.value = @history[pos]
       end
 
       # Down: recall a newer entry, or step back onto the stashed draft once you
       # walk past the newest entry.
       private def history_next
-        return if @history_pos >= @history.size
-        @history_pos += 1
-        self.value = @history_pos == @history.size ? @history_draft : @history[@history_pos]
+        pos = @history_pos || @history.size
+        return if pos >= @history.size
+        pos += 1
+        if pos == @history.size
+          @history_pos = nil
+          self.value = @history_draft
+        else
+          @history_pos = pos
+          self.value = @history[pos]
+        end
       end
 
       # Expanded-codepoint index of the first content column currently shown —

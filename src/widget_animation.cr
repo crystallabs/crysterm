@@ -43,9 +43,26 @@ module Crysterm
     end
 
     private def start_css_animation(spec : ::Crysterm::Style::AnimationSpec) : Nil
+      # Stop any previous clock and record the (possibly failing) new spec up
+      # front — *before* the early returns below. Swapping `animation:` to a
+      # missing/short `@keyframes` must still stop the old animation (otherwise
+      # its `FrameClock` keeps ticking the old keyframes forever) and record the
+      # new spec so `ensure_css_animation` doesn't re-attempt (and re-fail) the
+      # lookup on every render.
+      @css_animation.try &.stop
+      @css_animation = nil
+      @css_animation_spec = spec
+      @css_animation_finished = false
+
       scr = window? || return
       raw = scr.css_keyframes(spec.name)
-      return unless raw && raw.size >= 2
+      unless raw && raw.size >= 2
+        # No usable keyframes (missing name or a single stop): leave the spec
+        # recorded and mark it finished so the failed lookup isn't repeated on
+        # every subsequent render (the resume branch skips a finished animation).
+        @css_animation_finished = true
+        return
+      end
       stops = resolve_keyframes raw
       st = style
       total = spec.duration.total_seconds
@@ -54,8 +71,6 @@ module Crysterm
       iters = spec.iterations
       alt = spec.alternate
 
-      @css_animation.try &.stop
-      @css_animation_finished = false
       # Drive progress from real wall-clock elapsed (like the tween/transition
       # path in `FrameClock`), not a fixed per-tick step: dropped/late ticks are
       # real time the animation must still count, or a finite animation runs

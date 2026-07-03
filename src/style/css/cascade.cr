@@ -256,6 +256,15 @@ module Crysterm
           next unless slot
           next unless scope.nil? || scope.includes?(widget)
           if slot.includes?(':')
+            # Extra slots (e.g. a table cell `cell:0:1`) have state-*independent*
+            # storage — one `Style` per cell via `css_set_extra_style` — but `acc`
+            # is keyed per-{key, state}. Processing every state in turn races
+            # last-write-wins (dropping e.g. `Cell:hover`, or letting a lone
+            # `Cell:hover` apply in every state). Resolve deterministically: apply
+            # only the Normal (base) state's entries and drop state-specific ones,
+            # since the state-independent slot can't represent them. (A base `Cell`
+            # rule always folds into Normal, so the cell's base look is honored.)
+            next unless state.normal?
             base = widget.css_extra_base_style(slot).dup
             apply_entries base, entries, variables, resolved
             widget.css_set_extra_style(slot, base)

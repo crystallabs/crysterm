@@ -142,8 +142,13 @@ module Crysterm
     # exclusivity handling. Replaces the manual set/reset both callers used.
     private def suppressed(& : -> Nil) : Nil
       @suppress = true
-      yield
-      @suppress = false
+      begin
+        yield
+      ensure
+        # Reset even if a user Check/UnCheck handler raises, else `@suppress`
+        # would stay set and silently disable exclusivity from then on.
+        @suppress = false
+      end
     end
 
     # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and

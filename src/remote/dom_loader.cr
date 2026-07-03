@@ -54,17 +54,28 @@ module Crysterm
     # `parent` is given, as children of `parent`). Returns the widgets created
     # at the top level. Unknown tags (not in the registry) are skipped, so a
     # CSS-document dump or an enriched file still loads what it can.
-    def self.load(html : String, window : ::Crysterm::Window, parent : ::Crysterm::Widget? = nil) : Array(::Crysterm::Widget)
+    def self.load(html : String, window : ::Crysterm::Window, parent : ::Crysterm::Widget? = nil, *, replace_styles : Bool = false) : Array(::Crysterm::Widget)
       doc = HTML5.parse(html)
       # Self-contained layouts: any inline `<style>` is handed to the
-      # stylesheet parser. Only on a top-level load — appended fragments keep
-      # the page's existing styles.
+      # stylesheet parser. Only when building at the top level (`parent.nil?`) —
+      # a nested append keeps the page's existing styles untouched.
+      #
+      # Two distinct top-level modes, chosen by `replace_styles`:
+      #  * whole-layout load / hot-reload (`load_layout`, `reload_layout` pass
+      #    `replace_styles: true`) — the new layout *owns* the page, so its
+      #    inline `<style>` replaces the previous one. Applied even when empty so
+      #    a reload to a `<style>`-less layout drops the old rules (rather than
+      #    leaving them stale) — `add_inline_stylesheet` clears via `css.presence`.
+      #  * top-level append (bridge's selector-less `append`, default) — the
+      #    fragment is added *onto* the existing page, so its `<style>` (if any)
+      #    is merged in; a `<style>`-less fragment must NOT wipe the page's CSS.
       if parent.nil?
         css = String.build { |io| collect_style_css doc, io }
-        # Always apply on a top-level load, even when empty: `add_inline_stylesheet`
-        # clears via `css.presence`, so a hot-reload to a `<style>`-less layout
-        # drops the previous layout's inline rules instead of leaving them stale.
-        window.add_inline_stylesheet css
+        if replace_styles
+          window.add_inline_stylesheet css
+        else
+          window.merge_inline_stylesheet css
+        end
       end
       # The parser wraps content in <html><body>...; prefer our own `w-window`
       # root, else fall back to the synthesized `body` so a bare fragment (no
@@ -143,7 +154,20 @@ module Crysterm
     # Builds the widgets described by the layout-DOM `html` onto this window.
     # Returns the top-level widgets created. See `DOM.load`.
     def load_layout(html : String) : Array(Widget)
-      DOM.load(html, self)
+      # Whole-layout load: this markup owns the page, so its inline `<style>`
+      # replaces any previously installed inline rules (see `DOM.load`).
+      DOM.load(html, self, replace_styles: true)
+    end
+
+    # Merges additional inline `<style>` CSS (from a top-level appended fragment)
+    # into the page's existing inline rules, instead of replacing them. A no-op
+    # for an empty fragment, so a selector-less `append` of `<style>`-less markup
+    # leaves the page's CSS intact. Lives here (not in `inline_css.cr`) alongside
+    # its sole caller `DOM.load`; both compile only under `-Dremote`.
+    def merge_inline_stylesheet(css : String) : Nil
+      return if css.empty?
+      existing = @css_inline_source
+      add_inline_stylesheet(existing ? "#{existing}\n#{css}" : css)
     end
 
     # Loads a layout-DOM file (see `#load_layout`) by path.
@@ -159,15 +183,40 @@ end
 # `DOM.registry` calls it lazily.
 macro finished
   def Crysterm::DOM.fill_registry(reg) : Nil
+    # The tag key is the widget's lowercased *leaf* type name (matching the
+    # `w-<leaf>` tag `#css_tag`/`#to_layout_html` emit). Two widgets with the
+    # same leaf under different namespaces (e.g. `Widget::ProgressBar` and
+    # `Widget::Pine::ProgressBar`) therefore collide on one key. Rather than let
+    # `all_subclasses` order decide non-deterministically (silently shadowing the
+    # standard widget with a styled subclass, or vice versa), resolve the
+    # collision at compile time: the *shallowest* namespace wins — the top-level
+    # `Crysterm::Widget::ProgressBar` beats the nested `Pine` one, so a plain
+    # `<w-progressbar>` always loads the standard widget.
+    #
+    # A namespaced load key (e.g. `pine-progressbar`) isn't added: `#css_tag`
+    # emits only the leaf (`w-progressbar`) for the nested widget too, so a
+    # namespaced key could never be produced by serialization and would break the
+    # `to_layout_html -> load` round-trip invariant. Deterministic dedup is the
+    # correct fix while the tag remains leaf-derived.
+    {% chosen = {} of Nil => Nil %}
     {% for t in Crysterm::Widget.all_subclasses %}
-      {% leaf = t.name.split("::").last.downcase %}
+      {% parts = t.name.split("::") %}
+      {% leaf = parts.last.downcase %}
       # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is
       # loadable, except the `SKIP` exclusions (self-populating composites) and
       # generic widgets (e.g. `ListSelect(T)`), which can't be instantiated
       # without a type argument and have no stable tag name anyway.
       {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && t.type_vars.empty? && !Crysterm::DOM::SKIP.includes?(leaf) %}
-        reg[{{ leaf }}] = ->(window : ::Crysterm::Window) { {{ t }}.new(window: window).as(::Crysterm::Widget) }
+        # `parts.size` is the namespace depth (e.g. 3 for `Crysterm::Widget::X`,
+        # 4 for `Crysterm::Widget::Pine::X`); keep the shallowest per leaf. Ties
+        # (same depth, different module) keep the first seen — still deterministic.
+        {% if !chosen[leaf] || parts.size < chosen[leaf][1] %}
+          {% chosen[leaf] = {t, parts.size} %}
+        {% end %}
       {% end %}
+    {% end %}
+    {% for leaf, info in chosen %}
+      reg[{{ leaf }}] = ->(window : ::Crysterm::Window) { {{ info[0] }}.new(window: window).as(::Crysterm::Widget) }
     {% end %}
   end
 end

@@ -198,9 +198,13 @@ module Crysterm
         )
 
         # Each item box renders per its own state: the selected item uses the
-        # bar's `selected` style, others the `item` style.
-        item.styles.normal = style.item
-        item.styles.selected = styles.selected
+        # bar's `selected` style, others the `item` style. `dup` both: `Style#item`
+        # falls back to `self`, so every item would otherwise share one `Style`
+        # instance — and `Widget#hide`/`#show` mutate `state_style.visible` in
+        # place, so the render scroll loop's hide/show would toggle a single shared
+        # flag and never actually hide scrolled-off items.
+        item.styles.normal = style.item.dup
+        item.styles.selected = styles.selected.dup
 
         cmd.element = item
         @ritems.push clean_tags cmd.text
@@ -439,7 +443,10 @@ module Crysterm
           prefix = cmd.prefix
           tags = prefix_tags
           title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
-          len = ((prefix ? "#{prefix}:" : "") + cmd.text).size
+          # Item boxes render with `parse_tags: true`, so measure the *rendered*
+          # width with tags stripped — otherwise `{bold}File{/bold}` counts its
+          # markup and oversizes the box, leaving a dead gap after the item.
+          len = clean_tags((prefix ? "#{prefix}:" : "") + cmd.text).size
           cmd.width = len + 2
           title
         end

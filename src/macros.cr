@@ -31,7 +31,7 @@ module Crysterm
     # Defines new_method as an alias of last (most recently defined) method.
     macro alias_previous(*new_methods)
       {% for new_method in new_methods %}
-        alias_method new_method, {{@type.methods.last.name}}
+        alias_method {{new_method}}, {{@type.methods.last.name}}
       {% end %}
     end
 

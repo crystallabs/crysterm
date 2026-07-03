@@ -70,10 +70,18 @@ module Crysterm
       private def redraw!
         @playing = false # stop any running animation loop first
         @drawn = false
+        @decode_failed = false # a parameter/source change warrants a retry
         request_render
       end
 
       @drawn = false
+      # Set once decoding the source failed (bad path/URL, undecodable data), so
+      # we stop retrying it every render. `#draw_tek` runs as an `Event::Rendered`
+      # listener whose `emit` has no rescue, so an unhandled decode exception here
+      # would propagate out of `Window#render` and kill the render fiber. Exposed
+      # for tests. Cleared on `#load`/`#clear_image`/`#redraw!` so a corrected
+      # source can be retried.
+      getter? decode_failed : Bool = false
       # Generation token for the animation loop, bumped on every (re)start (see
       # `#start_drawing`). A running `#animate_loop` exits as soon as its
       # generation no longer matches, so a `#redraw!` that stops playback and
@@ -105,6 +113,7 @@ module Crysterm
         @playing = false
         @file = file
         @drawn = false
+        @decode_failed = false # new source: retry decoding
         @src_frames = nil
         @anim_index = 0
         request_render
@@ -113,6 +122,7 @@ module Crysterm
       def clear_image
         super # stop + clear file/source/frames
         @drawn = false
+        @decode_failed = false
       end
 
       # (Re)start drawing/animating in the Tek window.
@@ -124,7 +134,7 @@ module Crysterm
       # Switches to the Tek window and draws the image (or starts its animation).
       # Safe to call directly; otherwise it fires once on the first window render.
       def draw_tek
-        return if @drawn
+        return if @drawn || @decode_failed
         s = window? || return
         file = @file || return
         @drawn = true
@@ -132,9 +142,24 @@ module Crysterm
       end
 
       private def start_drawing(s : ::Crysterm::Window, file : String)
-        data = Media.source_data(file)
+        data =
+          begin
+            Media.source_data(file)
+          rescue
+            # Unfetchable URL / unreadable path: degrade instead of crashing the
+            # render fiber (`draw_tek` runs inside the render's `emit`, which has
+            # no rescue). Mirrors `Media::Overlay#redraw_image`'s `@helper_failed`.
+            @decode_failed = true
+            return
+          end
 
-        probe = PNGGIF::PNG.new(data)
+        probe =
+          begin
+            PNGGIF::PNG.new(data)
+          rescue
+            @decode_failed = true
+            return
+          end
         iw = probe.width
         ih = probe.height
         return if iw <= 0 || ih <= 0

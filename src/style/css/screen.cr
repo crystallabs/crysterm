@@ -40,6 +40,11 @@ module Crysterm
     # whenever the stylesheet itself changes (the document doesn't encode rules).
     @css_last_document : String?
 
+    # Terminal `{width, height}` at the last cascade. Lets `#apply_stylesheet_if_dirty`
+    # notice a resize and re-run a media-guarded cascade even though nothing marked
+    # styling dirty (the resize path doesn't). `nil` until the first cascade.
+    @css_last_size : Tuple(Int32, Int32)?
+
     # Cached parsed document and the string it was parsed from, plus a
     # `data-uid -> node` index. Reused across cascades: an attribute-only change
     # patches nodes in place (see `@css_patch_widgets`) rather than re-parsing;
@@ -162,11 +167,26 @@ module Crysterm
     def restyle_subtree(widget : Widget) : Nil
       @css_dirty = true
       css_node_changed widget
-      if parent = widget.parent
+      # `:has()` is an *upward* relation — the subject of `Form:has(.error)` is
+      # typically an ancestor outside this widget's subtree — so a scoped
+      # recompute would leave it stale. When any active sheet has relational
+      # (`:has`) rules, recompute the whole tree instead.
+      if css_has_relational?
+        @css_full = true
+      elsif parent = widget.parent
         @css_dirty_roots << parent
       else
         @css_full = true
       end
+    end
+
+    # Whether the active styling depends on `:has()` relational selectors (author
+    # sheet first, then the default/theme sheet). When true, an attribute change
+    # can affect an ancestor subject outside the changed subtree, so
+    # `#restyle_subtree` falls back to a full recompute.
+    def css_has_relational? : Bool
+      return true if @css_stylesheet.try(&.has_relational?)
+      CSS.default_stylesheet.has_relational?
     end
 
     # Marks a *structural* change to *widget*'s subtree: the cached parse can no
@@ -213,11 +233,20 @@ module Crysterm
         return
       end
       document = to_html
-      if document == @css_last_document
+      # The serialized document encodes uids/classes/attributes but *not* the
+      # terminal size, so an `@media`-guarded cascade is byte-identical before
+      # and after a resize and would be wrongly skipped here. When any active
+      # sheet has `@media` rules, fold the terminal size into the skip identity
+      # so a resize re-evaluates the media conditions (and record it for
+      # `#apply_stylesheet_if_dirty`'s size-change trigger).
+      @css_last_size = {width, height}
+      identity = document
+      identity = "#{width}x#{height}\n#{document}" if css_media_active?
+      if identity == @css_last_document
         clear_css_dirty
         return
       end
-      @css_last_document = document
+      @css_last_document = identity
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       # `Cascade.apply` folds the default stylesheet in beneath the author one;
@@ -317,9 +346,25 @@ module Crysterm
       widget.children.each { |child| collect_css_subtree child, into }
     end
 
-    # Runs the cascade if styling is dirty. Invoked from the render path.
+    # Whether any active sheet (author, or the default/theme) has `@media` rules,
+    # so a resize must re-run the cascade to re-evaluate their conditions.
+    def css_media_active? : Bool
+      return true if @css_stylesheet.try(&.has_media?)
+      CSS.default_stylesheet.has_media?
+    end
+
+    # Runs the cascade if styling is dirty. Invoked from the render path. Also
+    # re-runs it after a terminal resize when media-guarded rules are active:
+    # the resize path marks nothing dirty, but `@media` applicability may have
+    # changed, so a size change since the last cascade forces a full recompute.
     protected def apply_stylesheet_if_dirty : Nil
-      apply_stylesheet if @css_dirty
+      if @css_dirty
+        apply_stylesheet
+      elsif css_media_active? && @css_last_size != {width, height}
+        @css_dirty = true
+        @css_full = true
+        apply_stylesheet
+      end
     end
   end
 end

@@ -25,34 +25,34 @@ describe "BUGS-F1 #26: WIDE table covers the U+231A..U+27BF emoji gap" do
   # East-Asian-Width = W and render 2 cells wide in conforming terminals; before
   # the fix `codepoint_width` returned 1 for each, shifting content after them.
   {
-    '\u{231A}', '\u{231B}', # ⌚⌛
-    '\u{23E9}', '\u{23EC}', # ⏩⏬
-    '\u{23F0}', '\u{23F3}', # ⏰⏳
-    '\u{25FD}', '\u{25FE}', # ◽◾
-    '\u{2614}', '\u{2615}', # ☔☕
-    '\u{2648}', '\u{2653}', # ♈♓
-    '\u{267F}',             # ♿
-    '\u{2693}',             # ⚓
-    '\u{26A1}',             # ⚡
-    '\u{26AA}', '\u{26AB}', # ⚪⚫
-    '\u{26BD}', '\u{26BE}', # ⚽⚾
-    '\u{26C4}', '\u{26C5}', # ⛄⛅
-    '\u{26CE}',             # ⛎
-    '\u{26D4}',             # ⛔
-    '\u{26EA}',             # ⛪
+    '\u{231A}', '\u{231B}',             # ⌚⌛
+    '\u{23E9}', '\u{23EC}',             # ⏩⏬
+    '\u{23F0}', '\u{23F3}',             # ⏰⏳
+    '\u{25FD}', '\u{25FE}',             # ◽◾
+    '\u{2614}', '\u{2615}',             # ☔☕
+    '\u{2648}', '\u{2653}',             # ♈♓
+    '\u{267F}',                         # ♿
+    '\u{2693}',                         # ⚓
+    '\u{26A1}',                         # ⚡
+    '\u{26AA}', '\u{26AB}',             # ⚪⚫
+    '\u{26BD}', '\u{26BE}',             # ⚽⚾
+    '\u{26C4}', '\u{26C5}',             # ⛄⛅
+    '\u{26CE}',                         # ⛎
+    '\u{26D4}',                         # ⛔
+    '\u{26EA}',                         # ⛪
     '\u{26F2}', '\u{26F3}', '\u{26F5}', # ⛲⛳⛵
-    '\u{26FA}',             # ⛺
-    '\u{26FD}',             # ⛽
-    '\u{2705}',             # ✅
-    '\u{270A}', '\u{270B}', # ✊✋
-    '\u{2728}',             # ✨
-    '\u{274C}',             # ❌
-    '\u{274E}',             # ❎
-    '\u{2753}', '\u{2755}', # ❓❕
-    '\u{2757}',             # ❗
-    '\u{2795}', '\u{2797}', # ➕➗
-    '\u{27B0}',             # ➰
-    '\u{27BF}',             # ➿
+    '\u{26FA}',                         # ⛺
+    '\u{26FD}',                         # ⛽
+    '\u{2705}',                         # ✅
+    '\u{270A}', '\u{270B}',             # ✊✋
+    '\u{2728}',                         # ✨
+    '\u{274C}',                         # ❌
+    '\u{274E}',                         # ❎
+    '\u{2753}', '\u{2755}',             # ❓❕
+    '\u{2757}',                         # ❗
+    '\u{2795}', '\u{2797}',             # ➕➗
+    '\u{27B0}',                         # ➰
+    '\u{27BF}',                         # ➿
   }.each do |ch|
     it "measures U+#{ch.ord.to_s(16).upcase} as 2 columns" do
       Crysterm::Unicode.codepoint_width(ch).should eq 2
@@ -137,7 +137,7 @@ describe "BUGS-F1 #10: changed continuation cell in the draw diff" do
     # absolutely — otherwise it prints one column too far left. The absolute
     # cursor move to column 3 is the fix's signature; without it there is no
     # reposition before 'Z' at all.
-    idx = emitted.index('Z').not_nil!
+    idx = emitted.index!('Z')
     emitted[0, idx].should contain ";3H"
   end
 end

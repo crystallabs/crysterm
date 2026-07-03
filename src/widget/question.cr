@@ -59,18 +59,30 @@ module Crysterm
         ev_ok = nil
         ev_cancel = nil
 
+        # Idempotence latch: `event_handler` emits to a copy-on-write snapshot,
+        # so `window.off` inside `done` can't remove the *in-flight* `ev_keys`.
+        # Without this flag, Enter on a focused button fires both the button's
+        # Press handler and `ev_keys`, invoking the user callback twice.
+        done_called = false
+
         # `done` must be defined *before* the handlers that call it are
         # registered — previously `uninitialized` and assigned after
         # registration, so a key/press arriving in between invoked an
         # uninitialized Proc (crash).
         done = ->(err : String?, data : Bool) do
-          teardown_ok_cancel ev_ok, ev_cancel
-          ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
-          block.call err, data
-          request_render
+          unless done_called
+            done_called = true
+            teardown_ok_cancel ev_ok, ev_cancel
+            ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
+            block.call err, data
+            request_render
+          end
         end
 
         ev_keys = window.on(Crysterm::Event::KeyPress) do |e|
+          # A focused button already handled (and accepted) this Enter — don't
+          # also run the window-level accelerator, or `done` double-fires.
+          next if e.accepted?
           c = e.char
           k = e.key
 

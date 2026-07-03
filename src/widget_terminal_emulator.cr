@@ -306,6 +306,12 @@ module Crysterm
 
     # Splits off any trailing bytes that form an *incomplete* UTF-8 sequence so
     # they can be prepended to the next chunk. Returns {complete, leftover}.
+    #
+    # The leftover is `.dup`ed rather than returned as a `Slice` view: it is
+    # stashed in `@leftover` across `#feed` calls, but the caller (the terminal
+    # widget's reader fiber) reuses a single read buffer, so the next `read`
+    # would overwrite the very bytes the view points at before the next `feed`
+    # can prepend them. Copying makes `feed` never retain caller-owned memory.
     private def split_incomplete_utf8(bytes : Bytes) : {Bytes, Bytes}
       n = bytes.size
       k = 1
@@ -316,7 +322,7 @@ module Crysterm
           next
         elsif b >= 0xC0
           need = b >= 0xF0 ? 4 : (b >= 0xE0 ? 3 : 2)
-          return {bytes[0, n - k], bytes[n - k, k]} if k < need
+          return {bytes[0, n - k], bytes[n - k, k].dup} if k < need
           return {bytes, Bytes.empty}
         else
           return {bytes, Bytes.empty} # ASCII byte: everything up to here is whole

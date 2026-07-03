@@ -76,7 +76,13 @@ module Crysterm
     end
 
     def remove(element)
-      return if element.window? != self
+      # Only a *direct* top-level child of this window can be removed here. The
+      # old `element.window? != self` guard passed for any widget anywhere in the
+      # tree, so `remove(nested_widget)` made `super` a no-op yet still ran
+      # `unregister`/`detach`/`rewind_focus` on a still-attached subtree,
+      # corrupting nav/focus. Mirror `#insert`'s membership gate: a non-child is a
+      # no-op. (`@children_set` is `Mixin::Children`'s O(1) membership index.)
+      return unless @children_set.includes? element
 
       # Whether keyboard focus currently lives inside the subtree being removed.
       # Must be sampled *before* the unlink below: once `element.window = nil`

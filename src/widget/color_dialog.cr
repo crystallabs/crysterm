@@ -510,7 +510,7 @@ module Crysterm
         return unless @lpos
         # While a window move or pick is in flight, a window-level listener owns
         # the pointer — don't also treat motion as field/hue input.
-        return if @ev_move || @picking
+        return if @ev_move.active? || @picking
         ox = aleft + ileft
         oy = atop + itop
 

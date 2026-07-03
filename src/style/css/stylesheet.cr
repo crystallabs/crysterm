@@ -180,14 +180,47 @@ module Crysterm
       # The cascade is invalidated on state transitions only when this is set.
       @dynamic_state : Bool = false
 
+      # Whether any rule carries a `:has(...)` relational condition (on the
+      # subject or an ancestor). `:has()` is an *upward* relation — its subject
+      # can be an ancestor outside a changed widget's subtree — so a scoped
+      # incremental restyle can't be trusted; the screen falls back to a full
+      # recompute when this is set (see `Window#restyle_subtree`).
+      @has_relational : Bool = false
+
+      # Whether any rule is guarded by an `@media` condition. When set, the
+      # screen must re-run the cascade on a terminal resize (the serialized CSS
+      # document doesn't encode terminal size, so the size is folded into the
+      # cascade-skip identity — see `Window#apply_stylesheet`).
+      @has_media : Bool = false
+
       def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
                      @keyframes = {} of String => Array(Tuple(Float64, Hash(String, String))))
-        @dynamic_state = @rules.any?(&.selector.includes?(".state-"))
+        # A rule participates in state-driven restyling if a `.state-*` class
+        # appears in its structural selector *or* in a `:has()` inner/qualifier —
+        # a state carried only inside `:has(... :focus)` must still trigger a
+        # recascade on state transitions.
+        @dynamic_state = @rules.any? do |r|
+          r.selector.includes?(".state-") ||
+            r.has.try(&.includes?(".state-")) ||
+            r.ancestor_has.try(&.any? { |(qualifier, inner)| qualifier.includes?(".state-") || inner.includes?(".state-") })
+        end
+        @has_relational = @rules.any? { |r| r.has || r.ancestor_has }
+        @has_media = @rules.any?(&.media)
       end
 
       # :ditto:
       def dynamic_state? : Bool
         @dynamic_state
+      end
+
+      # :ditto:
+      def has_relational? : Bool
+        @has_relational
+      end
+
+      # :ditto:
+      def has_media? : Bool
+        @has_media
       end
 
       # Compiled selectors, memoized by their structural string. Compiling once
@@ -254,7 +287,10 @@ module Crysterm
         getter layers = {} of String => Int32
         getter keyframes = {} of String => Array(Tuple(Float64, Hash(String, String)))
         property order = 0
-        getter base_path : String?
+        # Mutable so a nested `@import` can resolve relative to the *importing*
+        # file's directory (saved/restored around the recursive parse), not the
+        # top-level file's.
+        property base_path : String?
 
         def initialize(@base_path = nil)
         end
@@ -324,6 +360,17 @@ module Crysterm
             close = matching_brace(css, pos)
             body = close ? css[(pos + 1)...close] : css[(pos + 1)..]
             pos = close ? close + 1 : n
+            # Flush the scope's own declarations accumulated so far as a rule
+            # *before* descending into this nested block, so parent declarations
+            # get a lower source `order` than the nested rules. Per CSS nesting a
+            # parent declaration behaves as if it precedes nested rules, so on an
+            # equal-specificity tie a nested (`@media`/`&`) override must win —
+            # emitting the parent's declarations only at scope end inverted this.
+            unless parents.empty? || (declarations.empty? && important.empty?)
+              emit_rules(parents, declarations, important, media, layer_rank, ctx)
+              declarations = {} of String => String
+              important = {} of String => String
+            end
             handle_block(prelude, body, parents, media, layer_rank, ctx)
           when '}'
             pos += 1 # stray close brace
@@ -472,7 +519,18 @@ module Crysterm
           ctx.warnings << "@import: cannot read #{resolved.inspect}"
           return
         end
-        parse_scope decommented(content), [] of String, nil, layer_rank, ctx
+        # Resolve any `@import` *inside* the imported file relative to that
+        # file's own directory (not the top-level base): point `base_path` at
+        # the imported file for the duration of the recursive parse, then
+        # restore it so sibling imports back in the outer file still resolve
+        # against the outer directory.
+        saved = ctx.base_path
+        ctx.base_path = resolved
+        begin
+          parse_scope decommented(content), [] of String, nil, layer_rank, ctx
+        ensure
+          ctx.base_path = saved
+        end
       end
 
       private def self.skip_ws(css : String, pos : Int32) : Int32
@@ -758,7 +816,11 @@ module Crysterm
         inner = has_inner(selector, open, close)
         remaining = (selector[0...idx] + selector[(close + 1)..]).strip
         remaining = "*" if remaining.empty?
-        {Selectors.expand_types(inner), remaining}
+        # Lower any state pseudo inside the `:has()` inner (`:has(Input:focus)`
+        # -> `:has(Input.state-focused)`) — the `html5` engine can't parse
+        # `:focus` and would raise (making the rule never match), but the
+        # document stamps `.state-*` classes that a lowered selector matches.
+        {Selectors.expand_types(lower_state_pseudos(inner)), remaining}
       end
 
       # Peels every `:has(...)` borne by an *ancestor* compound out of *prefix*
@@ -781,7 +843,9 @@ module Crysterm
           # lowered as the structural selector is.
           compound_end = compound_end_index(prefix, close + 1)
           qualifier = Selectors.expand_types(lower_state_pseudos(strip_has(prefix[0...compound_end]))).strip
-          conditions << {qualifier, Selectors.expand_types(inner)} unless qualifier.empty?
+          # Lower state pseudos in the inner too (same reason as `peel_has`): the
+          # engine can't parse `:focus`, but the document carries `.state-*`.
+          conditions << {qualifier, Selectors.expand_types(lower_state_pseudos(inner))} unless qualifier.empty?
           search = close + 1
         end
         {conditions.empty? ? nil : conditions, strip_has(prefix)}

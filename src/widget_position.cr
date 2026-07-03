@@ -64,33 +64,40 @@ module Crysterm
     # Sets Widget's `@left`
     def left=(val)
       return if @left == val
-      emit ::Crysterm::Event::Move
+      # Assign (and mark dirty) *before* emitting so in-tree Move listeners see
+      # the new position, not the old one (cf. `width=` for the Resize case).
+      # Assign (and mark dirty) *before* emitting so in-tree Move listeners see
+      # the new position, not the old one (cf. `width=` for the Resize case).
       @left = val
       mark_dirty
+      emit ::Crysterm::Event::Move
     end
 
     # Sets Widget's `@top`
     def top=(val)
       return if @top == val
-      emit ::Crysterm::Event::Move
+      # See `left=`: assign before emit so listeners see the new position.
       @top = val
       mark_dirty
+      emit ::Crysterm::Event::Move
     end
 
     # Sets Widget's `@right`
     def right=(val)
       return if @right == val
-      emit ::Crysterm::Event::Move
+      # See `left=`: assign before emit so listeners see the new position.
       @right = val
       mark_dirty
+      emit ::Crysterm::Event::Move
     end
 
     # Sets Widget's `@bottom`
     def bottom=(val)
       return if @bottom == val
-      emit ::Crysterm::Event::Move
+      # See `left=`: assign before emit so listeners see the new position.
       @bottom = val
       mark_dirty
+      emit ::Crysterm::Event::Move
     end
 
     #

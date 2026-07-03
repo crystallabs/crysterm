@@ -101,6 +101,13 @@ module Crysterm
       dest_screen = window?
       same_screen_move = !dest_screen.nil? && !element.parent.nil? && dest_screen == element.window?
 
+      # When `element` is already a child of *this same* parent, detaching it
+      # below shifts the later siblings left, so the caller-supplied `i` (computed
+      # against the pre-removal list by `insert_before`/`insert_after`) would land
+      # one slot too far. Capture its current index now and, once removal has
+      # shifted things, decrement `i` when `element` sat before it.
+      old_i = (element.parent == self) ? children.index(element) : nil
+
       # Detach the element from its current home first, so it isn't left
       # double-parented. A nested element unlinks from its widget parent
       # (Detach suppressed for a same-window move via the guard); a top-level
@@ -123,7 +130,12 @@ module Crysterm
       # away from, letting `attach` emit the right cross-window `Detach`/`Attach`.
       previous = same_screen_move ? dest_screen : element.window?
 
-      super
+      # Same-parent reorder: adjust the now-stale insertion index (see `old_i`).
+      if oi = old_i
+        i -= 1 if i >= 0 && oi < i
+      end
+
+      super element, i
       # A nested widget derives its window from `#parent`, so must not keep its
       # own stored reference.
       element.window = nil

@@ -105,7 +105,7 @@ macro dom_autoserialize_body(mode)
         {% kind = supported[n][0] %}{% nilable = supported[n][1] %}{% key = n.split("_").join("-") %}
         when {{ key }}
           {% if kind == "bool" %}
-            @{{ n.id }} = (value == "true")
+            @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
           {% elsif kind == "dim" %}
             @{{ n.id }} = dom_coerce_dimension(value)
           {% elsif kind == "int" %}

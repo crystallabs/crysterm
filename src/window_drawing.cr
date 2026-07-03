@@ -592,7 +592,17 @@ module Crysterm
           # skips (keeping cell index == terminal column).
           if fu
             current = line[x]
-            unless current.continuation?
+            if current.continuation?
+              # Orphan continuation cell reached WITHOUT `skip_next` (its lead was
+              # unchanged and skipped, or clipped off the left edge). Nothing is
+              # printed for it, so the terminal cursor did NOT advance. Force the
+              # next changed cell to reposition absolutely — otherwise it would
+              # assume the cursor moved and print one column too far left, shifting
+              # the whole run and persisting the error into @olines (BUGS-F1
+              # finding 10).
+              lx = x
+              ly = -1
+            else
               # Fetch the grapheme overlay once and reuse it for both the emit
               # and the width below, instead of letting `current.width` repeat
               # the `@graphemes` lookup `grapheme_overlay` already did.
@@ -630,16 +640,6 @@ module Crysterm
                 # stays in step (BUGS-F1 finding 29).
                 @outbuf.print ' ' if ascii_reduce
               end
-            else
-              # Orphan continuation cell reached WITHOUT `skip_next` (its lead was
-              # unchanged and skipped, or clipped off the left edge). Nothing is
-              # printed for it, so the terminal cursor did NOT advance. Force the
-              # next changed cell to reposition absolutely — otherwise it would
-              # assume the cursor moved and print one column too far left, shifting
-              # the whole run and persisting the error into @olines (BUGS-F1
-              # finding 10).
-              lx = x
-              ly = -1
             end
           else
             @outbuf.print desired_char

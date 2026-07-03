@@ -58,6 +58,15 @@ module Crysterm
       # first. Subclasses tune the guard via `#dialog_keys_active?` and the
       # actions via `#accept`/`#cancel`.
       protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
+        # A focused dialog button (e.g. Cancel) may already have consumed this
+        # Enter/Escape — don't also fire the window-level accelerator, or the
+        # key double-acts (both Rejected AND Accepted). This makes `Wizard`'s
+        # `dialog_keys_active? = !e.accepted?` override redundant, but harmless.
+        # A focused dialog button (e.g. Cancel) may already have consumed this
+        # Enter/Escape — don't also fire the window-level accelerator, or the
+        # key double-acts (both Rejected AND Accepted). This makes `Wizard`'s
+        # `dialog_keys_active? = !e.accepted?` override redundant, but harmless.
+        return if e.accepted?
         return unless dialog_keys_active? e
         case e.key
         when Tput::Key::Enter  then accept; e.accept

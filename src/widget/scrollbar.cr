@@ -171,13 +171,13 @@ module Crysterm
           # Shared pointer→value mapping; ScrollBar clamps `pos` (it sizes a
           # thumb and must not seek past the ends). See `AbstractSlider#value_at`.
           self.slider_position = value_at pos.clamp(0, span), span
-          # Capture the mouse so an untracked drag that leaves our bounds still
-          # delivers its release here — the commit below (on `up`) only fires on
-          # a report the bar receives, so without capture a release off the bar
-          # would strand the pending `@slider_position` uncommitted.
-          if @slider_position
-            window?.try &.capture_mouse(self)
-          end
+          # Capture the mouse so a drag that leaves the bar's (often 1-column)
+          # bounds keeps delivering motion/release here instead of freezing the
+          # thumb — for tracked drags (which update `#value` live) as well as
+          # untracked ones (whose pending `@slider_position` would otherwise
+          # strand uncommitted on a release off the bar). Idempotent; the
+          # release-on-button-up in `Window#dispatch_mouse` ends the capture.
+          window?.try &.capture_mouse(self)
           e.accept
           request_render
         end

@@ -165,25 +165,29 @@ module Crysterm
           # `font`/`text-decoration` shorthands.
           style.padding = parse_padding(value) unless value.blank?
         when "padding-left"
-          style.padding.left = cells(value)
+          # Drop an unparseable/blank value (collapsed `var(--x)`) rather than
+          # hard-resetting the side to 0 (`cells` would), per CSS's "drop the
+          # invalid declaration" rule — same guard as `tab-size` and the
+          # `padding`/`margin` shorthands. Applies to all eight per-side longhands.
+          Length.to_cells(value).try { |c| style.padding.left = c }
         when "padding-top"
-          style.padding.top = cells(value, vertical: true)
+          Length.to_cells(value, vertical: true).try { |c| style.padding.top = c }
         when "padding-right"
-          style.padding.right = cells(value)
+          Length.to_cells(value).try { |c| style.padding.right = c }
         when "padding-bottom"
-          style.padding.bottom = cells(value, vertical: true)
+          Length.to_cells(value, vertical: true).try { |c| style.padding.bottom = c }
         when "margin"
           # Drop a blank value rather than resetting margin to default — same
           # rationale as `padding` above.
           style.margin = parse_margin(value) unless value.blank?
         when "margin-left"
-          style.margin.left = cells(value)
+          Length.to_cells(value).try { |c| style.margin.left = c }
         when "margin-top"
-          style.margin.top = cells(value, vertical: true)
+          Length.to_cells(value, vertical: true).try { |c| style.margin.top = c }
         when "margin-right"
-          style.margin.right = cells(value)
+          Length.to_cells(value).try { |c| style.margin.right = c }
         when "margin-bottom"
-          style.margin.bottom = cells(value, vertical: true)
+          Length.to_cells(value, vertical: true).try { |c| style.margin.bottom = c }
         else
           # Unknown / not-yet-supported property: ignore.
         end

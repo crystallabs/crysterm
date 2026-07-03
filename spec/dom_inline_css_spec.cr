@@ -48,7 +48,7 @@ require "./spec_helper"
     it "re-applies inline styles after a hot-reload" do
       s = headless_screen
       s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
-      bridge = Crysterm::HTTPBridge.new(s, port: 7106)
+      bridge = Crysterm::HTTPBridge.new(s, port: 7109)
       bridge.start
       s.apply_stylesheet
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("red")

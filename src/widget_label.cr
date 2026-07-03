@@ -27,12 +27,15 @@ module Crysterm
       # If label widget exists, update it and return
       @_label.try do |_label|
         _label.set_content(text)
+        # Match the creation path (below): `2 - ileft`/`2 - iright` compensates
+        # border *and* padding. The old `2 + (-border)` form ignored padding, so
+        # re-calling `set_label` shifted the label `padding.left` cells right on
+        # a padded widget.
         if side != "right"
-          # TODO Shouldn't -border.left be border.left, to move it further to the right ?
-          _label.left = 2 + (style.border.try { |border| -border.left } || 0)
+          _label.left = 2 - ileft
           _label.right = nil
         else
-          _label.right = 2 + (style.border.try { |border| -border.right } || 0)
+          _label.right = 2 - iright
           _label.left = nil
         end
         return

@@ -103,6 +103,12 @@ module Crysterm
       protected def self.proc : Process?
         if p = @@proc
           return p unless p.terminated?
+          # Terminated: reap it before replacing. `terminated?` is `kill(pid, 0)`
+          # based, which reports a *zombie* (dead but unwaited) as still alive —
+          # so without this the dead helper would be handed back as "live" once,
+          # and the unreaped process would linger as a zombie.
+          spawn { p.wait rescue nil }
+          @@proc = nil
         end
         bin = binary || return nil
         @@proc = Process.new(bin, ["layer", "--parser", "json", "--silent"],
@@ -146,15 +152,21 @@ module Crysterm
         @last = nil
       end
 
-      private def send(command)
+      private def send(command, retry_once = true)
         p = Ueberzug.proc || return
         if stdin = p.input?
           stdin.puts command.to_json
           stdin.flush
         end
       rescue
-        # Helper went away; drop the cached process so the next call respawns.
+        # Helper went away (EPIPE on write). Reap the dead process (else it stays
+        # a zombie — see `self.proc`) and drop the cache so the next call
+        # respawns. Retry the command once on the fresh helper so the placement
+        # isn't silently lost until the rect next changes.
+        old = @@proc
         @@proc = nil
+        old.try { |o| spawn { o.wait rescue nil } }
+        send(command, retry_once: false) if retry_once
       end
 
       # Resolves *file* to an absolute local path the helper can open, fetching a

@@ -73,6 +73,10 @@ module Crysterm
       File.delete(path) rescue nil
       server = UNIXServer.new(path)
 
+      # Tracks whether we hand the socket file to a live `Window` (which unlinks
+      # it on close); on every failure path the `ensure` deletes it so a failed
+      # spawn doesn't leak a dead `.sock` in `$XDG_RUNTIME_DIR`/tmp.
+      success = false
       begin
         # Inline the handshake env var (and any user env) into the command, so it
         # reaches the helper even through a multiplexer server that doesn't
@@ -86,6 +90,7 @@ module Crysterm
         socket = accept_with_timeout(server)
         unless socket
           process.terminate rescue nil
+          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
           raise "Timed out waiting for the #{backend.name} window to start"
         end
 
@@ -102,6 +107,7 @@ module Crysterm
         unless line && line.starts_with?("TTY ")
           socket.close rescue nil
           process.terminate rescue nil
+          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
           raise "Window helper did not report its TTY (got: #{line.inspect})"
         end
         tty = line[4..].strip
@@ -113,11 +119,17 @@ module Crysterm
           input.try &.close rescue nil
           socket.close rescue nil
           process.terminate rescue nil
+          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
           raise "Could not open window TTY #{tty}: #{ex.message}"
         end
-        Window.new(process, socket, path, tty, input, output)
+        win = Window.new(process, socket, path, tty, input, output)
+        success = true # the Window now owns the socket file; leave it for #close
+        win
       ensure
         server.close rescue nil
+        # On any failure path the socket file is ours to clean up (the success
+        # path leaves it for `Window#close`, which unlinks it).
+        File.delete(path) rescue nil unless success
       end
     end
 

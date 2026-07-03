@@ -14,17 +14,24 @@ module Crysterm
     # Sets widget's total width
     def width=(val)
       return if @width == val
-      emit ::Crysterm::Event::Resize
+      # Assign (and mark dirty) *before* emitting so in-tree Resize listeners
+      # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor
+      # recompute) observe the new size, not the old one.
+      # Assign (and mark dirty) *before* emitting so in-tree Resize listeners
+      # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor
+      # recompute) observe the new size, not the old one.
       @width = val
       mark_dirty
+      emit ::Crysterm::Event::Resize
     end
 
     # Sets widget's total height
     def height=(val)
       return if height == val
-      emit ::Crysterm::Event::Resize
+      # See `width=`: assign before emit so listeners see the new size.
       @height = val
       mark_dirty
+      emit ::Crysterm::Event::Resize
     end
 
     # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints, in cells
@@ -42,9 +49,10 @@ module Crysterm
         # Alters effective `awidth`/`aheight` like `width=`/`height=`, so must
         # emit `Resize` too — otherwise listeners (`Mixin::ItemView#on_resize`,
         # `Mixin::TextEditing`'s Resize→`_update_cursor`) go stale.
-        emit ::Crysterm::Event::Resize
+        # Assign before emitting so those listeners see the new constraint.
         @{{dim.id}} = val
         mark_dirty
+        emit ::Crysterm::Event::Resize
       end
     {% end %}
 
