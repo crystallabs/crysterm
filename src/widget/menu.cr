@@ -255,11 +255,12 @@ module Crysterm
         # interaction state, not carried across opens.
         @show_highlight = false
         fit_to_content
-        sw = window.awidth
-        sh = window.aheight
-        # Keep the menu on-window.
-        self.left = x.clamp(0, Math.max(0, sw - (awidth_hint)))
-        self.top = y.clamp(0, Math.max(0, sh - (height.as?(Int) || 1)))
+        # Open at the cursor, clamped on-window. `Overlay.place_child` owns the
+        # clamp and the single absolute→window-local inset conversion (a
+        # window-appended menu's `left`/`top` are relative to the window content
+        # origin, so a padded window would otherwise shift it by the inset).
+        Overlay.place_child(self, {x, y, 0, 0}, {awidth_hint, height.as?(Int) || 1},
+          [Overlay::Side::At], point: {x, y})
         show
         front!
         focus
@@ -784,18 +785,26 @@ module Crysterm
         window.apply_stylesheet
 
         # Size the child like a top-level popup (`#fit_to_content`), then float
-        # it right of the selected row. When the menu draws a border, the left
-        # baseline is the parent's right border column (`lp.xl - 1`) so the
-        # submenu's left border overlaps it (shared divider); a borderless theme
-        # has no border to share, so the child sits flush at `lp.xl` instead —
-        # no assumption that a border exists. The vertical offset uses `itop`
-        # (0 when borderless) likewise. Further gap comes from the submenu's
-        # `style.margin` (`_get_coords` adds it), not a hardcoded offset.
+        # it right of the selected row — flipping to the *left* of the parent
+        # only when it can't fit on the right (a menu near the right edge).
+        # `Overlay.place_child` owns the fit choice, the on-window clamp, and the
+        # single absolute→window-local inset conversion. When the menu draws a
+        # border, folding `-border` into the anchor width keeps the right-side
+        # baseline on the parent's right border column (the shared-divider
+        # overlap) exactly as before; a borderless theme sits flush. The vertical
+        # offset uses `itop` (0 when borderless). Both `Right` and `Left` share
+        # the same row `y`, so the flip decision is purely horizontal and any
+        # vertical overflow is clamped on-window. Further gap comes from the
+        # submenu's `style.margin` (`_get_coords` adds it), not a hardcoded offset.
         child.fit_to_content
         begin
           lp = last_rendered_position
-          child.left = lp.xl - (style.border.any? ? 1 : 0)
-          child.top = lp.yi + itop + (selected - @child_base)
+          border = style.border.any? ? 1 : 0
+          row_top = lp.yi + itop + (selected - @child_base)
+          Overlay.place_child(child,
+            {lp.xi, row_top, (lp.xl - lp.xi) - border, 1},
+            {child.width.as?(Int) || 1, child.height.as?(Int) || 1},
+            [Overlay::Side::Right, Overlay::Side::Left])
         rescue
           child.left = 0
           child.top = 0

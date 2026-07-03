@@ -338,50 +338,35 @@ module Crysterm
       end
 
       private def position_popup(pop : Popup)
-        # Horizontal placement (set once): use the combo's current absolute box,
-        # not the cached last-rendered position which can be stale after relayout.
-        begin
-          pop.left = aleft
-          pop.width = Math.max(awidth, 4)
-        rescue
-          # Not laid out yet — keep defaults.
-          return
-        end
         rows = Math.min(Math.max(@filtered.size, 1), @max_visible)
         pop.visible_rows = rows
-        # Vertical placement (below/above + clamp); re-run each render once the
-        # cascade resolves the border (see `#place_popup` / `Popup#render`).
+        # Full placement (size + below/above flip + clamp); re-run each render
+        # once the cascade resolves the border (see `#place_popup` /
+        # `Popup#render`).
         place_popup pop
       end
 
-      # Places the drop-down vertically: below the combo when its full height
-      # fits, otherwise flipped above (Qt opens upward when the list would run
-      # off the bottom of the window). Without this the list spilled past the
-      # last row and looked like it never opened.
+      # Places the drop-down against the combo: below when its full height fits,
+      # otherwise flipped above (Qt opens upward when the list would run off the
+      # bottom), clamped on-window. Without it the list spilled past the last
+      # row and looked like it never opened.
       #
-      # Outer height = visible rows plus the popup's own border/padding, derived
-      # from `#iheight` rather than a hardcoded `+ 2`, so themed borders size
-      # correctly. Called both at open and from `Popup#render`; guarded
-      # assignments make it a no-op in steady state.
+      # Outer height = visible rows plus the popup's own border/padding
+      # (`#iheight`), so themed borders size correctly; width tracks the combo.
+      # `Overlay.place_child` owns the below/above fit choice, the on-window
+      # clamp, and the single absolute→window-local inset conversion (a
+      # window-appended popup's `left`/`top` are relative to the window content
+      # origin). Called at open and from `Popup#render`; guarded assignments make
+      # it a steady-state no-op.
       def place_popup(pop : Popup) : Nil
         want = pop.visible_rows + pop.iheight
         pop.height = want unless pop.height == want
-
-        # Default below the combo; flip above when it would run off the bottom
-        # and there's room above. Guarded on `aheight < sh` so a not-yet
-        # laid-out combo (reporting the full window height) never trips the
-        # flip; `Popup#render` re-runs with real geometry.
-        sh = window.aheight
-        below = atop + aheight
-        top =
-          if aheight < sh && below + want > sh && atop >= want
-            atop - want # flip above (fully on-window, since atop >= want)
-          else
-            below
-          end
-        pop.top = top unless pop.top == top
+        w = Math.max(awidth, 4)
+        pop.width = w unless pop.width == w
+        Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {w, want},
+          [Overlay::Side::Below, Overlay::Side::Above])
       rescue
-        # Not laid out yet — keep defaults.
+        # Not laid out yet — keep defaults; `Popup#render` re-runs with real geometry.
       end
 
       def on_keypress(e)

@@ -26,6 +26,7 @@ require "./frame_clock"
 require "./docking"
 require "./subscription"
 require "./overlay/dismiss_session"
+require "./overlay/place"
 require "pnggif"
 
 require "./mixin/*"

@@ -372,21 +372,21 @@ module Crysterm
     end
 
     private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
-      begin
-        # `aleft`/`atop` are absolute screen coordinates, but the popup is a
-        # top-level child whose `left`/`top` are relative to the window's content
-        # origin (`aleft == window.ileft + left`). Subtract the window insets so a
-        # padded/bordered window doesn't shift the popup right/down by the inset
-        # (cf. `window_drag.cr#ghost_origin`, a no-op on an unpadded screen).
-        win = widget.window
-        pop.top = widget.atop + widget.aheight - win.itop
-        pop.left = widget.aleft - win.ileft
-        pop.width = Math.max(widget.awidth, 8)
-      rescue
-        # Not laid out yet — keep defaults.
-      end
       rows = Math.min(Math.max(@matches.size, 1), @max_visible)
-      pop.height = rows + 2 # border
+      h = rows + 2 # border
+      pop.height = h
+      w = Math.max(widget.awidth, 8)
+      pop.width = w
+      # Prefer directly below the field; flip above only when the list can't fit
+      # below (a field near the bottom of the screen). `Overlay.place_child` owns
+      # the fit choice, the on-window clamp, and the single absolute→window-local
+      # inset conversion (the popup is a window-appended child whose `left`/`top`
+      # are relative to the window content origin, so a padded/bordered window
+      # would otherwise shift it by the inset).
+      Overlay.place_child(pop, {widget.aleft, widget.atop, widget.awidth, widget.aheight},
+        {w, h}, [Overlay::Side::Below, Overlay::Side::Above])
+    rescue
+      # Not laid out yet — keep defaults.
     end
   end
 end
