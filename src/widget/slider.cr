@@ -123,7 +123,7 @@ module Crysterm
           while tv <= @maximum
             tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless tx == hx
-              rows.each { |ty| window.poke tx, ty, @tick_char, attr }
+              rows.each { |ty| window.fill_region attr, @tick_char, tx, tx + 1, ty, ty + 1 }
             end
             tv += interval
           end
@@ -138,7 +138,7 @@ module Crysterm
           while tv <= @maximum
             ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless ty == hy
-              cols.each { |cx| window.poke cx, ty, @tick_char, attr }
+              cols.each { |cx| window.fill_region attr, @tick_char, cx, cx + 1, ty, ty + 1 }
             end
             tv += interval
           end

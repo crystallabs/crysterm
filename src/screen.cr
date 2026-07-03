@@ -237,8 +237,17 @@ module Crysterm
     # Runs the deferred live terminal probe that `Tput.new` skipped (see
     # `probe: false`). Gated on the same config flag `Tput.new` uses; `probe!`
     # no-ops on a non-tty.
+    #
+    # The probe can upgrade terminal capabilities the constructor could only
+    # guess at from env/terminfo — most notably confirming 24-bit truecolor via
+    # a DECRQSS SGR readback, which raises `tput.features.number_of_colors` to
+    # 16M. `@draw_caps` (and its `ncolors` snapshot, read on the render hot path)
+    # was computed pre-probe, so refresh it afterward or rendering would keep
+    # downsampling colors to the stale pre-probe depth.
     def probe! : Nil
-      @tput.probe! if ::Superconf.tput_probe
+      return unless ::Superconf.tput_probe
+      @tput.probe!
+      @draw_caps = compute_draw_caps
     end
 
     # Reads the terminal size into `width`/`height` from this device's own `tput`

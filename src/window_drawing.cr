@@ -1073,23 +1073,11 @@ module Crysterm
     # `line[x]?` per cell. `xi`/`yi` are clamped to >= 0 (matching
     # `each_region_cell`), and cells are contiguous, so a cell is "missing" only
     # when `x` runs past the row end (`xend`); every `unsafe_*` is provably in range.
-    # Writes a single cell (`ch`/`attr`) at (`x`, `y`) through the overlay-aware
-    # `Cell` setters, marking the row dirty. A no-op when (`x`, `y`) is off the
-    # grid. For a *scattered* single cell (e.g. a dial pointer, a spaced slider
-    # tick) where there is no contiguous run to batch. For a run of adjacent
-    # cells use `#fill_region` instead — it writes the raw arrays directly, skips
-    # unchanged cells, and narrows the dirty range, whereas `poke` marks the
-    # whole row dirty (`dirty = true`) per call.
-    def poke(x, y, ch, attr) : Nil
-      @lines[y]?.try do |line|
-        line[x]?.try do |cell|
-          cell.char = ch
-          cell.attr = attr
-        end
-        line.dirty = true
-      end
-    end
-
+    #
+    # For a *scattered* single cell (e.g. a dial pointer, a spaced slider tick)
+    # where there is no contiguous run to batch, call this with a 1x1 region
+    # (`fill_region attr, ch, x, x + 1, y, y + 1`): it change-guards the write and
+    # narrows the dirty range to that one column.
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       xi = 0 if xi < 0
       yi = 0 if yi < 0

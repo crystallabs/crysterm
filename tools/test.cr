@@ -25,6 +25,10 @@
 # a fenced block in the source class doc comment, and `--docs` runs
 # `crystal docs` then copies `examples/` into the docs tree.
 #
+# Invoked bare (no flags, no directory), it runs the FULL pipeline: (re)capture
+# stale outputs, then `--doc-comments`, then `--docs`. Any explicit action flag
+# — or a named directory (which scopes capture) — narrows the run to just that.
+#
 # Usage: crystal run tools/test.cr -- [options] [dir ...]   (default: examples tests)
 
 require "file_utils"
@@ -472,6 +476,10 @@ module WidgetExamples
 
     Usage: crystal run tools/test.cr -- [options] [dir ...]
 
+    Invoked bare (no flags, no DIR), it runs the FULL pipeline: (re)capture stale
+    outputs, then --doc-comments, then --docs. Any explicit action flag — or a
+    named DIR (which scopes capture) — narrows the run to just that step.
+
     For every directory at or below each DIR (default: examples tests): if it has
     a program of the same name (foo/foo.cr) that one runs (the dir's other .cr are
     its support code); otherwise each .cr in the dir runs on its own. Each program
@@ -650,43 +658,61 @@ module WidgetExamples
   def self.run(argv : Array(String))
     opts = parse_options(argv)
 
-    # Standalone doc steps operate on the registered widgets/layouts, not the
-    # captured directories.
-    if opts.doc_comments
-      maintain_doc_comments(discover)
-      return
-    end
-    if opts.copy
-      copy_docs_assets
-      return
-    end
-    if opts.docs
-      build_docs
-      return
-    end
+    # With no action flag and no explicit directory, the default is the FULL
+    # pipeline — (re)capture stale outputs, refresh the doc-comment screenshots,
+    # then build the docs — so a bare `crystal run tools/test.cr` does all the
+    # main features at once. Any explicit action flag (--shot/--anim/--dump/
+    # --all/--build/--release/--doc-comments/--docs/--copy/--list/--test), or a
+    # named directory (which scopes capture), narrows the run to just that step.
+    # --force/--duration/--jobs are modifiers, not selectors, so they keep the
+    # full pipeline.
+    full = opts.dirs.empty? &&
+           !(opts.shot || opts.anim || opts.dump || opts.all ||
+             opts.build || opts.release || opts.doc_comments ||
+             opts.docs || opts.copy || opts.list || opts.test)
 
     roots = opts.dirs.empty? ? DEFAULT_DIRS : opts.dirs
-    progs = discover_programs(roots)
-    if progs.empty?
-      STDERR.puts "no programs found (looked for <dir>/<dir>.cr under: " \
-                  "#{roots.map { |r| relative_to_root(File.expand_path(r)) }.join(", ")})"
-      exit 1
-    end
 
     if opts.list
+      progs = discover_programs(roots)
       puts "#{progs.size} program(s):"
       progs.each { |p| puts "  #{relative_to_root(p)}" }
       return
     end
 
-    ok = opts.build ? build(progs, opts) : capture(progs, opts)
+    ok = true
 
-    # --test: after (re)producing missing outputs, the dirs must be
-    # byte-identical to what's committed. A failed run or any git change fails.
-    if opts.test
-      ok = git_check(roots) && ok
-      exit(ok ? 0 : 1)
+    # ---- capture / build: default, the capture-scope flags, --build/--release,
+    # a named directory, or --test all (re)produce the captures.
+    if full || opts.shot || opts.anim || opts.dump || opts.all ||
+       opts.build || opts.release || opts.test || !opts.dirs.empty?
+      progs = discover_programs(roots)
+      if progs.empty?
+        STDERR.puts "no programs found (looked for <dir>/<dir>.cr under: " \
+                    "#{roots.map { |r| relative_to_root(File.expand_path(r)) }.join(", ")})"
+        exit 1
+      end
+      ok = (opts.build ? build(progs, opts) : capture(progs, opts)) && ok
+
+      # --test: after (re)producing missing outputs, the dirs must be
+      # byte-identical to what's committed. A failed run or any git change fails.
+      if opts.test
+        ok = git_check(roots) && ok
+        exit(ok ? 0 : 1)
+      end
     end
+
+    # ---- doc comments (operates on the registered widgets/layouts) ----
+    maintain_doc_comments(discover) if full || opts.doc_comments
+
+    # ---- docs build / asset copy ----
+    if opts.copy
+      copy_docs_assets
+    elsif full || opts.docs
+      build_docs
+    end
+
+    exit 1 unless ok
   end
 end
 
