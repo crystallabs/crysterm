@@ -558,7 +558,10 @@ module Crysterm
         return unless menu = new_nav_menu do |m|
                         MONTHS.each_with_index do |name, i|
                           mo = i + 1
-                          m.add(name) { set_current_page @shown_year, mo; focus }
+                          # Prefix each name with its zero-padded month number
+                          # ("01: January" … "12: December") so the dropdown
+                          # carries the same 1-12 numbering the day/year fields do.
+                          m.add("#{mo.to_s.rjust(2, '0')}: #{name}") { set_current_page @shown_year, mo; focus }
                         end
                       end
         @month_menu = menu

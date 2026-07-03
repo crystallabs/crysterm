@@ -321,16 +321,22 @@ module Crysterm
       @autosize = false
 
       # The width that fits the rows: the widest row text plus the menu's own
-      # `iwidth` (border + padding). The padding (`Menu { padding: 0 1 }`) is the
-      # gap between text and side borders; reserving it here (rather than
-      # insetting the text) lets `#size_rows` lay rows across the content box
-      # with padding falling outside. Bump the theme padding for a roomier menu.
+      # `iwidth` (border + padding) and any reserved scroll-bar column. The
+      # padding (`Menu { padding: 0 1 }`) is the gap between text and side
+      # borders; reserving it here (rather than insetting the text) lets
+      # `#size_rows` lay rows across the content box with padding falling
+      # outside. Bump the theme padding for a roomier menu.
       private def fit_width : Int32
         # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
         # emoji label is wider than its `.size`, and undersizing here would clip
         # the label.
         w = ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
-        w + iwidth
+        # A scrolling menu (e.g. a `Calendar`'s ±100 year list capped by
+        # `#max_visible_rows`) reserves a right-edge column for the vertical
+        # scroll bar. Without accounting for it here the widest row is one column
+        # too wide for the drawable area, and `#size_rows` word-wraps it onto a
+        # clipped second line — the row renders blank (only the gutter shows).
+        w + iwidth + content_margin_x
       end
 
       # The height that fits the rows: one row per visible action plus the menu's
@@ -373,7 +379,11 @@ module Crysterm
       # the theme's breathing reserved by `#fit_to_content` falling between them.
       # Done at render because that is the first point the final width is known.
       private def size_rows : Nil
-        inner = awidth - iwidth
+        # `content_width`, not `awidth - iwidth`: a scrolling menu reserves a
+        # right-edge scroll-bar column (`content_margin_x`), so laying rows to the
+        # full inner width would size them one column too wide, wrapping the text
+        # onto a clipped second line (the year-dropdown "invisible rows" bug).
+        inner = content_width
         return if inner < 1
         acts = visible_actions
         return unless acts.size == @items.size
