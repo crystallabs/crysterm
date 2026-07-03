@@ -38,11 +38,11 @@ MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
 
 GREET = "* CRACKED BY THE CRYSTERM CREW *"
 
-PATTERN  = "CRYSTERM "
-GROW     = ['.', '·', ':', '*', 'o', 'O', '0', '@']
-INTERVAL =  1
-TRAVEL   = 12
-HOLD     = 28
+PATTERN     = "CRYSTERM "
+GROW        = ['.', '·', ':', '*', 'o', 'O', '0', '@']
+INTERVAL    =  1
+TRAVEL      = 12
+HOLD        = 28
 COPPER_ROWS = [1, 3]
 BLACK       = 0x000000
 

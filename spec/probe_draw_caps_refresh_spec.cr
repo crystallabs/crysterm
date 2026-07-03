@@ -59,10 +59,10 @@ describe "Screen#probe! draw_caps refresh" do
     # Widen the effective depth after construction — what a live truecolor probe
     # does when it confirms 24-bit support and raises number_of_colors to 16M.
     Crysterm::Config.colors_depth = Crysterm::ColorDepth::TrueColor
-    screen.colors.should eq 0x1000000              # live per-frame value tracks it...
-    screen.draw_caps.ncolors.should eq 256          # ...but the snapshot is stale
+    screen.colors.should eq 0x1000000      # live per-frame value tracks it...
+    screen.draw_caps.ncolors.should eq 256 # ...but the snapshot is stale
 
-    screen.probe!                                   # must refresh the snapshot
+    screen.probe! # must refresh the snapshot
     screen.draw_caps.ncolors.should eq 0x1000000
   end
 
