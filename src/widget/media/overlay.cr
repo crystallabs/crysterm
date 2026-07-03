@@ -57,11 +57,7 @@ module Crysterm
         @image = W3MImageDisplay::Image.new file
       end
 
-      # Displays *file*, replacing any image currently shown, and re-renders.
-      def set_image(file : String)
-        load file
-        request_render
-      end
+      # `#set_image` (load + re-render) comes from `Media::External`.
 
       # Removes the currently displayed image, clearing its overlay from window.
       def clear_image
@@ -85,19 +81,13 @@ module Crysterm
       # after every window render; skips while hidden or detached.
       private def redraw_image
         return if @helper_failed
-        # Bail when this widget OR any ancestor is hidden: a standalone
-        # `Rendered` listener must not resolve `_get_coords(true)` against a
-        # hidden ancestor with no rendered position (it would raise and kill the
-        # render fiber). Mirrors `Media::Graphics#redraw_image`.
-        return unless visible_in_tree?
-        window? || return
         @image.try do |image|
-          pos = _get_coords(true) || return
           # TODO - get coords of content only, without borders/padding
           # style.border.try &.adjust(pos)
+          rect = overlay_geometry || return
           begin
-            image.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
-            @last_drawn = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+            image.draw(rect[0], rect[1], rect[2], rect[3], @stretch, @center).sync.sync_communication
+            @last_drawn = rect
           rescue
             # w3mimgdisplay missing/failed: degrade instead of crashing the
             # render fiber. Selection UIs should gate on `Media.available?`;

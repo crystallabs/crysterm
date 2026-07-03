@@ -74,6 +74,15 @@ module Crysterm
           return self unless auto?
           animated ? Ordered : Diffusion
         end
+
+        # Coerces a constructor's legacy `Dither | Bool` `dither:` argument to a
+        # `Dither`: a `Dither` value passes through unchanged; a `Bool` maps
+        # `true` to *if_true* (the backend's prior "dithering on" default) and
+        # `false` to `None`. Shared by `Media::Sixel`, `Media::Regis`, and
+        # `Media::Tek`, which each used to inline this same coercion.
+        def self.from_arg(dither : Dither | Bool, if_true : Dither) : Dither
+          dither.is_a?(Bool) ? (dither ? if_true : None) : dither
+        end
       end
 
       # Quantizes an RGBA *bmp* (*pw*×*ph*) to one backend value per pixel,
@@ -192,6 +201,24 @@ module Crysterm
           yield v, x, rl
           x += rl
         end
+      end
+
+      # Dimensions `{w, h}` of a row-major 2D grid *bmp* (`bmp.size` rows, each
+      # `bmp[0].size` wide; `{0, 0}` if empty). Shared by every backend that
+      # derives a bitmap's size from its rows instead of tracking it separately
+      # — generic so it covers both a `PNGGIF::Bitmap` and other row-major
+      # grids (e.g. a glyph mask, `Array(Array(Int32))`).
+      def self.dims(bmp : Array(Array(T))) : Tuple(Int32, Int32) forall T
+        h = bmp.size
+        w = h > 0 ? bmp[0].size : 0
+        {w, h}
+      end
+
+      # Unpacks a packed `0xRRGGBB` color into its `{r, g, b}` byte channels.
+      # Shared by every backend that stores colors packed (`Graph::Painter`,
+      # ANSI-art decoding) instead of as separate channels.
+      def self.rgb24(v : Int32) : Tuple(Int32, Int32, Int32)
+        {(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff}
       end
 
       # Backend used to render the image. See the families described above.

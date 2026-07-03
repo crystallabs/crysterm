@@ -644,57 +644,48 @@ module Crysterm
       # Shadow: each side blends a band of cells toward black via
       # `Window#blend_region`, differing only in bounds.
       if (s = style.shadow) && s.any?
-        if s.glyphs?
-          # Half-block (thin) shadow: each band is split into the straight run
-          # alongside the box and the corner caps beyond its edges, so the cell
-          # where two bands meet gets its own diagonal glyph rather than the
-          # abutting side's (see `Shadow`'s glyph resolution). Corner ownership
-          # follows the same band-partition the plain path relies on, so no cell
-          # is painted twice.
-          if s.left?
-            i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
-            l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
+        # Half-block (thin) shadow: each band is split into the straight run
+        # alongside the box and the corner caps beyond its edges, so the cell
+        # where two bands meet gets its own diagonal glyph rather than the
+        # abutting side's (see `Shadow`'s glyph resolution). Corner ownership
+        # follows the same band-partition the plain path relies on, so no cell
+        # is painted twice. The plain (no-glyphs) path instead does a single
+        # blend per band, clamping the band's origin into the screen.
+        if s.left?
+          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
+          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
+          if s.glyphs?
             blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, s.left_char, s.top_left_char, s.bottom_left_char
-          end
-
-          if s.top?
-            l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
-          end
-
-          if s.right?
-            i = (s.top? || s.left?) ? yi : yi + s.bottom
-            l = s.bottom? ? yl + s.bottom : yl
-            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, s.right_char, s.top_right_char, s.bottom_right_char
-          end
-
-          if s.bottom?
-            i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
-            l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, s.bottom_char, s.bottom_left_char, s.bottom_right_char
-          end
-        else
-          # Plain full-cell shadow (no glyphs): a single blend per band.
-          if s.left?
-            i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
-            l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
+          else
             scr.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
           end
+        end
 
-          if s.top?
-            l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
+        if s.top?
+          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
+          if s.glyphs?
+            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
+          else
             scr.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
           end
+        end
 
-          if s.right?
-            i = (s.top? || s.left?) ? yi : yi + s.bottom
-            l = s.bottom? ? yl + s.bottom : yl
+        if s.right?
+          i = (s.top? || s.left?) ? yi : yi + s.bottom
+          l = s.bottom? ? yl + s.bottom : yl
+          if s.glyphs?
+            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, s.right_char, s.top_right_char, s.bottom_right_char
+          else
             scr.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
           end
+        end
 
-          if s.bottom?
-            i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
-            l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
+        if s.bottom?
+          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
+          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
+          if s.glyphs?
+            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, s.bottom_char, s.bottom_left_char, s.bottom_right_char
+          else
             scr.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
           end
         end

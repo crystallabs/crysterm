@@ -37,10 +37,29 @@ module Crysterm
       {left: l, top: t, right: r, bottom: b}
     end
 
+    # Generates the per-side integer properties plus the all-sides and
+    # four-positional integer constructors shared verbatim by every
+    # sided-geometry box (`Padding`, `Margin` via `zero_box`, and `Border`). The
+    # only thing that differs between them is *default*, each side's resting
+    # width: 0 for the zero-defaulting `Padding`/`Margin`, 1 for `Border`.
+    macro sided_properties(default = 0)
+      property left : Int32 = {{default}}
+      property top : Int32 = {{default}}
+      property right : Int32 = {{default}}
+      property bottom : Int32 = {{default}}
+
+      def initialize(all : Int)
+        @left = @top = @right = @bottom = all
+      end
+
+      def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+      end
+    end
+
     # Generates the surface shared verbatim by the zero-defaulting integer
     # sided-geometry classes (`Padding` and `Margin`): the four per-side
-    # properties (defaulting to 0), the `.default` factory, the `.from` value
-    # coercion, and the all-sides / four-positional integer constructors.
+    # properties and integer constructors (via `sided_properties`), the
+    # `.default` factory, and the `.from` value coercion.
     #
     # `.default` deliberately returns a *fresh* instance, not a shared
     # singleton: boxes are mutated in place by the per-side longhands
@@ -54,10 +73,7 @@ module Crysterm
         new 0
       end
 
-      property left : Int32 = 0
-      property top : Int32 = 0
-      property right : Int32 = 0
-      property bottom : Int32 = 0
+      SidedGeometry.sided_properties
 
       def self.from(value)
         case value
@@ -74,13 +90,6 @@ module Crysterm
         in Int
           new value, value, value, value
         end
-      end
-
-      def initialize(all : Int)
-        @left = @top = @right = @bottom = all
-      end
-
-      def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
       end
     end
 

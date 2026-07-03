@@ -22,26 +22,11 @@ module Crysterm
     # Color setters (`fg=`/`bg=`, accepting Int/String/Nil) come from
     # `Colorizable`.
 
-    # Bold?
-    property? bold : Bool = false
-
-    # Italic?
-    property? italic : Bool = false
-
-    # Unedline?
-    property? underline : Bool = false
-
-    # Blink?
-    property? blink : Bool = false
-
-    # Reverse video?
-    property? reverse : Bool = false
-
-    # Strikethrough?
-    property? strike : Bool = false
-
-    # Visible?
-    property? visible : Bool = true
+    # SGR text-attribute booleans (bold/italic/underline/blink/reverse/strike/
+    # visible); see `TextAttributes`. The plain `property?` setters it generates
+    # are overridden below (see the `specified_mask` re-wrap) to track explicit
+    # assignment, regardless of include order.
+    include TextAttributes
 
     # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
     property alpha : Float64?
@@ -188,6 +173,25 @@ module Crysterm
       # The setters above stamp their bits into the copy's mask; restore our
       # exact mask so the dup reports precisely what we explicitly set.
       copy.specified_mask = @specified_mask
+      copy
+    end
+
+    # Whether this style carries a visible distinction of its own — an
+    # explicit `fg`/`bg` color, or reverse-video — as opposed to being fully
+    # unstyled. Used at the unstyled floor to decide whether a state
+    # (selection/focus) needs a synthetic reverse-video fallback to read at
+    # all; see `#with_reverse_fallback`.
+    def visibly_styled? : Bool
+      specified?(:fg) || specified?(:bg) || reverse?
+    end
+
+    # Returns a copy of this style with reverse-video forced on when it is not
+    # already `#visibly_styled?`; returns `self` untouched otherwise. A `#dup`
+    # is taken before toggling so a shared style is never mutated in place.
+    def with_reverse_fallback : Style
+      return self if visibly_styled?
+      copy = dup
+      copy.reverse = true
       copy
     end
 

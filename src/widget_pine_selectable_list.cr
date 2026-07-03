@@ -108,6 +108,13 @@ module Crysterm
         def activate
           selected_record.try &.callback.try &.call
         end
+
+        # Activates the currently-selected record. Subclasses may override
+        # `#activate` for different behavior (e.g. `Setup`, which toggles
+        # instead of invoking a callback).
+        def run_selected
+          activate
+        end
       end
     end
   end

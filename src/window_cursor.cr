@@ -54,14 +54,7 @@ module Crysterm
         # XXX consider a simpler structure than Style for cursor color?
         # Native color is an int (`-1` = terminal default); device formats it
         # to `#rrggbb` for `Tput#cursor_color`.
-        if (color = c.style.fg) && color >= 0
-          set_hardware_cursor_color color
-        else
-          # No color on this cursor (nil / `-1`): restore the terminal's own
-          # hardware cursor color via OSC 112, else a stale color from a
-          # previously-focused cursor persists. Mirrors `#cursor_color`.
-          reset_hardware_cursor_color
-        end
+        push_hardware_cursor_color c
       end
 
       c._set = true
@@ -71,6 +64,18 @@ module Crysterm
     # different shape or blinking.
     private def wants_cursor_styling?(c)
       (c.shape != Tput::CursorShape::Block) || c.blink
+    end
+
+    # Pushes cursor `c`'s color to the hardware cursor: sets it when `c.style.fg`
+    # is a real color (`>= 0`), else restores the terminal's own hardware cursor
+    # color via OSC 112 (else a stale color from a previously-focused cursor
+    # persists). Shared by `#apply_cursor` and `#cursor_color`.
+    private def push_hardware_cursor_color(c : Cursor) : Nil
+      if (color = c.style.fg) && color >= 0
+        set_hardware_cursor_color color
+      else
+        reset_hardware_cursor_color
+      end
     end
 
     # Sets cursor shape (and blink) on cursor `c` (screen default by default; a
@@ -111,14 +116,7 @@ module Crysterm
         return true
       end
 
-      if (x = ac.style.fg) && x >= 0
-        set_hardware_cursor_color x
-      else
-        # Clearing the color (`cursor_color nil`, or `-1`): restore the
-        # terminal's own hardware cursor color via OSC 112, else `cursor_color
-        # nil` after `cursor_color "red"` is a silent no-op.
-        reset_hardware_cursor_color
-      end
+      push_hardware_cursor_color ac
     end
 
     # :nodoc:

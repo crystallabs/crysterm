@@ -28,9 +28,6 @@ module Crysterm
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
       include Mixin::SpinBoxEditing
 
-      # Honor the given `width` rather than shrinking to the content.
-      @resizable = false
-
       # Number of fractional digits shown (Qt's `QDoubleSpinBox#decimals`).
       # Never negative — a negative count would make the `"%.*f"` format string
       # malformed and crash; Qt likewise clamps `setDecimals` at 0.
@@ -41,13 +38,6 @@ module Crysterm
         update_content
         @decimals
       end
-
-      # Text shown before/after the number.
-      property prefix : String = ""
-      property suffix : String = ""
-
-      # Whether the value can be typed directly.
-      property? editable : Bool = true
 
       def initialize(
         value : Float64? = nil,
@@ -73,12 +63,6 @@ module Crysterm
         handle Crysterm::Event::KeyPress
         install_spinbox_editing
 
-        update_content
-      end
-
-      # Refresh the displayed number whenever the value changes (`RangedValue`
-      # hook), mirroring `SpinBox`.
-      protected def on_value_changed
         update_content
       end
 

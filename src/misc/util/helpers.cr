@@ -42,22 +42,6 @@ module Crysterm
       nil
     end
 
-    private def find(prefix, word)
-      w0 = word[0].to_s
-
-      file = File.join prefix, w0
-
-      return file if File.exists?(file)
-
-      ch = w0.char_at(0).to_s.rjust(2, '0')
-
-      file = File.join prefix, ch
-
-      return file if File.exists?(file)
-
-      nil
-    end
-
     #
     # NOTE Content-related functions below should stay here (instead of go to src/widget_content.cr)
     # since they're generic functions, not instance methods on Widget.
@@ -76,13 +60,18 @@ module Crysterm
     # '''
     # box.set_content("escaped content: " + escape("{bold}{/bold}"))
     # '''
-    def escape(text)
+    def self.escape(text)
       text.gsub(/[{}]/) do |ch|
         case ch
         when "{" then "{open}"
         when "}" then "{close}"
         end
       end
+    end
+
+    # :ditto:
+    def escape(text)
+      Crysterm::Helpers.escape(text)
     end
 
     # Strips text of "{...}" tags and SGR sequences and removes leading/trailing whitespaces

@@ -141,8 +141,7 @@ module Crysterm
       # per-size sample cache so a same-size update re-renders. Bitmap must be
       # non-empty.
       def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
-        h = bmp.size
-        w = h > 0 ? bmp[0].size : 0
+        w, h = Media.dims(bmp)
         raise ArgumentError.new("Media#bitmap=: empty bitmap") if w <= 0 || h <= 0
         @file = nil
         @load_failed = false
@@ -528,6 +527,32 @@ module Crysterm
       # Animation is not supported by an external-helper overlay.
       def play
         unsupported "animation"
+      end
+
+      # Displays *file*, replacing any image currently shown, and re-renders.
+      # (`Media::Base#set_image` does the same but without the
+      # `request_render`: the cell-grid/graphics backends already re-render
+      # via their normal dirty/render path, but an external-overlay backend is
+      # painted out-of-band by its `#redraw_image` hook, so showing a new
+      # image needs an explicit kick.)
+      def set_image(file : String)
+        load file
+        request_render
+      end
+
+      # Current cell rectangle (`{xi, yi, w, h}`) this widget should be
+      # (re)painted at this frame, or `nil` if it shouldn't be painted at
+      # all — hidden (directly or via an ancestor), detached, or with no
+      # resolvable box yet. Shared redraw-geometry preamble for
+      # `Media::Overlay`/`Media::Ueberzug#redraw_image`. Mirrors
+      # `Media::Graphics#redraw_image`: a standalone `Rendered` listener must
+      # not resolve `_get_coords(true)` against a hidden ancestor with no
+      # rendered position (it would raise and kill the render fiber).
+      protected def overlay_geometry : Tuple(Int32, Int32, Int32, Int32)?
+        return unless visible_in_tree?
+        window? || return
+        pos = _get_coords(true) || return
+        {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
       end
     end
 

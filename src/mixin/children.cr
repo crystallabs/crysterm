@@ -119,6 +119,15 @@ module Crysterm
         false
       end
 
+      # Returns true if `other` *is* `self` or sits somewhere in `self`'s
+      # subtree — i.e. whether `self` "covers" `other`. Nil-safe: `other` may
+      # be a possibly-absent widget reference (a captured focus/hover/drag/grab
+      # pointer), and `same?`/`has_descendant?` already treat `nil` as "not
+      # found" (`Reference#same?(other : Nil)` is `false`).
+      def covers?(other)
+        same?(other) || has_descendant?(other)
+      end
+
       # Runs a particular block for self and all descendants, recursively
       def self_and_each_descendant(&block : Proc(Widget, Nil)) : Nil
         block.call self

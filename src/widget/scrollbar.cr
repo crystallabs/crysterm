@@ -29,9 +29,6 @@ module Crysterm
     # ![ScrollBar screenshot](../../tests/widget/scrollbar/scrollbar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollBar < AbstractSlider
-      # A scroll bar draws a fixed-size trough; it must not shrink to its content.
-      @resizable = false
-
       property orientation : Tput::Orientation = :vertical
 
       # Size of one "page" (Qt's `pageStep`): the visible span, which also sizes
@@ -348,10 +345,11 @@ module Crysterm
 
       # Up/Left (and `k`/`h`) step toward the top/start, Down/Right (and `j`/`l`)
       # toward the bottom/end, Page Up/Down by `#page_step`, Home/End to the
-      # bounds — the invert-aware stepping shared with `Slider`/`Dial`. (This
-      # replaces a hand-rolled copy that had never gained the vi keys.)
-      def on_keypress(e)
-        ranged_step_key e, invert: true
+      # bounds — the invert-aware stepping shared with `Slider`/`Dial` via
+      # `AbstractSlider#on_keypress`. (Inverted here because a scroll bar's
+      # Down/Right move toward the end, unlike a plain slider.)
+      protected def step_key_inverted? : Bool
+        true
       end
 
       def destroy

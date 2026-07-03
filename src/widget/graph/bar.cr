@@ -139,17 +139,6 @@ module Crysterm
 
           lines.join('\n')
         end
-
-        # Builds one caption row: each bar's text, centered within its bar width,
-        # followed by the inter-bar spacing (plain, untagged).
-        private def field_line(n : Int32, &) : String
-          String.build do |io|
-            n.times do |i|
-              io << Scale.center(yield(i), @bar_width)
-              io << " " * @bar_spacing if i < n - 1
-            end
-          end
-        end
       end
     end
   end

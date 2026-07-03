@@ -263,10 +263,7 @@ module Crysterm
           plot_h = plot_b - plot_t
 
           # Title (top row, centered over the content area).
-          unless @title.empty?
-            tx = cl + Math.max(0, (cr - cl - @title.size) // 2)
-            put_text tx, ct, @title, overlay_attr(LABEL_COLOR), cl, cr
-          end
+          put_centered @title, cl, cr, ct, overlay_attr(LABEL_COLOR)
 
           # Legend (row under the title), each entry "■ name" in its color.
           if show_legend? && !@series.empty?

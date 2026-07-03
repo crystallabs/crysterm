@@ -140,25 +140,14 @@ module Crysterm
     # Computed relative position on window
     #
 
-    # Returns computed relative left position
-    def rleft
-      (aleft || 0) - (parent_or_window.aleft || 0)
-    end
-
-    # Returns computed relative top position
-    def rtop
-      (atop || 0) - (parent_or_window.atop || 0)
-    end
-
-    # Returns computed relative right position
-    def rright
-      (aright || 0) - (parent_or_window.aright || 0)
-    end
-
-    # Returns computed relative bottom position
-    def rbottom
-      (abottom || 0) - (parent_or_window.abottom || 0)
-    end
+    # `rleft`/`rtop`/`rright`/`rbottom`: computed relative position, mechanically
+    # identical across the four sides modulo which `a*` getter they call.
+    {% for side in %w(left top right bottom) %}
+      # Returns computed relative {{side.id}}
+      def r{{side.id}}
+        (a{{side.id}} || 0) - (parent_or_window.a{{side.id}} || 0)
+      end
+    {% end %}
 
     #
     # Computed absolute position on window
@@ -343,10 +332,50 @@ module Crysterm
     # setters — "Disabled because nothing uses these, and not resize-safe."
     # Recoverable from git history if ever needed.)
 
+    # Shifts the `lo..hi` pair by the widget's own margin (see `_get_coords`):
+    # outward by `far` when only the far side is anchored (`near_anchor` nil,
+    # `far_anchor` not), otherwise outward by `near`. `near_anchor`/`far_anchor`
+    # are the raw `@left`/`@right` (or `@top`/`@bottom`) values, passed through
+    # untouched — this is an unconditional shift, not a bounds clamp, so it is
+    # a distinct shape from `translate_into_bounds` below. Used once per axis.
+    private def shift_margin(lo : Int32, hi : Int32, near_anchor, far_anchor, near : Int32, far : Int32) : {Int32, Int32}
+      if near_anchor.nil? && !far_anchor.nil?
+        {lo - far, hi - far}
+      else
+        {lo + near, hi + near}
+      end
+    end
+
+    # Clamps `lo` up to at least `min` and `hi` down to at most `max`,
+    # independently (a widget's edges never cross past its `ShrinkWidget`
+    # parent's inner rectangle). Used once per axis.
+    private def clamp_edge_pair(lo : Int32, hi : Int32, min : Int32, max : Int32) : {Int32, Int32}
+      lo = min if lo < min
+      hi = max if hi > max
+      {lo, hi}
+    end
+
+    # Translates the `lo..hi` pair (preserving its width) so it fits within
+    # `min..max`: pulls in from the far edge first, then the near edge — so a
+    # span wider than `max - min` ends up anchored at `min` with overflow on
+    # the far side. Used by `overflow: MoveWidget`, once per axis.
+    private def translate_into_bounds(lo : Int32, hi : Int32, min : Int32, max : Int32) : {Int32, Int32}
+      if hi > max
+        d = hi - max
+        lo -= d
+        hi -= d
+      end
+      if lo < min
+        d = min - lo
+        lo += d
+        hi += d
+      end
+      {lo, hi}
+    end
+
     # `width_hint`, when given, is this widget's already-resolved `awidth(get)`,
     # computed by `#_render` just before calling here, to skip re-resolving the
     # identical `awidth`. Only the render path passes it.
-    # ameba:disable Metrics/CyclomaticComplexity
     def _get_coords(get = false, noscroll = false, into : LPos? = nil, width_hint : Int32? = nil)
       unless style.visible?
         return
@@ -406,20 +435,8 @@ module Crysterm
       # size already had its margin folded into `awidth`/`aheight`, so shifting
       # is all that remains; a fixed size never shrinks.)
       if (margin = style.margin).any?
-        if @left.nil? && !@right.nil?
-          xi -= margin.right
-          xl -= margin.right
-        else
-          xi += margin.left
-          xl += margin.left
-        end
-        if @top.nil? && !@bottom.nil?
-          yi -= margin.bottom
-          yl -= margin.bottom
-        else
-          yi += margin.top
-          yl += margin.top
-        end
+        xi, xl = shift_margin(xi, xl, @left, @right, margin.left, margin.right)
+        yi, yl = shift_margin(yi, yl, @top, @bottom, margin.top, margin.bottom)
       end
 
       # Find the nearest ancestor that clips its children: a scrollable element
@@ -573,18 +590,8 @@ module Crysterm
 
       # NOTE `plp=parent.lpos` assignment below-right is intentional:
       if (parent.overflow == Overflow::ShrinkWidget) && (plp = parent.lpos)
-        if xi < plp.xi + parent.ileft
-          xi = plp.xi + parent.ileft
-        end
-        if xl > plp.xl - parent.iright
-          xl = plp.xl - parent.iright
-        end
-        if yi < plp.yi + parent.itop
-          yi = plp.yi + parent.itop
-        end
-        if yl > plp.yl - parent.ibottom
-          yl = plp.yl - parent.ibottom
-        end
+        xi, xl = clamp_edge_pair(xi, xl, plp.xi + parent.ileft, plp.xl - parent.iright)
+        yi, yl = clamp_edge_pair(yi, yl, plp.yi + parent.itop, plp.yl - parent.ibottom)
       end
 
       # `MoveWidget`: translate the whole rectangle to fit the window's visible
@@ -600,18 +607,8 @@ module Crysterm
         s_right = scr.awidth - scr.iright
         s_bottom = scr.aheight - scr.ibottom
 
-        if xl > s_right
-          d = xl - s_right; xi -= d; xl -= d
-        end
-        if xi < s_left
-          d = s_left - xi; xi += d; xl += d
-        end
-        if yl > s_bottom
-          d = yl - s_bottom; yi -= d; yl -= d
-        end
-        if yi < s_top
-          d = s_top - yi; yi += d; yl += d
-        end
+        xi, xl = translate_into_bounds(xi, xl, s_left, s_right)
+        yi, yl = translate_into_bounds(yi, yl, s_top, s_bottom)
       end
 
       # D O:

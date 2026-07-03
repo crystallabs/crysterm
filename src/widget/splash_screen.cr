@@ -29,9 +29,7 @@ module Crysterm
       # An overlay: at the unstyled floor it carries a structural border so it
       # separates from the content behind it (a theme can override or remove it;
       # see `Mixin::Style#floor_border?`).
-      def floor_border? : Bool
-        true
-      end
+      include Mixin::Overlay
 
       # Whether any input event dismisses the splash: a mouse click or wheel
       # *over it*, or any key press. Qt's `QSplashScreen` closes itself on a

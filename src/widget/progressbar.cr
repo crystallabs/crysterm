@@ -222,8 +222,7 @@ module Crysterm
           inner_h = yl - yi
           return if inner_w <= 0 || inner_h <= 0
           cy = yi + (inner_h - 1) // 2
-          cx = xi + Math.max(0, (inner_w - text.size) // 2)
-          draw_text_run cy, cx, text, xl
+          draw_centered_text cy, xi, xl, text
         end
       end
 

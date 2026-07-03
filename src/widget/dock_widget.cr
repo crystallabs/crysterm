@@ -203,9 +203,16 @@ module Crysterm
         # (`widget_position.cr` adds `parent.ileft`/`itop`), so the origin to
         # subtract is `parent.aleft + parent.ileft` (and `atop + itop`), not the
         # outer `aleft`/`atop`. Matches `Splitter#wire_divider`.
-        px = parent.try { |p| p.aleft + p.ileft } || 0
-        py = parent.try { |p| p.atop + p.itop } || 0
+        px, py = parent_content_origin
         {aleft - px, atop - py, awidth, aheight}
+      end
+
+      # The parent's content origin as `{x, y}` (`aleft + ileft`, `atop + itop`),
+      # or `{0, 0}` when unparented. Child `left`/`top` are relative to this, so
+      # both `#current_float_rect` and the title-bar drag handler subtract it to
+      # convert between absolute and content-relative coordinates.
+      private def parent_content_origin : Tuple(Int32, Int32)
+        parent.try { |p| {p.aleft + p.ileft, p.atop + p.itop} } || {0, 0}
       end
 
       # Records the current floating rectangle for later restoration.
@@ -330,8 +337,7 @@ module Crysterm
           # is absolute; convert by subtracting the parent's content origin
           # (`aleft + ileft`, matching `#current_float_rect`), else the dock only
           # tracks the pointer when its parent has no border/padding.
-          px = parent.try { |p| p.aleft + p.ileft } || 0
-          py = parent.try { |p| p.atop + p.itop } || 0
+          px, py = parent_content_origin
           # Clamp against the parent's *content* extent (`awidth - iwidth`), not
           # its outer size, so a floating dock can't be dragged out over the
           # parent's border/padding.

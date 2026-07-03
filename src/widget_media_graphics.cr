@@ -185,8 +185,7 @@ module Crysterm
       protected def source_resolution : Tuple(Int32, Int32)?
         if (frames = @src_frames) && (f = frames[@anim_index]?)
           bmp = f[0]
-          h = bmp.size
-          w = h > 0 ? bmp[0].size : 0
+          w, h = Media.dims(bmp)
           return {w, h} if w > 0 && h > 0
         elsif (png = source)
           cw = png.canvas_width
@@ -298,8 +297,7 @@ module Crysterm
       protected def build_payload(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
         bmp = fit_bitmap(bw, bh) || return nil
-        real_h = bmp.size
-        real_w = bmp[0]?.try(&.size) || 0
+        real_w, real_h = Media.dims(bmp)
         return nil if real_w == 0 || real_h == 0
         encode(bmp, real_w, real_h, ox, oy, cols, rows)
       end

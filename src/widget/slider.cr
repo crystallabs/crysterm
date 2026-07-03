@@ -28,10 +28,6 @@ module Crysterm
         Both
       end
 
-      # A slider draws a fixed-size track; it should not shrink to its (empty)
-      # content the way an `Input` does by default.
-      @resizable = false
-
       # Amount Page Up/Down move the value by (Qt `pageStep`).
       property page_step : Int32 = 10
 
@@ -166,20 +162,13 @@ module Crysterm
 
           if show_value?
             txt = @value.to_s
-            cx = xi + Math.max(0, (xl - xi - txt.size) // 2)
             cy = yi + (yl - yi - 1) // 2
             # Stamp the track attr too, not just the glyph: the center row also
             # carries the handle cell, and writing only the char left a digit on
             # the handle wearing its (indicator/reverse) attr.
-            draw_text_run cy, cx, txt, xl, track_attr
+            draw_centered_text cy, xi, xl, txt, track_attr
           end
         end
-      end
-
-      # Arrow/Page/Home/End stepping is shared with `Dial` via
-      # `Mixin::RangedValue#ranged_step_key`.
-      def on_keypress(e)
-        ranged_step_key e
       end
     end
   end

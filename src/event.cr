@@ -288,6 +288,22 @@ module Crysterm
     # `QButtonGroup#buttonClicked`).
     event ButtonClick, button : Widget
 
+    # Shared "accept/ignore" propagation-control behavior for events that can be
+    # accepted to stop them from propagating further (`Key`, `Mouse`, `DragEvent`).
+    module Acceptable
+      property? accepted : Bool = false
+
+      # Accepts event and causes it to stop propagating.
+      def accept
+        @accepted = true
+      end
+
+      # Ignores event and causes it to continue propagating.
+      def ignore
+        @accepted = false
+      end
+    end
+
     # Base class for keyboard events. Carries the key identity (`char` / `key` /
     # `sequence`) and, when the terminal speaks an enhanced keyboard protocol
     # (kitty / modifyOtherKeys) enabled via `Window#enable_keyboard_protocol`,
@@ -303,10 +319,11 @@ module Crysterm
     #   * `Event::Key`              — both (every key transition)
     #   * `Event::KeyPress::CtrlQ`  — one specific key press
     abstract class Key < EventHandler::Event
+      include Acceptable
+
       property char : Char
       property key : ::Tput::Key?
       property sequence : Array(Char)
-      property? accepted : Bool = false
 
       # The rich keyboard event when an enhanced protocol is active, else `nil`.
       getter key_event : ::Tput::KeyEvent?
@@ -316,16 +333,6 @@ module Crysterm
         # referencing `@char` from a default argument trips Crystal's
         # "used before initialized" analysis when called without `sequence`.
         @sequence = sequence || [@char]
-      end
-
-      # Accepts event and causes it to stop propagating.
-      def accept
-        @accepted = true
-      end
-
-      # Ignores event and causes it to continue propagating.
-      def ignore
-        @accepted = false
       end
 
       # The active modifiers, or `nil` for legacy input.
@@ -400,10 +407,10 @@ module Crysterm
     # It is emitted on the `Window` and, when the pointer is over a registered
     # clickable `Widget`, on that widget as well (see `Window#widget_at`).
     class Mouse < EventHandler::Event
+      include Acceptable
+
       # The underlying normalized mouse event.
       property mouse : ::Tput::Mouse::Event
-
-      property? accepted : Bool = false
 
       def initialize(@mouse)
       end
@@ -438,16 +445,6 @@ module Crysterm
 
       def ctrl? : Bool
         @mouse.ctrl?
-      end
-
-      # Accepts event and causes it to stop propagating.
-      def accept
-        @accepted = true
-      end
-
-      # Ignores event and causes it to continue propagating.
-      def ignore
-        @accepted = false
       end
     end
 
@@ -487,8 +484,9 @@ module Crysterm
     # `accept`ing a `DragEnter`/`DragOver`; only an accepted target receives a
     # `Drop`.
     abstract class DragEvent < EventHandler::Event
+      include Acceptable
+
       getter session : ::Crysterm::DragSession
-      property? accepted : Bool = false
 
       def initialize(@session)
       end

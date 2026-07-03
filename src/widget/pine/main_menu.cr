@@ -65,11 +65,6 @@ module Crysterm
           set_records options
         end
 
-        # Activates the currently-selected option, invoking its callback.
-        def run_selected
-          activate
-        end
-
         # Returns the option key for the currently-selected row, if any.
         def selected_key : String?
           selected_record.try &.key

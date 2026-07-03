@@ -49,6 +49,15 @@ module Crysterm
         end
       end
 
+      # Centers `text` horizontally within `[xi, xl)` on row `y`, then stamps it
+      # via `#draw_text_run` (clamping to `xl` and carrying `attr` the same way).
+      # Shared centering formula for `Slider`/`Dial`/`ProgressBar`'s value/text
+      # overlays: `xi + max(0, (xl - xi - text.size) // 2)`.
+      protected def draw_centered_text(y : Int32, xi : Int32, xl : Int32, text : String, attr : Int64? = nil) : Nil
+        cx = xi + Math.max(0, (xl - xi - text.size) // 2)
+        draw_text_run y, cx, text, xl, attr
+      end
+
       # Defines a `<name>=` setter for a boolean flag surfaced as a CSS attribute
       # selector (e.g. `Button[flat]`, `GroupBox[flat]`). On an actual change it
       # stores the value, re-cascades (`invalidate_css`) so `[<name>]` starts/stops

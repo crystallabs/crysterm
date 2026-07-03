@@ -29,15 +29,7 @@ module Crysterm
       def initialize(checked : Bool = false, **input)
         super **input
 
-        @checkable = true # a radio button is inherently checkable (Qt's `QRadioButton`)
-        @checked = checked
-        @value = checked
-
-        input["content"]?.try do |c|
-          @text = c
-        end
-
-        setup_check_marker
+        setup_marker_control checked, input["content"]?
         handle Crysterm::Event::Check
       end
 

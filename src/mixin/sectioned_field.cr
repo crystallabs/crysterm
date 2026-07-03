@@ -162,6 +162,46 @@ module Crysterm
         request_render
       end
 
+      # Builds a `Time` for "now" when no explicit value is given, falling back
+      # so construction never raises in headless contexts where `Time.local`
+      # is unavailable. Shared by every date/time widget (`Widget::Calendar`,
+      # `Widget::DateTimeEdit`, `Widget::DateEdit`, `Widget::TimeEdit`), which
+      # otherwise each inline the same `Time.local rescue Time.utc(...)`.
+      def self.default_today : Time
+        Time.local
+      rescue
+        Time.utc(2000, 1, 1)
+      end
+
+      # Generates the value getter *name* (returning *ivar*) plus a
+      # change-guarded setter *name*= that stores the (optionally
+      # *normalize*d) value on *ivar* and hands it to `#commit_value`. This is
+      # the identical value-getter/change-guarded-setter pair `DateTimeEdit`,
+      # `DateEdit` (with its `at_beginning_of_day` normalization), and
+      # `TimeEdit` otherwise repeat verbatim (modulo the ivar name).
+      #
+      # Only generates the two methods — not an instance-variable type
+      # declaration — because a macro-generated ivar type declaration inside a
+      # mixin can fail to expand cleanly; each including widget declares its
+      # own `@ivar : Time` explicitly.
+      macro section_value(name, ivar, normalize = nil)
+        def {{name}} : Time
+          {{ivar}}
+        end
+
+        def {{name}}=(value : Time) : Time
+          {% if normalize %}
+            v = value.{{normalize}}
+          {% else %}
+            v = value
+          {% end %}
+          return {{ivar}} if v == {{ivar}}
+          {{ivar}} = v
+          commit_value {{ivar}}
+          {{ivar}}
+        end
+      end
+
       # Hook run after a press selects a section. Default: nothing.
       protected def on_section_press : Nil
       end

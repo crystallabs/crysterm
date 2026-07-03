@@ -158,12 +158,7 @@ module Crysterm
       # drops the whole subtree): reparenting a *container* also detached its
       # keyable/clickable descendants, so re-registering only the container root
       # would strand them out of `@keyable`/`@clickable` forever.
-      window?.try do |sc|
-        element.self_and_each_descendant do |e|
-          sc.register_keyable e if e.keys? || e.input? || e.keyable?
-          sc.register_clickable e if e.clickable?
-        end
-      end
+      window?.try &.register_subtree(element)
 
       element.emit Crysterm::Event::Reparent, self
       emit Crysterm::Event::Adopt, element
@@ -180,7 +175,7 @@ module Crysterm
       s = window?
       refocus = false
       if s && (f = s.focused)
-        refocus = (f == element) || element.has_descendant?(f)
+        refocus = element.covers?(f)
       end
 
       return unless super

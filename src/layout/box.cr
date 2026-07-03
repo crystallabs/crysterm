@@ -277,15 +277,13 @@ module Crysterm
       # shifts a laid child out by its near margin without shrinking a fixed size,
       # so the packing must reserve both.
       private def main_margin(el : Widget) : Int32
-        m = el.style.margin
-        orientation.horizontal? ? m.left + m.right : m.top + m.bottom
+        orientation.horizontal? ? el.mwidth : el.mheight
       end
 
       # The child's total margin along the cross axis (top+bottom for a
       # horizontal box, left+right for a vertical one).
       private def cross_margin(el : Widget) : Int32
-        m = el.style.margin
-        orientation.horizontal? ? m.top + m.bottom : m.left + m.right
+        orientation.horizontal? ? el.mheight : el.mwidth
       end
 
       # Whether the child's main-axis size is decided by this layout: either its

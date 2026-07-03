@@ -26,20 +26,10 @@ module Crysterm
       # ![KeyMenu screenshot](../../../tests/widget/pine/key_menu/key_menu.5s.apng)
       # <!-- /widget-examples:capture -->
       class KeyMenu < Widget::Box
+        include KeyBar
+
         # A single command hint in the menu.
-        class Entry
-          # The keyboard key that triggers the command (shown highlighted).
-          property key : String
-
-          # Human-readable description of the command.
-          property label : String
-
-          # Optional action invoked by `KeyMenu#trigger`.
-          property callback : Proc(Nil)?
-
-          def initialize(@key, @label, @callback = nil)
-          end
-        end
+        alias Entry = KeyBar::Item
 
         # The entries currently shown.
         getter entries : Array(Entry)
@@ -154,25 +144,6 @@ module Crysterm
 
             @cells << box
             append box
-          end
-        end
-
-        # Builds the tagged content for a single entry: a highlighted key
-        # followed by its label, e.g. `{reverse} ? {/reverse} Help`.
-        private def format_entry(entry : Entry) : String
-          tags = key_tags
-          "#{tags[:open]} #{entry.key} #{tags[:close]} #{entry.label}"
-        end
-
-        # Translates `key_style` into open/close tags used around the key.
-        private def key_tags
-          if @key_style.reverse?
-            {open: "{reverse}", close: "{/reverse}"}
-          elsif (fg = @key_style.fg) && fg >= 0
-            hex = "#%06x" % (fg & 0xffffff)
-            {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
-          else
-            {open: "{bold}", close: "{/bold}"}
           end
         end
       end

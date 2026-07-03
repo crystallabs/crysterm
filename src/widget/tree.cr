@@ -111,8 +111,8 @@ module Crysterm
       property indent : Int32 = 2
 
       # Markers drawn before a node's text.
-      property expanded_char : Char = '▾'
-      property collapsed_char : Char = '▸'
+      property expanded_char : Char = MARKER_EXPANDED
+      property collapsed_char : Char = MARKER_COLLAPSED
       property leaf_char : Char = ' '
 
       # `initialize` is inherited from `Mixin::ItemView` unchanged.

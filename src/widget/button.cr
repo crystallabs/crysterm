@@ -27,10 +27,8 @@ module Crysterm
       getter? default : Bool = false
 
       def initialize(checkable : Bool = false, checked : Bool = false, flat : Bool = false, default : Bool = false, **input)
-        super **input
+        super **input, checkable: checkable, checked: checked
 
-        @checkable = checkable
-        @checked = checked
         @flat = flat
         @default = default
 

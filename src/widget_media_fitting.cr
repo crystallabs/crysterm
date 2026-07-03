@@ -97,8 +97,7 @@ module Crysterm
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
                        sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
         return nil if bw <= 0 || bh <= 0
-        sh = src_bmp.size
-        sw = sh > 0 ? src_bmp[0].size : 0
+        sw, sh = Media.dims(src_bmp)
         return nil if sw <= 0 || sh <= 0
 
         # 1:1 — draw at the source's native terminal-cell footprint, centered/
@@ -116,8 +115,7 @@ module Crysterm
           th = {fch * sub_h, 1}.max
           sampled = png.create_cellmap(src_bmp, cmwidth: tw, cmheight: th, cell_aspect: 1.0)
           return nil if sampled.empty?
-          nh = sampled.size
-          nw = sampled[0]?.try(&.size) || 0
+          nw, nh = Media.dims(sampled)
           # Center on a whole-cell boundary (see the letterbox note below).
           return place_at sampled, bw, bh, snap((bw - nw) // 2, sub_w), snap((bh - nh) // 2, sub_h)
         end
@@ -165,8 +163,7 @@ module Crysterm
       # *src* is empty.
       def self.place_centered(src : PNGGIF::Bitmap, bw : Int32, bh : Int32) : PNGGIF::Bitmap?
         return nil if src.empty?
-        nh = src.size
-        nw = src[0]?.try(&.size) || 0
+        nw, nh = Media.dims(src)
         return nil if nw <= 0
         place_at src, bw, bh, (bw - nw) // 2, (bh - nh) // 2
       end

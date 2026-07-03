@@ -8,13 +8,15 @@ module Crysterm
     # blur wiring, and the whole `#on_keypress` dispatch (digit/sign entry,
     # Enter/Escape/Backspace, Up/Down/`+`/`k`/`j`, PageUp/PageDown, Home/End).
     #
+    # It also declares `#prefix`/`#suffix`/`#editable?` (identical across both
+    # widgets) and the `on_value_changed` hook that refreshes the displayed text.
+    #
     # The two widgets differ only in their numeric type and a few small spots, so
     # the including widget must provide:
     #
     #   * `#value` / `#value=` / `#increment` / `#decrement` and `@minimum` /
     #     `@maximum` / `@step` — its numeric value/range logic (from
     #     `Mixin::RangedValue` for `SpinBox`, or defined directly);
-    #   * `#prefix` / `#suffix` and `#editable?` accessors;
     #   * `#parse_buffer(buf : String)` — parse the edit buffer to the widget's
     #     numeric type, returning `nil` on failure (`to_i?` / `to_f?`);
     #   * `#body_text : String` — the committed value as shown (e.g. `value.to_s`
@@ -28,6 +30,21 @@ module Crysterm
       # The in-progress edit buffer (`nil` when not editing). While editing, the
       # box shows this text instead of the committed value.
       @editing : String? = nil
+
+      # Text shown before/after the number (Qt `QSpinBox#prefix`/`#suffix`).
+      property prefix : String = ""
+      property suffix : String = ""
+
+      # Whether the value can be typed directly (Qt's `QAbstractSpinBox#readOnly`
+      # inverted). When false the box only responds to stepping.
+      property? editable : Bool = true
+
+      # Refresh the displayed number whenever the value changes (`RangedValue`
+      # hook, overriding its no-op default — include order matters: this mixin
+      # must come after `Mixin::RangedValue` for the override to apply).
+      protected def on_value_changed
+        update_content
+      end
 
       # Installs the mouse-wheel and blur handlers. Call once from the including
       # widget's `#initialize` (after `super`).

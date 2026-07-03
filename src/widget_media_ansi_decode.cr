@@ -48,7 +48,8 @@ module Crysterm
 
       private def self.pal(idx : Int32) : PNGGIF::Pixel
         v = ANSI_PALETTE[idx.clamp(0, 15)]
-        PNGGIF::Pixel.new((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
+        r, g, b = rgb24(v)
+        PNGGIF::Pixel.new(r, g, b)
       end
 
       # Resolves an extended-colour SGR selector's sub-parameters (those after a
@@ -79,8 +80,7 @@ module Crysterm
       private def self.xterm256_rgb(n : Int32) : Tuple(Int32, Int32, Int32)
         n = n.clamp(0, 255)
         if n < 16
-          v = ANSI_PALETTE[n]
-          {(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF}
+          rgb24(ANSI_PALETTE[n])
         elsif n < 232
           m = n - 16
           {cube_level(m // 36), cube_level((m // 6) % 6), cube_level(m % 6)}
@@ -283,8 +283,7 @@ module Crysterm
             # so a reversed default cell becomes black-on-white, as on a real VT.
             fg_rgb, bg_rgb = bg_rgb, fg_rgb if crev
             g = font.glyph(char.to_s)
-            gh = g.size
-            gw = gh > 0 ? g[0].size : 0
+            gw, gh = dims(g)
             ch.times do |dy|
               drow = bmp[cy * ch + dy]
               cw.times do |dx|

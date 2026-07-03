@@ -38,10 +38,7 @@ module Crysterm
         @socket.close rescue nil
         @input.close rescue nil
         @output.close rescue nil
-        @process.terminate rescue nil
-        # Reap the process so it doesn't linger as a zombie. Non-blocking: the
-        # wait happens on its own fiber.
-        spawn { @process.wait rescue nil }
+        Terminal.terminate_and_reap(@process)
         File.delete(@path) rescue nil
       end
     end
@@ -52,6 +49,13 @@ module Crysterm
 
     # How long to wait for the spawned window's helper to phone home.
     HANDSHAKE_TIMEOUT = 15.seconds
+
+    # Best-effort terminate *process*, then reap it so it doesn't linger as a
+    # zombie. Non-blocking: the wait happens on its own fiber.
+    def self.terminate_and_reap(process : Process) : Nil
+      process.terminate rescue nil
+      spawn { process.wait rescue nil }
+    end
 
     # Spawns a terminal window/pane/session via *launcher*, waits for the
     # in-window helper to report its TTY, opens that TTY, and returns a `Window`.
@@ -89,8 +93,7 @@ module Crysterm
 
         socket = accept_with_timeout(server)
         unless socket
-          process.terminate rescue nil
-          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
+          terminate_and_reap(process)
           raise "Timed out waiting for the #{backend.name} window to start"
         end
 
@@ -106,8 +109,7 @@ module Crysterm
 
         unless line && line.starts_with?("TTY ")
           socket.close rescue nil
-          process.terminate rescue nil
-          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
+          terminate_and_reap(process)
           raise "Window helper did not report its TTY (got: #{line.inspect})"
         end
         tty = line[4..].strip
@@ -118,8 +120,7 @@ module Crysterm
         rescue ex
           input.try &.close rescue nil
           socket.close rescue nil
-          process.terminate rescue nil
-          spawn { process.wait rescue nil } # reap so it doesn't linger as a zombie
+          terminate_and_reap(process)
           raise "Could not open window TTY #{tty}: #{ex.message}"
         end
         win = Window.new(process, socket, path, tty, input, output)

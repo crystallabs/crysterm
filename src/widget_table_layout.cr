@@ -180,6 +180,31 @@ module Crysterm
       map
     end
 
+    # Cached x→column map from `#col_for_x`, keyed on the inputs it depends
+    # on (`@maxes`, `ileft`, and *first_col*). `col_for_x` itself is cheap to
+    # call but callers (`Table#draw_borders`, `ListTable#recolor_css_cells`)
+    # run every frame, so this avoids rebuilding the `Hash` each time.
+    # Rebuilt only when `@maxes`, `ileft`, or *first_col* changes.
+    #
+    # *first_col* is `0` for `Table` (maps every column) and `@first_col` for
+    # `ListTable` (maps from its first horizontally-visible column).
+    @col_for_x_cache : Hash(Int32, Int32)? = nil
+    @col_for_x_cache_maxes : Array(Int32)? = nil
+    @col_for_x_cache_ileft : Int32 = -1
+    @col_for_x_cache_first_col : Int32 = -1
+
+    def cached_col_for_x(first_col : Int32 = 0) : Hash(Int32, Int32)
+      cached = @col_for_x_cache
+      if cached.nil? || !@maxes.same?(@col_for_x_cache_maxes) ||
+         ileft != @col_for_x_cache_ileft || first_col != @col_for_x_cache_first_col
+        cached = @col_for_x_cache = col_for_x(first_col, ileft)
+        @col_for_x_cache_maxes = @maxes
+        @col_for_x_cache_ileft = ileft
+        @col_for_x_cache_first_col = first_col
+      end
+      cached
+    end
+
     # Pads/clips a single cell's text to `width` columns according to the
     # widget's horizontal alignment.
     def pad_cell(cell : String, width : Int32) : String

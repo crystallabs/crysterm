@@ -77,6 +77,24 @@ module Crysterm
       end
     end
 
+    # Reduces a non-ASCII glyph to its ASCII fallback (index 2 of the ACSC
+    # table entry), or `'?'` when the glyph has no ACS mapping. Shared by the
+    # lone-codepoint and grapheme-cluster reduction paths below.
+    private def ascii_fallback(ch : Char) : Char
+      Tput::ACSC::Data[ch]?.try(&.[2]) || '?'
+    end
+
+    # Emits a cursor move to (`y`, `x`) (0-based) into `dest`: direct ANSI
+    # (`\e[<row>;<col>H`, 1-based) when `ansi_cursor`, else the terminfo path
+    # via `#divert`. Shared by the per-run reposition and line-start moves below.
+    private def emit_cursor_position(dest : IO, ansi_cursor : Bool, y : Int, x : Int) : Nil
+      if ansi_cursor
+        dest << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
+      else
+        divert(@tmpbuf, dest) { tput.cursor_position(y, x) }
+      end
+    end
+
     # Whether to bracket each painted frame in a DEC 2026 *synchronized update*
     # (`\e[?2026h` … `\e[?2026l`) so the terminal presents it atomically,
     # eliminating flicker/tearing on a multi-write redraw. Markers are emitted
@@ -353,11 +371,7 @@ module Crysterm
 
               # Clear to end of line at (x, y): a cursor move (see the reposition
               # note below) followed by the hoisted static `el`.
-              if ansi_cursor
-                @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
-              else
-                divert(@tmpbuf, @outbuf) { tput.cursor_position(y, x) }
-              end
+              emit_cursor_position(@outbuf, ansi_cursor, y, x)
               @outbuf.write el
 
               # Mirror the cleared run into `@olines` through the hoisted
@@ -473,15 +487,13 @@ module Crysterm
               # universal on every terminal Crysterm targets (it already assumes
               # ANSI SGR), so the hardcoded forms match terminfo's output. Writing
               # an `Int` to the IO emits its digits with no `String` allocation.
-              if !ansi_cursor
+              if ansi_cursor && parm_right_cursor && y == ly
+                @outbuf << "\e[" << (x - lx) << 'C'
+              else
                 # Non-conforming terminal: route through tput (captured into the
                 # frame buffer via `divert`). Always an absolute move, since this
                 # path can't assume `cuf` either.
-                divert(@tmpbuf, @outbuf) { tput.cursor_position(y, x) }
-              elsif parm_right_cursor && y == ly
-                @outbuf << "\e[" << (x - lx) << 'C'
-              else
-                @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
+                emit_cursor_position(@outbuf, ansi_cursor, y, x)
               end
               lx = -1
               ly = -1
@@ -596,7 +608,7 @@ module Crysterm
             # like sun-color).
             if ascii_reduce
               # Reduction of ACS into ASCII chars.
-              desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
+              desired_char = ascii_fallback(desired_char)
             end
           end
 
@@ -635,7 +647,7 @@ module Crysterm
                   # would print several bytes for one cell). Reduce to the base
                   # codepoint's ASCII fallback, mirroring the lone-codepoint
                   # reduction above (BUGS-F1 finding 29).
-                  @outbuf.print(base_char > '~' ? (Tput::ACSC::Data[base_char]?.try(&.[2]) || '?') : base_char)
+                  @outbuf.print(base_char > '~' ? ascii_fallback(base_char) : base_char)
                 else
                   @outbuf.print g
                 end
@@ -682,11 +694,7 @@ module Crysterm
           # STDERR.puts @outbuf.size
           # Line-start cursor position (see the reposition note above):
           # `cup(y, 0)` == `\e[<row>;1H` (1-based), gated on `ansi_cursor`.
-          if ansi_cursor
-            @main << "\e[" << (y + 1) << ";1H"
-          else
-            divert(@tmpbuf, @main) { tput.cursor_position(y, 0) }
-          end
+          emit_cursor_position(@main, ansi_cursor, y, 0)
           @main.write @outbuf.to_slice
         end
       end

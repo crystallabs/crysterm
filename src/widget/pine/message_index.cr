@@ -64,11 +64,6 @@ module Crysterm
 
         record_accessors messages, message, Message
 
-        # Activates the currently-selected message.
-        def run_selected
-          activate
-        end
-
         # Formats one message into a fixed-column row; *index* (0-based) becomes
         # the 1-based message number.
         def format_row(item : Message, index : Int32) : String

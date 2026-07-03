@@ -15,9 +15,7 @@ module Crysterm
       # Dialogs are overlays: at the unstyled floor they carry a structural
       # border to separate from content behind them. An active theme can
       # override/remove this via `Mixin::Style#floor_border?`.
-      def floor_border? : Bool
-        true
-      end
+      include Mixin::Overlay
 
       # ---- Modal key accelerator (FORMAL-WIDGETS B3.1 / B3.2) -----------------
       #

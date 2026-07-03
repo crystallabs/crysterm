@@ -62,35 +62,60 @@ module Crysterm
       @style_transitions.try { |h| h[key]?.try(&.stop); h.delete key }
     end
 
+    # Builds a tween: cancels whatever is already running (via *cancel* — e.g.
+    # `#cancel_transition`, or clearing a fade/tint ivar), skips creating a new
+    # `FrameClock` when *skip* is true (having still cancelled), otherwise
+    # builds one that hands *tick* the clock each frame and requests a render,
+    # wires *on_done* to fire only on natural completion (not on an
+    # interrupting `#stop`), records it via *store* — *before* starting it, so
+    # a synchronous start (e.g. reduced motion) already sees it stored — and
+    # starts it. Returns the `FrameClock`, or `nil` when skipped.
+    #
+    # Shared by `#transition_float`/`#transition_color` below (keyed storage,
+    # several concurrent transitions per widget) and the fade/tint builders in
+    # `widget_fade.cr` (a single ivar each) — they differ only in how they
+    # cancel/store the tween, so those steps are passed in as procs.
+    private def start_tween(duration : Time::Span, easing : Easing | Symbol,
+                            fps : Int32 = 30, on_done : Proc(Nil)? = nil, store : Proc(FrameClock, Nil)? = nil,
+                            &tick : FrameClock ->) : FrameClock
+      anim = FrameClock.new((1.0 / fps).seconds, duration: duration, easing: easing) do |clock|
+        tick.call clock
+        request_render
+      end
+      if od = on_done
+        anim.on_stop { od.call if anim.completed? }
+      end
+      store.try &.call(anim)
+      anim.start
+      anim
+    end
+
     private def transition_float(key : Symbol, from : Float64, to : Float64,
                                  dur : Time::Span, easing : Easing, &set : Float64 ->) : Nil
       # Cancel first, even on the no-op early return: a state change to the
       # current value must still stop a prior tween, or it keeps writing toward
       # its old (now stale) target.
-      cancel_transition key
+      cancel_transition(key)
       return if (from - to).abs < 1e-6
-      anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
+      start_tween(dur, easing,
+        store: ->(anim : FrameClock) { (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim }) do |clock|
         set.call(from + (to - from) * clock.value)
-        request_render
       end
-      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
-      anim.start
+      nil
     end
 
     private def transition_color(key : Symbol, from : Int32?, to : Int32?,
                                  dur : Time::Span, easing : Easing, &set : Int32 ->) : Nil
       # Cancel first, even on the no-op early returns (nil target or from == to):
       # otherwise a prior tween keeps writing toward its old (now stale) target.
-      cancel_transition key
-      return unless from && to
-      return if from == to
-      f, t = from, to
-      anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
+      cancel_transition(key)
+      return if !(from && to) || from == to
+      f, t = from || 0, to || 0
+      start_tween(dur, easing,
+        store: ->(anim : FrameClock) { (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim }) do |clock|
         set.call(lerp_color(f, t, clock.value))
-        request_render
       end
-      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
-      anim.start
+      nil
     end
 
     # Per-channel linear interpolation between two `0xRRGGBB` colors.

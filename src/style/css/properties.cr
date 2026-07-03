@@ -555,21 +555,26 @@ module Crysterm
         # Resolve each token to the native per-side int form (`currentColor`
         # against the element's text color, like the per-side longhands).
         c = tokens.map { |token| coerce_color_int(ColorValue.resolve(token, el_color)) }
-        case tokens.size
-        when 2 # vertical horizontal
-          border.fg_top = border.fg_bottom = c[0]
-          border.fg_left = border.fg_right = c[1]
-        when 3 # top horizontal bottom
-          border.fg_top = c[0]
-          border.fg_left = border.fg_right = c[1]
-          border.fg_bottom = c[2]
-        when 4 # top right bottom left
-          border.fg_top = c[0]
-          border.fg_right = c[1]
-          border.fg_bottom = c[2]
-          border.fg_left = c[3]
-        else
-          # >4 colors: invalid declaration, drop it.
+        return unless i = trbl_indices(tokens.size) # 0 (blank) / >4 colors: drop it
+        border.fg_top = c[i[:top]]
+        border.fg_right = c[i[:right]]
+        border.fg_bottom = c[i[:bottom]]
+        border.fg_left = c[i[:left]]
+      end
+
+      # Maps the number of values in a CSS TRBL shorthand (`border-width`,
+      # `border-color`, `padding`, `margin`, ...) to the source-token index for
+      # each of top/right/bottom/left, implementing CSS's fill-in rule in one
+      # place: 1 value → all sides; 2 → vertical/horizontal; 3 → top/horizontal/
+      # bottom; 4 → top/right/bottom/left. Returns `nil` for an empty (0) or
+      # over-long (>4) value, which is invalid and should be dropped by the caller.
+      private def self.trbl_indices(count : Int32) : NamedTuple(top: Int32, right: Int32, bottom: Int32, left: Int32)?
+        case count
+        when 1 then {top: 0, right: 0, bottom: 0, left: 0}
+        when 2 then {top: 0, right: 1, bottom: 0, left: 1} # vertical horizontal
+        when 3 then {top: 0, right: 1, bottom: 2, left: 1} # top horizontal bottom
+        when 4 then {top: 0, right: 1, bottom: 2, left: 3} # top right bottom left
+        else        nil
         end
       end
 
@@ -646,13 +651,7 @@ module Crysterm
       # (via `apply_side_color`), coercing the resolved color to the native int
       # form those slots store.
       private def self.set_side_color(border : Border, side : Symbol, resolved : Int32 | String | Nil) : Nil
-        c = coerce_color_int(resolved)
-        case side
-        when :top    then border.fg_top = c
-        when :right  then border.fg_right = c
-        when :bottom then border.fg_bottom = c
-        when :left   then border.fg_left = c
-        end
+        border.set_color side, coerce_color_int(resolved)
       end
 
       # Applies the `border-width` shorthand: 1-4 cell widths in CSS TRBL order
@@ -675,25 +674,13 @@ module Crysterm
         # token on both axes and pick the right one per side.
         h = tokens.map { |token| border_cells(token) }
         v = tokens.map { |token| border_cells(token, vertical: true) }
-        case tokens.size
-        when 1
-          border.left = border.right = h[0]
-          border.top = border.bottom = v[0]
-        when 2 # vertical horizontal
-          border.top = border.bottom = v[0]
-          border.left = border.right = h[1]
-        when 3 # top horizontal bottom
-          border.top = v[0]
-          border.left = border.right = h[1]
-          border.bottom = v[2]
-        when 4 # top right bottom left
-          border.top = v[0]
-          border.right = h[1]
-          border.bottom = v[2]
-          border.left = h[3]
-        else
-          # 0 (blank/invalid) or >4 widths: invalid declaration, drop it.
-        end
+        # 0 (blank/invalid) or >4 widths: invalid declaration, drop it. Top/bottom
+        # read the vertical-axis cells, left/right the horizontal-axis cells.
+        return unless i = trbl_indices(tokens.size)
+        border.top = v[i[:top]]
+        border.right = h[i[:right]]
+        border.bottom = v[i[:bottom]]
+        border.left = h[i[:left]]
       end
 
       # Applies a `border-style` keyword to the given *sides*: `none` hides them,
@@ -715,23 +702,12 @@ module Crysterm
       end
 
       private def self.set_side(border : Border, side : Symbol, width : Int32) : Nil
-        case side
-        when :left   then border.left = width
-        when :top    then border.top = width
-        when :right  then border.right = width
-        when :bottom then border.bottom = width
-        end
+        border.set_width side, width
       end
 
       # Ensures a side has at least width 1 (so a `solid` style makes it visible).
       private def self.ensure_side(border : Border, side : Symbol) : Nil
-        current = case side
-                  when :left  then border.left
-                  when :top   then border.top
-                  when :right then border.right
-                  else             border.bottom
-                  end
-        set_side border, side, 1 if current == 0
+        set_side border, side, 1 if border.width_of(side) == 0
       end
 
       # Resolves a CSS `font-weight` to the terminal's single bold attribute.
@@ -866,13 +842,10 @@ module Crysterm
         parts = split_top_level(value)
         h = parts.map { |part| cells(part) }
         v = parts.map { |part| cells(part, vertical: true) }
-        case parts.size #     left,  top,  right, bottom
-        when 1 then {h[0], v[0], h[0], v[0]}
-        when 2 then {h[1], v[0], h[1], v[0]} # from V,H
-        when 3 then {h[1], v[0], h[1], v[2]} # from T,H,B
-        when 4 then {h[3], v[0], h[1], v[2]} # from T,R,B,L
-        else        nil
-        end
+        # left/right read the horizontal-axis cells, top/bottom the vertical-axis
+        # cells; `nil` for an empty (0) or over-long (>4) value.
+        return nil unless i = trbl_indices(parts.size)
+        {h[i[:left]], v[i[:top]], h[i[:right]], v[i[:bottom]]}
       end
 
       # Parses the CSS `padding` shorthand (1-4 cell values, CSS TRBL order)

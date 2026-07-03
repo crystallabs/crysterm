@@ -10,6 +10,24 @@ module Crysterm
     # marker, and the `<open><glyph><close> text` line builder. Differing
     # pieces (glyph set, tri-state, radio group exclusivity) stay per-widget.
     module CheckMarker
+      # Sets the checkable base state (`#checkable?`, `#checked?`, `#value`),
+      # the initial `#text` from an explicit `content:` (normally
+      # `input["content"]?`), and wires marker input via `#setup_check_marker`.
+      # Call from `initialize`, after `super`. Shared by `CheckBox` and
+      # `RadioButton`; each still handles its own extra constructor args
+      # (`tristate`, the radio's `Event::Check` subscription) around this call.
+      private def setup_marker_control(checked, content) : Nil
+        @checkable = true # a marker control is inherently checkable
+        @checked = checked
+        @value = checked
+
+        content.try do |c|
+          @text = c
+        end
+
+        setup_check_marker
+      end
+
       # Wires the activate keys, focus/blur cursor handling, and the marker-click
       # hit-test. Call from `initialize`, after `super`.
       private def setup_check_marker : Nil

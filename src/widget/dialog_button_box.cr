@@ -120,15 +120,10 @@ module Crysterm
       # Builds one button, appends it, and wires its `Press` to the box-level
       # accept/reject signal implied by *role*.
       private def make_button(text : String, role : Role) : Button
-        b = Button.new(
-          parent: self,
-          top: 0,
-          height: 1,
-          width: text.size + 2,
-          resizable: true,
-          content: text,
-          align: :center,
-          focus_on_click: true,
+        b = ::Crysterm::Mixin::OkCancelDialog.dialog_button(
+          text, text.size + 2,
+          parent: self, top: 0,
+          focus_on_click: true, resizable: true,
         )
         b.on(Crysterm::Event::Press) do
           case role

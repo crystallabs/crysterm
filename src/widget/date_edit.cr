@@ -40,7 +40,7 @@ module Crysterm
       @popup : Calendar?
 
       def initialize(date : Time? = nil, calendar_popup = true, **input)
-        @date = (date || (Time.local rescue Time.utc(2000, 1, 1))).at_beginning_of_day
+        @date = (date || Mixin::SectionedField.default_today).at_beginning_of_day
         @calendar_popup = calendar_popup
 
         # `DateTimeEdit#initialize` wires the section keyboard/mouse handlers,
@@ -66,17 +66,7 @@ module Crysterm
         @open ? close : open
       end
 
-      def date : Time
-        @date
-      end
-
-      def date=(value : Time) : Time
-        v = value.at_beginning_of_day
-        return @date if v == @date
-        @date = v
-        commit_value @date
-        @date
-      end
+      section_value date, @date, at_beginning_of_day
 
       private def section_count : Int32
         3

@@ -14,7 +14,7 @@ module Crysterm
       # simply clamps to 0. The `|\.\d+` alternative accepts a leading-dot decimal
       # (`.5`) as the whole number, so `.5turn` isn't misread as `5turn`; see
       # `Length::NUM`, which accepts the same forms.
-      RGB_RE = /(-?(?:\d+(?:\.\d+)?|\.\d+))/
+      RGB_RE = /(#{Length::NUM})/
 
       # The hue argument of `hsl()`, with its optional CSS angle unit. The hue is
       # an `<angle>`, so CSS allows `deg`/`grad`/`rad`/`turn` (e.g. `hsl(0.5turn,
@@ -23,7 +23,7 @@ module Crysterm
       # number in the value case-insensitively. The `|\.\d+` alternative accepts
       # a leading-dot decimal (`.5turn` == `0.5turn`) to avoid misreading it as
       # `5turn`.
-      HUE_RE = /(-?(?:\d+(?:\.\d+)?|\.\d+))(deg|grad|rad|turn)?/i
+      HUE_RE = /(#{Length::NUM})(deg|grad|rad|turn)?/i
 
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip
@@ -114,7 +114,7 @@ module Crysterm
       # `#component` rather than parsed as its magnitude (`rgb(-10, …)` is `0`,
       # not `10`). Mirrors the signed `RGB_RE` used by `#parse_hsl`, including its
       # leading-dot decimal (`.5%`).
-      RGB_COMPONENT = /(-?(?:\d+(?:\.\d+)?|\.\d+))(%)?/
+      RGB_COMPONENT = /(#{Length::NUM})(%)?/
 
       # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Each channel may
       # be a `0..255` number or a `0%..100%` percentage (CSS allows either form);

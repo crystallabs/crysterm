@@ -52,11 +52,6 @@ module Crysterm
 
         record_accessors contacts, contact, Contact
 
-        # Selects the currently-highlighted contact.
-        def run_selected
-          activate
-        end
-
         # Formats one contact into a nickname / name / email row.
         def format_row(item : Contact, index : Int32) : String
           "  #{item.nickname.ljust(10)}#{item.name.ljust(24)}#{item.email}"

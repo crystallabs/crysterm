@@ -93,16 +93,24 @@ module Crysterm
       private def clear_partial : Nil
       end
 
+      # Settles `#checked?` (and its `#value` mirror) to *to*, clearing any
+      # partial state and re-cascading. The identical body of `#check`/
+      # `#uncheck`, which differ only in the settle-guard and the emitted
+      # event around this.
+      private def set_checked(to : Bool) : Nil
+        @checked = to
+        clear_partial
+        @value = to # `#value` mirrors `#checked?` for a checkable control
+        invalidate_css
+      end
+
       # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
       # if it changed. Lets a checkable button be driven through the same
       # interface as `CheckBox` (e.g. by `ButtonGroup`).
       def check
         return unless checkable?
         return if checked? && !partial? # already settled on checked
-        @checked = true
-        clear_partial
-        @value = true # `#value` mirrors `#checked?` for a checkable control
-        invalidate_css
+        set_checked true
         emit Crysterm::Event::Check, @checked
         request_render
       end
@@ -112,10 +120,7 @@ module Crysterm
       def uncheck
         return unless checkable?
         return if !checked? && !partial? # already settled on unchecked
-        @checked = false
-        clear_partial
-        @value = false # `#value` mirrors `#checked?` for a checkable control
-        invalidate_css
+        set_checked false
         emit Crysterm::Event::UnCheck, @checked
         request_render
       end

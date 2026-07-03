@@ -35,20 +35,10 @@ module Crysterm
       # ![KeyPrompt screenshot](../../../tests/widget/pine/key_prompt/key_prompt.5s.apng)
       # <!-- /widget-examples:capture -->
       class KeyPrompt < Widget::Box
+        include KeyBar
+
         # A single key-choice the user can pick.
-        class Choice
-          # The keyboard key that selects this choice (shown highlighted).
-          property key : String
-
-          # Human-readable description shown next to the key.
-          property label : String
-
-          # Optional action invoked when this choice is selected.
-          property callback : Proc(Nil)?
-
-          def initialize(@key, @label, @callback = nil)
-          end
-        end
+        alias Choice = KeyBar::Item
 
         # The question shown at the start of the line.
         getter question : String
@@ -157,9 +147,8 @@ module Crysterm
             @cells << q
           end
 
-          tags = key_tags
           @choices.each do |choice|
-            content = "#{tags[:open]} #{choice.key} #{tags[:close]} #{choice.label}"
+            content = format_entry(choice)
             # Visible width: " key " + " label" (tags add no columns), + a gap.
             width = choice.key.size + choice.label.size + 5
             box = Widget::Box.new(
@@ -171,19 +160,6 @@ module Crysterm
             @cells << box
           end
           request_render
-        end
-
-        # Translates `key_style` into open/close tags used around the key,
-        # matching `KeyMenu`.
-        private def key_tags
-          if @key_style.reverse?
-            {open: "{reverse}", close: "{/reverse}"}
-          elsif (fg = @key_style.fg) && fg >= 0
-            hex = "#%06x" % (fg & 0xffffff)
-            {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
-          else
-            {open: "{bold}", close: "{/bold}"}
-          end
         end
       end
     end

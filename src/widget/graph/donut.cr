@@ -165,14 +165,6 @@ module Crysterm
             .gsub("%m", Scale.fmt(@maximum))
             .gsub("%M", Scale.fmt(@minimum))
         end
-
-        # Centers *text* within the column range `[xi, xl)` on row *y* (a thin
-        # wrapper over `TextOverlay#put_text`).
-        private def put_centered(text : String, xi : Int32, xl : Int32, y : Int32, attr : Int64) : Nil
-          return if text.empty?
-          x = xi + Math.max(0, (xl - xi - text.size) // 2)
-          put_text x, y, text, attr, xi, xl
-        end
       end
     end
   end

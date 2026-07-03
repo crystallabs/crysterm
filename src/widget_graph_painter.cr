@@ -71,7 +71,8 @@ module Crysterm
         # Fills the whole bitmap with *color* (default fully transparent, since
         # translucent pixels leave the terminal untouched).
         def clear(color : Int32 = 0, alpha : UInt8 = 0_u8) : Nil
-          px = PNGGIF::Pixel.new((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff, alpha.to_i)
+          r, g, b = Media.rgb24(color)
+          px = PNGGIF::Pixel.new(r, g, b, alpha.to_i)
           @height.times { |y| @width.times { |x| @bmp[y][x] = px } }
         end
 
@@ -184,9 +185,7 @@ module Crysterm
 
         private def plot(x : Int32, y : Int32) : Nil
           return if x < 0 || y < 0 || x >= @width || y >= @height
-          r = (@pen >> 16) & 0xff
-          g = (@pen >> 8) & 0xff
-          b = @pen & 0xff
+          r, g, b = Media.rgb24(@pen)
           if @pen_alpha >= 255
             @bmp[y][x] = PNGGIF::Pixel.new(r, g, b, 255)
           else
@@ -314,6 +313,14 @@ module Crysterm
             cell.attr = attr
             line.dirty = true
           end
+        end
+
+        # Centers *text* within the column range `[xi, xl)` on row *y* (a thin
+        # wrapper over `#put_text`). No-ops on an empty string.
+        private def put_centered(text : String, xi : Int32, xl : Int32, y : Int32, attr : Int64) : Nil
+          return if text.empty?
+          x = xi + Math.max(0, (xl - xi - text.size) // 2)
+          put_text x, y, text, attr, xi, xl
         end
       end
     end

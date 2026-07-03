@@ -43,7 +43,7 @@ module Crysterm
       end
 
       def initialize(date_time : Time? = nil, show_seconds = true, **input)
-        @datetime = date_time || (Time.local rescue Time.utc(2000, 1, 1))
+        @datetime = date_time || Mixin::SectionedField.default_today
         @show_seconds = show_seconds
 
         super **input
@@ -55,16 +55,7 @@ module Crysterm
         update_content
       end
 
-      def date_time : Time
-        @datetime
-      end
-
-      def date_time=(value : Time) : Time
-        return @datetime if value == @datetime
-        @datetime = value
-        commit_value @datetime
-        @datetime
-      end
+      section_value date_time, @datetime
 
       private def section_count : Int32
         show_seconds? ? 6 : 5

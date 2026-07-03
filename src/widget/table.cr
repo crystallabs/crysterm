@@ -48,24 +48,6 @@ module Crysterm
       # scrolling entirely (`child_base_x` stays 0) — a wide table is just clipped
       # by its parent. For a scrollable wide table use `Widget::ListTable` instead.
 
-      # Cached x→column map used by `#draw_borders` to resolve a CSS per-cell
-      # style from a window column. Depends only on `@maxes`/`ileft`, but
-      # `draw_borders` runs every frame, so this avoids rebuilding the `Hash` each
-      # time. Rebuilt only when `@maxes` or `ileft` changes.
-      @border_col_map : Hash(Int32, Int32)? = nil
-      @border_col_map_maxes : Array(Int32)? = nil
-      @border_col_map_ileft : Int32 = -1
-
-      private def border_col_map : Hash(Int32, Int32)
-        cached = @border_col_map
-        if cached.nil? || !@maxes.same?(@border_col_map_maxes) || ileft != @border_col_map_ileft
-          cached = @border_col_map = col_for_x(0, ileft)
-          @border_col_map_maxes = @maxes
-          @border_col_map_ileft = ileft
-        end
-        cached
-      end
-
       # Reused scratch set: rows that carry a CSS-computed cell style this frame
       # (`#draw_borders` repopulates it from `@css_cells`). Default theme styles
       # only row 0 (Header), so an otherwise-unstyled table lets every body row
@@ -177,13 +159,13 @@ module Crysterm
 
         # Maps each relative text-column x to its table column index, so CSS
         # per-cell styles (`#css_cell_style`) can override the row default. Built
-        # (cached, see `#border_col_map`) only when CSS per-cell rules exist,
+        # (cached, see `#cached_col_for_x`) only when CSS per-cell rules exist,
         # since a plain table re-renders every frame. `@styled_rows` lets unstyled
         # rows skip per-cell lookups entirely (~20x faster on an unstyled table).
         @styled_rows.clear
         col_map = if (cc = @css_cells) && !cc.empty?
                     cc.each_key { |(r, _)| @styled_rows << r }
-                    border_col_map
+                    cached_col_for_x
                   end
 
         # Apply header/cell attributes to text cells that still hold the default

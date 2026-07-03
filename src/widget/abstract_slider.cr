@@ -16,10 +16,29 @@ module Crysterm
     abstract class AbstractSlider < Input
       include Mixin::RangedValue(Int32)
 
+      # A slider/dial/scrollbar draws a fixed-size track/knob/trough; it should
+      # not shrink to its (empty) content the way an `Input` does by default.
+      @resizable = false
+
       # `Slider`/`Dial` indicate focus via reverse-video at the unstyled floor
       # (see `Mixin::Style#floor_focus_reverse?`), same as the button family.
       def floor_focus_reverse? : Bool
         true
+      end
+
+      # Whether `#on_keypress`'s Up/Down (and Page/Home/End) stepping runs
+      # inverted (`Mixin::RangedValue#ranged_step_key`'s *invert*). `ScrollBar`
+      # overrides this to `true` (Down moves toward the end, like a real
+      # scrollbar); `Slider`/`Dial` keep the non-inverted default.
+      protected def step_key_inverted? : Bool
+        false
+      end
+
+      # Arrow/Page/Home/End stepping, shared by `Slider`/`Dial`/`ScrollBar` via
+      # `Mixin::RangedValue#ranged_step_key`; only the invert direction differs
+      # (see `#step_key_inverted?`).
+      def on_keypress(e)
+        ranged_step_key e, invert: step_key_inverted?
       end
 
       # Value at a main-axis offset *pos* cells from the low-value end of a

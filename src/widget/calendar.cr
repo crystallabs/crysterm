@@ -1,5 +1,6 @@
 require "./box"
 require "./menu"
+require "../mixin/sectioned_field"
 
 module Crysterm
   class Widget
@@ -115,18 +116,10 @@ module Crysterm
       getter month_menu : Menu?
       getter year_menu : Menu?
 
-      # `Time.local` is unavailable in some headless contexts; fall back so
-      # construction never raises.
-      private def default_today : Time
-        Time.local
-      rescue
-        Time.utc(2000, 1, 1)
-      end
-
       # Builds a `Time` for the given calendar date, falling back to UTC when
-      # `Time.local` is unavailable (see `#default_today`). Routing every
-      # constructed date through here keeps render/setter/constructor paths from
-      # raising in headless contexts, which would otherwise defeat the
+      # `Time.local` is unavailable (see `Mixin::SectionedField.default_today`).
+      # Routing every constructed date through here keeps render/setter/constructor
+      # paths from raising in headless contexts, which would otherwise defeat the
       # `default_today` fallback.
       private def local_date(year : Int32, month : Int32, day : Int32) : Time
         Time.local(year, month, day)
@@ -210,7 +203,7 @@ module Crysterm
       end
 
       def initialize(date : Time? = nil, mouse = true, **box)
-        @date = clamp_date(date || default_today)
+        @date = clamp_date(date || Mixin::SectionedField.default_today)
         @shown_year = @date.year
         @shown_month = @date.month
 
@@ -297,7 +290,7 @@ module Crysterm
 
       # Pages to the month containing today.
       def show_today : Nil
-        t = default_today
+        t = Mixin::SectionedField.default_today
         set_current_page t.year, t.month
       end
 
@@ -380,7 +373,7 @@ module Crysterm
         lead = column_of first
         nrows = (lead + dim + 6) // 7
         # Resolve "today" once per render, not once per cell (up to ~42 `Time.local` calls).
-        today = highlight_today? ? default_today : nil
+        today = highlight_today? ? Mixin::SectionedField.default_today : nil
 
         String.build do |io|
           io << build_nav_bar << '\n' if nav
@@ -656,7 +649,7 @@ module Crysterm
         e.accept
         request_render
       rescue
-        # `Time.local` unavailable in some headless contexts (see `#default_today`).
+        # `Time.local` unavailable in some headless contexts (see `Mixin::SectionedField.default_today`).
       end
 
       def destroy

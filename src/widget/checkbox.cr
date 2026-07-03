@@ -34,16 +34,8 @@ module Crysterm
       def initialize(checked : Bool = false, tristate : Bool = false, **input)
         super **input
 
-        @checkable = true # a checkbox is inherently checkable
-        @checked = checked
         @tristate = tristate
-        @value = checked
-
-        input["content"]?.try do |c|
-          @text = c
-        end
-
-        setup_check_marker
+        setup_marker_control checked, input["content"]?
       end
 
       def render

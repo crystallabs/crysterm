@@ -72,10 +72,7 @@ module Crysterm
         @last = nil
       end
 
-      def set_image(file : String)
-        load file
-        request_render
-      end
+      # `#set_image` (load + re-render) comes from `Media::External`.
 
       def clear_image
         remove
@@ -121,15 +118,8 @@ module Crysterm
 
       # (Re)places the image when its cell rectangle changes.
       private def redraw_image
-        # Bail when this widget OR any ancestor is hidden: a standalone
-        # `Rendered` listener must not resolve `_get_coords(true)` against a
-        # hidden ancestor with no rendered position (it would raise and kill the
-        # render fiber). Mirrors `Media::Graphics#redraw_image`.
-        return unless visible_in_tree?
-        window? || return
         path = @path || return
-        pos = _get_coords(true) || return
-        rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+        rect = overlay_geometry || return
         return if rect[2] <= 0 || rect[3] <= 0
         return if rect == @last
 

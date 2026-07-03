@@ -14,9 +14,6 @@ module Crysterm
     # ![Dial screenshot](../../tests/widget/dial/dial.5s.apng)
     # <!-- /widget-examples:capture -->
     class Dial < AbstractSlider
-      # A dial draws a fixed-size knob, not shrink-to-content like an `Input`.
-      @resizable = false
-
       property page_step : Int32 = 10
 
       property? show_value : Bool = true
@@ -84,16 +81,9 @@ module Crysterm
           if show_value? && (ty = yl - 1) != cy
             # Bracket the number while focused to show the dial is active.
             txt = focused? ? "‹#{@value}›" : @value.to_s
-            tx = xi + Math.max(0, (xl - xi - txt.size) // 2)
-            draw_text_run ty, tx, txt, xl
+            draw_centered_text ty, xi, xl, txt
           end
         end
-      end
-
-      # Qt's dial increases clockwise: Up/Right raise, Down/Left lower — the
-      # mapping shared with `Slider` via `Mixin::RangedValue#ranged_step_key`.
-      def on_keypress(e)
-        ranged_step_key e
       end
     end
   end

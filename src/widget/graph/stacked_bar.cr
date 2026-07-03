@@ -131,12 +131,7 @@ module Crysterm
           if label_row == 1
             names = lbls.not_nil! # ameba:disable Lint/NotNil
             offset = @values.size - n
-            lines << String.build do |io|
-              n.times do |i|
-                io << Scale.center(names[offset + i]? || "", @bar_width)
-                io << " " * @bar_spacing if i < n - 1
-              end
-            end
+            lines << field_line(n) { |i| names[offset + i]? || "" }
           end
 
           lines.join('\n')

@@ -25,7 +25,7 @@ module Crysterm
           self.line_size = "100%"
         end
 
-        char ||= (@orientation == Tput::Orientation::Vertical ? '│' : '─')
+        char ||= (@orientation == Tput::Orientation::Vertical ? LINE_VERTICAL : LINE_HORIZONTAL)
 
         style.fill_char = char
       end

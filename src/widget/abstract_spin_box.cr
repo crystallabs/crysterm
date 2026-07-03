@@ -15,6 +15,10 @@ module Crysterm
     # identity — a fixed-width, in-place-editable field stepped with Up/Down —
     # which is what the `QAbstractSpinBox` selector should match.
     abstract class AbstractSpinBox < Input
+      # A spin box honors its given `width` rather than shrinking to its
+      # content (shared by `SpinBox`/`DoubleSpinBox`/`DateTimeEdit`).
+      @resizable = false
+
       # Indicates focus via reverse-video at the unstyled floor (see
       # `Mixin::Style#floor_focus_reverse?`): a small, single-line control like
       # the button family, so inverting it is the clearest no-color focus cue.

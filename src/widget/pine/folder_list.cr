@@ -45,11 +45,6 @@ module Crysterm
 
         record_accessors folders, folder, Folder
 
-        # Opens the currently-selected folder.
-        def run_selected
-          activate
-        end
-
         # Formats one folder into a name + count row.
         def format_row(item : Folder, index : Int32) : String
           count = case item.count

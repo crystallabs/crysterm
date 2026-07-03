@@ -34,7 +34,7 @@ module Crysterm
 
       def initialize(*args, dither : Media::Dither | Bool = Media::Dither::Auto, **opts)
         # Accept a legacy Bool: true ⇒ auto, false ⇒ none.
-        @dither = dither.is_a?(Bool) ? (dither ? Media::Dither::Auto : Media::Dither::None) : dither
+        @dither = Media::Dither.from_arg(dither, Media::Dither::Auto)
         super *args, **opts
       end
 

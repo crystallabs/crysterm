@@ -114,21 +114,15 @@ module Crysterm
       @char_corner || @fill_char
     end
 
-    # XXX There is some duplication between style and these 5.
-    # They must be present for sattr() to be able to work on the Border object.
-    # But on the other hand, it allows these features which do not exist in Blessed.
-    property? bold : Bool = false
-    property? italic : Bool = false
-    property? underline : Bool = false
-    property? blink : Bool = false
-    property? reverse : Bool = false
-    property? strike : Bool = false
-    property? visible : Bool = true
+    # SGR text-attribute booleans (bold/italic/underline/blink/reverse/strike/
+    # visible) are now owned by `TextAttributes`, shared with `Style`. They must
+    # be present here (rather than delegating to a `Style`) for `sattr()` to be
+    # able to work directly on the Border object.
+    include TextAttributes
 
-    property left = 1
-    property top = 1
-    property right = 1
-    property bottom = 1
+    # Per-side widths (default 1) and the all-sides / four-positional integer
+    # constructors, shared with `Padding`/`Margin` but defaulting to a 1-cell box.
+    SidedGeometry.sided_properties 1
 
     def self.from(value)
       case value
@@ -165,13 +159,6 @@ module Crysterm
       self.fg = fg unless fg.nil?
     end
 
-    def initialize(all : Int)
-      @left = @top = @right = @bottom = all
-    end
-
-    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
-    end
-
     # XXX enable these two after -Dpreview_overload_order becomes the default
     # def initialize(left_and_right, top_and_bottom)
     #  @left = @right = left_and_right
@@ -181,6 +168,40 @@ module Crysterm
     # def initialize(all : Bool = true)
     #  @left = @top = @right = @bottom = all
     # end
+
+    # Per-side width/color access keyed by a side *symbol*
+    # (`:top`/`:right`/`:bottom`/`:left`), so callers (`CSS::Properties`' per-side
+    # border longhands/shorthands) need not repeat the four-arm dispatch. Unknown
+    # side symbols are ignored, as before. `set_color` targets the per-side
+    # `fg_<side>` override slots (see `#top_fg` etc.), not the whole-border `#fg`.
+    def set_width(side : Symbol, value : Int32) : Nil
+      case side
+      when :top    then @top = value
+      when :right  then @right = value
+      when :bottom then @bottom = value
+      when :left   then @left = value
+      end
+    end
+
+    # :ditto:
+    def set_color(side : Symbol, value : Int32?) : Nil
+      case side
+      when :top    then @fg_top = value
+      when :right  then @fg_right = value
+      when :bottom then @fg_bottom = value
+      when :left   then @fg_left = value
+      end
+    end
+
+    # Current width of one side, keyed by side symbol.
+    def width_of(side : Symbol) : Int32
+      case side
+      when :top   then @top
+      when :right then @right
+      when :left  then @left
+      else             @bottom
+      end
+    end
 
     # Per-side predicates (`left?`/`top?`/`right?`/`bottom?`), `any?` and
     # `adjust` come from `SidedGeometry`.

@@ -30,33 +30,12 @@ module Crysterm
     def fade_to(target : Float64, duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
-      @fade.try &.stop
       from = (style.alpha? || 1.0).to_f
-      anim = build_value_tween(from, target, duration, easing, fps, on_done) { |v| set_alpha v }
-      @fade = anim
-      anim.start
-    end
-
-    # Builds (but does not start) a tween that eases a scalar from *from* to
-    # *target* over *duration*/*easing*, handing each interpolated value to
-    # *apply* and requesting a render per frame. *on_done* fires only on natural
-    # completion (not on an interrupting `#stop`). Shared by `#fade_to` and
-    # `#tint_to`; the caller stops its previous tween and records the returned
-    # one *before* starting it, so a synchronous start (reduced motion) already
-    # sees it stored.
-    private def build_value_tween(from : Float64, target : Float64, duration : Time::Span,
-                                  easing : Easing | Symbol, fps : Int32,
-                                  on_done : ->, &apply : Float64 ->) : FrameClock
-      interval = (1.0 / fps).seconds
-      anim = FrameClock.new(interval, duration: duration, easing: easing) do |clock|
-        apply.call from + (target - from) * clock.value
-        request_render
+      @fade.try &.stop
+      start_tween(duration, easing, fps: fps, on_done: on_done,
+        store: ->(anim : FrameClock) { @fade = anim }) do |clock|
+        set_alpha from + (target - from) * clock.value
       end
-      # `completed?` distinguishes a natural finish from an interrupting `#stop`;
-      # checked on the captured `anim`, not the caller's ivar (which a
-      # superseding animation may have already reassigned).
-      anim.on_stop { on_done.call if anim.completed? }
-      anim
     end
 
     # :ditto: (no completion callback).
@@ -125,7 +104,7 @@ module Crysterm
       # breathe cadence stretches slow under CPU load / GC pauses.
       start_at = Time.instant
       anim = FrameClock.new(interval) do |_clock|
-        elapsed = (Time.instant - start_at).total_seconds
+        elapsed = elapsed_since(start_at)
         # Triangle phase 0→1→0 over `2*half`, eased by sine for a soft turnaround.
         phase = (elapsed % (2.0 * half)) / half  # 0..2
         tri = phase <= 1.0 ? phase : 2.0 - phase # 0..1..0
@@ -154,11 +133,12 @@ module Crysterm
     def tint_to(color, target : Float64 = 0.5, duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
-      @tint_anim.try &.stop
       from = style.tint?.try(&.[1]) || 0.0 # current strength, or 0 if no tint yet
-      anim = build_value_tween(from, target, duration, easing, fps, on_done) { |v| set_tint color, v }
-      @tint_anim = anim
-      anim.start
+      @tint_anim.try &.stop
+      start_tween(duration, easing, fps: fps, on_done: on_done,
+        store: ->(anim : FrameClock) { @tint_anim = anim }) do |clock|
+        set_tint color, from + (target - from) * clock.value
+      end
     end
 
     # :ditto: (no completion callback).

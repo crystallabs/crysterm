@@ -42,6 +42,15 @@ module Crysterm
       @css_animation_finished = false
     end
 
+    # Seconds elapsed since *start_at* (a `Time.instant` reading), driving
+    # progress from real wall-clock time rather than a fixed per-tick step —
+    # `FrameClock` drops catch-up ticks when behind, so a fixed accumulator
+    # would undercount every dropped/late tick. Shared by this file's keyframe
+    # driver and `#pulse` (`widget_fade.cr`).
+    private def elapsed_since(start_at : Time::Instant) : Float64
+      (Time.instant - start_at).total_seconds
+    end
+
     private def start_css_animation(spec : ::Crysterm::Style::AnimationSpec) : Nil
       # Stop any previous clock and record the (possibly failing) new spec up
       # front — *before* the early returns below. Swapping `animation:` to a
@@ -76,7 +85,7 @@ module Crysterm
       # longer than its duration and a looping one drifts slow under load.
       start_at = Time.instant
       anim = FrameClock.new(step.seconds) do |clock|
-        elapsed = (Time.instant - start_at).total_seconds
+        elapsed = elapsed_since(start_at)
         cycles = elapsed / total
         if iters && cycles >= iters
           # Settle on the final frame (honoring alternate parity), stop, and mark

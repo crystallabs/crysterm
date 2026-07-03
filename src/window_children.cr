@@ -75,10 +75,7 @@ module Crysterm
       # whole subtree on removal): inserting a *container* moved here from another
       # screen must re-register its keyable/clickable descendants too, else they
       # stay stranded out of `@keyable`/`@clickable`. `register_*` no-op on dupes.
-      element.self_and_each_descendant do |e|
-        register_keyable e if e.keys? || e.input? || e.keyable?
-        register_clickable e if e.clickable?
-      end
+      register_subtree element
 
       # Auto-focus on insert, but only when the inserted widget can itself take
       # focus. Inserting non-interactive chrome (a decorative box, a `Line`, the
@@ -120,7 +117,7 @@ module Crysterm
       # severs the tree, a focused *descendant* can no longer be related back to
       # `element` via `has_descendant?`, silently stranding focus on a
       # now-detached widget.
-      refocus = (f = focused) && (f == element || element.has_descendant?(f))
+      refocus = (f = focused) && element.covers?(f)
 
       # Transient mouse-interaction pointers into the subtree go stale the same
       # way, and must be dropped too: `screen.hovered` would keep reporting a
@@ -128,25 +125,25 @@ module Crysterm
       # in-flight drag whose source is removed would stay modal forever (every
       # mouse event swallowed by the `@_drag` branch of `#dispatch_mouse`).
       # Sampled here for the same `has_descendant?` reason as `refocus`.
-      drop_hover = (h = @_hover) && (h == element || element.has_descendant?(h))
-      drop_arm = (a = @_arm) && (a == element || element.has_descendant?(a))
+      drop_hover = (h = @_hover) && element.covers?(h)
+      drop_arm = (a = @_arm) && element.covers?(a)
       # A widget that captured the mouse (`#capture_mouse`, e.g. an in-flight
       # text drag-select) and is then removed before button-up would keep
       # `@_mouse_captor` pointing at a detached widget, routing every subsequent
       # Move/Up to it forever (the capture branch of `#dispatch_mouse`) — the
       # same "modal forever" hazard as `@_drag`.
-      drop_captor = (c = @_mouse_captor) && (c == element || element.has_descendant?(c))
-      stale_drag = ((d = @_drag) && (d.source == element || element.has_descendant?(d.source))) ? d : nil
+      drop_captor = (c = @_mouse_captor) && element.covers?(c)
+      stale_drag = ((d = @_drag) && element.covers?(d.source)) ? d : nil
       # An in-flight drag whose drop target (not source) sits in the removed
       # subtree would keep `@_drag.target` pointing at a detached widget — a
       # later drop would emit `Event::Drop` on an off-screen widget, since a drag
       # only re-evaluates its target on motion. Cleared below via retarget(nil).
-      stale_target = ((td = @_drag) && (tg = td.target) && (tg == element || element.has_descendant?(tg))) ? td : nil
+      stale_target = ((td = @_drag) && (tg = td.target) && element.covers?(tg)) ? td : nil
       # An active input grab (an open modal pop-up — see `Window#grab`) whose
       # widget sits in the removed subtree must be released. A direct `remove`
       # bypasses the pop-up's own `ungrab`, leaving `@grabs` pointing at a
       # detached widget and modally blocking the rest of the screen forever.
-      stale_grabs = @grabs.select { |g| g == element || element.has_descendant?(g) }
+      stale_grabs = @grabs.select { |g| element.covers?(g) }
 
       super
 
@@ -186,6 +183,20 @@ module Crysterm
     # :ditto:
     def >>(element)
       remove element
+    end
+
+    # Re-registers `element` and its descendants in the keyboard/mouse
+    # registries (`@keyable`/`@clickable`). Shared by `Window#insert` (a
+    # top-level widget/container moved or added here) and `Widget#insert` (a
+    # nested reparent onto a widget already on this window) — both need the
+    # whole subtree re-registered, not just the root, or descendants stay
+    # stranded out of `@keyable`/`@clickable`. `register_keyable`/
+    # `register_clickable` no-op on dupes.
+    def register_subtree(element) : Nil
+      element.self_and_each_descendant do |e|
+        register_keyable e if e.keys? || e.input? || e.keyable?
+        register_clickable e if e.clickable?
+      end
     end
 
     # Notifies `element`'s subtree that it now belongs to this screen, emitting

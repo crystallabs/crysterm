@@ -37,8 +37,8 @@ module Crysterm
       getter current_index : Int32 = -1
 
       # Markers drawn before a header's title.
-      property expanded_char : Char = '▾'
-      property collapsed_char : Char = '▸'
+      property expanded_char : Char = MARKER_EXPANDED
+      property collapsed_char : Char = MARKER_COLLAPSED
 
       def initialize(**box)
         super **box

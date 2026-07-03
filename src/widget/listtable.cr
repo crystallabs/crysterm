@@ -68,27 +68,6 @@ module Crysterm
       # columns overflow its viewport (Qt's `AsNeeded`).
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
-      # Cached x→column map used by `#recolor_css_cells`. `col_for_x` depends only
-      # on `@maxes`, `@first_col` and `ileft`, stable between data/scroll/resize
-      # changes, but `recolor_css_cells` runs every render — rebuilt only when
-      # one of those inputs changes.
-      @border_col_map : Hash(Int32, Int32)? = nil
-      @border_col_map_maxes : Array(Int32)? = nil
-      @border_col_map_ileft : Int32 = -1
-      @border_col_map_first_col : Int32 = -1
-
-      private def border_col_map : Hash(Int32, Int32)
-        cached = @border_col_map
-        if cached.nil? || !@maxes.same?(@border_col_map_maxes) ||
-           ileft != @border_col_map_ileft || @first_col != @border_col_map_first_col
-          cached = @border_col_map = col_for_x(@first_col, ileft)
-          @border_col_map_maxes = @maxes
-          @border_col_map_ileft = ileft
-          @border_col_map_first_col = @first_col
-        end
-        cached
-      end
-
       # Reused, allocation-free scratch set: rows that carry a CSS-computed cell
       # style this frame (`#recolor_css_cells` repopulates it from `@css_cells`).
       # The default theme styles only the `Header` (row 0), so an unstyled table
@@ -479,8 +458,8 @@ module Crysterm
 
         # Map visible x → actual column index, starting from the first visible
         # column so per-cell CSS recolors correctly when scrolled right.
-        # Cached (see `@border_col_map`) since this runs every render.
-        col_map = border_col_map
+        # Cached (see `#cached_col_for_x`) since this runs every render.
+        col_map = cached_col_for_x(@first_col)
 
         # Only rows carrying a computed cell style need per-cell lookups; an
         # unstyled table styles only its header row via the default theme, so

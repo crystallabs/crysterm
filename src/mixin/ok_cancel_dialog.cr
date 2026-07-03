@@ -12,31 +12,46 @@ module Crysterm
     # `.ok_button`/`.cancel_button`) and calls `#teardown_ok_cancel` when the
     # dialog closes.
     module OkCancelDialog
-      # Builds a dialog button labelled *content* at *top*/*left*/*width* with
-      # the shared single-row, centered, not-focus-on-click style.
-      private def self.dialog_button(top, left, width, content : String) : ::Crysterm::Widget::Button
+      # Builds a single-row, centered dialog `Button` labelled *content* at the
+      # given position/size. Shared by the dialog-button "family"
+      # (`.ok_button`/`.cancel_button` below, `DialogButtonBox#make_button`,
+      # `Wizard#wizard_button`), which otherwise duplicated this construction
+      # differing only in position and the *focus_on_click*/*resizable* flags.
+      # Defaults for those two match `Button`'s own class defaults; callers
+      # override where their style differs.
+      def self.dialog_button(
+        content : String, width,
+        *,
+        top = nil, left = nil, right = nil, bottom = nil,
+        parent = nil,
+        focus_on_click : Bool = true,
+        resizable : Bool = false,
+      ) : ::Crysterm::Widget::Button
         ::Crysterm::Widget::Button.new(
+          parent: parent,
           top: top,
           left: left,
+          right: right,
+          bottom: bottom,
           width: width,
           height: 1,
-          resizable: true,
+          resizable: resizable,
           content: content,
           align: :center,
-          focus_on_click: false,
+          focus_on_click: focus_on_click,
         )
       end
 
       # Builds the affirmative ("Okay") dialog button at *top*/*left* with the
       # shared single-row, centered, not-focus-on-click style.
       def self.ok_button(top, left, width = 6) : ::Crysterm::Widget::Button
-        dialog_button top, left, width, "Okay"
+        dialog_button "Okay", width, top: top, left: left, focus_on_click: false, resizable: true
       end
 
       # Builds the negative ("Cancel") dialog button (see `.ok_button` for the
       # shared style).
       def self.cancel_button(top, left, width = 8) : ::Crysterm::Widget::Button
-        dialog_button top, left, width, "Cancel"
+        dialog_button "Cancel", width, top: top, left: left, focus_on_click: false, resizable: true
       end
 
       # Standard modal teardown shared by both dialogs: hide, restore the focus

@@ -27,17 +27,6 @@ module Crysterm
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
       include Mixin::SpinBoxEditing
 
-      # A spin box honors its given `width` rather than shrinking to its content.
-      @resizable = false
-
-      # Text shown before/after the number (Qt `QSpinBox#prefix`/`#suffix`).
-      property prefix : String = ""
-      property suffix : String = ""
-
-      # Whether the value can be typed directly (Qt's `QAbstractSpinBox#readOnly`
-      # inverted). When false the box only responds to stepping.
-      property? editable : Bool = true
-
       def initialize(
         value : Int32? = nil,
         @minimum = 0,
@@ -52,19 +41,14 @@ module Crysterm
         super **input
 
         @wrap = wrap
-        # Never store an inverted range (mirrors `Mixin::RangedValue#set_range`),
-        # which would otherwise leave `#value` permanently stuck after `clamp`.
-        @maximum = Math.max(@minimum, @maximum)
-        @value = (value || @minimum).clamp(@minimum, @maximum)
+        # Store a non-inverted range and a clamped value (the shared guard;
+        # `RangedValue#init_range` does the `maximum >= minimum` fix-up that an
+        # inverted range would otherwise leave `#value` stuck under).
+        init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
         install_spinbox_editing
 
-        update_content
-      end
-
-      # Refresh the displayed number whenever the value changes (mixin hook).
-      protected def on_value_changed
         update_content
       end
 

@@ -191,19 +191,17 @@ module Crysterm
       # (`Box:selected`) are never touched.
       private def selection_visibly_styled? : Bool
         return false unless styles.own_selected?
-        sel = styles.selected
-        sel.specified?(:fg) || sel.specified?(:bg) || sel.reverse?
+        styles.selected.visibly_styled?
       end
 
       # Returns *st* with reverse-video forced on when the selection has no
       # visible styling of its own, so the cursor row stays distinguishable with
-      # no theme active. Dups before toggling so the shared style is never
-      # mutated in place. Returns *st* untouched when already visibly styled.
+      # no theme active. Delegates to `Style#with_reverse_fallback`, which dups
+      # before toggling so the shared style is never mutated in place. Returns
+      # *st* untouched when already visibly styled.
       private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if selection_visibly_styled?
-        st = st.dup
-        st.reverse = true
-        st
+        st.with_reverse_fallback
       end
 
       # Returns *base* with any border stripped: *base* untouched when borderless

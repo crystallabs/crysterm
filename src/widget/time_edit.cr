@@ -31,7 +31,7 @@ module Crysterm
       # `@section`: 0 = hour, 1 = minute, 2 = second (default hour, from the mixin).
 
       def initialize(time : Time? = nil, show_seconds = true, **input)
-        @time = (time || (Time.local rescue Time.utc(2000, 1, 1)))
+        @time = time || Mixin::SectionedField.default_today
         # `DateTimeEdit#initialize` wires section keyboard/mouse handlers and
         # renders once (hour section is the default `@section`). It defaults
         # `@show_seconds` to true, so apply our own and re-render afterwards.
@@ -40,16 +40,7 @@ module Crysterm
         update_content
       end
 
-      def time : Time
-        @time
-      end
-
-      def time=(value : Time) : Time
-        return @time if value == @time
-        @time = value
-        commit_value @time
-        @time
-      end
+      section_value time, @time
 
       private def section_count : Int32
         show_seconds? ? 3 : 2
@@ -75,10 +66,6 @@ module Crysterm
       # so offset `@section` by 3; the date component is left untouched.
       private def step(delta : Int32) : Nil
         self.time = step_time_field @time, @section + 3, delta
-      end
-
-      def on_keypress(e)
-        handle_section_key e
       end
     end
   end

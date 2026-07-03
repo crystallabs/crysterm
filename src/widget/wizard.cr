@@ -90,9 +90,9 @@ module Crysterm
       # `OkCancelDialog.dialog_button`) rather than the `{center}` tag form it had
       # drifted to (same result, one styling convention across the dialogs).
       private def wizard_button(label : String, left = nil, right = nil) : Button
-        Button.new(
-          parent: self, bottom: 0, left: left, right: right, height: 1, width: 8,
-          content: label, align: :center,
+        ::Crysterm::Mixin::OkCancelDialog.dialog_button(
+          label, 8,
+          parent: self, bottom: 0, left: left, right: right,
         )
       end
 

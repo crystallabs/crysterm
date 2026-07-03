@@ -48,6 +48,16 @@ module Crysterm
       @_saved_focus = focused
     end
 
+    # Whether `el` is a valid focus target on this screen right now: attached
+    # to THIS screen, actually on screen (not hidden nor inside a hidden
+    # container), and not disabled. Shared by `restore_focus`/`focus_offset`;
+    # keep all call sites in sync with this definition (`rewind_focus`'s
+    # 2-clause check is intentionally narrower — it has no `disabled?` term —
+    # and does not use this helper).
+    private def focusable_here?(el)
+      el.window? == self && displayed_in_tree?(el) && !el.disabled?
+    end
+
     # Restores focus to the previously saved focused element.
     def restore_focus
       return unless sf = @_saved_focus
@@ -73,7 +83,7 @@ module Crysterm
       # silently clobber `Disabled` back to keyable and hand it keys the app
       # disabled — every other focus entry point (`focus_offset`) already guards
       # on this (BUGS-F2 #26).
-      sf.focus if sf.window? == self && displayed_in_tree?(sf) && !sf.disabled?
+      sf.focus if focusable_here?(sf)
       focused
     end
 
@@ -218,7 +228,7 @@ module Crysterm
       # `state = :focused` and silently clears the `Disabled` state. Folding the
       # check in here (and into the skip loop below) keeps the loop's
       # termination guarantee intact: `any?` proves an acceptable candidate exists.
-      return unless @keyable.any? { |el| el.window? == self && displayed_in_tree?(el) && !el.disabled? }
+      return unless @keyable.any? { |el| focusable_here?(el) }
 
       # With no current focus, enter from the natural end: forward navigation
       # (`focus_next`) must land on the FIRST focusable widget, backward
@@ -236,7 +246,7 @@ module Crysterm
           end
 
       i %= @keyable.size
-      while @keyable[i].window? != self || !displayed_in_tree?(@keyable[i]) || @keyable[i].disabled?
+      while !focusable_here?(@keyable[i])
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end
