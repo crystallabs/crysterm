@@ -285,8 +285,8 @@ module Crysterm
             @matrix.each do |row|
               row.each do |v|
                 next unless v.finite?
-                dmin = v if dmin.nil? || v < dmin.not_nil!
-                dmax = v if dmax.nil? || v > dmax.not_nil!
+                dmin = v if (d = dmin).nil? || v < d
+                dmax = v if (d = dmax).nil? || v > d
               end
             end
             lo ||= dmin || 0.0

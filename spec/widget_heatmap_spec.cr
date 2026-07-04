@@ -112,7 +112,7 @@ describe Crysterm::Widget::Graph::HeatMap do
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
-      hm = HeatMap.new parent: s, top: 0, left: 0, width: 30, height: 12,
+      HeatMap.new parent: s, top: 0, left: 0, width: 30, height: 12,
         colormap: :viridis, data: [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]],
         type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
