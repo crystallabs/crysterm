@@ -71,12 +71,21 @@ module Crysterm
     GraphLineChart  = Widget::Graph::LineChart
     GraphMap        = Widget::Graph::Map
     GraphDonut      = Widget::Graph::Donut
+    GraphPieChart   = Widget::Graph::PieChart
+    GraphHeatMap    = Widget::Graph::HeatMap
     Painter         = Widget::Graph::Painter
     Gauge           = Widget::Gauge
     GaugeList       = Widget::GaugeList
 
     # A one-row `Graph::Bar` is a sparkline.
     SparkLine = Widget::Graph::Bar
+
+    # Short names for the categorical pie chart.
+    PieChart = Widget::Graph::PieChart
+    Pie      = Widget::Graph::PieChart
+
+    # Short name for the 2D heatmap.
+    HeatMap = Widget::Graph::HeatMap
 
     # Effects
     EffectMatrix       = Widget::Effect::Matrix

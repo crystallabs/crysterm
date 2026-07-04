@@ -323,6 +323,29 @@ module Crysterm
           put_text x, y, text, attr, xi, xl
         end
       end
+
+      # Shared center/radius geometry for the ring-based Canvas graphs
+      # (`Donut`, `PieChart`): given a `Painter` sized to the device, returns the
+      # `{cx, cy, ro}` of the largest physically-round circle that fits, or `nil`
+      # when the surface is degenerate. Callers pass their own inner radius to
+      # `Painter#fill_ring`, so this stays policy-free (no thickness knob here).
+      module RingGeometry
+        private def ring_geometry(p : Painter) : Tuple(Float64, Float64, Float64)?
+          w = p.width
+          h = p.height
+          return nil if w <= 0 || h <= 0
+          # True geometric center of the pixel span (`0..w-1`): `(w-1)/2`, not
+          # `w//2`, which sits half a pixel low-and-right and skews the ring.
+          cx = (w - 1) / 2.0
+          cy = (h - 1) / 2.0
+          # Largest physically-round radius that fits (vertical extent is scaled
+          # by pixel_aspect), with a small margin.
+          aspect = p.pixel_aspect
+          ro = Math.min(w / 2.0, (h / 2.0) / (aspect <= 0 ? 1.0 : aspect)) * 0.92
+          return nil if ro <= 1
+          {cx, cy, ro}
+        end
+      end
     end
   end
 end

@@ -153,6 +153,11 @@ module Crysterm
     # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
     event DoubleValueChange, value : Float64
 
+    # Emitted by `Widget::Graph::HeatMap` when the pointer hovers a different
+    # grid cell, carrying that cell's zero-based `row`/`col` and its `value`.
+    # Fires only on a cell change, not on every motion report.
+    event CellHover, row : Int32, col : Int32, value : Float64
+
     # Emitted when a date/time widget's value changes (e.g. `Widget::Calendar`,
     # `Widget::DateEdit`, `Widget::TimeEdit`). Mirrors Qt's
     # `dateChanged`/`timeChanged` signals.

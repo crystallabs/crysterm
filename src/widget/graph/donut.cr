@@ -27,6 +27,7 @@ module Crysterm
       class Donut < Box
         include TextOverlay
         include InteriorCoords
+        include RingGeometry
         # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
         include Mixin::PercentRange
         # `%p`/`%v`/`%m`/`%M` template expansion (shared with `Gauge`/`ProgressBar`).
@@ -119,18 +120,7 @@ module Crysterm
         end
 
         private def paint_ring(p : Painter) : Nil
-          w = p.width
-          h = p.height
-          return if w <= 0 || h <= 0
-          # True geometric center of the pixel span (`0..w-1`): `(w-1)/2`, not
-          # `w//2`, which sits half a pixel low-and-right and skews the ring.
-          cx = (w - 1) / 2.0
-          cy = (h - 1) / 2.0
-          # Largest physically-round radius that fits (vertical extent is scaled
-          # by pixel_aspect), with a small margin.
-          aspect = p.pixel_aspect
-          ro = Math.min(w / 2.0, (h / 2.0) / (aspect <= 0 ? 1.0 : aspect)) * 0.92
-          return if ro <= 1
+          cx, cy, ro = ring_geometry(p) || return
           ri = ro * (1.0 - @thickness.clamp(0.05, 1.0))
 
           # Optional full track ring (truecolor backends only), then the value
