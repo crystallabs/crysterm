@@ -370,7 +370,7 @@ module Crysterm
         w = Math.max(awidth, 4)
         pop.width = w unless pop.width == w
         Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {w, want},
-          [Overlay::Side::Below, Overlay::Side::Above])
+          Overlay::BELOW_ABOVE)
       rescue
         # Not laid out yet — keep defaults; `Popup#render` re-runs with real geometry.
       end

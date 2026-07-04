@@ -33,8 +33,13 @@ module Crysterm
       # malformed and crash; Qt likewise clamps `setDecimals` at 0.
       getter decimals : Int32 = 2
 
+      # Cached `"%.<decimals>f"` format string, rebuilt only when `#decimals`
+      # changes rather than per value change in `#formatted_value`.
+      @fmt : String = "%.2f"
+
       def decimals=(d : Int32) : Int32
         @decimals = Math.max(d, 0)
+        @fmt = "%.#{@decimals}f"
         update_content
         @decimals
       end
@@ -55,6 +60,7 @@ module Crysterm
 
         @wrap = wrap
         @decimals = Math.max(decimals, 0)
+        @fmt = "%.#{@decimals}f"
         # Store a non-inverted range and a clamped value (the shared guard;
         # `RangedValue#init_range` does the `maximum >= minimum` fix-up that an
         # inverted range would otherwise leave `#value` stuck under).
@@ -79,7 +85,7 @@ module Crysterm
 
       # The value formatted to `#decimals` places.
       def formatted_value : String
-        "%.#{@decimals}f" % @value
+        @fmt % @value
       end
 
       # The committed value as shown in the box (`Mixin::SpinBoxEditing` hook).

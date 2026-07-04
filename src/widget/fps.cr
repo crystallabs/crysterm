@@ -87,6 +87,11 @@ module Crysterm
       @throughput_avg_val : Int64 = 0
       @throughput_actual_avg_val : Int64 = 0
 
+      # Reused buffer for the printf argument list, refilled every frame instead
+      # of allocating a fresh `@args.map { ... }` array. `String#%` accepts any
+      # `Indexable`, so this feeds it directly.
+      @fmt_args = [] of Int64 | String
+
       def initialize(parent = nil, *, format : String? = nil, args : Array(Symbol)? = nil, **opts)
         format.try { |f| @format = f }
         args.try { |a| @args = a }
@@ -121,7 +126,9 @@ module Crysterm
 
           text =
             begin
-              @format % @args.map { |sym| value_for sym, s }
+              @fmt_args.clear
+              @args.each { |sym| @fmt_args << value_for sym, s }
+              @format % @fmt_args
             rescue ex
               # Bad format/args combo shouldn't take down the render loop.
               "FPS format error: #{ex.message}"

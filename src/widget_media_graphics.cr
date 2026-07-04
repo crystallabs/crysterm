@@ -392,7 +392,11 @@ module Crysterm
           end
         end
 
-        io = String::Builder.new
+        # Pre-size the builder to the payload plus the fixed control-sequence
+        # wrapper (BSU/DECSC/CUP/DECRC/ESU ≈ a few dozen bytes), so a multi-MB
+        # sixel/ReGIS payload is streamed in without the builder's default
+        # 64-byte buffer doubling (and re-copying) its way up every emit.
+        io = String::Builder.new(payload.bytesize + 64)
         io << "\e[?2026h" if double_buffer?               # BSU: begin synchronized update
         io << "\e7"                                       # DECSC: save cursor
         io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H' # CUP to content top-left (1-based)

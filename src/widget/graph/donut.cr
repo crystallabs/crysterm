@@ -29,6 +29,8 @@ module Crysterm
         include InteriorCoords
         # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
         include Mixin::PercentRange
+        # `%p`/`%v`/`%m`/`%M` template expansion (shared with `Gauge`/`ProgressBar`).
+        include Mixin::RangeText
 
         property minimum : Float64
         property maximum : Float64
@@ -161,12 +163,20 @@ module Crysterm
           end
         end
 
+        # Cached center-readout text and the `{value, minimum, maximum, format}`
+        # it was built for. `#draw_center_label` runs every frame; the four
+        # chained `gsub`s only need to rerun when one of those inputs changes.
+        @label_cache : String?
+        @label_cache_key : Tuple(Float64, Float64, Float64, String)?
+
         private def formatted_text : String
-          @format
-            .gsub("%p", percent.round.to_i.to_s)
-            .gsub("%v", Scale.fmt(@value))
-            .gsub("%m", Scale.fmt(@maximum))
-            .gsub("%M", Scale.fmt(@minimum))
+          key = {@value, @minimum, @maximum, @format}
+          if @label_cache_key != key || (cached = @label_cache).nil?
+            @label_cache_key = key
+            @label_cache = cached = format_range_text @format,
+              percent.round.to_i.to_s, Scale.fmt(@value), Scale.fmt(@maximum), Scale.fmt(@minimum)
+          end
+          cached
         end
       end
     end

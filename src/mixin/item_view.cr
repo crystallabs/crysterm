@@ -138,6 +138,15 @@ module Crysterm
       # `==`. Invalidated by `invalidate_item_index` whenever `@items` is mutated.
       @item_index : Hash(Widget, Int32)? = nil
 
+      # Memo for `#selection_fallback`'s reverse-video copy, keyed by source
+      # style identity — the item-view counterpart of
+      # `Mixin::Style#reverse_highlight_fallback`'s memo (A2). The cascade
+      # replaces the backing per-state style, so a `same?` hit means the copy is
+      # still valid; only rebuilt on a new source object instead of a `Style#dup`
+      # per call.
+      @_sel_reverse_fallback_src : ::Crysterm::Style?
+      @_sel_reverse_fallback_copy : ::Crysterm::Style?
+
       @_is_list = true
       @interactive = true
 
@@ -204,12 +213,25 @@ module Crysterm
 
       # Returns *st* with reverse-video forced on when the selection has no
       # visible styling of its own, so the cursor row stays distinguishable with
-      # no theme active. Delegates to `Style#with_reverse_fallback`, which dups
-      # before toggling so the shared style is never mutated in place. Returns
-      # *st* untouched when already visibly styled.
+      # no theme active. Returns *st* untouched when already visibly styled.
+      #
+      # Inlines `Style#with_reverse_fallback` (dup + `reverse = true`) so the copy
+      # is memoized by source identity, mirroring
+      # `Mixin::Style#reverse_highlight_fallback` (A2): the cascade replaces the
+      # backing selected-state style, so a `same?` hit means the copy is still
+      # current, avoiding a per-call `Style#dup`. Both the `selection_visibly_styled?`
+      # guard and the source's own `visibly_styled?` short-circuit are preserved.
       private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if selection_visibly_styled?
-        st.with_reverse_fallback
+        return st if st.visibly_styled?
+        if (src = @_sel_reverse_fallback_src) && src.same?(st) && (copy = @_sel_reverse_fallback_copy)
+          return copy
+        end
+        copy = st.dup
+        copy.reverse = true
+        @_sel_reverse_fallback_src = st
+        @_sel_reverse_fallback_copy = copy
+        copy
       end
 
       # Returns *base* with any border stripped: *base* untouched when borderless

@@ -84,6 +84,9 @@ module Crysterm
       WEEKDAYS_SHORT  = %w[Su Mo Tu We Th Fr Sa]
       WEEKDAYS_SINGLE = %w[S M T W T F S]
       MONTHS          = %w[January February March April May June July August September October November December]
+      # Right-justified two-column day labels `" 1".." 31"`, indexed by `day - 1`,
+      # so `#render_day` reuses a shared String instead of `d.to_s.rjust 2` per cell.
+      DAY_CELLS = Array(String).new(31) { |i| (i + 1).to_s.rjust(2) }
       # Fixed to the longest month name ("September") so shorter names are
       # padded/centered and the year/steppers keep a stable column.
       MONTH_FIELD_WIDTH = MONTHS.max_of &.size
@@ -353,6 +356,21 @@ module Crysterm
         base.rotate(first_day_of_week.value % 7)
       end
 
+      # Cached joined weekday header row (rotated labels padded and joined with
+      # *sep*), rebuilt only when the header format, first day of week, or grid
+      # visibility changes — not per keypress/render.
+      @header_key : Tuple(HorizontalHeaderFormat, ::Time::DayOfWeek, Bool)?
+      @header_str = ""
+
+      private def weekday_header(sep : Char) : String
+        key = {horizontal_header_format, first_day_of_week, grid_visible?}
+        if @header_key != key
+          @header_key = key
+          @header_str = weekday_labels.map(&.rjust(2)).join(sep)
+        end
+        @header_str
+      end
+
       private def update_content : Nil
         set_content build_content
       end
@@ -380,7 +398,7 @@ module Crysterm
 
           if header
             io << "Wk " if weeks
-            io << weekday_labels.map(&.rjust(2)).join(sep)
+            io << weekday_header(sep)
             io << '\n'
           end
 
@@ -413,7 +431,7 @@ module Crysterm
       # Renders a single day cell, highlighting the selection and today. `today`
       # is resolved once per render by `build_content` (nil when not highlighted).
       private def render_day(d : Int32, today : Time?) : String
-        cell = d.to_s.rjust 2
+        cell = DAY_CELLS[d - 1]
         if selection_mode.single_selection? && @date.year == @shown_year && @date.month == @shown_month && @date.day == d
           "{reverse}#{cell}{/reverse}"
         elsif today && today.year == @shown_year && today.month == @shown_month && today.day == d

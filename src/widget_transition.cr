@@ -97,10 +97,10 @@ module Crysterm
       # its old (now stale) target.
       cancel_transition(key)
       return if (from - to).abs < 1e-6
-      start_tween(dur, easing,
-        store: ->(anim : FrameClock) { (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim }) do |clock|
+      anim = start_tween(dur, easing) do |clock|
         set.call(from + (to - from) * clock.value)
       end
+      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       nil
     end
 
@@ -111,10 +111,10 @@ module Crysterm
       cancel_transition(key)
       return if !(from && to) || from == to
       f, t = from || 0, to || 0
-      start_tween(dur, easing,
-        store: ->(anim : FrameClock) { (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim }) do |clock|
+      anim = start_tween(dur, easing) do |clock|
         set.call(lerp_color(f, t, clock.value))
       end
+      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       nil
     end
 

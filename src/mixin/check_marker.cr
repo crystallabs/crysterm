@@ -60,11 +60,28 @@ module Crysterm
         end
       end
 
+      # Cached last-built line and the inputs it was built from. The marker
+      # controls call `selectable_content` from `#render` every frame, but the
+      # line only changes when the glyph (check state) or label text changes, so
+      # the `String.build` is memoized against those inputs.
+      @_selectable_content : String?
+      @_selectable_key : Tuple(Char, Char, Char, String)?
+
       # Builds the `<open><glyph><close> text` line for a selectable control.
+      # Returns a cached string when the open/close/glyph/text inputs are
+      # unchanged since the last call (the steady-state per-frame render case),
+      # so no allocation happens on repeated identical renders.
       private def selectable_content(open : Char, close : Char, glyph : Char) : String
-        String.build do |s|
-          s << open << glyph << close << ' ' << @text
+        key = {open, close, glyph, @text}
+        content = @_selectable_content
+        if @_selectable_key != key || content.nil?
+          @_selectable_key = key
+          content = String.build do |s|
+            s << open << glyph << close << ' ' << @text
+          end
+          @_selectable_content = content
         end
+        content
       end
 
       # The marker controls toggle (rather than push) on activation; the shared

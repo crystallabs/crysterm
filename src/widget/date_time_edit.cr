@@ -66,8 +66,13 @@ module Crysterm
       # last col 15). The inclusive end-columns per section: YYYY+`-` → 4, MM → 7,
       # DD+` ` → 10, HH → 13, MM → 16, SS → 18. `nil` past the text (see
       # `Mixin::SectionedField#section_from_columns`).
+      # Inclusive section end-columns for `YYYY-MM-DD HH:MM:SS` / `… HH:MM`,
+      # hoisted so a mouse press/wheel doesn't rebuild the array each time.
+      SECTION_ENDS_SECONDS    = [4, 7, 10, 13, 16, 18]
+      SECTION_ENDS_NO_SECONDS = [4, 7, 10, 13, 15]
+
       private def section_at(x : Int32) : Int32?
-        section_from_columns x, show_seconds? ? [4, 7, 10, 13, 16, 18] : [4, 7, 10, 13, 15]
+        section_from_columns x, show_seconds? ? SECTION_ENDS_SECONDS : SECTION_ENDS_NO_SECONDS
       end
 
       private def update_content : Nil

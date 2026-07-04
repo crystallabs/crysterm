@@ -30,6 +30,14 @@ module Crysterm
       property _shrink_width : Bool = false
       property _shrink_height : Bool = false
 
+      # Cached grapheme cluster strings for `@text`, plus the text they were built
+      # from (identity-compared) and the memoized shrink-to-content advance width.
+      # Rebuilt only when `@text` changes, so the per-frame `#render` no longer
+      # allocates a grapheme array + a `String` per cluster.
+      @graphemes = [] of String
+      @_graphemes_src : String?
+      @_shrink_width_value : Int32?
+
       def initialize(
         @font : String? = nil,
         @font_bold : String? = nil,
@@ -74,13 +82,25 @@ module Crysterm
         @active_font.glyph(g)[0]?.try(&.size) || @ratio.width
       end
 
+      # Refreshes the cached `@graphemes` array (and invalidates the memoized
+      # shrink width) when `@text` has changed since the last build. Identity
+      # compare, so a steady render (unchanged text) does no work or allocation.
+      private def ensure_graphemes : Nil
+        src = @_graphemes_src
+        return if src && src.same?(@text)
+        @_graphemes_src = @text
+        @graphemes = @text.each_grapheme.map(&.to_s).to_a
+        @_shrink_width_value = nil
+      end
+
       def render
+        ensure_graphemes
         if @width.nil? || @_shrink_width
           # Sum per-grapheme glyph widths, not `@ratio.width * codepoints`: the
           # renderer advances the pen by each glyph's own column count, so a
           # codepoint-count width sized a CJK/emoji box half as wide as its glyphs
           # need and clipped the text.
-          @width = @text.each_grapheme.sum { |g| glyph_width(g.to_s) }
+          @width = (@_shrink_width_value ||= @graphemes.sum { |g| glyph_width(g) })
           @_shrink_width = true
         end
         if @height.nil? || @_shrink_height
@@ -106,18 +126,20 @@ module Crysterm
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
         # One glyph per grapheme cluster (so a base + combining mark is a single
-        # glyph slot, not two), keyed into the font by the cluster string.
-        graphemes = @text.each_grapheme.to_a
+        # glyph slot, not two), keyed into the font by the cluster string. The
+        # cluster strings are cached in `@graphemes` (refreshed by
+        # `ensure_graphemes`), so no per-frame array/`String` allocation here.
+        graphemes = @graphemes
         max_chars = Math.min graphemes.size, (right - left)//@ratio.width
 
         # Right-align by the glyphs' actual advance sum (per-glyph widths, matching
         # the pen), not `max_chars*@ratio.width`, which under-counts full-width
         # glyphs and pushed the text off the right edge.
         advance = 0
-        max_chars.times { |i| advance += glyph_width(graphemes[i].to_s) }
+        max_chars.times { |i| advance += glyph_width(graphemes[i]) }
         x = @align.right? ? (right - advance) : left
         max_chars.times do |i|
-          ch = graphemes[i].to_s
+          ch = graphemes[i]
           # `Font#glyph` falls back to "?" then a blank glyph, and pads every
           # row to the font width, so `map[y - top]` is a non-nil row.
           map = @active_font.glyph(ch)

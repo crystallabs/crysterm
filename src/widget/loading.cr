@@ -36,6 +36,12 @@ module Crysterm
       @orig_text = ""
       @text : String?
 
+      # Cached `"<icon> <text>"` line used by compact-mode `#render`. Rebuilt in
+      # the state-change paths (`#step`, `#start`, `#stop`, `#spinner=`) rather
+      # than interpolated afresh every frame — the text only changes on a spinner
+      # tick (~14 fps max) or a start/stop, not per render.
+      @compact_content = ""
+
       # XXX Use a better name than 'icons', so that it doesn't
       # seem to imply longer text can't be used.
 
@@ -70,6 +76,13 @@ module Crysterm
           content: @icons[0]
 
         append @icon
+        rebuild_compact_content
+      end
+
+      # Rebuilds the cached compact-mode line from the current icon frame and
+      # text. Called from every path that changes either input.
+      private def rebuild_compact_content : Nil
+        @compact_content = "#{@icon.content} #{@text || @orig_text}"
       end
 
       # Switches to a named built-in spinner (see `SPINNERS`) at runtime,
@@ -79,6 +92,7 @@ module Crysterm
           @icons = frames
           @pos = 0
           @icon.set_content frames[0]
+          rebuild_compact_content
         end
       end
 
@@ -92,6 +106,7 @@ module Crysterm
       def start(@text = nil)
         show
         set_content @text || @orig_text
+        rebuild_compact_content
 
         # XXX We don't want to do this? (Blessed does it)
         # @window.propagate_keys = false
@@ -110,6 +125,7 @@ module Crysterm
       def step
         @pos = (@pos + @step) % icons.size
         @icon.set_content icons[@pos]
+        rebuild_compact_content
       end
 
       # Stops the spinner loop and hides the widget.
@@ -119,12 +135,13 @@ module Crysterm
         super
         hide
         @text = nil
+        rebuild_compact_content
         request_render
       end
 
       def render
         if compact?
-          set_content "#{@icon.content} #{@text || @orig_text}", true
+          set_content @compact_content, true
           super false
         else
           set_content @text || @orig_text

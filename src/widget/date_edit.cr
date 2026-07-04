@@ -79,8 +79,12 @@ module Crysterm
       # match `DateTimeEdit`'s for the shared `YYYY-MM-DD` prefix. The field is
       # exactly 10 columns (last col 9); `nil` past it leaves the active section
       # untouched (see `Mixin::SectionedField#section_from_columns`).
+      # Inclusive section end-columns for the `YYYY-MM-DD` layout (year/month/day),
+      # hoisted so a mouse press/wheel doesn't rebuild the array each time.
+      SECTION_ENDS = [4, 7, 9]
+
       private def section_at(x : Int32) : Int32?
-        section_from_columns x, [4, 7, 9]
+        section_from_columns x, SECTION_ENDS
       end
 
       private def update_content : Nil
@@ -151,7 +155,7 @@ module Crysterm
       # the bordered-window shift the raw `atop + aheight` placement had.
       private def position_popup(pop : Calendar) : Nil
         Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
-          [Overlay::Side::Below, Overlay::Side::Above])
+          Overlay::BELOW_ABOVE)
       rescue
         # Not laid out yet.
       end

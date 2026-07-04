@@ -150,6 +150,23 @@ module Crysterm
       # from; it replaces the old "tail of the whole value" assumption.
       @view_start : Int32 = 0
 
+      # Snapshot of every input `#compute_display` reads, plus the resulting
+      # `@view_start`. The build slices 3-5 intermediate strings (and, in censor
+      # mode, a fresh mask string + grapheme array) every call; `#value=`'s
+      # `@_value` guard dedups `set_content`, but not the build itself. `#value=`
+      # runs once per frame via `Mixin::TextEditing#render`, so at steady state
+      # (nothing typed/resized) this key is unchanged and the cached string is
+      # returned untouched. `@value` is keyed by object identity + size — the L1
+      # fix keeps the same String object across redisplay frames, so identity is
+      # a valid (allocation-free) change signal; a genuine edit swaps the object.
+      @display_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, Bool, Bool, UInt64, Char, Bool)? = nil
+      @display_cache : String = ""
+
+      private def display_snapshot_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, Bool, Bool, UInt64, Char, Bool)
+        {@value.object_id, @value.size, @cursor_pos, awidth, iwidth, @view_start,
+         @secret, @censor, @placeholder.object_id, @password_character, full_unicode?}
+      end
+
       def value=(value = nil)
         # Shared prologue (authoritative-value + caret + selection); a non-nil
         # argument is an external set (cursor to the end), `nil` a redisplay that
@@ -159,7 +176,7 @@ module Crysterm
         # display dedup guard is what keeps an external set like `input.value =
         # ""` from being no-op'd (and leaving stale text across submits) when the
         # `@_value` last-displayed cache is stale.
-        assign_value(value, &.delete('\n'))
+        assign_value(value) { |v| v.includes?('\n') ? v.delete('\n') : v }
 
         # `@_value` caches the *displayed* text so the dedup guard also fires
         # the first time an empty box needs to paint its placeholder.
@@ -176,46 +193,78 @@ module Crysterm
       # `#value=` (and thus once per frame via `Mixin::TextEditing#render`), so
       # the window re-tracks the caret every render.
       private def compute_display : String
-        if @value.empty? && !@placeholder.empty?
-          # Show the placeholder while empty; the real value stays "".
-          @view_start = 0
-          @placeholder
-        elsif @secret
-          @view_start = 0
-          ""
-        elsif @censor
-          # One mask char per user-perceived character (grapheme) under
-          # full_unicode; per codepoint otherwise.
-          @view_start = 0
-          @password_character.to_s * (full_unicode? ? @value.graphemes.size : @value.size)
-        else
-          val = expanded_value
-          # Visible width (`awidth - iwidth - 1`; -1 leaves room for the caret).
-          # `cols` is a *display*-column budget.
-          cols = Math.max 0, awidth - iwidth - 1
-          # `@view_start` is a codepoint index into `val`; measure the slide in
-          # *display* columns so wide (CJK/emoji) glyphs count as 2. Mixing the
-          # codepoint index against a display-column budget would leave the caret
-          # off-screen for wide content (`caret_cp - cols` under-scrolls). Convert
-          # back to a codepoint index via `column_index` for the actual slice.
-          caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-          caret_col = str_width val[0, caret_cp]
-          view_col = str_width val[0, @view_start]
-          # Slide the window to keep the caret inside `[view_col, view_col+cols]`.
-          if caret_col < view_col
-            @view_start = caret_cp
-          elsif caret_col > view_col + cols
-            @view_start = column_index(val, caret_col - cols)
-          end
-          # Clamp so we never scroll past the value's end (showing the tail when
-          # the caret sits there, the previous unconditional behavior).
-          @view_start = @view_start.clamp(0, column_index(val, Math.max(0, str_width(val) - cols)))
+        key = display_snapshot_key
+        return @display_cache if key == @display_key
 
-          window = val[@view_start..]
-          # Leading graphemes/codepoints of the window that fit `cols` display
-          # columns (`column_index` is codepoint-unit under the legacy path).
-          window[0, column_index(window, cols)]
-        end
+        disp =
+          if @value.empty? && !@placeholder.empty?
+            # Show the placeholder while empty; the real value stays "".
+            @view_start = 0
+            @placeholder
+          elsif @secret
+            @view_start = 0
+            ""
+          elsif @censor
+            # One mask char per user-perceived character (grapheme) under
+            # full_unicode; per codepoint otherwise. Count graphemes without
+            # materializing the array, and build the mask without a `.to_s`
+            # intermediate.
+            @view_start = 0
+            n = full_unicode? ? grapheme_count(@value) : @value.size
+            String.build(n) { |io| n.times { io << @password_character } }
+          else
+            val = expanded_value
+            # Visible width (`awidth - iwidth - 1`; -1 leaves room for the caret).
+            # `cols` is a *display*-column budget.
+            cols = Math.max 0, awidth - iwidth - 1
+            # `@view_start` is a codepoint index into `val`; measure the slide in
+            # *display* columns so wide (CJK/emoji) glyphs count as 2. Mixing the
+            # codepoint index against a display-column budget would leave the caret
+            # off-screen for wide content (`caret_cp - cols` under-scrolls). Convert
+            # back to a codepoint index via `column_index` for the actual slice.
+            caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
+            caret_col = str_width val, 0, caret_cp
+            view_col = str_width val, 0, @view_start
+            # Slide the window to keep the caret inside `[view_col, view_col+cols]`.
+            if caret_col < view_col
+              @view_start = caret_cp
+            elsif caret_col > view_col + cols
+              @view_start = column_index(val, caret_col - cols)
+            end
+            # Clamp so we never scroll past the value's end (showing the tail when
+            # the caret sits there, the previous unconditional behavior).
+            @view_start = @view_start.clamp(0, column_index(val, Math.max(0, str_width(val) - cols)))
+
+            window = val[@view_start..]
+            # Leading graphemes/codepoints of the window that fit `cols` display
+            # columns (`column_index` is codepoint-unit under the legacy path).
+            window[0, column_index(window, cols)]
+          end
+
+        # Re-key with the settled `@view_start` so the next steady-state frame
+        # (same value/caret/dims, window already at its fixpoint) hits the cache.
+        @display_key = display_snapshot_key
+        @display_cache = disp
+        disp
+      end
+
+      # Codepoint-range display width of `val` without slicing it first. The
+      # common path (no SGR, legacy codepoint counting) is a plain subtraction;
+      # SGR-carrying or `full_unicode?` values fall back to the slice+measure
+      # `str_width` overload (rare for a single-line input's own text).
+      private def str_width(val : String, from : Int32, to : Int32) : Int32
+        from = from.clamp(0, val.size)
+        to = to.clamp(0, val.size)
+        return 0 if to <= from
+        return str_width(val[from...to]) if full_unicode? || val.includes?('\e')
+        to - from
+      end
+
+      # Grapheme-cluster count of `s` without allocating the `graphemes` array.
+      private def grapheme_count(s : String) : Int32
+        n = 0
+        s.each_grapheme { n += 1 }
+        n
       end
 
       def submit
@@ -311,13 +360,15 @@ module Crysterm
       private def caret_view_col : Int32
         return 0 if @secret
         if @censor
-          before = @value[0...@cursor_pos.clamp(0, @value.size)]
-          return full_unicode? ? before.graphemes.size : before.size
+          cp = @cursor_pos.clamp(0, @value.size)
+          # Legacy (codepoint) path is just the clamped caret index — no slice.
+          return cp unless full_unicode?
+          return grapheme_count(@value[0...cp])
         end
         val = expanded_value
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
         return 0 if caret_cp <= @view_start
-        str_width val[@view_start...caret_cp]
+        str_width val, @view_start, caret_cp
       end
 
       # Overrides `Mixin::TextEditing#_update_cursor`: the inherited version maps
@@ -353,8 +404,8 @@ module Crysterm
         cols = Math.max 0, awidth - iwidth - 1
         val = expanded_value
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-        caret_col = str_width val[0, caret_cp]
-        view_col = str_width val[0, @view_start]
+        caret_col = str_width val, 0, caret_cp
+        view_col = str_width val, 0, @view_start
         caret_col < view_col || caret_col > view_col + cols
       end
     end

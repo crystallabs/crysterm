@@ -227,7 +227,17 @@ module Crysterm
         total = total_span
         return if total <= 0
         w = Math.max(1, (total - (n - 1)) // n)
-        @positions = (0...n - 1).map { |i| (i + 1) * w + i }
+        # Fill `@positions` in place (it is already sized `n-1` by `add_pane`)
+        # rather than reassigning a freshly `.map`-ped array — this runs from
+        # `#render`'s `relayout` every frame while `@user_positioned` is false, so
+        # the per-frame array allocation was pure garbage. Rebuild only on the
+        # rare size mismatch.
+        if @positions.size == n - 1
+          (0...n - 1).each { |i| @positions[i] = (i + 1) * w + i }
+        else
+          @positions.clear
+          (0...n - 1).each { |i| @positions << (i + 1) * w + i }
+        end
         @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
       end
 

@@ -108,7 +108,26 @@ module Crysterm
       getter nodes = [] of Node
 
       # Spaces of indentation added per depth level.
-      property indent : Int32 = 2
+      getter indent : Int32 = 2
+
+      def indent=(v : Int32) : Int32
+        return v if v == @indent
+        @indent = v
+        @indent_cache.clear
+        v
+      end
+
+      # Memoized leading-space strings per depth (`depth * @indent` spaces),
+      # grown on demand so a bulk rebuild reuses them instead of `" " * n` per row.
+      # Cleared when `#indent` changes.
+      @indent_cache = [] of String
+
+      private def indent_str(depth : Int32) : String
+        while @indent_cache.size <= depth
+          @indent_cache << " " * (@indent_cache.size * @indent)
+        end
+        @indent_cache[depth]
+      end
 
       # Markers drawn before a node's text.
       property expanded_char : Char = MARKER_EXPANDED
@@ -222,7 +241,7 @@ module Crysterm
 
       private def row_text(node : Node, depth : Int32) : String
         marker = node.leaf? ? @leaf_char : (node.expanded? ? @expanded_char : @collapsed_char)
-        "#{" " * (depth * @indent)}#{marker} #{node.text}"
+        "#{indent_str(depth)}#{marker} #{node.text}"
       end
 
       # Expands *node* (a no-op for a leaf or an already-expanded node), refreshes

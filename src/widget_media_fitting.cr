@@ -141,8 +141,11 @@ module Crysterm
         sampled = png.create_cellmap(src_bmp, cmwidth: dw, cmheight: dh, cell_aspect: 1.0)
         return nil if sampled.empty?
 
-        # Stretch that already fills the box exactly: hand back the sample as-is.
-        if fit.stretch? && sampled.size == bh && (sampled[0]?.try(&.size) || 0) == bw
+        # The sample already fills the box exactly at the origin (Stretch always;
+        # any fit whose laid-out size equals the box with no offset): there is no
+        # letterbox margin to add, so hand back the sample as-is instead of
+        # copying it into a same-size transparent canvas.
+        if ox == 0 && oy == 0 && sampled.size == bh && (sampled[0]?.try(&.size) || 0) == bw
           return sampled
         end
 
@@ -168,12 +171,27 @@ module Crysterm
         place_at src, bw, bh, (bw - nw) // 2, (bh - nh) // 2
       end
 
-      # Copies *src* into a fresh *bw*×*bh* fully-transparent canvas at pixel
-      # offset (*ox*, *oy*), clipping anything outside the canvas. Shared by the
-      # fit (`#compose`) and 1:1 centering (`#place_centered`) paths.
+      # Copies *src* into a *bw*×*bh* fully-transparent canvas at pixel offset
+      # (*ox*, *oy*), clipping anything outside the canvas. Shared by the fit
+      # (`#compose`) and 1:1 centering (`#place_centered`) paths.
+      #
+      # *into* lets a caller pass a reusable destination canvas: when it is
+      # already sized *bw*×*bh* it is cleared to transparent and reused (no
+      # per-frame outer/row allocation); otherwise a fresh canvas is built.
+      # NOTE: internal callers do not pass *into* because `#compose`'s result is
+      # cached per animation frame downstream (`Media::Cells` sample cache,
+      # graphics `@frame_payloads`) — reusing one canvas across frames would
+      # mutate an already-cached frame. The hook is here for a future
+      # cache-aware caller that owns the canvas and controls its lifetime.
       private def self.place_at(src : PNGGIF::Bitmap, bw : Int32, bh : Int32,
-                                ox : Int32, oy : Int32) : PNGGIF::Bitmap
-        out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
+                                ox : Int32, oy : Int32,
+                                into : PNGGIF::Bitmap? = nil) : PNGGIF::Bitmap
+        out = into
+        if out && out.size == bh && (out[0]?.try(&.size) || 0) == bw
+          out.each &.fill(TRANSPARENT)
+        else
+          out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
+        end
         src.each_with_index do |srow, y|
           ty = y + oy
           next if ty < 0 || ty >= bh

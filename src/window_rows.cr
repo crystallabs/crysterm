@@ -62,6 +62,10 @@ module Crysterm
 
       # The cell's full grapheme cluster as a `String`: the overlay cluster if
       # present, else the single codepoint (`""` for a continuation cell).
+      #
+      # NOTE: this always allocates (an overlay clone or `char.to_s`). On hot
+      # paths prefer `#grapheme_overlay` (nil, no alloc, for single-codepoint
+      # cells) or `#grapheme_eq?` (allocation-free comparison).
       def grapheme : String
         if g = @row.grapheme_at?(@index)
           g

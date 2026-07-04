@@ -1,4 +1,15 @@
 module Crysterm
+  class Widget
+    # Identity of the sub-`Style` object last pushed onto this widget by an
+    # ancestor's `Mixin::SubStyle#apply_substyle`. Lets that per-frame push skip
+    # re-`dup`ing when the cascade-computed sub-style hasn't changed since the
+    # last frame — the cascade *replaces* sub-`Style` objects on recompute
+    # (never mutates them in place), so a `same?` hit means the pushed copy is
+    # still current. Nil until the first push; lives and dies with the child, so
+    # no separate cleanup is needed. See `Mixin::SubStyle#apply_substyle`.
+    property _substyle_src : ::Crysterm::Style? = nil
+  end
+
   module Mixin
     # Shared helper for the "push a computed CSS sub-style onto a child each
     # frame" idiom used by container widgets exposing Qt-style sub-controls
@@ -22,9 +33,20 @@ module Crysterm
       # `show`/`hide` mutate `styles.normal.visible` in place, so a `TabWidget`
       # hiding its current page would flip the shared pane's `visible` to false,
       # making the next page render blank too.
+      #
+      # Memoized per child (`Widget#_substyle_src`): this runs every frame from a
+      # `Event::PreRender` handler, but the source *substyle* is the same
+      # cascade-computed object frame after frame in steady state. Recording the
+      # last-pushed source and skipping on a `same?` hit turns the common case
+      # from a ~5-object `Style#dup` per sub-styled child per frame into a bare
+      # identity compare; the `dup` runs only when the cascade hands back a new
+      # sub-`Style` object.
       protected def apply_substyle(child : Widget?, substyle : ::Crysterm::Style) : Nil
         return if substyle.same? style
-        child.try(&.styles.normal=(substyle.dup))
+        return unless child
+        return if (src = child._substyle_src) && src.same?(substyle)
+        child.styles.normal = substyle.dup
+        child._substyle_src = substyle
       end
     end
   end

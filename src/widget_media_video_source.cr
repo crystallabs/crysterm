@@ -98,6 +98,20 @@ module Crysterm
         @buf : Bytes
         @pending : PNGGIF::Bitmap? # the already-read first frame, returned first
 
+        # Two preallocated bitmaps ping-ponged by `#read_ppong`, so a streamed
+        # frame overwrites pixels in place (`PNGGIF::Pixel` is a value struct, so
+        # reassigning a row slot mutates the stored pixel with no allocation)
+        # instead of building a fresh `h`-array-of-`w`-arrays bitmap every tick.
+        # Two (not one) keep the downstream identity checks — `FrameMemo`'s
+        # `entry[0].same?(bmp)` and the graphics per-frame payload cache — seeing
+        # each frame as new content (consecutive frames are distinct objects),
+        # while `invalidate_frame(0)` still clears the caches. Allocated lazily on
+        # first use, reused for the stream's whole life (dimensions are fixed at
+        # construction, but `#read_ppong` reallocates if @w/@h ever change).
+        @ppong_a : PNGGIF::Bitmap?
+        @ppong_b : PNGGIF::Bitmap?
+        @ppong_toggle = false
+
         # Opens a stream for *file*, or `nil` if ffmpeg/ffprobe are missing or the
         # first frame can't be read.
         def self.open(file : String,
@@ -123,7 +137,10 @@ module Crysterm
         private def open_first : Tuple(PNGGIF::Bitmap, PNGGIF::PNG)
           first = read_one
           raise "no video frames" unless first
-          {first, PNGGIF::PNG.from_frames([{first, @delay}], @w, @h)}
+          # `first` is a ping-pong buffer that a later frame will overwrite; give
+          # the vehicle (which persists for the stream's whole life) an
+          # independent copy so it can never be mutated out from under it.
+          {first, PNGGIF::PNG.from_frames([{VideoSource.dup_bitmap(first), @delay}], @w, @h)}
         rescue ex
           close
           raise ex
@@ -177,9 +194,32 @@ module Crysterm
         private def read_one : PNGGIF::Bitmap?
           pr = @process || return nil
           return nil unless VideoSource.read_full(pr.output, @buf)
-          VideoSource.to_bitmap @buf, @w, @h
+          read_ppong
         rescue
           nil
+        end
+
+        # Decodes the just-read `@buf` into one of the two ping-pong bitmaps,
+        # overwriting its pixels in place, and alternates which buffer is used so
+        # consecutive returned frames are distinct objects (see the ivar note).
+        # The buffers are allocated lazily and reused for the stream's life;
+        # they're reallocated only if @w/@h somehow change after construction.
+        private def read_ppong : PNGGIF::Bitmap
+          @ppong_toggle = !@ppong_toggle
+          bmp =
+            if @ppong_toggle
+              @ppong_a ||= VideoSource.blank_bitmap(@w, @h)
+            else
+              @ppong_b ||= VideoSource.blank_bitmap(@w, @h)
+            end
+          # Guard against a dimension change: if the cached buffer no longer
+          # matches @w×@h, replace it (keeps the in-place fill valid).
+          if bmp.size != @h || (bmp[0]?.try(&.size) || 0) != @w
+            bmp = VideoSource.blank_bitmap(@w, @h)
+            @ppong_toggle ? (@ppong_a = bmp) : (@ppong_b = bmp)
+          end
+          VideoSource.fill_bitmap bmp, @buf, @w, @h
+          bmp
         end
       end
 
@@ -323,6 +363,13 @@ module Crysterm
         true
       end
 
+      # Deep-copies a bitmap (new outer + inner arrays) so a caller can retain a
+      # snapshot that won't be mutated when a ping-pong buffer is later reused.
+      # :nodoc:
+      def dup_bitmap(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
+        bmp.map(&.dup)
+      end
+
       # Converts one raw RGBA frame buffer into a `PNGGIF::Bitmap`.
       # :nodoc:
       def to_bitmap(buf : Bytes, w : Int32, h : Int32) : PNGGIF::Bitmap
@@ -332,6 +379,33 @@ module Crysterm
             i = base + x * 4
             PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)
           end
+        end
+      end
+
+      # Allocates a *w*×*h* fully-transparent bitmap for in-place reuse by the
+      # `Stream` ping-pong. (`PNGGIF::Pixel` is a value struct, so `Array.new`
+      # fills the row with independent copies — no shared reference.)
+      # :nodoc:
+      def blank_bitmap(w : Int32, h : Int32) : PNGGIF::Bitmap
+        Array(Array(PNGGIF::Pixel)).new(h) { Array(PNGGIF::Pixel).new(w, PNGGIF::Pixel.new(0, 0, 0, 0)) }
+      end
+
+      # Overwrites *bmp* in place from the raw RGBA frame in *buf*, reusing the
+      # existing row/outer arrays (only the value-struct pixels are reassigned).
+      # *bmp* must already be sized *w*×*h*.
+      # :nodoc:
+      def fill_bitmap(bmp : PNGGIF::Bitmap, buf : Bytes, w : Int32, h : Int32) : Nil
+        y = 0
+        while y < h
+          base = y * w * 4
+          row = bmp[y]
+          x = 0
+          while x < w
+            i = base + x * 4
+            row[x] = PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)
+            x += 1
+          end
+          y += 1
         end
       end
     end

@@ -74,6 +74,33 @@ module Crysterm
       # skips per-cell CSS lookups for every body row.
       @styled_rows = Set(Int32).new
 
+      # --- per-row derived-style caches (allocation reduction, K1) -----------
+      # `#render_style_for` runs once per body row per frame. With
+      # `alternate_rows: true` it used to derive a fresh `Style` for every even
+      # row every frame (`without_border`/`overlay_colors` each `#dup`). The CSS
+      # cascade replaces a widget's whole `styles` tree on recompute
+      # (`cascade.cr`: `widget.styles = css_base_styles.deep_dup`) rather than
+      # mutating it, so a derived `Style` stays valid until its source `Style`
+      # object is replaced. These caches key on source-object identity
+      # (`same?`) and rebuild only when the source changes.
+
+      # Non-CSS even rows (`without_border(style.alternate_row)`): the source is
+      # one shared object across every even row, so a single derived style
+      # (border stripped once) serves them all until the source is replaced.
+      @_alt_row_src : Style? = nil
+      @_alt_row_derived : Style? = nil
+
+      # CSS-styled rows: each row box carries its own computed `Style`, so these
+      # memoize per source-`Style` identity in an identity-keyed `Hash`
+      # (`Style` defines no `==`/`hash`, so keys compare by reference). The whole
+      # set is dropped when `styles.normal`'s identity flips — the cascade
+      # recompute that replaces this widget's styles also replaces every row
+      # box's, so their old keys are stale together.
+      @_row_style_gen : Style? = nil
+      @_row_wb = {} of Style => Style      # without_border(item.style)
+      @_row_overlay = {} of Style => Style # overlay_colors(base, alternate_row)
+      @_row_overlay_src : Style? = nil     # alternate_row source guarding @_row_overlay
+
       def initialize(
         rows = nil,
         data = nil,
@@ -173,13 +200,15 @@ module Crysterm
         # `Box:nth-child(even)`); use its computed style, reflecting selection
         # through the widget state so `:selected` rules apply.
         if item.css_styled?
+          sync_row_style_cache
           selected = item_selected?(item)
           item.state = selected ? WidgetState::Selected : WidgetState::Normal
           # A row never draws its own border: the table owns the outer frame and
           # `│` column separators, so a cell box painting a border would nest a
           # frame inside each cell. The non-CSS paths strip it
           # (`item_render_style`, `without_border`); the per-item CSS style must too.
-          base = without_border(item.style)
+          # Cached by the row's own `Style` identity (`#css_without_border`).
+          base = css_without_border(item.style)
           return selection_overlay(base) if selected
           # Alternating body rows pick up the table-level
           # `alternate-background-color`, held on the normal style's
@@ -195,7 +224,7 @@ module Crysterm
           # `item.top`-as-index map, whose header `top` tracks `@child_base`.
           n = styles.normal
           if alternate_rows? && n.alternate_row? && (i = item_index_of item) && i > 0 && i.even?
-            return overlay_colors(base, n.alternate_row)
+            return css_alt_overlay(base, n.alternate_row)
           end
           return base
         end
@@ -203,10 +232,56 @@ module Crysterm
         return item_render_style(true) if item_selected?(item)
 
         if alternate_rows? && (i = item_index_of item) && i > 0 && i.even?
-          return without_border(style.alternate_row)
+          return alt_row_style
         end
 
         item_render_style false
+      end
+
+      # Border-stripped `style.alternate_row` for the non-CSS alternating-row
+      # path, memoized by source identity. Every even row shares the one
+      # `style.alternate_row` object, so one derived style serves them all until
+      # the cascade (or `#alternate_background=`) replaces the source.
+      private def alt_row_style : Style
+        src = style.alternate_row
+        if (d = @_alt_row_derived) && @_alt_row_src.same?(src)
+          d
+        else
+          @_alt_row_src = src
+          @_alt_row_derived = without_border(src)
+        end
+      end
+
+      # Drops the CSS-row derived-style caches when the cascade has replaced this
+      # widget's styles (detected via `styles.normal`'s object identity), and —
+      # so a live `#alternate_background=` still takes effect — when the
+      # alternate-row source object changes.
+      private def sync_row_style_cache : Nil
+        gen = styles.normal
+        unless @_row_style_gen.same?(gen)
+          @_row_style_gen = gen
+          @_row_wb.clear
+          @_row_overlay.clear
+          @_row_overlay_src = nil
+        end
+        src = gen.alternate_row
+        unless @_row_overlay_src.same?(src)
+          @_row_overlay_src = src
+          @_row_overlay.clear
+        end
+      end
+
+      # `without_border(src)` for a CSS row style, memoized by *src* identity.
+      private def css_without_border(src : Style) : Style
+        @_row_wb[src]? || (@_row_wb[src] = without_border(src))
+      end
+
+      # `overlay_colors(base, source)` for a CSS even row, memoized by *base*
+      # identity. *source* (`styles.normal.alternate_row`) is shared across even
+      # rows and guards the cache in `#sync_row_style_cache`, so keying on *base*
+      # alone is sufficient.
+      private def css_alt_overlay(base : Style, source : Style) : Style
+        @_row_overlay[base]? || (@_row_overlay[base] = overlay_colors(base, source))
       end
 
       # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells

@@ -173,9 +173,22 @@ module Crysterm
         @value
       end
 
-      # Builds the textual indicator from `#text_format`.
+      # Cached indicator text and the `{value, minimum, maximum, format}` it was
+      # built for. `#render` calls `#formatted_text` every frame when
+      # `#show_text?`; the four chained `gsub`s + four `to_s` only need to rerun
+      # when one of those inputs changes (`#filled` derives from the range, so
+      # it's covered by the key).
+      @text_cache : String?
+      @text_cache_key : Tuple(Int32, Int32, Int32, String)?
+
+      # Builds the textual indicator from `#text_format` (memoized).
       private def formatted_text : String
-        format_range_text text_format, filled.to_s, @value.to_s, @maximum.to_s, @minimum.to_s
+        key = {@value, @minimum, @maximum, text_format}
+        if @text_cache_key != key || (cached = @text_cache).nil?
+          @text_cache_key = key
+          @text_cache = cached = format_range_text text_format, filled.to_s, @value.to_s, @maximum.to_s, @minimum.to_s
+        end
+        cached
       end
 
       def render

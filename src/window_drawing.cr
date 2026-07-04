@@ -798,17 +798,50 @@ module Crysterm
     end
 
     # Shared body of `shift_lines_down`/`shift_lines_up`: shifts both cell buffers
-    # `n` times by inserting a fresh blank line at `insert_at` and dropping the
-    # line at `delete_at`. The two directions differ only in which of the two
-    # indices is the insert and which is the delete. A fresh `blank_line` per
-    # buffer (never a shared row) so `@lines`/`@olines` stay independent.
+    # `n` times so a blank line appears at `insert_at` and the line at `delete_at`
+    # falls off. The two directions differ only in which of the two indices is the
+    # insert and which is the delete.
+    #
+    # Rather than allocating two fresh `blank_line`s (4 backing arrays) per shifted
+    # line and discarding two good rows (D2), the evicted row is *recycled*: delete
+    # it, blank it in place (`clear_to`, which also drops any grapheme overlay),
+    # reset its dirty range, then re-insert it. `@lines`/`@olines` stay independent
+    # because each buffer only ever recycles its own evicted row.
+    #
+    # Delete-first changes the index arithmetic vs. the original insert-then-delete:
+    # `insert(I); delete(D)` removes the *pre-insert* element at `D` (if `D < I`) or
+    # `D - 1` (if `D > I`), and lands the blank at `I` (if the removal was above `I`)
+    # or `I - 1` (if below). These indices are constant across all `n` iterations
+    # (each iteration is size-neutral), so they're computed once.
     private def shift_lines(n, insert_at, delete_at)
+      removed = delete_at < insert_at ? delete_at : delete_at - 1
+      final_insert = removed < insert_at ? insert_at - 1 : insert_at
       n.times do
-        @lines.insert insert_at, blank_line
-        @lines.delete_at delete_at
-        @olines.insert insert_at, blank_line
-        @olines.delete_at delete_at
+        recycle_shifted_row @lines, removed, final_insert
+        recycle_shifted_row @olines, removed, final_insert
       end
+    end
+
+    # Evicts the row at `removed_at` from `buf`, blanks it to the current screen
+    # width (rebuilding cell count if the screen resized since the row was built),
+    # and re-inserts it at `insert_at`. See `#shift_lines` for the index math.
+    private def recycle_shifted_row(buf : Array(Row), removed_at : Int32, insert_at : Int32) : Nil
+      row = buf.delete_at removed_at
+      aw = awidth
+      # Match the current width if the screen resized since this row was built
+      # (`blank_line` always sized to `awidth`).
+      while row.size > aw
+        row.pop
+      end
+      # Blank the existing cells (also drops any grapheme overlay).
+      row.clear_to @default_attr, ' '
+      while row.size < aw
+        row.push @default_attr, ' '
+      end
+      # A blank shifted line is not dirty (the terminal's own il/dl scrolled it);
+      # this also resets the dirty column range.
+      row.dirty = false
+      buf.insert insert_at, row
     end
 
     # Shared scaffold for the `insert_line`/`delete_line` family: verifies the
@@ -892,7 +925,9 @@ module Crysterm
       # XXX temporarily diverts output
       return unless with_scroll_region(top, bottom) do |ret|
                       tput.cup(bottom, 0)
-                      ret.print "\n" * n
+                      # Emit `n` newlines without materializing a throwaway
+                      # `"\n" * n` String per CSR scroll op (D3).
+                      n.times { ret << '\n' }
                     end
 
       shift_lines_up n, y, bottom

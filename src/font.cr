@@ -87,8 +87,10 @@ module Crysterm
     end
 
     # The 0/1 pixel grid for *grapheme*, falling back to `"?"` then to blank.
+    # The resolved grid (including a fallback) is cached under *grapheme*, so a
+    # repeated miss is a single hash hit rather than a re-decode + fresh blank.
     def glyph(grapheme : String) : Array(Array(Int32))
-      cached_or_decode(grapheme) || cached_or_decode("?") || blank
+      @glyphs[grapheme] ||= (cached_or_decode(grapheme) || cached_or_decode("?") || blank)
     end
 
     private def cached_or_decode(grapheme : String) : Array(Array(Int32))?
@@ -136,8 +138,12 @@ module Crysterm
       grid
     end
 
+    # Shared, memoized all-zero fallback grid. Callers only read glyph grids
+    # (never mutate them), so a single instance is safe to hand out repeatedly.
+    @blank : Array(Array(Int32))?
+
     private def blank : Array(Array(Int32))
-      Array.new(@height) { Array.new(@width, 0) }
+      @blank ||= Array.new(@height) { Array.new(@width, 0) }
     end
   end
 end

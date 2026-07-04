@@ -105,6 +105,11 @@ module Crysterm
       # Guards against the bar↔target feedback loop.
       @syncing = false
 
+      # Last `{page_step, minimum, maximum, value}` pushed by `#sync_from_target`,
+      # so a scroll event that resolves to the same geometry is a no-op instead of
+      # re-assigning and requesting a render.
+      @last_synced : Tuple(Int32, Int32, Int32, Int32)?
+
       @ev_target_scroll : ::Crysterm::Event::Scroll::Wrapper?
 
       def initialize(
@@ -213,11 +218,19 @@ module Crysterm
           total = t.get_scroll_height
           pos = t.get_scroll
         end
+        new_page = Math.max(1, visible)
+        new_max = Math.max(0, total - visible)
+        new_val = pos.clamp(0, new_max)
+        # Nothing changed since the last sync: skip the assignments + repaint.
+        key = {new_page, 0, new_max, new_val}
+        return if @last_synced == key
+        @last_synced = key
+
         @syncing = true
-        @page_step = Math.max(1, visible)
+        @page_step = new_page
         # `set_range` re-clamps and emits `Event::RangeChange`; `@syncing` keeps
         # the value re-clamp from driving the target back.
-        set_range 0, Math.max(0, total - visible)
+        set_range 0, new_max
         # Mirror the engine's scroll position along this bar's axis (vertical:
         # `child_base + child_offset`; horizontal: `child_base_x`).
         self.value = pos.clamp(@minimum, @maximum)

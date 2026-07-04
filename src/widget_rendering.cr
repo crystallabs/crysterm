@@ -8,6 +8,11 @@ module Crysterm
     # when unset. Set via `#overflow=` (an `Overflow`, a shorthand, or `nil`).
     @overflow : Overflow? = nil
 
+    # Reused stops set for `#dock_rows`, cleared per call, so the per-frame
+    # docking of a menu's separator rows doesn't allocate a fresh Hash each
+    # frame (D1). Lazily allocated on first use (many widgets never dock rows).
+    @_dock_rows_stops : Hash(Int32, Bool)? = nil
+
     # Action when this widget overflows its parent's rectangle: the per-widget
     # override if set, else the window default (`Overflow::Ignore` if window-less).
     def overflow : Overflow
@@ -449,9 +454,22 @@ module Crysterm
               is_cluster = true
               if cell_width == 0
                 # Zero-width cluster (e.g. a leading combining mark): merge into
-                # the previous cell rather than consuming one.
+                # the previous cell rather than consuming one. Build the merged
+                # cluster in a single allocation: `Cell#grapheme` materializes a
+                # fresh `String` (overlay clone or `char.to_s`) and `+` then
+                # allocates a second — read the overlay directly and, on the
+                # common no-overlay cell, interpolate the base char + mark once (D4).
                 if draw_row && x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
-                  prev.grapheme = prev.grapheme + grapheme
+                  merged =
+                    if ov = prev.grapheme_overlay
+                      ov + grapheme
+                    else
+                      base = prev.char
+                      # A continuation cell's `grapheme` is "" (see `Cell#grapheme`),
+                      # so preserve that: merge onto nothing.
+                      base == Window::Cell::CONTINUATION ? grapheme : "#{base}#{grapheme}"
+                    end
+                  prev.grapheme = merged
                   line.mark_dirty(x - 1)
                 end
                 x -= 1
@@ -768,7 +786,10 @@ module Crysterm
     # separator's divider color.
     protected def dock_rows(rows : Enumerable(Int32), contrast : DockContrast = DockContrast::Ignore) : Nil
       scr = window? || return
-      stops = {} of Int32 => Bool
+      # Reuse a per-widget Hash instead of allocating one per frame (D1). Single
+      # fiber renders, so the scratch set is never live across calls.
+      stops = (@_dock_rows_stops ||= {} of Int32 => Bool)
+      stops.clear
       rows.each { |y| stops[y] = true }
       return if stops.empty?
       Docking.dock scr.lines, stops, scr.awidth, contrast

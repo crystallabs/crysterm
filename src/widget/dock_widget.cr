@@ -63,6 +63,23 @@ module Crysterm
       @close_button : Box?
       @float_button : Box?
 
+      # Per-button memo backing `#sync_titlebutton`. Holds the `Style` copy last
+      # pushed onto the button plus the inputs it was derived from (the chosen
+      # source `Style`'s identity, and the source's + bar's bg/fg). Steady state
+      # compares these and reuses the copy instead of duplicating a `Style` per
+      # button per frame.
+      private class TitlebuttonStyle
+        property src : ::Crysterm::Style?
+        property src_bg : Int32?
+        property src_fg : Int32?
+        property bar_bg : Int32?
+        property bar_fg : Int32?
+        property result : ::Crysterm::Style?
+      end
+
+      @close_button_style = TitlebuttonStyle.new
+      @float_button_style = TitlebuttonStyle.new
+
       # The bottom-right resize grip. Present only on a `#floatable?` dock and
       # shown only while floating (see `#refresh_grip`).
       getter size_grip : SizeGrip?
@@ -103,8 +120,8 @@ module Crysterm
           # legible under any theme instead of rendering as transparent "black
           # holes". An explicit `::close-button`/`::float-button` rule still
           # supplies the base look; only unset colors fall back to the bar.
-          sync_titlebutton @close_button, style.close_button
-          sync_titlebutton @float_button, style.float_button
+          sync_titlebutton @close_button, style.close_button, @close_button_style
+          sync_titlebutton @float_button, style.float_button, @float_button_style
           position_grip
         end
       end
@@ -245,15 +262,38 @@ module Crysterm
       # an explicit `::close-button`/`::float-button` rule if matched, else the
       # bar's own style, then fills any unset/terminal-default (`-1`) bg/fg from
       # the bar so a button never paints the terminal bg or hides its glyph.
-      private def sync_titlebutton(btn : Box?, sub : Style) : Nil
+      private def sync_titlebutton(btn : Box?, sub : Style, memo : TitlebuttonStyle) : Nil
         return unless btn
         bar = titlebar.style
-        st = sub.same?(style) ? bar.dup : sub.dup
+        # `sub.same?(style)` means no explicit `::close-button`/`::float-button`
+        # rule matched, so fall back to the bar's own style as the source.
+        src = sub.same?(style) ? bar : sub
+
+        # Steady state: the source object and the colors feeding the overlay are
+        # unchanged since last frame, so reuse the pushed copy — no dup. The
+        # cascade replaces sub-`Style` objects on recompute (never mutates them),
+        # so identity + bg/fg fully capture whether the output would differ.
+        if (cached = memo.result) &&
+           (last = memo.src) && last.same?(src) &&
+           memo.src_bg == src.bg && memo.src_fg == src.fg &&
+           memo.bar_bg == bar.bg && memo.bar_fg == bar.fg
+          btn.styles.normal = cached
+          return
+        end
+
+        st = src.dup
         bg = st.bg
         st.bg = bar.bg if bg.nil? || bg == -1
         fg = st.fg
         st.fg = bar.fg if fg.nil? || fg == -1
         btn.styles.normal = st
+
+        memo.src = src
+        memo.src_bg = src.bg
+        memo.src_fg = src.fg
+        memo.bar_bg = bar.bg
+        memo.bar_fg = bar.fg
+        memo.result = st
       end
 
       private def build_buttons

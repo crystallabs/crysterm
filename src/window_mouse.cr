@@ -128,6 +128,33 @@ module Crysterm
       @_mouse_captor = nil
     end
 
+    # Per-Window pooled mouse events (one per concrete class), reused across
+    # dispatches so a mouse report doesn't heap-allocate a fresh event object
+    # every time while a listener is installed — a screen-level `Event::Mouse`
+    # listener is routine (every pop-up/menu/combo installs one via
+    # `#on_press_outside`), and mouse motion is high-frequency. See
+    # `Event::Mouse#reset` for the retention caveat.
+    @_mouse_event : Crysterm::Event::Mouse?
+    @_mouse_over_event : Crysterm::Event::MouseOver?
+    @_mouse_move_event : Crysterm::Event::MouseMove?
+    @_mouse_out_event : Crysterm::Event::MouseOut?
+
+    private def mouse_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::Mouse
+      (@_mouse_event ||= Crysterm::Event::Mouse.new(ev)).reset ev
+    end
+
+    private def mouse_over_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseOver
+      (@_mouse_over_event ||= Crysterm::Event::MouseOver.new(ev)).reset ev
+    end
+
+    private def mouse_move_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseMove
+      (@_mouse_move_event ||= Crysterm::Event::MouseMove.new(ev)).reset ev
+    end
+
+    private def mouse_out_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseOut
+      (@_mouse_out_event ||= Crysterm::Event::MouseOut.new(ev)).reset ev
+    end
+
     # The raw mouse transport (terminal reporting, `gpm` reader, GUI cursor
     # shape) lives on the device (`Screen`, in `screen_mouse_device.cr`); this
     # surface delegates to it (see `window.cr`).
@@ -156,10 +183,11 @@ module Crysterm
     # A widget that wants to override a default can simply `accept` the
     # `Event::Mouse` in its own handler.
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
-      # Splat form so the `Mouse` event object is built only when a
-      # screen-level listener exists — mouse reports (especially motion) are
-      # high-frequency and mostly unsubscribed.
-      emit ::Crysterm::Event::Mouse, ev
+      # Reuse the pooled `Mouse` event (reset in place) instead of allocating a
+      # fresh object per report — a screen-level listener is routine, and mouse
+      # reports (especially motion) are high-frequency. `emit(type, event)`
+      # still early-outs when nothing is subscribed.
+      emit ::Crysterm::Event::Mouse, mouse_event(ev)
 
       # Focus in/out reports (mode 1004) share this channel but carry no
       # pointer position; surface on the screen and stop before hit-testing.
@@ -249,11 +277,12 @@ module Crysterm
       # `#disabled_interaction?`).
       return if disabled_interaction? w, ev
 
-      # Splat form: builds the `Mouse` event only if `w` has a listener; `nil`
-      # otherwise, so `me.try(&.accepted?)` correctly falls through to the
-      # default handling below.
-      me = w.emit ::Crysterm::Event::Mouse, ev
-      if me.try(&.accepted?)
+      # Reuse the pooled `Mouse` event. `emit(type, event)` returns it
+      # regardless of listeners, but `reset` cleared `accepted`, so with no
+      # handler (or a handler that didn't `accept`) `me.accepted?` is false and
+      # we correctly fall through to the default handling below.
+      me = w.emit ::Crysterm::Event::Mouse, mouse_event(ev)
+      if me.accepted?
         # A `draggable?` widget handling the press itself opts out of the
         # default drag. The drag was *armed* above, before the widget could
         # accept the event, so clear it here — otherwise a later motion would
@@ -292,10 +321,10 @@ module Crysterm
       captor = @_mouse_captor
       return false unless captor
       if ev.action.move?
-        captor.emit ::Crysterm::Event::Mouse, ev
+        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev)
         return true
       elsif ev.action.up?
-        captor.emit ::Crysterm::Event::Mouse, ev
+        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev)
         @_mouse_captor = nil
         return true
       elsif ev.action.down?
@@ -363,18 +392,19 @@ module Crysterm
     #   * Leaving the prior one    -> `Event::MouseOut`  on it.
     #   * Moving while staying on  -> `Event::MouseMove` (hovering) on it.
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
-      # Splat form so hover event objects are built only when subscribed —
-      # keeps the common (no handler) case allocation-free on pointer movement.
+      # Pooled hover events (reset in place) — `emit(type, event)` still
+      # early-outs when unsubscribed, keeping the common (no handler) case
+      # allocation-free on pointer movement.
       if w != @_hover
         if old = @_hover
-          old.emit ::Crysterm::Event::MouseOut, ev
+          old.emit ::Crysterm::Event::MouseOut, mouse_out_event(ev)
         end
         @_hover = w
         if w
-          w.emit ::Crysterm::Event::MouseOver, ev
+          w.emit ::Crysterm::Event::MouseOver, mouse_over_event(ev)
         end
       elsif w && ev.action.move?
-        w.emit ::Crysterm::Event::MouseMove, ev
+        w.emit ::Crysterm::Event::MouseMove, mouse_move_event(ev)
       end
     end
 
@@ -396,55 +426,87 @@ module Crysterm
     # effective layer (`hit_layer`) first, breaking ties within a layer by tree
     # order.
     def widget_at(x, y, skip : Widget? = nil) : Widget?
-      found = nil
-      found_key = {0, 0}
-      each_descendant do |el|
-        next if skip && el == skip
-        # The transient drag ghost is decorative, never a drop target.
-        next if (g = @_drag_ghost) && el == g
+      # Traverse without a captured `Proc`: `each_descendant do |el| … end`
+      # reified a heap closure (capturing `found`/`found_key`/`x`/`y`/`skip`)
+      # on every call — i.e. every mouse report including all motion. The scan
+      # accumulates the best hit in scratch ivars instead; dispatch is
+      # single-fiber synchronous, so reusing ivars across the recursion is safe.
+      @_hit_found = nil
+      @_hit_found_key = {0, 0}
+      children.each do |el|
+        hit_scan el, x, y, skip
+      end
+      @_hit_found
+    end
 
-        # Cheapest check first: hit-test against the widget's *painted* rectangle
-        # (`lpos`), not the raw `aleft/atop/awidth/aheight` geometry. `lpos` is
-        # what `_render` laid down: it folds in the margin shift AND the
-        # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
-        # viewport, so a scrolled list item is matched where it actually appears
-        # (and a `resizable` widget by its shrunk content box, not the full slot
-        # `awidth` reports). Raw geometry ignored all of that and hit-tested
-        # scrolled/shrunk children by their unscrolled, unclipped rectangle.
-        # `render_children` refreshes every descendant's `lpos` each frame, so it
-        # is current once the window has painted.
-        lp = el.lpos
-        if lp
-          next unless x >= lp.xi && x < lp.xl
-          next unless y >= lp.yi && y < lp.yl
-        elsif renders > 0
-          # The window has painted but this widget laid down nothing — scrolled or
-          # clipped out of view (or not yet rendered since being added). Not a hit.
-          next
-        else
-          # No paint yet (e.g. a direct `widget_at` before the first render): fall
-          # back to raw geometry, since there is no `lpos` to consult.
-          left = el.aleft
-          top = el.atop
-          next unless x >= left && x < left + el.awidth
-          next unless y >= top && y < top + el.aheight
-        end
+    # Scratch state for `#widget_at`'s allocation-free traversal: the best hit
+    # so far and its compositing layer key. Only valid for the duration of one
+    # synchronous `widget_at` call.
+    @_hit_found : Widget?
+    @_hit_found_key : Tuple(Int32, Int32) = {0, 0}
 
-        next unless el.wants_mouse?
-        # `#visible?` reflects only the widget's own flag, not its ancestors' —
-        # require the whole chain visible so a "shown" widget inside a hidden
-        # container (e.g. a non-current tab page) can't intercept clicks.
-        next unless displayed_in_tree? el
-
+    # Pre-order depth-first walk mirroring `Mixin::Children#each_descendant`
+    # (visit *el*, then recurse into its children in `@children` order), scoring
+    # each widget as a hit-test candidate into `@_hit_found`/`@_hit_found_key`.
+    # A widget that fails the candidate test still has its subtree scanned,
+    # exactly as the old `each_descendant`/`next` form did.
+    private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?) : Nil
+      if hit_candidate? el, x, y, skip
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
         key = hit_layer el
-        if found.nil? || key >= found_key
-          found = el
-          found_key = key
+        if @_hit_found.nil? || key >= @_hit_found_key
+          @_hit_found = el
+          @_hit_found_key = key
         end
       end
-      found
+      el.children.each do |c|
+        hit_scan c, x, y, skip
+      end
+    end
+
+    # Whether *el* itself is the topmost-eligible widget occupying (*x*, *y*)
+    # under the pointer — the per-widget body of the old `widget_at` loop, with
+    # `next` rewritten as `return false`. Preserves the exact hit-test order:
+    # `lpos` first, then `wants_mouse?`, then whole-chain visibility.
+    private def hit_candidate?(el : Widget, x : Int32, y : Int32, skip : Widget?) : Bool
+      return false if skip && el == skip
+      # The transient drag ghost is decorative, never a drop target.
+      return false if (g = @_drag_ghost) && el == g
+
+      # Cheapest check first: hit-test against the widget's *painted* rectangle
+      # (`lpos`), not the raw `aleft/atop/awidth/aheight` geometry. `lpos` is
+      # what `_render` laid down: it folds in the margin shift AND the
+      # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
+      # viewport, so a scrolled list item is matched where it actually appears
+      # (and a `resizable` widget by its shrunk content box, not the full slot
+      # `awidth` reports). Raw geometry ignored all of that and hit-tested
+      # scrolled/shrunk children by their unscrolled, unclipped rectangle.
+      # `render_children` refreshes every descendant's `lpos` each frame, so it
+      # is current once the window has painted.
+      lp = el.lpos
+      if lp
+        return false unless x >= lp.xi && x < lp.xl
+        return false unless y >= lp.yi && y < lp.yl
+      elsif renders > 0
+        # The window has painted but this widget laid down nothing — scrolled or
+        # clipped out of view (or not yet rendered since being added). Not a hit.
+        return false
+      else
+        # No paint yet (e.g. a direct `widget_at` before the first render): fall
+        # back to raw geometry, since there is no `lpos` to consult.
+        left = el.aleft
+        top = el.atop
+        return false unless x >= left && x < left + el.awidth
+        return false unless y >= top && y < top + el.aheight
+      end
+
+      return false unless el.wants_mouse?
+      # `#visible?` reflects only the widget's own flag, not its ancestors' —
+      # require the whole chain visible so a "shown" widget inside a hidden
+      # container (e.g. a non-current tab page) can't intercept clicks.
+      return false unless displayed_in_tree? el
+      true
     end
 
     # The compositing layer a hit-test candidate is painted into, as a sortable

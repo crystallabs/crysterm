@@ -48,6 +48,13 @@ module Crysterm
 
       getter gauges : Array(Item) = [] of Item
 
+      # Bumped whenever the gauge set changes (append / value set / clear), so
+      # `#render`'s content-cache key can detect a data change with a cheap
+      # integer compare instead of mapping `@gauges` to a fresh tuple array every
+      # frame. Mutating an `Item` directly (rather than through `#[]=`) won't
+      # register — go through the documented setters.
+      @version = 0
+
       def initialize(@minimum : Number = 0.0, @maximum : Number = 100.0,
                      @label_width : Int32 = 0, **box)
         @minimum = @minimum.to_f
@@ -60,6 +67,7 @@ module Crysterm
       def add_gauge(label : String, value : Number = 0, color : Int32? = nil) : Item
         item = Item.new label, value, color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
         @gauges << item
+        @version &+= 1
         request_render
         item
       end
@@ -68,6 +76,7 @@ module Crysterm
       def []=(index : Int, value : Number) : Nil
         if item = @gauges[index]?
           item.value = value.to_f
+          @version &+= 1
           request_render
         end
       end
@@ -76,24 +85,27 @@ module Crysterm
       def []=(label : String, value : Number) : Nil
         if item = @gauges.find { |i| i.label == label }
           item.value = value.to_f
+          @version &+= 1
           request_render
         end
       end
 
       def clear : Nil
         @gauges.clear
+        @version &+= 1
         request_render
       end
 
       # Snapshot of every input `build_content` reads. Rebuilding the tagged
       # content allocates per-cell arrays + a `String.build` per gauge every
-      # frame; skip it while nothing observable changed. `Item` is a reference
-      # type mutated in place (`item.value=`), so snapshot its fields by value
-      # rather than storing the array reference.
-      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Array(Tuple(String, Float64, Int32)))? = nil
+      # frame; skip it while nothing observable changed. The gauge set is
+      # represented by `@version` (bumped in `#add_gauge`/`#[]=`/`#clear`) rather
+      # than mapping `@gauges` to a fresh tuple array, so the key stays
+      # allocation-free per frame.
+      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32)? = nil
 
       def render
-        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @gauges.map { |g| {g.label, g.value, g.color} }}
+        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @version}
         if key != @content_key
           @content_key = key
           self.content = build_content

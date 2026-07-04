@@ -108,9 +108,30 @@ module Crysterm
         @device : Media::Type?
 
         # Tick positions for the current frame, computed once per render (right
-        # after `#compute_ranges`) and reused by the plot/margins/chrome.
+        # after `#compute_ranges`) and reused by the plot/margins/chrome. Refilled
+        # in place by `#axis_values` only when the resolved range / tick params
+        # change (see `#refresh_ticks`).
         @x_ticks = [] of Float64
         @y_ticks = [] of Float64
+
+        # Formatted tick-label strings, parallel to `@x_ticks`/`@y_ticks`. Rebuilt
+        # in place alongside the ticks so `#margins` and `#draw_chrome` reuse them
+        # instead of re-`format`ting (and re-allocating `Array(String)`s) per frame.
+        @x_labels = [] of String
+        @y_labels = [] of String
+
+        # Legend entry strings (`" name  "` per series), rebuilt only when the
+        # series set changes rather than interpolated every frame in `#draw_chrome`.
+        @legend_labels = [] of String
+
+        # Bumped whenever the plotted data changes (series added / cleared /
+        # mutated-then-`#refresh`ed) — i.e. everywhere `plot.invalidate_paint` is
+        # called. Keys the tick/label and legend caches.
+        @data_version = 0
+
+        # Cache-validity stamps for the derived tick/label arrays and the legend.
+        @ticks_key : Tuple(Float64, Float64, Float64, Float64, Int32, String, Int32, String)?
+        @legend_version : Int32?
 
         def initialize(
           @title : String = "",
@@ -134,6 +155,7 @@ module Crysterm
           s = Series.new name, points, color || PALETTE[@series.size % PALETTE.size], kind
           @series << s
           # The plot Canvas draws the series, so its content is now stale.
+          @data_version &+= 1
           plot?.try &.invalidate_paint
           request_render
           s
@@ -154,6 +176,7 @@ module Crysterm
         # Removes all series.
         def clear_series : Nil
           @series.clear
+          @data_version &+= 1
           plot?.try &.invalidate_paint
           request_render
         end
@@ -161,16 +184,19 @@ module Crysterm
         # Re-renders (e.g. after mutating a series' `points` in place).
         def refresh : Nil
           # Series points may have been mutated in place, so the plot is stale.
+          @data_version &+= 1
           plot?.try &.invalidate_paint
           request_render
         end
 
         def render(with_children = true)
           compute_ranges
-          # Tick positions are stable for the whole frame; compute each axis
-          # once and reuse in #margins, #paint_plot and #draw_chrome.
-          @x_ticks = axis_values(axis_x, @xmin, @xmax)
-          @y_ticks = axis_values(axis_y, @ymin, @ymax)
+          # Tick positions + label strings are stable for the whole frame and only
+          # change when the resolved range / tick params / series set change;
+          # refill the reused ivars in place (no per-frame arrays) for #margins,
+          # #paint_plot and #draw_chrome.
+          refresh_ticks
+          refresh_legend
           lm, tm, rm, bm = margins
           # Position the plot Canvas inside the chrome margins (no width/height
           # -> auto-stretch to the remaining interior).
@@ -204,9 +230,37 @@ module Crysterm
           @ymax = @ymin + 1.0 if @ymax <= @ymin
         end
 
-        private def axis_values(axis : Axis, mn : Float64, mx : Float64) : Array(Float64)
+        # Refills `@x_ticks`/`@y_ticks` and their parallel label strings in place,
+        # but only when the resolved ranges, tick counts, or axis titles change —
+        # so a steady chart does no per-frame `Array(Float64)`/`Array(String)`
+        # allocation for its ticks or labels.
+        private def refresh_ticks : Nil
+          key = {@xmin, @xmax, @ymin, @ymax,
+                 axis_x.tick_count, axis_x.title, axis_y.tick_count, axis_y.title}
+          return if @ticks_key == key
+          @ticks_key = key
+          fill_axis @x_ticks, @x_labels, axis_x, @xmin, @xmax
+          fill_axis @y_ticks, @y_labels, axis_y, @ymin, @ymax
+        end
+
+        private def fill_axis(ticks : Array(Float64), labels : Array(String),
+                              axis : Axis, mn : Float64, mx : Float64) : Nil
           n = Math.max(2, axis.tick_count)
-          Array.new(n) { |i| mn + (mx - mn) * i / (n - 1) }
+          ticks.clear
+          labels.clear
+          n.times do |i|
+            v = mn + (mx - mn) * i / (n - 1)
+            ticks << v
+            labels << axis.format(v)
+          end
+        end
+
+        # Rebuilds the legend entry strings only when the series set changes.
+        private def refresh_legend : Nil
+          return if @legend_version == @data_version
+          @legend_version = @data_version
+          @legend_labels.clear
+          @series.each { |s| @legend_labels << " #{s.name}  " }
         end
 
         # --- plot (drawn on the Canvas) ---------------------------------------
@@ -243,15 +297,13 @@ module Crysterm
         # Left margin = widest Y label; top = title + legend rows; bottom = 1 (X
         # labels); right = enough for the last X label's overhang.
         private def margins : Tuple(Int32, Int32, Int32, Int32)
-          y_labels = @y_ticks.map { |v| axis_y.format v }
-          lm = y_labels.max_of?(&.size) || 0
+          lm = @y_labels.max_of?(&.size) || 0
           lm += 1 if axis_y.title.empty? # a hair of breathing room
           lm = lm.clamp(0, Math.max(0, (awidth - iwidth) // 2))
 
           tm = (@title.empty? ? 0 : 1) + (show_legend? && !@series.empty? ? 1 : 0)
 
-          x_labels = @x_ticks.map { |v| axis_x.format v }
-          rm = ((x_labels.last?.try(&.size) || 0) // 2).clamp(1, 4)
+          rm = ((@x_labels.last?.try(&.size) || 0) // 2).clamp(1, 4)
 
           {lm, tm, rm, 1}
         end
@@ -274,29 +326,29 @@ module Crysterm
           if show_legend? && !@series.empty?
             ly = ct + (@title.empty? ? 0 : 1)
             x = cl
-            @series.each do |s|
+            @series.each_with_index do |s, i|
               break if x >= cr
               put_text x, ly, "■", overlay_attr(s.color), cl, cr
-              label = " #{s.name}  "
+              label = @legend_labels[i]? || " #{s.name}  "
               put_text x + 1, ly, label, overlay_attr(LABEL_COLOR), cl, cr
               x += 1 + label.size
             end
           end
 
           # Y axis labels (right-aligned in the left margin, at each tick row).
-          @y_ticks.each do |val|
+          @y_ticks.each_with_index do |val, i|
             frac = (@ymax - val) / (@ymax - @ymin)
             row = plot_t + (frac * (plot_h - 1)).round.to_i
             next if row < plot_t || row >= plot_b
-            label = axis_y.format val
+            label = @y_labels[i]? || axis_y.format(val)
             put_text plot_l - label.size, row, label, overlay_attr(LABEL_COLOR), cl, plot_l
           end
 
           # X axis labels (centered under each tick column, on the bottom row).
-          @x_ticks.each do |val|
+          @x_ticks.each_with_index do |val, i|
             frac = (val - @xmin) / (@xmax - @xmin)
             col = plot_l + (frac * (plot_w - 1)).round.to_i
-            label = axis_x.format val
+            label = @x_labels[i]? || axis_x.format(val)
             x = col - label.size // 2
             put_text x, plot_b, label, overlay_attr(LABEL_COLOR), plot_l, cr
           end

@@ -52,6 +52,28 @@ module Crysterm
         PNGGIF::Pixel.new(r, g, b)
       end
 
+      # Parses the `;`-separated decimal CSI parameters in `data[ps...j]` (only
+      # digits and `;`) directly into the reused *into* array — one entry per
+      # field, an empty field yielding `0` — instead of `String.new + split + map`
+      # per sequence. Matches `"…".split(';').map { |p| p.empty? ? 0 : p.to_i }`.
+      private def self.parse_csi_params(data : Bytes, ps : Int32, j : Int32, into : Array(Int32)) : Array(Int32)
+        into.clear
+        cur = 0
+        k = ps
+        while k < j
+          b = data[k]
+          if b == 0x3B # ';'
+            into << cur
+            cur = 0
+          elsif 0x30 <= b <= 0x39
+            cur = cur * 10 + (b - 0x30)
+          end
+          k += 1
+        end
+        into << cur
+        into
+      end
+
       # Resolves an extended-colour SGR selector's sub-parameters (those after a
       # `38`/`48`, starting at *i*) into the nearest 16-colour `ANSI_PALETTE`
       # index (0..15) plus the number of sub-parameters consumed. Handles `5;n`
@@ -151,6 +173,10 @@ module Crysterm
         # and 0 is truthy in Crystal, so `|| 1` alone wouldn't catch it.
         amt = ->(v : Int32?) { n = v || 1; n < 1 ? 1 : n }
 
+        # Reused across every CSI so the parameter list isn't reallocated per
+        # sequence; consumed fully within each iteration before the next reparse.
+        nums = [] of Int32
+
         i = 0
         n = data.size
         while i < n
@@ -166,7 +192,7 @@ module Crysterm
             while j < n && (data[j] == 0x3B || (0x30 <= data[j] <= 0x39))
               j += 1
             end
-            nums = String.new(data[ps...j]).split(';').map { |p| p.empty? ? 0 : (p.to_i? || 0) }
+            parse_csi_params(data, ps, j, nums)
             # Skip any intermediate bytes (0x20..0x2F) preceding the final byte
             # (e.g. the space in DECSCUSR `ESC[1 q`).
             while j < n && 0x20 <= data[j] <= 0x2F
@@ -273,6 +299,10 @@ module Crysterm
         black = PNGGIF::Pixel.new(0, 0, 0)
         bmp = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, black) }
 
+        # Memoize the decoded glyph per distinct `Char` across all cells, so the
+        # `char.to_s` key allocation happens once per glyph, not once per cell.
+        glyph_cache = {} of Char => Array(Array(Int32))
+
         rows.times do |cy|
           cols.times do |cx|
             c = cells[{cx, cy}]?
@@ -282,7 +312,7 @@ module Crysterm
             # Reverse video (SGR 7): swap ink/paper. Resolved here (after defaults)
             # so a reversed default cell becomes black-on-white, as on a real VT.
             fg_rgb, bg_rgb = bg_rgb, fg_rgb if crev
-            g = font.glyph(char.to_s)
+            g = glyph_cache[char] ||= font.glyph(char.to_s)
             gw, gh = dims(g)
             ch.times do |dy|
               drow = bmp[cy * ch + dy]

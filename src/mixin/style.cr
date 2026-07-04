@@ -135,6 +135,18 @@ module Crysterm
       # are picked up without any explicit invalidation.
       @_frame_style_stamp : Int32 = -1
 
+      # Memo for the unstyled-floor reverse-video fallback copy (see
+      # `#reverse_highlight_fallback`): the source per-state `Style` it was
+      # derived from, and the derived copy. The frame-style memo above caps
+      # resolution at once per widget per frame, but its stamp mismatches every
+      # new frame — so a focused/selected floor widget re-`dup`ed ~5 heap objects
+      # per frame forever. Keying on source-style identity survives across frames
+      # instead: the cascade *replaces* per-state style objects (`Styles#deep_dup`
+      # per recompute), so a `same?` hit means the copy is still valid. Dropped by
+      # `#invalidate_frame_style`, which fires on every style-swapping change.
+      @_reverse_fallback_src : ::Crysterm::Style?
+      @_reverse_fallback_copy : ::Crysterm::Style?
+
       # Drops the frame-memoized style resolution (and the insets derived from
       # it — see `Widget#frame_insets`). Called by every same-frame-visible
       # style change: `#state=`, `#style=`, `#styles=`, and the CSS cascade via
@@ -143,6 +155,8 @@ module Crysterm
       def invalidate_frame_style : Nil
         @_frame_style = nil
         @_frame_insets = nil
+        @_reverse_fallback_src = nil
+        @_reverse_fallback_copy = nil
       end
 
       # If specific style is not set, it will depend on current state
@@ -310,11 +324,26 @@ module Crysterm
       # Shared core of `#selection_highlight_fallback`/`#focus_highlight_fallback`:
       # at the unstyled floor, a state style with no visible distinction of its
       # own (no fg/bg/reverse) is shown via reverse-video; otherwise *st* is
-      # returned untouched. Delegates to `Style#with_reverse_fallback`, which
-      # dups before toggling so a shared style is never mutated in place.
+      # returned untouched.
+      #
+      # Inlines `Style#with_reverse_fallback` (dup + `reverse = true`) so the copy
+      # can be memoized by source identity in `@_reverse_fallback_src` /
+      # `@_reverse_fallback_copy`: a focused/selected floor widget otherwise
+      # re-dups ~5 heap objects every frame (the frame-style memo re-resolves each
+      # new frame). The cascade replaces the backing per-state style on recompute,
+      # so a `same?` hit means the copy is still current; `#invalidate_frame_style`
+      # drops the memo on any style-swapping change.
       private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if @css_styled
-        st.with_reverse_fallback
+        return st if st.visibly_styled?
+        if (src = @_reverse_fallback_src) && src.same?(st) && (copy = @_reverse_fallback_copy)
+          return copy
+        end
+        copy = st.dup
+        copy.reverse = true
+        @_reverse_fallback_src = st
+        @_reverse_fallback_copy = copy
+        copy
       end
 
       # Version with keeping @state and @style in sync:

@@ -682,7 +682,7 @@ module Crysterm
     # tail of the three line-emitting branches in `#_wrap_content` (no-wrap
     # slice, mid-line wrap cut, and final remainder), which differ only in how
     # `line` was produced.
-    private def push_real_line(outbuf : CLines, ftor, rtof, no : Int32, line : String) : Nil
+    private def push_real_line(outbuf : CLines, ftor, rtof, no : Int32, line : String, width : Int32? = nil) : Nil
       outbuf.push line
       ftor[no].push(outbuf.size - 1)
       rtof.push(no)
@@ -692,7 +692,11 @@ module Crysterm
       # `outbuf.reduce { |c, l| Math.max str_width(l), c }`. The one later
       # in-place mutation of a pushed line (`outbuf[...] += line` for a trailing
       # SGR-only tail) only appends zero-width SGR, so the width is unchanged.
-      w = str_width line
+      #
+      # `width`, when given, is the aligned line's already-known display width
+      # from `#aligned_with_width` — passing it avoids re-`str_width`ing (and
+      # thus re-stripping the SGR of) a line the aligner already measured (G4).
+      w = width || str_width(line)
       outbuf.max_width = w if w > outbuf.max_width
     end
 
@@ -889,8 +893,22 @@ module Crysterm
       outbuf
     end
 
-    # Aligns content
+    # Aligns content. Public entry point returning just the aligned string
+    # (used by specs and any external caller). `_wrap_content` uses
+    # `#aligned_with_width` instead, which also hands back the aligned line's
+    # already-known display width so `push_real_line` needn't re-`str_width`
+    # (re-strip the SGR of) it.
     def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
+      aligned_with_width(line, width, align, align_left_too)[0]
+    end
+
+    # Aligns `line` and returns `{result, width}` where `width` is the result's
+    # display columns when cheaply known here (padding branches, and the
+    # unpadded returns that already measured `line`), else `nil` — the caller
+    # then falls back to `str_width`. Avoids the duplicate SGR-strip a separate
+    # `str_width(result)` in `push_real_line` would pay for every aligned line
+    # carrying color (finding G4).
+    private def aligned_with_width(line, width, align = Tput::AlignFlag::None, align_left_too = false) : Tuple(String, Int32?)
       # Right-align separator `{|}` (Blessed): text after it is pushed to the
       # right edge. Distributes content within the line independent of the
       # line's own alignment, so handle before the align-direction early-returns
@@ -898,18 +916,20 @@ module Crysterm
       if @parse_tags && line.includes?("{|}")
         cl = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
         if res = split_right_align(line, cl, width)
-          return res
+          # Result width isn't cheaply `width` here (a too-wide split leaves the
+          # pad at 0), so leave it unknown and let the caller measure.
+          return {res, nil}
         end
       end
 
-      return line if align.none?
+      return {line, nil} if align.none?
 
       # Plain left alignment pads nothing — only HCenter/Right (or a forced
       # `{left}` via `align_left_too`) add spaces. Bail before measuring width: a
       # widget's default `@align` carries `Left`, the common case, skipping a
       # `str_width` call on every aligned line.
       if !align_left_too && (align & (Tput::AlignFlag::HCenter | Tput::AlignFlag::Right)).none?
-        return line
+        return {line, nil}
       end
 
       # Only run the SGR-stripping `gsub` when the line actually contains an
@@ -934,24 +954,41 @@ module Crysterm
       # no usable width yet, i.e. `width == 0`.
       s = (@resizable && width == 0) ? 0 : width - len
 
-      return line if len == 0
-      return line if s < 0
+      # Nothing to pad: return `line` unchanged, but pass on its now-known width
+      # (`0` when all-SGR; `len` otherwise) so the caller skips a re-measure.
+      return {line, 0} if len == 0
+      return {line, len} if s < 0
 
       # The empty space produced by alignment is filled with the widget's
       # `Style#fill_char` (default `' '`), so a non-space fill (e.g. a dotted
-      # leader) lines up with how the render loop fills trailing cells.
-      fc = style.fill_char.to_s
+      # leader) lines up with how the render loop fills trailing cells. Kept as a
+      # `Char` (no `#to_s` String) and appended directly into the builder below.
+      fc = style.fill_char
+      # The padded result's width is `len + s` only when each fill cell is one
+      # column (the ASCII space/dot common case); for a wide fill char leave it
+      # unknown so the caller re-measures exactly.
+      padded_width = fc.ascii? ? len + s : nil
 
       if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
         # Split free space across both sides; the odd extra cell goes right
         # (Blessed's convention), so a centered line still fills `width` exactly
-        # instead of falling one cell short on odd free space.
-        left = fc * (s // 2)
-        right = fc * (s - s // 2)
-        return left + line + right
+        # instead of falling one cell short on odd free space. Built in one
+        # `String.build` pass appending pad chars directly, instead of two
+        # `fc * n` Strings plus a `left + line + right` concat.
+        lpad = s // 2
+        rpad = s - lpad
+        res = String.build(line.bytesize + s) do |io|
+          lpad.times { io << fc }
+          io << line
+          rpad.times { io << fc }
+        end
+        return {res, padded_width}
       elsif align.right?
-        s = fc * s
-        return s + line
+        res = String.build(line.bytesize + s) do |io|
+          s.times { io << fc }
+          io << line
+        end
+        return {res, padded_width}
       elsif align_left_too && align.left?
         # Left align is visually the same as no align, but center/right padding
         # affects widget size, so pad {left} for uniformity too — only when
@@ -960,20 +997,23 @@ module Crysterm
         # position in text widgets undesirably). Ensures {left|center|right}
         # behave identically re. row width. To see old behavior, comment this
         # elseif and check test/widget-list.cr's first list element.
-        s = fc * s
-        return line + s
+        res = String.build(line.bytesize + s) do |io|
+          io << line
+          s.times { io << fc }
+        end
+        return {res, padded_width}
       elsif @parse_tags && (line.includes?('{') || line.includes?('}'))
         # XXX This is basically Tput::AlignFlag::Spread, but not sure
         # how to put that as a flag yet. Maybe this (or another)
         # widget flag could mean to spread words to fill up the whole
         # line, increasing spaces between them?
         if res = split_right_align(line, cline, width)
-          return res
+          return {res, nil}
         end
         # Otherwise (lone `{` or `}`): falls through to `return line` below.
       end
 
-      line
+      {line, len}
     end
 
     # Right-aligns text after a `{...}` split: the segment before the first
@@ -984,13 +1024,44 @@ module Crysterm
     # `line` is the raw (possibly SGR-carrying) line; `cline` is its SGR-stripped
     # form for width measurement. Returns `nil` when there's no usable two-sided
     # split (e.g. a lone `{` or `}`), and the caller leaves `line` unchanged.
+    # Index of the first `{` or `}` in `s` at or after `from`, or `nil` if none.
+    # The delimiter set of `split(/\{|\}/)`, located by `#index` (no regex, no
+    # MatchData) so `#split_right_align` can pick out just the segments it needs.
+    private def brace_after(s : String, from : Int32) : Int32?
+      i = s.index('{', from)
+      j = s.index('}', from)
+      return j unless i
+      return i unless j
+      Math.min(i, j)
+    end
+
     private def split_right_align(line, cline, width) : String?
-      parts = line.split(/\{|\}/)
-      cparts = cline.split(/\{|\}/)
-      if cparts[0]? && cparts[2]?
-        pad = style.fill_char.to_s * Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
-        "#{parts[0]}#{pad}#{parts[2]}"
-      end
+      # Reproduce `split(/\{|\}/)`'s parts[0] (before the first brace) and
+      # parts[2] (between the second and third brace, or to the string's end)
+      # via index math, slicing only the two needed segments instead of
+      # materializing two full split arrays. Braces never occur inside SGR runs,
+      # so `line` and `cline` carry the same delimiters (at different indices);
+      # widths are measured on the SGR-stripped `cline`, output taken from `line`.
+      cb1 = brace_after(cline, 0)
+      return nil unless cb1
+      cb2 = brace_after(cline, cb1 + 1)
+      # No second brace -> `split` yields no parts[2]; matches the old
+      # `cparts[2]?` guard.
+      return nil unless cb2
+      cb3 = brace_after(cline, cb2 + 1)
+      cpart0 = cline[0...cb1]
+      cpart2 = cline[(cb2 + 1)...(cb3 || cline.size)]
+
+      lb1 = brace_after(line, 0)
+      lb2 = lb1 ? brace_after(line, lb1 + 1) : nil
+      # `line` shares `cline`'s brace count, so both are present here.
+      return nil unless lb1 && lb2
+      lb3 = brace_after(line, lb2 + 1)
+      lpart0 = line[0...lb1]
+      lpart2 = line[(lb2 + 1)...(lb3 || line.size)]
+
+      pad = style.fill_char.to_s * Math.max(width - str_width(cpart0) - str_width(cpart2), 0)
+      "#{lpart0}#{pad}#{lpart2}"
     end
 
     # Rebuilds widget content from the in-place-mutated `@_clines.fake` lines

@@ -57,6 +57,12 @@ module Crysterm
       # `checkable=` is toggled more than once.
       @checkable_wired = false
 
+      # Memo backing the `PreRender` `::title` sub-style push: the last
+      # `style.title` object seen and the border-stripped copy derived from it.
+      # Rebuilt only when `style.title` returns a different object.
+      @_title_style_src : ::Crysterm::Style?
+      @_title_style_copy : ::Crysterm::Style?
+
       # Checked state of a `#checkable?` group; when false the children render
       # disabled.
       getter? checked : Bool = true
@@ -91,9 +97,20 @@ module Crysterm
             # box around the title text. Strip it on an own copy, as
             # `Menu#render_style_for` does for its separator rule (GroupBox-specific,
             # so done here rather than via `apply_substyle`).
-            t = t.dup
-            t.border = false
-            @_label.try(&.styles.normal = t)
+            #
+            # Cache the stripped copy: the cascade replaces the `::title`
+            # sub-`Style` object on recompute (never mutates it), so refresh the
+            # copy only when `style.title` returns a different object. Steady
+            # state reuses it instead of duplicating a `Style` per frame.
+            unless t.same?(@_title_style_src)
+              @_title_style_src = t
+              c = t.dup
+              c.border = false
+              @_title_style_copy = c
+            end
+            if c = @_title_style_copy
+              @_label.try(&.styles.normal = c)
+            end
           end
         end
 

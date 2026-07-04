@@ -289,8 +289,8 @@ module Crysterm
       # Fast path: terminal output is overwhelmingly ASCII, so feed those bytes
       # straight as chars without materializing a `String` (control/escape bytes
       # are all ASCII, so this is safe for the parser). On a multibyte lead byte
-      # (>= 0x80), decode the *remainder* via `String` as before, skipping the
-      # per-feed copy for the all-ASCII case.
+      # (>= 0x80), decode that one glyph in place and resume the ASCII loop —
+      # never copying the remainder of the chunk through a `String`.
       ptr = complete.to_unsafe
       n = complete.size
       i = 0
@@ -300,8 +300,49 @@ module Crysterm
           handle_char b.unsafe_chr
           i += 1
         else
-          String.new(complete[i, n - i]).each_char { |c| handle_char c }
-          break
+          # Decode one multibyte UTF-8 glyph straight from the byte slice.
+          # `split_incomplete_utf8` guarantees whole sequences at the chunk
+          # boundary, but a malformed lead *within* the chunk (a stray
+          # continuation byte, a truncated lead followed by ASCII, or a bad
+          # continuation byte) is handled by emitting U+FFFD and advancing one
+          # byte — matching `String`'s replacement behaviour without the copy.
+          if b < 0xC0
+            handle_char '�' # stray continuation byte, no lead
+            i += 1
+          else
+            if b < 0xE0
+              cp = (b & 0x1F).to_u32
+              len = 2
+            elsif b < 0xF0
+              cp = (b & 0x0F).to_u32
+              len = 3
+            else
+              cp = (b & 0x07).to_u32
+              len = 4
+            end
+            ok = true
+            j = 1
+            while j < len
+              if i + j >= n
+                ok = false # truncated sequence (a following ASCII byte made the chunk "complete")
+                break
+              end
+              cb = ptr[i + j]
+              unless 0x80 <= cb <= 0xBF
+                ok = false # not a continuation byte
+                break
+              end
+              cp = (cp << 6) | (cb & 0x3F)
+              j += 1
+            end
+            if ok
+              handle_char cp.unsafe_chr
+              i += len
+            else
+              handle_char '�'
+              i += 1
+            end
+          end
         end
       end
 
@@ -402,7 +443,12 @@ module Crysterm
         @osc_esc = false
         @osc_string = false
       when '(', ')', '*', '+'
-        @charset_index = {'(' => 0, ')' => 1, '*' => 2, '+' => 3}[c]
+        @charset_index = case c
+                         when '(' then 0
+                         when ')' then 1
+                         when '*' then 2
+                         else          3
+                         end
         @state = :charset
       when '#', ' ', '%'
         # 3-byte intermediate escapes whose final byte must be swallowed, not
@@ -468,14 +514,29 @@ module Crysterm
       # A DCS/SOS/PM/APC string was only swallowed for its terminator; never
       # interpret its payload as an OSC title.
       return if @osc_string
-      # Only window/icon title (codes 0, 1, 2) are acted on. Materialized once
-      # here (on the rare terminator), not per appended byte.
-      buf = @osc_buf.to_s
-      if idx = buf.index(';')
-        code = buf[0, idx]
-        text = buf[(idx + 1)..]
-        @on_title.try(&.call(text)) if code == "0" || code == "1" || code == "2"
+      # Only window/icon title (codes 0, 1, 2) are acted on. Parse the numeric
+      # code in place from the raw buffer (like `csi_param_raw`) and materialize
+      # the title `String` only when the code is a title code AND a handler is
+      # installed — so OSC 7/133 (cwd/prompt marks modern shells spam) and the
+      # no-listener case allocate nothing.
+      handler = @on_title
+      return unless handler
+      ptr = @osc_buf.buffer
+      size = @osc_buf.bytesize
+      code = 0
+      ndigits = 0
+      idx = 0
+      while idx < size
+        b = ptr[idx]
+        break if b == ';'.ord
+        return unless '0'.ord <= b <= '9'.ord         # non-numeric code ⇒ not a title
+        code = code * 10 + (b - '0'.ord) if code <= 9 # cap accumulation (only 0/1/2 matter; avoids overflow)
+        ndigits += 1
+        idx += 1
       end
+      # Need at least one digit, a `;` terminator (idx < size), and a title code.
+      return unless ndigits > 0 && idx < size && (code == 0 || code == 1 || code == 2)
+      handler.call(String.new(ptr + idx + 1, size - idx - 1))
     end
 
     private def handle_csi(c : Char) : Nil
@@ -1033,7 +1094,8 @@ module Crysterm
         # (treating ED 3 as ED 2 + scrollback), so a bare `CSI 3 J` to trim
         # history wrongly lost on-window content. Live rows are exactly
         # `@lines[@ybase, @rows]`; just drop everything above them.
-        @lines = @lines[@ybase, @rows].dup
+        # `Array#[start, count]` already returns a fresh array — no `.dup` needed.
+        @lines = @lines[@ybase, @rows]
         @ybase = 0
         @ydisp = 0
       end

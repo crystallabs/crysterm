@@ -70,7 +70,22 @@ module Crysterm
 
       # Stacked-mode slices, laid left-to-right. When set (and non-empty) the
       # gauge renders as a stack and `#value` is ignored.
-      property segments : Array(Segment)?
+      getter segments : Array(Segment)?
+
+      # Bumped whenever `#segments` is replaced, so `#render`'s content-cache key
+      # can detect a stacked-data change with a cheap integer compare instead of
+      # snapshotting the array (an `@segments.dup` per frame). Callers that mutate
+      # the array in place should assign a fresh/updated array through `#segments=`
+      # (or bump via that setter) for the change to register.
+      @segments_version = 0
+
+      # Replaces the stacked segments, bumping `@segments_version` so the next
+      # `#render` rebuilds the cached content.
+      def segments=(segs : Array(Segment)?) : Array(Segment)?
+        @segments = segs
+        @segments_version &+= 1
+        segs
+      end
 
       @value : Float64
 
@@ -117,13 +132,13 @@ module Crysterm
       # Snapshot of every input `build_content` reads. Rebuilding the tagged
       # content string allocates per-cell arrays + a `String.build` per row every
       # frame; `set_content` already dedups an identical result, but not the
-      # build itself. Skip it while nothing observable changed. `@segments.dup`
-      # snapshots the array by value so an in-place `push`/replace is still
-      # caught (a `Segment` is a struct, so array elements can't mutate in place).
-      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Array(Segment)?)? = nil
+      # build itself. Skip it while nothing observable changed. The stacked
+      # segments are represented by `@segments_version` (bumped in `#segments=`)
+      # rather than an `@segments.dup`, so the key stays allocation-free per frame.
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32)? = nil
 
       def render
-        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments.dup}
+        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version}
         if key != @content_key
           @content_key = key
           self.content = build_content

@@ -132,7 +132,7 @@ module Crysterm
         ci = first_col
         while ci < row.size
           str << ' ' unless ci == first_col
-          str << pad_cell(row[ci], @maxes[ci]? || cell_width(row[ci]))
+          pad_cell_to str, row[ci], @maxes[ci]? || cell_width(row[ci])
           ci += 1
         end
         str << ' '
@@ -206,8 +206,20 @@ module Crysterm
     end
 
     # Pads/clips a single cell's text to `width` columns according to the
-    # widget's horizontal alignment.
+    # widget's horizontal alignment, returning the result as a new `String`.
+    # Prefer `#pad_cell_to` on the render path, which writes straight into the
+    # row builder without this intermediate allocation; this wrapper is kept for
+    # callers/tests that want the padded cell in isolation.
     def pad_cell(cell : String, width : Int32) : String
+      String.build { |io| pad_cell_to io, cell, width }
+    end
+
+    # Writes *cell*, padded/clipped to *width* columns per the widget's
+    # horizontal alignment, straight to *io* — no per-cell `String` (and, on the
+    # clip path, no `graphemes` array / per-grapheme `String`) intermediates.
+    # This is the hot path: `#render_row` calls it per cell per row rebuild, i.e.
+    # N×M times per `set_data` and per `ListTable` horizontal-scroll tick.
+    def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
       clen = cell_width cell
       align = cell_align
 
@@ -215,56 +227,53 @@ module Crysterm
         # Distribute padding per alignment; for centered text an odd remainder
         # goes to the right side.
         pad = width - clen
-        left, right =
+        left =
           if align.h_center?
-            l = pad // 2
-            {l, pad - l}
+            pad // 2
           elsif align.right?
-            {pad, 0}
+            pad
           else
-            {0, pad}
+            0
           end
-
-        String.build do |s|
-          left.times { s << ' ' }
-          s << cell
-          right.times { s << ' ' }
-        end
+        left.times { io << ' ' }
+        io << cell
+        (pad - left).times { io << ' ' }
       elsif clen > width
         # Trim by accumulating display width until the content fits `width`
         # columns: from the front for centered/right-aligned text, from the end
         # otherwise. Wide (CJK/emoji) graphemes count as 2 columns under
         # `full_unicode?`, so trimming by grapheme width (not character count)
-        # keeps wide-char cells aligned. Graphemes are never split.
+        # keeps wide-char cells aligned. Graphemes are never split. The kept
+        # run is emitted as a single `byte_slice` view — no per-grapheme copies.
         fu = full_unicode?
-        graphemes = cell.graphemes
         if align.h_center? || align.right?
-          # Keep the trailing `width` columns: drop leading graphemes.
-          kept = 0
-          start = graphemes.size
-          graphemes.reverse_each do |g|
-            gs = g.to_s
-            gw = fu ? Unicode.display_width(gs) : gs.size
-            break if kept + gw > width
-            kept += gw
-            start -= 1
+          # Keep the trailing `width` columns: drop leading graphemes until the
+          # remaining suffix fits. The suffix is maximal with width <= *width*,
+          # equivalently the smallest leading run whose width reaches
+          # `clen - width` (see the reverse-greedy proof this mirrors).
+          drop = clen - width
+          acc = 0
+          start_byte = 0
+          cell.each_grapheme do |g|
+            break if acc >= drop
+            acc += fu ? Unicode.width(g) : g.size
+            start_byte += g.bytesize
           end
-          graphemes[start..].join
+          io << cell.byte_slice(start_byte)
         else
           # Keep the leading `width` columns: drop trailing graphemes.
           kept = 0
-          stop = 0
-          graphemes.each do |g|
-            gs = g.to_s
-            gw = fu ? Unicode.display_width(gs) : gs.size
+          end_byte = 0
+          cell.each_grapheme do |g|
+            gw = fu ? Unicode.width(g) : g.size
             break if kept + gw > width
             kept += gw
-            stop += 1
+            end_byte += g.bytesize
           end
-          graphemes[0, stop].join
+          io << cell.byte_slice(0, end_byte)
         end
       else
-        cell
+        io << cell
       end
     end
 

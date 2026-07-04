@@ -89,6 +89,21 @@ module Crysterm
         end
       end
 
+      # Cached value string and the `@value` it was built for. `#render` draws it
+      # every frame when `#show_value?`; `@value.to_s` only needs to rerun when
+      # the value changes.
+      @value_text : String?
+      @value_text_for : Int32?
+
+      # Returns `@value.to_s`, rebuilding only when the value changed.
+      private def value_text : String
+        if @value_text_for != @value || (cached = @value_text).nil?
+          @value_text_for = @value
+          @value_text = cached = @value.to_s
+        end
+        cached
+      end
+
       # Handle offset (in cells) from the low end of a track `avail` cells long.
       private def handle_offset(avail : Int32) : Int32
         return 0 if value_span == 0 || avail <= 0
@@ -101,40 +116,47 @@ module Crysterm
         @page_step > 0 ? @page_step : Math.max(@step, 1)
       end
 
+      # Reused scratch for the (at most two) tick-mark edge rows/columns, so
+      # `#draw_ticks` doesn't allocate a fresh `[] of Int32` every frame while
+      # ticks are enabled. Only one branch runs per call; `.clear` + refill makes
+      # it safe to share across the horizontal/vertical paths.
+      @tick_edges = [] of Int32
+
       # Draws tick marks along the requested edges of the groove. Skips the
       # handle cell so the handle stays visible even on a one-row/column slider.
       private def draw_ticks(xi, xl, yi, yl)
         return if value_span == 0
         interval = effective_tick_interval
         attr = sattr style
+        edges = @tick_edges
 
         if @orientation.horizontal?
           avail = xl - xi - 1
           return if avail <= 0
-          rows = [] of Int32
-          rows << yi if @tick_position.above? || @tick_position.both?
-          rows << (yl - 1) if @tick_position.below? || @tick_position.both?
+          edges.clear
+          edges << yi if @tick_position.above? || @tick_position.both?
+          edges << (yl - 1) if @tick_position.below? || @tick_position.both?
           hx = xi + handle_offset(avail)
           tv = @minimum
           while tv <= @maximum
             tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless tx == hx
-              rows.each { |ty| window.fill_region attr, @tick_char, tx, tx + 1, ty, ty + 1 }
+              edges.each { |ty| window.fill_region attr, @tick_char, tx, tx + 1, ty, ty + 1 }
             end
             tv += interval
           end
         else
           avail = yl - yi - 1
           return if avail <= 0
-          cols = [] of Int32
-          cols << xi if @tick_position.above? || @tick_position.both?
-          cols << (xl - 1) if @tick_position.below? || @tick_position.both?
+          edges.clear
+          edges << xi if @tick_position.above? || @tick_position.both?
+          edges << (xl - 1) if @tick_position.below? || @tick_position.both?
           hy = (yl - 1) - handle_offset(avail)
           tv = @minimum
           while tv <= @maximum
             ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless ty == hy
-              cols.each { |cx| window.fill_region attr, @tick_char, cx, cx + 1, ty, ty + 1 }
+              edges.each { |cx| window.fill_region attr, @tick_char, cx, cx + 1, ty, ty + 1 }
             end
             tv += interval
           end
@@ -161,7 +183,7 @@ module Crysterm
           draw_ticks(xi, xl, yi, yl) unless @tick_position.none?
 
           if show_value?
-            txt = @value.to_s
+            txt = value_text
             cy = yi + (yl - yi - 1) // 2
             # Stamp the track attr too, not just the glyph: the center row also
             # carries the handle cell, and writing only the char left a digit on

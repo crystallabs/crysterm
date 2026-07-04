@@ -40,6 +40,12 @@ module Crysterm
       At    # top-left at an explicit `point` (e.g. the mouse cursor)
     end
 
+    # Shared `prefer:` list for the common "open below, flip above on overflow"
+    # policy (drop-downs, date pickers). A frozen module constant so call sites
+    # in `Popup#render`/paint loops don't heap-allocate a fresh `[Below, Above]`
+    # array on every placement.
+    BELOW_ABOVE = [Side::Below, Side::Above]
+
     # Returns the absolute top-left `{x, y}` for a `size`-sized overlay placed
     # against `anchor`, within `bounds`.
     #

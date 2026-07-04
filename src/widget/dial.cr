@@ -62,6 +62,25 @@ module Crysterm
         POINTERS[(frac * steps).round.to_i % POINTERS.size]
       end
 
+      # Cached value strings (plain + focused-bracketed form) and the `@value`
+      # they were built for. `#render` draws one of them every frame when
+      # `#show_value?`; interpolating `"‹#{@value}›"` / `@value.to_s` only needs
+      # to rerun when the value actually changes.
+      @value_plain : String?
+      @value_bracketed : String?
+      @value_text_for : Int32?
+
+      # Returns the value string for the current focus state, rebuilding the
+      # cached pair only when `@value` changed since the last call.
+      private def value_text : String
+        if @value_text_for != @value || @value_plain.nil?
+          @value_text_for = @value
+          @value_plain = @value.to_s
+          @value_bracketed = "‹#{@value}›"
+        end
+        (focused? ? @value_bracketed : @value_plain) || @value.to_s
+      end
+
       def render
         with_inner_coords do |xi, xl, yi, yl|
           window.fill_region sattr(style), style.fill_char, xi, xl, yi, yl
@@ -80,8 +99,7 @@ module Crysterm
           # keep the pointer rather than let the number overwrite it.
           if show_value? && (ty = yl - 1) != cy
             # Bracket the number while focused to show the dial is active.
-            txt = focused? ? "‹#{@value}›" : @value.to_s
-            draw_centered_text ty, xi, xl, txt
+            draw_centered_text ty, xi, xl, value_text
           end
         end
       end

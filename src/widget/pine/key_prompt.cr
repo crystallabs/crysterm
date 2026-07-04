@@ -117,8 +117,11 @@ module Crysterm
         def on_keypress(e)
           char = e.char
           return if char == '\0'
-          target = char.to_s.downcase
-          choice = @choices.find { |c| c.key.downcase == target }
+          # Compare the pressed `Char` against each single-character choice key
+          # directly (both lowercased as `Char`s), avoiding a `String` per keypress
+          # and per choice.
+          dc = char.downcase
+          choice = @choices.find { |c| c.key.size == 1 && c.key[0].downcase == dc }
           return unless choice
           choose choice
         end

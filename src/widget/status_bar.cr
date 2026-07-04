@@ -37,6 +37,12 @@ module Crysterm
       # message, not a newer one.
       @message_gen = 0
 
+      # Cached left-truncated permanent string plus the `(avail, source)` it was
+      # built for, so a steady-state overflowing status bar doesn't slice a fresh
+      # substring every frame.
+      @_trunc : String = ""
+      @_trunc_key : Tuple(Int32, String)?
+
       def initialize(**box)
         super **box
         # Colors come from the CSS theme (`StatusBar { ... }`).
@@ -110,8 +116,17 @@ module Crysterm
           text = @permanent_text
           # Right-aligned: on overflow drop the *left* end so the tail (the most
           # recently added sections) stays visible, rather than truncating the
-          # right end by pinning the start to `xi`.
-          text = text[(text.size - avail)..] if text.size > avail
+          # right end by pinning the start to `xi`. The sliced tail is cached
+          # against `(avail, source)` so an overflowing bar doesn't re-slice each
+          # frame.
+          if text.size > avail
+            key = {avail, text}
+            if @_trunc_key != key
+              @_trunc_key = key
+              @_trunc = text[(text.size - avail)..]
+            end
+            text = @_trunc
+          end
           draw_text_run yi, xl - text.size, text, xl, sattr(style)
         end
       end

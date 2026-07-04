@@ -323,16 +323,29 @@ module Crysterm
 
       property char : Char
       property key : ::Tput::Key?
-      property sequence : Array(Char)
+
+      # Raw input sequence backing `#sequence`. Stored nilable and materialized
+      # lazily: plain typing carries `nil` here (the parser passes no array via
+      # `Tput::InputEvent#sequence?`), so an ordinary keypress allocates no
+      # `[@char]` array unless a consumer actually reads `#sequence`.
+      @sequence : Array(Char)?
 
       # The rich keyboard event when an enhanced protocol is active, else `nil`.
       getter key_event : ::Tput::KeyEvent?
 
-      def initialize(@char, @key = nil, sequence : Array(Char)? = nil, @key_event = nil)
-        # Assign in the body (rather than as a `@sequence = [@char]` default arg):
-        # referencing `@char` from a default argument trips Crystal's
-        # "used before initialized" analysis when called without `sequence`.
-        @sequence = sequence || [@char]
+      def initialize(@char, @key = nil, @sequence : Array(Char)? = nil, @key_event = nil)
+      end
+
+      # Raw input sequence for this key. Lazily materializes the one-element
+      # `[@char]` fallback on first read (and caches it), so plain typing stays
+      # allocation-free until something asks for the sequence.
+      def sequence : Array(Char)
+        @sequence ||= [@char]
+      end
+
+      # Sets the raw input sequence (preserved from the old `property sequence`).
+      def sequence=(sequence : Array(Char)) : Array(Char)
+        @sequence = sequence
       end
 
       # The active modifiers, or `nil` for legacy input.
@@ -413,6 +426,18 @@ module Crysterm
       property mouse : ::Tput::Mouse::Event
 
       def initialize(@mouse)
+      end
+
+      # Re-targets this (pooled) event at a new underlying `mouse` report and
+      # clears any prior `accept`. Lets a `Window` reuse one `Mouse` (and one
+      # each of its `MouseOver`/`MouseMove`/`MouseOut` subclasses) across
+      # dispatches instead of allocating a fresh event per report while a
+      # listener is installed. Caveat: a handler that *retains* the event will
+      # see its fields mutate on the next report — handlers must copy anything
+      # they need to keep past their own invocation.
+      def reset(@mouse : ::Tput::Mouse::Event) : self
+        @accepted = false
+        self
       end
 
       # The kind of action (Down/Up/Move/WheelUp/WheelDown).

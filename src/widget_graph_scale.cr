@@ -50,7 +50,9 @@ module Crysterm
             while j < n && colors[j] == color
               j += 1
             end
-            io << "{#{color}-fg}" if color
+            if color
+              io << '{' << color << "-fg}"
+            end
             (i...j).each { |k| io << cells[k] }
             io << "{/}" if color
             i = j
@@ -59,12 +61,26 @@ module Crysterm
 
         # Centers `text` within a field of `width` cells (truncating if longer),
         # padding with spaces. Used to place value/category labels under bars.
+        # Returns a new `String`; prefer `#center_to` on the render path.
         def self.center(text : String, width : Int32) : String
-          return "" if width <= 0
-          return text[0, width] if text.size >= width
+          String.build { |io| center_to io, text, width }
+        end
+
+        # Writes `text`, centered within a field of `width` cells (truncating if
+        # longer), straight to *io* — pads are emitted char-by-char rather than
+        # via `" " * n` + concatenation, so a per-frame caption row builds with
+        # no intermediate `String`s.
+        def self.center_to(io : IO, text : String, width : Int32) : Nil
+          return if width <= 0
+          if text.size >= width
+            io << text[0, width]
+            return
+          end
           pad = width - text.size
           left = pad // 2
-          (" " * left) + text + (" " * (pad - left))
+          left.times { io << ' ' }
+          io << text
+          (pad - left).times { io << ' ' }
         end
 
         # Formats a numeric value compactly: integers lose their `.0`, others
@@ -139,17 +155,39 @@ module Crysterm
         # separated by `bar_spacing` blank columns. A blank glyph carries no color
         # so coalesced color runs stay tight.
         private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
-          # Pre-reserve the known final length so this per-frame rebuild doesn't
-          # realloc its backing as it grows via `<<`.
-          cap = n <= 0 ? 0 : n * @bar_width + (n - 1) * @bar_spacing
-          cells = Array(Char).new(cap)
-          colors = Array(String?).new(cap)
-          n.times do |i|
-            glyph, color = yield i
-            @bar_width.times { cells << glyph; colors << (glyph == ' ' ? nil : color) }
-            @bar_spacing.times { cells << ' '; colors << nil } if i < n - 1
+          # Stream the tagged row straight into the builder, coalescing runs of
+          # same-colored cells as we go (`open_color` is the color of the tag
+          # currently open, `nil` = none). This drops the two per-row scratch
+          # `Array`s the old `Scale.tagged_row` path materialized first — a live
+          # chart rebuilds this per row per data push. Output is byte-identical
+          # to feeding `tagged_row` the equivalent cells/colors.
+          String.build do |io|
+            open_color : String? = nil
+            n.times do |i|
+              glyph, color = yield i
+              cell_color = glyph == ' ' ? nil : color
+              @bar_width.times do
+                if cell_color != open_color
+                  io << "{/}" if open_color
+                  if c = cell_color
+                    io << '{' << c << "-fg}"
+                  end
+                  open_color = cell_color
+                end
+                io << glyph
+              end
+              if i < n - 1
+                @bar_spacing.times do
+                  if open_color
+                    io << "{/}"
+                    open_color = nil
+                  end
+                  io << ' '
+                end
+              end
+            end
+            io << "{/}" if open_color
           end
-          String.build { |io| Scale.tagged_row(io, cells, colors) }
         end
 
         # Builds one caption row: each bar's text (yielded for bar `i`), centered
@@ -158,8 +196,8 @@ module Crysterm
         private def field_line(n : Int32, &) : String
           String.build do |io|
             n.times do |i|
-              io << Scale.center(yield(i), @bar_width)
-              io << " " * @bar_spacing if i < n - 1
+              Scale.center_to(io, yield(i), @bar_width)
+              @bar_spacing.times { io << ' ' } if i < n - 1
             end
           end
         end

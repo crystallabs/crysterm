@@ -417,12 +417,12 @@ module Crysterm
     # inter-stroke timeout). A consumed key is `accept`ed so it doesn't also
     # reach the focused widget.
     private def feed_shortcut(window : ::Crysterm::Window, e : ::Crysterm::Event::KeyPress) : Nil
-      # A press that can't advance this action's shortcut — a dropped auto-repeat,
-      # a disabled action, or one pressed out of its focus context — neither
-      # extends nor begins a shortcut, so it clears any half-entered chord prefix
-      # (matching the doc above). Without this a stale prefix could complete a
-      # chord spuriously after intervening keys or a focus change.
-      if (e.repeat? && !auto_repeat?) || !enabled || !shortcut_active?(window)
+      # A press that can't advance this action's shortcut — a dropped auto-repeat
+      # or a disabled action — neither extends nor begins a shortcut, so it
+      # clears any half-entered chord prefix (matching the doc above). Without
+      # this a stale prefix could complete a chord spuriously after intervening
+      # keys or a focus change.
+      if (e.repeat? && !auto_repeat?) || !enabled
         @shortcut_pending.delete window
         return
       end
@@ -437,15 +437,39 @@ module Crysterm
       end
 
       pending = @shortcut_pending[window]?
-      # First try to extend a chord already in progress.
-      return if pending && advance_shortcut(window, e, pending + [k])
+      # Cheap, allocation-free key-match reject hoisted *ahead of* the
+      # (focus-walking) `shortcut_active?` probe: a key that can neither extend
+      # the pending prefix nor begin any shortcut is irrelevant to this action,
+      # so bail without probing focus. Whether or not the action is active, such
+      # a key clears any stale prefix and triggers nothing, so the outcome is
+      # identical to the old order — only the focus walk is skipped.
+      extends_pending =
+        if p = pending
+          @shortcuts.any? { |seq| seq.size > p.size && shortcut_prefix?(seq, p) && seq[p.size] == k }
+        else
+          false
+        end
+      begins_new = @shortcuts.any? { |seq| seq.first? == k }
+      unless extends_pending || begins_new
+        @shortcut_pending.delete window if pending
+        return
+      end
+
+      # The key could match; now gate on focus context. A press out of its
+      # focus context still clears any half-entered prefix.
+      unless shortcut_active? window
+        @shortcut_pending.delete window
+        return
+      end
+
+      # First try to extend a chord already in progress. `extends_pending` is
+      # only ever true when `pending` is set, so this rebind never falls through.
+      if extends_pending && (p = pending)
+        return if advance_shortcut(window, e, p + [k])
+      end
       # Otherwise drop any stale prefix and try *k* as a fresh first stroke.
       @shortcut_pending.delete window if pending
-      # Allocation-free pre-reject: unless some shortcut *begins* with *k*, there
-      # is no candidate to materialize (`advance_shortcut` would only return
-      # false), so skip building the throwaway `[k]` array.
-      return unless @shortcuts.any? { |seq| seq.first? == k }
-      advance_shortcut window, e, [k]
+      advance_shortcut window, e, [k] if begins_new
     end
 
     # Matches *candidate* (the strokes entered so far) against the shortcut list:
@@ -496,22 +520,35 @@ module Crysterm
       in ShortcutContext::Application, ShortcutContext::Window
         true
       in ShortcutContext::Widget
-        shortcut_hosts(window).any? &.focused?
+        host_focused?(window, &.focused?)
       in ShortcutContext::WidgetWithChildren
-        shortcut_hosts(window).any? { |h| h.focused? || descendant_focused?(h) }
+        host_focused?(window) { |h| h.focused? || descendant_focused?(h) }
       end
     end
 
-    # The widgets that gate a `Widget`-context shortcut on *window*: hosts the
-    # action was added to, falling back to the host passed at
-    # `#install_shortcut` time for that specific window.
-    private def shortcut_hosts(window : ::Crysterm::Window) : Enumerable(Widget)
-      # Only hosts on *window* gate its shortcut: an associated widget focused on
-      # another window must not let the shortcut fire here (a multi-window action
-      # is installed on each window separately).
-      hosts = @associated_widgets.select { |w| w.window? == window }
-      return hosts unless hosts.empty?
-      (h = @shortcut_host_by_window[window]?) ? [h] : [] of Widget
+    # Non-allocating replacement for `shortcut_hosts(window).any?(&pred)`.
+    #
+    # The gating hosts for a `Widget`-context shortcut on *window* are the
+    # associated widgets that live on *window* (an associated widget focused on
+    # another window must not fire this shortcut — a multi-window action is
+    # installed per window). If none is associated on *window*, we fall back to
+    # the host recorded at `#install_shortcut` time for that window.
+    #
+    # The old form materialized that host list (`Set#select` → fresh `Array`,
+    # plus `[h]`/`[] of Widget` on the fallback) on *every* keypress per
+    # Widget-context action. This iterates `@associated_widgets` in place —
+    # `Set#each` yields (no closure allocation) — and evaluates *pred* directly.
+    private def host_focused?(window : ::Crysterm::Window, & : Widget -> Bool) : Bool
+      any_on_window = false
+      @associated_widgets.each do |w|
+        next unless w.window? == window
+        any_on_window = true
+        return true if yield w
+      end
+      # Only fall back to the install-time host when *no* associated widget is
+      # on this window — mirrors the old `hosts.empty?` guard exactly.
+      return false if any_on_window
+      (h = @shortcut_host_by_window[window]?) ? (yield h) : false
     end
 
     # Whether the focused widget of *host*'s window is *host* itself or a

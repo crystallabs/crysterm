@@ -57,3 +57,41 @@ bench "Ansi (1 cell/pixel)", ansi
   g.bitmap = make_bitmap COLS * sx, ROWS * sy
   bench "Glyph #{mode}", g
 end
+
+# --- E1: per-streamed-frame video-source bitmap construction --------------
+# The streaming decoder turns a raw RGBA `@buf` into a `PNGGIF::Bitmap` every
+# tick. Old path allocated a fresh h-array-of-w-arrays bitmap per frame
+# (`to_bitmap`); the ping-pong path fills two preallocated buffers in place.
+VS = Widget::Media::VideoSource
+VW = 320
+VH = 180
+vbuf = Bytes.new(VW * VH * 4)
+VW.times { |i| vbuf[i] = (i & 0xff).to_u8 }
+
+def alloc_bench(label, iters = 2000, &)
+  yield # warm
+  GC.collect
+  before = GC.stats.total_bytes
+  t0 = Time.instant
+  iters.times { yield }
+  dt = Time.instant - t0
+  alloc = GC.stats.total_bytes - before
+  printf "%-28s %8.1f µs/frame   %8.0f B/frame\n",
+    label, dt.total_microseconds / iters, alloc.to_f / iters
+end
+
+alloc_bench "E1 to_bitmap (old, alloc)" { VS.to_bitmap vbuf, VW, VH }
+
+pa = VS.blank_bitmap VW, VH
+pb = VS.blank_bitmap VW, VH
+toggle = false
+alloc_bench "E1 ping-pong (new, reuse)" do
+  toggle = !toggle
+  VS.fill_bitmap (toggle ? pa : pb), vbuf, VW, VH
+end
+
+# --- E2: compose exact-fit early-return vs letterbox place_at -------------
+srcbmp = make_bitmap 200, 200
+srcpng = PNGGIF::PNG.from_frames([{srcbmp, 100}], 200, 200)
+alloc_bench "E2 compose Stretch (early)" { Widget::Media::Fitting.compose srcpng, srcbmp, COLS, ROWS, Widget::Media::Fit::Stretch }
+alloc_bench "E2 compose Contain (place_at)" { Widget::Media::Fitting.compose srcpng, srcbmp, COLS, ROWS, Widget::Media::Fit::Contain }

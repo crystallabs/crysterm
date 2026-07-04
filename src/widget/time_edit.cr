@@ -51,8 +51,13 @@ module Crysterm
       # before it), so the inclusive end-columns are 2/5/7 (or 2/4 for `HH:MM`).
       # `nil` past the text leaves the active section untouched (see
       # `Mixin::SectionedField#section_from_columns`).
+      # Inclusive section end-columns for `HH:MM:SS` / `HH:MM`, hoisted so a mouse
+      # press/wheel doesn't rebuild the array each time.
+      SECTION_ENDS_SECONDS    = [2, 5, 7]
+      SECTION_ENDS_NO_SECONDS = [2, 4]
+
       private def section_at(x : Int32) : Int32?
-        section_from_columns x, show_seconds? ? [2, 5, 7] : [2, 4]
+        section_from_columns x, show_seconds? ? SECTION_ENDS_SECONDS : SECTION_ENDS_NO_SECONDS
       end
 
       private def update_content : Nil

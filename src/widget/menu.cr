@@ -105,6 +105,43 @@ module Crysterm
       # separator?" with an O(1) set lookup instead of a per-row scan every frame.
       @separator_items = Set(Widget).new
 
+      # Visible-action snapshot and the per-row left/right text columns, rebuilt
+      # only in `#sync_items` (i.e. on structural/visibility/label change), not
+      # per frame. `#render` calls `#fit_width`/`#fit_height`/`#size_rows` every
+      # frame; recomputing `@actions.select &.visible?` and `#row_columns` there
+      # was pure per-frame garbage. See ALLOCS.md group J (J2/J4).
+      @visible_actions = [] of Action
+      @row_lefts = [] of String
+      @row_rights = [] of String
+
+      # Reused scratch for the separator row-index array handed to `#dock_rows`
+      # each frame, instead of a throwaway `compact_map` (ALLOCS.md J1).
+      @dock_rows_buf = [] of Int32
+
+      # `#size_rows` dirty guard: the inner width it last laid out at, and a flag
+      # set whenever the rows themselves changed (`#sync_items`). When neither
+      # changed, the per-row content strings are identical, so the whole layout
+      # loop (and its two allocations per row) is skipped (ALLOCS.md J2/J3).
+      @last_laid_inner : Int32 = -1
+      @rows_dirty = true
+
+      # Cache for `#item_on_surface`: the surfaced (`bg`-filled) `Style` per
+      # source-style object, valid while the menu surface `bg` is unchanged.
+      # Source per-state styles are stable across frames (until the cascade
+      # re-runs, which replaces them with new objects, missing the identity
+      # cache); keyed by identity. Cleared when the surface `bg` changes
+      # (ALLOCS.md J5).
+      @surface_cache : Hash(::Crysterm::Style, ::Crysterm::Style)?
+      @surface_cache_bg : Int32? = nil
+      @surface_cache_valid = false
+
+      # Cache for `#separator_render_style` (ALLOCS.md J6): the derived line
+      # style, invalidated when the source `style.separator` object or the menu
+      # surface `bg` changes (both change identity/value on cascade).
+      @sep_style_src : ::Crysterm::Style?
+      @sep_style_bg : Int32? = nil
+      @sep_style_out : ::Crysterm::Style?
+
       # Click-away dismissal for the submenu chain, installed (on the top-level
       # menu only) while a submenu is open, to dismiss the chain when the user
       # clicks away — e.g. switching tabs. A shared `Overlay::DismissSession`
@@ -385,9 +422,15 @@ module Crysterm
         # onto a clipped second line (the year-dropdown "invisible rows" bug).
         inner = content_width
         return if inner < 1
-        acts = visible_actions
+        acts = @visible_actions
         return unless acts.size == @items.size
-        lefts, rights = row_columns(acts)
+        # Nothing to re-lay unless the width changed or the rows were rebuilt
+        # (`#sync_items`). The per-row content is a pure function of `inner` and
+        # the cached `@row_lefts`/`@row_rights`, so an unchanged frame would
+        # rebuild identical strings only for `set_content` to no-op them.
+        return if inner == @last_laid_inner && !@rows_dirty
+        lefts = @row_lefts
+        rights = @row_rights
         @items.each_with_index do |it, i|
           next if @separator_items.includes? it
           l = lefts[i]
@@ -398,6 +441,8 @@ module Crysterm
           content = pad >= 1 ? "#{l}#{" " * pad}#{r}" : head_within("#{l}#{r}", inner)
           it.set_content(content) unless it.content == content
         end
+        @last_laid_inner = inner
+        @rows_dirty = false
       end
 
       # Renders the menu, then docks its separator rules to the vertical borders
@@ -411,8 +456,14 @@ module Crysterm
         size_separators
         ret = super
         unless @separator_items.empty?
-          rows = @separator_items.compact_map { |itm| itm.@lpos.try &.yi }
-          dock_rows rows
+          buf = @dock_rows_buf
+          buf.clear
+          @separator_items.each do |itm|
+            if yi = itm.@lpos.try &.yi
+              buf << yi
+            end
+          end
+          dock_rows buf
         end
         ret
       end
@@ -494,9 +545,23 @@ module Crysterm
       private def item_on_surface(st : Style) : Style
         bg = st.bg
         return st unless (bg.nil? || bg == -1) && (surface = style.bg)
-        out = st.dup
-        out.bg = surface
-        out
+        # Only themed menus reach past the early return (a floor menu has no
+        # surface `bg`), and themed items carry a stable per-state `Style` object
+        # across frames — so an identity-keyed cache holds one surfaced copy per
+        # row and reuses it every frame instead of dup-ing per row per frame. A
+        # changed surface `bg` (or a cascade, which mints new item styles) drops
+        # the stale entries.
+        cache = @surface_cache ||= Hash(::Crysterm::Style, ::Crysterm::Style).new.compare_by_identity
+        if !@surface_cache_valid || surface != @surface_cache_bg
+          cache.clear
+          @surface_cache_bg = surface
+          @surface_cache_valid = true
+        end
+        cache.fetch(st) do
+          out = st.dup
+          out.bg = surface
+          cache[st] = out
+        end
       end
 
       # The style for a separator row: the `─` rule sits on the menu's own
@@ -508,14 +573,24 @@ module Crysterm
       # `#item_render_style`.
       private def separator_render_style : Style
         sep = style.separator
+        bg = style.bg
+        # Reuse the derived line style while its inputs are unchanged — the source
+        # `style.separator` object (replaced on cascade) and the menu surface
+        # `bg`. Rebuilt only when one of those changes, instead of dup-ing per
+        # separator per frame.
+        if (cached = @sep_style_out) && sep.same?(@sep_style_src) && bg == @sep_style_bg
+          return cached
+        end
         line = sep.dup
         line.border = false
-        bg = style.bg
         # A separator rule that set a (divider) background different from the menu
         # surface supplies the line color; otherwise fall back to the foreground.
         sep_bg = sep.bg
         line.fg = (sep_bg && sep_bg != bg) ? sep_bg : sep.fg
         line.bg = bg
+        @sep_style_src = sep
+        @sep_style_bg = bg
+        @sep_style_out = line
         line
       end
 
@@ -548,8 +623,12 @@ module Crysterm
         end
       end
 
+      # The visible actions, in display order. Cached: rebuilt only in
+      # `#sync_items` (structural / visibility / label change), never per frame —
+      # `#render` reads it through `#fit_width`/`#fit_height`/`#size_rows` every
+      # frame. Callers must treat the returned array as read-only.
       private def visible_actions : Array(Action)
-        @actions.select &.visible?
+        @visible_actions
       end
 
       # The left (checkbox slot + label) and right (shortcut / ▶) text columns for
@@ -577,8 +656,15 @@ module Crysterm
       # `#size_rows` stretches it to the final width at render. Separators are a
       # placeholder here, sized by `#size_separators`.
       private def sync_items
-        acts = visible_actions
+        # Refresh the cached visible-action snapshot and its per-row text columns
+        # here (the single structural-change point), so the per-frame render path
+        # reads them without recomputing. Mark the row layout dirty so the next
+        # `#size_rows` re-lays even at an unchanged width.
+        acts = @visible_actions = @actions.select &.visible?
         lefts, rights = row_columns(acts)
+        @row_lefts = lefts
+        @row_rights = rights
+        @rows_dirty = true
 
         rows = acts.map_with_index do |a, i|
           if a.separator?
