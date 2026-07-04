@@ -306,31 +306,78 @@ module Crysterm
         Background    # an image painted *behind* a widget's content (CSS `background-image`)
       end
 
-      # The default backend when `type:` is not given, resolved from the config
-      # registry (key `image.backend`, env `CRYSTERM_MEDIA_BACKEND`, CLI
-      # `--media-backend`). A concrete value (e.g. `kitty`) is used as-is; `auto`
-      # runs `resolve`, picking the content kind from *file* (video resolves with
-      # `Content::Video`, anything else with `Content::Image`). Unrecognized
-      # values fall back to `Ansi`.
+      # File extensions that denote an animated image, selecting the
+      # `Content::AnimatedImage` ranking (which favors backends that animate
+      # natively, e.g. iTerm2 for GIFs). A `.gif` is treated as animated even
+      # when a particular file happens to be a single frame — the ranking still
+      # renders a still correctly; only the backend *preference order* differs.
+      # Ambiguous containers can't be told apart by extension — a `.png` that is
+      # really APNG, an animated `.webp` — so auto-detection stays with
+      # `Content::Image` for those; a caller that needs the animated ranking must
+      # pass an explicit `type:` rather than rely on it being inferred.
+      ANIMATED_IMAGE_EXTENSIONS = %w[gif apng]
+
+      # Whether *file*'s extension denotes an animated image (see
+      # `ANIMATED_IMAGE_EXTENSIONS`).
+      def self.animated_image?(file : String) : Bool
+        ANIMATED_IMAGE_EXTENSIONS.includes? File.extname(file).lstrip('.').downcase
+      end
+
+      # The default backend when `type:` is not given: classifies *file*'s content
+      # kind *by extension* — video, animated image, else still image — and defers
+      # to `resolve`, which applies the `media.backend` pin (config /
+      # `CRYSTERM_MEDIA_BACKEND` / `--media-backend`), `media.exclude`, and
+      # terminal-capability ranking uniformly — the same rules `Graph::Canvas` /
+      # `Video` / `Background` get, by construction. Content that extension can't
+      # disambiguate (APNG-in-`.png`, animated `.webp`) is the caller's job to
+      # declare via an explicit `type:`.
       def self.default_type(file : String? = nil) : Type
-        backend = Crysterm::Config.media_backend
-        # A non-`auto` choice shares its name with the matching `Type`.
-        return Type.parse?(backend.to_s) || Type::Ansi unless backend.auto?
-        content = (file && VideoSource.video?(file)) ? Content::Video : Content::Image
+        content =
+          if file.nil?
+            Content::Image
+          elsif VideoSource.video?(file)
+            Content::Video
+          elsif animated_image?(file)
+            Content::AnimatedImage
+          else
+            Content::Image
+          end
         resolve content
       end
 
-      # The best backend `Type` for *content* on the current terminal.
+      # The backend `Type` for *content*, honoring the user's configuration. This
+      # is the **single** point where a backend is chosen, so every caller — the
+      # image factory (`default_type`), `Graph::Canvas`, `Video`, `Background` —
+      # gets identical rules and none can silently diverge:
       #
-      # Walks the ranked candidate list for that content type (most
-      # native/optimized first; see `candidates_for`), skips any excluded via
-      # `image.exclude`, and returns the first the terminal supports — falling
-      # back to the universal cell grid (`Ansi`) when nothing else qualifies.
+      # 1. A non-`auto` `media.backend` pin (config / `CRYSTERM_MEDIA_BACKEND` /
+      #    `--media-backend`), when *compatible* with *content* (see
+      #    `backend_applicable?`), is authoritative: returned verbatim, *skipping*
+      #    the terminal-capability gate. The user named a backend, so it is used
+      #    even where the terminal can't drive it — failing loudly beats a silent
+      #    downgrade. Unknown names fall back to `Ansi`. A pin that *can't* serve
+      #    the category (e.g. `sixel` for a `Background`, which must sit under
+      #    text) is ignored, and resolution continues at (2) for that category.
+      # 2. Otherwise (`auto`, or an inapplicable pin) it walks the ranked candidate
+      #    list for *content* (most native/optimized first; see `candidates_for`),
+      #    skips any excluded via `media.exclude`, and returns the first the
+      #    terminal supports — falling back to the universal cell grid (`Ansi`)
+      #    when nothing qualifies.
       #
       # *tput* describes the terminal (the global window's by default); facts
       # come from `Tput::Emulator`/`Features`, so no probing happens here. With
       # no window/terminal handle, the last non-excluded candidate is returned.
       def self.resolve(content : Content = Content::Image, tput : ::Tput? = nil) : Type
+        # (1) An explicit, non-`auto` pin overrides content ranking *and* terminal
+        # capability — but only where it's compatible with the content category,
+        # so a background never gets a can't-sit-under-text backend forced on it.
+        backend = Crysterm::Config.media_backend
+        unless backend.auto?
+          pinned = Type.parse?(backend.to_s) || Type::Ansi
+          return pinned if backend_applicable?(pinned, content)
+        end
+
+        # (2) Auto: rank by content, honor `media.exclude`, gate on capability.
         tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
         excluded = excluded_types
         candidates = candidates_for(content).reject { |t| excluded.includes?(t) }
@@ -383,6 +430,37 @@ module Crysterm
           # buffer and compose under content normally. Exclude `kitty` via
           # `image.exclude` to force the cell-grid look.
           [Type::Kitty, Type::Glyph, Type::Ansi]
+        end
+      end
+
+      # Whether *type* is *compatible* with the *content* category — the gate a
+      # non-`auto` `media.backend` pin is subject to, distinct from
+      # `candidates_for` (the narrower auto ranking) and `backend_supported?`
+      # (terminal capability). Only `Background` constrains it: a background
+      # composites *under* the cell grid, so it needs a backend whose pixels sit
+      # beneath text — a cell-grid family (`Ansi`/`Glyph`, painted into the
+      # buffer) or `Kitty` (a negative-`z` terminal layer). Sixel/iTerm/ReGIS/Tek
+      # own their region and the external overlays paint over it, so none can be
+      # a background; a pin to one of those is *not* honored there (normal
+      # resolution proceeds instead). Every other content kind accepts any pinned
+      # backend — an incapable terminal then fails visibly rather than silently.
+      def self.backend_applicable?(type : Type, content : Content) : Bool
+        return true unless content.background?
+        type.kitty? || cell_grid_type?(type)
+      end
+
+      # Whether *type* is a cell-grid backend (`Media::Cells`) — an `Ansi`/`Glyph`
+      # family member that paints into the window buffer, as opposed to the
+      # in-band-graphics (sixel/regis/kitty/iterm), external-overlay
+      # (overlay/ueberzug), or separate-window (tek) families.
+      def self.cell_grid_type?(type : Type) : Bool
+        case type
+        when .ansi?, .ansi_true_color?, .ansi_c256?, .ansi_c16?, .ansi_c8?,
+             .glyph?, .glyph_block?, .glyph_half?, .glyph_quadrant?,
+             .glyph_sextant?, .glyph_octant?, .glyph_braille?, .glyph_ascii?
+          true
+        else
+          false
         end
       end
 

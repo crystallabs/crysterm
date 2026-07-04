@@ -37,6 +37,7 @@ require "./action"
 require "./cursor"
 
 require "./window"
+require "./direct"
 require "./plane"
 require "./terminal/launchers"
 require "./terminal/handshake"

@@ -27,14 +27,12 @@ module Crysterm
       # explicit (non-`auto`) `image.backend` pin, then
       # `Media.resolve(Content::Video)` for the terminal.
       def self.new(*, file : String? = nil, type : Media::Type? = nil, **opts) : Media::Base
-        # Delegate to the `Media` factory, which already honors an explicit *type*
-        # and a non-`auto` `image.backend` pin identically (via
-        # `Media.default_type`). It does NOT force video content ranking when the
-        # backend is `auto` — `default_type` only picks `Content::Video` when
-        # *file* is detected as a video — but this is the video entry point
-        # regardless (e.g. a `nil` file constructed now, loaded later), so resolve
-        # `Content::Video` ourselves here.
-        type ||= Media.resolve(Media::Content::Video) if Crysterm::Config.media_backend.auto?
+        # Resolve `Content::Video` ourselves: `default_type` only picks the video
+        # ranking from a *file* detected as a video, but this is the video entry
+        # point regardless (e.g. a nil file constructed now, loaded later).
+        # `Media.resolve` applies the `media.backend` pin / `media.exclude` /
+        # capability ranking uniformly, so no `auto?` special-case is needed.
+        type ||= Media.resolve(Media::Content::Video)
         Media.new(**opts.merge(type: type, file: file))
       end
     end

@@ -77,9 +77,11 @@ module Crysterm
         )
           super **box
 
-          # Resolve the backend like an image (honoring the user's explicit
-          # type / backend / exclude preferences), then build it as a child
-          # that fills our interior and presents each painted frame.
+          # Resolve the backend like an image, then build it as a child that
+          # fills our interior and presents each painted frame. `Media.resolve`
+          # applies the `media.backend` pin (config / `CRYSTERM_MEDIA_BACKEND` /
+          # `--media-backend`) and `media.exclude` uniformly — no Canvas-specific
+          # backend logic, so the painter path can't drift from images/video.
           resolved = type || Media.resolve(Media::Content::Painter, window?.try &.tput)
           # Stretch to our *content* area, not `"100%"`: a string dimension is
           # 100% of the parent's full size (border included), which would

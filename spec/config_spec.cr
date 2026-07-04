@@ -69,6 +69,53 @@ describe "Crysterm config integration" do
     Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto # restore
   end
 
+  it "forces a compatible media.backend pin uniformly, but never one a category can't use" do
+    # A pinned backend is authoritative everywhere backend selection happens —
+    # `resolve` (all content kinds) and `default_type` alike — bypassing the
+    # terminal-capability gate, so `Graph::Canvas`/`Video`/images can't diverge
+    # from each other or silently downgrade to a cell backend. No tput handle is
+    # passed: with 'auto' this would fall to a cell backend, so getting Sixel
+    # proves the pin overrides both content ranking and capability.
+    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Sixel
+    {Crysterm::Widget::Media::Content::Painter,
+     Crysterm::Widget::Media::Content::Image,
+     Crysterm::Widget::Media::Content::Video}.each do |content|
+      Crysterm::Widget::Media.resolve(content).should eq Crysterm::Widget::Media::Type::Sixel
+    end
+    Crysterm::Widget::Media.default_type.should eq Crysterm::Widget::Media::Type::Sixel
+
+    # ...but a background composites *under* text, and sixel can't — so the pin
+    # is ignored for `Background` and it resolves to a background-capable backend
+    # (cell grid here, since no terminal advertises Kitty). This is the category
+    # constraint (`candidates_for(Background)`) winning over the pin.
+    bg = Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Background)
+    bg.should_not eq Crysterm::Widget::Media::Type::Sixel
+    [Crysterm::Widget::Media::Type::Kitty,
+     Crysterm::Widget::Media::Type::Glyph,
+     Crysterm::Widget::Media::Type::Ansi].should contain bg
+  ensure
+    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto # restore
+  end
+
+  it "routes animated-image extensions to the AnimatedImage ranking (iTerm over Kitty)" do
+    Crysterm::Widget::Media.animated_image?("a.gif").should be_true
+    Crysterm::Widget::Media.animated_image?("a.APNG").should be_true # case-insensitive
+    Crysterm::Widget::Media.animated_image?("a.png").should be_false
+
+    ti = (Unibilium.from_env rescue Unibilium.from_terminal("xterm"))
+    tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT, probe: false)
+    tput.emulator.kitty = true  # kitty graphics available
+    tput.emulator.iterm2 = true # iTerm2 inline images available
+
+    # Same terminal, different content category: a still image prefers Kitty; an
+    # animated one prefers iTerm (native GIF animation). Proves the AnimatedImage
+    # branch of `candidates_for` is actually reached, not dead.
+    Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
+      .should eq Crysterm::Widget::Media::Type::Kitty
+    Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::AnimatedImage, tput)
+      .should eq Crysterm::Widget::Media::Type::Iterm
+  end
+
   it "validates and tracks source through the alias" do
     Crysterm::Config.set "render.fps_window", 60
     Crysterm::Config.render_fps_window.should eq 60
