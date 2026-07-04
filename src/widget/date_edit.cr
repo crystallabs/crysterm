@@ -106,6 +106,17 @@ module Crysterm
         @popup
       end
 
+      # Extends `Mixin::Popup`'s modal grab region (this field plus the calendar)
+      # to also cover the calendar's own open month/year nav dropdowns. Those
+      # `Menu` pop-ups are window-level siblings of the calendar and routinely
+      # overhang its rectangle (the ±100-year list especially), so without this a
+      # click on a month/year row below the calendar reads as a click-away and
+      # dismisses the whole calendar — instead of only the dropdown, leaving the
+      # user back on the open calendar.
+      def grab_contains?(x : Int32, y : Int32) : Bool
+        super || (@popup.try(&.nav_popup_contains?(x, y)) || false)
+      end
+
       # Drops the calendar. Grab, outside-click dismissal, and the open flag
       # come from `Mixin::Popup`.
       def open : Nil

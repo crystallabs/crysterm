@@ -380,6 +380,23 @@ module Crysterm
         content_overflows_height?
       end
 
+      # Minimum thumb (handle) length, in cells, for a list-like scroll bar
+      # (`List`/`Menu`/`Completer` drop-down/`Calendar` year menu). Floors the
+      # otherwise purely proportional handle so it renders the same whether the
+      # list has a dozen rows or a couple hundred — a `Completer` and a
+      # `Calendar`'s ±100-year menu then draw an identical handle instead of a
+      # 3-cell block vs a lone 1-cell nub.
+      ITEM_VIEW_MIN_THUMB = 3
+
+      # Gives the bound vertical scroll bar the shared list-view minimum handle
+      # length on top of the base setup. Idempotent (re-applied on each ensure,
+      # like the base).
+      protected def ensure_scrollbar_widget : Widget::ScrollBar
+        sb = super
+        sb.min_thumb = ITEM_VIEW_MIN_THUMB
+        sb
+      end
+
       # Keeps every item's right-edge reservation in lock-step with the vertical
       # scroll bar's *current* presence, each frame. Items bake `right` at
       # creation (`#create_item`), but whether the bar shows can change later

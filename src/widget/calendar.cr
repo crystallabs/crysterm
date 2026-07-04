@@ -620,6 +620,16 @@ module Crysterm
         menu.popup aleft + ileft + col, atop + itop + 1
       end
 
+      # Whether absolute point (*x*, *y*) falls inside an open month/year nav
+      # dropdown (its whole submenu chain). An owner that floats the calendar as
+      # its own pop-up (e.g. `DateEdit`) folds this into its outside-click
+      # dismissal, so clicking a month/year row that overhangs the calendar's own
+      # rectangle isn't read as a click-away that tears the calendar down too.
+      def nav_popup_contains?(x : Int32, y : Int32) : Bool
+        (((m = @month_menu) && m.visible? && m.in_chain?(x, y)) ||
+          ((m = @year_menu) && m.visible? && m.in_chain?(x, y))) || false
+      end
+
       # Whether absolute point (*x*, *y*) falls on an interactive region of the
       # nav bar (arrows or month/year fields). Used as the open dropdown's extra
       # grab region (see `#popup_nav_menu`).

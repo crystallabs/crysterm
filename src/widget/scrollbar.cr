@@ -79,6 +79,15 @@ module Crysterm
       property thumb_char : Char = '█'
       property trough_char : Char = '░'
 
+      # Minimum thumb (handle) length in cells, so the proportional handle never
+      # collapses to an unusable single-cell nub over a very long list — Qt's
+      # `QStyle::PM_ScrollBarSliderMin`. Defaults to `1` (pure proportional); the
+      # list-like item views bump it (see `Mixin::ItemView#ensure_scrollbar_widget`)
+      # so e.g. a `Completer` drop-down and a `Calendar`'s ±100-year menu draw the
+      # same handle regardless of item count. Always clamped down to the available
+      # track, so a tiny bar still fits.
+      property min_thumb : Int32 = 1
+
       # Whether the trough (track on either side of the thumb) is painted with
       # `#trough_char`. On by default (Qt-style, full track). Set `false` for a
       # blessed-style bar drawing only the thumb. Thumb and stepper buttons are
@@ -252,12 +261,13 @@ module Crysterm
         end
       end
 
-      # Thumb length in cells, proportional to the visible page.
+      # Thumb length in cells, proportional to the visible page but never shorter
+      # than `#min_thumb` (down-clamped to the available track).
       private def thumb_size(avail : Int32) : Int32
         return avail if value_span <= 0
         total = value_span + @page_step
         size = (avail * @page_step / total.to_f).round.to_i
-        size.clamp(1, avail)
+        size.clamp(Math.min(@min_thumb, avail), avail)
       end
 
       # Offset (in cells) of the thumb's leading edge within `avail` cells.
