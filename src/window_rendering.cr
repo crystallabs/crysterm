@@ -459,6 +459,10 @@ module Crysterm
       # widgets read their styles for this frame.
       apply_stylesheet_if_dirty
 
+      # Inline auto-grow: resize the region to fit its content before compositing
+      # so widgets lay out at the new height (no-op unless `auto_grow`).
+      autogrow_reflow
+
       emit Crysterm::Event::PreRender
 
       @_dock_stops.clear

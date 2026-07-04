@@ -88,6 +88,9 @@ module Crysterm
     # (`\e[<row>;<col>H`, 1-based) when `ansi_cursor`, else the terminfo path
     # via `#divert`. Shared by the per-run reposition and line-start moves below.
     private def emit_cursor_position(dest : IO, ansi_cursor : Bool, y : Int, x : Int) : Nil
+      # Inline mode slides the whole surface down to its anchor row; `0` (the
+      # default) makes this a no-op in full-screen mode.
+      y += render_row_offset
       if ansi_cursor
         dest << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
       else
@@ -859,10 +862,13 @@ module Crysterm
         return false
       end
 
+      off = render_row_offset
       divert(@tmpbuf, @_buf) do |buf|
-        tput.set_scroll_region(top, bottom)
+        tput.set_scroll_region(top + off, bottom + off)
         yield buf
-        tput.set_scroll_region(0, aheight - 1)
+        # Restore to the surface's own bounds: the full screen in alt mode
+        # (`off == 0`), or the inline region `[offset, offset + aheight - 1]`.
+        tput.set_scroll_region(off, off + aheight - 1)
       end
       true
     end
@@ -875,7 +881,7 @@ module Crysterm
       # end
 
       return unless with_scroll_region(top, bottom, need_insert_line: true) do
-                      tput.cup(y, 0)
+                      tput.cup(y + render_row_offset, 0)
                       tput.il(n)
                     end
 
@@ -889,7 +895,7 @@ module Crysterm
     # This will only work for top line deletion as opposed to arbitrary lines.
     def insert_line_nc(n, y, top, bottom)
       return unless with_scroll_region(top, bottom) do
-                      tput.cup(top, 0)
+                      tput.cup(top + render_row_offset, 0)
                       tput.dl(n)
                     end
 
@@ -909,7 +915,7 @@ module Crysterm
       # silent no-op (dropping the buffer-side `shift_lines_up` too) on terminals
       # that advertise CSR + delete_line but not insert_line.
       return unless with_scroll_region(top, bottom) do
-                      tput.cup(y, 0)
+                      tput.cup(y + render_row_offset, 0)
                       tput.dl(n)
                     end
 
@@ -924,7 +930,7 @@ module Crysterm
     def delete_line_nc(n, y, top, bottom)
       # XXX temporarily diverts output
       return unless with_scroll_region(top, bottom) do |ret|
-                      tput.cup(bottom, 0)
+                      tput.cup(bottom + render_row_offset, 0)
                       # Emit `n` newlines without materializing a throwaway
                       # `"\n" * n` String per CSR scroll op (D3).
                       n.times { ret << '\n' }

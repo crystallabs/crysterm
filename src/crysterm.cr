@@ -45,6 +45,9 @@ require "./application"
 
 require "./widget"
 require "./widget/**"
+# The cursor-anchor abstraction references `Widget::Terminal`, so require it
+# after the widgets are defined.
+require "./cursor_anchor"
 require "./capture"
 # Loaded after widgets: `misc/control/*` subclass widgets (e.g. `Completer::Popup
 # < Widget::List`), so the widget types must already be defined.

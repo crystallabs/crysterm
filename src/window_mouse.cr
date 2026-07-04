@@ -182,7 +182,22 @@ module Crysterm
     #
     # A widget that wants to override a default can simply `accept` the
     # `Event::Mouse` in its own handler.
+    # Inline mode: the device reports rows in physical terminal coordinates,
+    # but the surface (widgets, hit-test) lives in `[0, aheight)` at physical
+    # rows `[offset, offset + aheight)`. Translate the pointer back into
+    # surface space so hover/click/drag land on the right cell. `ev` is a
+    # by-value struct, so the returned copy is adjusted; a no-op when the
+    # offset is 0 (full-screen mode).
+    private def translate_inline_mouse(ev : ::Tput::Mouse::Event)
+      if (off = render_row_offset) != 0
+        ev.y -= off
+      end
+      ev
+    end
+
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
+      ev = translate_inline_mouse ev
+
       # Reuse the pooled `Mouse` event (reset in place) instead of allocating a
       # fresh object per report — a screen-level listener is routine, and mouse
       # reports (especially motion) are high-frequency. `emit(type, event)`

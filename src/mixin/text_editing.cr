@@ -324,6 +324,11 @@ module Crysterm
       # `cup`. Shared with `LineEdit#_update_cursor`, which computes `cx`/`cy`
       # differently but emits the caret move identically.
       private def move_terminal_caret(display, cx, cy)
+        # `cy` is a surface row; the terminal's tracked cursor (`tput.cursor.y`)
+        # is physical. In an inline window they differ by the render offset —
+        # add it so the hardware caret lands in the rendered region (no-op when
+        # the offset is 0).
+        cy += display.render_row_offset
         if cy == display.tput.cursor.y
           if cx > display.tput.cursor.x
             display.tput.cuf(cx - display.tput.cursor.x)

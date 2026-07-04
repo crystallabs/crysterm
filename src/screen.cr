@@ -111,12 +111,24 @@ module Crysterm
     # Device height, in cells.
     property height = 1
 
-    # Whether `width`/`height` were given explicitly to the constructor. When
-    # set, the device must not overwrite them with the size probed from the
-    # terminal (which, for a headless device whose output is an `IO::Memory`,
-    # falls back to the *real* controlling terminal — see `Tput#get_screen_size`).
-    # Keeps a fixed-size `Screen` fixed, as tests and off-screen rendering rely on.
-    getter? explicit_size = false
+    # Whether `width` / `height` were each given explicitly to the constructor.
+    # A pinned axis must not be overwritten by the size probed from the terminal
+    # (which, for a headless device whose output is an `IO::Memory`, falls back
+    # to the *real* controlling terminal — see `Tput#get_screen_size`). Kept
+    # per-axis so an **inline** window can pin its `height` (its reserved region
+    # size) while its `width` still tracks the terminal — see `Window`'s
+    # `alternate: false` mode. Tests/off-screen rendering pin both.
+    getter? explicit_width = false
+
+    # :ditto:
+    getter? explicit_height = false
+
+    # Whether either axis is pinned (device size doesn't fully follow the
+    # terminal). Retained for callers that only care that *some* dimension is
+    # fixed.
+    def explicit_size? : Bool
+      @explicit_width || @explicit_height
+    end
 
     # Terminal cell size in pixels, detected once at startup (`0` = terminal
     # reported none). Set by `#detect_cell_geometry`; drives the CSS cell
@@ -215,13 +227,11 @@ module Crysterm
       # a brand-new `Screen` via `#reconnected`, which derives them anew.)
       @draw_caps = compute_draw_caps
 
-      # An explicitly-sized device keeps its size; the terminal-probed size
-      # (in `#adopt_terminal_size`) must not replace it.
-      if width || height
-        @explicit_size = true
-        width.try { |w| @width = w }
-        height.try { |h| @height = h }
-      end
+      # A pinned axis keeps its size; the terminal-probed size (in
+      # `#adopt_terminal_size`) must not replace it. Tracked per-axis so inline
+      # windows can fix height while width follows the terminal.
+      width.try { |w| @explicit_width = true; @width = w }
+      height.try { |h| @explicit_height = true; @height = h }
     end
 
     # Returns current device width. Local operation (size is pushed to us).
@@ -254,16 +264,14 @@ module Crysterm
     # (which sized itself from its own output fd). Skipped when the size was
     # pinned explicitly at construction (headless / fixed-size).
     def adopt_terminal_size : Nil
-      return if @explicit_size
-      @width = tput.screen.width
-      @height = tput.screen.height
+      @width = tput.screen.width unless @explicit_width
+      @height = tput.screen.height unless @explicit_height
     end
 
     # Applies a new size from a resize event, honoring the explicit-size pin.
     def set_size(width : Int32, height : Int32) : Nil
-      return if @explicit_size
-      @width = width
-      @height = height
+      @width = width unless @explicit_width
+      @height = height unless @explicit_height
     end
 
     # Builds a **fresh** device for a new connection (a new IO pair) and

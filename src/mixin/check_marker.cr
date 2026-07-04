@@ -95,7 +95,9 @@ module Crysterm
         return unless lpos = @lpos
         window?.try do |s|
           s.tput.lsave_cursor self.hash
-          s.tput.cursor_pos lpos.yi + itop, lpos.xi + 1 + ileft
+          # `+ render_row_offset` keeps the marker cursor in the rendered region
+          # for an inline window (no-op at offset 0).
+          s.tput.cursor_pos lpos.yi + itop + s.render_row_offset, lpos.xi + 1 + ileft
           # s.show_cursor # XXX
         end
       end
