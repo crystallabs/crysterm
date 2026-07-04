@@ -36,9 +36,13 @@ module Crysterm
       # an explicit `css.cell_aspect_ratio` pins it (`apply_config`).
       class_property cell_aspect_ratio : Float64 = 2.0
 
-      # Anchored on `1 cell ≈ 10px`; the absolute units below are derived from
-      # the fixed CSS ratios (`1in = 96px = 72pt = 6pc`) so they agree with each
-      # other. Relative units use TUI conventions: `1ch ≡ 1 cell` (width of `0`),
+      # Anchored on `1 cell ≈ 10px` by default; the `px` anchor is replaced at
+      # startup with the terminal's *measured* cell width when available
+      # (`Screen#apply_cell_pixels`), unless `css.px_per_cell` pins it — falling
+      # back to `10.0` when the terminal reports no pixel size. The absolute
+      # units below are derived from the fixed CSS ratios (`1in = 96px = 72pt =
+      # 6pc`) so they agree with each other. Relative units use TUI conventions:
+      # `1ch ≡ 1 cell` (width of `0`),
       # `1em/1rem ≈ 1 cell`, `1ex ≈ ½em → 2/cell`. Physical units (`cm`/`mm`/`in`)
       # have no terminal meaning, so they stay dropped (map to a number to opt in).
       class_property divisors : Hash(String, Float64?) = {
@@ -76,6 +80,13 @@ module Crysterm
       # Window skip terminal cell-size detection when already pinned.
       def self.cell_aspect_ratio_configured? : Bool
         config_set?("css.cell_aspect_ratio")
+      end
+
+      # Whether `css.px_per_cell` was explicitly configured. Lets the Window
+      # skip feeding the terminal's *measured* cell width into the `px` divisor
+      # (see `Screen#apply_cell_pixels`) when the user has already pinned it.
+      def self.px_per_cell_configured? : Bool
+        config_set?("css.px_per_cell")
       end
 
       # Whether a config option carries a non-default value. Compared as the

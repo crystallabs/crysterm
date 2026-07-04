@@ -465,6 +465,20 @@ module Crysterm
         @mouse.y
       end
 
+      # 0-based sub-cell pixel column, when SGR-Pixels (DEC 1016) reporting is
+      # active (`Window#enable_mouse(pixels: true)`); `nil` otherwise. `x`/`y`
+      # still carry the cell coordinates, so pixel-aware widgets (Canvas/Painter,
+      # image widgets, precise drag) can read `px`/`py` without disturbing the
+      # rest of the toolkit.
+      def px : Int32?
+        @mouse.px
+      end
+
+      # 0-based sub-cell pixel row; see `#px`.
+      def py : Int32?
+        @mouse.py
+      end
+
       def shift? : Bool
         @mouse.shift?
       end

@@ -1,6 +1,16 @@
 require "gpm"
 
 module Crysterm
+  # Policy for SGR-Pixels (DEC 1016) sub-cell mouse coordinates, the
+  # `mouse.pixel_coordinates` config option. Pixel mode replaces the terminal's
+  # own cell reporting with pixel reports we divide by the measured cell size,
+  # so it is opt-in rather than on by default.
+  enum PixelMouse
+    Auto # Follow the application's request (`Window#enable_mouse(pixels: true)`); off if it doesn't ask. Auto-detected support is exposed via `Tput::Features#pixel_mouse?` but not force-enabled
+    On   # Always enable pixel coordinates (when the terminal reports a cell size to derive cells from)
+    Off  # Never enable pixel coordinates, even if the application asks
+  end
+
   # Device-side mouse transport — the raw-input half of mouse support, on the
   # physical device (`Screen`). Enables/disables terminal mouse reporting,
   # reads the Linux-console `gpm` daemon, and drives the GUI mouse-cursor shape
@@ -57,8 +67,30 @@ module Crysterm
     end
 
     # Turns on xterm mouse reporting for this device's terminal.
-    def enable_mouse
-      tput.enable_mouse
+    #
+    # Pass *pixels* `true` to request SGR-Pixels reporting (DEC 1016), so mouse
+    # events carry sub-cell pixel coordinates (`Event::Mouse#px`/`#py`) alongside
+    # the usual cell coordinates. The request is gated by the
+    # `mouse.pixel_coordinates` config option (`PixelMouse`): `On` forces it,
+    # `Off` forbids it, and the default `Auto` honors this *pixels* argument.
+    #
+    # Even when requested it needs the terminal's cell size in pixels (detected
+    # once at startup, `#cell_pixel_width`/`#cell_pixel_height`) to derive cell
+    # coordinates; if that's unknown (`0`, common under multiplexers) pixel mode
+    # is silently skipped and reporting stays at cell resolution. Whether the
+    # terminal actually supports 1016 is auto-detected into
+    # `Tput::Features#pixel_mouse?` (via DECRQM at startup).
+    def enable_mouse(pixels : Bool? = nil)
+      want = case Config.mouse_pixel_coordinates
+             in PixelMouse::On   then true
+             in PixelMouse::Off  then false
+             in PixelMouse::Auto then !!pixels
+             end
+      cell = nil
+      if want && cell_pixel_width > 0 && cell_pixel_height > 0
+        cell = {cell_pixel_width, cell_pixel_height}
+      end
+      tput.enable_mouse(pixels: cell)
     end
 
     # Turns off xterm mouse reporting and disconnects from `gpm` (if connected),

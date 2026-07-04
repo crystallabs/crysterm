@@ -368,6 +368,17 @@ module Crysterm
       return unless width > 0 && height > 0
       @cell_pixel_width = width
       @cell_pixel_height = height
+      # Keep SGR-Pixels (DEC 1016) mouse decoding in step with a font/zoom
+      # change: the parser divides pixel reports by this cached cell size, so a
+      # stale value would mis-map every pixel event to the wrong cell after a
+      # resize. Only refresh when pixel mode is already active (non-nil).
+      tput.mouse_cell_pixels = {width, height} if tput.mouse_cell_pixels
+      # Feed the measured cell *width* into the CSS `px` anchor so an absolute
+      # `px` length maps through the terminal's real geometry rather than the
+      # hardcoded `1 cell ≈ 10px` default — unless `css.px_per_cell` pins it. A
+      # terminal that reports no pixel size never reaches here (`width <= 0`),
+      # so `px` keeps its 10.0 default.
+      CSS::Length.divisors["px"] = width.to_f unless CSS::Length.px_per_cell_configured?
       return if CSS::Length.cell_aspect_ratio_configured?
       CSS::Length.cell_aspect_ratio = (height.to_f / width.to_f).clamp(1.0, 4.0)
     end

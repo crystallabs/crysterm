@@ -109,6 +109,8 @@ module Superconf
     description: "Default character drawn for the artificial (software) cursor"
 
   # -- Mouse -----------------------------------------------------------------
+  option "mouse.pixel_coordinates", Crysterm::PixelMouse::Auto,
+    description: "Whether mouse events carry sub-cell pixel coordinates via SGR-Pixels reporting (DEC private mode 1016), exposed as Event::Mouse#px/#py (auto|on|off). 'auto' (default) enables it only when the application asks (Window#enable_mouse(pixels: true)); 'on' forces it whenever the terminal reports a cell pixel size; 'off' disables it. In pixel mode the terminal reports pixels rather than cells, and the cell coordinates are derived by dividing by the detected cell size"
   option "mouse.cursor_shape", false,
     description: "Allow widgets to change the GUI mouse-pointer shape (xterm's OSC 22) while the pointer hovers them — e.g. a hand over a clickable widget, reset to the terminal default on leave. Off by default: it is best-effort (only xterm-class terminals honor OSC 22; most others ignore it) and changes a window the application doesn't otherwise own"
 
@@ -133,7 +135,7 @@ module Superconf
 
   # -- CSS units -------------------------------------------------------------
   option "css.px_per_cell", 10.0,
-    description: "Pixels per terminal cell when converting CSS `px` lengths to cells (cells = round(px / this); e.g. 200px → 20 cells at 10). A shortcut that seeds the `px` entry of css.unit_divisors; leave at the default to keep the built-in table (or a programmatic Length.divisors tweak) untouched",
+    description: "Pixels per terminal cell when converting CSS `px` lengths to cells (cells = round(px / this); e.g. 200px → 20 cells at 10). A shortcut that seeds the `px` entry of css.unit_divisors and pins it; leave at the default to let the terminal's *measured* cell width drive `px` instead (falling back to 10 when the terminal reports no pixel size)",
     validate: ->(f : Float64) { f > 0 }
   option "css.unit_divisors", "",
     description: "Override CSS unit→cell divisors as a comma map, e.g. 'px=10,pt=7.5,em=1,cm=none' (cells = round(value / divisor); 'none' drops the unit). Merged over the built-in table and applied before css.px_per_cell; empty = leave the table as-is"
