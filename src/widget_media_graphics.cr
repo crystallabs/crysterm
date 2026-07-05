@@ -201,6 +201,10 @@ module Crysterm
         stop
         @file = file
         @source = nil
+        # Clear the failure latch so a new file is actually attempted — otherwise
+        # `#source` early-returns nil forever after any prior failed load (its own
+        # documented contract: "Reset on new file load").
+        @load_failed = false
         @raw = nil
         @src_frames = nil
         @anim_index = 0

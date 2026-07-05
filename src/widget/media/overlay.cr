@@ -55,6 +55,11 @@ module Crysterm
       def load(file : String)
         @file = file
         @image = W3MImageDisplay::Image.new file
+        # New source: clear the failure latch so the helper is retried, mirroring
+        # `Media::Tek#load`'s `@decode_failed` reset. Without this, once the
+        # helper failed once (`redraw_image` sets `@helper_failed`), every later
+        # `load` of a good file stayed permanently un-drawn.
+        @helper_failed = false
       end
 
       # `#set_image` (load + re-render) comes from `Media::External`.
@@ -63,6 +68,7 @@ module Crysterm
       def clear_image
         clear_overlay
         @image = nil
+        @helper_failed = false
         super # stop + clear file/source/frames
       end
 
@@ -74,8 +80,9 @@ module Crysterm
       end
 
       # Set once the external helper has failed (e.g. `w3mimgdisplay` not
-      # installed), so we stop retrying it every render.
-      @helper_failed = false
+      # installed), so we stop retrying it every render. Cleared on `#load`
+      # (new source) and `#clear_image`. Exposed like `Media::Tek#decode_failed?`.
+      getter? helper_failed : Bool = false
 
       # (Re)paints the loaded image at this widget's current position. Called
       # after every window render; skips while hidden or detached.

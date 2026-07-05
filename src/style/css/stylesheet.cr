@@ -61,8 +61,12 @@ module Crysterm
           query.scan(GROUP_RE) do |group|
             if m = group[0].match(FEATURE_RE)
               feature = m[1].downcase
-              if FEATURES.includes?(feature)
-                conditions << {feature, m[2].to_i}
+              # `to_i?` (not `to_i`): a value beyond Int32 range (e.g.
+              # `(max-width: 3000000000)`) would otherwise raise `OverflowError`
+              # and crash the parse (which is contract-bound never to raise). An
+              # out-of-range value falls through to the unmatchable path below.
+              if FEATURES.includes?(feature) && (value = m[2].to_i?)
+                conditions << {feature, value}
                 next
               end
             end
@@ -70,9 +74,12 @@ module Crysterm
             # `(orientation: portrait)`) makes this query unmatchable.
             matchable = false
           end
-          # A non-empty query that produced no usable condition (a media type
-          # like `print`, or an unparsable feature) must not match everywhere.
-          matchable = false if conditions.empty? && !query.strip.empty?
+          # A query that produced no usable condition is decided by the media
+          # type scan below — NOT unconditionally rejected here. An unparsable
+          # feature is already handled above (line marks it unmatchable), and a
+          # bare media type (`print` vs `screen`/`all`) must be judged by the
+          # word scan: rejecting every featureless query here would also kill a
+          # legitimate `@media screen`/`@media all`, which a terminal satisfies.
           # Examine the text *outside* the `(...)` feature groups — the media
           # type and logical keywords. `not` inverts the whole query; crysterm
           # can't represent a negated media query, so treat it as unmatchable
@@ -464,7 +471,10 @@ module Crysterm
 
       # `from`=0, `to`=1, `NN%`=NN/100.
       private def self.keyframe_offset(s : String) : Float64?
-        case s
+        # `from`/`to` are CSS keywords, so case-insensitive (`From`/`TO` are
+        # valid keyframe selectors); fold before comparing. A `%` value keeps
+        # its digits as-is.
+        case Case.fold_keyword(s)
         when "from" then 0.0
         when "to"   then 1.0
         else

@@ -172,7 +172,11 @@ module Crysterm
       end
 
       private def self.clamp(value : Float64) : Int32
-        value.round.to_i.clamp(0, 255)
+        # Clamp as a Float *before* `#to_i`: a wildly out-of-range channel
+        # (`rgb(99999999999, 0, 0)`) would overflow Int32 and raise in `#to_i`
+        # if converted first, instead of being clamped to 255. (`Length#to_cell_count`
+        # uses the same clamp-then-convert order for the same reason.)
+        value.round.clamp(0.0, 255.0).to_i
       end
 
       private def self.rgb(r : Int32, g : Int32, b : Int32) : Int32
