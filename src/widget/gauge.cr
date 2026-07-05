@@ -80,10 +80,13 @@ module Crysterm
       @segments_version = 0
 
       # Replaces the stacked segments, bumping `@segments_version` so the next
-      # `#render` rebuilds the cached content.
+      # `#render` rebuilds the cached content, and scheduling that render so the
+      # new data actually appears (as `#value=` does) instead of waiting for an
+      # unrelated frame to repaint.
       def segments=(segs : Array(Segment)?) : Array(Segment)?
         @segments = segs
         @segments_version &+= 1
+        request_render
         segs
       end
 

@@ -218,17 +218,35 @@ module Crysterm
       # those ahead of time. On the common opaque-fill path only the cells the
       # content loop won't visit need pre-filling: the padding bands and the
       # scrollbar-reserved rows (the loop paints the valign gap itself — a
-      # negative `ci` indexes to nil, i.e. the `bch` fill). Alpha, `fill: false`
-      # and background-image widgets keep the whole-box fill: their content
-      # loop leaves cells untouched, so the old all-cells behavior must stay.
+      # negative `ci` indexes to nil, i.e. the `bch` fill). A background-image
+      # widget keeps the whole-box fill (its content loop leaves empty cells
+      # untouched for the image). A `fill: false` widget draws no background at
+      # all, so it must NOT be filled here either — see the final `else`.
       if padding.any? || !@align.top?
         if alpha = style_alpha
+          # The content loop below already alpha-blends every cell of the
+          # (padding/hsr-inset) content region, so blending those cells here too
+          # would double-blend them — making a padded or vertically-aligned
+          # translucent widget's interior more opaque than its own padding (and
+          # than an unpadded translucent widget). Pre-blend only the bands the
+          # content loop won't reach; skip the content region. Exception: a
+          # background-image widget's content loop leaves empty cells untouched,
+          # so there the whole-box blend must stay (bands + interior).
+          pd = padding
+          skip_content = style.background_image.nil?
+          cxi = xi + pd.left
+          cxl = xl - pd.right
+          cyi = yi + pd.top
+          cyl = yl - pd.bottom - hsr
           (Math.max(yi, 0)...yl).each do |y|
             line = lines[y]?
             unless line
               break
             end
+            in_crow = skip_content && (y >= cyi) && (y < cyl)
             (Math.max(xi, 0)...xl).each do |x|
+              # Inside the content region: the content loop handles the blend.
+              next if in_crow && (x >= cxi) && (x < cxl)
               cell = line[x]?
               unless cell
                 break
@@ -249,7 +267,16 @@ module Crysterm
           scr.fill_region(default_attr, bch, xi, xi + pd.left, yi + pd.top, yl - bot) if pd.left > 0
           scr.fill_region(default_attr, bch, xl - pd.right, xl, yi + pd.top, yl - bot) if pd.right > 0
         else
-          scr.fill_region(default_attr, bch, xi, xl, yi, yl)
+          # Reached for a background-image widget (`fill` true, image present —
+          # the image paints over this base fill) or a `fill: false` widget.
+          # `fill: false` means "draw no background": the content loop skips
+          # every cell, and the no-padding/top-aligned path skips this whole
+          # block, leaving the widget transparent. Filling here would make it
+          # opaque *only* when it happens to have padding or vertical alignment
+          # — an inconsistency where those properties silently toggle the
+          # background. Gate on `fill` so a `fill: false` widget stays
+          # transparent regardless; the background-image branch is unaffected.
+          scr.fill_region(default_attr, bch, xi, xl, yi, yl) if fill
         end
       end
 

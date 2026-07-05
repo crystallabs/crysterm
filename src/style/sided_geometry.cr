@@ -118,8 +118,12 @@ module Crysterm
       (@left + @top + @right + @bottom) > 0
     end
 
-    # Grows (`sign = 1`) or shrinks (`sign = -1`) the given position rectangle
-    # by the per-side amounts.
+    # Insets (`sign = 1`, the default) or outsets (`sign = -1`) the given position
+    # rectangle by the per-side amounts. `sign = 1` moves each edge *inward*
+    # (`xi`/`yi` up, `xl`/`yl` down), **shrinking** the rectangle — e.g. carving
+    # the border/padding out of the outer box to get the interior; `sign = -1`
+    # moves each edge outward, **growing** it back. (See the call sites in
+    # `widget_rendering.cr`, whose own comment notes `adjust(pos)` "shrinks in place".)
     def adjust(pos, sign = 1)
       pos.xi += sign * @left
       pos.xl -= sign * @right

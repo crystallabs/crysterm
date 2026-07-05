@@ -158,7 +158,11 @@ module Crysterm
         span.times { |gx| row[px + gx] = bgpx }
       end
 
-      # Glyph (skipped when invisible).
+      # Foreground marks — the glyph AND the line decorations — are all painted
+      # in the cell's foreground color, so INVISIBLE (concealed) must suppress
+      # every one of them. Gating only the glyph left a concealed cell's
+      # underline/strikethrough drawn, revealing the hidden text's presence and
+      # width (e.g. a masked password field), so they share the guard.
       if (flags & Attr::INVISIBLE) == 0
         glyph = ((flags & Attr::BOLD) != 0 ? bold_font : font).glyph(cell.char.to_s)
         gh = Math.min(ch, glyph.size)
@@ -168,16 +172,16 @@ module Crysterm
           gw = Math.min(span, grow.size)
           gw.times { |gx| crow[px + gx] = fgpx if grow.unsafe_fetch(gx) == 1 }
         end
-      end
 
-      # Line decorations.
-      if (flags & Attr::UNDERLINE) != 0
-        row = canvas[py + ch - 1]
-        span.times { |gx| row[px + gx] = fgpx }
-      end
-      if (flags & Attr::STRIKE) != 0
-        row = canvas[py + ch // 2]
-        span.times { |gx| row[px + gx] = fgpx }
+        # Line decorations.
+        if (flags & Attr::UNDERLINE) != 0
+          row = canvas[py + ch - 1]
+          span.times { |gx| row[px + gx] = fgpx }
+        end
+        if (flags & Attr::STRIKE) != 0
+          row = canvas[py + ch // 2]
+          span.times { |gx| row[px + gx] = fgpx }
+        end
       end
     end
 

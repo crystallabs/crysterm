@@ -74,6 +74,13 @@ module Crysterm
       # captures the window, so it works even after detach.
       def destroy
         @ev_keypress.off
+        # Invalidate any armed *timed* dismissal fiber too: it captured the
+        # generation live when it was spawned and will call `end_it` after its
+        # sleep. Bumping the generation makes that `end_it` no-op, so a message
+        # destroyed before its timeout can't hide/re-render/run its callback
+        # against the torn-down widget — the timed analogue of the keypress
+        # subscription teardown above.
+        @generation += 1
         super
       end
 

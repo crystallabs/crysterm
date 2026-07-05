@@ -63,6 +63,13 @@ module Crysterm
         # A named built-in spinner overrides the default frames.
         spinner.try { |name| SPINNERS[name.to_s]?.try { |f| @icons = f } }
 
+        # A spinner needs at least one frame: an empty `icons:` array would make
+        # `@icons[0]` below raise `IndexError` at construction (and later
+        # `#step`'s `% icons.size` a `DivisionByZeroError`). Fall back to the
+        # default frames, mirroring how the block-glyph charts treat empty color
+        # arrays as "use the default".
+        @icons = ["|", "/", "-", "\\"] if @icons.empty?
+
         super **box
 
         @pos = 0

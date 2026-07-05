@@ -66,7 +66,13 @@ module Crysterm
             into << cur
             cur = 0
           elsif 0x30 <= b <= 0x39
-            cur = cur * 10 + (b - 0x30)
+            # Saturate instead of overflowing: a pathological digit run (a
+            # corrupt/oversized parameter) would otherwise raise `OverflowError`
+            # on `cur * 10` and abort the whole decode — defeating the range
+            # clamping (`clampx`/`clampy`) every consumer already applies. The
+            # cap is far above any real CSI parameter and keeps `cur * 10` in
+            # `Int32` range.
+            cur = cur < 100_000_000 ? cur * 10 + (b - 0x30) : cur
           end
           k += 1
         end

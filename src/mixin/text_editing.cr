@@ -978,6 +978,14 @@ module Crysterm
           # move; subsequent ones keep extending from it.
           @selection_anchor ||= @cursor_pos if extend_sel
 
+          # A plain (non-extending) Left/Right over a live selection collapses the
+          # caret to the selection's near edge — its start for Left, its end for
+          # Right — instead of stepping one grapheme past it, matching Qt's
+          # `QLineEdit` and every GUI editor. Captured before the move mutates the
+          # cursor; `nil` when extending or with no live selection, so a plain
+          # move without a selection still steps normally.
+          collapse_sel = extend_sel ? nil : selection_range
+
           # Cursor movement. Left/Right step over a whole grapheme cluster under
           # `full_unicode?` (a single codepoint otherwise). Home/End jump to the
           # start/end of the current line. Up/Down move one visual row and Page
@@ -986,10 +994,10 @@ module Crysterm
           moved = true
           if k == Tput::Key::Left
             @goal_col = nil
-            @cursor_pos -= cursor_prev_width
+            @cursor_pos = collapse_sel ? collapse_sel.begin : @cursor_pos - cursor_prev_width
           elsif k == Tput::Key::Right
             @goal_col = nil
-            @cursor_pos += cursor_next_width
+            @cursor_pos = collapse_sel ? collapse_sel.end : @cursor_pos + cursor_next_width
           elsif k == Tput::Key::Up
             move_cursor_vertically -1
           elsif k == Tput::Key::Down

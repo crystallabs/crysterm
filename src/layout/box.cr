@@ -191,10 +191,19 @@ module Crysterm
           end
           set_cross_pos el, 0
         else
+          # Reserve the child's cross-axis margins, exactly as the Stretch
+          # branch does. The render shift pushes the border box out by the near
+          # margin, and a `Center`/`End` offset computed from the border size
+          # alone (`cross - cs`) would then overflow the far edge by that margin
+          # and mis-center. Positioning the child's whole *margin* box
+          # (`cs + cross_margin`) and letting the shift place the border box at
+          # the near margin keeps `End` flush against the far margin and centers
+          # the margin box symmetrically — the cross-axis analogue of BUGS8 §5.
           cs = a_cross_size el
+          cm = cross_margin el
           off = case @align
-                when .center? then (cross - cs) // 2
-                when .end?    then cross - cs
+                when .center? then (cross - cs - cm) // 2
+                when .end?    then cross - cs - cm
                 else               0
                 end
           set_cross_pos el, (off < 0 ? 0 : off)

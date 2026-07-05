@@ -272,12 +272,17 @@ module Crysterm
         # Shrunken lists assume all items should be showing; height can be
         # calculated from item count.
         if @_is_list
-          myi = 0 - itop
-          # Just the item count: the shared placement branch below adds the
-          # single bottom inset (`yl += ibottom`). Blessed's original was
-          # `myl = items.length`; adding `ibottom` here as well double-counted
-          # it, sizing a bordered shrink-to-content list one row too tall.
-          myl = @items.size
+          myi = 0
+          # `@items.size` counts only the content rows, so fold the *top* inset
+          # into `myl` here: the top-anchored placement below is `yl = myl;
+          # yl += ibottom`, which adds only the bottom inset, so without this the
+          # box came out `itop` rows too short — a bordered shrink-to-content
+          # list clipped its last item (rendered `items + ibottom` tall instead
+          # of `items + iheight`). Adding `itop` (not `ibottom`) avoids the
+          # opposite, double-`ibottom`, error the prior `myl = items.size` fixed.
+          # `myi = 0` (was `-itop`) keeps the bottom-anchored branch's span
+          # (`myl - myi == items + itop`) unchanged.
+          myl = @items.size + itop
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)

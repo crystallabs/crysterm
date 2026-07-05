@@ -48,6 +48,12 @@ module Crysterm
         if value
           install_checkable_handlers
           apply_enabled
+        else
+          # No longer checkable ⇒ the "disabled because unchecked" reason is
+          # gone, and there's no checkbox left to toggle back on. Restore any
+          # children we greyed out so the contents stay usable (Qt re-enables a
+          # group's children when it becomes non-checkable).
+          restore_disabled_children
         end
         request_render
         value
@@ -188,6 +194,18 @@ module Crysterm
           else
             c.state = :disabled
           end
+        end
+      end
+
+      # Restores children that we previously greyed out (currently `:disabled`)
+      # back to `:normal`, leaving the auto-created label and any child in some
+      # other state (focus, hover, selection) alone. Used when checkability is
+      # turned off, where `#apply_enabled` can't help (it would re-disable an
+      # unchecked group's children).
+      private def restore_disabled_children
+        @children.each do |c|
+          next if c.same? @_label
+          c.state = :normal if c.state.disabled?
         end
       end
     end

@@ -90,6 +90,33 @@ module Crysterm
         property graticule_color : Int32
         property graticule_step : Float64
 
+        # Coastline-parameter setter: an assignment changes what `#paint_map`
+        # projects/draws onto the coastline Canvas, so — like `#look_at` — it must
+        # invalidate the Canvas raster (which otherwise skips repaint under its
+        # own `@paint_dirty`) and schedule a render. The docstring lists setting
+        # these directly as a supported path; the plain `property` setter left the
+        # coastlines stale (old viewport/color/graticule) until an unrelated
+        # repaint. Markers are a text overlay (`#draw_markers`), so they keep
+        # their own no-invalidate path.
+        private macro map_prop(name, type)
+          def {{name.id}}=(v : {{type}}) : {{type}}
+            return v if v == @{{name.id}}
+            @{{name.id}} = v
+            canvas?.try &.invalidate_paint
+            request_render
+            v
+          end
+        end
+
+        map_prop min_lon, Float64
+        map_prop max_lon, Float64
+        map_prop min_lat, Float64
+        map_prop max_lat, Float64
+        map_prop land_color, Int32
+        map_prop show_graticule, Bool
+        map_prop graticule_color, Int32
+        map_prop graticule_step, Float64
+
         getter markers : Array(Marker) = [] of Marker
 
         # The Canvas the coastlines are drawn on. `canvas` raises if read before

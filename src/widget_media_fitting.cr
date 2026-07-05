@@ -65,7 +65,11 @@ module Crysterm
         cw = png.width if cw <= 0
         ch = png.height if ch <= 0
         return {cw, ch} if cw <= cap && ch <= cap
-        cw >= ch ? {cap, (ch * cap // cw)} : {(cw * cap // ch), cap}
+        # Clamp the derived (short) edge to >= 1: an extreme aspect ratio
+        # (> cap:1) would otherwise floor it to 0, and a 0-sized resample builds
+        # empty frames — a very wide/short (or tall/thin) animation drawing
+        # nothing. Mirrors `Fit::None`'s `{..., 1}.max` and `cap_size`'s clamp.
+        cw >= ch ? {cap, {ch * cap // cw, 1}.max} : { {cw * cap // ch, 1}.max, cap }
       end
 
       # Convenience: fit a PNG's own (still) bitmap.

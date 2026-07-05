@@ -127,8 +127,8 @@ module Crysterm
       acs = false
 
       # Terminal-constant capabilities (`@draw_caps`, via `#compute_draw_caps`),
-      # bound to locals here. Only `bce_opt` and `fu` can change at runtime, so
-      # they stay per-frame.
+      # bound to locals here. Only `bce_opt`, `fu` and `ncolors` can change at
+      # runtime, so they stay per-frame.
       caps = draw_caps
       has_bce = caps.has_bce
       parm_right_cursor = caps.parm_right_cursor
@@ -137,7 +137,6 @@ module Crysterm
       acscr = caps.acscr
       term_unicode = caps.term_unicode
       u8 = caps.u8
-      ncolors = caps.ncolors
       smacs = caps.smacs
       rmacs = caps.rmacs
       el = caps.el
@@ -145,6 +144,12 @@ module Crysterm
 
       bce_opt = @optimization.bce?
       fu = full_unicode?
+      # Output color depth used to reduce SGR colors. NOT taken from the frozen
+      # `caps.ncolors` (computed once at `compute_draw_caps`): `#colors` resolves
+      # the `colors.depth` config/env override fresh, so a depth changed at
+      # runtime (e.g. toggling truecolor) actually reaches the wire. Computed
+      # once per frame, not per cell.
+      ncolors = colors
       # When full_unicode is on but the terminal declares neither unicode nor U8,
       # non-ASCII glyphs are reduced to a 1-column ASCII fallback (see the emit
       # path). A wide (2-column) cell whose glyph is reduced must still pad its
@@ -297,10 +302,21 @@ module Crysterm
           # Render the artificial cursor. `acur_col` already encodes the whole
           # `c_artificial && !c._hidden && c._state != 0 && y == cursor_y`
           # condition per row (or -1), so this is one compare per cell.
+          #
+          # `acur_glyph` records whether the cursor *replaced* this cell's glyph
+          # with its own: the line and custom (`none`) shapes return a char (a
+          # bar `│` / the custom `fill_char`), while block/underline return nil
+          # and keep the cell's own char, changing only the attribute. A
+          # replacing cursor's single-codepoint glyph must win over any
+          # grapheme-cluster overlay the cell carries — otherwise the `fu` emit
+          # path below re-reads the overlay and the cursor glyph is never shown.
+          acur_glyph = false
           if x == acur_col
             desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
-            desired_char = tmpch if tmpch
-            # XXX Is this needed:
+            if tmpch
+              desired_char = tmpch
+              acur_glyph = true
+            end
           end
 
           # Take advantage of xterm's back_color_erase via a lookahead, to avoid
@@ -511,7 +527,7 @@ module Crysterm
             # `line.grapheme_at?(x)` is `line[x].grapheme_overlay` without the
             # bounds-checked `Cell` handle; rows with no overlay skip the probe
             # entirely via `l_has_g`.
-            if fu && l_has_g && (g = line.grapheme_at?(x))
+            if fu && l_has_g && !acur_glyph && (g = line.grapheme_at?(x))
               ox.grapheme = g
             else
               ox.char = desired_char
@@ -638,12 +654,16 @@ module Crysterm
             else
               # Fetch the grapheme overlay once and reuse it for both the emit
               # and the width below; rows with no overlay (`l_has_g` false, the
-              # common case) skip the `@graphemes` probe entirely.
-              g = l_has_g ? line.grapheme_at?(x) : nil
+              # common case) skip the `@graphemes` probe entirely. A replacing
+              # artificial cursor (`acur_glyph`) suppresses the overlay so its own
+              # single-codepoint glyph is emitted here instead of the underlying
+              # cluster (which would hide the cursor bar / custom glyph).
+              g = (l_has_g && !acur_glyph) ? line.grapheme_at?(x) : nil
               # Equivalent to `current.width` here: the continuation case is
               # excluded by the `unless` above, so width comes from the overlay
-              # cluster if present, else from the cell's own codepoint.
-              w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(base_char)
+              # cluster if present, the cursor glyph when it replaced the cell,
+              # else the cell's own codepoint.
+              w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(acur_glyph ? desired_char : base_char)
               if g
                 if ascii_reduce
                   # Non-UTF8 terminal: never emit the raw multibyte cluster (it

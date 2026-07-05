@@ -378,9 +378,17 @@ module Crysterm
 
       # A content-sized table grows to fit its columns and so never overflows;
       # a fixed-width one overflows once its columns exceed the viewport.
+      #
+      # Compared against the full interior (`awidth - iwidth`) — the width the
+      # columns are laid out to fill (`calculate_maxes`) — *not* `content_width`.
+      # `content_width` also subtracts the *vertical* scroll bar's reserved
+      # column (`content_margin_x`); when a fixed-width table scrolls vertically,
+      # `row_width` fills the interior exactly, so comparing against the narrower
+      # `content_width` reported a phantom 1-column horizontal overflow and drew a
+      # spurious horizontal scroll bar across the bottom row.
       def really_scrollable_x?
         return false if @content_sized
-        get_scroll_width > content_width
+        get_scroll_width > awidth - iwidth
       end
 
       # Scrolls horizontally by *offset* columns' worth of display columns,
@@ -508,10 +516,16 @@ module Crysterm
         # Ctrl-B / Ctrl-U near the top, `selected - visible < 0`) slip through
         # and clamp to 0 in the parent, activating the empty header row.
         index = index.clamp(1, @items.size - 1) if @items.size > 1
+        super index
+        # After `super` scrolls the selection into view, a row near the top can
+        # land at screen row 0 — the row the pinned header overlays — hiding it.
+        # Nudge the viewport up one so the selected row shows *below* the header.
+        # Running this *before* `super` missed big upward jumps (e.g. Home / PageUp
+        # from a scrolled position), which `super` then re-scrolled to put the row
+        # right back under the header, hiding the first data row.
         if index <= @child_base
           scroll_to Math.max(@child_base - 1, 0)
         end
-        super index
       end
 
       def render(with_children = true)

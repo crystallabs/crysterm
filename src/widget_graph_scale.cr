@@ -88,6 +88,11 @@ module Crysterm
         # and raises `OverflowError` on ordinary large data — byte counts,
         # populations, timestamps ≥ 2³¹) when dropping the fractional part.
         def self.fmt(v : Float64) : String
+          # A non-finite value (Infinity from a divide-by-zero / `log(0)` in the
+          # plotted data, or NaN) has `v == v.round`, so the whole-number branch
+          # would call `Infinity.to_i64` — an `OverflowError` that crashes the
+          # render. Render it as its plain string ("Infinity"/"NaN") instead.
+          return v.to_s unless v.finite?
           v == v.round ? v.to_i64.to_s : v.round(1).to_s
         end
       end

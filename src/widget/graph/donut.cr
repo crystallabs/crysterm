@@ -59,6 +59,29 @@ module Crysterm
         # Optional caption drawn under the percentage.
         property label : String
 
+        # Ring-parameter setter: an assignment changes what `#paint_ring` draws,
+        # so — like `#value=` — it must invalidate the Canvas raster (which
+        # otherwise skips repaint under its own `@paint_dirty`) and schedule a
+        # render. The plain `property` setter did neither, leaving the ring stale
+        # (old thickness/color/track) until an unrelated repaint. Overrides the
+        # generated setter; the getter from `property`/`property?` stays.
+        private macro ring_prop(name, type)
+          def {{name.id}}=(v : {{type}}) : {{type}}
+            return v if v == @{{name.id}}
+            @{{name.id}} = v
+            canvas?.try &.invalidate_paint
+            request_render
+            v
+          end
+        end
+
+        ring_prop minimum, Float64
+        ring_prop maximum, Float64
+        ring_prop fill_color, Int32
+        ring_prop track_color, Int32
+        ring_prop show_track, Bool
+        ring_prop thickness, Float64
+
         @value : Float64
 
         # The drawing surface, built in `#initialize`. `canvas` raises if read

@@ -93,6 +93,19 @@ module Crysterm
         property? show_legend : Bool
         property? show_grid : Bool
 
+        # Toggling the grid changes what `#paint_plot` draws onto the plot Canvas,
+        # so — like `#add_series` — the setter must invalidate the Canvas raster
+        # (which otherwise skips repaint under its own `@paint_dirty`) and
+        # schedule a render. The plain `property?` setter did neither, leaving a
+        # stale grid on window until an unrelated repaint.
+        def show_grid=(v : Bool) : Bool
+          return v if v == @show_grid
+          @show_grid = v
+          plot?.try &.invalidate_paint
+          request_render
+          v
+        end
+
         # The Canvas the plot is drawn on. Built in `#initialize` after `super`,
         # so stored nilable but never `nil` post-construction. `plot` raises if
         # read before construction completes; `plot?` is the nilable variant.

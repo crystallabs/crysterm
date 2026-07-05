@@ -149,6 +149,16 @@ module Crysterm
                 ffmpeg_args : Array(String)? = nil) : Bytes?
       xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
+      # An inverted or fully out-of-range region clamps to empty (`xl == xi` or
+      # `yl == yi`) — reachable from `Widget#capture` with e.g.
+      # `include_decorations: false` on a widget narrower than its own insets, or
+      # a large negative `d*` delta. There is no image to produce, and
+      # `Capture.render` would raise an opaque `ArgumentError("empty region")` on
+      # a zero-size region: exactly what the shared clamp exists to avoid (see
+      # `#clamp_capture_region`, and `#dump`, which returns an empty result here).
+      # Return nothing gracefully instead of crashing.
+      return nil if xl <= xi || yl <= yi
+
       fmt = (format || (path ? File.extname(path).lchop('.') : nil)).to_s.downcase
       fmt = "png" if fmt.empty?
 

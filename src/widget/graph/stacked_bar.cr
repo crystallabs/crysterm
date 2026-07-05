@@ -105,7 +105,12 @@ module Crysterm
         end
 
         private def segment_color(level : Int32) : String
-          @colors[level % @colors.size]
+          # Fall back to the default palette when `colors` was set to an empty
+          # array: segments are color-keyed, so there's no "no color" here (the
+          # return type is non-nil), and `level % @colors.size` would be
+          # `level % 0` — a `DivisionByZeroError` — on an empty array.
+          colors = @colors.empty? ? DEFAULT_COLORS : @colors
+          colors[level % colors.size]
         end
 
         private def build_content : String

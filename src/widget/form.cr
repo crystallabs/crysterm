@@ -63,6 +63,14 @@ module Crysterm
           self.keyable = true
           on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
         end
+
+        # Wire `auto_next` handlers eagerly as fields are adopted, not only lazily
+        # on the first `#focusable` call (a Tab). Otherwise submitting a field
+        # reached by a direct click — before any Tab ran `#focusable` — never
+        # advanced, since its `Submit` handler was never installed.
+        if @auto_next
+          on(Crysterm::Event::Adopt) { focusable }
+        end
       end
 
       # Returns the focusable (keyable) descendants of this form, in tree order.
@@ -91,6 +99,10 @@ module Crysterm
         return unless el.is_a? LineEdit
         return unless @auto_next_wired.add? el.object_id
         el.on(Crysterm::Event::Submit) do
+          # Anchor the advance on the field that submitted, so focus moves to
+          # *its* successor even when it was focused directly (a click) and
+          # `@selected` still points at the last Tab-navigated field (or nil).
+          @selected = el
           focus_next
           request_render
         end
@@ -129,7 +141,17 @@ module Crysterm
         # second-to-last field instead of the last.
         size = list.size
         sentinel = direction > 0 ? -1 : 0
-        i = (sel = @selected) ? (list.index(sel) || sentinel) : sentinel
+        # Anchor on the child that *actually* holds focus when it differs from
+        # the last-navigated `@selected` — e.g. the user clicked/focused a field
+        # directly instead of Tabbing to it. Without this, Tab resumes from the
+        # stale `@selected` and skips over the field that is really focused.
+        # Only when `@selected` is already set, so `#focus_first`/`#focus_last`
+        # (which `#reset_selected` to `nil` first) still enter from the sentinel.
+        anchor = @selected
+        if anchor && (foc = window?.try(&.focused)) && list.includes?(foc)
+          anchor = foc
+        end
+        i = anchor ? (list.index(anchor) || sentinel) : sentinel
         size.times do
           i = (i + direction) % size
           candidate = list[i]

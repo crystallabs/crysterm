@@ -38,6 +38,11 @@ module Crysterm
         super **input
         @checkable = checkable
         @checked = checked
+        # `#value` mirrors `#checked?` for a checkable control, so a control
+        # constructed pre-checked must start with `value == true` (not the
+        # default `false`). `#toggle`/`#set_checked` keep them in sync after;
+        # the marker controls re-set it in `#setup_marker_control`.
+        @value = checked
 
         # Activate-key wiring is shared by the whole family (push buttons and the
         # marker controls both activate on Space/Enter), so it lives here rather

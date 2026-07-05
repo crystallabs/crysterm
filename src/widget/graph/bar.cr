@@ -107,8 +107,11 @@ module Crysterm
         end
 
         private def bar_color(i : Int32) : String?
+          # An empty `colors` array means "no per-bar color" (use `style.fg`),
+          # like `nil` — guarding the modulo, which would be `i % 0` (a
+          # `DivisionByZeroError`) on an empty array.
           c = @colors
-          c ? c[i % c.size] : nil
+          (c && !c.empty?) ? c[i % c.size] : nil
         end
 
         # Builds the (tagged) glyph grid for the current size and values.
