@@ -180,7 +180,7 @@ module Crysterm
       end
 
       private def self.rgb(r : Int32, g : Int32, b : Int32) : Int32
-        (r << 16) | (g << 8) | b
+        Colors.rgb(r, g, b)
       end
     end
   end

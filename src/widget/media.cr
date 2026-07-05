@@ -215,9 +215,12 @@ module Crysterm
 
       # Unpacks a packed `0xRRGGBB` color into its `{r, g, b}` byte channels.
       # Shared by every backend that stores colors packed (`Graph::Painter`,
-      # ANSI-art decoding) instead of as separate channels.
+      # ANSI-art decoding) instead of as separate channels. `@[AlwaysInline]`
+      # because the dither backends call it per pixel — inlining lets LLVM
+      # scalarize the intermediate tuple away, matching the old open-coded shifts.
+      @[AlwaysInline]
       def self.rgb24(v : Int32) : Tuple(Int32, Int32, Int32)
-        {(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff}
+        Colors.rgb_channels(v)
       end
 
       # Backend used to render the image. See the families described above.

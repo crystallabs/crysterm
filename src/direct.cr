@@ -270,19 +270,7 @@ module Crysterm
       flags |= Attr::REVERSE if reverse
       flags |= Attr::STRIKE if strike
       flags |= Attr::INVISIBLE if invisible
-      Attr.pack flags, Attr.pack_color(to_rgb(fg)), Attr.pack_color(to_rgb(bg))
-    end
-
-    # Resolves a color argument to native RGB: `nil` → `-1` (terminal default),
-    # an integer is taken as a packed RGB value, a `String` is parsed
-    # (name/hex) through the cached converter.
-    private def to_rgb(c) : Int32
-      case c
-      when Nil    then -1
-      when String then Colors.convert_cached(c)
-      when Int    then c.to_i32
-      else             -1
-      end
+      Attr.pack flags, Attr.pack_color(Colors.convert_cached(fg)), Attr.pack_color(Colors.convert_cached(bg))
     end
 
     # Emits *code*'s SGR sequence (reduced to the terminal's color depth), then

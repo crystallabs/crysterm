@@ -123,7 +123,8 @@ module Crysterm
     # ---- internals -----------------------------------------------------------
 
     private def self.rgb(c : Int32) : PNGGIF::Pixel
-      PNGGIF::Pixel.new((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff, 255)
+      r, g, b = Colors.rgb_channels(c)
+      PNGGIF::Pixel.new(r, g, b, 255)
     end
 
     # Draws one cell's background, glyph and line decorations into *canvas* at

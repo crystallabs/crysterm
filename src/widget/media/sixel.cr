@@ -123,7 +123,8 @@ module Crysterm
           bl = qlevel b, LB, t
           idx = (rl * LG + gl) * LB + bl
           rgb = PALETTE[idx]
-          {idx, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
+          dr, dg, db = Media.rgb24(rgb)
+          {idx, dr, dg, db}
         end
       end
 
@@ -144,7 +145,7 @@ module Crysterm
               rr = r * 255 // (LR - 1)
               gg = g * 255 // (LG - 1)
               bb = b * 255 // (LB - 1)
-              arr << ((rr << 16) | (gg << 8) | bb)
+              arr << Colors.rgb(rr, gg, bb)
             end
           end
         end

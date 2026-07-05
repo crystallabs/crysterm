@@ -156,7 +156,7 @@ module Crysterm
               r, rterm = sgr_param_at(src, mterm + 1, finish)
               g, gterm = rterm < finish ? sgr_param_at(src, rterm + 1, finish) : {0, rterm}
               b, bterm = gterm < finish ? sgr_param_at(src, gterm + 1, finish) : {0, gterm}
-              rgb = (r << 16) | (g << 8) | b
+              rgb = Colors.rgb(r, g, b)
               c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
               term = bterm
             else

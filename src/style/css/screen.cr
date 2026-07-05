@@ -287,7 +287,7 @@ module Crysterm
 
     # Converts a `tput` `RGB` record (or `nil`) to a native `0xRRGGBB` int.
     private def css_rgb_to_i(rgb) : Int32?
-      rgb.try { |c| (c.r.to_i32 << 16) | (c.g.to_i32 << 8) | c.b.to_i32 }
+      rgb.try { |c| Colors.rgb(c.r, c.g, c.b) }
     end
 
     # Returns the parsed document for *document*. A structural change (or no

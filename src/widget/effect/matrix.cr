@@ -111,7 +111,7 @@ module Crysterm
               # with distance from the head.
               frac = 1.0 - dist / @lengths[x]
               g = (60 + 180 * frac).to_i.clamp(0, 255)
-              {ch, (g << 8) | 0x22}
+              {ch, Colors.rgb(0, g, 0x22)}
             end
           else
             {' ', -1}

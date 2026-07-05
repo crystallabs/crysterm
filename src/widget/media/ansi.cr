@@ -127,7 +127,7 @@ module Crysterm
             next unless cell
             a = px.a / 255.0
             next if a == 0.0 # fully transparent: leave the cell as-is
-            rgb = prow ? prow[x - xi] : ((px.r << 16) | (px.g << 8) | px.b)
+            rgb = prow ? prow[x - xi] : Colors.rgb(px.r, px.g, px.b)
             paint_cell cell, px, a, rgb
           end
           row.dirty = true
@@ -186,7 +186,8 @@ module Crysterm
         pw = bmp[0]?.try(&.size) || 0
         Media.dither_rgb(bmp, pw, ph, @dither, @animated, -1) do |r, g, b, t|
           rgb = quantize_dither r, g, b, t
-          {rgb, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
+          dr, dg, db = Media.rgb24(rgb)
+          {rgb, dr, dg, db}
         end
       end
 
@@ -219,7 +220,7 @@ module Crysterm
       # The xterm palette as packed `0xRRGGBB`, precomputed once from
       # `TermColors::HI2RGB` so `Media.nearest_index` is a flat `Array(Int32)`
       # scan: first 8 entries are `C8`, first 16 are `C16`, all 256 are `C256`.
-      C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| (pr << 16) | (pg << 8) | pb }
+      C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| Colors.rgb(pr, pg, pb) }
       C16_PALETTE  = C256_PALETTE[0, 16]
       C8_PALETTE   = C256_PALETTE[0, 8]
 

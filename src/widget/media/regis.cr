@@ -136,7 +136,8 @@ module Crysterm
           end
           ci = Media.nearest_index PALETTE, r, g, b
           rgb = PALETTE[ci]
-          {ci, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
+          dr, dg, db = Media.rgb24(rgb)
+          {ci, dr, dg, db}
         end
       end
     end

@@ -74,6 +74,23 @@ module Crysterm
       end || color
     end
 
+    # Packs three `0..255` channel bytes into a native `0xRRGGBB` color — the
+    # single source for the `(r<<16)|(g<<8)|b` idiom that image/effect backends
+    # would otherwise re-inline per pixel. Channels are assumed already in range
+    # (callers clamp/quantize upstream); use `Media.rgb24`/`rgb_channels` for the
+    # inverse.
+    @[AlwaysInline]
+    def self.rgb(r : Int, g : Int, b : Int) : Int32
+      (r.to_i32 << 16) | (g.to_i32 << 8) | b.to_i32
+    end
+
+    # Unpacks a native `0xRRGGBB` color into its `{r, g, b}` byte channels — the
+    # inverse of `rgb`. `Media.rgb24` is a re-export for the media backends.
+    @[AlwaysInline]
+    def self.rgb_channels(c : Int) : Tuple(Int32, Int32, Int32)
+      {((c >> 16) & 0xff).to_i32, ((c >> 8) & 0xff).to_i32, (c & 0xff).to_i32}
+    end
+
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
     # The typed `Config` accessors read a cached handle, so this costs no hash
@@ -229,9 +246,7 @@ module Crysterm
         return
       end
 
-      r = (color >> 16) & 0xff
-      g = (color >> 8) & 0xff
-      b = color & 0xff
+      r, g, b = rgb_channels(color)
 
       if colors >= 0x1000000
         io << (fg ? 38 : 48) << ";2;" << r << ';' << g << ';' << b

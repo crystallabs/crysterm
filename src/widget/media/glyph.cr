@@ -276,8 +276,8 @@ module Crysterm
           j += 1
         end
 
-        fg = fn > 0 ? ((fr // fn) << 16) | ((fg_ // fn) << 8) | (fb // fn) : 0
-        bg = bn > 0 ? ((br // bn) << 16) | ((bg_ // bn) << 8) | (bb // bn) : fg
+        fg = fn > 0 ? Colors.rgb(fr // fn, fg_ // fn, fb // fn) : 0
+        bg = bn > 0 ? Colors.rgb(br // bn, bg_ // bn, bb // bn) : fg
 
         blend_cell cell, glyph_for(mask, sx, sy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
       end
@@ -317,7 +317,7 @@ module Crysterm
           # already conveyed by the glyph (bit off), so including them would
           # dilute the lit color toward a muddy, non-matching tint.
           a = (on_asum / 255.0) / n
-          fg = ((r // n) << 16) | ((g // n) << 8) | (b // n)
+          fg = Colors.rgb(r // n, g // n, b // n)
           blend_cell cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
         end
       end
@@ -359,7 +359,7 @@ module Crysterm
       end
 
       private def rgb_of(px : PNGGIF::Pixel) : Int32
-        (px.r << 16) | (px.g << 8) | px.b
+        Colors.rgb(px.r, px.g, px.b)
       end
 
       # Memoizes the braille on/off threshold (whole-bitmap luminance mean) per

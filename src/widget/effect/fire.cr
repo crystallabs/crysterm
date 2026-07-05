@@ -150,7 +150,7 @@ module Crysterm
           r = ((heat * 3.0).clamp(0.0, 1.0) * 255).to_i
           g = ((heat * 3.0 - 1.0).clamp(0.0, 1.0) * 255).to_i
           b = ((heat * 3.0 - 2.0).clamp(0.0, 1.0) * 255).to_i
-          (r << 16) | (g << 8) | b
+          Colors.rgb(r, g, b)
         end
       end
     end

@@ -125,7 +125,7 @@ module Crysterm
       r = (fr + (tr - fr) * t).round.to_i.clamp(0, 255)
       g = (fg + (tg - fg) * t).round.to_i.clamp(0, 255)
       b = (fb + (tb - fb) * t).round.to_i.clamp(0, 255)
-      (r << 16) | (g << 8) | b
+      Colors.rgb(r, g, b)
     end
   end
 end

@@ -440,7 +440,7 @@ module Crysterm
       # equals the current one, so the selection is visible there too — like the
       # "<" on the hue bar.
       private def mark_palette_selection(r : Int32, g : Int32, b : Int32) : Nil
-        cur = (r << 16) | (g << 8) | b
+        cur = Colors.rgb(r, g, b)
         @palette_swatches.each_with_index do |sw, i|
           name = @colors[i]?
           next unless name
@@ -674,7 +674,7 @@ module Crysterm
             (0...FIELD_W).each do |col|
               s = col / (FIELD_W - 1).to_f
               r, g, b = hsv_to_rgb @hue, s, v
-              bg = (r << 16) | (g << 8) | b
+              bg = Colors.rgb(r, g, b)
               # Unmarked cell: fg == bg, matching `put_cell(..., marked: false)`.
               attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
             end
@@ -694,7 +694,7 @@ module Crysterm
           (0...HUE_H).each do |row|
             h = row / (HUE_H - 1).to_f * 360.0
             r, g, b = hsv_to_rgb h, 1.0, 1.0
-            bg = (r << 16) | (g << 8) | b
+            bg = Colors.rgb(r, g, b)
             (0...HUE_W).each do
               attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
             end
@@ -720,7 +720,7 @@ module Crysterm
               v = 1.0 - row / (FIELD_H - 1).to_f
               s = col / (FIELD_W - 1).to_f
               r, g, b = hsv_to_rgb @hue, s, v
-              put_cell x, y, '+', (r << 16) | (g << 8) | b, true
+              put_cell x, y, '+', Colors.rgb(r, g, b), true
             else
               put_cell_attr x, y, ' ', attrs[row * FIELD_W + col]
             end
@@ -742,7 +742,7 @@ module Crysterm
               # Marker: recompute just this row's bg for the contrasting fg.
               h = row / (HUE_H - 1).to_f * 360.0
               r, g, b = hsv_to_rgb h, 1.0, 1.0
-              put_cell x, y, '<', (r << 16) | (g << 8) | b, true
+              put_cell x, y, '<', Colors.rgb(r, g, b), true
             else
               put_cell_attr x, y, ' ', attrs[row * HUE_W + col]
             end
