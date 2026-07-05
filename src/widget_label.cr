@@ -27,17 +27,7 @@ module Crysterm
       # If label widget exists, update it and return
       @_label.try do |_label|
         _label.set_content(text)
-        # Match the creation path (below): `2 - ileft`/`2 - iright` compensates
-        # border *and* padding. A border-only form like `2 + (-border)` ignores
-        # padding, so re-calling `set_label` would shift the label `padding.left`
-        # cells right on a padded widget.
-        if side != "right"
-          _label.left = 2 - ileft
-          _label.right = nil
-        else
-          _label.right = 2 - iright
-          _label.left = nil
-        end
+        place_label_side(_label, side)
         return
       end
 
@@ -54,25 +44,42 @@ module Crysterm
       # exempts it from border compensation (blessed's `_isLabel`).
       _label._is_label = true
 
-      if side != "right"
-        _label.left = 2 - ileft
-      else
-        _label.right = 2 - iright
-      end
+      place_label_side(_label, side)
 
       @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition_label(Crysterm::Event::Scroll)
       @ev_label_resize = on Crysterm::Event::Resize, ->reposition_label(Crysterm::Event::Resize)
     end
 
+    # Positions the label on `side` ("right" pins to the right inset, anything
+    # else to the left), clearing the opposite edge so re-calls don't leave a
+    # stale offset. `2 - ileft`/`2 - iright` compensates border *and* padding;
+    # a border-only form like `2 + (-border)` ignores padding, so re-calling
+    # `set_label` would shift the label `padding.left` cells right on a padded
+    # widget.
+    private def place_label_side(lbl, side)
+      if side != "right"
+        lbl.left = 2 - ileft
+        lbl.right = nil
+      else
+        lbl.right = 2 - iright
+        lbl.left = nil
+      end
+    end
+
+    # Moves the label to `top` only when it isn't already there. Returns whether
+    # it actually moved, so callers re-render on demand.
+    private def move_label_top(lbl, top) : Bool
+      return false if lbl.top == top
+      lbl.top = top
+      true
+    end
+
     # Repositions label to the right place. Usually called from resize event
     def reposition_label(event = nil)
       @_label.try do |_label|
-        new_top = @child_base - itop
         # Only re-render when the label actually moves: fires on every Scroll
         # and Resize, and resize jitter would otherwise trigger no-op renders.
-        next if _label.top == new_top
-        _label.top = new_top
-        request_render
+        request_render if move_label_top(_label, @child_base - itop)
       end
     end
 
@@ -83,8 +90,7 @@ module Crysterm
     # once styles are resolved; cheap for label-less widgets.
     protected def sync_label_position : Nil
       @_label.try do |_label|
-        top = @child_base - itop
-        _label.top = top unless _label.top == top
+        move_label_top(_label, @child_base - itop)
       end
     end
 

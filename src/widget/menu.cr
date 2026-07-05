@@ -36,6 +36,10 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Menu < Box
       include Mixin::ItemView
+      # A menu is an overlay: at the unstyled floor it carries a structural
+      # border to separate from the content behind it (a theme's CSS, e.g.
+      # qdarkstyle's `QMenu { border: 0 }`, then owns the border).
+      include Mixin::Overlay
 
       # Optional title, shown as the widget's label.
       property title : String = ""
@@ -178,14 +182,6 @@ module Crysterm
         # Enter (or a click on the already-selected row) emits `ActionItem`;
         # activate the corresponding action.
         on(::Crysterm::Event::ActionItem) { |e| activate_index e.index }
-      end
-
-      # A menu is an overlay: at the unstyled floor (no theme/CSS) it carries a
-      # structural border to separate from content behind it. An active theme
-      # makes it `css_styled`, free to set any border including none
-      # (qdarkstyle's `QMenu { border: 0 }`); see `Mixin::Style#floor_border?`.
-      def floor_border? : Bool
-        true
       end
 
       # Whether this menu is being shown as a floating context menu (see

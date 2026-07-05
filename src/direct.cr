@@ -53,9 +53,9 @@ module Crysterm
       screen : Screen? = nil,
     )
       @screen = screen || Screen.new(
-        input: input || (Crysterm.headless? ? IO::Memory.new : STDIN),
-        output: output || (Crysterm.headless? ? IO::Memory.new : STDOUT),
-        error: error || (Crysterm.headless? ? IO::Memory.new : STDERR),
+        input: input || Screen.default_input,
+        output: output || Screen.default_output,
+        error: error || Screen.default_error,
         terminfo: terminfo,
       )
 

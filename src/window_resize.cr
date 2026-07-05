@@ -38,10 +38,16 @@ module Crysterm
     # invocations (before the `resize_interval` has elapsed) coalesce, so a
     # burst of resize events results in a single redraw once things settle.
     private def schedule_resize
-      # Non-blocking send: if a notification is already pending, drop this one.
-      select
-      when @_resize_channel.send(nil)
-      else
+      ring @_resize_channel
+    end
+
+    # Subscribes to the global (SIGWINCH-driven) `Event::Resize`, debouncing it
+    # onto this window's resize loop. The in-band-resize (DEC 2048) path, when
+    # active, reports size via the input stream, so the global signal is ignored
+    # to avoid double handling. Shared by `#on_attach` and reconnection.
+    private def subscribe_global_resize : ::Crysterm::Event::Resize::Wrapper
+      GlobalEvents.on(::Crysterm::Event::Resize) do |_|
+        schedule_resize unless _listened_in_band_resize?
       end
     end
 

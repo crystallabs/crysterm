@@ -20,6 +20,12 @@ module Crysterm
       # not shrink to its (empty) content the way an `Input` does by default.
       @resizable = false
 
+      # Amount Page Up/Down move the value by (Qt `pageStep`); required by
+      # `Mixin::RangedValue#ranged_step_key`. `Slider`/`Dial` inherit this;
+      # `ScrollBar` overrides it (default 1 + a change-guarded setter that
+      # resyncs the thumb).
+      property page_step : Int32 = 10
+
       # `Slider`/`Dial` indicate focus via reverse-video at the unstyled floor
       # (see `Mixin::Style#floor_focus_reverse?`), same as the button family.
       def floor_focus_reverse? : Bool
@@ -39,6 +45,21 @@ module Crysterm
       # (see `#step_key_inverted?`).
       def on_keypress(e)
         ranged_step_key e, invert: step_key_inverted?
+      end
+
+      # `@value` stamp for the per-value string caches in `Slider`/`Dial`
+      # (`#value_text`). Held here so the staleness logic is single-sourced.
+      @value_text_for : Int32?
+
+      # Returns `true` — and advances the stamp — when `@value` has changed since
+      # the last call, signalling a subclass to rebuild its cached value
+      # string(s); `false` when the cache is still current. The first call is
+      # always stale (the stamp starts `nil`), so subclasses can seed their string
+      # ivars with `""` rather than a nilable.
+      private def value_text_stale? : Bool
+        return false if @value_text_for == @value
+        @value_text_for = @value
+        true
       end
 
       # Value at a main-axis offset *pos* cells from the low-value end of a

@@ -63,10 +63,7 @@ module Crysterm
       @connected = true
 
       # Re-establish the global-resize subscription if it was dropped.
-      @_resize_handler ||= GlobalEvents.on(::Crysterm::Event::Resize) do |_|
-        # In-band resize (DEC 2048), when active, supersedes the SIGWINCH path.
-        schedule_resize unless _listened_in_band_resize?
-      end
+      @_resize_handler ||= subscribe_global_resize
 
       # Reattach as `QWindow#screen=`: swap onto a freshly-built device for the
       # new tty (reusing the old device's terminfo + options, sized from the

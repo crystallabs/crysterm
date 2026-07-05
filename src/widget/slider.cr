@@ -28,9 +28,6 @@ module Crysterm
         Both
       end
 
-      # Amount Page Up/Down move the value by (Qt `pageStep`).
-      property page_step : Int32 = 10
-
       property orientation : Tput::Orientation = :horizontal
 
       # Whether the current value is drawn centered over the track.
@@ -89,19 +86,15 @@ module Crysterm
         end
       end
 
-      # Cached value string and the `@value` it was built for. `#render` draws it
-      # every frame when `#show_value?`; `@value.to_s` only needs to rerun when
-      # the value changes.
-      @value_text : String?
-      @value_text_for : Int32?
+      # Cached value string. `#render` draws it every frame when `#show_value?`;
+      # `@value.to_s` only needs to rerun when the value changes (see
+      # `AbstractSlider#value_text_stale?`).
+      @value_text : String = ""
 
       # Returns `@value.to_s`, rebuilding only when the value changed.
       private def value_text : String
-        if @value_text_for != @value || (cached = @value_text).nil?
-          @value_text_for = @value
-          @value_text = cached = @value.to_s
-        end
-        cached
+        @value_text = @value.to_s if value_text_stale?
+        @value_text
       end
 
       # Handle offset (in cells) from the low end of a track `avail` cells long.

@@ -14,8 +14,6 @@ module Crysterm
     # ![Dial screenshot](../../tests/widget/dial/dial.5s.apng)
     # <!-- /widget-examples:capture -->
     class Dial < AbstractSlider
-      property page_step : Int32 = 10
-
       property? show_value : Bool = true
 
       # Pointer glyphs for the eight compass directions, starting at "north" and
@@ -61,23 +59,21 @@ module Crysterm
         POINTERS[(frac * steps).round.to_i % POINTERS.size]
       end
 
-      # Cached value strings (plain + focused-bracketed form) and the `@value`
-      # they were built for. `#render` draws one of them every frame when
-      # `#show_value?`; interpolating `"‹#{@value}›"` / `@value.to_s` only needs
-      # to rerun when the value actually changes.
-      @value_plain : String?
-      @value_bracketed : String?
-      @value_text_for : Int32?
+      # Cached value strings (plain + focused-bracketed form). `#render` draws one
+      # of them every frame when `#show_value?`; interpolating `"‹#{@value}›"` /
+      # `@value.to_s` only needs to rerun when the value actually changes (see
+      # `AbstractSlider#value_text_stale?`). Focus selects between them per call.
+      @value_plain : String = ""
+      @value_bracketed : String = ""
 
       # Returns the value string for the current focus state, rebuilding the
       # cached pair only when `@value` changed since the last call.
       private def value_text : String
-        if @value_text_for != @value || @value_plain.nil?
-          @value_text_for = @value
+        if value_text_stale?
           @value_plain = @value.to_s
           @value_bracketed = "‹#{@value}›"
         end
-        (focused? ? @value_bracketed : @value_plain) || @value.to_s
+        focused? ? @value_bracketed : @value_plain
       end
 
       def render

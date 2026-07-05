@@ -215,23 +215,15 @@ module Crysterm
       # visible styling of its own, so the cursor row stays distinguishable with
       # no theme active. Returns *st* untouched when already visibly styled.
       #
-      # Inlines `Style#with_reverse_fallback` (dup + `reverse = true`) so the copy
-      # is memoized by source identity, mirroring
-      # `Mixin::Style#reverse_highlight_fallback` (A2): the cascade replaces the
-      # backing selected-state style, so a `same?` hit means the copy is still
-      # current, avoiding a per-call `Style#dup`. Both the `selection_visibly_styled?`
-      # guard and the source's own `visibly_styled?` short-circuit are preserved.
+      # The reverse-video derive + source-identity memo is shared with
+      # `Mixin::Style#reverse_highlight_fallback` via `#reverse_fallback_memo`;
+      # here the skip guard is `selection_visibly_styled?` and the memo pair is
+      # `@_sel_reverse_fallback_{src,copy}` (kept separate so a `List` can run
+      # this alongside the focus-highlight fallback in the same frame).
       private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
-        return st if selection_visibly_styled?
-        return st if st.visibly_styled?
-        if (src = @_sel_reverse_fallback_src) && src.same?(st) && (copy = @_sel_reverse_fallback_copy)
-          return copy
-        end
-        copy = st.dup
-        copy.reverse = true
-        @_sel_reverse_fallback_src = st
-        @_sel_reverse_fallback_copy = copy
-        copy
+        result, @_sel_reverse_fallback_src, @_sel_reverse_fallback_copy =
+          reverse_fallback_memo st, selection_visibly_styled?, @_sel_reverse_fallback_src, @_sel_reverse_fallback_copy
+        result
       end
 
       # Returns *base* with any border stripped: *base* untouched when borderless

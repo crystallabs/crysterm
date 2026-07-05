@@ -370,14 +370,20 @@ module Crysterm
         bmp.map(&.dup)
       end
 
+      # Decodes the RGBA quad at byte offset *i* of *buf* into a pixel. Shared by
+      # `#to_bitmap` (fresh alloc) and `#fill_bitmap` (in-place reuse).
+      @[AlwaysInline]
+      private def pixel_at(buf : Bytes, i : Int32) : PNGGIF::Pixel
+        PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)
+      end
+
       # Converts one raw RGBA frame buffer into a `PNGGIF::Bitmap`.
       # :nodoc:
       def to_bitmap(buf : Bytes, w : Int32, h : Int32) : PNGGIF::Bitmap
         Array(Array(PNGGIF::Pixel)).new(h) do |y|
           base = y * w * 4
           Array(PNGGIF::Pixel).new(w) do |x|
-            i = base + x * 4
-            PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)
+            pixel_at(buf, base + x * 4)
           end
         end
       end
@@ -401,8 +407,7 @@ module Crysterm
           row = bmp[y]
           x = 0
           while x < w
-            i = base + x * 4
-            row[x] = PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)
+            row[x] = pixel_at(buf, base + x * 4)
             x += 1
           end
           y += 1

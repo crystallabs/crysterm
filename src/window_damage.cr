@@ -163,6 +163,19 @@ module Crysterm
       w.to_i64 * h
     end
 
+    # Cost of the full (non-selective) repaint path: every screen cell plus the
+    # accumulated all-widget area. The selective path only wins below this.
+    private def damage_full_cost : Int64
+      awidth.to_i64 * aheight + @damage_all_area
+    end
+
+    # Whether this frame is out of scope for the selective damage path: a
+    # per-frame blend effect ran, or a nested layer/plane is present. Either
+    # forces a fall back to the full path.
+    private def damage_out_of_scope? : Bool
+      @frame_used_effects || !@layer_widgets.empty?
+    end
+
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
     #
     # The dirty-roots set is consumed only by the selective damage path, so when
@@ -172,11 +185,7 @@ module Crysterm
     # per-cell animation — so bail immediately when tracking is off.
     def damage_mark_dirty(w : Widget) : Nil
       return unless @optimization.damage_tracking?
-      root = w
-      while p = root.parent
-        root = p
-      end
-      @damage_dirty_roots << root
+      @damage_dirty_roots << w.top_level_ancestor
     end
 
     # Forces the next frame to be a full re-composite.
@@ -403,7 +412,7 @@ module Crysterm
       # before any render work. Catches the "(almost) everything changed"
       # degeneracy (e.g. every cell its own widget, all moving each frame), where
       # the cluster would otherwise grow to the whole screen at super-linear cost.
-      full_cost = awidth.to_i64 * aheight + @damage_all_area
+      full_cost = damage_full_cost
       dirty_area = 0_i64
       dirty.each { |r| dirty_area += damage_rect_area(r.damage_bounds) }
       return false if 2_i64 * dirty_area >= full_cost
@@ -429,9 +438,7 @@ module Crysterm
       # `@frame_used_effects`). Either is out of scope for the selective path —
       # fall back to the full path. (Per-cell blend effects — alpha/shadow/tint —
       # do NOT trip this; the cluster recomposite reproduces them, Phase 3.)
-      if @frame_used_effects || !@layer_widgets.empty?
-        return false
-      end
+      return false if damage_out_of_scope?
 
       # Does any changed subtree overlap another top-level subtree — changed or
       # unchanged? If not, the changed subtrees are self-contained and the
@@ -478,13 +485,13 @@ module Crysterm
       # ~2 * its area; if that already meets the full path's cost, fall back —
       # catches an overlap cluster that grew to (nearly) the whole screen (e.g.
       # thousands of stacked single-cell widgets).
-      return false if 2_i64 * cluster_area >= awidth.to_i64 * aheight + @damage_all_area
+      return false if 2_i64 * cluster_area >= damage_full_cost
 
       # Clear each member's footprint and the changed roots' vacated cells, then
       # repaint every member in `@children` (z) order.
       damage_repaint_cluster frontier
 
-      !(@frame_used_effects || !@layer_widgets.empty?)
+      !damage_out_of_scope?
     end
 
     # Clears the cluster's cells (*frontier* = member footprints + glue) and
@@ -722,8 +729,7 @@ module Crysterm
         olds << old
       end
       # A base dirty root deferred a nested layer, or wrote outside the cell model.
-      return false if @frame_used_effects
-      return false unless @layer_widgets.empty?
+      return false if damage_out_of_scope?
 
       # Build the pre-plane rebuild cluster (same grid/union-find as Phase 2). The
       # glue rects pull in whatever base sits under a changed root's vacated
@@ -744,13 +750,12 @@ module Crysterm
       # costs ~a full frame, fall back — keeps the plane path "never worse than
       # full" even for a plane over a large, fully-changing base.
       plane_area = plane_new ? damage_rect_area(plane_new) : 0_i64
-      return false if 2_i64 * cluster_area + plane_area >= awidth.to_i64 * aheight + @damage_all_area
+      return false if 2_i64 * cluster_area + plane_area >= damage_full_cost
 
       # Clear the cluster's cells (member footprints + glue) and repaint members
       # in `@children` (z) order — a region-local pre-plane base rebuild.
       damage_repaint_cluster frontier
-      return false if @frame_used_effects
-      return false unless @layer_widgets.empty?
+      return false if damage_out_of_scope?
 
       # Re-fold the plane over its (now freshly rebuilt, pre-plane) covered
       # region. Opacity is recomputed from the root's current alpha each frame.

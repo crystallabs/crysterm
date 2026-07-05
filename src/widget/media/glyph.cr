@@ -370,11 +370,7 @@ module Crysterm
       @threshold_memo = FrameMemo(Float64).new
 
       protected def clear_frame_derived(idx : Int32? = nil)
-        if idx
-          @threshold_memo.delete idx
-        else
-          @threshold_memo.clear
-        end
+        clear_frame_memo @threshold_memo, idx
       end
 
       private def global_threshold(sub) : Float64

@@ -384,12 +384,7 @@ module Crysterm
 
       # Push resize events to screens (push, not pull, keeps components loosely
       # coupled).
-      @_resize_handler = GlobalEvents.on(::Crysterm::Event::Resize) do |_|
-        # When in-band resize (DEC 2048) is active, the terminal reports size
-        # changes via the input stream, so ignore the SIGWINCH-driven global
-        # signal to avoid double handling.
-        schedule_resize unless _listened_in_band_resize?
-      end
+      @_resize_handler = subscribe_global_resize
     end
 
     def on_detach(e)

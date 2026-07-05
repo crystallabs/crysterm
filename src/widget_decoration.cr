@@ -65,34 +65,23 @@ module Crysterm
     # shrink-to-content sizing (`widget_size.cr`) so margin doesn't eat into a
     # shrunk widget's content.
 
-    # Margin offset on the left side
-    def mleft
-      style.margin.left
-    end
-
-    # Margin offset on the top side
-    def mtop
-      style.margin.top
-    end
-
-    # Margin offset on the right side
-    def mright
-      style.margin.right
-    end
-
-    # Margin offset on the bottom side
-    def mbottom
-      style.margin.bottom
-    end
+    {% for side in %w[left top right bottom] %}
+      # Margin offset on the {{side.id}} side
+      def m{{side.id}}
+        style.margin.{{side.id}}
+      end
+    {% end %}
 
     # Summed margin offset from left and right
     def mwidth
-      style.margin.left + style.margin.right
+      m = style.margin
+      m.left + m.right
     end
 
     # Summed margin offset from top and bottom
     def mheight
-      style.margin.top + style.margin.bottom
+      m = style.margin
+      m.top + m.bottom
     end
   end
 end

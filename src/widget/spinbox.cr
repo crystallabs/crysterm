@@ -40,16 +40,7 @@ module Crysterm
       )
         super **input
 
-        @wrap = wrap
-        # Store a non-inverted range and a clamped value (the shared guard;
-        # `RangedValue#init_range` does the `maximum >= minimum` fix-up that an
-        # inverted range would otherwise leave `#value` stuck under).
-        init_range @minimum, @maximum, value
-
-        handle Crysterm::Event::KeyPress
-        install_spinbox_editing
-
-        update_content
+        setup_spinbox_editing value, wrap
       end
 
       # The committed value as shown in the box (`Mixin::SpinBoxEditing` hook).

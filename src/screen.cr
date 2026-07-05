@@ -70,14 +70,33 @@ module Crysterm
     # connection. A caller-supplied `input:`/`output:`/`error:` always wins.
     # Each default is its own buffer so headless input reads never consume
     # rendered output.
-    property input : IO = Crysterm.headless? ? IO::Memory.new : STDIN
+    property input : IO = Screen.default_input
 
     # Output IO. See the note on `input` re: not using `STDOUT.dup`.
-    property output : IO = Crysterm.headless? ? IO::Memory.new : STDOUT
+    property output : IO = Screen.default_output
 
     # Error IO (could redirect error output to a particular widget). See the
     # note on `input` re: not using `STDERR.dup`.
-    property error : IO = Crysterm.headless? ? IO::Memory.new : STDERR
+    property error : IO = Screen.default_error
+
+    # Default input/output/error IO for a `Screen` (or `Direct`) built without
+    # explicit streams: the real std stream when interactive, else a fresh
+    # per-call `IO::Memory` so a headless connection has its own buffer and
+    # headless input reads never consume rendered output. See the note on
+    # `input` re: not using `STDIN.dup`.
+    def self.default_input : IO
+      Crysterm.headless? ? IO::Memory.new : STDIN
+    end
+
+    # :ditto:
+    def self.default_output : IO
+      Crysterm.headless? ? IO::Memory.new : STDOUT
+    end
+
+    # :ditto:
+    def self.default_error : IO
+      Crysterm.headless? ? IO::Memory.new : STDERR
+    end
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode : Bool = Config.screen_force_unicode

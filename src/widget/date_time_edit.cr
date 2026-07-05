@@ -22,8 +22,6 @@ module Crysterm
     class DateTimeEdit < AbstractSpinBox
       include Mixin::SectionedField
 
-      @resizable = false
-
       @datetime : Time
       # `@section`: 0=year 1=month 2=day 3=hour 4=minute 5=second.
 

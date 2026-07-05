@@ -33,8 +33,7 @@ module Crysterm
     end
 
     private def dom_index_subtree(widget : Widget, index : Hash(String, Widget)) : Nil
-      index[widget.uid.to_s] = widget
-      widget.children.each { |child| dom_index_subtree child, index }
+      widget.self_and_each_descendant { |w| index[w.uid.to_s] = w }
     end
   end
 end

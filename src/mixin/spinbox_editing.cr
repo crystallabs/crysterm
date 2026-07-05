@@ -46,6 +46,22 @@ module Crysterm
         update_content
       end
 
+      # Shared spin-box `#initialize` tail — both controls run it after `super`
+      # (and after `DoubleSpinBox` sets up `@decimals`/`@fmt`): stores a
+      # non-inverted range and a clamped `value` (the shared guard;
+      # `RangedValue#init_range` does the `maximum >= minimum` fix-up an inverted
+      # range would otherwise leave `#value` stuck under), wires key handling and
+      # the wheel/blur handlers, and paints the initial content.
+      protected def setup_spinbox_editing(value, wrap) : Nil
+        @wrap = wrap
+        init_range @minimum, @maximum, value
+
+        handle Crysterm::Event::KeyPress
+        install_spinbox_editing
+
+        update_content
+      end
+
       # Installs the mouse-wheel and blur handlers. Call once from the including
       # widget's `#initialize` (after `super`).
       protected def install_spinbox_editing : Nil

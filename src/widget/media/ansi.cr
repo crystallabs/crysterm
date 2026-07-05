@@ -171,11 +171,7 @@ module Crysterm
       @dither_plane_memo = FrameMemo(Array(Array(Int32))).new
 
       protected def clear_frame_derived(idx : Int32? = nil)
-        if idx
-          @dither_plane_memo.delete idx
-        else
-          @dither_plane_memo.clear
-        end
+        clear_frame_memo @dither_plane_memo, idx
       end
 
       # Builds a palette-quantized, dithered color plane for the whole sample —

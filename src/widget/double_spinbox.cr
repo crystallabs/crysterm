@@ -58,18 +58,9 @@ module Crysterm
       )
         super **input
 
-        @wrap = wrap
         @decimals = Math.max(decimals, 0)
         @fmt = "%.#{@decimals}f"
-        # Store a non-inverted range and a clamped value (the shared guard;
-        # `RangedValue#init_range` does the `maximum >= minimum` fix-up that an
-        # inverted range would otherwise leave `#value` stuck under).
-        init_range @minimum, @maximum, value
-
-        handle Crysterm::Event::KeyPress
-        install_spinbox_editing
-
-        update_content
+        setup_spinbox_editing value, wrap
       end
 
       # Emit the `Float64` value-change signal (`RangedValue` hook); the integer

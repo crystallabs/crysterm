@@ -334,16 +334,34 @@ module Crysterm
       # so a `same?` hit means the copy is still current; `#invalidate_frame_style`
       # drops the memo on any style-swapping change.
       private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
-        return st if @css_styled
-        return st if st.visibly_styled?
-        if (src = @_reverse_fallback_src) && src.same?(st) && (copy = @_reverse_fallback_copy)
-          return copy
+        result, @_reverse_fallback_src, @_reverse_fallback_copy =
+          reverse_fallback_memo st, @css_styled, @_reverse_fallback_src, @_reverse_fallback_copy
+        result
+      end
+
+      # Shared core of the reverse-video source-identity memo — used by
+      # `#reverse_highlight_fallback` (above) and byte-for-byte by
+      # `Mixin::ItemView#selection_fallback`. When *st* is stylable as a
+      # highlight (not *skip*ped, and not already `visibly_styled?`), returns a
+      # reverse-video copy of it, reusing the previously memoized *copy* while
+      # its source *src* is unchanged (`same?`) — the cascade swaps the backing
+      # per-state `Style`, so a `same?` hit means the copy is still current,
+      # avoiding a `Style#dup` per call.
+      #
+      # Stateless on purpose: it returns the new `{result, src, copy}` as a
+      # value tuple (no heap) rather than owning ivars, so each caller keeps its
+      # own memo pair. A `List` runs *both* memos per frame (focus-highlight and
+      # selection), which is why the storage must stay separate.
+      protected def reverse_fallback_memo(st : ::Crysterm::Style, skip : Bool,
+                                          src : ::Crysterm::Style?, copy : ::Crysterm::Style?)
+        return {st, src, copy} if skip
+        return {st, src, copy} if st.visibly_styled?
+        if src && src.same?(st) && copy
+          return {copy, src, copy}
         end
-        copy = st.dup
-        copy.reverse = true
-        @_reverse_fallback_src = st
-        @_reverse_fallback_copy = copy
-        copy
+        c = st.dup
+        c.reverse = true
+        {c, st, c}
       end
 
       # Version with keeping @state and @style in sync:

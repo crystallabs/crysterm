@@ -272,13 +272,9 @@ module Crysterm
       refocus = old == cur
       old = nil if refocus
 
-      # Find a scrollable ancestor if we have one.
-      el = cur
-      while el = el.parent
-        if el.scrollable?
-          break
-        end
-      end
+      # Find a scrollable ancestor if we have one (starting *above* cur — a
+      # focused scrollable widget doesn't scroll itself to reveal itself).
+      el = cur.parent.try &.first_self_or_ancestor &.scrollable?
 
       cur.state = :focused
       # Only clear the blurred widget's state when it is actually Focused.

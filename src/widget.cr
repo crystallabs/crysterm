@@ -467,6 +467,15 @@ module Crysterm
     # widget.capture format: "gif", duration: 2.seconds
     # ```
     def capture(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : Bytes?
+      region = decoration_region(include_decorations, dxi, dxl, dyi, dyl)
+      return unless region
+      window.capture(*region, **opts)
+    end
+
+    # Shared region computation for `#capture`/`#dump`: resolves this widget's
+    # on-window box from `@lpos`, applies the `include_decorations` inset and the
+    # per-edge `d*` deltas. Returns `nil` if not yet rendered.
+    private def decoration_region(include_decorations, dxi, dxl, dyi, dyl)
       lpos = @lpos
       return unless lpos
 
@@ -475,7 +484,7 @@ module Crysterm
       yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
       yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
 
-      window.capture(xi, xl, yi, yl, **opts)
+      {xi, xl, yi, yl}
     end
 
     # Text counterpart to `Widget#capture`: dumps this widget's on-window region
@@ -488,15 +497,9 @@ module Crysterm
     # widget.dump include_decorations: false
     # ```
     def dump(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : String?
-      lpos = @lpos
-      return unless lpos
-
-      xi = lpos.xi + (include_decorations ? 0 : ileft) + dxi
-      xl = lpos.xl + (include_decorations ? 0 : -iright) + dxl
-      yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
-      yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
-
-      window.dump(xi, xl, yi, yl, **opts)
+      region = decoration_region(include_decorations, dxi, dxl, dyi, dyl)
+      return unless region
+      window.dump(*region, **opts)
     end
   end
 end

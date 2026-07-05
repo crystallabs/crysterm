@@ -187,13 +187,12 @@ module Crysterm
       # are restored to `:normal`; a child in any other state — focus, hover,
       # selection — is left alone.
       private def apply_enabled
+        # Re-checking restores exactly what `#restore_disabled_children` does;
+        # only the unchecked case (grey the children out) is unique here.
+        return restore_disabled_children if checked?
         @children.each do |c|
           next if c.same? @_label
-          if checked?
-            c.state = :normal if c.state.disabled?
-          else
-            c.state = :disabled
-          end
+          c.state = :disabled
         end
       end
 

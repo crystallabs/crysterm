@@ -65,15 +65,21 @@ module Crysterm
     # so the very first request paints immediately.
     @last_render_at : Time::Instant? = nil
 
+    # Rings a coalescing doorbell: a non-blocking send on a capacity-1 channel.
+    # If a notification is already pending the send is dropped, so a burst of
+    # calls collapses into the single wake-up the loop eventually observes.
+    # Shared by `#schedule_render` and `#schedule_resize`.
+    private def ring(ch : Channel(Nil)) : Nil
+      select
+      when ch.send nil
+      else
+      end
+    end
+
     # Requests a render. Non-blocking and coalescing; safe to call from any
     # fiber. Multiple calls before the frame is produced collapse into one.
     def schedule_render : Nil
-      select
-      when @render_wakeup.send nil
-        # Doorbell rung; a render is now pending.
-      else
-        # A render is already pending — coalesce (nothing to do).
-      end
+      ring @render_wakeup
     end
 
     # Queues `block` to run on the render fiber just before the next render,

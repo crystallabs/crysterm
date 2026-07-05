@@ -29,7 +29,18 @@ module Crysterm
       # reload, `bitmap=`/`reset_sample_cache`, streaming `invalidate_frame`).
       # Memory is bounded by the frame count `@frame_cache` already accepts.
       # Shared by `Media::Ansi` and `Media::Glyph`.
+      #
+      # Non-generic interface so `Media::Cells` can keep a mixed list of
+      # `FrameMemo(T)` in `@frame_memos` and clear them uniformly, without each
+      # subclass overriding `#clear_frame_derived`.
+      module FrameMemoBase
+        abstract def clear : Nil
+        abstract def delete(idx : Int32) : Nil
+      end
+
       class FrameMemo(T)
+        include FrameMemoBase
+
         @cache = {} of Int32 => Tuple(PNGGIF::Bitmap, T)
 
         def get(idx : Int32, bmp : PNGGIF::Bitmap, & : -> T) : T
@@ -124,8 +135,21 @@ module Crysterm
       # animation frame index in lockstep with `@frame_cache`. Called at every
       # point `@frame_cache` is invalidated so the derived data can never outlive
       # the frame it was computed for. *idx* `nil` drops every frame's derived
-      # data; a value drops only that frame's. No-op by default.
+      # data; a value drops only that frame's. No-op by default; a backend with a
+      # `FrameMemo` overrides this and delegates to `#clear_frame_memo`.
       protected def clear_frame_derived(idx : Int32? = nil)
+      end
+
+      # Clears one `FrameMemo` per `#clear_frame_derived`'s contract: *idx* `nil`
+      # drops every frame's derived value, a value drops just that frame's. The
+      # branching lives here so each backend's `#clear_frame_derived` is a
+      # one-liner naming its memo, instead of re-spelling the same if/else.
+      protected def clear_frame_memo(memo : FrameMemoBase, idx : Int32?) : Nil
+        if idx
+          memo.delete idx
+        else
+          memo.clear
+        end
       end
 
       # A directly-injected bitmap (`Media::Base#bitmap=`) changes content without

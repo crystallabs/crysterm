@@ -41,6 +41,9 @@ module Crysterm
       # list item events.
       class Popup < AbstractItemView
         include Mixin::ItemView
+        # The drop-down is an overlay: structural border at the unstyled floor,
+        # theme-overridable via the cascade.
+        include Mixin::Overlay
 
         # A single click on any row commits it.
         @activate_on_click = true
@@ -59,13 +62,6 @@ module Crysterm
         # height is this plus its own border/padding (`#iheight`), set by
         # `ComboBox#position_popup` and re-applied at render (see `#render`).
         property visible_rows : Int32 = 1
-
-        # The drop-down is an overlay: at the unstyled floor it carries a
-        # structural border to separate from content behind it. A theme can
-        # override/remove it (see `Mixin::Style#floor_border?`).
-        def floor_border? : Bool
-          true
-        end
 
         property combo : ComboBox?
 

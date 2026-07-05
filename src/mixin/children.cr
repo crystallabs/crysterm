@@ -173,6 +173,32 @@ module Crysterm
         el.parent.try { |el2| _each_ancestor el2, block }
       end
 
+      # Returns the first of self-or-ancestors (walking up via `parent`) for
+      # which the block is truthy, or `nil` if none match. Yield-based on
+      # purpose: the window hit-test/focus/scroll hot paths call this per event
+      # and must not allocate the `Proc` that `each_ancestor` would (block is
+      # inlined, early-returns on the match). Block may return any value; the
+      # walk stops on the first truthy result, matching the hand-rolled
+      # `while el && !pred; el = el.parent` loops it replaces.
+      def first_self_or_ancestor(&) : Widget?
+        el : Widget? = self
+        while el
+          return el if yield el
+          el = el.parent
+        end
+        nil
+      end
+
+      # The top-most ancestor of the tree self sits in (self if parentless).
+      # Non-allocating parent-chain walk to the root.
+      def top_level_ancestor : Widget
+        root = self
+        while p = root.parent
+          root = p
+        end
+        root
+      end
+
       # Returns a flat list of all children widgets, recursively
       def collect_descendants : Array(Widget)
         children = [] of Widget

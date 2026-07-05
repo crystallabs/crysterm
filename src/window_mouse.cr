@@ -363,23 +363,16 @@ module Crysterm
     # The nearest widget at or above *w* that can take focus by pointer
     # (`keyable?` and not opted out via `focus_on_click?`), or `nil`.
     private def focusable_at(w : Widget) : Widget?
-      el : Widget? = w
       # Skip disabled widgets (not a focus target), matching Tab navigation
       # (`focus_offset`) and the click-to-focus guard below.
-      while el && !(el.focus_on_click? && el.keyable? && !el.disabled?)
-        el = el.parent
-      end
-      el
+      w.first_self_or_ancestor { |el| el.focus_on_click? && el.keyable? && !el.disabled? }
     end
 
     # Scrolls the first scrollable widget at or above *w* by *offset* —
     # vertically by lines, or (Shift + wheel) *horizontal*ly — and re-renders.
     # No-op if neither *w* nor any ancestor is scrollable.
     private def scroll_under(w : Widget, offset : Int32, horizontal = false)
-      el : Widget? = w
-      while el && !el.scrollable?
-        el = el.parent
-      end
+      el = w.first_self_or_ancestor &.scrollable?
       return unless el
       horizontal ? el.scroll_x(offset) : el.scroll(offset)
       render
@@ -519,12 +512,8 @@ module Crysterm
     # `composite_planes`) and ordered among planes by `z`. The nearest
     # self-or-ancestor `z_index` wins, since it defers the whole subtree.
     private def hit_layer(el : Widget) : Tuple(Int32, Int32)
-      e : Widget? = el
-      while e
-        if z = e.style.z_index
-          return {1, z}
-        end
-        e = e.parent
+      if e = el.first_self_or_ancestor { |w| w.style.z_index }
+        return {1, e.style.z_index.not_nil!}
       end
       {0, 0}
     end
@@ -532,12 +521,9 @@ module Crysterm
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not
     # merely flagged visible while sitting in a hidden container.
     private def displayed_in_tree?(el : Widget) : Bool
-      a : Widget? = el
-      while a
-        return false unless a.style.visible?
-        a = a.parent
-      end
-      true
+      # No self-or-ancestor may be hidden — i.e. no widget in the chain fails
+      # the visibility test.
+      el.first_self_or_ancestor { |a| !a.style.visible? }.nil?
     end
 
     # Registers *el* as a widget that wants mouse input. Mirrors

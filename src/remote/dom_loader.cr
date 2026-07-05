@@ -24,14 +24,20 @@ module Crysterm
     alias Factory = Proc(::Crysterm::Window, ::Crysterm::Widget)
 
     # `Crysterm::Widget::*` widgets that namespace-based opt-in would otherwise
-    # register, but must NOT be: each builds its own internal child subtree in
-    # its constructor, so re-appending serialized children on load would
-    # double the subtree. The round-trip invariant spec
-    # (`spec/dom_registry_spec.cr`) fails loudly if a new self-populating
-    # widget slips through.
+    # register, but must NOT be, for one of two reasons:
+    #   * self-populating composites — each builds its own internal child subtree
+    #     in its constructor, so re-appending serialized children on load would
+    #     double the subtree; and
+    #   * widgets with no window-only constructor — the factory below calls
+    #     `.new(window: window)`, so a widget whose only initializers demand a
+    #     mandatory positional (e.g. `LogFd`, which needs an `io:`/`command:`
+    #     live stream that isn't reconstructable from serialized markup) can't be
+    #     built that way and would fail to compile.
+    # The round-trip invariant spec (`spec/dom_registry_spec.cr`) fails loudly if
+    # a new self-populating widget slips through.
     SKIP = %w[
       canvas colordialog compose dockwidget donut headerbar linechart
-      listtable loading map prompt question splashscreen statusbar
+      listtable loading logfd map prompt question splashscreen statusbar
       tabwidget wizard
     ]
 

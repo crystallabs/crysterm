@@ -24,6 +24,9 @@ module Crysterm
     class DockWidget < Box
       # `#apply_substyle`, used by the `PreRender` handler below.
       include Mixin::SubStyle
+      # A floating dock is an overlay (structural border at the unstyled floor);
+      # `#floor_border_value` below narrows which sides a docked pane draws.
+      include Mixin::Overlay
 
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
       enum Area
@@ -128,12 +131,6 @@ module Crysterm
 
       def floating? : Bool
         @area.floating?
-      end
-
-      # Structural border at the unstyled floor (see `#floor_border_value` for
-      # which sides); under a theme the cascade owns the border instead.
-      def floor_border? : Bool
-        true
       end
 
       # A floating dock is an overlay, so it gets a full frame. A docked pane
