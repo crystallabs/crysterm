@@ -1,5 +1,9 @@
+require "./macros"
+
 module Crysterm
   class Window
+    include Macros
+
     # Surface-side mouse handling — the *hit-test* half: takes a parsed
     # `::Tput::Mouse::Event` (delivered by the device via `Application#route_input`
     # → `#handle_input`), emits `Event::Mouse` on this surface and on the widget
@@ -134,26 +138,10 @@ module Crysterm
     # listener is routine (every pop-up/menu/combo installs one via
     # `#on_press_outside`), and mouse motion is high-frequency. See
     # `Event::Mouse#reset` for the retention caveat.
-    @_mouse_event : Crysterm::Event::Mouse?
-    @_mouse_over_event : Crysterm::Event::MouseOver?
-    @_mouse_move_event : Crysterm::Event::MouseMove?
-    @_mouse_out_event : Crysterm::Event::MouseOut?
-
-    private def mouse_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::Mouse
-      (@_mouse_event ||= Crysterm::Event::Mouse.new(ev)).reset ev
-    end
-
-    private def mouse_over_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseOver
-      (@_mouse_over_event ||= Crysterm::Event::MouseOver.new(ev)).reset ev
-    end
-
-    private def mouse_move_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseMove
-      (@_mouse_move_event ||= Crysterm::Event::MouseMove.new(ev)).reset ev
-    end
-
-    private def mouse_out_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::MouseOut
-      (@_mouse_out_event ||= Crysterm::Event::MouseOut.new(ev)).reset ev
-    end
+    pooled_mouse_event mouse, Mouse
+    pooled_mouse_event mouse_over, MouseOver
+    pooled_mouse_event mouse_move, MouseMove
+    pooled_mouse_event mouse_out, MouseOut
 
     # The raw mouse transport (terminal reporting, `gpm` reader, GUI cursor
     # shape) lives on the device (`Screen`, in `screen_mouse_device.cr`); this

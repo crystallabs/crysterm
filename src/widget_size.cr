@@ -1,5 +1,9 @@
+require "./macros"
+
 module Crysterm
   class Widget
+    include Macros
+
     # Widget's size
 
     # User-defined width (setter is defined below)
@@ -11,25 +15,14 @@ module Crysterm
     # Can Crysterm resize the widget if/when needed?
     property? resizable = false
 
-    # Sets widget's total width
-    def width=(val)
-      return if @width == val
-      # Assign (and mark dirty) *before* emitting so in-tree Resize listeners
-      # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor
-      # recompute) observe the new size, not the old one.
-      @width = val
-      mark_dirty
-      emit ::Crysterm::Event::Resize
-    end
-
-    # Sets widget's total height
-    def height=(val)
-      return if height == val
-      # See `width=`: assign before emit so listeners see the new size.
-      @height = val
-      mark_dirty
-      emit ::Crysterm::Event::Resize
-    end
+    # `width=`/`height=`: change-guarded setters that mark dirty and emit
+    # `Resize`. The assign lands *before* the emit so in-tree Resize listeners
+    # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor recompute)
+    # observe the new size, not the old one.
+    {% for dim in %w[width height] %}
+      # Sets widget's total {{dim.id}}
+      change_guarded_setter {{dim.id}}, Resize
+    {% end %}
 
     # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints, in cells
     # (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
@@ -40,17 +33,12 @@ module Crysterm
     getter min_height : Int32? = nil
     getter max_height : Int32? = nil
 
+    # `min_*=`/`max_*=` alter effective `awidth`/`aheight` like `width=`/`height=`,
+    # so they emit `Resize` too — otherwise listeners (`Mixin::ItemView#on_resize`,
+    # `Mixin::TextEditing`'s Resize→`_update_cursor`) go stale. Assign-before-emit
+    # so those listeners see the new constraint.
     {% for dim in %w[min_width max_width min_height max_height] %}
-      def {{dim.id}}=(val : Int32?)
-        return if @{{dim.id}} == val
-        # Alters effective `awidth`/`aheight` like `width=`/`height=`, so must
-        # emit `Resize` too — otherwise listeners (`Mixin::ItemView#on_resize`,
-        # `Mixin::TextEditing`'s Resize→`_update_cursor`) go stale.
-        # Assign before emitting so those listeners see the new constraint.
-        @{{dim.id}} = val
-        mark_dirty
-        emit ::Crysterm::Event::Resize
-      end
+      change_guarded_setter {{dim.id}}, Resize, Int32?
     {% end %}
 
     # Clamps a computed dimension to `[min, max]`. `max` is applied before `min`

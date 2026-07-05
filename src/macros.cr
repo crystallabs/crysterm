@@ -35,6 +35,36 @@ module Crysterm
       {% end %}
     end
 
+    # Defines a change-guarded property setter: bail if unchanged, otherwise
+    # assign, mark the widget dirty, then emit *event*. The assign happens
+    # *before* the emit so in-tree listeners observe the new value, not the old
+    # one (`Move` listeners for a position change, `Resize` for a size/constraint
+    # change). Homes the byte-identical bodies of `left=`/`top=`/`right=`/
+    # `bottom=` (Move) and `width=`/`height=`/`min_*=`/`max_*=` (Resize).
+    #
+    # The backing ivar is `@name`. Pass *val_type* to type-annotate the argument.
+    macro change_guarded_setter(name, event, val_type = nil)
+      def {{name.id}}=(val{% if val_type %} : {{val_type.id}}{% end %})
+        return if @{{name.id}} == val
+        @{{name.id}} = val
+        mark_dirty
+        emit ::Crysterm::Event::{{event.id}}
+      end
+    end
+
+    # Defines a per-Window pooled mouse-event factory: a nilable `@_<name>_event`
+    # ivar plus a private `<name>_event(ev)` that lazily constructs one instance
+    # of `Crysterm::Event::<klass>` and `reset`s it on every dispatch, so a
+    # high-frequency mouse report doesn't heap-allocate a fresh event each time.
+    # See `Event::Mouse#reset` for the retention caveat.
+    macro pooled_mouse_event(name, klass)
+      @_{{name.id}}_event : Crysterm::Event::{{klass.id}}?
+
+      private def {{name.id}}_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::{{klass.id}}
+        (@_{{name.id}}_event ||= Crysterm::Event::{{klass.id}}.new(ev)).reset ev
+      end
+    end
+
     # Registers a handler for the event, named after the event itself.
     #
     # E.g.:

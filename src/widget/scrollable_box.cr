@@ -1,4 +1,5 @@
 require "./abstract_scroll_area"
+require "../mixin/nav_keys"
 
 module Crysterm
   class Widget
@@ -19,6 +20,8 @@ module Crysterm
     # ![ScrollableBox screenshot](../../tests/widget/scrollable_box/scrollable_box.5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollableBox < AbstractScrollArea
+      include Mixin::NavKeys
+
       @scrollable = true
       # Show a real `ScrollBar` automatically when the content overflows (Qt's
       # default `AsNeeded`). Inherited by `ScrollableText`/`Log`. Opt out with
@@ -40,37 +43,35 @@ module Crysterm
         # (`visible`). Floored at 1 so a degenerate viewport still advances.
         hpage = Math.max content_width, 1
 
-        case
-        when e.key == ::Tput::Key::Up, (@vi && e.char == 'k')
-          scroll -1
-        when e.key == ::Tput::Key::Down, (@vi && e.char == 'j')
-          scroll 1
-        when e.key == ::Tput::Key::CtrlU
-          scroll -half
-        when e.key == ::Tput::Key::CtrlD
-          scroll half
-        when e.key == ::Tput::Key::PageUp, e.key == ::Tput::Key::CtrlB
-          scroll -visible
-        when e.key == ::Tput::Key::PageDown, e.key == ::Tput::Key::CtrlF
-          scroll visible
-        when e.key == ::Tput::Key::Home, (@vi && e.char == 'g')
-          scroll_to 0
-        when e.key == ::Tput::Key::End, (@vi && e.char == 'G')
-          scroll_to get_scroll_height
-        when e.key == ::Tput::Key::Left, (@vi && e.char == 'h')
-          scroll_x -1
-        when e.key == ::Tput::Key::Right, (@vi && e.char == 'l')
-          scroll_x 1
-        when e.key == ::Tput::Key::CtrlLeft
-          scroll_x -hpage
-        when e.key == ::Tput::Key::CtrlRight
-          scroll_x hpage
-        when e.key == ::Tput::Key::ShiftHome, (@vi && e.char == '0')
-          scroll_x_to 0
-        when e.key == ::Tput::Key::ShiftEnd, (@vi && e.char == '$')
-          scroll_x_to get_scroll_width
+        # The vertical axis is classified by the single-sourced `NavKeys` table
+        # (shared with `Mixin::Interactive`/`ItemView`); the horizontal axis stays
+        # inline below since `NavKeys` is vertical-only.
+        case nav_intent(e)
+        when .backward?      then scroll -1
+        when .forward?       then scroll 1
+        when .half_backward? then scroll -half
+        when .half_forward?  then scroll half
+        when .page_backward? then scroll -visible
+        when .page_forward?  then scroll visible
+        when .first?         then scroll_to 0
+        when .last?          then scroll_to get_scroll_height
         else
-          return
+          case
+          when e.key == ::Tput::Key::Left, (@vi && e.char == 'h')
+            scroll_x -1
+          when e.key == ::Tput::Key::Right, (@vi && e.char == 'l')
+            scroll_x 1
+          when e.key == ::Tput::Key::CtrlLeft
+            scroll_x -hpage
+          when e.key == ::Tput::Key::CtrlRight
+            scroll_x hpage
+          when e.key == ::Tput::Key::ShiftHome, (@vi && e.char == '0')
+            scroll_x_to 0
+          when e.key == ::Tput::Key::ShiftEnd, (@vi && e.char == '$')
+            scroll_x_to get_scroll_width
+          else
+            return
+          end
         end
 
         # Consume the handled key (don't also drive an ancestor) and repaint.

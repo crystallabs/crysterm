@@ -598,13 +598,10 @@ module Crysterm
       # press should reveal the highlight). Mirrors the keys
       # `Mixin::ItemView#on_keypress` acts on, plus vi aliases when `#vi?`.
       private def selection_key?(e) : Bool
-        case e.key
-        when ::Tput::Key::Up, ::Tput::Key::Down, ::Tput::Key::Home, ::Tput::Key::End,
-             ::Tput::Key::PageUp, ::Tput::Key::PageDown, ::Tput::Key::CtrlU, ::Tput::Key::CtrlD
-          true
-        else
-          @vi && {'j', 'k', 'g', 'G', 'H', 'M', 'L'}.includes?(e.char)
-        end
+        # The vertical-navigation keys (Up/Down/paging/Home-End + vi j/k/g/G) are
+        # classified once in `Mixin::NavKeys`; only vi H/M/L (top/middle/bottom of
+        # viewport, handled inline in `ItemView#on_keypress`) fall outside it.
+        !nav_intent(e).none? || (@vi && {'H', 'M', 'L'}.includes?(e.char))
       end
 
       # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active

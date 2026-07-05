@@ -1,5 +1,9 @@
+require "./macros"
+
 module Crysterm
   class Widget
+    include Macros
+
     # Methods related to 2D position (X and Y).
     # Position in 3D (index) is in widget_children.cr
 
@@ -97,42 +101,13 @@ module Crysterm
     # User-defined bottom
     getter bottom : Int32 | Nil
 
-    # Sets Widget's `@left`
-    def left=(val)
-      return if @left == val
-      # Assign (and mark dirty) *before* emitting so in-tree Move listeners see
-      # the new position, not the old one (cf. `width=` for the Resize case).
-      @left = val
-      mark_dirty
-      emit ::Crysterm::Event::Move
-    end
-
-    # Sets Widget's `@top`
-    def top=(val)
-      return if @top == val
-      # See `left=`: assign before emit so listeners see the new position.
-      @top = val
-      mark_dirty
-      emit ::Crysterm::Event::Move
-    end
-
-    # Sets Widget's `@right`
-    def right=(val)
-      return if @right == val
-      # See `left=`: assign before emit so listeners see the new position.
-      @right = val
-      mark_dirty
-      emit ::Crysterm::Event::Move
-    end
-
-    # Sets Widget's `@bottom`
-    def bottom=(val)
-      return if @bottom == val
-      # See `left=`: assign before emit so listeners see the new position.
-      @bottom = val
-      mark_dirty
-      emit ::Crysterm::Event::Move
-    end
+    # `left=`/`top=`/`right=`/`bottom=`: change-guarded setters that mark dirty
+    # and emit `Move`. The assign lands *before* the emit so in-tree Move
+    # listeners see the new position, not the old one (cf. `width=` for Resize).
+    {% for side in %w[left top right bottom] %}
+      # Sets Widget's `@{{side.id}}`
+      change_guarded_setter {{side.id}}, Move
+    {% end %}
 
     #
     # Computed relative position on window
