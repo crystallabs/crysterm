@@ -10,8 +10,8 @@ w=80 h=24
 | │         ·──·──█──·──·──·                                                   │ |
 | │ Count:  3 items                                                            │ |
 | │                 ✦  Crysterm — Qt-inspired terminal widgets                 │ |
-| │ Angle:                                                                     │ |
-| │            →                                                               │ |
+| │ Angle:     →                                                               │ |
+| │                                                                            │ |
 | │           90                                                               │ |
 | │                                                                            │ |
 | │ Color:  Red ▾                                                              │ |
@@ -35,8 +35,8 @@ y6: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 17-17:#89b4fa/#0a0a0f 18-26:#cdd6f4/#0
 y7: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 17-17:#89b4fa/#0a0a0f 18-26:#cdd6f4/#0a0a0f 50-50:def/#585b70 61-61:def/#585b70 78-78:#585b70/def
 y8: 1-1:#585b70/def 11-22:#cdd6f4/#0a0a0f 50-50:def/#585b70 61-61:def/#585b70 78-78:#585b70/def
 y9: 1-1:#585b70/def 19-19:#ff3c00/def 22-22:#ff9500/def 23-23:#ffb200/def 24-24:#ffd000/def 25-25:#ffee00/def 26-26:#f2ff00/def 27-27:#d4ff00/def 28-28:#b7ff00/def 29-29:#99ff00/def 31-31:#5eff00/def 33-33:#22ff00/def 34-34:#04ff00/def 35-35:#00ff1a/def 36-36:#00ff37/def 37-37:#00ff55/def 38-38:#00ff73/def 39-39:#00ff91/def 40-40:#00ffae/def 41-41:#00ffcc/def 42-42:#00ffea/def 43-43:#00f7ff/def 45-45:#00bbff/def 46-46:#009dff/def 47-47:#0080ff/def 48-48:#0062ff/def 49-49:#0044ff/def 50-50:#0026ff/def 51-51:#0008ff/def 52-52:#1500ff/def 54-54:#5100ff/def 55-55:#6f00ff/def 56-56:#8c00ff/def 57-57:#aa00ff/def 58-58:#c800ff/def 59-59:#e600ff/def 60-60:#ff00fb/def 78-78:#585b70/def
-y10: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 78-78:#585b70/def
-y11: 1-1:#585b70/def 11-13:#cdd6f4/#0a0a0f 14-14:#89b4fa/#0a0a0f 15-16:#cdd6f4/#0a0a0f 78-78:#585b70/def
+y10: 1-1:#585b70/def 11-13:#cdd6f4/#0a0a0f 14-14:#89b4fa/#0a0a0f 15-16:#cdd6f4/#0a0a0f 78-78:#585b70/def
+y11: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 78-78:#585b70/def
 y12: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 78-78:#585b70/def
 y13: 1-1:#585b70/def 78-78:#585b70/def
 y14: 1-1:#585b70/def 11-16:#cdd6f4/#0a0a0f 78-78:#585b70/def

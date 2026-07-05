@@ -92,8 +92,7 @@ module Crysterm
     # leaving "default" colors untouched since their real value is unknown.
     # Operates on the packed `Int64` attr.
     #
-    # Replaces the old palette-index `TermColors#blend`; per-channel mixing is
-    # delegated to `TermColors#mix` (RGB space).
+    # Per-channel mixing is delegated to `TermColors#mix` (RGB space).
     def self.blend(attr : Int64, attr2 : Int64? = nil, alpha : Float | Int = 0.5) : Int64
       fg = blend_field(Attr.fg(attr), attr2.try { |a| Attr.fg(a) }, alpha, true)
       bg = blend_field(Attr.bg(attr), attr2.try { |a| Attr.bg(a) }, alpha, false)

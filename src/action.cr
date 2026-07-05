@@ -441,8 +441,8 @@ module Crysterm
       # (focus-walking) `shortcut_active?` probe: a key that can neither extend
       # the pending prefix nor begin any shortcut is irrelevant to this action,
       # so bail without probing focus. Whether or not the action is active, such
-      # a key clears any stale prefix and triggers nothing, so the outcome is
-      # identical to the old order — only the focus walk is skipped.
+      # a key clears any stale prefix and triggers nothing, so skipping the focus
+      # walk for it changes nothing observable.
       extends_pending =
         if p = pending
           @shortcuts.any? { |seq| seq.size > p.size && shortcut_prefix?(seq, p) && seq[p.size] == k }
@@ -534,10 +534,10 @@ module Crysterm
     # installed per window). If none is associated on *window*, we fall back to
     # the host recorded at `#install_shortcut` time for that window.
     #
-    # The old form materialized that host list (`Set#select` → fresh `Array`,
-    # plus `[h]`/`[] of Widget` on the fallback) on *every* keypress per
-    # Widget-context action. This iterates `@associated_widgets` in place —
-    # `Set#each` yields (no closure allocation) — and evaluates *pred* directly.
+    # Iterates `@associated_widgets` in place — `Set#each` yields (no closure
+    # allocation) — and evaluates *pred* directly, rather than materializing the
+    # host list (`Set#select` → fresh `Array`, plus `[h]`/`[] of Widget` on the
+    # fallback) on *every* keypress per Widget-context action.
     private def host_focused?(window : ::Crysterm::Window, & : Widget -> Bool) : Bool
       any_on_window = false
       @associated_widgets.each do |w|

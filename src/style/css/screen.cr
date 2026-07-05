@@ -57,10 +57,8 @@ module Crysterm
     # variant, which omits sub-element pseudo-nodes) and the string it was
     # parsed from. The cascade builds this only when a rule uses a backward/only
     # structural pseudo (`:last-child`, `:nth-last-child`, …) against a tree
-    # that has sub-elements — previously it was re-serialized *and* re-parsed on
-    # every such cascade (the `||=` only memoized within one `apply_sheets`
-    # call). Reused across cascades and invalidated whenever the structural
-    # serialization changes (see `#css_structural_document`).
+    # that has sub-elements. Reused across cascades and invalidated whenever the
+    # structural serialization changes (see `#css_structural_document`).
     @css_structural_doc : HTML5::Node?
     @css_structural_doc_string : String?
 

@@ -40,7 +40,7 @@ module Crysterm
       # ![AddressBook screenshot](../../../tests/widget/pine/address_book/address_book.5s.apng)
       # <!-- /widget-examples:capture -->
       class AddressBook < SelectableList(Contact)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Contact = ::Crysterm::Widget::Pine::Contact
 
         def initialize(

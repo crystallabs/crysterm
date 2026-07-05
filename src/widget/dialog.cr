@@ -19,14 +19,12 @@ module Crysterm
 
       # ---- Modal key accelerator (FORMAL-WIDGETS B3.1 / B3.2) -----------------
       #
-      # Every modal dialog that reacts to Enter/Escape used to hand-roll the same
-      # dance: install a window-level `KeyPress` listener, remember the window so
-      # it can be `off`'d even after detach, and route Enter→accept /
-      # Escape→cancel. It was copied (and had drifted) across `ColorDialog#pick`/
-      # `#on_key`/`#release_window_state`, `Wizard#install_keys`/`#on_key`, and
-      # `Question#ask`. The *mechanics* live here once; each dialog decides only
-      # *when* to install (on open vs. on attach) and *whether* a given key
-      # applies (via `#dialog_keys_active?`), plus what accept/cancel do.
+      # Centralizes the modal Enter/Escape accelerator shared by every dialog:
+      # install a window-level `KeyPress` listener, remember the window so it can
+      # be `off`'d even after detach, and route Enter→accept / Escape→cancel. The
+      # *mechanics* live here once; each dialog decides only *when* to install
+      # (on open vs. on attach) and *whether* a given key applies (via
+      # `#dialog_keys_active?`), plus what accept/cancel do.
 
       # Window-level accelerator handle + the window it was installed on, captured
       # so teardown works from `Detach`/`Destroy` where `window?` is already nil.
@@ -56,10 +54,6 @@ module Crysterm
       # first. Subclasses tune the guard via `#dialog_keys_active?` and the
       # actions via `#accept`/`#cancel`.
       protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
-        # A focused dialog button (e.g. Cancel) may already have consumed this
-        # Enter/Escape — don't also fire the window-level accelerator, or the
-        # key double-acts (both Rejected AND Accepted). This makes `Wizard`'s
-        # `dialog_keys_active? = !e.accepted?` override redundant, but harmless.
         # A focused dialog button (e.g. Cancel) may already have consumed this
         # Enter/Escape — don't also fire the window-level accelerator, or the
         # key double-acts (both Rejected AND Accepted). This makes `Wizard`'s

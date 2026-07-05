@@ -1,6 +1,5 @@
 module Crysterm
-  # Unicode display-width support for terminal cells (Phase 0 of grapheme
-  # support).
+  # Unicode display-width support for terminal cells.
   #
   # Terminal layout is measured in **columns**, not codepoints: a combining mark
   # occupies 0 columns, an East-Asian-Wide / emoji glyph occupies 2, everything
@@ -38,8 +37,8 @@ module Crysterm
       # (TAB/CR/ESC) and DEL, which `codepoint_width` maps to 0 — the fast path
       # would miscount those, so fall through to the grapheme walk instead.
       # Scanning the raw bytes subsumes the `ascii_only?` check (any byte ≥ 0x80
-      # fails the range test) and, unlike the blockless `each_char.all?` this
-      # replaces, allocates no iterator — this runs per append/wrap while
+      # fails the range test) and, unlike a blockless `each_char.all?`,
+      # allocates no iterator — this runs per append/wrap while
       # streaming content.
       if string.to_slice.all? { |b| 0x20_u8 <= b <= 0x7E_u8 }
         return string.bytesize
@@ -54,7 +53,7 @@ module Crysterm
     # Reads the stdlib-internal `@cluster` ivar (`Char | String`) directly to
     # avoid the fresh `String` `grapheme.to_s` allocates for the common
     # Char-backed cluster (every CJK ideograph, precomposed accent, narrow
-    # glyph). Behavior-identical to the old `width(grapheme.to_s)`: for a
+    # glyph). Behavior-identical to `width(grapheme.to_s)`: for a
     # single codepoint no VS16 promotion is possible (a lone codepoint can't
     # carry a following U+FE0F), so the `String` overload's VS16 scan — which
     # only fires for `size > 1` — would be a no-op anyway; a lone regional

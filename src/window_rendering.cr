@@ -109,11 +109,10 @@ module Crysterm
     # Fixed-size ring buffer yielding the running average of the last
     # `capacity` values pushed into it.
     #
-    # Used to subclass `Deque(Int32)`, but subclassing a stdlib generic is
-    # deprecated and promotes every `Deque(Int32)` in the program (including
-    # unrelated shards) to the virtual type `Deque(Int32)+`, causing confusing
-    # compile errors elsewhere (same class of problem as issue #30). Now wraps
-    # a deque instead.
+    # Wraps a deque rather than subclassing `Deque(Int32)`: subclassing a stdlib
+    # generic is deprecated and promotes every `Deque(Int32)` in the program
+    # (including unrelated shards) to the virtual type `Deque(Int32)+`, causing
+    # confusing compile errors elsewhere (same class of problem as issue #30).
     class Average
       def initialize(@capacity : Int32)
         @deque = Deque(Int32).new @capacity
@@ -361,7 +360,7 @@ module Crysterm
       @compositing_layers = true
       begin
         # Bucket this frame's layer widgets by z-index into the reused arrays,
-        # then composite bottom-to-top (ascending z). Equivalent to the former
+        # then composite bottom-to-top (ascending z). Equivalent to a
         # `group_by` + `keys.sort` but without their per-frame allocations.
         # Empty buckets (a z with widgets on a previous frame but none now) are
         # skipped, matching `group_by`'s never-empty groups.

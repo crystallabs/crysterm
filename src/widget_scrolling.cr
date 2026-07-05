@@ -430,7 +430,7 @@ module Crysterm
       # tail", leaving a `#follow_tail?` view at the top on the next content growth
       # (a reset-to-top must stay at the top, per the sticky-bottom contract).
       # Zeroing it would instead make `0 >= 0` true and snap the view to the
-      # bottom — the exact yank BUGS3 #3 mis-attributed to the original code.
+      # bottom.
       mark_dirty
       emit Crysterm::Event::Scroll, -prev
     end
@@ -575,7 +575,7 @@ module Crysterm
 
     # Clamps `@child_base` into the valid `[0, @base_limit]` range. Kept as an
     # explicit branch (rather than `.clamp`) so it never raises even if
-    # `@base_limit` is set below 0, exactly matching the original inline form.
+    # `@base_limit` is set below 0.
     private def clamp_child_base
       if @child_base < 0
         @child_base = 0
@@ -588,7 +588,7 @@ module Crysterm
     # content — the greater of the wrapped-content height (`@_clines.size`) and
     # the descendant extent (`_scroll_bottom`), each measured against the visible
     # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
-    # and `#_recalculate_index`, which had identical copies of this.
+    # and `#_recalculate_index`.
     private def clamp_child_base_to_content
       visible = visible_content_rows
 
@@ -610,7 +610,7 @@ module Crysterm
       # was already at the bottom (or pinned — see `#stick_to_tail?`), snap to the
       # new bottom as content grows; otherwise only pull the base *down* into
       # range, so a reader who scrolled up is never yanked down. With follow-tail
-      # off this reduces to the original `min(child_base, content_max)`.
+      # off this reduces to `min(child_base, content_max)`.
       if follow_tail? && stick_to_tail?(content_max)
         @child_base = content_max
       else

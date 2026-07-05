@@ -112,7 +112,7 @@ module Crysterm
       # ![OptionList screenshot](../../../tests/widget/pine/option_list/option_list.5s.apng)
       # <!-- /widget-examples:capture -->
       class OptionList < SelectableList(OptionListOption)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Option = ::Crysterm::Widget::Pine::OptionListOption
 
         # Width of the option-name column, in characters.

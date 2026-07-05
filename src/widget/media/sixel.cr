@@ -56,12 +56,11 @@ module Crysterm
           io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
         end
 
-        # Reusable scratch reused across all bands instead of a fresh `Hash` +
-        # per-color `Array(UInt8)(pw)` per band: one `pw`-wide sixel row per
-        # palette color (`PALETTE.size` = 252), the list of colors first touched
-        # this band (in first-touch order, so emission matches the old `Hash`
-        # insertion order exactly), and `band_of[ci]` = the band that last touched
-        # color `ci` (the allocation-free "seen this band?" test).
+        # Reusable scratch shared across all bands (avoids per-band allocation):
+        # one `pw`-wide sixel row per palette color (`PALETTE.size` = 252), the
+        # list of colors first touched this band (in first-touch order, so
+        # emission order is deterministic), and `band_of[ci]` = the band that
+        # last touched color `ci` (the allocation-free "seen this band?" test).
         scratch = Array(Array(UInt8)).new(PALETTE.size) { Array(UInt8).new(pw, 0u8) }
         seen = [] of Int32
         band_of = Array(Int32).new(PALETTE.size, -1)

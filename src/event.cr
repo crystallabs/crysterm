@@ -348,7 +348,7 @@ module Crysterm
         @sequence ||= [@char]
       end
 
-      # Sets the raw input sequence (preserved from the old `property sequence`).
+      # Sets the raw input sequence.
       def sequence=(sequence : Array(Char)) : Array(Char)
         @sequence = sequence
       end

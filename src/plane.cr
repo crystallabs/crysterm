@@ -111,8 +111,7 @@ module Crysterm
             # attr/char compare above is blind to grapheme-overlay differences
             # (e.g. base "e" under an overlay painting "é" with identical style).
             # Include the overlay in the change test so the accent is installed,
-            # and so a stale cluster under a matching base cell is cleared
-            # (BUGS-F1 finding 28).
+            # and so a stale cluster under a matching base cell is cleared.
             pg = pr_has_g ? pr.grapheme_at?(x) : nil
             bg = br_has_g ? br.grapheme_at?(x) : nil
             if under != result || bc.unsafe_fetch(x) != ch || bg != pg

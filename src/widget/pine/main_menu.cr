@@ -39,7 +39,7 @@ module Crysterm
       # ![MainMenu screenshot](../../../tests/widget/pine/main_menu/main_menu.5s.apng)
       # <!-- /widget-examples:capture -->
       class MainMenu < SelectableList(MenuOption)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Option = ::Crysterm::Widget::Pine::MenuOption
 
         def initialize(

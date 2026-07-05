@@ -41,12 +41,9 @@ module Crysterm
     #
     # A class method (not an instance method) so the non-widget `Completer` can
     # call it too, and so it reaches through the *satellite's own* `#window?`
-    # rather than the owner's — the robust choice (it works even after the owner
-    # has already detached) and the one that single-sources the `window` /
-    # `window?` / `satellite.window?` split the ~5 hand-rolled copies had drifted
-    # on. `#destroy` self-detaches from the window as well, so the explicit
-    # `#remove` is belt-and-suspenders, but keeping it preserves the prior
-    # behavior verbatim. Nil-safe.
+    # rather than the owner's — the robust choice: it works even after the owner
+    # has already detached. `#destroy` self-detaches from the window as well, so
+    # the explicit `#remove` is belt-and-suspenders. Nil-safe.
     def self.destroy_satellite(satellite : Widget?) : Nil
       return unless satellite
       satellite.window?.try &.remove satellite

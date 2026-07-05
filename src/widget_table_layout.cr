@@ -83,7 +83,7 @@ module Crysterm
 
       # Columns fill the box interior (inside border/padding), so slack is
       # distributed against `@width - iwidth`, not the full outer `@width`.
-      # Targeting full width left `row_width` one short, causing
+      # Targeting the full width would leave `row_width` one short, causing
       # `Table#set_data`'s `@width = row_width + iwidth` to grow the table by
       # `iwidth - 1` columns per call — a feedback loop widening the table
       # beyond what was requested.
@@ -173,7 +173,7 @@ module Crysterm
         (cx...cx + max).each { |xpos| map[xpos] = col_i }
         # Skip the single inter-column separator `#render_row` emits between
         # cells (matching `#column_start_offsets`'s `acc += m + 1`). Without
-        # this `+ 1` the mapping drifted left by one cell per preceding column.
+        # this `+ 1` the mapping would drift left by one cell per preceding column.
         # The separator cell itself stays unmapped (a gridline gap).
         cx += max + 1
       end
@@ -333,9 +333,9 @@ module Crysterm
       # `rx` is the pure within-content column offset (0 == first content
       # column); the separator after column `mi` sits at content offset
       # `sum(maxes[..mi])`. Paint it at `xi + ileft + rx`: content begins at the
-      # left inset (`ileft`), not a hardcoded one column. The old `xi + rx + 1`
-      # assumed `ileft == 1`, so a bordered+padded table drew separators one
-      # cell short of the cells they divide.
+      # left inset (`ileft`), not a hardcoded one column. Using `xi + rx + 1`
+      # would assume `ileft == 1`, so a bordered+padded table would draw
+      # separators one cell short of the cells they divide.
       rx = 0
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]

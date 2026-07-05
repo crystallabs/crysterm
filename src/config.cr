@@ -24,7 +24,7 @@ module Crysterm
 
   # Opt in to external configuration sources (config file, env vars, CLI), in
   # precedence order. Thin wrapper over `Superconf.configure!`. Doing nothing
-  # keeps every option at its registered default (the historical behavior).
+  # keeps every option at its registered default.
   def self.configure!(file : String? = nil, *, env : Bool = true, args : Bool = true) : Nil
     Superconf.configure!(file, env: env, args: args)
   end

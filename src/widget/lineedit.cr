@@ -146,8 +146,7 @@ module Crysterm
       # while the value fits; grows as the caret moves past the right edge and
       # shrinks (down to `0`) as it moves back toward the start, so the edit
       # point stays visible even when the value overflows the box. This is the
-      # "dropped prefix" `#position_at`/`#selection_columns_for_row` measure
-      # from; it replaces the old "tail of the whole value" assumption.
+      # "dropped prefix" `#position_at`/`#selection_columns_for_row` measure from.
       @view_start : Int32 = 0
 
       # Snapshot of every input `#compute_display` reads, plus the resulting
@@ -171,7 +170,7 @@ module Crysterm
         # Shared prologue (authoritative-value + caret + selection); a non-nil
         # argument is an external set (cursor to the end), `nil` a redisplay that
         # preserves the cursor (see `PlainTextEdit#value=`). The block strips
-        # newlines — this is single-line — on both paths, as before. `_listener`
+        # newlines — this is single-line — on both paths. `_listener`
         # mutates `@value` directly, so `assign_value` recording it before the
         # display dedup guard is what keeps an external set like `input.value =
         # ""` from being no-op'd (and leaving stale text across submits) when the
@@ -232,7 +231,7 @@ module Crysterm
               @view_start = column_index(val, caret_col - cols)
             end
             # Clamp so we never scroll past the value's end (showing the tail when
-            # the caret sits there, the previous unconditional behavior).
+            # the caret sits there).
             @view_start = @view_start.clamp(0, column_index(val, Math.max(0, str_width(val) - cols)))
 
             window = val[@view_start..]
@@ -286,8 +285,8 @@ module Crysterm
         # First and last `@value` indices actually shown. `@_value` is a window
         # of the tab-expanded value starting at `@view_start` expanded columns
         # (see `#compute_display`); map both edges back to raw `@value` indices.
-        # Unlike the old tail-only slice, the window can now be scrolled left of
-        # the value's end, so *both* ends of the selection can fall off-view.
+        # The window can be scrolled left of the value's end, so *both* ends of
+        # the selection can fall off-view.
         vis_start = unexpand_col(@value, @view_start)
         vis_end = unexpand_col(@value, @view_start + @_value.size)
 

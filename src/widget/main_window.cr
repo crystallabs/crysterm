@@ -41,7 +41,7 @@ module Crysterm
       # Defines a `<name>=` setter for one of the singular top-level slots
       # (menu/tool/status bar, central widget): it detaches the slot's previous
       # occupant, stores and appends the new widget, and returns it — the
-      # identical body each of these setters previously inlined.
+      # identical body shared by each of these setters.
       private macro def_slot_setter(name)
         def {{name.id}}=(w : Widget) : Widget
           @{{name.id}}.try &.remove_from_parent

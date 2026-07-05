@@ -218,8 +218,8 @@ module Crysterm
     private def authorized?(context : HTTP::Server::Context) : Bool
       return true unless token = @token
       # Only the `X-Crysterm-Token` header is honored: a query-param token lands
-      # in access logs, proxy logs and browser history, so it's rejected even
-      # though it once worked. Compared in constant time so a caller can't probe
+      # in access logs, proxy logs and browser history, so it's rejected.
+      # Compared in constant time so a caller can't probe
       # the secret byte-by-byte via response timing.
       presented = context.request.headers["X-Crysterm-Token"]? || ""
       Crypto::Subtle.constant_time_compare presented, token
@@ -442,7 +442,7 @@ module Crysterm
         value.try &.split.each { |c| widget.add_css_class c unless c.empty? }
       else
         widget.dom_apply name, value
-        # Universal backstop for the generated `dom_apply` (finding 6): a runtime
+        # Universal backstop for the generated `dom_apply`: a runtime
         # `setAttribute` must repaint and re-match CSS even for keys whose setter
         # is a plain ivar write (no `invalidate_css`/`mark_dirty` of its own), so
         # `:checked`/`[value]`-style selectors and damage tracking stay correct.

@@ -162,8 +162,8 @@ module Crysterm
         private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
           # Stream the tagged row straight into the builder, coalescing runs of
           # same-colored cells as we go (`open_color` is the color of the tag
-          # currently open, `nil` = none). This drops the two per-row scratch
-          # `Array`s the old `Scale.tagged_row` path materialized first — a live
+          # currently open, `nil` = none). This avoids the two per-row scratch
+          # `Array`s the `Scale.tagged_row` path materializes first — a live
           # chart rebuilds this per row per data push. Output is byte-identical
           # to feeding `tagged_row` the equivalent cells/colors.
           String.build do |io|

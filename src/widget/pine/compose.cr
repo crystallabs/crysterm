@@ -43,9 +43,9 @@ module Crysterm
 
           label_style = Style.new bold: true
 
-          # Two-column form: fixed 10-wide label column (no gap, matching the old
-          # `left: 10` field origin), field column fills the rest. `Form` pairs
-          # appended children (label, field, label, field, …) into rows.
+          # Two-column form: fixed 10-wide label column (no gap), field column
+          # fills the rest. `Form` pairs appended children (label, field, label,
+          # field, …) into rows.
           header = Widget::Box.new(
             window: window,
             height: FIELD_NAMES.size,
@@ -93,7 +93,7 @@ module Crysterm
           append separator
 
           # No explicit height: `VBox` hands it the leftover space below the
-          # separator (the old `bottom: 0` behavior).
+          # separator.
           body = Widget::PlainTextEdit.new(
             window: window,
             input_on_focus: true,

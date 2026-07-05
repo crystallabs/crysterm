@@ -36,7 +36,7 @@ module Crysterm
       # ![Setup screenshot](../../../tests/widget/pine/setup/setup.5s.apng)
       # <!-- /widget-examples:capture -->
       class Setup < SelectableList(SetupOption)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Option = ::Crysterm::Widget::Pine::SetupOption
 
         def initialize(

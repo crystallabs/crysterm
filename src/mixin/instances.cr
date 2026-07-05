@@ -67,7 +67,7 @@ module Crysterm
 
           emit Crysterm::Event::Destroy
 
-          # super # No longer exists since we're not subclass of Node any more
+          # super # Not a subclass of Node
         end
 
         # display.destroy

@@ -9,7 +9,7 @@ module Crysterm
     # hides.
     #
     # Factors out boilerplate `Media::Graphics` (in-band sixel/ReGIS/Kitty/
-    # iTerm) and `Media::Overlay` (w3m) used to each carry verbatim:
+    # iTerm) and `Media::Overlay` (w3m) would otherwise each carry verbatim:
     #
     # * the listener-wrapper ivars (`@listener_screen`, `@ev_prerender`,
     #   `@ev_rendered`) and the `@last_drawn` cell rectangle,

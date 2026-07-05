@@ -8,7 +8,7 @@ module Crysterm
   # Extends `Tput::Namespace::Cursor` (`shape`, `blink`, `artificial`,
   # `_state`, `_hidden`, ...), adding `style` since Tput has no color property.
   #
-  # Was nested as `Window::Cursor`; lifted to namespace level so both
+  # Lives at namespace level (rather than nested in `Window`) so both
   # `Window` and `Widget` can own one.
   class Cursor < Tput::Namespace::Cursor
     property style : Style = Style.new(fill_char: Config.cursor_glyph)

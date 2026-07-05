@@ -139,7 +139,7 @@ module Crysterm
 
     # Runs *block* with the cascade guard (`@suppress`) raised, so the
     # check/uncheck it performs on member buttons doesn't re-enter the
-    # exclusivity handling. Replaces the manual set/reset both callers used.
+    # exclusivity handling.
     private def suppressed(& : -> Nil) : Nil
       @suppress = true
       begin
@@ -154,7 +154,7 @@ module Crysterm
     # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and
     # `RadioButton` all derive from it), which declares the shared
     # `#checked?`/`#uncheck` interface, so dispatch through that one type
-    # rather than the concrete leaf types (which used to miss `RadioButton`).
+    # rather than the concrete leaf types (which would miss `RadioButton`).
     private def member_checked?(b : Widget) : Bool
       b.is_a?(Widget::AbstractButton) ? b.checked? : false
     end

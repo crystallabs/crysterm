@@ -49,7 +49,7 @@ module Crysterm
   # statically-derived `DrawCaps`, the device cell size (`width`/`height`), the
   # output color depth and SGR encoding, and the terminal's pixel cell geometry.
   #
-  # A `Window` (the surface — formerly `Screen`) *has-a* `Screen` and delegates
+  # A `Window` (the surface) *has-a* `Screen` and delegates
   # to it. Splitting the device out lets one app drive multiple ttys, and
   # powers detach/reattach (a `Window` surviving while its `Screen` is rebuilt
   # — see `window_connection.cr`).

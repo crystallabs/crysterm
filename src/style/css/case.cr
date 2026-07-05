@@ -3,9 +3,10 @@ module Crysterm
     # The single home for crysterm's CSS *case-folding policy*.
     #
     # CSS is case-insensitive in most of its grammar but case-*sensitive* in a
-    # handful of spots; every parse site used to re-decide the rule
-    # independently, which is how case bugs crept in. New parse sites should
-    # reach for these helpers rather than sprinkling their own `.downcase`/`/i`.
+    # handful of spots; centralizing the policy here keeps each parse site from
+    # re-deciding the rule independently and drifting into case bugs. New parse
+    # sites should reach for these helpers rather than sprinkling their own
+    # `.downcase`/`/i`.
     #
     # ## Case-*insensitive* (fold before comparing)
     #

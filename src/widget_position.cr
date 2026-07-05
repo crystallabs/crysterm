@@ -30,7 +30,7 @@ module Crysterm
       # `byte_slice(...).to_f?` heap-allocated a String per call, and this runs
       # for every string-positioned widget every frame. A non-clean percentage
       # (e.g. `0.5em` -> `0.5e`) yields 0 rather than raising — last-line guard
-      # so layout never aborts (matches the previous `to_f? || 0.0`).
+      # so layout never aborts.
       k = 0
       neg_pct = false
       if pct_end > 0
@@ -100,8 +100,6 @@ module Crysterm
     # Sets Widget's `@left`
     def left=(val)
       return if @left == val
-      # Assign (and mark dirty) *before* emitting so in-tree Move listeners see
-      # the new position, not the old one (cf. `width=` for the Resize case).
       # Assign (and mark dirty) *before* emitting so in-tree Move listeners see
       # the new position, not the old one (cf. `width=` for the Resize case).
       @left = val
@@ -174,8 +172,8 @@ module Crysterm
         expr = "50%"
       elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')
         # `center+5`/`half-3`: 50% of the parent plus the offset, parsed in
-        # place — the previous `"50%" + expr[aliased.size..]` rebuild allocated
-        # two Strings per call, every frame.
+        # place rather than rebuilding `"50%" + expr[aliased.size..]`, which
+        # would allocate two Strings per call, every frame.
         bytes = expr.to_slice
         off = 0
         j = aliased.size + 1
@@ -327,10 +325,6 @@ module Crysterm
 
       bottom
     end
-
-    # (Removed: ~65 lines of disabled `aleft=`/`aright=`/`atop=`/`abottom=`
-    # setters — "Disabled because nothing uses these, and not resize-safe."
-    # Recoverable from git history if ever needed.)
 
     # Shifts the `lo..hi` pair by the widget's own margin (see `_get_coords`):
     # outward by `far` when only the far side is anchored (`near_anchor` nil,
@@ -505,17 +499,16 @@ module Crysterm
         bb = sp_border.bottom
         bl = sp_border.left
         br = sp_border.right
-        # Old code: b = scrollable_parent.border ? 1 : 0
 
         # D O:
         # XXX
         # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
         # if @left < 0 || @right < 0 || @top < 0 || @bottom < 0
         # This exempts a widget that *is* a label (sits ON the parent's border)
-        # from border compensation — blessed's `if (this._isLabel) b = 0`. The
-        # old `if @_label` tested "widget HAS a label", the wrong direction: it
-        # clipped labels out of scrollable widgets and zeroed all four
-        # compensations for any labeled child in a scrolled container.
+        # from border compensation — blessed's `if (this._isLabel) b = 0`.
+        # Testing `@_label` instead ("widget HAS a label") is the wrong
+        # direction: it would clip labels out of scrollable widgets and zero all
+        # four compensations for any labeled child in a scrolled container.
         if _is_label?
           b = 0
           bb = 0

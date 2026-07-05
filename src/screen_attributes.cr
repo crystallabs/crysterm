@@ -99,7 +99,7 @@ module Crysterm
     # `sgr_param_at` overload (`Bytes` or `StringIndex`); Crystal instantiates
     # this once per source type. `pos0` is the index of the first parameter
     # (just past "\e["), `finish` the index of the trailing 'm'. An empty
-    # parameter (e.g. `\e[m`, `\e[;1m`) counts as 0, matching old `split(';')`
+    # parameter (e.g. `\e[m`, `\e[;1m`) counts as 0, matching `split(';')`
     # semantics; truecolor/256-color forms read and consume extra params via `term`.
     # ameba:disable Metrics/CyclomaticComplexity
     private def self.attr2code_impl(src, pos0 : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64

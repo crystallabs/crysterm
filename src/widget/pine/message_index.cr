@@ -45,7 +45,7 @@ module Crysterm
       # ![MessageIndex screenshot](../../../tests/widget/pine/message_index/message_index.5s.apng)
       # <!-- /widget-examples:capture -->
       class MessageIndex < SelectableList(Message)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Message = ::Crysterm::Widget::Pine::Message
 
         # Width of the leftmost status/flags column. Defaults to Alpine's

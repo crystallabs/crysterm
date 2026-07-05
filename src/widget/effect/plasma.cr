@@ -158,7 +158,7 @@ module Crysterm
         end
 
         # Fill the three sine tables at the current frame. Bit-identical to the
-        # inline `Math.sin(...)` terms `#cell` used to compute: the same
+        # inline `Math.sin(...)` terms `#cell` would otherwise compute: the same
         # expressions, evaluated once per row/column/diagonal instead of once per
         # cell.
         private def fill_wave_tables(w, h)

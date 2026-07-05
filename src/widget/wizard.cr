@@ -56,11 +56,9 @@ module Crysterm
         cancel_button.on(::Crysterm::Event::Press) { cancel }
 
         # Enter advances/finishes, Escape cancels — the modal-dialog convention
-        # `ColorDialog`/`Question` already follow, which `Wizard` had missed
-        # entirely (cancel was reachable only via the button). The `Dialog` base
-        # owns the window-level accelerator; the wizard keeps it installed while
-        # attached and torn down on detach/destroy so it can't fire on a dead
-        # widget.
+        # `ColorDialog`/`Question` follow. The `Dialog` base owns the window-level
+        # accelerator; the wizard keeps it installed while attached and torn down
+        # on detach/destroy so it can't fire on a dead widget.
         on(::Crysterm::Event::Attach) { install_dialog_keys }
         on(::Crysterm::Event::Detach) { uninstall_dialog_keys }
         on(::Crysterm::Event::Destroy) { uninstall_dialog_keys }
@@ -87,8 +85,7 @@ module Crysterm
       # Builds one of the wizard's footer buttons: a centered `Button` pinned to
       # the bottom row with the given left/right anchor. Uses `align: :center`
       # like the rest of the dialog-button family (`DialogButtonBox#make_button`,
-      # `OkCancelDialog.dialog_button`) rather than the `{center}` tag form it had
-      # drifted to (same result, one styling convention across the dialogs).
+      # `OkCancelDialog.dialog_button`) — one styling convention across the dialogs.
       private def wizard_button(label : String, left = nil, right = nil) : Button
         ::Crysterm::Mixin::OkCancelDialog.dialog_button(
           label, 8,

@@ -81,7 +81,7 @@ module Crysterm
       property? auto_prefix = true
 
       # Inert cells between adjacent item boxes (no leading gap, so inert cells
-      # fall only after the last item). Defaults to 2 (historical spacing); a
+      # fall only after the last item). Defaults to 2; a
       # `Widget::MenuBar`/`Widget::ToolBar` sets it to 0 so titles/buttons pack
       # flush — each item box already carries its own side padding
       # (`width = text + 2`), so 0 still leaves breathing room.
@@ -232,11 +232,11 @@ module Crysterm
           end
         end
 
-        # Auto-select the first *selectable* command. The old `@items.size == 1`
-        # test fired only for the very first item added, so a bar opening with a
-        # leading `add_separator` never selected its first real command —
-        # `selected` stuck on the non-selectable separator with a dead Enter.
-        # Fire on the first non-separator command instead. `@left_base`/
+        # Auto-select the first *selectable* command. Testing `@items.size == 1`
+        # would fire only for the very first item added, so a bar opening with a
+        # leading `add_separator` would never select its first real command —
+        # `selected` would stick on the non-selectable separator with a dead
+        # Enter. Fire on the first non-separator command instead. `@left_base`/
         # `@left_offset` (selected == their sum) are set directly rather than via
         # `#selekt`, since its window math is gated on a laid-out `@lpos` and
         # can't move the index before the first render. `@left_base` stays 0 so
@@ -322,8 +322,8 @@ module Crysterm
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
         # horizontal-scroll math below needs a real layout. A top-level widget
-        # appended to a `Window` has no `#parent`, so gating on `#parent` (as
-        # the original port did) wrongly skipped the scroll update for every
+        # appended to a `Window` has no `#parent`, so gating on `#parent`
+        # wrongly skips the scroll update for every
         # window-level listbar, freezing `#selected` at 0. Gate on `@lpos`
         # instead (set after the first render; the public
         # `#last_rendered_position` raises when unrendered, so it can't be used
@@ -580,8 +580,8 @@ module Crysterm
 
       # Selects (and triggers the callback of) the tab at `index`.
       def select_tab(index : Int)
-        # An out-of-range index is a no-op (previously it still emitted a
-        # `SelectTab` carrying a nil item).
+        # An out-of-range index is a no-op (must not emit a `SelectTab`
+        # carrying a nil item).
         cmd = @commands[index]?
         return if cmd.nil?
         # A separator is not a real tab: selecting one would settle the highlight

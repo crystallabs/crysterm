@@ -186,10 +186,10 @@ module Crysterm
       # Streams the payload with its `{i}`/`{o}` id placeholders resolved straight
       # into *io*. The literal runs around the placeholders are split once per
       # distinct cached payload (`#payload_segments`, keyed on object identity) and
-      # reused across emits, so a looping animation/video no longer `gsub`-copies
+      # reused across emits, so a looping animation/video avoids `gsub`-copying
       # the whole (multi-MB) base64 frame twice per emitted frame — it just writes
-      # the cached segments + the current ids. Buffer parity toggles once per emit,
-      # exactly as before (see `#finalize_payload`).
+      # the cached segments + the current ids. Buffer parity toggles once per emit
+      # (see `#finalize_payload`).
       protected def emit_payload(io : String::Builder, payload : String) : Nil
         literals, keys = payload_segments payload
         if double_buffer?
@@ -198,7 +198,7 @@ module Crysterm
           write_segments io, literals, keys, primary, other
         else
           # Single buffer: `{i}` -> @id_a, and any (never-present) `{o}` is left
-          # literal, matching the old `gsub(ID_PLACEHOLDER, ...)`-only behavior.
+          # literal.
           write_segments io, literals, keys, @id_a, nil
         end
       end

@@ -124,8 +124,8 @@ module Crysterm
       # a clamped value *directly* (no `Event::RangeChange`/`ValueChange` — nothing
       # is listening during construction). Call from a subclass constructor so the
       # "never store an inverted range" guard (which `#value=`/`#value_span`/the
-      # percent helpers all assume) can't be forgotten — `ScrollBar` forgot it and
-      # `ScrollBar.new(minimum: 100, maximum: 0)` stored an inverted range.
+      # percent helpers all assume) can't be forgotten — e.g.
+      # `ScrollBar.new(minimum: 100, maximum: 0)` must not store an inverted range.
       protected def init_range(min : T, max : T, value : T? = nil) : Nil
         @minimum = min
         @maximum = Math.max(min, max)
@@ -161,8 +161,7 @@ module Crysterm
       #
       # `invert: true` flips only the *vertical* keys (Up/Down, PageUp/PageDown,
       # `k`/`j`) so a scroll bar's up-arrow decreases the value while its
-      # left/right stay conventional — the exact asymmetry `ScrollBar` hand-rolled
-      # (and which had drifted to miss the `h`/`j`/`k`/`l` keys the family gained).
+      # left/right stay conventional.
       def ranged_step_key(e, invert : Bool = false) : Bool
         case e.key
         when Tput::Key::Right
@@ -252,7 +251,7 @@ module Crysterm
 
       # Emits the range-change signal on an actual change. The default is the
       # `Int32` `Event::RangeChange`; `DoubleSpinBox` overrides it to a no-op
-      # (there is no `Float64` range event, matching its prior behavior).
+      # (there is no `Float64` range event).
       protected def emit_range_change : Nil
         emit Crysterm::Event::RangeChange, @minimum, @maximum
       end

@@ -594,10 +594,6 @@ module Crysterm
         line
       end
 
-      # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active
-      # because menus set `#hover_select?`). Moves the highlight there — closing
-      # any submenu anchored elsewhere — and opens the row's submenu if it has
-      # one. Separators are skipped; disabled rows highlight but don't open.
       # Whether *e* is a key that moves the list selection (so the first such
       # press should reveal the highlight). Mirrors the keys
       # `Mixin::ItemView#on_keypress` acts on, plus vi aliases when `#vi?`.
@@ -611,6 +607,10 @@ module Crysterm
         end
       end
 
+      # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active
+      # because menus set `#hover_select?`). Moves the highlight there — closing
+      # any submenu anchored elsewhere — and opens the row's submenu if it has
+      # one. Separators are skipped; disabled rows highlight but don't open.
       def hover_item(i : Int)
         act = visible_actions[i]?
         return unless act
@@ -893,7 +893,7 @@ module Crysterm
         # single absolute→window-local inset conversion. When the menu draws a
         # border, folding `-border` into the anchor width keeps the right-side
         # baseline on the parent's right border column (the shared-divider
-        # overlap) exactly as before; a borderless theme sits flush. The vertical
+        # overlap); a borderless theme sits flush. The vertical
         # offset uses `itop` (0 when borderless). Both `Right` and `Left` share
         # the same row `y`, so the flip decision is purely horizontal and any
         # vertical overflow is clamped on-window. Further gap comes from the

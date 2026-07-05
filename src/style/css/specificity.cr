@@ -4,8 +4,8 @@ module Crysterm
     # then classes/attributes/pseudo-classes, then types/pseudo-elements —
     # compared lexicographically (`Tuple` is `Comparable`).
     #
-    # This is a real single-pass tokenizer rather than a character count, so it
-    # is correct in the cases the count got wrong: it skips the contents of
+    # This is a real single-pass tokenizer rather than a naive character count,
+    # so it handles the tricky cases correctly: it skips the contents of
     # `[...]` attribute values and `(...)` pseudo arguments (so a `.` or `#`
     # inside a quoted attribute value isn't miscounted), distinguishes `::`
     # pseudo-elements from `:` pseudo-classes, ignores `*` and combinators, and

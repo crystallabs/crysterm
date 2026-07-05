@@ -31,8 +31,8 @@ module Crysterm
 
         # `stat` is `File::Info?` (`rescue` above yields `nil` for a dangling
         # symlink, a races-away entry, EACCES). Guard before `directory?`/
-        # `symlink?`, or it's a `Nil`-method compile error — hidden until now
-        # only because nothing instantiates `find_file` outside its own recursion.
+        # `symlink?`, or it's a `Nil`-method compile error — latent only
+        # because nothing calls `find_file` outside its own recursion.
         if stat && stat.directory? && !stat.symlink?
           found = find_file full, target
           return found if found
@@ -81,10 +81,10 @@ module Crysterm
 
     # Combined {...}-tag + SGR-sequence regex, built once.
     #
-    # Previously assembled inline inside `clean_tags` via interpolation, which
-    # (unlike a regex literal) recompiles on every evaluation — costly since
-    # `clean_tags` is called per-item in e.g. `List#get_item_index`. Hoisted to
-    # a constant to compile it once.
+    # Held as a constant so it compiles once rather than on every `clean_tags`
+    # call (which runs per-item in e.g. `List#get_item_index`): an
+    # interpolated `#{...}` regex, unlike a regex literal, recompiles on each
+    # evaluation.
     CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
 
     # Strips text of {...} tags and SGR sequences

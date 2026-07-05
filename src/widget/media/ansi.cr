@@ -94,7 +94,7 @@ module Crysterm
       protected def on_loaded(png : PNGGIF::PNG)
         # Only auto-size an axis the caller left unset. A non-nil size —
         # including a String like "100%"/"50%" — is explicit and must be
-        # honored. The old `@width.as?(Int32)` test treated any non-Int as
+        # honored. A `@width.as?(Int32)` test would treat any non-Int as
         # unset, silently replacing a percentage width with the native size.
         return unless @width.nil? || @height.nil?
         native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)

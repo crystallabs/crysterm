@@ -162,8 +162,7 @@ module Crysterm
       # bottom), clamped on-window. `Overlay.place_child` owns the below/above
       # fit choice, the on-window clamp, and the single absolute→window-local
       # inset conversion (a window-appended popup's `left`/`top` are relative to
-      # the window content origin), fixing the invisible/near-bottom popup and
-      # the bordered-window shift the raw `atop + aheight` placement had.
+      # the window content origin).
       private def position_popup(pop : Calendar) : Nil
         Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
           Overlay::BELOW_ABOVE)

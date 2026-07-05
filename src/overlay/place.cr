@@ -3,8 +3,8 @@ module Crysterm
     # Fit-based auto-placement for a floating overlay (drop-down list, pop-up
     # menu, completer list, submenu).
     #
-    # Every overlay owner otherwise hand-rolled its own "place a rectangle next
-    # to an anchor, flip/clamp on overflow" math, and the copies had drifted on
+    # Every overlay owner otherwise hand-rolls its own "place a rectangle next
+    # to an anchor, flip/clamp on overflow" math, and such copies drift on
     # coordinate conventions (some subtracting the window inset, some not) and on
     # flip policy (below-only vs. flip-above vs. clamp-only). This function
     # replaces the *policy* with a declarative one: the caller supplies an
@@ -95,7 +95,7 @@ module Crysterm
     # Adoption helper: places *child* — a window-appended overlay — against
     # *anchor* and assigns its `left`/`top`, owning the single
     # absolute→window-local conversion so no call site repeats or forgets it
-    # (the omission that mis-placed the combo popup on a bordered window).
+    # (forgetting it mis-places an overlay on a bordered window).
     #
     # - *child*  — the overlay (a top-level child appended to its `window`).
     # - *anchor* — an absolute `{x, y, w, h}` rect. Build it from a widget with

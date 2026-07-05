@@ -105,13 +105,13 @@ module Crysterm
 
       # Prune only the invalid *trailing* entries, popping back-to-front until
       # the top is a still-valid target (or the history empties). Blessed's
-      # `rewindFocus` prunes just this tail; the old `@history.clear` here
-      # discarded ALL older-but-still-valid entries too, so a second
-      # `rewind_focus` (e.g. Tab A→B→C, hide C rewinds to B, then hide B) found
-      # nothing to fall back to and blurred focus entirely, even though an older
-      # valid entry (A) was still visible and should have been refocused.
+      # `rewindFocus` prunes just this tail; an `@history.clear` here would
+      # discard ALL older-but-still-valid entries too, so a second
+      # `rewind_focus` (e.g. Tab A→B→C, hide C rewinds to B, then hide B) would
+      # find nothing to fall back to and blur focus entirely, even though an older
+      # valid entry (A) was still visible and should be refocused.
       #
-      # Per-entry validity, same predicate as before:
+      # Per-entry validity:
       #
       # `window? == self` (not the raising `screen`, nor a bare truthy
       # `window?`): a destroyed/detached widget has no screen, and `#screen`
@@ -205,8 +205,8 @@ module Crysterm
       return if offset.zero?
 
       # We only need to know whether *any* keyable element is visible, so
-      # `any?` (short-circuits on the first match) is enough; the old
-      # `count { ... }.zero?` always scanned the entire list.
+      # `any?` (short-circuits on the first match) is enough; a
+      # `count { ... }.zero?` would always scan the entire list.
       #
       # `window? == self` (not the raising `screen`, nor a bare truthy
       # `window?`): defensive attachment check. `#remove`/`Widget#remove` now
@@ -292,11 +292,11 @@ module Crysterm
       # element into view. Delegate to `#ensure_widget_visible`, the purpose-built
       # primitive that maps the descendant's row into `el`'s content space via
       # absolute tops (`cur.atop - el.atop - el.itop`) and uses
-      # `#visible_content_rows` for the viewport. The previous hand-rolled math
-      # used `cur.rtop`, which is relative to `cur`'s *immediate* parent — correct
+      # `#visible_content_rows` for the viewport. Hand-rolled math using
+      # `cur.rtop` would be relative to `cur`'s *immediate* parent — correct
       # only when `cur` is a direct child of `el`; for a deeper descendant (an
-      # input inside a plain container inside a scrollable box) it omitted the
-      # intervening offsets and scrolled to the wrong place (or not at all).
+      # input inside a plain container inside a scrollable box) it omits the
+      # intervening offsets and scrolls to the wrong place (or not at all).
       if el && el.window
         cur.window.render if el.ensure_widget_visible cur
       end

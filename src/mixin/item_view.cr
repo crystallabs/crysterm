@@ -18,10 +18,10 @@ module Crysterm
     module ItemView
       include NavKeys
 
-      # How a mouse-wheel notch is interpreted (see `#wheel_scroll`). The two
-      # drop-down popups (`ComboBox::Popup`, `Completer::Popup`) used to each
-      # override `#wheel_scroll` with a byte-identical body; this flag replaces
-      # that copy-paste — they just set `wheel_mode = ScrollViewUnderPointer`.
+      # How a mouse-wheel notch is interpreted (see `#wheel_scroll`). Lets the
+      # two drop-down popups (`ComboBox::Popup`, `Completer::Popup`) share one
+      # behavior by setting `wheel_mode = ScrollViewUnderPointer` rather than
+      # each overriding `#wheel_scroll` with an identical body.
       enum WheelMode
         # Wheel behaves like the arrow keys: it moves the selection, scrolling
         # only to keep it visible (plain `List`/`Tree`/`Menu`).
@@ -185,9 +185,9 @@ module Crysterm
       def item_render_style(selected : Bool) : ::Crysterm::Style
         return without_border(style.item) unless selected
         # Fuses the two transforms the selected style needs (strip border, and
-        # force reverse-video at the unstyled floor) into a single `#dup`, instead
-        # of the old `selection_fallback(without_border(...))` which dup'd twice
-        # and discarded the first copy. `styles.selected` itself is never mutated
+        # force reverse-video at the unstyled floor) into a single `#dup`, rather
+        # than `selection_fallback(without_border(...))`, which would dup twice
+        # and discard the first copy. `styles.selected` itself is never mutated
         # in place, and nothing is cached across frames.
         base = styles.selected
         strip = base.border.any?

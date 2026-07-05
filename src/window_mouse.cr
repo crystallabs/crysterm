@@ -464,7 +464,7 @@ module Crysterm
     # (visit *el*, then recurse into its children in `@children` order), scoring
     # each widget as a hit-test candidate into `@_hit_found`/`@_hit_found_key`.
     # A widget that fails the candidate test still has its subtree scanned,
-    # exactly as the old `each_descendant`/`next` form did.
+    # matching the `each_descendant`/`next` form.
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?) : Nil
       if hit_candidate? el, x, y, skip
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
@@ -481,8 +481,8 @@ module Crysterm
     end
 
     # Whether *el* itself is the topmost-eligible widget occupying (*x*, *y*)
-    # under the pointer — the per-widget body of the old `widget_at` loop, with
-    # `next` rewritten as `return false`. Preserves the exact hit-test order:
+    # under the pointer — the per-widget body of the `widget_at` scan; a failing
+    # check `return false`s rather than `next`s. Preserves the exact hit-test order:
     # `lpos` first, then `wants_mouse?`, then whole-chain visibility.
     private def hit_candidate?(el : Widget, x : Int32, y : Int32, skip : Widget?) : Bool
       return false if skip && el == skip
@@ -495,7 +495,7 @@ module Crysterm
       # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
       # viewport, so a scrolled list item is matched where it actually appears
       # (and a `resizable` widget by its shrunk content box, not the full slot
-      # `awidth` reports). Raw geometry ignored all of that and hit-tested
+      # `awidth` reports). Raw geometry would ignore all of that and hit-test
       # scrolled/shrunk children by their unscrolled, unclipped rectangle.
       # `render_children` refreshes every descendant's `lpos` each frame, so it
       # is current once the window has painted.

@@ -32,10 +32,9 @@ module Crysterm
         )
           super **opts, width: w, height: h
 
-          # The three zones flow left-to-right; masonry reproduces the inline
-          # arrangement from when this widget was a `Widget::Layout`. Set the
-          # ivar directly (not `self.layout=`) since `@title`/`@section`/`@info`
-          # aren't initialized yet.
+          # The three zones flow left-to-right via masonry's inline arrangement.
+          # Set the ivar directly (not `self.layout=`) since
+          # `@title`/`@section`/`@info` aren't initialized yet.
           @layout = Crysterm::Layout::Masonry.new
 
           @style = Style.new reverse: true

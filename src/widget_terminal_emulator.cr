@@ -103,7 +103,7 @@ module Crysterm
 
     # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
     # (cleared, not reallocated, per sequence): avoids the per-byte `String`
-    # allocation the old `@csi_buf += c` did, keeping long OSC payloads (e.g.
+    # allocation a `@csi_buf += c` would do, keeping long OSC payloads (e.g.
     # OSC 52 clipboard) linear instead of quadratic.
     @state : Symbol = :ground
     @csi_buf = IO::Memory.new
@@ -1090,9 +1090,9 @@ module Crysterm
         (0...@rows).each { |yy| clear_screen_line yy }
       when 3
         # ED 3 (xterm "Erase Saved Lines"): discard the scrollback ONLY; the
-        # visible page is left intact. Previously also cleared the visible rows
-        # (treating ED 3 as ED 2 + scrollback), so a bare `CSI 3 J` to trim
-        # history wrongly lost on-window content. Live rows are exactly
+        # visible page is left intact. Clearing the visible rows too (treating
+        # ED 3 as ED 2 + scrollback) would make a bare `CSI 3 J` meant to trim
+        # history wrongly lose on-window content. Live rows are exactly
         # `@lines[@ybase, @rows]`; just drop everything above them.
         # `Array#[start, count]` already returns a fresh array — no `.dup` needed.
         @lines = @lines[@ybase, @rows]

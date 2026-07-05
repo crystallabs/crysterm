@@ -135,10 +135,9 @@ module Crysterm
         # Start from the selected child if still part of the form, otherwise
         # from a direction-aware sentinel: just before the first child for a
         # forward step (so `+1` lands on the first), and on the first child for
-        # a backward step (so `-1` wraps to the last). A hardcoded `-1` was only
-        # right for `+1`: with `-1` it computed `(-1 - 1) % size == size - 2`,
-        # so `#focus_last` (and the first-ever `Shift+Tab`) landed on the
-        # second-to-last field instead of the last.
+        # a backward step (so `-1` wraps to the last). The sentinel must depend
+        # on direction: a fixed `-1` would make `-1` compute
+        # `(-1 - 1) % size == size - 2`, landing on the second-to-last field.
         size = list.size
         sentinel = direction > 0 ? -1 : 0
         # Anchor on the child that *actually* holds focus when it differs from

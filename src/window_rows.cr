@@ -164,14 +164,9 @@ module Crysterm
       # cluster is never equal to a single-char tuple, so such writes are not
       # skipped.
       #
-      # HISTORY: the previous `class Cell` inadvertently disabled all of this.
-      # `cell == {attr, char}` fell through to `Reference#==(other)` (Comparable
-      # only defines `==` for another Cell), which is constant-false — forcing a
-      # full-screen repaint every frame even though `screen_rendering`'s reset
-      # logic assumed diffing worked.
-      #
-      # The `legacy_cell_eq` compile flag restores that constant-false behavior
-      # for A/B testing/benchmarking against the old full-repaint path.
+      # The `legacy_cell_eq` compile flag forces this to constant-false for A/B
+      # testing/benchmarking against a full-repaint path (the tuple compare never
+      # matches, so every frame fully repaints).
       def ==(other : Tuple(Int64, Char))
         {% if flag?(:legacy_cell_eq) %}
           false
@@ -227,11 +222,11 @@ module Crysterm
     # overlay (index -> cluster), allocated only when a cluster is stored, so
     # rows of plain text carry no extra memory.
     #
-    # NOTE: this used to subclass `Array(Cell)`. Subclassing a stdlib generic is
-    # deprecated and promotes every `Array(Cell)` in the program (including
-    # unrelated shards) to the virtual type `Array(Cell)+`, producing confusing
-    # compile errors far from here (issue #30). Backing the row with plain
-    # `Array`s and including `Indexable(Cell)` avoids that.
+    # NOTE: backed by plain `Array`s + `Indexable(Cell)` rather than subclassing
+    # `Array(Cell)`. Subclassing a stdlib generic is deprecated and promotes
+    # every `Array(Cell)` in the program (including unrelated shards) to the
+    # virtual type `Array(Cell)+`, producing confusing compile errors far from
+    # here (issue #30).
     class Row
       include Indexable(Cell)
 
@@ -285,9 +280,8 @@ module Crysterm
       end
 
       # Reserves capacity for `initial_capacity` cells but creates an empty
-      # (size 0) row. NOTE: this matches the previous `Row < Array(Cell)`
-      # behavior, where `Row.new(width, cell)` delegated to
-      # `Array(Cell).new(capacity)` and the cell argument was ignored.
+      # (size 0) row. The `cell` argument is accepted but ignored, matching an
+      # `Array(Cell).new(capacity, cell)` signature.
       def initialize(initial_capacity : Int, cell = nil)
         @attrs = Array(Int64).new initial_capacity
         @chars = Array(Char).new initial_capacity

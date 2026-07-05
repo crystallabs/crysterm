@@ -33,7 +33,7 @@ module Crysterm
       # ![FolderList screenshot](../../../tests/widget/pine/folder_list/folder_list.5s.apng)
       # <!-- /widget-examples:capture -->
       class FolderList < SelectableList(Folder)
-        # Historical nested name for the record type (see `SelectableList`).
+        # Nested-name alias for the record type (see `SelectableList`).
         alias Folder = ::Crysterm::Widget::Pine::Folder
 
         def initialize(

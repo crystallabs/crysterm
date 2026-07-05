@@ -66,9 +66,8 @@ module Crysterm
         done_called = false
 
         # `done` must be defined *before* the handlers that call it are
-        # registered — previously `uninitialized` and assigned after
-        # registration, so a key/press arriving in between invoked an
-        # uninitialized Proc (crash).
+        # registered: otherwise a key/press arriving before assignment would
+        # invoke an uninitialized Proc (crash).
         done = ->(err : String?, data : Bool) do
           unless done_called
             done_called = true
@@ -120,9 +119,8 @@ module Crysterm
         @ok.hide
         @cancel.hide
 
-        # Build the choice row through `DialogButtonBox`, which already owns the
-        # single-row button style and left-to-right layout this method used to
-        # inline (byte-for-byte the same `make_button` body + spacing math). The
+        # Build the choice row through `DialogButtonBox`, which owns the
+        # single-row button style and left-to-right layout. The
         # buttons carry `Role::Apply`, so the box emits no accept/reject signal —
         # each choice's meaning is its index, wired on its own `Press` below.
         bb = DialogButtonBox.new parent: self, top: 4, left: 1

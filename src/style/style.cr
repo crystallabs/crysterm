@@ -452,9 +452,7 @@ module Crysterm
 
     # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps
     # a cascade slot name to a nested `Style` is generated from this single
-    # list, so the slot set can't drift between methods (previously five
-    # hand-kept copies had already diverged — `alternate-row` was missing from
-    # the cascade's getter/setter, silently dropping its rules). Keep sorted by
+    # list, so the slot set can't drift between methods. Keep sorted by
     # accessor for readability.
     {% begin %}
       {% slots = {

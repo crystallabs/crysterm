@@ -65,8 +65,7 @@ module Crysterm
     # (e.g. raw newlines). The reset lives in an `ensure`, so a raising block
     # can't leave output permanently diverted; `dest` is written only on success.
     private def divert(buf : IO::Memory, dest : IO, & : IO::Memory ->) : Nil
-      # Clear so the buffer can be reused across calls (callers used to either
-      # pass a throwaway `IO::Memory.new` or clear it themselves).
+      # Clear so the buffer can be reused across calls.
       buf.clear
       tput.ret = buf
       begin
@@ -113,7 +112,7 @@ module Crysterm
     # writes them to the terminal via `#flush_frame`. `#_render` passes
     # `flush: false` so it can time the diff/encode and the (blocking) terminal
     # write separately; direct callers (specs, external code) get the full
-    # build-and-write in one call, as before.
+    # build-and-write in one call.
     def draw(start = 0, stop = @lines.size - 1, flush = true)
       # D O:
       # emit Event::PreDraw
@@ -931,8 +930,8 @@ module Crysterm
 
       # XXX temporarily diverts output
       # Only emits `dl` (delete_line), so it needs change-scroll-region +
-      # delete_line — not insert_line. Requiring `il` here made `delete_line` a
-      # silent no-op (dropping the buffer-side `shift_lines_up` too) on terminals
+      # delete_line — not insert_line. Requiring `il` here would make `delete_line`
+      # a silent no-op (dropping the buffer-side `shift_lines_up` too) on terminals
       # that advertise CSR + delete_line but not insert_line.
       return unless with_scroll_region(top, bottom) do
                       tput.cup(y + render_row_offset, 0)
@@ -1045,9 +1044,8 @@ module Crysterm
     # `yi...yl` (the uniformity test `clean_sides` runs on the columns flanking a
     # scrollable element). Each row's cell is compared against the reference cell
     # taken from the top row (`@olines[yi]`); the first mismatch returns false. A
-    # row missing the column stops the scan early, exactly as the original
-    # per-band loops did, and a missing top row leaves the reference cell nil so
-    # the scan breaks before any comparison.
+    # row missing the column stops the scan early, and a missing top row leaves
+    # the reference cell nil so the scan breaks before any comparison.
     private def column_uniform?(x, yi, yl) : Bool
       first = @olines[yi]?.try &.[x]?
       yi.upto(yl - 1) do |y|

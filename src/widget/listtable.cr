@@ -76,7 +76,7 @@ module Crysterm
 
       # --- per-row derived-style caches (allocation reduction, K1) -----------
       # `#render_style_for` runs once per body row per frame. With
-      # `alternate_rows: true` it used to derive a fresh `Style` for every even
+      # `alternate_rows: true` that would derive a fresh `Style` for every even
       # row every frame (`without_border`/`overlay_colors` each `#dup`). The CSS
       # cascade replaces a widget's whole `styles` tree on recompute
       # (`cascade.cr`: `widget.styles = css_base_styles.deep_dup`) rather than
@@ -216,9 +216,9 @@ module Crysterm
           # read it from there and overlay onto the row's own CSS style.
           # `alternate_row?` gates before the index lookup, so an unstyled table
           # skips it for every row. The lookup is the mixin's O(1) identity map
-          # (`item_index_of`), not the O(n) `@items.index` scan — with
-          # `alternate_rows: true` the plain branch below ran that scan for every
-          # row of every frame (O(n²)/frame). `item_index_of` returns nil for a
+          # (`item_index_of`), not the O(n) `@items.index` scan, which with
+          # `alternate_rows: true` would run for every row of every frame
+          # (O(n²)/frame). `item_index_of` returns nil for a
           # non-item child (the pinned header, a scroll bar), so those keep
           # falling through — matching `@items.index`, and unlike a naive
           # `item.top`-as-index map, whose header `top` tracks `@child_base`.
@@ -309,7 +309,7 @@ module Crysterm
         # Schwartzian transform: precompute one `{Float64?, String}` sort key per
         # body row (O(n) `clean_tags` + `to_f?`) and sort the keyed pairs, rather
         # than re-stripping tags for both operands inside the O(n log n)
-        # comparator (which the old `compare_cells` did per comparison).
+        # comparator.
         keyed = @rows[1..].map do |r|
           c = clean_tags(r[col]? || "")
           {c.to_f?, c, r}
@@ -324,8 +324,7 @@ module Crysterm
       end
 
       # Compares two precomputed cell keys. When both cells parse as numbers they
-      # compare numerically; otherwise their tag-stripped text compares. Mirrors
-      # the old per-comparison `compare_cells`.
+      # compare numerically; otherwise their tag-stripped text compares.
       private def compare_keys(an : Float64?, ca : String, bn : Float64?, cb : String) : Int32
         if an && bn
           (an <=> bn) || 0
@@ -340,8 +339,7 @@ module Crysterm
         return nil if x < 0
         # Header/rows render from `@first_col` (see `reslice_rows`), so a click
         # at relative `x == 0` lands on column `@first_col`, not column 0 —
-        # accumulate the visible window from there. Identical to the old
-        # column-0 scan when `@first_col == 0`.
+        # accumulate the visible window from there.
         acc = 0
         (@first_col...@maxes.size).each do |i|
           acc += @maxes[i] + 1 # +1 for the inter-column separator

@@ -117,8 +117,8 @@ module Crysterm
       # own displayed text (e.g. `DoubleSpinBox#decimals=` rebuilds content from
       # the value) would otherwise clobber an explicitly serialized `content`
       # when that setter's attribute is replayed after it — breaking the
-      # serialize -> load -> serialize round-trip invariant now that generated
-      # `dom_apply` routes through real setters (finding 6). Deferring content
+      # serialize -> load -> serialize round-trip invariant because generated
+      # `dom_apply` routes through real setters. Deferring content
       # lets the serialized text win, matching the saved display state.
       content_attr = nil
       node.attr.each do |a|

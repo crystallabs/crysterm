@@ -5,7 +5,7 @@ module Crysterm
       getter children = [] of Widget
 
       # O(1) membership index for `@children`, kept in sync by `insert`/`remove`.
-      # Without it, `insert`'s "already a child?" guard was a linear
+      # Without it, `insert`'s "already a child?" guard would be a linear
       # `@children.includes?` scan, making a batch of N appends O(N²). The only
       # other direct mutator of `@children` is the reorder in
       # `widget_children.cr`, which removes and re-adds the same element so

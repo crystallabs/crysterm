@@ -96,9 +96,9 @@ module Crysterm
     end
 
     # Assigns the child its z-order/render index for this frame. Split out from
-    # `#render_child` so flow engines keep the index bookkeeping identical to the
-    # old loop (every child consumes an index, even one later `#skip`ped) while
-    # still controlling whether the child renders.
+    # `#render_child` so flow engines keep the index bookkeeping consistent
+    # (every child consumes an index, even one later `#skip`ped) while still
+    # controlling whether the child renders.
     protected def bump_index(el : Widget) : Nil
       if el.window._ci != -1
         el.index = el.window._ci

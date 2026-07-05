@@ -300,8 +300,8 @@ module Crysterm
           @bounds = {lo, hi}
         end
 
-        # Design's finalized grid pass: map the logical `cols × rows` space onto
-        # the whole canvas and fill each finite cell with its color. Ragged rows
+        # Grid pass: map the logical `cols × rows` space onto the whole canvas
+        # and fill each finite cell with its color. Ragged rows
         # are tolerated (cells past a row's length are skipped); `NaN` cells are
         # left transparent.
         private def paint_grid(p : Painter) : Nil

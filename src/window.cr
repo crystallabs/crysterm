@@ -25,8 +25,8 @@ module Crysterm
   # QT-OBJECT-MODEL-PLAN.md). Owns the cell buffer, widget-tree root, focus,
   # damage, rendering, and its geometry within its `Screen`. *Has-a* `Screen`
   # (the physical tty/device) and delegates device concerns — IO, `Tput`, color
-  # depth, draw caps, device cell size — to it. (Formerly named `Screen`; the
-  # device split lets one app drive multiple ttys.)
+  # depth, draw caps, device cell size — to it. (The surface/device split lets
+  # one app drive multiple ttys.)
   class Window
     include EventHandler
     include Mixin::Name
@@ -173,7 +173,7 @@ module Crysterm
     # # Element being hovered over. Set only if mouse events are enabled.
     # @hover : Widget? = nil
 
-    # Rendering performance figures are no longer drawn by the screen itself.
+    # Rendering performance figures are not drawn by the window itself.
     # Add a `Widget::Fps` to display them; it reads the per-frame measurements
     # exposed by `window_rendering.cr` (`#render_rate`, `#draw_rate`,
     # `#frame_rate`, `#throughput`, `#bytes_written`).

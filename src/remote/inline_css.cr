@@ -14,8 +14,7 @@ module Crysterm
     # A stylesheet assigned as an *already-parsed* object (`window.stylesheet =
     # CSS::Stylesheet.parse(app_css)`), recorded so a later inline recompose
     # (triggered by any `load_layout`/`reload_layout`) doesn't silently discard
-    # it — the remote overlay otherwise tracks only the two *text* sources. See
-    # finding 52.
+    # it — the remote overlay otherwise tracks only the two *text* sources.
     @css_object_source : CSS::Stylesheet?
 
     # True while `recompose_stylesheet` applies its own composed result, so the
@@ -82,7 +81,7 @@ module Crysterm
           # rules come after it, so they win on equal specificity.
           object ? merge_stylesheet(object, parsed) : parsed
         elsif object
-          # No text source, but an object sheet was assigned (finding 52): keep
+          # No text source, but an object sheet was assigned: keep
           # it verbatim rather than clobbering it with an empty parse — the very
           # bug where `stylesheet = CSS::Stylesheet.parse(css)` then
           # `load_layout(...)` discarded the whole author sheet.

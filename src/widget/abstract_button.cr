@@ -8,7 +8,7 @@ module Crysterm
     # derive this directly as siblings, matching Qt's
     # `QPushButton`/`QToolButton`/`QCheckBox`/`QRadioButton` under
     # `QAbstractButton` (rather than chaining `QToolButton` off `QPushButton` or
-    # `QRadioButton` off `QCheckBox`, as Crysterm previously did).
+    # `QRadioButton` off `QCheckBox`).
     #
     # Holds the shared `QAbstractButton`-level state — `#text`, `#checkable?`,
     # `#checked?`, `#value` — and the canonical push/toggle behavior

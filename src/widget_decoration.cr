@@ -3,7 +3,7 @@ module Crysterm
     # Widget decorations
 
     # The `{ileft, itop, iright, ibottom}` inner insets, cached per frame. Each
-    # getter previously resolved `#style` twice (border + padding), and they
+    # getter otherwise resolves `#style` twice (border + padding), and they
     # fire many times per widget per frame: per auto-sized child (`awidth`'s nil
     # branch reads the parent's), ×4 per container in `Layout#interior_coords`,
     # and inside `_render`'s clip guards. Validity is tied to the frame-memoized

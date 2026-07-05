@@ -28,9 +28,9 @@ module Crysterm
       @_label.try do |_label|
         _label.set_content(text)
         # Match the creation path (below): `2 - ileft`/`2 - iright` compensates
-        # border *and* padding. The old `2 + (-border)` form ignored padding, so
-        # re-calling `set_label` shifted the label `padding.left` cells right on
-        # a padded widget.
+        # border *and* padding. A border-only form like `2 + (-border)` ignores
+        # padding, so re-calling `set_label` would shift the label `padding.left`
+        # cells right on a padded widget.
         if side != "right"
           _label.left = 2 - ileft
           _label.right = nil

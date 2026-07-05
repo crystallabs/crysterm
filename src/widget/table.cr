@@ -247,7 +247,7 @@ module Crysterm
               #
               # Positions are `xi + ileft + rx` (content begins at the left inset
               # `ileft`, not a hardcoded one column); `rx` is the content-column
-              # offset. The old `xi + rx + 1` assumed `ileft == 1`.
+              # offset.
               internal = ry != 0 && (ry // 2) != rows_n
               if cell = line[xi + ileft + rx]?
                 rx += 1

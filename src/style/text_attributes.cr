@@ -9,7 +9,7 @@ module Crysterm
     # Italic?
     property? italic : Bool = false
 
-    # Unedline?
+    # Underline?
     property? underline : Bool = false
 
     # Blink?

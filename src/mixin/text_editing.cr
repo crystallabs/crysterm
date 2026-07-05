@@ -123,8 +123,9 @@ module Crysterm
       end
 
       # Wires the cursor-following handlers and the optional Enter-to-read
-      # accelerator. Call from `initialize` after `super`. `install_enter` mirrors
-      # the original "only when the caller explicitly asked for `keys:`" gate.
+      # accelerator. Call from `initialize` after `super`. `install_enter` installs
+      # the Enter-to-read accelerator only when the caller explicitly asked for
+      # `keys:`.
       private def setup_text_editing(input_on_focus = false, install_enter = false) : Nil
         @__update_cursor = ->_update_cursor
 
@@ -659,11 +660,10 @@ module Crysterm
       # (logical, `\n`-delimited) line numbered *fake_line*. `@_clines.fake` is
       # TAB-expanded, so its codepoint sizes can't index raw `@value`; this reads
       # the cached newline offsets (`#line_offsets`) instead of rescanning
-      # `@value` from 0 on every call. Byte-identical to the old scan: `base` is
-      # the line's start, `line_end` is the following `\n` (or `@value.size` for
-      # the last line); a *fake_line* past the last line clamps to it, exactly as
-      # the old `break`-on-no-newline walk did. Shared by `#pos_from_rowcol` and
-      # `#position_at`.
+      # `@value` from 0 on every call. Byte-identical to rescanning from 0: `base`
+      # is the line's start, `line_end` is the following `\n` (or `@value.size` for
+      # the last line); a *fake_line* past the last line clamps to it. Shared by
+      # `#pos_from_rowcol` and `#position_at`.
       private def fake_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
         starts = line_offsets
         k = fake_line.clamp(0, starts.size - 1)
@@ -949,7 +949,7 @@ module Crysterm
         # dialog Escape) stand down for keys the field handled — `grab_keys` stops
         # propagation *up the widget tree* but not other window-level KeyPress
         # listeners on the same emission. Keys the editor ignores stay
-        # un-accepted so those accelerators still fire for them (BUGS-F2 #7).
+        # un-accepted so those accelerators still fire for them.
         handled = false
 
         if k = e.key
@@ -1154,7 +1154,7 @@ module Crysterm
         kill_ring.interrupt if rl && !killed
 
         # Consume the event so window-level accelerators don't double-act on a
-        # key this reading field already handled (BUGS-F2 #7).
+        # key this reading field already handled.
         e.accept if handled
       end
 
@@ -1189,7 +1189,7 @@ module Crysterm
         # column so the next Up/Down tracks the caret's actual column, not a
         # stale one from before the set. The redisplay path (`nil` value) must
         # leave `@goal_col` intact so an in-progress Up/Down sequence survives a
-        # `render` (BUGS-F2 #35).
+        # `render`.
         @goal_col = nil if external
         external
       end
@@ -1313,8 +1313,8 @@ module Crysterm
         # to another widget (Tab to a button, click on a sibling field), which
         # sets `@_skip_rewind`. Restoring then would yank focus back to the
         # pre-dialog widget, escaping the still-open modal dialog and, in the
-        # field1→field2 chain, starting a read on a not-actually-focused field
-        # (BUGS-F2 #4). Otherwise drop the stale saved slot so a later unrelated
+        # field1→field2 chain, starting a read on a not-actually-focused field.
+        # Otherwise drop the stale saved slot so a later unrelated
         # `restore_focus` can't replay it.
         if !focused? && !@_skip_rewind
           window.restore_focus

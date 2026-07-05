@@ -10,10 +10,10 @@ module Crysterm
     # (`Menu`), and a non-widget owner (`Completer`, which attaches to a
     # `LineEdit` and therefore can't inherit any widget lifecycle).
     #
-    # Before this, the grab/watcher/teardown triple was hand-rolled at four
-    # sites, and the "released grab on destroy" bug class recurred because the
-    # dismiss path and the destroy path each tore things down separately. Here a
-    # single idempotent `#close` is what both paths call.
+    # The grab/watcher/teardown triple is otherwise hand-rolled per owner, where
+    # a "released grab on destroy" bug class recurs because the dismiss path and
+    # the destroy path each tear things down separately. Here a single idempotent
+    # `#close` is what both paths call.
     #
     # The window is captured at construction and used for both grab and detach,
     # so teardown works even from `Detach`/`Destroy`, where the owner's

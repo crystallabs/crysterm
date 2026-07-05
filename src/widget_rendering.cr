@@ -667,9 +667,8 @@ module Crysterm
             end
 
             ch = border_char border, glyphs, in_top, in_bot, in_left, in_right
-            # Horizontal (top/bottom) cells — including corners, which the old
-            # single-line renderer also colored with the horizontal side — take
-            # the top/bottom color; a purely vertical cell takes left/right.
+            # Horizontal (top/bottom) cells — including corners — take the
+            # top/bottom color; a purely vertical cell takes left/right.
             battr = if in_top || in_bot
                       in_top ? top_attr : bottom_attr
                     else
@@ -830,7 +829,7 @@ module Crysterm
     # so a side wider than one cell fills its whole band with the run glyph and
     # the corner block with the corner glyph. A side with 0 thickness never sets
     # its flag (`in_top` is `y < yi + 0`, always false at the edge), so a
-    # corner degrades to the crossing run glyph exactly as before.
+    # corner degrades to the crossing run glyph.
     def border_char(border, g, in_top, in_bot, in_left, in_right)
       h_band = in_top || in_bot
       v_band = in_left || in_right
@@ -895,11 +894,11 @@ module Crysterm
       return unless ret
       # Inset by the border to get the interior rectangle, but do NOT mutate
       # `ret` — it's this widget's cached `@lpos`. `Border#adjust(pos)` shrinks
-      # in place, so the old `style.border.try &.adjust(ret)` permanently
-      # collapsed `@lpos` to the interior, under-reporting mouse hit-testing,
-      # damage-tracking bounds, and `clear_last_rendered_position` until the
-      # next frame. Use the allocation-free by-value overload instead, leaving
-      # `@lpos`/`ret` describing the full widget rect.
+      # in place, so mutating it via `style.border.try &.adjust(ret)` would
+      # permanently collapse `@lpos` to the interior, under-reporting mouse
+      # hit-testing, damage-tracking bounds, and `clear_last_rendered_position`
+      # until the next frame. Use the allocation-free by-value overload instead,
+      # leaving `@lpos`/`ret` describing the full widget rect.
       xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
       if border = style.border
         xi, xl, yi, yl = border.adjust xi, xl, yi, yl

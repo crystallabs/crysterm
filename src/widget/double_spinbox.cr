@@ -78,8 +78,8 @@ module Crysterm
         emit Crysterm::Event::DoubleValueChange, @value
       end
 
-      # No `Float64` range-change event exists, so range changes emit nothing
-      # (as before); `RangedValue#set_range` still re-clamps and repaints.
+      # No `Float64` range-change event exists, so range changes emit nothing;
+      # `RangedValue#set_range` still re-clamps and repaints.
       protected def emit_range_change : Nil
       end
 

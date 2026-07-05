@@ -14,8 +14,8 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
-      # The unit→cell divisor table. Now lives in `CSS::Length` (shared with
-      # `Properties`); kept here as a backwards-compatible alias so existing
+      # The unit→cell divisor table, which lives in `CSS::Length` (shared with
+      # `Properties`). Kept here as a backwards-compatible alias so existing
       # `Geometry.unit_divisors[...]` call sites/tuning keep working.
       def self.unit_divisors : Hash(String, Float64?)
         Length.divisors

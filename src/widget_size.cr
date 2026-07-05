@@ -17,9 +17,6 @@ module Crysterm
       # Assign (and mark dirty) *before* emitting so in-tree Resize listeners
       # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor
       # recompute) observe the new size, not the old one.
-      # Assign (and mark dirty) *before* emitting so in-tree Resize listeners
-      # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor
-      # recompute) observe the new size, not the old one.
       @width = val
       mark_dirty
       emit ::Crysterm::Event::Resize
@@ -257,9 +254,9 @@ module Crysterm
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
           # Pull the left edge back by the full left inset (border + padding),
-          # mirroring the y-axis top branch (`yi -= itop`). The prior code
-          # subtracted both paddings and no border, sizing a bordered
-          # right-anchored shrink box too wide by `border.left + border.right`.
+          # mirroring the y-axis top branch (`yi -= itop`). Subtracting both
+          # paddings and no border would size a bordered right-anchored shrink
+          # box too wide by `border.left + border.right`.
           xi -= ileft
         else
           xl = mxl
@@ -276,12 +273,11 @@ module Crysterm
           # `@items.size` counts only the content rows, so fold the *top* inset
           # into `myl` here: the top-anchored placement below is `yl = myl;
           # yl += ibottom`, which adds only the bottom inset, so without this the
-          # box came out `itop` rows too short — a bordered shrink-to-content
-          # list clipped its last item (rendered `items + ibottom` tall instead
+          # box comes out `itop` rows too short — a bordered shrink-to-content
+          # list clips its last item (rendered `items + ibottom` tall instead
           # of `items + iheight`). Adding `itop` (not `ibottom`) avoids the
-          # opposite, double-`ibottom`, error the prior `myl = items.size` fixed.
-          # `myi = 0` (was `-itop`) keeps the bottom-anchored branch's span
-          # (`myl - myi == items + itop`) unchanged.
+          # opposite, double-`ibottom`, error. `myi = 0` keeps the
+          # bottom-anchored branch's span (`myl - myi == items + itop`) unchanged.
           myl = @items.size + itop
         end
         if @top.nil? && !@bottom.nil?

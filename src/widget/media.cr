@@ -43,8 +43,7 @@ module Crysterm
     # constructing the concrete widget directly.
     module Media
       # 4×4 Bayer ordered-dither matrix (values 0..15), shared by the dithering
-      # backends (`Media::Sixel`, `Media::Regis`, `Media::Tek`) which each used
-      # to carry their own identical copy.
+      # backends (`Media::Sixel`, `Media::Regis`, `Media::Tek`).
       BAYER_MATRIX = [
         [0, 8, 2, 10],
         [12, 4, 14, 6],
@@ -79,7 +78,7 @@ module Crysterm
         # `Dither`: a `Dither` value passes through unchanged; a `Bool` maps
         # `true` to *if_true* (the backend's prior "dithering on" default) and
         # `false` to `None`. Shared by `Media::Sixel`, `Media::Regis`, and
-        # `Media::Tek`, which each used to inline this same coercion.
+        # `Media::Tek`.
         def self.from_arg(dither : Dither | Bool, if_true : Dither) : Dither
           dither.is_a?(Bool) ? (dither ? if_true : None) : dither
         end
@@ -586,6 +585,13 @@ module Crysterm
       # *failure* (see `decode`).
       @@decode_cache = {} of String => PNGGIF::PNG?
 
+      # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
+      # URL is fetched to bytes (via `Ansi.fetch`); a local path passes through
+      # as-is. Shared by `#decode` and `Media::Tek`.
+      def self.source_data(file : String) : String | Bytes
+        file =~ /^https?:/ ? Ansi.fetch(file) : file
+      end
+
       # Decodes *file* (a local path or `http(s)` URL) once, caching the result
       # keyed on path + size + mtime (so an on-disk change invalidates it).
       # Returns `nil` on failure.
@@ -594,13 +600,6 @@ module Crysterm
       # without negative caching a file that fails to decode — especially a
       # video whose ffprobe/ffmpeg pipeline errors — would re-spawn the
       # subprocess pipeline every frame and stall the UI.
-      # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
-      # URL is fetched to bytes (via `Ansi.fetch`); a local path passes through
-      # as-is. Shared by `#decode` and `Media::Tek`.
-      def self.source_data(file : String) : String | Bytes
-        file =~ /^https?:/ ? Ansi.fetch(file) : file
-      end
-
       def self.decode(file : String) : PNGGIF::PNG?
         key = file
         unless file =~ /^https?:/

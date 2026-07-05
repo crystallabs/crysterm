@@ -106,7 +106,7 @@ macro dom_autoserialize_body(mode)
         # Prefer the public setter over a raw ivar write when one exists: a
         # custom setter (e.g. `ProgressBar#value=` clamps + emits `ValueChange`,
         # `#maximum=` re-clamps) carries side effects the bridge's runtime
-        # `setAttribute` must not skip (finding 6). A plain `property` setter is
+        # `setAttribute` must not skip. A plain `property` setter is
         # equivalent to the ivar write, so this is safe as a blanket rule; only
         # ivars with no setter at all fall back to `@ivar =`.
         {% setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == n + "=" } } %}

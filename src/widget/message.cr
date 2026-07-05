@@ -6,8 +6,8 @@ module Crysterm
     # ![Message screenshot](../../tests/widget/message/message.5s.apng)
     # <!-- /widget-examples:capture -->
     class Message < Dialog
-      # Previously set in the `class Widget` body, polluting every widget's
-      # defaults. Belong here instead.
+      # Kept here rather than in the `class Widget` body, where they would
+      # pollute every widget's defaults.
       @resizable = true
       @parse_tags = true
 
@@ -16,7 +16,7 @@ module Crysterm
       # Bumped on every `#display`. A timed (or keypress) dismissal fiber
       # captures the value current when it was armed; when a newer `#display`
       # supersedes it the captured value no longer matches, so `#end_it`
-      # no-ops — a stale timer can't dismiss a later message early (Finding 37).
+      # no-ops — a stale timer can't dismiss a later message early.
       @generation = 0
 
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
@@ -32,8 +32,7 @@ module Crysterm
         request_render
 
         if !time || time.to_f <= 0
-          # No timeout: dismiss on next keypress. (Previously slept 10s first,
-          # making the message un-dismissable for 10s then linger until a key.)
+          # No timeout: dismiss on next keypress.
           @ev_keypress.on(window, Crysterm::Event::KeyPress) do |_|
             @ev_keypress.off
             end_it gen do

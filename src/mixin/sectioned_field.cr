@@ -65,8 +65,7 @@ module Crysterm
       # `ends[-1]` (past the text) — `select_section_at` relies on that `nil` to
       # leave the active section untouched on a click past the value. Single-sources
       # the column arithmetic and the right-edge guard that `DateEdit`/`TimeEdit`/
-      # `DateTimeEdit` otherwise copied (the "return nil past the text" fix had been
-      # pasted into all three `section_at`s).
+      # `DateTimeEdit` otherwise copy.
       private def section_from_columns(x : Int32, ends : Array(Int32)) : Int32?
         col = x - aleft - ileft
         return nil if col < 0 || col > ends[-1]
@@ -82,8 +81,8 @@ module Crysterm
       # component index — 0=year 1=month 2=day 3=hour 4=minute 5=second — so each
       # editor maps its `@section` onto it (`DateEdit` 1:1, `TimeEdit` +3,
       # `DateTimeEdit` 1:1). Single-sources the stepping body (and the day-overflow
-      # clamp `date_edit.cr`/`date_time_edit.cr` had verbatim) the three editors
-      # otherwise re-implement per-field.
+      # clamp `date_edit.cr`/`date_time_edit.cr` otherwise carry verbatim) the three
+      # editors otherwise re-implement per-field.
       protected def step_time_field(t : Time, field : Int32, delta : Int32) : Time
         y, mo, d = t.year, t.month, t.day
         h, mi, s = t.hour, t.minute, t.second

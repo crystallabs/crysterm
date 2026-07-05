@@ -17,10 +17,10 @@ module Crysterm
       # index** (parallel to `@frame_cache`) and identity-validated against the
       # bitmap it was computed for. The expensive whole-bitmap pass runs once per
       # composed frame and is reused on every later render of that frame — so a
-      # looping GIF that cycles N distinct frame bitmaps no longer misses on every
-      # frame change (the old single-slot memo, keyed only on the current bitmap,
-      # thrashed once per frame, forever). A still uses index 0, where its stable
-      # `@sample` gives the same reuse the single-slot memo did.
+      # looping GIF that cycles N distinct frame bitmaps hits per frame instead of
+      # thrashing on every frame change (as a single-slot memo keyed only on the
+      # current bitmap would). A still uses index 0, where its stable `@sample`
+      # gives the same reuse a single-slot memo would.
       #
       # The identity check keeps it correct even if a frame index is reused with
       # new content (streaming video pins index 0): the derived value is dropped
@@ -158,7 +158,7 @@ module Crysterm
       # letterbox margin), `>= 1` overwrites opaquely, in between blends both
       # colors (keeping the underlying glyph when this cell would only draw a
       # space). Shared primitive behind `Media::Ansi#paint_cell` and
-      # `Media::Glyph`'s sub-cell painters, which used to carry identical copies.
+      # `Media::Glyph`'s sub-cell painters.
       protected def blend_cell(cell, char : Char, attr : Int64, a : Float64) : Nil
         return if a <= 0.0
         if a < 1.0

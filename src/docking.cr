@@ -141,9 +141,9 @@ module Crysterm
     # `dock_contrast` controls how cells with differing colors/attributes are
     # treated (see `DockContrast`).
     def dock(lines, stops, width, dock_contrast : DockContrast)
-      # `stops` is a `Hash(Int32, Bool)`; `keys` (and the previous
-      # `.map(&.to_i)`) allocated a fresh `Array(Int32)` every frame. Copy keys
-      # into the reused scratch buffer and sort in place instead.
+      # `stops` is a `Hash(Int32, Bool)`; `keys` allocates a fresh `Array(Int32)`
+      # every frame. Copy keys into the reused scratch buffer and sort in place
+      # instead.
       sorted = @@sorted_stops
       sorted.clear
       stops.each_key { |k| sorted << k }
@@ -202,8 +202,7 @@ module Crysterm
       # Evaluate each of the four neighbors (left, up, right, down); `each`
       # over a tuple unrolls at compile time. A `nil` result means `DontDock`
       # hit a contrasting neighbor, in which case we keep the original character.
-      # `opp_bit` is the arm a neighbor must draw to point back at this cell
-      # (the packed-table form of the old `L_ANGLES`/... membership tuples).
+      # `opp_bit` is the arm a neighbor must draw to point back at this cell.
       { {-1, 0, BITWISE_R_ANGLE, BITWISE_L_ANGLE},
        {0, -1, BITWISE_D_ANGLE, BITWISE_U_ANGLE},
        {1, 0, BITWISE_L_ANGLE, BITWISE_R_ANGLE},
@@ -278,9 +277,8 @@ module Crysterm
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
     # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
-    # character pointing back at this cell (drawing the `opp_bit` arm — the
-    # packed-table form of the old `angles` membership tuple), `0` if it does
-    # not participate, or `nil` to
+    # character pointing back at this cell (drawing the `opp_bit` arm), `0` if it
+    # does not participate, or `nil` to
     # signal the caller to abort docking (`DontDock` with a contrasting
     # neighbor). For `Blend`, the cell's attribute is blended with the
     # neighbor's as a side effect.

@@ -15,10 +15,9 @@ module Crysterm
 
         # `size` is the line's *length* (`width` when horizontal, `height` when
         # vertical). Apply it when explicitly given; otherwise default to filling
-        # the parent (`100%`). Previously `size` defaulted to `"100%"` and was
-        # applied unconditionally, silently clobbering an explicit `width:`/
-        # `height:` passed through `**box` (e.g. `HLine.new(width: 40)` ended up
-        # `100%`-wide).
+        # the parent (`100%`). An unconditional `"100%"` default would silently
+        # clobber an explicit `width:`/`height:` passed through `**box` (e.g.
+        # `HLine.new(width: 40)` would end up `100%`-wide).
         if size
           self.line_size = size
         elsif (@orientation.horizontal? ? @width : @height).nil?

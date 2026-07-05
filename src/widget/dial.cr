@@ -55,9 +55,8 @@ module Crysterm
         # rolls back onto the minimum's "north" (`frac * size` rounds 1.0 → size,
         # `% size` folds to 0). A non-wrapping dial instead spreads the range
         # across the arc between the eight directions: `frac * (size - 1)` lands
-        # the maximum on the last glyph (`↖`). With the old unconditional
-        # `* size`, a non-wrapping dial showed `↑` at both ends and could skip an
-        # in-between direction.
+        # the maximum on the last glyph (`↖`). An unconditional `* size` here
+        # would show `↑` at both ends and could skip an in-between direction.
         steps = wrap? ? POINTERS.size : POINTERS.size - 1
         POINTERS[(frac * steps).round.to_i % POINTERS.size]
       end

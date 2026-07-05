@@ -81,7 +81,7 @@ module Crysterm
 
       # Fit either a specific animation *frame* (when non-nil) or *png*'s own
       # still bitmap into a *bw*×*bh* box — folding the `frame ? … : …` source
-      # pick each backend used to open-code.
+      # pick otherwise open-coded in each backend.
       def self.compose(png : PNGGIF::PNG, frame : PNGGIF::Bitmap?, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
                        sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?

@@ -9,7 +9,7 @@ module Crysterm
 
     # Convenience regex for matching line-alignment tags (`{center}`, `{/right}`,
     # ...). Used to decide whether `append_content`'s fast path could drop
-    # alignment state carried across lines (finding 33).
+    # alignment state carried across lines.
     ALIGN_TAG_REGEX = /\{\/?(?:left|center|right)\}/
 
     # Convenience regex for matching SGR sequences.
@@ -30,7 +30,7 @@ module Crysterm
     # `wrap_content`/`parse_tags`/`align` all change wrap output, but the plain
     # macro-generated setters neither bump `@_content_version` nor `mark_dirty`,
     # so a change on an attached, already-rendered widget had no effect until an
-    # unrelated reparse (finding 35). Redefine the setters to no-op on an equal
+    # unrelated reparse. Redefine the setters to no-op on an equal
     # value, then invalidate the wrap cache and mark dirty — matching
     # `set_content`/`width=`.
     def wrap_content=(value : Bool)
@@ -169,8 +169,8 @@ module Crysterm
     # decided in `#set_content`. `append_content`'s fast path wraps the appended
     # segment standalone from the widget's default `@align`, so an unclosed
     # alignment opener in existing content — whose carried `default_state` a full
-    # reparse would propagate to later lines — must force the slow path (finding
-    # 33). Defaults false.
+    # reparse would propagate to later lines — must force the slow path.
+    # Defaults false.
     @_content_has_align_tag = false
 
     # The `sattr(style)` value the cached `@_clines.attr` was computed against.
@@ -202,9 +202,8 @@ module Crysterm
       # cache key also omits the mode. So gate on both content and mode.
       return if content == @content && no_tags == @_content_no_tags
 
-      # Previously this erased the widget's last-rendered footprint (unless
-      # `no_clear`) to avoid stale cells when content shrank. Now handled
-      # centrally by `Window#_render` clearing the whole cell buffer per frame.
+      # Stale cells when content shrinks are cleared centrally by `Window#_render`
+      # (whole cell buffer per frame), so no footprint erase is needed here.
       # `no_clear` is kept for call compatibility.
 
       # XXX make it possible to have `update_context`, which only updates
@@ -220,7 +219,7 @@ module Crysterm
       # can skip its per-line scan for plain text.
       @_content_has_sgr = content.includes? '\e'
       # Records whether alignment tags are present so `append_content` can bail to
-      # the slow path rather than dropping carried alignment state (finding 33).
+      # the slow path rather than dropping carried alignment state.
       @_content_has_align_tag = content.includes?('{') && content.matches?(ALIGN_TAG_REGEX)
       @_content_version += 1
 
@@ -246,11 +245,11 @@ module Crysterm
     # Word-wrapped, ready-to-render content lines plus the bookkeeping needed
     # to map between the original ("fake") and wrapped ("real") line numbers.
     #
-    # This used to subclass `Array(String)`. Subclassing a stdlib generic is
-    # deprecated, and promotes every `Array(String)` in the program (including
+    # Wraps rather than subclasses `Array(String)`: subclassing a stdlib generic
+    # is deprecated, and promotes every `Array(String)` in the program (including
     # unrelated shards) to the virtual type `Array(String)+`, causing confusing
-    # compile errors elsewhere (see issue #30). It now wraps an array and
-    # forwards the array API via `forward_missing_to`.
+    # compile errors elsewhere (see issue #30). The array API is forwarded via
+    # `forward_missing_to`.
     class CLines
       property string = ""
       property max_width = 0
@@ -481,8 +480,8 @@ module Crysterm
       # `String::Builder` instead of `outbuf += ...`, which would rebuild the
       # whole result on every tag (O(n^2) for heavily-tagged content). The
       # cursor is an integer offset advanced via ANCHORED matches rather than
-      # reslicing `text` each step (the old approach allocated a fresh tail
-      # `String` per tag, a second O(n^2)).
+      # reslicing `text` each step (which would allocate a fresh tail `String`
+      # per tag, a second O(n^2)).
       outbuf = String::Builder.new
       bg = [] of String
       fg = [] of String
@@ -686,7 +685,7 @@ module Crysterm
       outbuf.push line
       ftor[no].push(outbuf.size - 1)
       rtof.push(no)
-      # Accumulate the widest real line here (R3) instead of a second full pass
+      # Accumulate the widest real line here instead of a second full pass
       # that would re-`str_width` (re-strip SGR of) every output line. `line` is
       # the already-aligned content, so this matches the old
       # `outbuf.reduce { |c, l| Math.max str_width(l), c }`. The one later
@@ -695,7 +694,7 @@ module Crysterm
       #
       # `width`, when given, is the aligned line's already-known display width
       # from `#aligned_with_width` — passing it avoids re-`str_width`ing (and
-      # thus re-stripping the SGR of) a line the aligner already measured (G4).
+      # thus re-stripping the SGR of) a line the aligner already measured.
       w = width || str_width(line)
       outbuf.max_width = w if w > outbuf.max_width
     end
@@ -726,7 +725,7 @@ module Crysterm
       outbuf.reset
       outbuf.full_width = 0
       # `reset` doesn't touch scalar `max_width`; zero it so `push_real_line` can
-      # accumulate the widest real line as they're emitted (R3).
+      # accumulate the widest real line as they're emitted.
       outbuf.max_width = 0
       rtof = outbuf.rtof
       ftor = outbuf.ftor
@@ -808,7 +807,7 @@ module Crysterm
         # If the string could be too long, check it in more detail and wrap it if needed.
         # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
         #
-        # Track the remaining line's visible width incrementally (R1 step 2)
+        # Track the remaining line's visible width incrementally
         # rather than re-measuring the whole tail with `str_width(line)` (which
         # re-strips SGR into a fresh String) on every iteration — O(L²) for one
         # long line. Each cut lands on a grapheme/codepoint boundary and never
@@ -854,8 +853,8 @@ module Crysterm
           part = line[0...i]
           line = line[i..]
           # `part`'s width is bounded by ~`colwidth` (plus the backscan slack),
-          # so this measures O(colwidth) rather than the O(remaining) the old
-          # per-iteration `str_width(line)` gate did.
+          # so this measures O(colwidth) rather than the O(remaining) a
+          # per-iteration `str_width(line)` gate would.
           remaining_width -= str_width(part)
 
           push_real_line outbuf, ftor, rtof, no, _align(part, colwidth, align, align_left_too)
@@ -884,11 +883,10 @@ module Crysterm
       outbuf.fake = lines
       outbuf.real = outbuf
 
-      # `outbuf.max_width` was accumulated at each `push_real_line` (R3) — the
-      # widest real line's `str_width`. If text was aligned, padding spaces
-      # lengthen it, so max_width then reflects the surrounding box's width
-      # rather than the actual longest line. (Previously a second full pass here
-      # re-`str_width`'d every line, re-stripping SGR each time.)
+      # `outbuf.max_width` was accumulated at each `push_real_line` — the widest
+      # real line's `str_width`. If text was aligned, padding spaces lengthen it,
+      # so max_width then reflects the surrounding box's width rather than the
+      # actual longest line.
 
       outbuf
     end
@@ -907,7 +905,7 @@ module Crysterm
     # unpadded returns that already measured `line`), else `nil` — the caller
     # then falls back to `str_width`. Avoids the duplicate SGR-strip a separate
     # `str_width(result)` in `push_real_line` would pay for every aligned line
-    # carrying color (finding G4).
+    # carrying color.
     private def aligned_with_width(line, width, align = Tput::AlignFlag::None, align_left_too = false) : Tuple(String, Int32?)
       # Right-align separator `{|}` (Blessed): text after it is pushed to the
       # right edge. Distributes content within the line independent of the
@@ -940,18 +938,11 @@ module Crysterm
       # the regex scan `str_width line` would otherwise repeat.
       len = str_width cline
 
-      # XXX In blessed's code (and here) it was done only with this commented
-      # line below. But after/around the May 28 2021 changes, this stopped
-      # centering texts. Upon investigation, it was found this is because a
-      # Layout sets all its children to #resizable=true (shrink=true in blessed),
-      # so the free width (s) results being 0 here. But why this code worked
-      # up to May is unexplained, since no obvious changes were done in this
-      # code. Or, cn this be a bug we unintentionally fixed?
-      # s = @resizable ? 0 : width - len
-      # NOTE: `width` is an Int, so the old `!width` was always false (only
-      # `nil`/`false` are falsy in Crystal), making the resizable branch dead.
-      # The intent is to skip alignment padding for a resizable widget that has
-      # no usable width yet, i.e. `width == 0`.
+      # A `Layout` sets all its children to `#resizable = true` (shrink in
+      # blessed), so a resizable widget with no usable width yet has free width
+      # `s == 0` and must skip alignment padding. `width` is an Int, so blessed's
+      # `!width` was always false in Crystal (only `nil`/`false` are falsy), which
+      # made its `@resizable ? 0 : ...` branch dead; gate on `width == 0` instead.
       s = (@resizable && width == 0) ? 0 : width - len
 
       # Nothing to pad: return `line` unchanged, but pass on its now-known width
@@ -1113,7 +1104,7 @@ module Crysterm
       # An unclosed `{center}`/`{right}` alignment opener mutates `_wrap_content`'s
       # carried `default_state` for all following lines in a full reparse, but the
       # fast path wraps the appended segment standalone from the widget's default
-      # `@align`, dropping that carry (finding 33). Conservatively bail whenever
+      # `@align`, dropping that carry. Conservatively bail whenever
       # tag parsing is on and alignment tags are present in existing content or the
       # appended text, so the slow path keeps the result byte-identical to a full
       # reparse.
@@ -1335,8 +1326,8 @@ module Crysterm
       # diff
       # `ftor` is empty when content was seeded before attach (`push_line`/
       # `set_line` fill `fake` but `process_content` bails until `window?`), so
-      # `ftor[i]` would raise `IndexError` despite `fake` being non-empty (finding
-      # 32). Fall back to real line 0; the fake splice + rebuild below still works.
+      # `ftor[i]` would raise `IndexError` despite `fake` being non-empty. Fall
+      # back to real line 0; the fake splice + rebuild below still works.
       real = @_clines.ftor[i]?.try(&.[0]?) || 0
 
       n.times { @_clines.fake.delete_at i }
@@ -1350,9 +1341,8 @@ module Crysterm
         window.delete_line(d, y, top, bottom)
       end
 
-      # When content shrank this used to erase the leftover footprint via
-      # `clear_last_rendered_position`; the whole-buffer clear in `Window#_render`
-      # now takes care of that, so the explicit clear is no longer needed.
+      # No explicit footprint erase on shrink: the whole-buffer clear in
+      # `Window#_render` clears leftover cells centrally.
     end
 
     # Maps a real (wrapped) line index to its fake (logical) line index via
@@ -1372,7 +1362,7 @@ module Crysterm
     def insert_bottom(line)
       # Use the centralized viewport-height helper (which subtracts the horizontal
       # scroll bar's reserved row) instead of the pre-hscrollbar `aheight - iheight`
-      # so we don't insert after a line hidden under the bar (finding 34).
+      # so we don't insert after a line hidden under the bar.
       h = @child_base + visible_content_rows
       i = Math.min(h, @_clines.size)
       fake = rtof_index(i - 1) + 1
@@ -1388,7 +1378,7 @@ module Crysterm
     def delete_bottom(n)
       # Mirror `insert_bottom`: use `visible_content_rows` (accounts for the
       # horizontal scroll bar's reserved row) so we delete the visible bottom row,
-      # not one hidden below the bar (finding 34).
+      # not one hidden below the bar.
       h = @child_base + visible_content_rows - 1
       i = Math.min(h, @_clines.size - 1)
       fake = rtof_index(i)
@@ -1491,8 +1481,8 @@ module Crysterm
     # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise
     # the codepoint count (legacy behavior).
     #
-    # This is the single width hook layout should use; previously most call sites
-    # inlined `.size`, which miscounts wide / combining characters.
+    # This is the single width hook layout should use; a raw `.size` miscounts
+    # wide / combining characters.
     def str_width(text)
       # Most strings have no SGR sequences; skip the regex (and the new String
       # it builds) unless an ESC is actually present. The `includes?` scan is a
@@ -1646,8 +1636,8 @@ module Crysterm
     def wrap_cut_index(line : String, colwidth : Int) : Int32
       full = full_unicode?
       total = 0
-      # Single forward walk via `Char::Reader` instead of the old char-by-char
-      # scan (O(n²), since `String#[](Int)` is O(index) for multibyte content).
+      # Single forward walk via `Char::Reader` instead of a char-by-char scan
+      # (O(n²), since `String#[](Int)` is O(index) for multibyte content).
       # `cp` tracks the codepoint index of the reader's current char (what
       # callers slice by); `reader.pos` is the byte offset, used for grapheme
       # segmentation.
@@ -1669,10 +1659,9 @@ module Crysterm
         # Contiguous run of visible text up to the next SGR (or end of line).
         if full
           # Grapheme/East-Asian widths: segment the run's bytes as clusters.
-          # This path still measures the whole run (grapheme presentation
+          # This path still measures the whole run: grapheme presentation
           # selectors like VS16/VS15 can flip a cluster's width, so a bounded
-          # window is not provably byte-identical — see R1 note); step 2 already
-          # removed the dominant per-row `str_width` cost for it.
+          # window is not provably byte-identical.
           run_byte_start = reader.pos
           run_cp_start = cp
           while reader.pos < bytesize && reader.current_char != '\e'
@@ -1689,10 +1678,9 @@ module Crysterm
           end
         else
           # One column per visible codepoint (legacy). Walk only until the
-          # column budget is met (R1 step 1): stop at `colwidth` instead of
-          # scanning to the end of the run. Before reading the char at codepoint
-          # index `c`, `cp == c`; after advancing, `cp == c + 1`, which equals
-          # the `k + 1` the old `(run_cp_start...cp).each` returned for that char.
+          # column budget is met: stop at `colwidth` instead of scanning to the
+          # end of the run. Before reading the char at codepoint index `c`,
+          # `cp == c`; after advancing, `cp == c + 1`.
           while reader.pos < bytesize && reader.current_char != '\e'
             reader.next_char
             cp += 1

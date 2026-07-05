@@ -196,10 +196,10 @@ module Crysterm
       tip.show_at x + 1, y + 1, text
     end
 
-    # Read/write `@draggable` (declared by `property? draggable`, set by the
-    # constructor). Previously used a separate `@_draggable` ivar the
-    # constructor never touched, so `Widget.new(draggable: true)` left
-    # `draggable?` reporting false.
+    # Reads `@draggable` (declared by `property? draggable`, set by the
+    # constructor) directly, so `Widget.new(draggable: true)` is reflected by
+    # `draggable?`. A separate ivar the constructor never touches would leave it
+    # reporting false.
     def draggable?
       @draggable
     end

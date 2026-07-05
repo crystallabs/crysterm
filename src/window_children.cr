@@ -4,8 +4,8 @@ module Crysterm
       # Reorder of an existing top-level child (`prepend`/`insert_before`/
       # `insert_after` on a widget already listed here). The bare
       # `Mixin::Children#insert` rejects a duplicate before any list mutation, so
-      # it can't reposition — the old `super || return` therefore made a reorder a
-      # silent no-op. Do the remove-then-add in place, mirroring `Widget#insert`.
+      # it can't reposition (a plain `super || return` would make a reorder a
+      # silent no-op). Do the remove-then-add in place, mirroring `Widget#insert`.
       # The widget stays on this same window, so none of the attach/detach/focus/
       # registry churn is needed; just relist and mark the structure changed.
       if old_i = children.index(element)
@@ -81,10 +81,10 @@ module Crysterm
       # focus. Inserting non-interactive chrome (a decorative box, a `Line`, the
       # transient drag ghost — see `window_drag.cr#make_ghost`) into a screen
       # with no current focus must not yank focus onto an unrelated,
-      # pre-existing keyable widget that merely happens to be unfocused. The old
-      # unconditional `focus_next` did exactly that: adding a plain `Box`
-      # re-focused some earlier widget that nothing had selected. Gating on the
-      # new element wanting keyboard focus keeps "the first real focusable
+      # pre-existing keyable widget that merely happens to be unfocused. An
+      # unconditional `focus_next` would do exactly that: adding a plain `Box`
+      # would re-focus some earlier widget that nothing had selected. Gating on
+      # the new element wanting keyboard focus keeps "the first real focusable
       # widget added gets focus" while making an unfocusable insert
       # focus-neutral.
       #
@@ -104,10 +104,10 @@ module Crysterm
     end
 
     def remove(element)
-      # Only a *direct* top-level child of this window can be removed here. The
-      # old `element.window? != self` guard passed for any widget anywhere in the
-      # tree, so `remove(nested_widget)` made `super` a no-op yet still ran
-      # `unregister`/`detach`/`rewind_focus` on a still-attached subtree,
+      # Only a *direct* top-level child of this window can be removed here. A
+      # guard like `element.window? != self` would pass for any widget anywhere in
+      # the tree, so `remove(nested_widget)` would make `super` a no-op yet still
+      # run `unregister`/`detach`/`rewind_focus` on a still-attached subtree,
       # corrupting nav/focus. Mirror `#insert`'s membership gate: a non-child is a
       # no-op. (`@children_set` is `Mixin::Children`'s O(1) membership index.)
       return unless @children_set.includes? element

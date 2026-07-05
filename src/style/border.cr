@@ -115,7 +115,7 @@ module Crysterm
     end
 
     # SGR text-attribute booleans (bold/italic/underline/blink/reverse/strike/
-    # visible) are now owned by `TextAttributes`, shared with `Style`. They must
+    # visible) are owned by `TextAttributes`, shared with `Style`. They must
     # be present here (rather than delegating to a `Style`) for `sattr()` to be
     # able to work directly on the Border object.
     include TextAttributes
@@ -172,7 +172,7 @@ module Crysterm
     # Per-side width/color access keyed by a side *symbol*
     # (`:top`/`:right`/`:bottom`/`:left`), so callers (`CSS::Properties`' per-side
     # border longhands/shorthands) need not repeat the four-arm dispatch. Unknown
-    # side symbols are ignored, as before. `set_color` targets the per-side
+    # side symbols are ignored. `set_color` targets the per-side
     # `fg_<side>` override slots (see `#top_fg` etc.), not the whole-border `#fg`.
     def set_width(side : Symbol, value : Int32) : Nil
       case side

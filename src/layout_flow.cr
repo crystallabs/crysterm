@@ -30,7 +30,7 @@ module Crysterm
         children.each_with_index do |el, i|
           next if el.layout_excluded?
           # Every child consumes a render index, even one we skip below, to
-          # match the original loop's z-order bookkeeping.
+          # keep z-order bookkeeping consistent.
           bump_index el
 
           case place_one container, el, i, interior
