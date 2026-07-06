@@ -246,9 +246,7 @@ module Crysterm
         focus
       end
 
-      def toggle
-        @open ? close : open
-      end
+      # `#toggle` (open/close) comes from `Mixin::Popup`.
 
       # Commits the choice at *index* into the currently-shown (`@filtered`) list:
       # updates the value, closes the popup, and emits `Event::Action`.

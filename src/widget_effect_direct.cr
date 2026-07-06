@@ -131,35 +131,22 @@ module Crysterm
 
         # Position via the normal `Box` render (borders, background, docking, and
         # `@lpos`), then overwrite the interior cells directly from `#cell`.
+        # `with_content_coords` runs that render and hands back the border+padding
+        # inset content rectangle — exactly the region the content-draw loop
+        # would paint.
         def render(with_children = true)
-          super
-          paint
+          with_content_coords(with_children) do |xi, xl, yi, yl|
+            paint xi, xl, yi, yl
+          end
         end
 
-        # Paint the current simulation state into the window's cell buffer.
-        private def paint
-          return unless lpos = @lpos
-          lines = window.lines
-
-          # Same border + padding inset the content-draw loop applies, so this
-          # paints exactly the interior region.
-          xi, xl = lpos.xi, lpos.xl
-          yi, yl = lpos.yi, lpos.yl
-          if (b = style.border) && b.any?
-            xi += b.left
-            xl -= b.right
-            yi += b.top
-            yl -= b.bottom
-          end
-          p = style.padding
-          xi += p.left
-          xl -= p.right
-          yi += p.top
-          yl -= p.bottom
-
+        # Paint the current simulation state into the window's cell buffer, given
+        # the interior content rectangle from `with_content_coords`.
+        private def paint(xi : Int32, xl : Int32, yi : Int32, yl : Int32)
           w = xl - xi
           h = yl - yi
           return if w <= 0 || h <= 0
+          lines = window.lines
           if w != @cols || h != @rows
             @cols, @rows = w, h
             resize w, h

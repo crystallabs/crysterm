@@ -26,27 +26,24 @@ module Crysterm
       # (on open vs. on attach) and *whether* a given key applies (via
       # `#dialog_keys_active?`), plus what accept/cancel do.
 
-      # Window-level accelerator handle + the window it was installed on, captured
-      # so teardown works from `Detach`/`Destroy` where `window?` is already nil.
-      @dialog_keys : Crysterm::Event::KeyPress::Wrapper?
-      @dialog_keys_window : Window?
+      # Window-level accelerator subscription. A `Subscription` captures the
+      # window it was installed on, so teardown works from `Detach`/`Destroy`
+      # where `window?` is already nil.
+      @dialog_keys = ::Crysterm::Subscription.new
 
       # Installs the window-level Enter/Escape accelerator (idempotent).
       protected def install_dialog_keys : Nil
-        uninstall_dialog_keys
+        # Drop any prior handler first, so a re-install — or an install attempted
+        # while detached — can't leave a stale one behind.
+        @dialog_keys.off
         return unless w = window?
-        @dialog_keys_window = w
-        @dialog_keys = w.on(Crysterm::Event::KeyPress) { |e| dialog_key e }
+        @dialog_keys.on(w, Crysterm::Event::KeyPress) { |e| dialog_key e }
       end
 
       # Removes the accelerator via the captured window (idempotent — safe to call
       # from both the normal close path and `#destroy`).
       protected def uninstall_dialog_keys : Nil
-        if (h = @dialog_keys) && (w = @dialog_keys_window)
-          w.off Crysterm::Event::KeyPress, h
-        end
-        @dialog_keys = nil
-        @dialog_keys_window = nil
+        @dialog_keys.off
       end
 
       # Default accelerator body: Enter accepts, Escape cancels. Runs only when

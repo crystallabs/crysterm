@@ -11,6 +11,19 @@ module Crysterm
   # `:disabled` state pseudo-class rather than `[disabled]`.
 
   class Widget
+    # Defines a `css_attributes` override that surfaces the single boolean
+    # attribute *name*, present only while `#{name}?` holds, on top of the
+    # inherited attributes. `super` may hand back the shared empty hash, so its
+    # result is `dup`-ed before the attribute is added.
+    macro bool_attr(name)
+      def css_attributes : Hash(String, String?)
+        return super unless {{ (name + "?").id }}
+        attrs = super.dup
+        attrs[{{ name }}] = nil
+        attrs
+      end
+    end
+
     class Button
       def css_attributes : Hash(String, String?)
         # Plain push-button has none of these — reuse the shared empty.
@@ -33,14 +46,8 @@ module Crysterm
 
     class GroupBox
       # Qt's `:flat` → `[flat]`: a flat group box drops its frame
-      # (`GroupBox[flat]` in the theme). `super.dup` before mutating, since the
-      # base may hand back a shared empty hash.
-      def css_attributes : Hash(String, String?)
-        return super unless flat?
-        attrs = super.dup
-        attrs["flat"] = nil
-        attrs
-      end
+      # (`GroupBox[flat]` in the theme).
+      bool_attr "flat"
     end
 
     # Widgets with an orientation surface it as a boolean attribute, so Qt's
@@ -58,12 +65,7 @@ module Crysterm
 
     class ComboBox
       # Qt's `:editable` → `[editable]` (see `CSS::Qss`).
-      def css_attributes : Hash(String, String?)
-        return super unless editable?
-        attrs = super.dup
-        attrs["editable"] = nil
-        attrs
-      end
+      bool_attr "editable"
     end
 
     class CheckBox

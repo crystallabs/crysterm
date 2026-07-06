@@ -181,9 +181,17 @@ module Crysterm
     # Widgets do not need to call this themselves: `Widget#initialize`
     # registers them automatically when they ask for keys (`#keys?`/`#input?`).
     def register_keyable(el : Widget)
-      return if @keyable.includes? el
-      el.keyable = true
-      @keyable.push el
+      el.keyable = true if register_in el, @keyable
+    end
+
+    # Adds *el* to input-registry *coll* if not already present, returning whether
+    # it was newly added — so the caller can run its one-time side effects (set the
+    # widget's intrinsic flag, enable mouse reporting) only on first registration.
+    # Shared scaffold of `#register_keyable`/`#register_clickable`.
+    private def register_in(el : Widget, coll : Array(Widget)) : Bool
+      return false if coll.includes? el
+      coll.push el
+      true
     end
 
     # Removes `el` and its entire subtree from this window's keyboard and mouse

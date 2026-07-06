@@ -308,13 +308,10 @@ module Crysterm
         split_top_level(value).each do |token|
           if !token.starts_with?('#') && (f = token.to_f?) && 0.0 <= f <= 1.0
             alpha = f
-          else
-            case resolved = ColorValue.resolve(token, style.fg)
-            when Int32 then color = resolved unless resolved == -1
-            when String
-              c = Colors.convert_cached(token)
-              color = c unless c == -1
-            end
+          elsif c = ColorValue.solid(token, style.fg)
+            # A real color (last one wins); `transparent`/unknown collapse to the
+            # `-1` sentinel and `solid` drops them, leaving `color` untouched.
+            color = c
           end
         end
         color.try do |c|

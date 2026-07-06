@@ -11,17 +11,10 @@ module Crysterm
       new 0, 0, 0, 0
     end
 
-    # Width of shadow on the left side
-    property left : Int32 = 0
-
-    # Height of shadow on the top side
-    property top : Int32 = 0
-
-    # Width of shadow on the right side
-    property right : Int32 = 2
-
-    # Height of shadow on the bottom side
-    property bottom : Int32 = 1
+    # Per-side extents: `left`/`right` are widths, `top`/`bottom` heights. The
+    # resting defaults are asymmetric — a classic right/bottom drop shadow
+    # (`right: 2, bottom: 1`, none on the left/top).
+    SidedGeometry.sided_int_properties right: 2, bottom: 1
 
     # Shadow alpha value (0 == full transparency, 1 == full opacity)
     property alpha : Float64 = 0.5

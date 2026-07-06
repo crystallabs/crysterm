@@ -30,6 +30,7 @@ module Crysterm
       # separates from the content behind it (a theme can override or remove it;
       # see `Mixin::Style#floor_border?`).
       include Mixin::Overlay
+      include Mixin::WindowLifecycle
 
       # Whether any input event dismisses the splash: a mouse click or wheel
       # *over it*, or any key press. Qt's `QSplashScreen` closes itself on a
@@ -79,13 +80,21 @@ module Crysterm
         # Wire the key-dismiss accelerator with the splash's attach lifecycle so
         # it works even when the splash is constructed detached (no `parent:`/
         # `window:`) and appended later — at construction `window?` would be nil,
-        # so a one-shot install here would silently never fire for keys. Install
-        # now too, in case it's already on a window.
-        on(Crysterm::Event::Attach) { install_key_dismiss }
-        # `Widget#remove` nulls `parent`/`window` before `Window#detach` emits
-        # `Event::Detach`, so the previous window comes via the payload.
-        on(Crysterm::Event::Detach) { remove_key_dismiss }
+        # so a one-shot install here would silently never fire for keys. Installs
+        # now too, in case it's already on a window (see `Mixin::WindowLifecycle`).
+        wire_window_lifecycle
+      end
+
+      # Key-dismiss accelerator lives with the window: (re)install on attach,
+      # tear down on detach (see `Mixin::WindowLifecycle`). A direct `#destroy`
+      # is covered by the `#destroy` override below.
+      private def on_attach_window : Nil
         install_key_dismiss
+      end
+
+      # :ditto:
+      private def on_detach_window : Nil
+        remove_key_dismiss
       end
 
       # Installs the window-level key-press accelerator (idempotent).

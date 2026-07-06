@@ -134,6 +134,19 @@ module Crysterm
           @data_version &+= 1
         end
 
+        # A getter plus a setter that also bumps the content-cache version, so a
+        # decoration change invalidates the per-frame build cache. Declared here
+        # so the including bar charts (`Bar`/`StackedBar`) share one definition.
+        macro chart_prop(name, type)
+          getter {{name.id}} : {{type}}
+
+          def {{name.id}}=(value : {{type}})
+            @{{name.id}} = value
+            bump_data_version
+            value
+          end
+        end
+
         # How many bars fit across `cols` columns at the current width/spacing.
         private def bar_capacity(cols : Int32) : Int32
           unit = @bar_width + @bar_spacing

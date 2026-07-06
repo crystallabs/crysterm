@@ -119,7 +119,10 @@ module Crysterm
       # re-assigning and requesting a render.
       @last_synced : Tuple(Int32, Int32, Int32, Int32)?
 
-      @ev_target_scroll : ::Crysterm::Event::Scroll::Wrapper?
+      # Subscription to the target's `Scroll`, torn down in `#detach`. A
+      # `Subscription` captures the target it was installed on, so `#off` reaches
+      # that exact widget regardless of `@target`'s later state.
+      @ev_target_scroll = ::Crysterm::Subscription.new
 
       def initialize(
         value : Int32? = nil,
@@ -200,16 +203,13 @@ module Crysterm
       def attach(widget : Widget) : Nil
         detach
         @target = widget
-        @ev_target_scroll = widget.on(::Crysterm::Event::Scroll) { sync_from_target }
+        @ev_target_scroll.on(widget, ::Crysterm::Event::Scroll) { sync_from_target }
         sync_from_target
       end
 
       # Unbinds from the current target (if any).
       def detach : Nil
-        if (t = @target) && (w = @ev_target_scroll)
-          t.off ::Crysterm::Event::Scroll, w
-        end
-        @ev_target_scroll = nil
+        @ev_target_scroll.off
         @target = nil
       end
 

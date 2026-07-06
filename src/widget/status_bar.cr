@@ -20,6 +20,10 @@ module Crysterm
     # ![StatusBar screenshot](../../tests/widget/status_bar/status_bar.5s.apng)
     # <!-- /widget-examples:capture -->
     class StatusBar < Box
+      # Generation-guarded timed dismissal: a pending `#show_message` timeout only
+      # clears *its own* message, not a newer one (see `Mixin::TimedDismissal`).
+      include ::Crysterm::Mixin::TimedDismissal
+
       # The current temporary (left-aligned) message.
       getter message : String = ""
 
@@ -32,10 +36,6 @@ module Crysterm
       # Cached joined render string for `#permanent`, rebuilt only when the
       # sections change (rather than re-joining a reversed copy every frame).
       @permanent_text = ""
-
-      # Bumped on each `#show_message` so a pending timeout only clears *its own*
-      # message, not a newer one.
-      @message_gen = 0
 
       # Cached left-truncated permanent string plus the `(avail, source)` it was
       # built for, so a steady-state overflowing status bar doesn't slice a fresh
@@ -53,16 +53,14 @@ module Crysterm
       # the next `#show_message`/`#clear_message`.
       def show_message(text : String, timeout : Time::Span? = nil) : Nil
         @message = text
-        @message_gen += 1
+        gen = bump_dismiss_gen
         request_render
 
         if timeout
-          gen = @message_gen
-          spawn do
-            sleep timeout
+          after timeout do
             # Marshal back onto the render fiber; only clear if still current.
             window?.try &.post do
-              if @message_gen == gen
+              if dismiss_current?(gen)
                 @message = ""
                 request_render
               end
@@ -74,7 +72,7 @@ module Crysterm
       # Clears the temporary message immediately (Qt's `clearMessage`).
       def clear_message : Nil
         @message = ""
-        @message_gen += 1
+        bump_dismiss_gen
         request_render
       end
 

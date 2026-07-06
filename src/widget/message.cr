@@ -6,6 +6,12 @@ module Crysterm
     # ![Message screenshot](../../tests/widget/message/message.5s.apng)
     # <!-- /widget-examples:capture -->
     class Message < Dialog
+      # Generation-guarded timed dismissal: `#display` bumps the counter; a timed
+      # (or keypress) dismissal fiber captures the value current when it was
+      # armed, and `#end_it` no-ops once a newer `#display` supersedes it — a
+      # stale timer can't dismiss a later message early.
+      include ::Crysterm::Mixin::TimedDismissal
+
       # Kept here rather than in the `class Widget` body, where they would
       # pollute every widget's defaults.
       @resizable = true
@@ -13,14 +19,8 @@ module Crysterm
 
       @ev_keypress = Crysterm::Subscription.new
 
-      # Bumped on every `#display`. A timed (or keypress) dismissal fiber
-      # captures the value current when it was armed; when a newer `#display`
-      # supersedes it the captured value no longer matches, so `#end_it`
-      # no-ops — a stale timer can't dismiss a later message early.
-      @generation = 0
-
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        gen = @generation += 1
+        gen = bump_dismiss_gen
         if scrollable?
           window.save_focus
           focus
@@ -42,11 +42,9 @@ module Crysterm
 
           return
         else
-          spawn do
-            sleep time
-
-            # Route through `end_it` (as the keypress path does) so a
-            # scrollable message restores focus instead of leaving it stranded.
+          # Route through `end_it` (as the keypress path does) so a
+          # scrollable message restores focus instead of leaving it stranded.
+          after time do
             end_it gen do
               callback.try &.call
             end
@@ -79,14 +77,14 @@ module Crysterm
         # destroyed before its timeout can't hide/re-render/run its callback
         # against the torn-down widget — the timed analogue of the keypress
         # subscription teardown above.
-        @generation += 1
+        bump_dismiss_gen
         super
       end
 
       def end_it(gen : Int32? = nil, &callback : Proc(Nil))
         # A stale timer/keypress fiber from a superseded `#display` captured an
         # older generation; ignore it so it can't dismiss a newer message early.
-        return if gen && gen != @generation
+        return if gen && !dismiss_current?(gen)
         if scrollable?
           begin
             window.restore_focus

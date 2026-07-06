@@ -136,9 +136,8 @@ module Crysterm
         value
       in Symbol
         # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
-        # named side(s); see `SidedGeometry.sides`.
-        s = SidedGeometry.sides value
-        Border.new s[:left], s[:top], s[:right], s[:bottom]
+        # named side(s); see `SidedGeometry.new_from_symbol`.
+        SidedGeometry.new_from_symbol value
       in Int
         Border.new value, value, value, value
       end

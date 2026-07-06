@@ -39,6 +39,7 @@ module Crysterm
       class Map < Box
         include TextOverlay
         include InteriorCoords
+        include Mixin::CanvasOwner
 
         # A coordinate-placed marker (Qt's `MapQuickItem`).
         struct Marker
@@ -90,38 +91,25 @@ module Crysterm
         property graticule_color : Int32
         property graticule_step : Float64
 
-        # Coastline-parameter setter: an assignment changes what `#paint_map`
-        # projects/draws onto the coastline Canvas, so — like `#look_at` — it must
-        # invalidate the Canvas raster (which otherwise skips repaint under its
-        # own `@paint_dirty`) and schedule a render. The docstring lists setting
-        # these directly as a supported path; the plain `property` setter left the
-        # coastlines stale (old viewport/color/graticule) until an unrelated
-        # repaint. Markers are a text overlay (`#draw_markers`), so they keep
-        # their own no-invalidate path.
-        private macro map_prop(name, type)
-          def {{name.id}}=(v : {{type}}) : {{type}}
-            return v if v == @{{name.id}}
-            @{{name.id}} = v
-            canvas?.try &.invalidate_paint
-            request_render
-            v
-          end
-        end
-
-        map_prop min_lon, Float64
-        map_prop max_lon, Float64
-        map_prop min_lat, Float64
-        map_prop max_lat, Float64
-        map_prop land_color, Int32
-        map_prop show_graticule, Bool
-        map_prop graticule_color, Int32
-        map_prop graticule_step, Float64
+        # Coastline-parameter setters: an assignment changes what `#paint_map`
+        # projects/draws onto the coastline Canvas, so — like `#look_at` — each
+        # must invalidate the Canvas raster (which otherwise skips repaint under
+        # its own `@paint_dirty`) and schedule a render. The docstring lists
+        # setting these directly as a supported path; the plain `property` setter
+        # left the coastlines stale (old viewport/color/graticule) until an
+        # unrelated repaint. Markers are a text overlay (`#draw_markers`), so they
+        # keep their own no-invalidate path. `canvas_prop` is from
+        # `Mixin::CanvasOwner`.
+        canvas_prop min_lon, Float64
+        canvas_prop max_lon, Float64
+        canvas_prop min_lat, Float64
+        canvas_prop max_lat, Float64
+        canvas_prop land_color, Int32
+        canvas_prop show_graticule, Bool
+        canvas_prop graticule_color, Int32
+        canvas_prop graticule_step, Float64
 
         getter markers : Array(Marker) = [] of Marker
-
-        # The Canvas the coastlines are drawn on. `canvas` raises if read before
-        # construction completes; `canvas?` is the nilable variant.
-        getter! canvas : Canvas
 
         def initialize(
           @min_lon : Float64 = -180.0,
@@ -137,10 +125,7 @@ module Crysterm
           **box,
         )
           super **box
-          cv = Canvas.new parent: self, type: type, glyph_mode: glyph_mode,
-            top: 0, left: 0, right: 0, bottom: 0
-          cv.on_paint { |p| paint_map p }
-          @canvas = cv
+          build_canvas(type, glyph_mode) { |p| paint_map p }
         end
 
         # Adds a marker at a geographic coordinate (Qt's `MapQuickItem`).
@@ -169,15 +154,13 @@ module Crysterm
           @min_lon = lon.to_f - span_lon.to_f / 2
           @max_lon = lon.to_f + span_lon.to_f / 2
           # The coastline projection depends on the viewport, so repaint the Canvas.
-          canvas?.try &.invalidate_paint
-          request_render
+          invalidate_canvas
         end
 
         def refresh : Nil
           # Explicit "redraw everything" entry point: repaint the coastline Canvas
           # too (markers are a text overlay redrawn by `#draw_markers` regardless).
-          canvas?.try &.invalidate_paint
-          request_render
+          invalidate_canvas
         end
 
         def render(with_children = true)

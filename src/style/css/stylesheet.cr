@@ -358,11 +358,11 @@ module Crysterm
             ch = css[pos]
             break if ch == '{' || ch == ';' || ch == '}'
             if ch == '('
-              pos = skip_balanced(css, pos, '(', ')')
+              pos = Selectors.skip_balanced(css, pos, '(', ')')
             elsif ch == '['
-              pos = skip_balanced(css, pos, '[', ']')
+              pos = Selectors.skip_balanced(css, pos, '[', ']')
             elsif ch == '"' || ch == '\''
-              pos = skip_string(css, pos)
+              pos = Selectors.skip_string(css, pos)
             else
               pos += 1
             end
@@ -566,41 +566,9 @@ module Crysterm
         pos
       end
 
-      private def self.skip_string(css : String, i : Int32) : Int32
-        quote = css[i]
-        i += 1
-        while i < css.size
-          ch = css[i]
-          return i + 1 if ch == quote
-          i += 1 if ch == '\\'
-          i += 1
-        end
-        i
-      end
-
-      # Advances past a region opened at *i* (an *open* char) to just after its
-      # matching *close*, honoring nesting and quotes.
-      private def self.skip_balanced(css : String, i : Int32, open : Char, close : Char) : Int32
-        depth = 0
-        while i < css.size
-          ch = css[i]
-          if ch == '"' || ch == '\''
-            i = skip_string(css, i)
-            next
-          elsif ch == open
-            depth += 1
-          elsif ch == close
-            depth -= 1
-            return i + 1 if depth == 0
-          end
-          i += 1
-        end
-        i
-      end
-
       # Index of the `}` matching the `{` at *open*, or `nil` if unbalanced.
       private def self.matching_brace(css : String, open : Int32) : Int32?
-        index = skip_balanced(css, open, '{', '}')
+        index = Selectors.skip_balanced(css, open, '{', '}')
         index > open && css[index - 1]? == '}' ? index - 1 : nil
       end
 
@@ -656,7 +624,7 @@ module Crysterm
         while i < value.size
           case value[i]
           when '"', '\''
-            i = skip_string(value, i) # a comma inside a quoted string isn't the separator
+            i = Selectors.skip_string(value, i) # a comma inside a quoted string isn't the separator
             next
           when '(' then depth += 1
           when ')' then depth -= 1
@@ -775,7 +743,7 @@ module Crysterm
         while i <= last
           case selector[i]
           when '"', '\''
-            i = skip_string(selector, i) # skip quoted spans so `:x` inside them isn't peeled
+            i = Selectors.skip_string(selector, i) # skip quoted spans so `:x` inside them isn't peeled
             next
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
@@ -810,7 +778,7 @@ module Crysterm
         while i < selector.size
           char = selector[i]
           if char == '"' || char == '\''
-            i = skip_string(selector, i) # a combinator inside a quoted value is not structural
+            i = Selectors.skip_string(selector, i) # a combinator inside a quoted value is not structural
             next
           end
           case char
@@ -894,7 +862,7 @@ module Crysterm
         while i < selector.size
           case selector[i]
           when '"', '\''
-            i = skip_string(selector, i) # a combinator inside a quoted value isn't structural
+            i = Selectors.skip_string(selector, i) # a combinator inside a quoted value isn't structural
             next
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
@@ -927,7 +895,7 @@ module Crysterm
         while i < selector.size
           case selector[i]
           when '"', '\''
-            i = skip_string(selector, i) # a paren inside a quoted value doesn't nest
+            i = Selectors.skip_string(selector, i) # a paren inside a quoted value doesn't nest
             next
           when '(' then depth += 1
           when ')'

@@ -36,6 +36,7 @@ module Crysterm
         include TextOverlay
         include InteriorCoords
         include RingGeometry
+        include Mixin::CanvasOwner
 
         # One categorical wedge: its `value` (share of the total), fill `color`
         # (`0xRRGGBB`) and legend `label`.
@@ -61,10 +62,6 @@ module Crysterm
         # Whether the legend appends each slice's percentage after its label.
         property? show_percentages : Bool
 
-        # The drawing surface, built in `#initialize`. `canvas` raises if read
-        # before construction completes; `canvas?` is the nilable variant.
-        getter! canvas : Canvas
-
         def initialize(
           slices : Array(Slice) = [] of Slice,
           @inner_radius : Float64 = 0.0,
@@ -77,10 +74,7 @@ module Crysterm
           @slices = slices.dup
           super **box
 
-          cv = Canvas.new parent: self, type: type, glyph_mode: glyph_mode,
-            top: 0, left: 0, right: 0, bottom: 0
-          cv.on_paint { |p| paint_pie p }
-          @canvas = cv
+          build_canvas(type, glyph_mode) { |p| paint_pie p }
         end
 
         # Appends a slice. `color` defaults to the next entry of `DEFAULT_COLORS`
@@ -90,40 +84,32 @@ module Crysterm
           color ||= DEFAULT_COLORS[@slices.size % DEFAULT_COLORS.size]
           slice = Slice.new value.to_f, color, label
           @slices << slice
-          invalidate
+          invalidate_canvas
           slice
         end
 
         # Replaces all slices at once.
         def slices=(slices : Array(Slice)) : Array(Slice)
           @slices = slices.dup
-          invalidate
+          invalidate_canvas
           @slices
         end
 
         # Drops all slices.
         def clear_slices : Nil
           @slices.clear
-          invalidate
+          invalidate_canvas
         end
 
         def inner_radius=(v : Number) : Float64
           @inner_radius = v.to_f
-          invalidate
+          invalidate_canvas
           @inner_radius
         end
 
         def render(with_children = true)
           super
           draw_legend
-        end
-
-        # Marks the Canvas content stale and schedules a render, so a data or
-        # geometry change repaints (the Canvas skips otherwise, under its own
-        # `@paint_dirty`).
-        private def invalidate : Nil
-          canvas?.try &.invalidate_paint
-          request_render
         end
 
         private def paint_pie(p : Painter) : Nil

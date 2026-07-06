@@ -93,13 +93,7 @@ module Crysterm
       if sess.source.drag_repositions?
         drag_nudge sess, dx, dy
       else
-        if dx > 0 || dy > 0
-          focus_next
-        else
-          focus_previous
-        end
-        retarget_over sess, focused
-        render
+        drag_focus_step sess, (dx > 0 || dy > 0)
       end
     end
 
@@ -153,6 +147,15 @@ module Crysterm
     private def retarget_over(sess : DragSession, t : Widget?) : Nil
       retarget sess, t
       over sess
+    end
+
+    # Steps keyboard focus one widget (*forward* or back), retargets the drag's
+    # drop candidate onto the newly-focused widget, and re-renders — the shared
+    # body of the Tab/Shift-Tab keys and the transfer-source arrow navigation.
+    private def drag_focus_step(sess : DragSession, forward : Bool) : Nil
+      forward ? focus_next : focus_previous
+      retarget_over sess, focused
+      render
     end
 
     # Commits the drag at the current target. An accepting target receives a
@@ -302,15 +305,11 @@ module Crysterm
           e.accept
           return true
         when ::Tput::Key::Tab
-          focus_next
-          retarget_over sess, focused
-          render
+          drag_focus_step sess, true
           e.accept
           return true
         when ::Tput::Key::ShiftTab
-          focus_previous
-          retarget_over sess, focused
-          render
+          drag_focus_step sess, false
           e.accept
           return true
         when ::Tput::Key::Up

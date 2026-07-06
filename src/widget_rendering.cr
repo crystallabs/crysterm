@@ -907,6 +907,28 @@ module Crysterm
       ret
     end
 
+    # Like `with_inner_coords`, but insets the rendered rectangle by the border
+    # AND the padding — the interior *content* region, matching the two-step
+    # inset `_render` itself applies (border first, then padding) before laying
+    # out content. Yields `(xi, xl, yi, yl)` for a widget that paints its own
+    # content straight into the cell buffer on top of the standard render (e.g.
+    # `Effect::Direct`). Returns the render's `LPos` (or `nil` when nothing was
+    # rendered). `with_children` is forwarded to `_render` so an interior-painting
+    # widget can still opt out of rendering its children.
+    def with_content_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : LPos?
+      ret = _render with_children
+      return unless ret
+      # By-value inset only — never mutate `ret` (it is this widget's cached
+      # `@lpos`); see the note in `with_inner_coords`.
+      xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
+      if border = style.border
+        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
+      end
+      xi, xl, yi, yl = style.padding.adjust xi, xl, yi, yl
+      yield xi, xl, yi, yl
+      ret
+    end
+
     def self.sattr(style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg

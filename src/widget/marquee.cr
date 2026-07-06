@@ -1,4 +1,5 @@
 require "./box"
+require "./effect/text_scroll"
 require "../widget_effect_direct"
 require "../colors"
 
@@ -34,9 +35,10 @@ module Crysterm
     # ![Marquee screenshot](../../tests/widget/marquee/marquee.5s.apng)
     # <!-- /widget-examples:capture -->
     class Marquee < Box
-      # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
-      # `#step` below supplies the per-frame work.
-      include Effect::Animated
+      # The scroller substrate shared with `Effect::SineScroller`: the `@chars`
+      # buffer, the `text`/`direction`/rainbow-hue properties, the `@frame` clock,
+      # `#step`, `#scroll_glyph`/`#rainbow_fg`, and the self-driven animation loop.
+      include Effect::TextScroll
 
       # Scroll direction of the text.
       enum Direction
@@ -47,34 +49,9 @@ module Crysterm
         Right
       end
 
-      # The message scrolled across the widget. Reassigning it is safe at any time.
-      getter text : String
-
-      # `text` decomposed into its characters once, so the per-column paint can
-      # index it in O(1). `String#[]` is O(n) for non-ASCII strings, which would
-      # make a frame O(w·n); this cache is rebuilt only when `text` changes.
-      @chars : Array(Char)
-
       def text=(@text : String)
         @chars = @text.chars
       end
-
-      # Direction the text travels.
-      property direction : Direction
-
-      # When true, each non-space glyph is tinted with a cycling hue instead of
-      # the widget's foreground color.
-      property? rainbow : Bool
-
-      # Hue degrees added per column (the spatial rainbow spread) when `rainbow?`.
-      property hue_spread : Int32
-
-      # Hue degrees added per frame (the temporal cycling speed) when `rainbow?`.
-      property hue_speed : Int32
-
-      # Monotonically advancing frame counter. Int64 so it never wraps in any
-      # realistic runtime; indexing uses a (sign-safe) modulo of `text.size`.
-      @frame : Int64 = 0
 
       def initialize(
         @text = "",
@@ -87,13 +64,6 @@ module Crysterm
       )
         @chars = @text.chars
         super **box
-      end
-
-      # Advance one column. Painting happens in `#render` (state-only, like
-      # `Effect::CopperBar#step`), which reads `@frame`.
-      def step
-        @frame += 1
-        mark_dirty # repaint under damage tracking
       end
 
       # Paints the `awidth`-wide window onto the looping message into the top
@@ -123,14 +93,9 @@ module Crysterm
           bg_packed = Attr.bg base
 
           (0...w).each do |x|
-            # For `:left`, column x shows text[f + x] so the row shifts left as
-            # f grows; `:right` shows text[x - f] so it shifts right (the same
-            # glyph ordering, travelling the other way — not mirrored). Crystal's
-            # `%` follows the divisor's sign, so the index is always valid.
-            idx = (direction.left? ? f + x : x - f) % n
-            ch = @chars[idx]
+            ch = scroll_glyph(f, x, n)
             next if ch == ' '
-            attr = rainbow? ? Attr.pack(flags, Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)), bg_packed) : base
+            attr = rainbow? ? Attr.pack(flags, rainbow_fg(x, f), bg_packed) : base
             window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
           end
         end

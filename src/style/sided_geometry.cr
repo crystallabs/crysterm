@@ -37,16 +37,35 @@ module Crysterm
       {left: l, top: t, right: r, bottom: b}
     end
 
+    # The `in Symbol` arm shared verbatim by the integer `.from` constructors
+    # (`Padding`/`Margin` via `zero_box`, and `Border`): resolves a side symbol
+    # into per-side amounts (`SidedGeometry.sides`) and splats them into the
+    # enclosing type's four-positional integer constructor. `new` binds to the
+    # type at the expansion site, so each `.from` builds its own type. (`Shadow`
+    # takes a `Bool` per side rather than a width, so it keeps its own arm.)
+    macro new_from_symbol(value)
+      %s = SidedGeometry.sides {{value}}
+      new %s[:left], %s[:top], %s[:right], %s[:bottom]
+    end
+
     # Generates the per-side integer properties plus the all-sides and
     # four-positional integer constructors shared verbatim by every
     # sided-geometry box (`Padding`, `Margin` via `zero_box`, and `Border`). The
     # only thing that differs between them is *default*, each side's resting
     # width: 0 for the zero-defaulting `Padding`/`Margin`, 1 for `Border`.
+    # Just the four per-side integer properties, each with its own resting
+    # default. `sided_properties` uses this with one shared *default*; `Shadow`
+    # uses it directly for its asymmetric resting defaults (a right/bottom drop
+    # shadow: `right: 2, bottom: 1`).
+    macro sided_int_properties(left = 0, top = 0, right = 0, bottom = 0)
+      property left : Int32 = {{left}}
+      property top : Int32 = {{top}}
+      property right : Int32 = {{right}}
+      property bottom : Int32 = {{bottom}}
+    end
+
     macro sided_properties(default = 0)
-      property left : Int32 = {{default}}
-      property top : Int32 = {{default}}
-      property right : Int32 = {{default}}
-      property bottom : Int32 = {{default}}
+      SidedGeometry.sided_int_properties {{default}}, {{default}}, {{default}}, {{default}}
 
       def initialize(all : Int)
         @left = @top = @right = @bottom = all
@@ -84,9 +103,8 @@ module Crysterm
         in {{@type}}
           value
         in Symbol
-          # One cell on the named side(s); see `SidedGeometry.sides`.
-          s = SidedGeometry.sides value
-          new s[:left], s[:top], s[:right], s[:bottom]
+          # One cell on the named side(s); see `SidedGeometry.new_from_symbol`.
+          SidedGeometry.new_from_symbol value
         in Int
           new value, value, value, value
         end

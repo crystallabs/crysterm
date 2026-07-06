@@ -38,44 +38,22 @@ module Crysterm
       # ![SineScroller screenshot](../../../tests/widget/effect/sine_scroller/sine_scroller.5s.apng)
       # <!-- /widget-examples:capture -->
       class SineScroller < Box
-        include Animated
-
-        # The message scrolled across the widget. Reassigning it is safe at any time.
-        getter text : String
-
-        # `text` decomposed into its characters once, so the per-column paint can
-        # index it in O(1). `String#[]` is O(n) for non-ASCII strings, which would
-        # make a frame O(w·n); this cache is rebuilt only when `text` changes.
-        # (Mirrors `Widget::Marquee`.)
-        @chars : Array(Char)
+        # The scroller substrate shared with `Widget::Marquee`: the `@chars`
+        # buffer, the `text`/`direction`/rainbow-hue properties, the `@frame`
+        # clock, `#step`, `#scroll_glyph`/`#rainbow_fg`, and the self-driven
+        # animation loop. Only the vertical sine displacement is distinct.
+        include TextScroll
 
         def text=(@text : String)
           @chars = @text.chars
           mark_dirty # repaint under damage tracking
         end
 
-        # Direction the text travels (shared with `Marquee`).
-        property direction : Marquee::Direction
-
         # Radians of the vertical wave added per column (its spatial frequency).
         property wave_frequency : Float64
 
         # Radians the wave advances per frame (how fast it undulates).
         property wave_speed : Float64
-
-        # When true, each glyph carries its own cycling hue; otherwise the widget's
-        # foreground color is used.
-        property? rainbow : Bool
-
-        # Hue degrees added per column (the spatial rainbow spread) when `rainbow?`.
-        property hue_spread : Int32
-
-        # Hue degrees added per frame (the temporal cycling speed) when `rainbow?`.
-        property hue_speed : Int32
-
-        # Monotonically advancing frame counter. Int64 so it never wraps in any
-        # realistic runtime; indexing uses a (sign-safe) modulo of `text.size`.
-        @frame : Int64 = 0
 
         def initialize(
           @text = "",
@@ -90,14 +68,6 @@ module Crysterm
         )
           @chars = @text.chars
           super **box
-        end
-
-        # Advance one column. Painting happens in `#render` (state-only, like
-        # `CopperBar#step`), which reads `@frame` — so an external master clock
-        # calls `step` then triggers a single `window.render`.
-        def step
-          @frame += 1
-          mark_dirty # repaint under damage tracking
         end
 
         # Paints the looping message across the full height on a sine wave,
@@ -129,15 +99,10 @@ module Crysterm
             amp = (h - 1) / 2.0
 
             (0...w).each do |x|
-              # Horizontal scroll, identical to `Marquee`: `:left` shows
-              # text[f + x] (shifts left as f grows), `:right` shows text[x - f]
-              # (shifts right, same glyph ordering). Crystal's `%` follows the
-              # divisor's sign, so the index is always valid.
-              idx = (direction.left? ? f + x : x - f) % n
-              ch = @chars[idx]
+              ch = scroll_glyph(f, x, n)
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
-              fgf = rainbow? ? Attr.pack_color(Colors::HSV_LUT[(x * @hue_spread + f * @hue_speed) % 360]) : deff
+              fgf = rainbow? ? rainbow_fg(x, f) : deff
               window.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
             end
           end

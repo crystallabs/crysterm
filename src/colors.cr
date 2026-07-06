@@ -103,6 +103,30 @@ module Crysterm
       Crysterm::Config.colors_default_bg
     end
 
+    # Resolves a packed color field to a concrete `0xRRGGBB` value, substituting
+    # the configured terminal default for a `default` field. Returns `-1` when
+    # the field is a still-unknown default (`default_fg/bg_rgb == -1`). The
+    # "resolve default → RGB" step shared by the blend/tint/composite fields.
+    @[AlwaysInline]
+    private def self.resolve_field(field : Int64, fg : Bool) : Int32
+      Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
+    end
+
+    # Blends two packed color fields in RGB space (`alpha` = weight of *field*
+    # over *other*), resolving defaults first and short-circuiting the unknowns:
+    # both-default stays `default`, and a single unknown side (`-1`) falls back
+    # to the other. Returns a packed color field. Shared by `#blend_field`'s
+    # two-sided branch and `#composite_field`'s `Blend` mode (which differ only
+    # in `alpha`).
+    @[AlwaysInline]
+    private def self.blend_fields(field : Int64, other : Int64, fg : Bool, alpha) : Int64
+      return Attr::COLOR_DEFAULT if Attr.default?(field) && Attr.default?(other)
+      a = resolve_field(field, fg)
+      b = resolve_field(other, fg)
+      return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
+      Attr.pack_color(mix(a, b, alpha))
+    end
+
     # Blends the fg and bg of `attr` with those of `attr2` (alpha compositing,
     # `alpha` = opacity of `attr`'s own colors over `attr2`). With no `attr2` it
     # composites `attr` over black (used for shadows, `alpha` = shadow opacity),
@@ -135,7 +159,7 @@ module Crysterm
       # Otherwise `mix` would read `-1`'s bits as `0xFFFFFF` and wash toward
       # white. Mirrors how `#blend_field` leaves a default/unknown field alone.
       return field if color == -1
-      base = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
+      base = resolve_field(field, fg)
       return field if base == -1 # unknown terminal default: nothing to tint toward
       # `mix(color, base, alpha)` lands on `color` at alpha 1, `base` at alpha 0
       # (same convention the shadow uses with black; see `#blend_field`).
@@ -151,15 +175,7 @@ module Crysterm
         return field if Attr.default? field
         Attr.pack_color(mix(0x000000, field.to_i32, alpha))
       else
-        return Attr::COLOR_DEFAULT if Attr.default?(field) && Attr.default?(other)
-        dfl = fg ? default_fg_rgb : default_bg_rgb
-        a = Attr.default?(field) ? dfl : field.to_i32
-        b = Attr.default?(other) ? dfl : other.to_i32
-        # An unknown terminal default (`-1`) has no bits to blend — `mix` would
-        # read `-1` as `0xFFFFFF` and wash toward white. Fall back to the other
-        # side (mirrors `#composite_field`'s Blend branch and `#tint_field`).
-        return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
-        Attr.pack_color(mix(a, b, alpha))
+        blend_fields(field, other, fg, alpha)
       end
     end
 
@@ -203,14 +219,9 @@ module Crysterm
       in Attr::Alpha::Transparent
         under
       in Attr::Alpha::Blend
-        return Attr::COLOR_DEFAULT if Attr.default?(top) && Attr.default?(under)
-        dfl = fg ? default_fg_rgb : default_bg_rgb
-        a = Attr.default?(top) ? dfl : top.to_i32
-        b = Attr.default?(under) ? dfl : under.to_i32
-        return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
-        Attr.pack_color(mix(a, b, 0.5))
+        blend_fields(top, under, fg, 0.5)
       in Attr::Alpha::HighContrast
-        base = Attr.default?(under) ? (fg ? default_fg_rgb : default_bg_rgb) : under.to_i32
+        base = resolve_field(under, fg)
         base == -1 ? top : Attr.pack_color(readable_on(base, 0x101010, 0xf5f5f5))
       end
     end

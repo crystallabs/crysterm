@@ -116,15 +116,10 @@ module Crysterm
 
       # Sets the value, clamping into range. Emits `Event::DoubleValueChange`
       # (the `Float64` value event, as in `DoubleSpinBox`) on an actual change,
-      # and `Event::Complete` upon reaching `#maximum`.
+      # and `Event::Complete` upon reaching `#maximum` (shared `#value=` body
+      # from `Mixin::PercentRange`, with a repaint as its post-change action).
       def value=(v : Number) : Float64
-        v = v.to_f.clamp(@minimum, @maximum)
-        return v if v == @value
-        @value = v
-        emit Crysterm::Event::DoubleValueChange, @value
-        emit Crysterm::Event::Complete if @value == @maximum && @maximum > @minimum
-        request_render
-        @value
+        assign_completable(v) { request_render }
       end
 
       # Current fill as a `0..100` percentage of the range.

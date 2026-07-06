@@ -61,10 +61,8 @@ module Crysterm
         close if @open
       end
 
-      # Opens the calendar if closed, closes it if open.
-      def toggle : Nil
-        @open ? close : open
-      end
+      # `#toggle` (open the calendar if closed, close it if open) comes from
+      # `Mixin::Popup`.
 
       section_value date, @date, at_beginning_of_day
 

@@ -258,10 +258,11 @@ module Crysterm
     end
 
     # Float-valued range helpers shared by the read-only meter widgets
-    # `Widget::Gauge` and `Widget::GaugeList`. Both keep a `Float64`
-    # `[minimum, maximum]` range; this provides a `#span` that never reports
-    # zero (keeping divisions safe; an empty range simply renders empty) and a
-    # `#percent_of` that maps a value onto a `0..100` percentage of that range.
+    # `Widget::Gauge`, `Widget::GaugeList` and `Widget::Graph::Donut`. All keep a
+    # `Float64` `[minimum, maximum]` range; this provides a `#span` that never
+    # reports zero (keeping divisions safe; an empty range simply renders empty)
+    # and a `#percent_of` that maps a value onto a `0..100` percentage of that
+    # range, plus the shared `#value=` body `#assign_completable`.
     module PercentRange
       # Size of the value range (`maximum - minimum`), never zero.
       def span : Float64
@@ -272,6 +273,25 @@ module Crysterm
       # *value*'s position in `[minimum, maximum]` as a `0..100` percentage.
       def percent_of(value : Float64) : Float64
         ((value - minimum) / span * 100).clamp(0.0, 100.0)
+      end
+
+      # Shared `#value=` body for the read-only `Float64` meters `Widget::Gauge`
+      # and `Widget::Graph::Donut`: clamps *v* into `[minimum, maximum]`, and on
+      # an actual change stores it, emits `Event::DoubleValueChange` (the
+      # `Float64` value event), emits `Event::Complete` upon reaching `#maximum`
+      # (only when the range is non-empty, so an empty `minimum == maximum` bar
+      # never "completes"), then runs the widget's own post-change *action* — a
+      # repaint (`Gauge`) or Canvas invalidation (`Donut`). Block-yielding, so it
+      # allocates no `Proc`. Returns the stored value (matching each site's
+      # `#value=` return).
+      protected def assign_completable(v : Number, &) : Float64
+        v = v.to_f.clamp(minimum, maximum)
+        return v if v == @value
+        @value = v
+        emit Crysterm::Event::DoubleValueChange, @value
+        emit Crysterm::Event::Complete if @value == maximum && maximum > minimum
+        yield
+        @value
       end
     end
   end

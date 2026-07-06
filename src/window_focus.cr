@@ -143,10 +143,10 @@ module Crysterm
         # clobbers a Selected/Hovered state — and would emit `Blur` for a widget
         # that wasn't focused (BUGS-F2 #27).
         old.try do |o|
-          if o.state.focused?
-            o.state = :normal
-            o.emit Crysterm::Event::Blur, nil
-          end
+          # Reset the widget's `:focused` state (guarded; see `#blur_state_reset`)
+          # and, since no widget is taking over focus here, emit `Blur` with a
+          # `nil` payload — as `_focus` does on a normal transition.
+          o.emit Crysterm::Event::Blur, nil if blur_state_reset o
         end
         return
       end
@@ -254,6 +254,20 @@ module Crysterm
       focus @keyable[i]
     end
 
+    # Clears a blurred widget's transient `:focused` state — but only when it is
+    # actually Focused — returning whether it reset. `WidgetState` is single-valued,
+    # so an unconditional `state = :normal` would re-enable a widget disabled
+    # *while focused* (e.g. a wizard "Back" button) — silently flipping it back to
+    # `:normal`/keyable — and clobber a Selected/Hovered state a blurred widget may
+    # legitimately hold (and, at the `rewind_focus` site, would emit `Blur` for a
+    # widget that wasn't focused; BUGS-F2 #27). Shared by the two blur sites.
+    @[AlwaysInline]
+    private def blur_state_reset(o : Widget) : Bool
+      return false unless o.state.focused?
+      o.state = :normal
+      true
+    end
+
     def _focus(cur : Widget, old : Widget? = nil)
       # Re-focusing the already-focused widget has no "previous" to blur or
       # un-highlight: treating `cur` as its own `old` would set its state to
@@ -277,12 +291,8 @@ module Crysterm
       el = cur.parent.try &.first_self_or_ancestor &.scrollable?
 
       cur.state = :focused
-      # Only clear the blurred widget's state when it is actually Focused.
-      # `WidgetState` is single-valued: an unconditional reset re-enables a
-      # widget disabled *while focused* (e.g. a wizard "Back" button) — silently
-      # flipping it back to `:normal`/keyable — and clobbers a Selected/Hovered
-      # state a blurred widget may legitimately hold.
-      old.try { |o| o.state = :normal if o.state.focused? }
+      # Clear the blurred widget's `:focused` state (guarded; see `#blur_state_reset`).
+      old.try { |o| blur_state_reset o }
 
       # If we're in a scrollable element, automatically scroll the focused
       # element into view. Delegate to `#ensure_widget_visible`, the purpose-built

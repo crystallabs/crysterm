@@ -42,6 +42,7 @@ module Crysterm
       class HeatMap < Box
         include TextOverlay
         include InteriorCoords
+        include Mixin::CanvasOwner
 
         # One colormap stop: a normalized position `stop` (`0.0..1.0`) and its
         # color `rgb` (`0xRRGGBB`). Colors between stops are linearly
@@ -103,10 +104,6 @@ module Crysterm
         # Whether to stamp the row/column axis labels.
         property? show_labels : Bool
 
-        # The drawing surface, built in `#initialize`. `canvas` raises if read
-        # before construction completes; `canvas?` is the nilable variant.
-        getter! canvas : Canvas
-
         # 256-entry color LUT for the current `#colormap` (`t*255 -> 0xRRGGBB`),
         # built lazily and reused across repaints so the paint loop never does
         # per-cell float interpolation. Rebuilt only when `#colormap` changes.
@@ -142,10 +139,7 @@ module Crysterm
           @colormap = colormap
           super **box
 
-          cv = Canvas.new parent: self, type: type, glyph_mode: glyph_mode,
-            top: 0, left: 0, right: 0, bottom: 0
-          cv.on_paint { |p| paint_grid p }
-          @canvas = cv
+          build_canvas(type, glyph_mode) { |p| paint_grid p }
 
           # Map hovering onto the grid and re-emit as `Event::CellHover`. Hover
           # events fire on the topmost widget under the pointer; subscribing here
@@ -159,19 +153,19 @@ module Crysterm
         def data=(data : Array(Array(Float64))) : Array(Array(Float64))
           @matrix = data.dup
           @bounds = nil
-          invalidate
+          invalidate_canvas
           @matrix
         end
 
         def col_labels=(labels : Array(String)) : Array(String)
           @col_labels = labels.dup
-          invalidate
+          invalidate_canvas
           @col_labels
         end
 
         def row_labels=(labels : Array(String)) : Array(String)
           @row_labels = labels.dup
-          invalidate
+          invalidate_canvas
           @row_labels
         end
 
@@ -180,21 +174,21 @@ module Crysterm
         def vmin=(v : Float64?) : Float64?
           @vmin = v
           @bounds = nil
-          invalidate
+          invalidate_canvas
           @vmin
         end
 
         def vmax=(v : Float64?) : Float64?
           @vmax = v
           @bounds = nil
-          invalidate
+          invalidate_canvas
           @vmax
         end
 
         def symmetric=(v : Bool) : Bool
           @symmetric = v
           @bounds = nil
-          invalidate
+          invalidate_canvas
           @symmetric
         end
 
@@ -203,7 +197,7 @@ module Crysterm
         def colormap=(name : Symbol) : Symbol
           @colormap = name
           @lut = nil
-          invalidate
+          invalidate_canvas
           @colormap
         end
 
@@ -227,14 +221,6 @@ module Crysterm
           lo, hi = resolved_bounds
           t = ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
           lut[(t * 255).round.to_i]
-        end
-
-        # Marks the Canvas content stale and schedules a render, so a data or
-        # decoration change repaints (the Canvas skips otherwise, under its own
-        # `@paint_dirty`). Mirrors `PieChart#invalidate`.
-        private def invalidate : Nil
-          canvas?.try &.invalidate_paint
-          request_render
         end
 
         # The (lazily built) LUT for the active colormap.

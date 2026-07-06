@@ -33,6 +33,13 @@ module Crysterm
         @open
       end
 
+      # Toggles the pop-up: closes it when open, opens it otherwise. Dispatches to
+      # the including widget's own `#open`/`#close` (duck-typed, like
+      # `#popup_widget`), so each widget keeps its own build/placement path.
+      def toggle
+        @open ? close : open
+      end
+
       # Shows *pop* as the modal pop-up: raises it, optionally focuses it, grabs
       # input (so other widgets stop reacting to the pointer), and installs the
       # outside-click watcher that calls `#close`. The caller positions *pop*

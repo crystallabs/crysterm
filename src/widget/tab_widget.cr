@@ -32,6 +32,8 @@ module Crysterm
       include Mixin::PagedContainer
       # `#apply_substyle`, used by `#sync_tab_style`.
       include Mixin::SubStyle
+      # Carousel timer install/teardown across the window lifecycle.
+      include Mixin::WindowLifecycle
 
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /
       # `South`).
@@ -126,10 +128,19 @@ module Crysterm
         # a plain detach (`remove` without `destroy`): otherwise the `FrameClock`
         # timer keeps firing `next_tab` on the now-windowless widget forever,
         # pinning it alive via the closure. A later re-attach re-arms via `Attach`.
-        on(::Crysterm::Event::Attach) { start_carousel }
-        on(::Crysterm::Event::Detach) { stop_carousel }
-        on(::Crysterm::Event::Destroy) { stop_carousel }
-        start_carousel # in case we are already on a window (parent: window)
+        # Starts now too, in case we are already on a window (parent: window).
+        wire_window_lifecycle destroy: true
+      end
+
+      # The carousel timer lives with the window: (re)start on attach, stop on
+      # detach/destroy (see `Mixin::WindowLifecycle`).
+      private def on_attach_window : Nil
+        start_carousel
+      end
+
+      # :ditto:
+      private def on_detach_window : Nil
+        stop_carousel
       end
 
       # Applies the `TabWidget::tab` (Qt's `QTabBar::tab`) and `TabWidget::pane`

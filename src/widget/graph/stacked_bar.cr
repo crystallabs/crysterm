@@ -36,18 +36,6 @@ module Crysterm
         # Default segment palette, cycled by stack level.
         DEFAULT_COLORS = %w[green magenta cyan red blue yellow]
 
-        # A getter plus a setter that also bumps the content-cache version, so a
-        # decoration change invalidates the per-frame build cache (see `BarChart`).
-        private macro chart_prop(name, type)
-          getter {{name.id}} : {{type}}
-
-          def {{name.id}}=(value : {{type}})
-            @{{name.id}} = value
-            bump_data_version
-            value
-          end
-        end
-
         # The data series. Each element is one bar: an array of segment values,
         # bottom-most first. `getter` with the coercing `#values=` below as the
         # sole setter, so every assignment bumps the content-cache version.

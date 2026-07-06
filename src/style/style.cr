@@ -112,10 +112,15 @@ module Crysterm
     # Bit per tracked property. Order is arbitrary but must stay stable within a
     # build (the mask is never persisted across builds).
     {% begin %}
-      {% tracked = %w(bold italic underline blink reverse strike visible
-           background_size fill_char percent_char foreground_char
-           background_char border padding margin shadow
-           tab_size tab_char fill draw_over_border) %}
+      # Split by getter form so a single list also drives the CSS cascade's
+      # inline fold (`#fold_specified_onto`): boolean attributes are read through
+      # their `?` getter, the rest through a plain getter. `tracked` is their
+      # concatenation and defines the bitmask.
+      {% tracked_bool = %w(bold italic underline blink reverse strike visible
+           fill draw_over_border) %}
+      {% tracked_value = %w(background_size fill_char percent_char foreground_char
+           background_char border padding margin shadow tab_size tab_char) %}
+      {% tracked = tracked_bool + tracked_value %}
       {% for prop, i in tracked %}
         SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
       {% end %}
@@ -129,6 +134,24 @@ module Crysterm
         {% end %}
         else 0_u32
         end
+      end
+
+      # Folds every explicitly-set *tracked* property of this style onto *other*,
+      # copying each only where `specified?` reports it set (so an inline style
+      # can switch a value on *or* off over a stylesheet). The assignments go
+      # through *other*'s setters, so they stamp *other*'s `specified_mask` too.
+      #
+      # Single-sources the tracked-property portion of the cascade's inline fold
+      # (`CSS::Cascade.fold_inline`) off the `tracked` list above; the remaining,
+      # `nil`-signalled properties (`fg`/`bg`/`alpha`/`tint`/…) are folded by hand
+      # there since they carry no mask bit.
+      def fold_specified_onto(other : Style) : Nil
+        {% for prop in tracked_bool %}
+          other.{{prop.id}} = {{prop.id}}? if specified?(:{{prop.id}})
+        {% end %}
+        {% for prop in tracked_value %}
+          other.{{prop.id}} = {{prop.id}} if specified?(:{{prop.id}})
+        {% end %}
       end
     {% end %}
 

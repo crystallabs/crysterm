@@ -57,6 +57,23 @@ module Crysterm
         end
       end
 
+      # Resolves a CSS color *token* to a single solid `0xRRGGBB` int, or `nil`
+      # when it names no paintable color. Built on `resolve`: a color function or
+      # keyword hands back its `Int32`, a named/hex string is run through
+      # `Colors.convert`, and anything that lands on the `-1` sentinel — the
+      # unknown color, or the `transparent`/unset keywords — is dropped to `nil`.
+      #
+      # This *collapses* the `-1` sentinel, so a caller that must keep
+      # `transparent`'s `-1` distinct (e.g. `background`, where it means "paint
+      # the terminal default") has to branch that out before reaching here.
+      def self.solid(token : String, current_fg : Int32?) : Int32?
+        case resolved = resolve(token, current_fg)
+        when Int32  then resolved == -1 ? nil : resolved
+        when String then (c = Colors.convert_cached(token)) == -1 ? nil : c
+        else             nil
+        end
+      end
+
       # Matches a CSS/Qt gradient function head: CSS `linear-gradient(`/
       # `radial-gradient(`/`conic-gradient(` and Qt `qlineargradient(`/
       # `qradialgradient(`/`qconicalgradient(`.
@@ -80,18 +97,11 @@ module Crysterm
         return nil unless value =~ GRADIENT_HEAD
         r = g = b = n = 0
         value.scan(GRADIENT_STOP) do |m|
-          tok = m[0]
-          dv = tok.downcase
-          c = if tok.starts_with?('#')
-                Colors.convert_cached(tok)
-              elsif dv.starts_with?("rgb") # rgb()/rgba()
-                parse_rgb(tok) || -1
-              elsif dv.starts_with?("hsl") # hsl()/hsla()
-                parse_hsl(tok) || -1
-              else # named color, or non-color keyword (-1, skipped below)
-                Colors.convert_cached(tok)
-              end
-          next if c < 0
+          # Each stop resolves like any color value; the gradient's non-color
+          # keywords (`to`/`circle`/`gradient`/…) and units collapse to the `-1`
+          # sentinel and `solid` drops them, so they're skipped. `currentColor`
+          # has no meaning in a standalone gradient, so resolve against no fg.
+          next unless c = solid(m[0], nil)
           r += (c >> 16) & 0xff
           g += (c >> 8) & 0xff
           b += c & 0xff

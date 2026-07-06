@@ -40,12 +40,12 @@ module Crysterm
 
     @buttons = [] of Widget
     @ids = {} of Widget => Int32
-    # Per-button `Event::Check` listener handles, so `#remove` can detach again.
-    @handlers = {} of Widget => Crysterm::Event::Check::Wrapper
-    # Per-button `Event::UnCheck` listener handles, implementing the "can't
-    # uncheck the selected member by clicking it" radio rule (see
-    # `#on_member_unchecked`); kept separately so `#remove` detaches them too.
-    @uncheck_handlers = {} of Widget => Crysterm::Event::UnCheck::Wrapper
+    # Per-button event subscriptions (an `Event::Check` listener, and an
+    # `Event::UnCheck` one implementing the "can't uncheck the selected member by
+    # clicking it" radio rule — see `#on_member_unchecked`), bagged together so
+    # `#remove` tears down both. Each `Subscriptions` captures the button it was
+    # installed on, so teardown reaches the right one regardless of later state.
+    @subs = {} of Widget => Subscriptions
     # Guards the cascade: unchecking siblings (and the exclusive re-check
     # revert) must not itself trigger another round of exclusivity handling.
     @suppress = false
@@ -67,20 +67,17 @@ module Crysterm
       button.checkable = true if button.is_a?(Widget::AbstractButton) && !button.checkable?
       @buttons << button
       @ids[button] = id
-      @handlers[button] = button.on(Crysterm::Event::Check) do |_|
-        on_member_checked button
-      end
-      @uncheck_handlers[button] = button.on(Crysterm::Event::UnCheck) do |_|
-        on_member_unchecked button
-      end
+      subs = Subscriptions.new
+      subs.on(button, Crysterm::Event::Check) { |_| on_member_checked button }
+      subs.on(button, Crysterm::Event::UnCheck) { |_| on_member_unchecked button }
+      @subs[button] = subs
       button
     end
 
     # Removes *button* from the group and detaches its listeners.
     def remove(button : Widget) : Nil
       return unless @buttons.includes? button
-      @handlers.delete(button).try { |w| button.off Crysterm::Event::Check, w }
-      @uncheck_handlers.delete(button).try { |w| button.off Crysterm::Event::UnCheck, w }
+      @subs.delete(button).try &.off
       @ids.delete button
       @buttons.delete button
     end

@@ -23,6 +23,8 @@ module Crysterm
     # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
     # <!-- /widget-examples:capture -->
     class Wizard < Dialog
+      include Mixin::WindowLifecycle
+
       # The page stack. (Built in `initialize` after `super`, hence `getter!`.)
       getter! stack : StackedWidget
 
@@ -59,12 +61,20 @@ module Crysterm
         # `ColorDialog`/`Question` follow. The `Dialog` base owns the window-level
         # accelerator; the wizard keeps it installed while attached and torn down
         # on detach/destroy so it can't fire on a dead widget.
-        on(::Crysterm::Event::Attach) { install_dialog_keys }
-        on(::Crysterm::Event::Detach) { uninstall_dialog_keys }
-        on(::Crysterm::Event::Destroy) { uninstall_dialog_keys }
-        install_dialog_keys # in case we are already on a window (parent: window)
+        wire_window_lifecycle destroy: true
 
         refresh_buttons
+      end
+
+      # Enter/Escape accelerator lives with the window: (re)install on attach,
+      # tear down on detach/destroy (see `Mixin::WindowLifecycle`).
+      private def on_attach_window : Nil
+        install_dialog_keys
+      end
+
+      # :ditto:
+      private def on_detach_window : Nil
+        uninstall_dialog_keys
       end
 
       # For the wizard the affirmative gesture is "advance" (Enter → next page /

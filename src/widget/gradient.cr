@@ -79,8 +79,9 @@ module Crysterm
       # This widget's subscription to `@timer`'s `Tick`, kept so `#destroy` can
       # remove it. For a *shared* `animate:` clock the timer outlives the widget,
       # so without this the closure would keep mutating a destroyed widget on
-      # every tick and pin it forever.
-      @tick_sub : ::Crysterm::Event::Tick::Wrapper?
+      # every tick and pin it forever. A `Subscription` captures the timer it was
+      # installed on, so `#off` reaches that exact (possibly shared) clock.
+      @tick_sub = ::Crysterm::Subscription.new
 
       def initialize(
         colors : Array = [] of String,
@@ -101,9 +102,11 @@ module Crysterm
                  in Timer then animate
                  in Bool  then animate ? (@own_timer = Timer.new(interval)) : nil
                  end
-        @tick_sub = @timer.try &.on(Crysterm::Event::Tick) do
-          @phase += @speed
-          request_render
+        @timer.try do |t|
+          @tick_sub.on(t, Crysterm::Event::Tick) do
+            @phase += @speed
+            request_render
+          end
         end
       end
 
@@ -113,10 +116,7 @@ module Crysterm
       def destroy
         # Unsubscribe from the (possibly shared) clock so its tick fiber stops
         # mutating this destroyed widget, then stop a privately-owned timer.
-        if (t = @timer) && (w = @tick_sub)
-          t.off Crysterm::Event::Tick, w
-        end
-        @tick_sub = nil
+        @tick_sub.off
         @own_timer.try &.stop
         super
       end

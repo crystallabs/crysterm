@@ -512,8 +512,8 @@ module Crysterm
     # `composite_planes`) and ordered among planes by `z`. The nearest
     # self-or-ancestor `z_index` wins, since it defers the whole subtree.
     private def hit_layer(el : Widget) : Tuple(Int32, Int32)
-      if e = el.first_self_or_ancestor { |w| w.style.z_index }
-        return {1, e.style.z_index.not_nil!}
+      if (e = el.first_self_or_ancestor(&.style.z_index)) && (z = e.style.z_index)
+        return {1, z}
       end
       {0, 0}
     end
@@ -530,9 +530,8 @@ module Crysterm
     # `#register_keyable`; lazily ensures terminal mouse reporting is on if
     # mouse listening is already active (blessed-style on-demand enabling).
     def register_clickable(el : Widget)
-      return if @clickable.includes? el
+      return unless register_in el, @clickable
       el.clickable = true
-      @clickable.push el
       @screen.enable_mouse if @screen._listened_mouse?
     end
   end

@@ -253,8 +253,9 @@ module Crysterm
     end
 
     # Windows this action's shortcut accelerator is currently installed on,
-    # mapped to the listener wrapper used to remove it again.
-    @shortcut_wrappers = {} of ::Crysterm::Window => ::Crysterm::Event::KeyPress::Wrapper
+    # mapped to the `Subscription` used to remove it again. Each subscription
+    # captures its window, so `#off` removes from that exact window.
+    @shortcut_subs = {} of ::Crysterm::Window => ::Crysterm::Subscription
 
     # Per-window half-entered chord: the leading keystrokes typed so far toward a
     # multi-stroke shortcut, awaiting completion. Empty/absent between chords.
@@ -392,8 +393,9 @@ module Crysterm
         @shortcut_host_by_window.delete window
       end
       return if @shortcuts.empty?
-      return if @shortcut_wrappers.has_key?(window)
-      @shortcut_wrappers[window] = window.on(::Crysterm::Event::KeyPress) do |e|
+      return if @shortcut_subs.has_key?(window)
+      sub = @shortcut_subs[window] = ::Crysterm::Subscription.new
+      sub.on(window, ::Crysterm::Event::KeyPress) do |e|
         next if e.accepted?
         feed_shortcut window, e
       end
@@ -404,9 +406,7 @@ module Crysterm
     def uninstall_shortcut(window : ::Crysterm::Window) : Nil
       @shortcut_pending.delete window
       @shortcut_host_by_window.delete window
-      @shortcut_wrappers.delete(window).try do |w|
-        window.off(::Crysterm::Event::KeyPress, w)
-      end
+      @shortcut_subs.delete(window).try &.off
     end
 
     # Feeds keypress *e* (on *window*) through the shortcut state machine,
@@ -503,9 +503,9 @@ module Crysterm
       # host: `#install_shortcut` early-returns before creating a wrapper while
       # `@shortcuts` is empty, so an action given its shortcut *after* being added
       # to a window has a host there but no wrapper. Iterating only
-      # `@shortcut_wrappers.keys` would never revisit it, leaving the new shortcut
-      # dead on that window. `uninstall_shortcut` no-ops when no wrapper exists.
-      windows = (@shortcut_wrappers.keys | hosts.keys)
+      # `@shortcut_subs.keys` would never revisit it, leaving the new shortcut
+      # dead on that window. `uninstall_shortcut` no-ops when no subscription exists.
+      windows = (@shortcut_subs.keys | hosts.keys)
       windows.each do |w|
         uninstall_shortcut w
         install_shortcut w, hosts[w]?

@@ -32,6 +32,9 @@ module Crysterm
         include Mixin::PercentRange
         # `%p`/`%v`/`%m`/`%M` template expansion (shared with `Gauge`/`ProgressBar`).
         include Mixin::RangeText
+        # Canvas ownership + the `canvas_prop` re-raster setter (shared with the
+        # other radial/vector graph widgets).
+        include Mixin::CanvasOwner
 
         property minimum : Float64
         property maximum : Float64
@@ -59,34 +62,20 @@ module Crysterm
         # Optional caption drawn under the percentage.
         property label : String
 
-        # Ring-parameter setter: an assignment changes what `#paint_ring` draws,
-        # so — like `#value=` — it must invalidate the Canvas raster (which
-        # otherwise skips repaint under its own `@paint_dirty`) and schedule a
-        # render. The plain `property` setter did neither, leaving the ring stale
-        # (old thickness/color/track) until an unrelated repaint. Overrides the
-        # generated setter; the getter from `property`/`property?` stays.
-        private macro ring_prop(name, type)
-          def {{name.id}}=(v : {{type}}) : {{type}}
-            return v if v == @{{name.id}}
-            @{{name.id}} = v
-            canvas?.try &.invalidate_paint
-            request_render
-            v
-          end
-        end
-
-        ring_prop minimum, Float64
-        ring_prop maximum, Float64
-        ring_prop fill_color, Int32
-        ring_prop track_color, Int32
-        ring_prop show_track, Bool
-        ring_prop thickness, Float64
+        # Ring-parameter setters: an assignment changes what `#paint_ring` draws,
+        # so — like `#value=` — each must invalidate the Canvas raster and
+        # schedule a render (the plain `property` setter did neither, leaving the
+        # ring stale — old thickness/color/track — until an unrelated repaint).
+        # `canvas_prop` (from `Mixin::CanvasOwner`) overrides the generated setter;
+        # the getter from `property`/`property?` stays.
+        canvas_prop minimum, Float64
+        canvas_prop maximum, Float64
+        canvas_prop fill_color, Int32
+        canvas_prop track_color, Int32
+        canvas_prop show_track, Bool
+        canvas_prop thickness, Float64
 
         @value : Float64
-
-        # The drawing surface, built in `#initialize`. `canvas` raises if read
-        # before construction completes; `canvas?` is the nilable variant.
-        getter! canvas : Canvas
 
         def initialize(
           value : Number = 0,
@@ -108,10 +97,7 @@ module Crysterm
           @value = value.to_f.clamp(@minimum, @maximum)
           super **box
 
-          cv = Canvas.new parent: self, type: type, glyph_mode: glyph_mode,
-            top: 0, left: 0, right: 0, bottom: 0
-          cv.on_paint { |p| paint_ring p }
-          @canvas = cv
+          build_canvas(type, glyph_mode) { |p| paint_ring p }
         end
 
         def value : Float64
@@ -119,18 +105,15 @@ module Crysterm
         end
 
         # Sets the value (clamped). Emits `Event::DoubleValueChange` on change and
-        # `Event::Complete` at the maximum.
+        # `Event::Complete` at the maximum (shared `#value=` body from
+        # `Mixin::PercentRange`, with Canvas invalidation as its post-change
+        # action).
         def value=(v : Number) : Float64
-          v = v.to_f.clamp(@minimum, @maximum)
-          return v if v == @value
-          @value = v
-          emit Crysterm::Event::DoubleValueChange, @value
-          emit Crysterm::Event::Complete if @value == @maximum && @maximum > @minimum
-          # The ring geometry depends on `@value`, so the Canvas content is now
-          # stale: mark it for repaint (it skips otherwise, under `@paint_dirty`).
-          canvas?.try &.invalidate_paint
-          request_render
-          @value
+          assign_completable(v) do
+            # The ring geometry depends on `@value`, so the Canvas content is now
+            # stale: mark it for repaint (it skips otherwise, under `@paint_dirty`).
+            invalidate_canvas
+          end
         end
 
         def percent : Float64

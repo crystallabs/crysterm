@@ -536,15 +536,9 @@ module Crysterm
       # property is copied only if the inline style `specified?` it — so inline
       # can switch a text attribute either on or off over a stylesheet.
       private def self.fold_inline(style : Style, inline : Style) : Nil
+        # `nil`-signalled properties (no `specified_mask` bit) — folded by hand.
         style.fg = inline.fg if inline.specified?(:fg)
         style.bg = inline.bg if inline.specified?(:bg)
-        style.bold = inline.bold? if inline.specified?(:bold)
-        style.italic = inline.italic? if inline.specified?(:italic)
-        style.underline = inline.underline? if inline.specified?(:underline)
-        style.blink = inline.blink? if inline.specified?(:blink)
-        style.reverse = inline.reverse? if inline.specified?(:reverse)
-        style.strike = inline.strike? if inline.specified?(:strike)
-        style.visible = inline.visible? if inline.specified?(:visible)
         style.alpha = inline.alpha if inline.specified?(:alpha)
         if inline.specified?(:tint)
           style.tint = inline.tint
@@ -553,23 +547,13 @@ module Crysterm
         style.gridline_color = inline.gridline_color if inline.specified?(:gridline_color)
         style.z_index = inline.z_index if inline.specified?(:z_index)
         style.background_image = inline.background_image if inline.specified?(:background_image)
-        style.background_size = inline.background_size if inline.specified?(:background_size)
         style.transitions = inline.transitions if inline.specified?(:transition)
         style.animation = inline.animation if inline.specified?(:animation)
-        # `specified?` (not `any?`) so inline can switch border/padding/margin/
-        # shadow off over a stylesheet, not only on.
-        style.border = inline.border if inline.specified?(:border)
-        style.padding = inline.padding if inline.specified?(:padding)
-        style.margin = inline.margin if inline.specified?(:margin)
-        style.shadow = inline.shadow if inline.specified?(:shadow)
-        style.fill_char = inline.fill_char if inline.specified?(:fill_char)
-        style.percent_char = inline.percent_char if inline.specified?(:percent_char)
-        style.foreground_char = inline.foreground_char if inline.specified?(:foreground_char)
-        style.background_char = inline.background_char if inline.specified?(:background_char)
-        style.tab_size = inline.tab_size if inline.specified?(:tab_size)
-        style.tab_char = inline.tab_char if inline.specified?(:tab_char)
-        style.fill = inline.fill? if inline.specified?(:fill)
-        style.draw_over_border = inline.draw_over_border? if inline.specified?(:draw_over_border)
+        # Mask-tracked properties (text attributes, border/padding/margin/shadow,
+        # fill chars, tabs, fill/draw_over_border) — single-sourced off Style's
+        # `tracked` list. Uses `specified?` (not `any?`), so inline can switch
+        # border/padding/margin/shadow off over a stylesheet, not only on.
+        inline.fold_specified_onto style
         # Nested sub-styles (header/cell/alternate/bar/…) copy wholesale; without
         # this they'd be dropped by the reset-and-recompute, since no
         # `Widget::slot` sub-element rule restores an inline-only sub-style.

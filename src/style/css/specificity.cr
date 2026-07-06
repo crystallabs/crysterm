@@ -17,40 +17,39 @@ module Crysterm
 
       def self.calculate(selector : String) : Tuple(Int32, Int32, Int32)
         a = b = c = 0
-        chars = selector.chars
         i = 0
-        n = chars.size
+        n = selector.size
 
         while i < n
-          case ch = chars[i]
+          case ch = selector[i]
           when '#'
             a += 1
-            i = skip_ident(chars, i + 1)
+            i = skip_ident(selector, i + 1)
           when '.'
             b += 1
-            i = skip_ident(chars, i + 1)
+            i = skip_ident(selector, i + 1)
           when '['
             b += 1
-            i = Selectors.skip_balanced(chars, i, '[', ']')
+            i = Selectors.skip_balanced(selector, i, '[', ']')
           when ':'
-            if i + 1 < n && chars[i + 1] == ':'
+            if i + 1 < n && selector[i + 1] == ':'
               c += 1 # pseudo-element
-              name_end = skip_ident(chars, i + 2)
+              name_end = skip_ident(selector, i + 2)
               # A functional pseudo-element (`::foo(bar)`) — skip its argument so
               # `bar` isn't re-scanned as further selector tokens (double-count).
-              i = (name_end < n && chars[name_end] == '(') ? Selectors.skip_balanced(chars, name_end, '(', ')') : name_end
+              i = (name_end < n && selector[name_end] == '(') ? Selectors.skip_balanced(selector, name_end, '(', ')') : name_end
             else
-              name_end = skip_ident(chars, i + 1)
+              name_end = skip_ident(selector, i + 1)
               # Pseudo-class names are case-insensitive; fold so `:NOT(#id)` scores
               # like `:not(#id)` (recurse into its argument) rather than counting
               # as a plain class, and `:WHERE(...)` contributes nothing like
               # `:where(...)`. (An ident here is never a custom-property/type name,
               # so folding is safe.)
-              name = String.build { |str| (i + 1...name_end).each { |idx| str << chars[idx] } }.downcase
-              if name_end < n && chars[name_end] == '('
-                arg_end = Selectors.skip_balanced(chars, name_end, '(', ')')
+              name = selector[(i + 1)...name_end].downcase
+              if name_end < n && selector[name_end] == '('
+                arg_end = Selectors.skip_balanced(selector, name_end, '(', ')')
                 if RECURSIVE_PSEUDOS.includes?(name)
-                  arg = String.build { |str| (name_end + 1...arg_end - 1).each { |idx| str << chars[idx] } }
+                  arg = selector[(name_end + 1)...(arg_end - 1)]
                   aa, bb, cc = max_specificity(arg)
                   a += aa; b += bb; c += cc
                 elsif name != "where"
@@ -68,7 +67,7 @@ module Crysterm
           else
             if Selectors.ident_start?(ch)
               c += 1 # type selector
-              i = skip_ident(chars, i + 1)
+              i = skip_ident(selector, i + 1)
             else
               i += 1
             end
@@ -79,8 +78,8 @@ module Crysterm
       end
 
       # Advances past an identifier run (letters, digits, `-`, `_`).
-      private def self.skip_ident(chars : Array(Char), i : Int32) : Int32
-        while i < chars.size && Selectors.ident?(chars[i])
+      private def self.skip_ident(str : String, i : Int32) : Int32
+        while i < str.size && Selectors.ident?(str[i])
           i += 1
         end
         i
@@ -102,15 +101,14 @@ module Crysterm
       # pseudo-class, skipping commas nested inside `[...]`/`(...)` or quoted
       # strings so a selector list like `:is(.a, [x=","] b)` splits correctly.
       private def self.each_top_level_arg(arg : String, & : String ->) : Nil
-        chars = arg.chars
-        n = chars.size
+        n = arg.size
         i = 0
         start = 0
         while i < n
-          case chars[i]
-          when '['       then i = Selectors.skip_balanced(chars, i, '[', ']')
-          when '('       then i = Selectors.skip_balanced(chars, i, '(', ')')
-          when '"', '\'' then i = Selectors.skip_string(chars, i)
+          case arg[i]
+          when '['       then i = Selectors.skip_balanced(arg, i, '[', ']')
+          when '('       then i = Selectors.skip_balanced(arg, i, '(', ')')
+          when '"', '\'' then i = Selectors.skip_string(arg, i)
           when ','
             yield arg[start...i]
             i += 1

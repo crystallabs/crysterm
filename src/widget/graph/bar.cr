@@ -35,18 +35,6 @@ module Crysterm
       class Bar < Box
         include BarChart
 
-        # A getter plus a setter that also bumps the content-cache version, so a
-        # decoration change invalidates the per-frame build cache (see `BarChart`).
-        private macro chart_prop(name, type)
-          getter {{name.id}} : {{type}}
-
-          def {{name.id}}=(value : {{type}})
-            @{{name.id}} = value
-            bump_data_version
-            value
-          end
-        end
-
         # The data series. Each element is one bar. `getter` with an explicit
         # setter below (not `property`) so every assignment routes through the
         # repaint-scheduling `#values=`.
