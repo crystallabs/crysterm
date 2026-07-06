@@ -1549,11 +1549,18 @@ module Crysterm
     # conditions exactly.
     def needs_cluster?(base : Char, nxt : Char?) : Bool
       # Fast rejection for the dominant plain-text path: every cluster-relevant
-      # `base` is ≥ U+0300 (combining marks; regional indicators sit higher) and
-      # every cluster-relevant `nxt` is ≥ U+200D (ZWJ — the lowest of ZWJ,
-      # marks, variation selectors, skin tones). Two integer compares replace
-      # the `mark?` Unicode-category binary searches per ASCII/Latin cell.
-      return false if base.ord < 0x300 && (nxt.nil? || nxt.ord < 0x200D)
+      # `base` *and* `nxt` is ≥ U+0300 — combining marks (`Char#mark?`, the
+      # lowest cluster extender) begin at U+0300, and ZWJ/variation selectors/
+      # skin tones/regional indicators all sit higher still. So when both are
+      # below U+0300 no cluster can form. Two integer compares replace the
+      # `mark?` Unicode-category binary searches per ASCII/Latin cell.
+      #
+      # The threshold on `nxt` must be U+0300, NOT U+200D (ZWJ): a base such as
+      # `'e'` followed by a combining mark (e.g. U+0301, NFD "é") has
+      # `nxt.ord == 0x301`, which is ≥ 0x300 but far below 0x200D. A 0x200D cut
+      # here fast-rejected that common base+mark cluster, so `#extend_grapheme`
+      # never ran and the mark rendered detached in its own cell.
+      return false if base.ord < 0x300 && (nxt.nil? || nxt.ord < 0x300)
       return true if base.mark? # a leading combining mark (zero-width; merges back)
       bp = base.ord
       return true if 0x1F1E6 <= bp <= 0x1F1FF # regional indicator (flag pair)

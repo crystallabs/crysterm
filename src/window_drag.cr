@@ -170,6 +170,13 @@ module Crysterm
         dropped = true
         announce "Dropped on #{describe t}"
       else
+        # A target that received `DragEnter` but did not accept the drop must
+        # still be told the drag left it, or it stays in its drag-entered
+        # visual state forever. Every `DragEnter` is balanced by exactly one
+        # `Drop` or `DragLeave` — as `retarget` (on target change) and
+        # `drag_cancel` (on Escape) already guarantee; this rejection-on-release
+        # path was the one gap.
+        sess.target.try &.emit ::Crysterm::Event::DragLeave, sess
         announce "Dropped"
       end
       ev = ::Crysterm::Event::DragEnd.new sess

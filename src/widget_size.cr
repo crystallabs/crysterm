@@ -241,11 +241,15 @@ module Crysterm
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
-          # Pull the left edge back by the full left inset (border + padding),
-          # mirroring the y-axis top branch (`yi -= itop`). Subtracting both
-          # paddings and no border would size a bordered right-anchored shrink
-          # box too wide by `border.left + border.right`.
-          xi -= ileft
+          # `mxl - mxi` already bakes in the *near* (left) inset: children are
+          # positioned at `parent.ileft`, while `mxi` is seeded to the parent's
+          # own left edge, so the span is `ileft + content`. To size the box to
+          # `content + iwidth` (exactly what the left-anchored branch below
+          # produces via `xl += iright`), pull the left edge back by the *far*
+          # (right) inset — NOT `ileft`, which would double-count the near inset
+          # and, under an asymmetric border/padding, over-size the box by
+          # `ileft - iright`.
+          xi -= iright
         else
           xl = mxl
           # D O:
@@ -270,7 +274,14 @@ module Crysterm
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
-          yi -= itop
+          # `myl - myi` already bakes in the *near* (top) inset (see the x-axis
+          # branch above), so pull the top edge back by the *far* (bottom) inset
+          # to size the box to `content + iheight` — matching the top-anchored
+          # branch's `yl += ibottom`. Using `itop` here double-counts the near
+          # inset, over-sizing an asymmetrically-inset bottom-anchored shrink box
+          # (and, for a list, `myl == items + itop`, so this yields exactly
+          # `items + iheight`).
+          yi -= ibottom
         else
           yl = myl
           yl += ibottom

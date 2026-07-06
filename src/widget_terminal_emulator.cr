@@ -8,9 +8,9 @@ module Crysterm
   #
   # Scope: the sequences a normal shell and common full-window programs (vim,
   # htop, less, top, man) rely on — cursor movement, SGR colours/styles,
-  # erase/insert/delete, scroll regions and scrollback, cursor save/restore,
-  # title (OSC 0/2), basic device-status/attributes replies, the alternate
-  # buffer (DECSET 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`),
+  # erase/insert/delete, scroll regions and scrollback, cursor save/restore
+  # (DECSC/DECRC and DECSET 1048), title (OSC 0/2), basic device-status/attributes
+  # replies, the alternate buffer (DECSET 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`),
   # and mouse-mode tracking. Does NOT implement double-width/height lines or
   # G2/G3 charset invocation (noted at each site).
   #
@@ -775,6 +775,7 @@ module Crysterm
         case mode
         when 25       then @cursor_hidden = !on # DECTCEM
         when 47, 1047 then on ? enter_alt(false) : leave_alt(false)
+        when 1048     then on ? save_cursor : restore_cursor # save/restore cursor (as DECSC/DECRC), no buffer switch
         when 1049     then on ? enter_alt(true) : leave_alt(true)
         when 9        then @mouse_tracking = on ? 9 : 0    # X10
         when 1000     then @mouse_tracking = on ? 1000 : 0 # normal (press/release)

@@ -30,8 +30,15 @@ module Crysterm
 
       # Sets the upper bound (Qt's `setMaximum`), re-clamping the value into the
       # new range and repainting. See `#set_range`.
+      #
+      # Mirrors Qt's `setMaximum` (`setRange(qMin(minimum, maximum), maximum)`):
+      # a new maximum below the current minimum pulls the minimum *down* with it
+      # (yielding `[v, v]`), so the new bound always wins. Passing it straight to
+      # `set_range(@minimum, v)` would instead let `set_range`'s inverted-range
+      # guard collapse `max` back up to `@minimum`, silently discarding `v` —
+      # and would be asymmetric with `#minimum=`, which already honors its bound.
       def maximum=(v : Int32) : Int32
-        set_range @minimum, v
+        set_range Math.min(@minimum, v), v
         @maximum
       end
 

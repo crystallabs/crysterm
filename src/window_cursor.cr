@@ -140,7 +140,7 @@ module Crysterm
         cattr = Widget.sattr cursor.style
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         flags = Attr.flags(attr)
-        if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || !cursor.style.visible?
+        if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || cursor.style.italic? || cursor.style.strike? || !cursor.style.visible?
           flags = Attr.flags(cattr)
         end
         fg = cursor.style.fg ? Attr.fg(cattr) : Attr.fg(attr)
