@@ -110,7 +110,13 @@ module Crysterm
           el.left = el.left.as(Int) + high_width - (llp.xl - llp.xi)
         end
 
-        if el.left.as(Int) + el.awidth <= width
+        # Include the child's own left margin: the render pipeline
+        # (`_get_coords`) shifts the drawn box right by `mleft` without shrinking
+        # a fixed width, so the child occupies [left + mleft, left + mleft +
+        # awidth). Omitting it keeps a margined child whose margin box straddles
+        # the right edge on the row and paints it past the interior instead of
+        # wrapping.
+        if el.left.as(Int) + el.mleft + el.awidth <= width
           el.top = @row_offset
         else
           # Doesn't fit on this row: advance the row offset by the tallest

@@ -190,6 +190,13 @@ module Crysterm
       old = @history.pop?
       if el = @history.last?
         _focus el, old
+      elsif old
+        # No prior target remains (history is now empty, so `focused` returns
+        # nil), but the just-popped widget must still be *blurred* — drop its
+        # `:focused` state and emit `Event::Blur` with a `nil` payload, exactly
+        # as `rewind_focus`'s empty-history branch does. Otherwise it lingers in
+        # `WidgetState::Focused` with no listener seeing focus leave it.
+        old.emit Crysterm::Event::Blur, nil if blur_state_reset old
       end
       old
     end

@@ -100,7 +100,7 @@ module Crysterm
       # Handle offset (in cells) from the low end of a track `avail` cells long.
       private def handle_offset(avail : Int32) : Int32
         return 0 if value_span == 0 || avail <= 0
-        ((@value - @minimum) * avail / value_span.to_f).round.to_i.clamp(0, avail)
+        ((@value - @minimum).to_f * avail / value_span).round.to_i.clamp(0, avail)
       end
 
       # Effective value-space spacing between ticks.
@@ -132,7 +132,7 @@ module Crysterm
           hx = xi + handle_offset(avail)
           tv = @minimum
           while tv <= @maximum
-            tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
+            tx = xi + ((tv - @minimum).to_f * avail / value_span).round.to_i
             unless tx == hx
               edges.each { |ty| window.fill_region attr, @tick_char, tx, tx + 1, ty, ty + 1 }
             end
@@ -147,7 +147,7 @@ module Crysterm
           hy = (yl - 1) - handle_offset(avail)
           tv = @minimum
           while tv <= @maximum
-            ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
+            ty = (yl - 1) - ((tv - @minimum).to_f * avail / value_span).round.to_i
             unless ty == hy
               edges.each { |cx| window.fill_region attr, @tick_char, cx, cx + 1, ty, ty + 1 }
             end

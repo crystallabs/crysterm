@@ -46,6 +46,14 @@ module Crysterm
       return new_screen if new_screen.same? @screen
       old = @screen
 
+      # Capture whether input was being listened on the old device *before* any
+      # teardown, so it can be restored on the new device — mirroring
+      # `#connect`. The old-device teardown below is gated on this being its
+      # last window, but the new device must start listening regardless (even
+      # when a sibling window keeps the old device alive), or the moved window
+      # goes deaf on a fresh destination device.
+      was_listening = @screen.listening?
+
       # Whether the new device is genuinely new — not already backing another
       # registered window. Computed *before* the swap, while `#screens` still
       # reflects this window on `old`; afterwards this window already points at
@@ -76,6 +84,9 @@ module Crysterm
         app.emit ::Crysterm::Event::ScreenRemoved, old unless app.screens.includes? old
         app.emit ::Crysterm::Event::ScreenAdded, new_screen if new_device
       end
+      # Restore input listening on the new device if the window was listening
+      # before the move (mirrors `#connect`).
+      listen if was_listening
       render
       new_screen
     end

@@ -56,7 +56,14 @@ module Crysterm
     # `#f00a` == `#f00` and `#11223344` == `#112233`.
     private def self.safe_convert(color : String) : Int32
       color = strip_hex_alpha(color)
-      convert(color).to_i32
+      c = convert(color).to_i32
+      # CSS/QSS color keywords are case-insensitive, but the shard's `ColorNames`
+      # table has only lowercase keys, so `Red`/`White` resolve to the `-1`
+      # ("terminal default") sentinel. Retry lower-cased when a named lookup
+      # missed; uppercase hex (`#FF0000`) already parsed above, so it never
+      # reaches this retry (and `#ff0000` == `#FF0000` anyway).
+      c = convert(color.downcase).to_i32 if c == -1 && color.each_char.any?(&.ascii_uppercase?)
+      c
     rescue ArgumentError
       -1
     end

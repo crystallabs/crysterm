@@ -148,11 +148,11 @@ module Crysterm
           return
         end
 
-        if k == ::Tput::Key::Enter
+        if k == ::Tput::Key::Enter && editing?
           commit_edit
           e.accept
           request_render
-        elsif k == ::Tput::Key::Escape
+        elsif k == ::Tput::Key::Escape && editing?
           cancel_edit
           e.accept
           request_render

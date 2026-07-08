@@ -484,6 +484,8 @@ class Commando
         @state = :playing
         @overlay.hide
         @screen.render
+      elsif e.char == 'r'
+        deploy
       end
     when @state.playing?
       handle_play_key e
@@ -498,6 +500,7 @@ class Commando
     when e.key == Tput::Key::Right, e.char == 'd' then move(1, 0)
     when e.char == ' ', e.char == 'f'             then fire
     when e.char == 'g', e.char == 'j'             then throw_grenade
+    when e.char == 'r'                            then deploy
     when e.char == 'p'
       @state = :paused
       @overlay.content = "\n{#f7f24a-fg}— PAUSED —{/}\n\n\nPress P to resume."

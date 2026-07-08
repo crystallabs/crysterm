@@ -335,6 +335,17 @@ module Crysterm
               cp = (cp << 6) | (cb & 0x3F)
               j += 1
             end
+            # Validating continuation bytes alone still admits invalid Chars:
+            # lead bytes >= 0xF8 aren't valid UTF-8 leads, and the decoded
+            # codepoint may be out of range (> U+10FFFF), a UTF-16 surrogate
+            # (U+D800..U+DFFF), or an overlong encoding of a smaller value. A
+            # real VT substitutes U+FFFD for all of these rather than emitting
+            # an invalid Char (which would re-serialize as invalid UTF-8 to the
+            # host terminal); the `else handle_char '�'` fallback does that.
+            ok &&= b < 0xF8 &&
+                   cp <= 0x10FFFF &&
+                   !(0xD800_u32 <= cp <= 0xDFFF_u32) &&
+                   cp >= {0x80_u32, 0x800_u32, 0x10000_u32}[len - 2]
             if ok
               handle_char cp.unsafe_chr
               i += len
@@ -477,6 +488,14 @@ module Crysterm
       end
     end
 
+    # Largest OSC payload (window/icon title etc.) buffered before further bytes
+    # are dropped. An unterminated OSC (a buggy program, or a BEL/ST-free stream
+    # like base64/hex data emitted after `ESC ]`) would otherwise grow `@osc_buf`
+    # without limit — retaining that capacity for the widget's lifetime — while
+    # every byte is consumed as payload. Scanning for the terminator continues so
+    # state recovery is unchanged; an over-long title is simply truncated.
+    OSC_MAX = 4096
+
     private def handle_osc(c : Char) : Nil
       if @osc_esc
         @osc_esc = false
@@ -489,7 +508,7 @@ module Crysterm
         # restore it before handling the current byte so an OSC containing a
         # literal ESC + non-`\` isn't silently corrupted — but only for a real
         # OSC; a discarded DCS/SOS/PM/APC payload is never materialized.
-        @osc_buf << '\e' unless @osc_string
+        @osc_buf << '\e' if !@osc_string && @osc_buf.bytesize < OSC_MAX
       end
       case c.ord
       when 0x07 then finish_osc; @state = :ground # BEL terminator
@@ -500,7 +519,7 @@ module Crysterm
         # full-screen sixel image) grows the buffer, whose capacity is then
         # retained for the widget's lifetime. Still run the ESC-pending logic
         # above so ST is detected.
-      else @osc_buf << c unless @osc_string
+      else @osc_buf << c if !@osc_string && @osc_buf.bytesize < OSC_MAX
       end
     end
 

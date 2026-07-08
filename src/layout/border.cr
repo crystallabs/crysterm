@@ -58,29 +58,40 @@ module Crysterm
         # overlap and hand the center a negative width/height. Clamping keeps
         # every region non-negative and non-overlapping, collapsing squeezed-out
         # ones to zero instead. No-op when the edges fit.
+        # Reserve each edge child's margin box, not just its border box: the
+        # render pipeline (`_get_coords`) shifts a fixed-size child outward by its
+        # near margin without shrinking it, so a top child with `margin top: N` is
+        # drawn N rows below its assigned `y0`. Advancing the working rect by the
+        # child's height alone would let that shifted box overlap the neighboring
+        # region; advancing by `size + margin` (mirroring `Layout::Box`) keeps
+        # every region non-overlapping.
         each_arrangeable container do |el|
           next unless region_of(el).top?
-          ch = el.aheight.clamp(0, y1 - y0)
+          mh = el.mheight
+          ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
           place_and_render el, x0, y0, x1 - x0, ch
-          y0 += ch
+          y0 += ch + mh
         end
         each_arrangeable container do |el|
           next unless region_of(el).bottom?
-          ch = el.aheight.clamp(0, y1 - y0)
+          mh = el.mheight
+          ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
           place_and_render el, x0, y1 - ch, x1 - x0, ch
-          y1 -= ch
+          y1 -= ch + mh
         end
         each_arrangeable container do |el|
           next unless region_of(el).left?
-          cw = el.awidth.clamp(0, x1 - x0)
+          mw = el.mwidth
+          cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
           place_and_render el, x0, y0, cw, y1 - y0
-          x0 += cw
+          x0 += cw + mw
         end
         each_arrangeable container do |el|
           next unless region_of(el).right?
-          cw = el.awidth.clamp(0, x1 - x0)
+          mw = el.mwidth
+          cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
           place_and_render el, x1 - cw, y0, cw, y1 - y0
-          x1 -= cw
+          x1 -= cw + mw
         end
         each_arrangeable container do |el|
           # Center: everything not top/bottom/left/right.

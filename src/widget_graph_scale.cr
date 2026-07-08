@@ -19,9 +19,17 @@ module Crysterm
         # Number of filled eighth-cells (`0 .. cells*8`) representing `value` on
         # a `[min, max]` scale that spans `cells` whole character cells.
         def self.eighths(value : Float64, min : Float64, max : Float64, cells : Int32) : Int32
+          # A non-finite value (NaN from a `0/0` data point, or Infinity)
+          # survives `clamp` (all NaN comparisons are false, so `clamp` returns
+          # NaN) and `NaN.round.to_i` raises `OverflowError`, crashing the render
+          # — same crash mode `Scale.fmt` guards against below. Render a
+          # non-finite datum as an empty column (0 filled eighths) instead.
+          return 0 unless value.finite?
           range = max - min
           range = 1.0 if range <= 0.0
           norm = ((value - min) / range).clamp(0.0, 1.0)
+          # Defensive: a non-finite min/max can still yield a NaN `norm` above.
+          norm = 0.0 if norm.nan?
           (norm * cells * 8).round.to_i
         end
 
@@ -62,21 +70,44 @@ module Crysterm
         # Centers `text` within a field of `width` cells (truncating if longer),
         # padding with spaces. Used to place value/category labels under bars.
         # Returns a new `String`; prefer `#center_to` on the render path.
-        def self.center(text : String, width : Int32) : String
-          String.build { |io| center_to io, text, width }
+        def self.center(text : String, width : Int32, full_unicode : Bool = false) : String
+          String.build { |io| center_to io, text, width, full_unicode }
         end
 
         # Writes `text`, centered within a field of `width` cells (truncating if
         # longer), straight to *io* — pads are emitted char-by-char rather than
         # via `" " * n` + concatenation, so a per-frame caption row builds with
         # no intermediate `String`s.
-        def self.center_to(io : IO, text : String, width : Int32) : Nil
+        #
+        # When *full_unicode* is true the field is measured and truncated in
+        # terminal DISPLAY columns (wide CJK/emoji graphemes count as 2, and
+        # graphemes are never split), matching how the plot rows above are laid
+        # out — mirroring `TableLayout#pad_cell_to`'s clip path. Otherwise the
+        # legacy codepoint sizing (`text.size` / `text[0, width]`) is kept. This
+        # is a module class method with no widget receiver, so the flag is passed
+        # in by the caller (e.g. `BarChart#field_line` threads `full_unicode?`).
+        def self.center_to(io : IO, text : String, width : Int32, full_unicode : Bool = false) : Nil
           return if width <= 0
-          if text.size >= width
-            io << text[0, width]
+          tw = full_unicode ? Unicode.display_width(text) : text.size
+          if tw >= width
+            if full_unicode
+              # Keep the leading `width` columns: drop trailing graphemes once
+              # the next one would overflow (never split a grapheme).
+              kept = 0
+              end_byte = 0
+              text.each_grapheme do |g|
+                gw = Unicode.width(g)
+                break if kept + gw > width
+                kept += gw
+                end_byte += g.bytesize
+              end
+              io << text.byte_slice(0, end_byte)
+            else
+              io << text[0, width]
+            end
             return
           end
-          pad = width - text.size
+          pad = width - tw
           left = pad // 2
           left.times { io << ' ' }
           io << text
@@ -214,7 +245,7 @@ module Crysterm
         private def field_line(n : Int32, &) : String
           String.build do |io|
             n.times do |i|
-              Scale.center_to(io, yield(i), @bar_width)
+              Scale.center_to(io, yield(i), @bar_width, full_unicode?)
               @bar_spacing.times { io << ' ' } if i < n - 1
             end
           end

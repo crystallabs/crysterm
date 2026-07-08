@@ -230,7 +230,7 @@ class Pong
       @vel_l *= r
       @vel_t *= r
     else
-      @vel_l, @vel_t = set_vel 0.0, (@vel_l < 0 ? -1 : 1)
+      @vel_l, @vel_t = set_vel 0.0, (Math.copysign(1.0, @vel_l) < 0 ? -1 : 1)
     end
   end
 

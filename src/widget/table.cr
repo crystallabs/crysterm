@@ -216,10 +216,35 @@ module Crysterm
         rows_n = @rows.size
         last = @maxes.size - 1
 
+        # Internal grid rows are addressed relative to the real content origin
+        # (`ytop = yi + itop - 1`), not a hardcoded `itop == 1`: with vertical
+        # padding (`itop > 1`) the whole doubled-row grid shifts down with the
+        # text, so the `─` fills and `┼` junctions land on the blank separator
+        # rows instead of overwriting the padded cell text. The outer `┬`/`┴`
+        # rows stay pinned to the actual top/bottom border rows (which the
+        # padding band separates from the content). Mirrors the x axis, which
+        # already offsets by `ileft`.
+        ytop = yi + itop - 1
+
         # Draw border junctions row by row (each table row spans two grid rows).
         ry = 0
         (rows_n + 1).times do
-          line = lines[yi + ry]?
+          bottom = (ry // 2) == rows_n
+          row =
+            if ry == 0
+              yi + border.top - 1
+            elsif bottom
+              coords.yl - border.bottom
+            else
+              ytop + ry
+            end
+
+          # Clip to the rendered coords: a scrollable / `overflow: Hidden`
+          # ancestor lowers `coords.yl`, but the screen buffer still holds the
+          # rows below it — stop before stamping gridlines outside the widget's
+          # visible rectangle (`lines[...]?` alone only guards the buffer).
+          break if row >= coords.yl
+          line = lines[row]?
           break unless line
 
           rx = 0
@@ -231,7 +256,7 @@ module Crysterm
             if mi == 0
               if cell = line[xi + 0]?
                 cell.attr = battr
-                if ry != 0 && (ry // 2) != rows_n
+                if ry != 0 && !bottom
                   cell.char = border.left > 0 ? '├' : '─'
                 end
                 line.dirty = true
@@ -247,15 +272,15 @@ module Crysterm
               #
               # Positions are `xi + ileft + rx` (content begins at the left inset
               # `ileft`, not a hardcoded one column); `rx` is the content-column
-              # offset.
-              internal = ry != 0 && (ry // 2) != rows_n
-              if cell = line[xi + ileft + rx]?
+              # offset. Both cells are clipped past the visible right edge.
+              internal = ry != 0 && !bottom
+              if (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 rx += 1
                 cell.attr = battr
                 cell.char = '─' if internal
                 line.dirty = true
               end
-              if internal && (cell = line[xi + ileft + rx]?)
+              if internal && (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 cell.attr = battr
                 cell.char = border.right > 0 ? '┤' : '─'
                 line.dirty = true
@@ -266,12 +291,13 @@ module Crysterm
             # Center junction between this column and the next (never reached for
             # the last column, which returned above). Painted at `xi + ileft + rx`
             # (see the last-column note); `rx += 1` steps past the separator.
-            next unless line[xi + ileft + rx]?
+            # Stop once the junction would fall outside the visible right edge.
+            break if (xi + ileft + rx) >= coords.xl
             if cell = line[xi + ileft + rx]?
               if ry == 0
                 cell.attr = battr
                 cell.char = border.top > 0 ? '┬' : '│'
-              elsif (ry // 2) == rows_n
+              elsif bottom
                 cell.attr = battr
                 cell.char = border.bottom > 0 ? '┴' : '│'
               else
@@ -286,14 +312,16 @@ module Crysterm
           ry += 2
         end
 
-        # Draw internal horizontal/vertical border runs.
+        # Draw internal horizontal/vertical border runs (relative to `ytop`).
         ry = 1
         while ry < rows_n * 2
-          line = lines[yi + ry]?
+          row = ytop + ry
+          break if row >= coords.yl
+          line = lines[row]?
           break unless line
 
           if ry.odd?
-            draw_vertical_separators line, xi, battr
+            draw_vertical_separators line, xi, battr, width: width
           else
             # Horizontal `─` fill across each column's content cells. Start at the
             # left content inset (`ileft`), not a hardcoded column 1.
@@ -301,6 +329,7 @@ module Crysterm
             @maxes.each do |max|
               max.times do
                 break unless line[xi + rx + 1]?
+                break if (xi + rx) >= coords.xl
                 if cell = line[xi + rx]?
                   cell.attr = junction_attr(battr, cell.attr)
                   cell.char = '─'

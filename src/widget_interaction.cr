@@ -231,8 +231,14 @@ module Crysterm
         @_drag_reposition_installed = true
 
         on(Crysterm::Event::DragStart) do |e|
-          @_drag_dx = e.x - aleft
-          @_drag_dy = e.y - atop
+          # Grab against the margin-LESS origin: `aleft`/`atop` default to
+          # `with_margin: true`, but `_get_coords` shifts the drawn box outward by
+          # the margin again — capturing the margin-inclusive origin here would
+          # double-count `margin.left`/`margin.top`, jumping the widget right/down
+          # by its own margin on the first motion. This also keeps the keyboard
+          # `drag_nudge` re-sync (window_drag.cr) exact.
+          @_drag_dx = e.x - aleft(with_margin: false)
+          @_drag_dy = e.y - atop(with_margin: false)
         end
 
         on(Crysterm::Event::Drag) do |e|

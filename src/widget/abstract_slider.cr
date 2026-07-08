@@ -71,7 +71,7 @@ module Crysterm
       # and lets `#value=` clamp. Returns `#minimum` for a non-positive span.
       protected def value_at(pos : Int32, span : Int32) : Int32
         return @minimum if span <= 0
-        @minimum + (pos * value_span / span.to_f).round.to_i
+        @minimum + (pos.to_f * value_span / span).round.to_i
       end
     end
   end

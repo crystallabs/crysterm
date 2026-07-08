@@ -387,25 +387,33 @@ module Crysterm
         # Drop any previous clock so a rapid stop→play can't leave two fibers
         # advancing the same index.
         @animation.try &.stop
+        # Advance the index at the START of each tick (the FrameClock fires its
+        # first tick immediately, so `first` presents frame 0 unadvanced), THEN
+        # request the render and set the interval from the frame actually being
+        # displayed — so each frame is shown for its OWN delay, including frame 0.
+        first = true
         @animation = FrameClock.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
           if @playing
+            unless first
+              @anim_index += 1
+              if @anim_index >= src.size
+                plays += 1
+                if num_plays > 0 && plays >= num_plays
+                  # Finite animation done: hold the final frame instead of
+                  # wrapping to 0, so the last render doesn't snap back to the start.
+                  @anim_index = src.size - 1
+                  @playing = false
+                  @finished = true
+                else
+                  @anim_index = 0
+                end
+              end
+            end
+            first = false
+
             request_render
 
             delay = src[@anim_index]?.try(&.[1]) || 100
-            @anim_index += 1
-            if @anim_index >= src.size
-              plays += 1
-              if num_plays > 0 && plays >= num_plays
-                # Finite animation done: hold the final frame instead of
-                # wrapping to 0, so the last render doesn't snap back to the start.
-                @anim_index = src.size - 1
-                @playing = false
-                @finished = true
-              else
-                @anim_index = 0
-              end
-            end
-
             ms = (delay / @speed).to_i
             ms = 1 if ms < 1
             clock.interval = ms.milliseconds # honor this frame's own delay

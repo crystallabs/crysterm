@@ -411,7 +411,7 @@ module Crysterm
       # only when shown) as the item's *initial* value; `#render` re-syncs it
       # every frame. The horizontal bar reserves a bottom row via
       # `#hscrollbar_rows` instead, so nothing is taken off the right for it.
-      def create_item(content, window = ::Crysterm::Window.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
+      def create_item(content, window = ::Crysterm::Window.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, focus_on_click = false, normal_resizable = false, width = nil) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil
@@ -432,8 +432,9 @@ module Crysterm
         item_style = item_style.dup if item_style.same?(style)
         item_style.visible = true
 
+        # Items are always 1 row tall: `#item_row`/`#item_at_row`/`#items_per_page`
+        # all assume a single-row item, so height is fixed here (not a parameter).
         item = Widget::Box.new(content: content, window: window, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)
-        # XXX above: alpha
 
         if mouse?
           # Default: click selects, clicking the already-selected one activates

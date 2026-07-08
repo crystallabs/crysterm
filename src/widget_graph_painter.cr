@@ -23,6 +23,16 @@ module Crysterm
         getter width : Int32
         getter height : Int32
 
+        # Off-canvas magnitude for device coordinates. Non-finite or out-of-range
+        # logical inputs map here — well outside any real bitmap, so `#plot`'s
+        # bounds check rejects them — while staying far enough from Int32's limits
+        # that downstream pixel arithmetic (marker/ellipse offsets, Bresenham
+        # deltas) can't itself overflow.
+        PX_LIMIT = 1_000_000
+        # Device-radius cap for `#ellipse`: keeps the midpoint algorithm's squared
+        # terms within Int64 and its iteration count bounded on pathological radii.
+        ELLIPSE_R_MAX = 20_000
+
         # Stroke color as `0xRRGGBB`.
         property pen : Int32 = 0xFFFFFF
         # Stroke opacity, 0..255.
@@ -131,7 +141,10 @@ module Crysterm
           dcx, dcy = dx(cx), dy(cy)
           drx = (rx.to_f / @ww * @vw).abs
           dry = (ry.to_f / @wh * @vh).abs * @pixel_aspect
-          ellipse dcx, dcy, drx.round.to_i, dry.round.to_i
+          # Cap the device radii: a non-finite radius maps to the negative sentinel
+          # (rejected by `#ellipse`'s `a <= 0` guard), and a huge finite one is
+          # bounded so the midpoint math and loop stay overflow-free and finite.
+          ellipse dcx, dcy, Math.min(to_px(drx), ELLIPSE_R_MAX), Math.min(to_px(dry), ELLIPSE_R_MAX)
         end
 
         # Fills an annular sector (ring arc) in device pixels, centered at device
@@ -150,7 +163,13 @@ module Crysterm
           cyf = cy.to_f
           start = start_deg.to_f
           stop = start + sweep_deg.to_f
+          # Degenerate/non-finite angles: NaN comparisons are always false, so a
+          # NaN start/stop would spin the spoke loop forever (or crash on the
+          # NaN→Int32 conversion in `plot`); a non-positive `step` never lets `a`
+          # reach `stop`. Bail on non-finite angles and clamp step to the default.
+          return unless start.finite? && stop.finite?
           step = step_deg.to_f
+          step = 0.7 if !step.finite? || step <= 0.0
           a = start
           # Draw spokes at `start, start+step, …`, and always a final spoke at
           # exactly `stop` so the arc reaches its full extent instead of stopping
@@ -163,7 +182,7 @@ module Crysterm
             sa = Math.sin(rad) * @pixel_aspect
             r = ri
             while r <= ro
-              plot (cxf + r * ca).round.to_i, (cyf + r * sa).round.to_i
+              plot to_px(cxf + r * ca), to_px(cyf + r * sa)
               r += 0.5
             end
             break if a >= stop
@@ -173,12 +192,23 @@ module Crysterm
 
         # --- transform ---------------------------------------------------------
 
+        # Converts a device-space float to an Int32 pixel coordinate. `Float64#to_i`
+        # raises `OverflowError` on NaN/Infinity or out-of-Int32 values, which would
+        # crash the render fiber; instead map non-finite values to an off-canvas
+        # sentinel (rejected by `#plot`'s bounds check) and clamp finite ones. The
+        # clamp bound (`PX_LIMIT`, not Int32::MAX) leaves headroom so callers can
+        # add small offsets to the result without overflowing in turn.
+        private def to_px(v : Float64) : Int32
+          return -PX_LIMIT unless v.finite?
+          v.clamp(-PX_LIMIT.to_f, PX_LIMIT.to_f).round.to_i
+        end
+
         private def dx(lx : Number) : Int32
-          (@vx + (lx.to_f - @wx) / @ww * @vw).round.to_i
+          to_px(@vx + (lx.to_f - @wx) / @ww * @vw)
         end
 
         private def dy(ly : Number) : Int32
-          (@vy + (ly.to_f - @wy) / @wh * @vh).round.to_i
+          to_px(@vy + (ly.to_f - @wy) / @wh * @vh)
         end
 
         # --- device-space rasterization ----------------------------------------
@@ -226,20 +256,22 @@ module Crysterm
         # Midpoint ellipse outline.
         private def ellipse(cx : Int32, cy : Int32, a : Int32, b : Int32) : Nil
           return if a <= 0 || b <= 0
-          a2 = a * a
-          b2 = b * b
+          # Int64 for the squared terms: with `a`/`b` capped at ELLIPSE_R_MAX the
+          # products (a2*b2 ~ R⁴) stay well within Int64, so no OverflowError.
+          a2 = a.to_i64 * a
+          b2 = b.to_i64 * b
           x = 0
           y = b
           # Region 1
           d1 = b2 - a2 * b + 0.25 * a2
-          dx = 0
-          dy = 2 * a2 * y
+          dx = 0_i64
+          dy = 2_i64 * a2 * y
           while dx < dy
             four_way cx, cy, x, y
             if d1 < 0
-              x += 1; dx += 2 * b2; d1 += dx + b2
+              x += 1; dx += 2_i64 * b2; d1 += dx + b2
             else
-              x += 1; y -= 1; dx += 2 * b2; dy -= 2 * a2; d1 += dx - dy + b2
+              x += 1; y -= 1; dx += 2_i64 * b2; dy -= 2_i64 * a2; d1 += dx - dy + b2
             end
           end
           # Region 2
@@ -247,9 +279,9 @@ module Crysterm
           while y >= 0
             four_way cx, cy, x, y
             if d2 > 0
-              y -= 1; dy -= 2 * a2; d2 += a2 - dy
+              y -= 1; dy -= 2_i64 * a2; d2 += a2 - dy
             else
-              y -= 1; x += 1; dx += 2 * b2; dy -= 2 * a2; d2 += dx - dy + a2
+              y -= 1; x += 1; dx += 2_i64 * b2; dy -= 2_i64 * a2; d2 += dx - dy + a2
             end
           end
         end

@@ -297,7 +297,7 @@ module Crysterm
       private def thumb_offset(avail : Int32) : Int32
         return 0 if value_span <= 0
         room = avail - thumb_size(avail)
-        ((slider_position - @minimum) * room / value_span.to_f).round.to_i.clamp(0, Math.max(0, room))
+        ((slider_position - @minimum).to_f * room / value_span).round.to_i.clamp(0, Math.max(0, room))
       end
 
       # Resolves a sub-style slot to *fallback* when not explicitly styled. The

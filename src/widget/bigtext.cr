@@ -130,14 +130,27 @@ module Crysterm
         # cluster strings are cached in `@graphemes` (refreshed by
         # `ensure_graphemes`), so no per-frame array/`String` allocation here.
         graphemes = @graphemes
-        max_chars = Math.min graphemes.size, (right - left)//@ratio.width
-
-        # Right-align by the glyphs' actual advance sum (per-glyph widths, matching
-        # the pen), not `max_chars*@ratio.width`, which under-counts full-width
-        # glyphs and pushed the text off the right edge.
+        # Fit whole glyphs by their real advance widths, not by counting glyphs in
+        # half-width cell units (`(right - left)//@ratio.width`). A full-width
+        # CJK/emoji glyph advances 2×`@ratio.width`, so the old count admitted more
+        # glyphs than fit: `advance` could exceed the interior and a right-aligned
+        # `right - advance` pen origin fell left of — even before — `left`, wrapping
+        # negative row indices to the far end of the screen row. Accumulating per-
+        # glyph widths until the next glyph would overflow keeps `advance` within
+        # the interior, and matches the pen advance in the paint loop below.
+        interior = right - left
         advance = 0
-        max_chars.times { |i| advance += glyph_width(graphemes[i]) }
-        x = @align.right? ? (right - advance) : left
+        max_chars = 0
+        while max_chars < graphemes.size
+          gw = glyph_width graphemes[max_chars]
+          break if advance + gw > interior
+          advance += gw
+          max_chars += 1
+        end
+
+        # Clamp the pen origin so a right-aligned run never starts left of the
+        # interior even if a single glyph is wider than the box.
+        x = @align.right? ? Math.max(left, right - advance) : left
         max_chars.times do |i|
           ch = graphemes[i]
           # `Font#glyph` falls back to "?" then a blank glyph, and pads every
@@ -156,13 +169,19 @@ module Crysterm
               mcell = mline[mx]?
               break if mcell.nil?
 
-              lines[y]?.try(&.[x + mx]?).try do |cell|
-                if style.foreground_char != ' '
-                  cell.attr = default_attr
-                  cell.char = mcell == 1 ? style.foreground_char : style.fill_char
-                else
-                  cell.attr = mcell == 1 ? attr : default_attr
-                  cell.char = mcell == 1 ? ' ' : style.fill_char
+              # Clip at the interior's left edge: skip cells left of `left` so a
+              # glyph that starts before the interior never paints outside it (and
+              # never turns into a negative `x + mx` that `Row#[]?` would wrap to
+              # the far right of the screen row).
+              if x + mx >= left
+                lines[y]?.try(&.[x + mx]?).try do |cell|
+                  if style.foreground_char != ' '
+                    cell.attr = default_attr
+                    cell.char = mcell == 1 ? style.foreground_char : style.fill_char
+                  else
+                    cell.attr = mcell == 1 ? attr : default_attr
+                    cell.char = mcell == 1 ? ' ' : style.fill_char
+                  end
                 end
               end
 

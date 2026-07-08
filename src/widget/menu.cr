@@ -839,6 +839,24 @@ module Crysterm
         super
       end
 
+      # Escape (and any cancel gesture) must not fire the highlighted action.
+      # `Mixin::ItemView#cancel_selected` emits BOTH `ActionItem` and `CancelItem`,
+      # and this menu treats `ActionItem` as activation (the handler wired in
+      # `#initialize` calls `activate_index`), so the inherited cancel path would
+      # run the highlighted — possibly destructive — action. Emit only `CancelItem`
+      # (mirroring `ComboBox::Popup#cancel_selected`), and reset the revealed
+      # highlight / open submenu ourselves since `#hide_popup` no-ops for an
+      # embedded menu.
+      def cancel_selected
+        # See `Mixin::ItemView#cancel_selected`: guard against `IndexError` on an
+        # empty list.
+        return if @items.empty?
+        close_submenu if @submenu_open
+        @show_highlight = false
+        emit ::Crysterm::Event::CancelItem, items[selected], selected
+        request_render
+      end
+
       # When this menu is a submenu, closes it via its parent and accepts *e*,
       # returning `true` (the caller then returns). A no-op returning `false` for
       # a top-level menu. Shared by the Left and Escape keys, which dismiss a

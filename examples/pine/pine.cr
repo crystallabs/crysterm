@@ -796,6 +796,7 @@ module Crysterm
         messages[index.selected]?.try do |m|
           flags_of[m] << "Deleted"
           apply_flags.call m
+          index.set_messages messages
           show_status.call "[Message marked for deletion]"
         end
       when '?' then goto_help.call
