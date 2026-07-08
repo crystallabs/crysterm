@@ -36,9 +36,20 @@ module Crysterm
       # Index of the expanded item (`-1` until the first item is added).
       getter current_index : Int32 = -1
 
-      # Markers drawn before a header's title.
-      property expanded_char : Char = MARKER_EXPANDED
-      property collapsed_char : Char = MARKER_COLLAPSED
+      # Markers drawn before a header's title. Unset (`nil`) resolves from the
+      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      setter expanded_char : Char? = nil
+      setter collapsed_char : Char? = nil
+
+      # :ditto:
+      def expanded_char : Char
+        @expanded_char || glyph(Glyphs::Role::TreeExpanded)
+      end
+
+      # :ditto:
+      def collapsed_char : Char
+        @collapsed_char || glyph(Glyphs::Role::TreeCollapsed)
+      end
 
       def initialize(**box)
         super **box
@@ -81,7 +92,7 @@ module Crysterm
       end
 
       private def header_text(title : String, expanded : Bool) : String
-        "#{expanded ? @expanded_char : @collapsed_char} #{title}"
+        "#{expanded ? expanded_char : collapsed_char} #{title}"
       end
 
       # The currently expanded item's content widget, or `nil` when empty.

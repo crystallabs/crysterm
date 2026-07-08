@@ -28,10 +28,16 @@ module Crysterm
       property min_drag_width : Int32 = 3
       property min_drag_height : Int32 = 3
 
-      # Glyph drawn for the handle.
-      property glyph : Char = '◢'
+      # Glyph drawn for the handle. Unset (`nil`) resolves from the `Glyphs`
+      # registry at the effective tier; assigning a `Char` pins it.
+      setter glyph : Char? = nil
 
-      def initialize(target : Widget? = nil, glyph : Char = '◢', min_drag_width = 3, min_drag_height = 3, **box)
+      # :ditto:
+      def glyph : Char
+        @glyph || glyph(Glyphs::Role::SizeGrip)
+      end
+
+      def initialize(target : Widget? = nil, glyph : Char? = nil, min_drag_width = 3, min_drag_height = 3, **box)
         @target = target
         @glyph = glyph
         @min_drag_width = min_drag_width
@@ -39,7 +45,7 @@ module Crysterm
 
         super **box
 
-        set_content @glyph.to_s
+        set_content self.glyph.to_s
 
         # A drag source that stays put (no self-reposition); its motion resizes
         # the target instead.

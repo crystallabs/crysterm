@@ -201,15 +201,19 @@ module Crysterm
       self
     end
 
-    # Draws a horizontal run of *len* cells using *ch*, styled like `#print`.
-    def hline(len : Int32, ch : Char = '─', fg = nil, bg = nil) : self
+    # Draws a horizontal run of *len* cells using *ch* (default: the registry
+    # line glyph at the screen's tier), styled like `#print`.
+    def hline(len : Int32, ch : Char? = nil, fg = nil, bg = nil) : self
+      ch ||= Glyphs[Glyphs::Role::LineHorizontal, @screen.glyph_tier]
       print ch.to_s * len, fg: fg, bg: bg
       self
     end
 
-    # Draws a vertical run of *len* cells using *ch*, styled like `#print`.
+    # Draws a vertical run of *len* cells using *ch* (default: the registry
+    # line glyph at the screen's tier), styled like `#print`.
     # Advances downward one cell per character (cursor returns under the start).
-    def vline(len : Int32, ch : Char = '│', fg = nil, bg = nil) : self
+    def vline(len : Int32, ch : Char? = nil, fg = nil, bg = nil) : self
+      ch ||= Glyphs[Glyphs::Role::LineVertical, @screen.glyph_tier]
       len.times do |i|
         putc ch, fg: fg, bg: bg
         if i < len - 1
@@ -221,16 +225,18 @@ module Crysterm
     end
 
     # Draws a *w*×*h* box with its top-left corner at row *y*, column *x*
-    # (0-based, absolute). Uses Unicode line-drawing characters, or ASCII
-    # (`+`/`-`/`|`) when *ascii* is true. Styled with *fg*/*bg* like `#print`.
+    # (0-based, absolute). Glyphs come from the `Glyphs` registry at the
+    # screen's tier; *ascii* forces `Tier::Ascii` (`+`/`-`/`|`) regardless.
+    # Styled with *fg*/*bg* like `#print`.
     def box(y : Int, x : Int, h : Int32, w : Int32, fg = nil, bg = nil, ascii = false) : self
       return self if w < 2 || h < 2
-      tl, tr, bl, br, hz, vt =
-        if ascii
-          {'+', '+', '+', '+', '-', '|'}
-        else
-          {'┌', '┐', '└', '┘', '─', '│'}
-        end
+      tier = ascii ? Glyphs::Tier::Ascii : @screen.glyph_tier
+      tl = Glyphs[Glyphs::Role::BorderLineTL, tier]
+      tr = Glyphs[Glyphs::Role::BorderLineTR, tier]
+      bl = Glyphs[Glyphs::Role::BorderLineBL, tier]
+      br = Glyphs[Glyphs::Role::BorderLineBR, tier]
+      hz = Glyphs[Glyphs::Role::BorderLineH, tier]
+      vt = Glyphs[Glyphs::Role::BorderLineV, tier]
 
       move_yx y, x
       print "#{tl}#{hz.to_s * (w - 2)}#{tr}", fg: fg, bg: bg

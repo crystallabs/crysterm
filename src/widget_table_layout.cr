@@ -337,12 +337,13 @@ module Crysterm
       # would assume `ileft == 1`, so a bordered+padded table would draw
       # separators one cell short of the cells they divide.
       rx = 0
+      g_v = glyph Glyphs::Role::LineVertical
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
         break if width && rx >= width
         if cell = line[xi + ileft + rx]?
           cell.attr = junction_attr(battr, cell.attr)
-          cell.char = '│'
+          cell.char = g_v
           line.dirty = true
         end
         rx += 1

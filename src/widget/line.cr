@@ -24,7 +24,7 @@ module Crysterm
           self.line_size = "100%"
         end
 
-        char ||= (@orientation == Tput::Orientation::Vertical ? LINE_VERTICAL : LINE_HORIZONTAL)
+        char ||= glyph(@orientation == Tput::Orientation::Vertical ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
 
         style.fill_char = char
       end

@@ -1,22 +1,22 @@
 module Crysterm
   class Widget
-    # Box-drawing and marker glyphs shared by more than one widget, kept in one
-    # place so the literal characters aren't re-typed per widget (where copies
-    # had drifted or risked drifting). Defined on `Widget` so any widget subclass
-    # reaches them unqualified via lexical scope.
+    # Deprecated glyph constants, superseded by the central `Crysterm::Glyphs`
+    # registry (`Glyphs::Role::LineVertical`, `::LineHorizontal`,
+    # `::TreeExpanded`, `::TreeCollapsed` — resolved per support tier via
+    # `Widget#glyph`). Kept only for source compatibility; being compile-time
+    # constants they can't follow `Screen#glyph_tier` or `Glyphs.set`, so new
+    # code should use the registry.
 
-    # Vertical box-drawing line (`│`) — used for a vertical `Line` and for the
-    # divider of a *horizontal* `Splitter` (side-by-side panes are separated by
-    # vertical bars).
+    @[Deprecated("Use `glyph(Glyphs::Role::LineVertical)` (tier-aware) instead")]
     LINE_VERTICAL = '│'
 
-    # Horizontal box-drawing line (`─`) — used for a horizontal `Line` and for
-    # the divider of a *vertical* `Splitter`.
+    @[Deprecated("Use `glyph(Glyphs::Role::LineHorizontal)` (tier-aware) instead")]
     LINE_HORIZONTAL = '─'
 
-    # Disclosure markers drawn before an expandable row (`Tree` nodes,
-    # `ToolBox` section headers).
-    MARKER_EXPANDED  = '▾' # an open/expanded node
-    MARKER_COLLAPSED = '▸' # a closed/collapsed node
+    @[Deprecated("Use `glyph(Glyphs::Role::TreeExpanded)` (tier-aware) instead")]
+    MARKER_EXPANDED = '▾'
+
+    @[Deprecated("Use `glyph(Glyphs::Role::TreeCollapsed)` (tier-aware) instead")]
+    MARKER_COLLAPSED = '▸'
   end
 end

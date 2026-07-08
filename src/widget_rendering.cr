@@ -622,7 +622,7 @@ module Crysterm
         right_attr = sattr border, border.right_fg, border_bg
 
         # Resolved once here instead of re-dispatching per cell inside `border_char`.
-        glyphs = border.type.line_glyphs
+        glyphs = border.type.line_glyphs(glyph_tier)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's thickness. A side thicker than one cell fills its whole
@@ -823,7 +823,7 @@ module Crysterm
       stops.clear
       rows.each { |y| stops[y] = true }
       return if stops.empty?
-      Docking.dock scr.lines, stops, scr.awidth, contrast
+      Docking.dock scr.lines, stops, scr.awidth, contrast, scr.glyph_tier.ascii?
     end
 
     @[AlwaysInline]

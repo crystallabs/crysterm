@@ -101,6 +101,16 @@ module Crysterm
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode : Bool = Config.screen_force_unicode
 
+    # Which set of chrome glyphs widgets pick from the `Glyphs` registry
+    # (`ascii` / `unicode` / `extended`). This is a proactive *choice* of
+    # characters — the reactive draw-time ACS/`ascii_fallback` reduction still
+    # applies on terminals that can't render the chosen set. Defaults to the
+    # `screen.glyphs` config option (`CRYSTERM_SCREEN_GLYPHS`), i.e. `unicode`,
+    # matching what the toolkit has always emitted; `ascii` and `extended` are
+    # deliberate opt-ins (font coverage can't be probed, and `full_unicode?`
+    # gates text *layout*, not glyph choice).
+    property glyph_tier : Glyphs::Tier = Config.screen_glyphs
+
     # User option: enable grapheme/full-Unicode-aware rendering — text is
     # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
     # rather than one column per codepoint, grapheme clusters stay intact, and

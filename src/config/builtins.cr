@@ -82,6 +82,8 @@ module Superconf
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
   option "screen.full_unicode", false,
     description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode)"
+  option "screen.glyphs", Crysterm::Glyphs::Tier::Unicode,
+    description: "Which chrome glyphs widgets draw (ascii|unicode|extended): 'unicode' (default) is the classic box-drawing/block set, 'ascii' restricts chrome to 7-bit characters, 'extended' opts into glyphs that need a modern font. A glyph choice, not an encoding — draw-time ACS fallback still protects incapable terminals"
   option "window.overflow", Crysterm::Overflow::Ignore,
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
 

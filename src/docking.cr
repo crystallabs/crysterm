@@ -121,11 +121,38 @@ module Crysterm
     end
 
     # The stroke pattern of `c`'s glyph, or 0 for a non-box-drawing char.
-    # Packed-table equivalent of `GLYPH_BITS[c]? || 0`.
+    # Packed-table equivalent of `GLYPH_BITS[c]? || 0`. With *ascii* (docking
+    # at `Glyphs::Tier::Ascii`), the ASCII line/junction chars participate too:
+    # `-`/`|` as straight runs, `+` as a full four-arm junction. These are the
+    # registry's default `Tier::Ascii` role values; the merge detection assumes
+    # them (a `Glyphs.set` override of those roles' *ascii* chars isn't seen
+    # here).
     @[AlwaysInline]
-    private def glyph_bits(c : Char) : Int32
+    private def glyph_bits(c : Char, ascii : Bool = false) : Int32
       o = c.ord
-      (0x2500 <= o <= 0x253C) ? GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500).to_i : 0
+      return GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500).to_i if 0x2500 <= o <= 0x253C
+      if ascii
+        case c
+        when '|' then return BITWISE_U_ANGLE | BITWISE_D_ANGLE
+        when '-' then return BITWISE_L_ANGLE | BITWISE_R_ANGLE
+        when '+' then return BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE
+        end
+      end
+      0
+    end
+
+    # The ASCII rendition of a 4-bit junction pattern: straight runs keep
+    # their line char, anything with a corner or crossing is `+`.
+    @[AlwaysInline]
+    private def ascii_angle(bits : Int32) : Char
+      case bits
+      when BITWISE_U_ANGLE, BITWISE_D_ANGLE, BITWISE_U_ANGLE | BITWISE_D_ANGLE
+        '|'
+      when BITWISE_L_ANGLE, BITWISE_R_ANGLE, BITWISE_L_ANGLE | BITWISE_R_ANGLE
+        '-'
+      else
+        '+'
+      end
     end
 
     # Reusable scratch buffer for the sorted stop rows, mutated and reused by
@@ -139,8 +166,10 @@ module Crysterm
     # Re-evaluates and docks every angle character found on each of the `stops`
     # rows of `lines`. `width` is the number of columns to scan per row, and
     # `dock_contrast` controls how cells with differing colors/attributes are
-    # treated (see `DockContrast`).
-    def dock(lines, stops, width, dock_contrast : DockContrast)
+    # treated (see `DockContrast`). With *ascii* (the caller's tier is
+    # `Glyphs::Tier::Ascii`) the ASCII line chars `+`/`-`/`|` are merged too,
+    # and every junction resolves to its ASCII rendition.
+    def dock(lines, stops, width, dock_contrast : DockContrast, ascii : Bool = false)
       # `stops` is a `Hash(Int32, Bool)`; `keys` allocates a fresh `Array(Int32)`
       # every frame. Copy keys into the reused scratch buffer and sort in place
       # instead.
@@ -160,8 +189,8 @@ module Crysterm
         n = width < chars.size ? width : chars.size
         x = 0
         while x < n
-          if angle? chars.unsafe_fetch(x)
-            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast))
+          if angle? chars.unsafe_fetch(x), ascii
+            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast, ascii))
             # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
             row.delete_grapheme x
             row.mark_dirty x
@@ -178,12 +207,12 @@ module Crysterm
     #
     # Public entry point: resolves the cell's row and delegates to the
     # row-hoisted overload below, which `#dock` calls directly.
-    def angle_at(lines, x, y, dock_contrast : DockContrast)
-      angle_at lines, lines[y], x, y, dock_contrast
+    def angle_at(lines, x, y, dock_contrast : DockContrast, ascii : Bool = false)
+      angle_at lines, lines[y], x, y, dock_contrast, ascii
     end
 
     # :ditto: — *row* is the already-resolved `lines[y]`.
-    def angle_at(lines, row, x, y, dock_contrast : DockContrast)
+    def angle_at(lines, row, x, y, dock_contrast : DockContrast, ascii : Bool = false)
       # Two separate accumulators: `recip` is the arms contributed by neighbors
       # that *reciprocate* (point back at this cell — a real connection), and
       # `preserve` is the cell's own arms that merely sit beside a present line
@@ -197,7 +226,7 @@ module Crysterm
       ch = row.chars.unsafe_fetch(x)
 
       # The arms this cell's own glyph already draws (0 for a non-box char).
-      self_bits = glyph_bits ch
+      self_bits = glyph_bits ch, ascii
 
       # Evaluate each of the four neighbors (left, up, right, down); `each`
       # over a tuple unrolls at compile time. A `nil` result means `DontDock`
@@ -207,7 +236,7 @@ module Crysterm
        {0, -1, BITWISE_D_ANGLE, BITWISE_U_ANGLE},
        {1, 0, BITWISE_L_ANGLE, BITWISE_R_ANGLE},
        {0, 1, BITWISE_U_ANGLE, BITWISE_D_ANGLE} }.each do |(dx, dy, opp_bit, bit)|
-        result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast
+        result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast, ascii
         return ch if result.nil?
         recip |= result
 
@@ -221,7 +250,7 @@ module Crysterm
         # line sits below/beside it lets docking add joins without severing an
         # existing corner. Still gated on a line neighbor, so a `┐` against a
         # blank/off-grid edge reduces as before.
-        if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy)
+        if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy, ascii)
           preserve |= bit
         end
       end
@@ -238,8 +267,12 @@ module Crysterm
 
       # `recip | preserve` only ever carries the four arm bits, so it indexes
       # the 16-entry table directly; `'\0'` (the absent `0` entry) keeps `ch`.
-      a = ANGLE_BY_BITS.unsafe_fetch(recip | preserve)
-      a == '\0' ? ch : a
+      # In ASCII mode the same bit pattern maps to `+`/`-`/`|` instead of the
+      # box-drawing glyph.
+      bits = recip | preserve
+      a = ANGLE_BY_BITS.unsafe_fetch(bits)
+      return ch if a == '\0'
+      ascii ? ascii_angle(bits) : a
     end
 
     # Whether `c` is one of the box-drawing glyphs in `ANGLES`. All eleven live
@@ -248,9 +281,10 @@ module Crysterm
     # Identical result to `ANGLES.includes?(c)` (every `ANGLES` glyph has a
     # non-zero stroke pattern), via one packed-table read.
     @[AlwaysInline]
-    private def angle?(c : Char) : Bool
+    private def angle?(c : Char, ascii : Bool = false) : Bool
       o = c.ord
-      0x2500 <= o <= 0x253C && GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500) != 0
+      return true if 0x2500 <= o <= 0x253C && GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500) != 0
+      ascii && (c == '+' || c == '-' || c == '|')
     end
 
     # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its
@@ -269,10 +303,10 @@ module Crysterm
 
     # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
     # line-drawing glyph.
-    private def neighbor_line?(lines, x, y, dx, dy) : Bool
+    private def neighbor_line?(lines, x, y, dx, dy, ascii : Bool = false) : Bool
       return false unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
-      angle? nrow.chars.unsafe_fetch(nx)
+      angle? nrow.chars.unsafe_fetch(nx), ascii
     end
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
@@ -282,11 +316,11 @@ module Crysterm
     # signal the caller to abort docking (`DontDock` with a contrasting
     # neighbor). For `Blend`, the cell's attribute is blended with the
     # neighbor's as a side effect.
-    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast)
+    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast, ascii : Bool = false)
       return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
 
-      return 0 unless (glyph_bits(nrow.chars.unsafe_fetch(nx)) & opp_bit) != 0
+      return 0 unless (glyph_bits(nrow.chars.unsafe_fetch(nx), ascii) & opp_bit) != 0
 
       nattr = nrow.attrs.unsafe_fetch(nx)
       if nattr != attr

@@ -384,7 +384,7 @@ module Crysterm
         weeks = vertical_header_format.iso_week_numbers?
         @grid_top_row = (nav ? 1 : 0) + (header ? 1 : 0)
         @col_offset = weeks ? 3 : 0
-        sep = grid_visible? ? '│' : ' '
+        sep = grid_visible? ? glyph(Glyphs::Role::LineVertical) : ' '
 
         first = local_date(@shown_year, @shown_month, 1)
         dim = Time.days_in_month(@shown_year, @shown_month)

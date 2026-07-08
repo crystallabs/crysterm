@@ -192,15 +192,21 @@ module Crysterm
         acts[@menu_index].activate
       end
 
+      # The ` ▾` suffix marking an attached popup menu (two cells: space +
+      # dropdown glyph at the effective tier).
+      private def indicator_suffix : String
+        " #{glyph(Glyphs::Role::DropdownArrow)}"
+      end
+
       # The label without the trailing indicator.
       private def base_label : String
         c = content
-        c.ends_with?(" ▾") ? c[0...-2] : c
+        c.ends_with?(indicator_suffix) ? c[0...-2] : c
       end
 
-      # Appends the `▾` popup indicator to *label* when a menu is attached.
+      # Appends the popup indicator to *label* when a menu is attached.
       private def with_indicator(label : String) : String
-        @menu ? "#{label} ▾" : label
+        @menu ? "#{label}#{indicator_suffix}" : label
       end
     end
   end

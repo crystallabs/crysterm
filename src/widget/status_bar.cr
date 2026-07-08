@@ -86,7 +86,7 @@ module Crysterm
       # specialized to a text label).
       def add_permanent(text : String) : Nil
         @permanent << text
-        @permanent_text = @permanent.join " │ "
+        @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
         request_render
       end
 

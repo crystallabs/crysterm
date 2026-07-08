@@ -43,7 +43,9 @@ module Crysterm
       end
 
       def render
-        set_content selectable_content('(', ')', checked? ? '*' : ' '), true
+        set_content selectable_content(glyph(Glyphs::Role::RadioOpen),
+          glyph(Glyphs::Role::RadioClose),
+          glyph(checked? ? Glyphs::Role::RadioChecked : Glyphs::Role::RadioUnchecked)), true
         super false
       end
 

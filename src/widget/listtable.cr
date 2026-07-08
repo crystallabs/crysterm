@@ -616,6 +616,13 @@ module Crysterm
         battr = sattr border
         last = @maxes.size - 1
 
+        # Junction glyphs at the effective tier, hoisted out of the per-cell
+        # loops (matches `Table#render`).
+        tier = glyph_tier
+        g_v = Glyphs[Glyphs::Role::LineVertical, tier]
+        g_tee_t = Glyphs[Glyphs::Role::JunctionTeeTop, tier]
+        g_tee_b = Glyphs[Glyphs::Role::JunctionTeeBottom, tier]
+
         # Separators are drawn between the visible columns (`@first_col..`),
         # with `rx` accumulating from the left of the viewport — matching the
         # rows, also re-rendered from `@first_col` — and clipped past the right edge.
@@ -637,11 +644,11 @@ module Crysterm
             if cell = line[xi + ileft + rx]?
               if ry == 0
                 cell.attr = battr
-                cell.char = border.top > 0 ? '┬' : '│'
+                cell.char = border.top > 0 ? g_tee_t : g_v
                 line.dirty = true
               elsif ry == height
                 cell.attr = battr
-                cell.char = border.bottom > 0 ? '┴' : '│'
+                cell.char = border.bottom > 0 ? g_tee_b : g_v
                 line.dirty = true
               end
             end

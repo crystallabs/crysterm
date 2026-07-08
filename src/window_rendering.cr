@@ -399,7 +399,7 @@ module Crysterm
           # fixing stray junctions the base `#_dock` produced where a popup
           # overlapped a widget below it. Gated on `dock_borders`, like the base pass.
           if @dock_borders && !@_plane_dock_stops.empty?
-            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast
+            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
           end
           pl.composite_onto @lines
         end
@@ -412,7 +412,7 @@ module Crysterm
     # collected in `@_dock_stops` this frame. Delegates to `Crysterm::Docking`,
     # shared between border docking and `Line` widget docking.
     def _dock
-      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast
+      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
     end
 
     # Delayed render (user render)

@@ -33,9 +33,21 @@ module Crysterm
       # Whether the current value is drawn centered over the track.
       property? show_value : Bool = false
 
-      # Glyph used for the draggable handle and the track.
-      property handle_char : Char = '█'
-      property track_char : Char = '─'
+      # Glyph used for the draggable handle and the track. Unset (`nil`)
+      # resolves from the `Glyphs` registry at the effective tier; assigning a
+      # `Char` pins it.
+      setter handle_char : Char? = nil
+      setter track_char : Char? = nil
+
+      # :ditto:
+      def handle_char : Char
+        @handle_char || glyph(Glyphs::Role::SliderHandle)
+      end
+
+      # :ditto:
+      def track_char : Char
+        @track_char || glyph(Glyphs::Role::SliderTrack)
+      end
 
       # Tick-mark placement and spacing (Qt's `setTickPosition`/`setTickInterval`).
       property tick_position : TickPosition = :none
@@ -44,8 +56,14 @@ module Crysterm
       # (falling back to `#step`).
       property tick_interval : Int32 = 0
 
-      # Glyph used for a tick mark.
-      property tick_char : Char = '·'
+      # Glyph used for a tick mark. Unset (`nil`) resolves from the `Glyphs`
+      # registry at the effective tier.
+      setter tick_char : Char? = nil
+
+      # :ditto:
+      def tick_char : Char
+        @tick_char || glyph(Glyphs::Role::SliderTick)
+      end
 
       def initialize(
         value : Int32? = nil,
@@ -55,11 +73,11 @@ module Crysterm
         @page_step = 10,
         @orientation = @orientation,
         @show_value = false,
-        @handle_char = '█',
-        @track_char = '─',
+        @handle_char = nil,
+        @track_char = nil,
         @tick_position = TickPosition::None,
         @tick_interval = 0,
-        @tick_char = '·',
+        @tick_char = nil,
         **input,
       )
         super **input
@@ -122,6 +140,9 @@ module Crysterm
         interval = effective_tick_interval
         attr = sattr style
         edges = @tick_edges
+        # Hoisted out of the per-tick loops (registry resolution walks to the
+        # window).
+        tick_ch = tick_char
 
         if @orientation.horizontal?
           avail = xl - xi - 1
@@ -134,7 +155,7 @@ module Crysterm
           while tv <= @maximum
             tx = xi + ((tv - @minimum).to_f * avail / value_span).round.to_i
             unless tx == hx
-              edges.each { |ty| window.fill_region attr, @tick_char, tx, tx + 1, ty, ty + 1 }
+              edges.each { |ty| window.fill_region attr, tick_ch, tx, tx + 1, ty, ty + 1 }
             end
             tv += interval
           end
@@ -149,7 +170,7 @@ module Crysterm
           while tv <= @maximum
             ty = (yl - 1) - ((tv - @minimum).to_f * avail / value_span).round.to_i
             unless ty == hy
-              edges.each { |cx| window.fill_region attr, @tick_char, cx, cx + 1, ty, ty + 1 }
+              edges.each { |cx| window.fill_region attr, tick_ch, cx, cx + 1, ty, ty + 1 }
             end
             tv += interval
           end
@@ -159,7 +180,7 @@ module Crysterm
       def render
         with_inner_coords do |xi, xl, yi, yl|
           track_attr = sattr style
-          window.fill_region track_attr, @track_char, xi, xl, yi, yl
+          window.fill_region track_attr, track_char, xi, xl, yi, yl
 
           handle_attr = sattr style.indicator
           # The handle is a contiguous 1-cell-wide run across the cross axis, so
@@ -167,10 +188,10 @@ module Crysterm
           # the track above — not a per-cell loop.
           if @orientation.horizontal?
             hx = xi + handle_offset(xl - xi - 1)
-            window.fill_region handle_attr, @handle_char, hx, hx + 1, yi, yl
+            window.fill_region handle_attr, handle_char, hx, hx + 1, yi, yl
           else
             hy = (yl - 1) - handle_offset(yl - yi - 1)
-            window.fill_region handle_attr, @handle_char, xi, xl, hy, hy + 1
+            window.fill_region handle_attr, handle_char, xi, xl, hy, hy + 1
           end
 
           draw_ticks(xi, xl, yi, yl) unless @tick_position.none?

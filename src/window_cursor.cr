@@ -128,7 +128,7 @@ module Crysterm
 
       if cursor.shape.line?
         attr = Attr.pack(Attr.flags(attr), white, Attr.bg(attr))
-        ch = '\u2502'
+        ch = Glyphs[Glyphs::Role::CursorBar, glyph_tier]
       elsif cursor.shape.underline?
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?

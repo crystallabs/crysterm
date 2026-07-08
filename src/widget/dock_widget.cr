@@ -294,8 +294,8 @@ module Crysterm
       end
 
       private def build_buttons
-        @close_button = titlebutton(0, "✕") { close_dock } if closable?
-        @float_button = titlebutton(closable? ? 2 : 0, "⇕") { toggle_floating } if floatable?
+        @close_button = titlebutton(0, glyph(Glyphs::Role::CloseButton).to_s) { close_dock } if closable?
+        @float_button = titlebutton(closable? ? 2 : 0, glyph(Glyphs::Role::FloatButton).to_s) { toggle_floating } if floatable?
       end
 
       # Builds one title-bar button: a 1x1 `Box` pinned to the bar's right edge
@@ -311,7 +311,7 @@ module Crysterm
       end
 
       private def refresh_buttons
-        @float_button.try &.set_content(floating? ? "▣" : "⇕")
+        @float_button.try &.set_content(glyph(floating? ? Glyphs::Role::FloatingMark : Glyphs::Role::FloatButton).to_s)
         refresh_grip
       end
 

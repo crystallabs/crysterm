@@ -75,9 +75,20 @@ module Crysterm
         v
       end
 
-      # Glyphs for the thumb and the trough.
-      property thumb_char : Char = '█'
-      property trough_char : Char = '░'
+      # Glyphs for the thumb and the trough. Unset (`nil`) resolves from the
+      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      setter thumb_char : Char? = nil
+      setter trough_char : Char? = nil
+
+      # :ditto:
+      def thumb_char : Char
+        @thumb_char || glyph(Glyphs::Role::ScrollThumb)
+      end
+
+      # :ditto:
+      def trough_char : Char
+        @trough_char || glyph(Glyphs::Role::ScrollTrough)
+      end
 
       # Minimum thumb (handle) length in cells, so the proportional handle never
       # collapses to an unusable single-cell nub over a very long list — Qt's
@@ -102,11 +113,32 @@ module Crysterm
       property? stepper_buttons : Bool = false
 
       # Arrow glyphs drawn in the stepper buttons. Up/down are used when
-      # `#orientation` is vertical, left/right when horizontal.
-      property up_arrow_char : Char = '▲'
-      property down_arrow_char : Char = '▼'
-      property left_arrow_char : Char = '◀'
-      property right_arrow_char : Char = '▶'
+      # `#orientation` is vertical, left/right when horizontal. Unset (`nil`)
+      # resolves from the `Glyphs` registry at the effective tier.
+      setter up_arrow_char : Char? = nil
+      setter down_arrow_char : Char? = nil
+      setter left_arrow_char : Char? = nil
+      setter right_arrow_char : Char? = nil
+
+      # :ditto:
+      def up_arrow_char : Char
+        @up_arrow_char || glyph(Glyphs::Role::ArrowUp)
+      end
+
+      # :ditto:
+      def down_arrow_char : Char
+        @down_arrow_char || glyph(Glyphs::Role::ArrowDown)
+      end
+
+      # :ditto:
+      def left_arrow_char : Char
+        @left_arrow_char || glyph(Glyphs::Role::ArrowLeft)
+      end
+
+      # :ditto:
+      def right_arrow_char : Char
+        @right_arrow_char || glyph(Glyphs::Role::ArrowRight)
+      end
 
       # The scrollable widget this bar is bound to (see `#attach`), if any.
       getter target : Widget?
@@ -131,8 +163,8 @@ module Crysterm
         @step = 1,
         @page_step = 1,
         @orientation = @orientation,
-        @thumb_char = '█',
-        @trough_char = '░',
+        @thumb_char = nil,
+        @trough_char = nil,
         @stepper_buttons = false,
         @show_trough = true,
         **input,
@@ -314,16 +346,16 @@ module Crysterm
         if decrement
           button = resolve_slot(base.sub_line, base, base)
           if @orientation.horizontal?
-            {sattr(resolve_slot(base.left_arrow, button, base)), @left_arrow_char}
+            {sattr(resolve_slot(base.left_arrow, button, base)), left_arrow_char}
           else
-            {sattr(resolve_slot(base.up_arrow, button, base)), @up_arrow_char}
+            {sattr(resolve_slot(base.up_arrow, button, base)), up_arrow_char}
           end
         else
           button = resolve_slot(base.add_line, base, base)
           if @orientation.horizontal?
-            {sattr(resolve_slot(base.right_arrow, button, base)), @right_arrow_char}
+            {sattr(resolve_slot(base.right_arrow, button, base)), right_arrow_char}
           else
-            {sattr(resolve_slot(base.down_arrow, button, base)), @down_arrow_char}
+            {sattr(resolve_slot(base.down_arrow, button, base)), down_arrow_char}
           end
         end
       end
@@ -355,7 +387,10 @@ module Crysterm
 
           # With the trough hidden (blessed-style), only the thumb is drawn; a
           # space keeps the reserved column empty rather than glyph-filled.
-          trough_ch = show_trough? ? @trough_char : ' '
+          # Both glyphs hoisted out of the per-cell loop (registry resolution
+          # walks to the window).
+          trough_ch = show_trough? ? trough_char : ' '
+          thumb_ch = thumb_char
 
           (main_lo...main_hi).each do |m|
             attr, ch =
@@ -368,7 +403,7 @@ module Crysterm
               elsif m >= thumb_hi
                 {add_page_attr, trough_ch}
               else
-                {thumb_attr, @thumb_char}
+                {thumb_attr, thumb_ch}
               end
             paint_cross horizontal, m, xi, xl, yi, yl, attr, ch
           end

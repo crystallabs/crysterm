@@ -68,9 +68,9 @@ module Crysterm
       # cleared. Written through `state_style` so it persists like any other
       # programmatic default.
       private def refresh_divider_glyphs
-        glyph = horizontal? ? LINE_VERTICAL : LINE_HORIZONTAL
+        line_glyph = glyph(horizontal? ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
         @dividers.each do |div|
-          ch = div.css_styled? ? ' ' : glyph
+          ch = div.css_styled? ? ' ' : line_glyph
           st = div.state_style
           st.fill_char = ch unless st.fill_char == ch
         end

@@ -39,16 +39,17 @@ module Crysterm
       end
 
       def render
-        set_content selectable_content('[', ']', mark_char), true
+        set_content selectable_content(glyph(Glyphs::Role::CheckboxOpen),
+          glyph(Glyphs::Role::CheckboxClose), mark_char), true
         super false
       end
 
       # Glyph shown between the brackets for the current state: the check mark
       # when checked, a dash when partially checked, a space otherwise.
       private def mark_char : Char
-        return 'x' if checked?
-        return '-' if partial?
-        ' '
+        return glyph(Glyphs::Role::CheckboxChecked) if checked?
+        return glyph(Glyphs::Role::CheckboxPartial) if partial?
+        glyph(Glyphs::Role::CheckboxUnchecked)
       end
 
       # Resets the partially-checked state on a check/uncheck transition. This

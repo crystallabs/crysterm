@@ -1476,6 +1476,20 @@ module Crysterm
       window?.try(&.full_unicode?) || false
     end
 
+    # The glyph tier in effect for this widget (the owning window's screen
+    # setting; `Unicode` when unattached — the registry's byte-identical
+    # default).
+    def glyph_tier : Glyphs::Tier
+      window?.try(&.glyph_tier) || Glyphs::Tier::Unicode
+    end
+
+    # The registry character for *role* at this widget's effective tier. The
+    # single hook widget renders use instead of hardcoded chrome literals.
+    @[AlwaysInline]
+    def glyph(role : Glyphs::Role) : Char
+      Glyphs[role, glyph_tier]
+    end
+
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
     # stripped (they occupy no columns); whitespace is preserved. With
     # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise

@@ -178,9 +178,9 @@ module Crysterm
         # While editing, show the typed buffer; otherwise show the committed value.
         shown = editable? ? (@text.empty? ? @value : @text) : @value
         if shown.empty? && @options.empty? && !editable?
-          set_content " ▾"
+          set_content " #{glyph(Glyphs::Role::DropdownArrow)}"
         else
-          set_content "#{shown} ▾"
+          set_content "#{shown} #{glyph(Glyphs::Role::DropdownArrow)}"
         end
       end
 

@@ -226,6 +226,17 @@ module Crysterm
         # already offsets by `ileft`.
         ytop = yi + itop - 1
 
+        # Gridline glyphs at the effective tier, hoisted out of the per-cell
+        # loops below (`#glyph` walks to the window; once per render is enough).
+        tier = glyph_tier
+        g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
+        g_v = Glyphs[Glyphs::Role::LineVertical, tier]
+        g_cross = Glyphs[Glyphs::Role::JunctionCross, tier]
+        g_tee_l = Glyphs[Glyphs::Role::JunctionTeeLeft, tier]
+        g_tee_r = Glyphs[Glyphs::Role::JunctionTeeRight, tier]
+        g_tee_t = Glyphs[Glyphs::Role::JunctionTeeTop, tier]
+        g_tee_b = Glyphs[Glyphs::Role::JunctionTeeBottom, tier]
+
         # Draw border junctions row by row (each table row spans two grid rows).
         ry = 0
         (rows_n + 1).times do
@@ -257,7 +268,7 @@ module Crysterm
               if cell = line[xi + 0]?
                 cell.attr = battr
                 if ry != 0 && !bottom
-                  cell.char = border.left > 0 ? '├' : '─'
+                  cell.char = border.left > 0 ? g_tee_l : g_h
                 end
                 line.dirty = true
               end
@@ -277,12 +288,12 @@ module Crysterm
               if (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 rx += 1
                 cell.attr = battr
-                cell.char = '─' if internal
+                cell.char = g_h if internal
                 line.dirty = true
               end
               if internal && (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 cell.attr = battr
-                cell.char = border.right > 0 ? '┤' : '─'
+                cell.char = border.right > 0 ? g_tee_r : g_h
                 line.dirty = true
               end
               next
@@ -296,13 +307,13 @@ module Crysterm
             if cell = line[xi + ileft + rx]?
               if ry == 0
                 cell.attr = battr
-                cell.char = border.top > 0 ? '┬' : '│'
+                cell.char = border.top > 0 ? g_tee_t : g_v
               elsif bottom
                 cell.attr = battr
-                cell.char = border.bottom > 0 ? '┴' : '│'
+                cell.char = border.bottom > 0 ? g_tee_b : g_v
               else
                 cell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
-                cell.char = '┼'
+                cell.char = g_cross
               end
               line.dirty = true
             end
@@ -332,7 +343,7 @@ module Crysterm
                 break if (xi + rx) >= coords.xl
                 if cell = line[xi + rx]?
                   cell.attr = junction_attr(battr, cell.attr)
-                  cell.char = '─'
+                  cell.char = g_h
                   line.dirty = true
                 end
                 rx += 1

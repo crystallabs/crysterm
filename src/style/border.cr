@@ -22,19 +22,30 @@ module Crysterm
     end
 
     # The six glyphs used to draw a line-family border: the four corners
-    # (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical (`v`) runs.
-    # The dashed/dotted variants keep the light corners and only swap the
-    # straight runs; `Double` swaps all six.
-    def line_glyphs
+    # (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical (`v`) runs,
+    # at support *tier* (defaults to the classic Unicode set). The dashed/
+    # dotted variants keep the light corners and only swap the straight runs;
+    # `Double` swaps all six; at `Tier::Ascii` every family collapses to
+    # `+`/`-`/`|` (`=` runs for `Double`). Values come from the central
+    # `Glyphs` registry, so `Glyphs.set` retunes borders toolkit-wide.
+    def line_glyphs(tier : Glyphs::Tier = Glyphs::Tier::Unicode)
       case self
       when Double
-        {tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║'}
+        {tl: Glyphs[Glyphs::Role::BorderDoubleTL, tier], tr: Glyphs[Glyphs::Role::BorderDoubleTR, tier],
+         bl: Glyphs[Glyphs::Role::BorderDoubleBL, tier], br: Glyphs[Glyphs::Role::BorderDoubleBR, tier],
+         h: Glyphs[Glyphs::Role::BorderDoubleH, tier], v: Glyphs[Glyphs::Role::BorderDoubleV, tier]}
       when Dashed
-        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '┄', v: '┆'}
+        {tl: Glyphs[Glyphs::Role::BorderDashedTL, tier], tr: Glyphs[Glyphs::Role::BorderDashedTR, tier],
+         bl: Glyphs[Glyphs::Role::BorderDashedBL, tier], br: Glyphs[Glyphs::Role::BorderDashedBR, tier],
+         h: Glyphs[Glyphs::Role::BorderDashedH, tier], v: Glyphs[Glyphs::Role::BorderDashedV, tier]}
       when Dotted
-        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '┈', v: '┊'}
+        {tl: Glyphs[Glyphs::Role::BorderDottedTL, tier], tr: Glyphs[Glyphs::Role::BorderDottedTR, tier],
+         bl: Glyphs[Glyphs::Role::BorderDottedBL, tier], br: Glyphs[Glyphs::Role::BorderDottedBR, tier],
+         h: Glyphs[Glyphs::Role::BorderDottedH, tier], v: Glyphs[Glyphs::Role::BorderDottedV, tier]}
       else # Line (and any non-line type, defensively)
-        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│'}
+        {tl: Glyphs[Glyphs::Role::BorderLineTL, tier], tr: Glyphs[Glyphs::Role::BorderLineTR, tier],
+         bl: Glyphs[Glyphs::Role::BorderLineBL, tier], br: Glyphs[Glyphs::Role::BorderLineBR, tier],
+         h: Glyphs[Glyphs::Role::BorderLineH, tier], v: Glyphs[Glyphs::Role::BorderLineV, tier]}
       end
     end
   end

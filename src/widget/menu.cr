@@ -493,7 +493,7 @@ module Crysterm
         inner = awidth - iwidth
         return if inner < 1
         @separator_items.each do |it|
-          it.set_content("─" * inner) unless it.content.size == inner
+          it.set_content(glyph(Glyphs::Role::LineHorizontal).to_s * inner) unless it.content.size == inner
         end
       end
 
@@ -632,13 +632,18 @@ module Crysterm
       private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
         lefts = acts.map do |a|
           next "" if a.separator?
-          prefix = a.checkable? ? (a.checked? ? "[x] " : "[ ] ") : "    "
-          glyph = (i = a.icon) ? "#{i} " : ""
-          "#{prefix}#{glyph}#{a.text}"
+          prefix = if a.checkable?
+                     mark = glyph(a.checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked)
+                     "#{glyph(Glyphs::Role::CheckboxOpen)}#{mark}#{glyph(Glyphs::Role::CheckboxClose)} "
+                   else
+                     "    "
+                   end
+          icon = (i = a.icon) ? "#{i} " : ""
+          "#{prefix}#{icon}#{a.text}"
         end
         rights = acts.map do |a|
           next "" if a.separator?
-          next "▶" if a.menu?
+          next glyph(Glyphs::Role::SubmenuArrow).to_s if a.menu?
           a.shortcut_text
         end
         {lefts, rights}
@@ -661,7 +666,7 @@ module Crysterm
 
         rows = acts.map_with_index do |a, i|
           if a.separator?
-            "─"
+            glyph(Glyphs::Role::LineHorizontal).to_s
           else
             row = lefts[i]
             row += "  " + rights[i] unless rights[i].empty?

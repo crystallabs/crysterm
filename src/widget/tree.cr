@@ -129,10 +129,26 @@ module Crysterm
         @indent_cache[depth]
       end
 
-      # Markers drawn before a node's text.
-      property expanded_char : Char = MARKER_EXPANDED
-      property collapsed_char : Char = MARKER_COLLAPSED
-      property leaf_char : Char = ' '
+      # Markers drawn before a node's text. Unset (`nil`) resolves from the
+      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      setter expanded_char : Char? = nil
+      setter collapsed_char : Char? = nil
+      setter leaf_char : Char? = nil
+
+      # :ditto:
+      def expanded_char : Char
+        @expanded_char || glyph(Glyphs::Role::TreeExpanded)
+      end
+
+      # :ditto:
+      def collapsed_char : Char
+        @collapsed_char || glyph(Glyphs::Role::TreeCollapsed)
+      end
+
+      # :ditto:
+      def leaf_char : Char
+        @leaf_char || glyph(Glyphs::Role::TreeLeaf)
+      end
 
       # `initialize` is inherited from `Mixin::ItemView` unchanged.
 
@@ -240,7 +256,7 @@ module Crysterm
       end
 
       private def row_text(node : Node, depth : Int32) : String
-        marker = node.leaf? ? @leaf_char : (node.expanded? ? @expanded_char : @collapsed_char)
+        marker = node.leaf? ? leaf_char : (node.expanded? ? expanded_char : collapsed_char)
         "#{indent_str(depth)}#{marker} #{node.text}"
       end
 

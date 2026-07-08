@@ -200,7 +200,7 @@ module Crysterm
 
       # The title as shown in the bar (with a `✕` appended when closable).
       private def display_title(title : String) : String
-        tabs_closable? ? "#{title} ✕" : title
+        tabs_closable? ? "#{title} #{glyph(Glyphs::Role::CloseButton)}" : title
       end
 
       # Re-points every tab command's callback at its current index: commands
