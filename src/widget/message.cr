@@ -110,14 +110,15 @@ module Crysterm
         Critical
         Question
 
-        # Tagged (color + glyph) prefix shown ahead of the message text.
-        def prefix : String
+        # Tagged (color + glyph) prefix shown ahead of the message text, with
+        # the icon from the `Glyphs` registry at *tier*.
+        def prefix(tier : Glyphs::Tier = Glyphs::Tier::Unicode) : String
           case self
           in None        then ""
-          in Information then "{blue-fg}ℹ{/blue-fg}  "
-          in Warning     then "{yellow-fg}⚠{/yellow-fg}  "
-          in Critical    then "{red-fg}✖{/red-fg}  "
-          in Question    then "{cyan-fg}?{/cyan-fg}  "
+          in Information then "{blue-fg}#{Glyphs[Glyphs::Role::IconInfo, tier]}{/blue-fg}  "
+          in Warning     then "{yellow-fg}#{Glyphs[Glyphs::Role::IconWarning, tier]}{/yellow-fg}  "
+          in Critical    then "{red-fg}#{Glyphs[Glyphs::Role::IconCritical, tier]}{/red-fg}  "
+          in Question    then "{cyan-fg}#{Glyphs[Glyphs::Role::IconQuestion, tier]}{/cyan-fg}  "
           end
         end
       end
@@ -125,7 +126,7 @@ module Crysterm
       # Shows *text* prefixed with *severity*'s icon. General form behind
       # `#information`/`#warning`/`#critical`/`#question`.
       def display_with(severity : Severity, text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        display("#{severity.prefix}#{text}", time, &callback)
+        display("#{severity.prefix(glyph_tier)}#{text}", time, &callback)
       end
 
       def information(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))

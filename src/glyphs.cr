@@ -93,6 +93,17 @@ module Crysterm
       # -- Cursor ---------------------------------------------------------------
       CursorBar # artificial cursor, `line` shape
 
+      # -- Status icons (Message severities) -----------------------------------
+      IconInfo
+      IconWarning
+      IconCritical
+      IconQuestion
+
+      # -- Misc chrome ----------------------------------------------------------
+      DragHandle   # drag-ghost fallback label prefix
+      LegendSwatch # chart legend color swatch
+      MapMarker    # default map/graph point marker
+
       # -- Border families (see `BorderType#line_glyphs`) ---------------------
       # Four corners + horizontal/vertical runs per line family. The ASCII
       # values collapse every family to `+ - |`.
@@ -169,6 +180,15 @@ module Crysterm
       set_in t, Role::JunctionTeeBottom, Entry.new('+', '┴')
 
       set_in t, Role::CursorBar, Entry.new('|', '│')
+
+      set_in t, Role::IconInfo, Entry.new('i', 'ℹ')
+      set_in t, Role::IconWarning, Entry.new('!', '⚠')
+      set_in t, Role::IconCritical, Entry.new('x', '✖')
+      set_in t, Role::IconQuestion, Entry.new('?')
+
+      set_in t, Role::DragHandle, Entry.new('#', '⠿')
+      set_in t, Role::LegendSwatch, Entry.new('#', '■')
+      set_in t, Role::MapMarker, Entry.new('*', '●')
 
       set_in t, Role::BorderLineTL, Entry.new('+', '┌')
       set_in t, Role::BorderLineTR, Entry.new('+', '┐')

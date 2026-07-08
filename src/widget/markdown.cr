@@ -169,7 +169,7 @@ module Crysterm
           if entering
             blank_line
             @quote += 1
-            literal "{#{hex @md.quote_color}-fg}│ "
+            literal "{#{hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} "
           else
             @quote -= 1
             literal "{/#{hex @md.quote_color}-fg}"
@@ -180,7 +180,7 @@ module Crysterm
         def thematic_break(node : Markd::Node, entering : Bool)
           return unless entering
           blank_line
-          literal "{#404a57-fg}" + ("─" * 24) + "{/#404a57-fg}"
+          literal "{#404a57-fg}" + (@md.glyph(Glyphs::Role::LineHorizontal).to_s * 24) + "{/#404a57-fg}"
           newline
         end
 
@@ -382,11 +382,15 @@ module Crysterm
           end
 
           blank_line
-          table_border widths, '┌', '┬', '┐'
+          tier = @md.glyph_tier
+          table_border widths, Glyphs[Glyphs::Role::BorderLineTL, tier],
+            Glyphs[Glyphs::Role::JunctionTeeTop, tier], Glyphs[Glyphs::Role::BorderLineTR, tier]
           table_data_row header, widths, aligns, bold: true
-          table_border widths, '├', '┼', '┤'
+          table_border widths, Glyphs[Glyphs::Role::JunctionTeeLeft, tier],
+            Glyphs[Glyphs::Role::JunctionCross, tier], Glyphs[Glyphs::Role::JunctionTeeRight, tier]
           body.each { |row| table_data_row row, widths, aligns, bold: false }
-          table_border widths, '└', '┴', '┘'
+          table_border widths, Glyphs[Glyphs::Role::BorderLineBL, tier],
+            Glyphs[Glyphs::Role::JunctionTeeBottom, tier], Glyphs[Glyphs::Role::BorderLineBR, tier]
         end
 
         # Splits a `| a | b |` row into trimmed cells (outer pipes optional).
@@ -405,8 +409,9 @@ module Crysterm
         private def table_border(widths : Array(Int32), l : Char, mid : Char, r : Char) : Nil
           literal "{#404a57-fg}"
           literal l.to_s
+          h = @md.glyph(Glyphs::Role::LineHorizontal).to_s
           widths.each_with_index do |w, i|
-            literal "─" * (w + 2)
+            literal h * (w + 2)
             literal(i == widths.size - 1 ? r.to_s : mid.to_s)
           end
           literal "{/#404a57-fg}"
@@ -415,7 +420,8 @@ module Crysterm
 
         private def table_data_row(cells : Array(String), widths : Array(Int32),
                                    aligns : Array(Symbol), bold : Bool) : Nil
-          literal "{#404a57-fg}│{/#404a57-fg}"
+          v = @md.glyph(Glyphs::Role::LineVertical)
+          literal "{#404a57-fg}#{v}{/#404a57-fg}"
           widths.each_with_index do |w, i|
             cell = cells[i]? || ""
             align = aligns[i]? || :left
@@ -423,7 +429,7 @@ module Crysterm
             literal "{bold}" if bold
             text_out pad_cell(cell, w, align)
             literal "{/bold}" if bold
-            literal " {#404a57-fg}│{/#404a57-fg}"
+            literal " {#404a57-fg}#{v}{/#404a57-fg}"
           end
           newline
         end

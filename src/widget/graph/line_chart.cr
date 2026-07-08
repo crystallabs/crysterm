@@ -341,7 +341,7 @@ module Crysterm
             x = cl
             @series.each_with_index do |s, i|
               break if x >= cr
-              put_text x, ly, "■", overlay_attr(s.color), cl, cr
+              put_text x, ly, glyph(Glyphs::Role::LegendSwatch).to_s, overlay_attr(s.color), cl, cr
               label = @legend_labels[i]? || " #{s.name}  "
               put_text x + 1, ly, label, overlay_attr(LABEL_COLOR), cl, cr
               x += 1 + label.size

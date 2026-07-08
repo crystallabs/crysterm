@@ -161,8 +161,9 @@ module Crysterm
       end
 
       # Appends a non-selectable separator (Qt's `QToolBar#addSeparator`).
-      def add_separator(char : String = "│")
-        cmd = Command.new char
+      # Default char comes from the `Glyphs` registry at the effective tier.
+      def add_separator(char : String? = nil)
+        cmd = Command.new(char || glyph(Glyphs::Role::LineVertical).to_s)
         cmd.separator = true
         add cmd
       end

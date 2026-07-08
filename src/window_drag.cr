@@ -217,7 +217,7 @@ module Crysterm
     # --- Ghost ----------------------------------------------------------------
 
     private def make_ghost(sess : DragSession) : Nil
-      label = sess.data["text/plain"]? || "⠿ drag"
+      label = sess.data["text/plain"]? || "#{Glyphs[Glyphs::Role::DragHandle, glyph_tier]} drag"
       gx, gy = ghost_origin sess
       g = Widget::Box.new(
         parent: self,

@@ -49,7 +49,9 @@ module Crysterm
           property color : Int32
           property label : String?
 
-          def initialize(@latitude, @longitude, @char = '●', @color = 0xE05050, @label = nil)
+          def initialize(@latitude, @longitude,
+                         @char = Glyphs[Glyphs::Role::MapMarker, Glyphs::Tier::Unicode],
+                         @color = 0xE05050, @label = nil)
           end
         end
 
@@ -128,10 +130,11 @@ module Crysterm
           build_canvas(type, glyph_mode) { |p| paint_map p }
         end
 
-        # Adds a marker at a geographic coordinate (Qt's `MapQuickItem`).
-        def add_marker(latitude : Number, longitude : Number, char : Char = '●',
+        # Adds a marker at a geographic coordinate (Qt's `MapQuickItem`). The
+        # default *char* comes from the `Glyphs` registry at the effective tier.
+        def add_marker(latitude : Number, longitude : Number, char : Char? = nil,
                        color : Int32 = 0xE05050, label : String? = nil) : Marker
-          m = Marker.new latitude.to_f, longitude.to_f, char, color, label
+          m = Marker.new latitude.to_f, longitude.to_f, char || glyph(Glyphs::Role::MapMarker), color, label
           @markers << m
           # Markers are a *text overlay* (`#draw_markers`), not part of the coastline
           # Canvas paint (`#paint_map`), so deliberately do NOT invalidate the
