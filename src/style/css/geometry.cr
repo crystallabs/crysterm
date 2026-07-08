@@ -138,15 +138,11 @@ module Crysterm
 
       # Resolves a `lineedit-password-character` value to a `Char`. Qt themes
       # give a Unicode code point as a bare number (e.g. `9679` ⇒ ●); a literal
-      # (optionally quoted) value uses its first character. `nil` if empty or an
-      # out-of-range code point.
+      # (optionally quoted) value uses its first character. `nil` if empty, an
+      # out-of-range code point, or `none` (a mask char can't be omitted).
+      # Shares `Properties.parse_char` with the `glyph` property family.
       private def self.password_char(value : String) : Char?
-        v = value.strip
-        if cp = v.to_i?
-          return (cp.chr rescue nil)
-        end
-        v = v.strip('"').strip('\'')
-        v.empty? ? nil : v[0]
+        Properties.parse_char(value).try { |c| c unless c == Glyphs::NONE }
       end
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)

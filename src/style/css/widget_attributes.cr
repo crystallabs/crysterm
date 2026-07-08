@@ -69,7 +69,6 @@ module Crysterm
     end
 
     class CheckBox
-      # `RadioButton` (a `CheckBox` subclass) inherits this.
       def css_attributes : Hash(String, String?)
         attrs = {} of String => String?
         if partial?
@@ -79,6 +78,16 @@ module Crysterm
           # `:on`/`:off`); `:not([checked])` can't be used.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
+        attrs
+      end
+    end
+
+    class RadioButton
+      # A sibling of `CheckBox` under `AbstractButton` (not a subclass), so it
+      # surfaces its own `[checked]`/`[unchecked]` — with no tri-state.
+      def css_attributes : Hash(String, String?)
+        attrs = {} of String => String?
+        attrs[checked? ? "checked" : "unchecked"] = nil
         attrs
       end
     end

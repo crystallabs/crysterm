@@ -43,9 +43,12 @@ module Crysterm
       end
 
       def render
-        set_content selectable_content(glyph(Glyphs::Role::RadioOpen),
-          glyph(Glyphs::Role::RadioClose),
-          glyph(checked? ? Glyphs::Role::RadioChecked : Glyphs::Role::RadioUnchecked)), true
+        # Composed, measured marker (see `Mixin::CheckMarker#marker_line`):
+        # `(`/`)` and the state mark resolve CSS-first (`RadioButton::indicator`,
+        # `:checked` addressing the checked mark), then the registry.
+        set_content marker_line(Glyphs::Role::RadioOpen, Glyphs::Role::RadioClose,
+          checked? ? Glyphs::Role::RadioChecked : Glyphs::Role::RadioUnchecked,
+          Glyphs::Role::RadioChecked, Glyphs::Role::RadioUnchecked), true
         super false
       end
 

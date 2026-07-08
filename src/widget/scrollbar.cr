@@ -75,19 +75,22 @@ module Crysterm
         v
       end
 
-      # Glyphs for the thumb and the trough. Unset (`nil`) resolves from the
-      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      # Glyphs for the thumb and the trough. Unset (`nil`) resolves the CSS
+      # `glyph` on the matching sub-control (`ScrollBar::handle`/`::indicator`
+      # for the thumb, `::add-page`/`::groove`/`track` for the trough), then
+      # the `Glyphs` registry at the effective tier; assigning a `Char` pins it.
       setter thumb_char : Char? = nil
       setter trough_char : Char? = nil
 
       # :ditto:
       def thumb_char : Char
-        @thumb_char || glyph(Glyphs::Role::ScrollThumb)
+        @thumb_char || glyph(Glyphs::Role::ScrollThumb, style.raw_sub_style("indicator"))
       end
 
       # :ditto:
       def trough_char : Char
-        @trough_char || glyph(Glyphs::Role::ScrollTrough)
+        @trough_char || glyph(Glyphs::Role::ScrollTrough,
+          style.raw_sub_style("add-page") || style.raw_sub_style("track"))
       end
 
       # Minimum thumb (handle) length in cells, so the proportional handle never
@@ -114,7 +117,8 @@ module Crysterm
 
       # Arrow glyphs drawn in the stepper buttons. Up/down are used when
       # `#orientation` is vertical, left/right when horizontal. Unset (`nil`)
-      # resolves from the `Glyphs` registry at the effective tier.
+      # resolves the CSS `glyph` on the matching `::up-arrow`/… slot, then the
+      # `Glyphs` registry at the effective tier.
       setter up_arrow_char : Char? = nil
       setter down_arrow_char : Char? = nil
       setter left_arrow_char : Char? = nil
@@ -122,22 +126,22 @@ module Crysterm
 
       # :ditto:
       def up_arrow_char : Char
-        @up_arrow_char || glyph(Glyphs::Role::ArrowUp)
+        @up_arrow_char || glyph(Glyphs::Role::ArrowUp, style.raw_sub_style("up-arrow"))
       end
 
       # :ditto:
       def down_arrow_char : Char
-        @down_arrow_char || glyph(Glyphs::Role::ArrowDown)
+        @down_arrow_char || glyph(Glyphs::Role::ArrowDown, style.raw_sub_style("down-arrow"))
       end
 
       # :ditto:
       def left_arrow_char : Char
-        @left_arrow_char || glyph(Glyphs::Role::ArrowLeft)
+        @left_arrow_char || glyph(Glyphs::Role::ArrowLeft, style.raw_sub_style("left-arrow"))
       end
 
       # :ditto:
       def right_arrow_char : Char
-        @right_arrow_char || glyph(Glyphs::Role::ArrowRight)
+        @right_arrow_char || glyph(Glyphs::Role::ArrowRight, style.raw_sub_style("right-arrow"))
       end
 
       # The scrollable widget this bar is bound to (see `#attach`), if any.

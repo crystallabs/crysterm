@@ -188,6 +188,9 @@ module Crysterm
         item.on(::Crysterm::Event::Mouse) do |e|
           next if wheel_cycle e
           next unless tabs_closable? && e.action.down?
+          # No close mark drawn (`::close-button { glyph: none }`) — nothing to
+          # click; without this guard the last two cells would still close.
+          next unless close_glyph
           next unless i = bar.items.index(item)
           if e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
             close_tab i
@@ -198,9 +201,18 @@ module Crysterm
         end
       end
 
+      # The close mark appended to a closable tab: CSS
+      # `TabWidget::close-button { glyph: … }`, then the registry; `nil` when
+      # the stylesheet says `glyph: none` (tabs close via keyboard/API only).
+      private def close_glyph : Char?
+        glyph?(Glyphs::Role::CloseButton, style.raw_sub_style("close-button"))
+      end
+
       # The title as shown in the bar (with a `✕` appended when closable).
       private def display_title(title : String) : String
-        tabs_closable? ? "#{title} #{glyph(Glyphs::Role::CloseButton)}" : title
+        return title unless tabs_closable?
+        close_glyph.try { |c| return "#{title} #{c}" }
+        title
       end
 
       # Re-points every tab command's callback at its current index: commands

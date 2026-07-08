@@ -27,6 +27,13 @@ module Crysterm
       Extended
     end
 
+    # The explicit "no glyph" sentinel (CSS `glyph: none`), stored in the
+    # `Style` glyph fields — never in the registry table. A *run*-role site
+    # renders nothing for it (the glyph contributes zero cells); a *cell*-role
+    # site treats it as unset (registry default) since a cell must always be
+    # painted. See `Role#cell?` and `Widget#glyph`/`Widget#glyph?`.
+    NONE = '\0'
+
     # One role's characters: `ascii` is mandatory, higher tiers optional
     # (`nil` falls down a tier).
     record Entry, ascii : Char, unicode : Char? = nil, extended : Char? = nil do
@@ -300,6 +307,30 @@ module Crysterm
       BorderDottedBR
       BorderDottedH
       BorderDottedV
+
+      # Whether this is a *cell* role — one that fills exactly one grid cell
+      # by construction (scrollbar/slider parts, rules, junctions, the cursor
+      # bar, border positions), so grid math never has to measure it. A CSS
+      # `glyph` landing on a cell role must be exactly one column wide;
+      # anything else (including `none`) falls back to the registry (see
+      # `Widget#glyph`). Everything else is a *run* role: part of an inline
+      # text run, measured, where `none` legitimately contributes zero cells
+      # (GLYPHS.md §4).
+      def cell? : Bool
+        case self
+        when .scroll_thumb?, .scroll_trough?,
+             .arrow_up?, .arrow_down?, .arrow_left?, .arrow_right?,
+             .slider_handle?, .slider_track?, .slider_tick?,
+             .line_horizontal?, .line_vertical?,
+             .junction_cross?, .junction_tee_left?, .junction_tee_right?,
+             .junction_tee_top?, .junction_tee_bottom?,
+             .cursor_bar?
+          true
+        else
+          # The border families close the enum; keep them last when adding roles.
+          self >= Role::BorderLineTL
+        end
+      end
     end
 
     # Built-in defaults. The `unicode` column reproduces exactly what the

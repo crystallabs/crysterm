@@ -5,9 +5,8 @@ module Crysterm
     # Property names that have a clean CSS analog use that analog (`color`,
     # `background-color`, `font-weight`, ...). Where there is no standard CSS
     # property, a pragmatic spelling is chosen — e.g. reverse-video maps to
-    # `text-decoration: reverse`. A few crysterm-only attributes (the fill chars)
-    # are still unexposed and remain settable through the programmatic `Style`
-    # API until an honest CSS spelling is chosen.
+    # `text-decoration: reverse`, chrome glyphs to the `glyph` family
+    # (GLYPHS.md §3), and the fill characters to `fill-char` & co.
     module Properties
       # Applies a single `property: value` declaration onto *style*. Unknown
       # properties are ignored, matching CSS's forgiving behavior.
@@ -159,6 +158,33 @@ module Crysterm
           style.transitions = parse_transition(value)
         when "animation"
           style.animation = parse_animation(value)
+        when "glyph"
+          # Chrome-glyph override for the site this style lands on — see
+          # GLYPHS.md §3. `none` stores the `Glyphs::NONE` sentinel (omit on
+          # run roles, registry default on cell roles); an unparseable/blank
+          # value is dropped per CSS's invalid-declaration rule.
+          parse_char(value).try { |c| style.glyph = c }
+        when "glyph-ascii" # per-tier longhands
+          parse_char(value).try { |c| style.glyph_ascii = c }
+        when "glyph-unicode"
+          parse_char(value).try { |c| style.glyph_unicode = c }
+        when "glyph-extended"
+          parse_char(value).try { |c| style.glyph_extended = c }
+        when "glyph-open" # delimiter pair for composed indicator markers
+          parse_char(value).try { |c| style.glyph_open = c }
+        when "glyph-close"
+          parse_char(value).try { |c| style.glyph_close = c }
+        when "fill-char"
+          # CSS spellings for the `Style` fill-character family. `none` has no
+          # meaning for a fill (a cell is always painted), so it's dropped like
+          # any other invalid value.
+          char_value(value).try { |c| style.fill_char = c }
+        when "percent-char"
+          char_value(value).try { |c| style.percent_char = c }
+        when "foreground-char"
+          char_value(value).try { |c| style.foreground_char = c }
+        when "background-char"
+          char_value(value).try { |c| style.background_char = c }
         when "padding"
           # Drop a blank value (collapsed undefined `var(--x)`) rather than
           # resetting padding to default — same guard as the
@@ -208,7 +234,39 @@ module Crysterm
         "margin", "margin-left", "margin-top", "margin-right", "margin-bottom",
         "alternate-background-color", "gridline-color",
         "selection-color", "selection-background-color",
+        "glyph", "glyph-ascii", "glyph-unicode", "glyph-extended",
+        "glyph-open", "glyph-close",
+        "fill-char", "percent-char", "foreground-char", "background-char",
       }
+
+      # Parses a CSS glyph/character value to a `Char`: a (optionally quoted)
+      # literal uses its first character; a bare number is a Unicode code
+      # point, decimal (`9662`) or hex (`0x25BE`) — Qt's
+      # `lineedit-password-character` convention; `none` yields the
+      # `Glyphs::NONE` sentinel. Returns `nil` (drop the declaration) for a
+      # blank value (collapsed undefined `var(--x)`) or an out-of-range code
+      # point. Shared with `Geometry`'s `lineedit-password-character`.
+      def self.parse_char(value : String) : Char?
+        v = value.strip
+        return nil if v.empty?
+        return Glyphs::NONE if Case.fold_keyword(v) == "none"
+        # An *unquoted* number is a code point (quotes haven't been stripped
+        # yet, so a quoted digit like `"9"` stays a literal below). Anything
+        # that *starts* numeric but isn't a valid code point (overflow, junk
+        # tail, out of range) is dropped rather than read as a literal digit.
+        if v[0].ascii_number?
+          cp = v.to_i?(prefix: true)
+          return cp ? (cp.chr rescue nil) : nil
+        end
+        v = v.strip('"').strip('\'')
+        v.empty? ? nil : v[0]
+      end
+
+      # `parse_char` for values where `none` has no meaning (fill characters):
+      # the sentinel is dropped like any other invalid value.
+      private def self.char_value(value : String) : Char?
+        parse_char(value).try { |c| c unless c == Glyphs::NONE }
+      end
 
       # Splits a multi-token shorthand value on top-level whitespace, keeping a
       # function's parenthesized argument list intact so a color function with

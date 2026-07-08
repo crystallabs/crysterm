@@ -21,14 +21,51 @@ module Crysterm
     end
 
     class Menu
+      # `indicator` is the submenu arrow (`Menu::indicator { glyph: "▶" }`);
+      # the check-column marks of checkable rows follow the registry directly.
       def css_sub_elements : Array(String)
-        super + ["separator"]
+        super + ["separator", "indicator"]
       end
     end
 
     class TabWidget
+      # `close-button` carries the closable-tab `✕` glyph
+      # (`TabWidget::close-button { glyph: "x" }`).
       def css_sub_elements : Array(String)
-        super + ["tab", "pane"]
+        super + ["tab", "pane", "close-button"]
+      end
+    end
+
+    # The checkable marker controls expose their `[x]`/`(*)` marker as the
+    # `indicator` sub-control (Qt's `QCheckBox::indicator`), carrying the
+    # `glyph`/`glyph-open`/`glyph-close` family; state pseudos address the
+    # per-state mark (`CheckBox::indicator:checked { glyph: "x" }` — the
+    # `[checked]` attribute is emitted on the sub-element node too, see
+    # `html.cr`).
+    class CheckBox
+      def css_sub_elements : Array(String)
+        super + ["indicator"]
+      end
+    end
+
+    class RadioButton
+      def css_sub_elements : Array(String)
+        super + ["indicator"]
+      end
+    end
+
+    # The drop-down affordances expose their arrow as the `drop-down`
+    # sub-control (Qt's `QComboBox::drop-down`), e.g.
+    # `ComboBox::drop-down { glyph: "▾" }`.
+    class ComboBox
+      def css_sub_elements : Array(String)
+        super + ["drop-down"]
+      end
+    end
+
+    class ToolButton
+      def css_sub_elements : Array(String)
+        super + ["drop-down"]
       end
     end
 

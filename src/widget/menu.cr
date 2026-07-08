@@ -446,6 +446,7 @@ module Crysterm
       # window's border-docking component (`#dock_rows`); runs after `super`
       # so it re-applies the junctions each frame the border is repainted.
       def render(with_children = true)
+        refresh_glyphs
         strip_item_box_model
         autosize
         size_rows
@@ -492,9 +493,40 @@ module Crysterm
         return if @separator_items.empty?
         inner = awidth - iwidth
         return if inner < 1
+        ch = separator_char
         @separator_items.each do |it|
-          it.set_content(glyph(Glyphs::Role::LineHorizontal).to_s * inner) unless it.content.size == inner
+          # Rewrite on a width *or* glyph change (a stylesheet's
+          # `Menu::separator { glyph }`, `Glyphs.set`, a tier switch).
+          c = it.content
+          it.set_content(ch.to_s * inner) unless c.size == inner && c.starts_with?(ch)
         end
+      end
+
+      # The separator rule's character: CSS `Menu::separator { glyph: … }`,
+      # then the registry. A cell role — `none`/wide values fall back.
+      private def separator_char : Char
+        glyph(Glyphs::Role::LineHorizontal, style.raw_sub_style("separator"))
+      end
+
+      # Everything the cached row texts' glyphs resolve from. When it drifts
+      # from the `@_glyph_key` stamped by `#sync_items` — a registry retheme,
+      # a tier switch, or a cascade that (re)set the submenu-arrow/separator
+      # glyphs — the rows are rebuilt (a glyph change is a layout-affecting
+      # event: column widths move; see GLYPHS.md §4).
+      private def glyph_key : {Glyphs::Tier, UInt64, Char?, Char?}
+        tier = glyph_tier
+        {tier, Glyphs.generation,
+         style.raw_sub_style("indicator").try(&.glyph_for(tier)),
+         style.raw_sub_style("separator").try(&.glyph_for(tier))}
+      end
+
+      # :ditto:
+      @_glyph_key : {Glyphs::Tier, UInt64, Char?, Char?}?
+
+      # Rebuilds the row texts when the resolved glyphs changed out from under
+      # them (see `#glyph_key`); a no-op on the steady-state frame.
+      private def refresh_glyphs : Nil
+        sync_items if @_glyph_key != glyph_key
       end
 
       # The currently highlighted action, or `nil` when the menu is empty.
@@ -624,26 +656,44 @@ module Crysterm
         @visible_actions
       end
 
-      # The left (checkbox slot + label) and right (shortcut / ▶) text columns for
-      # each visible action; separators get empty entries. The checkbox slot is
-      # always reserved — `[x] `/`[ ] ` or four blanks — so labels start at a
-      # consistent column even with no checkable items (Qt always reserves the
-      # check/icon gutter). Measured here, re-laid-out by `#sync_items`/`#size_rows`.
+      # The left (checkbox slot + label) and right (shortcut / ▶) text columns
+      # for each visible action; separators get empty entries. The check
+      # column is *measured* (GLYPHS.md §4): its width is the widest state's
+      # composed `[x]` marker plus a gap, shared by every row so labels start
+      # at a consistent column — and it vanishes entirely when no item is
+      # checkable. Measured here, re-laid-out by `#sync_items`/`#size_rows`.
       private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
+        tier = glyph_tier
+        # The check marks are registry-resolved (a menu's check column has no
+        # per-item CSS site; `Menu::indicator` is the submenu arrow below).
+        open = Glyphs[Glyphs::Role::CheckboxOpen, tier]
+        close = Glyphs[Glyphs::Role::CheckboxClose, tier]
+        base = Unicode.width(open) + Unicode.width(close)
+        marker_w = base + Math.max(
+          Unicode.width(Glyphs[Glyphs::Role::CheckboxChecked, tier]),
+          Unicode.width(Glyphs[Glyphs::Role::CheckboxUnchecked, tier]))
+        column = acts.any? { |a| !a.separator? && a.checkable? } ? marker_w + 1 : 0
         lefts = acts.map do |a|
           next "" if a.separator?
-          prefix = if a.checkable?
-                     mark = glyph(a.checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked)
-                     "#{glyph(Glyphs::Role::CheckboxOpen)}#{mark}#{glyph(Glyphs::Role::CheckboxClose)} "
+          prefix = if column == 0
+                     ""
+                   elsif a.checkable?
+                     mark = Glyphs[a.checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked, tier]
+                     # Pad a narrower state's marker to the shared column width
+                     # (the trailing gap is part of the column).
+                     "#{open}#{mark}#{close}#{" " * (column - base - Unicode.width(mark))}"
                    else
-                     "    "
+                     " " * column
                    end
           icon = (i = a.icon) ? "#{i} " : ""
           "#{prefix}#{icon}#{a.text}"
         end
+        # Submenu arrow: CSS `Menu::indicator { glyph: … }`, then the registry;
+        # `glyph: none` drops the arrow column for those rows.
+        arrow = glyph?(Glyphs::Role::SubmenuArrow, style.raw_sub_style("indicator"))
         rights = acts.map do |a|
           next "" if a.separator?
-          next glyph(Glyphs::Role::SubmenuArrow).to_s if a.menu?
+          next (arrow ? arrow.to_s : "") if a.menu?
           a.shortcut_text
         end
         {lefts, rights}
@@ -657,7 +707,9 @@ module Crysterm
         # Refresh the cached visible-action snapshot and its per-row text columns
         # here (the single structural-change point), so the per-frame render path
         # reads them without recomputing. Mark the row layout dirty so the next
-        # `#size_rows` re-lays even at an unchanged width.
+        # `#size_rows` re-lays even at an unchanged width. Stamp the glyph key
+        # so `#refresh_glyphs` knows the rows reflect the current resolution.
+        @_glyph_key = glyph_key
         acts = @visible_actions = @actions.select &.visible?
         lefts, rights = row_columns(acts)
         @row_lefts = lefts
@@ -666,7 +718,7 @@ module Crysterm
 
         rows = acts.map_with_index do |a, i|
           if a.separator?
-            glyph(Glyphs::Role::LineHorizontal).to_s
+            separator_char.to_s
           else
             row = lefts[i]
             row += "  " + rights[i] unless rights[i].empty?

@@ -560,6 +560,12 @@ module Crysterm
         style.background_image = inline.background_image if inline.specified?(:background_image)
         style.transitions = inline.transitions if inline.specified?(:transition)
         style.animation = inline.animation if inline.specified?(:animation)
+        style.glyph = inline.glyph if inline.specified?(:glyph)
+        style.glyph_ascii = inline.glyph_ascii if inline.specified?(:glyph_ascii)
+        style.glyph_unicode = inline.glyph_unicode if inline.specified?(:glyph_unicode)
+        style.glyph_extended = inline.glyph_extended if inline.specified?(:glyph_extended)
+        style.glyph_open = inline.glyph_open if inline.specified?(:glyph_open)
+        style.glyph_close = inline.glyph_close if inline.specified?(:glyph_close)
         # Mask-tracked properties (text attributes, border/padding/margin/shadow,
         # fill chars, tabs, fill/draw_over_border) — single-sourced off Style's
         # `tracked` list. Uses `specified?` (not `any?`), so inline can switch

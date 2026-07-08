@@ -931,6 +931,17 @@ module Crysterm
         selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1.downcase] }
       end
 
+      # Sub-control spellings that alias an existing slot rather than naming
+      # their own node: `::handle`/`::thumb` are the conventional names for
+      # what Crysterm exposes as the `indicator` node (a `Slider`/`ScrollBar`
+      # handle). Applied by `lower_sub_elements` before capitalization, so
+      # `Slider::handle { glyph: "█" }` lands in the `indicator` sub-style.
+      # (`CSS::Qss` maps Qt's `::groove`/`::chunk` the same way for `.qss`.)
+      SUB_ELEMENT_ALIASES = {
+        "handle" => "indicator",
+        "thumb"  => "indicator",
+      }
+
       # Rewrites `Type::slot` pseudo-elements into the capitalized descendant node
       # Crysterm matches a slot by (`ProgressBar::indicator` -> `ProgressBar
       # Indicator`, which `expand_types` turns into the `.Indicator` class on the
@@ -941,7 +952,10 @@ module Crysterm
       # verbatim as an inert pseudo-element.
       private def self.lower_sub_elements(selector : String) : String
         return selector unless selector.includes?("::")
-        selector.gsub(SUB_ELEMENT_PSEUDO) { " #{$1.capitalize}" }
+        selector.gsub(SUB_ELEMENT_PSEUDO) do
+          name = $1.downcase
+          " #{SUB_ELEMENT_ALIASES.fetch(name, name).capitalize}"
+        end
       end
     end
   end

@@ -377,6 +377,16 @@ module Crysterm
         next unless node
         node.attr.clear
         node.attr.concat widget.css_node_attributes
+        # The widget's sub-element pseudo-nodes repeat its intrinsic attributes
+        # (`[checked]` on the checkbox's Indicator — see `html.cr`), so an
+        # attribute-only change must refresh them too or `::indicator:checked`
+        # rules would match against the stale toggle state.
+        widget.css_sub_elements.each do |slot|
+          sub = index["#{widget.uid_s}::#{slot}"]?
+          next unless sub
+          sub.attr.clear
+          sub.attr.concat widget.css_sub_node_attributes(slot)
+        end
       end
     end
 

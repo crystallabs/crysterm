@@ -192,16 +192,20 @@ module Crysterm
         acts[@menu_index].activate
       end
 
-      # The ` ▾` suffix marking an attached popup menu (two cells: space +
-      # dropdown glyph at the effective tier).
+      # The ` ▾` suffix marking an attached popup menu: a space plus the
+      # dropdown glyph — CSS `ToolButton::drop-down { glyph: … }`, then the
+      # registry at the effective tier. Empty when the stylesheet says
+      # `glyph: none` (no popup mark at all).
       private def indicator_suffix : String
-        " #{glyph(Glyphs::Role::DropdownArrow)}"
+        arrow = glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
+        arrow ? " #{arrow}" : ""
       end
 
       # The label without the trailing indicator.
       private def base_label : String
         c = content
-        c.ends_with?(indicator_suffix) ? c[0...-2] : c
+        s = indicator_suffix
+        (!s.empty? && c.ends_with?(s)) ? c[0...-s.size] : c
       end
 
       # Appends the popup indicator to *label* when a menu is attached.

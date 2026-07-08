@@ -38,7 +38,8 @@ module Crysterm
 
         # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
         # label. Uses `Mouse` (not `Click`) since only it carries coordinates;
-        # the marker is the three glyphs at the start of the first content row.
+        # the marker is the composed-marker cells at the start of the first
+        # content row (`@_marker_width` — measured, since CSS can reshape it).
         on(Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           # Compute the marker cell from the *painted* position (`@lpos`), not
@@ -52,7 +53,7 @@ module Crysterm
           # widget's rect — without it, a taller control (border/explicit
           # height) would toggle on any row at the marker's column.
           marker_row = lpos.yi + itop
-          if e.y == marker_row && e.x >= marker_start && e.x < marker_start + 3
+          if e.y == marker_row && e.x >= marker_start && e.x < marker_start + @_marker_width
             toggle
             request_render
             e.accept
@@ -61,27 +62,83 @@ module Crysterm
       end
 
       # Cached last-built line and the inputs it was built from. The marker
-      # controls call `selectable_content` from `#render` every frame, but the
-      # line only changes when the glyph (check state) or label text changes, so
-      # the `String.build` is memoized against those inputs.
+      # controls call `marker_line` from `#render` every frame, but the line
+      # only changes when a marker piece (check state, CSS glyph, registry/tier
+      # retheme) or the label text changes, so the `String.build` is memoized
+      # against the resolved inputs.
       @_selectable_content : String?
-      @_selectable_key : Tuple(Char, Char, Char, String)?
+      @_selectable_key : Tuple(Char?, Char?, Char?, Int32, String)?
 
-      # Builds the `<open><glyph><close> text` line for a selectable control.
-      # Returns a cached string when the open/close/glyph/text inputs are
-      # unchanged since the last call (the steady-state per-frame render case),
-      # so no allocation happens on repeated identical renders.
-      private def selectable_content(open : Char, close : Char, glyph : Char) : String
-        key = {open, close, glyph, @text}
+      # Cells the composed marker occupies (the stable `marker_width` of
+      # GLYPHS.md §4) and the mark cell's offset within it — the input
+      # geometry for the marker click hit-test and the focus cursor. Defaults
+      # match the classic 3-cell `[x]`.
+      @_marker_width : Int32 = 3
+      @_mark_offset : Int32 = 1
+
+      # Builds the composed `<open?><mark?><close?> text` line for a marker
+      # control (GLYPHS.md §4): each piece resolves CSS-first (the widget's
+      # `::indicator` sub-style — `glyph-open`/`glyph-close`/the `glyph`
+      # family) and falls back to its registry role; a `none` piece is omitted
+      # outright, shrinking the marker. The marker is padded (text side) to
+      # the max width over *state_roles* — every mark this control can show —
+      # so toggling never jitters the label. Memoized like the old fixed-slot
+      # builder: no allocation on repeated identical renders.
+      private def marker_line(open_role : Glyphs::Role, close_role : Glyphs::Role,
+                              mark_role : Glyphs::Role, *state_roles : Glyphs::Role) : String
+        ind = style.raw_sub_style("indicator")
+        tier = glyph_tier
+        open = marker_piece(ind.try(&.glyph_open), open_role, tier)
+        close = marker_piece(ind.try(&.glyph_close), close_role, tier)
+        mark = marker_piece(ind.try(&.glyph_for(tier)), mark_role, tier)
+
+        # Stable width: max over every state's mark. The CSS mark (if any) is
+        # known only for the *current* state — other states are estimated from
+        # the registry, so a state-conditional rule (`::indicator:checked`)
+        # that changes the mark's *width* re-measures on toggle.
+        base = char_cells(open) + char_cells(close)
+        width = base + char_cells(mark)
+        state_roles.each do |role|
+          w = base + Unicode.width(Glyphs[role, tier])
+          width = w if w > width
+        end
+
+        key = {open, close, mark, width, @text}
         content = @_selectable_content
         if @_selectable_key != key || content.nil?
           @_selectable_key = key
+          @_marker_width = width
+          @_mark_offset = char_cells(open)
+          pad = width - (base + char_cells(mark))
           content = String.build do |s|
-            s << open << glyph << close << ' ' << @text
+            open.try { |c| s << c }
+            mark.try { |c| s << c }
+            close.try { |c| s << c }
+            pad.times { s << ' ' }
+            # The marker-label gap belongs to the marker; a fully `none`-d
+            # marker (width 0) leaves the bare label.
+            s << ' ' unless width == 0
+            s << @text
           end
           @_selectable_content = content
         end
         content
+      end
+
+      # One marker piece: the CSS-specified char when present (`none` omits
+      # the piece — returns `nil`), else the registry role's char.
+      private def marker_piece(css : Char?, role : Glyphs::Role, tier : Glyphs::Tier) : Char?
+        if c = css
+          return nil if c == Glyphs::NONE
+          return c
+        end
+        Glyphs[role, tier]
+      end
+
+      # Columns a piece occupies: 0 when omitted, else its terminal width (a
+      # run role may legitimately be 2 cells wide — an emoji indicator).
+      private def char_cells(c : Char?) : Int32
+        c ? Unicode.width(c) : 0
       end
 
       # The marker controls toggle (rather than push) on activation; the shared
@@ -96,8 +153,9 @@ module Crysterm
         window?.try do |s|
           s.tput.lsave_cursor self.hash
           # `+ render_row_offset` keeps the marker cursor in the rendered region
-          # for an inline window (no-op at offset 0).
-          s.tput.cursor_pos lpos.yi + itop + s.render_row_offset, lpos.xi + 1 + ileft
+          # for an inline window (no-op at offset 0). The mark cell sits
+          # `@_mark_offset` columns in (0 when the open delimiter is `none`-d away).
+          s.tput.cursor_pos lpos.yi + itop + s.render_row_offset, lpos.xi + @_mark_offset + ileft
           # s.show_cursor # XXX
         end
       end

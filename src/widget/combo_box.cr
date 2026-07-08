@@ -174,14 +174,34 @@ module Crysterm
         o >= 32 && o != 127
       end
 
+      # The resolved drop-down arrow: CSS `ComboBox::drop-down { glyph: … }`,
+      # then the registry; `nil` when the stylesheet says `glyph: none` (no
+      # arrow is drawn, and its space collapses).
+      private def dropdown_arrow : Char?
+        glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
+      end
+
+      # The arrow baked into the current content, so `#render` can notice a
+      # restyle (CSS `glyph`, `Glyphs.set`, a tier switch) and refresh.
+      @_arrow : Char? = nil
+
       private def update_content
         # While editing, show the typed buffer; otherwise show the committed value.
         shown = editable? ? (@text.empty? ? @value : @text) : @value
+        arrow = @_arrow = dropdown_arrow
+        suffix = arrow ? " #{arrow}" : ""
         if shown.empty? && @options.empty? && !editable?
-          set_content " #{glyph(Glyphs::Role::DropdownArrow)}"
+          set_content suffix
         else
-          set_content "#{shown} #{glyph(Glyphs::Role::DropdownArrow)}"
+          set_content "#{shown}#{suffix}"
         end
+      end
+
+      # Refreshes the content when the resolved arrow changed out from under
+      # it (see `@_arrow`); a no-op on the steady-state frame.
+      def render(with_children = true)
+        update_content if @_arrow != dropdown_arrow
+        super
       end
 
       # Recomputes the popup's option subset: a case-insensitive substring filter

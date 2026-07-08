@@ -39,17 +39,29 @@ module Crysterm
       end
 
       def render
-        set_content selectable_content(glyph(Glyphs::Role::CheckboxOpen),
-          glyph(Glyphs::Role::CheckboxClose), mark_char), true
+        # Composed, measured marker (see `Mixin::CheckMarker#marker_line`):
+        # `[`/`]` and the state mark resolve CSS-first (`CheckBox::indicator`,
+        # with `:checked`/`:indeterminate` addressing the per-state mark),
+        # then the registry; the width is stabilized over every reachable state.
+        content =
+          if tristate?
+            marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose, mark_role,
+              Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked, Glyphs::Role::CheckboxPartial)
+          else
+            marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose, mark_role,
+              Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked)
+          end
+        set_content content, true
         super false
       end
 
-      # Glyph shown between the brackets for the current state: the check mark
-      # when checked, a dash when partially checked, a space otherwise.
-      private def mark_char : Char
-        return glyph(Glyphs::Role::CheckboxChecked) if checked?
-        return glyph(Glyphs::Role::CheckboxPartial) if partial?
-        glyph(Glyphs::Role::CheckboxUnchecked)
+      # Registry role of the mark between the brackets for the current state:
+      # the check mark when checked, a dash when partially checked, a space
+      # otherwise.
+      private def mark_role : Glyphs::Role
+        return Glyphs::Role::CheckboxChecked if checked?
+        return Glyphs::Role::CheckboxPartial if partial?
+        Glyphs::Role::CheckboxUnchecked
       end
 
       # Resets the partially-checked state on a check/uncheck transition. This

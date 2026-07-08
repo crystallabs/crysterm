@@ -28,13 +28,24 @@ module Crysterm
       property min_drag_width : Int32 = 3
       property min_drag_height : Int32 = 3
 
-      # Glyph drawn for the handle. Unset (`nil`) resolves from the `Glyphs`
-      # registry at the effective tier; assigning a `Char` pins it.
+      # Glyph drawn for the handle. Unset (`nil`) resolves the CSS `glyph` on
+      # the grip's own style (`SizeGrip { glyph: "◢" }` — a single-glyph
+      # widget needs no sub-control), then the `Glyphs` registry at the
+      # effective tier; assigning a `Char` pins it.
       setter glyph : Char? = nil
 
       # :ditto:
       def glyph : Char
-        @glyph || glyph(Glyphs::Role::SizeGrip)
+        @glyph || glyph(Glyphs::Role::SizeGrip, style)
+      end
+
+      # Refreshes the handle character before drawing — the resolved glyph can
+      # change after construction (a stylesheet's `glyph`, `Glyphs.set`, a
+      # tier switch); `set_content` no-ops while it is unchanged.
+      def render
+        g = self.glyph.to_s
+        set_content g unless content == g
+        super
       end
 
       def initialize(target : Widget? = nil, glyph : Char? = nil, min_drag_width = 3, min_drag_height = 3, **box)

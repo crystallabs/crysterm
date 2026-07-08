@@ -167,6 +167,12 @@ module Crysterm
       when :background_image then !@background_image.nil?
       when :transition       then !@transitions.nil?
       when :animation        then !@animation.nil?
+      when :glyph            then !@glyph.nil?
+      when :glyph_ascii      then !@glyph_ascii.nil?
+      when :glyph_unicode    then !@glyph_unicode.nil?
+      when :glyph_extended   then !@glyph_extended.nil?
+      when :glyph_open       then !@glyph_open.nil?
+      when :glyph_close      then !@glyph_close.nil?
       else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
     end
@@ -282,6 +288,45 @@ module Crysterm
         @{{attr.id}} = value
       end
     {% end %}
+
+    # -- CSS `glyph` property family (GLYPHS.md §3) ---------------------------
+    #
+    # A chrome-glyph override for the site/slot this style lands on (the same
+    # one property is addressed at different sites via sub-controls and state
+    # pseudos, e.g. `CheckBox::indicator:checked { glyph: "x" }`). All fields
+    # are `nil`-signalled (unset = ask the `Glyphs` registry), so they cost no
+    # `specified_mask` bits. `Glyphs::NONE` (CSS `glyph: none`) means "omit"
+    # on run roles and "registry default" on cell roles — the consumer
+    # (`Widget#glyph`/`#glyph?`) decides by role class.
+
+    # Universal override: use this character at any tier.
+    property glyph : Char?
+
+    # Per-tier longhands (CSS `glyph-ascii`/`glyph-unicode`/`glyph-extended`).
+    # Resolution falls *down* tiers within this layer, then to `glyph` — never
+    # across layers mid-tier (GLYPHS.md §5).
+    property glyph_ascii : Char?
+    property glyph_unicode : Char?
+    property glyph_extended : Char?
+
+    # Delimiter pair around a composed indicator marker (CSS `glyph-open`/
+    # `glyph-close`), e.g. a checkbox's `[`/`]`. `Glyphs::NONE` omits the
+    # delimiter entirely, shrinking the marker (see `Mixin::CheckMarker`).
+    property glyph_open : Char?
+    property glyph_close : Char?
+
+    # The CSS-specified glyph for *tier*: the tier longhand, falling down
+    # tiers, else the universal `glyph`; `nil` when this style specifies none
+    # (the consumer then asks the `Glyphs` registry). May return
+    # `Glyphs::NONE` — see the field docs above.
+    @[AlwaysInline]
+    def glyph_for(tier : Glyphs::Tier) : Char?
+      case tier
+      in .extended? then @glyph_extended || @glyph_unicode || @glyph_ascii || @glyph
+      in .unicode?  then @glyph_unicode || @glyph_ascii || @glyph
+      in .ascii?    then @glyph_ascii || @glyph
+      end
+    end
 
     # XXX Test/document this.
     property? fill = true
@@ -408,6 +453,10 @@ module Crysterm
 
     sub_style_accessor float_button
 
+    # Style for a drop-down affordance (Qt's `QComboBox::drop-down`; also the
+    # `ToolButton` popup arrow). Defaults to `self`; carries the arrow `glyph`.
+    sub_style_accessor drop_down
+
     # Used when internally instantiating labels on widgets, to set
     # `style: self.style.label`. Since labels are widgets, everything after
     # that is looked up via `@_label.style....`.
@@ -500,6 +549,7 @@ module Crysterm
            "pane"          => "pane",
            "close-button"  => "close_button",
            "float-button"  => "float_button",
+           "drop-down"     => "drop_down",
            "label"         => "label",
            "alternate-row" => "alternate_row",
          } %}
@@ -582,6 +632,7 @@ module Crysterm
       @pane = @pane,
       @close_button = @close_button,
       @float_button = @float_button,
+      @drop_down = @drop_down,
       @header = @header,
       @cell = @cell,
       @label = @label,
@@ -600,6 +651,12 @@ module Crysterm
       foreground_char = nil,
       background_char = nil,
       draw_over_border = nil,
+      @glyph : Char? = nil,
+      @glyph_ascii : Char? = nil,
+      @glyph_unicode : Char? = nil,
+      @glyph_extended : Char? = nil,
+      @glyph_open : Char? = nil,
+      @glyph_close : Char? = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to

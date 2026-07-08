@@ -1490,6 +1490,50 @@ module Crysterm
       Glyphs[role, glyph_tier]
     end
 
+    # Like the above, but consulting a CSS-styled site first — the GLYPHS.md §5
+    # resolution chain below the widget's own programmatic property (call
+    # sites keep the `@thumb_char || glyph(...)` shape): the *slot* style's
+    # `glyph` family at the effective tier, else the registry. *slot* is the
+    # sub-`Style` the CSS property lands on — pass `style.raw_sub_style(...)`
+    # for a sub-control site (only an explicitly cascaded/assigned sub-style
+    # answers, so a widget-wide `glyph` can't bleed into every part of a
+    # multi-part widget), or `style` itself for a single-glyph widget
+    # (`SizeGrip { glyph: "◢" }`).
+    #
+    # A CSS `glyph: none` — and, on a *cell* role, any character that isn't
+    # exactly one column — is unusable here and falls back to the registry;
+    # run-role callers that honor `none` by omitting the glyph use `#glyph?`.
+    def glyph(role : Glyphs::Role, slot : ::Crysterm::Style?) : Char
+      tier = glyph_tier
+      if slot && (c = slot.glyph_for(tier)) && glyph_usable?(c, role)
+        return c
+      end
+      Glyphs[role, tier]
+    end
+
+    # Run-role variant of `#glyph(role, slot)` honoring CSS `glyph: none`:
+    # returns `nil` when the style says to omit the glyph entirely (it
+    # contributes zero cells — GLYPHS.md §4). Never used for cell roles,
+    # which must always paint something.
+    def glyph?(role : Glyphs::Role, slot : ::Crysterm::Style?) : Char?
+      tier = glyph_tier
+      if slot && (c = slot.glyph_for(tier))
+        return nil if c == Glyphs::NONE
+        return c
+      end
+      Glyphs[role, tier]
+    end
+
+    # Whether a CSS-specified character can stand in for *role*: `none` never
+    # can here (`#glyph` answers a concrete cell), and a cell role addition-
+    # ally requires exactly one column (a wide emoji thumb would corrupt the
+    # grid). Width is checked only on this rare styled path — `Unicode.width`
+    # on a `Char` is allocation-free.
+    private def glyph_usable?(c : Char, role : Glyphs::Role) : Bool
+      return false if c == Glyphs::NONE
+      !role.cell? || Unicode.width(c) == 1
+    end
+
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
     # stripped (they occupy no columns); whitespace is preserved. With
     # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise

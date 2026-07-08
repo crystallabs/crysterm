@@ -34,19 +34,20 @@ module Crysterm
       property? show_value : Bool = false
 
       # Glyph used for the draggable handle and the track. Unset (`nil`)
-      # resolves from the `Glyphs` registry at the effective tier; assigning a
-      # `Char` pins it.
+      # resolves the CSS `glyph` on the matching sub-control (`Slider::handle`
+      # — an alias of `::indicator` — and `::groove`/`track`), then the
+      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
       setter handle_char : Char? = nil
       setter track_char : Char? = nil
 
       # :ditto:
       def handle_char : Char
-        @handle_char || glyph(Glyphs::Role::SliderHandle)
+        @handle_char || glyph(Glyphs::Role::SliderHandle, style.raw_sub_style("indicator"))
       end
 
       # :ditto:
       def track_char : Char
-        @track_char || glyph(Glyphs::Role::SliderTrack)
+        @track_char || glyph(Glyphs::Role::SliderTrack, style.raw_sub_style("track"))
       end
 
       # Tick-mark placement and spacing (Qt's `setTickPosition`/`setTickInterval`).

@@ -101,9 +101,17 @@ module Crysterm
         # Each carries a `uid::slot` writeback key routing computed style back into
         # the matching sub-`Style`, classed with the capitalized slot name (e.g.
         # `Scrollbar`) so `Scrollbar { ... }` / `Box Scrollbar { ... }` styles it.
+        # The host's intrinsic attributes are repeated on each sub-element node —
+        # a Qt sub-control shares its widget's state, so
+        # `CheckBox::indicator:checked` (lowered to `Indicator[checked]`) matches.
         css_sub_elements.each do |slot|
           io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
-          io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
+          io << " class=\"" << slot.capitalize << '"'
+          css_attributes.each do |key, value|
+            io << ' ' << key
+            value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
+          end
+          io << "></w-" << slot << '>'
         end
       end
       io << "</" << tag << '>'
@@ -145,6 +153,20 @@ module Crysterm
     # :ditto:
     def to_html(structural : Bool = false) : String
       String.build { |io| to_html io, structural }
+    end
+
+    # A sub-element node's current attributes as parsed-node `HTML5::Attribute`s,
+    # matching what `#to_html` serializes for the `uid::slot` pseudo-node —
+    # the writeback key, the capitalized slot class, and the host's intrinsic
+    # attributes (a sub-control shares its widget's state). Used by the
+    # attribute-only patch path alongside `#css_node_attributes`.
+    def css_sub_node_attributes(slot : String) : Array(HTML5::Attribute)
+      attrs = [HTML5::Attribute.new("", "data-uid", "#{uid_s}::#{slot}"),
+               HTML5::Attribute.new("", "class", slot.capitalize)]
+      css_attributes.each do |key, value|
+        attrs << HTML5::Attribute.new("", key, value || "")
+      end
+      attrs
     end
 
     # This widget's current attributes as parsed-node `HTML5::Attribute`s, matching
