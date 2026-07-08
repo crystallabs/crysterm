@@ -410,6 +410,11 @@ module Crysterm
         on_ui do
           if keys = @wired_keys.delete({sel, event})
             keys.each do |key|
+              # Forwarders are deduped per widget+event, so two subscriptions
+              # whose selectors overlap share one forwarder. Detach only when no
+              # surviving subscription still records the key — its entry was
+              # deleted above, so any remaining reference belongs to another one.
+              next if @wired_keys.each_value.any? &.includes?(key)
               @event_wired.delete key
               @forwarders.delete(key).try &.call
             end

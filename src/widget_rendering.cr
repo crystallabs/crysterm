@@ -427,8 +427,13 @@ module Crysterm
             end
             ch = bch
             # A buffer-image background owns the rest of this line: leave its
-            # cells showing the painted image instead of clearing them.
-            unless bg_cells
+            # cells showing the painted image instead of clearing them. The
+            # column must still advance to the row end, though — otherwise the
+            # loop keeps consuming content and the next logical line's
+            # characters continue on this row.
+            if bg_cells
+              x = xl
+            else
               while x < xl
                 # Off-window columns (`x < 0`) advance to keep the fill aligned
                 # but are never fetched/painted (negative-index wrap).

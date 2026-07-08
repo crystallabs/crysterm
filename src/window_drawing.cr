@@ -174,7 +174,13 @@ module Crysterm
       # Constant for the whole draw, so hoisted out of the per-row/per-cell hot path.
       c_artificial = c.artificial?
       cursor_x = tput.cursor.x
-      cursor_y = tput.cursor.y
+      # The tracker holds the PHYSICAL row — every positioning path adds
+      # `render_row_offset` before `cup` (`move_terminal_caret`, `enter_inline`,
+      # marker checks) — while this method compares against surface rows
+      # (`@lines` indices), so translate back. A no-op in full-screen mode
+      # (offset 0); may go negative when the cursor sits above an inline
+      # region, which correctly fails the `>= start` guard below.
+      cursor_y = tput.cursor.y - render_row_offset
 
       # Repair the cell a previously-painted artificial cursor left behind.
       # `draw` only scans dirty rows or the cursor's row, so when the cursor

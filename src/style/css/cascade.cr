@@ -220,6 +220,12 @@ module Crysterm
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
           widget.css_reset_extra
+          # Geometry has the same non-staleness contract as styles, but lives on
+          # the widget itself: restore the pristine snapshot (captured by
+          # `apply_geometry` before CSS first wrote it; no-op otherwise), so a
+          # geometry rule that stopped matching reverts rather than sticking.
+          # The currently-matching declarations re-apply below.
+          widget.restore_css_base_geometry
 
           # Fold the full inline `@style` onto `normal`, the fallback state every
           # unset state defers to. The per-state inline fold below only runs for
@@ -527,7 +533,12 @@ module Crysterm
       private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
         entries.each do |entry|
           entry[4].each do |property, value|
-            Geometry.apply(widget, property, resolve_var(value, variables, resolved)) if Geometry.handles?(property)
+            next unless Geometry.handles?(property)
+            # Snapshot the pristine geometry before CSS first writes it, so the
+            # reset pass above can revert a rule that stops matching (memoized —
+            # free after the first geometry-bearing cascade).
+            widget.capture_css_base_geometry
+            Geometry.apply(widget, property, resolve_var(value, variables, resolved))
           end
         end
       end

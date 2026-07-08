@@ -61,7 +61,16 @@ module Crysterm
     # content rectangle and, if non-empty, delegates to `#arrange`.
     def render_children(container : Widget) : Nil
       interior = interior_coords container
-      return unless interior
+      unless interior
+        # Interior collapsed to nothing: the children paint nowhere this frame,
+        # so clear their last-rendered rects — otherwise they'd stay
+        # mouse-clickable/hoverable at the previous frame's positions (same
+        # rationale as `Flow#arrange`'s `StopRendering` branch). Layout-excluded
+        # chrome renders out-of-band with its own live `lpos`, so it's left
+        # untouched.
+        each_arrangeable(container) { |el| skip_subtree el }
+        return
+      end
       arrange container, interior
     end
 
@@ -109,6 +118,16 @@ module Crysterm
     # Marks `el` as not rendered this frame (clears its last position).
     protected def skip(el : Widget) : Nil
       el.lpos = nil
+    end
+
+    # Marks `el`'s whole subtree as not rendered this frame. An unrendered
+    # widget's descendants paint nothing either, but `Window#widget_at`
+    # hit-tests every widget independently against its own `lpos`, so a stale
+    # grandchild rect would still take clicks even with the parent's cleared.
+    # Explicit recursion (no captured block) keeps this allocation-free.
+    protected def skip_subtree(el : Widget) : Nil
+      el.lpos = nil
+      el.children.each { |c| skip_subtree c }
     end
 
     # Assigns `el`'s full rectangle (left/top/width/height) in one call — the

@@ -216,7 +216,9 @@ module Crysterm
 
     # Terminal cursor row captured at construction (via `report_cursor`, before
     # the input loop starts), used to anchor an inline surface in `#enter`.
-    @anchor_row : Int32 = 0
+    # Settable so hosts/specs can pin the anchor when the terminal can't answer
+    # the cursor-position query (headless, non-tty).
+    property anchor_row : Int32 = 0
 
     # Inline **auto-grow**: when `true` (only meaningful with `alternate: false`),
     # the region's height tracks its content each frame instead of staying fixed
@@ -514,7 +516,11 @@ module Crysterm
       term_h = tput.screen.height
       if anchor + aheight > term_h
         scroll = anchor + aheight - term_h
-        tput._print { |io| scroll.times { io << '\n' } }
+        # Newlines only scroll the terminal when emitted from the bottom row;
+        # from the anchor row they would just walk the cursor down and nothing
+        # would enter scrollback, leaving the region painted over un-scrolled
+        # content. `scroll_terminal_up` homes to the last row first.
+        scroll_terminal_up scroll
         anchor -= scroll
       end
       anchor = 0 if anchor < 0
@@ -663,10 +669,19 @@ module Crysterm
       end
 
       # A full-screen clear is only correct when we own the whole screen. An
-      # inline window must never wipe the terminal on (re)alloc — it repaints
-      # its own region via the frame diff and erases vacated rows explicitly
-      # (see `#autogrow_reflow`).
-      tput.clear if do_clear && @alternate
+      # inline window must never wipe the terminal on (re)alloc — but it must
+      # erase its own region: `@olines` was just reset to blanks, so any cell
+      # whose new content is blank compares equal and is skipped by the frame
+      # diff — whatever the terminal physically shows there (pre-resize glyphs,
+      # rewrapped text) would persist. Vacated autogrow rows are erased
+      # separately in `#autogrow_reflow`.
+      if do_clear
+        if @alternate
+          tput.clear
+        else
+          erase_physical_rows render_row_offset, render_row_offset + aheight
+        end
+      end
     end
 
     @[AlwaysInline]

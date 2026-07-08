@@ -163,7 +163,30 @@ module Crysterm
           end
 
           next unless e.action.down? || (e.action.move? && !e.button.none?)
-          if @orientation.horizontal?
+          # Resolve the pointer against the *painted* track when rendered:
+          # mouse events are dispatched by painted geometry, which inside a
+          # scrolled container is shifted from the layout coords
+          # (`atop`/`aleft`) by the ancestor's scroll base, and an
+          # ancestor-clipped bar paints its whole track *compressed* into the
+          # clipped rect (`render` works from the border-adjusted `@lpos` via
+          # `with_inner_coords`). Both the origin and the span must come from
+          # that same rect or a seek lands on the wrong value — the defect
+          # class already fixed in `Mixin::TrackGeometry#pointer_offset` and
+          # `Mixin::CheckMarker`. Falls back to layout coords before the
+          # first render.
+          if lp = @lpos
+            txi, txl, tyi, tyl = lp.xi, lp.xl, lp.yi, lp.yl
+            if border = style.border
+              txi, txl, tyi, tyl = border.adjust txi, txl, tyi, tyl
+            end
+            if @orientation.horizontal?
+              raw = e.x - txi
+              inner = txl - txi
+            else
+              raw = e.y - tyi
+              inner = tyl - tyi
+            end
+          elsif @orientation.horizontal?
             raw = e.x - aleft - ileft
             inner = awidth - iwidth
           else

@@ -45,6 +45,22 @@ module Crysterm
     # styling dirty (the resize path doesn't). `nil` until the first cascade.
     @css_last_size : Tuple(Int32, Int32)?
 
+    # `CSS.default_stylesheet_generation` at the last `#apply_stylesheet` run.
+    # Lets `#apply_stylesheet_if_dirty` notice a runtime theme / default-sheet
+    # swap (which marks nothing dirty on any window) and force a full recompute,
+    # the same way `@css_last_size` catches a media-relevant resize. `nil` until
+    # the first run.
+    @css_last_default_generation : Int32?
+
+    # Whether a cascade has styled this window's widgets (and no reset has
+    # reverted them since). Gates the revert-to-pristine pass in
+    # `#apply_stylesheet`'s no-active-rules branch, so a window that was never
+    # styled doesn't walk its tree on every render while unstyled.
+    # (`@css_last_document` can't serve as this marker: the `stylesheet=`
+    # setters nil it to force the next cascade — including the very assignment
+    # that clears the stylesheet.)
+    @css_widgets_styled = false
+
     # Cached parsed document and the string it was parsed from, plus a
     # `data-uid -> node` index. Reused across cascades: an attribute-only change
     # patches nodes in place (see `@css_patch_widgets`) rather than re-parsing;
@@ -238,7 +254,14 @@ module Crysterm
       # CSS is active whenever either an author or the default (theme)
       # stylesheet has rules; with neither, widgets keep their programmatic look.
       if (author.nil? || author.rules.empty?) && default.rules.empty?
-        # No active rules: nothing to cascade. Clear only the dirty/scope flags,
+        # No active rules: nothing to cascade. But if a previous cascade styled
+        # widgets, they must not keep those computed styles forever — assigning
+        # a stylesheet restyles everything, so clearing it must too. The
+        # reset-to-pristine pass lives in `Cascade.apply_sheets`, never reached
+        # with no rules, so revert here.
+        css_reset_styled_widgets if @css_widgets_styled
+        @css_last_default_generation = CSS.default_stylesheet_generation
+        # Clear only the dirty/scope flags,
         # but keep `@css_structural`/`@css_patch_widgets` (and the parse cache)
         # intact — structural/attribute changes made during this unstyled period
         # must still be reflected when a stylesheet is (re)assigned. Wiping them
@@ -255,8 +278,13 @@ module Crysterm
       # so a resize re-evaluates the media conditions (and record it for
       # `#apply_stylesheet_if_dirty`'s size-change trigger).
       @css_last_size = {width, height}
+      @css_last_default_generation = CSS.default_stylesheet_generation
       identity = document
       identity = "#{width}x#{height}\n#{document}" if css_media_active?
+      # The default-sheet generation is part of the identity too: a runtime
+      # theme swap leaves the document byte-identical, and even an explicit
+      # `restyle` would otherwise be swallowed by this skip.
+      identity = "g#{CSS.default_stylesheet_generation}\n#{identity}"
       if identity == @css_last_document
         clear_css_dirty
         return
@@ -271,6 +299,7 @@ module Crysterm
       else
         CSS::Cascade.apply_sheets [{default, CSS::Cascade::TIER_DEFAULT}], self, doc, scope
       end
+      @css_widgets_styled = true
       clear_css_dirty
     end
 
@@ -375,6 +404,37 @@ module Crysterm
       @css_patch_widgets.clear
     end
 
+    # Reverts every widget to its pristine pre-CSS look: styles back to a fresh
+    # dup of the base snapshot, `css_styled` off (so `#style` honors the inline
+    # `@style` short-circuit again), extra computed state cleared, and any
+    # CSS-written geometry restored — the same reset `Cascade.apply_sheets`
+    # performs before re-applying rules, minus the re-apply. Run when styling
+    # transitions to "no active rules" after a cascade styled widgets (author
+    # sheet cleared/emptied, theme removed). Also drops `@css_last_document`,
+    # so a later re-assigned stylesheet recascades from scratch.
+    private def css_reset_styled_widgets : Nil
+      css_each_widget do |widget|
+        widget.styles = widget.css_base_styles.deep_dup
+        widget.css_styled = false
+        widget.css_reset_extra
+        widget.restore_css_base_geometry
+      end
+      @css_widgets_styled = false
+      @css_last_document = nil
+    end
+
+    # Yields every widget in this window's tree, pre-order. Captured block
+    # (recursion can't inline a yielding block) — cold path, mirrors
+    # `#css_each_node`.
+    private def css_each_widget(&block : Widget ->) : Nil
+      children.each { |child| css_walk_widget child, &block }
+    end
+
+    private def css_walk_widget(widget : Widget, &block : Widget ->) : Nil
+      block.call widget
+      widget.children.each { |child| css_walk_widget child, &block }
+    end
+
     # Clears only the dirty/scope flags, leaving the structural-change and
     # per-widget patch tracking (and the parse cache) untouched. Used by the
     # no-rules early exit in `#apply_stylesheet`, which must not discard
@@ -408,10 +468,13 @@ module Crysterm
     # re-runs it after a terminal resize when media-guarded rules are active:
     # the resize path marks nothing dirty, but `@media` applicability may have
     # changed, so a size change since the last cascade forces a full recompute.
+    # A default-stylesheet (theme) swap likewise marks nothing dirty on any
+    # window, so a generation change since the last run forces one too.
     protected def apply_stylesheet_if_dirty : Nil
       if @css_dirty
         apply_stylesheet
-      elsif css_media_active? && @css_last_size != {width, height}
+      elsif (css_media_active? && @css_last_size != {width, height}) ||
+            @css_last_default_generation != CSS.default_stylesheet_generation
         @css_dirty = true
         @css_full = true
         apply_stylesheet

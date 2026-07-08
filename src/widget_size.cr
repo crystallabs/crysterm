@@ -261,16 +261,23 @@ module Crysterm
         # Shrunken lists assume all items should be showing; height can be
         # calculated from item count.
         if @_is_list
-          myi = 0
+          # Anchor the extent at the widget's own top: `myi`/`myl` are absolute
+          # window coordinates here (seeded from `yi` above), and the
+          # top-anchored placement below uses `myl` absolutely (`yl = myl;
+          # yl += ibottom`). A 0-based `myi` is only correct at `yi == 0`; for
+          # any other position the rectangle comes out inverted/truncated and
+          # the span comparison in `_minimal_rectangle_uncached` collapses the
+          # box to its (near-empty) content rectangle.
+          myi = yi
           # `@items.size` counts only the content rows, so fold the *top* inset
           # into `myl` here: the top-anchored placement below is `yl = myl;
           # yl += ibottom`, which adds only the bottom inset, so without this the
           # box comes out `itop` rows too short — a bordered shrink-to-content
           # list clips its last item (rendered `items + ibottom` tall instead
           # of `items + iheight`). Adding `itop` (not `ibottom`) avoids the
-          # opposite, double-`ibottom`, error. `myi = 0` keeps the
+          # opposite, double-`ibottom`, error. `myi = yi` keeps the
           # bottom-anchored branch's span (`myl - myi == items + itop`) unchanged.
-          myl = @items.size + itop
+          myl = yi + @items.size + itop
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)

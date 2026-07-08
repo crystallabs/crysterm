@@ -18,18 +18,34 @@ module Crysterm
     # stays opt-in); with no author stylesheet, nothing is applied.
     @@default_stylesheet = Stylesheet.new
 
+    # Monotonic generation of the default stylesheet, bumped by every
+    # assignment (including a theme install, which goes through
+    # `default_stylesheet=`). `Window#apply_stylesheet` folds it into its
+    # cascade-skip identity and `#apply_stylesheet_if_dirty` treats a mismatch
+    # like a media-relevant resize — the serialized widget document encodes
+    # nothing about which rules are active, so without this a runtime theme /
+    # default-sheet swap would never invalidate existing windows.
+    @@default_stylesheet_generation = 0
+
     # The current default stylesheet.
     def self.default_stylesheet : Stylesheet
       @@default_stylesheet
     end
 
+    # :ditto:
+    def self.default_stylesheet_generation : Int32
+      @@default_stylesheet_generation
+    end
+
     # Sets the default stylesheet from CSS text.
     def self.default_stylesheet=(css : String) : Stylesheet
+      @@default_stylesheet_generation += 1
       @@default_stylesheet = Stylesheet.parse(css)
     end
 
     # Sets the default stylesheet from an already-parsed `Stylesheet`.
     def self.default_stylesheet=(sheet : Stylesheet) : Stylesheet
+      @@default_stylesheet_generation += 1
       @@default_stylesheet = sheet
     end
   end

@@ -26,6 +26,14 @@ module Crysterm
 
     # Tweens each declared, changed animatable property from *prev* to the new
     # (post-state-change) style value. Called from `Mixin::Style#state=`.
+    #
+    # The tick blocks write through `state_style` re-resolved per tick, never a
+    # `Style` captured here: a recascade replaces the widget's per-state `Style`
+    # wholesale (`css_base_styles.deep_dup`), so a captured object would be
+    # orphaned mid-tween — the clock mutating a `Style` nothing renders while
+    # the visible value snaps to the target (the exact hazard the keyframe
+    # driver documents and avoids in `widget_animation.cr`). `st` is only read
+    # here, up front, for the tween targets — the new state's computed values.
     def apply_style_transitions(prev : TransitionFrom) : Nil
       return unless window?
       st = style
@@ -35,13 +43,13 @@ module Crysterm
         dur, easing = spec
         case prop
         when "opacity"
-          transition_float(:opacity, prev.alpha || 1.0, st.alpha || 1.0, dur, easing) { |v| st.alpha = v }
+          transition_float(:opacity, prev.alpha || 1.0, st.alpha || 1.0, dur, easing) { |v| state_style.alpha = v }
         when "color"
-          transition_color(:color, prev.fg, st.fg, dur, easing) { |v| st.fg = v }
+          transition_color(:color, prev.fg, st.fg, dur, easing) { |v| state_style.fg = v }
         when "background-color", "background"
-          transition_color(:bg, prev.bg, st.bg, dur, easing) { |v| st.bg = v }
+          transition_color(:bg, prev.bg, st.bg, dur, easing) { |v| state_style.bg = v }
         when "tint"
-          transition_float(:tint, prev.tint_alpha, st.tint_alpha, dur, easing) { |v| st.tint_alpha = v }
+          transition_float(:tint, prev.tint_alpha, st.tint_alpha, dur, easing) { |v| state_style.tint_alpha = v }
         end
       end
     end

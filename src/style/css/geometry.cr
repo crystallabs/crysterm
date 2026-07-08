@@ -1,4 +1,75 @@
 module Crysterm
+  class Widget
+    # Pristine, pre-CSS snapshot of every widget property `CSS::Geometry` can
+    # write (see `Geometry::PROPERTIES`). Captured once, just before the cascade
+    # first applies a geometry declaration to this widget, and restored by the
+    # cascade's reset pass — so a geometry rule that stops matching (an `@media`
+    # condition, a removed class) reverts the widget instead of sticking
+    # forever. The `Style` side of the same contract is `css_base_styles`.
+    record CssBaseGeometry,
+      width : Int32 | String | Nil,
+      height : Int32 | String | Nil,
+      top : Int32 | String | Nil,
+      left : Int32 | String | Nil,
+      right : Int32?,
+      bottom : Int32?,
+      min_width : Int32?,
+      max_width : Int32?,
+      min_height : Int32?,
+      max_height : Int32?,
+      align : Tput::AlignFlag,
+      gap : Int32?,
+      password_character : Char?
+
+    # :ditto: — `nil` until CSS ever touches this widget's geometry, so both
+    # capture and restore stay free for the common geometry-rule-less widget.
+    @css_base_geometry : CssBaseGeometry?
+
+    # Captures the pristine geometry snapshot (no-op once captured). Called by
+    # the cascade immediately before the first geometry declaration is applied.
+    def capture_css_base_geometry : Nil
+      return if @css_base_geometry
+      @css_base_geometry = CssBaseGeometry.new(
+        width: @width, height: @height, top: @top, left: @left,
+        right: @right, bottom: @bottom,
+        min_width: @min_width, max_width: @max_width,
+        min_height: @min_height, max_height: @max_height,
+        align: @align,
+        gap: layout.try(&.gap),
+        password_character: as?(Widget::LineEdit).try(&.password_character))
+    end
+
+    # Restores the pristine pre-CSS geometry (no-op when CSS never wrote any).
+    # Runs through the public change-guarded setters, so an unchanged value
+    # costs a comparison and a changed one marks dirty / emits Move/Resize like
+    # any programmatic assignment.
+    def restore_css_base_geometry : Nil
+      snap = @css_base_geometry
+      return unless snap
+      self.width = snap.width
+      self.height = snap.height
+      self.top = snap.top
+      self.left = snap.left
+      self.right = snap.right
+      self.bottom = snap.bottom
+      self.min_width = snap.min_width
+      self.max_width = snap.max_width
+      self.min_height = snap.min_height
+      self.max_height = snap.max_height
+      self.align = snap.align
+      snap.gap.try { |g| layout.try(&.gap=(g)) }
+      snap.password_character.try { |c| as?(Widget::LineEdit).try(&.password_character=(c)) }
+    end
+
+    # Drops the pristine geometry snapshot so it is recaptured from the current
+    # values on the next cascade — the geometry counterpart of
+    # `#reset_css_base_styles`. Call after deliberately changing a widget's
+    # programmatic geometry while CSS geometry rules are active.
+    def reset_css_base_geometry : Nil
+      @css_base_geometry = nil
+    end
+  end
+
   module CSS
     # Translates CSS geometry/layout declarations onto a `Widget` itself (its
     # position, size and alignment) — as opposed to `Properties`, which targets

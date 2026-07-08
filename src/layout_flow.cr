@@ -35,21 +35,23 @@ module Crysterm
 
           case place_one container, el, i, interior
           when Overflow::SkipWidget
-            skip el
+            skip_subtree el
             next
           when Overflow::StopRendering
             # `StopRendering` means "leave current and remaining widgets
             # unrendered" (see `Overflow`). Skip the not-yet-placed children too
             # (their `lpos` becomes nil, treated as not present) so a
             # vertically-overflowing flow doesn't stay mouse-clickable/focusable
-            # at stale positions from the previous frame. Layout-excluded chrome
-            # (e.g. a `background-image` layer) renders out-of-band with its own
-            # live `lpos`, so it's left untouched.
-            skip el
+            # at stale positions from the previous frame — whole subtrees, since
+            # `widget_at` hit-tests every descendant independently against its
+            # own `lpos`. Layout-excluded chrome (e.g. a `background-image`
+            # layer) renders out-of-band with its own live `lpos`, so it's left
+            # untouched.
+            skip_subtree el
             j = i + 1
             while j < children.size
               nxt = children[j]
-              skip nxt unless nxt.layout_excluded?
+              skip_subtree nxt unless nxt.layout_excluded?
               j += 1
             end
             break
