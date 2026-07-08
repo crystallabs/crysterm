@@ -174,6 +174,40 @@ module Crysterm
           parse_char(value).try { |c| style.glyph_open = c }
         when "glyph-close"
           parse_char(value).try { |c| style.glyph_close = c }
+        when "glyphs"
+          # Sequence steps (GLYPHS.md §3.4): the (optionally quoted) string's
+          # characters are the frames/steps of the site's sequence role —
+          # `Loading { glyphs: "◐◓◑◒" }`. `none` clears back to the registry
+          # sequence; a blank value (collapsed `var()`) is dropped.
+          v = value.strip
+          unless v.blank?
+            if Case.fold_keyword(v) == "none"
+              style.glyphs = nil
+            else
+              s = v.strip('"').strip('\'')
+              style.glyphs = s unless s.empty?
+            end
+          end
+        when "shadow-char-horizontal"
+          # CSS spellings for the half-block (thin) shadow glyphs (GLYPHS.md
+          # §3.3) — the `Shadow` axis/diagonal groups and per-corner overrides
+          # (`Shadow#horizontal_char` …). `none` clears a glyph back to the
+          # plain full-cell alpha blend; a wide char is dropped (a shadow cell
+          # is one column). These only pick the glyphs — `box-shadow` still
+          # switches the shadow itself on.
+          shadow_char(value) { |c| style.shadow.horizontal_char = c }
+        when "shadow-char-vertical"
+          shadow_char(value) { |c| style.shadow.vertical_char = c }
+        when "shadow-char-diagonal"
+          shadow_char(value) { |c| style.shadow.diagonal_char = c }
+        when "shadow-char-top-left"
+          shadow_char(value) { |c| style.shadow.top_left_char = c }
+        when "shadow-char-top-right"
+          shadow_char(value) { |c| style.shadow.top_right_char = c }
+        when "shadow-char-bottom-left"
+          shadow_char(value) { |c| style.shadow.bottom_left_char = c }
+        when "shadow-char-bottom-right"
+          shadow_char(value) { |c| style.shadow.bottom_right_char = c }
         when "fill-char"
           # CSS spellings for the `Style` fill-character family. `none` has no
           # meaning for a fill (a cell is always painted), so it's dropped like
@@ -235,8 +269,11 @@ module Crysterm
         "alternate-background-color", "gridline-color",
         "selection-color", "selection-background-color",
         "glyph", "glyph-ascii", "glyph-unicode", "glyph-extended",
-        "glyph-open", "glyph-close",
+        "glyph-open", "glyph-close", "glyphs",
         "fill-char", "percent-char", "foreground-char", "background-char",
+        "shadow-char-horizontal", "shadow-char-vertical", "shadow-char-diagonal",
+        "shadow-char-top-left", "shadow-char-top-right",
+        "shadow-char-bottom-left", "shadow-char-bottom-right",
       }
 
       # Parses a CSS glyph/character value to a `Char`: a (optionally quoted)
@@ -266,6 +303,19 @@ module Crysterm
       # the sentinel is dropped like any other invalid value.
       private def self.char_value(value : String) : Char?
         parse_char(value).try { |c| c unless c == Glyphs::NONE }
+      end
+
+      # Resolves a `shadow-char-*` value and yields the char to assign:
+      # `none` yields `nil` (clear the glyph — back to the full-cell blend),
+      # a one-column char yields itself, and an unparseable or wide value is
+      # dropped (no yield), per CSS's invalid-declaration rule.
+      private def self.shadow_char(value : String, & : Char? ->) : Nil
+        return unless c = parse_char(value)
+        if c == Glyphs::NONE
+          yield nil
+        elsif Unicode.width(c) == 1
+          yield c
+        end
       end
 
       # Splits a multi-token shorthand value on top-level whitespace, keeping a
@@ -517,20 +567,100 @@ module Crysterm
         when "border-left-color"   then apply_side_color border, :left, value, el_color
         when "border-style"
           apply_border_style border, value, {:left, :top, :right, :bottom}
-        when "border-top"          then apply_border_side border, :top, value, el_color
-        when "border-right"        then apply_border_side border, :right, value, el_color
-        when "border-bottom"       then apply_border_side border, :bottom, value, el_color
-        when "border-left"         then apply_border_side border, :left, value, el_color
-        when "border-top-width"    then border.top = border_cells(value, vertical: true)
-        when "border-right-width"  then border.right = border_cells(value)
-        when "border-bottom-width" then border.bottom = border_cells(value, vertical: true)
-        when "border-left-width"   then border.left = border_cells(value)
-        when "border-top-style"    then apply_border_style border, value, {:top}
-        when "border-right-style"  then apply_border_style border, value, {:right}
-        when "border-bottom-style" then apply_border_style border, value, {:bottom}
-        when "border-left-style"   then apply_border_style border, value, {:left}
+        when "border-top"               then apply_border_side border, :top, value, el_color
+        when "border-right"             then apply_border_side border, :right, value, el_color
+        when "border-bottom"            then apply_border_side border, :bottom, value, el_color
+        when "border-left"              then apply_border_side border, :left, value, el_color
+        when "border-top-width"         then border.top = border_cells(value, vertical: true)
+        when "border-right-width"       then border.right = border_cells(value)
+        when "border-bottom-width"      then border.bottom = border_cells(value, vertical: true)
+        when "border-left-width"        then border.left = border_cells(value)
+        when "border-top-style"         then apply_border_style border, value, {:top}
+        when "border-right-style"       then apply_border_style border, value, {:right}
+        when "border-bottom-style"      then apply_border_style border, value, {:bottom}
+        when "border-left-style"        then apply_border_style border, value, {:left}
+        when "border-radius"            then apply_border_radius border, value
+        when "border-chars"             then apply_border_chars border, value
+        when "border-top-left-char"     then apply_border_char border, :top_left, value
+        when "border-top-right-char"    then apply_border_char border, :top_right, value
+        when "border-bottom-left-char"  then apply_border_char border, :bottom_left, value
+        when "border-bottom-right-char" then apply_border_char border, :bottom_right, value
+        when "border-horizontal-char"   then apply_border_char border, :horizontal, value
+        when "border-vertical-char"     then apply_border_char border, :vertical, value
+        when "border-corner-char"       then apply_border_char border, :corner, value
         else
           # Unknown border-* property: ignore.
+        end
+      end
+
+      # The CSS `border-radius` shorthand, mapped honestly onto the cell grid:
+      # a terminal can't render partial curves, so any positive radius turns a
+      # light `Line` border's corners into the arc family
+      # (`BorderType::Rounded`, `╭╮╰╯`), and an explicit zero turns a
+      # `Rounded` border back to square corners. Other families (`Double`/
+      # `Dashed`/`Dotted`/`Bg`) are left alone — the author picked a stronger
+      # corner statement than "slightly rounded". Qt themes' ubiquitous
+      # `border-radius: 4px` thus rounds frames for free. Order note: the
+      # `border` shorthand *replaces* the whole `Border`, so declare the
+      # radius after it (as Qt themes conventionally do); an unparseable or
+      # blank value is dropped.
+      private def self.apply_border_radius(border : Border, value : String) : Nil
+        v = value.strip
+        return if v.empty?
+        # First numeric component of the (possibly multi-value, unit-suffixed)
+        # shorthand: `4px`, `0.5em 1em`, `50%` — any positive number rounds.
+        return unless m = v.match(/-?\d+(?:\.\d+)?/)
+        return unless r = m[0].to_f?
+        if r > 0
+          border.type = BorderType::Rounded if border.type.line?
+        else
+          border.type = BorderType::Line if border.type.rounded?
+        end
+      end
+
+      # A `border-<position>-char` longhand (GLYPHS.md §3.3): sets one border
+      # char override. `none` clears the override back to the type's normal
+      # glyph source (registry family / `fill_char`); an unparseable value —
+      # or one that isn't exactly one column (a border cell must be) — is
+      # dropped, per CSS's invalid-declaration rule.
+      private def self.apply_border_char(border : Border, position : Symbol, value : String) : Nil
+        return unless c = parse_char(value)
+        if c == Glyphs::NONE
+          border.set_char position, nil
+        elsif Unicode.width(c) == 1
+          border.set_char position, c
+        end
+      end
+
+      # The `border-chars` shorthand (GLYPHS.md §3.3): six chars in
+      # `tl tr bl br h v` order (`border-chars: "╭" "╮" "╰" "╯" "─" "│"`),
+      # three for the `corner h v` groups, or one for everything. Each token
+      # follows `apply_border_char`'s rules (`none` clears a position); a
+      # declaration with an unparseable/wide token or another count is
+      # dropped whole.
+      private def self.apply_border_chars(border : Border, value : String) : Nil
+        return if value.blank?
+        tokens = split_top_level(value)
+        chars = tokens.map { |token| parse_char(token) }
+        return if chars.any?(Nil)
+        resolved = chars.map { |c| c == Glyphs::NONE ? nil : c }
+        return if resolved.any? { |c| c && Unicode.width(c) != 1 }
+        case resolved.size
+        when 6
+          border.set_char :top_left, resolved[0]
+          border.set_char :top_right, resolved[1]
+          border.set_char :bottom_left, resolved[2]
+          border.set_char :bottom_right, resolved[3]
+          border.set_char :horizontal, resolved[4]
+          border.set_char :vertical, resolved[5]
+        when 3 # corner group, horizontal runs, vertical runs
+          border.set_char :corner, resolved[0]
+          border.set_char :horizontal, resolved[1]
+          border.set_char :vertical, resolved[2]
+        when 1 # one char everywhere
+          border.set_char :corner, resolved[0]
+          border.set_char :horizontal, resolved[0]
+          border.set_char :vertical, resolved[0]
         end
       end
 
@@ -636,13 +766,15 @@ module Crysterm
       # Maps a CSS `border-style` keyword to a `BorderType`, or `nil` if the
       # token isn't a style keyword (a width, color, or `none`). `solid`/`line`
       # both mean the light line border; `bg`/`background` the fill-char border;
-      # `dashed`/`dotted`/`double` their respective glyph sets.
+      # `dashed`/`dotted`/`double` their respective glyph sets; `rounded` (or
+      # `round` — no standard CSS spelling exists) the arc-corner family.
       private def self.border_type_keyword(token : String) : BorderType?
         case Case.fold_keyword(token)
         when "solid", "line"    then BorderType::Line
         when "dashed"           then BorderType::Dashed
         when "dotted"           then BorderType::Dotted
         when "double"           then BorderType::Double
+        when "rounded", "round" then BorderType::Rounded
         when "bg", "background" then BorderType::Bg
         else                         nil
         end

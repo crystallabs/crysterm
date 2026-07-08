@@ -1534,6 +1534,25 @@ module Crysterm
       !role.cell? || Unicode.width(c) == 1
     end
 
+    # The sequence steps for *role* (spinner frames, dial pointer ring, fill
+    # ramps — GLYPHS.md §3.4): the CSS `glyphs` string on *slot* when set
+    # (its characters are the steps), else the registry sequence at the
+    # effective tier. With `cells: true` (fill ramps — each step paints one
+    # grid cell) a CSS sequence containing any non-1-column character is
+    # rejected wholesale, falling back to the registry.
+    #
+    # The CSS path allocates a fresh array per call (`String#chars`); the
+    # registry path returns the stored array. Per-frame callers memoize
+    # against `{slot.glyphs, glyph_tier, Glyphs.generation}` (see `Loading`/
+    # `Dial`); per-content-build callers use it directly.
+    def glyph_seq(role : Glyphs::SeqRole, slot : ::Crysterm::Style = style, cells : Bool = false) : Array(Char)
+      if (s = slot.glyphs) && !s.empty?
+        chars = s.chars
+        return chars unless cells && chars.any? { |c| Unicode.width(c) != 1 }
+      end
+      Glyphs.chars(role, glyph_tier)
+    end
+
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
     # stripped (they occupy no columns); whitespace is preserved. With
     # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise

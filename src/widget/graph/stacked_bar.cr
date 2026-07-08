@@ -183,9 +183,11 @@ module Crysterm
             prev = edge
           end
 
+          # Fill ramp: CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
+          ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
           plot_rows.times do |r|
             below = plot_rows - 1 - r # whole cells beneath this one
-            glyph = Scale.vglyph(total, below)
+            glyph = Scale.ramp_glyph(ramp, total, below)
             next if glyph == ' ' # cell above the fill
             edge = below * 8     # this cell's bottom edge, in eighths
             color = nil.as(String?)

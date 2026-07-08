@@ -621,8 +621,10 @@ module Crysterm
         left_attr = sattr border, border.left_fg, border_bg
         right_attr = sattr border, border.right_fg, border_bg
 
-        # Resolved once here instead of re-dispatching per cell inside `border_char`.
-        glyphs = border.type.line_glyphs(glyph_tier)
+        # Resolved once here instead of re-dispatching per cell inside
+        # `border_char`, with any per-position char overrides (CSS
+        # `border-chars`/`border-top-left-char` …) merged over the family.
+        glyphs = border.line_glyphs_with_overrides(glyph_tier)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's thickness. A side thicker than one cell fills its whole
@@ -854,11 +856,15 @@ module Crysterm
           g[:v]
         end
       else # Bg
-        # Distinct glyphs for horizontal sides, vertical sides and corners, each
-        # defaulting to `char` (see `Border#horizontal_char`/`#vertical_char`/
-        # `#corner_char`).
+        # Distinct glyphs for horizontal sides, vertical sides and the four
+        # corners, each defaulting through its group to `fill_char` (see
+        # `Border#horizontal_char`/`#vertical_char`/`#top_left_char` …).
         if h_band && v_band
-          border.corner_char
+          if in_top
+            in_left ? border.top_left_char : border.top_right_char
+          else
+            in_left ? border.bottom_left_char : border.bottom_right_char
+          end
         elsif h_band
           border.horizontal_char
         else

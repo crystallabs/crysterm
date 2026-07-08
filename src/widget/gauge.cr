@@ -168,12 +168,15 @@ module Crysterm
         Array.new(rows) { |r| r == mid ? with_labels(segs, cells, colors) : row }.join('\n')
       end
 
-      # Single-mode fill: sub-cell horizontal blocks up to `#percent`.
+      # Single-mode fill: sub-cell horizontal blocks up to `#percent`. The fill
+      # ramp resolves CSS-first (`Gauge { glyphs: " ▏▎▍▌▋▊▉█" }`), then the
+      # registry's `ScaleHorizontal` at the effective tier (GLYPHS.md §3.4).
       private def fill_single(cells, colors) : Nil
         cols = cells.size
+        ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(@value, @minimum, @maximum, cols)
         cols.times do |c|
-          glyph = Graph::Scale.hglyph(eighths, c)
+          glyph = Graph::Scale.ramp_glyph(ramp, eighths, c)
           next if glyph == ' '
           cells[c] = glyph
           colors[c] = @fill_color

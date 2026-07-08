@@ -38,8 +38,8 @@ describe "BUGS11 flow wrap fit-check includes the child's left margin (fix #25)"
     # c1's margin box (left=5, mleft=1, awidth=4 -> cols 6..10) would straddle the
     # 9-wide interior's right edge; pre-fix it stayed on row 0 and painted to
     # xl=10, one column past the interior. Post-fix it wraps to the second row.
-    l1.yi.should be > l0.yi          # wrapped to a new row
-    l1.xl.should be <= bl.xl         # no longer painted past the right edge
+    l1.yi.should be > l0.yi  # wrapped to a new row
+    l1.xl.should be <= bl.xl # no longer painted past the right edge
   end
 end
 

@@ -45,13 +45,38 @@ module Crysterm
       # XXX Use a better name than 'icons', so that it doesn't
       # seem to imply longer text can't be used.
 
-      getter icons : Array(String)
+      # Explicitly pinned frames (`icons:`/`spinner:`/`#spinner=`), or `nil` =
+      # unset: resolve the CSS `glyphs`/registry chain instead (see `#icons`).
+      @icons : Array(String)?
+
       getter icon : Text
+
+      # The frames currently cycled: the pinned set when one was given, else
+      # the CSS `glyphs` string's characters (`Loading { glyphs: "◐◓◑◒" }`),
+      # else the registry's `SpinnerFrames` at the effective tier (`| / - \`
+      # everywhere but tier Extended, whose default upgrade is the braille
+      # ring). The resolved set is memoized against everything it derives
+      # from, so the per-tick `#step` costs a tuple compare.
+      def icons : Array(String)
+        if pinned = @icons
+          return pinned
+        end
+        key = {style.glyphs, glyph_tier, Glyphs.generation}
+        if (f = @_frames) && @_frames_key == key
+          return f
+        end
+        @_frames_key = key
+        @_frames = glyph_seq(Glyphs::SeqRole::SpinnerFrames, style).map(&.to_s)
+      end
+
+      # :ditto:
+      @_frames : Array(String)?
+      @_frames_key : {String?, Glyphs::Tier, UInt64}?
 
       def initialize(
         @compact = false,
         @interval = Crysterm::Config.loading_interval,
-        @icons = ["|", "/", "-", "\\"],
+        icons : Array(String)? = nil,
         spinner : String | Symbol | Nil = nil,
         @step = 1,
         **box,
@@ -60,28 +85,32 @@ module Crysterm
           @orig_text = c
         end
 
-        # A named built-in spinner overrides the default frames.
-        spinner.try { |name| SPINNERS[name.to_s]?.try { |f| @icons = f } }
+        # An explicit `icons:` pins the frames; an *empty* array would make
+        # `icons[0]` below raise `IndexError` at construction (and later
+        # `#step`'s `% icons.size` a `DivisionByZeroError`), so it counts as
+        # unset — resolve the default chain instead, mirroring how the
+        # block-glyph charts treat empty color arrays as "use the default".
+        @icons = icons.try { |i| i.empty? ? nil : i }
 
-        # A spinner needs at least one frame: an empty `icons:` array would make
-        # `@icons[0]` below raise `IndexError` at construction (and later
-        # `#step`'s `% icons.size` a `DivisionByZeroError`). Fall back to the
-        # default frames, mirroring how the block-glyph charts treat empty color
-        # arrays as "use the default".
-        @icons = ["|", "/", "-", "\\"] if @icons.empty?
+        # A named built-in spinner overrides (and pins) the frames.
+        spinner.try { |name| SPINNERS[name.to_s]?.try { |f| @icons = f } }
 
         super **box
 
         @pos = 0
 
+        # Built with placeholder content: the frame resolution (`#icons`) is a
+        # method call, which can't run until every ivar — `@icon` included —
+        # is initialized.
         @icon = Text.new \
           align: :center,
           top: 2,
           left: 1,
           right: 1,
           height: 1,
-          content: @icons[0]
+          content: ""
 
+        @icon.set_content self.icons[0]
         append @icon
         rebuild_compact_content
       end

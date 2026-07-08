@@ -307,6 +307,12 @@ module Crysterm
       BorderDottedBR
       BorderDottedH
       BorderDottedV
+      BorderRoundedTL
+      BorderRoundedTR
+      BorderRoundedBL
+      BorderRoundedBR
+      BorderRoundedH
+      BorderRoundedV
 
       # Whether this is a *cell* role — one that fills exactly one grid cell
       # by construction (scrollbar/slider parts, rules, junctions, the cursor
@@ -579,6 +585,15 @@ module Crysterm
       set_in t, Role::BorderDottedBR, Entry.new('+', '┘')
       set_in t, Role::BorderDottedH, Entry.new('-', '┈')
       set_in t, Role::BorderDottedV, Entry.new('|', '┊')
+      # Rounded (arc) corners with the light straight runs — the light box
+      # family's arc variants (U+256D..U+2570), covered by effectively every
+      # contemporary monospace font, so they sit in the unicode column.
+      set_in t, Role::BorderRoundedTL, Entry.new('+', '╭')
+      set_in t, Role::BorderRoundedTR, Entry.new('+', '╮')
+      set_in t, Role::BorderRoundedBL, Entry.new('+', '╰')
+      set_in t, Role::BorderRoundedBR, Entry.new('+', '╯')
+      set_in t, Role::BorderRoundedH, Entry.new('-', '─')
+      set_in t, Role::BorderRoundedV, Entry.new('|', '│')
       t
     end
 
@@ -624,7 +639,109 @@ module Crysterm
     # Restores every role to the built-in defaults.
     def self.reset : Nil
       DEFAULTS.each_with_index { |e, i| @@table[i] = e }
+      SEQ_DEFAULTS.each_with_index { |e, i| @@seq_table[i] = e }
       @@generation += 1
+    end
+
+    # -- Sequence (multi-char) roles — GLYPHS.md phase 4 ----------------------
+    #
+    # Some chrome isn't a single glyph but an ordered *sequence* of steps: a
+    # spinner's frames, a dial's pointer ring, the sub-cell fill ramps. These
+    # live in their own table with the same tier fall-down; values are
+    # `Array(Char)` (one char per step). CSS spelling: the `glyphs` property
+    # (`Loading { glyphs: "◐◓◑◒"; }` — the string's characters are the steps).
+
+    # Every sequence role the toolkit draws.
+    enum SeqRole
+      SpinnerFrames   # `Loading`'s cycling frames
+      DialPointers    # `Dial`'s compass ring, clockwise from north
+      ScaleHorizontal # sub-cell fill ramp, empty → full, filling rightward
+      ScaleVertical   # sub-cell fill ramp, empty → full, filling upward
+    end
+
+    # One sequence role's steps per tier: `ascii` is mandatory, higher tiers
+    # optional (`nil` falls down a tier). Mirrors `Entry`.
+    record SeqEntry, ascii : Array(Char), unicode : Array(Char)? = nil, extended : Array(Char)? = nil do
+      # The steps to use at *tier*, falling down to lower tiers when this
+      # entry defines none for it.
+      def for(tier : Tier) : Array(Char)
+        case tier
+        in .extended? then @extended || @unicode || @ascii
+        in .unicode?  then @unicode || @ascii
+        in .ascii?    then @ascii
+        end
+      end
+    end
+
+    # Built-in sequence defaults. As with `DEFAULTS`, the column holding
+    # today's literals keeps the default tier byte-identical with history:
+    # the spinner's `| / - \` sits in `ascii` (it always was 7-bit), the
+    # dial arrows and eighth-block ramps in `unicode`; `extended` holds
+    # opt-in upgrades (the braille spinner).
+    SEQ_DEFAULTS = begin
+      t = Array(SeqEntry).new(SeqRole.values.size) { SeqEntry.new([' ']) }
+      t[SeqRole::SpinnerFrames.value] = SeqEntry.new(
+        ['|', '/', '-', '\\'], nil,
+        ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
+      # ASCII compass: the four cardinals are honest; the diagonals reuse the
+      # slashes (direction reads from context as the pointer sweeps).
+      t[SeqRole::DialPointers.value] = SeqEntry.new(
+        ['^', '/', '>', '\\', 'v', '/', '<', '\\'],
+        ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'])
+      # 9-step fill ramps (empty → full). The ASCII column is a density ramp —
+      # 7-bit can't render partial fills, so darkness stands in for fill.
+      t[SeqRole::ScaleHorizontal.value] = SeqEntry.new(
+        " .:-=+*#@".chars, " ▏▎▍▌▋▊▉█".chars)
+      t[SeqRole::ScaleVertical.value] = SeqEntry.new(
+        " .:-=+*#@".chars, " ▁▂▃▄▅▆▇█".chars)
+      t
+    end
+
+    # The live sequence table; `Glyphs.set_chars` retunes it.
+    @@seq_table : Array(SeqEntry) = SEQ_DEFAULTS.dup
+
+    # The steps for sequence *role* at *tier* (falling down tiers within the
+    # entry). Returns the stored array — callers must treat it as read-only.
+    @[AlwaysInline]
+    def self.chars(role : SeqRole, tier : Tier) : Array(Char)
+      @@seq_table.unsafe_fetch(role.value).for(tier)
+    end
+
+    # The full sequence entry for *role*.
+    def self.seq_entry(role : SeqRole) : SeqEntry
+      @@seq_table.unsafe_fetch(role.value)
+    end
+
+    # Overrides sequence *role*'s steps. Omitted tiers keep their current
+    # value; pass `unset: true` to clear the `unicode`/`extended` overrides
+    # back to tier fall-down instead. Mirrors `Glyphs.set`.
+    def self.set_chars(role : SeqRole, ascii : Array(Char)? = nil, unicode : Array(Char)? = nil,
+                       extended : Array(Char)? = nil, unset : Bool = false) : Nil
+      e = @@seq_table[role.value]
+      @@seq_table[role.value] = SeqEntry.new(
+        ascii || e.ascii,
+        unicode || (unset ? nil : e.unicode),
+        extended || (unset ? nil : e.extended),
+      )
+      @@generation += 1
+    end
+
+    # Heuristic tier suggestion: `Extended` when the environment identifies a
+    # terminal that ships with (or is overwhelmingly configured with) a
+    # modern, well-covered font — kitty, WezTerm, Ghostty, iTerm2 — else
+    # `Unicode`. Deliberately consulted **nowhere** automatically: font
+    # coverage can't be probed, so `Extended` stays strictly opt-in
+    # (GLYPHS.md §1); an app that wants the nudge does
+    # `screen.glyph_tier = Glyphs.detected_tier`.
+    def self.detected_tier(env = ENV) : Tier
+      return Tier::Extended if env.has_key?("KITTY_WINDOW_ID") ||
+                               env.has_key?("WEZTERM_EXECUTABLE") ||
+                               env.has_key?("GHOSTTY_RESOURCES_DIR")
+      program = env["TERM_PROGRAM"]?.try(&.downcase) || ""
+      return Tier::Extended if {"kitty", "wezterm", "ghostty", "iterm.app"}.includes?(program)
+      term = env["TERM"]?.try(&.downcase) || ""
+      return Tier::Extended if term.includes?("kitty") || term.includes?("wezterm") || term.includes?("ghostty")
+      Tier::Unicode
     end
   end
 end

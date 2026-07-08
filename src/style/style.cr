@@ -173,6 +173,7 @@ module Crysterm
       when :glyph_extended   then !@glyph_extended.nil?
       when :glyph_open       then !@glyph_open.nil?
       when :glyph_close      then !@glyph_close.nil?
+      when :glyphs           then !@glyphs.nil?
       else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
     end
@@ -314,6 +315,12 @@ module Crysterm
     # delimiter entirely, shrinking the marker (see `Mixin::CheckMarker`).
     property glyph_open : Char?
     property glyph_close : Char?
+
+    # A sequence override (CSS `glyphs`, GLYPHS.md §3.4): the string's
+    # characters are the ordered steps of the site's sequence role — spinner
+    # frames, dial pointer ring, fill ramp. `nil` = unset (ask the `Glyphs`
+    # sequence registry); consumed via `Widget#glyph_seq`.
+    property glyphs : String?
 
     # The CSS-specified glyph for *tier*: the tier longhand, falling down
     # tiers, else the universal `glyph`; `nil` when this style specifies none
@@ -657,6 +664,7 @@ module Crysterm
       @glyph_extended : Char? = nil,
       @glyph_open : Char? = nil,
       @glyph_close : Char? = nil,
+      @glyphs : String? = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to

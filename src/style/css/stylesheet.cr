@@ -2,8 +2,9 @@ module Crysterm
   module CSS
     # A parsed `@media` condition: a logical **OR** of comma-separated queries,
     # each a **conjunction** (AND) of feature tests, evaluated against the
-    # terminal's size and color depth. Only width/height and
-    # `min-colors`/`max-colors` features are supported.
+    # terminal's size, color depth and glyph support tier. Only width/height,
+    # `min-colors`/`max-colors` and `glyphs`/`min-glyphs`/`max-glyphs`
+    # (GLYPHS.md §3.5) features are supported.
     #
     # A comma in a media query is an OR of full queries (`@media (max-width: 40),
     # (min-width: 100)` matches a narrow *or* a wide terminal), so each
@@ -36,8 +37,10 @@ module Crysterm
       end
 
       # The numeric media features crysterm understands (cell counts / color
-      # depth). Any other `(feature: …)` group marks the whole query unmatchable.
-      FEATURES = {"min-width", "max-width", "min-height", "max-height", "min-colors", "max-colors"}
+      # depth / glyph-tier ordinals). Any other `(feature: …)` group marks the
+      # whole query unmatchable.
+      FEATURES = {"min-width", "max-width", "min-height", "max-height", "min-colors", "max-colors",
+                  "glyphs", "min-glyphs", "max-glyphs"}
 
       # Matches one `(feature: value)` group. Feature names fold to lowercase
       # (CSS media features are case-insensitive), and a trailing unit
@@ -49,6 +52,13 @@ module Crysterm
       # Matches any parenthesized group, so an unrecognized feature (one that
       # `FEATURE_RE` can't parse) can be detected and mark the query unmatchable.
       GROUP_RE = /\([^()]*\)/
+
+      # Matches a `(glyphs: <tier>)` / `(min-glyphs: …)` / `(max-glyphs: …)`
+      # group whose value is a support-tier keyword (GLYPHS.md §3.5). The tier
+      # is stored as its ordinal (ascii 0 < unicode 1 < extended 2), so the
+      # conditions ride the same `{feature, Int32}` tuples as the numeric
+      # features; a bare ordinal via `FEATURE_RE` works too.
+      GLYPHS_FEATURE_RE = /\(\s*((?:min-|max-)?glyphs)\s*:\s*(ascii|unicode|extended)\s*\)/i
 
       # Parses a condition string such as `(min-width: 80) and (max-width: 120)`,
       # or a comma-separated OR list like `(max-width: 40), (min-width: 100)`.
@@ -69,6 +79,12 @@ module Crysterm
                 conditions << {feature, value}
                 next
               end
+            end
+            # A glyph-tier feature with a keyword value (`(glyphs: ascii)`),
+            # stored as the tier's ordinal.
+            if (m = group[0].match(GLYPHS_FEATURE_RE)) && (tier = Glyphs::Tier.parse?(m[2]))
+              conditions << {m[1].downcase, tier.value.to_i32}
+              next
             end
             # A `(...)` group that isn't a known numeric feature (e.g.
             # `(orientation: portrait)`) makes this query unmatchable.
@@ -102,9 +118,12 @@ module Crysterm
       end
 
       # Whether this query matches a terminal of *width*×*height* cells with
-      # *colors* available — true when **any** comma-separated group matches
-      # (OR), each group requiring **all** its conditions (AND).
-      def matches?(width : Int32, height : Int32, colors : Int32) : Bool
+      # *colors* available at glyph-tier ordinal *glyphs* (GLYPHS.md §3.5;
+      # defaults to Unicode, the toolkit default tier) — true when **any**
+      # comma-separated group matches (OR), each group requiring **all** its
+      # conditions (AND). `glyphs:` is an exact tier match; `min-`/`max-`
+      # range over the tier ordering ascii(0) < unicode(1) < extended(2).
+      def matches?(width : Int32, height : Int32, colors : Int32, glyphs : Int32 = 1) : Bool
         groups.any? do |(conditions, matchable)|
           next false unless matchable
           conditions.all? do |(feature, value)|
@@ -115,6 +134,9 @@ module Crysterm
             when "max-height" then height <= value
             when "min-colors" then colors >= value
             when "max-colors" then colors <= value
+            when "glyphs"     then glyphs == value
+            when "min-glyphs" then glyphs >= value
+            when "max-glyphs" then glyphs <= value
             else                   true
             end
           end

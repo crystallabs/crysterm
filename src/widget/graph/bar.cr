@@ -127,10 +127,12 @@ module Crysterm
           # reserve up front so the per-frame rebuild doesn't realloc as it grows.
           lines = Array(String).new(plot_rows + value_row + label_row)
 
-          # Plot area, top row down.
+          # Plot area, top row down. The fill ramp resolves CSS-first
+          # (`glyphs:`), then the registry's `ScaleVertical` (GLYPHS.md §3.4).
+          ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
           plot_rows.times do |r|
             below = plot_rows - 1 - r
-            lines << plot_row(n) { |i| {Scale.vglyph(levels[i], below), bar_color(i)} }
+            lines << plot_row(n) { |i| {Scale.ramp_glyph(ramp, levels[i], below), bar_color(i)} }
           end
 
           # Value captions.

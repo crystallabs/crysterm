@@ -1,11 +1,12 @@
 module Crysterm
   # Type of border to draw.
   enum BorderType
-    Bg     # Bg color (a fill character, see `Border#fill_char`)
-    Line   # Solid line, drawn in light box-drawing chars
-    Dashed # Dashed line (light box-drawing dashes)
-    Dotted # Dotted line (light box-drawing dots)
-    Double # Double line
+    Bg      # Bg color (a fill character, see `Border#fill_char`)
+    Line    # Solid line, drawn in light box-drawing chars
+    Dashed  # Dashed line (light box-drawing dashes)
+    Dotted  # Dotted line (light box-drawing dots)
+    Double  # Double line
+    Rounded # Solid light line with arc (rounded) corners: ╭╮╰╯
 
     # DotDash
     # DotDotDash
@@ -15,8 +16,8 @@ module Crysterm
     # Outset
 
     # Whether this is a line-drawing border (as opposed to the `Bg`
-    # fill-character border). `Line`, `Dashed`, `Dotted` and `Double` all use
-    # box-drawing glyphs; only their glyph set differs.
+    # fill-character border). `Line`, `Dashed`, `Dotted`, `Double` and
+    # `Rounded` all use box-drawing glyphs; only their glyph set differs.
     def line_family?
       self != Bg
     end
@@ -42,6 +43,10 @@ module Crysterm
         {tl: Glyphs[Glyphs::Role::BorderDottedTL, tier], tr: Glyphs[Glyphs::Role::BorderDottedTR, tier],
          bl: Glyphs[Glyphs::Role::BorderDottedBL, tier], br: Glyphs[Glyphs::Role::BorderDottedBR, tier],
          h: Glyphs[Glyphs::Role::BorderDottedH, tier], v: Glyphs[Glyphs::Role::BorderDottedV, tier]}
+      when Rounded
+        {tl: Glyphs[Glyphs::Role::BorderRoundedTL, tier], tr: Glyphs[Glyphs::Role::BorderRoundedTR, tier],
+         bl: Glyphs[Glyphs::Role::BorderRoundedBL, tier], br: Glyphs[Glyphs::Role::BorderRoundedBR, tier],
+         h: Glyphs[Glyphs::Role::BorderRoundedH, tier], v: Glyphs[Glyphs::Role::BorderRoundedV, tier]}
       else # Line (and any non-line type, defensively)
         {tl: Glyphs[Glyphs::Role::BorderLineTL, tier], tr: Glyphs[Glyphs::Role::BorderLineTR, tier],
          bl: Glyphs[Glyphs::Role::BorderLineBL, tier], br: Glyphs[Glyphs::Role::BorderLineBR, tier],
@@ -96,33 +101,102 @@ module Crysterm
     # the three position-specific chars below.
     property fill_char = ' '
 
-    # Position-specific characters for `BorderType::Bg` borders. When unset
-    # (`nil`) each falls back to `char` (see `#horizontal_char`, `#vertical_char`,
-    # `#corner_char`).
+    # Position-specific character overrides, honored by **every** border type
+    # (GLYPHS.md §3.3). When unset (`nil`) each position falls back to its
+    # group (`char_corner` for the four corners), then to the border's normal
+    # glyph source — the `BorderType` family from the `Glyphs` registry for a
+    # line border, `fill_char` for a `Bg` border. CSS spellings:
+    # `border-chars` (tl tr bl br h v) and the per-position longhands
+    # (`border-top-left-char: "╭"` — a rounded corner).
     #
-    # Split three ways because terminal cells have a ~1x2 (width:height)
-    # aspect ratio, so one char along a horizontal run reads "doubly wide"
-    # versus the same char stacked vertically. Setting
-    # `char_horizontal`/`char_vertical`/`char_corner` independently keeps the
-    # border uniform: e.g. `─` horizontally, `│` vertically, `┼`/`+` at joins.
+    # The horizontal/vertical/corner split exists because terminal cells have
+    # a ~1x2 (width:height) aspect ratio, so one char along a horizontal run
+    # reads "doubly wide" versus the same char stacked vertically.
     property char_horizontal : Char? = nil
     property char_vertical : Char? = nil
     property char_corner : Char? = nil
 
-    # Char to draw on the top/bottom (horizontal) sides. Falls back to `char`.
+    # Per-corner overrides; each falls back to the `char_corner` group.
+    property char_top_left : Char? = nil
+    property char_top_right : Char? = nil
+    property char_bottom_left : Char? = nil
+    property char_bottom_right : Char? = nil
+
+    # Char to draw on the top/bottom (horizontal) sides of a `Bg` border.
+    # Falls back to `fill_char`.
     def horizontal_char : Char
       @char_horizontal || @fill_char
     end
 
-    # Char to draw on the left/right (vertical) sides. Falls back to `char`.
+    # Char to draw on the left/right (vertical) sides of a `Bg` border.
+    # Falls back to `fill_char`.
     def vertical_char : Char
       @char_vertical || @fill_char
     end
 
     # Char to draw where horizontal and vertical sides join (the corners /
-    # "diagonal" cells). Falls back to `char`.
+    # "diagonal" cells) of a `Bg` border. Falls back to `fill_char`.
     def corner_char : Char
       @char_corner || @fill_char
+    end
+
+    # Per-corner chars for a `Bg` border: position override → corner group →
+    # `fill_char`. (A line border resolves the same overrides against its
+    # glyph family instead — see `#line_glyphs_with_overrides`.)
+    def top_left_char : Char
+      @char_top_left || corner_char
+    end
+
+    # :ditto:
+    def top_right_char : Char
+      @char_top_right || corner_char
+    end
+
+    # :ditto:
+    def bottom_left_char : Char
+      @char_bottom_left || corner_char
+    end
+
+    # :ditto:
+    def bottom_right_char : Char
+      @char_bottom_right || corner_char
+    end
+
+    # Whether any position/group char override is set — lets the renderer skip
+    # the override merge entirely for the common untouched border.
+    def chars? : Bool
+      !(@char_horizontal.nil? && @char_vertical.nil? && @char_corner.nil? &&
+        @char_top_left.nil? && @char_top_right.nil? &&
+        @char_bottom_left.nil? && @char_bottom_right.nil?)
+    end
+
+    # The six glyphs of a line-family border with this border's char overrides
+    # merged in: each position takes its override (corners falling back to the
+    # `char_corner` group), else the `BorderType` family glyph at *tier*.
+    # The no-override fast path returns the family tuple untouched.
+    def line_glyphs_with_overrides(tier : Glyphs::Tier)
+      g = @type.line_glyphs(tier)
+      return g unless chars?
+      {tl: @char_top_left || @char_corner || g[:tl],
+       tr: @char_top_right || @char_corner || g[:tr],
+       bl: @char_bottom_left || @char_corner || g[:bl],
+       br: @char_bottom_right || @char_corner || g[:br],
+       h:  @char_horizontal || g[:h],
+       v:  @char_vertical || g[:v]}
+    end
+
+    # Assigns the per-position corner override for a CSS longhand, keyed by
+    # position symbol. Unknown positions are ignored.
+    def set_char(position : Symbol, value : Char?) : Nil
+      case position
+      when :top_left     then @char_top_left = value
+      when :top_right    then @char_top_right = value
+      when :bottom_left  then @char_bottom_left = value
+      when :bottom_right then @char_bottom_right = value
+      when :horizontal   then @char_horizontal = value
+      when :vertical     then @char_vertical = value
+      when :corner       then @char_corner = value
+      end
     end
 
     # SGR text-attribute booleans (bold/italic/underline/blink/reverse/strike/

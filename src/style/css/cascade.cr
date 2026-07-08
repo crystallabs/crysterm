@@ -86,6 +86,7 @@ module Crysterm
         rescue
           0x1000000
         end
+        media_glyphs = window.glyph_tier.value.to_i32
 
         # Variables merge across sheets in order, so a later (higher-priority)
         # sheet's custom properties win.
@@ -114,7 +115,7 @@ module Crysterm
           sheet.rules.each do |rule|
             next if rule.selector.empty?
             if mq = rule.media
-              next unless mq.matches?(media_width, media_height, media_colors)
+              next unless mq.matches?(media_width, media_height, media_colors, media_glyphs)
             end
             if has_slots && backward_structural?(rule.selector)
               # Real child widgets *and* extra pseudo-nodes (table `Row`/`Cell`,
@@ -566,6 +567,7 @@ module Crysterm
         style.glyph_extended = inline.glyph_extended if inline.specified?(:glyph_extended)
         style.glyph_open = inline.glyph_open if inline.specified?(:glyph_open)
         style.glyph_close = inline.glyph_close if inline.specified?(:glyph_close)
+        style.glyphs = inline.glyphs if inline.specified?(:glyphs)
         # Mask-tracked properties (text attributes, border/padding/margin/shadow,
         # fill chars, tabs, fill/draw_over_border) — single-sourced off Style's
         # `tracked` list. Uses `specified?` (not `any?`), so inline can switch

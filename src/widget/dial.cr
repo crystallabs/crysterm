@@ -17,7 +17,10 @@ module Crysterm
       property? show_value : Bool = true
 
       # Pointer glyphs for the eight compass directions, starting at "north" and
-      # going clockwise.
+      # going clockwise — the historical default ring, now the registry's
+      # `DialPointers` unicode column. Kept for reference/compat; resolution
+      # goes through `#pointer_ring` (CSS `Dial { glyphs: "…" }`, then the
+      # registry at the effective tier).
       POINTERS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖']
 
       def initialize(
@@ -44,9 +47,27 @@ module Crysterm
         end
       end
 
-      # The pointer glyph for the current value (one of the eight `POINTERS`,
-      # mapping the value's position in the range onto a clockwise angle).
+      # The pointer ring cycled by `#pointer`: CSS `Dial { glyphs: "…" }`
+      # (each character one clockwise step from "north"), else the registry's
+      # `DialPointers` at the effective tier. Memoized against its inputs —
+      # `#pointer` runs per render.
+      private def pointer_ring : Array(Char)
+        key = {style.glyphs, glyph_tier, Glyphs.generation}
+        if (r = @_ring) && @_ring_key == key
+          return r
+        end
+        @_ring_key = key
+        @_ring = glyph_seq(Glyphs::SeqRole::DialPointers, style)
+      end
+
+      # :ditto:
+      @_ring : Array(Char)?
+      @_ring_key : {String?, Glyphs::Tier, UInt64}?
+
+      # The pointer glyph for the current value (one of the `#pointer_ring`
+      # steps, mapping the value's position in the range onto a clockwise angle).
       private def pointer : Char
+        ring = pointer_ring
         s = value_span
         frac = s == 0 ? 0.0 : (@value - @minimum) / s.to_f
         # A wrapping dial maps the range onto the full circle, so the maximum
@@ -55,8 +76,8 @@ module Crysterm
         # across the arc between the eight directions: `frac * (size - 1)` lands
         # the maximum on the last glyph (`↖`). An unconditional `* size` here
         # would show `↑` at both ends and could skip an in-between direction.
-        steps = wrap? ? POINTERS.size : POINTERS.size - 1
-        POINTERS[(frac * steps).round.to_i % POINTERS.size]
+        steps = wrap? ? ring.size : ring.size - 1
+        ring[(frac * steps).round.to_i % ring.size]
       end
 
       # Cached value strings (plain + focused-bracketed form). `#render` draws one

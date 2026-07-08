@@ -45,6 +45,12 @@ module Crysterm
     # styling dirty (the resize path doesn't). `nil` until the first cascade.
     @css_last_size : Tuple(Int32, Int32)?
 
+    # Glyph tier at the last cascade — the `@media (glyphs: …)` analog of
+    # `@css_last_size`: a `screen.glyph_tier = …` switch marks nothing dirty,
+    # so a media-guarded cascade re-runs when the tier changed since
+    # (GLYPHS.md §3.5). `nil` until the first cascade.
+    @css_last_glyph_tier : Glyphs::Tier?
+
     # `CSS.default_stylesheet_generation` at the last `#apply_stylesheet` run.
     # Lets `#apply_stylesheet_if_dirty` notice a runtime theme / default-sheet
     # swap (which marks nothing dirty on any window) and force a full recompute,
@@ -278,9 +284,12 @@ module Crysterm
       # so a resize re-evaluates the media conditions (and record it for
       # `#apply_stylesheet_if_dirty`'s size-change trigger).
       @css_last_size = {width, height}
+      @css_last_glyph_tier = glyph_tier
       @css_last_default_generation = CSS.default_stylesheet_generation
       identity = document
-      identity = "#{width}x#{height}\n#{document}" if css_media_active?
+      # The glyph tier joins the size in the identity: an `@media (glyphs: …)`
+      # cascade is byte-identical across a tier switch and would be skipped.
+      identity = "#{width}x#{height}@#{glyph_tier.value}\n#{document}" if css_media_active?
       # The default-sheet generation is part of the identity too: a runtime
       # theme swap leaves the document byte-identical, and even an explicit
       # `restyle` would otherwise be swallowed by this skip.
@@ -483,7 +492,7 @@ module Crysterm
     protected def apply_stylesheet_if_dirty : Nil
       if @css_dirty
         apply_stylesheet
-      elsif (css_media_active? && @css_last_size != {width, height}) ||
+      elsif (css_media_active? && (@css_last_size != {width, height} || @css_last_glyph_tier != glyph_tier)) ||
             @css_last_default_generation != CSS.default_stylesheet_generation
         @css_dirty = true
         @css_full = true

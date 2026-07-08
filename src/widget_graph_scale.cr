@@ -45,6 +45,18 @@ module Crysterm
           HORIZONTAL[(filled_eighths - left_cells * 8).clamp(0, 8)]
         end
 
+        # `hglyph`/`vglyph` over an arbitrary fill *ramp* (empty → full steps —
+        # a CSS `glyphs:` override or a registry sequence, see GLYPHS.md §3.4).
+        # The cell's fill (its eighths, relative to `offset_cells` whole cells
+        # before it) maps onto the ramp's steps: a 9-step ramp indexes 1:1
+        # (the classic eighth blocks), other lengths scale proportionally.
+        def self.ramp_glyph(ramp : Array(Char), filled_eighths : Int32, offset_cells : Int32) : Char
+          eighths = (filled_eighths - offset_cells * 8).clamp(0, 8)
+          last = ramp.size - 1
+          return ramp[0] if last <= 0
+          ramp[(eighths * last / 8.0).round.to_i]
+        end
+
         # Serializes a single row of `cells` into tagged content, wrapping each
         # run of same-colored cells in `{color-fg}…{/}`. A `nil` color emits the
         # characters as-is (default style). Coalescing runs keeps the produced
