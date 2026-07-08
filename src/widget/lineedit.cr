@@ -15,6 +15,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class LineEdit < Input
       include Mixin::TextEditing
+      include Mixin::TextEditing::FlatBuffer
 
       property secret : Bool = false
       property censor : Bool = false

@@ -1,3 +1,6 @@
+require "./text_editing/buffer"
+require "./text_editing/flat_buffer"
+
 module Crysterm
   module Mixin
     # The "editable text buffer" concern, extracted from `Widget::PlainTextEdit`
@@ -16,7 +19,15 @@ module Crysterm
     #
     # Call `setup_text_editing` from `initialize` (after `super`) to wire the
     # cursor-tracking and read handlers.
+    #
+    # All buffer access goes through the `Buffer` protocol (TEXTEDIT.md §5):
+    # an includer also includes an adapter — `FlatBuffer` (one `String`, what
+    # `LineEdit`/`PlainTextEdit` use) or a `TextDocument`-backed one — which
+    # provides the `buf_*` methods and the `value`/`value=` widget API this
+    # module's shared logic calls.
     module TextEditing
+      include Buffer
+
       macro included
         @_reading = false
         @input_on_focus = false
@@ -32,27 +43,21 @@ module Crysterm
 
       property __update_cursor : Proc(Nil)?
 
-      # `getter` (not `property`): a generated `value=(String)` setter would be
-      # more specific than the custom `value=` below and win overload
-      # resolution for String args, bypassing set_content/_update_cursor.
-      getter value : String = ""
-      @_value = ""
-
-      # Insertion-point position, as a codepoint index into `@value`
-      # (`0..value.size`). Setting `value=` externally moves it to the end.
+      # Insertion-point position, as a codepoint index into the buffer
+      # (`0..buf_size`). Setting `value=` externally moves it to the end.
       # Movement and deletion step over whole grapheme clusters under
       # `full_unicode?`, a single codepoint otherwise.
       property cursor_pos = 0
 
       # The fixed end of an in-progress mouse selection (a codepoint index into
-      # `@value`), or `nil` when nothing is selected. `#cursor_pos` is the other,
+      # the buffer), or `nil` when nothing is selected. `#cursor_pos` is the other,
       # moving end. Set by the mouse-down handler installed in
       # `#_setup_text_mouse`; any keyboard interaction (`#_listener`) or external
       # `value=` drops it, since there's no keyboard-extend (Shift+arrow) support
       # yet — a plain keystroke always means "the selection is no longer live".
       property selection_anchor : Int32? = nil
 
-      # The selected range as `[lo, hi)` codepoint indices into `@value`, or
+      # The selected range as `[lo, hi)` codepoint indices into the buffer, or
       # `nil` when nothing is selected (no anchor, or anchor and cursor coincide
       # — a plain click with no drag).
       def selection_range : Range(Int32, Int32)?
@@ -66,10 +71,10 @@ module Crysterm
         !!selection_range
       end
 
-      # The currently-selected substring of `@value`, or `""` when nothing is
+      # The currently-selected substring of the buffer, or `""` when nothing is
       # selected.
       def selected_text : String
-        (r = selection_range) ? @value[r] : ""
+        (r = selection_range) ? buf_slice(r.begin, r.end) : ""
       end
 
       # Drops the in-progress/completed mouse selection without moving the
@@ -111,16 +116,6 @@ module Crysterm
       @ev_enter : Crysterm::Event::KeyPress::Wrapper?
       @ev_reading : Crysterm::Event::KeyPress::Wrapper?
       @ev_done_blur : Crysterm::Event::Blur::Wrapper?
-
-      # Seeds the text buffer from the constructor args, parking the cursor at the
-      # end. Call from `initialize` *before* `super` — value must exist before
-      # the base lays out its content.
-      private def setup_text_buffer(content : String, max_length, read_only) : Nil
-        @max_length = max_length
-        @read_only = read_only
-        @value = content
-        @cursor_pos = @value.size
-      end
 
       # Wires the cursor-following handlers and the optional Enter-to-read
       # accelerator. Call from `initialize` after `super`. `install_enter` installs
@@ -175,7 +170,7 @@ module Crysterm
               # Triple-click selects the whole logical line. On an empty logical
               # line `line_start_pos == line_end_pos`, so seeding the anchor there
               # leaves the same dangling-anchor-equal-to-caret landmine the
-              # double-click branch nils out below (a later edit shrinks `@value`
+              # double-click branch nils out below (a later edit shrinks the buffer
               # and resurrects it as an out-of-bounds range → IndexError). So nil
               # the anchor when the span is empty; only seed a real selection.
               @cursor_pos = pos
@@ -187,7 +182,7 @@ module Crysterm
               # Double-click selects the word under the pointer. On non-word text
               # `word_bounds_at` returns an empty `{pos, pos}`; seeding the anchor
               # there leaves the same dangling-anchor-equal-to-caret landmine the
-              # single-click branch nils out below (a later edit shrinks `@value`
+              # single-click branch nils out below (a later edit shrinks the buffer
               # and resurrects it as an out-of-bounds range → IndexError). So nil
               # the anchor when the word is empty; only seed a real selection.
               a, b = word_bounds_at(pos)
@@ -275,7 +270,7 @@ module Crysterm
 
         display = window
 
-        # Map the insertion point (`@cursor_pos`, an index into `@value`) onto
+        # Map the insertion point (`@cursor_pos`, a buffer position) onto
         # the wrapped/displayed content: the real (post-wrap) line and column.
         rl, col = cursor_rowcol
 
@@ -353,7 +348,7 @@ module Crysterm
       private def cursor_prev_width
         return 0 if @cursor_pos <= 0
         return 1 unless full_unicode?
-        head = @value[0...@cursor_pos]
+        head = buf_slice(0, @cursor_pos)
         head.size - chop_grapheme(head).size
       end
 
@@ -361,22 +356,22 @@ module Crysterm
       # (how far Right / Delete move). One codepoint when full-unicode is off.
       # `0` at the end of the value.
       private def cursor_next_width
-        return 0 if @cursor_pos >= @value.size
+        return 0 if @cursor_pos >= buf_size
         return 1 unless full_unicode?
-        @value[@cursor_pos..].each_grapheme.first.to_s.size
+        buf_slice(@cursor_pos, buf_size).each_grapheme.first.to_s.size
       end
 
       # Start of the logical line the cursor is on (just after the previous
       # newline, or 0).
       private def line_start_pos
-        nl = @value.rindex('\n', @cursor_pos - 1) if @cursor_pos > 0
+        nl = buf_rindex('\n', @cursor_pos - 1) if @cursor_pos > 0
         nl ? nl + 1 : 0
       end
 
       # End of the logical line the cursor is on (just before the next newline,
       # or the end of the value).
       private def line_end_pos
-        @value.index('\n', @cursor_pos) || @value.size
+        buf_index('\n', @cursor_pos) || buf_size
       end
 
       # Two-phase backward word scan from the cursor: skip the run of *separator*
@@ -386,10 +381,10 @@ module Crysterm
       # separator. The block is `yield`ed (inlined, no per-call closure).
       private def scan_word_left(&) : Int32
         i = @cursor_pos
-        while i > 0 && (yield @value[i - 1])
+        while i > 0 && (yield buf_char(i - 1))
           i -= 1
         end
-        while i > 0 && !(yield @value[i - 1])
+        while i > 0 && !(yield buf_char(i - 1))
           i -= 1
         end
         i
@@ -400,11 +395,11 @@ module Crysterm
       # and `#word_end_right_pos`.
       private def scan_word_right(&) : Int32
         i = @cursor_pos
-        n = @value.size
-        while i < n && (yield @value[i])
+        n = buf_size
+        while i < n && (yield buf_char(i))
           i += 1
         end
-        while i < n && !(yield @value[i])
+        while i < n && !(yield buf_char(i))
           i += 1
         end
         i
@@ -428,9 +423,11 @@ module Crysterm
       # letter, digit, or underscore (the usual readline word set). This is a
       # finer split than the whitespace-only `word_left_pos`/`word_right_pos`
       # (which back `Ctrl-W`/`Alt-D` kills): `Ctrl-Left`/`Ctrl-Right` stop at `-`
-      # and punctuation too, matching most editors' word navigation.
+      # and punctuation too, matching most editors' word navigation. The single
+      # definition lives on `TextDocument`, shared with `TextCursor`'s word
+      # motion (TEXTEDIT.md §5).
       private def word_char?(c : Char) : Bool
-        c.alphanumeric? || c == '_'
+        TextDocument.word_char?(c)
       end
 
       # Start of the current/previous word, for `Ctrl-Left`: from the cursor,
@@ -453,7 +450,7 @@ module Crysterm
       # `KillRing` to give a widget its own.
       property kill_ring : Crysterm::KillRing { Crysterm::KillRing.default }
 
-      # Kill the text between *start* (an index into `@value` *before* the cursor)
+      # Kill the text between *start* (a buffer position *before* the cursor)
       # and the cursor: push it onto the kill ring (prepending, so a run of
       # backward kills reads in forward order) and pull the cursor back to
       # *start*. Returns whether anything was killed (so the caller can record the
@@ -462,22 +459,22 @@ module Crysterm
       private def kill_backward_to(start) : Bool
         return false unless start < @cursor_pos
         @goal_col = nil
-        kill_ring.kill @value[start...@cursor_pos], prepend: true
-        @value = @value[0...start] + @value[@cursor_pos..]
+        kill_ring.kill buf_slice(start, @cursor_pos), prepend: true
+        buf_delete(start, @cursor_pos)
         @cursor_pos = start
         clear_selection
         true
       end
 
-      # Kill the text between the cursor and *stop* (an index into `@value`
+      # Kill the text between the cursor and *stop* (a buffer position
       # *after* the cursor): push it onto the kill ring, leaving the cursor put.
       # Returns whether anything was killed. Shared by `Alt-D` (word) and `Ctrl-K`
       # (line end), which differ only in how *stop* is computed.
       private def kill_forward_to(stop) : Bool
         return false unless stop > @cursor_pos
         @goal_col = nil
-        kill_ring.kill @value[@cursor_pos...stop]
-        @value = @value[0...@cursor_pos] + @value[stop..]
+        kill_ring.kill buf_slice(@cursor_pos, stop)
+        buf_delete(@cursor_pos, stop)
         clear_selection
         true
       end
@@ -487,11 +484,11 @@ module Crysterm
       # `Ctrl-Y` yank, which differ only in where `text` comes from.
       private def insert_at_cursor(text : String) : Nil
         @goal_col = nil
-        @value = @value[0...@cursor_pos] + text + @value[@cursor_pos..]
+        buf_insert(@cursor_pos, text)
         @cursor_pos += text.size
       end
 
-      # Removes the selected range from `@value`, parks the cursor at its start,
+      # Removes the selected range from the buffer, parks the cursor at its start,
       # and clears the selection. Returns whether anything was deleted (`false`
       # when there was no selection), so callers can branch on "replaced a
       # selection vs. plain edit". Used by typing/Backspace/Delete/cut/paste to
@@ -506,7 +503,7 @@ module Crysterm
           return false
         end
         @goal_col = nil
-        @value = @value[0...r.begin] + @value[r.end..]
+        buf_delete(r.begin, r.end)
         @cursor_pos = r.begin
         clear_selection
         true
@@ -518,11 +515,11 @@ module Crysterm
       # word here". Uses the same `#word_char?` class as `Ctrl-Left`/`Ctrl-Right`.
       private def word_bounds_at(pos : Int32) : Tuple(Int32, Int32)
         lo = pos
-        while lo > 0 && word_char?(@value[lo - 1])
+        while lo > 0 && word_char?(buf_char(lo - 1))
           lo -= 1
         end
         hi = pos
-        while hi < @value.size && word_char?(@value[hi])
+        while hi < buf_size && word_char?(buf_char(hi))
           hi += 1
         end
         {lo, hi}
@@ -556,30 +553,30 @@ module Crysterm
         return if text.empty?
         delete_selection
         if ml = @max_length
-          room = ml - @value.size
+          room = ml - buf_size
           return if room <= 0
           text = text[0, room] if text.size > room
         end
         insert_at_cursor text
       end
 
-      # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
+      # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
       # center/right alignment (real lines carry padding). Column is a codepoint
       # offset within the real line.
       private def cursor_rowcol : Tuple(Int32, Int32)
-        c = @cursor_pos.clamp(0, @value.size)
-        head = @value[0...c]
+        c = @cursor_pos.clamp(0, buf_size)
+        head = buf_slice(0, c)
         fake_line = head.count('\n')
         nl = head.rindex('\n')
         # Column within the logical line, measured in the SAME tab-expanded
-        # codepoints `process_content` lays `@_clines` out with. `@value` stores a
-        # TAB as one char but the rendered line expands it to `tab_char *
+        # codepoints `process_content` lays `@_clines` out with. The buffer stores
+        # a TAB as one char but the rendered line expands it to `tab_char *
         # tab_size`; counting raw codepoints here would desync the caret by
         # `tab_size - 1` per preceding TAB. With no TAB this is the original
         # `c - (nl + 1)` / `c`.
-        col = expanded_width(nl ? @value[(nl + 1)...c] : @value[0...c])
+        col = expanded_width(nl ? head[(nl + 1)..] : head)
 
         reals = @_clines.ftor[fake_line]?
         if reals.nil? || reals.empty?
@@ -602,7 +599,7 @@ module Crysterm
       end
 
       # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a tab-expanded
-      # column within it back to an index into `@value`. Used by Up/Down to land
+      # column within it back to a buffer position. Used by Up/Down to land
       # the cursor on the visual row above/below at the desired column, and by
       # `#position_at` to map a mouse click to a buffer index.
       private def pos_from_rowcol(rl : Int32, col : Int32) : Int32
@@ -618,58 +615,11 @@ module Crysterm
           exp_col += (@_clines[r]? || "").size
         end
 
-        base, line_end = fake_line_bounds(fake_line)
+        base, line_end = buf_line_bounds(fake_line)
 
-        # Convert back to a raw `@value` offset: a TAB counts as one editable
+        # Convert back to a raw buffer offset: a TAB counts as one editable
         # char, not its `tab_size` rendered columns.
-        (base + unexpand_col(@value[base...line_end], exp_col)).clamp(0, @value.size)
-      end
-
-      # Cached logical-line-start offsets into `@value` (`@_line_offsets`), plus
-      # the exact `@value` object they were computed for (`@_line_offsets_value`).
-      # `@_line_offsets[k]` is the codepoint index where fake line *k* begins:
-      # `[0, first_nl+1, second_nl+1, …]`, always at least `[0]`. Rebuilt lazily
-      # by `#line_offsets` whenever `@value` is reassigned.
-      @_line_offsets = [0]
-      @_line_offsets_value : String? = nil
-
-      # Line-start offsets for the current `@value`, rebuilding the cache only
-      # when `@value` is a different object than last time. Keyed on the `@value`
-      # String *identity* (`same?`) rather than `@_content_version`: `@value` is
-      # exactly what `#fake_line_bounds` scans, Crystal Strings are immutable, and
-      # every edit reassigns `@value` — so a fresh object always means fresh
-      # newlines, and an unchanged object always means unchanged ones. That is
-      # strictly tighter than `@_content_version`, which only bumps on the later
-      # `set_content` at render time (a keystroke mutates `@value` first, and
-      # `#pos_from_rowcol`/`#line_display_width` can run — e.g. Up/Down's
-      # `move_cursor_vertically` — before that bump, when the version would be
-      # stale relative to `@value`).
-      private def line_offsets : Array(Int32)
-        cached = @_line_offsets_value
-        return @_line_offsets if cached && cached.same?(@value)
-        offsets = [0]
-        @value.each_char_with_index do |ch, i|
-          offsets << i + 1 if ch == '\n'
-        end
-        @_line_offsets = offsets
-        @_line_offsets_value = @value
-        offsets
-      end
-
-      # The `@value` span (as `{start, end}` indices, half-open) of the fake
-      # (logical, `\n`-delimited) line numbered *fake_line*. `@_clines.fake` is
-      # TAB-expanded, so its codepoint sizes can't index raw `@value`; this reads
-      # the cached newline offsets (`#line_offsets`) instead of rescanning
-      # `@value` from 0 on every call. Byte-identical to rescanning from 0: `base`
-      # is the line's start, `line_end` is the following `\n` (or `@value.size` for
-      # the last line); a *fake_line* past the last line clamps to it. Shared by
-      # `#pos_from_rowcol` and `#position_at`.
-      private def fake_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
-        starts = line_offsets
-        k = fake_line.clamp(0, starts.size - 1)
-        base = starts[k]
-        line_end = k + 1 < starts.size ? starts[k + 1] - 1 : @value.size
-        {base, line_end}
+        (base + unexpand_col(buf_slice(base, line_end), exp_col)).clamp(0, buf_size)
       end
 
       # The full display width (in the same tab-expanded codepoint units the caret
@@ -678,7 +628,7 @@ module Crysterm
       # In wrap mode `@_clines[rl]` is the whole wrapped piece, so its size IS the
       # width. In non-wrap mode `@_clines[rl]` is only the horizontally *sliced*
       # viewport window (`_hslice`), so its size undercounts a line wider than the
-      # viewport — reconstruct the real line from `@value` instead (as
+      # viewport — reconstruct the real line from the buffer instead (as
       # `#position_at`'s and `#_update_cursor`'s non-wrap branches do). Without
       # this, Up/Down snaps a caret past the viewport back to ~viewport width and
       # a selection entirely right of `content_width` paints no highlight.
@@ -687,17 +637,17 @@ module Crysterm
           (@_clines[rl]? || "").size
         else
           fake_line = @_clines.rtof[rl]? || 0
-          base, line_end = fake_line_bounds(fake_line)
-          expanded_width(@value[base...line_end])
+          base, line_end = buf_line_bounds(fake_line)
+          expanded_width(buf_slice(base, line_end))
         end
       end
 
       # Maps an absolute screen point (as delivered by `Event::Mouse`) to the
-      # nearest codepoint index into `@value` — the mouse-click counterpart of
+      # nearest buffer position — the mouse-click counterpart of
       # `#cursor_rowcol`/`#pos_from_rowcol`, kept consistent with how
       # `#_update_cursor` actually places the caret (so clicking exactly where
       # the caret is currently drawn is a no-op). Overridden by `LineEdit`,
-      # whose single visible line is a separately re-sliced tail of `@value`
+      # whose single visible line is a separately re-sliced tail of the value
       # rather than the `@_clines`/`@child_base_x` model this generic version
       # assumes. Returns the current `#cursor_pos` unchanged if the widget has
       # no on-window geometry yet (not rendered, or off-window).
@@ -720,12 +670,12 @@ module Crysterm
         else
           # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport
           # (see `_hslice`), so it can't be walked directly — reconstruct the
-          # real line's own (tab-expanded) text from `@value` instead, exactly
+          # real line's own (tab-expanded) text from the buffer instead, exactly
           # as `#_update_cursor`'s `caret_display_column` does, and undo the
           # `@child_base_x` scroll to land back in that line's own column space.
           fake_line = @_clines.rtof[rl]? || 0
-          base, line_end = fake_line_bounds(fake_line)
-          raw_line = @value[base...line_end]
+          base, line_end = buf_line_bounds(fake_line)
+          raw_line = buf_slice(base, line_end)
           expanded = raw_line.includes?('\t') ? raw_line.gsub('\t', style.tab_char * style.tab_size) : raw_line
 
           target = (x - lpos.xi - ileft).clamp(0, content_width) + @child_base_x
@@ -825,14 +775,14 @@ module Crysterm
       end
 
       # Display column of the caret within its (non-wrapped) logical line — the
-      # width of the line prefix up to `@cursor_pos`. Derived from `@value`, not
+      # width of the line prefix up to `@cursor_pos`. Derived from the buffer, not
       # the horizontally-sliced `@_clines`, so it stays correct while scrolled.
       #
       # TABs are expanded to `tab_char * tab_size` as `process_content` does, so
       # the caret is measured against columns actually shown and stays in sync
       # with the horizontal scroll base (`@child_base_x`), measured the same way.
       private def caret_display_column : Int32
-        prefix = @value[line_start_pos...@cursor_pos]
+        prefix = buf_slice(line_start_pos, @cursor_pos)
         prefix = prefix.gsub('\t', style.tab_char * style.tab_size) if prefix.includes?('\t')
         str_width prefix
       end
@@ -846,14 +796,15 @@ module Crysterm
         ensure_visible_x caret_display_column
       end
 
-      # Display width of `@value[from...to]` (TAB-expanded, wide-character
-      # aware) — the render-column distance between two buffer indices on the
-      # same line. `#position_at`'s inverse, used to turn the selection's
-      # `@value` indices into the column range `#selection_columns_for_row`
-      # paints. `from` must be at or before the start of *to*'s line (both are
-      # always same-line callers here, so no embedded `\n` is sliced across).
+      # Display width of the buffer span `[from, to)` (TAB-expanded,
+      # wide-character aware) — the render-column distance between two buffer
+      # indices on the same line. `#position_at`'s inverse, used to turn the
+      # selection's buffer indices into the column range
+      # `#selection_columns_for_row` paints. `from` must be at or before the
+      # start of *to*'s line (both are always same-line callers here, so no
+      # embedded `\n` is sliced across).
       private def rendered_column(from : Int32, to : Int32) : Int32
-        s = @value[from...to]
+        s = buf_slice(from, to)
         s = s.gsub('\t', style.tab_char * style.tab_size) if s.includes?('\t')
         str_width s
       end
@@ -937,7 +888,7 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       def _listener(e)
         done = @_done
-        value = @value
+        before = buf_text
         also_check_char = false
         # Emacs/readline editing keys (gated by config). `killed` records whether
         # this keystroke was a kill, so consecutive kills accumulate in the ring
@@ -1015,7 +966,7 @@ module Crysterm
           elsif !rl && k == Tput::Key::CtrlA # GUI: select all (readline off)
             @goal_col = nil
             @selection_anchor = 0
-            @cursor_pos = @value.size
+            @cursor_pos = buf_size
             extend_sel = true               # keep the just-set anchor
           elsif rl && k == Tput::Key::CtrlA # readline: line start
             @goal_col = nil
@@ -1087,7 +1038,7 @@ module Crysterm
               if @cursor_pos > 0
                 @goal_col = nil
                 w = cursor_prev_width
-                @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
+                buf_delete(@cursor_pos - w, @cursor_pos)
                 @cursor_pos -= w
               end
             end
@@ -1095,10 +1046,10 @@ module Crysterm
             # A selection deletes as one unit; otherwise remove the grapheme
             # cluster at the cursor, leaving the cursor put.
             unless delete_selection
-              if @cursor_pos < @value.size
+              if @cursor_pos < buf_size
                 @goal_col = nil
                 w = cursor_next_width
-                @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
+                buf_delete(@cursor_pos, @cursor_pos + w)
               end
             end
           elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
@@ -1110,7 +1061,7 @@ module Crysterm
           elsif rl && !read_only? && k == Tput::Key::CtrlK # kill to line end
             stop = line_end_pos
             # At the end of a line, kill the newline itself (join with the next).
-            stop += 1 if stop == @cursor_pos && @cursor_pos < @value.size
+            stop += 1 if stop == @cursor_pos && @cursor_pos < buf_size
             killed = kill_forward_to stop
           elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
             if text = kill_ring.yank
@@ -1136,7 +1087,7 @@ module Crysterm
           # replacement in a full field still works.
           unless ch.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             delete_selection
-            at_limit = (ml = @max_length) ? @value.size >= ml : false
+            at_limit = (ml = @max_length) ? buf_size >= ml : false
             insert_at_cursor ch unless at_limit
             # A printable character was consumed (even if the field was full and
             # the insert was suppressed) — don't let it also trigger a hotkey.
@@ -1144,8 +1095,8 @@ module Crysterm
           end
         end
 
-        if @value != value
-          emit Crysterm::Event::TextChange, @value
+        if (after = buf_text) != before
+          emit Crysterm::Event::TextChange, after
           request_render
         end
 
@@ -1166,42 +1117,6 @@ module Crysterm
         # No render here — `value=` calls this from within its own render.
         ensure_cursor_visible
         ensure_cursor_visible_x
-      end
-
-      # Records `value` as the authoritative content and repositions the caret,
-      # shared by this `#value=` and `LineEdit#value=` (which overrides only the
-      # display half). A non-nil `value` is an external set: record it, cursor
-      # to the end, and drop any selection whose indices the new content
-      # invalidates. `nil` is a redisplay (e.g. from `render`): keep the cursor
-      # where it is, just clamped in case the content changed underneath
-      # (typing/deletion updates `@cursor_pos` in `_listener`). The block
-      # normalizes the resolved value before storing it — the multi-line editor
-      # keeps newlines, `LineEdit` strips them. Returns whether this was an
-      # external set. The authoritative value is stored *before* the display
-      # dedup guard the caller applies, so an external set (e.g. clearing) is
-      # never lost when the last-displayed cache is stale.
-      protected def assign_value(value : String?, & : String -> String) : Bool
-        external = !value.nil?
-        @value = yield(value || @value)
-        @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
-        clear_selection if external
-        # An external set moves the caret to the end; drop the vertical goal
-        # column so the next Up/Down tracks the caret's actual column, not a
-        # stale one from before the set. The redisplay path (`nil` value) must
-        # leave `@goal_col` intact so an in-progress Up/Down sequence survives a
-        # `render`.
-        @goal_col = nil if external
-        external
-      end
-
-      def value=(value = nil)
-        assign_value(value) { |v| v }
-        return if @_value == @value
-
-        @_value = @value
-        set_content @value
-        _type_scroll
-        _update_cursor
       end
 
       def render

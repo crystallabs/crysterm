@@ -140,6 +140,29 @@ module Crysterm
     # `QLineEdit#textChanged(QString)`.
     event TextChange, value : String
 
+    # Emitted by a `TextDocument` after every edit: `chars_removed` then
+    # `chars_added` characters at `position`. Format-only changes report
+    # `chars_removed == chars_added` over the affected range. Mirrors Qt's
+    # `QTextDocument#contentsChange(int, int, int)`.
+    event ContentsChange, position : Int32, chars_removed : Int32, chars_added : Int32
+
+    # Emitted by a `TextDocument` when its number of blocks (paragraphs)
+    # changes. Mirrors Qt's `QTextDocument#blockCountChanged(int)`.
+    event BlockCountChange, count : Int32
+
+    # Emitted by a `TextDocument` when its modified state flips (edits away
+    # from / undo back to the last clean point; see `TextDocument#modified=`).
+    # Mirrors Qt's `QTextDocument#modificationChanged(bool)`.
+    event ModificationChange, modified : Bool
+
+    # Emitted by a `TextDocument` when undo becomes possible/impossible.
+    # Mirrors Qt's `QTextDocument#undoAvailable(bool)`.
+    event UndoAvailable, available : Bool
+
+    # Emitted by a `TextDocument` when redo becomes possible/impossible.
+    # Mirrors Qt's `QTextDocument#redoAvailable(bool)`.
+    event RedoAvailable, available : Bool
+
     # Emitted when a numeric widget's value changes (e.g. `Widget::ProgressBar`).
     # Mirrors Qt's `valueChanged(int)` signal.
     event ValueChange, value : Int32

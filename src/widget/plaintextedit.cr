@@ -18,6 +18,7 @@ module Crysterm
     class PlainTextEdit < AbstractScrollArea
       include Mixin::Interactive
       include Mixin::TextEditing
+      include Mixin::TextEditing::FlatBuffer
 
       @scrollable = true
       # Scroll source of truth is `@child_base` (top visible wrapped row); the
