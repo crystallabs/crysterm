@@ -104,6 +104,175 @@ module Crysterm
       LegendSwatch # chart legend color swatch
       MapMarker    # default map/graph point marker
 
+      # -- Icon palette -----------------------------------------------------------
+      # A curated vocabulary of common UI icons (toolbar actions, status marks,
+      # media transport, navigation), pre-picked per tier so applications don't
+      # browse Unicode tables themselves: `tool_bar.add "#{glyph(Glyphs::Role::IconSave)} Save"`.
+      # Not consumed by any widget — pure palette. These are *run* roles
+      # (inline text, measured — see GLYPHS.md §4), so the `extended` column
+      # may hold double-width emoji; `ascii`/`unicode` stay single-width.
+
+      # File / document actions
+      IconFileNew
+      IconFolder
+      IconFolderOpen
+      IconSave
+      IconPrint
+      IconTrash
+      # Edit actions
+      IconCut
+      IconCopy
+      IconPaste
+      IconUndo
+      IconRedo
+      IconSearch
+      IconEdit
+      IconSettings
+      IconFilter
+      # Status / feedback marks
+      IconCheck
+      IconCross
+      IconStar
+      IconStarOutline
+      IconHeart
+      IconFlag
+      IconFlagOutline
+      IconLock
+      IconUnlock
+      IconBell
+      IconPin
+      IconBookmark
+      IconLink
+      IconAttachment
+      IconTag
+      IconLightning
+      IconFire
+      IconBug
+      IconRocket
+      IconKey
+      IconWrench
+      # Communication
+      IconMail
+      IconPhone
+      IconChat
+      IconUser
+      IconUsers
+      # Time
+      IconClock
+      IconCalendar
+      IconHourglass
+      # Media transport
+      IconPlay
+      IconPause
+      IconStop
+      IconRecord
+      IconNextTrack
+      IconPrevTrack
+      IconEject
+      IconVolume
+      IconMute
+      IconMusic
+      # Navigation / system
+      IconHome
+      IconRefresh
+      IconDownload
+      IconUpload
+      IconExternalLink
+      IconExit
+      IconPower
+      IconGlobe
+      IconTerminal
+      IconCloud
+      IconSun
+      IconMoon
+      IconEye
+      IconCamera
+      IconImage
+      IconChart
+      IconGraphUp
+      IconGraphDown
+      # UI affordances
+      IconMenu     # hamburger
+      IconEllipsis # more, horizontal
+      IconMoreVertical
+      IconAdd
+      IconRemove
+      IconMaximize
+      IconMinimize
+      # Elemental shapes (handy as custom markers/bullets)
+      IconBullet
+      IconDiamond
+      IconCircle
+      IconCircleFilled
+      IconSquare
+      IconSquareFilled
+      # Keyboard keys (help bars, shortcut hints)
+      IconEnter
+      IconTabKey
+      IconBackspace
+      IconEscape
+      IconShift
+      IconCapsLock
+      IconControl
+      IconAlt
+      IconCommand
+      IconSpaceKey
+      # Currency / typography
+      IconDollar
+      IconEuro
+      IconPound
+      IconYen
+      IconCent
+      IconCopyright
+      IconRegistered
+      IconTrademark
+      IconSection
+      IconParagraph
+      IconDegree
+      IconPlusMinus
+      IconInfinity
+      IconMicro
+      # Card suits / classic CP437 marks
+      IconSpade
+      IconClub
+      IconDiamondSuit
+      IconSmiley
+      IconSmileyFilled
+      IconMale
+      IconFemale
+      # Weather
+      IconRain
+      IconSnow
+      IconUmbrella
+      IconThermometer
+      # Tech / status
+      IconBan
+      IconShield
+      IconThumbsUp
+      IconThumbsDown
+      IconTrophy
+      IconGift
+      IconBattery
+      IconPlug
+      IconWifi
+      IconLocation
+      IconCompass
+      IconLightbulb
+      IconPuzzle
+      IconDatabase
+      IconPackage
+      IconPalette
+      IconBrush
+      # Mail / transfer extras
+      IconInbox
+      IconOutbox
+      IconSend
+      # Media extras
+      IconShuffle
+      IconRepeat
+      IconFastForward
+      IconRewind
+
       # -- Border families (see `BorderType#line_glyphs`) ---------------------
       # Four corners + horizontal/vertical runs per line family. The ASCII
       # values collapse every family to `+ - |`.
@@ -189,6 +358,171 @@ module Crysterm
       set_in t, Role::DragHandle, Entry.new('#', '⠿')
       set_in t, Role::LegendSwatch, Entry.new('#', '■')
       set_in t, Role::MapMarker, Entry.new('*', '●')
+
+      # Icon palette. `ascii` column: a symbol when a natural one exists, else
+      # a mnemonic letter (the classic ASCII-UI convention). `unicode` column:
+      # single-width glyphs that the common monospace fonts cover. `extended`:
+      # modern-font glyphs, incl. double-width emoji (these roles are measured
+      # inline, never cell-fills).
+      set_in t, Role::IconFileNew, Entry.new('+', nil, '📄')
+      set_in t, Role::IconFolder, Entry.new('/', nil, '📁')
+      set_in t, Role::IconFolderOpen, Entry.new('/', nil, '📂')
+      set_in t, Role::IconSave, Entry.new('s', nil, '💾')
+      set_in t, Role::IconPrint, Entry.new('p', nil, '⎙')
+      set_in t, Role::IconTrash, Entry.new('x', nil, '🗑')
+
+      set_in t, Role::IconCut, Entry.new('x', nil, '✂')
+      set_in t, Role::IconCopy, Entry.new('c', nil, '⧉')
+      set_in t, Role::IconPaste, Entry.new('v', nil, '📋')
+      set_in t, Role::IconUndo, Entry.new('<', '←', '↶')
+      set_in t, Role::IconRedo, Entry.new('>', '→', '↷')
+      set_in t, Role::IconSearch, Entry.new('/', nil, '🔍')
+      set_in t, Role::IconEdit, Entry.new('e', '✎', '✏')
+      set_in t, Role::IconSettings, Entry.new('*', '⚙')
+      set_in t, Role::IconFilter, Entry.new('Y', '▽')
+
+      set_in t, Role::IconCheck, Entry.new('v', '✓', '✔')
+      set_in t, Role::IconCross, Entry.new('x', '✗', '✘')
+      set_in t, Role::IconStar, Entry.new('*', '★')
+      set_in t, Role::IconStarOutline, Entry.new('*', '☆')
+      set_in t, Role::IconHeart, Entry.new('*', '♥')
+      set_in t, Role::IconFlag, Entry.new('>', '⚑')
+      set_in t, Role::IconFlagOutline, Entry.new('>', '⚐')
+      set_in t, Role::IconLock, Entry.new('L', nil, '🔒')
+      set_in t, Role::IconUnlock, Entry.new('U', nil, '🔓')
+      set_in t, Role::IconBell, Entry.new('!', nil, '🔔')
+      set_in t, Role::IconPin, Entry.new('!', nil, '📌')
+      set_in t, Role::IconBookmark, Entry.new('#', nil, '🔖')
+      set_in t, Role::IconLink, Entry.new('&', nil, '🔗')
+      set_in t, Role::IconAttachment, Entry.new('@', nil, '📎')
+      set_in t, Role::IconTag, Entry.new('#', nil, '🏷')
+      set_in t, Role::IconLightning, Entry.new('!', '↯', '⚡')
+      set_in t, Role::IconFire, Entry.new('~', nil, '🔥')
+      set_in t, Role::IconBug, Entry.new('b', nil, '🐛')
+      set_in t, Role::IconRocket, Entry.new('^', nil, '🚀')
+      set_in t, Role::IconKey, Entry.new('k', nil, '🔑')
+      set_in t, Role::IconWrench, Entry.new('t', nil, '🔧')
+
+      set_in t, Role::IconMail, Entry.new('@', '✉', '📧')
+      set_in t, Role::IconPhone, Entry.new('#', '☎', '📞')
+      set_in t, Role::IconChat, Entry.new('"', nil, '💬')
+      set_in t, Role::IconUser, Entry.new('@', nil, '👤')
+      set_in t, Role::IconUsers, Entry.new('%', nil, '👥')
+
+      set_in t, Role::IconClock, Entry.new('t', nil, '🕐')
+      set_in t, Role::IconCalendar, Entry.new('#', nil, '📅')
+      set_in t, Role::IconHourglass, Entry.new('z', nil, '⌛')
+
+      set_in t, Role::IconPlay, Entry.new('>', '►')
+      set_in t, Role::IconPause, Entry.new('|', '‖', '⏸')
+      set_in t, Role::IconStop, Entry.new('#', '■', '⏹')
+      set_in t, Role::IconRecord, Entry.new('*', '●', '⏺')
+      set_in t, Role::IconNextTrack, Entry.new('>', '»', '⏭')
+      set_in t, Role::IconPrevTrack, Entry.new('<', '«', '⏮')
+      set_in t, Role::IconEject, Entry.new('^', nil, '⏏')
+      set_in t, Role::IconVolume, Entry.new('%', nil, '🔊')
+      set_in t, Role::IconMute, Entry.new('x', nil, '🔇')
+      set_in t, Role::IconMusic, Entry.new('n', '♪', '🎵')
+
+      set_in t, Role::IconHome, Entry.new('~', '⌂', '🏠')
+      set_in t, Role::IconRefresh, Entry.new('r', '↻', '🔄')
+      set_in t, Role::IconDownload, Entry.new('v', '↓', '⇓')
+      set_in t, Role::IconUpload, Entry.new('^', '↑', '⇑')
+      set_in t, Role::IconExternalLink, Entry.new('>', '↗')
+      set_in t, Role::IconExit, Entry.new('q', nil, '🚪')
+      set_in t, Role::IconPower, Entry.new('o', nil, '⏻')
+      set_in t, Role::IconGlobe, Entry.new('O', nil, '🌐')
+      set_in t, Role::IconTerminal, Entry.new('$', nil, '💻')
+      set_in t, Role::IconCloud, Entry.new('~', '☁')
+      set_in t, Role::IconSun, Entry.new('*', '☼', '☀')
+      set_in t, Role::IconMoon, Entry.new('(', '☾', '🌙')
+      set_in t, Role::IconEye, Entry.new('o', nil, '👁')
+      set_in t, Role::IconCamera, Entry.new('o', nil, '📷')
+      set_in t, Role::IconImage, Entry.new('#', nil, '🖼')
+      set_in t, Role::IconChart, Entry.new('#', nil, '📊')
+      set_in t, Role::IconGraphUp, Entry.new('/', nil, '📈')
+      set_in t, Role::IconGraphDown, Entry.new('\\', nil, '📉')
+
+      set_in t, Role::IconMenu, Entry.new('=', '≡', '☰')
+      set_in t, Role::IconEllipsis, Entry.new('.', '…', '⋯')
+      set_in t, Role::IconMoreVertical, Entry.new(':', '⋮')
+      set_in t, Role::IconAdd, Entry.new('+')
+      set_in t, Role::IconRemove, Entry.new('-')
+      set_in t, Role::IconMaximize, Entry.new('^', '□', '🗖')
+      set_in t, Role::IconMinimize, Entry.new('_', '▁', '🗕')
+
+      set_in t, Role::IconBullet, Entry.new('*', '•')
+      set_in t, Role::IconDiamond, Entry.new('*', '◆')
+      set_in t, Role::IconCircle, Entry.new('o', '○')
+      set_in t, Role::IconCircleFilled, Entry.new('*', '●')
+      set_in t, Role::IconSquare, Entry.new('#', '□')
+      set_in t, Role::IconSquareFilled, Entry.new('#', '■')
+
+      set_in t, Role::IconEnter, Entry.new('<', '↵', '⏎')
+      set_in t, Role::IconTabKey, Entry.new('>', nil, '⇥')
+      set_in t, Role::IconBackspace, Entry.new('<', nil, '⌫')
+      set_in t, Role::IconEscape, Entry.new('E', nil, '⎋')
+      set_in t, Role::IconShift, Entry.new('^', nil, '⇧')
+      set_in t, Role::IconCapsLock, Entry.new('^', nil, '⇪')
+      set_in t, Role::IconControl, Entry.new('^', nil, '⌃')
+      set_in t, Role::IconAlt, Entry.new('A', nil, '⌥')
+      set_in t, Role::IconCommand, Entry.new('#', nil, '⌘')
+      set_in t, Role::IconSpaceKey, Entry.new('_', nil, '␣')
+
+      set_in t, Role::IconDollar, Entry.new('$')
+      set_in t, Role::IconEuro, Entry.new('E', '€')
+      set_in t, Role::IconPound, Entry.new('L', '£')
+      set_in t, Role::IconYen, Entry.new('Y', '¥')
+      set_in t, Role::IconCent, Entry.new('c', '¢')
+      set_in t, Role::IconCopyright, Entry.new('c', '©')
+      set_in t, Role::IconRegistered, Entry.new('r', '®')
+      set_in t, Role::IconTrademark, Entry.new('t', '™')
+      set_in t, Role::IconSection, Entry.new('S', '§')
+      set_in t, Role::IconParagraph, Entry.new('P', '¶')
+      set_in t, Role::IconDegree, Entry.new('o', '°')
+      set_in t, Role::IconPlusMinus, Entry.new('+', '±')
+      set_in t, Role::IconInfinity, Entry.new('8', '∞')
+      set_in t, Role::IconMicro, Entry.new('u', 'µ')
+
+      set_in t, Role::IconSpade, Entry.new('S', '♠')
+      set_in t, Role::IconClub, Entry.new('C', '♣')
+      set_in t, Role::IconDiamondSuit, Entry.new('D', '♦')
+      set_in t, Role::IconSmiley, Entry.new(':', '☺')
+      set_in t, Role::IconSmileyFilled, Entry.new(':', '☻')
+      set_in t, Role::IconMale, Entry.new('M', '♂')
+      set_in t, Role::IconFemale, Entry.new('F', '♀')
+
+      set_in t, Role::IconRain, Entry.new('/', nil, '🌧')
+      set_in t, Role::IconSnow, Entry.new('*', '❄')
+      set_in t, Role::IconUmbrella, Entry.new('U', '☂')
+      set_in t, Role::IconThermometer, Entry.new('|', nil, '🌡')
+
+      set_in t, Role::IconBan, Entry.new('0', '∅', '🚫')
+      set_in t, Role::IconShield, Entry.new('O', nil, '🛡')
+      set_in t, Role::IconThumbsUp, Entry.new('+', nil, '👍')
+      set_in t, Role::IconThumbsDown, Entry.new('-', nil, '👎')
+      set_in t, Role::IconTrophy, Entry.new('Y', nil, '🏆')
+      set_in t, Role::IconGift, Entry.new('%', nil, '🎁')
+      set_in t, Role::IconBattery, Entry.new('[', nil, '🔋')
+      set_in t, Role::IconPlug, Entry.new('-', nil, '🔌')
+      set_in t, Role::IconWifi, Entry.new('(', nil, '📶')
+      set_in t, Role::IconLocation, Entry.new('o', nil, '📍')
+      set_in t, Role::IconCompass, Entry.new('+', nil, '🧭')
+      set_in t, Role::IconLightbulb, Entry.new('!', nil, '💡')
+      set_in t, Role::IconPuzzle, Entry.new('+', nil, '🧩')
+      set_in t, Role::IconDatabase, Entry.new('#', nil, '🗄')
+      set_in t, Role::IconPackage, Entry.new('=', nil, '📦')
+      set_in t, Role::IconPalette, Entry.new('P', nil, '🎨')
+      set_in t, Role::IconBrush, Entry.new('/', nil, '🖌')
+
+      set_in t, Role::IconInbox, Entry.new('[', nil, '📥')
+      set_in t, Role::IconOutbox, Entry.new(']', nil, '📤')
+      set_in t, Role::IconSend, Entry.new('>', nil, '➤')
+
+      set_in t, Role::IconShuffle, Entry.new('x', nil, '🔀')
+      set_in t, Role::IconRepeat, Entry.new('o', nil, '🔁')
+      set_in t, Role::IconFastForward, Entry.new('>', '»', '⏩')
+      set_in t, Role::IconRewind, Entry.new('<', '«', '⏪')
 
       set_in t, Role::BorderLineTL, Entry.new('+', '┌')
       set_in t, Role::BorderLineTR, Entry.new('+', '┐')

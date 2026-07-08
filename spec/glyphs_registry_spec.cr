@@ -60,6 +60,27 @@ describe Crysterm::Glyphs do
     end
   end
 
+  it "defines an explicit entry for every role (none left at the blank placeholder)" do
+    # Roles whose ascii rendition legitimately IS a space.
+    blank_ok = Set{Glyphs::Role::CheckboxUnchecked, Glyphs::Role::RadioUnchecked,
+                   Glyphs::Role::TreeLeaf}
+    Glyphs::Role.each do |role|
+      next if blank_ok.includes? role
+      Glyphs[role, Glyphs::Tier::Ascii].should_not(eq(' '), "role #{role} has no DEFAULTS row")
+    end
+  end
+
+  it "answers single-width glyphs at tiers Ascii and Unicode for every role" do
+    # Only the `extended` column may hold double-width (emoji) icons; the
+    # ascii/unicode columns must stay one cell so chrome consumers never widen.
+    Glyphs::Role.each do |role|
+      {Glyphs::Tier::Ascii, Glyphs::Tier::Unicode}.each do |tier|
+        ch = Glyphs[role, tier]
+        Crysterm::Unicode.display_width(ch.to_s).should(eq(1), "role #{role} at #{tier} (#{ch.inspect}) is not single-width")
+      end
+    end
+  end
+
   it "retunes roles via set and restores via reset, bumping the generation" do
     gen = Glyphs.generation
     Glyphs.set Glyphs::Role::ScrollThumb, unicode: '▓'
