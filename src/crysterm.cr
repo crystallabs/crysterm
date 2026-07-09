@@ -73,6 +73,14 @@ require "./layout"
 require "./layout/**"
 require "./widgets"
 
+# Reactive state (signals + bindings). Loaded after widgets: `bind` references
+# `Widget`/`Window`, and `Signal` reuses the `event_handler` machinery and
+# `Subscriptions` (already required above).
+require "./reactive/signal"
+require "./reactive/binding"
+require "./reactive/batch"
+require "./reactive/bind"
+
 require "./style/css/**"
 
 # Remote control: HTML layout DOM (serialize/load, declarative actions) and the
