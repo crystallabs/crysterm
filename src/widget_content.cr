@@ -503,6 +503,7 @@ module Crysterm
     @_parse_tags_left_open = false
 
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
+    # ameba:disable Metrics/CyclomaticComplexity
     def _parse_tags(text)
       @_parse_tags_left_open = false
       return text unless @parse_tags

@@ -58,7 +58,7 @@ describe Crysterm::TerminalEmulator do
     it "does not abort an ESC sequence (ESC DEL c still runs RIS)" do
       em = emu
       em.feed "X"
-      em.feed "\e\u{7f}c" # RIS with a DEL between ESC and 'c'
+      em.feed "\e\u{7f}c"               # RIS with a DEL between ESC and 'c'
       cell_char(em, 0, 0).should eq ' ' # screen cleared, 'c' did not print
       cell_char(em, 1, 0).should eq ' '
       em.x.should eq 0
@@ -76,7 +76,7 @@ describe Crysterm::TerminalEmulator do
 
     it "clamps a huge CBT (CSI 99999999 Z) to column 0" do
       em = emu(cols: 20)
-      em.feed "\e[20G"       # park cursor at the last column (1-based param)
+      em.feed "\e[20G" # park cursor at the last column (1-based param)
       em.x.should eq 19
       em.feed "\e[99999999Z" # back-tab far more than there are stops
       em.x.should eq 0

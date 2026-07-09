@@ -37,8 +37,8 @@ describe "BUGS12 stack layout clears hidden pages' descendants (fix #36)" do
     stack.current = 1
     s._render
 
-    child0.lpos.should be_nil       # hidden page's descendant no longer hittable
-    child1.lpos.should_not be_nil   # newly-shown page's descendant paints
+    child0.lpos.should be_nil     # hidden page's descendant no longer hittable
+    child1.lpos.should_not be_nil # newly-shown page's descendant paints
   end
 end
 

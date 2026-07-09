@@ -345,6 +345,7 @@ module Crysterm
     # `width_hint`, when given, is this widget's already-resolved `awidth(get)`,
     # computed by `#_render` just before calling here, to skip re-resolving the
     # identical `awidth`. Only the render path passes it.
+    # ameba:disable Metrics/CyclomaticComplexity
     def _get_coords(get = false, noscroll = false, into : LPos? = nil, width_hint : Int32? = nil)
       unless style.visible?
         return
