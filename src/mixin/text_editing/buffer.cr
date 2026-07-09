@@ -60,6 +60,14 @@ module Crysterm
         # kept as a separate method because it is widget API, not buffer
         # geometry.
         abstract def value : String
+
+        # Groups the mutations made inside the block into one undoable step
+        # (Qt edit-block semantics) — so typing over a selection
+        # (delete + insert) undoes as a single action. Default pass-through:
+        # a buffer without undo has nothing to group.
+        def buf_edit_group(&)
+          yield
+        end
       end
     end
   end

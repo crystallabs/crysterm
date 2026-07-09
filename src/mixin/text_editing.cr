@@ -1,5 +1,6 @@
 require "./text_editing/buffer"
 require "./text_editing/flat_buffer"
+require "./text_editing/document_buffer"
 
 module Crysterm
   module Mixin
@@ -548,16 +549,36 @@ module Crysterm
       # copy→paste round-trip within the app is synchronous. Honors `max_length`
       # by truncating the pasted text to the remaining room. A single-line
       # `LineEdit` strips any pasted newlines on its next redisplay (`#value=`).
+      # Runs the block (an insert) after removing any selected text, the two
+      # grouped into ONE undo step (Qt: typing/pasting over a selection undoes
+      # as a single action). Without a live selection no group is opened —
+      # wrapping every plain keystroke in an edit block would seal it against
+      # the undo stack's typing coalescing, turning each character into its
+      # own undo step. The selection-less path still drops a stale collapsed
+      # anchor, exactly as `delete_selection` does.
+      private def edit_replacing_selection(&) : Nil
+        if has_selection?
+          buf_edit_group do
+            delete_selection
+            yield
+          end
+        else
+          clear_selection
+          yield
+        end
+      end
+
       private def paste_clipboard : Nil
         text = text_clipboard.text
         return if text.empty?
-        delete_selection
-        if ml = @max_length
-          room = ml - buf_size
-          return if room <= 0
-          text = text[0, room] if text.size > room
+        edit_replacing_selection do
+          if ml = @max_length
+            room = ml - buf_size
+            break if room <= 0
+            text = text[0, room] if text.size > room
+          end
+          insert_at_cursor text
         end
-        insert_at_cursor text
       end
 
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
@@ -1086,9 +1107,10 @@ module Crysterm
           # first, then measure `max_length` against the freed-up length so a
           # replacement in a full field still works.
           unless ch.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
-            delete_selection
-            at_limit = (ml = @max_length) ? buf_size >= ml : false
-            insert_at_cursor ch unless at_limit
+            edit_replacing_selection do
+              at_limit = (ml = @max_length) ? buf_size >= ml : false
+              insert_at_cursor ch unless at_limit
+            end
             # A printable character was consumed (even if the field was full and
             # the insert was suppressed) — don't let it also trigger a hotkey.
             handled = true
