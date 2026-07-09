@@ -100,4 +100,42 @@ describe "Docking.angle_at" do
       result.should eq Colors.blend(40_i64, Colors.blend(90_i64, 0_i64))
     end
   end
+
+  describe "rounded (arc) corners" do
+    it "keeps a non-merging arc corner — its own border must not square it" do
+      # ╭'s right/down neighbors reciprocate, calling for exactly the arms the
+      # arc already draws (R|D). The identity guard keeps ╭ rather than
+      # resolving the pattern to the square ┌.
+      Docking.angle_at(grid(["╭─", "│ "]), 0, 0, DockContrast::Ignore).should eq '╭'
+      Docking.angle_at(grid(["─╮", " │"]), 1, 0, DockContrast::Ignore).should eq '╮'
+      Docking.angle_at(grid(["│ ", "╰─"]), 0, 1, DockContrast::Ignore).should eq '╰'
+      Docking.angle_at(grid([" │", "─╯"]), 1, 1, DockContrast::Ignore).should eq '╯'
+    end
+
+    it "merges an arc corner gaining an arm into the square junction" do
+      # A border line continuing up through ╭: U|R|D — Unicode has no rounded
+      # tees, so the merge resolves to the square ├.
+      Docking.angle_at(grid(["│ ", "╭─", "│ "]), 0, 1, DockContrast::Ignore).should eq '├'
+      # Two rounded boxes side by side: the shared top corner cell (a ╮ with a
+      # rule continuing right) becomes ┬.
+      Docking.angle_at(grid(["─╮─", " │ "]), 1, 0, DockContrast::Ignore).should eq '┬'
+    end
+
+    it "counts an arc as a reciprocating neighbor" do
+      # ┬'s down arm is provided by ╰'s up arm. Before arcs had stroke
+      # patterns, ╰ contributed nothing and the ┬ was reduced to ─.
+      Docking.angle_at(grid(["─┬─", " ╰─"]), 1, 0, DockContrast::Ignore).should eq '┬'
+    end
+
+    it "re-evaluates arc cells in a full dock pass" do
+      g = grid [
+        "│  ",
+        "╭──",
+        "│  ",
+      ]
+      Docking.dock(g, {1 => true}, 3, DockContrast::Ignore)
+      g[1][0].char.should eq '├'
+      g[1][1].char.should eq '─' # the run is untouched
+    end
+  end
 end

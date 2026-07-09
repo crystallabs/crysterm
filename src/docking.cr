@@ -120,6 +120,19 @@ module Crysterm
       arr
     end
 
+    # Stroke patterns of the arc (rounded) corners `╭ ╮ ╯ ╰` — the contiguous
+    # U+256D..U+2570 span, `BorderType::Rounded`'s corner family. Each carries
+    # the same arms as its square counterpart (`┌ ┐ ┘ └`), so a rounded border
+    # participates in junction merging: an abutting line turns the arc into
+    # the square junction (`├`/`┬`/… — Unicode has no rounded tees), while a
+    # non-merging arc keeps its arc via the identity guard in `#angle_at`.
+    ARC_BITS_BY_ORD = StaticArray[
+      (BITWISE_R_ANGLE | BITWISE_D_ANGLE).to_u8, # ╭ U+256D
+      (BITWISE_L_ANGLE | BITWISE_D_ANGLE).to_u8, # ╮ U+256E
+      (BITWISE_L_ANGLE | BITWISE_U_ANGLE).to_u8, # ╯ U+256F
+      (BITWISE_U_ANGLE | BITWISE_R_ANGLE).to_u8, # ╰ U+2570
+    ]
+
     # The stroke pattern of `c`'s glyph, or 0 for a non-box-drawing char.
     # Packed-table equivalent of `GLYPH_BITS[c]? || 0`. With *ascii* (docking
     # at `Glyphs::Tier::Ascii`), the ASCII line/junction chars participate too:
@@ -131,6 +144,7 @@ module Crysterm
     private def glyph_bits(c : Char, ascii : Bool = false) : Int32
       o = c.ord
       return GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500).to_i if 0x2500 <= o <= 0x253C
+      return ARC_BITS_BY_ORD.unsafe_fetch(o - 0x256D).to_i if 0x256D <= o <= 0x2570
       if ascii
         case c
         when '|' then return BITWISE_U_ANGLE | BITWISE_D_ANGLE
@@ -270,6 +284,14 @@ module Crysterm
       # In ASCII mode the same bit pattern maps to `+`/`-`/`|` instead of the
       # box-drawing glyph.
       bits = recip | preserve
+      # Identity: the junction the neighbors call for is exactly what this
+      # cell's glyph already draws — keep the glyph. A no-op for the square
+      # family (the table maps each canonical pattern back to its own glyph),
+      # but it's what lets an arc corner survive its own border's docking
+      # pass: `╭`'s pattern indexes to `┌`, so without this a standalone
+      # rounded box would have its corners squared. A *merging* arc gains an
+      # arm, misses this guard, and resolves to the square junction below.
+      return ch if bits == self_bits
       a = ANGLE_BY_BITS.unsafe_fetch(bits)
       return ch if a == '\0'
       ascii ? ascii_angle(bits) : a
@@ -284,6 +306,7 @@ module Crysterm
     private def angle?(c : Char, ascii : Bool = false) : Bool
       o = c.ord
       return true if 0x2500 <= o <= 0x253C && GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500) != 0
+      return true if 0x256D <= o <= 0x2570 # arc corners (see ARC_BITS_BY_ORD)
       ascii && (c == '+' || c == '-' || c == '|')
     end
 
