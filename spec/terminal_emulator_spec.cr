@@ -78,6 +78,23 @@ describe Crysterm::TerminalEmulator do
       em.lines[1][2].char.should eq 'X'
     end
 
+    it "moves right with HPR (ECMA-48 CSI a), like CUF" do
+      # HPR (`CSI Ps a`) is the ECMA-48 twin of CUF — vttest's ISO-6429 HPR test
+      # draws a box with it; without it the cursor never advanced and the *'s
+      # piled up at the left margin.
+      em = emu
+      em.feed "A\e[3aB" # A@0; HPR 3 → col 4; B@4
+      row(em, 0).should eq "A   B"
+      em.cursor_x.should eq 5
+    end
+
+    it "moves down with VPR (ECMA-48 CSI e), like CUD" do
+      em = emu
+      em.feed "A\e[2eB" # A@(0,0); VPR 2 → row 2 (col unchanged = 1); B@(2,1)
+      em.cursor_y.should eq 2
+      em.lines[2][1].char.should eq 'B'
+    end
+
     it "clears the deferred wrap on CNL/CPL/VPA cursor moves" do
       # An explicit cursor move (CNL 'E', CPL 'F', VPA 'd') must cancel a pending
       # wrap, like CUU/CUD/CUP — otherwise the next char triggers a spurious
@@ -313,6 +330,37 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[4;1H\n"
       em.cursor_y.should eq 4
       row(em, 0).should eq "X"
+    end
+
+    it "1049 shares the per-buffer DECSC slot (xterm): ESC 8 after 1049l sees the 1049-saved cursor" do
+      # vttest's alt-screen "cursor save/restore" check. In xterm the 1048/1049
+      # cursor save uses the main buffer's DECSC slot, so `1049h` overwrites an
+      # earlier `ESC 7`; a later `ESC 8` then restores the 1049-saved position,
+      # not the stale `ESC 7` one.
+      em = emu(10, 24)
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[7;5H\e7" # DECSC saves (row 7, col 5)
+      em.feed "\e[23;1H"   # move to (row 23, col 1)
+      em.feed "\e[?1049h"  # enter alt — saves the cursor into the same slot
+      em.feed "\e[?1049l"  # leave alt — restores it
+      em.feed "\e8"        # DECRC: must yield the 1049-saved (23,1), not (7,5)
+      em.feed "\e[6n"
+      io.to_s.should eq "\e[23;1R"
+    end
+
+    it "keeps the DECSC save slot independent between main and alt buffers" do
+      # A DECSC on the alt screen must not clobber the main screen's saved cursor.
+      em = emu(10, 24)
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[3;3H\e7" # main: DECSC saves (row 3, col 3)
+      em.feed "\e[?47h"    # enter alt (no cursor save)
+      em.feed "\e[9;9H\e7" # alt: DECSC saves (row 9, col 9) in the ALT slot
+      em.feed "\e[?47l"    # leave alt (no cursor restore)
+      em.feed "\e8"        # DECRC in main: restores the MAIN slot (3,3)
+      em.feed "\e[6n"
+      io.to_s.should eq "\e[3;3R"
     end
 
     it "does not accumulate scrollback while on the alternate screen" do
@@ -606,6 +654,32 @@ describe Crysterm::TerminalEmulator do
     end
   end
 
+  describe "DECREQTPARM (CSI Ps x)" do
+    it "answers argument 0 with a DECREPTPARM report (sol = 2)" do
+      em = emu
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[0x"
+      io.to_s.should eq "\e[2;1;1;128;128;1;0x"
+    end
+
+    it "answers argument 1 with sol = 3" do
+      em = emu
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[1x"
+      io.to_s.should eq "\e[3;1;1;128;128;1;0x"
+    end
+
+    it "does not answer other arguments" do
+      em = emu
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[2x"
+      io.to_s.should eq ""
+    end
+  end
+
   describe "OSC title vs. DCS/PM/APC strings" do
     it "reports an OSC 0/2 window title" do
       em = emu
@@ -738,6 +812,51 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[4l"
       em.feed "Y" # overwrites the 'A' now at col 1
       row(em, 0).should eq "XYBC"
+    end
+  end
+
+  describe "DECALN (ESC # 8)" do
+    it "fills the whole screen with E and homes the cursor" do
+      # DEC screen-alignment test — the primitive vttest's cursor-movement test
+      # builds its frame of E's from (fill screen, then erase all but a border).
+      em = emu(4, 3)
+      em.feed "\e[2;2Hx" # move off home, print, so the fill/home is observable
+      em.feed "\e#8"
+      3.times { |y| row(em, y).should eq "EEEE" }
+      em.cursor_x.should eq 0
+      em.cursor_y.should eq 0
+    end
+
+    it "swallows the double-size line selectors (ESC # 3/4/5/6) with no output" do
+      em = emu(4, 2)
+      em.feed "\e#3Z" # DECDHL top half (unimplemented) then print Z
+      row(em, 0).should eq "Z"
+    end
+  end
+
+  describe "control characters inside CSI sequences" do
+    # The VT500 parser executes a C0 control the instant it appears mid-sequence,
+    # then resumes the CSI — it does NOT abort it. vttest's "cursor-control
+    # characters inside ESC sequences" screen relies on this.
+    it "executes an embedded BS then resumes the CSI (CSI 2 <BS> C)" do
+      em = emu(10, 1)
+      em.feed "A\e[2\bCB" # A@0; CSI 2, BS→col0, CUF 2→col2; B@2
+      row(em, 0).should eq "A B"
+      em.cursor_x.should eq 3
+    end
+
+    it "executes an embedded CR then resumes the CSI (CSI <CR> 3 C)" do
+      em = emu(10, 1)
+      em.feed "AB\e[\r3CX" # AB; CSI, CR→col0, param 3, CUF 3→col3; X@3
+      row(em, 0).should eq "AB X"
+      em.cursor_x.should eq 4
+    end
+
+    it "aborts the CSI on CAN (0x18), printing the trailing byte as text" do
+      em = emu(10, 1)
+      em.feed "A\e[5\u{18}C" # A@0; CSI 5 aborted by CAN; 'C' printed literally @1
+      row(em, 0).should eq "AC"
+      em.cursor_x.should eq 2
     end
   end
 end

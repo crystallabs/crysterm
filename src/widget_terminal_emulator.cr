@@ -10,8 +10,11 @@ module Crysterm
   # htop, less, top, man) rely on — cursor movement, SGR colours/styles,
   # erase/insert/delete, scroll regions and scrollback, cursor save/restore
   # (DECSC/DECRC and DECSET 1048), title (OSC 0/2), basic device-status/attributes
-  # replies, the alternate buffer (DECSET 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`),
-  # and mouse-mode tracking. Does NOT implement double-width/height lines or
+  # replies (DSR, primary/secondary DA, DECREQTPARM), the alternate buffer (DECSET
+  # 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`), the screen-
+  # alignment pattern (DECALN, `ESC # 8`), and mouse-mode tracking. Conformance is
+  # exercised against Paul Williams' `vttest` via `tools/vttest.cr`. Does NOT
+  # implement double-width/height lines, 132-column mode (DECCOLM), VT52 mode, or
   # G2/G3 charset invocation (noted at each site).
   #
   # The SGR ('m') handler reuses `Crysterm::Screen.attr2code` so 16/256/truecolour
@@ -154,9 +157,20 @@ module Crysterm
     @main_ydisp = 0
     @main_scroll_top = 0
     @main_scroll_bottom = 0
-    @alt_saved_x = 0
-    @alt_saved_y = 0
-    @alt_saved_attr : Int64
+    # The DECSC/DECRC save slot is *per-buffer*, matching xterm: entering the alt
+    # screen parks the main buffer's slot here and gives the alt buffer a fresh
+    # one, so a DECSC on one screen can't restore onto the other. 1048/1049 use
+    # this same slot (not a private one), so `CSI ? 1049 h` overwrites a prior
+    # `ESC 7` and a later `ESC 8` sees the 1049-saved cursor — exactly as xterm
+    # does (vttest's alt-screen "cursor save/restore" check depends on it).
+    @main_saved_x = 0
+    @main_saved_y = 0
+    @main_saved_attr : Int64
+    @main_saved_g0_special = false
+    @main_saved_g1_special = false
+    @main_saved_gl = 0
+    @main_saved_origin_mode = false
+    @main_saved_autowrap = true
 
     # Mouse tracking requested by the child. `@mouse_tracking` is the active
     # DECSET tracking mode (0 = off, else 9/1000/1002/1003); `@mouse_encoding`
@@ -197,7 +211,7 @@ module Crysterm
       @default_attr = default_attr
       @cur_attr = default_attr
       @saved_attr = default_attr
-      @alt_saved_attr = default_attr
+      @main_saved_attr = default_attr
       @scroll_bottom = @rows - 1
       @lines = blank_page
       reset_tab_stops
@@ -397,8 +411,27 @@ module Crysterm
       # transition); otherwise an ESC mid-CSI dropped to `:ground` and the new
       # sequence's `[` leaked into the grid as literal text. `:osc` (string) is
       # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
-      if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset)
+      if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
         @state = :esc
+        return
+      end
+      # CAN (0x18) / SUB (0x1a) mid-sequence abort it and return to ground (the
+      # VT500 "anywhere" transition); the byte itself produces no output. `:osc`
+      # is excluded — it runs its own terminator handling.
+      if (c.ord == 0x18 || c.ord == 0x1a) && @state != :ground && @state != :osc
+        @state = :ground
+        return
+      end
+      # Every other C0 control (0x00-0x1f except ESC/CAN/SUB, handled above)
+      # executes *immediately* without disturbing an in-flight escape/CSI/charset/
+      # hash sequence — the VT500 parser runs C0 controls "anywhere", then resumes
+      # the sequence. Without this a control embedded in a CSI (vttest's
+      # `CSI 2 <BS> C`, `CSI <CR> 2 C`, `CSI 1 <VT> A`) was mis-dispatched as the
+      # sequence's final byte, aborting it and leaking the real final ('C'/'A')
+      # into the grid as literal text. `:osc` is excluded: a control inside an OSC
+      # string is either its BEL terminator or opaque payload (see `#handle_osc`).
+      if c.ord < 0x20 && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
+        handle_ground c
         return
       end
       case @state
@@ -407,7 +440,19 @@ module Crysterm
       when :csi     then handle_csi c
       when :osc     then handle_osc c
       when :charset then handle_charset c
+      when :hash    then handle_hash c
       end
+    end
+
+    # Final byte of an `ESC #` sequence. Only DECALN (`ESC # 8`, DEC screen-
+    # alignment test) is acted on — it fills the whole screen with 'E' and is
+    # what vttest's cursor-movement test uses to paint its frame of E's (fill,
+    # then erase all but a border). The line-size selectors (`ESC # 3`/`4`/`5`/`6`,
+    # double-height/width/single-width) are swallowed with no effect (double-sized
+    # lines are out of scope, noted at the top of the file).
+    private def handle_hash(c : Char) : Nil
+      decaln if c == '8'
+      @state = :ground
     end
 
     # Designates the pending G-set (`@charset_index`) as special-graphics when
@@ -461,12 +506,15 @@ module Crysterm
                          else          3
                          end
         @state = :charset
-      when '#', ' ', '%'
+      when '#'
+        # `ESC # n`: DECALN (`# 8`) is implemented (see `#handle_hash`); the
+        # double-size line selectors (`# 3`/`4`/`5`/`6`) are swallowed there.
+        @state = :hash
+      when ' ', '%'
         # 3-byte intermediate escapes whose final byte must be swallowed, not
-        # printed: `ESC # n` (DECALN / line size — not implemented), `ESC SP F/G`
-        # (S7C1T/S8C1T) and `ESC % @/G` (charset; always UTF-8 here). Route
-        # through charset state with a designate-nothing index (-1) so the next
-        # byte is consumed with no side effect.
+        # printed: `ESC SP F/G` (S7C1T/S8C1T) and `ESC % @/G` (charset; always
+        # UTF-8 here). Route through charset state with a designate-nothing index
+        # (-1) so the next byte is consumed with no side effect.
         @charset_index = -1
         @state = :charset
       when 'P', 'X', '^', '_'
@@ -698,9 +746,13 @@ module Crysterm
       # execute the wrong command on its parameters.
       return if @csi_intermediate
       case c
-      when 'A'      then cursor_up(param(0, 1)); @wrap_pending = false
-      when 'B'      then cursor_down(param(0, 1)); @wrap_pending = false
-      when 'C'      then @x = Math.min(@cols - 1, @x + param(0, 1)); @wrap_pending = false
+      when 'A' then cursor_up(param(0, 1)); @wrap_pending = false
+      # CUD ('B') and its ECMA-48 twin VPR ('e', Vertical-Position-Relative) both
+      # move the cursor down; xterm maps VPR straight onto CursorDown.
+      when 'B', 'e' then cursor_down(param(0, 1)); @wrap_pending = false
+      # CUF ('C') and its ECMA-48 twin HPR ('a', Horizontal-Position-Relative)
+      # both move the cursor right; xterm maps HPR straight onto CursorForward.
+      when 'C', 'a' then @x = Math.min(@cols - 1, @x + param(0, 1)); @wrap_pending = false
       when 'D'      then @x = Math.max(0, @x - param(0, 1)); @wrap_pending = false
       when 'E'      then @x = 0; cursor_down(param(0, 1)); @wrap_pending = false
       when 'F'      then @x = 0; cursor_up(param(0, 1)); @wrap_pending = false
@@ -777,6 +829,17 @@ module Crysterm
           # tertiary (`=`) / unknown prefix: not answered
           end
         end
+      when 'x'
+        # DECREQTPARM (`CSI Ps x`, plain only): report terminal parameters. Only
+        # Ps 0 ("please report, unsolicited allowed") and Ps 1 ("report,
+        # solicited only") get a DECREPTPARM reply; the report's `sol` field is
+        # Ps+2 (2 or 3). Remaining fields mirror xterm's fixed reply: no parity,
+        # 8 bits, 38.4k xspeed/rspeed, clock-multiplier 1, no STP flags. Without
+        # this, vttest's "Request Terminal Parameters" reports "Bad format".
+        if @csi_prefix.nil?
+          req = param0(0)
+          respond("\e[#{req + 2};1;1;128;128;1;0x") if req == 0 || req == 1
+        end
       else
         # Unimplemented final byte — ignored.
       end
@@ -826,8 +889,47 @@ module Crysterm
 
     # ───────────────────────── alternate window ─────────────────────────
 
-    # Switches to a fresh alternate page, parking the main buffer (and, for 1049,
-    # the cursor) until `#leave_alt`.
+    # Parks the main buffer's DECSC save slot into `@main_saved_*` (on `#enter_alt`)
+    # and restores it (`#leave_alt`), so the two screens keep independent slots.
+    private def park_saved_slot : Nil
+      @main_saved_x = @saved_x
+      @main_saved_y = @saved_y
+      @main_saved_attr = @saved_attr
+      @main_saved_g0_special = @saved_g0_special
+      @main_saved_g1_special = @saved_g1_special
+      @main_saved_gl = @saved_gl
+      @main_saved_origin_mode = @saved_origin_mode
+      @main_saved_autowrap = @saved_autowrap
+    end
+
+    private def unpark_saved_slot : Nil
+      @saved_x = @main_saved_x
+      @saved_y = @main_saved_y
+      @saved_attr = @main_saved_attr
+      @saved_g0_special = @main_saved_g0_special
+      @saved_g1_special = @main_saved_g1_special
+      @saved_gl = @main_saved_gl
+      @saved_origin_mode = @main_saved_origin_mode
+      @saved_autowrap = @main_saved_autowrap
+    end
+
+    # Resets the DECSC slot to defaults (home cursor, default rendition/charset).
+    # Used for the alt buffer's fresh slot and by `#full_reset`.
+    private def reset_saved_slot : Nil
+      @saved_x = 0
+      @saved_y = 0
+      @saved_attr = @default_attr
+      @saved_g0_special = false
+      @saved_g1_special = false
+      @saved_gl = 0
+      @saved_origin_mode = false
+      @saved_autowrap = true
+    end
+
+    # Switches to a fresh alternate page, parking the main buffer until
+    # `#leave_alt`. For 1048/1049 (`save_cursor_too`) the cursor is DECSC-saved
+    # into the main buffer's slot *first*, so it overwrites any earlier `ESC 7`,
+    # then that slot is parked and the alt buffer gets a fresh one.
     private def enter_alt(save_cursor_too : Bool) : Nil
       return if @alt_active
       @alt_active = true
@@ -836,11 +938,9 @@ module Crysterm
       @main_ydisp = @ydisp
       @main_scroll_top = @scroll_top
       @main_scroll_bottom = @scroll_bottom
-      if save_cursor_too
-        @alt_saved_x = @x
-        @alt_saved_y = @y
-        @alt_saved_attr = @cur_attr
-      end
+      save_cursor if save_cursor_too
+      park_saved_slot
+      reset_saved_slot
 
       @lines = blank_page
       @ybase = 0
@@ -851,6 +951,8 @@ module Crysterm
     end
 
     # Restores the main buffer saved by `#enter_alt` (the alt page is discarded).
+    # Its parked DECSC slot comes back too; for 1048/1049 the cursor is then
+    # DECRC-restored from it.
     private def leave_alt(restore_cursor_too : Bool) : Nil
       return unless @alt_active
       @alt_active = false
@@ -862,11 +964,8 @@ module Crysterm
       @ydisp = @main_ydisp
       @scroll_top = @main_scroll_top
       @scroll_bottom = @main_scroll_bottom
-      if restore_cursor_too
-        @x = clamp(@alt_saved_x, 0, @cols - 1)
-        @y = clamp(@alt_saved_y, 0, @rows - 1)
-        @cur_attr = @alt_saved_attr
-      end
+      unpark_saved_slot
+      restore_cursor if restore_cursor_too
       @wrap_pending = false
     end
 
@@ -1250,6 +1349,30 @@ module Crysterm
       @wrap_pending = false
     end
 
+    # DECALN (`ESC # 8`): fill the entire visible screen with 'E', reset the
+    # scroll region to the full window and home the cursor. The VT100 screen-
+    # alignment pattern — and, more usefully here, the primitive vttest's
+    # cursor-movement test builds its frame of E's from (fill the screen, then
+    # erase everything but a border). Fills in place, reusing each line's storage
+    # like `#blank_in_place`, so it allocates nothing.
+    private def decaln : Nil
+      cell = Cell.new(@cur_attr, 'E')
+      @rows.times do |yy|
+        line = @lines[@ybase + yy]
+        if line.size == @cols
+          line.fill cell
+        else
+          line.clear
+          @cols.times { line << cell }
+        end
+      end
+      @scroll_top = 0
+      @scroll_bottom = @rows - 1
+      @x = 0
+      @y = 0
+      @wrap_pending = false
+    end
+
     private def full_reset : Nil
       @cur_attr = @default_attr
       @scroll_top = 0
@@ -1281,20 +1404,11 @@ module Crysterm
       @csi_private = false
       @csi_prefix = nil
       @csi_intermediate = false
-      # RIS also resets the DECSC/DECRC save slot (and the alt-buffer cursor
-      # save) to defaults; otherwise a DECRC (`ESC 8`) after `ESC c` would
-      # restore the pre-reset cursor position/attribute/charset.
-      @saved_x = 0
-      @saved_y = 0
-      @saved_attr = @default_attr
-      @saved_g0_special = false
-      @saved_g1_special = false
-      @saved_gl = 0
-      @saved_origin_mode = false
-      @saved_autowrap = true
-      @alt_saved_x = 0
-      @alt_saved_y = 0
-      @alt_saved_attr = @default_attr
+      # RIS also resets the DECSC/DECRC save slot (live and the parked main-buffer
+      # copy) to defaults; otherwise a DECRC (`ESC 8`) after `ESC c` would restore
+      # the pre-reset cursor position/attribute/charset.
+      reset_saved_slot
+      park_saved_slot
       reset_tab_stops
     end
 
