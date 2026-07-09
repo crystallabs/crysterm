@@ -179,9 +179,9 @@ describe Crysterm::TextDocument do
       doc = TextDocument.new("abc")
       counts = [] of Int32
       doc.on(Event::BlockCountChange) { |e| counts << e.count }
-      doc.insert_text(1, "x")   # no block change
-      doc.insert_text(1, "\n")  # 2 blocks
-      doc.remove(1, 1)          # back to 1
+      doc.insert_text(1, "x")  # no block change
+      doc.insert_text(1, "\n") # 2 blocks
+      doc.remove(1, 1)         # back to 1
       counts.should eq [2, 1]
     end
 

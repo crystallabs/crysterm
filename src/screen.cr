@@ -106,10 +106,25 @@ module Crysterm
     # characters — the reactive draw-time ACS/`ascii_fallback` reduction still
     # applies on terminals that can't render the chosen set. Defaults to the
     # `screen.glyphs` config option (`CRYSTERM_SCREEN_GLYPHS`), i.e. `unicode`,
-    # matching what the toolkit has always emitted; `ascii` and `extended` are
-    # deliberate opt-ins (font coverage can't be probed, and `full_unicode?`
-    # gates text *layout*, not glyph choice).
-    property glyph_tier : Glyphs::Tier = Config.screen_glyphs
+    # matching what the toolkit has always emitted. While the tier is left at
+    # that default, a device on a real tty auto-upgrades to `extended` when
+    # the terminal is identified as shipping a modern, well-covered font
+    # (`Glyphs.detected_tier` — see `#auto_glyph_tier`); an explicit config
+    # value or `#glyph_tier=` call pins the tier and disables auto-detection
+    # (font *coverage* can't be probed, and `full_unicode?` gates text
+    # *layout*, not glyph choice).
+    getter glyph_tier : Glyphs::Tier = Config.screen_glyphs
+
+    # Whether the tier was chosen explicitly — the `screen.glyphs` option came
+    # from env/file/CLI/runtime rather than its registered default, or
+    # `#glyph_tier=` was called. Pins `glyph_tier` against `#auto_glyph_tier`.
+    @glyph_tier_explicit : Bool = !Config["screen.glyphs"].source.default?
+
+    # Explicitly chooses the glyph tier, pinning it against auto-detection.
+    def glyph_tier=(value : Glyphs::Tier)
+      @glyph_tier_explicit = true
+      @glyph_tier = value
+    end
 
     # User option: enable grapheme/full-Unicode-aware rendering — text is
     # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
@@ -256,6 +271,11 @@ module Crysterm
       # a brand-new `Screen` via `#reconnected`, which derives them anew.)
       @draw_caps = compute_draw_caps
 
+      # With the terminal's env-detected identity and Unicode support in hand,
+      # resolve the automatic glyph tier; re-resolved by `#probe!` once
+      # XTVERSION hardens the identity. No-op when a tier was pinned.
+      auto_glyph_tier
+
       # A pinned axis keeps its size; the terminal-probed size (in
       # `#adopt_terminal_size`) must not replace it. Tracked per-axis so inline
       # windows can fix height while width follows the terminal.
@@ -287,6 +307,22 @@ module Crysterm
       return unless ::Superconf.tput_probe
       @tput.probe!
       @draw_caps = compute_draw_caps
+      # The probe's XTVERSION reply refines the emulator identity
+      # (`Emulator#refine_from_probe!`) — it can confirm an env-detected
+      # modern-font terminal or revoke one that env leakage mis-identified —
+      # so re-resolve the automatic glyph tier in both directions.
+      auto_glyph_tier
+    end
+
+    # Applies `Glyphs.detected_tier` (upgrade to `extended` on a
+    # Unicode-capable kitty/WezTerm/Ghostty/iTerm2, else the `unicode`
+    # default) while no tier was pinned explicitly. Only on a real tty: a
+    # headless/redirected device (tests, captures, pipes) is not rendered by
+    # the emulator the environment describes, and its output must not depend
+    # on which terminal the process happens to be launched from.
+    private def auto_glyph_tier : Nil
+      return if @glyph_tier_explicit || !@output.tty?
+      @glyph_tier = Glyphs.detected_tier(@tput)
     end
 
     # Reads the terminal size into `width`/`height` from this device's own `tput`

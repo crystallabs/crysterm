@@ -37,7 +37,7 @@ module Crysterm
 
     # Length in codepoints (without the trailing block separator).
     def size : Int32
-      @fragments.sum(0) { |f| f.size }
+      @fragments.sum(0, &.size)
     end
 
     def empty? : Bool
@@ -179,7 +179,7 @@ module Crysterm
 
     private def normalize! : Nil
       invalidate!
-      @fragments.reject! { |f| f.text.empty? }
+      @fragments.reject!(&.text.empty?)
       i = 0
       while i < @fragments.size - 1
         a = @fragments[i]

@@ -357,15 +357,22 @@ module Crysterm
       end
     end
 
+    # Whether the character at *i* is a word character. `char_at` is nilable
+    # only out of bounds, which every caller's index guard already excludes;
+    # an (impossible) nil reads as non-word rather than crashing.
+    private def word_char_at?(i : Int32) : Bool
+      (c = @document.char_at(i)) ? TextDocument.word_char?(c) : false
+    end
+
     # Start of the current/previous word: skip separators left, then word
     # chars. Same semantics as `Mixin::TextEditing#scan_word_left` — block
     # separators read as `'\n'` and count as non-word, so the scan crosses them.
     private def word_left_from(from : Int32) : Int32
       p = from
-      while p > 0 && !TextDocument.word_char?(@document.char_at(p - 1).not_nil!)
+      while p > 0 && !word_char_at?(p - 1)
         p -= 1
       end
-      while p > 0 && TextDocument.word_char?(@document.char_at(p - 1).not_nil!)
+      while p > 0 && word_char_at?(p - 1)
         p -= 1
       end
       p
@@ -376,10 +383,10 @@ module Crysterm
     private def word_right_from(from : Int32) : Int32
       p = from
       sz = @document.size
-      while p < sz && TextDocument.word_char?(@document.char_at(p).not_nil!)
+      while p < sz && word_char_at?(p)
         p += 1
       end
-      while p < sz && !TextDocument.word_char?(@document.char_at(p).not_nil!)
+      while p < sz && !word_char_at?(p)
         p += 1
       end
       p
@@ -392,11 +399,11 @@ module Crysterm
     private def word_bounds_at(pos : Int32) : {Int32, Int32}
       doc = @document
       s = pos
-      while s > 0 && TextDocument.word_char?(doc.char_at(s - 1).not_nil!)
+      while s > 0 && word_char_at?(s - 1)
         s -= 1
       end
       e = pos
-      while e < doc.size && TextDocument.word_char?(doc.char_at(e).not_nil!)
+      while e < doc.size && word_char_at?(e)
         e += 1
       end
       if s == e

@@ -83,7 +83,7 @@ module Superconf
   option "screen.full_unicode", false,
     description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode)"
   option "screen.glyphs", Crysterm::Glyphs::Tier::Unicode,
-    description: "Which chrome glyphs widgets draw (ascii|unicode|extended): 'unicode' (default) is the classic box-drawing/block set, 'ascii' restricts chrome to 7-bit characters, 'extended' opts into glyphs that need a modern font. A glyph choice, not an encoding — draw-time ACS fallback still protects incapable terminals"
+    description: "Which chrome glyphs widgets draw (ascii|unicode|extended): 'unicode' (default) is the classic box-drawing/block set, 'ascii' restricts chrome to 7-bit characters, 'extended' uses glyphs that need a modern font. While left at the default, a Screen on a real tty auto-upgrades to 'extended' when the terminal is identified as one shipping a well-covered font (kitty, WezTerm, Ghostty, iTerm2); set any value explicitly to pin a tier and disable that detection. A glyph choice, not an encoding — draw-time ACS fallback still protects incapable terminals"
   option "window.overflow", Crysterm::Overflow::Ignore,
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
 

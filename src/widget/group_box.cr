@@ -6,9 +6,10 @@ module Crysterm
     # Titled, bordered container, modeled after Qt's `QGroupBox`.
     #
     # Draws a border with the group `#title` as its label and holds arbitrary
-    # child widgets. When `#checkable?` a `[x]`/`[ ]` marker is shown in the
-    # title and toggling it enables/disables the contained children (Qt greys out
-    # a checkable group's contents when unchecked).
+    # child widgets. When `#checkable?` a checkbox marker (`[x]`/`[ ]` at the
+    # default tier, from the `Glyphs` checkbox roles) is shown in the title and
+    # toggling it enables/disables the contained children (Qt greys out a
+    # checkable group's contents when unchecked).
     #
     # ```
     # gb = Widget::GroupBox.new parent: window, title: "Options", width: 30, height: 8
@@ -73,6 +74,10 @@ module Crysterm
       # disabled.
       getter? checked : Bool = true
 
+      # The `{glyph_tier, Glyphs.generation}` the baked title marker was built
+      # from; the `PreRender` handler rebuilds the label when it moves.
+      @_label_glyph_key : Tuple(Glyphs::Tier, UInt64)?
+
       # Whether the group is *flat* — drawn without its frame (Qt's
       # `QGroupBox#flat`). Surfaced as the `[flat]` attribute; the theme strips
       # the default border via `GroupBox[flat]`, and Qt's `:flat` targets it.
@@ -96,6 +101,19 @@ module Crysterm
         # Guarded by `same?`: no-op unless a `::title` rule matched. See
         # `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
+          # The checkable marker is baked into the label at `update_label`
+          # time, so a later glyph-tier change (a retheme via `Glyphs.set`, or
+          # the screen's post-probe auto tier upgrade — widgets are built
+          # before `Window#exec` probes) would leave it stale. Rebuild when
+          # the resolved tier/registry generation moves.
+          if checkable?
+            key = {glyph_tier, Glyphs.generation}
+            if @_label_glyph_key != key
+              @_label_glyph_key = key
+              update_label
+            end
+          end
+
           t = style.title
           unless t.same?(style)
             # The title is an inline label, not a framed box, but the `title`
@@ -151,7 +169,8 @@ module Crysterm
 
       private def label_text : String
         if checkable?
-          "#{checked? ? "[x]" : "[ ]"} #{@title}".rstrip
+          mark = glyph(checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked)
+          "#{glyph(Glyphs::Role::CheckboxOpen)}#{mark}#{glyph(Glyphs::Role::CheckboxClose)} #{@title}".rstrip
         else
           @title
         end

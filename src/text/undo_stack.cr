@@ -253,7 +253,7 @@ module Crysterm
 
     # Prevents further coalescing into the newest command.
     def seal_last : Nil
-      @commands.last?.try { |c| c.sealed = true }
+      @commands.last?.try(&.sealed=(true))
     end
   end
 end

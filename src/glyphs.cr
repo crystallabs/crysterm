@@ -22,8 +22,11 @@ module Crysterm
       # it matches what the toolkit has always emitted.
       Unicode
       # Glyphs that need a modern font (fancy dingbats, Nerd Font icons,
-      # emoji). Never auto-detected — font coverage can't be probed — so this
-      # tier is strictly opt-in.
+      # emoji). Font coverage can't be *probed* (a missing glyph renders as
+      # same-width tofu), so this tier is never chosen from a probe; it is
+      # enabled by terminal-*identity* detection (`Glyphs.detected_tier`,
+      # applied by `Screen` on a real tty when `screen.glyphs` wasn't set
+      # explicitly) or by explicit opt-in.
       Extended
     end
 
@@ -729,10 +732,9 @@ module Crysterm
     # Heuristic tier suggestion: `Extended` when the environment identifies a
     # terminal that ships with (or is overwhelmingly configured with) a
     # modern, well-covered font — kitty, WezTerm, Ghostty, iTerm2 — else
-    # `Unicode`. Deliberately consulted **nowhere** automatically: font
-    # coverage can't be probed, so `Extended` stays strictly opt-in
-    # (GLYPHS.md §1); an app that wants the nudge does
-    # `screen.glyph_tier = Glyphs.detected_tier`.
+    # `Unicode`. Font coverage itself can't be probed, so this is identity
+    # knowledge, not a probe. The env-only overload is a standalone helper;
+    # the `Tput` overload below is the one `Screen` consults automatically.
     def self.detected_tier(env = ENV) : Tier
       return Tier::Extended if env.has_key?("KITTY_WINDOW_ID") ||
                                env.has_key?("WEZTERM_EXECUTABLE") ||
@@ -742,6 +744,24 @@ module Crysterm
       term = env["TERM"]?.try(&.downcase) || ""
       return Tier::Extended if term.includes?("kitty") || term.includes?("wezterm") || term.includes?("ghostty")
       Tier::Unicode
+    end
+
+    # Tier suggestion from a live `Tput`'s feature/emulator detection:
+    # `Extended` when the terminal both renders Unicode
+    # (`Tput::Features#unicode?`) and is identified as one shipping a modern,
+    # well-covered font (`Tput::Emulator#modern_font?` — kitty, WezTerm,
+    # Ghostty, iTerm2); else `Unicode`. Sharper than the env overload: the
+    # emulator identity is hardened by `Tput#probe!` (XTVERSION), which both
+    # confirms an env-detected identity and revokes a wrong one. Consulted
+    # automatically by `Screen` (at construction and after `Screen#probe!`)
+    # while `screen.glyphs` / `Screen#glyph_tier=` haven't pinned a tier
+    # explicitly, on a real tty only.
+    def self.detected_tier(tput : ::Tput) : Tier
+      if tput.features.unicode? && tput.emulator?.try(&.modern_font?)
+        Tier::Extended
+      else
+        Tier::Unicode
+      end
     end
   end
 end

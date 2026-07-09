@@ -144,3 +144,66 @@ describe "Glyphs.detected_tier" do
     Glyphs.detected_tier({"TERM" => "xterm-kitty"}).should eq Glyphs::Tier::Extended
   end
 end
+
+# Every env var the `Tput::Emulator` identity and `Features#detect_unicode`
+# read. Cleared (then selectively set) around each identity-controlled `Tput`
+# below, so the result never depends on the terminal the suite runs in.
+GT_ENV_KEYS = %w[
+  KITTY_WINDOW_ID WEZTERM_PANE WEZTERM_EXECUTABLE TERM_PROGRAM
+  TERM_PROGRAM_VERSION ITERM_SESSION_ID XTERM_VERSION KONSOLE_VERSION
+  MLTERM VTE_VERSION COLORTERM TERMINATOR_UUID TMUX TERM
+  NCURSES_FORCE_UNICODE XTERM_LOCALE LANG LANGUAGE LC_ALL LC_CTYPE
+]
+
+private def with_gt_env(vars : Hash(String, String), &)
+  saved = {} of String => String?
+  GT_ENV_KEYS.each { |k| saved[k] = ENV[k]?; ENV.delete k }
+  vars.each { |k, v| ENV[k] = v }
+  begin
+    yield
+  ensure
+    GT_ENV_KEYS.each { |k| (v = saved[k]) ? (ENV[k] = v) : ENV.delete(k) }
+  end
+end
+
+# A tput detached from any real terminal; identity comes only from the env
+# `with_gt_env` staged. `force_unicode: false` means auto-detect, which with
+# the locale vars cleared resolves to no Unicode.
+private def gt_tput(force_unicode = true)
+  ::Tput.new(terminfo: nil, input: IO::Memory.new, output: IO::Memory.new,
+    force_unicode: force_unicode, probe: false)
+end
+
+describe "Glyphs.detected_tier(tput) and Screen auto glyph tier" do
+  it "detects Extended from the emulator identity, gated on unicode" do
+    with_gt_env({"KITTY_WINDOW_ID" => "1", "TERM" => "xterm"}) do
+      gt_tput.emulator.modern_font?.should be_true
+      Glyphs.detected_tier(gt_tput).should eq Glyphs::Tier::Extended
+      # Same identity but no Unicode output: extended glyphs are unreasonable.
+      Glyphs.detected_tier(gt_tput(force_unicode: false)).should eq Glyphs::Tier::Unicode
+    end
+    with_gt_env({"TERM_PROGRAM" => "WezTerm", "TERM" => "xterm"}) do
+      Glyphs.detected_tier(gt_tput).should eq Glyphs::Tier::Extended
+    end
+    with_gt_env({"TERM" => "xterm"}) do
+      gt_tput.emulator.modern_font?.should be_false
+      Glyphs.detected_tier(gt_tput).should eq Glyphs::Tier::Unicode
+    end
+  end
+
+  it "never auto-upgrades a headless (non-tty) screen" do
+    with_gt_env({"KITTY_WINDOW_ID" => "1", "TERM" => "xterm"}) do
+      s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+        width: 40, height: 12)
+      s.glyph_tier.should eq Glyphs::Tier::Unicode
+    end
+  end
+
+  it "keeps an explicitly assigned tier pinned across probe!" do
+    s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+      width: 40, height: 12)
+    s.glyph_tier = Glyphs::Tier::Ascii
+    s.probe! # no-op round-trip on a non-tty; must not touch the pinned tier
+    s.glyph_tier.should eq Glyphs::Tier::Ascii
+  end
+end

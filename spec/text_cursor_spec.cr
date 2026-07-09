@@ -10,7 +10,7 @@ end
 describe Crysterm::TextCursor do
   describe "movement" do
     it "moves by characters across block separators" do
-      doc, c = doc_and_cursor("ab\ncd")
+      _, c = doc_and_cursor("ab\ncd")
       c.move_position(:right, n: 3).should be_true
       c.position.should eq 3
       c.block_number.should eq 1
@@ -28,7 +28,7 @@ describe Crysterm::TextCursor do
     end
 
     it "moves to block boundaries" do
-      doc, c = doc_and_cursor("hello\nworld", 8)
+      _, c = doc_and_cursor("hello\nworld", 8)
       c.move_position(:start_of_block)
       c.position.should eq 6
       c.at_block_start?.should be_true
@@ -38,7 +38,7 @@ describe Crysterm::TextCursor do
     end
 
     it "moves between blocks clamping the column" do
-      doc, c = doc_and_cursor("abcdef\nxy", 5)
+      _, c = doc_and_cursor("abcdef\nxy", 5)
       c.move_position(:down).should be_true
       c.block_number.should eq 1
       c.position_in_block.should eq 2 # clamped to "xy"
@@ -49,7 +49,7 @@ describe Crysterm::TextCursor do
     end
 
     it "moves by words, crossing separators" do
-      doc, c = doc_and_cursor("foo bar\nbaz qux")
+      _, c = doc_and_cursor("foo bar\nbaz qux")
       c.move_position(:word_right)
       c.position.should eq 4 # start of "bar"
       c.move_position(:word_right)
@@ -64,7 +64,7 @@ describe Crysterm::TextCursor do
 
   describe "selection" do
     it "keeps the anchor with KeepAnchor" do
-      doc, c = doc_and_cursor("hello world")
+      _, c = doc_and_cursor("hello world")
       c.set_position(6)
       c.set_position(11, :keep_anchor)
       c.has_selection?.should be_true
@@ -73,19 +73,19 @@ describe Crysterm::TextCursor do
     end
 
     it "selects across blocks with newline separators" do
-      doc, c = doc_and_cursor("ab\ncd")
+      _, c = doc_and_cursor("ab\ncd")
       c.select :document
       c.selected_text.should eq "ab\ncd"
     end
 
     it "selects the word under the cursor" do
-      doc, c = doc_and_cursor("foo bar baz", 5) # inside "bar"
+      _, c = doc_and_cursor("foo bar baz", 5) # inside "bar"
       c.select :word_under_cursor
       c.selected_text.should eq "bar"
     end
 
     it "selects the block under the cursor" do
-      doc, c = doc_and_cursor("one\ntwo\nthree", 5)
+      _, c = doc_and_cursor("one\ntwo\nthree", 5)
       c.select :block_under_cursor
       c.selected_text.should eq "two"
     end
@@ -195,7 +195,7 @@ describe Crysterm::TextCursor do
     end
 
     it "clears the pending typing format on movement" do
-      doc, c = doc_and_cursor("ab", 1)
+      _, c = doc_and_cursor("ab", 1)
       c.set_char_format(TextCharFormat.new(italic: true))
       c.move_position(:left)
       c.char_format.italic?.should be_false
