@@ -10,6 +10,8 @@ module Crysterm
     # fixed for the binding's life — the common TUI case. Dynamic dependency
     # sets are the Phase-2 re-tracking `Effect` (see `REACTIVE.md`).
     class Binding
+      include Deferrable
+
       @subs = ::Crysterm::Subscriptions.new
       getter? disposed = false
 

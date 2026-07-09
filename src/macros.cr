@@ -52,6 +52,55 @@ module Crysterm
       end
     end
 
+    # Declares a signal-backed widget property — the reactive sibling of
+    # `change_guarded_setter`. Given `reactive_property title : String = ""` it
+    # generates:
+    #
+    # * `#title_signal` — the backing `Reactive::Signal(String)`, created lazily
+    #   on first use with the declared default (no allocation until touched).
+    #   Bind against it (`Reactive.bind(dst, obj.title_signal) { … }`).
+    # * `#title` — reads the value; **tracks** the property as a dependency when
+    #   read inside an `Effect`/`Computed`, so `obj.title` participates in
+    #   auto-tracking just like a bare signal read.
+    # * `#title=` — change-guarded assign. On a real change it notifies signal
+    #   subscribers, `mark_dirty`s, and schedules a repaint of the owning window,
+    #   so a bare `obj.title = "x"` both fans out to bindings/effects and redraws
+    #   the widget itself. Pass *event* to also emit a widget-level event (parity
+    #   with `change_guarded_setter`).
+    #
+    # A default value is required (the signal needs an initial value). Assumes the
+    # including type is a `Widget` (uses `mark_dirty`/`window?`), like
+    # `change_guarded_setter`.
+    #
+    # Like `enum_property`, the `name : Type = default` argument reads as an
+    # assignment to `ameba`, so prefix each call site with
+    # `# ameba:disable Lint/UselessAssign`.
+    macro reactive_property(decl, event = nil)
+      {% raise "reactive_property #{decl.var} requires a default value" unless decl.value %}
+
+      @{{decl.var}} : ::Crysterm::Reactive::Signal({{decl.type}})?
+
+      def {{decl.var}}_signal : ::Crysterm::Reactive::Signal({{decl.type}})
+        @{{decl.var}} ||= ::Crysterm::Reactive::Signal({{decl.type}}).new({{decl.value}})
+      end
+
+      def {{decl.var}} : {{decl.type}}
+        {{decl.var}}_signal.value
+      end
+
+      def {{decl.var}}=(val : {{decl.type}}) : {{decl.type}}
+        sig = {{decl.var}}_signal
+        # Untracked guard read (`#get`, not `#value`) so a setter called from
+        # inside an effect doesn't spuriously depend on the property.
+        return val if sig.get == val
+        sig.value = val
+        mark_dirty
+        window?.try &.schedule_render
+        {% if event %} emit ::Crysterm::Event::{{event.id}} {% end %}
+        val
+      end
+    end
+
     # Defines a per-Window pooled mouse-event factory: a nilable `@_<name>_event`
     # ivar plus a private `<name>_event(ev)` that lazily constructs one instance
     # of `Crysterm::Event::<klass>` and `reset`s it on every dispatch, so a

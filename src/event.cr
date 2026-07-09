@@ -125,6 +125,11 @@ module Crysterm
     # presenting the action can refresh. Mirrors Qt's `QAction::changed()`.
     event Changed
 
+    # A granular change to a `Reactive::ObservableList`. `op` says what happened
+    # (`Reactive::ListOp`); `index`/`count` locate it (`0` for `Reset`). Consumed
+    # by `Reactive.bind_items` to patch a bound item view row-by-row.
+    event ListChange, op : ::Crysterm::Reactive::ListOp, index : Int32 = 0, count : Int32 = 0
+
     # Emitted on checkbox checked
     event Check, value : Bool
 

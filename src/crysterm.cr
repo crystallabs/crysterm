@@ -77,9 +77,13 @@ require "./widgets"
 # `Widget`/`Window`, and `Signal` reuses the `event_handler` machinery and
 # `Subscriptions` (already required above).
 require "./reactive/signal"
-require "./reactive/binding"
 require "./reactive/batch"
+require "./reactive/binding"
 require "./reactive/bind"
+require "./reactive/effect"
+require "./reactive/computed"
+require "./reactive/observable_list"
+require "./reactive/bind_items"
 
 require "./style/css/**"
 

@@ -1,5 +1,12 @@
 module Crysterm
   module Reactive
+    # Something that can be deferred to a batch flush and run once. Implemented
+    # by both `Binding` (permanent) and `Effect` (re-tracking), so one queue
+    # dedups either kind across a burst of writes.
+    module Deferrable
+      abstract def run : Nil
+    end
+
     # Batching groups a burst of signal writes so each affected binding runs
     # once, at the end of the batch, instead of on every intermediate write.
     #
@@ -12,17 +19,17 @@ module Crysterm
     # the shared state for cross-fiber writes is a deferred decision — see the
     # threading note in `REACTIVE.md`.
     @@batch_depth = 0
-    @@pending = [] of Binding
+    @@pending = [] of Deferrable
 
     # Whether a `batch` is currently open on this fiber.
     def self.batching? : Bool
       @@batch_depth > 0
     end
 
-    # Records *binding* to run at the end of the current batch, deduplicated so a
-    # binding woken by several writes still runs once.
-    def self.enqueue(binding : Binding) : Nil
-      @@pending << binding unless @@pending.includes? binding
+    # Records *item* to run at the end of the current batch, deduplicated so a
+    # binding/effect woken by several writes still runs once.
+    def self.enqueue(item : Deferrable) : Nil
+      @@pending << item unless @@pending.includes? item
     end
 
     # Runs *block* with binding execution deferred until it returns. Nesting is
@@ -49,7 +56,7 @@ module Crysterm
     def self.flush : Nil
       return if @@pending.empty?
       pending = @@pending
-      @@pending = [] of Binding
+      @@pending = [] of Deferrable
       pending.each &.run
     end
   end

@@ -31,9 +31,18 @@ module Crysterm
     # count.value = 5 # no-op (unchanged)
     # ```
     class Signal(T) < SignalBase
-      getter value : T
+      @value : T
 
       def initialize(@value : T)
+      end
+
+      # Reads the current value. If a dependency-tracking scope is active (an
+      # `Effect`/`Computed` is running), registers that consumer as a dependent
+      # so it re-runs when this signal changes — the auto-tracking path. Outside
+      # such a scope (the common `bind`/manual read), it is a plain read.
+      def value : T
+        Reactive.current?.try &.track(self)
+        @value
       end
 
       # Assigns *v*. No-op (no notification, no repaint) if unchanged. Returns *v*.
