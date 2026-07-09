@@ -1099,7 +1099,10 @@ module Crysterm
     # rather than wiped. Used by line-level editors (`insert_line`/
     # `delete_line`/`set_line`) after they splice `fake`.
     private def rebuild_content_from_fake
-      set_content(@_clines.fake.join("\n"), true)
+      # Preserve the widget's tag mode: the third positional arg is `no_tags`.
+      # Passing only `no_clear` (true) would let `no_tags` default to false,
+      # permanently flipping a literal-tags widget back into tag-parsing mode.
+      set_content(@_clines.fake.join("\n"), true, @_content_no_tags)
     end
 
     # Scratch `CLines` reused across `append_content` calls so wrapping just the
@@ -1393,10 +1396,16 @@ module Crysterm
       # guard in `#insert_line`/`#get_line`; Blessed's `deleteLine` is a no-op here.
       return if @_clines.fake.empty?
       if i.nil?
-        i = @_clines.ftor.size - 1
+        i = @_clines.fake.size - 1
       end
 
-      i = i.clamp(0, @_clines.ftor.size - 1)
+      # Clamp against the array actually spliced below (`fake`), not `ftor`:
+      # when content was seeded before attach, `fake` is non-empty while `ftor`
+      # is still empty, so `ftor.size - 1 == -1`. Crystal's two-arg `clamp`
+      # returns `max` when `min > max`, so `i` would become `-1` and
+      # `fake.delete_at(-1)` would delete the LAST line (and the `n` clamp below
+      # could overrun). `fake.size - 1` is the correct upper bound.
+      i = i.clamp(0, @_clines.fake.size - 1)
 
       # Clamp count to lines actually available from `i`: deleting more than
       # remain (`pop_line 2`, `shift_line n` past the line count, etc.) would

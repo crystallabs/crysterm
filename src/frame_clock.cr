@@ -111,7 +111,7 @@ module Crysterm
       start_at = Time.instant
       next_at = start_at
 
-      @fiber = Fiber.new do
+      f = Fiber.new do
         loop do
           break unless @running && @generation == gen
 
@@ -148,7 +148,9 @@ module Crysterm
           @running = false
           @on_stop.try &.call
         end
-      end.enqueue
+      end
+      @fiber = f
+      f.enqueue
 
       self
     end

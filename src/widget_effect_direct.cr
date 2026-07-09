@@ -158,10 +158,14 @@ module Crysterm
           bgf = Attr.bg da
           deff = Attr.fg da
 
-          (0...h).each do |ry|
+          # Absolute coords (`yi`/`xi`) can be negative when the widget is
+          # partly off the top/left edge. `Row`/`lines` are `Indexable`, so a
+          # negative index wraps to the end and would corrupt the bottom/right
+          # of the terminal — start each loop past the offscreen band instead.
+          (Math.max(0, -yi)...h).each do |ry|
             line = lines[yi + ry]?
             next unless line
-            (0...w).each do |rx|
+            (Math.max(0, -xi)...w).each do |rx|
               c = line[xi + rx]?
               next unless c
               ch, color = cell rx, ry, w, h

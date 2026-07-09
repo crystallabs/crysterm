@@ -93,8 +93,13 @@ module Crysterm
 
       # Inserts *item* before *index*.
       def insert(index : Int, item : T) : self
-        @array.insert index, item
-        emit_change ListOp::Insert, index.to_i, 1
+        # Normalize a negative index against the pre-mutation size so the emitted
+        # `Insert` carries a real slot: `Array#insert(-1, x)` appends *after* the
+        # last element, i.e. at `size` (not `size - 1`), hence the `+ 1`.
+        i = index.to_i
+        i = @array.size + i + 1 if i < 0
+        @array.insert i, item
+        emit_change ListOp::Insert, i, 1
         self
       end
 
@@ -115,8 +120,12 @@ module Crysterm
 
       # Removes and returns the item at *index*.
       def delete_at(index : Int) : T
-        item = @array.delete_at index
-        emit_change ListOp::Remove, index.to_i, 1
+        # Normalize a negative index to a real slot before emitting, so a bound
+        # view patches the right row instead of bailing on a raw negative.
+        i = index.to_i
+        i += @array.size if i < 0
+        item = @array.delete_at i
+        emit_change ListOp::Remove, i, 1
         item
       end
 
@@ -134,8 +143,12 @@ module Crysterm
 
       # Replaces the item at *index* in place.
       def []=(index : Int, item : T) : T
-        @array[index] = item
-        emit_change ListOp::Update, index.to_i, 1
+        # Normalize a negative index to a real slot before emitting, so a bound
+        # view rewrites the right row instead of bailing on a raw negative.
+        i = index.to_i
+        i += @array.size if i < 0
+        @array[i] = item
+        emit_change ListOp::Update, i, 1
         item
       end
 

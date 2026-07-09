@@ -434,6 +434,14 @@ module Crysterm
         handle_ground c
         return
       end
+      # DEL (0x7f) mid-sequence is ignored (VT500 parser): it is neither an
+      # intermediate (0x20-0x2f), a parameter (0x30-0x3f), nor a final byte, so
+      # without this guard it reaches `dispatch_csi` (or `handle_esc`'s `else`)
+      # as a spurious final byte and aborts the in-flight sequence. Mirrors the
+      # C0 bypass above; `:osc` is excluded (DEL is opaque string payload).
+      if c.ord == 0x7f && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
+        return
+      end
       case @state
       when :ground  then handle_ground c
       when :esc     then handle_esc c
@@ -1090,11 +1098,13 @@ module Crysterm
 
     # CHT: advance *n* tab stops.
     private def forward_tab(n : Int32) : Nil
+      n = Math.min(n, @cols) # can't cross more tab stops than there are columns
       n.times { tab }
     end
 
     # CBT: move back *n* tab stops (stopping at column 0).
     private def back_tab(n : Int32) : Nil
+      n = Math.min(n, @cols) # can't cross more tab stops than there are columns
       n.times do
         x = @x - 1
         while x > 0 && !@tab_stops.includes?(x)
@@ -1397,9 +1407,12 @@ module Crysterm
       @origin_mode = false
       @bracketed_paste = false
       @focus_reporting = false
-      # Drop any half-decoded UTF-8 and in-flight CSI so a partial sequence
-      # straddling the RIS can't be spliced onto post-reset input.
-      @leftover = Bytes.empty
+      # Drop the in-flight CSI so a partial sequence straddling the RIS can't be
+      # spliced onto post-reset input. `@leftover` is deliberately NOT cleared:
+      # when RIS (`ESC c`) executes mid-chunk, `@leftover` holds the chunk's
+      # incomplete-UTF-8 tail — stream bytes positioned AFTER the `ESC c`, i.e.
+      # legitimate post-reset input — so clearing it here would silently drop
+      # them.
       @csi_buf.clear
       @csi_private = false
       @csi_prefix = nil

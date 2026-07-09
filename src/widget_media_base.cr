@@ -30,7 +30,19 @@ module Crysterm
       property file : String? = nil
 
       # How a still image is fit into a box whose aspect differs (see `Media::Fit`).
-      property fit : Media::Fit = Media::Fit::Stretch
+      getter fit : Media::Fit = Media::Fit::Stretch
+
+      # Changes the fit mode, dropping any cached per-size sample so the next
+      # render re-derives it under the new fit (mirroring `#load`). Only a genuine
+      # change invalidates — a same-value assignment is a no-op so a per-frame
+      # reconcile (`Widget#update_background_media`) doesn't churn the cache.
+      def fit=(new_fit : Media::Fit) : Media::Fit
+        unless new_fit == @fit
+          @fit = new_fit
+          reset_sample_cache
+        end
+        new_fit
+      end
 
       # Playback speed multiplier for animations (1.0 = native speed).
       property speed : Float64 = 1.0
@@ -143,6 +155,11 @@ module Crysterm
       def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
         w, h = Media.dims(bmp)
         raise ArgumentError.new("Media#bitmap=: empty bitmap") if w <= 0 || h <= 0
+        # Stop any in-progress animation before swapping the source out from under
+        # it (mirrors each backend's `#load`). Without this a zombie `FrameClock`
+        # keeps advancing at the old GIF's rate, or a streaming decoder stays open.
+        # Safe for a never-playing single-frame device: `#stop` is a no-op then.
+        stop
         @file = nil
         @load_failed = false
         @src_frames = nil

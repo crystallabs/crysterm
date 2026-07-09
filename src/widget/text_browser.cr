@@ -102,8 +102,9 @@ module Crysterm
       # Navigates one step back in the visited-source history (Qt
       # `backward()`; the `Backspace` key). Returns whether it moved.
       def back : Bool
-        url = @history.pop? || return false
+        url = @history.last? || return false
         doc = @loader.try(&.call(url)) || return false
+        @history.pop
         @source.try { |s| @future << s }
         show_document(doc, url)
         true
@@ -111,8 +112,9 @@ module Crysterm
 
       # Inverse of `#back`. Returns whether it moved.
       def forward : Bool
-        url = @future.pop? || return false
+        url = @future.last? || return false
         doc = @loader.try(&.call(url)) || return false
+        @future.pop
         @source.try { |s| @history << s }
         show_document(doc, url)
         true
@@ -123,7 +125,12 @@ module Crysterm
       def focus_link(dir : Int32) : Bool
         ls = links
         return false if ls.empty?
-        @focused_link = (@focused_link + dir) % ls.size
+        @focused_link =
+          if @focused_link < 0
+            dir > 0 ? 0 : ls.size - 1
+          else
+            (@focused_link + dir) % ls.size
+          end
         l = ls[@focused_link]
         @cursor_pos = l.from
         clear_selection
@@ -145,7 +152,7 @@ module Crysterm
             e.accept
             return focus_link(-1)
           when Tput::Key::Enter
-            if l = links[@focused_link]?
+            if @focused_link >= 0 && (l = links[@focused_link]?)
               e.accept
               return activate_link(l.url)
             end

@@ -76,7 +76,7 @@ module Crysterm
           next unless region_of(el).bottom?
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y1 - ch, x1 - x0, ch
+          place_and_render el, x0, y1 - ch - mh, x1 - x0, ch
           y1 -= ch + mh
         end
         each_arrangeable container do |el|
@@ -90,7 +90,7 @@ module Crysterm
           next unless region_of(el).right?
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x1 - cw, y0, cw, y1 - y0
+          place_and_render el, x1 - cw - mw, y0, cw, y1 - y0
           x1 -= cw + mw
         end
         each_arrangeable container do |el|

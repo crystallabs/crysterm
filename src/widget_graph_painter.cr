@@ -158,7 +158,14 @@ module Crysterm
                       step_deg : Number = 0.7) : Nil
           ri = r_inner.to_f
           ro = r_outer.to_f
+          # A non-finite radius (`Float64::INFINITY`, NaN, `-Inf`) passes the
+          # `ro <= 0` guard but leaves the spoke loop `while r <= ro` unable to
+          # terminate; a huge finite `ro` would iterate for ages. Bail on
+          # non-finite radii and cap `ro` at `ELLIPSE_R_MAX` (as `#draw_ellipse`
+          # does) so the loop count stays bounded.
+          return unless ri.finite? && ro.finite?
           return if ro <= 0
+          ro = ELLIPSE_R_MAX.to_f if ro > ELLIPSE_R_MAX
           cxf = cx.to_f
           cyf = cy.to_f
           start = start_deg.to_f
@@ -320,6 +327,13 @@ module Crysterm
         # region.
         private def put_text(x : Int32, y : Int32, text : String, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
+          # A negative row wraps to the bottom of `window.lines` (Crystal's
+          # Indexable indexes from the end); a negative `lo` (derived from
+          # `@lpos.xi + ileft` when scrolled off-screen) can't clip and lets a
+          # negative `cx` wrap to the right end of the row. Guard both so an
+          # off-top/off-left label isn't stamped onto wrapped cells.
+          return if y < 0
+          lo = 0 if lo < 0
           line = window.lines[y]?
           return unless line
           text.each_char_with_index do |ch, i|
@@ -337,6 +351,10 @@ module Crysterm
         # half-open column range `[lo, hi)`.
         private def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
+          # See `#put_text`: guard the negative row (wraps to the bottom) and
+          # clamp the clip floor so a negative `lo` still rejects off-left cells.
+          return if y < 0
+          lo = 0 if lo < 0
           return if x < lo || x >= hi
           line = window.lines[y]?
           return unless line

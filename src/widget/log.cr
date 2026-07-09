@@ -70,7 +70,7 @@ module Crysterm
         # has scrolled up.
         @follow_tail = true
 
-        on Crysterm::Event::SetContent, ->set_content(Crysterm::Event::SetContent)
+        on Crysterm::Event::SetContent, ->on_set_content(Crysterm::Event::SetContent)
       end
 
       # Maximum number of retained lines, an alias for `#scrollback` (Qt's
@@ -124,7 +124,7 @@ module Crysterm
 
       # Re-render when content changes; tail-following is the generic
       # `#follow_tail` sticky-bottom (see `#stick_to_tail?` below).
-      def set_content(e)
+      def on_set_content(e)
         request_render
       end
 

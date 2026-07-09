@@ -579,14 +579,16 @@ module Crysterm
       # Begins a window move: capture the grab offset and take over the pointer
       # at the window level so the drag keeps tracking even off the dialog.
       private def begin_move(x : Int32, y : Int32) : Nil
-        @move_dx = x - aleft
-        @move_dy = y - atop
+        @move_dx = x - aleft(with_margin: false)
+        @move_dy = y - atop(with_margin: false)
         return if @ev_move.active?
         w = window? || return
         @ev_move.on(w, Crysterm::Event::Mouse) do |e|
           if e.action.move?
-            self.left = (e.x - @move_dx).clamp(0, drag_max_left)
-            self.top = (e.y - @move_dy).clamp(0, drag_max_top)
+            px = parent.try { |p| p.aleft + p.ileft } || 0
+            py = parent.try { |p| p.atop + p.itop } || 0
+            self.left = (e.x - @move_dx - px).clamp(0, drag_max_left)
+            self.top = (e.y - @move_dy - py).clamp(0, drag_max_top)
             e.accept
             request_render
           elsif e.action.up?

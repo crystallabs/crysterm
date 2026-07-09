@@ -43,6 +43,10 @@ module Crysterm
       src = style.background_image
       if src && (bg = ensure_background_media(src))
         sync_background_url bg, src
+        # Re-assert the fit each frame so a `background-size` change after the
+        # layer exists actually takes effect. `Media#fit=` only drops the sample
+        # cache when the value genuinely changed, so an unchanged fit is cheap.
+        bg.fit = background_fit
         bg.render
       elsif bg = @background_media
         bg.destroy # fires Event::Destroy → the backend erases its image

@@ -17,6 +17,11 @@ module Crysterm
     # Fires on resize, to adjust the label
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
+    # The side ("left"/"right") the label was placed on, remembered so
+    # `sync_label_position` can re-run `place_label_side` when a border cascades
+    # in after construction and shifts the horizontal inset.
+    @label_side : String = "left"
+
     # Sets or clears label text
     def label=(text : String?)
       text ? set_label(text) : remove_label
@@ -24,6 +29,7 @@ module Crysterm
 
     # Sets widget label. Can be positioned "left" (default) or "right"
     def set_label(text : String, side = "left")
+      @label_side = side
       # If label widget exists, update it and return
       @_label.try do |_label|
         _label.set_content(text)
@@ -74,6 +80,21 @@ module Crysterm
       true
     end
 
+    # Re-glues the label to its horizontal inset for the current frame, but only
+    # when it has drifted — change-detected like `move_label_top`. `place_label_side`
+    # bakes the construction-time inset (`2 - ileft` / `2 - iright`) into the
+    # position, so a border cascading in after construction leaves the title one
+    # cell off; re-running `place_label_side` compensates. Returns whether it moved.
+    private def move_label_side(lbl) : Bool
+      if @label_side == "right"
+        return false if lbl.right == 2 - iright
+      else
+        return false if lbl.left == 2 - ileft
+      end
+      place_label_side(lbl, @label_side)
+      true
+    end
+
     # Repositions label to the right place. Usually called from resize event
     def reposition_label(event = nil)
       @_label.try do |_label|
@@ -91,14 +112,19 @@ module Crysterm
     protected def sync_label_position : Nil
       @_label.try do |_label|
         move_label_top(_label, @child_base - itop)
+        move_label_side(_label)
       end
     end
 
     # Removes widget label
     def remove_label
       return unless @_label
-      off ::Crysterm::Event::Scroll, @ev_label_scroll
-      off ::Crysterm::Event::Resize, @ev_label_resize
+      # The wrapper ivars are nilable and the event_handler shard has no `off`
+      # overload for `Nil`; passing a nil wrapper would fall through to the
+      # catch-all `off(type)` = `remove_all_handlers`, wiping *every* Scroll and
+      # Resize handler on the widget. Only detach the specific wrappers we own.
+      @ev_label_scroll.try { |w| off ::Crysterm::Event::Scroll, w }
+      @ev_label_resize.try { |w| off ::Crysterm::Event::Resize, w }
       @_label.try &.remove_from_parent
       @ev_label_scroll = nil
       @ev_label_resize = nil

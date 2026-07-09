@@ -57,7 +57,18 @@ module Crysterm
       return if @@pending.empty?
       pending = @@pending
       @@pending = [] of Deferrable
-      pending.each &.run
+      # Run each deferred item isolated: if one raises, the rest must still run
+      # (otherwise every binding queued after it is silently discarded). Remember
+      # the first exception and re-raise it after the whole queue has drained.
+      first_ex = nil
+      pending.each do |item|
+        begin
+          item.run
+        rescue ex
+          first_ex ||= ex
+        end
+      end
+      raise first_ex if first_ex
     end
   end
 end

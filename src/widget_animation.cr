@@ -99,16 +99,27 @@ module Crysterm
           @css_animation_finished = true
           clock.stop
         else
-          n = cycles.to_i
-          frac = cycles - n
-          frac = 1.0 - frac if alt && n.odd?
-          apply_keyframe stops, style, spec.easing.apply(frac)
+          apply_keyframe stops, style, spec.easing.apply(keyframe_cycle_frac(cycles, alt))
         end
         request_render
       end
       @css_animation = anim
       @css_animation_spec = spec
       anim.start
+    end
+
+    # Progress `0..1` within the current keyframe cycle at *cycles* total cycles
+    # elapsed (`elapsed / duration`), honoring the alternate-direction flag *alt*.
+    #
+    # Uses float modulo rather than `cycles.to_i`: for `iterations: infinite`
+    # `cycles` grows without bound, and `Float64#to_i` raises `OverflowError`
+    # past `Int32::MAX` — which would kill the driving `FrameClock` fiber.
+    # `cycles % 2.0 >= 1.0` reproduces the old `cycles.to_i.odd?` parity (an odd
+    # integer part) exactly, so the alternate (ping-pong) direction is preserved.
+    protected def keyframe_cycle_frac(cycles : Float64, alt : Bool) : Float64
+      frac = cycles % 1.0
+      frac = 1.0 - frac if alt && (cycles % 2.0) >= 1.0
+      frac
     end
 
     # Resolves each raw keyframe stop's declarations into concrete animatable

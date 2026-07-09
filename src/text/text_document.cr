@@ -199,6 +199,7 @@ module Crysterm
       new_blocks.empty? ? (bs << TextBlock.new) : bs.concat(new_blocks)
       each_cursor &.rewind_to_start
       @undo_stack.clear
+      @block_offsets = nil
       finish_edit(0, old_size, size, kind: :replace)
       refresh_undo_state
     end
@@ -312,8 +313,13 @@ module Crysterm
     def find(subject : String, from : Int32 = 0, flags : FindFlag = FindFlag::None) : TextCursor?
       return nil if subject.empty?
       text = to_plain_text
-      hay = flags.case_sensitive? ? text : text.downcase
-      nee = flags.case_sensitive? ? subject : subject.downcase
+      # Length-preserving 1:1 case fold: `String#downcase` applies Unicode
+      # full case mappings (e.g. 'İ' → two codepoints), which would shift the
+      # folded indexes out of sync with document positions. Per-char
+      # `Char#downcase` keeps one char per char.
+      fold = ->(s : String) { String.build { |io| s.each_char { |c| io << c.downcase } } }
+      hay = flags.case_sensitive? ? text : fold.call(text)
+      nee = flags.case_sensitive? ? subject : fold.call(subject)
       len = nee.size
       if flags.backward?
         best = nil

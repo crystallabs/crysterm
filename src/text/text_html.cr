@@ -324,7 +324,7 @@ module Crysterm
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
         when "br"
-          bf = @block_format
+          bf = @block_format.with_list_format(nil).with_checked(nil)
           collapse = @collapse
           end_block
           start_block(bf, collapse)

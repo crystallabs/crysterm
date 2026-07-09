@@ -177,7 +177,15 @@ module Crysterm
       end
 
       private def update_label
-        set_label label_text unless @title.empty? && !checkable?
+        # The "nothing to show" state (empty title and not checkable) must CLEAR
+        # any existing label, not skip — otherwise clearing the title or turning
+        # off checkability at runtime leaves a stale border label. `remove_label`
+        # is safe to call when no label is present.
+        if @title.empty? && !checkable?
+          remove_label
+        else
+          set_label label_text
+        end
       end
 
       # Sets the checked state, refreshing the title marker and enabling or

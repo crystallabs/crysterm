@@ -39,7 +39,7 @@ module Crysterm
             el.top = 0
             render_or_defer el
           else
-            skip el
+            skip_subtree el
           end
           visible += 1
         end

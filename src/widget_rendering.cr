@@ -431,7 +431,12 @@ module Crysterm
             # column must still advance to the row end, though — otherwise the
             # loop keeps consuming content and the next logical line's
             # characters continue on this row.
-            if bg_cells
+            #
+            # A `fill: false` widget likewise draws no background, so it must not
+            # paint `bch` across the row tail (the pre-fill, exhausted-content
+            # and per-cell paths all honor `fill`). Advance the column the same
+            # way so alignment/valign is preserved, but paint nothing.
+            if bg_cells || !fill
               x = xl
             else
               while x < xl

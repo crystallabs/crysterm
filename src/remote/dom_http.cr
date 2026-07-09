@@ -33,7 +33,11 @@ module Crysterm
 
     def initialize(@window : Window, @host : String = "127.0.0.1", @port : Int32 = 7000, @token : String? = nil)
       @subscribers = [] of Channel(String)
-      @shutdown = Channel(Nil).new(1)
+      # Signals `run` to unblock and unwind. `quit` *closes* this rather than
+      # sending: closing is idempotent and never blocks, so multiple `quit` calls
+      # (RPC, declarative verb, embedder) can't fill a capacity-1 buffer and wedge
+      # a fiber forever. `run` waits with `receive?`, which returns nil on close.
+      @shutdown = Channel(Nil).new
       @wired = false
       # Runtime event subscriptions requested by a handler (selector, event),
       # re-applied across hot-reloads; `@event_wired` dedups per widget+event.
@@ -96,7 +100,9 @@ module Crysterm
       start
       @window.render
       @window.listen
-      @shutdown.receive
+      # `receive?` returns nil when `quit` closes the channel — either way we fall
+      # through and unwind cleanly.
+      @shutdown.receive?
     end
 
     # Tears the app down cleanly: restores the terminal and unblocks `#run`.
@@ -107,7 +113,9 @@ module Crysterm
       @server.try &.close rescue nil
       @server = nil
       @running = false
-      @shutdown.send(nil) rescue nil
+      # Close (don't send): idempotent and non-blocking, so repeated `quit` calls
+      # can never wedge on a full buffer. Unblocks the `receive?` in `run`.
+      @shutdown.close
     end
 
     # Replaces the whole layout from new HTML (hot-reload): clears the top-level
