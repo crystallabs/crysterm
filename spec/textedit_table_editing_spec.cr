@@ -132,7 +132,7 @@ describe Widget::TextEdit do
   describe "table guards from outside" do
     it "Backspace right below a table does not join into the border" do
       s = te_screen
-      te, tbl = table_te s, GFM + "\n\nafter"
+      te, _ = table_te s, GFM + "\n\nafter"
       # Caret at the start of the trailing "after" block.
       bi = te.document.block_count - 1
       te.cursor_pos = te.document.block_position(bi)

@@ -23,7 +23,7 @@ end
 describe "OSC 8 hyperlinks" do
   it "paints anchor cells with a registered link id" do
     s = osc8_screen
-    te = anchor_te(s)
+    anchor_te(s)
     s._render
     id = s.lines[0][0].link
     id.should_not eq 0

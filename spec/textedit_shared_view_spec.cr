@@ -44,7 +44,7 @@ describe Widget::TextEdit do
     it "leaves the other view's caret put on an insert after it" do
       s = te_screen
       doc = TextDocument.new("hello")
-      a = new_te s, doc
+      new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 2
       doc.insert_text(5, "!!")
@@ -54,7 +54,7 @@ describe Widget::TextEdit do
     it "collapses a caret inside a removed range to the range start" do
       s = te_screen
       doc = TextDocument.new("hello world")
-      a = new_te s, doc
+      new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 8
       doc.remove(4, 6) # "o worl" gone
@@ -64,7 +64,7 @@ describe Widget::TextEdit do
     it "shifts the other view's selection, dropping it when it collapses" do
       s = te_screen
       doc = TextDocument.new("hello world")
-      a = new_te s, doc
+      new_te s, doc
       b = new_te s, doc, top: 4
       b.selection_anchor = 6
       b.cursor_pos = 11 # "world" selected
@@ -82,7 +82,7 @@ describe Widget::TextEdit do
     it "does not move carets on a format-only change" do
       s = te_screen
       doc = TextDocument.new("hello world")
-      a = new_te s, doc
+      new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 5
       doc.apply_char_format(0, 11, TextCharFormat.new(bold: true))
@@ -92,7 +92,7 @@ describe Widget::TextEdit do
     it "rewinds the other view's caret on a whole-content replace" do
       s = te_screen
       doc = TextDocument.new("hello world")
-      a = new_te s, doc
+      new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 7
       doc.set_plain_text("fresh")
@@ -133,7 +133,7 @@ describe Widget::TextEdit do
       s = te_screen
       doc = TextDocument.new("one")
       a = new_te s, doc
-      b = new_te s, doc, top: 4
+      new_te s, doc, top: 4
       a.cursor_pos = 3
       a._listener chr('!')
       s._render

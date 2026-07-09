@@ -28,7 +28,7 @@ describe Crysterm::TextTable do
     end
 
     it "maps positions to cells and back" do
-      doc, tbl = table_doc
+      _, tbl = table_doc
       r = tbl.cell_text_range(2, 0).not_nil!
       tbl.cell_at(r.begin).should eq({2, 0})
       tbl.cell_at(r.end).should eq({2, 0})
@@ -39,7 +39,7 @@ describe Crysterm::TextTable do
     end
 
     it "places a caret in an empty cell" do
-      doc, tbl = table_doc
+      _, tbl = table_doc
       tbl.set_cell_text(2, 0, "")
       r = tbl.cell_text_range(2, 0).not_nil!
       r.size.should eq 0
@@ -98,7 +98,7 @@ describe Crysterm::TextTable do
     end
 
     it "appends a row at the end" do
-      doc, tbl = table_doc
+      _, tbl = table_doc
       tbl.insert_row(tbl.rows, ["x", "y"]).should be_true
       tbl.cell_text(3, 0).should eq "x"
       tbl.cell_text(3, 1).should eq "y"

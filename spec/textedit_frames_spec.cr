@@ -63,7 +63,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "deep"
       c = te.text_cursor
-      outer = c.insert_frame(TextFrameFormat.new(border: true))
+      c.insert_frame(TextFrameFormat.new(border: true))
       c.insert_frame(TextFrameFormat.new(border: true))
       s._render
       row_text(s, 0, 20).should eq "┌" + "─" * 18 + "┐"
