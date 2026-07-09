@@ -108,6 +108,16 @@ describe Crysterm::TextHtml do
       TextList.new(doc, ol).marker_text(doc.blocks[2]).should eq "3. "
     end
 
+    it "imports a checkbox <input> list as a Checkbox-style list" do
+      doc = html_doc %(<ul><li><input type="checkbox" checked disabled>done</li><li><input type="checkbox" disabled>todo</li></ul>)
+      cf = doc.blocks[0].block_format.list_format.not_nil!
+      cf.style.checkbox?.should be_true
+      doc.blocks[0].text.should eq "done"
+      doc.blocks[0].block_format.checked?.should be_true
+      doc.blocks[1].block_format.list_format.should be cf
+      doc.blocks[1].block_format.checked?.should be_false
+    end
+
     it "imports blockquotes as quote levels" do
       doc = html_doc "<blockquote><p>wise</p><blockquote><p>deep</p></blockquote></blockquote>"
       doc.blocks[0].text.should eq "wise"
@@ -179,6 +189,15 @@ describe Crysterm::TextHtml do
       doc2.blocks[0].block_format.heading_level.should eq 1
       # And the code flag survived, so markdown export still fences/backticks.
       doc2.to_markdown.should eq doc.to_markdown
+    end
+
+    it "round-trips a checkbox list, and cross-converts to/from markdown" do
+      doc = TextDocument.from_markdown("- [x] done\n- [ ] todo")
+      html = doc.to_html
+      html.should contain %(<input type="checkbox" checked disabled>)
+      html.should contain %(<input type="checkbox" disabled>)
+      # HTML → back to markdown recovers the GFM task list.
+      TextDocument.from_html(html).to_markdown.should eq "- [x] done\n- [ ] todo"
     end
 
     it "emits and re-imports structural wrappers (Phase 4)" do

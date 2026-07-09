@@ -48,7 +48,7 @@ module Crysterm
     # member.
     def marker_text(block : TextBlock, tier : Glyphs::Tier = Glyphs::Tier::Unicode) : String?
       n = item_number(block)
-      n >= 0 ? @format.marker(n, tier) : nil
+      n >= 0 ? @format.marker(n, tier, block.block_format.checked?) : nil
     end
 
     # Makes *block* a member (undoable). Its other block-format properties are

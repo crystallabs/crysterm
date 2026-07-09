@@ -65,17 +65,26 @@ describe Crysterm::TextMarkdown do
       TextList.new(doc, lf).count.should eq 2
     end
 
-    it "numbers ordered lists structurally and marks task items literally" do
+    it "numbers ordered lists structurally and imports task items as a checkbox list" do
       doc = md_doc "1. first\n2. second\n\n- [x] done\n- [ ] todo"
       lf = doc.blocks[0].block_format.list_format.not_nil!
       lf.style.decimal?.should be_true
       list = TextList.new(doc, lf)
       list.marker_text(doc.blocks[1]).should eq "2. "
-      # Task items stay literal marker prefixes (no checkbox list style).
-      doc.blocks[2].text.should eq "☑ done"
+      # Task items become a shared `Checkbox`-style list; checked state
+      # rides on the block, and the marker renders as `[x]`/`[ ]`.
+      cf = doc.blocks[2].block_format.list_format.not_nil!
+      cf.style.checkbox?.should be_true
+      doc.blocks[2].text.should eq "done"
+      doc.blocks[2].block_format.checked?.should be_true
       doc.blocks[2].block_format.top_margin.should eq 1
-      doc.blocks[3].text.should eq "☐ todo"
-      doc.blocks[2].block_format.list_format.should be_nil
+      doc.blocks[3].block_format.list_format.should be cf
+      doc.blocks[3].text.should eq "todo"
+      doc.blocks[3].block_format.checked?.should be_false
+      clist = TextList.new(doc, cf)
+      clist.marker_text(doc.blocks[2]).should eq "[x] "
+      clist.marker_text(doc.blocks[3]).should eq "[ ] "
+      clist.marker_text(doc.blocks[2], Glyphs::Tier::Extended).should eq "[✓] "
     end
 
     it "imports blockquotes as quote levels and rules as rule blocks" do

@@ -168,6 +168,11 @@ module Crysterm
     @non_breakable : Bool?
     @quote_level : Int32?
     @horizontal_rule : Bool?
+    # Whether this block is a *checked* item of a `Checkbox`-style list.
+    # `nil`/`false` = unchecked; only meaningful when `list_format`'s style
+    # is `Checkbox`. Kept per-block because the list format is shared by all
+    # items (the stand-in for Qt's per-item state on a shared list object).
+    @checked : Bool?
 
     def initialize(
       *,
@@ -180,6 +185,7 @@ module Crysterm
       non_breakable : Bool? = nil,
       quote_level : Int32? = nil,
       horizontal_rule : Bool? = nil,
+      checked : Bool? = nil,
       list_format : TextListFormat? = nil,
       table_format : TextTableFormat? = nil,
       frame_formats : Array(TextFrameFormat)? = nil,
@@ -192,6 +198,7 @@ module Crysterm
       @non_breakable = non_breakable
       @quote_level = quote_level
       @horizontal_rule = horizontal_rule
+      @checked = checked
       @list_format = list_format
       @table_format = table_format
       @frame_formats = frame_formats
@@ -241,6 +248,11 @@ module Crysterm
       @horizontal_rule || false
     end
 
+    # Whether a `Checkbox`-style list item is checked (Qt task-item state).
+    def checked? : Bool
+      @checked || false
+    end
+
     # Returns this format overridden by `patch`: properties `patch` specifies
     # (non-nil) win, the rest are kept. The frame path replaces wholesale (a
     # patch with `frame_formats` moves the block to that exact nesting).
@@ -255,6 +267,7 @@ module Crysterm
         non_breakable: patch.@non_breakable || @non_breakable,
         quote_level: patch.@quote_level || @quote_level,
         horizontal_rule: patch.@horizontal_rule || @horizontal_rule,
+        checked: patch.@checked || @checked,
         list_format: patch.list_format || @list_format,
         table_format: patch.table_format || @table_format,
         frame_formats: patch.frame_formats || @frame_formats,
@@ -269,7 +282,19 @@ module Crysterm
         alignment: @alignment, indent: @indent, top_margin: @top_margin,
         bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
-        horizontal_rule: @horizontal_rule, list_format: lf,
+        horizontal_rule: @horizontal_rule, checked: @checked, list_format: lf,
+        table_format: @table_format, frame_formats: @frame_formats)
+    end
+
+    # A copy with the checkbox state replaced (or cleared with `nil`). Toggles
+    # a `Checkbox`-style item; `#merge` can't set `false` over a stored value
+    # (nil = unspecified), same as `#with_list_format`.
+    def with_checked(checked : Bool?) : TextBlockFormat
+      TextBlockFormat.new(
+        alignment: @alignment, indent: @indent, top_margin: @top_margin,
+        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
+        non_breakable: @non_breakable, quote_level: @quote_level,
+        horizontal_rule: @horizontal_rule, checked: checked, list_format: @list_format,
         table_format: @table_format, frame_formats: @frame_formats)
     end
 
@@ -280,11 +305,11 @@ module Crysterm
         alignment: @alignment, indent: @indent, top_margin: @top_margin,
         bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
-        horizontal_rule: @horizontal_rule, list_format: @list_format,
+        horizontal_rule: @horizontal_rule, checked: @checked, list_format: @list_format,
         table_format: @table_format, frame_formats: ff)
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @list_format, @table_format, @frame_formats
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering
@@ -297,6 +322,10 @@ module Crysterm
       Disc
       Circle
       Square
+      # A GFM task-list marker (`[x]`/`[ ]`); the per-item checked state
+      # lives on the member block (`TextBlockFormat#checked?`), since the
+      # format instance is shared by every item.
+      Checkbox
       Decimal
       LowerAlpha
       UpperAlpha
@@ -333,12 +362,19 @@ module Crysterm
     end
 
     # The rendered marker of 0-based item *item* under this format, including
-    # the separating trailing space: `"• "`, `"3. "`, `"c) "`…
-    def marker(item : Int32, tier : Glyphs::Tier = Glyphs::Tier::Unicode) : String
+    # the separating trailing space: `"• "`, `"3. "`, `"c) "`, `"[x] "`…
+    # `checked` selects the mark of a `Checkbox`-style item (its state lives
+    # on the member block, not here); it is ignored by the other styles.
+    def marker(item : Int32, tier : Glyphs::Tier = Glyphs::Tier::Unicode, checked : Bool = false) : String
       case style
       when .disc?   then "#{Glyphs[Glyphs::Role::IconBullet, tier]} "
       when .circle? then "#{Glyphs[Glyphs::Role::IconCircle, tier]} "
       when .square? then "#{Glyphs[Glyphs::Role::IconSquareFilled, tier]} "
+      when .checkbox?
+        # Composed like the `CheckBox` widget's marker: `[x]`/`[ ]` in the
+        # ascii tier, `[✓]`/`[ ]` in unicode — all single-width cells.
+        mark = checked ? Glyphs[Glyphs::Role::CheckboxChecked, tier] : Glyphs[Glyphs::Role::CheckboxUnchecked, tier]
+        "#{Glyphs[Glyphs::Role::CheckboxOpen, tier]}#{mark}#{Glyphs[Glyphs::Role::CheckboxClose, tier]} "
       else
         n = @start + item
         "#{@number_prefix}#{number_text(n)}#{@number_suffix} "

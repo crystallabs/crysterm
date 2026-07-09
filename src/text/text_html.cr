@@ -152,6 +152,11 @@ module Crysterm
       io << '<' << tag
       io << " style=\"" << style << '"' unless style.empty?
       io << '>'
+      # A checkbox item leads with a disabled `<input>`, the shape GitHub
+      # emits and `html_task_list?`/`checkbox_checked?` read back.
+      if lf && lf.style.checkbox?
+        io << (bf.checked? ? %(<input type="checkbox" checked disabled>) : %(<input type="checkbox" disabled>))
+      end
       b.fragments.each { |f| write_fragment(io, f) }
       io << "</" << tag << '>'
     end
@@ -244,6 +249,10 @@ module Crysterm
       # Block format parsed off the `li` element itself (margins/alignment),
       # consumed together with `@pending_item`.
       @pending_item_format : TextBlockFormat?
+      # Whether the pending `li` is a checked checkbox item (its block's
+      # `checked` flag; the `Checkbox` list style comes from the enclosing
+      # `<ul>`).
+      @pending_checked = false
       # Blank rows owed to the next block's `top_margin` (accumulated from
       # empty spacing `<p></p>`s — the margins re-base).
       @pending_margin = 0
@@ -343,7 +352,7 @@ module Crysterm
           end_block
           start = attr_val(node, "start").try(&.to_i?) || 1
           @list_stack << TextListFormat.new(
-            style: node.data == "ol" ? TextListFormat::Style::Decimal : TextListFormat::Style::Disc,
+            style: list_style(node),
             indent: @list_stack.size + 1,
             start: start)
           walk_children(node)
@@ -354,6 +363,10 @@ module Crysterm
           # its text, or by a wrapping `<p>` (loose lists) — so no eager
           # `start_block` here: it would emit an empty member block.
           @pending_item = @list_stack.last?
+          # A checkbox item (`<input type=checkbox>`) stashes its checked
+          # state for `start_block`; the input element itself is dropped
+          # (void, no text).
+          @pending_checked = pending_item_checked?(node)
           # The li's own styles (margins, alignment) ride along.
           ibf, _ = block_format_from(node)
           @pending_item_format = ibf == TextBlockFormat.default ? nil : ibf
@@ -361,6 +374,7 @@ module Crysterm
           end_block
           @pending_item = nil
           @pending_item_format = nil
+          @pending_checked = false
         when "b", "strong"
           with_patch(TextCharFormat.new(bold: true)) { walk_children(node) }
         when "i", "em"
@@ -440,6 +454,55 @@ module Crysterm
         @blocks.concat(bs)
       end
 
+      # The marker style for a `<ul>`/`<ol>`: decimal for ordered, checkbox
+      # for a task list (`html_task_list?`), disc otherwise.
+      private def list_style(node : HTML5::Node) : TextListFormat::Style
+        if node.data == "ol"
+          TextListFormat::Style::Decimal
+        elsif html_task_list?(node)
+          TextListFormat::Style::Checkbox
+        else
+          TextListFormat::Style::Disc
+        end
+      end
+
+      # Whether the pending `<li>` is a *checked* item — only when its list is
+      # a checkbox list (a stray `<input>` in a plain list is ignored).
+      private def pending_item_checked?(li : HTML5::Node) : Bool
+        lf = @list_stack.last?
+        return false unless lf && lf.style.checkbox?
+        checkbox_checked?(li)
+      end
+
+      # Whether *list* (`<ul>`) is a GFM task list: some `<li>` holds an
+      # `<input type="checkbox">` (as `to_html` and GitHub emit).
+      private def html_task_list?(node : HTML5::Node) : Bool
+        li = node.first_child
+        while li
+          return true if li.type.element? && li.data == "li" && checkbox_input(li)
+          li = li.next_sibling
+        end
+        false
+      end
+
+      # The `<input type="checkbox">` directly inside *li*, if any.
+      private def checkbox_input(li : HTML5::Node) : HTML5::Node?
+        child = li.first_child
+        while child
+          if child.type.element? && child.data == "input" &&
+             attr_val(child, "type").try(&.downcase) == "checkbox"
+            return child
+          end
+          child = child.next_sibling
+        end
+        nil
+      end
+
+      # Whether *li*'s checkbox input carries the boolean `checked` attribute.
+      private def checkbox_checked?(li : HTML5::Node) : Bool
+        (inp = checkbox_input(li)) ? !attr_val(inp, "checked").nil? : false
+      end
+
       private def collect_trs(node : HTML5::Node, acc : Array(HTML5::Node)) : Nil
         child = node.first_child
         while child
@@ -472,6 +535,7 @@ module Crysterm
             @pending_item_format = nil
           end
           bf = bf.merge(TextBlockFormat.new(list_format: li))
+          bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
           @pending_item = nil
         elsif !@list_stack.empty?
           # A continuation block inside an item: indent to roughly the item

@@ -49,6 +49,15 @@ describe Widget::TextEdit do
       row_text(s, 1, 5).should eq "• two"
     end
 
+    it "renders checkbox markers for a GFM task list" do
+      s = te_screen
+      te = new_te s
+      te.set_markdown "- [x] done\n- [ ] todo"
+      s._render
+      row_text(s, 0, 8).should eq "[x] done"
+      row_text(s, 1, 8).should eq "[ ] todo"
+    end
+
     it "renders decimal markers numbered in document order" do
       s = te_screen
       te = new_te s, "a\nb\nc"

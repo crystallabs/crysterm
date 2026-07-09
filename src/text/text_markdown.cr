@@ -23,8 +23,9 @@ module Crysterm
   # - Lists → one `TextList` per markdown list (disc/decimal style, nesting
   #   via `TextListFormat#indent`); the widget renders markers/indent as
   #   decorations. An item's continuation blocks get a plain block indent
-  #   approximation. GFM task items stay literal `☑ `/`☐ ` marker prefixes
-  #   (no `TextList`) — there is no checkbox marker style.
+  #   approximation. A GFM task list (any item with `[x]`/`[ ]`) becomes a
+  #   `Checkbox`-style list; each item's checked state rides on its block
+  #   (`TextBlockFormat#checked?`), and the marker renders as `[x]`/`[ ]`.
   # - Blockquotes → `TextBlockFormat#quote_level`; thematic breaks → an
   #   empty `horizontal_rule` block.
   # - Fenced code → one block per line, `code`-flagged fragments over a
@@ -68,9 +69,9 @@ module Crysterm
       @list_stack = [] of TextListFormat
       # List the next `start_block`'s block joins (an item's first block).
       @pending_item : TextListFormat?
-      # Task-item marker (text + format) the next `start_block` consumes —
-      # task items stay literal (no checkbox `TextListFormat::Style`).
-      @pending_marker : {String, TextCharFormat}?
+      # Whether that pending item is a *checked* checkbox item (its
+      # `TextBlockFormat#checked` flag; the list format itself is shared).
+      @pending_checked = false
       # Chars of a task-list `[x] ` marker still to strip from upcoming text.
       @strip_task = 0
       # Whether any block was emitted (suppresses spacing before the first).
@@ -123,8 +124,15 @@ module Crysterm
           separator if @list_stack.empty?
           ordered = node.data["type"]? != "bullet"
           start = (node.data["start"]?.try &.as(Int32)) || 1
+          style = if !ordered && task_list?(node)
+                    TextListFormat::Style::Checkbox
+                  elsif ordered
+                    TextListFormat::Style::Decimal
+                  else
+                    TextListFormat::Style::Disc
+                  end
           @list_stack << TextListFormat.new(
-            style: ordered ? TextListFormat::Style::Decimal : TextListFormat::Style::Disc,
+            style: style,
             indent: @list_stack.size + 1,
             start: start)
           walk_children(node)
@@ -217,17 +225,16 @@ module Crysterm
         if li = @pending_item
           # An item's first block is the list item proper.
           bf = bf.merge(TextBlockFormat.new(list_format: li))
+          # Checked task item: flag the block (unchecked stays the default).
+          bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
           @pending_item = nil
-        elsif !@list_stack.empty? && @pending_marker.nil?
+          @pending_checked = false
+        elsif !@list_stack.empty?
           # A continuation block inside an item: indent to roughly the item
           # text column (nesting + a 2-cell marker approximation).
           bf = bf.merge(TextBlockFormat.new(indent: @list_stack.size * 2))
         end
         @block_format = bf
-        if pm = @pending_marker
-          @frags << TextFragment.new(pm[0], pm[1])
-          @pending_marker = nil
-        end
       end
 
       private def end_block : Nil
@@ -251,17 +258,30 @@ module Crysterm
         @emitted = true
       end
 
+      # Marks the next block as this item's first block; a GFM task item
+      # additionally becomes a `Checkbox`-list member (the enclosing list is
+      # a checkbox list, per `task_list?`) with its checked state stashed for
+      # `start_block`, and the literal `[x] ` prefix scheduled for stripping.
       private def set_item_marker(item : Markd::Node) : Nil
+        lf = @list_stack.last?
+        @pending_item = lf
+        return unless lf && lf.style.checkbox?
         case task_marker(item)
-        when :done
-          @pending_marker = {"  " * (@list_stack.size - 1) + "☑ ", TextCharFormat.new(fg: @theme.quote_color)}
-          @strip_task = 4
-        when :todo
-          @pending_marker = {"  " * (@list_stack.size - 1) + "☐ ", TextCharFormat.new(fg: @theme.muted_color)}
-          @strip_task = 4
-        else
-          @pending_item = @list_stack.last?
+        when :done then @pending_checked = true; @strip_task = 4
+        when :todo then @pending_checked = false; @strip_task = 4
+        else            @pending_checked = false # a plain item in a task list (rare)
         end
+      end
+
+      # Whether *list* is a GFM task list: any of its items begins with a
+      # `[x]`/`[ ]` marker.
+      private def task_list?(list : Markd::Node) : Bool
+        child = list.first_child?
+        while child
+          return true if child.type.item? && task_marker(child)
+          child = child.next?
+        end
+        false
       end
 
       # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker
@@ -327,8 +347,8 @@ module Crysterm
 
     # Blocks → markdown. Works purely off block/char structure: heading
     # levels, `code`-flagged runs over code-bg blocks (fences), the
-    # quote-level/list/rule block properties, the literal task markers, and
-    # inline flags/anchors.
+    # quote-level/list/rule block properties, checkbox items (`[x]`/`[ ]`
+    # from the list style + block `checked?`), and inline flags/anchors.
     private class Exporter
       # Items emitted so far per list instance (identity-keyed) — the
       # numbering source for ordered markers.
@@ -405,9 +425,13 @@ module Crysterm
 
         if lf = bf.list_format
           io << "  " * (lf.indent - 1)
-          n = @list_items[lf.object_id]? || 0
-          @list_items[lf.object_id] = n + 1
-          io << (lf.style.numbered? ? "#{lf.start + n}. " : "- ")
+          if lf.style.checkbox?
+            io << (bf.checked? ? "- [x] " : "- [ ] ")
+          else
+            n = @list_items[lf.object_id]? || 0
+            @list_items[lf.object_id] = n + 1
+            io << (lf.style.numbered? ? "#{lf.start + n}. " : "- ")
+          end
           write_inline(io, b.fragments)
           return
         end
@@ -424,14 +448,7 @@ module Crysterm
           return
         end
 
-        # Literal GFM task markers (task items carry no `TextList`).
-        skip = 0
-        if md = text.match(/\A( *)(☑ |☐ )/)
-          io << md[1] << (md[2] == "☑ " ? "- [x] " : "- [ ] ")
-          skip = md[0].size
-        end
-
-        write_inline(io, b.fragments, skip)
+        write_inline(io, b.fragments)
       end
 
       # A thematic break: nothing but rule glyphs (or plain dashes, which

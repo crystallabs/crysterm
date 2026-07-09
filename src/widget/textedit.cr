@@ -297,7 +297,7 @@ module Crysterm
           if lf = bf.list_format
             n = list_items[lf.object_id]? || 0
             list_items[lf.object_id] = n + 1
-            marker = lf.marker(n, tier)
+            marker = lf.marker(n, tier, bf.checked?)
           end
           deco = block_deco_cells(bf, marker)
           rdeco = frame_inset(bf)
