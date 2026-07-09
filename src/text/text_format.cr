@@ -23,7 +23,11 @@ module Crysterm
   # unspecified attributes alone. The mask is meaningless for stored/rendered
   # formats; visual identity is `#same_appearance?`, which ignores it.
   class TextCharFormat < TextFormat
-    # SGR-expressible boolean attributes.
+    # Boolean attributes. All but `Code` are SGR-expressible; `Code` is a
+    # *semantic* marker (Qt `fontFixedPitch`) — verbatim/monospace text — that
+    # the interchange formats (markdown backticks, HTML `<code>`) need to
+    # round-trip. It renders only through whatever colors the importer paired
+    # it with, like `anchor_href` (the other non-SGR semantic property).
     @[Flags]
     enum Attr
       Bold
@@ -33,6 +37,7 @@ module Crysterm
       Inverse
       Dim
       Blink
+      Code
     end
 
     # Attribute values (only bits within `attr_mask` are meaningful as a patch;
@@ -63,13 +68,14 @@ module Crysterm
       inverse : Bool? = nil,
       dim : Bool? = nil,
       blink : Bool? = nil,
+      code : Bool? = nil,
       fg : Int32 | String | Nil = nil,
       bg : Int32 | String | Nil = nil,
       anchor_href : String? = nil,
     )
       attrs = Attr::None
       mask = Attr::None
-      {% for a in %w(bold italic underline strike inverse dim blink) %}
+      {% for a in %w(bold italic underline strike inverse dim blink code) %}
         unless {{a.id}}.nil?
           mask |= Attr::{{a.camelcase.id}}
           attrs |= Attr::{{a.camelcase.id}} if {{a.id}}
@@ -85,7 +91,7 @@ module Crysterm
     protected def initialize(@attributes, @attr_mask, @fg, @bg, @anchor_href)
     end
 
-    {% for a in %w(bold italic underline strike inverse dim blink) %}
+    {% for a in %w(bold italic underline strike inverse dim blink code) %}
       def {{a.id}}? : Bool
         @attributes.{{a.id}}?
       end

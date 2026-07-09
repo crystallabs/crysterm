@@ -187,6 +187,20 @@ module Crysterm
       end
     end
 
+    # Inserts a formatted fragment at the cursor, replacing any selection —
+    # one undo step (Qt `insertFragment`). The cursor ends after the inserted
+    # content via the document's cursor adjustment.
+    def insert_fragment(frag : TextDocumentFragment) : Nil
+      if has_selection?
+        @document.begin_edit_block
+        remove_selected_text
+        @document.insert_fragment(@position, frag)
+        @document.end_edit_block
+      else
+        @document.insert_fragment(@position, frag)
+      end
+    end
+
     # Ends the current block and starts a new one (Qt `insertBlock`),
     # optionally formatting the new block.
     def insert_block(block_format : TextBlockFormat? = nil) : Nil

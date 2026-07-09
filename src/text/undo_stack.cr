@@ -99,6 +99,22 @@ module Crysterm
       end
     end
 
+    # A formatted-fragment insertion (rich paste). Never coalesces; commands
+    # never mutate their fragment, so several commands may share one (e.g.
+    # the same clipboard fragment pasted twice).
+    class InsertFragmentCommand < Command
+      def initialize(@pos : Int32, @fragment : TextDocumentFragment)
+      end
+
+      def undo(doc : TextDocument) : Nil
+        doc.raw_remove(@pos, @fragment.size)
+      end
+
+      def redo(doc : TextDocument) : Nil
+        doc.raw_insert_fragment(@pos, @fragment)
+      end
+    end
+
     class CharFormatCommand < Command
       def initialize(
         @from : Int32,

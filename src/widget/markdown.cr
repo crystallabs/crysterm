@@ -310,8 +310,9 @@ module Crysterm
           end
           @link_text += str unless @link_url.nil?
           # Escape braces first, then add `{strike}` tags after (so they aren't
-          # themselves escaped; `Attr::STRIKE` renders it).
-          escaped = str.gsub('{', "{open}").gsub('}', "{close}")
+          # themselves escaped; `Attr::STRIKE` renders it). Single pass — a
+          # second gsub would re-escape the `}` inside `{open}` itself.
+          escaped = str.gsub(/[{}]/) { |s| s == "{" ? "{open}" : "{close}" }
           escaped = escaped.gsub(/~~(.+?)~~/) { "{strike}#{$1}{/strike}" }
           literal escaped
         end

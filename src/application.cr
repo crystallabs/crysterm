@@ -267,17 +267,36 @@ module Crysterm
       # reply arrives (`#request` -> `#refresh_from_terminal`).
       getter text : String = ""
 
+      # Rich payload of the last copy, when it came from a rich-text source
+      # (`#set_rich`, e.g. `Widget::TextEdit`); the formatted counterpart of
+      # `#text`. Non-nil only while the *most recent* copy was rich: any plain
+      # `#text=` clears it, so a paste that prefers the fragment can never
+      # resurrect stale formatting over newer plain text (TEXTEDIT.md Phase 3).
+      getter fragment : TextDocumentFragment?
+
       # Sets the clipboard text and copies it to the active window's terminal.
       def text=(value : String) : String
+        @fragment = nil
         @text = value
         @app.active_window.try &.copy(value)
         value
       end
 
+      # Rich copy: *fragment* for in-process rich paste, plus its plain-text
+      # rendering for the terminal (OSC-52 carries text only, so the system
+      # clipboard degrades to plain — per plan).
+      def set_rich(fragment : TextDocumentFragment, text : String) : Nil
+        self.text = text
+        @fragment = fragment
+      end
+
       # Refreshes the cached text from an OSC-52 *read* reply that just arrived on
       # a device's input. Does NOT re-copy to the terminal — the value came
       # *from* it. Called by `Window#handle_input` on a `Tput::InputEvent#clipboard`.
+      # An unchanged value is our own copy echoed back, so the rich payload
+      # stays valid; anything else is a fresher external copy and drops it.
       def refresh_from_terminal(value : String) : String
+        @fragment = nil unless value == @text
         @text = value
       end
 

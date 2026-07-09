@@ -537,10 +537,11 @@ module Crysterm
 
       # Copies the current selection to the clipboard (mirror + terminal).
       # Returns whether there was a selection, so `Ctrl-X` only deletes when
-      # something was actually cut.
+      # something was actually cut. Routed through the buffer protocol so a
+      # rich buffer carries formats alongside the plain text.
       private def copy_selection : Bool
-        return false unless has_selection?
-        text_clipboard.text = selected_text
+        return false unless r = selection_range
+        buf_copy_to_clipboard(text_clipboard, r.begin, r.end)
         true
       end
 
@@ -569,7 +570,12 @@ module Crysterm
       end
 
       private def paste_clipboard : Nil
-        text = text_clipboard.text
+        clip = text_clipboard
+        # A rich buffer takes a fresher rich payload wholesale (formats
+        # preserved); everything else — and the rich buffer's own fallback,
+        # e.g. when `max_length` would need truncation — pastes plain text.
+        return if buf_paste_rich(clip)
+        text = clip.text
         return if text.empty?
         edit_replacing_selection do
           if ml = @max_length

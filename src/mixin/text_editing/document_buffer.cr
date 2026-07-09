@@ -100,6 +100,34 @@ module Crysterm
           end
         end
 
+        # Rich copy: the clipboard carries the selection as a formatted
+        # `TextDocumentFragment` alongside its plain text (which is all the
+        # OSC-52 system clipboard can take) — TEXTEDIT.md Phase 3.
+        def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32) : Nil
+          clipboard.set_rich(document.copy_fragment(from, to), document.plain_text(from, to))
+        end
+
+        # Rich paste: inserts the clipboard's fragment (formats intact,
+        # `@typing_format` deliberately not applied) at the cursor, replacing
+        # any selection as one undo step. Falls back to the caller's plain
+        # path (returns false) when there is no rich payload — or when
+        # `max_length` would require truncation, which the plain path knows
+        # how to do and a fragment does not.
+        def buf_paste_rich(clipboard : Crysterm::Application::Clipboard) : Bool
+          frag = clipboard.fragment
+          return false unless frag && frag.size > 0
+          if ml = @max_length
+            sel = selection_range.try { |r| r.end - r.begin } || 0
+            return false if buf_size - sel + frag.size > ml
+          end
+          edit_replacing_selection do
+            @goal_col = nil
+            @cursor_pos += document.insert_fragment(@cursor_pos, frag)
+            edit_cursor.set_position(@cursor_pos)
+          end
+          true
+        end
+
         # Compound mixin actions (typing/pasting over a selection) group into
         # one undo step, Qt's edit-block semantics.
         def buf_edit_group(&)

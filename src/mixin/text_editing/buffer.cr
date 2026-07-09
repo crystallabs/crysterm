@@ -68,6 +68,21 @@ module Crysterm
         def buf_edit_group(&)
           yield
         end
+
+        # Copies `[from, to)` to *clipboard*. Default: plain text. A rich
+        # buffer overrides to carry formats alongside (the document adapter
+        # sets a `TextDocumentFragment` via `Clipboard#set_rich`).
+        def buf_copy_to_clipboard(clipboard : Application::Clipboard, from : Int32, to : Int32) : Nil
+          clipboard.text = buf_slice(from, to)
+        end
+
+        # Attempts to paste *clipboard*'s rich payload at the cursor,
+        # replacing any selection. Returns false to make the caller fall back
+        # to the plain-text paste path — the default for buffers that store
+        # no formats (pasting into them degrades to `Clipboard#text`).
+        def buf_paste_rich(clipboard : Application::Clipboard) : Bool
+          false
+        end
       end
     end
   end

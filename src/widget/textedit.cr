@@ -622,6 +622,38 @@ module Crysterm
           self.typing_format = fmt
         end
       end
+
+      # === Interchange (Qt setMarkdown/setHtml counterparts; TEXTEDIT.md
+      # Phase 3). Each set replaces the document content wholesale — not
+      # undoable, caret to the start (Qt behavior; contrast `#value=`, whose
+      # plain-text convention parks the caret at the end). The document's
+      # `ContentsChange` drives relayout, so no display work happens here. ===
+
+      {% for f in %w(tags markdown html) %}
+        # Replaces the content from {{f.id}} markup (see `TextDocument#set_{{f.id}}`).
+        def set_{{f.id}}(str : String) : Nil
+          document.set_{{f.id}}(str)
+          interchange_reset_caret
+        end
+
+        # :ditto:
+        def {{f.id}}=(str : String) : String
+          set_{{f.id}}(str)
+          str
+        end
+
+        # The content as {{f.id}} markup (see `TextDocument#to_{{f.id}}`).
+        def to_{{f.id}} : String
+          document.to_{{f.id}}
+        end
+      {% end %}
+
+      private def interchange_reset_caret : Nil
+        @cursor_pos = 0
+        clear_selection
+        @goal_col = nil
+        @typing_format = nil
+      end
     end
   end
 end

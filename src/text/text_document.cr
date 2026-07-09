@@ -158,10 +158,19 @@ module Crysterm
     # the document becomes unmodified, matching Qt's `setPlainText`; live
     # cursors rewind to the start.
     def set_plain_text(text : String) : Nil
+      replace_content(text.split('\n').map { |l| TextBlock.new(l) })
+    end
+
+    # Shared tail of `set_plain_text` and the interchange setters
+    # (`set_tags`/`set_markdown`/`set_html`): swaps in *new_blocks* wholesale,
+    # with `set_plain_text`'s reset semantics (undo stack cleared, cursors
+    # rewound, document unmodified). The blocks are adopted, not copied —
+    # callers hand over freshly built ones.
+    protected def replace_content(new_blocks : Array(TextBlock)) : Nil
       old_size = size
       bs = blocks
       bs.clear
-      text.split('\n').each { |l| bs << TextBlock.new(l) }
+      new_blocks.empty? ? (bs << TextBlock.new) : bs.concat(new_blocks)
       each_cursor &.rewind_to_start
       @undo_stack.clear
       finish_edit(0, old_size, size, adjust: false)
@@ -196,6 +205,19 @@ module Crysterm
       frag = raw_remove(pos, count)
       @undo_stack.push(TextUndoStack::RemoveCommand.new(pos, frag), self)
       frag
+    end
+
+    # Inserts a formatted fragment at `pos` — the rich-paste primitive
+    # (document half of Qt `QTextCursor::insertFragment`). Undoable. Returns
+    # the number of positions inserted. The fragment is only read (inserted
+    # blocks are copies), so a caller-held fragment — e.g. the clipboard's —
+    # stays valid.
+    def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
+      return 0 if frag.size == 0
+      pos = pos.clamp(0, size)
+      raw_insert_fragment(pos, frag)
+      @undo_stack.push(TextUndoStack::InsertFragmentCommand.new(pos, frag), self)
+      frag.size
     end
 
     # Applies (`merge: false`) or merges (`merge: true`, see
