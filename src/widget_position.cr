@@ -395,6 +395,36 @@ module Crysterm
         xl = coords.xl
         yi = coords.yi
         yl = coords.yl
+
+        # Re-apply the `[min, max]` size constraints: `awidth`/`aheight` clamp
+        # the pre-shrink size, but the content/children-derived rectangle
+        # replaces it wholesale, bypassing them. The clamp must respect the
+        # anchored edge — a right/bottom-anchored shrink keeps its far edge
+        # (`xl`/`yl`) and grew toward the near one, so the correction moves
+        # `xi`/`yi`; every other anchoring keeps the near edge and moves the
+        # far one. Guarded on `!=` so an unconstrained (or non-shrunk, already
+        # clamped) axis is untouched; floored at 0 so a pathological
+        # constraint can't invert the rectangle.
+        sw = xl - xi
+        cw = clamp_awidth(sw)
+        if cw != sw
+          cw = 0 if cw < 0
+          if @left.nil? && !@right.nil?
+            xi = xl - cw
+          else
+            xl = xi + cw
+          end
+        end
+        sh = yl - yi
+        ch = clamp_aheight(sh)
+        if ch != sh
+          ch = 0 if ch < 0
+          if @top.nil? && !@bottom.nil?
+            yi = yl - ch
+          else
+            yl = yi + ch
+          end
+        end
       end
 
       # Apply the element's own margin, CSS-style (*outward*): the border box

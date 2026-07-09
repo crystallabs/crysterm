@@ -57,7 +57,10 @@ module Crysterm
       # the previous window, its fibers, or its watcher.
       disconnect if @connected
       @owns_io = true
-      @destroyed = false
+      # Rebinding a `#destroy`ed window is supported, but needs more than
+      # clearing the flag — `destroy` also killed one-shot machinery that the
+      # connection swap below does not re-establish. See `#revive`.
+      revive if @destroyed
       # Mark connected before the swap below so its repaint isn't suppressed
       # (the render fiber no-ops while `@connected` is false).
       @connected = true
@@ -118,6 +121,62 @@ module Crysterm
 
       @window.try &.close
       @window = nil
+    end
+
+    # Brings a `#destroy`ed window back to life so `#connect` can rebind it.
+    # Beyond the flags, `destroy` tore down one-shot state that the connection
+    # swap does not restore:
+    #
+    #   * the render and resize loop fibers exited permanently (their stop
+    #     flags were set and their doorbells rung) — without respawning them,
+    #     every `render` rings `@render_wakeup` with no receiver and the
+    #     terminal stays blank;
+    #   * the window left `Window.instances` (the at_exit terminal-restore /
+    #     sibling-liveness registry, via `Instances#destroy`);
+    #   * the window left its `Application`'s routing table, so input would
+    #     no longer be dispatched to it.
+    #
+    # The old loops must have actually exited before the flags are reset:
+    # `destroy`'s wake-up may still be in flight, and a woken-but-not-yet-run
+    # old fiber would consume — and, the doorbells being coalescing, swallow —
+    # the revival repaint's ring, or see the reset flag and keep running
+    # alongside its replacement. So this first waits (bounded) for the old
+    # fibers to die, and additionally tags each spawn with a generation the
+    # loops check, retiring a pathological straggler that outlives the wait.
+    # Only called with `@destroyed` true, so a plain disconnect/reconnect never
+    # double-spawns the loops.
+    private def revive : Nil
+      @destroyed = false
+      await_loop_exit
+      @render_stop = false
+      @resize_stop = false
+      generation = (@loop_generation += 1)
+      @_render_loop_fiber = spawn render_loop(generation)
+      @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop(generation) }
+      # Re-register in the global teardown/liveness registry (idempotent).
+      bind
+      # Re-register with the driving `Application`, if any, so input is routed
+      # to this window again (`add` is idempotent; `destroy`'s `remove` keeps
+      # the `application` back-link, so the app is still reachable here).
+      application.try &.add self
+    end
+
+    # Waits (bounded) for the stopped render/resize loop fibers to exit.
+    # `destroy` already set their stop flags and rang their doorbells, so each
+    # old fiber exits on its next wake-up; this just gives the scheduler time
+    # to run them. A fiber that stays alive past the deadline (e.g. blocked
+    # writing to a full pipe nobody drains) is abandoned to the generation
+    # check, costing at most one swallowed doorbell ring.
+    private def await_loop_exit : Nil
+      deadline = Time.instant + 1.second
+      until loop_fibers_dead? || Time.instant > deadline
+        sleep 1.millisecond
+      end
+    end
+
+    private def loop_fibers_dead? : Bool
+      @_render_loop_fiber.try(&.dead?) != false &&
+        @_resize_loop_fiber.try(&.dead?) != false
     end
 
     # Whether another live (connected, not-destroyed) `Window` still shares

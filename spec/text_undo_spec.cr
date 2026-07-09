@@ -110,6 +110,96 @@ describe Crysterm::TextUndoStack do
     end
   end
 
+  describe "undo/redo boundaries" do
+    it "does not coalesce typing after an undo into a pre-undo run" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      "abc".each_char { |ch| c.insert_text(ch.to_s) }
+      c.set_position(0)
+      c.insert_text("Z")
+      doc.undo # drops "Z"
+      c.set_position(3)
+      c.insert_text("d") # continues where "abc" ended, but across an undo
+      doc.to_plain_text.should eq "abcd"
+      doc.undo
+      doc.to_plain_text.should eq "abc" # only "d" comes off
+      doc.undo
+      doc.to_plain_text.should eq ""
+    end
+
+    it "does not coalesce typing into a command redone mid-stack" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      c.insert_text("a")
+      c.insert_text("b")
+      c.set_position(0)
+      c.insert_text("Z")
+      c.set_position(3)
+      c.insert_text("Y")
+      doc.to_plain_text.should eq "ZabY"
+      doc.undo
+      doc.undo # back to "ab"
+      doc.redo # "Zab" — a redo tail ("Y") still exists
+      c.set_position(1)
+      c.insert_text("q") # continues where "Z" ended, but across a redo
+      doc.to_plain_text.should eq "Zqab"
+      doc.undo
+      doc.to_plain_text.should eq "Zab" # only "q" comes off
+    end
+
+    it "does not coalesce typing after redoing to the top of the stack" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      c.insert_text("a")
+      c.insert_text("b")
+      doc.undo
+      doc.redo # "ab" again, no redo tail left
+      c.set_position(2)
+      c.insert_text("c")
+      doc.undo
+      doc.to_plain_text.should eq "ab" # only "c" comes off
+    end
+
+    it "starts a fresh coalescing run after the boundary" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      "abc".each_char { |ch| c.insert_text(ch.to_s) }
+      doc.undo
+      "de".each_char { |ch| c.insert_text(ch.to_s) }
+      doc.to_plain_text.should eq "de"
+      doc.undo # the post-boundary run is one step
+      doc.to_plain_text.should eq ""
+      doc.undo_available?.should be_false
+    end
+
+    it "keeps the clean point reachable across sealed boundaries" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      c.insert_text("a")
+      doc.modified = false
+      doc.undo
+      doc.modified?.should be_true
+      doc.redo
+      doc.modified?.should be_false
+      c.insert_text("b") # sealed: a new step, not a merge into "a"
+      doc.modified?.should be_true
+      doc.undo
+      doc.modified?.should be_false
+    end
+
+    it "still invalidates the clean point truncated by typing after undo" do
+      doc = TextDocument.new
+      c = TextCursor.new(doc)
+      c.insert_text("a")
+      doc.modified = false
+      doc.undo
+      c.insert_text("b") # drops the redo tail holding the clean point
+      doc.modified?.should be_true
+      doc.undo
+      doc.modified?.should be_true # clean state is unreachable
+    end
+  end
+
   describe "edit blocks" do
     it "groups arbitrary edits into one step" do
       doc = TextDocument.new("0123456789")

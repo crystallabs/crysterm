@@ -150,9 +150,12 @@ module Crysterm
     @_content_no_tags = false
 
     # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
-    # once in `#set_content`. When false, `process_content` skips `_parse_tags`
-    # (and its whole-string regex scan) entirely, since most content is plain
-    # text. Defaults false.
+    # in `#set_content` and kept current by `#append_content` (from the raw
+    # appended text, independent of `@parse_tags`/`no_tags` mode — exactly like
+    # `set_content` — so a later `parse_tags = true` flip still finds the flag
+    # set). When false, `process_content` skips `_parse_tags` (and its
+    # whole-string regex scan) entirely, since most content is plain text.
+    # Defaults false.
     @_content_has_tags = false
 
     # Whether `@content` contains any inline SGR escape (raw `\e`), decided once
@@ -166,12 +169,25 @@ module Crysterm
     @_content_has_sgr = false
 
     # Whether `@content` contains any line-alignment tag (`{center}` etc.),
-    # decided in `#set_content`. `append_content`'s fast path wraps the appended
-    # segment standalone from the widget's default `@align`, so an unclosed
-    # alignment opener in existing content — whose carried `default_state` a full
-    # reparse would propagate to later lines — must force the slow path.
-    # Defaults false.
+    # decided in `#set_content` and kept current by `#append_content` (from the
+    # raw appended text, independent of `@parse_tags`, like `set_content`).
+    # `append_content`'s fast path wraps the appended segment standalone from
+    # the widget's default `@align`, so an unclosed alignment opener in existing
+    # content — whose carried `default_state` a full reparse would propagate to
+    # later lines — must force the slow path. Defaults false.
     @_content_has_align_tag = false
+
+    # Whether `_parse_tags` over the current content ends with tag state still
+    # open: a non-empty fg/bg/flag stack (an unclosed `{red-fg}`/`{bold}`) or an
+    # unterminated `{escape}`. This is exactly the parser state a full reparse
+    # of raw `@content` would carry across an append boundary, so
+    # `append_content`'s fast path — which tag-parses the appended segment
+    # standalone, from empty state — bails to the slow path when this is set and
+    # the segment contains a brace (a closing tag would pop the carried stack; an
+    # open escape swallows the segment verbatim). Recorded from
+    # `@_parse_tags_left_open` by `process_content`'s reparse and kept current by
+    # `append_content`'s fast path. Defaults false.
+    @_content_open_tags_at_end = false
 
     # The `sattr(style)` value the cached `@_clines.attr` was computed against.
     # `_parse_attr` depends only on content (unchanged on the cached path) and
@@ -403,6 +419,15 @@ module Crysterm
         # preserve.
         if !no_tags && !@_content_no_tags && @_content_has_tags
           content = _parse_tags content
+          # This parse just consumed the whole raw content, so its end state IS
+          # the boundary state a future append would splice at. (`_parse_tags`'s
+          # early returns — `@parse_tags` off, no braces — report `false`,
+          # correctly: nothing was parsed, so nothing is open.)
+          @_content_open_tags_at_end = @_parse_tags_left_open
+        else
+          # Tags stay literal (none present, or `no_tags` mode), so no tag state
+          # can be open at the end.
+          @_content_open_tags_at_end = false
         end
         ::Log.trace { "After _parse_tags: #{content.inspect}" }
 
@@ -470,8 +495,16 @@ module Crysterm
       false
     end
 
+    # Whether the last `_parse_tags` call ended with tag state still open (a
+    # non-empty fg/bg/flag stack, or an unterminated `{escape}`). Scratch
+    # output slot, meaningful only immediately after a call — the two internal
+    # callers (`process_content`, `append_content`) read it right away to
+    # maintain `@_content_open_tags_at_end`.
+    @_parse_tags_left_open = false
+
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     def _parse_tags(text)
+      @_parse_tags_left_open = false
       return text unless @parse_tags
       # Enter the parser whenever a brace is present (not only on a valid tag):
       # under the drop-malformed policy a stray `{`/`}` must be stripped too.
@@ -622,6 +655,12 @@ module Crysterm
         # dropped (use `{open}`/`{close}`/`{escape}` to emit real braces).
         pos += 1
       end
+
+      # Report whether the parse ended with tag state still open. `esc` stays
+      # true on the unterminated-`{escape}` bail above, which dumps the rest
+      # verbatim — parser state a continuation of this text would inherit, just
+      # like a non-empty stack.
+      @_parse_tags_left_open = esc || !(bg.empty? && fg.empty? && flag.empty?)
 
       outbuf.to_s
     end
@@ -1074,14 +1113,17 @@ module Crysterm
     #
     # Returns `true` if the fast path handled it, `false` if it bailed (caller
     # falls back to `set_content`/`push_line`): empty content, stale parse cache,
-    # or a width change requiring re-wrap.
+    # a width change requiring re-wrap, or tag state at the append boundary that
+    # a standalone parse of the segment cannot reproduce (see the in-body bails).
     #
     # Byte-identical to a full reparse because:
     # * `_wrap_content` wraps each `\n`-split segment independently, so appending
     #   never re-wraps earlier lines.
-    # * `@_clines.fake` stores already-parsed (SGR) content for earlier lines, so
-    #   a full reparse's tag stacks start empty at the new segment's boundary —
-    #   parsing it standalone matches that exactly.
+    # * The segment is tag-parsed standalone only when the full reparse's tag
+    #   stacks would be empty at the boundary anyway (`@_content_open_tags_at_end`
+    #   false — no unclosed tag/`{escape}` in existing content); otherwise, and
+    #   for a segment whose tags would newly switch the reparse's parse gate on
+    #   over never-parsed existing braces, it bails to the slow path.
     # * Attributes do carry: an SGR left open on an earlier line (e.g. unclosed
     #   `{red-fg}`) colors appended lines too; `_attr_after` recreates that carry.
     def append_content(text : String) : Bool
@@ -1108,7 +1150,8 @@ module Crysterm
       # tag parsing is on and alignment tags are present in existing content or the
       # appended text, so the slow path keeps the result byte-identical to a full
       # reparse.
-      if @parse_tags && (@_content_has_align_tag || (text.includes?('{') && text.matches?(ALIGN_TAG_REGEX)))
+      seg_has_align_tag = text.includes?('{') && text.matches?(ALIGN_TAG_REGEX)
+      if @parse_tags && (@_content_has_align_tag || seg_has_align_tag)
         return false
       end
 
@@ -1121,15 +1164,48 @@ module Crysterm
       # path produce the blank line `push_line` wants.
       return false if seg.empty?
 
-      # Honor the content's `no_tags` mode: content set via `#set_text` keeps
-      # tags literal, so an appended segment must not be tag-parsed either, or
-      # the fast path would diverge from a full reparse.
-      seg_has_tags = @parse_tags && !@_content_no_tags && seg.includes?('{') && seg.matches?(TAG_REGEX)
-      if seg_has_tags
-        # Standalone tag parse is correct here since earlier `fake` lines are
-        # already SGR (tagless), so a full reparse's tag stacks are likewise
-        # empty at this boundary.
+      # Whether the raw appended text contains tags — decided on `text`, not the
+      # cleaned `seg`, exactly like `set_content` computes `@_content_has_tags`
+      # from the raw string: a full reparse's `_parse_tags` gate keys off that
+      # flag, so the fast path's parse decision must mirror it (a control char
+      # inside a would-be tag makes the raw string tagless even though cleaning
+      # would form a tag).
+      seg_has_tags = text.includes?('{') && text.matches?(TAG_REGEX)
+
+      # Tag-parse the new segment iff a full reparse of (existing + appended)
+      # content would run `_parse_tags` — same gate as `process_content`
+      # (`@parse_tags` on, content not in `#set_text`'s literal-tags mode, tags
+      # present anywhere), with the appended text folded into the tag flag.
+      if @parse_tags && !@_content_no_tags && (@_content_has_tags || seg_has_tags) &&
+         (seg.includes?('{') || seg.includes?('}'))
+        # This append switches the reparse gate on over content that was never
+        # tag-parsed: a stray `{`/`}` in the existing raw content (kept literal
+        # so far — it matches no tag, so `@_content_has_tags` stayed false)
+        # would now be dropped by the reparse's drop-malformed policy, changing
+        # already-rendered lines. Bail so `insert_line`'s rebuild bakes the
+        # whole content through one consistent parse. One-time: `set_content`'s
+        # recompute leaves `@_content_has_tags` true afterwards.
+        return false unless @_content_has_tags
+        # A full reparse re-parses raw `@content`, carrying its tag stacks (and
+        # `{escape}` mode) across the append boundary; the fast path parses the
+        # segment standalone, from empty state. Opening tags emit the same SGR
+        # either way, but a closing tag pops the carried stack (restoring e.g.
+        # a still-open `{red-fg}` rather than emitting the off-SGR), and an open
+        # escape swallows the segment verbatim. So whenever the existing content
+        # ends with tag state open, any braced segment must take the slow path
+        # to stay byte-identical to a full reparse.
+        return false if @_content_open_tags_at_end
+        # Boundary state is empty (just checked), so the standalone parse
+        # matches a full reparse exactly — including dropping stray braces and
+        # unknown tags — and its end state (recorded next) is the new boundary
+        # state.
         seg = _parse_tags seg
+        @_content_open_tags_at_end = @_parse_tags_left_open
+        # A segment that parses away to nothing (e.g. a lone unknown tag) would
+        # desync `fake` from `lines` in `_wrap_content`'s empty-content branch,
+        # like the cleaned-to-empty case above; the full path makes it the blank
+        # line a reparse would produce.
+        return false if seg.empty?
       end
 
       # Wrap only the appended segment into a scratch CLines.
@@ -1194,9 +1270,18 @@ module Crysterm
       #     folds it in only when read.
       @_pcontent = nil
       @_content_tail << text
+      # Content-shape flags accumulate from the raw appended text with the same
+      # conditions `set_content` computes them from the whole string —
+      # independent of `@parse_tags`/`no_tags` mode. In particular, tags
+      # appended while parsing is off (kept literal above) must still set the
+      # flags, or a later `parse_tags = true` flip (a supported runtime change)
+      # reparses with a stale-false `@_content_has_tags` gate and the tags stay
+      # literal permanently — unlike a `set_content` of the same total string.
       @_content_has_tags ||= seg_has_tags
+      @_content_has_align_tag ||= seg_has_align_tag
       # Keep inline-SGR flag current across deferred appends (cleaned `seg`
-      # retains valid SGR; stray ESC already stripped above).
+      # retains valid SGR; stray ESC already stripped above; tag-expanded SGR
+      # is covered by `@_content_has_tags`, as in `set_content`).
       @_content_has_sgr ||= seg.includes? '\e'
       @_content_version += 1
       cl.content_version = @_content_version

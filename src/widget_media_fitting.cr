@@ -75,8 +75,9 @@ module Crysterm
       # Convenience: fit a PNG's own (still) bitmap.
       def self.compose(src : PNGGIF::PNG, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
-                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
-        compose src, src.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h
+                       sub_w : Int32 = 1, sub_h : Int32 = 1,
+                       pixel_box : Bool = false) : PNGGIF::Bitmap?
+        compose src, src.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h, pixel_box
       end
 
       # Fit either a specific animation *frame* (when non-nil) or *png*'s own
@@ -84,8 +85,9 @@ module Crysterm
       # pick otherwise open-coded in each backend.
       def self.compose(png : PNGGIF::PNG, frame : PNGGIF::Bitmap?, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
-                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
-        compose png, frame || png.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h
+                       sub_w : Int32 = 1, sub_h : Int32 = 1,
+                       pixel_box : Bool = false) : PNGGIF::Bitmap?
+        compose png, frame || png.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h, pixel_box
       end
 
       # Fit an arbitrary full-resolution *src_bmp* (e.g. a composited animation
@@ -97,12 +99,24 @@ module Crysterm
       # `sub_w`/`sub_h` tell `Fit::None` how many sub-pixels make one terminal
       # cell — letting 1:1 size the image by its terminal-cell footprint, so
       # switching ascii/half/quadrant/sextant/octant changes only detail, never size.
+      #
+      # *pixel_box* marks *bw*/*bh* as **true device pixels** (the in-band
+      # graphics backends — `Media::Graphics`): there `Fit::None`'s 1:1 is
+      # literal, drawing the source at its native pixel size with no resampling
+      # (and no cell-footprint conversion, which would squash it by the cell
+      # aspect ratio). Only `Fit::None` consults it; the scaling fits are
+      # already pixel-correct with `aspect_mul == 1.0` and `sub == 1`.
       def self.compose(png : PNGGIF::PNG, src_bmp : PNGGIF::Bitmap, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
-                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
+                       sub_w : Int32 = 1, sub_h : Int32 = 1,
+                       pixel_box : Bool = false) : PNGGIF::Bitmap?
         return nil if bw <= 0 || bh <= 0
         sw, sh = Media.dims(src_bmp)
         return nil if sw <= 0 || sh <= 0
+
+        # 1:1 on a device-pixel box — the source's native pixels, centered and
+        # cropped to the box; nothing to resample.
+        return place_centered(src_bmp, bw, bh) if fit.none? && pixel_box
 
         # 1:1 — draw at the source's native terminal-cell footprint, centered/
         # cropped. Uses the terminal's measured cell aspect ratio (height ÷

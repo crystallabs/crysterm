@@ -87,23 +87,25 @@ module Crysterm
     # terminal has been quiet for `resize_interval`, re-reads the size and
     # triggers a redraw. Ensures the (potentially expensive) redraw runs once
     # per burst instead of once per event.
-    def resize_loop
+    def resize_loop(generation : Int32 = 0)
       loop do
         # Block until at least one resize is requested.
         @_resize_channel.receive
-        break if @resize_stop # woken by `#destroy` to exit cleanly
+        # Exit when woken by `#destroy`, or when superseded by a newer loop
+        # fiber (`#revive` bumped the generation after this fiber spawned).
+        break if @resize_stop || generation != @loop_generation
         # Keep draining further resize events, restarting the timer each time,
         # until the terminal has been quiet for `resize_interval`.
         loop do
           select
           when @_resize_channel.receive
-            break if @resize_stop
+            break if @resize_stop || generation != @loop_generation
             # Another resize arrived; keep waiting for things to settle.
           when timeout(@resize_interval)
             break
           end
         end
-        break if @resize_stop
+        break if @resize_stop || generation != @loop_generation
         resize
       end
     end

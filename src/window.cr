@@ -389,7 +389,7 @@ module Crysterm
       restyle
 
       # The loop doesn't render until the first `#render`, so spawning here is fine.
-      spawn render_loop
+      @_render_loop_fiber = spawn render_loop
     end
 
     # The terminal cell-size detection now lives on the device `Screen`
@@ -407,6 +407,10 @@ module Crysterm
 
     def on_detach(e)
       @_resize_handler.try { |handler| GlobalEvents.off ::Crysterm::Event::Resize, handler }
+      # Drop the now-unsubscribed wrapper, so a later reattach (`#connect`'s
+      # `@_resize_handler ||= subscribe_global_resize`) sees it's gone and
+      # resubscribes instead of keeping a dangling handle.
+      @_resize_handler = nil
 
       # NOTE Per-screen teardown only — does NOT cascade-destroy other
       # `Screen.instances`; each screen has an independent lifecycle. Whole-app

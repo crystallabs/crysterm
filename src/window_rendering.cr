@@ -53,6 +53,21 @@ module Crysterm
     # Set by `#destroy` to make `render_loop` exit on its next wake-up.
     @render_stop = false
 
+    # The fiber currently running `render_loop`, so `#revive` (destroy ->
+    # `#connect` rebinding) can wait for the stopped loop to actually exit
+    # before respawning — a woken-but-not-yet-exited old fiber would otherwise
+    # consume (and coalesce away) the revival repaint's doorbell ring.
+    @_render_loop_fiber : Fiber?
+
+    # Generation of the current render/resize loop fibers. `#revive`
+    # (destroy -> `#connect` rebinding) bumps it and spawns replacement loops
+    # that capture the new value; each loop exits when its captured generation
+    # no longer matches, so an old fiber that hasn't yet observed its stop
+    # flag terminates instead of racing its replacement for the same doorbell
+    # (the stop flags alone can't distinguish old fibers from new — revival
+    # must reset them before respawning).
+    @loop_generation = 0
+
     # Closures queued by other fibers to run *on the render fiber*, applied
     # just before the next render. The marshaling boundary (Qt's queued
     # connection / `postEvent`).
@@ -202,13 +217,15 @@ module Crysterm
       rate >= Int32::MAX ? Int32::MAX : rate.to_i
     end
 
-    def render_loop
+    def render_loop(generation : Int32 = 0)
       loop do
         # Park until a render is requested. Consuming the doorbell *here*,
         # before rendering, closes the lost-update window: a `schedule_render`
         # that fires while `_render` runs re-rings it and triggers another frame.
         @render_wakeup.receive
-        break if @render_stop # woken by `#destroy` to exit cleanly
+        # Exit when woken by `#destroy`, or when superseded by a newer loop
+        # fiber (`#revive` bumped the generation after this fiber spawned).
+        break if @render_stop || generation != @loop_generation
 
         # Apply any posted UI jobs first, on this (the render) fiber.
         drain_ui_queue

@@ -11,13 +11,18 @@ module Crysterm
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?
 
-    # Cooperative stop flag for the input read fiber. `#stop_keys` sets it; the
-    # `#listen_keys` loop checks it before dispatching each event so that, once a
-    # device is disconnected, no further events are routed to a screen that may
-    # already be torn down. The fiber blocked in `tput.listen` still
-    # can't be interrupted mid-read without changing `tput`, so it may consume one
-    # more byte before it sees the flag and exits — but it will not dispatch it.
-    @_keys_stopped = false
+    # Cooperative-cancel generation for the input read fiber. Each `#listen_keys`
+    # spawn captures the then-current value; `#stop_keys` (and each respawn)
+    # bumps it, so every fiber whose captured value no longer matches drops its
+    # event and exits instead of routing it to a screen that may already be torn
+    # down. A per-spawn generation — not a shared boolean — so that a
+    # stop-then-listen cycle cannot "un-cancel" a previous fiber still blocked in
+    # `tput.listen` (unowned STDIN survives `Window#disconnect`, so that fiber
+    # only wakes on its next event) and leave two readers interleaving on one fd.
+    # The stale fiber still can't be interrupted mid-read without changing
+    # `tput`, so it may consume one more event before it sees the mismatch and
+    # exits — but it will not dispatch it.
+    @_keys_gen = 0_u64
 
     # Spawns the device's input read fiber: `tput.listen` parses each byte
     # sequence into a `Tput::InputEvent` and routes it *up* to the `Application`
@@ -31,14 +36,16 @@ module Crysterm
     # is a no-op.
     def listen_keys : Nil
       return if @_keys_fiber
-      @_keys_stopped = false
+      gen = (@_keys_gen += 1)
       @_keys_fiber = spawn {
         begin
           tput.listen do |e|
-            # Cooperative stop: after `#stop_keys` (device
-            # disconnect), drop any further event instead of routing it to a
-            # possibly dead screen, and exit the read loop.
-            break if @_keys_stopped
+            # Cooperative cancel: after `#stop_keys` (device disconnect) — or a
+            # later respawn — this fiber's generation is stale, so drop the
+            # event instead of routing it to a possibly dead screen (the check
+            # must precede dispatch, or a zombie double-dispatches its last
+            # event), and exit the read loop.
+            break if @_keys_gen != gen
 
             # Isolate user-handler exceptions per event. A single
             # raising key/mouse/drag handler must not unwind `tput.listen` and
@@ -63,12 +70,13 @@ module Crysterm
     end
 
     # Drops the input-fiber handle so a later `#listen_keys` can start fresh,
-    # and raises the cooperative stop flag so the loop (if it is unowned STDIN
-    # and thus not ended by a closed fd) stops dispatching to this now-detached
-    # screen and exits on its next wake-up. The fiber blocked in
-    # `tput.listen` also ends when its input is closed (see `#listen_keys`).
+    # and bumps the cancel generation so the loop (if it is unowned STDIN and
+    # thus not ended by a closed fd) stops dispatching to this now-detached
+    # screen and exits on its next wake-up — staying cancelled even if
+    # `#listen_keys` re-arms in the meantime. The fiber blocked in `tput.listen`
+    # also ends when its input is closed (see `#listen_keys`).
     def stop_keys : Nil
-      @_keys_stopped = true
+      @_keys_gen += 1
       @_keys_fiber = nil
     end
 

@@ -36,6 +36,21 @@ module Crysterm
         groups.any? { |(_, ok)| ok }
       end
 
+      # The conjunction of this query with *other*: matches exactly when both
+      # do. Used for nested `@media` (per CSS Conditional Rules the inner query
+      # ANDs with the enclosing one). Each query is an OR of AND-groups, so the
+      # conjunction is the cross-product: every pairing of an outer group with
+      # an inner group concatenates their conditions into one group, satisfiable
+      # only when both sides are (an unmatchable side — `not`, `print`, an
+      # unknown feature — poisons every group it appears in, matching
+      # `A AND false = false`). Identical repeated conditions are dropped.
+      def and(other : MediaQuery) : MediaQuery
+        combined = groups.flat_map do |(conds, ok)|
+          other.groups.map { |(oconds, ook)| {(conds + oconds).uniq, ok && ook} }
+        end
+        MediaQuery.new combined
+      end
+
       # The numeric media features crysterm understands (cell counts / color
       # depth / glyph-tier ordinals). Any other `(feature: …)` group marks the
       # whole query unmatchable.
@@ -449,7 +464,10 @@ module Crysterm
         if Case.at_rule?(prelude, "keyframes")
           parse_keyframes prelude[10..].strip, body, ctx
         elsif Case.at_rule?(prelude, "media")
-          parse_scope body, parents, MediaQuery.parse(prelude[6..].strip), layer_rank, ctx
+          # A nested `@media` ANDs with any enclosing one (CSS Conditional
+          # Rules) — the outer guard must keep applying to the inner rules.
+          inner = MediaQuery.parse(prelude[6..].strip)
+          parse_scope body, parents, (media ? media.and(inner) : inner), layer_rank, ctx
         elsif Case.at_rule?(prelude, "layer")
           name = prelude[6..].strip
           parse_scope body, parents, media, (name.empty? ? layer_rank : ctx.layer_rank(name)), ctx

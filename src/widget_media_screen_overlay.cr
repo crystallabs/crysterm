@@ -41,26 +41,54 @@ module Crysterm
       # detect movement/resize so the old position can be cleared.
       @last_drawn : Tuple(Int32, Int32, Int32, Int32)?
 
+      # One-shot guard for the self lifecycle hooks (`#wire_overlay_lifecycle_hooks`),
+      # so re-registering the window listeners after a cross-window move doesn't
+      # stack duplicate `Hide`/`Detach`/... handlers on this widget.
+      @overlay_hooks_wired = false
+
       # Registers the erase-on-move (`PreRender`) and repaint-on-top (`Rendered`)
-      # listeners on *s*, in that order, and remembers *s* + the wrappers; then
-      # wires this widget's `Hide`/`Detach`/`Show`/`Destroy` lifecycle.
+      # listeners on *s*, in that order, and remembers *s* + the wrappers; also
+      # wires this widget's own lifecycle hooks (once).
       protected def register_overlay_listeners(s : ::Crysterm::Window)
         @listener_screen = s
         @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+        @ev_rendered = s.on(::Crysterm::Event::Rendered) { overlay_rendered }
+        wire_overlay_lifecycle_hooks
+      end
 
-        # The overlay lives outside the cell buffer, so hiding/detaching would
-        # leave it on window: clear it on hide/detach, repaint on show
-        # (`#redraw_image` runs every render but skips while hidden). Tear down
-        # window listeners on destroy so they don't leak `self`.
+      # Wires this widget's own lifecycle hooks, exactly once per widget.
+      #
+      # The overlay lives outside the cell buffer, so hiding/detaching would
+      # leave it on window: clear it on hide/detach, repaint on show
+      # (`#redraw_image` runs every render but skips while hidden). Tear down
+      # window listeners on destroy so they don't leak `self`.
+      private def wire_overlay_lifecycle_hooks
+        return if @overlay_hooks_wired
+        @overlay_hooks_wired = true
         on(::Crysterm::Event::Hide) { clear_overlay }
-        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Window) }
+        # A cross-window reparent emits `Detach(previous)` then `Attach(new)`:
+        # drop the old window's `PreRender`/`Rendered` listeners, then clear the
+        # graphic off it; the `Attach` hook below re-registers on the new window
+        # (and the old window stops referencing `self`). Teardown must come
+        # FIRST: `#clear_overlay` ends with a render of the old window, and with
+        # the `Rendered` listener still registered there it would repaint the
+        # graphic (via the already-linked new window) in the middle of the move.
+        on(::Crysterm::Event::Detach) do |e|
+          teardown_overlay_listeners
+          clear_overlay e.object.as?(::Crysterm::Window)
+        end
         on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
+        # (Re)attach hooks — wired unconditionally, not only when built detached,
+        # so a widget constructed already-attached still migrates its listeners
+        # when later moved to a different window. `#try_register_overlay_deferred`'s
+        # `@listener_screen` guard makes a same-window `Reparent` a no-op.
+        on(::Crysterm::Event::Attach) { try_register_overlay_deferred }
+        on(::Crysterm::Event::Reparent) { try_register_overlay_deferred }
       end
 
       # Registers the overlay listeners now when a window is resolvable, else
-      # defers to a one-shot `Attach`/`Reparent` hook. A backend built detached
+      # defers to the `Attach`/`Reparent` hooks. A backend built detached
       # (the standard compose-then-attach pattern, or a parent not yet on a
       # `Window`) has no window at construction, so calling the raising `window`
       # accessor to register would crash — this waits until the widget lands on
@@ -69,8 +97,7 @@ module Crysterm
         if s = window?
           on_overlay_window s
         else
-          on(::Crysterm::Event::Attach) { try_register_overlay_deferred }
-          on(::Crysterm::Event::Reparent) { try_register_overlay_deferred }
+          wire_overlay_lifecycle_hooks
         end
       end
 
@@ -119,10 +146,49 @@ module Crysterm
       private def invalidate_old_position
         return unless overlay_visible? && visible?
         last = @last_drawn || return
-        pos = _get_coords(false) || return
-        rect = overlay_rect(pos)
+        s = window? || return
+        pos = _get_coords(false)
+        rect = pos.try { |p| overlay_rect(p) }
+        # Scrolled or clipped out of an ancestor's viewport: coords are
+        # unresolvable (or the rect degenerate), so `#redraw_image` won't run and
+        # nothing would ever cover the graphic left behind — a Kitty image is a
+        # separate layer re-emitted cells can't paint over. Treat it as a
+        # move-away: run the clear path here, once (`@last_drawn = nil` stops it
+        # re-running every frame). Scrolling back in repaints via `#redraw_image`
+        # since `#overlay_cleared` drops the emit-skip key. No explicit
+        # `s.render` — we're inside `PreRender`, the ongoing pass flushes the
+        # invalidated cells. (`#overlay_rendered` runs the same check post-frame,
+        # where a scrolled ancestor's *fresh* lpos is finally visible.)
+        if rect.nil? || rect[2] <= 0 || rect[3] <= 0
+          overlay_cleared s
+          s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+          @last_drawn = nil
+          return
+        end
         return if last == rect
-        window.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+        s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+      end
+
+      # The `Rendered` listener body: erase-or-repaint, decided post-frame.
+      #
+      # After the frame's cells are flushed the layout is final — in particular
+      # a scrolled ancestor's `lpos` now carries THIS frame's scroll base,
+      # whereas `PreRender` (and thus `#invalidate_old_position`) still saw the
+      # previous frame's, resolving coords for a widget that just scrolled out.
+      # So the "no longer drawable" case is decided here: a painted graphic with
+      # no drawable rect anymore is cleared (`#clear_overlay` schedules the
+      # render that re-emits the invalidated cells; a Kitty layer is deleted via
+      # `#overlay_cleared`). Otherwise fall through to the backend's repaint.
+      private def overlay_rendered
+        if @last_drawn && overlay_visible? && visible?
+          pos = _get_coords(false)
+          rect = pos.try { |p| overlay_rect(p) }
+          if rect.nil? || rect[2] <= 0 || rect[3] <= 0
+            clear_overlay
+            return
+          end
+        end
+        redraw_image
       end
 
       # Hook run by `#clear_overlay` before cells are invalidated, for backends

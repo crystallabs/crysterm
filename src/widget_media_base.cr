@@ -318,8 +318,15 @@ module Crysterm
           # clock keeps calling `advance_stream` every tick — relaunching (and
           # killing) an ffmpeg per frame forever with `playing?` stuck true.
           unless advance_stream st
-            @playing = false
-            unsubscribe_clock
+            # Only end playback for a stream we still own (mirroring
+            # `#stream_loop`'s post-loop check): a stop→play during restart's
+            # yield window replaces `@stream`, and the false is then about the
+            # discarded stream — the new session owns `@playing` and the clock
+            # subscription now.
+            if st.same?(@stream)
+              @playing = false
+              unsubscribe_clock
+            end
           end
         else
           advance_shared
@@ -480,10 +487,22 @@ module Crysterm
           # object nothing owns (never closed/reaped). The loop's post-check
           # closes our captured stream instead.
           return false unless stream.same?(@stream)
+          restarted = stream.restart # loop the video
+          # Re-check ownership AFTER restart too: its yield points (`close` →
+          # `wait`, `launch`, the first-frame read) let a `stop` or a new play
+          # disown this stream mid-restart. A `stop` landing between `close`
+          # and `launch` finds `@process` nil and reaps nothing, so only we can
+          # close the ffmpeg `restart` relaunches; do so (idempotent if `stop`
+          # already got it) and bail. A failed restart while disowned is an
+          # artifact of the disowning, so don't latch `@load_failed` for it.
+          unless stream.same?(@stream)
+            stream.close
+            return false
+          end
           # Latch a permanently failed restart so no playback path retries a dead
           # source every frame (file deleted/moved/truncated mid-playback). `#source`
           # then returns nil, so a later `#play` won't respawn ffmpeg either.
-          unless stream.restart # loop the video; bail if it won't reopen
+          unless restarted # bail if the video won't reopen
             @load_failed = true
             return false
           end

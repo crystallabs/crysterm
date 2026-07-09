@@ -5,12 +5,13 @@ module Crysterm
     include Mixin::Children
 
     # Transient guard set by `#insert` while re-homing a widget staying on the
-    # *same* window. The unlink it triggers (`#remove`) reads it to skip the
-    # window-level `Detach`, and `#insert` skips the matching `Attach` — since
-    # the widget never actually leaves the window, firing those would wrongly
-    # run handlers for what is just a tree-position change (e.g. a `Media`
-    # overlay clearing its image, a `TabWidget` carousel restarting). Defaults
-    # false; `#insert` resets it right after the unlink.
+    # *same* window. The unlink it triggers (`Widget#remove` for a nested
+    # widget, `Window#remove` for a top-level one) reads it to skip the
+    # window-level `Detach` and the focus rewind, and `#insert` skips the
+    # matching `Attach` — since the widget never actually leaves the window,
+    # firing those would wrongly run handlers for what is just a tree-position
+    # change (e.g. a `Media` overlay clearing its image, a `TabWidget` carousel
+    # restarting). Defaults false; `#insert` resets it right after the unlink.
     protected property? reparenting_same_screen : Bool = false
 
     # Removes node from its parent.
@@ -95,8 +96,12 @@ module Crysterm
       # the window-level `Detach`/`Attach` events (see
       # `#reparenting_same_screen?`). Detected here, before the unlink severs
       # the `#parent` link the window is derived through.
+      # No `element.parent` requirement: a *top-level* element (direct child of
+      # the window, parent nil) moving into a widget on the same window is just
+      # as much a same-window move, and must get the same suppression on the
+      # `Window#remove` unlink path below.
       dest_screen = window?
-      same_screen_move = !dest_screen.nil? && !element.parent.nil? && dest_screen == element.window?
+      same_screen_move = !dest_screen.nil? && dest_screen == element.window?
 
       # When `element` is already a child of *this same* parent, detaching it
       # below shifts the later siblings left, so the caller-supplied `i` (computed
@@ -111,13 +116,24 @@ module Crysterm
       # element (listed in a window's `children`, which `remove_from_parent`
       # can't touch) is removed from that window instead — otherwise reparenting
       # a top-level widget would leave it in both the old window's `children`
-      # and the new parent's. Mirrors the fallback `Widget#destroy` uses.
+      # and the new parent's. Mirrors the fallback `Widget#destroy` uses. The
+      # guard is set around both unlink flavors (`Window#remove` honors it just
+      # like `Widget#remove`), and reset in `ensure` so a raising handler in the
+      # unlink can't leak it into a later genuine remove/destroy.
       if element.parent
         element.reparenting_same_screen = same_screen_move
-        element.remove_from_parent
-        element.reparenting_same_screen = false
+        begin
+          element.remove_from_parent
+        ensure
+          element.reparenting_same_screen = false
+        end
       elsif (prev_screen = element.window?) && prev_screen.children.includes?(element)
-        prev_screen.remove element
+        element.reparenting_same_screen = same_screen_move
+        begin
+          prev_screen.remove element
+        ensure
+          element.reparenting_same_screen = false
+        end
       end
 
       # For a suppressed same-window move, hand `attach` that shared window so it

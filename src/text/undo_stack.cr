@@ -223,9 +223,9 @@ module Crysterm
 
     def undo(doc : TextDocument) : Bool
       return false if in_macro? || @index == 0
-      seal_last
       @index -= 1
       @commands[@index].undo(doc)
+      seal_last
       doc.refresh_undo_state
       true
     end
@@ -267,9 +267,14 @@ module Crysterm
       @clean_index == @index
     end
 
-    # Prevents further coalescing into the newest command.
+    # Prevents further coalescing into the newest *reachable* command,
+    # `@commands[@index - 1]` — the command `push` would merge into once the
+    # redo tail is truncated. Sealing `@commands.last` would miss it whenever
+    # a redo tail exists (typing after undo/redo would coalesce across the
+    # boundary into a pre-undo command).
     def seal_last : Nil
-      @commands.last?.try(&.sealed=(true))
+      return if @index == 0
+      @commands[@index - 1].sealed = true
     end
   end
 end

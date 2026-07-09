@@ -270,11 +270,13 @@ module Crysterm
       # Resamples the source into a *bw*×*bh* pixel bitmap fit per `#fit` (pixels
       # are square, so no aspect correction). Re-derives from the cached source
       # on every size change, making the backends resize-aware. See
-      # `Media::Fitting`.
+      # `Media::Fitting`. `pixel_box` marks the box as true device pixels, so
+      # `Fit::None` draws the source at its native pixel size instead of a
+      # cell footprint (which would halve its height by the cell aspect ratio).
       protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
         src = source || return nil
         frame = @src_frames.try(&.[@anim_index]?).try &.[0]
-        Media::Fitting.compose src, frame, bw, bh, @fit, 1.0
+        Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true
       end
 
       # Whether this backend must drive animation frame-by-frame itself. True for

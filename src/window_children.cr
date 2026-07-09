@@ -38,8 +38,11 @@ module Crysterm
       # it has no widget `@parent`) is removed from that screen instead.
       if element.parent
         element.reparenting_same_screen = same_screen_move
-        element.remove_from_parent
-        element.reparenting_same_screen = false
+        begin
+          element.remove_from_parent
+        ensure
+          element.reparenting_same_screen = false
+        end
       elsif (prev_screen = element.window?) && prev_screen != self && prev_screen.children.includes?(element)
         prev_screen.remove element
       end
@@ -150,6 +153,19 @@ module Crysterm
       # Drop this element (and its subtree) from the keyboard/mouse registries so
       # detached widgets don't linger in `@keyable`/`@clickable`. See `#unregister`.
       unregister element
+
+      # A same-window re-home (`Widget#insert` pulling this top-level widget
+      # into a container on this same window — see
+      # `Widget#reparenting_same_screen?`) is a tree-position change, not a
+      # departure: skip the window-level `Detach`, the focus rewind and the
+      # transient mouse-state teardown, exactly as `Widget#remove` does for the
+      # nested flavor. Only the unlink above is wanted — the caller re-links and
+      # re-registers the subtree immediately (`register_subtree`), so focus,
+      # hover, drag and grab pointers into it stay valid throughout.
+      if element.reparenting_same_screen?
+        element.window = nil
+        return
+      end
 
       # Clear the stored reference on this (top-level) element, then notify the
       # subtree that it has left this screen.
