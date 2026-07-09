@@ -285,7 +285,7 @@ module Crysterm
         if wrap_content?
           rline = @_clines[rl]? || ""
           prefix = rline[0...col.clamp(0, rline.size)]
-          cx = lpos.xi + ileft + str_width(prefix)
+          cx = lpos.xi + ileft + row_text_x_offset(rl) + str_width(prefix)
         else
           # `@_clines[rl]` is horizontally *sliced* when scrolled (see `_hslice`),
           # so derive the caret's display column from the full value line and
@@ -301,7 +301,7 @@ module Crysterm
           # to `content_width - 1` would draw it one column too far left. A
           # fitting line is unaffected (caret stays within `0..content_width-1`).
           left = lpos.xi + ileft
-          cx = (left + caret_display_column - @child_base_x).clamp(left, left + content_width)
+          cx = (left + row_text_x_offset(rl) + caret_display_column - @child_base_x).clamp(left, left + content_width)
         end
 
         # XXX Not sure, but this may still sometimes
@@ -587,6 +587,24 @@ module Crysterm
         end
       end
 
+      # Extra display columns painted left of real row *rl*'s text — block
+      # indent, list markers, quote bars, alignment shift (TEXTEDIT.md
+      # Phase 4). 0 on the flat editors; `Widget::TextEdit` overrides it from
+      # its per-row layout metadata. Every shared row/column mapping (caret
+      # placement, mouse mapping, selection columns) applies it, so decorated
+      # rows stay position-exact.
+      private def row_text_x_offset(rl : Int32) : Int32
+        0
+      end
+
+      # Nearest text-bearing real row to *rl* searching in direction *dir*
+      # (±1): a decorated layout may interleave rows that hold no buffer
+      # positions (block margins), which vertical caret motion must step
+      # over. Identity on the flat editors.
+      private def nearest_text_row(rl : Int32, dir : Int32) : Int32
+        rl
+      end
+
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
@@ -692,7 +710,7 @@ module Crysterm
           # `@_clines[rl]` is the actual painted (already tab-expanded) text for
           # this row — `#column_index` walks it directly by display width.
           rline = @_clines[rl]? || ""
-          col = column_index(rline, x - lpos.xi - ileft)
+          col = column_index(rline, x - lpos.xi - ileft - row_text_x_offset(rl))
           pos_from_rowcol(rl, col)
         else
           # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport
@@ -705,7 +723,7 @@ module Crysterm
           raw_line = buf_slice(base, line_end)
           expanded = raw_line.includes?('\t') ? raw_line.gsub('\t', style.tab_char * style.tab_size) : raw_line
 
-          target = (x - lpos.xi - ileft).clamp(0, content_width) + @child_base_x
+          target = (x - lpos.xi - ileft - row_text_x_offset(rl)).clamp(0, content_width) + @child_base_x
           base + unexpand_col(raw_line, column_index(expanded, target))
         end
       end
@@ -771,6 +789,10 @@ module Crysterm
         goal = (@goal_col ||= col)
 
         target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
+        # Landing on a positionless row (a block margin) would bounce the
+        # caret back to its source row — step over it in the direction of
+        # travel instead.
+        target = nearest_text_row(target, rows < 0 ? -1 : 1)
         return if target == rl
 
         width = line_display_width(target)
@@ -863,8 +885,9 @@ module Crysterm
         hi = Math.min(range.end, line_end)
         return nil if lo >= hi
 
-        col_lo = rendered_column(line_start, lo) - @child_base_x
-        col_hi = rendered_column(line_start, hi) - @child_base_x
+        off = row_text_x_offset(rl)
+        col_lo = off + rendered_column(line_start, lo) - @child_base_x
+        col_hi = off + rendered_column(line_start, hi) - @child_base_x
         col_lo...col_hi
       end
 

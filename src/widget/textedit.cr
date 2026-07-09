@@ -42,6 +42,35 @@ module Crysterm
         format : TextCharFormat,
         full_width : Bool = false
 
+      # Indent cells per list nesting level (`TextListFormat#indent - 1`
+      # levels deep) — the terminal stand-in for Qt's per-level pixel indent.
+      LIST_INDENT_CELLS = 2
+
+      # Per-display-row decoration metadata, parallel to `@_clines`
+      # (TEXTEDIT.md Phase 4). `offset` is the column where the row's text
+      # starts (quote bars + indents + list marker + alignment shift) — what
+      # the shared geometry reads through `#row_text_x_offset`; `marker` is
+      # the list marker painted at the text's left edge (first row of a list
+      # item only); a `margin` row is a blank block-margin row holding no
+      # buffer positions.
+      private record RowMeta,
+        offset : Int32,
+        marker : String? = nil,
+        margin : Bool = false
+
+      # One block's cached wrap plus the decoration width it was wrapped
+      # for — list renumbering can change a marker's width (`"9. "` →
+      # `"10. "`) without touching the block, so a mismatch forces a re-wrap.
+      private record BlockLayout,
+        deco : Int32,
+        lines : CLines
+
+      # Colors for the structural decorations this widget paints itself
+      # (list markers, quote bars, horizontal rules) — the same palette the
+      # interchange importers use for text-level coloring, so a structurally
+      # built document looks like an imported one.
+      property theme : TextTheme = TextTheme.default
+
       getter extra_selections = [] of ExtraSelection
 
       def extra_selections=(list : Array(ExtraSelection))
@@ -61,11 +90,17 @@ module Crysterm
 
       # Per-block wrap cache, keyed by `TextBlock` identity: each entry is the
       # standalone `CLines` `#wrap_block` produced for that block under the
-      # current `@layout_key`. `ContentsChange` deletes the touched blocks'
-      # entries; `#rebuild_layout` rebuilds misses and drops entries whose
-      # blocks left the document (via the swap-hash sweep).
-      @block_layouts = {} of UInt64 => CLines
-      @block_layouts_swap = {} of UInt64 => CLines
+      # current `@layout_key`, wrapped at `colwidth - deco` (see
+      # `BlockLayout`). `ContentsChange` deletes the touched blocks' entries;
+      # `#rebuild_layout` rebuilds misses (and deco-width mismatches) and
+      # drops entries whose blocks left the document (via the swap-hash
+      # sweep).
+      @block_layouts = {} of UInt64 => BlockLayout
+      @block_layouts_swap = {} of UInt64 => BlockLayout
+
+      # Decoration metadata per assembled display row (see `RowMeta`),
+      # rebuilt alongside `@_clines` by `#rebuild_layout`.
+      @row_meta = [] of RowMeta
 
       # The layout inputs `@block_layouts` entries are valid for:
       # {colwidth, child_base_x, wrap_content?, content_margin_x}. Any change
@@ -142,19 +177,19 @@ module Crysterm
       # Document edit hook: drop the layout cache entries of the blocks now
       # overlapping the changed range (their wrapped rows are stale) and
       # request a repaint. Untouched blocks keep their rows — that's what
-      # makes an edit O(block). Format-only changes report `removed == added`
-      # and land in the same path: re-wrapping a block whose text didn't
-      # change is cheap and keeps this hook simple (`set_plain_text` can also
-      # report equal counts for genuinely different text).
+      # makes an edit O(block). Format-only changes (including block-format
+      # changes at a caret, which report `removed == added == 0`) land in the
+      # same path: block format now drives the decoration width and thus the
+      # wrap, so the touched blocks must re-wrap. Decoration-width fallout on
+      # *other* blocks (list renumbering) is caught by `BlockLayout#deco`
+      # comparison in `#rebuild_layout` instead.
       private def on_contents_change(pos : Int32, removed : Int32, added : Int32) : Nil
         @doc_revision += 1
-        if removed > 0 || added > 0
-          blocks = document.blocks
-          b1 = document.block_at(pos)[0]
-          b2 = document.block_at(pos + added)[0]
-          (b1..b2).each do |i|
-            blocks[i]?.try { |b| @block_layouts.delete(b.object_id) }
-          end
+        blocks = document.blocks
+        b1 = document.block_at(pos)[0]
+        b2 = document.block_at(pos + added)[0]
+        (b1..b2).each do |i|
+          blocks[i]?.try { |b| @block_layouts.delete(b.object_id) }
         end
         mark_dirty
         request_render if window?
@@ -190,9 +225,14 @@ module Crysterm
         {colwidth, @child_base_x, wrap_content?, content_margin_x}
       end
 
-      # Assembles `@_clines` (rows + fake/real maps) from per-block layouts,
-      # wrapping only blocks without a cache entry. The swap hash keeps only
-      # blocks still in the document, so removed blocks' entries are swept.
+      # Assembles `@_clines` (rows + fake/real maps) and `@row_meta` from
+      # per-block layouts, wrapping only blocks without a cache entry (or
+      # whose decoration width changed — see `BlockLayout`). The swap hash
+      # keeps only blocks still in the document, so removed blocks' entries
+      # are swept. Decorated blocks wrap at `colwidth - deco`; block margins
+      # interleave blank rows that belong to the block (`rtof`) but carry no
+      # buffer positions (absent from `ftor`, `RowMeta#margin` set), which
+      # the shared geometry steps over.
       private def rebuild_layout(colwidth : Int32, key : Tuple(Int32, Int32, Bool, Int32)) : Nil
         @block_layouts.clear if key != @layout_key
         @layout_key = key
@@ -202,24 +242,69 @@ module Crysterm
         cl.reset
         fake = cl.fake
         fake.clear
+        meta = @row_meta
+        meta.clear
         full_width = 0
         max_width = 0
+        tier = glyph_tier
+        # 0-based item counter per list instance (identity-keyed), advanced
+        # in document order — the marker numbering source.
+        list_items = {} of UInt64 => Int32
 
         fresh = @block_layouts_swap
         fresh.clear
         document.blocks.each_with_index do |blk, bi|
-          bl = @block_layouts[blk.object_id]? || wrap_block(blk, colwidth)
-          fresh[blk.object_id] = bl
+          bf = blk.block_format
+          marker = nil
+          if lf = bf.list_format
+            n = list_items[lf.object_id]? || 0
+            list_items[lf.object_id] = n + 1
+            marker = lf.marker(n, tier)
+          end
+          deco = block_deco_cells(bf, marker)
+          entry = @block_layouts[blk.object_id]?
+          bl = entry && entry.deco == deco ? entry.lines : wrap_block(blk, Math.max(colwidth - deco, 2))
+          fresh[blk.object_id] = BlockLayout.new(deco, bl)
+
+          bf.top_margin.times do
+            cl.rtof << bi
+            meta << RowMeta.new(0, margin: true)
+            cl.push ""
+          end
+
+          # Center/right alignment is a per-wrapped-row extra shift within
+          # the space the decorations leave. Wrap mode only: non-wrap rows
+          # are viewport slices of arbitrarily long lines, where alignment
+          # has no stable meaning.
+          align = bf.alignment
+          align = nil unless wrap_content? && align && (align.h_center? || align.right?)
+          avail = Math.max(colwidth - deco, 0)
+
           row_ids = cl.take_ftor_row
+          first = true
           bl.lines.each do |row|
+            shift = 0
+            if align
+              slack = avail - str_width(row)
+              shift = Math.max(align.h_center? ? slack // 2 : slack, 0)
+            end
             row_ids << cl.size
             cl.rtof << bi
+            meta << RowMeta.new(deco + shift, first ? marker : nil)
             cl.push row
+            first = false
           end
           cl.ftor << row_ids
           fake << blk.text
-          full_width = Math.max(full_width, bl.full_width)
-          max_width = Math.max(max_width, bl.max_width)
+
+          bf.bottom_margin.times do
+            cl.rtof << bi
+            meta << RowMeta.new(0, margin: true)
+            cl.push ""
+          end
+
+          full_width = Math.max(full_width, bl.full_width + deco)
+          max_width = Math.max(max_width, bl.max_width + deco)
         end
         @block_layouts, @block_layouts_swap = fresh, @block_layouts
 
@@ -242,13 +327,49 @@ module Crysterm
       # One block's display rows under the current layout inputs, via the
       # same wrap engine (`_wrap_content`) the base pipeline uses — identical
       # cut points, wide-char handling and `content_margin_x` reservation,
-      # and the non-wrap `_hslice` viewport window. TABs are pre-expanded
-      # exactly like `clean_content_chars` does, matching the tab-expanded
-      # column units all the shared caret math runs in.
-      private def wrap_block(blk : TextBlock, colwidth : Int32) : CLines
+      # and the non-wrap `_hslice` viewport window. `wrap_width` is the
+      # column width left after the block's decorations. TABs are
+      # pre-expanded exactly like `clean_content_chars` does, matching the
+      # tab-expanded column units all the shared caret math runs in.
+      private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
         text = blk.text
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
-        _wrap_content(text, colwidth)
+        _wrap_content(text, wrap_width)
+      end
+
+      # Decoration cells left of a block's text: quote bars (2 per level),
+      # list nesting indent, plain block indent, and the list marker.
+      private def block_deco_cells(bf : TextBlockFormat, marker : String?) : Int32
+        deco = bf.quote_level * 2 + bf.indent
+        if lf = bf.list_format
+          deco += (lf.indent - 1) * LIST_INDENT_CELLS
+        end
+        deco += str_width(marker) if marker
+        deco
+      end
+
+      # === Geometry hooks (see `Mixin::TextEditing`) ===
+
+      # Where this row's text starts: the shared caret/mouse/selection math
+      # adds it, `#paint_document` paints from it.
+      private def row_text_x_offset(rl : Int32) : Int32
+        @row_meta[rl]?.try(&.offset) || 0
+      end
+
+      # Steps over block-margin rows (no buffer positions) in the direction
+      # of travel; when that runs off the edge, back the other way.
+      private def nearest_text_row(rl : Int32, dir : Int32) : Int32
+        r = rl
+        while (m = @row_meta[r]?) && m.margin
+          r += dir
+        end
+        if r < 0 || r >= @_clines.size
+          r = rl
+          while (m = @row_meta[r]?) && m.margin
+            r -= dir
+          end
+        end
+        r.clamp(0, Math.max(0, @_clines.size - 1))
       end
 
       # === Render ===
@@ -308,12 +429,16 @@ module Crysterm
 
           rl = coords.base + (y - yi)
           next if rl < 0 || rl >= @_clines.size
+          meta = @row_meta[rl]?
+          # A block-margin row is pure spacing: the base fill painted it.
+          next if meta.try(&.margin)
           bi = @_clines.rtof[rl]? || next
           blk = document.blocks[bi]? || next
 
           if bi != last_bi
             last_bi = bi
-            runs = blk.format_runs(0, blk.size)
+            # Fragment formats with any `SyntaxHighlighter` overlay merged.
+            runs = blk.render_runs
           end
           bfmt = blk.block_format
           block_bg = bfmt.bg
@@ -327,15 +452,31 @@ module Crysterm
           sel_cols = selection_columns_for_row(rl)
           row_xsels, full_fmt = row_extra_selections(row_start, row_end)
 
+          offset = meta.try(&.offset) || 0
+          paint_decorations(line, xi, region_w, meta, bfmt, base_attr, full_fmt, bch) if meta && offset > 0
+
+          if bfmt.horizontal_rule?
+            # The whole row (past any decorations) is a rule glyph fill; the
+            # block's own text is conventionally empty and not painted.
+            rattr = deco_attr(theme.rule_color, base_attr, block_bg, full_fmt)
+            rc = glyph(Glyphs::Role::LineHorizontal)
+            c2 = Math.max(offset - @child_base_x, 0)
+            while c2 < region_w
+              line[xi + c2]?.try &.set_if_changed(rattr, rc)
+              c2 += 1
+            end
+            next
+          end
+
           raw = blk.text
           ls = row_start - bp
           le = row_end - bp
           row_text = (ls == 0 && le == raw.size) ? raw : raw[ls, le - ls]
 
-          # Viewport column of the row text's first character: 0 when
-          # wrapping; shifted left by the horizontal scroll when not (the
-          # off-view prefix advances `col` without painting).
-          col = -@child_base_x
+          # Viewport column of the row text's first character: the row's
+          # decoration offset, shifted left by the horizontal scroll when not
+          # wrapping (the off-view prefix advances `col` without painting).
+          col = offset - @child_base_x
           lp = ls # block-local codepoint offset (indexes `runs`)
           ri = 0  # current format run
           run_attr = base_attr
@@ -440,6 +581,48 @@ module Crysterm
             end
           end
         end
+      end
+
+      # Paints the row's decoration columns `[0, offset)`: quote bars on
+      # every row, the list marker right-aligned to the text's left edge
+      # (first row of its block only), and — when the block carries a
+      # background or a full-width overlay — the fill between them. Gap cells
+      # without either are left to the base fill.
+      private def paint_decorations(line, xi : Int32, region_w : Int32, meta : RowMeta, bfmt : TextBlockFormat, base_attr : Int64, full_fmt : TextCharFormat?, bch : Char) : Nil
+        off = meta.offset
+        block_bg = bfmt.bg
+        marker = meta.marker
+        mw = marker ? str_width(marker) : 0
+        qcols = bfmt.quote_level * 2
+        bar = glyph(Glyphs::Role::LineVertical)
+        bar_attr = deco_attr(theme.quote_color, base_attr, block_bg, full_fmt)
+        marker_attr = deco_attr(theme.heading_color, base_attr, block_bg, full_fmt)
+        gap_attr = full_fmt ? merge_format_attr(pack_char_attr(nil, base_attr, block_bg, false), full_fmt) : pack_char_attr(nil, base_attr, block_bg, false)
+        fill_gaps = block_bg || full_fmt
+
+        (0...off).each do |dcol|
+          vc = dcol - @child_base_x
+          next if vc < 0
+          break if vc >= region_w
+          cell = line[xi + vc]? || next
+          if dcol < qcols && dcol.even?
+            cell.set_if_changed(bar_attr, bar)
+          elsif marker && dcol >= off - mw
+            # Marker glyphs are single-width (bullets, digits, letters).
+            cell.set_if_changed(marker_attr, marker[dcol - (off - mw)])
+          elsif fill_gaps
+            cell.set_if_changed(gap_attr, bch)
+          end
+        end
+      end
+
+      # Packed attr of a decoration glyph: *color* over the widget base (or
+      # the block background), with any full-width overlay merged so a
+      # current-line highlight spans the decorations too.
+      private def deco_attr(color : Int32, base_attr : Int64, block_bg : Int32?, full_fmt : TextCharFormat?) : Int64
+        bg = (b = block_bg) ? Attr.pack_color(b) : Attr.bg(base_attr)
+        a = Attr.pack(Attr.flags(base_attr), Attr.pack_color(color), bg)
+        full_fmt ? merge_format_attr(a, full_fmt) : a
       end
 
       # Yields the row's paint units: `{lead char, cluster string or nil,

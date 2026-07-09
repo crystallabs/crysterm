@@ -277,6 +277,43 @@ module Crysterm
       @document.apply_block_format(selection_start, selection_end, format, merge: true)
     end
 
+    # === Lists (Qt `createList`/`insertList`/`currentList`; TEXTEDIT.md Phase 4) ===
+
+    # Makes the selected blocks (or the current block) items of a new list
+    # sharing *format* (undoable). Membership in a previous list is replaced —
+    # `merge` overrides `list_format` when the patch specifies one.
+    def create_list(format : TextListFormat = TextListFormat.new) : TextList
+      merge_block_format(TextBlockFormat.new(list_format: format))
+      TextList.new(@document, format)
+    end
+
+    # :ditto:
+    def create_list(style : TextListFormat::Style) : TextList
+      create_list(TextListFormat.new(style: style))
+    end
+
+    # Inserts a new block and makes it the first item of a new list (one undo
+    # step).
+    def insert_list(format : TextListFormat = TextListFormat.new) : TextList
+      @document.begin_edit_block
+      begin
+        insert_block
+        create_list(format)
+      ensure
+        @document.end_edit_block
+      end
+    end
+
+    # :ditto:
+    def insert_list(style : TextListFormat::Style) : TextList
+      insert_list(TextListFormat.new(style: style))
+    end
+
+    # The list the current block belongs to, as a fresh view — or nil.
+    def current_list : TextList?
+      block.block_format.list_format.try { |lf| TextList.new(@document, lf) }
+    end
+
     # === Undo grouping (delegates to the document) ===
 
     def begin_edit_block : Nil

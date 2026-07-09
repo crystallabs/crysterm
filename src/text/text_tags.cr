@@ -11,7 +11,14 @@ module Crysterm
   #
   # - `{!block;prop;…}` — block-format prefix, conventionally at the start of
   #   its line. Props: `h1`..`h6` (heading level), `align-left|center|right`,
-  #   `indent-N`, `mt-N`/`mb-N` (top/bottom margin), `bg-<color>`, `nobreak`.
+  #   `indent-N`, `mt-N`/`mb-N` (top/bottom margin), `bg-<color>`, `nobreak`,
+  #   `q-N` (quote level), `hr` (horizontal rule), and lists:
+  #   `list-<style>` (disc|circle|square|decimal|loweralpha|upperalpha|
+  #   lowerroman|upperroman) with optional `li-N` (nesting level) and `ls-N`
+  #   (numbering start). *Consecutive* blocks with identical list props join
+  #   one `TextList`; a non-list block in between splits it (two adjacent
+  #   distinct lists with equal props therefore merge on a round-trip).
+  #   Number prefix/suffix are not serialized.
   # - Alignment additionally round-trips through the widget-native
   #   `{center}…{/center}` / `{right}…{/right}` wrapping tags (the export
   #   form, since widgets understand it).
@@ -100,6 +107,13 @@ module Crysterm
         props << "bg-#{hex(bg)}"
       end
       props << "nobreak" if bf.non_breakable?
+      props << "q-#{bf.quote_level}" if bf.quote_level > 0
+      props << "hr" if bf.horizontal_rule?
+      if lf = bf.list_format
+        props << "list-#{lf.style.to_s.downcase}"
+        props << "li-#{lf.indent}" if lf.indent != 1
+        props << "ls-#{lf.start}" if lf.start != 1
+      end
       io << "{!block;" << props.join(';') << '}' unless props.empty?
     end
 
@@ -154,6 +168,9 @@ module Crysterm
       @aligns = [] of Tput::AlignFlag
       # Cached current format; any state change invalidates.
       @fmt : TextCharFormat?
+      # Open list run (see `#list_instance`).
+      @cur_list : TextListFormat?
+      @cur_list_spec : {TextListFormat::Style, Int32, Int32}?
 
       def parse(text : String) : Array(TextBlock)
         anchored = Regex::MatchOptions::ANCHORED
@@ -282,9 +299,12 @@ module Crysterm
       end
 
       private def apply_block_props(spec : String) : Nil
-        heading = indent = mt = mb = bg = nil
+        heading = indent = mt = mb = bg = quote = nil
         align = nil
-        nobreak = nil
+        nobreak = hr = nil
+        list_style = nil
+        list_indent = 1
+        list_start = 1
         spec.split(';').each_with_index do |prop, i|
           next if i == 0 # the "!block" marker itself
           case prop
@@ -297,11 +317,31 @@ module Crysterm
           when /\Amb-(\d+)\z/     then mb = $1.to_i
           when /\Abg-(.+)\z/      then bg = parse_color($1)
           when "nobreak"          then nobreak = true
+          when /\Aq-(\d+)\z/      then quote = $1.to_i
+          when "hr"               then hr = true
+          when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
+          when /\Ali-(\d+)\z/     then list_indent = $1.to_i
+          when /\Als-(\d+)\z/     then list_start = $1.to_i
           end
         end
+        lf = list_style ? list_instance(list_style, list_indent, list_start) : nil
         @block_format = @block_format.merge(TextBlockFormat.new(
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
-          bg: bg, heading_level: heading, non_breakable: nobreak))
+          bg: bg, heading_level: heading, non_breakable: nobreak,
+          quote_level: quote, horizontal_rule: hr, list_format: lf))
+      end
+
+      # Consecutive blocks with identical list props share one
+      # `TextListFormat` instance — that IS list identity; a finished block
+      # without list props resets the run (see `#finish_block`).
+      private def list_instance(style : TextListFormat::Style, indent : Int32, start : Int32) : TextListFormat
+        spec = {style, indent, start}
+        if (cur = @cur_list) && @cur_list_spec == spec
+          cur
+        else
+          @cur_list_spec = spec
+          @cur_list = TextListFormat.new(style: style, indent: indent, start: start)
+        end
       end
 
       # `nil` = unknown color (tag dropped); `-1` only for the explicit
@@ -336,6 +376,9 @@ module Crysterm
 
       private def finish_block : Nil
         @blocks << TextBlock.new(@frags, @block_format)
+        # A block without list props ends the current list run — the next
+        # list block starts a fresh `TextList`.
+        @cur_list = @cur_list_spec = nil if @block_format.list_format.nil?
         @frags = [] of TextFragment
         # A still-open alignment tag carries into the next block.
         @block_format = (af = @aligns.last?) ? TextBlockFormat.new(alignment: af) : TextBlockFormat.default

@@ -20,6 +20,13 @@ module Crysterm
     # multi-line comment". -1 = unset.
     property user_state : Int32 = -1
 
+    # Overlay format runs `{from, to, patch}` a `SyntaxHighlighter` laid over
+    # this block (Qt's layout `additionalFormats`): purely presentational,
+    # never merged into the fragments, so highlighting doesn't touch the
+    # document content, undo stack, or interchange output. Read via
+    # `#render_runs`.
+    property additional_formats : Array({Int32, Int32, TextCharFormat})?
+
     @text_cache : String?
 
     def initialize(
@@ -133,6 +140,47 @@ module Crysterm
         next if fend <= from
         break if fstart >= to
         runs << {Math.max(fstart, from), Math.min(fend, to), f.format}
+      end
+      runs
+    end
+
+    # The block's whole format-run list with `additional_formats` merged
+    # over the fragments' own formats (Qt merge semantics per overlay patch) —
+    # what the renderer paints. Equal-appearance neighbors are coalesced.
+    # Plain `format_runs(0, size)` when no overlay is set.
+    def render_runs : Array({Int32, Int32, TextCharFormat})
+      base = format_runs(0, size)
+      add = @additional_formats
+      return base if add.nil? || add.empty?
+
+      sz = size
+      bounds = [] of Int32
+      base.each do |(s, e, _)|
+        bounds << s << e
+      end
+      add.each do |(s, e, _)|
+        bounds << s.clamp(0, sz) << e.clamp(0, sz)
+      end
+      bounds.uniq!.sort!
+
+      runs = [] of {Int32, Int32, TextCharFormat}
+      bi = 0
+      (0...bounds.size - 1).each do |i|
+        a = bounds[i]
+        b = bounds[i + 1]
+        next if b <= a
+        while bi < base.size && base[bi][1] <= a
+          bi += 1
+        end
+        fmt = bi < base.size && base[bi][0] <= a ? base[bi][2] : TextCharFormat.default
+        add.each do |(s, e, patch)|
+          fmt = fmt.merge(patch) if s <= a && a < e
+        end
+        if (last = runs.last?) && last[1] == a && last[2].same_appearance?(fmt)
+          runs[-1] = {last[0], b, last[2]}
+        else
+          runs << {a, b, fmt}
+        end
       end
       runs
     end

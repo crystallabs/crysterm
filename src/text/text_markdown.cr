@@ -8,21 +8,25 @@ module Crysterm
   # properties (`heading_level`, `TextCharFormat#code?`, `anchor_href`), so
   # the `TextTheme` colors the importer applies never affect round-trips.
   #
-  # Mapping (and the Phase-3 approximations, to be re-based when the
-  # structures land in Phase 4):
+  # Mapping (re-based onto the Phase-4 structures):
   #
   # - Headings → `TextBlockFormat#heading_level` + theme heading color.
   # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans also get the
   #   theme code colors); images degrade to their alt text.
-  # - Paragraph spacing → literal empty separator blocks (block margins do
-  #   not render yet); a hard line break starts a new block with no separator.
-  # - Lists → literal marker prefixes (`• `, `1. `, `☑ `/`☐ ` for task items)
-  #   indented two spaces per nesting level — `TextList` is Phase 4.
-  # - Blockquotes → a `│ ` prefix per depth (quote color); thematic breaks →
-  #   a rule of `─` glyphs. The exporter recognizes these prefixes/lines.
+  # - Paragraph spacing → literal empty separator blocks (kept from Phase 3;
+  #   HTML cross-conversion relies on it); a hard line break starts a new
+  #   block with no separator.
+  # - Lists → one `TextList` per markdown list (disc/decimal style, nesting
+  #   via `TextListFormat#indent`); the widget renders markers/indent as
+  #   decorations. An item's continuation blocks get a plain block indent
+  #   approximation. GFM task items stay literal `☑ `/`☐ ` marker prefixes
+  #   (no `TextList`) — there is no checkbox marker style.
+  # - Blockquotes → `TextBlockFormat#quote_level`; thematic breaks → an
+  #   empty `horizontal_rule` block.
   # - Fenced code → one block per line, `code`-flagged fragments over a
   #   theme-code-bg block (the exporter's fence detector); the fence info
-  #   string is not kept. GFM tables pass through as plain text (Phase 4).
+  #   string is not kept. GFM tables pass through as plain text (tables are
+  #   the Phase-4 tail).
   module TextMarkdown
     # Thematic-break rule the importer emits (and the exporter detects, along
     # with plain `-` runs).
@@ -55,8 +59,13 @@ module Crysterm
       @patches = [] of TextCharFormat
       @fmt : TextCharFormat?
       @quote_depth = 0
-      @lists = [] of {ordered: Bool, counter: Int32}
-      # List-item marker (text + format) the next `start_block` consumes.
+      # Open (nested) lists; one shared `TextListFormat` instance per
+      # markdown list — instance identity is list identity.
+      @list_stack = [] of TextListFormat
+      # List the next `start_block`'s block joins (an item's first block).
+      @pending_item : TextListFormat?
+      # Task-item marker (text + format) the next `start_block` consumes —
+      # task items stay literal (no checkbox `TextListFormat::Style`).
       @pending_marker : {String, TextCharFormat}?
       # Chars of a task-list `[x] ` marker still to strip from upcoming text.
       @strip_task = 0
@@ -82,6 +91,14 @@ module Crysterm
       private def walk(node : Markd::Node) : Nil
         case node.type
         when .paragraph?
+          # markd hands GFM tables through as a plain paragraph of `|` rows —
+          # the same detection `Widget::Markdown` uses.
+          txt = node_text(node)
+          if TextTable.gfm_table?(txt)
+            separator if top_level?
+            import_table(txt)
+            return
+          end
           separator if top_level?
           start_block
           walk_children(node)
@@ -97,12 +114,15 @@ module Crysterm
           walk_children(node)
           @quote_depth -= 1
         when .list?
-          separator if @lists.empty?
+          separator if @list_stack.empty?
           ordered = node.data["type"]? != "bullet"
           start = (node.data["start"]?.try &.as(Int32)) || 1
-          @lists << {ordered: ordered, counter: start}
+          @list_stack << TextListFormat.new(
+            style: ordered ? TextListFormat::Style::Decimal : TextListFormat::Style::Disc,
+            indent: @list_stack.size + 1,
+            start: start)
           walk_children(node)
-          @lists.pop?
+          @list_stack.pop?
         when .item?
           set_item_marker(node)
           walk_children(node)
@@ -117,8 +137,7 @@ module Crysterm
           end
         when .thematic_break?
           separator
-          start_block
-          @frags << TextFragment.new(TextMarkdown.rule_text, TextCharFormat.new(fg: @theme.rule_color))
+          start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
           separator if top_level?
@@ -160,22 +179,32 @@ module Crysterm
       end
 
       private def top_level? : Bool
-        @lists.empty? && @quote_depth == 0
+        @list_stack.empty? && @quote_depth == 0
       end
 
-      # The empty block that renders paragraph spacing (block margins are a
-      # Phase-4 render feature).
+      # The empty block that renders paragraph spacing. Kept literal (not
+      # block margins) so HTML cross-conversion — where spacing is explicit
+      # markup — stays symmetric.
       private def separator : Nil
-        @blocks << TextBlock.new if @emitted
+        if @emitted
+          bf = @quote_depth > 0 ? TextBlockFormat.new(quote_level: @quote_depth) : TextBlockFormat.default
+          @blocks << TextBlock.new("", block_format: bf)
+        end
       end
 
       private def start_block(bf : TextBlockFormat = TextBlockFormat.default) : Nil
         @frags = [] of TextFragment
-        @block_format = bf
-        if @quote_depth > 0
-          qfmt = TextCharFormat.new(fg: @theme.quote_color)
-          @frags << TextFragment.new(TextMarkdown.quote_prefix * @quote_depth, qfmt)
+        bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
+        if li = @pending_item
+          # An item's first block is the list item proper.
+          bf = bf.merge(TextBlockFormat.new(list_format: li))
+          @pending_item = nil
+        elsif !@list_stack.empty? && @pending_marker.nil?
+          # A continuation block inside an item: indent to roughly the item
+          # text column (nesting + a 2-cell marker approximation).
+          bf = bf.merge(TextBlockFormat.new(indent: @list_stack.size * 2))
         end
+        @block_format = bf
         if pm = @pending_marker
           @frags << TextFragment.new(pm[0], pm[1])
           @pending_marker = nil
@@ -189,23 +218,29 @@ module Crysterm
         @emitted = true
       end
 
+      # Appends a GFM table's pre-rendered blocks (see `TextTable.build`),
+      # carrying any enclosing quote level. Cell inline markup degrades to
+      # its plain text (markd never parsed it).
+      private def import_table(txt : String) : Nil
+        bs = TextTable.build_from_gfm(txt, @theme) || return
+        if @quote_depth > 0
+          q = TextBlockFormat.new(quote_level: @quote_depth)
+          bs.each { |b| b.block_format = b.block_format.merge(q) }
+        end
+        @blocks.concat(bs)
+        @emitted = true
+      end
+
       private def set_item_marker(item : Markd::Node) : Nil
-        indent = "  " * (@lists.size - 1)
         case task_marker(item)
         when :done
-          @pending_marker = {indent + "☑ ", TextCharFormat.new(fg: @theme.quote_color)}
+          @pending_marker = {"  " * (@list_stack.size - 1) + "☑ ", TextCharFormat.new(fg: @theme.quote_color)}
           @strip_task = 4
         when :todo
-          @pending_marker = {indent + "☐ ", TextCharFormat.new(fg: @theme.muted_color)}
+          @pending_marker = {"  " * (@list_stack.size - 1) + "☐ ", TextCharFormat.new(fg: @theme.muted_color)}
           @strip_task = 4
         else
-          cur = @lists.last?
-          if cur && cur[:ordered]
-            @pending_marker = {indent + "#{cur[:counter]}. ", TextCharFormat.new(fg: @theme.heading_color)}
-            @lists[-1] = {ordered: true, counter: cur[:counter] + 1}
-          else
-            @pending_marker = {indent + "• ", TextCharFormat.new(fg: @theme.heading_color)}
-          end
+          @pending_item = @list_stack.last?
         end
       end
 
@@ -271,9 +306,14 @@ module Crysterm
     end
 
     # Blocks → markdown. Works purely off block/char structure: heading
-    # levels, `code`-flagged runs over code-bg blocks (fences), the importer's
-    # quote/list/rule prefixes, and inline flags/anchors.
+    # levels, `code`-flagged runs over code-bg blocks (fences), the
+    # quote-level/list/rule block properties, the literal task markers, and
+    # inline flags/anchors.
     private class Exporter
+      # Items emitted so far per list instance (identity-keyed) — the
+      # numbering source for ordered markers.
+      @list_items = {} of UInt64 => Int32
+
       def export(blocks : Array(TextBlock)) : String
         String.build do |io|
           i = 0
@@ -286,11 +326,35 @@ module Crysterm
                 i += 1
               end
               io << "```"
+            elsif tf = blocks[i].block_format.table_format
+              run = [] of TextBlock
+              while i < blocks.size && blocks[i].block_format.table_format.same?(tf)
+                run << blocks[i]
+                i += 1
+              end
+              write_table(io, run, tf)
             else
               write_block(io, blocks[i])
               i += 1
             end
           end
+        end
+      end
+
+      # A pre-rendered table run back to GFM: data rows (header first) with
+      # a delimiter row from the table format's column alignments.
+      private def write_table(io : IO, run : Array(TextBlock), tf : TextTableFormat) : Nil
+        data = run.select { |b| TextTable.data_row?(b.text) }
+        return if data.empty?
+        prefix = "> " * run.first.block_format.quote_level
+        rows = data.map { |b| TextTable.split_data_row(b.text) }
+        io << prefix << "| " << rows[0].join(" | ") << " |"
+        io << '\n' << prefix << '|'
+        tf.columns.times do |c|
+          io << ' ' << TextTable.gfm_delimiter(tf.alignments.try(&.[c]?)) << " |"
+        end
+        rows[1..].each do |cells|
+          io << '\n' << prefix << "| " << cells.join(" | ") << " |"
         end
       end
 
@@ -302,7 +366,24 @@ module Crysterm
       end
 
       private def write_block(io : IO, b : TextBlock) : Nil
-        if (lvl = b.block_format.heading_level) > 0
+        bf = b.block_format
+        io << "> " * bf.quote_level if bf.quote_level > 0
+
+        if bf.horizontal_rule?
+          io << "---"
+          return
+        end
+
+        if lf = bf.list_format
+          io << "  " * (lf.indent - 1)
+          n = @list_items[lf.object_id]? || 0
+          @list_items[lf.object_id] = n + 1
+          io << (lf.style.numbered? ? "#{lf.start + n}. " : "- ")
+          write_inline(io, b.fragments)
+          return
+        end
+
+        if (lvl = bf.heading_level) > 0
           io << "#" * lvl << ' '
           write_inline(io, b.fragments)
           return
@@ -314,28 +395,11 @@ module Crysterm
           return
         end
 
+        # Literal GFM task markers (task items carry no `TextList`).
         skip = 0
-
-        # Blockquote depth: repetitions of the importer's `│ ` prefix.
-        qp = TextMarkdown.quote_prefix
-        depth = 0
-        while text[skip, qp.size]? == qp
-          skip += qp.size
-          depth += 1
-        end
-        io << "> " * depth
-
-        # List markers (after any quote prefix).
-        rest = skip == 0 ? text : text[skip..]
-        if md = rest.match(/\A( *)(• |☑ |☐ |\d+\. )/)
-          io << md[1]
-          case marker = md[2]
-          when "• " then io << "- "
-          when "☑ " then io << "- [x] "
-          when "☐ " then io << "- [ ] "
-          else           io << marker
-          end
-          skip += md[0].size
+        if md = text.match(/\A( *)(☑ |☐ )/)
+          io << md[1] << (md[2] == "☑ " ? "- [x] " : "- [ ] ")
+          skip = md[0].size
         end
 
         write_inline(io, b.fragments, skip)

@@ -18,13 +18,14 @@ module Crysterm
   # emits whenever a block's text carries significant spaces, so structural
   # prefixes (list indents) round-trip.
   #
-  # The block model matches `TextMarkdown`'s Phase-3 approximations (list
-  # markers/quote prefixes as literal text, code blocks as code-bg rows), so
-  # documents cross-convert consistently. Unlike markdown, HTML spacing is
-  # explicit: `<p>a</p><p>b</p>` imports as two *adjacent* blocks and an
-  # empty `<p></p>` is the blank separator — `to_html` emits exactly that,
-  # keeping round-trips stable. `dim`/`inverse`/`blink` have no HTML form and
-  # are dropped on export.
+  # The block model matches `TextMarkdown`'s (Phase-4 structures: `ul`/`ol`
+  # → one `TextList` per list element, `blockquote` nesting →
+  # `TextBlockFormat#quote_level`, `hr` → a `horizontal_rule` block; code
+  # blocks as code-bg rows), so documents cross-convert consistently. Unlike
+  # markdown, HTML spacing is explicit: `<p>a</p><p>b</p>` imports as two
+  # *adjacent* blocks and an empty `<p></p>` is the blank separator —
+  # `to_html` emits exactly that, keeping round-trips stable.
+  # `dim`/`inverse`/`blink` have no HTML form and are dropped on export.
   module TextHtml
     WS_RUN = /[ \t\r\n\f]+/
 
@@ -33,22 +34,120 @@ module Crysterm
       Importer.new(theme).import(html)
     end
 
-    # Serializes *blocks* to HTML (a body fragment, one element per block).
+    # Serializes *blocks* to HTML (a body fragment, one element per block,
+    # plus the structural wrappers): consecutive same-instance list members
+    # group under one `<ul>`/`<ol>` (nested lists as direct child lists, the
+    # form the importer reads back), quote levels nest `<blockquote>`s, rule
+    # blocks emit `<hr>`.
     def self.generate(blocks : Array(TextBlock)) : String
       String.build do |io|
+        qdepth = 0
+        open_lists = [] of TextListFormat
+        # Items emitted so far per list instance — numbers a group reopened
+        # after an interruption via `<ol start=…>`.
+        list_items = {} of UInt64 => Int32
+        emitted_tables = Set(UInt64).new
         blocks.each_with_index do |b, i|
-          io << '\n' if i > 0
           bf = b.block_format
-          lvl = bf.heading_level
-          tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : "p"
-          style = block_style(bf, b)
-          io << '<' << tag
-          io << " style=\"" << style << '"' unless style.empty?
-          io << '>'
-          b.fragments.each { |f| write_fragment(io, f) }
-          io << "</" << tag << '>'
+          # Quote wrappers first; a level change closes any open lists
+          # (lists don't span quote boundaries).
+          if bf.quote_level != qdepth
+            close_lists(io, open_lists)
+            while qdepth < bf.quote_level
+              io << "<blockquote>"
+              qdepth += 1
+            end
+            while qdepth > bf.quote_level
+              io << "</blockquote>"
+              qdepth -= 1
+            end
+          end
+          if lf = bf.list_format
+            # Close lists deeper than this item, or a different list at the
+            # same depth; open this one down to its nesting level.
+            while (top = open_lists.last?) && (open_lists.size > lf.indent || (open_lists.size == lf.indent && !top.same?(lf)))
+              io << (top.style.numbered? ? "</ol>" : "</ul>")
+              open_lists.pop
+            end
+            while open_lists.size < lf.indent
+              open_lists << lf
+              if lf.style.numbered?
+                n = lf.start + (list_items[lf.object_id]? || 0)
+                io << (n != 1 ? %(<ol start="#{n}">) : "<ol>")
+              else
+                io << "<ul>"
+              end
+            end
+          else
+            close_lists(io, open_lists)
+          end
+          if tf = bf.table_format
+            # One `<table>` per instance, emitted at its first block; the
+            # remaining pre-rendered rows are consumed by it.
+            if emitted_tables.add?(tf.object_id)
+              io << '\n' if i > 0
+              write_table(io, blocks, i, tf)
+            end
+            next
+          end
+          io << '\n' if i > 0
+          write_block_element(io, b, lf, list_items)
+        end
+        close_lists(io, open_lists)
+        while qdepth > 0
+          io << "</blockquote>"
+          qdepth -= 1
         end
       end
+    end
+
+    private def self.close_lists(io : IO, open_lists : Array(TextListFormat)) : Nil
+      while top = open_lists.pop?
+        io << (top.style.numbered? ? "</ol>" : "</ul>")
+      end
+    end
+
+    # The consecutive pre-rendered run of *tf*'s blocks starting at *i*, as
+    # `<table>` markup (header row as `<th>`; cell text plain, escaped).
+    private def self.write_table(io : IO, blocks : Array(TextBlock), i : Int32, tf : TextTableFormat) : Nil
+      data = [] of TextBlock
+      j = i
+      while j < blocks.size && blocks[j].block_format.table_format.same?(tf)
+        data << blocks[j] if TextTable.data_row?(blocks[j].text)
+        j += 1
+      end
+      return if data.empty?
+      io << "<table>"
+      data.each_with_index do |b, ri|
+        tag = ri == 0 ? "th" : "td"
+        io << "<tr>"
+        TextTable.split_data_row(b.text).each do |cell|
+          io << '<' << tag << '>' << escape_html(cell) << "</" << tag << '>'
+        end
+        io << "</tr>"
+      end
+      io << "</table>"
+    end
+
+    private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
+      bf = b.block_format
+      if bf.horizontal_rule?
+        io << "<hr>"
+        return
+      end
+      if lf
+        list_items[lf.object_id] = (list_items[lf.object_id]? || 0) + 1
+        tag = "li"
+      else
+        lvl = bf.heading_level
+        tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : "p"
+      end
+      style = block_style(bf, b)
+      io << '<' << tag
+      io << " style=\"" << style << '"' unless style.empty?
+      io << '>'
+      b.fragments.each { |f| write_fragment(io, f) }
+      io << "</" << tag << '>'
     end
 
     private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
@@ -109,7 +208,8 @@ module Crysterm
     end
 
     # DOM → blocks. Same shape as `TextMarkdown::Importer`: a patch stack for
-    # inline formats, literal quote/list prefixes, code-bg code blocks.
+    # inline formats, `TextList`/quote-level/rule block structures, code-bg
+    # code blocks.
     private class Importer
       @blocks = [] of TextBlock
       @frags = [] of TextFragment
@@ -121,8 +221,12 @@ module Crysterm
       @patches = [] of TextCharFormat
       @fmt : TextCharFormat?
       @quote_depth = 0
-      @lists = [] of {ordered: Bool, counter: Int32}
-      @pending_marker : {String, TextCharFormat}?
+      # Open (nested) list elements; one shared `TextListFormat` instance
+      # per `ul`/`ol` — instance identity is list identity.
+      @list_stack = [] of TextListFormat
+      # List the next `start_block`'s block joins (set by `li`, consumed by
+      # the first block opened inside it).
+      @pending_item : TextListFormat?
 
       def initialize(@theme : TextTheme)
       end
@@ -188,8 +292,7 @@ module Crysterm
           start_block(bf, collapse)
         when "hr"
           end_block
-          start_block
-          @frags << TextFragment.new(TextMarkdown.rule_text, TextCharFormat.new(fg: @theme.rule_color))
+          start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when "pre"
           end_block
@@ -209,15 +312,21 @@ module Crysterm
         when "ul", "ol"
           end_block
           start = attr_val(node, "start").try(&.to_i?) || 1
-          @lists << {ordered: node.data == "ol", counter: start}
+          @list_stack << TextListFormat.new(
+            style: node.data == "ol" ? TextListFormat::Style::Decimal : TextListFormat::Style::Disc,
+            indent: @list_stack.size + 1,
+            start: start)
           walk_children(node)
-          @lists.pop?
+          @list_stack.pop?
         when "li"
           end_block
-          set_item_marker
-          start_block
+          # Consumed by the first block opened inside the item — directly by
+          # its text, or by a wrapping `<p>` (loose lists) — so no eager
+          # `start_block` here: it would emit an empty member block.
+          @pending_item = @list_stack.last?
           walk_children(node)
           end_block
+          @pending_item = nil
         when "b", "strong"
           with_patch(TextCharFormat.new(bold: true)) { walk_children(node) }
         when "i", "em"
@@ -246,6 +355,9 @@ module Crysterm
           else
             walk_children(node)
           end
+        when "table"
+          end_block
+          import_table(node)
         when "script", "style", "head", "template", "title"
           # skipped subtrees
         else
@@ -253,21 +365,74 @@ module Crysterm
         end
       end
 
+      # `<table>` → pre-rendered `TextTable` blocks. The first `<th>` row (or
+      # the first row) is the header; cell markup degrades to its plain,
+      # whitespace-collapsed text.
+      private def import_table(node : HTML5::Node) : Nil
+        header = nil
+        body = [] of Array(String)
+        trs = [] of HTML5::Node
+        collect_trs(node, trs)
+        trs.each do |tr|
+          cells = [] of String
+          has_th = false
+          child = tr.first_child
+          while child
+            if child.type.element? && (child.data == "td" || child.data == "th")
+              has_th = true if child.data == "th"
+              cells << plain_text_of(child).gsub(TextHtml::WS_RUN, " ").strip
+            end
+            child = child.next_sibling
+          end
+          unless cells.empty?
+            if header.nil? && has_th
+              header = cells
+            else
+              body << cells
+            end
+          end
+        end
+        header ||= body.shift?
+        return unless header
+        bs = TextTable.build(header, body, nil, @theme)
+        if @quote_depth > 0
+          q = TextBlockFormat.new(quote_level: @quote_depth)
+          bs.each { |b| b.block_format = b.block_format.merge(q) }
+        end
+        @blocks.concat(bs)
+      end
+
+      private def collect_trs(node : HTML5::Node, acc : Array(HTML5::Node)) : Nil
+        child = node.first_child
+        while child
+          if child.type.element?
+            if child.data == "tr"
+              acc << child
+            elsif child.data == "thead" || child.data == "tbody" || child.data == "tfoot"
+              collect_trs(child, acc)
+            end
+          end
+          child = child.next_sibling
+        end
+      end
+
       # === Block assembly (see `TextMarkdown::Importer`) ===
 
       private def start_block(bf : TextBlockFormat = TextBlockFormat.default, collapse : Bool = true) : Nil
         @frags = [] of TextFragment
+        bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
+        if li = @pending_item
+          # An item's first block is the list item proper.
+          bf = bf.merge(TextBlockFormat.new(list_format: li))
+          @pending_item = nil
+        elsif !@list_stack.empty?
+          # A continuation block inside an item: indent to roughly the item
+          # text column (nesting + a 2-cell marker approximation).
+          bf = bf.merge(TextBlockFormat.new(indent: @list_stack.size * 2))
+        end
         @block_format = bf
         @collapse = collapse
         @block_open = true
-        if @quote_depth > 0
-          qfmt = TextCharFormat.new(fg: @theme.quote_color)
-          @frags << TextFragment.new(TextMarkdown.quote_prefix * @quote_depth, qfmt)
-        end
-        if pm = @pending_marker
-          @frags << TextFragment.new(pm[0], pm[1])
-          @pending_marker = nil
-        end
       end
 
       private def ensure_block : Nil
@@ -284,17 +449,6 @@ module Crysterm
         @frags = [] of TextFragment
         @block_format = TextBlockFormat.default
         @block_open = false
-      end
-
-      private def set_item_marker : Nil
-        indent = "  " * (@lists.size - 1)
-        cur = @lists.last?
-        if cur && cur[:ordered]
-          @pending_marker = {indent + "#{cur[:counter]}. ", TextCharFormat.new(fg: @theme.heading_color)}
-          @lists[-1] = {ordered: true, counter: cur[:counter] + 1}
-        else
-          @pending_marker = {indent + "• ", TextCharFormat.new(fg: @theme.heading_color)}
-        end
       end
 
       private def with_patch(patch : TextCharFormat, &) : Nil

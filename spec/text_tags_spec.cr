@@ -144,6 +144,38 @@ describe Crysterm::TextTags do
       TextDocument.from_tags(TextDocument.new("").to_tags).to_plain_text.should eq ""
       TextDocument.from_tags(TextDocument.new("a\n\nb").to_tags).to_plain_text.should eq "a\n\nb"
     end
+
+    it "round-trips lists, quote levels and rules (Phase 4 structures)" do
+      doc = TextDocument.new("one\ntwo\nquoted\n")
+      c = TextCursor.new(doc)
+      c.set_position(0)
+      c.set_position(5, :keep_anchor)
+      c.create_list(TextListFormat.new(style: :decimal, indent: 2, start: 3))
+      doc.apply_block_format(8, 8, TextBlockFormat.new(quote_level: 2))
+      doc.apply_block_format(15, 15, TextBlockFormat.new(horizontal_rule: true))
+
+      doc2 = TextDocument.from_tags(doc.to_tags)
+      lf1 = doc2.blocks[0].block_format.list_format.not_nil!
+      lf1.style.decimal?.should be_true
+      lf1.indent.should eq 2
+      lf1.start.should eq 3
+      # Consecutive equal specs share one instance (one list).
+      doc2.blocks[1].block_format.list_format.should be lf1
+      doc2.blocks[2].block_format.quote_level.should eq 2
+      doc2.blocks[3].block_format.horizontal_rule?.should be_true
+    end
+
+    it "splits list runs on an intervening non-list block" do
+      doc = TextDocument.new("a\nplain\nb")
+      c = TextCursor.new(doc)
+      c.create_list(:disc)
+      c.set_position(8)
+      c.create_list(:disc)
+      doc2 = TextDocument.from_tags(doc.to_tags)
+      l1 = doc2.blocks[0].block_format.list_format.not_nil!
+      doc2.blocks[1].block_format.list_format.should be_nil
+      doc2.blocks[2].block_format.list_format.not_nil!.should_not be l1
+    end
   end
 end
 

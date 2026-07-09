@@ -137,6 +137,19 @@ module Crysterm
     # Block background color; same convention as `TextCharFormat#bg`.
     getter bg : Int32?
 
+    # The list this block belongs to, or nil. List membership is carried by
+    # *instance identity* of the shared `TextListFormat` (all items of one
+    # list reference the same object; see `TextList`) — the stand-in for Qt's
+    # `objectIndex` that survives detached blocks (clipboard fragments,
+    # importer output) with no document-side registry. Block splits/merges and
+    # undo snapshots copy the reference, so pressing Enter in a list item
+    # continues the list and undo restores membership, as in Qt.
+    getter list_format : TextListFormat?
+
+    # The table this block is a rendered row of, or nil — same shared-
+    # instance identity convention as `list_format` (see `TextTable`).
+    getter table_format : TextTableFormat?
+
     # Shared all-defaults instance.
     class_getter default : TextBlockFormat { new }
 
@@ -145,6 +158,8 @@ module Crysterm
     @bottom_margin : Int32?
     @heading_level : Int32?
     @non_breakable : Bool?
+    @quote_level : Int32?
+    @horizontal_rule : Bool?
 
     def initialize(
       *,
@@ -155,6 +170,10 @@ module Crysterm
       bg : Int32 | String | Nil = nil,
       heading_level : Int32? = nil,
       non_breakable : Bool? = nil,
+      quote_level : Int32? = nil,
+      horizontal_rule : Bool? = nil,
+      list_format : TextListFormat? = nil,
+      table_format : TextTableFormat? = nil,
     )
       @indent = indent
       @top_margin = top_margin
@@ -162,6 +181,10 @@ module Crysterm
       @bg = bg.is_a?(String) ? Colors.convert_cached(bg) : bg
       @heading_level = heading_level
       @non_breakable = non_breakable
+      @quote_level = quote_level
+      @horizontal_rule = horizontal_rule
+      @list_format = list_format
+      @table_format = table_format
     end
 
     # Indentation in cells (levels are the widget's concern).
@@ -195,6 +218,19 @@ module Crysterm
       @non_breakable || false
     end
 
+    # Blockquote nesting depth, 0 = not quoted (Qt's `BlockQuoteLevel`
+    # property). Renders as one bar-glyph column per level.
+    def quote_level : Int32
+      @quote_level || 0
+    end
+
+    # Whether the block renders as a horizontal rule: a full-width line of
+    # rule glyphs regardless of its (conventionally empty) text — the
+    # terminal analog of Qt's `BlockTrailingHorizontalRulerWidth`.
+    def horizontal_rule? : Bool
+      @horizontal_rule || false
+    end
+
     # Returns this format overridden by `patch`: properties `patch` specifies
     # (non-nil) win, the rest are kept.
     def merge(patch : TextBlockFormat) : TextBlockFormat
@@ -206,14 +242,33 @@ module Crysterm
         bg: patch.bg || @bg,
         heading_level: patch.@heading_level || @heading_level,
         non_breakable: patch.@non_breakable || @non_breakable,
+        quote_level: patch.@quote_level || @quote_level,
+        horizontal_rule: patch.@horizontal_rule || @horizontal_rule,
+        list_format: patch.list_format || @list_format,
+        table_format: patch.table_format || @table_format,
       )
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable
+    # A copy with the list reference replaced (or `nil` — cleared). `#merge`
+    # can't express clearing (nil = unspecified), so `TextList#add/#remove`
+    # rewrite the whole format through this.
+    def with_list_format(lf : TextListFormat?) : TextBlockFormat
+      TextBlockFormat.new(
+        alignment: @alignment, indent: @indent, top_margin: @top_margin,
+        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
+        non_breakable: @non_breakable, quote_level: @quote_level,
+        horizontal_rule: @horizontal_rule, list_format: lf,
+        table_format: @table_format)
+    end
+
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @list_format, @table_format
   end
 
-  # List format (Qt `QTextListFormat`). Consumed by `TextList` in Phase 4;
-  # defined now so the format hierarchy is complete (TEXTEDIT.md §2).
+  # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering
+  # start and prefix/suffix. One *instance* is shared by all member blocks of
+  # a list — instance identity IS list identity (see
+  # `TextBlockFormat#list_format`) — so treat instances as one-per-list, not
+  # as interchangeable values.
   class TextListFormat < TextFormat
     enum Style
       Disc
@@ -224,15 +279,90 @@ module Crysterm
       UpperAlpha
       LowerRoman
       UpperRoman
+
+      def numbered? : Bool
+        self >= Decimal
+      end
     end
 
     getter style : Style
+
+    # Nesting depth, 1 = top level (Qt convention). Rendering indents
+    # `(indent - 1) * 2` cells.
     getter indent : Int32
 
-    def initialize(*, @style : Style = Style::Disc, @indent : Int32 = 1)
+    # First item's number, for `numbered?` styles (Qt 6 `start`).
+    getter start : Int32
+
+    # Text around a `numbered?` marker: `"1. "`, `"(a) "`, … (Qt
+    # `numberPrefix`/`numberSuffix`; the trailing space is added by `#marker`).
+    getter number_prefix : String
+    getter number_suffix : String
+
+    def initialize(
+      *,
+      @style : Style = Style::Disc,
+      @indent : Int32 = 1,
+      @start : Int32 = 1,
+      @number_prefix : String = "",
+      @number_suffix : String = ".",
+    )
     end
 
-    def_equals_and_hash @style, @indent
+    # The rendered marker of 0-based item *item* under this format, including
+    # the separating trailing space: `"• "`, `"3. "`, `"c) "`…
+    def marker(item : Int32, tier : Glyphs::Tier = Glyphs::Tier::Unicode) : String
+      case style
+      when .disc?   then "#{Glyphs[Glyphs::Role::IconBullet, tier]} "
+      when .circle? then "#{Glyphs[Glyphs::Role::IconCircle, tier]} "
+      when .square? then "#{Glyphs[Glyphs::Role::IconSquareFilled, tier]} "
+      else
+        n = @start + item
+        "#{@number_prefix}#{number_text(n)}#{@number_suffix} "
+      end
+    end
+
+    private def number_text(n : Int32) : String
+      case style
+      when .lower_alpha? then TextListFormat.alpha(n)
+      when .upper_alpha? then TextListFormat.alpha(n).upcase
+      when .lower_roman? then TextListFormat.roman(n)
+      when .upper_roman? then TextListFormat.roman(n).upcase
+      else                    n.to_s
+      end
+    end
+
+    # 1 → "a", 26 → "z", 27 → "aa" (bijective base-26); non-positive numbers
+    # fall back to decimal.
+    protected def self.alpha(n : Int32) : String
+      return n.to_s if n < 1
+      s = [] of Char
+      while n > 0
+        n -= 1
+        s << ('a' + n % 26)
+        n //= 26
+      end
+      s.reverse.join
+    end
+
+    # 1 → "i", 4 → "iv", 1990 → "mcmxc"; out-of-range (< 1 or > 3999) falls
+    # back to decimal.
+    protected def self.roman(n : Int32) : String
+      return n.to_s if n < 1 || n > 3999
+      pairs = { {1000, "m"}, {900, "cm"}, {500, "d"}, {400, "cd"},
+               {100, "c"}, {90, "xc"}, {50, "l"}, {40, "xl"},
+               {10, "x"}, {9, "ix"}, {5, "v"}, {4, "iv"}, {1, "i"} }
+      String.build do |io|
+        pairs.each do |(v, r)|
+          while n >= v
+            io << r
+            n -= v
+          end
+        end
+      end
+    end
+
+    def_equals_and_hash @style, @indent, @start, @number_prefix, @number_suffix
   end
 
   # Frame format (Qt `QTextFrameFormat`). Margins/border in cells; border
@@ -247,11 +377,17 @@ module Crysterm
     end
   end
 
-  # Table format (Qt `QTextTableFormat < QTextFrameFormat`). Phase 4.
+  # Table format (Qt `QTextTableFormat < QTextFrameFormat`). One *instance*
+  # per table — instance identity is table identity, referenced from every
+  # member block's `TextBlockFormat#table_format` (the `TextListFormat`
+  # convention; see `TextTable`).
   class TextTableFormat < TextFrameFormat
     getter columns : Int32
 
-    def initialize(*, @columns : Int32 = 1, margin : Int32 = 0, border : Bool = true)
+    # Per-column horizontal alignment (GFM `:---:`); `nil`/missing = left.
+    getter alignments : Array(Tput::AlignFlag)?
+
+    def initialize(*, @columns : Int32 = 1, margin : Int32 = 0, border : Bool = true, @alignments : Array(Tput::AlignFlag)? = nil)
       super(margin: margin, border: border)
     end
   end

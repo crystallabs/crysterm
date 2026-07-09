@@ -210,8 +210,12 @@ module Crysterm
 
     # Emitted when a document link/anchor is activated — the analog of Qt's
     # `QTextBrowser::anchorClicked`. Carries the link's URL. Used by
-    # `Widget::Markdown#activate_link`.
+    # `Widget::Markdown#activate_link` and `Widget::TextBrowser`.
     event AnchorClick, url : String
+
+    # Emitted when `Widget::TextBrowser` navigates to a new source (the
+    # analog of Qt's `QTextBrowser::sourceChanged`).
+    event SourceChange, url : String
 
     # Emitted on value canceled (e.g. in text forms)
     event Cancel, value : String

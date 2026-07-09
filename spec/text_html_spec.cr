@@ -76,7 +76,8 @@ describe Crysterm::TextHtml do
       doc = html_doc "<p>a<br>b</p><hr>"
       doc.blocks[0].text.should eq "a"
       doc.blocks[1].text.should eq "b"
-      doc.blocks[2].text.should eq TextMarkdown.rule_text
+      doc.blocks[2].block_format.horizontal_rule?.should be_true
+      doc.blocks[2].text.should eq ""
     end
 
     it "imports pre as code-bg blocks preserving whitespace" do
@@ -87,16 +88,23 @@ describe Crysterm::TextHtml do
       doc.blocks[0].fragments[0].format.code?.should be_true
     end
 
-    it "imports lists as marker prefixes" do
-      doc = html_doc "<ul><li>one</li><li>two</li></ul><ol><li>first</li></ol>"
-      doc.blocks[0].text.should eq "• one"
-      doc.blocks[1].text.should eq "• two"
-      doc.blocks[2].text.should eq "1. first"
+    it "imports lists as TextLists" do
+      doc = html_doc "<ul><li>one</li><li>two</li></ul><ol start=\"3\"><li>first</li></ol>"
+      doc.blocks[0].text.should eq "one"
+      lf = doc.blocks[0].block_format.list_format.not_nil!
+      lf.style.disc?.should be_true
+      doc.blocks[1].block_format.list_format.should be lf
+      ol = doc.blocks[2].block_format.list_format.not_nil!
+      ol.style.decimal?.should be_true
+      ol.start.should eq 3
+      TextList.new(doc, ol).marker_text(doc.blocks[2]).should eq "3. "
     end
 
-    it "imports blockquotes with the quote prefix" do
-      doc = html_doc "<blockquote><p>wise</p></blockquote>"
-      doc.blocks[0].text.should eq "#{TextMarkdown.quote_prefix}wise"
+    it "imports blockquotes as quote levels" do
+      doc = html_doc "<blockquote><p>wise</p><blockquote><p>deep</p></blockquote></blockquote>"
+      doc.blocks[0].text.should eq "wise"
+      doc.blocks[0].block_format.quote_level.should eq 1
+      doc.blocks[1].block_format.quote_level.should eq 2
     end
 
     it "skips script/style/head and walks unknown elements transparently" do
@@ -156,6 +164,34 @@ describe Crysterm::TextHtml do
       doc2.blocks[0].block_format.heading_level.should eq 1
       # And the code flag survived, so markdown export still fences/backticks.
       doc2.to_markdown.should eq doc.to_markdown
+    end
+
+    it "emits and re-imports structural wrappers (Phase 4)" do
+      md = "- one\n- two\n  - sub\n\n> quote\n\n---"
+      doc = TextDocument.from_markdown(md)
+      html = doc.to_html
+      html.should contain "<ul>"
+      html.should contain "<li>one</li>"
+      html.should contain "<blockquote>"
+      html.should contain "<hr>"
+
+      doc2 = TextDocument.from_html(html)
+      lf = doc2.blocks[0].block_format.list_format.not_nil!
+      doc2.blocks[1].block_format.list_format.should be lf
+      doc2.blocks[2].block_format.list_format.not_nil!.indent.should eq 2
+      doc2.to_markdown.should eq md
+    end
+
+    it "numbers a reopened ordered-list group with a start attribute" do
+      doc = TextDocument.new("a\nplain\nb")
+      lf = TextListFormat.new(style: :decimal)
+      doc.apply_block_format(0, 0, TextBlockFormat.new(list_format: lf))
+      doc.apply_block_format(8, 8, TextBlockFormat.new(list_format: lf))
+      html = doc.to_html
+      html.should contain %(<ol start="2">)
+      doc2 = TextDocument.from_html(html)
+      ol2 = doc2.blocks[2].block_format.list_format.not_nil!
+      TextList.new(doc2, ol2).marker_text(doc2.blocks[2]).should eq "2. "
     end
   end
 end

@@ -47,25 +47,39 @@ describe Crysterm::TextMarkdown do
       link.format.anchor_href.should eq "https://example.com"
     end
 
-    it "renders lists as marker prefixes with nesting indent" do
+    it "imports lists as TextLists with nesting via the list-format indent" do
       doc = md_doc "- one\n- two\n  - sub"
-      doc.blocks[0].text.should eq "• one"
-      doc.blocks[1].text.should eq "• two"
-      doc.blocks[2].text.should eq "  • sub"
+      doc.blocks[0].text.should eq "one"
+      lf = doc.blocks[0].block_format.list_format.not_nil!
+      lf.style.disc?.should be_true
+      lf.indent.should eq 1
+      # Same markdown list = same shared instance.
+      doc.blocks[1].block_format.list_format.should be lf
+      sub = doc.blocks[2].block_format.list_format.not_nil!
+      sub.should_not be lf
+      sub.indent.should eq 2
+      TextList.new(doc, lf).count.should eq 2
     end
 
-    it "numbers ordered lists and marks task items" do
+    it "numbers ordered lists structurally and marks task items literally" do
       doc = md_doc "1. first\n2. second\n\n- [x] done\n- [ ] todo"
-      doc.blocks[0].text.should eq "1. first"
-      doc.blocks[1].text.should eq "2. second"
+      lf = doc.blocks[0].block_format.list_format.not_nil!
+      lf.style.decimal?.should be_true
+      list = TextList.new(doc, lf)
+      list.marker_text(doc.blocks[1]).should eq "2. "
+      # Task items stay literal marker prefixes (no checkbox list style).
       doc.blocks[3].text.should eq "☑ done"
       doc.blocks[4].text.should eq "☐ todo"
+      doc.blocks[3].block_format.list_format.should be_nil
     end
 
-    it "prefixes blockquotes and emits rule blocks" do
-      doc = md_doc "> quoted\n\n---"
-      doc.blocks[0].text.should eq "#{TextMarkdown.quote_prefix}quoted"
-      doc.blocks[2].text.should eq TextMarkdown.rule_text
+    it "imports blockquotes as quote levels and rules as rule blocks" do
+      doc = md_doc "> quoted\n>> deeper\n\n---"
+      doc.blocks[0].text.should eq "quoted"
+      doc.blocks[0].block_format.quote_level.should eq 1
+      doc.blocks[1].block_format.quote_level.should eq 2
+      doc.blocks[3].block_format.horizontal_rule?.should be_true
+      doc.blocks[3].text.should eq ""
     end
 
     it "imports fenced code as code-bg blocks, one per line" do
