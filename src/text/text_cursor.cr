@@ -314,6 +314,25 @@ module Crysterm
       block.block_format.list_format.try { |lf| TextList.new(@document, lf) }
     end
 
+    # === Frames (Qt `insertFrame`/`currentFrame`; TEXTEDIT.md follow-up) ===
+
+    # Nests the selected blocks (or the current block) in a new child frame
+    # under the frame at the selection start (undoable). Deviation from Qt's
+    # `insertFrame` (which splits at the cursor): whole blocks join the frame
+    # — a frame boundary is a row boundary on a cell grid.
+    def insert_frame(format : TextFrameFormat = TextFrameFormat.new) : TextFrame
+      base_block = @document.blocks[@document.block_at(selection_start)[0]]
+      path = (base_block.block_format.frame_formats || [] of TextFrameFormat) + [format]
+      merge_block_format(TextBlockFormat.new(frame_formats: path))
+      TextFrame.new(@document, format, child: true)
+    end
+
+    # The innermost frame containing the cursor (Qt `currentFrame`); the
+    # root frame when the block is not framed.
+    def current_frame : TextFrame
+      @document.frame_at(@position)
+    end
+
     # === Undo grouping (delegates to the document) ===
 
     def begin_edit_block : Nil

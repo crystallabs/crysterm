@@ -52,11 +52,14 @@ module Crysterm
       end
 
       # Sets a single codepoint, dropping any grapheme-cluster overlay this cell
-      # had. Cheap on the legacy hot path: with no overlay, `delete_grapheme` is
-      # just a nil check.
+      # had — and any hyperlink: every content write clears the link overlay,
+      # so a link exists only while a link-aware writer keeps re-asserting it
+      # via `#link=`. Cheap on the legacy hot path: with no overlays, both
+      # deletes are just nil checks.
       def char=(value : Char) : Char
         @row.chars.unsafe_put(@index, value)
         @row.delete_grapheme @index
+        @row.delete_link @index
         value
       end
 
@@ -88,6 +91,7 @@ module Crysterm
           @row.chars.unsafe_put(@index, value[0])
           @row.set_grapheme @index, value
         end
+        @row.delete_link @index
         value
       end
 
@@ -123,9 +127,30 @@ module Crysterm
       end
 
       # Marks this cell as the continuation of the preceding wide grapheme.
+      # Clears any hyperlink, like every content write; a linked wide glyph's
+      # writer re-asserts the link on both cells (see `#link=`).
       def continuation! : Nil
         @row.chars.unsafe_put(@index, CONTINUATION)
         @row.delete_grapheme @index
+        @row.delete_link @index
+      end
+
+      # The cell's OSC 8 hyperlink id (an index into the owning window's link
+      # registry, see `Window#link_id`); `0` = no link.
+      def link : UInt16
+        @row.link_at(@index)
+      end
+
+      # Sets the cell's hyperlink id (`0` clears). Marks the column dirty on a
+      # real change, so a link-only change (same glyph and attr, different
+      # target) still reaches the terminal. Call *after* the content write —
+      # `char=`/`grapheme=`/`continuation!` clear the link overlay.
+      def link=(id : UInt16) : UInt16
+        if @row.link_at(@index) != id
+          id == 0 ? @row.delete_link(@index) : @row.set_link(@index, id)
+          @row.mark_dirty @index
+        end
+        id
       end
 
       # Display width of this cell in terminal columns (0 for a continuation
@@ -274,6 +299,12 @@ module Crysterm
       # cluster). Lazily allocated; nil for rows holding only single codepoints.
       @graphemes : Hash(Int32, String)? = nil
 
+      # Sparse overlay of OSC 8 hyperlink ids (cell index -> id in the owning
+      # window's link registry; see `Window#link_id`). Lazily allocated; nil
+      # for rows with no linked cells — the common case, so per-cell probes on
+      # hot paths are a nil check.
+      @links : Hash(Int32, UInt16)? = nil
+
       def initialize
         @attrs = Array(Int64).new
         @chars = Array(Char).new
@@ -322,12 +353,40 @@ module Crysterm
         @graphemes.try &.delete(index.to_i32)
       end
 
-      # Resets every cell to *attr*/*char* (and drops any grapheme overlay).
-      # Used to clear a `Plane`'s buffer to its transparent sentinel each frame.
+      # Whether this row has any hyperlinked cell. Lets the draw loop skip
+      # the per-cell link probes on the common link-free row.
+      def has_links? : Bool
+        if l = @links
+          !l.empty?
+        else
+          false
+        end
+      end
+
+      # The hyperlink id stored at `index`; `0` = no link.
+      def link_at(index : Int) : UInt16
+        @links.try(&.[index.to_i32]?) || 0_u16
+      end
+
+      # Stores hyperlink id *id* at `index` (allocating the overlay on first
+      # use). `Cell#link=` is the usual writer.
+      def set_link(index : Int, id : UInt16) : Nil
+        (@links ||= {} of Int32 => UInt16)[index.to_i32] = id
+      end
+
+      # Drops any hyperlink at `index`. Cheap when no overlay exists.
+      def delete_link(index : Int) : Nil
+        @links.try &.delete(index.to_i32)
+      end
+
+      # Resets every cell to *attr*/*char* (and drops any grapheme/link
+      # overlay). Used to clear a `Plane`'s buffer to its transparent sentinel
+      # each frame.
       def clear_to(attr : Int64, char : Char) : Nil
         @attrs.fill attr
         @chars.fill char
         @graphemes.try &.clear
+        @links.try &.clear
       end
 
       # Appends a default (empty) cell.
@@ -342,9 +401,10 @@ module Crysterm
         @chars.push char
       end
 
-      # Removes the last cell (and any overlay it carried).
+      # Removes the last cell (and any overlays it carried).
       def pop : Nil
         delete_grapheme(@attrs.size - 1)
+        delete_link(@attrs.size - 1)
         @attrs.pop
         @chars.pop
       end

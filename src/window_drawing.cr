@@ -105,6 +105,56 @@ module Crysterm
     # from `Config.render_synchronized_output` (on).
     property? synchronized_output : Bool = Config.render_synchronized_output
 
+    # Whether cells carrying a hyperlink id draw with OSC 8 hyperlink escapes
+    # (`\e]8;;URI\e\\` … `\e]8;;\e\\`), making anchors clickable/hoverable on
+    # supporting terminals. Unknown OSC sequences are ignored by terminals, so
+    # this is safe to leave on. Default from `Config.render_hyperlinks`. When
+    # off, `#link_id` registers nothing, so no cell ever carries a link.
+    property? hyperlinks : Bool = Config.render_hyperlinks
+
+    # OSC 8 hyperlink registry: cells store a compact `UInt16` id (see
+    # `Cell#link=`); the URIs live here, deduplicated. Id `0` is "no link".
+    @link_urls = [] of String
+    @link_ids = {} of String => UInt16
+
+    # Registers *url* and returns its cell link id — the value to assign to
+    # `Cell#link=` for every cell the link covers. Returns `0` (no link) for
+    # an empty URL, when `#hyperlinks?` is off, or if the registry is
+    # (improbably) full; URLs are sanitized of control characters and
+    # length-capped, since they travel inside an escape sequence.
+    def link_id(url : String) : UInt16
+      return 0_u16 if url.empty? || !hyperlinks?
+      @link_ids[url]? || begin
+        return 0_u16 if @link_urls.size >= 0xFFFF
+        clean = url.gsub(/[\x00-\x1f\x7f]/, "")
+        clean = clean[0, 2048] if clean.size > 2048
+        @link_urls << clean
+        @link_ids[url] = @link_urls.size.to_u16
+      end
+    end
+
+    # The URI registered under cell link id *id*, or nil (id 0 or unknown).
+    def link_url(id : UInt16) : String?
+      return nil if id == 0
+      @link_urls[id - 1]?
+    end
+
+    # Emits the OSC 8 sequence switching the terminal's "current hyperlink"
+    # to *id*'s URI (`0` = close): printed cells from here on carry the link.
+    # The sequences come from tput (`begin_hyperlink`/`end_hyperlink`),
+    # captured into *dest* via `#divert` like the other tput-routed draw
+    # output. Cheap enough off the per-cell fast path — it runs only when a
+    # printed cell's link differs from the one in effect.
+    private def emit_link(dest : IO, id : UInt16) : Nil
+      divert(@tmpbuf, dest) do
+        if url = link_url(id)
+          tput.begin_hyperlink url
+        else
+          tput.end_hyperlink
+        end
+      end
+    end
+
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     #
     # Diffs `@lines` against `@olines` and encodes the needed escapes into the
@@ -124,6 +174,11 @@ module Crysterm
       lx = -1
       ly = -1
       acs = false
+      # OSC 8 hyperlink currently in effect on the terminal (0 = none). Cells
+      # print under it; emission switches it when a printed cell's link id
+      # differs, and the frame closes it before finishing, so every frame
+      # starts link-free.
+      cur_link = 0_u16
 
       # Terminal-constant capabilities (`@draw_caps`, via `#compute_draw_caps`),
       # bound to locals here. Only `bce_opt`, `fu` and `ncolors` can change at
@@ -232,6 +287,12 @@ module Crysterm
         l_has_g = fu && line.has_graphemes?
         o_has_g = fu && o.has_graphemes?
         any_g = l_has_g || o_has_g
+
+        # Same hoist for the hyperlink overlays: link-free rows (the common
+        # case) skip every per-cell link probe.
+        l_has_l = line.has_links?
+        o_has_l = o.has_links?
+        any_l = l_has_l || o_has_l
 
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
@@ -350,6 +411,9 @@ module Crysterm
               # Only probe the overlay when this row actually has one; with none,
               # `grapheme_at?` is nil and `clearable &&= true` is a no-op.
               clearable &&= line.grapheme_at?(xx).nil? if l_has_g
+              # A hyperlinked cell can't be erased — `el` prints nothing, so the
+              # link would be lost.
+              clearable &&= line.link_at(xx) == 0_u16 if l_has_l
               unless clearable
                 clr = false
                 breaker = xx
@@ -361,6 +425,7 @@ module Crysterm
               # With no overlay on either side both probes are nil, so the
               # comparison is nil != nil (false) — skip it.
               changed ||= line.grapheme_at?(xx) != o.grapheme_at?(xx) if any_g
+              changed ||= line.link_at(xx) != o.link_at(xx) if any_l
               neq = true if changed
             end
 
@@ -375,6 +440,12 @@ module Crysterm
             if clr && neq
               lx = -1
               ly = -1
+              # `el` prints nothing, but close any open hyperlink so it can't
+              # bleed into whatever is emitted next.
+              if cur_link != 0_u16
+                emit_link(@outbuf, 0_u16)
+                cur_link = 0_u16
+              end
               if attr != desired_attr
                 # Reset first when the terminal currently has any non-default
                 # attribute active. `code2attr_to` writes the target attr from a
@@ -411,6 +482,9 @@ module Crysterm
               end
               if o_has_g
                 (x...o_stop).each { |xx| o.delete_grapheme xx }
+              end
+              if o_has_l
+                (x...o_stop).each { |xx| o.delete_link xx }
               end
 
               break
@@ -495,6 +569,9 @@ module Crysterm
               # Skip the overlay compare when neither row has one (nil == nil is
               # true, leaving `unchanged` as-is).
               unchanged &&= o.grapheme_at?(x) == line.grapheme_at?(x) if any_g
+              # A link-only change (same glyph/attr, different target) still
+              # re-emits the cell so the terminal updates the hyperlink.
+              unchanged &&= o.link_at(x) == line.link_at(x) if any_l
             {% end %}
             if unchanged
               if lx == -1
@@ -537,6 +614,11 @@ module Crysterm
             else
               ox.char = desired_char
             end
+            # Mirror the link too. The content writes above just cleared the
+            # old side's link, so only a present link needs storing.
+            if l_has_l && (lid = line.link_at(x)) != 0_u16
+              o.set_link(x, lid)
+            end
           end
 
           if desired_attr != attr
@@ -558,6 +640,17 @@ module Crysterm
 
               @outbuf.print 'm'
               # ::Log.trace { @outbuf.inspect }
+            end
+          end
+
+          # Switch the terminal's "current hyperlink" (OSC 8) when this
+          # printed cell's link id differs from the one in effect. Link-free
+          # rows with no link open skip this in one compare.
+          if l_has_l || cur_link != 0_u16
+            lid = l_has_l ? line.link_at(x) : 0_u16
+            if lid != cur_link
+              emit_link(@outbuf, lid)
+              cur_link = lid
             end
           end
 
@@ -725,6 +818,13 @@ module Crysterm
           emit_cursor_position(@main, ansi_cursor, y, 0)
           @main.write @outbuf.to_slice
         end
+      end
+
+      # Close any hyperlink left open by the last emitted run, so link state
+      # never leaks past a frame (and `cur_link = 0` at the top holds).
+      if cur_link != 0_u16
+        emit_link(@main, 0_u16)
+        cur_link = 0_u16
       end
 
       if acs

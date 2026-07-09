@@ -10,9 +10,17 @@ end
 
 describe Crysterm::TextHtml do
   describe ".parse" do
-    it "imports paragraphs as adjacent blocks (explicit spacing only)" do
+    it "imports paragraphs as adjacent blocks, empty <p></p> as a margin" do
       doc = html_doc "<p>one</p><p>two</p><p></p><p>three</p>"
-      doc.to_plain_text.should eq "one\ntwo\n\nthree"
+      doc.to_plain_text.should eq "one\ntwo\nthree"
+      doc.blocks[1].block_format.top_margin.should eq 0
+      doc.blocks[2].block_format.top_margin.should eq 1
+    end
+
+    it "imports margin-top/bottom styles as blank-row margins" do
+      doc = html_doc %(<p style="margin-top:2em;margin-bottom:1em">x</p>)
+      doc.blocks[0].block_format.top_margin.should eq 2
+      doc.blocks[0].block_format.bottom_margin.should eq 1
     end
 
     it "imports inline formatting elements" do
@@ -152,9 +160,16 @@ describe Crysterm::TextHtml do
       TextDocument.from_html(doc.to_html).to_plain_text.should eq "  indented list line"
     end
 
-    it "round-trips empty separator blocks" do
+    it "re-imports an exported empty block as margin spacing" do
       doc = TextDocument.new("a\n\nb")
-      TextDocument.from_html(doc.to_html).to_plain_text.should eq "a\n\nb"
+      doc2 = TextDocument.from_html(doc.to_html)
+      # The blank line survives visually — as a top margin, not a block.
+      doc2.to_plain_text.should eq "a\nb"
+      doc2.blocks[1].block_format.top_margin.should eq 1
+      # And margin spacing itself round-trips exactly from then on.
+      doc3 = TextDocument.from_html(doc2.to_html)
+      doc3.to_plain_text.should eq "a\nb"
+      doc3.blocks[1].block_format.top_margin.should eq 1
     end
 
     it "cross-converts a markdown import to html and back" do
@@ -173,7 +188,7 @@ describe Crysterm::TextHtml do
       html.should contain "<ul>"
       html.should contain "<li>one</li>"
       html.should contain "<blockquote>"
-      html.should contain "<hr>"
+      html.should contain "<hr" # carries its margin as a style
 
       doc2 = TextDocument.from_html(html)
       lf = doc2.blocks[0].block_format.list_format.not_nil!

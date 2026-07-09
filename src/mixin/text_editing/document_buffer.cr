@@ -35,6 +35,12 @@ module Crysterm
         # movement hook to clear it from).
         property typing_format : TextCharFormat?
 
+        # Set while a mutation initiated *through this buffer* is inside the
+        # document, so `#follow_document_change` can tell own edits (whose
+        # caret the mixin moves itself) from edits by other actors on a
+        # shared document (whose caret shift this view must mirror).
+        @self_edit = false
+
         def buf_text : String
           document.to_plain_text
         end
@@ -53,13 +59,13 @@ module Crysterm
 
         def buf_insert(pos : Int32, str : String) : Nil
           return if str.empty?
-          document.insert_text(pos, str, @typing_format)
+          as_self_edit { document.insert_text(pos, str, @typing_format) }
           edit_cursor.set_position(pos + str.size)
         end
 
         def buf_delete(from : Int32, to : Int32) : Nil
           return if to <= from
-          document.remove(from, to - from)
+          as_self_edit { document.remove(from, to - from) }
           edit_cursor.set_position(from)
         end
 
@@ -122,7 +128,7 @@ module Crysterm
           end
           edit_replacing_selection do
             @goal_col = nil
-            @cursor_pos += document.insert_fragment(@cursor_pos, frag)
+            @cursor_pos += as_self_edit { document.insert_fragment(@cursor_pos, frag) }
             edit_cursor.set_position(@cursor_pos)
           end
           true
@@ -157,7 +163,7 @@ module Crysterm
         # widget's relayout/render, so no display work happens here.
         def value=(value = nil)
           if value
-            document.set_plain_text(value)
+            as_self_edit { document.set_plain_text(value) }
             @cursor_pos = buf_size
             clear_selection
             @goal_col = nil
@@ -170,7 +176,7 @@ module Crysterm
         # cursor, which the replay just re-adjusted to the change site.
         # Returns whether anything was undone.
         def undo : Bool
-          return false unless document.undo
+          return false unless as_self_edit { document.undo }
           caret_to_tracker
           true
         end
@@ -178,7 +184,7 @@ module Crysterm
         # Redoes the last undone document edit step; caret placement as in
         # `#undo`. Returns whether anything was redone.
         def redo : Bool
-          return false unless document.redo
+          return false unless as_self_edit { document.redo }
           caret_to_tracker
           true
         end
@@ -187,6 +193,67 @@ module Crysterm
           @cursor_pos = edit_cursor.position.clamp(0, buf_size)
           clear_selection
           @goal_col = nil
+        end
+
+        # Marks the document mutations made inside the block as this view's
+        # own, so `#follow_document_change` leaves the caret to the caller.
+        private def as_self_edit(&)
+          @self_edit = true
+          begin
+            yield
+          ensure
+            @self_edit = false
+          end
+        end
+
+        # Mirrors a document change made by another actor (a second view
+        # sharing the document, a `TextCursor`, direct `TextDocument` calls)
+        # onto this view's caret/selection — the same adjustment the document
+        # applies to registered cursors, keyed by the change's
+        # `TextDocument::ChangeKind`. The including widget calls this from its
+        # `Event::ContentsChange` handler. Own edits (`#as_self_edit`) are
+        # skipped: the shared mixin logic moves the caret itself, exactly as
+        # it does over a flat buffer.
+        def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
+          return if @self_edit
+          case kind
+          when .edit?
+            return if removed == 0 && added == 0
+            np = shift_view_pos(@cursor_pos, pos, removed, added)
+            if a = @selection_anchor
+              na = shift_view_pos(a, pos, removed, added)
+              # A collapsed anchor is a landmine (see the mixin's mouse
+              # handler) — drop it rather than leaving it equal to the caret.
+              @selection_anchor = na == np ? nil : na
+            end
+            if np != @cursor_pos
+              @cursor_pos = np
+              @goal_col = nil
+            end
+          when .replace?
+            # Whole-content swap: rewind like registered cursors do (an own
+            # `value=`/interchange set re-places the caret right after this).
+            @cursor_pos = 0
+            clear_selection
+            @goal_col = nil
+          else
+            # Format-only: positions are unaffected.
+          end
+        end
+
+        # `TextCursor#adjust_pos`'s mapping for a flat view position:
+        # insertions at or before the position push it forward; a position
+        # inside a removed range collapses to its start.
+        private def shift_view_pos(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
+          if removed == 0
+            p >= pos ? p + added : p
+          elsif p <= pos
+            p
+          elsif p >= pos + removed
+            p + added - removed
+          else
+            pos
+          end
         end
 
         # Seeds the document from the constructor args. Call from

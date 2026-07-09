@@ -21,10 +21,13 @@ module Crysterm
   # The block model matches `TextMarkdown`'s (Phase-4 structures: `ul`/`ol`
   # → one `TextList` per list element, `blockquote` nesting →
   # `TextBlockFormat#quote_level`, `hr` → a `horizontal_rule` block; code
-  # blocks as code-bg rows), so documents cross-convert consistently. Unlike
-  # markdown, HTML spacing is explicit: `<p>a</p><p>b</p>` imports as two
-  # *adjacent* blocks and an empty `<p></p>` is the blank separator —
-  # `to_html` emits exactly that, keeping round-trips stable.
+  # blocks as code-bg rows), so documents cross-convert consistently.
+  # `<p>a</p><p>b</p>` imports as two *adjacent* blocks; block spacing is
+  # `TextBlockFormat` margins (the margins re-base), carried as
+  # `margin-top`/`margin-bottom` styles on export and parsed back on import
+  # (1em/1lh = one blank row). An empty, unstyled, top-level `<p></p>` —
+  # hand-written HTML's blank separator — also imports as a top margin on
+  # whatever follows rather than as an empty block.
   # `dim`/`inverse`/`blink` have no HTML form and are dropped on export.
   module TextHtml
     WS_RUN = /[ \t\r\n\f]+/
@@ -132,7 +135,10 @@ module Crysterm
     private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
       bf = b.block_format
       if bf.horizontal_rule?
-        io << "<hr>"
+        style = block_style(bf, b)
+        io << "<hr"
+        io << " style=\"" << style << '"' unless style.empty?
+        io << '>'
         return
       end
       if lf
@@ -158,6 +164,14 @@ module Crysterm
       end
       if (bg = bf.bg) && bg >= 0
         props << "background-color:#{hex(bg)}"
+      end
+      # Block spacing as CSS margins (1em = one blank row), so it survives
+      # the round-trip into the importer's `margin-*` parsing.
+      if (m = bf.top_margin) > 0
+        props << "margin-top:#{m}em"
+      end
+      if (m = bf.bottom_margin) > 0
+        props << "margin-bottom:#{m}em"
       end
       # Significant whitespace (list indents, aligned columns) must survive
       # the reader's HTML collapsing.
@@ -227,6 +241,12 @@ module Crysterm
       # List the next `start_block`'s block joins (set by `li`, consumed by
       # the first block opened inside it).
       @pending_item : TextListFormat?
+      # Block format parsed off the `li` element itself (margins/alignment),
+      # consumed together with `@pending_item`.
+      @pending_item_format : TextBlockFormat?
+      # Blank rows owed to the next block's `top_margin` (accumulated from
+      # empty spacing `<p></p>`s — the margins re-base).
+      @pending_margin = 0
 
       def initialize(@theme : TextTheme)
       end
@@ -275,6 +295,15 @@ module Crysterm
         when "p", "div"
           bf, collapse = block_format_from(node)
           end_block
+          # An empty, unstyled, top-level paragraph is spacing, not content
+          # (hand-written HTML's separator): it becomes a top margin on
+          # whatever block follows. Styled or nested empty paragraphs stay
+          # real blocks (a quoted blank line renders its quote bar).
+          if @quote_depth == 0 && @list_stack.empty? &&
+             bf == TextBlockFormat.default && spacing_only?(node)
+            @pending_margin += 1
+            return
+          end
           start_block(bf, collapse)
           walk_children(node)
           end_block
@@ -292,7 +321,8 @@ module Crysterm
           start_block(bf, collapse)
         when "hr"
           end_block
-          start_block TextBlockFormat.new(horizontal_rule: true)
+          bf, _ = block_format_from(node)
+          start_block bf.merge(TextBlockFormat.new(horizontal_rule: true))
           end_block
         when "pre"
           end_block
@@ -324,9 +354,13 @@ module Crysterm
           # its text, or by a wrapping `<p>` (loose lists) — so no eager
           # `start_block` here: it would emit an empty member block.
           @pending_item = @list_stack.last?
+          # The li's own styles (margins, alignment) ride along.
+          ibf, _ = block_format_from(node)
+          @pending_item_format = ibf == TextBlockFormat.default ? nil : ibf
           walk_children(node)
           end_block
           @pending_item = nil
+          @pending_item_format = nil
         when "b", "strong"
           with_patch(TextCharFormat.new(bold: true)) { walk_children(node) }
         when "i", "em"
@@ -395,6 +429,10 @@ module Crysterm
         header ||= body.shift?
         return unless header
         bs = TextTable.build(header, body, nil, @theme)
+        if @pending_margin > 0
+          bs[0].block_format = bs[0].block_format.merge(TextBlockFormat.new(top_margin: @pending_margin))
+          @pending_margin = 0
+        end
         if @quote_depth > 0
           q = TextBlockFormat.new(quote_level: @quote_depth)
           bs.each { |b| b.block_format = b.block_format.merge(q) }
@@ -420,9 +458,19 @@ module Crysterm
 
       private def start_block(bf : TextBlockFormat = TextBlockFormat.default, collapse : Bool = true) : Nil
         @frags = [] of TextFragment
+        if @pending_margin > 0
+          bf = bf.merge(TextBlockFormat.new(top_margin: bf.top_margin + @pending_margin))
+          @pending_margin = 0
+        end
         bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
         if li = @pending_item
-          # An item's first block is the list item proper.
+          # An item's first block is the list item proper; the li element's
+          # own block styles apply under the block's (a loose item's `<p>`
+          # wins where both specify).
+          if ibf = @pending_item_format
+            bf = ibf.merge(bf)
+            @pending_item_format = nil
+          end
           bf = bf.merge(TextBlockFormat.new(list_format: li))
           @pending_item = nil
         elsif !@list_stack.empty?
@@ -486,6 +534,18 @@ module Crysterm
         last.nil? || last.text.ends_with?(' ')
       end
 
+      # Whether an element holds nothing but (collapsible) whitespace — the
+      # empty `<p></p>` spacing test.
+      private def spacing_only?(node : HTML5::Node) : Bool
+        child = node.first_child
+        while child
+          return false if child.type.element?
+          return false if child.type.text? && !child.data.gsub(TextHtml::WS_RUN, "").empty?
+          child = child.next_sibling
+        end
+        true
+      end
+
       private def plain_text_of(node : HTML5::Node) : String
         String.build { |io| collect_text(node, io) }
       end
@@ -510,6 +570,7 @@ module Crysterm
       private def block_format_from(node : HTML5::Node, heading : Int32 = 0) : {TextBlockFormat, Bool}
         align = nil
         bg = nil
+        mt = mb = nil
         collapse = true
         if st = attr_val(node, "style")
           st.split(';').each do |decl|
@@ -520,6 +581,10 @@ module Crysterm
               align = align_flag(v.downcase) || align
             when "background-color", "background"
               bg = css_color(v) || bg
+            when "margin-top"
+              mt = css_rows(v) || mt
+            when "margin-bottom"
+              mb = css_rows(v) || mb
             when "white-space"
               collapse = !v.downcase.starts_with?("pre")
             end
@@ -529,8 +594,21 @@ module Crysterm
           align = align_flag(av.downcase) || align
         end
         bf = TextBlockFormat.new(alignment: align, bg: bg,
+          top_margin: mt, bottom_margin: mb,
           heading_level: heading > 0 ? heading : nil)
         {bf, collapse}
+      end
+
+      # CSS length → blank rows: bare numbers and `em`/`rem`/`lh` count 1:1
+      # (the exporter emits `em`), `px` assumes a 16px row. `nil` (ignored)
+      # otherwise — incl. `0`, which is "no margin", not a margin of 0 rows.
+      private def css_rows(v : String) : Int32?
+        if md = v.strip.downcase.match(/\A(\d+(?:\.\d+)?)(em|rem|lh|px)?\z/)
+          n = md[1].to_f
+          n /= 16 if md[2]? == "px"
+          rows = n.round.to_i
+          rows > 0 ? rows : nil
+        end
       end
 
       private def align_flag(name : String) : Tput::AlignFlag?

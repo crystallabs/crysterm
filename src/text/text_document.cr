@@ -30,6 +30,21 @@ module Crysterm
       WholeWords
     end
 
+    # How an `Event::ContentsChange` affected document positions — what a
+    # view needs to keep its own flat `Int32` caret adjusted the way
+    # registered `TextCursor`s are (they get this same treatment internally):
+    #
+    # - `Edit`: a structural edit; positions at/after it shift (insertions
+    #   push forward, positions inside a removed range collapse to its start).
+    # - `Format`: format-only; the range re-renders but positions don't move.
+    # - `Replace`: the whole content was swapped (`set_plain_text`,
+    #   interchange setters); cursors rewind to the start.
+    enum ChangeKind
+      Edit
+      Format
+      Replace
+    end
+
     getter undo_stack : TextUndoStack
 
     # Root frame owning the block list. Lazy so it can capture `self`.
@@ -56,6 +71,17 @@ module Crysterm
 
     def blocks : Array(TextBlock)
       root_frame.blocks
+    end
+
+    # The innermost frame containing *pos* (Qt `frameAt`): a child-frame view
+    # from the block's frame path, or the root frame.
+    def frame_at(pos : Int32) : TextFrame
+      path = blocks[block_at(pos)[0]].block_format.frame_formats
+      if path && (inner = path.last?)
+        TextFrame.new(self, inner, child: true)
+      else
+        root_frame
+      end
     end
 
     def block_count : Int32
@@ -173,7 +199,7 @@ module Crysterm
       new_blocks.empty? ? (bs << TextBlock.new) : bs.concat(new_blocks)
       each_cursor &.rewind_to_start
       @undo_stack.clear
-      finish_edit(0, old_size, size, adjust: false)
+      finish_edit(0, old_size, size, kind: :replace)
       refresh_undo_state
     end
 
@@ -414,7 +440,7 @@ module Crysterm
       end
       # Qt reports format changes as removed == added == length; cursor
       # positions are unaffected.
-      finish_edit(from, to - from, to - from, adjust: false)
+      finish_edit(from, to - from, to - from, kind: :format)
     end
 
     protected def raw_apply_block_format(from : Int32, to : Int32, format : TextBlockFormat, merge : Bool) : Nil
@@ -424,12 +450,12 @@ module Crysterm
         b = blocks[i]
         b.block_format = merge ? b.block_format.merge(format) : format
       end
-      finish_edit(from, to - from, to - from, adjust: false)
+      finish_edit(from, to - from, to - from, kind: :format)
     end
 
     protected def raw_set_block_format_at(pos : Int32, format : TextBlockFormat) : Nil
       blocks[block_at(pos)[0]].block_format = format
-      finish_edit(pos, 0, 0, adjust: false)
+      finish_edit(pos, 0, 0, kind: :format)
     end
 
     # === Cursor registry ===
@@ -493,18 +519,21 @@ module Crysterm
     end
 
     # Common tail of every raw edit: drop the position index, shift live
-    # cursors, emit change signals. Format-only changes pass `adjust: false` —
-    # they report a changed range but must not move cursors within it.
-    private def finish_edit(pos : Int32, removed : Int32, added : Int32, adjust : Bool = true) : Nil
+    # cursors, emit change signals. `kind` says how positions were affected
+    # (`ChangeKind`) — only `Edit` shifts cursors; `Format` reports a changed
+    # range but must not move cursors within it, and `Replace` already rewound
+    # them. The kind rides on `ContentsChange` so views can mirror the same
+    # adjustment on their own carets.
+    private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
       @block_offsets = nil
-      if adjust && (removed > 0 || added > 0)
+      if kind.edit? && (removed > 0 || added > 0)
         each_cursor &.adjust(pos, removed, added)
       end
       if block_count != @last_block_count
         @last_block_count = block_count
         emit Crysterm::Event::BlockCountChange, block_count
       end
-      emit Crysterm::Event::ContentsChange, pos, removed, added
+      emit Crysterm::Event::ContentsChange, pos, removed, added, kind
     end
 
     private def word_boundaries_ok?(text : String, i : Int32, len : Int32, flags : FindFlag) : Bool

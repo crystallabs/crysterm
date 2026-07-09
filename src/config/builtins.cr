@@ -103,6 +103,8 @@ module Superconf
     validate: ->(n : Int32) { n > 0 }
   option "render.synchronized_output", true,
     description: "Bracket each painted frame in a DEC 2026 synchronized update (\\e[?2026h … \\e[?2026l) so the terminal presents it atomically (no flicker/tearing on a multi-write redraw). Harmless and ignored on terminals that don't support it; set false to opt out globally"
+  option "render.hyperlinks", true,
+    description: "Emit OSC 8 hyperlink escapes for cells carrying a link (e.g. anchors in Widget::TextEdit/TextBrowser), so supporting terminals make them clickable/hoverable. Ignored (harmless) on terminals without OSC 8 support; set false to opt out globally"
   option "render.reduced_motion", false,
     description: "Honor a reduced-motion preference: collapse duration-based animations (CSS transitions, fades, tweens) straight to their final state instead of animating. Decorative looping effects and media playback keep running"
 

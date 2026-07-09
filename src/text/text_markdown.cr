@@ -13,9 +13,13 @@ module Crysterm
   # - Headings → `TextBlockFormat#heading_level` + theme heading color.
   # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans also get the
   #   theme code colors); images degrade to their alt text.
-  # - Paragraph spacing → literal empty separator blocks (kept from Phase 3;
-  #   HTML cross-conversion relies on it); a hard line break starts a new
-  #   block with no separator.
+  # - Paragraph spacing → `TextBlockFormat#top_margin` on the block that
+  #   follows (the margins re-base; exporters read the margins back as blank
+  #   lines, and HTML carries them as `margin-*` styles, so the formats stay
+  #   cross-convertible). Spacing *interior* to a quote (a heading or code
+  #   fence inside a blockquote) stays a literal quote-level separator block —
+  #   it is quoted content and renders the quote bar. A hard line break
+  #   starts a new block with neither.
   # - Lists → one `TextList` per markdown list (disc/decimal style, nesting
   #   via `TextListFormat#indent`); the widget renders markers/indent as
   #   decorations. An item's continuation blocks get a plain block indent
@@ -69,8 +73,10 @@ module Crysterm
       @pending_marker : {String, TextCharFormat}?
       # Chars of a task-list `[x] ` marker still to strip from upcoming text.
       @strip_task = 0
-      # Whether any block was emitted (suppresses the first separator).
+      # Whether any block was emitted (suppresses spacing before the first).
       @emitted = false
+      # Top-level spacing owed to the next emitted block (its `top_margin`).
+      @pending_margin = false
 
       def initialize(@theme : TextTheme)
       end
@@ -182,18 +188,31 @@ module Crysterm
         @list_stack.empty? && @quote_depth == 0
       end
 
-      # The empty block that renders paragraph spacing. Kept literal (not
-      # block margins) so HTML cross-conversion — where spacing is explicit
-      # markup — stays symmetric.
+      # Paragraph spacing before the next structure: at top level a
+      # `top_margin` on its first block (rendered as a blank row holding no
+      # positions); inside a quote a literal quote-level separator block —
+      # that blank line is quoted content and renders the quote bar (a
+      # margin row would not). Suppressed before the very first structure.
       private def separator : Nil
-        if @emitted
+        return unless @emitted
+        if top_level?
+          @pending_margin = true
+        else
           bf = @quote_depth > 0 ? TextBlockFormat.new(quote_level: @quote_depth) : TextBlockFormat.default
           @blocks << TextBlock.new("", block_format: bf)
         end
       end
 
+      # Consumes any owed top-level spacing into *bf*.
+      private def take_margin(bf : TextBlockFormat) : TextBlockFormat
+        return bf unless @pending_margin
+        @pending_margin = false
+        bf.merge(TextBlockFormat.new(top_margin: 1))
+      end
+
       private def start_block(bf : TextBlockFormat = TextBlockFormat.default) : Nil
         @frags = [] of TextFragment
+        bf = take_margin(bf)
         bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
         if li = @pending_item
           # An item's first block is the list item proper.
@@ -223,6 +242,7 @@ module Crysterm
       # its plain text (markd never parsed it).
       private def import_table(txt : String) : Nil
         bs = TextTable.build_from_gfm(txt, @theme) || return
+        bs[0].block_format = take_margin(bs[0].block_format)
         if @quote_depth > 0
           q = TextBlockFormat.new(quote_level: @quote_depth)
           bs.each { |b| b.block_format = b.block_format.merge(q) }
@@ -318,7 +338,16 @@ module Crysterm
         String.build do |io|
           i = 0
           while i < blocks.size
-            io << '\n' if i > 0
+            if i > 0
+              io << '\n'
+              # Paragraph spacing is block margins; any margin at the
+              # boundary reads back as one blank line (markdown can't say
+              # more). A rule block always gets one — `---` directly under
+              # a paragraph line would re-parse as a setext heading.
+              io << '\n' if blocks[i - 1].block_format.bottom_margin > 0 ||
+                            blocks[i].block_format.top_margin > 0 ||
+                            blocks[i].block_format.horizontal_rule?
+            end
             if code_line?(blocks[i])
               io << "```\n"
               while i < blocks.size && code_line?(blocks[i])

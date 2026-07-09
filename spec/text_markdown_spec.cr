@@ -13,12 +13,16 @@ end
 
 describe Crysterm::TextMarkdown do
   describe ".parse" do
-    it "maps headings to heading_level with a separator between blocks" do
+    it "maps headings to heading_level with margin spacing between blocks" do
       doc = md_doc "# Title\n\nBody text"
       doc.blocks[0].block_format.heading_level.should eq 1
       doc.blocks[0].text.should eq "Title"
-      doc.blocks[1].text.should eq "" # paragraph spacing = empty separator block
-      doc.blocks[2].text.should eq "Body text"
+      # Paragraph spacing = a top margin on the following block, not a
+      # literal empty separator block (the margins re-base).
+      doc.block_count.should eq 2
+      doc.blocks[1].text.should eq "Body text"
+      doc.blocks[1].block_format.top_margin.should eq 1
+      doc.blocks[0].block_format.top_margin.should eq 0
     end
 
     it "maps emphasis to char formats" do
@@ -68,9 +72,10 @@ describe Crysterm::TextMarkdown do
       list = TextList.new(doc, lf)
       list.marker_text(doc.blocks[1]).should eq "2. "
       # Task items stay literal marker prefixes (no checkbox list style).
-      doc.blocks[3].text.should eq "☑ done"
-      doc.blocks[4].text.should eq "☐ todo"
-      doc.blocks[3].block_format.list_format.should be_nil
+      doc.blocks[2].text.should eq "☑ done"
+      doc.blocks[2].block_format.top_margin.should eq 1
+      doc.blocks[3].text.should eq "☐ todo"
+      doc.blocks[2].block_format.list_format.should be_nil
     end
 
     it "imports blockquotes as quote levels and rules as rule blocks" do
@@ -78,8 +83,9 @@ describe Crysterm::TextMarkdown do
       doc.blocks[0].text.should eq "quoted"
       doc.blocks[0].block_format.quote_level.should eq 1
       doc.blocks[1].block_format.quote_level.should eq 2
-      doc.blocks[3].block_format.horizontal_rule?.should be_true
-      doc.blocks[3].text.should eq ""
+      doc.blocks[2].block_format.horizontal_rule?.should be_true
+      doc.blocks[2].block_format.top_margin.should eq 1
+      doc.blocks[2].text.should eq ""
     end
 
     it "imports fenced code as code-bg blocks, one per line" do

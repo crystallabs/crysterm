@@ -150,6 +150,14 @@ module Crysterm
     # instance identity convention as `list_format` (see `TextTable`).
     getter table_format : TextTableFormat?
 
+    # The block's frame *path*: the chain of child frames containing it,
+    # outermost first — nil/empty means the block sits directly in the
+    # document's root frame. Same shared-instance identity convention as
+    # `list_format`: all blocks of one frame reference the same
+    # `TextFrameFormat` instance (see `TextFrame`), so splits/merges, undo
+    # and clipboard fragments preserve frame membership for free.
+    getter frame_formats : Array(TextFrameFormat)?
+
     # Shared all-defaults instance.
     class_getter default : TextBlockFormat { new }
 
@@ -174,6 +182,7 @@ module Crysterm
       horizontal_rule : Bool? = nil,
       list_format : TextListFormat? = nil,
       table_format : TextTableFormat? = nil,
+      frame_formats : Array(TextFrameFormat)? = nil,
     )
       @indent = indent
       @top_margin = top_margin
@@ -185,6 +194,7 @@ module Crysterm
       @horizontal_rule = horizontal_rule
       @list_format = list_format
       @table_format = table_format
+      @frame_formats = frame_formats
     end
 
     # Indentation in cells (levels are the widget's concern).
@@ -232,7 +242,8 @@ module Crysterm
     end
 
     # Returns this format overridden by `patch`: properties `patch` specifies
-    # (non-nil) win, the rest are kept.
+    # (non-nil) win, the rest are kept. The frame path replaces wholesale (a
+    # patch with `frame_formats` moves the block to that exact nesting).
     def merge(patch : TextBlockFormat) : TextBlockFormat
       TextBlockFormat.new(
         alignment: patch.alignment || @alignment,
@@ -246,6 +257,7 @@ module Crysterm
         horizontal_rule: patch.@horizontal_rule || @horizontal_rule,
         list_format: patch.list_format || @list_format,
         table_format: patch.table_format || @table_format,
+        frame_formats: patch.frame_formats || @frame_formats,
       )
     end
 
@@ -258,10 +270,21 @@ module Crysterm
         bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, list_format: lf,
-        table_format: @table_format)
+        table_format: @table_format, frame_formats: @frame_formats)
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @list_format, @table_format
+    # A copy with the frame path replaced (or `nil` — moved to the root
+    # frame). `#merge` can't express clearing, same as `#with_list_format`.
+    def with_frame_formats(ff : Array(TextFrameFormat)?) : TextBlockFormat
+      TextBlockFormat.new(
+        alignment: @alignment, indent: @indent, top_margin: @top_margin,
+        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
+        non_breakable: @non_breakable, quote_level: @quote_level,
+        horizontal_rule: @horizontal_rule, list_format: @list_format,
+        table_format: @table_format, frame_formats: ff)
+    end
+
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @list_format, @table_format, @frame_formats
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering

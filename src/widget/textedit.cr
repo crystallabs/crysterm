@@ -46,23 +46,50 @@ module Crysterm
       # levels deep) — the terminal stand-in for Qt's per-level pixel indent.
       LIST_INDENT_CELLS = 2
 
+      # Which marker patterns typed at the start of a block auto-convert it
+      # into a list item (see `#auto_formatting`). Qt's `AutoFormattingFlag`
+      # has only `AutoBulletList`; `NumberedList` (`"1. "`, `"1) "`) is an
+      # extension in the same spirit.
+      @[Flags]
+      enum AutoFormatting
+        # `- `, `* ` or `+ ` at block start starts a disc list.
+        BulletList
+        # `N. ` or `N) ` at block start starts a decimal list at N.
+        NumberedList
+      end
+
+      # Enables auto-formatting while typing (Qt `QTextEdit::autoFormatting`;
+      # default `None`, as in Qt): typing a list marker followed by a space
+      # at the start of a plain block converts the block into a fresh list
+      # item — the marker text is removed and re-appears as the rendered
+      # list decoration. One undo step reverts the conversion (restoring the
+      # typed marker text), a second removes the marker keystrokes.
+      property auto_formatting : AutoFormatting = AutoFormatting::None
+
       # Per-display-row decoration metadata, parallel to `@_clines`
       # (TEXTEDIT.md Phase 4). `offset` is the column where the row's text
-      # starts (quote bars + indents + list marker + alignment shift) — what
-      # the shared geometry reads through `#row_text_x_offset`; `marker` is
-      # the list marker painted at the text's left edge (first row of a list
-      # item only); a `margin` row is a blank block-margin row holding no
-      # buffer positions.
+      # starts (frame insets + quote bars + indents + list marker + alignment
+      # shift) — what the shared geometry reads through `#row_text_x_offset`;
+      # `marker` is the list marker painted at the text's left edge (first
+      # row of a list item only); a `margin` row is a blank row holding no
+      # buffer positions (block margins and frame border rows). `fborder`
+      # marks a frame border row: `{path index of the frame, top?}` — painted
+      # as the frame's horizontal border with corners, the enclosing frames'
+      # side bars running through it.
       private record RowMeta,
         offset : Int32,
         marker : String? = nil,
-        margin : Bool = false
+        margin : Bool = false,
+        fborder : Tuple(Int32, Bool)? = nil
 
-      # One block's cached wrap plus the decoration width it was wrapped
+      # One block's cached wrap plus the decoration widths it was wrapped
       # for — list renumbering can change a marker's width (`"9. "` →
-      # `"10. "`) without touching the block, so a mismatch forces a re-wrap.
+      # `"10. "`) without touching the block, so a mismatch forces a re-wrap;
+      # `rdeco` is the right-side inset (frame borders/margins), which
+      # shrinks the wrap width the same way.
       private record BlockLayout,
         deco : Int32,
+        rdeco : Int32,
         lines : CLines
 
       # Colors for the structural decorations this widget paints itself
@@ -163,7 +190,7 @@ module Crysterm
 
       private def wire_document : Nil
         @ev_contents_change = document.on(Crysterm::Event::ContentsChange) do |e|
-          on_contents_change(e.position, e.chars_removed, e.chars_added)
+          on_contents_change(e.position, e.chars_removed, e.chars_added, e.kind)
         end
       end
 
@@ -183,7 +210,14 @@ module Crysterm
       # wrap, so the touched blocks must re-wrap. Decoration-width fallout on
       # *other* blocks (list renumbering) is caught by `BlockLayout#deco`
       # comparison in `#rebuild_layout` instead.
-      private def on_contents_change(pos : Int32, removed : Int32, added : Int32) : Nil
+      #
+      # The caret also follows here: an edit made by another actor on a
+      # shared document (a second view, a `TextCursor`, direct document
+      # calls) shifts this view's caret/selection like a registered cursor
+      # (see `DocumentBuffer#follow_document_change`); the widget's own edits
+      # are skipped — the mixin moves the caret itself.
+      private def on_contents_change(pos : Int32, removed : Int32, added : Int32, kind : TextDocument::ChangeKind) : Nil
+        follow_document_change(kind, pos, removed, added)
         @doc_revision += 1
         blocks = document.blocks
         b1 = document.block_at(pos)[0]
@@ -253,6 +287,10 @@ module Crysterm
 
         fresh = @block_layouts_swap
         fresh.clear
+        # Frame path of the previous block — boundary rows (frame borders)
+        # are emitted where consecutive blocks' paths diverge.
+        empty_path = [] of TextFrameFormat
+        prev_path = empty_path
         document.blocks.each_with_index do |blk, bi|
           bf = blk.block_format
           marker = nil
@@ -262,9 +300,35 @@ module Crysterm
             marker = lf.marker(n, tier)
           end
           deco = block_deco_cells(bf, marker)
+          rdeco = frame_inset(bf)
           entry = @block_layouts[blk.object_id]?
-          bl = entry && entry.deco == deco ? entry.lines : wrap_block(blk, Math.max(colwidth - deco, 2))
-          fresh[blk.object_id] = BlockLayout.new(deco, bl)
+          bl = entry && entry.deco == deco && entry.rdeco == rdeco ? entry.lines : wrap_block(blk, Math.max(colwidth - deco - rdeco, 2))
+          fresh[blk.object_id] = BlockLayout.new(deco, rdeco, bl)
+
+          # Frame boundary rows: close the frames the previous block was in
+          # and this one isn't (bottom borders, innermost first, attached to
+          # the previous block), then open this block's new frames (top
+          # borders, outermost first). Borderless frames add no row.
+          path = bf.frame_formats || empty_path
+          unless path.same?(prev_path) || (path.empty? && prev_path.empty?)
+            common = 0
+            while common < prev_path.size && common < path.size && prev_path[common].same?(path[common])
+              common += 1
+            end
+            (prev_path.size - 1).downto(common) do |i|
+              next unless prev_path[i].border?
+              cl.rtof << bi - 1
+              meta << RowMeta.new(0, margin: true, fborder: {i, false})
+              cl.push ""
+            end
+            (common...path.size).each do |i|
+              next unless path[i].border?
+              cl.rtof << bi
+              meta << RowMeta.new(0, margin: true, fborder: {i, true})
+              cl.push ""
+            end
+          end
+          prev_path = path
 
           bf.top_margin.times do
             cl.rtof << bi
@@ -278,7 +342,7 @@ module Crysterm
           # has no stable meaning.
           align = bf.alignment
           align = nil unless wrap_content? && align && (align.h_center? || align.right?)
-          avail = Math.max(colwidth - deco, 0)
+          avail = Math.max(colwidth - deco - rdeco, 0)
 
           row_ids = cl.take_ftor_row
           first = true
@@ -303,8 +367,19 @@ module Crysterm
             cl.push ""
           end
 
-          full_width = Math.max(full_width, bl.full_width + deco)
-          max_width = Math.max(max_width, bl.max_width + deco)
+          full_width = Math.max(full_width, bl.full_width + deco + rdeco)
+          max_width = Math.max(max_width, bl.max_width + deco + rdeco)
+        end
+        # Close the frames still open past the last block (bottom borders,
+        # innermost first).
+        unless prev_path.empty?
+          last_bi = document.block_count - 1
+          (prev_path.size - 1).downto(0) do |i|
+            next unless prev_path[i].border?
+            cl.rtof << last_bi
+            meta << RowMeta.new(0, margin: true, fborder: {i, false})
+            cl.push ""
+          end
         end
         @block_layouts, @block_layouts_swap = fresh, @block_layouts
 
@@ -337,15 +412,26 @@ module Crysterm
         _wrap_content(text, wrap_width)
       end
 
-      # Decoration cells left of a block's text: quote bars (2 per level),
-      # list nesting indent, plain block indent, and the list marker.
+      # Decoration cells left of a block's text: frame insets (borders +
+      # margins, outermost first), quote bars (2 per level), list nesting
+      # indent, plain block indent, and the list marker.
       private def block_deco_cells(bf : TextBlockFormat, marker : String?) : Int32
-        deco = bf.quote_level * 2 + bf.indent
+        deco = frame_inset(bf) + bf.quote_level * 2 + bf.indent
         if lf = bf.list_format
           deco += (lf.indent - 1) * LIST_INDENT_CELLS
         end
         deco += str_width(marker) if marker
         deco
+      end
+
+      # Horizontal inset one side of a block's frame nesting consumes: 2
+      # cells per bordered level (bar + gap) plus each level's margin. Frames
+      # are symmetric, so this is both the left and the right inset.
+      private def frame_inset(bf : TextBlockFormat) : Int32
+        path = bf.frame_formats || return 0
+        w = 0
+        path.each { |f| w += (f.border? ? 2 : 0) + f.margin }
+        w
       end
 
       # === Geometry hooks (see `Mixin::TextEditing`) ===
@@ -430,10 +516,16 @@ module Crysterm
           rl = coords.base + (y - yi)
           next if rl < 0 || rl >= @_clines.size
           meta = @row_meta[rl]?
-          # A block-margin row is pure spacing: the base fill painted it.
-          next if meta.try(&.margin)
           bi = @_clines.rtof[rl]? || next
           blk = document.blocks[bi]? || next
+
+          # A margin row is pure spacing (the base fill painted it), but
+          # frame chrome runs through it: enclosing frames' side bars, and —
+          # on an `fborder` row — the frame's horizontal border with corners.
+          if meta && meta.margin
+            paint_frame_margin_row(line, xi, region_w, meta, blk.block_format.frame_formats, base_attr)
+            next
+          end
 
           if bi != last_bi
             last_bi = bi
@@ -455,13 +547,20 @@ module Crysterm
           offset = meta.try(&.offset) || 0
           paint_decorations(line, xi, region_w, meta, bfmt, base_attr, full_fmt, bch) if meta && offset > 0
 
+          # Right-side frame bars sit at fixed columns from the region's
+          # right edge; the wrap width already keeps text (and the bounded
+          # fills below) off them.
+          rin = frame_inset(bfmt)
+          paint_frame_right_bars(line, xi, region_w, bfmt.frame_formats, base_attr) if rin > 0
+          inner_r = region_w - rin
+
           if bfmt.horizontal_rule?
             # The whole row (past any decorations) is a rule glyph fill; the
             # block's own text is conventionally empty and not painted.
             rattr = deco_attr(theme.rule_color, base_attr, block_bg, full_fmt)
             rc = glyph(Glyphs::Role::LineHorizontal)
             c2 = Math.max(offset - @child_base_x, 0)
-            while c2 < region_w
+            while c2 < inner_r
               line[xi + c2]?.try &.set_if_changed(rattr, rc)
               c2 += 1
             end
@@ -480,7 +579,8 @@ module Crysterm
           lp = ls # block-local codepoint offset (indexes `runs`)
           ri = 0  # current format run
           run_attr = base_attr
-          run_hi = -1 # `lp` bound the cached `run_attr` is valid below
+          run_link = 0_u16 # OSC 8 link id of the current run (see `Window#link_id`)
+          run_hi = -1      # `lp` bound the cached `run_attr` is valid below
 
           each_glyph(row_text, fu) do |ch, cluster, cps|
             break if col >= region_w
@@ -492,9 +592,13 @@ module Crysterm
               if ri < runs.size && lp >= runs[ri][0]
                 run_hi = runs[ri][1]
                 run_attr = pack_char_attr(runs[ri][2], base_attr, block_bg, heading)
+                # Anchor runs also carry their target as a cell hyperlink, so
+                # the draw loop emits OSC 8 around them (0 when links are off).
+                run_link = (href = runs[ri][2].anchor_href) ? scr.link_id(href) : 0_u16
               else
                 run_hi = Int32::MAX
                 run_attr = pack_char_attr(nil, base_attr, block_bg, heading)
+                run_link = 0_u16
               end
             end
 
@@ -503,6 +607,7 @@ module Crysterm
                 break if col >= region_w
                 if col >= 0 && (cell = line[xi + col]?)
                   cell.set_if_changed(overlay_attr(run_attr, col, sel_cols, row_xsels, full_fmt), tc)
+                  cell.link = run_link
                 end
                 col += 1
               end
@@ -544,6 +649,9 @@ module Crysterm
               else
                 cell.set_if_changed(pattr, ch)
               end
+              # The link is re-asserted after every content write (which
+              # clears it); painted after the write on purpose.
+              cell.link = run_link
               painted_lead = true
             end
 
@@ -560,6 +668,8 @@ module Crysterm
                   # lead would desync the row — paint a plain blank instead.
                   nxt.set_if_changed(nattr, ' ')
                 end
+                # A linked wide glyph covers both of its cells.
+                nxt.link = run_link
               end
             end
 
@@ -569,11 +679,12 @@ module Crysterm
 
           # Trailing cells past the text: normally the base fill already
           # painted them, but a block background or a full-width extra
-          # selection (current-line highlight) must extend to the region edge.
+          # selection (current-line highlight) must extend to the region edge
+          # (up to any frame's right inset).
           if block_bg || full_fmt
             trail = pack_char_attr(nil, base_attr, block_bg, heading)
             c2 = Math.max(col, 0)
-            while c2 < region_w
+            while c2 < inner_r
               if cell = line[xi + c2]?
                 cell.set_if_changed(overlay_attr(trail, c2, sel_cols, row_xsels, full_fmt), bch)
               end
@@ -583,11 +694,12 @@ module Crysterm
         end
       end
 
-      # Paints the row's decoration columns `[0, offset)`: quote bars on
-      # every row, the list marker right-aligned to the text's left edge
-      # (first row of its block only), and — when the block carries a
-      # background or a full-width overlay — the fill between them. Gap cells
-      # without either are left to the base fill.
+      # Paints the row's decoration columns `[0, offset)`: enclosing frames'
+      # left bars first (outermost at column 0), then quote bars, the list
+      # marker right-aligned to the text's left edge (first row of its block
+      # only), and — when the block carries a background or a full-width
+      # overlay — the fill between them. Gap cells without either are left
+      # to the base fill.
       private def paint_decorations(line, xi : Int32, region_w : Int32, meta : RowMeta, bfmt : TextBlockFormat, base_attr : Int64, full_fmt : TextCharFormat?, bch : Char) : Nil
         off = meta.offset
         block_bg = bfmt.bg
@@ -600,18 +712,104 @@ module Crysterm
         gap_attr = full_fmt ? merge_format_attr(pack_char_attr(nil, base_attr, block_bg, false), full_fmt) : pack_char_attr(nil, base_attr, block_bg, false)
         fill_gaps = block_bg || full_fmt
 
-        (0...off).each do |dcol|
+        # Frame region `[0, foff)`: one bar per bordered level; margins and
+        # bar gaps stay on the base fill (frames sit outside the block's own
+        # background).
+        foff = 0
+        if path = bfmt.frame_formats
+          fattr = deco_attr(theme.rule_color, base_attr, nil, full_fmt)
+          path.each do |f|
+            if f.border?
+              vc = foff - @child_base_x
+              if vc >= 0 && vc < region_w && (cell = line[xi + vc]?)
+                cell.set_if_changed(fattr, bar)
+              end
+            end
+            foff += (f.border? ? 2 : 0) + f.margin
+          end
+        end
+
+        (foff...off).each do |dcol|
           vc = dcol - @child_base_x
           next if vc < 0
           break if vc >= region_w
           cell = line[xi + vc]? || next
-          if dcol < qcols && dcol.even?
+          if dcol - foff < qcols && (dcol - foff).even?
             cell.set_if_changed(bar_attr, bar)
           elsif marker && dcol >= off - mw
             # Marker glyphs are single-width (bullets, digits, letters).
             cell.set_if_changed(marker_attr, marker[dcol - (off - mw)])
           elsif fill_gaps
             cell.set_if_changed(gap_attr, bch)
+          end
+        end
+      end
+
+      # Paints the right-side bars of a block's bordered frames — fixed
+      # columns from the region's right edge (the mirror of the left bars in
+      # `#paint_decorations`).
+      private def paint_frame_right_bars(line, xi : Int32, region_w : Int32, path : Array(TextFrameFormat)?, base_attr : Int64) : Nil
+        return unless path
+        bar = glyph(Glyphs::Role::LineVertical)
+        fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
+        off = 0
+        path.each do |f|
+          if f.border?
+            vc = region_w - 1 - off
+            if vc >= 0 && (cell = line[xi + vc]?)
+              cell.set_if_changed(fattr, bar)
+            end
+          end
+          off += (f.border? ? 2 : 0) + f.margin
+        end
+      end
+
+      # Paints a positionless (margin/border) row's frame chrome. A plain
+      # block-margin row inside frames gets the enclosing bordered frames'
+      # side bars; an `fborder` row additionally draws frame *depth*'s
+      # horizontal border line with corners, with only the frames *outside*
+      # it running their bars through.
+      private def paint_frame_margin_row(line, xi : Int32, region_w : Int32, meta : RowMeta, path : Array(TextFrameFormat)?, base_attr : Int64) : Nil
+        return unless path && !path.empty?
+        fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
+        bar = glyph(Glyphs::Role::LineVertical)
+        depth = path.size
+        border_of = nil.as(Tuple(Int32, Bool)?)
+        if fb = meta.fborder
+          depth = fb[0]
+          border_of = fb
+        end
+
+        off = 0
+        (0...depth).each do |i|
+          f = path[i]
+          if f.border?
+            vc = off - @child_base_x
+            if vc >= 0 && vc < region_w && (cell = line[xi + vc]?)
+              cell.set_if_changed(fattr, bar)
+            end
+            vr = region_w - 1 - off
+            if vr >= 0 && (cell = line[xi + vr]?)
+              cell.set_if_changed(fattr, bar)
+            end
+          end
+          off += (f.border? ? 2 : 0) + f.margin
+        end
+
+        if border_of
+          l = off
+          r = region_w - 1 - off
+          return if r <= l
+          top = border_of[1]
+          lc = glyph(top ? Glyphs::Role::BorderLineTL : Glyphs::Role::BorderLineBL)
+          rc = glyph(top ? Glyphs::Role::BorderLineTR : Glyphs::Role::BorderLineBR)
+          h = glyph(Glyphs::Role::LineHorizontal)
+          (l..r).each do |dcol|
+            vc = dcol - @child_base_x
+            next if vc < 0
+            break if vc >= region_w
+            cell = line[xi + vc]? || next
+            cell.set_if_changed(fattr, dcol == l ? lc : (dcol == r ? rc : h))
           end
         end
       end
@@ -673,8 +871,10 @@ module Crysterm
 
       # The packed attr of one char: widget base attr + block background/
       # heading + the char format's SGR set. `dim` has no packed flag in the
-      # cell model and is not rendered; anchors render underlined (their
-      # click/OSC 8 behavior is `TextBrowser`/Phase 3+ territory).
+      # cell model and is not rendered; anchors render underlined and carry
+      # their target as a cell hyperlink (`run_link` above), which the draw
+      # loop wraps in OSC 8 on supporting terminals — click *activation*
+      # inside the TUI stays `TextBrowser` behavior.
       private def pack_char_attr(fmt : TextCharFormat?, base_attr : Int64, block_bg : Int32?, heading : Bool) : Int64
         flags = Attr.flags(base_attr)
         fg = Attr.fg(base_attr)
@@ -734,7 +934,11 @@ module Crysterm
 
       # Adds undo/redo on top of the shared editing keys: `C-z` undo, `M-z`
       # redo (`C-S-z` is indistinguishable from `C-z` on most terminals, per
-      # TEXTEDIT.md the emacs default `C-y` stays yank).
+      # TEXTEDIT.md the emacs default `C-y` stays yank) — plus the standard
+      # Qt list-editing behaviors: Enter on an empty list item and Backspace
+      # at an item's start take the block out of the list instead of
+      # splitting/joining blocks, and typing a list marker auto-formats when
+      # `#auto_formatting` enables it.
       def _listener(e)
         if !read_only? && (k = e.key)
           if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
@@ -754,7 +958,260 @@ module Crysterm
             return
           end
         end
+
+        # Table-aware routing: cell editing/navigation inside a table, and
+        # the guards that keep outside edits from tearing the box rendering.
+        return if !read_only? && table_guard(e)
+
+        if !read_only? && (k = e.key)
+          # Enter on an EMPTY list item exits the list (Qt: a return on an
+          # empty item outdents it) rather than opening another empty item;
+          # Backspace at the start of an item removes its bullet rather than
+          # joining it into the previous block. Both are plain block-format
+          # changes — one undo step, text untouched.
+          empty_item_exit = k == Tput::Key::Enter && caret_block_empty_list_item?
+          if !has_selection? && (empty_item_exit ||
+             ((k == Tput::Key::Backspace || k == Tput::Key::CtrlH) && caret_at_list_item_start?))
+            e.accept
+            kill_ring.interrupt if Crysterm::Config.input_readline_keys
+            clear_caret_list_membership
+            _update_cursor
+            return
+          end
+        end
         super
+        auto_format_list(e) if !read_only? && !@auto_formatting.none?
+      end
+
+      # Whether the caret's block is an empty list item.
+      private def caret_block_empty_list_item? : Bool
+        bi, _ = document.block_at(@cursor_pos)
+        blk = document.blocks[bi]
+        blk.size == 0 && !blk.block_format.list_format.nil?
+      end
+
+      # Whether the caret sits at the very start of a list item's text.
+      private def caret_at_list_item_start? : Bool
+        bi, off = document.block_at(@cursor_pos)
+        off == 0 && !document.blocks[bi].block_format.list_format.nil?
+      end
+
+      # Takes the caret's block out of its list (undoable); other block
+      # formatting stays. The document change drives relayout/repaint.
+      private def clear_caret_list_membership : Nil
+        bi, _ = document.block_at(@cursor_pos)
+        blk = document.blocks[bi]
+        pos = document.block_position(bi)
+        document.apply_block_format(pos, pos, blk.block_format.with_list_format(nil))
+      end
+
+      # The `#auto_formatting` hook, run after the shared key handling
+      # inserted the typed character: a space completing a list marker at
+      # the start of a plain block converts the block into a fresh
+      # single-item list. Marker removal + list format are one edit block,
+      # so a single undo restores the typed marker text.
+      private def auto_format_list(e) : Nil
+        return unless e.char == ' ' && e.key.nil?
+        bi, off = document.block_at(@cursor_pos)
+        return if off < 2
+        blk = document.blocks[bi]
+        bf = blk.block_format
+        return if bf.list_format || bf.table_format || bf.horizontal_rule?
+        prefix = blk.text[0, off]
+        lf =
+          if @auto_formatting.bullet_list? && prefix.matches?(/\A[-*+] \z/)
+            TextListFormat.new(style: :disc)
+          elsif @auto_formatting.numbered_list? && (m = prefix.match(/\A(\d{1,4})([.)]) \z/))
+            TextListFormat.new(style: :decimal, start: m[1].to_i, number_suffix: m[2])
+          end
+        return unless lf
+        bp = document.block_position(bi)
+        document.begin_edit_block
+        begin
+          # Removing the marker pulls this view's caret back to the block
+          # start via the shared caret follow (`follow_document_change` —
+          # a direct document edit, not a `buf_*` self-edit).
+          document.remove(bp, off)
+          document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
+        ensure
+          document.end_edit_block
+        end
+        emit Crysterm::Event::TextChange, buf_text
+        request_render
+        _update_cursor
+      end
+
+      # === Table editing (TEXTEDIT.md follow-up: editable tables + cell
+      # cursors). A `TextTable` is pre-rendered box-drawing blocks, so free
+      # editing would tear it; instead, editing keys inside a table become
+      # cell operations that re-render the padding through the table's
+      # undoable API (`TextTable#set_cell_text` & co.). ===
+
+      # The set of keys that edit content (vs. motion/copy) — what the table
+      # guards act on. `Tab`/`Enter` get table meanings; the kill/yank/
+      # clipboard-write keys have none and are absorbed inside a table.
+      private def table_editing_key?(k : Tput::Key) : Bool
+        k.in?(Tput::Key::Backspace, Tput::Key::CtrlH, Tput::Key::Delete,
+          Tput::Key::Enter, Tput::Key::Tab, Tput::Key::ShiftTab,
+          Tput::Key::CtrlX, Tput::Key::CtrlV, Tput::Key::CtrlW,
+          Tput::Key::CtrlU, Tput::Key::CtrlK, Tput::Key::AltD,
+          Tput::Key::CtrlY)
+      end
+
+      # Table-aware key routing. When the caret sits in a table: typing,
+      # Backspace and Delete edit the caret's cell (padding re-rendered, one
+      # undo step per keystroke); Tab/Shift-Tab move between cells — Tab past
+      # the last cell appends a row (Qt behavior); Enter inserts a row below;
+      # cut/paste/kill/yank are absorbed. From outside: a selection
+      # overlapping table blocks absorbs content edits (a partial-table
+      # delete would corrupt the rendering), and Backspace/Delete at a
+      # table's edge won't join a neighbor block into a border row. Motion,
+      # copy and undo always pass through. Returns whether the key was
+      # consumed.
+      private def table_guard(e) : Bool
+        k = e.key
+        typing = k.nil? && (c0 = e.char) && !c0.to_s.matches?(/\A[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]\z/)
+        return false unless typing || (k && table_editing_key?(k))
+
+        tbl = caret_table
+        if tbl.nil?
+          if has_selection?
+            return false unless selection_touches_table?
+            e.accept
+            kill_ring.interrupt if Crysterm::Config.input_readline_keys
+            return true
+          end
+          # Boundary: joining a neighbor block into a border row is blocked.
+          bi, off = document.block_at(@cursor_pos)
+          if (k == Tput::Key::Backspace || k == Tput::Key::CtrlH) && off == 0 && bi > 0 &&
+             document.blocks[bi - 1].block_format.table_format
+            e.accept
+            return true
+          end
+          if k == Tput::Key::Delete && off == document.blocks[bi].size &&
+             document.blocks[bi + 1]?.try(&.block_format.table_format)
+            e.accept
+            return true
+          end
+          return false
+        end
+
+        e.accept
+        kill_ring.interrupt if Crysterm::Config.input_readline_keys
+        # A selection inside/into a table: content edits are absorbed (copy
+        # via C-c still passes — it is not an editing key).
+        return true if has_selection?
+
+        info = tbl.cell_at(@cursor_pos)
+        before = buf_text
+        case k
+        when Tput::Key::Tab      then table_tab(tbl, info, 1)
+        when Tput::Key::ShiftTab then table_tab(tbl, info, -1)
+        when Tput::Key::Enter    then table_insert_row_below(tbl, info)
+        when Tput::Key::Backspace, Tput::Key::CtrlH
+          table_delete_char(tbl, info, backward: true)
+        when Tput::Key::Delete
+          table_delete_char(tbl, info, backward: false)
+        when nil
+          if c = e.char
+            c == '\t' ? table_tab(tbl, info, 1) : table_type_char(tbl, info, c)
+          end
+        else
+          # Kill/yank/cut/paste inside a table: absorbed.
+        end
+        after = buf_text
+        emit Crysterm::Event::TextChange, after if after != before
+        request_render
+        _update_cursor
+        true
+      end
+
+      # The table the caret's block belongs to, or nil.
+      private def caret_table : TextTable?
+        bi, _ = document.block_at(@cursor_pos)
+        tf = document.blocks[bi].block_format.table_format || return nil
+        TextTable.new(document, tf)
+      end
+
+      # Whether the live selection overlaps any table block.
+      private def selection_touches_table? : Bool
+        r = selection_range || return false
+        b1 = document.block_at(r.begin)[0]
+        b2 = document.block_at(r.end)[0]
+        (b1..b2).any? { |i| !document.blocks[i].block_format.table_format.nil? }
+      end
+
+      # Moves the caret *dir* cells (±1), wrapping across rows; Tab past the
+      # last cell appends a fresh row (Qt), Shift-Tab before the first stays.
+      # From a border row (no cell), lands on the first cell.
+      private def table_tab(tbl : TextTable, info : {Int32, Int32}?, dir : Int32) : Nil
+        unless info
+          place_caret_in_cell(tbl, 0, 0, Int32::MAX)
+          return
+        end
+        row, col = info
+        col += dir
+        if col >= tbl.columns
+          col = 0
+          row += 1
+          tbl.insert_row(row) if row >= tbl.rows
+        elsif col < 0
+          return if row == 0
+          row -= 1
+          col = tbl.columns - 1
+        end
+        place_caret_in_cell(tbl, row, col, Int32::MAX)
+      end
+
+      # Enter inside a cell: a fresh row below the caret's (below the header
+      # when pressed there), caret to its first cell.
+      private def table_insert_row_below(tbl : TextTable, info : {Int32, Int32}?) : Nil
+        return unless info
+        at = Math.max(info[0] + 1, 1)
+        tbl.insert_row(at)
+        place_caret_in_cell(tbl, at, 0, 0)
+      end
+
+      # Types *c* into the caret's cell at the caret's offset.
+      private def table_type_char(tbl : TextTable, info : {Int32, Int32}?, c : Char) : Nil
+        return unless info
+        row, col = info
+        r = tbl.cell_text_range(row, col) || return
+        off = (@cursor_pos - r.begin).clamp(0, r.end - r.begin)
+        txt = tbl.cell_text(row, col) || ""
+        tbl.set_cell_text(row, col, txt.insert(off, c))
+        place_caret_in_cell(tbl, row, col, off + 1)
+      end
+
+      # Backspace/Delete within the caret's cell; a no-op at the cell's
+      # start/end (cells never join).
+      private def table_delete_char(tbl : TextTable, info : {Int32, Int32}?, backward : Bool) : Nil
+        return unless info
+        row, col = info
+        r = tbl.cell_text_range(row, col) || return
+        len = r.end - r.begin
+        off = (@cursor_pos - r.begin).clamp(0, len)
+        txt = tbl.cell_text(row, col) || ""
+        if backward
+          return if off <= 0
+          tbl.set_cell_text(row, col, txt[0, off - 1] + txt[off..])
+          place_caret_in_cell(tbl, row, col, off - 1)
+        else
+          return if off >= len
+          tbl.set_cell_text(row, col, txt[0, off] + txt[off + 1..])
+          place_caret_in_cell(tbl, row, col, off)
+        end
+      end
+
+      # Parks the caret at *offset* within cell (*row*, *col*)'s text
+      # (clamped — pass `Int32::MAX` for "end of cell").
+      private def place_caret_in_cell(tbl : TextTable, row : Int32, col : Int32, offset : Int32) : Nil
+        if r = tbl.cell_text_range(row, col)
+          @cursor_pos = r.begin + offset.clamp(0, r.end - r.begin)
+        end
+        clear_selection
+        @goal_col = nil
+        ensure_cursor_visible
       end
 
       # === Cursor / format API (Qt counterparts) ===
