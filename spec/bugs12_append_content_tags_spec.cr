@@ -18,7 +18,7 @@ end
 # Forces the full reparse a resize would run: invalidates the wrap cache's
 # content version so `process_content` re-parses raw `@content` from scratch.
 private def force_full_reparse(box)
-  box._clines.content_version = -1
+  box._clines.content_version = -1_i64
   box.process_content
 end
 

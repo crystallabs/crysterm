@@ -75,7 +75,15 @@ module Crysterm
         neg = bytes.unsafe_fetch(sep) == '-'.ord
         j = sep + 1
         while j < bytes.size
-          off = off * 10 + (bytes.unsafe_fetch(j).to_i - '0'.ord)
+          b = bytes.unsafe_fetch(j)
+          # Only digits form a valid offset. Folding arbitrary bytes through the
+          # `*10 +` accumulator turned "50%+1.5" into +135 and "50% + 5" into
+          # -155; the documented contract is malformed → 0.
+          unless '0'.ord <= b <= '9'.ord
+            off = 0
+            break
+          end
+          off = off * 10 + (b.to_i - '0'.ord)
           j += 1
         end
         off = -off if neg
@@ -153,7 +161,13 @@ module Crysterm
         off = 0
         j = aliased.size + 1
         while j < bytes.size
-          off = off * 10 + (bytes.unsafe_fetch(j).to_i - '0'.ord)
+          b = bytes.unsafe_fetch(j)
+          # Digits only — malformed offset reads as 0 (see `Widget.dimension`).
+          unless '0'.ord <= b <= '9'.ord
+            off = 0
+            break
+          end
+          off = off * 10 + (b.to_i - '0'.ord)
           j += 1
         end
         off = -off if c == '-'

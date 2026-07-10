@@ -88,8 +88,12 @@ module Crysterm
       # editor taking Enter, a focused footer button activating on it —
       # `e.accepted?` is set and the accelerator stands down, so it never hijacks
       # a field's Enter nor double-advances when a button already handled it.
+      # A hidden wizard (e.g. on a non-current `StackedWidget`/`TabWidget` page)
+      # keeps the accelerator installed while attached, so it must stand down
+      # while not visible — otherwise it steals every unconsumed Enter/Escape,
+      # advancing pages and emitting Complete/Cancel invisibly.
       protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
-        !e.accepted?
+        !e.accepted? && visible_in_tree?
       end
 
       # Builds one of the wizard's footer buttons: a centered `Button` pinned to

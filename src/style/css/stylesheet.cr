@@ -217,6 +217,15 @@ module Crysterm
     # so unlayered declarations win over layered ones (per the CSS cascade).
     UNLAYERED = 1_000_000
 
+    # Ordered stops of one `@keyframes` block: `{offset 0..1, declarations}`.
+    alias KeyframeStops = Array(Tuple(Float64, Hash(String, String)))
+
+    # One `@keyframes` definition: the `@media` guard it was declared under
+    # (`nil` = unconditional) and its stops. A name may be defined several
+    # times (e.g. a media-gated override after a general definition); the
+    # lookup (`Stylesheet#keyframes_for`) picks the last *matching* one.
+    alias KeyframeDef = Tuple(MediaQuery?, KeyframeStops)
+
     # An ordered collection of `Rule`s parsed from CSS text.
     class Stylesheet
       getter rules : Array(Rule)
@@ -231,9 +240,12 @@ module Crysterm
       # problems (e.g. `window.css_stylesheet.try &.warnings`).
       getter warnings : Array(String)
 
-      # Parsed `@keyframes`: animation name -> ordered stops `[{offset 0..1,
-      # declarations}]`. Consumed by `Widget`'s CSS-animation driver.
-      getter keyframes : Hash(String, Array(Tuple(Float64, Hash(String, String))))
+      # Parsed `@keyframes`: animation name -> the definitions seen for it, in
+      # source order, each carrying the `@media` guard it was declared under
+      # (`nil` = unconditional). Resolve via `#keyframes_for`, which picks the
+      # last definition whose guard matches the terminal — a media-gated
+      # override must not clobber the general definition on every terminal.
+      getter keyframes : Hash(String, Array(KeyframeDef))
 
       # Whether any rule depends on a widget's *state* via an ancestor-state
       # pseudo-class (e.g. `Form:focus Button`), lowered to a `.state-*` class.
@@ -254,7 +266,7 @@ module Crysterm
       @has_media : Bool = false
 
       def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
-                     @keyframes = {} of String => Array(Tuple(Float64, Hash(String, String))))
+                     @keyframes = {} of String => Array(KeyframeDef))
         # A rule participates in state-driven restyling if a `.state-*` class
         # appears in its structural selector *or* in a `:has()` inner/qualifier —
         # a state carried only inside `:has(... :focus)` must still trigger a
@@ -281,6 +293,21 @@ module Crysterm
       # :ditto:
       def has_media? : Bool
         @has_media
+      end
+
+      # The stops of `@keyframes` *name* on a terminal of *width*×*height*
+      # cells with *colors* available at glyph-tier ordinal *glyphs* — the
+      # **last** definition whose `@media` guard matches (an unguarded
+      # definition always matches), or `nil` when none does. Returns the stored
+      # stop arrays themselves, so identity is stable across lookups while the
+      # stylesheet (and the matching definition) is unchanged — the animation
+      # driver's staleness check relies on that.
+      def keyframes_for(name : String, width : Int32, height : Int32, colors : Int32, glyphs : Int32 = 1) : KeyframeStops?
+        return nil unless defs = @keyframes[name]?
+        defs.reverse_each do |(mq, stops)|
+          return stops if mq.nil? || mq.matches?(width, height, colors, glyphs)
+        end
+        nil
       end
 
       # Compiled selectors, memoized by their structural string. Compiling once
@@ -345,7 +372,7 @@ module Crysterm
         getter variables = {} of String => String
         getter warnings = [] of String
         getter layers = {} of String => Int32
-        getter keyframes = {} of String => Array(Tuple(Float64, Hash(String, String)))
+        getter keyframes = {} of String => Array(KeyframeDef)
         property order = 0
         # Mutable so a nested `@import` can resolve relative to the *importing*
         # file's directory (saved/restored around the recursive parse), not the
@@ -462,7 +489,10 @@ module Crysterm
         # At-rule names are case-insensitive (`@MEDIA`/`@Keyframes`); the slice
         # offsets below are by the fixed name length, so they hold for any casing.
         if Case.at_rule?(prelude, "keyframes")
-          parse_keyframes prelude[10..].strip, body, ctx
+          # The enclosing (already AND-combined) `@media` guard applies to the
+          # keyframes definition too — registering unconditionally would let a
+          # media-gated override clobber the general one on every terminal.
+          parse_keyframes prelude[10..].strip, body, media, ctx
         elsif Case.at_rule?(prelude, "media")
           # A nested `@media` ANDs with any enclosing one (CSS Conditional
           # Rules) — the outer guard must keep applying to the inner rules.
@@ -477,9 +507,11 @@ module Crysterm
       end
 
       # Parses an `@keyframes name { 0% { … } 50%,75% { … } to { … } }` block into
-      # ordered stops (`from`=0%, `to`=100%), registered under *name*. Each stop's
-      # declarations are kept raw and resolved by the animation driver.
-      private def self.parse_keyframes(name : String, body : String, ctx : ParseCtx) : Nil
+      # ordered stops (`from`=0%, `to`=100%), registered under *name* together
+      # with the enclosing `@media` guard (*media*, `nil` when unconditional).
+      # Each stop's declarations are kept raw and resolved by the animation
+      # driver; the guard is evaluated at lookup time (`Stylesheet#keyframes_for`).
+      private def self.parse_keyframes(name : String, body : String, media : MediaQuery?, ctx : ParseCtx) : Nil
         return if name.empty?
         stops = [] of Tuple(Float64, Hash(String, String))
         pos = 0
@@ -506,7 +538,8 @@ module Crysterm
             keyframe_offset(off.strip).try { |o| stops << {o, decls} }
           end
         end
-        ctx.keyframes[name] = stops.sort_by!(&.[0]) unless stops.empty?
+        return if stops.empty?
+        (ctx.keyframes[name] ||= [] of KeyframeDef) << {media, stops.sort_by!(&.[0])}
       end
 
       # `from`=0, `to`=1, `NN%`=NN/100.
@@ -686,9 +719,35 @@ module Crysterm
         parse source, base_path: path.to_s
       end
 
-      # Strips `/* ... */` comments (including multi-line).
+      # Strips `/* ... */` comments (including multi-line), honoring quoted
+      # strings: a `/*` inside `"…"`/`'…'` — a `url()` path, an
+      # attribute-selector value, a glyph string — is content, not a comment
+      # opener (a blanket regex corrupted `url("/a/*x*/b.png")` into
+      # `url("/a b.png")`). Quoted spans are copied through verbatim
+      # (`Selectors.skip_string` handles escapes); each comment outside them
+      # becomes a single space. An unterminated comment runs to end of input,
+      # per CSS tokenization.
       private def self.decommented(css : String) : String
-        css.gsub(/\/\*.*?\*\//m, " ")
+        return css unless css.includes?("/*")
+        String.build(css.bytesize) do |io|
+          i = 0
+          n = css.size
+          while i < n
+            ch = css[i]
+            if ch == '"' || ch == '\''
+              j = Selectors.skip_string(css, i)
+              io << css[i...j]
+              i = j
+            elsif ch == '/' && css[i + 1]? == '*'
+              close = css.index("*/", i + 2)
+              io << ' '
+              i = close ? close + 2 : n
+            else
+              io << ch
+              i += 1
+            end
+          end
+        end
       end
 
       # Parses a single `prop: value` declaration into *declarations*/*important*

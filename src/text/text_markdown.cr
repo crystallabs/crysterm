@@ -78,6 +78,11 @@ module Crysterm
       @emitted = false
       # Top-level spacing owed to the next emitted block (its `top_margin`).
       @pending_margin = false
+      # Open `~~` strike toggle. markd leaves `~` literal, so `~~` is
+      # detected in text nodes; the state persists across sibling inline
+      # nodes (the exporter's own `~~**x**~~` puts the delimiters in text
+      # nodes around the `Strong`) and clears at block end.
+      @strike = false
 
       def initialize(@theme : TextTheme)
       end
@@ -98,20 +103,9 @@ module Crysterm
       private def walk(node : Markd::Node) : Nil
         case node.type
         when .paragraph?
-          # markd hands GFM tables through as a plain paragraph of `|` rows —
-          # the same detection `Widget::Markdown` uses.
-          txt = node_text(node)
-          if TextTable.gfm_table?(txt)
-            separator if top_level?
-            import_table(txt)
-            return
-          end
-          separator if top_level?
-          start_block
-          walk_children(node)
-          end_block
+          import_paragraph(node)
         when .heading?
-          separator
+          separator if top_level? || @quote_depth > 0
           start_block TextBlockFormat.new(heading_level: node.data["level"].as(Int32))
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
@@ -121,36 +115,19 @@ module Crysterm
           walk_children(node)
           @quote_depth -= 1
         when .list?
-          separator if @list_stack.empty?
-          ordered = node.data["type"]? != "bullet"
-          start = (node.data["start"]?.try &.as(Int32)) || 1
-          style = if !ordered && task_list?(node)
-                    TextListFormat::Style::Checkbox
-                  elsif ordered
-                    TextListFormat::Style::Decimal
-                  else
-                    TextListFormat::Style::Disc
-                  end
-          @list_stack << TextListFormat.new(
-            style: style,
-            indent: @list_stack.size + 1,
-            start: start)
-          walk_children(node)
-          @list_stack.pop?
+          import_list(node)
         when .item?
           set_item_marker(node)
           walk_children(node)
+          # An empty item never opens a block; drop the pending marker so
+          # it doesn't leak onto the next unrelated block.
+          @pending_item = nil
+          @pending_checked = false
+          @strip_task = 0
         when .code_block?
-          separator
-          fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
-          bf = TextBlockFormat.new(bg: @theme.code_bg)
-          node.text.chomp.split('\n').each do |line|
-            start_block bf
-            @frags << TextFragment.new(line, fmt) unless line.empty?
-            end_block
-          end
+          import_code_block(node)
         when .thematic_break?
-          separator
+          separator if top_level? || @quote_depth > 0
           start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
@@ -189,6 +166,54 @@ module Crysterm
           append_text node.text
         else
           walk_children(node)
+        end
+      end
+
+      # A paragraph node — or, when its text has the GFM-table shape (markd
+      # hands tables through as a plain paragraph of `|` rows — the same
+      # detection `Widget::Markdown` uses), a table.
+      private def import_paragraph(node : Markd::Node) : Nil
+        txt = node_text(node)
+        separator if top_level?
+        if TextTable.gfm_table?(txt)
+          import_table(txt)
+          return
+        end
+        start_block
+        walk_children(node)
+        end_block
+      end
+
+      # A list node: pushes its shared `TextListFormat` (instance identity =
+      # list identity) for the item walks, then pops it.
+      private def import_list(node : Markd::Node) : Nil
+        separator if @list_stack.empty?
+        ordered = node.data["type"]? != "bullet"
+        start = (node.data["start"]?.try &.as(Int32)) || 1
+        style = if !ordered && task_list?(node)
+                  TextListFormat::Style::Checkbox
+                elsif ordered
+                  TextListFormat::Style::Decimal
+                else
+                  TextListFormat::Style::Disc
+                end
+        @list_stack << TextListFormat.new(
+          style: style,
+          indent: @list_stack.size + 1,
+          start: start)
+        walk_children(node)
+        @list_stack.pop?
+      end
+
+      # A fenced/indented code block: one code-bg block per line.
+      private def import_code_block(node : Markd::Node) : Nil
+        separator if top_level? || @quote_depth > 0
+        fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
+        bf = TextBlockFormat.new(bg: @theme.code_bg)
+        node.text.chomp.split('\n').each do |line|
+          start_block bf
+          @frags << TextFragment.new(line, fmt) unless line.empty?
+          end_block
         end
       end
 
@@ -241,6 +266,10 @@ module Crysterm
         @blocks << TextBlock.new(@frags, @block_format)
         @frags = [] of TextFragment
         @block_format = TextBlockFormat.default
+        if @strike # unbalanced `~~`: the strike span ends with its block
+          @strike = false
+          @fmt = nil
+        end
         @emitted = true
       end
 
@@ -302,7 +331,14 @@ module Crysterm
         child = node.first_child?
         while child
           case child.type
-          when .text?, .code?             then io << child.text
+          when .text?
+            # A backslash-escaped `\|` surfaces as its own single-char text
+            # node (markd already resolved the escape; an unescaped pipe
+            # never splits off alone). Restore the backslash so the GFM
+            # cell splitter doesn't read it as a cell boundary.
+            t = child.text
+            io << (t == "|" ? "\\|" : t)
+          when .code?                     then io << child.text
           when .soft_break?, .line_break? then io << '\n'
           else                                 collect_text child, io
           end
@@ -319,15 +355,22 @@ module Crysterm
       end
 
       private def current_format : TextCharFormat
-        @fmt ||= @patches.reduce(TextCharFormat.default) { |acc, p| acc.merge(p) }
+        @fmt ||= begin
+          f = @patches.reduce(TextCharFormat.default) { |acc, p| acc.merge(p) }
+          @strike ? f.merge(TextCharFormat.new(strike: true)) : f
+        end
       end
 
       private def push_frag(text : String) : Nil
         @frags << TextFragment.new(text, current_format) unless text.empty?
       end
 
-      # Emits literal text: drops a pending task-marker prefix and converts
-      # `~~…~~` spans to strike runs (markd leaves `~` literal).
+      # Emits literal text: drops a pending task-marker prefix and treats
+      # `~~` as a strike toggle (markd leaves `~` literal, and splits
+      # backslash-escaped `\~` into single-char text nodes — those never
+      # form a `~~` here, so escapes stay literal). GFM-ish flanking: an
+      # opener can't precede whitespace, a closer can't follow it; a
+      # delimiter at a node edge pairs across sibling inline nodes.
       private def append_text(str : String) : Nil
         if @strip_task > 0
           drop = Math.min(@strip_task, str.size)
@@ -336,10 +379,21 @@ module Crysterm
         end
         return if str.empty?
         pos = 0
-        while md = /~~(.+?)~~/.match(str, pos)
-          push_frag str[pos...md.begin(0)]
-          with_patch(TextCharFormat.new(strike: true)) { push_frag md[1] }
-          pos = md.begin(0) + md[0].size
+        while p = str.index("~~", pos)
+          ok = if @strike
+                 p == 0 || !str[p - 1].whitespace?
+               else
+                 p + 2 >= str.size || !str[p + 2].whitespace?
+               end
+          unless ok # not a valid delimiter here: keep the tildes literal
+            push_frag str[pos, p + 2 - pos]
+            pos = p + 2
+            next
+          end
+          push_frag str[pos...p]
+          @strike = !@strike
+          @fmt = nil
+          pos = p + 2
         end
         push_frag str[pos..]
       end
@@ -353,28 +407,46 @@ module Crysterm
       # Items emitted so far per list instance (identity-keyed) — the
       # numbering source for ordered markers.
       @list_items = {} of UInt64 => Int32
+      # Content column of the last item emitted per list depth — the indent
+      # a nested list must reach to stay nested (CommonMark indents to the
+      # parent item's content column, not a fixed 2).
+      @item_cols = {} of Int32 => Int32
 
       def export(blocks : Array(TextBlock)) : String
         String.build do |io|
           i = 0
           while i < blocks.size
             if i > 0
-              io << '\n'
+              pf = blocks[i - 1].block_format
+              cf = blocks[i].block_format
               # Paragraph spacing is block margins; any margin at the
               # boundary reads back as one blank line (markdown can't say
               # more). A rule block always gets one — `---` directly under
               # a paragraph line would re-parse as a setext heading.
-              io << '\n' if blocks[i - 1].block_format.bottom_margin > 0 ||
-                            blocks[i].block_format.top_margin > 0 ||
-                            blocks[i].block_format.horizontal_rule?
+              blank = pf.bottom_margin > 0 || cf.top_margin > 0 ||
+                      cf.horizontal_rule?
+              # Adjacent plain body blocks with no separating margin are a
+              # hard break — a bare newline would soft-wrap them back into
+              # one paragraph on re-import.
+              io << '\\' if !blank && pf.quote_level == cf.quote_level &&
+                            plain_body?(blocks[i - 1]) && plain_body?(blocks[i])
+              io << '\n'
+              io << '\n' if blank
             end
-            if code_line?(blocks[i])
-              io << "```\n"
-              while i < blocks.size && code_line?(blocks[i])
-                io << blocks[i].text << '\n'
+            if code_line?(blocks[i], first: true)
+              first = i
+              prefix = "> " * blocks[i].block_format.quote_level
+              io << prefix << "```\n"
+              # The fence run ends at a margin or quote-level boundary —
+              # two fences separated by a blank line stay two fences.
+              while i < blocks.size && code_line?(blocks[i]) &&
+                    blocks[i].block_format.quote_level == blocks[first].block_format.quote_level &&
+                    (i == first || (blocks[i].block_format.top_margin == 0 &&
+                    blocks[i - 1].block_format.bottom_margin == 0))
+                io << prefix << blocks[i].text << '\n'
                 i += 1
               end
-              io << "```"
+              io << prefix << "```"
             elsif tf = blocks[i].block_format.table_format
               run = [] of TextBlock
               while i < blocks.size && blocks[i].block_format.table_format.same?(tf)
@@ -396,7 +468,8 @@ module Crysterm
         data = run.select { |b| TextTable.data_row?(b.text) }
         return if data.empty?
         prefix = "> " * run.first.block_format.quote_level
-        rows = data.map { |b| TextTable.split_data_row(b.text) }
+        # A literal `|` in a cell must not read back as a cell boundary.
+        rows = data.map { |b| TextTable.split_data_row(b.text).map(&.gsub("|", "\\|")) }
         io << prefix << "| " << rows[0].join(" | ") << " |"
         io << '\n' << prefix << '|'
         tf.columns.times do |c|
@@ -408,10 +481,22 @@ module Crysterm
       end
 
       # A fenced-code row: block background set (the importer's code-bg
-      # marker) and nothing but `code`-flagged fragments (or blank).
-      private def code_line?(b : TextBlock) : Bool
+      # marker) and nothing but `code`-flagged fragments (or blank). A
+      # blank styled block can only *continue* a fence, never open one
+      # (*first*) — the fragment test is vacuous on an empty block.
+      private def code_line?(b : TextBlock, first : Bool = false) : Bool
         return false unless b.block_format.bg
+        return false if first && b.fragments.empty?
         b.fragments.all?(&.format.code?)
+      end
+
+      # A plain paragraph body block — the kind a hard break may join to
+      # its neighbor (no heading/list/table/rule/fence structure).
+      private def plain_body?(b : TextBlock) : Bool
+        bf = b.block_format
+        return false if bf.heading_level > 0 || bf.horizontal_rule? ||
+                        bf.list_format || bf.table_format || code_line?(b)
+        !b.fragments.empty? && !rule?(b.text)
       end
 
       private def write_block(io : IO, b : TextBlock) : Nil
@@ -424,15 +509,23 @@ module Crysterm
         end
 
         if lf = bf.list_format
-          io << "  " * (lf.indent - 1)
-          if lf.style.checkbox?
-            io << (bf.checked? ? "- [x] " : "- [ ] ")
-          else
-            n = @list_items[lf.object_id]? || 0
-            @list_items[lf.object_id] = n + 1
-            io << (lf.style.numbered? ? "#{lf.start + n}. " : "- ")
-          end
-          write_inline(io, b.fragments)
+          # A nested item indents to the parent item's content column
+          # (falling back to 2/level when the parent never appeared).
+          pad = lf.indent > 1 ? (@item_cols[lf.indent - 1]? || (lf.indent - 1) * 2) : 0
+          io << " " * pad
+          marker =
+            if lf.style.checkbox?
+              bf.checked? ? "- [x] " : "- [ ] "
+            else
+              n = @list_items[lf.object_id]? || 0
+              @list_items[lf.object_id] = n + 1
+              lf.style.numbered? ? "#{lf.start + n}. " : "- "
+            end
+          io << marker
+          # For a checkbox item the content column is right after "- " —
+          # the "[x] " marker is item *content* to CommonMark.
+          @item_cols[lf.indent] = pad + (lf.style.checkbox? ? 2 : marker.size)
+          write_inline(io, b.fragments, lead: true)
           return
         end
 
@@ -448,7 +541,7 @@ module Crysterm
           return
         end
 
-        write_inline(io, b.fragments)
+        write_inline(io, b.fragments, lead: true)
       end
 
       # A thematic break: nothing but rule glyphs (or plain dashes, which
@@ -460,8 +553,10 @@ module Crysterm
       end
 
       # Fragments as inline markdown, skipping the first *skip* chars (the
-      # structural prefixes handled above).
-      private def write_inline(io : IO, frags : Array(TextFragment), skip : Int32 = 0) : Nil
+      # structural prefixes handled above). *lead* marks the first fragment
+      # as sitting at a line start, where leading block syntax (`- `, `# `,
+      # `1. `, …) must be escaped or it re-parses as structure.
+      private def write_inline(io : IO, frags : Array(TextFragment), skip : Int32 = 0, lead : Bool = false) : Nil
         frags.each do |f|
           t = f.text
           if skip > 0
@@ -471,34 +566,101 @@ module Crysterm
           end
           next if t.empty?
           fmt = f.format
-          if fmt.code?
-            io << wrap_code(t)
-          elsif url = fmt.anchor_href
+          # The anchor outranks the code flag: a code span *inside* a link
+          # keeps the link, with the span as the link text.
+          if url = fmt.anchor_href
             io << '['
-            write_emphasis(io, t, fmt)
-            io << "](" << url << ')'
+            if fmt.code?
+              write_code_span(io, t, fmt)
+            else
+              write_emphasis(io, t, fmt)
+            end
+            io << "](" << encode_url(url) << ')'
+          elsif fmt.code?
+            write_code_span(io, t, fmt)
           else
-            write_emphasis(io, t, fmt)
+            write_emphasis(io, t, fmt, lead: lead)
           end
+          lead = false
         end
       end
 
       # Bold/italic/strike markers around escaped text. Underline, colors and
-      # the other SGR flags have no markdown form and are dropped.
-      private def write_emphasis(io : IO, text : String, fmt : TextCharFormat) : Nil
+      # the other SGR flags have no markdown form and are dropped. Fragment-
+      # edge whitespace moves *outside* the markers — `**bold **` is not
+      # right-flanking and would re-import as literal asterisks.
+      private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil
         em = fmt.bold? ? (fmt.italic? ? "***" : "**") : (fmt.italic? ? "*" : "")
+        if em.empty? && !fmt.strike?
+          io << escape_md(text, lead: lead)
+          return
+        end
+        lstripped = text.lstrip
+        head = text[0, text.size - lstripped.size]
+        core = lstripped.rstrip
+        io << head
+        return if core.empty? # whitespace-only: no markers at all
         io << "~~" if fmt.strike?
-        io << em << escape_md(text) << em
+        io << em << escape_md(core) << em
+        io << "~~" if fmt.strike?
+        io << lstripped[core.size..]
+      end
+
+      # A code span, carrying a strike flag as `~~` around the span (the
+      # only emphasis with a form *outside* a code span that this importer
+      # reads back onto it).
+      private def write_code_span(io : IO, text : String, fmt : TextCharFormat) : Nil
+        io << "~~" if fmt.strike?
+        io << wrap_code(text)
         io << "~~" if fmt.strike?
       end
 
+      # A code span whose delimiter is one backtick longer than the longest
+      # backtick run in the text (padded — the pad strips on re-import).
       private def wrap_code(text : String) : String
-        text.includes?('`') ? "`` #{text} ``" : "`#{text}`"
+        longest = run = 0
+        text.each_char do |c|
+          if c == '`'
+            run += 1
+            longest = run if run > longest
+          else
+            run = 0
+          end
+        end
+        return "`#{text}`" if longest == 0
+        ticks = "`" * (longest + 1)
+        "#{ticks} #{text} #{ticks}"
       end
 
-      private def escape_md(text : String) : String
-        return text unless text.matches?(/[\\`*_\[\]]/)
-        text.gsub(/([\\`*_\[\]])/) { "\\#{$1}" }
+      # Percent-encodes the characters that break a bare CommonMark link
+      # destination: whitespace, parentheses (unbalanced ones end the
+      # link), angle brackets and control chars.
+      private def encode_url(url : String) : String
+        return url unless url.matches?(/[\s()<>\x00-\x1f]/)
+        String.build do |io|
+          url.each_char do |c|
+            if c.ascii_whitespace? || c.in?('(', ')', '<', '>') || c.control?
+              c.to_s.each_byte { |b| io << '%' << b.to_s(16, upcase: true).rjust(2, '0') }
+            else
+              io << c
+            end
+          end
+        end
+      end
+
+      private def escape_md(text : String, lead : Bool = false) : String
+        if text.matches?(/[\\`*_\[\]~]/)
+          text = text.gsub(/([\\`*_\[\]~])/) { "\\#{$1}" }
+        end
+        return text unless lead
+        # Block-leading syntax the inline class above doesn't cover: bullet
+        # `-`/`+`, heading `#`, quote `>`, setext `=`, ordered `1.`/`1)`.
+        if md = text.match(/\A(\s{0,3})([-+>#=])/)
+          text = "#{md[1]}\\#{md[2]}#{text[md[0].size..]}"
+        elsif md = text.match(/\A(\s{0,3}\d{1,9})([.)])/)
+          text = "#{md[1]}\\#{md[2]}#{text[md[0].size..]}"
+        end
+        text
       end
     end
   end

@@ -51,10 +51,14 @@ module Crysterm
 
         # Pointer activation: a plain click on an anchor follows it. Runs
         # after the shared caret/selection mouse handler; not `#accept`ed, so
-        # click-to-focus still works.
+        # click-to-focus still works. `text_hit?` gates first: `position_at`
+        # *clamps* (right of a line → line end, below the document → last
+        # row), and `anchor_at` resolves a line-end position to the preceding
+        # char's format — so without the exact hit-test a click on empty
+        # space (click-to-focus) would activate the nearest trailing link.
         on(Crysterm::Event::Mouse) do |e|
           if e.action.down? && (window?.try(&.click_count) || 1) == 1
-            if url = anchor_at(position_at(e.x, e.y))
+            if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
               activate_link url
             end
           end
@@ -167,6 +171,33 @@ module Crysterm
       def document=(doc : TextDocument)
         drop_link_focus
         super
+      end
+
+      # Whether the absolute screen point (*x*, *y*) lands exactly on a
+      # display row's text — mirrors `#position_at`'s coordinate math but
+      # *without* its clamping: a click below the last display row, on a
+      # margin row, left of the text, or at/past the row's text end is a
+      # miss. Used to gate pointer link activation.
+      private def text_hit?(x : Int32, y : Int32) : Bool
+        lpos = _get_coords
+        return false unless lpos
+
+        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        row = y - lpos.yi - itop
+        return false if row < 0 || row > max_line
+
+        rl = row + @child_base
+        return false if rl < 0 || rl >= @_clines.size
+        return false if @row_meta[rl]?.try(&.margin)
+
+        col = x - lpos.xi - ileft - row_text_x_offset(rl)
+        return false if col < 0
+
+        # `@_clines[rl]` is the painted row text (already tab-expanded, and in
+        # non-wrap mode already horizontally sliced to the viewport), so its
+        # display width is exactly the painted run the click must fall inside.
+        text = @_clines[rl]? || ""
+        col < str_width(text)
       end
 
       # The URL under document position *pos*, or nil. Resolved block-local,

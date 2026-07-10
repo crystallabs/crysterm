@@ -88,7 +88,13 @@ module Crysterm
 
       # Replaces the table data and rebuilds the rendered content.
       def set_data(rows)
-        return unless reload_rows rows
+        unless reload_rows rows
+          # Empty/column-less data must empty the view too: `reload_rows` has
+          # already replaced `@rows`, so returning with the old content rendered
+          # would show rows the model no longer holds.
+          set_content ""
+          return
+        end
 
         # Pin width to the exact table width so the box edge lines up with the
         # column positions `#draw_borders` uses. Shrink-to-content alone isn't
@@ -170,7 +176,11 @@ module Crysterm
 
         # Apply header/cell attributes to text cells that still hold the default
         # attribute (so explicit tags inside cells are preserved).
-        y = itop
+        #
+        # Walks are clamped to the screen: a table scrolled/positioned partly off
+        # the top/left edge has negative `yi`/`xi`, and `Indexable#[]?` wraps
+        # negative indices — recoloring cells at the far end of the buffer.
+        y = Math.max(itop, -yi)
         while y < height
           if line = lines[yi + y]?
             # Each table row occupies two grid rows (text + separator); row index
@@ -189,7 +199,7 @@ module Crysterm
             # CSS cell overrides only exist on styled rows; skip the per-cell
             # `col_map`/`css_cell_style` lookups for every other row.
             row_map = col_map.try { |cm| @styled_rows.includes?(row_index) ? cm : nil }
-            x = ileft
+            x = Math.max(ileft, -xi)
             while x < width
               if cell = line[xi + x]?
                 if cell.attr == dattr
@@ -239,7 +249,7 @@ module Crysterm
 
         # Draw border junctions row by row (each table row spans two grid rows).
         ry = 0
-        (rows_n + 1).times do
+        while ry <= rows_n * 2
           bottom = (ry // 2) == rows_n
           row =
             if ry == 0
@@ -255,6 +265,17 @@ module Crysterm
           # rows below it — stop before stamping gridlines outside the widget's
           # visible rectangle (`lines[...]?` alone only guards the buffer).
           break if row >= coords.yl
+
+          # With no top border the `ry == 0` junction row computes to `yi - 1` —
+          # one row ABOVE the widget (the bottom junction is naturally clipped by
+          # the `coords.yl` check above) — skip it. A row scrolled above the
+          # screen (negative) is skipped too: `lines[...]?` wraps negative
+          # indices to the far end of the buffer.
+          if (ry == 0 && border.top == 0) || row < 0
+            ry += 2
+            next
+          end
+
           line = lines[row]?
           break unless line
 
@@ -264,8 +285,9 @@ module Crysterm
 
             # First column draws the left edge on the box border, independent of
             # the last-column handling below, so a single-column table gets both.
+            # Skipped when the column sits left of the screen (negative wrap).
             if mi == 0
-              if cell = line[xi + 0]?
+              if xi >= 0 && (cell = line[xi]?)
                 cell.attr = battr
                 if ry != 0 && !bottom
                   cell.char = border.left > 0 ? g_tee_l : g_h
@@ -285,13 +307,13 @@ module Crysterm
               # `ileft`, not a hardcoded one column); `rx` is the content-column
               # offset. Both cells are clipped past the visible right edge.
               internal = ry != 0 && !bottom
-              if (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
+              if 0 <= (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 rx += 1
                 cell.attr = battr
                 cell.char = g_h if internal
                 line.dirty = true
               end
-              if internal && (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
+              if internal && 0 <= (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 cell.attr = battr
                 cell.char = border.right > 0 ? g_tee_r : g_h
                 line.dirty = true
@@ -302,9 +324,11 @@ module Crysterm
             # Center junction between this column and the next (never reached for
             # the last column, which returned above). Painted at `xi + ileft + rx`
             # (see the last-column note); `rx += 1` steps past the separator.
-            # Stop once the junction would fall outside the visible right edge.
+            # Stop once the junction would fall outside the visible right edge;
+            # columns left of the screen (negative) are skipped, not stamped
+            # wrapped at the buffer's right end.
             break if (xi + ileft + rx) >= coords.xl
-            if cell = line[xi + ileft + rx]?
+            if (xi + ileft + rx) >= 0 && (cell = line[xi + ileft + rx]?)
               if ry == 0
                 cell.attr = battr
                 cell.char = border.top > 0 ? g_tee_t : g_v
@@ -328,6 +352,12 @@ module Crysterm
         while ry < rows_n * 2
           row = ytop + ry
           break if row >= coords.yl
+          # Rows scrolled above the screen are skipped, not wrapped (see the
+          # junction pass).
+          if row < 0
+            ry += 1
+            next
+          end
           line = lines[row]?
           break unless line
 
@@ -335,13 +365,14 @@ module Crysterm
             draw_vertical_separators line, xi, battr, width: width
           else
             # Horizontal `─` fill across each column's content cells. Start at the
-            # left content inset (`ileft`), not a hardcoded column 1.
+            # left content inset (`ileft`), not a hardcoded column 1. Columns left
+            # of the screen (negative) are skipped, not wrapped.
             rx = ileft
             @maxes.each do |max|
               max.times do
                 break unless line[xi + rx + 1]?
                 break if (xi + rx) >= coords.xl
-                if cell = line[xi + rx]?
+                if (xi + rx) >= 0 && (cell = line[xi + rx]?)
                   cell.attr = junction_attr(battr, cell.attr)
                   cell.char = g_h
                   line.dirty = true

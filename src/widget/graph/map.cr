@@ -178,7 +178,9 @@ module Crysterm
           # height maps max_lat→top.
           p.set_window @min_lon, @max_lat, @max_lon - @min_lon, @min_lat - @max_lat
 
-          if show_graticule?
+          # A zero/negative (or non-finite) step would never advance `lon`/`lat`
+          # past the loop bound — an infinite loop inside the paint callback.
+          if show_graticule? && @graticule_step > 0
             p.pen = @graticule_color
             lon = (@min_lon / @graticule_step).ceil * @graticule_step
             while lon <= @max_lon
@@ -222,6 +224,10 @@ module Crysterm
           return if lon_span <= 0 || lat_span <= 0
 
           @markers.each do |m|
+            # The visibility filter below is inverted for NaN (every comparison
+            # with NaN is false), so a non-finite coordinate would slip through
+            # and crash on `.round.to_i`. Reject it explicitly.
+            next unless m.longitude.finite? && m.latitude.finite?
             next if m.longitude < @min_lon || m.longitude > @max_lon
             next if m.latitude < @min_lat || m.latitude > @max_lat
             fx = (m.longitude - @min_lon) / lon_span

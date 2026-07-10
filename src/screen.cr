@@ -359,6 +359,14 @@ module Crysterm
         error: @error,
         force_unicode: @force_unicode,
         full_unicode: @full_unicode,
+        # Carry the explicit-size pins across the reconnect: a pinned axis
+        # (e.g. an inline window's reserved `height`, or a test's fixed size)
+        # keeps its value on the new device too. Dropping the pins built the
+        # new device with `explicit_* == false`, so a reattached inline window
+        # ballooned to the full terminal height. An unpinned axis passes `nil`
+        # and is sized from the new terminal below.
+        width: (@explicit_width ? @width : nil),
+        height: (@explicit_height ? @height : nil),
         # Reuse the existing read-only terminfo; `false` on the rare chance
         # this device was built without one.
         terminfo: tput.terminfo || false,
@@ -370,8 +378,9 @@ module Crysterm
         s.tput.reset_screen_size
       rescue
       end
-      s.width = s.tput.screen.width
-      s.height = s.tput.screen.height
+      # Adopt honoring the pins carried above (a direct `s.width = ...`
+      # assignment would overwrite a pinned axis).
+      s.adopt_terminal_size
       s
     end
 

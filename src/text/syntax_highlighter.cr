@@ -51,11 +51,22 @@ module Crysterm
       if old = @document
         @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChange, w) }
         @ev_contents_change = nil
+        # Detach cleanly: drop this highlighter's overlays and user states so
+        # the old document renders plain again (and a later, different
+        # highlighter starts from clean `previous_block_state`s), and poke a
+        # zero-length change so attached views repaint.
+        changed = false
+        old.blocks.each do |b|
+          changed = true if b.additional_formats || b.user_state != -1
+          b.additional_formats = nil
+          b.user_state = -1
+        end
+        old.emit Crysterm::Event::ContentsChange, 0, 0, 0 if changed
       end
       @document = doc
       if doc
         @ev_contents_change = doc.on(Crysterm::Event::ContentsChange) do |e|
-          on_contents_change(e.position, e.chars_added)
+          on_contents_change(e.position, e.chars_removed, e.chars_added)
         end
         rehighlight
       end
@@ -111,12 +122,16 @@ module Crysterm
       @current_block.try(&.user_state=(state))
     end
 
-    private def on_contents_change(pos : Int32, added : Int32) : Nil
+    private def on_contents_change(pos : Int32, removed : Int32, added : Int32) : Nil
       return if @highlighting
       doc = @document || return
       blocks = doc.blocks
       b1 = doc.block_at(pos)[0]
-      b2 = doc.block_at(pos + added)[0]
+      # A removal ending exactly at a block boundary changes the *following*
+      # block's `previous_block_state` without touching its own text — extend
+      # the guaranteed window one block when anything was removed (Qt does
+      # the same), so the cascade check actually runs there.
+      b2 = doc.block_at(pos + added + (removed > 0 ? 1 : 0))[0]
       run_highlight do
         i = b1
         while b = blocks[i]?

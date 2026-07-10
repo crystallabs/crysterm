@@ -640,11 +640,14 @@ module Crysterm
 
     # ───────────────────────── CSI dispatch ─────────────────────────
 
-    # Largest accumulator value that can still take another decimal digit without
-    # overflowing `Int32`. The digit-accumulating param parsers below would raise
-    # `OverflowError` on an adversarial huge number (e.g. `CSI 9999999999 H`); an
-    # overflowing field is flagged `bad` and reads as 0 instead.
-    PARAM_ACCUM_MAX = (Int32::MAX - 9) // 10
+    # Largest value a single CSI parameter field can carry (xterm's own limit).
+    # The digit-accumulating parsers below clamp each field to this, so a huge
+    # but *valid* parameter (e.g. `CSI 2147483639 C`) can't make a handler's
+    # arithmetic (`@x + n`, `@y + n`, `@scroll_top + row`, `@x + n - 1`)
+    # overflow `Int32` — an `OverflowError` escaping `#feed` looks like EOF to
+    # the reader fiber and permanently wedges the widget. Clamping (rather than
+    # zeroing) matches xterm, which caps oversized parameters at 65535.
+    PARAM_FIELD_MAX = 65535
 
     # The n-th `;`-separated parameter in `@csi_buf` (0-based), parsed in place,
     # or nil when there is no n-th field. An empty/non-numeric field reads as 0.
@@ -664,11 +667,9 @@ module Crysterm
           val = 0
           bad = false
         elsif '0'.ord <= b <= '9'.ord
-          if val > PARAM_ACCUM_MAX
-            bad = true # overflow ⇒ field reads as 0
-          else
-            val = val * 10 + (b - '0'.ord)
-          end
+          # Clamp to the field maximum; `val <= PARAM_FIELD_MAX` keeps the
+          # accumulation itself far from Int32 overflow.
+          val = Math.min(val * 10 + (b - '0'.ord), PARAM_FIELD_MAX)
         else
           bad = true
         end
@@ -706,11 +707,8 @@ module Crysterm
           val = 0
           bad = false
         elsif '0'.ord <= b <= '9'.ord
-          if val > PARAM_ACCUM_MAX
-            bad = true # overflow ⇒ field reads as 0
-          else
-            val = val * 10 + (b - '0'.ord)
-          end
+          # Clamp to the field maximum (see `csi_param_raw`).
+          val = Math.min(val * 10 + (b - '0'.ord), PARAM_FIELD_MAX)
         else
           bad = true
         end
@@ -815,8 +813,14 @@ module Crysterm
           @y = @origin_mode ? @scroll_top : 0 # DECSTBM homes the cursor
           @wrap_pending = false
         end
-      when 'h' then set_mode true
-      when 'l' then set_mode false
+        # SM/RM are only the *plain* `CSI Pm h/l` (ANSI modes) or the DEC private
+        # `CSI ? Pm h/l`. Any other prefix is a different command — notably
+        # ANSI.SYS's `CSI = Ps h` (window mode, common in .ans art files) — and
+        # must NOT be dispatched as plain SM: its parameter would be misread as
+        # an ANSI mode (`CSI = 4 h` → IRM insert mode, garbling all later output).
+        # Same prefix gate as SGR/DECSTBM/SCOSC/DA.
+      when 'h' then set_mode true if @csi_prefix.nil? || @csi_private
+      when 'l' then set_mode false if @csi_prefix.nil? || @csi_private
       when 's', 'u'
         # SCOSC/SCORC (save/restore cursor) are only the *plain* `CSI s` / `CSI u`.
         # A prefixed form must NOT move the cursor: the Kitty keyboard protocol —
@@ -862,18 +866,12 @@ module Crysterm
         return
       end
       each_csi_param do |mode|
+        next if set_mouse_mode(mode, on)
         case mode
         when 25       then @cursor_hidden = !on # DECTCEM
         when 47, 1047 then on ? enter_alt(false) : leave_alt(false)
         when 1048     then on ? save_cursor : restore_cursor # save/restore cursor (as DECSC/DECRC), no buffer switch
         when 1049     then on ? enter_alt(true) : leave_alt(true)
-        when 9        then @mouse_tracking = on ? 9 : 0    # X10
-        when 1000     then @mouse_tracking = on ? 1000 : 0 # normal (press/release)
-        when 1002     then @mouse_tracking = on ? 1002 : 0 # button-event
-        when 1003     then @mouse_tracking = on ? 1003 : 0 # any-event
-        when 1005     then @mouse_encoding = on ? :utf8 : :normal
-        when 1006     then @mouse_encoding = on ? :sgr : :normal
-        when 1015     then @mouse_encoding = on ? :urxvt : :normal
         when 6 # DECOM (origin mode): cursor homes to the (possibly relative) origin
           @origin_mode = on
           @x = 0
@@ -888,6 +886,27 @@ module Crysterm
           # 1 (DECCKM), 12 (cursor blink), 1000-series already handled … ignored.
         end
       end
+    end
+
+    # Mouse tracking (X10/1000-series) and coordinate-encoding modes; returns
+    # false for non-mouse modes so `set_mode` handles them.
+    private def set_mouse_mode(mode, on : Bool) : Bool
+      case mode
+      when    9 then @mouse_tracking = on ? 9 : 0    # X10
+      when 1000 then @mouse_tracking = on ? 1000 : 0 # normal (press/release)
+      when 1002 then @mouse_tracking = on ? 1002 : 0 # button-event
+      when 1003 then @mouse_tracking = on ? 1003 : 0 # any-event
+      # Mouse coordinate encodings: disabling one only downgrades to X10 when
+      # it is the *active* one — xterm ignores a reset of a non-active
+      # protocol. Without the check, a child enabling SGR (1006) and then
+      # defensively resetting 1005 would drop the widget back to X10 framing
+      # while the child still parses SGR (garbage keys, coords > 223 corrupt).
+      when 1005 then on ? (@mouse_encoding = :utf8) : (@mouse_encoding = :normal if @mouse_encoding == :utf8)
+      when 1006 then on ? (@mouse_encoding = :sgr) : (@mouse_encoding = :normal if @mouse_encoding == :sgr)
+      when 1015 then on ? (@mouse_encoding = :urxvt) : (@mouse_encoding = :normal if @mouse_encoding == :urxvt)
+      else           return false
+      end
+      true
     end
 
     # Whether the child has requested mouse reporting.
@@ -1231,6 +1250,10 @@ module Crysterm
     end
 
     private def erase_line(mode : Int32) : Nil
+      # xterm's ClearRight/ClearLeft/ClearLine all run ResetWrap: an EL after a
+      # full row cancels the pending autowrap, so the next print overwrites this
+      # row instead of wrapping (and possibly scrolling). Same for ICH/DCH/ECH.
+      @wrap_pending = false
       case mode
       when 0 then erase_in_line @x, @cols - 1 # cursor → eol
       when 1 then erase_in_line 0, @x         # sol → cursor
@@ -1298,6 +1321,7 @@ module Crysterm
     # cells from cursor to line end, instead of *n* O(width) `Array#insert` calls
     # — keeps an adversarial `CSI 99999 @` from spinning O(n·width).
     private def insert_chars(n : Int32) : Nil
+      @wrap_pending = false # xterm ResetWrap (see #erase_line)
       line = cur_line
       n = Math.min(n, line.size - @x)
       return if n <= 0
@@ -1317,6 +1341,7 @@ module Crysterm
     # backfilling the end with blanks. Same single in-place shift / cap as
     # `#insert_chars`.
     private def delete_chars(n : Int32) : Nil
+      @wrap_pending = false # xterm ResetWrap (see #erase_line)
       line = cur_line
       n = Math.min(n, line.size - @x)
       return if n <= 0
@@ -1333,6 +1358,7 @@ module Crysterm
     end
 
     private def erase_chars(n : Int32) : Nil
+      @wrap_pending = false # xterm ResetWrap (see #erase_line)
       erase_in_line @x, Math.min(@cols - 1, @x + n - 1)
     end
 

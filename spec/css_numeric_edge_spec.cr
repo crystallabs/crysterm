@@ -35,13 +35,14 @@ describe "Crysterm::CSS::Stylesheet @keyframes selector case" do
     sheet = Crysterm::CSS::Stylesheet.parse(<<-CSS)
       @keyframes fade { From { color: red; } TO { color: blue; } }
       CSS
-    stops = sheet.keyframes["fade"]
+    stops = sheet.keyframes_for("fade", 80, 24, 256).not_nil!
     stops.map(&.[0]).should eq [0.0, 1.0]
   end
 
   it "agrees with the lowercase spelling" do
     up = Crysterm::CSS::Stylesheet.parse("@keyframes a { From { color: red; } }")
     lo = Crysterm::CSS::Stylesheet.parse("@keyframes a { from { color: red; } }")
-    up.keyframes["a"].map(&.[0]).should eq lo.keyframes["a"].map(&.[0])
+    up.keyframes_for("a", 80, 24, 256).not_nil!.map(&.[0])
+      .should eq lo.keyframes_for("a", 80, 24, 256).not_nil!.map(&.[0])
   end
 end

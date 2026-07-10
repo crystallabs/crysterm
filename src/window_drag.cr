@@ -17,6 +17,15 @@ module Crysterm
     @_arm_x = 0
     @_arm_y = 0
 
+    # Button of the arming press, carried onto `@_drag_button` when the arm is
+    # promoted to a drag.
+    @_arm_button : ::Tput::Mouse::Button? = nil
+
+    # Button that initiated the in-flight mouse drag: only its release commits
+    # the Drop (see `Window#handle_active_drag`) — a stray other-button tap
+    # mid-gesture must not commit at the pointer. `nil` for keyboard drags.
+    @_drag_button : ::Tput::Mouse::Button? = nil
+
     # Transient "ghost" widget floated under the pointer during a transfer drag.
     @_drag_ghost : Widget? = nil
 
@@ -163,6 +172,7 @@ module Crysterm
     # source can remove the original (a Copy source keeps it).
     def drag_release(sess : DragSession) : Nil
       @_drag = nil
+      @_drag_button = nil
       remove_ghost
       dropped = false
       if (t = sess.target) && sess.data.accepted?
@@ -188,6 +198,7 @@ module Crysterm
     # Cancels the drag (e.g. Escape) without dropping.
     def drag_cancel(sess : DragSession) : Nil
       @_drag = nil
+      @_drag_button = nil
       remove_ghost
       sess.target.try &.emit ::Crysterm::Event::DragLeave, sess
       ev = ::Crysterm::Event::DragEnd.new sess
@@ -221,7 +232,11 @@ module Crysterm
       gx, gy = ghost_origin sess
       g = Widget::Box.new(
         parent: self,
-        width: {label.size + 2, 6}.max,
+        # Size by terminal COLUMNS, not codepoints: a CJK/emoji label needs ~2
+        # columns per glyph, so `label.size` gave the ghost half its width and
+        # clipped the label mid-glyph for the whole drag. (`Unicode.width`
+        # measures a single grapheme cluster; `display_width` sums the string.)
+        width: {::Crysterm::Unicode.display_width(label) + 2, 6}.max,
         height: 1,
         left: gx,
         top: gy,
@@ -297,6 +312,14 @@ module Crysterm
     #     cancels.
     def _drag_key_handled(e : ::Crysterm::Event::KeyPress) : Bool
       if sess = @_drag
+        # Escape cancels a drag from EITHER sensor: a mouse drag otherwise had
+        # no cancel path at all (the non-keyboard early-return below meant
+        # `drag_cancel`'s documented "e.g. Escape" never fired for it).
+        if e.key == ::Tput::Key::Escape
+          drag_cancel sess
+          e.accept
+          return true
+        end
         return false unless sess.sensor.keyboard?
         # Space is a printable char, delivered as `char == ' '` with `key == nil`
         # (unlike Enter/Tab/arrows). Match it by char.
@@ -307,10 +330,6 @@ module Crysterm
           return true
         end
         case e.key
-        when ::Tput::Key::Escape
-          drag_cancel sess
-          e.accept
-          return true
         when ::Tput::Key::Tab
           drag_focus_step sess, true
           e.accept

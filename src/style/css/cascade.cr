@@ -221,6 +221,12 @@ module Crysterm
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
           widget.css_reset_extra
+          # The reset just wiped any sub-control style an ancestor pushed onto
+          # this widget (`Mixin::SubStyle#apply_substyle`), but the ancestor's
+          # own sub-`Style` object survives when it's outside the scope — so
+          # the push memo would keep reporting `same?` and skip re-pushing
+          # forever. Drop the memo so the next per-frame push re-dups.
+          widget._substyle_src = nil
           # Geometry has the same non-staleness contract as styles, but lives on
           # the widget itself: restore the pristine snapshot (captured by
           # `apply_geometry` before CSS first wrote it; no-op otherwise), so a

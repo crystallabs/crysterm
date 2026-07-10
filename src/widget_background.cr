@@ -26,7 +26,33 @@ module Crysterm
     # Whether this widget is internal chrome that the layout engines must neither
     # arrange (measure/place) nor render in the normal child pass. The background
     # layer sets this; it is rendered out-of-band from `_render` instead.
-    property? layout_excluded = false
+    getter? layout_excluded = false
+
+    # :ditto: — a runtime `false → true` flip also clears the subtree's
+    # last-rendered rects (mirroring `Layout#skip_subtree`): every engine
+    # early-returns on an excluded child without touching its `lpos`, so the
+    # widget would stop painting while `Window#widget_at` — which hit-tests
+    # every widget independently against its own `lpos` — kept routing
+    # clicks/hovers to it (and its descendants) at the stale rects. Chrome that
+    # renders out-of-band (the background layer) immediately refreshes its own
+    # `lpos`, so the clear is harmless there.
+    def layout_excluded=(value : Bool) : Bool
+      if value != @layout_excluded
+        clear_subtree_lpos self if value
+        # Either flip changes what the child pass paints, invisibly to the
+        # tracked geometry setters — flag damage so the optimized render
+        # repaints the area (and, on re-inclusion, renders this subtree again).
+        mark_dirty
+      end
+      @layout_excluded = value
+    end
+
+    # Clears the last-rendered rect of *el*'s whole subtree (the widget-side
+    # analog of `Layout#skip_subtree`). Explicit recursion, allocation-free.
+    private def clear_subtree_lpos(el : Widget) : Nil
+      el.lpos = nil
+      el.children.each { |c| clear_subtree_lpos c }
+    end
 
     # The internal `Widget::Media` layer rendering `style.background_image`, or
     # `nil` when no image is set / no background-capable backend is available.

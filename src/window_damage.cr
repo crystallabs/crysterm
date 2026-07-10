@@ -330,7 +330,7 @@ module Crysterm
         unless no_planes || @frame_used_effects || @dock_borders
           if @sorted_zs.size == 1 && @layer_widgets.all? { |w| w.parent.nil? }
             @damage_plane_safe = true
-            @damage_plane_z = @sorted_zs.first
+            @damage_plane_z = @sorted_zs.first[0]
             @damage_layer_roots.clear
             @children.each { |el| @damage_layer_roots << el if el.style.z_index }
           end
@@ -684,6 +684,13 @@ module Crysterm
       return false if cur.empty?
       return false unless cur.size == @damage_layer_roots.size
       cur.each { |el| return false unless @damage_layer_roots.includes? el }
+
+      # The full path (`composite_planes`) folds same-z roots with differing
+      # alpha as separate per-alpha groups; this fast path folds them as ONE
+      # plane with a single opacity, so it only holds when every root shares
+      # the same alpha — otherwise fall back to the full path.
+      alpha0 = cur.first.style.alpha? || 1.0
+      cur.each { |el| return false unless (el.style.alpha? || 1.0) == alpha0 }
 
       # The plane's covered rectangle as of last frame (union of its layer roots'
       # recorded footprints).

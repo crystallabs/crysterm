@@ -43,6 +43,18 @@ module Crysterm
       # ascending/descending), like Qt's `QTableView#sortingEnabled`.
       property? sortable : Bool = false
 
+      # Disabling sorting also forgets the active sort column, so a later data
+      # change doesn't keep re-imposing (and re-enabling doesn't resurrect) a
+      # stale sort.
+      def sortable=(value : Bool)
+        @sortable = value
+        unless value
+          @sort_column = nil
+          @sort_descending = false
+        end
+        value
+      end
+
       # Column the body is currently sorted by, and the direction, set by
       # `#sort_by_column` (and by clicking a header cell). `nil` means unsorted.
       getter sort_column : Int32? = nil
@@ -160,14 +172,16 @@ module Crysterm
 
         # Click a header cell to sort by that column (toggling direction). Uses
         # `Event::Mouse` (not bare `Click`) because it carries coordinates.
-        if sortable?
-          header.on(Crysterm::Event::Mouse) do |e|
-            next unless e.action.down?
-            if col = column_at(e.x - header.aleft)
-              desc = @sort_column == col ? !@sort_descending : false
-              sort_by_column col, desc
-              request_render
-            end
+        # Installed unconditionally and gated on the *current* `sortable?`, so
+        # toggling `sortable=` at runtime takes effect in both directions
+        # (a construction-time-only install left `sortable = true` inert and
+        # `sortable = false` ignored).
+        header.on(Crysterm::Event::Mouse) do |e|
+          next unless sortable? && e.action.down?
+          if col = column_at(e.x - header.aleft)
+            desc = @sort_column == col ? !@sort_descending : false
+            sort_by_column col, desc
+            request_render
           end
         end
 
@@ -454,7 +468,20 @@ module Crysterm
         prev_selected = selected
         prev_count = @ritems.size
 
-        return unless reload_rows rows
+        unless reload_rows rows
+          # Empty/column-less data must empty the view too: `reload_rows` has
+          # already replaced `@rows`, so returning with the old items/header
+          # rendered would leave phantom rows — visible, clickable and
+          # keyboard-selectable — against an empty model. (A still-empty view
+          # is left alone, so constructing without rows stays item-less.)
+          @first_col = 0
+          @child_base_x = 0
+          unless @items.empty?
+            header.set_content ""
+            set_items [""] # index 0 is the header-spacer row
+          end
+          return
+        end
 
         # Re-apply the active sort over the fresh body rows so the ordering is
         # preserved across every data change, not just an explicit
@@ -629,19 +656,31 @@ module Crysterm
 
         # Top/bottom junctions per grid row.
         ry = 0
-        (height + 1).times do
-          line = lines[yi + ry]?
+        while ry <= height
+          row = yi + ry
+          # Junction rows only exist on an actual border row: with no top border
+          # `ry == 0` is the header text row, and with no bottom border
+          # `ry == height` is `yl - ibottom == yl` — one row BELOW the widget.
+          # A negative row (widget partly above the screen) is skipped too:
+          # `lines[...]?` wraps negative indices to the far end of the buffer.
+          if row < 0 || (ry == 0 && border.top == 0) || (ry == height && border.bottom == 0)
+            ry += 1
+            next
+          end
+          line = lines[row]?
           break unless line
 
           # `rx` is the within-content column offset; the junction after column
           # `mi` is painted at `xi + ileft + rx` (content begins at the left
           # inset, not a hardcoded one column — matches
-          # `TableLayout#draw_vertical_separators`).
+          # `TableLayout#draw_vertical_separators`). Clipped against the content
+          # width (`width - ileft`, since `width` still includes the left inset)
+          # and skipped for columns left of the screen (negative wrap).
           rx = 0
           (@first_col...last).each do |mi|
             rx += @maxes[mi]
-            break if rx >= width
-            if cell = line[xi + ileft + rx]?
+            break if rx >= width - ileft
+            if (ax = xi + ileft + rx) >= 0 && (cell = line[ax]?)
               if ry == 0
                 cell.attr = battr
                 cell.char = border.top > 0 ? g_tee_t : g_v
@@ -658,10 +697,16 @@ module Crysterm
           ry += 1
         end
 
-        # Internal vertical separators.
+        # Internal vertical separators. Rows scrolled above the screen are
+        # skipped, not wrapped (see the junction pass).
         ry = 1
         while ry < height
-          line = lines[yi + ry]?
+          row = yi + ry
+          if row < 0
+            ry += 1
+            next
+          end
+          line = lines[row]?
           break unless line
 
           draw_vertical_separators line, xi, battr, start_col: @first_col, width: width

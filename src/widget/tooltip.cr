@@ -55,7 +55,10 @@ module Crysterm
         # resolves `#style` (installing the floor border per `#floor_border?`),
         # so insets reflect the border this render will draw; under a theme with
         # a background instead of a border these insets are 0.
-        w = (lines.max_of?(&.size) || 0) + 2 + iwidth # one cell of padding each side
+        # Measure in display cells (`str_width`), not codepoints: a CJK/emoji
+        # tooltip measured by `.size` under-sizes the box, wrapping and
+        # clipping the text inside it.
+        w = (lines.max_of? { |l| str_width l } || 0) + 2 + iwidth # one cell of padding each side
         h = lines.size + iheight
 
         self.width = w

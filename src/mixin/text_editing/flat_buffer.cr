@@ -131,8 +131,17 @@ module Crysterm
         end
 
         def value=(value = nil)
-          assign_value(value) { |v| v }
-          return if @_value == @value
+          external = assign_value(value) { |v| v }
+          if @_value == @value
+            # A same-string external set still moved the caret (`assign_value`
+            # parked it at the end and dropped the selection): follow it on
+            # screen even though the displayed content needs no update.
+            if external
+              _type_scroll
+              _update_cursor
+            end
+            return
+          end
 
           @_value = @value
           set_content @value

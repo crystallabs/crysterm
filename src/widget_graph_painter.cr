@@ -130,6 +130,16 @@ module Crysterm
           y0, y1 = dy(y), dy(y + h)
           x0, x1 = x1, x0 if x0 > x1
           y0, y1 = y1, y0 if y0 > y1
+          # Clamp to the bitmap before iterating: `to_px` maps non-finite
+          # coordinates to the far-off-canvas ±`PX_LIMIT` sentinel, and while
+          # `#plot` rejects every such pixel, a NaN×NaN rect would still
+          # *iterate* the full sentinel span (~10^12 plot calls, wedging the
+          # render fiber). Off-canvas spans collapse to an empty loop instead.
+          x0 = Math.max(x0, 0)
+          y0 = Math.max(y0, 0)
+          x1 = Math.min(x1, @width - 1)
+          y1 = Math.min(y1, @height - 1)
+          return if x0 > x1 || y0 > y1
           (y0..y1).each { |py| (x0..x1).each { |px| plot px, py } }
         end
 
@@ -177,6 +187,15 @@ module Crysterm
           return unless start.finite? && stop.finite?
           step = step_deg.to_f
           step = 0.7 if !step.finite? || step <= 0.0
+          # Refine the angular step so adjacent spokes stay ≤ ~0.5 px apart at
+          # the OUTER radius: with the fixed 0.7° default the tangential spoke
+          # spacing is `ro · 0.0122` px, which exceeds 1 px for `ro ≳ 100` —
+          # e.g. a sixel/Kitty donut at `ro ≈ 150` shows radial pinhole
+          # banding. Floored at 0.05° so a huge radius can't explode the spoke
+          # count (the 0.5 px radial step already fills between rings).
+          fine = (0.5 / ro) * 180.0 / Math::PI
+          fine = 0.05 if fine < 0.05
+          step = fine if step > fine
           a = start
           # Draw spokes at `start, start+step, …`, and always a final spoke at
           # exactly `stop` so the arc reaches its full extent instead of stopping

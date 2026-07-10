@@ -94,7 +94,12 @@ module Crysterm
         )
           @minimum = @minimum.to_f
           @maximum = @maximum.to_f
-          @value = value.to_f.clamp(@minimum, @maximum)
+          v = value.to_f
+          # Non-finite input would survive `clamp` (NaN compares false) and
+          # later crash the render fiber on `percent.round.to_i`; sanitize at
+          # ingestion (as `PercentRange#assign_completable` does for `#value=`).
+          v = @minimum unless v.finite?
+          @value = v.clamp(@minimum, @maximum)
           super **box
 
           build_canvas(type, glyph_mode) { |p| paint_ring p }

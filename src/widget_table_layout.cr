@@ -340,8 +340,15 @@ module Crysterm
       g_v = glyph Glyphs::Role::LineVertical
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
-        break if width && rx >= width
-        if cell = line[xi + ileft + rx]?
+        # Clip against the *content* width: *width* as passed by callers is
+        # `xl - xi - iright`, which still includes the left inset the separator
+        # is painted past (`xi + ileft + rx`) — comparing bare `rx` overshot the
+        # content edge by `ileft` columns on a padded/bordered table.
+        break if width && rx >= width - ileft
+        # A separator left of the screen (negative absolute column, table
+        # scrolled/positioned partly off the left edge) is skipped —
+        # `Indexable#[]?` would wrap it to the row's right end.
+        if (ax = xi + ileft + rx) >= 0 && (cell = line[ax]?)
           cell.attr = junction_attr(battr, cell.attr)
           cell.char = g_v
           line.dirty = true

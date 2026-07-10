@@ -120,16 +120,31 @@ module Crysterm
         j += 1
       end
       return if data.empty?
+      als = tf.alignments
       io << "<table>"
       data.each_with_index do |b, ri|
         tag = ri == 0 ? "th" : "td"
         io << "<tr>"
-        TextTable.split_data_row(b.text).each do |cell|
-          io << '<' << tag << '>' << escape_html(cell) << "</" << tag << '>'
+        TextTable.split_data_row(b.text).each_with_index do |cell, ci|
+          io << '<' << tag
+          # Column alignment rides on each cell (the shape the importer —
+          # and browsers — read back).
+          if name = align_css(als.try(&.[ci]?))
+            io << %( style="text-align:) << name << '"'
+          end
+          io << '>' << escape_html(cell) << "</" << tag << '>'
         end
         io << "</tr>"
       end
       io << "</table>"
+    end
+
+    private def self.align_css(a : Tput::AlignFlag?) : String?
+      return nil unless a
+      return "center" if a.h_center?
+      return "right" if a.right?
+      return "left" if a.left?
+      nil
     end
 
     private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
@@ -139,6 +154,13 @@ module Crysterm
         io << "<hr"
         io << " style=\"" << style << '"' unless style.empty?
         io << '>'
+        return
+      end
+      # A fully-default empty block exports as a bare `<br>`: `<p></p>` is
+      # exactly the spacing shape the importer folds into the next block's
+      # top margin, which would mutate "a\n\nb" into "a\nb" on a round-trip.
+      if lf.nil? && b.fragments.empty? && bf == TextBlockFormat.default
+        io << "<br>"
         return
       end
       if lf
@@ -178,9 +200,14 @@ module Crysterm
       if (m = bf.bottom_margin) > 0
         props << "margin-bottom:#{m}em"
       end
-      # Significant whitespace (list indents, aligned columns) must survive
-      # the reader's HTML collapsing.
-      props << "white-space:pre-wrap" if b.text.matches?(/\A |  | \z/)
+      # Block indent as `margin-left` in `ch` (1 column each), parsed back
+      # by the importer — a list continuation paragraph keeps its column.
+      if (ind = bf.indent) > 0
+        props << "margin-left:#{ind}ch"
+      end
+      # Significant whitespace (list indents, aligned columns, TABs) must
+      # survive the reader's HTML collapsing.
+      props << "white-space:pre-wrap" if b.text.matches?(/\A |  | \z|\t/)
       props.join(';')
     end
 
@@ -256,6 +283,13 @@ module Crysterm
       # Blank rows owed to the next block's `top_margin` (accumulated from
       # empty spacing `<p></p>`s — the margins re-base).
       @pending_margin = 0
+      # Whether the open block was eagerly opened by a wrapper (`<p>`/`<div>`)
+      # and hasn't received text yet. A nested block element's leading
+      # `end_block(discard_virgin: true)` drops such a block instead of
+      # emitting a phantom empty one (`<div><p>x</p></div>` is one block).
+      # Explicit empties stay real: `<br>`'s new block is marked non-virgin,
+      # and trailing `end_block`s emit unconditionally.
+      @block_virgin = false
 
       def initialize(@theme : TextTheme)
       end
@@ -300,10 +334,12 @@ module Crysterm
           return # comments, doctypes
         end
 
+        return if walk_inline_element(node)
+
         case node.data
         when "p", "div"
           bf, collapse = block_format_from(node)
-          end_block
+          end_block(discard_virgin: true)
           # An empty, unstyled, top-level paragraph is spacing, not content
           # (hand-written HTML's separator): it becomes a top margin on
           # whatever block follows. Styled or nested empty paragraphs stay
@@ -319,7 +355,7 @@ module Crysterm
         when "h1", "h2", "h3", "h4", "h5", "h6"
           lvl = node.data[1].to_i
           bf, collapse = block_format_from(node, heading: lvl)
-          end_block
+          end_block(discard_virgin: true)
           start_block(bf, collapse)
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
@@ -328,13 +364,16 @@ module Crysterm
           collapse = @collapse
           end_block
           start_block(bf, collapse)
+          # The break's new block is a real (possibly empty) line — a
+          # following block element must not discard it as a wrapper block.
+          @block_virgin = false
         when "hr"
-          end_block
+          end_block(discard_virgin: true)
           bf, _ = block_format_from(node)
           start_block bf.merge(TextBlockFormat.new(horizontal_rule: true))
           end_block
         when "pre"
-          end_block
+          end_block(discard_virgin: true)
           bf = TextBlockFormat.new(bg: @theme.code_bg)
           fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
           plain_text_of(node).lchop('\n').chomp.split('\n').each do |line|
@@ -343,13 +382,13 @@ module Crysterm
             end_block
           end
         when "blockquote"
-          end_block
+          end_block(discard_virgin: true)
           @quote_depth += 1
           walk_children(node)
           @quote_depth -= 1
           end_block
         when "ul", "ol"
-          end_block
+          end_block(discard_virgin: true)
           start = attr_val(node, "start").try(&.to_i?) || 1
           @list_stack << TextListFormat.new(
             style: list_style(node),
@@ -358,7 +397,7 @@ module Crysterm
           walk_children(node)
           @list_stack.pop?
         when "li"
-          end_block
+          end_block(discard_virgin: true)
           # Consumed by the first block opened inside the item — directly by
           # its text, or by a wrapping `<p>` (loose lists) — so no eager
           # `start_block` here: it would emit an empty member block.
@@ -371,10 +410,28 @@ module Crysterm
           ibf, _ = block_format_from(node)
           @pending_item_format = ibf == TextBlockFormat.default ? nil : ibf
           walk_children(node)
+          # An empty item opened no block; still emit its (empty) member
+          # block, so the exporter's own empty (checkbox) items round-trip.
+          start_block if @pending_item && !@block_open
           end_block
           @pending_item = nil
           @pending_item_format = nil
           @pending_checked = false
+        when "table"
+          end_block(discard_virgin: true)
+          import_table(node)
+        when "script", "style", "head", "template", "title"
+          # skipped subtrees
+        else
+          walk_children(node)
+        end
+      end
+
+      # Inline formatting elements — character-format patches around the
+      # subtree; returns false for anything else so `walk` handles the
+      # block-level cases.
+      private def walk_inline_element(node : HTML5::Node) : Bool
+        case node.data
         when "b", "strong"
           with_patch(TextCharFormat.new(bold: true)) { walk_children(node) }
         when "i", "em"
@@ -403,14 +460,10 @@ module Crysterm
           else
             walk_children(node)
           end
-        when "table"
-          end_block
-          import_table(node)
-        when "script", "style", "head", "template", "title"
-          # skipped subtrees
         else
-          walk_children(node)
+          return false
         end
+        true
       end
 
       # `<table>` → pre-rendered `TextTable` blocks. The first `<th>` row (or
@@ -419,6 +472,9 @@ module Crysterm
       private def import_table(node : HTML5::Node) : Nil
         header = nil
         body = [] of Array(String)
+        # Per-column alignment from cell `text-align` styles / `align`
+        # attributes (first cell that declares one wins for its column).
+        aligns = [] of Tput::AlignFlag?
         trs = [] of HTML5::Node
         collect_trs(node, trs)
         trs.each do |tr|
@@ -428,6 +484,12 @@ module Crysterm
           while child
             if child.type.element? && (child.data == "td" || child.data == "th")
               has_th = true if child.data == "th"
+              if a = cell_align(child)
+                while aligns.size <= cells.size
+                  aligns << nil
+                end
+                aligns[cells.size] ||= a
+              end
               cells << plain_text_of(child).gsub(TextHtml::WS_RUN, " ").strip
             end
             child = child.next_sibling
@@ -442,7 +504,8 @@ module Crysterm
         end
         header ||= body.shift?
         return unless header
-        bs = TextTable.build(header, body, nil, @theme)
+        alignments = aligns.any? ? aligns.map { |a| a || Tput::AlignFlag::Left } : nil
+        bs = TextTable.build(header, body, alignments, @theme)
         if @pending_margin > 0
           bs[0].block_format = bs[0].block_format.merge(TextBlockFormat.new(top_margin: @pending_margin))
           @pending_margin = 0
@@ -545,14 +608,30 @@ module Crysterm
         @block_format = bf
         @collapse = collapse
         @block_open = true
+        @block_virgin = true
       end
 
       private def ensure_block : Nil
         start_block unless @block_open
       end
 
-      private def end_block : Nil
+      private def end_block(discard_virgin : Bool = false) : Nil
         return unless @block_open
+        if discard_virgin && @block_virgin && @frags.empty?
+          # A wrapper's eagerly-opened block that a nested block element
+          # replaces: drop it (no phantom empty block), re-donating whatever
+          # `start_block` consumed — pending margin and list membership — to
+          # the real block that follows.
+          @pending_margin += @block_format.top_margin
+          if (lf = @block_format.list_format) && @pending_item.nil?
+            @pending_item = lf
+            @pending_checked = @block_format.checked?
+          end
+          @frags = [] of TextFragment
+          @block_format = TextBlockFormat.default
+          @block_open = false
+          return
+        end
         if @collapse && (last = @frags.last?)
           last.text = last.text.rstrip(' ')
           @frags.pop if last.text.empty?
@@ -579,6 +658,7 @@ module Crysterm
         return if str.empty?
         if @block_open && !@collapse
           @frags << TextFragment.new(str.gsub('\n', ' '), current_format)
+          @block_virgin = false
           return
         end
         s = str.gsub(TextHtml::WS_RUN, " ")
@@ -588,6 +668,7 @@ module Crysterm
         return if s.empty?
         ensure_block
         @frags << TextFragment.new(s, current_format)
+        @block_virgin = false
       end
 
       # Whether a leading space would be redundant here: block boundary, or
@@ -634,7 +715,7 @@ module Crysterm
       private def block_format_from(node : HTML5::Node, heading : Int32 = 0) : {TextBlockFormat, Bool}
         align = nil
         bg = nil
-        mt = mb = nil
+        mt = mb = ind = nil
         collapse = true
         if st = attr_val(node, "style")
           st.split(';').each do |decl|
@@ -649,6 +730,8 @@ module Crysterm
               mt = css_rows(v) || mt
             when "margin-bottom"
               mb = css_rows(v) || mb
+            when "margin-left"
+              ind = css_cols(v) || ind
             when "white-space"
               collapse = !v.downcase.starts_with?("pre")
             end
@@ -658,7 +741,7 @@ module Crysterm
           align = align_flag(av.downcase) || align
         end
         bf = TextBlockFormat.new(alignment: align, bg: bg,
-          top_margin: mt, bottom_margin: mb,
+          top_margin: mt, bottom_margin: mb, indent: ind,
           heading_level: heading > 0 ? heading : nil)
         {bf, collapse}
       end
@@ -670,9 +753,34 @@ module Crysterm
         if md = v.strip.downcase.match(/\A(\d+(?:\.\d+)?)(em|rem|lh|px)?\z/)
           n = md[1].to_f
           n /= 16 if md[2]? == "px"
-          rows = n.round.to_i
+          # Clamp before `to_i` — an untrusted `margin-top:99999999999em`
+          # must degrade, not raise `OverflowError`.
+          rows = n.round.clamp(0.0, 1000.0).to_i
           rows > 0 ? rows : nil
         end
+      end
+
+      # CSS length → columns for `margin-left` (block indent): bare numbers
+      # and `ch` count 1:1 (the exporter emits `ch`).
+      private def css_cols(v : String) : Int32?
+        if md = v.strip.downcase.match(/\A(\d+(?:\.\d+)?)(ch)?\z/)
+          cols = md[1].to_f.round.clamp(0.0, 1000.0).to_i
+          cols > 0 ? cols : nil
+        end
+      end
+
+      # Column alignment from a table cell's `text-align` style or `align`
+      # attribute.
+      private def cell_align(cell : HTML5::Node) : Tput::AlignFlag?
+        if st = attr_val(cell, "style")
+          st.split(';').each do |decl|
+            k, _, v = decl.partition(':')
+            if k.strip.downcase == "text-align" && (a = align_flag(v.strip.downcase))
+              return a
+            end
+          end
+        end
+        attr_val(cell, "align").try { |v| align_flag(v.downcase) }
       end
 
       private def align_flag(name : String) : Tput::AlignFlag?

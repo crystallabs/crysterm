@@ -99,6 +99,12 @@ module Crysterm
         # an overlay below flips the flag; installs happen at already-visited
         # columns, so probes at the current `x` stay exact.
         br_has_g = br.has_graphemes?
+        # Mirror of the grapheme hoists for the OSC 8 *link* overlay: a layered
+        # widget's links must survive the fold onto the base, and a base cell's
+        # old link must not bleed through an opaque overlay cell (the raw-array
+        # writes below bypass `Cell#char=`'s link-clear invariant).
+        pr_has_l = pr.has_links?
+        br_has_l = br.has_links?
         x = xi < 0 ? 0 : xi
         while x < cols
           patt = pa.unsafe_fetch(x)
@@ -114,7 +120,12 @@ module Crysterm
             # and so a stale cluster under a matching base cell is cleared.
             pg = pr_has_g ? pr.grapheme_at?(x) : nil
             bg = br_has_g ? br.grapheme_at?(x) : nil
-            if under != result || bc.unsafe_fetch(x) != ch || bg != pg
+            # Links participate in the change test like graphemes: a link-only
+            # difference (same glyph/attr) must still write through, so the
+            # base row's overlay — and hence `draw`'s diff — sees it.
+            pl_link = pr_has_l ? pr.link_at(x) : 0_u16
+            b_link = br_has_l ? br.link_at(x) : 0_u16
+            if under != result || bc.unsafe_fetch(x) != ch || bg != pg || b_link != pl_link
               ba[x] = result
               bc[x] = ch
               if pg
@@ -122,6 +133,13 @@ module Crysterm
                 br_has_g = true
               elsif br_has_g
                 br.delete_grapheme x
+              end
+              # Same install/clear for the link overlay.
+              if pl_link != 0_u16
+                br.set_link x, pl_link
+                br_has_l = true
+              elsif br_has_l
+                br.delete_link x
               end
               # Narrow the dirty range to the changed columns (a plain
               # `dirty = true` widened it to full width, defeating draw's

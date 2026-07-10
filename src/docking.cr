@@ -358,7 +358,15 @@ module Crysterm
           # neighbor overwrite the previous one, losing all but the last. The
           # contrast test above still compares against the original `attr`, so
           # which neighbors count as contrasting is unchanged.
-          row.attrs.unsafe_put(x, Colors.blend(nattr, row.attrs.unsafe_fetch(x)))
+          #
+          # Only the COLORS are blended: `Colors.blend` returns the flags of
+          # its first argument (the neighbor), which would transplant the
+          # neighbor's reverse/bold/underline onto the junction cell —
+          # order-dependently for multi-neighbor junctions. Repack with the
+          # cell's own flags.
+          cur = row.attrs.unsafe_fetch(x)
+          blended = Colors.blend(nattr, cur)
+          row.attrs.unsafe_put(x, Attr.pack(Attr.flags(cur), Attr.fg(blended), Attr.bg(blended)))
           # when DockContrast::Ignore
           #  Note: ::Ignore needs no custom handler/code; it works as-is.
         end

@@ -114,13 +114,16 @@ module Crysterm
         # front (error diffusion needs neighbours, can't be done per cell).
         # Memoized per sample bitmap; unused in TrueColor.
         plane = @colors.true_color? ? nil : @dither_plane_memo.get(anim_index, bmp) { dither_plane bmp }
-        (yi...yl).each do |y|
+        # Clamp the walks to the screen: a widget partially off the top/left
+        # edge has negative `yi`/`xi`, and `Indexable#[]?` wraps negative
+        # indices — painting rows/columns at the far end of the buffer.
+        (Math.max(yi, 0)...yl).each do |y|
           cmrow = bmp[y - yi]?
           next unless cmrow
           prow = plane.try &.[y - yi]?
           row = lines[y]?
           next unless row
-          (xi...xl).each do |x|
+          (Math.max(xi, 0)...xl).each do |x|
             px = cmrow[x - xi]?
             next unless px
             cell = row[x]?

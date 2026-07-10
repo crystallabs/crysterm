@@ -74,6 +74,25 @@ module Crysterm
       end
 
       @screen = new_screen
+      # A freshly-built device may still be at its 1×1 construction default
+      # (`Screen.new` defers sizing) and skipped the live terminal probe:
+      # without sizing/probing here the window would render a single cell (and
+      # a 1-row scroll region) at a stale color depth until the first SIGWINCH.
+      # Pinned axes are honored (`adopt_terminal_size` no-ops on them; a
+      # `#reconnected` device carries the old pins).
+      new_screen.adopt_terminal_size
+      new_screen.probe!
+      # Re-detect the terminal's cell pixel geometry on the new device — pixel
+      # mouse (DEC 1016) decoding and CSS `px` lengths read it, and a fresh
+      # `Screen` starts at 0. Must run before any input listening starts on the
+      # new device (the fallback query is a synchronous read that would race
+      # the input fiber; `listen` runs below, after this).
+      new_screen.detect_cell_geometry
+      # An inline (non-alt) surface must re-anchor at the NEW terminal's
+      # cursor row — the anchor captured at construction is meaningless on a
+      # different terminal. Safe here for the same no-input-fiber-yet reason;
+      # falls back to row 0 when the terminal can't answer.
+      capture_inline_anchor unless @alternate
       # Re-enter + repaint invalidates descendants' memoized device.
       enter
       realloc
@@ -180,7 +199,14 @@ module Crysterm
 
     # :ditto:
     def title=(@title : String?)
-      @title.try { |t| self.tput.title = t }
+      if t = @title
+        self.tput.title = t
+      else
+        # An explicit `nil` must actually clear a previously-set title on the
+        # terminal — only nil'ing the ivar left the old OSC title displayed
+        # forever. Emit an empty title (terminals show their own default).
+        self.tput.title = ""
+      end
     end
 
     # Disabled, unused atm
@@ -442,11 +468,29 @@ module Crysterm
       end
 
       realloc
-      render
+      # On a device shared by several windows, only the device-active window
+      # repaints on resize. Each window otherwise reallocs+repaints
+      # independently in creation order, so the last-created sibling won —
+      # dropping an `Application#activate`d window behind it while input still
+      # routed to it. A non-active window's buffers are reallocated above; its
+      # full repaint happens on `activate` (which invalidates + renders).
+      render if device_active_window?
 
       # For children (`Widget`s).
       # e.size = nil
       emit_descendants e
+    end
+
+    # Whether this window is the one currently shown on its device: the
+    # `Application`'s most-recently added/activated window for this `Screen`.
+    # True when unmanaged (no application, or not registered with it) — a lone
+    # window is always its own device's active window.
+    private def device_active_window? : Bool
+      app = application
+      return true unless app
+      return true unless app.windows.includes? self
+      aw = app.active_window_for(@screen)
+      aw.nil? || aw.same?(self)
     end
 
     # The `Application` this window is being driven by, if any. Set when the
@@ -743,6 +787,14 @@ module Crysterm
     # Reallocates screen buffers and clear the screen.
     def realloc
       alloc dirty: true
+      # Both cell buffers were just blanked, so the in-memory frame model no
+      # longer matches anything: a selective (damage-tracked) composite with an
+      # empty dirty set would "succeed" while repainting nothing, leaving the
+      # next render a blank-vs-blank no-op — e.g. `Crysterm.resume_terminals`'s
+      # post-SIGCONT realloc+render silently emitting zero bytes. Force the
+      # next frame to be a full re-composite (a no-op flag when damage
+      # tracking is off).
+      damage_force_full
     end
 
     def leave
@@ -946,7 +998,13 @@ module Crysterm
       reparent_onto Window.new(
         terminfo: Unibilium.from_terminal(term),
         title: @title,
-        width: width, height: height,
+        # Carry the pin STATE, not the current size as unconditional pins:
+        # passing plain Int32s set `explicit_width/height` on the new device,
+        # so `adopt_terminal_size`/`set_size` no-op'd forever and the
+        # replacement window stopped tracking terminal resizes, frozen at the
+        # moment-of-switch size. Only an axis that was pinned stays pinned.
+        width: (@screen.explicit_width? ? width : nil),
+        height: (@screen.explicit_height? ? height : nil),
         dock_borders: @dock_borders, dock_contrast: @dock_contrast,
         always_propagate: @always_propagate, propagate_keys: @propagate_keys,
         default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,

@@ -163,7 +163,12 @@ module Crysterm
         # Clears every field and the body.
         def reset
           @fields.each_value &.value = ""
-          body.set_content ""
+          # Clear through the document (`DocumentBuffer#value=` →
+          # `document.set_plain_text("")`, caret rewound): `set_content ""`
+          # only blanks the display, so the first keystroke would re-`set_content`
+          # the stale document text (old body resurrecting) and `values["body"]`
+          # would still report it.
+          body.value = ""
         end
 
         # Returns the current header values plus the body text, for inspection.

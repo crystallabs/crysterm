@@ -116,17 +116,36 @@ module Crysterm
           # recently added sections) stays visible, rather than truncating the
           # right end by pinning the start to `xi`. The sliced tail is cached
           # against `(avail, source)` so an overflowing bar doesn't re-slice each
-          # frame.
-          if text.size > avail
+          # frame. All accounting is in display cells (`str_width`), not
+          # codepoints: wide (CJK/emoji) sections measured by `.size` started
+          # the run too far right and left-truncated too few cells.
+          tw = str_width text
+          if tw > avail
             key = {avail, text}
             if @_trunc_key != key
               @_trunc_key = key
-              @_trunc = text[(text.size - avail)..]
+              @_trunc = truncate_left text, avail
             end
             text = @_trunc
+            tw = str_width text
           end
-          draw_text_run yi, xl - text.size, text, xl, sattr(style)
+          draw_text_run yi, xl - tw, text, xl, sattr(style)
         end
+      end
+
+      # Drops graphemes off the left of *text* until its display width fits
+      # *avail* cells (never splitting a grapheme — dropping a straddling wide
+      # char makes the result one cell narrower rather than corrupt).
+      private def truncate_left(text : String, avail : Int32) : String
+        drop = str_width(text) - avail
+        start_byte = 0
+        text.each_grapheme do |g|
+          break if drop <= 0
+          s = g.to_s
+          drop -= str_width s
+          start_byte += s.bytesize
+        end
+        text.byte_slice(start_byte)
       end
     end
   end

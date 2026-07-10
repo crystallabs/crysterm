@@ -196,6 +196,13 @@ module Crysterm
       # `@_shrink_lpos` above, which is exposed via `@lpos` for the same pass.
       scratch = (@_shrink_child_lpos ||= LPos.new)
       @children.each do |el|
+        # Skip layout-excluded chrome, exactly as the layout engines do: e.g.
+        # the background-image `Media` layer is pinned 0/0/0/0 (spanning the
+        # whole current slot), so measuring it would lock a shrink-to-content
+        # widget at whatever size the previous frame stretched the layer to —
+        # after frame 1 the widget balloons to its parent's full size and
+        # never shrinks again.
+        next if el.layout_excluded?
         ret = el._get_coords(get, into: scratch)
 
         # D O:

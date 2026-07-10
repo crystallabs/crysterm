@@ -387,9 +387,16 @@ module Crysterm
 
           # Take advantage of xterm's back_color_erase via a lookahead, to avoid
           # emitting runs of spaces.
+          #
+          # The flag-parity gate must cover every attribute that visibly
+          # decorates a printed *space*: `el` fills with the background only,
+          # so a run of UNDERLINE/STRIKE (not just REVERSE) blanks would come
+          # out undecorated — and, `@olines` being mirrored as-drawn, stay
+          # missing forever.
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
              (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
-             ((Attr.flags(desired_attr) & Attr::REVERSE) == (Attr.flags(@default_attr) & Attr::REVERSE))
+             ((Attr.flags(desired_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) ==
+               (Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)))
             clr = true
             neq = false # line changed content vs. previous render
             breaker = line_size
@@ -991,9 +998,14 @@ module Crysterm
       divert(@tmpbuf, @_buf) do |buf|
         tput.set_scroll_region(top + off, bottom + off)
         yield buf
-        # Restore to the surface's own bounds: the full screen in alt mode
-        # (`off == 0`), or the inline region `[offset, offset + aheight - 1]`.
-        tput.set_scroll_region(off, off + aheight - 1)
+        # Restore the full screen. In alt mode (`off == 0`) that IS the
+        # surface's own bounds. An inline surface must NOT leave DECSTBM
+        # pinned to its band: `scroll_terminal_up` (auto-grow) emits newlines
+        # at the terminal's last row, which sits below the band's bottom, so a
+        # pinned region made the next autogrow scroll a no-op (or scroll only
+        # the band), desyncing `render_row_offset` and painting over shell
+        # history.
+        tput.set_scroll_region(0, (@alternate ? aheight : tput.screen.height) - 1)
       end
       true
     end
@@ -1189,14 +1201,27 @@ module Crysterm
         oline = @olines[y]?
         break unless oline
 
-        xi.upto(xl - 1) do |x|
+        line = @lines[y]?
+
+        # The poison sentinel '\0' equals `Cell::CONTINUATION`: when the
+        # rect's LEFT edge lands on the trailing half of a wide grapheme, the
+        # desired cell is *also* '\0' with the same attr, compares unchanged,
+        # and is skipped — the wide glyph straddling the edge would never be
+        # repainted. Widen the poison one column left so the LEAD cell is
+        # re-emitted (which re-claims its continuation).
+        x0 = xi
+        if x0 > 0 && line && (c = line[x0]?) && c.continuation?
+          x0 -= 1
+        end
+
+        x0.upto(xl - 1) do |x|
           ocell = oline[x]?
           break unless ocell
           # A sentinel the real cell content can never equal, so `draw` re-emits.
           ocell.char = '\u{0}'
         end
 
-        @lines[y]?.try(&.dirty=(true))
+        line.try(&.dirty=(true))
       end
     end
 
@@ -1268,6 +1293,12 @@ module Crysterm
         # skipping the per-cell `grapheme_at?`/`delete_grapheme` calls (overhead
         # that dominated the render profile) on those rows is a real win.
         has_g = line.has_graphemes?
+        # Same hoist for the hyperlink overlay: `Cell#char=`'s invariant is
+        # that every content write clears the cell's link, and this raw-array
+        # writer must uphold it — otherwise blanked cells kept their old link
+        # ids and were re-emitted wrapped in stale OSC 8 (an invisible
+        # clickable region), with the row permanently `has_links?`.
+        has_l = line.has_links?
 
         x = xi
         while x < xend
@@ -1276,13 +1307,17 @@ module Crysterm
           # it must be rewritten. The `||` short-circuits exactly as `==` does;
           # the `grapheme_at?` probe is reached only when attr/char already match
           # AND the row has some overlay (`has_g`), so overlay-free rows never
-          # call it.
-          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch || (has_g && !line.grapheme_at?(x).nil?)
+          # call it. A cell carrying a link must be rewritten too, or an
+          # already-blank linked cell would be skipped with its link intact.
+          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch ||
+             (has_g && !line.grapheme_at?(x).nil?) || (has_l && line.link_at(x) != 0_u16)
             attrs.unsafe_put(x, attr)
             chars.unsafe_put(x, ch)
             # Mirrors `Cell#char=`, which drops any cluster overlay on the cell —
             # only needed when the row actually carries one.
             line.delete_grapheme(x) if has_g
+            # ...and the link overlay (the other `Cell#char=` side effect).
+            line.delete_link(x) if has_l
             # Narrow the dirty range to this column so `draw` can bound its scan
             # (the per-frame clear typically changes only the few cells a widget
             # painted last frame).

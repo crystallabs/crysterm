@@ -158,7 +158,11 @@ module Crysterm
           next unless editable? && @open
           nf = e.el
           next if nf && (p = @popup) && (nf == p || nf.has_ancestor?(p))
-          close
+          # `refocus: false`: this runs mid-`_focus` (focus is on its way to
+          # `e.el`); a `focus` here would re-enter the focus machinery, land
+          # focus back on the combo (Tab needed twice) and corrupt the focus
+          # history with a duplicate entry.
+          close refocus: false
         end
 
         update_content
@@ -256,14 +260,17 @@ module Crysterm
       end
 
       # Closes the popup (without changing the value) and refocuses the combo.
-      def close
+      # Pass `refocus: false` when closing because focus is already moving
+      # elsewhere (the Blur handlers) — refocusing mid-blur would re-enter the
+      # focus machinery and bounce focus back onto the combo.
+      def close(refocus : Bool = true)
         return unless teardown_popup
         # End editing session: drop filter buffer so the box shows committed value.
         if editable?
           @text = ""
           update_content
         end
-        focus
+        focus if refocus
       end
 
       # `#toggle` (open/close) comes from `Mixin::Popup`.
@@ -332,6 +339,14 @@ module Crysterm
       end
 
       private def ensure_popup : Popup
+        # A cross-window reparent strands the cached popup on the old window
+        # (it is a *window* child, not ours): reopening would render the list
+        # over there while placement and the dismiss grab use the new window.
+        # Drop the stale popup and rebuild on the current window.
+        if (stale = @popup) && stale.window? != window?
+          ::Crysterm::Widget.destroy_satellite stale
+          @popup = nil
+        end
         @popup ||= begin
           pop = Popup.new(
             window: window,
@@ -340,6 +355,16 @@ module Crysterm
           )
           pop.add_css_class "popup" # themed via `.popup { border: solid; ... }`
           pop.combo = self
+          # A non-editable combo focuses the popup; when focus then leaves the
+          # combo+popup pair (e.g. Tab out of the open list), nothing else
+          # would dismiss it — it stayed open with a live modal grab until an
+          # outside click. `refocus: false`: focus is already moving on.
+          pop.on(Crysterm::Event::Blur) do |e|
+            next unless @open
+            nf = e.el
+            next if nf && (nf == self || nf == pop || nf.has_ancestor?(pop) || nf.has_ancestor?(self))
+            close refocus: false
+          end
           window.append pop
           pop.hide
           pop

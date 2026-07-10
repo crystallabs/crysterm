@@ -656,8 +656,11 @@ module Crysterm
         # hue bar (only fg/bg vary), so derive them once and fold them into the
         # cached packed attrs (see `field_attrs`/`hue_attrs`).
         flags = Attr.flags sattr(style)
-        draw_field flags
-        draw_hue flags
+        # Pass the clipped LPos from `_render` down so the overlays stay inside
+        # the rendered (possibly clipped) area — the raw absolute coords they
+        # paint at would otherwise wrap (negative indices) or escape the clip.
+        draw_field flags, ret
+        draw_hue flags, ret
         ret
       end
 
@@ -705,7 +708,7 @@ module Crysterm
         @hue_attrs
       end
 
-      private def draw_field(flags : Int64) : Nil
+      private def draw_field(flags : Int64, clip : LPos) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_sx = ox + FIELD_X + (@saturation * (FIELD_W - 1)).round.to_i
@@ -722,15 +725,15 @@ module Crysterm
               v = 1.0 - row / (FIELD_H - 1).to_f
               s = col / (FIELD_W - 1).to_f
               r, g, b = hsv_to_rgb @hue, s, v
-              put_cell x, y, '+', Colors.rgb(r, g, b), true
+              put_cell x, y, '+', Colors.rgb(r, g, b), true, clip
             else
-              put_cell_attr x, y, ' ', attrs[row * FIELD_W + col]
+              put_cell_attr x, y, ' ', attrs[row * FIELD_W + col], clip
             end
           end
         end
       end
 
-      private def draw_hue(flags : Int64) : Nil
+      private def draw_hue(flags : Int64, clip : LPos) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_hy = oy + HUE_Y + (@hue / 360.0 * (HUE_H - 1)).round.to_i
@@ -744,9 +747,9 @@ module Crysterm
               # Marker: recompute just this row's bg for the contrasting fg.
               h = row / (HUE_H - 1).to_f * 360.0
               r, g, b = hsv_to_rgb h, 1.0, 1.0
-              put_cell x, y, '<', Colors.rgb(r, g, b), true
+              put_cell x, y, '<', Colors.rgb(r, g, b), true, clip
             else
-              put_cell_attr x, y, ' ', attrs[row * HUE_W + col]
+              put_cell_attr x, y, ' ', attrs[row * HUE_W + col], clip
             end
           end
         end
@@ -754,14 +757,18 @@ module Crysterm
 
       # Writes one cell directly into the window buffer (cf. `Slider#render`).
       # When *marked*, the glyph is drawn in a contrasting fg over the swatch.
-      private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool) : Nil
+      private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : LPos) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
-        put_cell_attr x, y, ch, sattr(style, fg, bg)
+        put_cell_attr x, y, ch, sattr(style, fg, bg), clip
       end
 
       # Writes one cell with an already-packed attr (the cached-swatch fast path,
-      # bypassing per-cell `hsv_to_rgb`/`sattr`).
-      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64) : Nil
+      # bypassing per-cell `hsv_to_rgb`/`sattr`). Cells outside the clipped LPos
+      # (a partially offscreen / parent-clipped dialog) are dropped; a negative
+      # index would otherwise wrap to the far side of the screen buffer.
+      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : LPos) : Nil
+        return if x < clip.xi || x >= clip.xl || y < clip.yi || y >= clip.yl
+        return if x < 0 || y < 0
         window.lines[y]?.try do |line|
           line[x]?.try do |cell|
             cell.char = ch

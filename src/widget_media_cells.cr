@@ -91,7 +91,7 @@ module Crysterm
         @sample = nil
 
         set_content ""
-        png = source
+        png = source(open_stream: true) # load may open the live video decoder
         unless png
           set_content "Media Error: could not load #{file}"
           @animated = false

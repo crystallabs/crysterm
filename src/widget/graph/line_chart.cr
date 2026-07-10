@@ -143,7 +143,7 @@ module Crysterm
         @data_version = 0
 
         # Cache-validity stamps for the derived tick/label arrays and the legend.
-        @ticks_key : Tuple(Float64, Float64, Float64, Float64, Int32, String, Int32, String)?
+        @ticks_key : Tuple(Float64, Float64, Float64, Float64, Int32, String, String, Int32, String, String)?
         @legend_version : Int32?
 
         def initialize(
@@ -228,6 +228,10 @@ module Crysterm
           xs_min = xs_max = ys_min = ys_max = nil
           @series.each do |s|
             s.points.each do |(x, y)|
+              # A NaN/Infinity sample must not poison the auto-range: a NaN
+              # min/max propagates into the tick fractions in `#draw_chrome`,
+              # where `.round.to_i` raises OverflowError in the render fiber.
+              next unless x.finite? && y.finite?
               xs_min = xs_min.nil? ? x : Math.min(xs_min, x)
               xs_max = xs_max.nil? ? x : Math.max(xs_max, x)
               ys_min = ys_min.nil? ? y : Math.min(ys_min, y)
@@ -238,6 +242,12 @@ module Crysterm
           @xmax = axis_x.maximum || xs_max || 1.0
           @ymin = axis_y.minimum || ys_min || 0.0
           @ymax = axis_y.maximum || ys_max || 1.0
+          # An explicit non-finite axis bound is as poisonous as a non-finite
+          # sample — fall back to a sane default range.
+          @xmin = 0.0 unless @xmin.finite?
+          @xmax = 1.0 unless @xmax.finite?
+          @ymin = 0.0 unless @ymin.finite?
+          @ymax = 1.0 unless @ymax.finite?
           # Guard against zero spans (single point / flat data).
           @xmax = @xmin + 1.0 if @xmax <= @xmin
           @ymax = @ymin + 1.0 if @ymax <= @ymin
@@ -248,8 +258,11 @@ module Crysterm
         # so a steady chart does no per-frame `Array(Float64)`/`Array(String)`
         # allocation for its ticks or labels.
         private def refresh_ticks : Nil
+          # `label_format` is in the key so a format change re-`format`s the
+          # labels; `title` affects `#margins` via `lm` and keys along for free.
           key = {@xmin, @xmax, @ymin, @ymax,
-                 axis_x.tick_count, axis_x.title, axis_y.tick_count, axis_y.title}
+                 axis_x.tick_count, axis_x.title, axis_x.label_format,
+                 axis_y.tick_count, axis_y.title, axis_y.label_format}
           return if @ticks_key == key
           @ticks_key = key
           fill_axis @x_ticks, @x_labels, axis_x, @xmin, @xmax
@@ -351,6 +364,7 @@ module Crysterm
           # Y axis labels (right-aligned in the left margin, at each tick row).
           @y_ticks.each_with_index do |val, i|
             frac = (@ymax - val) / (@ymax - @ymin)
+            next unless frac.finite? # belt-and-braces: NaN would raise on .to_i
             row = plot_t + (frac * (plot_h - 1)).round.to_i
             next if row < plot_t || row >= plot_b
             label = @y_labels[i]? || axis_y.format(val)
@@ -360,6 +374,7 @@ module Crysterm
           # X axis labels (centered under each tick column, on the bottom row).
           @x_ticks.each_with_index do |val, i|
             frac = (val - @xmin) / (@xmax - @xmin)
+            next unless frac.finite? # belt-and-braces: NaN would raise on .to_i
             col = plot_l + (frac * (plot_w - 1)).round.to_i
             label = @x_labels[i]? || axis_x.format(val)
             x = col - label.size // 2

@@ -18,24 +18,51 @@ module Crysterm
     # Sets this widget's cursor shape (and blink), overriding the window default
     # while the widget is focused. Routes through the window so the hardware vs.
     # artificial decision and (re)rendering are identical to the window cursor.
+    #
+    # On a detached widget the setting is recorded on the widget's own cursor
+    # (same fields `Window#cursor_shape` would set) instead of being silently
+    # dropped — matching the "recorded and applied on focus" contract and the
+    # always-recording `cursor!.shape=` path; it takes effect once attached and
+    # focused. Same for the color/show/hide methods below.
     def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
-      window?.try &.cursor_shape shape, blink, cursor!
+      if s = window?
+        s.cursor_shape shape, blink, cursor!
+      else
+        c = cursor!
+        c.shape = shape
+        c.blink = blink
+        c._set = false
+      end
     end
 
     # Sets this widget's cursor color, overriding the window default while the
-    # widget is focused.
+    # widget is focused. Recorded even while detached (see `#cursor_shape`).
     def cursor_color(color : String? = nil)
-      window?.try &.cursor_color color, cursor!
+      if s = window?
+        s.cursor_color color, cursor!
+      else
+        c = cursor!
+        c.style.fg = color
+        c._set = true
+      end
     end
 
-    # Shows this widget's cursor.
+    # Shows this widget's cursor. Recorded even while detached (see `#cursor_shape`).
     def show_cursor
-      window?.try &.show_cursor cursor!
+      if s = window?
+        s.show_cursor cursor!
+      else
+        cursor!._hidden = false
+      end
     end
 
-    # Hides this widget's cursor.
+    # Hides this widget's cursor. Recorded even while detached (see `#cursor_shape`).
     def hide_cursor
-      window?.try &.hide_cursor cursor!
+      if s = window?
+        s.hide_cursor cursor!
+      else
+        cursor!._hidden = true
+      end
     end
 
     # Drops this widget's cursor override, reverting to the window default. If

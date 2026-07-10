@@ -20,6 +20,15 @@ module Crysterm
     # True once a *finite* animation has run out its iterations, so it isn't
     # restarted on every subsequent render.
     @css_animation_finished = false
+    # The raw `@keyframes` stops the running animation was resolved from —
+    # the object `Window#css_keyframes(spec.name)` returned at start time.
+    # `@css_animation_spec` alone can't detect a stylesheet swap whose
+    # `animation:` declaration is unchanged but whose `@keyframes` body changed
+    # (or vanished): the spec is a value record and compares equal, so the old
+    # clock would keep writing obsolete stops forever. A reparse allocates new
+    # stop arrays, so a cheap per-render `same?` against the current lookup
+    # catches the swap (hot-reload is a documented workflow).
+    @css_animation_keyframes : Array(Tuple(Float64, Hash(String, String)))?
 
     # Starts/keeps/stops this widget's CSS `animation` to match its current style.
     # A cheap no-op when no `animation` is declared. Called once per render.
@@ -29,6 +38,8 @@ module Crysterm
         stop_css_animation
       elsif @css_animation_spec != spec
         start_css_animation spec # new/changed animation
+      elsif !(window?.try(&.css_keyframes(spec.name))).same?(@css_animation_keyframes)
+        start_css_animation spec # same spec, but the @keyframes body was swapped
       elsif !@css_animation_finished && !(@css_animation.try(&.running?))
         start_css_animation spec # same animation, stopped unexpectedly: resume
       end
@@ -40,6 +51,7 @@ module Crysterm
       @css_animation = nil
       @css_animation_spec = nil
       @css_animation_finished = false
+      @css_animation_keyframes = nil
     end
 
     # Seconds elapsed since *start_at* (a `Time.instant` reading), driving
@@ -62,9 +74,14 @@ module Crysterm
       @css_animation = nil
       @css_animation_spec = spec
       @css_animation_finished = false
+      @css_animation_keyframes = nil
 
       scr = window? || return
       raw = scr.css_keyframes(spec.name)
+      # Record the exact lookup result (even a failing one) so the per-render
+      # staleness check in `ensure_css_animation` compares identities against
+      # what the current stylesheet actually provides.
+      @css_animation_keyframes = raw
       unless raw && raw.size >= 2
         # No usable keyframes (missing name or a single stop): leave the spec
         # recorded and mark it finished so the failed lookup isn't repeated on

@@ -46,6 +46,18 @@ module Crysterm
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @gap : Int32 = 0)
       end
 
+      # Caps for degenerate `Grid::Hint` values (see `#arrange`). A row origin
+      # is clamped to `ROW_ORIGIN_CAP` so the checked adds in the row inference
+      # (`p[1] + 1`, `p[1] + p[3]`) can't raise `OverflowError` on
+      # `row: Int32::MAX`. Occupancy bookkeeping never records rows past
+      # `OCCUPANCY_ROW_CAP`: `#occupy` iterates the span, so a raw
+      # `row_span: Int32::MAX` would insert 2^31 tuples into the occupancy set
+      # on every arrange (every frame) — a permanent render-fiber stall.
+      # Placement geometry is unaffected by either cap: `#fence` clamps every
+      # cell to the real grid regardless.
+      ROW_ORIGIN_CAP    = 1_000_000
+      OCCUPANCY_ROW_CAP =      4096
+
       def arrange(container : Widget, interior : LPos) : Nil
         w = interior.xl - interior.xi
         h = interior.yl - interior.yi
@@ -58,12 +70,37 @@ module Crysterm
         placements.clear
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
+        # Hints are clamped to grid bounds before any bookkeeping (see the
+        # caps above): column origin/span to the fixed `columns`; the row
+        # origin to `ROW_ORIGIN_CAP`. The row *span* is clamped against
+        # `row_bound` below, once every explicit origin is known — preserving
+        # the file's "an over-large span spans to the end" semantics while
+        # keeping `#occupy` (which iterates the span) proportional to real
+        # grid cells rather than to `Int32::MAX`.
+        max_origin = 0
         each_arrangeable container do |el|
           next unless hint = el.layout_hint.as?(Hint)
+          row = hint.row.clamp(0, ROW_ORIGIN_CAP)
+          col = hint.col.clamp(0, cols)
           rs = Math.max(hint.row_span, 1)
-          cs = Math.max(hint.col_span, 1)
-          placements << {el, hint.row, hint.col, rs, cs}
-          occupy occupied, hint.row, hint.col, rs, cs
+          cs = hint.col_span.clamp(1, Math.max(cols - col, 1))
+          placements << {el, row, col, rs, cs}
+          max_origin = Math.max(max_origin, row)
+        end
+
+        # The deepest row bookkeeping can meaningfully reach: the declared
+        # `rows`, or the row inference's own upper bound (content origins plus
+        # one row per arrangeable child — `nrows` below can never exceed it),
+        # hard-capped so degenerate input can't make occupancy per-frame work
+        # unbounded. Spans are stored clamped, so the inference's `p[1] + p[3]`
+        # also sees the clamped values.
+        row_bound = Math.min(@rows || (max_origin + 1 + arrangeable_count(container)), OCCUPANCY_ROW_CAP)
+        row_bound = 1 if row_bound < 1
+        placements.map! do |placement|
+          el, row, col, rs, cs = placement
+          rs = Math.min(rs, Math.max(row_bound - row, 1))
+          occupy occupied, row, col, rs, cs
+          {el, row, col, rs, cs}
         end
 
         # Auto-flow the rest (children with no Hint) into free cells, row-major.

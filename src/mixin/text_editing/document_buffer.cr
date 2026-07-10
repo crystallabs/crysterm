@@ -109,8 +109,8 @@ module Crysterm
         # Rich copy: the clipboard carries the selection as a formatted
         # `TextDocumentFragment` alongside its plain text (which is all the
         # OSC-52 system clipboard can take) — TEXTEDIT.md Phase 3.
-        def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32) : Nil
-          clipboard.set_rich(document.copy_fragment(from, to), document.plain_text(from, to))
+        def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32, window : Crysterm::Window? = nil) : Nil
+          clipboard.set_rich(document.copy_fragment(from, to), document.plain_text(from, to), window)
         end
 
         # Rich paste: inserts the clipboard's fragment (formats intact,

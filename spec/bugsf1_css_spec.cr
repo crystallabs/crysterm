@@ -69,9 +69,7 @@ end
 
 describe "BUGS-F1 #46 nested @import resolves relative to the importing file" do
   it "reads a deeply-imported file relative to its importer, not the top-level base" do
-    root = File.join(
-      "/private/tmp/claude-504/-Users-rn-p-crystallabs-crysterm/dfab9959-0fa8-497f-8eb8-ff5740b177d6/scratchpad",
-      "f46_#{Random.rand(1_000_000)}")
+    root = File.tempname("crysterm_f46")
     Dir.mkdir_p File.join(root, "sub")
     File.write File.join(root, "main.css"), %(@import "sub/a.css";\nBox { color: white; }\n)
     File.write File.join(root, "sub", "a.css"), %(@import "b.css";\n)

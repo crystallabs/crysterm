@@ -159,10 +159,16 @@ module Crysterm
         s = value.strip
         # Fast path for a bare integer (`5`, `0`, `-3`), no regex. Only a bare
         # decimal (`5.5`) needs NUMBER, only a unit'd length needs PATTERN.
+        # `to_f?` (not strict `to_f`) throughout: a numeric literal past
+        # Float64 range (309+ digits — a generated/corrupted stylesheet value)
+        # makes `to_f` raise `ArgumentError` on ERANGE, and nothing between
+        # `Properties.apply` and `Cascade.apply_sheets` rescues — one bad token
+        # would crash the app, violating this module's "Never raises" contract.
+        # (Matches the `to_i?` fast path and the `MediaQuery` precedent.)
         if i = s.to_i?
           i.to_f
         elsif s.matches?(NUMBER)
-          s.to_f
+          s.to_f?
         elsif m = s.match(PATTERN)
           # Look up as-captured first (usually already lowercase), only
           # allocating a `downcase` copy on the rare uppercase unit.
@@ -171,7 +177,7 @@ module Crysterm
             # Vertical absolute lengths span fewer cells than horizontal (cell is
             # taller than wide); relative units stay isotropic.
             div *= cell_aspect_ratio if vertical && (PHYSICAL.includes?(u) || PHYSICAL.includes?(u.downcase))
-            m[1].to_f / div
+            m[1].to_f?.try { |f| f / div }
           end
         end
       end
@@ -193,7 +199,9 @@ module Crysterm
                 when "vmin" then {screen_width, screen_height}.min
                 else             {screen_width, screen_height}.max
                 end
-        to_cell_count(basis * m[1].to_f / 100.0)
+        # `to_f?`: an out-of-Float64-range literal must yield `nil`, not raise
+        # (see `to_cells_f`); `to_cell_count` clamps any overflowing product.
+        m[1].to_f?.try { |f| to_cell_count(basis * f / 100.0) }
       end
 
       # Evaluates a `calc()` body to cells, honoring `+ - * /` and nested parens;

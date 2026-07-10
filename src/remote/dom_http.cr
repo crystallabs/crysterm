@@ -495,6 +495,12 @@ module Crysterm
       # this `receive` would block forever and hang the HTTP request; (2) an
       # unhandled raise on the render fiber would kill it and freeze the UI.
       # Re-raising here lets `handle_rpc` map it to a JSON-RPC -32603.
+      #
+      # Fail fast when the window is already destroyed (e.g. an embedder called
+      # `quit` and keeps issuing RPCs): its render loop has exited, so a `post`ed
+      # block would never execute and the `receive` below would block this HTTP
+      # fiber forever — wedging every subsequent request.
+      raise InvalidRequest.new "window is destroyed" if @window.destroyed?
       result = Channel(T | Exception).new(1)
       @window.post do
         begin

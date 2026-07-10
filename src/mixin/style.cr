@@ -48,6 +48,14 @@ module Crysterm
       # :ditto:
       def styles=(styles : ::Crysterm::Styles) : ::Crysterm::Styles
         invalidate_frame_style
+        # The styles object is replaced wholesale (typically a cascade reset to
+        # the pristine base snapshot, whose floor border is stripped), so the
+        # floor-border sync memo no longer describes the live object. Without
+        # dropping it, `#ensure_floor_border` believes the border is still
+        # installed and skips reinstalling — an overlay (Menu/Dialog/ToolTip)
+        # that once rendered unstyled would stay borderless forever after a
+        # cascade reset.
+        @floor_border_applied = nil
         @styles = styles
       end
 
@@ -73,6 +81,18 @@ module Crysterm
       # programmatic default styles.
       def reset_css_base_styles : Nil
         @css_base_styles = nil
+      end
+
+      # The pristine snapshot's `normal` style, but only when the snapshot was
+      # already captured (i.e. this widget has been through a cascade) — `nil`
+      # otherwise, so callers never force an eager capture. Used by
+      # `Widget#persist_inline_style` to persist programmatic changes
+      # (`hide`/fade alpha) on widgets that live under active CSS yet match no
+      # rule (`css_styled? == false`): the cascade still resets them to a fresh
+      # dup of this snapshot on every restyle, so a change written only to the
+      # computed styles would be silently undone (a hidden widget reappearing).
+      def css_base_normal_if_captured : ::Crysterm::Style?
+        @css_base_styles.try(&.normal)
       end
 
       # User may set specific style for this widget

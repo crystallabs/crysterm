@@ -163,14 +163,24 @@ module Crysterm
         elsif k == ::Tput::Key::Down || ch == 'j'
           stepping_key(e) { decrement }
         elsif k == ::Tput::Key::PageUp
-          stepping_key(e) { increment @step * 10 }
+          stepping_key(e) { increment page_step_delta(@step) }
         elsif k == ::Tput::Key::PageDown
-          stepping_key(e) { decrement @step * 10 }
+          stepping_key(e) { decrement page_step_delta(@step) }
         elsif k == ::Tput::Key::Home
           stepping_key(e) { self.value = @minimum }
         elsif k == ::Tput::Key::End
           stepping_key(e) { self.value = @maximum }
         end
+      end
+
+      # The PageUp/PageDown delta: 10 line-steps, saturating to the numeric
+      # type's own bound instead of raising when `step * 10` overflows (e.g. a
+      # `SpinBox` step above `Int32::MAX / 10`). `#increment`/`#decrement` then
+      # saturate to the range bound as usual.
+      private def page_step_delta(step : T) : T forall T
+        step * 10
+      rescue OverflowError
+        step >= T.zero ? T::MAX : T::MIN
       end
 
       # Discards any in-progress edit buffer, runs the stepping *action*, then

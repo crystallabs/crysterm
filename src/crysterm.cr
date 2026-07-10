@@ -182,6 +182,51 @@ module Crysterm
     GlobalEvents.emit Event::Resize
   end
 
+  # Hands every connected window's terminal back before the process suspends:
+  # leaves the alt buffer, turns off mouse reporting/keyboard protocol/paste,
+  # restores cooked mode (`Tput#pause` stores a resume continuation). Without
+  # this, an external `kill -TSTP` (or Ctrl+Z in the pre-raw startup window)
+  # suspends with the alt buffer active and mouse reporting on — the shell
+  # prompt lands inside the app's screen and pointer motion spews SGR
+  # sequences. Best-effort per window (a dead fd must not block the rest).
+  def self.suspend_terminals : Nil
+    Window.instances.dup.each do |w|
+      next unless w.connected?
+      begin
+        w.tput.pause
+      rescue
+      end
+    end
+  end
+
+  # Restores every connected window's terminal after the process continues
+  # (`SIGCONT`): re-enters the alt buffer/modes via the continuation `#pause`
+  # stored, then reallocs (invalidating `@olines` — the terminal no longer
+  # shows the pre-suspend frame, so diffing against it would leave shell
+  # output as permanent corruption) and repaints.
+  def self.resume_terminals : Nil
+    Window.instances.dup.each do |w|
+      next unless w.connected?
+      begin
+        w.tput.resume
+        w.realloc
+        w.render
+      rescue
+      end
+    end
+  end
+
+  # SIGTSTP: suspend cleanly. TSTP (unlike SIGSTOP) is catchable, so restore
+  # the terminal(s) first, then deliver the real (uncatchable) STOP to self.
+  # On `fg`, the shell sends SIGCONT, handled below.
+  Signal::TSTP.trap do
+    suspend_terminals
+    Process.signal Signal::STOP, Process.pid
+  end
+  Signal::CONT.trap do
+    resume_terminals
+  end
+
   at_exit do
     # Iterate a copy: `Window#destroy` calls `@@instances.delete self`, so
     # iterating the live registry in place shifts elements under the index-based

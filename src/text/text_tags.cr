@@ -113,6 +113,8 @@ module Crysterm
         props << "list-#{lf.style.to_s.downcase}"
         props << "li-#{lf.indent}" if lf.indent != 1
         props << "ls-#{lf.start}" if lf.start != 1
+        # Per-block checked state of a checkbox item ([x] vs [ ]).
+        props << "checked" if lf.style.checkbox? && bf.checked?
       end
       io << "{!block;" << props.join(';') << '}' unless props.empty?
     end
@@ -247,6 +249,16 @@ module Crysterm
           return
         end
 
+        # The widget vocabulary combines tags with ','/';' ({bold,underline});
+        # split and re-dispatch each part with the same slash. `{!block;…}`
+        # owns its ';'-separated props and is excluded.
+        if !param.starts_with?("!block") && param.matches?(/[,;]/)
+          param.split(/\s*[,;]\s*/).each do |part|
+            handle_tag(slash, part) unless part.blank?
+          end
+          return
+        end
+
         case param
         when "open"
           append_text "{"
@@ -301,34 +313,39 @@ module Crysterm
       private def apply_block_props(spec : String) : Nil
         heading = indent = mt = mb = bg = quote = nil
         align = nil
-        nobreak = hr = nil
+        nobreak = hr = checked = nil
         list_style = nil
         list_indent = 1
         list_start = 1
         spec.split(';').each_with_index do |prop, i|
           next if i == 0 # the "!block" marker itself
+          # Numeric props use `to_i?`: an out-of-range value is a malformed
+          # prop and drops (the module-wide drop-malformed policy), it must
+          # not raise.
           case prop
           when /\Ah([1-6])\z/     then heading = $1.to_i
           when "align-left"       then align = Tput::AlignFlag::Left
           when "align-center"     then align = Tput::AlignFlag::HCenter
           when "align-right"      then align = Tput::AlignFlag::Right
-          when /\Aindent-(\d+)\z/ then indent = $1.to_i
-          when /\Amt-(\d+)\z/     then mt = $1.to_i
-          when /\Amb-(\d+)\z/     then mb = $1.to_i
+          when /\Aindent-(\d+)\z/ then indent = $1.to_i?
+          when /\Amt-(\d+)\z/     then mt = $1.to_i?
+          when /\Amb-(\d+)\z/     then mb = $1.to_i?
           when /\Abg-(.+)\z/      then bg = parse_color($1)
           when "nobreak"          then nobreak = true
-          when /\Aq-(\d+)\z/      then quote = $1.to_i
+          when /\Aq-(\d+)\z/      then quote = $1.to_i?
           when "hr"               then hr = true
           when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
-          when /\Ali-(\d+)\z/     then list_indent = $1.to_i
-          when /\Als-(\d+)\z/     then list_start = $1.to_i
+          when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
+          when /\Als-(\d+)\z/     then list_start = $1.to_i? || list_start
+          when "checked"          then checked = true
           end
         end
         lf = list_style ? list_instance(list_style, list_indent, list_start) : nil
         @block_format = @block_format.merge(TextBlockFormat.new(
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
           bg: bg, heading_level: heading, non_breakable: nobreak,
-          quote_level: quote, horizontal_rule: hr, list_format: lf))
+          quote_level: quote, horizontal_rule: hr, checked: checked,
+          list_format: lf))
       end
 
       # Consecutive blocks with identical list props share one

@@ -321,14 +321,20 @@ module Crysterm
     getter? compositing_layers = false
 
     # Reused across frames by `#composite_planes` to bucket this frame's layer
-    # widgets by z-index. Clearing the member arrays each frame (rather than
-    # `Array#group_by`, which allocates a fresh `Hash` plus one `Array` per
-    # z-level every frame) keeps a steady-state layered UI allocation-free.
-    @plane_buckets = {} of Int32 => Array(Widget)
+    # widgets by `{z-index, layer alpha}`. Clearing the member arrays each
+    # frame (rather than `Array#group_by`, which allocates a fresh `Hash` plus
+    # one `Array` per z-level every frame) keeps a steady-state layered UI
+    # allocation-free. Keyed by alpha as well as z: opacity is applied at fold
+    # time per plane, so two independent same-z roots with differing alpha
+    # must fold separately — one bucket per z made whichever root was
+    # collected first dictate every sibling's translucency.
+    @plane_buckets = {} of {Int32, Float64} => Array(Widget)
 
-    # Reused list of the (non-empty) z-indices present this frame, sorted in
-    # place — replaces the throwaway arrays from `by_z.keys.sort`.
-    @sorted_zs = [] of Int32
+    # Reused list of this frame's non-empty bucket keys as
+    # `{z, first-appearance-seq, alpha}`, sorted in place — folds ascend by z
+    # and stay insertion-stable within a z (the seq breaks ties, so same-z
+    # alpha groups fold in collection order).
+    @sorted_zs = [] of {Int32, Int32, Float64}
 
     # Defers *el* (a z-indexed widget) to its plane instead of painting inline.
     # Called from the base render wherever a child would be rendered.
@@ -382,31 +388,36 @@ module Crysterm
 
       @compositing_layers = true
       begin
-        # Bucket this frame's layer widgets by z-index into the reused arrays,
-        # then composite bottom-to-top (ascending z). Equivalent to a
+        # Bucket this frame's layer widgets by {z-index, alpha} into the reused
+        # arrays, then composite bottom-to-top (ascending z; insertion-stable
+        # within a z via the seq recorded on first appearance). Equivalent to a
         # `group_by` + `keys.sort` but without their per-frame allocations.
-        # Empty buckets (a z with widgets on a previous frame but none now) are
-        # skipped, matching `group_by`'s never-empty groups.
+        # Empty buckets (a key with widgets on a previous frame but none now)
+        # are skipped, matching `group_by`'s never-empty groups.
         @plane_buckets.each_value &.clear
+        @sorted_zs.clear
         @layer_widgets.each do |el|
           z = el.style.z_index.not_nil! # ameba:disable Lint/NotNil
-          (@plane_buckets[z] ||= [] of Widget) << el
+          alpha = el.style.alpha? || 1.0
+          bucket = (@plane_buckets[{z, alpha}] ||= [] of Widget)
+          # First member this frame: record the key (seq = this frame's
+          # first-appearance order, so same-z groups stay collection-ordered).
+          @sorted_zs << {z, @sorted_zs.size, alpha} if bucket.empty?
+          bucket << el
         end
 
-        @sorted_zs.clear
-        @plane_buckets.each do |z, members|
-          @sorted_zs << z unless members.empty?
-        end
         @sorted_zs.sort!
 
-        @sorted_zs.each do |z|
-          members = @plane_buckets[z]
+        @sorted_zs.each do |(z, _seq, alpha)|
+          members = @plane_buckets[{z, alpha}]
           pl = plane(z)
           pl.clear
           # The layer's translucency is applied once, here, as the plane's
-          # opacity (from the root's `alpha`); the widget paints opaquely into
+          # opacity (this group's `alpha`); the widget paints opaquely into
           # the plane (render-time self-blend suppressed while `#compositing`).
-          pl.opacity = members.first.style.alpha? || 1.0
+          # Same-z groups with different alpha reuse the same plane buffer
+          # sequentially (cleared between folds), each with its own opacity.
+          pl.opacity = alpha
           @_plane_dock_stops.clear
           render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's

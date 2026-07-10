@@ -366,6 +366,15 @@ module Crysterm
       show_scrollbar? ? scrollbar_width : 0
     end
 
+    # The right-edge reservation an *empty* (zero-line) widget would make:
+    # `AlwaysOn` still reserves the bar column, `AsNeeded` reserves nothing (no
+    # content ⇒ no overflow). Seeds `process_content`'s wrap-convergence pass,
+    # so the first wrap of new content isn't skewed by the previous wrap's
+    # line count (see `#_wrap_content`).
+    def content_margin_x_empty : Int32
+      policy_shows?(scrollbar_policy) { false } ? scrollbar_width : 0
+    end
+
     # Width in columns actually available to content: the viewport minus
     # border/padding (`iwidth`) and the reserved right-edge columns
     # (`content_margin_x`). The horizontal analogue of the visible content
@@ -560,13 +569,25 @@ module Crysterm
         b = p.yl - ibottom - 1
         d = @child_base - base
 
-        if d > 0 && d < visible
-          # scrolled down
-          window.delete_line(d, t, t, b)
-        elsif d < 0 && -d < visible
-          # scrolled up
-          d = -d
-          window.insert_line(d, t, t, b)
+        # The CSR path mutates window buffer rows `t..b` directly
+        # (`shift_lines` delete_at/insert), so both bounds must lie inside the
+        # buffer. `clean_sides`'s full-width shortcut returns true WITHOUT the
+        # vertical bounds check its fast-csr branch does, so a full-width
+        # scrollable extending past the screen edge (top: 3, height: "100%" →
+        # b > aheight-1; top: -3 → t < 0) reached here unclamped: a too-large
+        # `b` raised IndexError mid-mutation leaving `@lines` short, and a
+        # negative `t` wrapped `delete_at` around to evict BOTTOM rows,
+        # desyncing `@lines`/`@olines` from the terminal. Off-screen rows can't
+        # be CSR-scrolled anyway; fall through to a normal repaint instead.
+        if t >= 0 && b <= window.aheight - 1
+          if d > 0 && d < visible
+            # scrolled down
+            window.delete_line(d, t, t, b)
+          elsif d < 0 && -d < visible
+            # scrolled up
+            d = -d
+            window.insert_line(d, t, t, b)
+          end
         end
       end
 

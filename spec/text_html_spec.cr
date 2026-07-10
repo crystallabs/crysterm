@@ -170,16 +170,19 @@ describe Crysterm::TextHtml do
       TextDocument.from_html(doc.to_html).to_plain_text.should eq "  indented list line"
     end
 
-    it "re-imports an exported empty block as margin spacing" do
+    it "round-trips an exported empty block as a real block (bare <br>)" do
+      # BUGS13 T11: a fully-default empty block exports as `<br>` — a
+      # `<p></p>` would be the exact spacing shape the importer folds into a
+      # margin, mutating "a\n\nb" into "a\nb" on every round-trip.
       doc = TextDocument.new("a\n\nb")
+      doc.to_html.should contain "<br>"
       doc2 = TextDocument.from_html(doc.to_html)
-      # The blank line survives visually — as a top margin, not a block.
-      doc2.to_plain_text.should eq "a\nb"
-      doc2.blocks[1].block_format.top_margin.should eq 1
-      # And margin spacing itself round-trips exactly from then on.
+      doc2.to_plain_text.should eq "a\n\nb"
+      doc2.blocks.size.should eq 3
+      # And the shape is stable from then on.
       doc3 = TextDocument.from_html(doc2.to_html)
-      doc3.to_plain_text.should eq "a\nb"
-      doc3.blocks[1].block_format.top_margin.should eq 1
+      doc3.to_plain_text.should eq "a\n\nb"
+      doc3.blocks.size.should eq 3
     end
 
     it "cross-converts a markdown import to html and back" do

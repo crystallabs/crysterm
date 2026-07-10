@@ -36,10 +36,15 @@ module Crysterm
       # the glyph is written. Shared primitive for the single-row text overlays
       # drawn by `Slider`/`Dial`/`ProgressBar`/`StatusBar`.
       protected def draw_text_run(y : Int32, x : Int32, text : String, xl : Int32, attr : Int64? = nil) : Nil
+        # Negative indices would wrap (Indexable#[]? accepts them), stamping
+        # text onto the far end of other rows when a widget is partly off the
+        # top/left edge — guard them out explicitly.
+        return if y < 0
         window.lines[y]?.try do |line|
           text.each_char_with_index do |ch, i|
             cx = x + i
             break if cx >= xl
+            next if cx < 0
             line[cx]?.try do |cell|
               cell.char = ch
               cell.attr = attr unless attr.nil?

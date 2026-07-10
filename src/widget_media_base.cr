@@ -205,13 +205,25 @@ module Crysterm
       # streaming video this opens the live decoder and returns its 1-frame
       # resampling vehicle (`@stream` then drives playback); otherwise decodes
       # eagerly via `Media.decode`. A failed open is not retried (`@load_failed`).
-      protected def source : PNGGIF::PNG?
+      #
+      # Opening the live decoder (ffprobe ×2 + ffmpeg) is *explicit*: only the
+      # playback/load entry points pass `open_stream: true`. Every other caller
+      # — notably each backend's `#render`/`#redraw_image`, which call `source`
+      # unconditionally on the render fiber — gets `nil` for an unopened
+      # stream-mode source instead. Without the gate, `#stop` (which nils
+      # `@stream`/`@source` so the next `#play` re-opens) was undone by the very
+      # next render: it re-launched ffmpeg on the render fiber with `@playing`
+      # false, so nothing drained the pipe and the decoder blocked forever —
+      # stop never stuck. The render paths fall back to their retained sample/
+      # payload of the last shown frame.
+      protected def source(open_stream : Bool = false) : PNGGIF::PNG?
         if s = @source
           return s
         end
         return nil if @load_failed
         file = @file || return nil
         if Media::VideoSource.video?(file) && Media::VideoSource.mode(file).stream?
+          return nil unless open_stream
           if st = Media::VideoSource::Stream.open(file)
             @stream = st
             @source = st.vehicle
@@ -264,7 +276,7 @@ module Crysterm
           @anim_index = 0
           @finished = false
         end
-        png = source # (re)opens the streaming decoder when applicable
+        png = source(open_stream: true) # (re)opens the streaming decoder when applicable
         return unless png
 
         # Only a *genuine* animation plays: a live video stream (`@stream`), or a
@@ -296,7 +308,15 @@ module Crysterm
           spawn do
             Fiber.yield # let the current layout paint before the heavy build
             sw, sh = Media::Fitting.source_size png
-            frames = @src_frames = png.animation_cellmaps(sw, sh, 1.0)
+            frames = png.animation_cellmaps(sw, sh, 1.0)
+            # Generation guard (mirroring `@stream_gen` for `#stream_loop`): a
+            # `#load`/`#bitmap=` while this fiber was compositing replaced the
+            # source, and playback state belongs to the NEW source's session
+            # now. Committing anyway would clobber the new source's frames with
+            # the old GIF's (or, via the `@playing = false` arm below, kill the
+            # new session's playback with an empty stale composite).
+            next unless @source.same?(png)
+            @src_frames = frames
             if frames && !frames.empty? && @playing
               start_playback
             else
@@ -622,42 +642,71 @@ module Crysterm
       @listener_screen : ::Crysterm::Window?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
+      # The paint block, kept for the widget's whole life (not one-shot): a
+      # cross-window reparent needs it again to re-register the `Rendered`
+      # listener on the NEW window (see `#wire_render_hook_lifecycle`).
+      @render_hook_block : (::Crysterm::Event::Rendered ->)?
+
+      # One-shot guard for the self lifecycle hooks, so re-registering the
+      # window listener after a move doesn't stack duplicate
+      # `Attach`/`Reparent`/`Detach` handlers on this widget.
+      @render_hook_wired = false
+
       # Registers *block* to run after every window render on *s*, remembering
       # *s* and the wrapper so it can be removed later.
       protected def register_render_hook(s : ::Crysterm::Window, &block : ::Crysterm::Event::Rendered ->)
+        @render_hook_block = block
         @listener_screen = s
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &block)
+        wire_render_hook_lifecycle
       end
 
-      # Paint block captured for a detached construction, replayed once a window
-      # is available (see `#register_render_hook_deferred`).
-      @deferred_render_hook : (::Crysterm::Event::Rendered ->)?
-
-      # Registers *block* now when a window is resolvable, else defers to a
-      # one-shot `Attach`/`Reparent` hook. A backend built detached
-      # (compose-then-attach, or a parent not yet on a `Window`) has no window at
-      # construction, so calling the raising `window` accessor here would crash.
+      # Registers *block* now when a window is resolvable, else defers to the
+      # `Attach`/`Reparent` hooks. A backend built detached (compose-then-attach,
+      # or a parent not yet on a `Window`) has no window at construction, so
+      # calling the raising `window` accessor here would crash.
       protected def register_render_hook_deferred(&block : ::Crysterm::Event::Rendered ->)
         if s = window?
           register_render_hook(s, &block)
         else
-          @deferred_render_hook = block
-          on(::Crysterm::Event::Attach) { try_register_render_hook_deferred }
-          on(::Crysterm::Event::Reparent) { try_register_render_hook_deferred }
+          @render_hook_block = block
+          wire_render_hook_lifecycle
         end
       end
 
-      # Fires from the deferred hook: registers the captured block once a window
-      # exists, guarded on `@listener_screen` so a re-attach doesn't double-register.
+      # Wires this widget's own lifecycle hooks, exactly once per widget
+      # (mirroring `Media::ScreenOverlay#wire_overlay_lifecycle_hooks`):
+      #
+      # * `Attach`/`Reparent` — wired unconditionally, not only for a detached
+      #   construction, so a widget built already-attached still migrates its
+      #   listener when later moved to a different window. The
+      #   `@listener_screen` guard makes a same-window `Reparent` a no-op.
+      # * `Detach` — a cross-window reparent emits `Detach(previous)` then
+      #   `Attach(new)`: drop the old window's `Rendered` listener so the paint
+      #   block stops firing off a window the widget no longer lives on (and
+      #   the old window stops referencing `self`); the `Attach` hook then
+      #   re-registers on the new window.
+      private def wire_render_hook_lifecycle
+        return if @render_hook_wired
+        @render_hook_wired = true
+        on(::Crysterm::Event::Attach) { try_register_render_hook_deferred }
+        on(::Crysterm::Event::Reparent) { try_register_render_hook_deferred }
+        on(::Crysterm::Event::Detach) { teardown_render_hook }
+      end
+
+      # Fires from the `Attach`/`Reparent` hooks: registers the retained block
+      # on the current window, guarded on `@listener_screen` so a re-attach to
+      # the same window doesn't double-register.
       private def try_register_render_hook_deferred
         return if @listener_screen
         s = window? || return
-        blk = @deferred_render_hook || return
-        register_render_hook(s, &blk)
-        @deferred_render_hook = nil
+        blk = @render_hook_block || return
+        @listener_screen = s
+        @ev_rendered = s.on(::Crysterm::Event::Rendered, &blk)
       end
 
-      # Removes the listener registered above and forgets the window.
+      # Removes the listener registered above and forgets the window. (The paint
+      # block is retained so an `Attach` to another window can re-register it.)
       protected def teardown_render_hook
         s = @listener_screen || return
         @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }

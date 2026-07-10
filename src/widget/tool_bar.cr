@@ -121,6 +121,11 @@ module Crysterm
       # in `action.associated_widgets`. (Keyboard accelerators are withdrawn on the
       # `Detach` emitted during teardown.)
       def destroy
+        # Withdraw the accelerators NOW, while `@item_actions` is still
+        # populated: the `Detach` emitted during `super`'s teardown runs the
+        # uninstall handler over an already-cleared collection, leaving every
+        # action's shortcut registered on the window forever.
+        uninstall_action_shortcuts window?
         @item_actions.each_value do |action|
           if h = @action_changed.delete action
             action.off ::Crysterm::Event::Changed, h

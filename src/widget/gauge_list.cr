@@ -65,7 +65,7 @@ module Crysterm
 
       # Appends a gauge. A `nil` color is auto-assigned from `DEFAULT_COLORS`.
       def add_gauge(label : String, value : Number = 0, color : Int32? = nil) : Item
-        item = Item.new label, value, color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
+        item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
         @gauges << item
         @version &+= 1
         request_render
@@ -75,7 +75,7 @@ module Crysterm
       # Sets a gauge's value by row index.
       def []=(index : Int, value : Number) : Nil
         if item = @gauges[index]?
-          item.value = value.to_f
+          item.value = sanitize_value(value)
           @version &+= 1
           request_render
         end
@@ -84,10 +84,18 @@ module Crysterm
       # Sets a gauge's value by label (first match).
       def []=(label : String, value : Number) : Nil
         if item = @gauges.find { |i| i.label == label }
-          item.value = value.to_f
+          item.value = sanitize_value(value)
           @version &+= 1
           request_render
         end
+      end
+
+      # Coerces non-finite input to `@minimum` at ingestion: NaN survives every
+      # later `clamp` (comparisons with NaN are false) and would crash the
+      # render fiber on `pct.round.to_i`.
+      private def sanitize_value(value : Number) : Float64
+        v = value.to_f
+        v.finite? ? v : @minimum
       end
 
       def clear : Nil
@@ -102,10 +110,15 @@ module Crysterm
       # represented by `@version` (bumped in `#add_gauge`/`#[]=`/`#clear`) rather
       # than mapping `@gauges` to a fresh tuple array, so the key stays
       # allocation-free per frame.
-      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32)? = nil
+      # The trailing `{style.glyphs, glyph_tier, Glyphs.generation}` triple
+      # covers every input `glyph_seq` resolves the fill ramp from, so a
+      # post-probe tier upgrade / `Glyphs.set` / CSS `glyphs:` hot-reload
+      # rebuilds the content instead of keeping a stale ramp.
+      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32, String?, Glyphs::Tier, UInt64)? = nil
 
       def render
-        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @version}
+        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @version,
+               style.glyphs, glyph_tier, Glyphs.generation}
         if key != @content_key
           @content_key = key
           self.content = build_content

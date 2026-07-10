@@ -107,7 +107,15 @@ module Crysterm
       # window would break its siblings. A non-last window just stops painting.
       # `@connected = false` above ensures "live sibling" excludes any window
       # already disconnecting, so the device is restored exactly once.
-      return if other_live_window_on_device?
+      if other_live_window_on_device?
+        # The departing window may have pinned a hardware cursor shape/color
+        # (DECSCUSR / OSC 12) or an OSC title on the shared device; this
+        # early-return path skips `restore_terminal`, so nothing would ever
+        # undo them and they'd outlive the window. Hand that per-window state
+        # back to the surviving active window on the device.
+        reassert_sibling_terminal_state
+        return
+      end
 
       restore_terminal
 
@@ -186,6 +194,35 @@ module Crysterm
     private def other_live_window_on_device? : Bool
       Window.instances.any? do |w|
         !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+      end
+    end
+
+    # Re-applies the surviving active window's cursor (shape/blink/color) and
+    # title after this window departs a shared device (see `#disconnect`'s
+    # sibling path). Prefers the `Application`'s active window for the device
+    # (routing order), falling back to any live sibling from the global
+    # registry. Best-effort: the device may already be half torn down.
+    private def reassert_sibling_terminal_state : Nil
+      surviving : Window? = nil
+      application.try do |app|
+        app.windows.reverse_each do |w|
+          if !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+            surviving = w
+            break
+          end
+        end
+      end
+      surviving ||= Window.instances.find do |w|
+        !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+      end
+      surviving.try do |w|
+        begin
+          w.apply_cursor
+          w.title.try { |t| w.tput.title = t }
+        rescue
+          # Dead fds on a user-closed window raise on write; the sibling's
+          # state re-assert must never break the disconnect itself.
+        end
       end
     end
 

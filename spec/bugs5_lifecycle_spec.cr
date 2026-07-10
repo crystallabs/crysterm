@@ -105,18 +105,22 @@ end
 describe "BUGS5 capture_animation first-frame ordering (fix #2)" do
   # A true runtime test needs ffmpeg plus a live render loop racing pipe writes,
   # which isn't feasible here. Instead assert the structural invariant the fix
-  # relies on: within `capture_animation`, the first-frame `input.write` must
-  # precede registering the `Rendered` handler, so the two never interleave on
-  # ffmpeg's stdin.
-  it "writes the first frame before registering the Rendered handler" do
+  # relies on: the first-frame `input.write` must complete before the async
+  # frame writer starts, so the two never interleave on ffmpeg's stdin. Since
+  # BUGS13 C11 the async writer is a `FrameClock` sampler (`feed_animation_frames`)
+  # rather than a `Rendered` handler, so the invariant is now "first write
+  # precedes `clock.start`".
+  it "writes the first frame before starting the FrameClock sampler" do
     src = File.read(File.join(__DIR__, "..", "src", "window_capture.cr"))
-    body_start = src.index!("private def capture_animation")
+    body_start = src.index!("def feed_animation_frames")
     body_end = src.index!("private def run_ffmpeg", body_start)
     body = src[body_start...body_end]
 
     first_write = body.index!("input.write Capture.rgba(first)")
-    handler_register = body.index!("on(::Crysterm::Event::Rendered)")
+    clock_start = body.index!("clock.start")
 
-    first_write.should be < handler_register
+    first_write.should be < clock_start
+    # The per-Rendered frame scheme is gone entirely (BUGS13 C11).
+    body.includes?("Event::Rendered").should be_false
   end
 end

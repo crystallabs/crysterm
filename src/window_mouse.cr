@@ -86,19 +86,23 @@ module Crysterm
     @_last_click_at : Time::Instant?
     @_last_click_pos : Tuple(Int32, Int32)?
     @_last_click_target : Widget?
+    @_last_click_button : ::Tput::Mouse::Button?
 
-    # Advances `#click_count` for a press by *w* at (*x*, *y*): increments when
-    # this press is close enough in time (`Config.mouse_double_click_interval`)
-    # and position (same cell) to the previous one on the same widget, else
-    # resets to 1. `now` is the caller's instant timestamp so a single press
-    # reads the clock once.
-    private def bump_click_count(w : Widget?, x : Int32, y : Int32, now : Time::Instant) : Nil
+    # Advances `#click_count` for a press of *button* by *w* at (*x*, *y*):
+    # increments when this press is close enough in time
+    # (`Config.mouse_double_click_interval`) and position (same cell) to the
+    # previous one on the same widget — **with the same button**, so a
+    # right-then-left pair never reads as a double left click — else resets to
+    # 1. `now` is the caller's instant timestamp so a single press reads the
+    # clock once.
+    private def bump_click_count(w : Widget?, x : Int32, y : Int32, button : ::Tput::Mouse::Button, now : Time::Instant) : Nil
       within = @_last_click_at.try { |t| now - t <= Config.mouse_double_click_interval } || false
-      same = @_last_click_target == w && @_last_click_pos == {x, y}
+      same = @_last_click_target == w && @_last_click_pos == {x, y} && @_last_click_button == button
       @click_count = within && same ? @click_count + 1 : 1
       @_last_click_at = now
       @_last_click_pos = {x, y}
       @_last_click_target = w
+      @_last_click_button = button
     end
 
     # Clears the running click-count state so the next press starts fresh at 1.
@@ -110,6 +114,7 @@ module Crysterm
       @_last_click_at = nil
       @_last_click_pos = nil
       @_last_click_target = nil
+      @_last_click_button = nil
     end
 
     # Widget that has captured the mouse: while set, all subsequent motion and
@@ -120,16 +125,29 @@ module Crysterm
     # lightweight, self-managed counterpart of the `draggable?` drag machinery.
     @_mouse_captor : Widget?
 
+    # Button that armed the current mouse capture — the button of the press
+    # being dispatched when `#capture_mouse` ran. Only a release of *this*
+    # button (or a buttonless legacy release) ends the capture, so tapping
+    # another button mid-drag-select can't cut the capture short.
+    @_mouse_captor_button : ::Tput::Mouse::Button?
+
+    # Button of the most recent press dispatched (`nil` before any press).
+    # Lets `#capture_mouse`, called from inside a widget's press handler,
+    # record which button armed the capture.
+    @_dispatching_button : ::Tput::Mouse::Button?
+
     # Directs subsequent mouse motion/release to *w* until the button is
     # released (or `#release_mouse`). Called by a widget from its own press
     # handler.
     def capture_mouse(w : Widget) : Nil
       @_mouse_captor = w
+      @_mouse_captor_button = @_dispatching_button
     end
 
     # Ends any active mouse capture (see `#capture_mouse`).
     def release_mouse : Nil
       @_mouse_captor = nil
+      @_mouse_captor_button = nil
     end
 
     # Per-Window pooled mouse events (one per concrete class), reused across
@@ -214,7 +232,12 @@ module Crysterm
       # own `Event::Mouse`/`Event::Click` handler can read `#click_count` for
       # this press (double/triple detection). Only a real button press counts;
       # motion/release/wheel leave the running count alone.
-      bump_click_count(w, ev.x, ev.y, Time.instant) if ev.action.down?
+      if ev.action.down?
+        bump_click_count(w, ev.x, ev.y, ev.button, Time.instant)
+        # Remember which button this press dispatch carries, so a widget press
+        # handler calling `#capture_mouse` records the arming button.
+        @_dispatching_button = ev.button
+      end
 
       update_hover w, ev
 
@@ -228,6 +251,9 @@ module Crysterm
           # otherwise a later real click on the same spot/widget within the
           # double-click interval would read an inflated `#click_count`.
           reset_click_count
+          # Record the lifting button so only its release/press terminates the
+          # gesture (see `handle_active_drag`).
+          @_drag_button = ev.button
           start_drag w, ev.x, ev.y, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move),
             discrete: true
@@ -236,6 +262,7 @@ module Crysterm
         @_arm = w
         @_arm_x = ev.x
         @_arm_y = ev.y
+        @_arm_button = ev.button
       end
 
       if armed = @_arm
@@ -250,6 +277,9 @@ module Crysterm
           # double-click interval would read an inflated `#click_count`
           # (mirrors the two-click-drag branch above).
           reset_click_count
+          # The drag commits only on the ARMING press's button (see
+          # `handle_active_drag`).
+          @_drag_button = @_arm_button
           sess = start_drag armed, ax, ay, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move)
           drag_motion sess, ev.x, ev.y, ev.shift?, ev.ctrl?
@@ -328,12 +358,33 @@ module Crysterm
         return true
       elsif ev.action.up?
         captor.emit ::Crysterm::Event::Mouse, mouse_event(ev)
-        @_mouse_captor = nil
+        # Only the ARMING button's release (or a buttonless legacy release)
+        # ends the capture — a stray other-button tap mid-gesture must not cut
+        # a drag-select short.
+        if gesture_end_button?(ev.button, @_mouse_captor_button)
+          release_mouse
+        end
         return true
       elsif ev.action.down?
-        @_mouse_captor = nil
+        if gesture_end_button?(ev.button, @_mouse_captor_button)
+          # A fresh press of the capture button implies the matching release
+          # was lost: clear and fall through so the press retargets normally
+          # (else the stale captor would eat all motion forever).
+          release_mouse
+        else
+          # Another button pressed mid-capture: swallow it (mirrors the
+          # in-flight drag, where a non-arming button's press is consumed).
+          return true
+        end
       end
       false
+    end
+
+    # Whether a press/release of *button* terminates a gesture armed by
+    # *armed*: the buttons match, the report carries no button (legacy
+    # encodings release with `Button::None`), or no arming button was recorded.
+    private def gesture_end_button?(button : ::Tput::Mouse::Button, armed : ::Tput::Mouse::Button?) : Bool
+      armed.nil? || button == armed || button.none?
     end
 
     # An in-flight drag captures all motion/release regardless of what's
@@ -351,7 +402,11 @@ module Crysterm
       return false unless drag.sensor.mouse?
       if ev.action.move?
         drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
-      elsif drag.discrete? ? ev.action.down? : ev.action.up?
+      elsif drag.discrete? ? ev.action.down? : (ev.action.up? && gesture_end_button?(ev.button, @_drag_button))
+        # A continuous drag commits only on the ARMING button's release (or a
+        # buttonless legacy release) — an RMB tap mid-LMB-drag used to commit
+        # the Drop at the pointer mid-gesture. Non-matching ups (and any other
+        # buttons' downs) are swallowed with the rest of the pointer stream.
         if drag.discrete?
           retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
         end
@@ -509,13 +564,21 @@ module Crysterm
     # `{plane?, z}` key. `{0, 0}` is the base layer (no `z-index` on the widget
     # or an ancestor); a z-indexed subtree resolves to `{1, z}` — above any base
     # widget (leading `1` beats `0` even for negative `z`, matching
-    # `composite_planes`) and ordered among planes by `z`. The nearest
-    # self-or-ancestor `z_index` wins, since it defers the whole subtree.
+    # `composite_planes`) and ordered among planes by `z`. The OUTERMOST
+    # self-or-ancestor `z_index` wins: painting defers only the FIRST z-indexed
+    # widget met on the walk down (a nested z-indexed subtree flattens into its
+    # enclosing plane — see `compositing_layers?`), so a nested z must not let
+    # an occluded widget out-rank the plane it is actually painted into.
     private def hit_layer(el : Widget) : Tuple(Int32, Int32)
-      if (e = el.first_self_or_ancestor(&.style.z_index)) && (z = e.style.z_index)
-        return {1, z}
+      z = nil
+      cur : Widget? = el
+      while cur
+        if zz = cur.style.z_index
+          z = zz
+        end
+        cur = cur.parent
       end
-      {0, 0}
+      z ? {1, z} : {0, 0}
     end
 
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not

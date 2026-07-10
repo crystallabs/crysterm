@@ -130,7 +130,10 @@ module Crysterm
       private def offset_focusable(direction : Int32) : Widget?
         list = focusable
         return if list.empty?
-        return unless list.any? &.style.visible?
+        # `!disabled?` mirrors `Window#focus_offset`: focusing a disabled
+        # widget would set `state = :focused`, silently wiping its Disabled
+        # state (WidgetState is single-valued) and re-enabling it.
+        return unless list.any? { |w| w.style.visible? && !w.disabled? }
 
         # Start from the selected child if still part of the form, otherwise
         # from a direction-aware sentinel: just before the first child for a
@@ -154,7 +157,7 @@ module Crysterm
         size.times do
           i = (i + direction) % size
           candidate = list[i]
-          if candidate.style.visible?
+          if candidate.style.visible? && !candidate.disabled?
             @selected = candidate
             return candidate
           end

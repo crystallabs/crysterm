@@ -161,7 +161,10 @@ module Crysterm
           # glyph's own column count so wide glyphs render in full and the pen
           # advances past all of them instead of clipping to the left half.
           gw = map[0]?.try(&.size) || @ratio.width
-          y = top
+          # Start at row 0 when the widget hangs off the top edge (`top < 0`):
+          # negative indices into `lines` would wrap to the bottom of the
+          # screen. `map[y - top]` keeps addressing the correct glyph row.
+          y = Math.max(top, 0)
           while y < Math.min(bottom, top + @ratio.height)
             mline = map[y - top]
             mx = 0
@@ -172,8 +175,10 @@ module Crysterm
               # Clip at the interior's left edge: skip cells left of `left` so a
               # glyph that starts before the interior never paints outside it (and
               # never turns into a negative `x + mx` that `Row#[]?` would wrap to
-              # the far right of the screen row).
-              if x + mx >= left
+              # the far right of the screen row). Clamp `left` to 0 too — when the
+              # widget hangs off the left edge `left` itself is negative and would
+              # admit negative columns.
+              if x + mx >= Math.max(left, 0)
                 lines[y]?.try(&.[x + mx]?).try do |cell|
                   if style.foreground_char != ' '
                     cell.attr = default_attr

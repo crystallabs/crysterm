@@ -71,9 +71,11 @@ module Crysterm
 
         # Copies `[from, to)` to *clipboard*. Default: plain text. A rich
         # buffer overrides to carry formats alongside (the document adapter
-        # sets a `TextDocumentFragment` via `Clipboard#set_rich`).
-        def buf_copy_to_clipboard(clipboard : Application::Clipboard, from : Int32, to : Int32) : Nil
-          clipboard.text = buf_slice(from, to)
+        # sets a `TextDocumentFragment` via `Clipboard#set_rich`). *window*
+        # routes the OSC-52 device write to the copying widget's own terminal
+        # rather than the app-active window's (see `Clipboard#set_text`).
+        def buf_copy_to_clipboard(clipboard : Application::Clipboard, from : Int32, to : Int32, window : Window? = nil) : Nil
+          clipboard.set_text buf_slice(from, to), window
         end
 
         # Attempts to paste *clipboard*'s rich payload at the cursor,

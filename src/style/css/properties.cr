@@ -366,7 +366,9 @@ module Crysterm
       end
 
       # Matches a CSS `url(...)` token, capturing the (optionally quoted) path.
-      URL_TOKEN = /url\(\s*['"]?([^'")]+?)['"]?\s*\)/
+      # Case-insensitive: CSS function names are (`URL("x.png")` == `url(...)`),
+      # and a non-match is treated as an explicit image *clear* by consumers.
+      URL_TOKEN = /url\(\s*['"]?([^'")]+?)['"]?\s*\)/i
 
       # Extracts the first `url(...)` path from a `background`/`background-image`
       # value, e.g. `url("pics/bg.png")` ⇒ `pics/bg.png`. Returns `nil` when there
@@ -393,12 +395,18 @@ module Crysterm
       # blank/non-numeric value (e.g. a collapsed undefined `var()`), so the
       # caller drops the declaration rather than resetting the alpha. The caller
       # clamps the result into `[0, 1]`.
+      #
+      # Only *finite* numbers pass: `to_f?` accepts strtod's `nan`/`inf`
+      # spellings, and `NaN.clamp(0.0, 1.0)` is still NaN — which would flow
+      # into `Colors.mix` on the first blended cell and raise `OverflowError`
+      # at `(… * 65536).to_i` (and tween NaN through a declared transition).
+      # `parse_tint`'s range guard already rejects NaN; this is the equivalent.
       private def self.parse_opacity(value : String) : Float64?
         v = value.strip
         if v.ends_with?('%')
-          v[0...-1].to_f?.try { |n| n / 100.0 }
+          v[0...-1].to_f?.try { |n| n / 100.0 if n.finite? }
         else
-          v.to_f?
+          v.to_f?.try { |n| n if n.finite? }
         end
       end
 
@@ -453,6 +461,13 @@ module Crysterm
               easing = css_easing(t)
             end
           end
+          # Per CSS a negative <duration> invalidates the declaration — drop
+          # the entry rather than storing it. Stored, the tween's
+          # `elapsed / dur` is negative, clamped to 0.0 forever: the property
+          # is pinned to the FROM value by an immortal 30fps `FrameClock` that
+          # never completes (sticking `Window#animating?` true). The animation
+          # path already defends this input (`total = 0.001 if total <= 0`).
+          next if (d = dur) && d < Time::Span.zero
           # The animated property name is a CSS property — case-insensitive — so
           # fold it (`Background-Color` == `background-color`). The consumer
           # (`Widget#apply_style_transitions`) matches it against lower-cased
@@ -512,12 +527,23 @@ module Crysterm
       private def self.parse_time(s : String) : Time::Span?
         s = Case.fold_unit(s.strip) # time units (`s`/`ms`) are case-insensitive
         if s.ends_with? "ms"
-          s[0...-2].to_f?.try &.milliseconds
+          sane_time(s[0...-2]).try &.milliseconds
         elsif s.ends_with? "s"
-          s[0...-1].to_f?.try &.seconds
+          sane_time(s[0...-1]).try &.seconds
         else
-          s.to_f?.try &.seconds
+          sane_time(s).try &.seconds
         end
+      end
+
+      # A duration number fit for a `Time::Span`: finite and within a sane
+      # magnitude. `to_f?` accepts exponents and strtod's `nan`/`inf`
+      # spellings, and `9e30.seconds` raises `OverflowError` mid-cascade
+      # (unrescued between `Properties.apply` and `Cascade.apply_sheets`, so
+      # one bad token in a hot-reloaded stylesheet would crash the app). 1e7
+      # seconds is ~115 days — far beyond any real animation, comfortably
+      # inside `Time::Span`.
+      private def self.sane_time(s : String) : Float64?
+        s.to_f?.try { |n| n if n.finite? && n.abs <= 1e7 }
       end
 
       # Whether a token is a recognized CSS timing-function keyword (rather than an

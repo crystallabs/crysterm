@@ -126,14 +126,26 @@ module Crysterm
       # serialize -> load -> serialize round-trip invariant because generated
       # `dom_apply` routes through real setters. Deferring content
       # lets the serialized text win, matching the saved display state.
+      # `value` is deferred too (applied after all other attrs, before
+      # `content`): attrs replay in initializer-arg order, and the ranged
+      # widgets (Slider/SpinBox/Dial/ProgressBar/...) declare `value` before
+      # `minimum`/`maximum` — replaying it first would clamp it against the
+      # *default* range (0, 100), so a serialized `value=500 maximum=1000`
+      # would load back as 100. It goes before `content` so a value-driven
+      # content refresh (e.g. SpinBox) is still overridden by serialized text.
       content_attr = nil
+      value_attr = nil
       node.attr.each do |a|
-        if a.key == "content"
+        case a.key
+        when "content"
           content_attr = a
+        when "value"
+          value_attr = a
         else
           widget.dom_apply(a.key, a.val)
         end
       end
+      value_attr.try { |a| widget.dom_apply(a.key, a.val) }
       content_attr.try { |a| widget.dom_apply(a.key, a.val) }
       # Item views rebuild their rows from replayed state (`List`'s `items=`
       # applied just above), so their children are *not* reconstructable box

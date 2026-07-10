@@ -154,7 +154,14 @@ module Crysterm
             put_cell xi, y, Scale::FULL, overlay_attr(slice.color), xi, xl
             text = slice.label
             if show_percentages? && total > 0
-              pct = (100.0 * slice.value / total).round.to_i
+              # A non-finite slice value makes `total` infinite (`Inf > 0`
+              # passes the guard) and the share `Inf/Inf = NaN`; `.round.to_i`
+              # on a non-finite Float raises OverflowError in the render
+              # fiber. Show 0% for such a slice instead of crashing.
+              frac = 100.0 * slice.value / total
+              # (The clamp also keeps a huge finite share — possible when
+              # negative slices shrink `total` — within Int32.)
+              pct = frac.finite? ? frac.clamp(-999_999.0, 999_999.0).round.to_i : 0
               text = text.empty? ? "#{pct}%" : "#{text} #{pct}%"
             end
             put_text xi + 2, y, text, text_attr, xi, xl unless text.empty?

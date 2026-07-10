@@ -131,6 +131,14 @@ module Crysterm
       end
 
       private def ensure_popup : Calendar
+        # A cross-window reparent strands the cached calendar on the old window
+        # (it is a *window* child, not ours): reopening would render it over
+        # there while placement and the dismiss grab use the new window. Drop
+        # the stale popup and rebuild on the current window.
+        if (stale = @popup) && stale.window? != window?
+          ::Crysterm::Widget.destroy_satellite stale
+          @popup = nil
+        end
         @popup ||= begin
           cal = Calendar.new(
             window: window, top: 0, left: 0, width: 22, height: 10,

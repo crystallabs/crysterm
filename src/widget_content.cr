@@ -142,7 +142,10 @@ module Crysterm
     # Bumped on every `@content` change (see `set_content`). `process_content`
     # compares this against the version baked into `@_clines` to decide whether a
     # reparse is needed, avoiding an O(n) `String` comparison on every render.
-    @_content_version = 0
+    # `Int64`: it increases monotonically for the widget's whole life, and a
+    # long-lived appending widget (a busy `Log` at ~1000 lines/s) would hit
+    # `Int32::MAX`'s checked-add `OverflowError` in under a month.
+    @_content_version = 0_i64
 
     # The `no_tags` mode the cached content was processed with, so a repeated
     # `set_content` of the same string but a different tag mode still reparses
@@ -292,8 +295,10 @@ module Crysterm
 
       # Version of the owning widget's `@content` that produced these wrapped
       # lines. Defaults to -1 so a fresh `CLines` never matches a real (>= 0)
-      # version, forcing the first parse. See `Widget#process_content`.
-      property content_version : Int32 = -1
+      # version, forcing the first parse. `Int64` in lockstep with the widget's
+      # monotonically increasing `@_content_version` (see there for why). See
+      # `Widget#process_content`.
+      property content_version : Int64 = -1
 
       property real : CLines? = nil
 
@@ -443,11 +448,23 @@ module Crysterm
         # flip the reservation, re-wrap once. Monotonic: reserving a column only
         # narrows width and adds lines, so the bar can't then disappear — two
         # passes always suffice.
+        # Pass 1 wraps against the margin an *empty* widget would reserve (0
+        # for `AsNeeded`, the bar column for `AlwaysOn`) rather than whatever
+        # the PREVIOUS wrap's line count implied — seeding from history made a
+        # bistable content latch the with-bar layout forever once any earlier
+        # (e.g. narrower) wrap had shown a bar. Pass 2, when needed, re-wraps
+        # with the margin implied by pass 1's fresh line count. Monotonic:
+        # reserving a column only narrows width and adds lines, so the bar
+        # can't then disappear — two passes always suffice, and the no-bar
+        # fixed point wins whenever it exists.
+        margin = content_margin_x_empty
         2.times do
-          @_clines = _wrap_content(content, colwidth, into: @_clines)
+          @_clines = _wrap_content(content, colwidth, into: @_clines, margin: margin)
           # Break test keys off line count, which `_wrap_content` already set;
           # cache-key fields below don't affect it, so set them once after.
-          break if @_clines.margin == content_margin_x
+          needed = content_margin_x
+          break if needed == margin
+          margin = needed
         end
         @_clines.width = colwidth
         @_clines.base_x = @child_base_x
@@ -540,7 +557,12 @@ module Crysterm
             next
           end
 
-          if esc && (cap = /([\s\S]+?){\/escape}/.match(text, pos, options: anchored))
+          # Body group is `*?`, not `+?`: an EMPTY `{escape}{/escape}` pair — the
+          # natural "{escape}#{untrusted}{/escape}" idiom with an empty string —
+          # must still match. Requiring ≥1 body char sent it down the
+          # unterminated-escape bail below, dumping the remainder verbatim
+          # (literal `{/escape}` on screen, all later tags unparsed).
+          if esc && (cap = /([\s\S]*?){\/escape}/.match(text, pos, options: anchored))
             pos += cap[0].size
             outbuf << cap[1]
             esc = false
@@ -745,15 +767,17 @@ module Crysterm
     # allocating a fresh one — `process_content` passes the widget's own
     # `@_clines`, so steady-state reparsing reuses the same object and its array
     # buffers (see `CLines#reset`). When nil a new `CLines` is built.
-    def _wrap_content(content, colwidth, into : CLines? = nil)
+    def _wrap_content(content, colwidth, into : CLines? = nil, margin : Int32? = nil)
       default_state = @align
-      # Capture the right-edge reservation before `outbuf.reset` below: `reset`
-      # clears `@_clines` when `into` is the widget's own, and
-      # `content_margin_x` reads `@_clines.size` to size an `AsNeeded` bar — read
-      # post-reset it would see zero lines and think the bar unneeded mid-wrap.
-      # Reading pre-reset lets `process_content`'s convergence pass see the first
-      # pass's line count instead of re-zeroing and oscillating.
-      margin = content_margin_x
+      # The right-edge reservation this wrap subtracts. `process_content`'s
+      # convergence loop passes it explicitly (pass 1 seeded from the
+      # empty-widget margin, pass 2 from the margin pass 1's fresh line count
+      # implies) so a wrap never inherits a reservation from a *previous*
+      # wrap's line count. When not given (external callers), it is captured
+      # here — before `outbuf.reset` below clears `@_clines`, since
+      # `content_margin_x` reads `@_clines.size` to size an `AsNeeded` bar and
+      # post-reset it would see zero lines mid-wrap.
+      margin ||= content_margin_x
       outbuf = into || CLines.new
       # Record the reservation this wrap is built against, so `process_content`
       # can tell when an `AsNeeded` bar's presence (only known post-wrap) flips
@@ -1384,8 +1408,16 @@ module Crysterm
       base = @child_base
       visible = real >= base && real - base < height
 
-      if visible && window.clean_sides(self)
-        yield diff, pos.yi + itop + real - base, pos.yi, pos.yl - ibottom - 1
+      top = pos.yi
+      bottom = pos.yl - ibottom - 1
+      # Same vertical guard as `Scrolling#scroll`'s CSR path: `clean_sides`'s
+      # full-width shortcut skips vertical bounds, but `window.insert_line`/
+      # `delete_line` mutate buffer rows `top..bottom` directly — out-of-buffer
+      # bounds raise IndexError mid-mutation (or wrap negative indices),
+      # corrupting `@lines`/`@olines`. Skip the optimization and let the normal
+      # repaint handle a widget extending past the screen edge.
+      if visible && top >= 0 && bottom <= window.aheight - 1 && window.clean_sides(self)
+        yield diff, pos.yi + itop + real - base, top, bottom
       end
     end
 

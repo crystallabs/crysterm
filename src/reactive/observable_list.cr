@@ -40,7 +40,11 @@ module Crysterm
       end
 
       def initialize(initial : Enumerable(T))
-        @array = initial.to_a
+        # Copy, don't alias: `Array#to_a` returns `self`, so a bare `.to_a`
+        # would share storage with the caller's array — external mutations
+        # would silently desync bound views, and list ops would mutate the
+        # caller's array.
+        @array = initial.is_a?(Array) ? initial.dup : initial.to_a
       end
 
       # --- reads ---
@@ -98,6 +102,11 @@ module Crysterm
         # last element, i.e. at `size` (not `size - 1`), hence the `+ 1`.
         i = index.to_i
         i = @array.size + i + 1 if i < 0
+        # A still-out-of-range index must raise *here* (like a plain `Array`),
+        # not fall through to `Array#insert`, which would re-normalize a
+        # still-negative `i` and mutate while the emitted `Insert` carries the
+        # wrong (negative) index — permanently desyncing any bound view.
+        raise IndexError.new if i < 0 || i > @array.size
         @array.insert i, item
         emit_change ListOp::Insert, i, 1
         self
@@ -161,7 +170,8 @@ module Crysterm
 
       # Replaces the whole contents with *other* (`Reset`).
       def replace(other : Enumerable(T)) : self
-        @array = other.to_a
+        # Copy, don't alias (see `#initialize`): `Array#to_a` returns `self`.
+        @array = other.is_a?(Array) ? other.dup : other.to_a
         emit_change ListOp::Reset, 0, 0
         self
       end

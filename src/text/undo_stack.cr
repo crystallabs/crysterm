@@ -84,8 +84,13 @@ module Crysterm
         # their own steps (Qt seals at block boundaries too).
         return false unless @fragment.blocks.size == 1 && other.fragment.blocks.size == 1
         if other.pos == @pos
-          # Forward-delete run: subsequent removal happens at the same position.
-          @fragment.blocks[0].merge_with(other.fragment.blocks[0])
+          # Forward-delete run: subsequent removal happens at the same
+          # position. Merge into a clone — `@fragment` is the very object
+          # `TextDocument#remove` returned to its caller, which must not
+          # mutate under the caller's feet.
+          merged = @fragment.blocks[0].clone
+          merged.merge_with(other.fragment.blocks[0])
+          @fragment = TextDocumentFragment.new([merged])
         elsif other.pos + other.fragment.size == @pos
           # Backspace run: subsequent removal ends where this one starts.
           merged = other.fragment.blocks[0].clone
@@ -103,10 +108,20 @@ module Crysterm
     # never mutate their fragment, so several commands may share one (e.g.
     # the same clipboard fragment pasted twice).
     class InsertFragmentCommand < Command
-      def initialize(@pos : Int32, @fragment : TextDocumentFragment)
+      # `@old_block_format`: the insertion-point block's format when a
+      # multi-block insertion at a block start replaced it with the
+      # fragment's head format (see `TextDocument#insert_fragment`).
+      def initialize(@pos : Int32, @fragment : TextDocumentFragment,
+                     @old_block_format : TextBlockFormat? = nil)
       end
 
       def undo(doc : TextDocument) : Nil
+        if bf = @old_block_format
+          # Restore before removing: `raw_remove`'s block merge keeps the
+          # first block's format, so this is what the merged block ends
+          # up with.
+          doc.blocks[doc.block_at(@pos)[0]].block_format = bf
+        end
         doc.raw_remove(@pos, @fragment.size)
       end
 

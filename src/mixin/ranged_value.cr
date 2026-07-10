@@ -109,10 +109,29 @@ module Crysterm
 
       def increment(by : T = @step)
         self.value = @value + by
+      rescue OverflowError
+        # `@value + by` exceeded T's representable range (e.g. Up at
+        # `maximum: Int32::MAX`). Saturate to the bound (Qt behavior) instead
+        # of letting the exception escape and kill the key/render fiber; a
+        # wrapping control wraps to the opposite bound, exactly as an
+        # in-range overshoot would.
+        step_overflow_saturate(by >= T.zero)
       end
 
       def decrement(by : T = @step)
         self.value = @value - by
+      rescue OverflowError
+        step_overflow_saturate(by < T.zero)
+      end
+
+      # Overflow fallback for `#increment`/`#decrement`: jump to the bound the
+      # step was heading for (`upward`), or the opposite one when wrapping.
+      private def step_overflow_saturate(upward : Bool) : T
+        if wrap? && @maximum > @minimum
+          self.value = upward ? @minimum : @maximum
+        else
+          self.value = upward ? @maximum : @minimum
+        end
       end
 
       # Size of the value range (`maximum - minimum`), never negative.
@@ -285,7 +304,12 @@ module Crysterm
       # allocates no `Proc`. Returns the stored value (matching each site's
       # `#value=` return).
       protected def assign_completable(v : Number, &) : Float64
-        v = v.to_f.clamp(minimum, maximum)
+        v = v.to_f
+        # Sanitize non-finite input at ingestion: NaN survives `clamp` (every
+        # comparison with NaN is false) and later `NaN.round.to_i` raises
+        # OverflowError inside the render fiber, killing it.
+        v = minimum unless v.finite?
+        v = v.clamp(minimum, maximum)
         return v if v == @value
         @value = v
         emit Crysterm::Event::DoubleValueChange, @value

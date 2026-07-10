@@ -541,7 +541,7 @@ module Crysterm
       # rich buffer carries formats alongside the plain text.
       private def copy_selection : Bool
         return false unless r = selection_range
-        buf_copy_to_clipboard(text_clipboard, r.begin, r.end)
+        buf_copy_to_clipboard(text_clipboard, r.begin, r.end, window?)
         true
       end
 
@@ -1114,9 +1114,18 @@ module Crysterm
             stop += 1 if stop == @cursor_pos && @cursor_pos < buf_size
             killed = kill_forward_to stop
           elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
+            # Yank behaves like paste: replaces a live selection (grouped
+            # into one undo step) and honors `max_length` by truncating the
+            # ring entry to the room left.
             if text = kill_ring.yank
-              clear_selection
-              insert_at_cursor text
+              edit_replacing_selection do
+                if ml = @max_length
+                  room = ml - buf_size
+                  break if room <= 0
+                  text = text[0, room] if text.size > room
+                end
+                insert_at_cursor text
+              end
             end
           else
             edited = false

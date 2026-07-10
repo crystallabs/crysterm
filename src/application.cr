@@ -60,6 +60,19 @@ module Crysterm
       return unless @windows.includes? window
       @windows.delete window
       @windows << window
+      # The frame diff runs against this window's PRIVATE `@olines` (what THIS
+      # window last sent); the terminal may currently show a sibling sharing
+      # the device, so an unchanged frame would emit zero bytes and the raise
+      # would be invisible. Poison the old-frame buffer so the whole surface is
+      # re-emitted (the raise counterpart of `Window#screen=`'s enter+realloc).
+      window.invalidate_region 0, window.awidth, 0, window.aheight
+      # Re-assert per-window terminal state a sibling may have overwritten on
+      # the shared device: the hardware cursor shape/blink/color (DECSCUSR /
+      # OSC 12 are pushed only from `apply_cursor`, so the raised window would
+      # otherwise keep running under the sibling's cursor indefinitely)...
+      window.apply_cursor
+      # ...and the window title (OSC 0), same structural gap.
+      window.title.try { |t| window.tput.title = t }
       window.render
       window
     end
@@ -110,7 +123,9 @@ module Crysterm
     # `#active_window` but scoped to one device, so input read on a given tty
     # reaches a window on *that* tty rather than the globally most-recent one
     # (matters once an app drives several windows on distinct devices).
-    private def active_window_for(screen : Screen) : Window?
+    # Public so a `Window` can ask whether it is the one currently shown on its
+    # device (e.g. `Window#on_resize` repaints only the device-active window).
+    def active_window_for(screen : Screen) : Window?
       @windows.reverse_each { |w| return w if w.screen.same? screen }
       nil
     end
@@ -230,22 +245,36 @@ module Crysterm
       return if windows.empty?
       remaining = windows.size
       done = Channel(Nil).new(1)
-
-      finish = ->(w : Window) do
-        return if w.destroyed?
-        w.destroy
-        remaining -= 1
-        done.send(nil) if remaining <= 0
-      end
+      # Windows already counted as gone. `destroy` emits `Event::Destroy` at
+      # most once (guarded by `@destroyed`), but count through a set so a
+      # re-emission could never double-decrement `remaining`.
+      counted = Set(Window).new
 
       windows.each do |w|
         # Take over quit from the app-global hotkey (see method doc): the
         # graceful path below, not `route_input`'s `exit`, handles `q`/Ctrl-Q.
         w.default_quit_keys = false
-        w.on(Crysterm::Event::KeyPress) do |e|
-          windows.each { |o| finish.call o } if quit_key? e.char, e.key
+        # Count a window out on ANY teardown path — the quit key below, a
+        # `WindowClosed`, or a direct programmatic `w.destroy` (the standard
+        # close API). Counting only inside the quit/close handlers left a
+        # directly-destroyed window forever uncounted, so `remaining` never
+        # reached zero and `done.receive` blocked this method (and the whole
+        # process) permanently.
+        w.on(Crysterm::Event::Destroy) do
+          if counted.add? w
+            remaining -= 1
+            done.send(nil) if remaining <= 0
+          end
         end
-        w.on(Crysterm::Event::WindowClosed) { finish.call w }
+        w.on(Crysterm::Event::KeyPress) do |e|
+          # Quit only when no widget consumed the key and nothing is grabbing
+          # the keyboard — the same guards `#route_input` applies (BUGS-F2 #1).
+          # Without them, typing `q` into a reading `LineEdit`/`TextEdit`
+          # closed every window.
+          next if e.accepted? || w.grab_keys?
+          windows.each { |o| o.destroy unless o.destroyed? } if quit_key? e.char, e.key
+        end
+        w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
       end
 
       windows.each do |w|
@@ -276,17 +305,30 @@ module Crysterm
 
       # Sets the clipboard text and copies it to the active window's terminal.
       def text=(value : String) : String
+        set_text value
+      end
+
+      # Like `#text=`, but the OSC-52 write goes to *window*'s own device (the
+      # app-active window when nil). Input routing is per-device without
+      # reordering `@windows`, so `active_window` (just `@windows.last`) may be
+      # a window on a *different* terminal than the one the copying widget
+      # lives on — the copy would land on (and clobber) the wrong terminal's
+      # clipboard while the user's terminal keeps its stale content. Callers
+      # that know their surface (e.g. a widget's copy_selection) pass it here;
+      # the in-process mirror (`#text`) stays app-wide either way.
+      def set_text(value : String, window : Window? = nil) : String
         @fragment = nil
         @text = value
-        @app.active_window.try &.copy(value)
+        (window || @app.active_window).try &.copy(value)
         value
       end
 
       # Rich copy: *fragment* for in-process rich paste, plus its plain-text
       # rendering for the terminal (OSC-52 carries text only, so the system
-      # clipboard degrades to plain — per plan).
-      def set_rich(fragment : TextDocumentFragment, text : String) : Nil
-        self.text = text
+      # clipboard degrades to plain — per plan). *window* routes the device
+      # write like `#set_text`.
+      def set_rich(fragment : TextDocumentFragment, text : String, window : Window? = nil) : Nil
+        set_text text, window
         @fragment = fragment
       end
 
@@ -300,10 +342,13 @@ module Crysterm
         @text = value
       end
 
-      # Asynchronously requests the system clipboard from the active window's
-      # device (OSC-52). The reply arrives later on that device's input.
-      def request : Nil
-        @app.active_window.try &.request_clipboard
+      # Asynchronously requests the system clipboard from *window*'s device
+      # (the active window's when nil; OSC-52). The reply arrives later on that
+      # device's input. Pass the requesting widget's own window so the query
+      # goes to the terminal the user is actually interacting with (see
+      # `#set_text`).
+      def request(window : Window? = nil) : Nil
+        (window || @app.active_window).try &.request_clipboard
       end
     end
   end

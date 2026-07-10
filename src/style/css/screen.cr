@@ -245,9 +245,35 @@ module Crysterm
     end
 
     # Looks up parsed `@keyframes` *name* — the author stylesheet first, then the
-    # default (theme) stylesheet. Used by the widget CSS-animation driver.
+    # default (theme) stylesheet — honoring any `@media` guard the definition
+    # was declared under, evaluated against this terminal's current metrics
+    # (the same metrics `Cascade.apply_sheets` feeds rule-level `@media`).
+    # Used by the widget CSS-animation driver.
     def css_keyframes(name : String) : Array(Tuple(Float64, Hash(String, String)))?
-      @css_stylesheet.try(&.keyframes[name]?) || CSS.default_stylesheet.keyframes[name]?
+      media_colors = begin
+        colors.to_i32
+      rescue
+        0x1000000
+      end
+      media_glyphs = glyph_tier.value.to_i32
+      @css_stylesheet.try(&.keyframes_for(name, width, height, media_colors, media_glyphs)) ||
+        CSS.default_stylesheet.keyframes_for(name, width, height, media_colors, media_glyphs)
+    end
+
+    # Notes that *element*'s subtree — arriving from another window via
+    # `Window#attach`'s cross-window path — may carry widgets a previous
+    # window's cascade styled (`css_styled?`). The revert-to-pristine pass in
+    # `#apply_stylesheet`'s no-active-rules branch is gated on the per-window
+    # `@css_widgets_styled` flag, so without flipping it a widget styled on
+    # window A and moved to a rule-less window B would keep A's computed styles
+    # (and its disabled inline-`@style` short-circuit) forever.
+    def css_note_styled_attach(element : Widget) : Nil
+      return if @css_widgets_styled
+      styled = false
+      element.self_and_each_descendant do |el|
+        styled ||= el.css_styled?
+      end
+      @css_widgets_styled = true if styled
     end
 
     # Runs the cascade immediately against the current tree. Skips entirely when
@@ -436,6 +462,9 @@ module Crysterm
         widget.styles = widget.css_base_styles.deep_dup
         widget.css_styled = false
         widget.css_reset_extra
+        # Same as the cascade reset: the wipe removed any pushed sub-control
+        # style, so the `apply_substyle` memo must not keep skipping the push.
+        widget._substyle_src = nil
         widget.restore_css_base_geometry
       end
       @css_widgets_styled = false

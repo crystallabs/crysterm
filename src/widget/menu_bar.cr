@@ -54,7 +54,12 @@ module Crysterm
 
         # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
         # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action shortcuts).
-        on(::Crysterm::Event::Attach) { install_menu_shortcuts }
+        # On a cross-window reparent the pop-up menus (children of the *old*
+        # window) migrate first, so they open on the window the bar now lives on.
+        on(::Crysterm::Event::Attach) do
+          rehome_menus
+          install_menu_shortcuts
+        end
         # Uninstall from the window carried on the event: `Widget#remove` nulls
         # `parent`/`window` before `Window#detach` emits `Event::Detach`, so
         # `window?` is already nil here — the previous window comes via the payload.
@@ -78,6 +83,12 @@ module Crysterm
         # hovering another title still switches menus while one is open.
         menu.treat_as_inside { |x, y| grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
+        # Actions added *after* this call (`file.add action` on an attached bar)
+        # must get their accelerators too: the menu emits `SetItems` on every
+        # structural change (`Menu#<<`/`#>>`/`#add…` → `sync_items`), so re-run
+        # the idempotent install then. Without this, a shortcut added post
+        # `add_menu` stayed silently dead until a detach/re-attach.
+        menu.on(::Crysterm::Event::SetItems) { install_menu_shortcuts }
         # Close the menu when it loses focus to something outside the bar's world
         # (mouse-click dismissal is handled separately by `Menu#popup`'s
         # `on_press_outside`). Diving into a submenu or moving to the bar/another
@@ -111,6 +122,20 @@ module Crysterm
       private def uninstall_menu_shortcuts(w : ::Crysterm::Window?) : Nil
         return unless w
         @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
+      end
+
+      # Moves any pop-up menu still hosted on a previous window over to the
+      # bar's current one (safe while closed — the menus are hidden window
+      # children). Without this, a bar reparented cross-window opened its
+      # menus (and took their modal grab) on the OLD window.
+      private def rehome_menus : Nil
+        w = window? || return
+        @menus.each do |m|
+          old = m.window?
+          next if old.same?(w)
+          old.try &.remove m
+          w.append m
+        end
       end
 
       # Yields every action in *menu*, recursing into submenu actions.
@@ -218,6 +243,12 @@ module Crysterm
 
       # The pop-up menus are window children, so tear them down with the bar.
       def destroy
+        # Withdraw the accelerators NOW, while `@menus` is still populated: the
+        # `Detach` emitted during `super`'s teardown runs the uninstall handler
+        # over an already-cleared collection, leaving every action's shortcut
+        # registered on the window forever (firing against the torn-down UI and
+        # pinning the actions alive).
+        uninstall_menu_shortcuts window?
         @menus.each { |m| Widget.destroy_satellite m }
         @menus.clear
         super

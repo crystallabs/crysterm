@@ -4,7 +4,7 @@ module Crysterm
   # backend program — how to instruct it to run a given command in a new window.
   #
   # Backends include GUI emulators (xterm, kitty, alacritty, …) as well as
-  # multiplexers and special terminals (tmux, window, yakuake, …), each told to
+  # multiplexers and special terminals (tmux, screen, yakuake, …), each told to
   # open a new window/pane/session differently. An unknown backend falls back
   # to the common `<name> -e <command>` convention (the xterm style).
   #
@@ -32,6 +32,14 @@ module Crysterm
       # Whether this backend's binary is present on the system.
       def available? : Bool
         !!Process.find_executable(@name)
+      end
+
+      # Builds the argv this launcher would exec for *inner* without spawning
+      # anything — a dry-run of `#launch` for inspection/testing. Returns `nil`
+      # for backends driven by a custom spawner (no single argv).
+      def argv_for(inner : Array(String), cols : Int32, rows : Int32, title : String?) : Array(String)?
+        return nil if @spawn
+        @command.call(inner, cols, rows, title)
       end
 
       # Launches *inner* (the env-inlined helper command) in a new window/pane,
@@ -100,9 +108,9 @@ module Crysterm
         argv += ["-n", t] if t
         argv + inner
       end),
-      # window: a new window in the current session (best run from inside window).
-      Launcher.new("window", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
-        argv = ["window"]
+      # GNU screen: a new window in the current session (best run from inside screen).
+      Launcher.new("screen", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
+        argv = ["screen"]
         argv += ["-t", t] if t
         argv + inner
       end),

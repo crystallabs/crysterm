@@ -150,7 +150,16 @@ module Crysterm
           other.{{prop.id}} = {{prop.id}}? if specified?(:{{prop.id}})
         {% end %}
         {% for prop in tracked_value %}
-          other.{{prop.id}} = {{prop.id}} if specified?(:{{prop.id}})
+          {% if %w(border padding margin shadow).includes?(prop) %}
+            # Mutable box sub-objects must be *copied*, not shared by reference:
+            # the cascade's longhand tiers (`border-left`, `padding-top`, …)
+            # mutate the folded object in place, so sharing would corrupt the
+            # user's inline `@style` permanently (leaking across states and
+            # surviving rule unmatch). Mirrors `Style#dup`'s policy.
+            other.{{prop.id}} = {{prop.id}}.dup if specified?(:{{prop.id}})
+          {% else %}
+            other.{{prop.id}} = {{prop.id}} if specified?(:{{prop.id}})
+          {% end %}
         {% end %}
       end
     {% end %}
@@ -396,7 +405,11 @@ module Crysterm
     # leak into the shared fallback. Only the background is touched, matching
     # Qt's `alternate-background-color`; the foreground falls through.
     def alternate_background=(color) : Nil
-      alt = (@alternate_row || Style.new).dup
+      # Seed from the documented `cell` → `self` fallback (not a blank
+      # `Style.new`): only the background role changes, per Qt's
+      # `alternate-background-color` — a blank seed would drop the table's text
+      # color and bold/italic on alternate rows (`sattr` maps a nil fg to `-1`).
+      alt = (@alternate_row || cell).dup
       alt.bg = color
       @alternate_row = alt
     end

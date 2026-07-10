@@ -278,6 +278,10 @@ module Crysterm
       def remove_tab(index : Int) : Widget?
         return nil unless 0 <= index < @pages.size
 
+        # Removing a *non-current* tab must not switch the visible page (Qt's
+        # `removeTab` keeps the current page current) — remember it so it can be
+        # re-shown at its new index below.
+        cur = current_page
         page = @pages.delete_at index
         @tab_titles.delete_at index
 
@@ -290,10 +294,16 @@ module Crysterm
 
         remove page
 
-        # Re-point current_index at a still-existing tab and show it.
+        # Re-point current_index at a still-existing tab and show it: the page
+        # that was current stays current when it survived the removal; only
+        # removing the current tab itself falls back to its neighbor.
         @current_index = -1
         unless @pages.empty?
-          show_tab index.clamp(0, @pages.size - 1)
+          if cur && (ci = @pages.index(cur))
+            show_tab ci
+          else
+            show_tab index.clamp(0, @pages.size - 1)
+          end
         end
 
         emit ::Crysterm::Event::RemoveItem

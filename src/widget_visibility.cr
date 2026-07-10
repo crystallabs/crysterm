@@ -51,13 +51,23 @@ module Crysterm
 
     # Mirrors a just-applied state-style change onto the inline `@style`, but
     # only when CSS has taken over styling (`css_styled?`) — otherwise the next
-    # cascade would discard it. No-op when not CSS-styled. The active-style write
-    # itself stays at the call site, since callers deliberately differ on
-    # targeting `#style` vs the raw `#state_style` (see `#set_visible` vs
-    # `#set_alpha`).
+    # cascade would discard it. The active-style write itself stays at the call
+    # site, since callers deliberately differ on targeting `#style` vs the raw
+    # `#state_style` (see `#set_visible` vs `#set_alpha`).
+    #
+    # A widget under *active* CSS that matches no rule ends `css_styled? ==
+    # false`, yet the cascade still resets it to a fresh dup of its pristine
+    # snapshot on every restyle — so the change must also land on the snapshot
+    # (`css_base_styles.normal`), or the next cascade silently undoes it (a
+    # programmatically hidden widget reappears, a faded one snaps back to full
+    # alpha). Widgets never touched by a cascade have no snapshot and need no
+    # persistence — no-op for them.
     protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
-      return unless css_styled?
-      yield (@style ||= ::Crysterm::Style.new)
+      if css_styled?
+        yield (@style ||= ::Crysterm::Style.new)
+      elsif base = css_base_normal_if_captured
+        yield base
+      end
     end
 
     # Toggles widget visibility

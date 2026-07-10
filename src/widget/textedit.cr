@@ -499,6 +499,12 @@ module Crysterm
         region_w = xl - xi
         return if region_w <= 0 || yl <= yi
 
+        # First paintable viewport column: when the widget hangs off the left
+        # screen edge `xi` is negative, and `line[xi + col]?` with a negative
+        # index wraps to the row's right end (`Indexable#[]?`). The y loop
+        # below guards rows the same way (`next if y < 0`).
+        min_col = Math.max(0, -xi)
+
         base_attr = @_parse_attr_default || sattr(style)
         # One raw TAB paints as this whole string (`tab_char` may be several
         # codepoints) — the same expansion the layout/caret math uses.
@@ -559,7 +565,7 @@ module Crysterm
             # block's own text is conventionally empty and not painted.
             rattr = deco_attr(theme.rule_color, base_attr, block_bg, full_fmt)
             rc = glyph(Glyphs::Role::LineHorizontal)
-            c2 = Math.max(offset - @child_base_x, 0)
+            c2 = Math.max(offset - @child_base_x, min_col)
             while c2 < inner_r
               line[xi + c2]?.try &.set_if_changed(rattr, rc)
               c2 += 1
@@ -605,7 +611,7 @@ module Crysterm
             if ch == '\t'
               tab_expansion.each_char do |tc|
                 break if col >= region_w
-                if col >= 0 && (cell = line[xi + col]?)
+                if col >= min_col && (cell = line[xi + col]?)
                   cell.set_if_changed(overlay_attr(run_attr, col, sel_cols, row_xsels, full_fmt), tc)
                   cell.link = run_link
                 end
@@ -633,7 +639,7 @@ module Crysterm
             x = xi + col
             pattr = overlay_attr(run_attr, col, sel_cols, row_xsels, full_fmt)
             painted_lead = false
-            if col >= 0 && (cell = line[x]?)
+            if col >= min_col && (cell = line[x]?)
               if w == 2 && (col + 1 >= region_w || line[x + 1]?.nil?)
                 # Half a wide glyph can't render at the right edge — blank
                 # it, preserving the "width-2 cell is always followed by its
@@ -657,7 +663,7 @@ module Crysterm
 
             if w == 2
               ncol = col + 1
-              if ncol >= 0 && ncol < region_w && (nxt = line[x + 1]?)
+              if ncol >= min_col && ncol < region_w && (nxt = line[x + 1]?)
                 nattr = overlay_attr(run_attr, ncol, sel_cols, row_xsels, full_fmt)
                 if painted_lead
                   nxt.attr = nattr
@@ -683,7 +689,7 @@ module Crysterm
           # (up to any frame's right inset).
           if block_bg || full_fmt
             trail = pack_char_attr(nil, base_attr, block_bg, heading)
-            c2 = Math.max(col, 0)
+            c2 = Math.max(col, min_col)
             while c2 < inner_r
               if cell = line[xi + c2]?
                 cell.set_if_changed(overlay_attr(trail, c2, sel_cols, row_xsels, full_fmt), bch)
@@ -711,6 +717,9 @@ module Crysterm
         marker_attr = deco_attr(theme.heading_color, base_attr, block_bg, full_fmt)
         gap_attr = full_fmt ? merge_format_attr(pack_char_attr(nil, base_attr, block_bg, false), full_fmt) : pack_char_attr(nil, base_attr, block_bg, false)
         fill_gaps = block_bg || full_fmt
+        # Columns left of the screen (negative `xi + vc`) must be skipped, not
+        # wrapped to the row's right end (see `#paint_document`'s `min_col`).
+        min_col = Math.max(0, -xi)
 
         # Frame region `[0, foff)`: one bar per bordered level; margins and
         # bar gaps stay on the base fill (frames sit outside the block's own
@@ -721,7 +730,7 @@ module Crysterm
           path.each do |f|
             if f.border?
               vc = foff - @child_base_x
-              if vc >= 0 && vc < region_w && (cell = line[xi + vc]?)
+              if vc >= min_col && vc < region_w && (cell = line[xi + vc]?)
                 cell.set_if_changed(fattr, bar)
               end
             end
@@ -731,7 +740,7 @@ module Crysterm
 
         (foff...off).each do |dcol|
           vc = dcol - @child_base_x
-          next if vc < 0
+          next if vc < min_col
           break if vc >= region_w
           cell = line[xi + vc]? || next
           if dcol - foff < qcols && (dcol - foff).even?
@@ -752,11 +761,13 @@ module Crysterm
         return unless path
         bar = glyph(Glyphs::Role::LineVertical)
         fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
+        # See `#paint_document`'s `min_col`: never index left of the screen.
+        min_col = Math.max(0, -xi)
         off = 0
         path.each do |f|
           if f.border?
             vc = region_w - 1 - off
-            if vc >= 0 && (cell = line[xi + vc]?)
+            if vc >= min_col && (cell = line[xi + vc]?)
               cell.set_if_changed(fattr, bar)
             end
           end
@@ -773,6 +784,8 @@ module Crysterm
         return unless path && !path.empty?
         fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
         bar = glyph(Glyphs::Role::LineVertical)
+        # See `#paint_document`'s `min_col`: never index left of the screen.
+        min_col = Math.max(0, -xi)
         depth = path.size
         border_of = nil.as(Tuple(Int32, Bool)?)
         if fb = meta.fborder
@@ -785,11 +798,11 @@ module Crysterm
           f = path[i]
           if f.border?
             vc = off - @child_base_x
-            if vc >= 0 && vc < region_w && (cell = line[xi + vc]?)
+            if vc >= min_col && vc < region_w && (cell = line[xi + vc]?)
               cell.set_if_changed(fattr, bar)
             end
             vr = region_w - 1 - off
-            if vr >= 0 && (cell = line[xi + vr]?)
+            if vr >= min_col && (cell = line[xi + vr]?)
               cell.set_if_changed(fattr, bar)
             end
           end
@@ -806,7 +819,7 @@ module Crysterm
           h = glyph(Glyphs::Role::LineHorizontal)
           (l..r).each do |dcol|
             vc = dcol - @child_base_x
-            next if vc < 0
+            next if vc < min_col
             break if vc >= region_w
             cell = line[xi + vc]? || next
             cell.set_if_changed(fattr, dcol == l ? lc : (dcol == r ? rc : h))

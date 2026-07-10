@@ -66,12 +66,20 @@ module Crysterm
       # Appends a section titled *title* with body *widget*. The first item added
       # becomes current. Returns its index.
       def add_item(title : String, widget : Widget) : Int32
+        # The header must start visible regardless of the toolbox's own state:
+        # `Widget#hide` persists `visible = false` into `style`, so a header
+        # created while the toolbox is hidden would dup that hidden state and
+        # never be shown again (`#relayout` only toggles section *content*
+        # widgets) — a permanently blank, unclickable title row. Same hazard
+        # `Mixin::ItemView#create_item` defends against.
+        st = style.dup
+        st.visible = true
         header = Widget::Box.new(
           parent: self,
           left: 0, right: 0, height: 1,
           content: header_text(title, false),
           focus_on_click: false,
-          style: style.dup,
+          style: st,
         )
 
         index = @sections.size

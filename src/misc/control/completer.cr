@@ -187,6 +187,12 @@ module Crysterm
 
       # Don't leave an orphaned popup behind when focus leaves the box.
       @subs.on(widget, Crysterm::Event::Blur) { close }
+
+      # Tear down with the box: the popup is a *window* child, so destroying
+      # the box alone would leave it in the window's children forever (and the
+      # completer referencing a dead widget). ComboBox/DateEdit destroy their
+      # popups in `#destroy`; this is the non-widget equivalent.
+      @subs.on(widget, Crysterm::Event::Destroy) { detach }
     end
 
     # Removes all handlers and tears down the popup.
@@ -366,6 +372,14 @@ module Crysterm
     end
 
     private def ensure_popup(widget : Widget::LineEdit) : Popup
+      # A cross-window reparent of the box strands the cached popup on the old
+      # window (it is a *window* child): reopening would render the list over
+      # there while placement and the dismiss watcher use the new window. Drop
+      # the stale popup and rebuild on the box's current window.
+      if (stale = @popup) && stale.window? != widget.window?
+        Widget.destroy_satellite stale
+        @popup = nil
+      end
       @popup ||= begin
         pop = Popup.new(
           window: widget.window,

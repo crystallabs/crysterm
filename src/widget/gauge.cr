@@ -104,7 +104,11 @@ module Crysterm
       )
         @minimum = @minimum.to_f
         @maximum = @maximum.to_f
-        @value = value.to_f.clamp(@minimum, @maximum)
+        v = value.to_f
+        # Non-finite input would survive `clamp` (NaN compares false) and later
+        # crash the render fiber on `.round.to_i`; sanitize at ingestion.
+        v = @minimum unless v.finite?
+        @value = v.clamp(@minimum, @maximum)
         super **box
         self.parse_tags = true
       end
@@ -133,10 +137,15 @@ module Crysterm
       # build itself. Skip it while nothing observable changed. The stacked
       # segments are represented by `@segments_version` (bumped in `#segments=`)
       # rather than an `@segments.dup`, so the key stays allocation-free per frame.
-      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32)? = nil
+      # The trailing `{style.glyphs, glyph_tier, Glyphs.generation}` triple
+      # covers every input `glyph_seq` resolves the fill ramp from, so a
+      # post-probe tier upgrade / `Glyphs.set` / CSS `glyphs:` hot-reload
+      # rebuilds the content instead of keeping a stale ramp.
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, String?, Glyphs::Tier, UInt64)? = nil
 
       def render
-        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version}
+        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
+               style.glyphs, glyph_tier, Glyphs.generation}
         if key != @content_key
           @content_key = key
           self.content = build_content
@@ -189,8 +198,14 @@ module Crysterm
       private def segment_spans(segs, cols : Int32) : Array({Int32, Int32})
         x = 0
         segs.map do |seg|
-          w = (cols * (seg.value / span)).round.to_i
-          w = 0 if w < 0
+          # A non-finite share (NaN/Infinity segment value, or NaN from a
+          # degenerate division) would raise OverflowError on `.round.to_i`
+          # inside the render fiber — treat it as an empty slice. A huge finite
+          # share would overflow `.to_i` too; clamp to `0..1` (the span is
+          # clipped to `cols` below anyway).
+          share = seg.value / span
+          share = 0.0 unless share.finite?
+          w = (cols * share.clamp(0.0, 1.0)).round.to_i
           w = cols - x if x + w > cols
           start = x
           x += w

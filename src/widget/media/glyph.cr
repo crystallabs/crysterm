@@ -147,11 +147,14 @@ module Crysterm
         # `#alpha_key?`, where opacity drives the dots instead.
         thr = (@mode.braille? && !alpha_key?) ? @threshold_memo.get(anim_index, bmp) { global_threshold bmp } : 0.0
 
-        (yi...yl).each do |y|
+        # Clamp the walks to the screen: a widget partially off the top/left
+        # edge has negative `yi`/`xi`, and `Indexable#[]?` wraps negative
+        # indices — painting rows/columns at the far end of the buffer.
+        (Math.max(yi, 0)...yl).each do |y|
           cy = y - yi
           row = lines[y]?
           next unless row
-          (xi...xl).each do |x|
+          (Math.max(xi, 0)...xl).each do |x|
             cx = x - xi
             cell = row[x]?
             next unless cell

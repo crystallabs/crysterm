@@ -49,7 +49,12 @@ module Crysterm
       def value=(v : T) : T
         return v if @value == v
         @value = v
-        emit ::Crysterm::Event::Changed
+        # Emit with tracking suspended: listeners run synchronously, and a write
+        # performed inside an effect/computed would otherwise leave the *writer*
+        # on the scope stack while they execute — their signal reads would
+        # register as spurious dependencies of the writer, re-running it on
+        # unrelated changes. Bindings/listeners run with no active scope.
+        Reactive.untracked { emit ::Crysterm::Event::Changed }
         v
       end
 

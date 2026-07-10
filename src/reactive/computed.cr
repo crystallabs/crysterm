@@ -29,7 +29,10 @@ module Crysterm
           v = @block.call
           if @value != v
             @value = v
-            emit ::Crysterm::Event::Changed
+            # Emit with tracking suspended: the internal effect is the active
+            # scope here, so listeners' signal reads would otherwise register
+            # as spurious dependencies of this computed (see `Signal#value=`).
+            Reactive.untracked { emit ::Crysterm::Event::Changed }
           end
         end
       end

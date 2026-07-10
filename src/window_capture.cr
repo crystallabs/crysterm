@@ -185,8 +185,8 @@ module Crysterm
       end
     end
 
-    # Records the region for *duration*, capturing one frame per screen render,
-    # piping raw RGBA to ffmpeg.
+    # Records the region for *duration*, sampling the current cell buffer on a
+    # fixed `1/fps` wall-clock grid, piping raw RGBA to ffmpeg.
     private def capture_animation(xi, xl, yi, yl, fmt, path, duration, fps, loops,
                                   font, bold_font, default_fg, default_bg, ffmpeg_args) : Bytes?
       first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
@@ -194,25 +194,40 @@ module Crysterm
       vh = first.size
 
       run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args) do |input|
-        # Write the first frame *before* registering the `Rendered` handler.
-        # A full-screen RGBA frame overflows the pipe buffer, so this write
-        # blocks and yields mid-write; were the handler already registered, the
-        # render fiber could emit `Rendered` during those yields and write a
-        # second frame to the same ffmpeg stdin, interleaving the two writes and
-        # corrupting the rawvideo stream. Registering only after the first frame
-        # is fully written serializes the pipe writes.
-        input.write Capture.rgba(first) rescue nil
-        sub = on(::Crysterm::Event::Rendered) do
-          begin
-            bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
-            input.write Capture.rgba(bmp)
-          rescue
-            # Pipe closed / encoder gone: stop feeding it.
-          end
-        end
-        sleep duration
-        off ::Crysterm::Event::Rendered, sub
+        feed_animation_frames(input, xi, xl, yi, yl, duration, fps,
+          font, bold_font, default_fg, default_bg)
       end
+    end
+
+    # :nodoc:
+    # Feeds an animation's raw RGBA frames to *input*: one frame immediately,
+    # then one per `1/fps` tick of a `FrameClock` until *duration* elapses —
+    # so the clip's timeline tracks the wall clock. (The previous scheme wrote
+    # one frame per `Rendered` event into a fixed `-framerate` stream, making
+    # clip length `frames/fps` instead of `duration`: a 60fps UI captured at
+    # fps 10 played 6× slow motion, and 2 renders in 10 s yielded a 0.2 s
+    # clip.) An unchanged screen duplicates frames; a slow tick drops them
+    # (the clock resyncs rather than bursting). All writes are serialized: the
+    # initial frame completes on this fiber before the clock fiber starts.
+    # Public (`:nodoc:`) so the sampling cadence is testable without ffmpeg.
+    def feed_animation_frames(input : IO, xi, xl, yi, yl, duration : Time::Span, fps : Int32,
+                              font : Font = Font.default_normal,
+                              bold_font : Font = Font.default_bold,
+                              default_fg : Int32 = Capture::DEFAULT_FG,
+                              default_bg : Int32 = Capture::DEFAULT_BG) : Nil
+      first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+      input.write Capture.rgba(first) rescue nil
+      clock = FrameClock.new((1.0 / fps).seconds) do
+        begin
+          bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+          input.write Capture.rgba(bmp)
+        rescue
+          # Pipe closed / encoder gone: stop feeding it.
+        end
+      end
+      clock.start
+      sleep duration
+      clock.stop
     end
 
     # Spawns ffmpeg for the given output, yields its stdin for frame writing, then

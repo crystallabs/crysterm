@@ -242,8 +242,13 @@ module Crysterm
     def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
       return 0 if frag.size == 0
       pos = pos.clamp(0, size)
+      # A multi-block insertion at a block start replaces the head block's
+      # format with the fragment's (see `raw_insert_fragment`); record the
+      # original so undo restores it exactly.
+      bi, off = block_at(pos)
+      old_bf = off == 0 && frag.blocks.size > 1 ? blocks[bi].block_format : nil
       raw_insert_fragment(pos, frag)
-      @undo_stack.push(TextUndoStack::InsertFragmentCommand.new(pos, frag), self)
+      @undo_stack.push(TextUndoStack::InsertFragmentCommand.new(pos, frag, old_bf), self)
       frag.size
     end
 
@@ -425,6 +430,11 @@ module Crysterm
         end
       else
         tail = block.split(off)
+        # At a block start the fragment's first block IS the new head block:
+        # its block format (list/table/frame membership) must ride along, or
+        # a pasted list/table corrupts. Mid-block (off > 0) the head half
+        # legitimately keeps the surrounding block's format.
+        block.block_format = fblocks[0].block_format if off == 0
         fblocks[0].fragments.each { |f| block.insert(block.size, f.text, f.format) }
         new_blocks = Array(TextBlock).new(fblocks.size - 1)
         (1...fblocks.size - 1).each { |i| new_blocks << fblocks[i].clone }

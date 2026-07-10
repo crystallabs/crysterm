@@ -933,6 +933,14 @@ module Crysterm
       end
 
       private def ensure_search_box : Widget::LineEdit
+        # The box is a *window* child: after this view is reparented to another
+        # window, the memoized box is stranded on the old one — the prompt
+        # would show (and read keys) on the wrong window, leaving `/` search
+        # silently dead. Drop the stale satellite and rebuild on this window.
+        if (box = @search_box) && !box.window?.same?(window?)
+          Widget.destroy_satellite box
+          @search_box = nil
+        end
         @search_box ||= begin
           box = Widget::LineEdit.new(
             window: window,

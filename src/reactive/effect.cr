@@ -79,14 +79,31 @@ module Crysterm
         end
       end
 
-      # Re-runs the effect: drops last run's dependency subscriptions, executes
-      # the body under this effect's tracking scope (which re-subscribes to
-      # whatever it reads), then schedules a repaint of the owner's window.
+      # Re-runs the effect: executes the body under this effect's tracking scope
+      # (re-discovering its dependencies into a fresh subscription bag), then —
+      # only on success — drops the previous run's subscriptions and schedules a
+      # repaint of the owner's window.
+      #
+      # The re-track is *transactional*: if the body raises, the partially-built
+      # new subscriptions are torn down and the previous run's are kept. Clearing
+      # up front instead would permanently detach the effect from every
+      # dependency it didn't get to re-read before the raise — silently freezing
+      # it (and any `Computed` built on it) while `disposed?` still reads false.
       def run : Nil
         return if disposed?
-        @subs.off
-        @tracked.clear
-        Reactive.with_current(self) { @block.call }
+        old_subs = @subs
+        old_tracked = @tracked
+        @subs = ::Crysterm::Subscriptions.new
+        @tracked = Set(UInt64).new
+        begin
+          Reactive.with_current(self) { @block.call }
+        rescue ex
+          @subs.off        # drop the partial re-track...
+          @subs = old_subs # ...and keep last run's deps live
+          @tracked = old_tracked
+          raise ex
+        end
+        old_subs.off
         @owner.try &.window?.try &.schedule_render
       end
 

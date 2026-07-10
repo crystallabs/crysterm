@@ -53,13 +53,42 @@ module Crysterm
       EMPTY = {"   ", "   ", "   "}
 
       # Number of character cells the value is right-aligned within.
-      property digit_count : Int32 = 5
+      getter digit_count : Int32 = 5
 
       # Base used to format an `Int` passed to `#display`.
-      property mode : Mode = :dec
+      getter mode : Mode = :dec
 
       # The string currently shown (digits/letters/punctuation).
       getter text : String = ""
+
+      # The last integer passed to `#display`, retained so a later `#mode=`
+      # can re-format it in the new base (the shown `@text` is already
+      # base-formatted and can't be re-derived). `nil` after a Float/String
+      # display, where no base applies.
+      @last_int : Int64?
+
+      # Re-aligns the shown value in the new cell count immediately — a plain
+      # property setter was inert until the next `#display` call.
+      def digit_count=(v : Int32) : Int32
+        return v if v == @digit_count
+        @digit_count = v
+        update_content
+        request_render
+        v
+      end
+
+      # Re-formats the retained integer in the new base immediately — a plain
+      # property setter was inert (`display 255` then `mode = :hex` kept
+      # showing 255 forever). A Float/String display has no base to re-apply,
+      # so only the stored text alignment is refreshed.
+      def mode=(m : Mode) : Mode
+        return m if m == @mode
+        @mode = m
+        if v = @last_int
+          display v
+        end
+        m
+      end
 
       def initialize(value : Int32 | Float64 | String | Nil = nil, digit_count = 5, mode : Mode = :dec, **box)
         @digit_count = digit_count
@@ -77,6 +106,7 @@ module Crysterm
 
       # Shows *value* formatted per `#mode`.
       def display(value : Int) : Nil
+        @last_int = value.to_i64
         s = case @mode
             when .hex? then value.to_s(16).upcase
             when .oct? then value.to_s(8)
@@ -88,11 +118,13 @@ module Crysterm
 
       # Shows *value* (its default string form).
       def display(value : Float) : Nil
+        @last_int = nil
         show_text value.to_s
       end
 
       # Shows the literal *value* (unknown characters render blank).
       def display(value : String) : Nil
+        @last_int = nil
         show_text value
       end
 

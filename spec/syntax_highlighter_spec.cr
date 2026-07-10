@@ -99,12 +99,17 @@ describe Crysterm::SyntaxHighlighter do
     doc.blocks[1].render_runs[0][2].fg.should be_nil
   end
 
-  it "detaches from a document and stops updating" do
+  it "detaches from a document, clearing its overlay, and stops updating" do
     doc, hl = digit_doc("1")
+    doc.blocks[0].additional_formats.should_not be_nil
     hl.document = nil
+    # BUGS13 T7: detach removes the highlighter's overlays and user states,
+    # so the old document renders plain again.
+    doc.blocks[0].additional_formats.should be_nil
     doc.insert_text(1, "2")
-    # Overlay from before detach is stale but untouched (single run of "1").
-    doc.blocks[0].render_runs.size.should eq 2
+    # And no re-highlight happens after detach.
+    doc.blocks[0].additional_formats.should be_nil
+    doc.blocks[0].render_runs.size.should eq 1
   end
 
   it "renders the overlay through Widget::TextEdit" do

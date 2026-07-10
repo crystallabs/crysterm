@@ -252,6 +252,14 @@ module Crysterm
         pos = _get_coords(true) || return nil
         xi, yi, cols, rows = overlay_rect pos
         return nil if cols <= 0 || rows <= 0
+        # A partially-offscreen widget (negative origin) is not drawable: the
+        # CUP `#redraw_image` emits would be clamped (`\e[0;…H` — one row off,
+        # unclipped) or outright malformed (`\e[-1;…H`, splatting the image at
+        # the current cursor), and `@last_drawn` would record the negative rect
+        # so the erase pass targeted the wrong cells. Treat it like a hidden
+        # widget (nil → skip paint / clear), matching the cell backends which
+        # get clipped by the normal render pass.
+        return nil if xi < 0 || yi < 0
         {xi, yi, cols, rows}
       end
 
@@ -292,7 +300,10 @@ module Crysterm
         return if @anim_checked
         @anim_checked = true
         return unless needs_frame_loop?
-        src = source || return
+        # First-paint animation probe is a load-time entry point: it may open
+        # the live video decoder (guarded by `@anim_checked`, so a post-`stop`
+        # render never re-opens it — only `#load`/`#clear_image` re-arm it).
+        src = source(open_stream: true) || return
         play if src.frames && animate?
       end
 

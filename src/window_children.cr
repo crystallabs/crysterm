@@ -225,6 +225,14 @@ module Crysterm
     def attach(element, previous : ::Crysterm::Window? = nil)
       return if previous == self
 
+      # A subtree arriving pre-styled from another window must arm this
+      # window's revert-to-pristine pass (see `#css_note_styled_attach`), or a
+      # rule-less window renders the old window's theme on it indefinitely.
+      # Checked on every non-same-window attach (not just `previous != nil`):
+      # the reparent flows unlink from the old window first, so `previous` is
+      # already nil by the time `attach` runs.
+      css_note_styled_attach element if element.is_a?(Widget)
+
       element.self_and_each_descendant do |el|
         el.emit Crysterm::Event::Detach, previous if previous
         el.emit Crysterm::Event::Attach, self

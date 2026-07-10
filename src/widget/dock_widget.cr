@@ -218,7 +218,10 @@ module Crysterm
         # subtract is `parent.aleft + parent.ileft` (and `atop + itop`), not the
         # outer `aleft`/`atop`. Matches `Splitter#wire_divider`.
         px, py = parent_content_origin
-        {aleft - px, atop - py, awidth, aheight}
+        # `with_margin: false`: the rect is stored back into `left`/`top`
+        # (which layout re-adds the CSS margin to), so a margin-inclusive
+        # `aleft`/`atop` would compound the margin on every float toggle.
+        {aleft(with_margin: false) - px, atop(with_margin: false) - py, awidth, aheight}
       end
 
       # The parent's content origin as `{x, y}` (`aleft + ileft`, `atop + itop`),
@@ -375,8 +378,12 @@ module Crysterm
       private def wire_drag
         titlebar.enable_drag reposition: false
         titlebar.on(::Crysterm::Event::DragStart) do |e|
-          @drag_dx = e.x - aleft
-          @drag_dy = e.y - atop
+          # `with_margin: false` for the same reason as `#current_float_rect`:
+          # the offsets are replayed into `left`/`top` on Drag, which layout
+          # re-adds the CSS margin to — a margin-inclusive origin would make
+          # the dock jump by the margin on the first motion.
+          @drag_dx = e.x - aleft(with_margin: false)
+          @drag_dy = e.y - atop(with_margin: false)
           # Undock in place (`restore: false`) so `aleft`/`atop` — hence the
           # offsets just captured — stay valid and the drag continues smoothly.
           toggle_floating(restore: false) unless floating?

@@ -134,8 +134,10 @@ module Crysterm
           # A non-finite value (Infinity from a divide-by-zero / `log(0)` in the
           # plotted data, or NaN) has `v == v.round`, so the whole-number branch
           # would call `Infinity.to_i64` — an `OverflowError` that crashes the
-          # render. Render it as its plain string ("Infinity"/"NaN") instead.
-          return v.to_s unless v.finite?
+          # render. A *finite* whole value beyond Int64 (≥ ~9.22e18, e.g. a
+          # HeatMap fed `1e19`) overflows `to_i64` just the same. Render both
+          # as their plain string ("Infinity"/"NaN"/"1.0e+19") instead.
+          return v.to_s unless v.finite? && v.abs < 9.2e18
           v == v.round ? v.to_i64.to_s : v.round(1).to_s
         end
       end

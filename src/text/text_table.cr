@@ -367,9 +367,35 @@ module Crysterm
       blocks
     end
 
-    # Splits a `| a | b |` GFM row into trimmed cells (outer pipes optional).
+    # Splits a `| a | b |` GFM row into trimmed cells (outer pipes
+    # optional). A backslash-escaped `\|` is a literal pipe inside its
+    # cell, not a boundary (the markdown exporter writes them).
     protected def self.split_gfm_row(row : String) : Array(String)
-      row.strip.sub(/\A\|/, "").sub(/\|\z/, "").split('|').map(&.strip)
+      row = row.strip
+      cells = [] of String
+      cur = String::Builder.new
+      chars = row.chars
+      i = 0
+      while i < chars.size
+        c = chars[i]
+        if c == '\\' && chars[i + 1]? == '|'
+          cur << '|'
+          i += 2
+        elsif c == '|'
+          cells << cur.to_s
+          cur = String::Builder.new
+          i += 1
+        else
+          cur << c
+          i += 1
+        end
+      end
+      cells << cur.to_s
+      # Outer pipes contribute empty edge cells; drop them like the
+      # historical leading/trailing-pipe strip did.
+      cells.shift if row.starts_with?('|') && !cells.empty?
+      cells.pop if cells.size > 1 && row.ends_with?('|') && cells.last.empty?
+      cells.map(&.strip)
     end
 
     protected def self.gfm_align(spec : String) : Tput::AlignFlag
