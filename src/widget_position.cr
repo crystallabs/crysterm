@@ -83,7 +83,10 @@ module Crysterm
             off = 0
             break
           end
-          off = off * 10 + (b.to_i - '0'.ord)
+          # Clamp the accumulator so a pathologically long (≥10-digit) offset
+          # can't overflow Int32 on `off * 10` and raise OverflowError in the
+          # per-frame render path (mirrors the emulator/ANSI parsers' caps).
+          off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
           j += 1
         end
         off = -off if neg
@@ -167,7 +170,9 @@ module Crysterm
             off = 0
             break
           end
-          off = off * 10 + (b.to_i - '0'.ord)
+          # Clamp the accumulator (see `Widget.dimension`) so a ≥10-digit offset
+          # can't overflow Int32 and raise OverflowError in the render path.
+          off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
           j += 1
         end
         off = -off if c == '-'

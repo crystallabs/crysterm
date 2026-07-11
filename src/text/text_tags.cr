@@ -189,7 +189,7 @@ module Crysterm
               esc = true
               next
             end
-            if esc && (cap = /([\s\S]+?)\{\/escape\}/.match(text, pos, options: anchored))
+            if esc && (cap = /([\s\S]*?)\{\/escape\}/.match(text, pos, options: anchored))
               pos += cap[0].size
               append_text cap[1]
               esc = false
@@ -336,7 +336,7 @@ module Crysterm
           when "hr"               then hr = true
           when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
           when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
-          when /\Als-(\d+)\z/     then list_start = $1.to_i? || list_start
+          when /\Als-(\d+)\z/     then list_start = ($1.to_i? || list_start).clamp(1, 1_000_000)
           when "checked"          then checked = true
           end
         end

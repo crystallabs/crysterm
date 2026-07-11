@@ -98,6 +98,11 @@ module Crysterm
       # A ticker (not a tween): maps elapsed time through a triangle + sine so
       # the value eases at both ends and runs until stopped.
       half = period.total_seconds
+      # `period` is unvalidated public API: a zero/negative span makes `half == 0`,
+      # and the first tick's `elapsed % (2.0 * half)` (an `x % 0.0`) raises
+      # DivisionByZeroError, killing the ticker fiber. Floor it like the sibling
+      # declarative drivers (`start_css_animation` floors its total at 0.001).
+      half = 0.001 if half <= 0.0
       # Drive the phase from real wall-clock elapsed (like the keyframe/tween
       # path), not a fixed per-tick step: `FrameClock` drops catch-up ticks when
       # behind, so a fixed accumulator undercounts every dropped/late tick and the

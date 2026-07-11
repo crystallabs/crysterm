@@ -160,7 +160,16 @@ module Crysterm
       header.insert(at, sanitize_cell(header_text))
       body.each(&.insert(at, ""))
       als = @format.alignments.try(&.dup)
-      als.try &.insert(at, Tput::AlignFlag::Left)
+      # A partial alignments array (fewer entries than columns — typical
+      # after HTML import) would make `Array#insert(at, …)` raise IndexError
+      # for `at > size`; pad to full width first so the insert lands in range
+      # and the new column's alignment is positioned correctly (T4).
+      als.try do |a|
+        while a.size < columns
+          a << Tput::AlignFlag::Left
+        end
+        a.insert(at, Tput::AlignFlag::Left)
+      end
       ntf = TextTableFormat.new(columns: columns + 1, margin: @format.margin, border: @format.border?, alignments: als)
       rebuild_content(header, body, ntf)
       true

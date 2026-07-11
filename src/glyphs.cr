@@ -282,6 +282,73 @@ module Crysterm
       IconRepeat
       IconFastForward
       IconRewind
+      # Warning / hazard / safety marks (the caution triangle and friends)
+      IconWarningSign # the "caution" sign — triangle with an exclamation
+      IconRadioactive
+      IconBiohazard
+      IconNoEntry
+      IconExclamation
+      IconExclamationDouble
+      IconQuestionMark
+      # Geometric triangles (outline + filled, four directions)
+      IconTriangleUp
+      IconTriangleDown
+      IconTriangleLeft
+      IconTriangleRight
+      IconTriangleUpFilled
+      IconTriangleDownFilled
+      # Symbols / emblems
+      IconRecycle
+      IconSparkles
+      IconYinYang
+      IconPeace
+      IconAtom
+      IconAnchor
+      IconScales
+      IconSwords
+      IconHammer
+      IconSnowman
+      IconComet
+      IconDroplet
+      IconRainbow
+      # Time extras
+      IconAlarm
+      IconStopwatch
+      IconWatch
+      IconHourglassFlowing
+      # Diagonal / bidirectional arrows (the cardinals live in Arrow* above)
+      IconArrowUpDown
+      IconArrowLeftRight
+      IconArrowUpLeft
+      IconArrowUpRight
+      IconArrowDownLeft
+      IconArrowDownRight
+      # Heavy / double-line directional arrows
+      IconArrowDoubleUp
+      IconArrowDoubleDown
+      IconArrowDoubleLeft
+      IconArrowDoubleRight
+      IconArrowDoubleVertical
+      IconArrowDoubleHorizontal
+      # Hooked (return / branch) arrows
+      IconArrowHookLeft
+      IconArrowHookRight
+      # Proportion / fill-level marks. Harvey-ball circles (empty →
+      # quarter → half → three-quarter → full) for showing a percentage
+      # in one cell; the endpoints reuse IconCircle / IconCircleFilled.
+      IconCircleQuarter
+      IconCircleHalf
+      IconCircleThreeQuarter
+      # Shade / density blocks (light → medium → dark → full), the other
+      # single-cell proportion ramp — matches the ScaleHorizontal sequence.
+      IconShadeLight
+      IconShadeMedium
+      IconShadeDark
+      IconBlockFull
+      # Currency extras
+      IconBitcoin
+      IconRupee
+      IconWon
 
       # -- Border families (see `BorderType#line_glyphs`) ---------------------
       # Four corners + horizontal/vertical runs per line family. The ASCII
@@ -563,6 +630,72 @@ module Crysterm
       set_in t, Role::IconRepeat, Entry.new('o', nil, '🔁')
       set_in t, Role::IconFastForward, Entry.new('>', '»', '⏩')
       set_in t, Role::IconRewind, Entry.new('<', '«', '⏪')
+
+      # Warning / hazard / safety. `⚠` (the caution triangle) is the classic
+      # single-width symbol; `🔺` is the modern-font upgrade.
+      set_in t, Role::IconWarningSign, Entry.new('!', '⚠', '🔺')
+      set_in t, Role::IconRadioactive, Entry.new('!', '☢')
+      set_in t, Role::IconBiohazard, Entry.new('!', '☣')
+      set_in t, Role::IconNoEntry, Entry.new('O', nil, '⛔')
+      set_in t, Role::IconExclamation, Entry.new('!', nil, '❗')
+      set_in t, Role::IconExclamationDouble, Entry.new('!', '‼')
+      set_in t, Role::IconQuestionMark, Entry.new('?', nil, '❓')
+
+      set_in t, Role::IconTriangleUp, Entry.new('^', '△')
+      set_in t, Role::IconTriangleDown, Entry.new('v', '▽')
+      set_in t, Role::IconTriangleLeft, Entry.new('<', '◁')
+      set_in t, Role::IconTriangleRight, Entry.new('>', '▷')
+      set_in t, Role::IconTriangleUpFilled, Entry.new('^', '▲')
+      set_in t, Role::IconTriangleDownFilled, Entry.new('v', '▼')
+
+      set_in t, Role::IconRecycle, Entry.new('R', '♻')
+      set_in t, Role::IconSparkles, Entry.new('*', nil, '✨')
+      set_in t, Role::IconYinYang, Entry.new('o', '☯')
+      set_in t, Role::IconPeace, Entry.new('O', '☮')
+      set_in t, Role::IconAtom, Entry.new('*', '⚛')
+      set_in t, Role::IconAnchor, Entry.new('J', nil, '⚓')
+      set_in t, Role::IconScales, Entry.new('T', '⚖')
+      set_in t, Role::IconSwords, Entry.new('X', '⚔')
+      set_in t, Role::IconHammer, Entry.new('h', '⚒', '🔨')
+      set_in t, Role::IconSnowman, Entry.new('S', '☃')
+      set_in t, Role::IconComet, Entry.new('*', '☄')
+      set_in t, Role::IconDroplet, Entry.new('o', nil, '💧')
+      set_in t, Role::IconRainbow, Entry.new('-', nil, '🌈')
+
+      set_in t, Role::IconAlarm, Entry.new('!', nil, '⏰')
+      set_in t, Role::IconStopwatch, Entry.new('t', '⏱')
+      set_in t, Role::IconWatch, Entry.new('o', nil, '⌚')
+      set_in t, Role::IconHourglassFlowing, Entry.new('z', nil, '⏳')
+
+      set_in t, Role::IconArrowUpDown, Entry.new('|', '↕')
+      set_in t, Role::IconArrowLeftRight, Entry.new('-', '↔')
+      set_in t, Role::IconArrowUpLeft, Entry.new('\\', '↖')
+      set_in t, Role::IconArrowUpRight, Entry.new('/', '↗')
+      set_in t, Role::IconArrowDownLeft, Entry.new('/', '↙')
+      set_in t, Role::IconArrowDownRight, Entry.new('\\', '↘')
+
+      set_in t, Role::IconArrowDoubleUp, Entry.new('^', '⇑')
+      set_in t, Role::IconArrowDoubleDown, Entry.new('v', '⇓')
+      set_in t, Role::IconArrowDoubleLeft, Entry.new('<', '⇐')
+      set_in t, Role::IconArrowDoubleRight, Entry.new('>', '⇒')
+      set_in t, Role::IconArrowDoubleVertical, Entry.new('|', '⇕')
+      set_in t, Role::IconArrowDoubleHorizontal, Entry.new('-', '⇔')
+      set_in t, Role::IconArrowHookLeft, Entry.new('<', '↩')
+      set_in t, Role::IconArrowHookRight, Entry.new('>', '↪')
+
+      # Harvey-ball fill states — a one-cell percentage indicator.
+      set_in t, Role::IconCircleQuarter, Entry.new('.', '◔')
+      set_in t, Role::IconCircleHalf, Entry.new('C', '◐')
+      set_in t, Role::IconCircleThreeQuarter, Entry.new('o', '◕')
+      # Shade / density ramp.
+      set_in t, Role::IconShadeLight, Entry.new('.', '░')
+      set_in t, Role::IconShadeMedium, Entry.new(':', '▒')
+      set_in t, Role::IconShadeDark, Entry.new('%', '▓')
+      set_in t, Role::IconBlockFull, Entry.new('#', '█')
+
+      set_in t, Role::IconBitcoin, Entry.new('B', '₿')
+      set_in t, Role::IconRupee, Entry.new('R', '₹')
+      set_in t, Role::IconWon, Entry.new('W', '₩')
 
       set_in t, Role::BorderLineTL, Entry.new('+', '┌')
       set_in t, Role::BorderLineTR, Entry.new('+', '┐')

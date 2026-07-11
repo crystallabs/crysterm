@@ -423,8 +423,14 @@ module Crysterm
               # boundary reads back as one blank line (markdown can't say
               # more). A rule block always gets one — `---` directly under
               # a paragraph line would re-parse as a setext heading.
+              # A continuation paragraph (indent > 0, no list structure)
+              # following a list item or another continuation needs a blank
+              # line so CommonMark reads it as an indented continuation
+              # rather than a lazy line that merges into the item (T1).
+              cont = cf.indent > 0 && cf.list_format.nil? &&
+                     (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
               blank = pf.bottom_margin > 0 || cf.top_margin > 0 ||
-                      cf.horizontal_rule?
+                      cf.horizontal_rule? || cont
               # Adjacent plain body blocks with no separating margin are a
               # hard break — a bare newline would soft-wrap them back into
               # one paragraph on re-import.
@@ -433,7 +439,7 @@ module Crysterm
               io << '\n'
               io << '\n' if blank
             end
-            if code_line?(blocks[i], first: true)
+            if opens_fence?(blocks, i)
               first = i
               prefix = "> " * blocks[i].block_format.quote_level
               io << prefix << "```\n"
@@ -490,6 +496,28 @@ module Crysterm
         b.fragments.all?(&.format.code?)
       end
 
+      # Does the contiguous same-`bg`/quote-level run starting at *i* form a
+      # fenced code block? A run opens a fence when it holds a real code line
+      # (non-empty code fragments) or spans more than one line — so a code
+      # block whose leading (or every) line is blank still fences at its first
+      # block (T5), while a lone empty styled block does not (T19).
+      private def opens_fence?(blocks : Array(TextBlock), i : Int32) : Bool
+        return false unless blocks[i].block_format.bg
+        ql = blocks[i].block_format.quote_level
+        j = i
+        count = 0
+        has_code = false
+        while j < blocks.size && code_line?(blocks[j]) &&
+              blocks[j].block_format.quote_level == ql &&
+              (j == i || (blocks[j].block_format.top_margin == 0 &&
+              blocks[j - 1].block_format.bottom_margin == 0))
+          count += 1
+          has_code = true unless blocks[j].fragments.empty?
+          j += 1
+        end
+        has_code || count > 1
+      end
+
       # A plain paragraph body block — the kind a hard break may join to
       # its neighbor (no heading/list/table/rule/fence structure).
       private def plain_body?(b : TextBlock) : Bool
@@ -541,6 +569,15 @@ module Crysterm
           return
         end
 
+        # A list-item continuation paragraph imports with `indent > 0` and no
+        # list structure; re-emit indentation to the enclosing item's content
+        # column (the importer's `indent` is a 2/level approximation, but the
+        # marker width — e.g. 3 for "1. " — is what CommonMark needs to keep
+        # the paragraph inside the item rather than merging it) (T1).
+        if bf.indent > 0
+          pad = @item_cols[bf.indent // 2]? || bf.indent
+          io << " " * pad
+        end
         write_inline(io, b.fragments, lead: true)
       end
 

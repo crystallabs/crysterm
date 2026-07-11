@@ -138,7 +138,9 @@ module Crysterm
 
       # Size of the value range (`maximum - minimum`), never negative.
       private def span : Int32
-        Math.max(0, @maximum - @minimum)
+        # Widen the subtraction: a range wider than `Int32::MAX` (e.g.
+        # `-1_500_000_000..1_500_000_000`) would overflow Int32 here.
+        (@maximum.to_i64 - @minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
       end
 
       # Current fill as a 0..100 percentage, derived from `#value`'s position in
@@ -151,7 +153,9 @@ module Crysterm
 
       # Sets the fill from a 0..100 percentage by mapping it back onto the range.
       def filled=(percent : Int32) : Int32
-        self.value = @minimum + (percent.clamp(0, 100) * span / 100.0).round.to_i
+        # Coerce to float before multiplying: `percent * span` as Int32 × Int32
+        # overflows for a range whose `span` exceeds ~21M (at percent=100).
+        self.value = @minimum + (percent.clamp(0, 100).to_f * span / 100.0).round.to_i
         percent
       end
 

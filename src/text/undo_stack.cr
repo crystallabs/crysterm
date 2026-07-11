@@ -271,6 +271,7 @@ module Crysterm
     end
 
     def mark_clean : Nil
+      seal_last
       @clean_index = @index
     end
 

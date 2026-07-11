@@ -276,6 +276,10 @@ module Crysterm
       # Block format parsed off the `li` element itself (margins/alignment),
       # consumed together with `@pending_item`.
       @pending_item_format : TextBlockFormat?
+      # Whitespace-collapse flag parsed off the `li` element (e.g. a
+      # `white-space:pre-wrap` on the item), adopted by the item's first
+      # block so TABs / significant spaces survive the round-trip (T3).
+      @pending_item_collapse : Bool?
       # Whether the pending `li` is a checked checkbox item (its block's
       # `checked` flag; the `Checkbox` list style comes from the enclosing
       # `<ul>`).
@@ -389,7 +393,10 @@ module Crysterm
           end_block
         when "ul", "ol"
           end_block(discard_virgin: true)
-          start = attr_val(node, "start").try(&.to_i?) || 1
+          # `to_i?` accepts values up to `Int32::MAX`, which overflow the
+          # plain-Int32 marker/numbering arithmetic downstream; clamp at the
+          # single import choke point so the model stays sane (T7).
+          start = (attr_val(node, "start").try(&.to_i?) || 1).clamp(1, 1_000_000)
           @list_stack << TextListFormat.new(
             style: list_style(node),
             indent: @list_stack.size + 1,
@@ -406,9 +413,11 @@ module Crysterm
           # state for `start_block`; the input element itself is dropped
           # (void, no text).
           @pending_checked = pending_item_checked?(node)
-          # The li's own styles (margins, alignment) ride along.
-          ibf, _ = block_format_from(node)
+          # The li's own styles (margins, alignment) ride along, as does its
+          # whitespace-collapse flag (a pre-wrap li opens its block uncollapsed).
+          ibf, icollapse = block_format_from(node)
           @pending_item_format = ibf == TextBlockFormat.default ? nil : ibf
+          @pending_item_collapse = icollapse
           walk_children(node)
           # An empty item opened no block; still emit its (empty) member
           # block, so the exporter's own empty (checkbox) items round-trip.
@@ -416,6 +425,7 @@ module Crysterm
           end_block
           @pending_item = nil
           @pending_item_format = nil
+          @pending_item_collapse = nil
           @pending_checked = false
         when "table"
           end_block(discard_virgin: true)
@@ -599,6 +609,10 @@ module Crysterm
           end
           bf = bf.merge(TextBlockFormat.new(list_format: li))
           bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
+          # A pre-wrap li opens its first block uncollapsed so its TABs /
+          # significant spaces are not run through `WS_RUN` (T3).
+          collapse = false if @pending_item_collapse == false
+          @pending_item_collapse = nil
           @pending_item = nil
         elsif !@list_stack.empty?
           # A continuation block inside an item: indent to roughly the item
@@ -656,6 +670,11 @@ module Crysterm
 
       private def append_text(str : String) : Nil
         return if str.empty?
+        # A pre-wrap list item defers opening its first block until its text
+        # arrives; open it now (adopting the li's no-collapse flag) so the
+        # text is not run through `WS_RUN` below and its TABs / spaces survive
+        # the round-trip (T3).
+        ensure_block if !@block_open && @pending_item && @pending_item_collapse == false
         if @block_open && !@collapse
           @frags << TextFragment.new(str.gsub('\n', ' '), current_format)
           @block_virgin = false

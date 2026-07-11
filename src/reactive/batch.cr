@@ -21,9 +21,40 @@ module Crysterm
     @@batch_depth = 0
     @@pending = [] of Deferrable
 
+    # Depth of the active *propagation wave* — the synchronous cascade a single
+    # `Signal#value=` sets off (`Reactive.propagate`). Kept distinct from
+    # `@@batch_depth` because a wave is implicit (opened by every write) while a
+    # batch is explicit (opened by `Reactive.batch`). Both defer leaf `Effect`s.
+    @@wave_depth = 0
+
     # Whether a `batch` is currently open on this fiber.
     def self.batching? : Bool
       @@batch_depth > 0
+    end
+
+    # Whether downstream leaf `Effect` runs must be deferred: either an explicit
+    # `batch` or an in-flight propagation `wave` is open. During a wave, deferring
+    # a leaf effect until the wave settles is what makes propagation glitch-free —
+    # an effect reading two `Computed`s over a shared upstream `Signal` runs once,
+    # after *both* have recomputed, never on an impossible half-updated pair.
+    def self.deferring? : Bool
+      @@batch_depth > 0 || @@wave_depth > 0
+    end
+
+    # Runs *block* — the synchronous notification set off by one `Signal#value=` —
+    # as a single propagation wave. `Computed`s recompute eagerly inside the wave
+    # (so their values settle), but each dependent leaf `Effect` is enqueued
+    # rather than run, and the whole enqueued set flushes once the outermost wave
+    # closes (unless a `batch` is still open, which flushes at *its* close). This
+    # is the glitch-free scheduling guarantee — see `deferring?`.
+    def self.propagate(&) : Nil
+      @@wave_depth += 1
+      begin
+        yield
+      ensure
+        @@wave_depth -= 1
+        flush if @@wave_depth == 0 && @@batch_depth == 0
+      end
     end
 
     # Records *item* to run at the end of the current batch, deduplicated so a

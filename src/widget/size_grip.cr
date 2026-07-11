@@ -64,8 +64,18 @@ module Crysterm
         on(::Crysterm::Event::Drag) do |e|
           if t = (@target || parent)
             begin
-              t.width = Math.max(@min_drag_width, e.x - t.aleft + 1)
-              t.height = Math.max(@min_drag_height, e.y - t.atop + 1)
+              # Fold in the grip's own offset from the target's outer edge so the
+              # math is placement-agnostic: `e.x - t.aleft + 1` alone assumes the
+              # grip sits on the target's outer-right column, but a documented
+              # inner-corner placement (`bottom: 0, right: 0`) lands it
+              # `iright`/`ibottom` cells inside. `edge_x`/`edge_y` are ~0 for an
+              # outer-corner grip (e.g. DockWidget) and equal the border/padding
+              # inset for an inner-corner one, so the target's outer edge tracks
+              # the pointer in both cases.
+              edge_x = (t.aleft + t.awidth) - (self.aleft + self.awidth)
+              edge_y = (t.atop + t.aheight) - (self.atop + self.aheight)
+              t.width = Math.max(@min_drag_width, e.x - t.aleft + 1 + edge_x)
+              t.height = Math.max(@min_drag_height, e.y - t.atop + 1 + edge_y)
               t.request_render
             rescue
               # Target not laid out yet.

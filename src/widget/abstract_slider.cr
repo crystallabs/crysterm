@@ -71,7 +71,12 @@ module Crysterm
       # and lets `#value=` clamp. Returns `#minimum` for a non-positive span.
       protected def value_at(pos : Int32, span : Int32) : Int32
         return @minimum if span <= 0
-        @minimum + (pos.to_f * value_span / span).round.to_i
+        # Clamp the mapped offset into the value span before the Int32 conversion:
+        # `Slider` passes the raw, unclamped pointer offset (see docstring), so an
+        # off-track drag with a large range would push `pos.to_f * value_span / span`
+        # past `Int32::MAX` and make `.round.to_i` raise `OverflowError`. Clamping to
+        # `0..value_span` yields exactly the value `#value=` would clamp to.
+        @minimum + (pos.to_f * value_span / span).round.clamp(0.0, value_span.to_f).to_i
       end
     end
   end

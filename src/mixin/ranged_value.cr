@@ -136,7 +136,14 @@ module Crysterm
 
       # Size of the value range (`maximum - minimum`), never negative.
       def value_span : T
-        Math.max(T.zero, @maximum - @minimum)
+        {% if T == Int32 %}
+          # A full-span integer range (e.g. `Int32::MIN..Int32::MAX`) overflows
+          # `@maximum - @minimum` in Int32, so widen the subtraction and clamp
+          # back into range.
+          (@maximum.to_i64 - @minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
+        {% else %}
+          Math.max(T.zero, @maximum - @minimum)
+        {% end %}
       end
 
       # Constructor-time range+value initialiser: stores a non-inverted range and

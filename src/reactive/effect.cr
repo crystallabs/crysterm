@@ -58,7 +58,12 @@ module Crysterm
       @tracked = Set(UInt64).new
       getter? disposed = false
 
-      def initialize(@owner : ::Crysterm::Widget? = nil, &@block : ->)
+      # *eager* effects recompute synchronously the moment an upstream changes,
+      # even mid-wave/mid-batch, instead of deferring to the flush. `Computed`'s
+      # internal recompute effect is eager so a derived value has *settled* before
+      # any dependent leaf effect (which stays deferred) reads it — the basis of
+      # glitch-free propagation. Ordinary effects are leaf (non-eager).
+      def initialize(@owner : ::Crysterm::Widget? = nil, @eager : Bool = false, &@block : ->)
         run
       end
 
@@ -69,10 +74,17 @@ module Crysterm
         @subs.on(signal, ::Crysterm::Event::Changed) { schedule }
       end
 
-      # A tracked signal changed: run now, or defer to the batch flush.
+      # A tracked signal changed. An *eager* effect (a `Computed`'s recompute)
+      # runs now, synchronously, so its derived value settles within the current
+      # propagation wave. A leaf effect defers — enqueued for the flush — whenever
+      # a wave or batch is open (`deferring?`), so it runs exactly once, after
+      # every upstream `Computed` in the wave has settled (no glitch, no double
+      # run); otherwise it runs now.
       protected def schedule : Nil
         return if disposed?
-        if Reactive.batching?
+        if @eager
+          run
+        elsif Reactive.deferring?
           Reactive.enqueue self
         else
           run

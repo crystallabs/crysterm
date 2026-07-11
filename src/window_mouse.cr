@@ -75,6 +75,13 @@ module Crysterm
       @_hover
     end
 
+    # The widget that has currently captured the mouse (`#capture_mouse`), or
+    # `nil`. :nodoc: — exposed so the transient-state teardown (see
+    # `#release_transient_state_for`) is observable in tests.
+    def mouse_captor : Widget?
+      @_mouse_captor
+    end
+
     # Number of consecutive presses on the same widget at the same spot within
     # `Config.mouse_double_click_interval` of each other: `1` for a single
     # click, `2` for a double, `3`+ for triple and beyond. Valid to read from
@@ -148,6 +155,47 @@ module Crysterm
     def release_mouse : Nil
       @_mouse_captor = nil
       @_mouse_captor_button = nil
+    end
+
+    # Tears down every transient mouse-interaction pointer that points into the
+    # subtree rooted at *subtree* — hover, pending press-arm (`@_arm`), mouse
+    # captor (`@_mouse_captor`), in-flight drag source/target (`@_drag`), and
+    # modal input grabs (`@grabs`) — bracketing the unlink performed by the
+    # yielded block. The stale relations are sampled *before* the block runs
+    # (while the subtree is still relatable via `covers?`) and dropped *after*,
+    # so a removed/detached subtree can never leave this window hovering,
+    # capturing, dragging, or modally grabbing a widget no longer on it:
+    #
+    #   * `@_hover` → next `MouseMove` fires `MouseOut` on a dead widget, an
+    #     OSC-22 pointer shape it set is never reverted (restored here too), and
+    #     the subtree is pinned in memory.
+    #   * `@_arm` → a later motion calls `start_drag` on a detached widget.
+    #   * `@_mouse_captor` → every subsequent Move/Up is swallowed forever (mouse
+    #     dead until an unrelated `#release_mouse`).
+    #   * `@_drag` source/target → screen stays modally locked / a later `Drop`
+    #     fires on an off-screen widget.
+    #   * `@grabs` → the modal lock never lifts.
+    #
+    # Shared by `Window#remove` (a top-level child) and `Widget#remove` (a nested
+    # child, invoked on the child's window) so both removal paths tear the
+    # window's mouse state down identically. See BUGS14-C2.
+    def release_transient_state_for(subtree : Widget, &) : Nil
+      drop_hover = (h = @_hover) && subtree.covers?(h)
+      drop_arm = (a = @_arm) && subtree.covers?(a)
+      drop_captor = (c = @_mouse_captor) && subtree.covers?(c)
+      stale_drag = ((d = @_drag) && subtree.covers?(d.source)) ? d : nil
+      stale_target = ((td = @_drag) && (tg = td.target) && subtree.covers?(tg)) ? td : nil
+      stale_grabs = @grabs.select { |g| subtree.covers?(g) }
+
+      yield
+
+      @_hover = nil if drop_hover
+      set_mouse_cursor_shape nil if drop_hover
+      @_arm = nil if drop_arm
+      @_mouse_captor = nil if drop_captor
+      stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
+      stale_target.try { |st| retarget(st, nil) if @_drag == st }
+      stale_grabs.each { |g| ungrab g }
     end
 
     # Per-Window pooled mouse events (one per concrete class), reused across

@@ -108,7 +108,11 @@ module Crysterm
       return blank if per_row == 0
       w = per_row * 4
       Array(Array(Int32)).new(@height) do |r|
-        bits = hex[r * per_row, per_row].to_u32(16)
+        # `to_u32?` (not strict `to_u32`): a corrupt/hand-made `.hex` font can
+        # carry a non-hex bitmap payload (`0041:ZZ...`), which would raise
+        # `ArgumentError` mid-capture. Treat an unparseable row as all-off,
+        # mirroring `load_hex`'s codepoint guard and `glyph`'s blank fallback.
+        bits = hex[r * per_row, per_row].to_u32?(16) || 0_u32
         bits |= bits >> 1 if @bold
         Array(Int32).new(w) { |c| ((bits >> (w - 1 - c)) & 1).to_i }
       end

@@ -56,6 +56,10 @@ module Crysterm
           **layout,
         )
           @entries = entries
+          # Guard against a degenerate `rows: 0` (or negative): `#build` divides
+          # by `@rows` (`i // @rows`, `i % @rows`), which would raise
+          # `DivisionByZeroError`. At least one row is always required.
+          @rows = Math.max(1, @rows)
           super **layout, width: w, height: (h || rows)
           # `Layout::Grid` carves the interior by cumulative integer fences
           # (`col * inner // columns`) with `gap: 0`, so columns abut exactly and
@@ -92,6 +96,9 @@ module Crysterm
         # (`i % rows`) is reassigned. Does not resize the widget — its height was
         # set from `rows` at construction (pass `height:` to override).
         def rows=(value : Int32) : Int32
+          # Clamp to at least one row so `#build`'s `i // @rows` / `i % @rows`
+          # never divide by zero.
+          value = Math.max(1, value)
           @rows = value
           if g = @layout.as?(Crysterm::Layout::Grid)
             g.rows = value

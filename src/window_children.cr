@@ -122,32 +122,6 @@ module Crysterm
       # now-detached widget.
       refocus = (f = focused) && element.covers?(f)
 
-      # Transient mouse-interaction pointers into the subtree go stale the same
-      # way, and must be dropped too: `screen.hovered` would keep reporting a
-      # detached widget, a pending press would call `start_drag` on it, and an
-      # in-flight drag whose source is removed would stay modal forever (every
-      # mouse event swallowed by the `@_drag` branch of `#dispatch_mouse`).
-      # Sampled here for the same `has_descendant?` reason as `refocus`.
-      drop_hover = (h = @_hover) && element.covers?(h)
-      drop_arm = (a = @_arm) && element.covers?(a)
-      # A widget that captured the mouse (`#capture_mouse`, e.g. an in-flight
-      # text drag-select) and is then removed before button-up would keep
-      # `@_mouse_captor` pointing at a detached widget, routing every subsequent
-      # Move/Up to it forever (the capture branch of `#dispatch_mouse`) — the
-      # same "modal forever" hazard as `@_drag`.
-      drop_captor = (c = @_mouse_captor) && element.covers?(c)
-      stale_drag = ((d = @_drag) && element.covers?(d.source)) ? d : nil
-      # An in-flight drag whose drop target (not source) sits in the removed
-      # subtree would keep `@_drag.target` pointing at a detached widget — a
-      # later drop would emit `Event::Drop` on an off-screen widget, since a drag
-      # only re-evaluates its target on motion. Cleared below via retarget(nil).
-      stale_target = ((td = @_drag) && (tg = td.target) && element.covers?(tg)) ? td : nil
-      # An active input grab (an open modal pop-up — see `Window#grab`) whose
-      # widget sits in the removed subtree must be released. A direct `remove`
-      # bypasses the pop-up's own `ungrab`, leaving `@grabs` pointing at a
-      # detached widget and modally blocking the rest of the screen forever.
-      stale_grabs = @grabs.select { |g| element.covers?(g) }
-
       super
 
       # Drop this element (and its subtree) from the keyboard/mouse registries so
@@ -167,33 +141,20 @@ module Crysterm
         return
       end
 
-      # Clear the stored reference on this (top-level) element, then notify the
-      # subtree that it has left this screen.
+      # Clear the stored reference on this (top-level) element, then — bracketed
+      # by the transient mouse-state teardown (`#release_transient_state_for`,
+      # shared with `Widget#remove`) — notify the subtree it has left this screen
+      # and rewind focus. The teardown samples the stale hover/arm/captor/drag/
+      # grab pointers into the subtree and drops them after the detach, so a
+      # removed widget can't leave the window pointing at it. `covers?` is
+      # invariant across the unlink (it walks the element's own children), so
+      # sampling after `super`/`window = nil` yields the same relations as before.
       previous = element.window?
       element.window = nil
-      detach element, previous
-
-      rewind_focus if refocus
-
-      # Drop the stale mouse pointers sampled above. The drag is torn down via
-      # `#drag_cancel` (not just nilled) so its `DragEnd`/`DragLeave` cleanup
-      # still runs; guarded on the session being unchanged in case an event
-      # during the unlink above already ended it.
-      @_hover = nil if drop_hover
-      # The removed widget may have owned the GUI mouse-pointer shape (OSC 22 —
-      # see `Widget#mouse_cursor_shape=`), pushed on `MouseOver` and normally
-      # reverted on `MouseOut`. A removal emits no `MouseOut`, so restore it here
-      # too (no-op unless a non-default shape is actually applied).
-      set_mouse_cursor_shape nil if drop_hover
-      @_arm = nil if drop_arm
-      @_mouse_captor = nil if drop_captor
-      stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
-      # Clear a stale drop-target pointing into the removed subtree, emitting
-      # the expected `DragLeave`. No-op if the drag was already torn down above.
-      stale_target.try { |st| retarget(st, nil) if @_drag == st }
-      # Release any input grab that pointed into the removed subtree, lifting
-      # the stale modal lock.
-      stale_grabs.each { |g| ungrab g }
+      release_transient_state_for(element) do
+        detach element, previous
+        rewind_focus if refocus
+      end
     end
 
     # :ditto:

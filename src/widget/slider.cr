@@ -134,6 +134,28 @@ module Crysterm
       # it safe to share across the horizontal/vertical paths.
       @tick_edges = [] of Int32
 
+      # Yields each tick's cell offset (`0..avail`) from the low-value end of a
+      # track `avail` cells long. Bounded by the track length so a large value
+      # range can't loop over value space — which was both a per-frame hang
+      # (~one iteration per `interval` across the whole range, independent of
+      # track length) and an Int32 overflow on the `tv += interval` accumulator
+      # when `@maximum` sits within `interval` of `Int32::MAX`.
+      private def each_tick_cell(avail : Int32, interval : Int32, & : Int32 ->) : Nil
+        return if avail <= 0 || interval <= 0 || value_span <= 0
+        if value_span // interval > avail
+          # Ticks are denser than cells: at most one distinct mark per cell, so
+          # walk cells instead of value space.
+          (0..avail).each { |c| yield c }
+        else
+          tv = @minimum
+          while tv <= @maximum
+            yield ((tv - @minimum).to_f * avail / value_span).round.to_i
+            break if tv > @maximum - interval # guard the `tv += interval` overflow
+            tv += interval
+          end
+        end
+      end
+
       # Draws tick marks along the requested edges of the groove. Skips the
       # handle cell so the handle stays visible even on a one-row/column slider.
       private def draw_ticks(xi, xl, yi, yl)
@@ -152,13 +174,10 @@ module Crysterm
           edges << yi if @tick_position.above? || @tick_position.both?
           edges << (yl - 1) if @tick_position.below? || @tick_position.both?
           hx = xi + handle_offset(avail)
-          tv = @minimum
-          while tv <= @maximum
-            tx = xi + ((tv - @minimum).to_f * avail / value_span).round.to_i
-            unless tx == hx
-              edges.each { |ty| window.fill_region attr, tick_ch, tx, tx + 1, ty, ty + 1 }
-            end
-            tv += interval
+          each_tick_cell(avail, interval) do |c|
+            tx = xi + c
+            next if tx == hx
+            edges.each { |ty| window.fill_region attr, tick_ch, tx, tx + 1, ty, ty + 1 }
           end
         else
           avail = yl - yi - 1
@@ -167,13 +186,10 @@ module Crysterm
           edges << xi if @tick_position.above? || @tick_position.both?
           edges << (xl - 1) if @tick_position.below? || @tick_position.both?
           hy = (yl - 1) - handle_offset(avail)
-          tv = @minimum
-          while tv <= @maximum
-            ty = (yl - 1) - ((tv - @minimum).to_f * avail / value_span).round.to_i
-            unless ty == hy
-              edges.each { |cx| window.fill_region attr, tick_ch, cx, cx + 1, ty, ty + 1 }
-            end
-            tv += interval
+          each_tick_cell(avail, interval) do |c|
+            ty = (yl - 1) - c
+            next if ty == hy
+            edges.each { |cx| window.fill_region attr, tick_ch, cx, cx + 1, ty, ty + 1 }
           end
         end
       end

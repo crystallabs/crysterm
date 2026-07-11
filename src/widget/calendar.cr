@@ -413,8 +413,16 @@ module Crysterm
               # `#first_day_of_week`.
               first_col = first_day_of_week.value % 7
               thursday_offset = (::Time::DayOfWeek::Thursday.value % 7 - first_col + 7) % 7
-              week = (row_date + thursday_offset.days).calendar_week[1]
-              io << week.to_s.rjust(2) << ' '
+              # The row's Thursday can land in January of year 10000 for the last
+              # grid row of December 9999 (the default `@maximum_date`), which is
+              # outside Crystal's `Time` range and raises `ArgumentError`. Fall
+              # back to a blank gutter rather than crashing the render/setter path.
+              week = begin
+                (row_date + thursday_offset.days).calendar_week[1]
+              rescue ArgumentError
+                nil
+              end
+              io << (week ? week.to_s.rjust(2) : "  ") << ' '
             end
 
             7.times do |c|

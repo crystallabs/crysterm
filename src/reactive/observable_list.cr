@@ -133,6 +133,11 @@ module Crysterm
         # view patches the right row instead of bailing on a raw negative.
         i = index.to_i
         i += @array.size if i < 0
+        # A still-out-of-range index must raise here (like a plain `Array`), not
+        # fall through to `Array#delete_at`, which would re-normalize a
+        # still-negative `i` a second time and silently delete a valid-but-wrong
+        # slot while emitting a negative `Remove` index (see BUGS13-R2 / BUGS14-R1).
+        raise IndexError.new if i < 0 || i >= @array.size
         item = @array.delete_at i
         emit_change ListOp::Remove, i, 1
         item
@@ -156,6 +161,11 @@ module Crysterm
         # view rewrites the right row instead of bailing on a raw negative.
         i = index.to_i
         i += @array.size if i < 0
+        # As in `#delete_at`: a still-out-of-range index must raise here rather
+        # than fall through to `Array#[]=`, which would re-normalize a
+        # still-negative `i` and overwrite a valid-but-wrong slot while emitting a
+        # negative `Update` index (see BUGS13-R2 / BUGS14-R1).
+        raise IndexError.new if i < 0 || i >= @array.size
         @array[i] = item
         emit_change ListOp::Update, i, 1
         item

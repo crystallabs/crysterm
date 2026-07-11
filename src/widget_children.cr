@@ -208,21 +208,30 @@ module Crysterm
       element.emit(Crysterm::Event::Reparent, nil)
       emit(Crysterm::Event::Remove, element)
 
-      # Skip the window-level `Detach` when `#insert` is re-homing this element
-      # within the same window (see `#reparenting_same_screen?`). A normal
-      # remove (guard false) detaches as usual.
-      previous.try do |sc|
-        sc.detach element, sc unless element.reparenting_same_screen?
+      # Tear down the window's transient mouse-state pointing into the detached
+      # subtree — hover, press-arm, mouse captor, in-flight drag and modal grabs
+      # — exactly as `Window#remove` does for a top-level child. Without this a
+      # hovered/capturing/dragging *nested* widget that is removed (directly, or
+      # via `Widget#destroy` → `detach_from_tree`) leaves the window pointing at
+      # a dead widget: stale `MouseOut`, mouse stuck in capture, or modal-forever
+      # (see BUGS14-C2). Skipped for a same-window reparent (`#insert` re-links
+      # immediately, so the pointers stay valid) — the same guard the `Detach`
+      # and focus-rewind below use. The teardown brackets the `detach`/rewind so
+      # the stale pointers are dropped after the subtree is notified, mirroring
+      # `Window#remove`'s ordering.
+      if (sc = previous) && !element.reparenting_same_screen?
+        sc.release_transient_state_for(element) do
+          sc.detach element, sc
+          s.rewind_focus if refocus && s
+        end
+      else
+        # Same-window reparent, or the element was never on a window: only the
+        # (guarded) `Detach`/rewind, no mouse-state teardown.
+        previous.try do |pv|
+          pv.detach element, pv unless element.reparenting_same_screen?
+        end
+        s.rewind_focus if refocus && s && !element.reparenting_same_screen?
       end
-
-      # Rewind off the detached subtree after the unlink, using the condition
-      # captured above for correct timing.
-      #
-      # A same-window reparent is exempt (see `#reparenting_same_screen?`):
-      # `#insert` re-homes it immediately and synchronously, so focus stays
-      # valid. Rewinding there would strand focus on a tree-position change,
-      # the same spurious churn the `Detach` suppression above avoids.
-      s.rewind_focus if refocus && s && !element.reparenting_same_screen?
     end
 
     # Widget's position in the stack (front, back). Render index / order.

@@ -149,6 +149,13 @@ module Crysterm
                 ffmpeg_args : Array(String)? = nil) : Bytes?
       xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
+      # Clamp the frame rate to at least 1 before it reaches the FrameClock /
+      # ffmpeg args. `fps == 0` builds `(1.0/0).seconds` == `Infinity.seconds`,
+      # which raises `OverflowError`; a negative `fps` makes the clock interval
+      # negative so `FrameClock#start` never sleeps (busy-spins at 100% CPU).
+      # Mirrors how the transition/animation paths floor non-positive durations.
+      fps = 1 if fps < 1
+
       # An inverted or fully out-of-range region clamps to empty (`xl == xi` or
       # `yl == yi`) — reachable from `Widget#capture` with e.g.
       # `include_decorations: false` on a widget narrower than its own insets, or
@@ -215,6 +222,10 @@ module Crysterm
                               bold_font : Font = Font.default_bold,
                               default_fg : Int32 = Capture::DEFAULT_FG,
                               default_bg : Int32 = Capture::DEFAULT_BG) : Nil
+      # Floor the rate here too — this is a public (`:nodoc:`) entry point
+      # reachable directly, so it must not build an `Infinity`/negative clock
+      # interval from a non-positive `fps` (see `#capture`).
+      fps = 1 if fps < 1
       first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
       input.write Capture.rgba(first) rescue nil
       clock = FrameClock.new((1.0 / fps).seconds) do

@@ -110,7 +110,9 @@ module Crysterm
         # Per-area state, (re)built lazily whenever the area's size changes (`@cols`
         # / `@rows` are the interior size, owned by `Effect::Direct`).
         @slots = [] of Tuple(Int32, Int32, Char)
-        @frame = 0
+        # Int64 (matching `CopperBar`/`TextScroll`) so `@frame * 9`/`* 6` in
+        # `#colorize` never wrap even on an animation left looping for months.
+        @frame : Int64 = 0_i64
 
         # Flat `w*h` per-cell buffers (row-major), filled once per frame in
         # `#advance` and read back in `#cell`. Untouched cells default to a
@@ -275,7 +277,9 @@ module Crysterm
         # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
         private def colorize(i, phase) : Int32
           if c = @color
-            return c.call(i, @frame, phase)
+            # The public color proc's frame param is `Int32`; wrap (never raise)
+            # on the astronomically-unlikely Int64 overflow of the widened counter.
+            return c.call(i, @frame.to_i32!, phase)
           end
           case phase
           when :pending then @spark_colors[(@frame // 3) % @spark_colors.size]
@@ -296,7 +300,7 @@ module Crysterm
 
         # Restart the spray from an empty area on the next frame.
         def restart
-          @frame = 0
+          @frame = 0_i64
           @done = false
         end
       end

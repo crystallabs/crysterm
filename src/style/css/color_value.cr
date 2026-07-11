@@ -115,7 +115,13 @@ module Crysterm
       # (`rgb(10, 20, 30)` ⇒ `[10.0, 20.0, 30.0]`). Used by the `hsl` parser
       # (`rgb` handles per-component `%` itself, see `parse_rgb`).
       private def self.numbers(value : String) : Array(Float64)
-        value.scan(RGB_RE).map(&.[1].to_f)
+        # `to_f?` (not strict `to_f`): a numeric literal past Float64 range
+        # (309+ digits, a generated/corrupted stylesheet value) makes `to_f`
+        # raise `ArgumentError` on ERANGE, and nothing between `Properties.apply`
+        # and `Cascade.apply_sheets` rescues. `compact_map` drops any such token,
+        # so `parse_hsl` bails to `nil` when fewer than 3 numbers remain — mirrors
+        # `Length.to_cells_f`'s hardening.
+        value.scan(RGB_RE).compact_map(&.[1].to_f?)
       end
 
       # A single `rgb()` component: an optionally-signed number with an optional
@@ -138,7 +144,10 @@ module Crysterm
 
       # One `rgb()` channel → a `0..255` int, scaling a `%` form from `0..100`.
       private def self.component(m : Regex::MatchData) : Int32
-        n = m[1].to_f
+        # `to_f?`: an out-of-Float64-range channel literal must clamp to 0, not
+        # raise `ArgumentError` (ERANGE) out of the cascade — same hardening as
+        # `Length.to_cells_f`.
+        n = m[1].to_f? || return 0
         n = n * 255.0 / 100.0 if m[2]?
         clamp n
       end
@@ -172,7 +181,9 @@ module Crysterm
       # result into `0..360`.
       private def self.hue_degrees(value : String) : Float64
         return 0.0 unless m = value.match(HUE_RE)
-        n = m[1].to_f
+        # `to_f?`: an out-of-Float64-range hue literal falls back to 0°, not a
+        # raised `ArgumentError` (ERANGE) — same hardening as `Length.to_cells_f`.
+        n = m[1].to_f? || return 0.0
         case m[2]?.try(&.downcase)
         when "turn" then n * 360.0
         when "grad" then n * 0.9 # 400grad == 360deg

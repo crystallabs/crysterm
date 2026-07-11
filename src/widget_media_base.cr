@@ -45,7 +45,17 @@ module Crysterm
       end
 
       # Playback speed multiplier for animations (1.0 = native speed).
-      property speed : Float64 = 1.0
+      # `#speed=` is unvalidated public API: a `0`, negative, or non-finite value
+      # would make both playback pacers (`#animate_loop`, `#stream_loop`) divide
+      # by it and produce a non-finite period that overflows the integer/`Time::Span`
+      # conversion, killing the frame fiber. Clamp it to a sane positive value.
+      getter speed : Float64 = 1.0
+
+      # Clamp non-positive/non-finite speeds to native (1.0) so the animation and
+      # stream loops never divide by zero (see `#animate_loop`, `#stream_loop`).
+      def speed=(v : Float64) : Float64
+        @speed = (v.finite? && v > 0) ? v : 1.0
+      end
 
       # Whether to play animated (GIF/APNG) sources automatically.
       property? animate : Bool = true

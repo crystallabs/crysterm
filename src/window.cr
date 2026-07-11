@@ -527,7 +527,11 @@ module Crysterm
       dump path: dump_dest if dump_dest
       if anim
         secs = Config.window_anim_secs
+        # `CRYSTERM_ANIM_FPS` is parsed with `.to_i?`, so `0`/negative is
+        # accepted; floor it to 1 so a misconfigured env var can't crash the
+        # capture (`#capture` re-clamps, but keep the intent explicit here).
         fps = Config.window_anim_fps
+        fps = 1 if fps < 1
         capture path: anim, format: "apng", duration: secs.seconds, fps: fps, loops: 0
       end
 

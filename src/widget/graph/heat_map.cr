@@ -220,6 +220,9 @@ module Crysterm
         def color_for(v : Float64) : Int32
           lo, hi = resolved_bounds
           t = ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
+          # Belt-and-braces: a NaN `t` (e.g. `0/0` from a degenerate scale) would
+          # make `(t * 255).round.to_i` raise OverflowError. Fall back to `0`.
+          t = 0.0 unless t.finite?
           lut[(t * 255).round.to_i]
         end
 
@@ -265,6 +268,11 @@ module Crysterm
           end
           lo = @vmin
           hi = @vmax
+          # A non-finite *explicit* bound (e.g. `vmax = data.max` where the data
+          # contains an Infinity) would poison the scale and crash the render
+          # fiber; drop it so it falls back to the finite data range like `nil`.
+          lo = nil unless lo.nil? || lo.finite?
+          hi = nil unless hi.nil? || hi.finite?
           if lo.nil? || hi.nil?
             dmin = nil.as(Float64?)
             dmax = nil.as(Float64?)

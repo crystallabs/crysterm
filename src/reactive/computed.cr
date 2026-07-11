@@ -25,7 +25,11 @@ module Crysterm
         # doesn't create a spurious dependency on the enclosing scope. The effect
         # below then does the real, tracked computation.
         @value = Reactive.untracked { @block.call }
-        @effect = Effect.new do
+        # Eager: recompute synchronously the instant an upstream changes, so this
+        # derived value has settled *before* any dependent leaf effect (deferred
+        # to the wave's flush) reads it. That ordering is what makes propagation
+        # glitch-free for a diamond (two computeds sharing one upstream signal).
+        @effect = Effect.new(eager: true) do
           v = @block.call
           if @value != v
             @value = v

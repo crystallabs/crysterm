@@ -596,6 +596,17 @@ module Crysterm
         @accepted = true
         @session.data.accept action
       end
+
+      # Withdraws acceptance — the documented inverse of `#accept`. Must mirror
+      # `#accept` and also clear the *session's* accepted flag, because
+      # `drag_release`/`drop_external` decide whether to deliver `Drop` from
+      # `session.data.accepted?`, not the event flag. Overriding
+      # `Acceptable#ignore` (which only clears the event flag) so a target that
+      # accepts then withdraws via `e.ignore` actually cancels the drop.
+      def ignore
+        @accepted = false
+        @session.data.reject
+      end
     end
 
     # Fired on the source when a drag begins. A transfer source should populate
