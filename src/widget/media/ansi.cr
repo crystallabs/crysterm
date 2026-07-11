@@ -210,11 +210,12 @@ module Crysterm
       # cell background is dithered through `dither_plane`).
       private def quantize(rgb : Int32) : Int32
         return rgb if @colors.true_color?
-        cache = (@quant_cache ||= {} of Int32 => Int32)
-        cache[rgb]? || (cache[rgb] = nearest_palette_rgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff))
+        cache = (@quant_cache ||= Cache::Bounded(Int32, Int32).new(Cache::MEDIA_QUANT_CAPACITY))
+        cache.fetch(rgb) { nearest_palette_rgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff) }
       end
 
-      @quant_cache : Hash(Int32, Int32)?
+      # Source RGB → nearest-palette RGB; bounded, see `Cache::MEDIA_QUANT_CAPACITY`.
+      @quant_cache : Cache::Bounded(Int32, Int32)?
 
       # The xterm palette as packed `0xRRGGBB`, precomputed once from
       # `TermColors::HI2RGB` so `Media.nearest_index` is a flat `Array(Int32)`

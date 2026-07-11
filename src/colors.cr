@@ -14,8 +14,9 @@ module Crysterm
   module Colors
     extend ::TermColors
 
-    # Cache for `convert(String)` results, keyed by the color spec.
-    @@convert_cache = Hash(String, Int32).new
+    # Cache for `convert(String)` results, keyed by the color spec. Bounded;
+    # see `Cache::COLOR_CAPACITY`.
+    @@convert_cache = Cache::Bounded(String, Int32).new(Cache::COLOR_CAPACITY, "colors", register: true)
 
     # Allocation-free cached form of `convert` for color *strings*.
     #
@@ -28,7 +29,7 @@ module Crysterm
     # The non-`String` overload covers `nil`/other specs; those resolve cheaply
     # through `convert` and are not cached.
     def self.convert_cached(color : String) : Int32
-      @@convert_cache.fetch(color) { @@convert_cache[color] = safe_convert(color) }
+      @@convert_cache.fetch(color) { safe_convert(color) }
     end
 
     # :ditto:

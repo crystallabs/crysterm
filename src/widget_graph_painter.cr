@@ -331,14 +331,14 @@ module Crysterm
       module TextOverlay
         # Memoized cell attrs, keyed on *both* the requested color and the
         # current `style.bg`, so a background change doesn't keep serving a stale
-        # attr captured at first use.
-        @attr_cache = {} of Tuple(Int32, Int32?) => Int64
+        # attr captured at first use. Bounded; see `Cache::GRAPH_ATTR_CAPACITY`.
+        @attr_cache = Cache::Bounded(Tuple(Int32, Int32?), Int64).new(Cache::GRAPH_ATTR_CAPACITY)
 
         # Returns (and caches) the packed cell attr for *color* on the widget's
         # current background.
         private def overlay_attr(color : Int32) : Int64
           bg = style.bg
-          @attr_cache[{color, bg}] ||= sattr(style, color, bg)
+          @attr_cache.fetch({color, bg}) { sattr(style, color, bg) }
         end
 
         # Writes *text* starting at absolute cell (x, y), clipped to the

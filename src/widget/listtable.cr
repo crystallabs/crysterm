@@ -103,15 +103,15 @@ module Crysterm
       @_alt_row_derived : Style? = nil
 
       # CSS-styled rows: each row box carries its own computed `Style`, so these
-      # memoize per source-`Style` identity in an identity-keyed `Hash`
-      # (`Style` defines no `==`/`hash`, so keys compare by reference). The whole
-      # set is dropped when `styles.normal`'s identity flips — the cascade
-      # recompute that replaces this widget's styles also replaces every row
-      # box's, so their old keys are stale together.
+      # memoize per source-`Style` identity in an identity-keyed `Cache::Bounded`
+      # (`by_identity: true`, so keys compare by reference). The whole set is
+      # dropped when `styles.normal`'s identity flips — the cascade recompute
+      # that replaces this widget's styles also replaces every row box's, so
+      # their old keys are stale together.
       @_row_style_gen : Style? = nil
-      @_row_wb = {} of Style => Style      # without_border(item.style)
-      @_row_overlay = {} of Style => Style # overlay_colors(base, alternate_row)
-      @_row_overlay_src : Style? = nil     # alternate_row source guarding @_row_overlay
+      @_row_wb = Cache::Bounded(Style, Style).new(Cache::LISTTABLE_ROW_CAPACITY, by_identity: true)      # without_border(item.style)
+      @_row_overlay = Cache::Bounded(Style, Style).new(Cache::LISTTABLE_ROW_CAPACITY, by_identity: true) # overlay_colors(base, alternate_row)
+      @_row_overlay_src : Style? = nil                                                                   # alternate_row source guarding @_row_overlay
 
       def initialize(
         rows = nil,
@@ -287,7 +287,7 @@ module Crysterm
 
       # `without_border(src)` for a CSS row style, memoized by *src* identity.
       private def css_without_border(src : Style) : Style
-        @_row_wb[src]? || (@_row_wb[src] = without_border(src))
+        @_row_wb.fetch(src) { without_border(src) }
       end
 
       # `overlay_colors(base, source)` for a CSS even row, memoized by *base*
@@ -295,7 +295,7 @@ module Crysterm
       # rows and guards the cache in `#sync_row_style_cache`, so keying on *base*
       # alone is sufficient.
       private def css_alt_overlay(base : Style, source : Style) : Style
-        @_row_overlay[base]? || (@_row_overlay[base] = overlay_colors(base, source))
+        @_row_overlay.fetch(base) { overlay_colors(base, source) }
       end
 
       # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells

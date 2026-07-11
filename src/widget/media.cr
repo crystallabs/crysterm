@@ -586,7 +586,10 @@ module Crysterm
       # reloaded) is parsed only once. Every widget derives its sized render
       # from the shared `PNGGIF::PNG` read-only. A `nil` value is a cached
       # *failure* (see `decode`).
-      @@decode_cache = {} of String => PNGGIF::PNG?
+      # Bounded, least-recently-used: decoded entries can be large, so cap the
+      # window and evict the least-recently-shown ones. See
+      # `Cache::IMAGE_DECODE_CAPACITY`.
+      @@decode_cache = Cache::Bounded(String, PNGGIF::PNG?).new(Cache::IMAGE_DECODE_CAPACITY, "image_decode", register: true, lru: true)
 
       # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
       # URL is fetched to bytes (via `Ansi.fetch`); a local path passes through
@@ -612,8 +615,9 @@ module Crysterm
         end
         # ANSI-art decoding depends on the detail setting, so key on it too.
         key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
-        return @@decode_cache[key] if @@decode_cache.has_key?(key)
-        png =
+        # `fetch` caches the result — including a `nil` *failure* (negative
+        # caching; see above) — and only runs the block on a miss.
+        @@decode_cache.fetch(key) do
           begin
             if file =~ ANSI_ART_RE
               # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap
@@ -629,8 +633,7 @@ module Crysterm
           rescue
             nil
           end
-        @@decode_cache[key] = png
-        png
+        end
       end
 
       # Empties the decode cache (e.g. to reclaim memory).

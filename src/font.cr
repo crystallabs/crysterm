@@ -21,7 +21,8 @@ module Crysterm
     DEFAULT_NORMAL_PATH = "#{__DIR__}/../data/font/unifont.hex"
     DEFAULT_BOLD_PATH   = "#{__DIR__}/../data/font/unifont.hex"
 
-    @@cache = {} of String => Font
+    # Loaded faces, keyed by `path` + weight. Bounded; see `Cache::FONT_CAPACITY`.
+    @@cache = Cache::Bounded(String, Font).new(Cache::FONT_CAPACITY, "font", register: true)
 
     # Glyph cell size in pixels (8×16 for Unifont half-width; 8×14 for Terminus).
     getter width : Int32
@@ -39,7 +40,7 @@ module Crysterm
     # Loads (and memoizes) the font at *path*. *bold* synthesizes a bold variant
     # for `.hex` faces (which ship only one weight).
     def self.load(path : String, bold : Bool = false) : Font
-      @@cache["#{path}#{bold ? "#b" : ""}"] ||= new(path, bold)
+      @@cache.fetch("#{path}#{bold ? "#b" : ""}") { new(path, bold) }
     end
 
     # The default normal/bold faces (GNU Unifont; bold is synthesized).

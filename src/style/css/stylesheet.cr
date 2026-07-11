@@ -313,13 +313,11 @@ module Crysterm
       # Compiled selectors, memoized by their structural string. Compiling once
       # here — rather than letting `Node#css` re-lex/re-compile on each match —
       # avoids repeated parser work. A `nil` entry marks an unparseable selector
-      # so it isn't retried.
-      @compiled_selectors = {} of String => ::CSS::Selector?
+      # so it isn't retried. Bounded; see `Cache::SELECTOR_CAPACITY`.
+      @compiled_selectors = Cache::Bounded(String, ::CSS::Selector?).new(Cache::SELECTOR_CAPACITY)
 
       def compiled_selector(selector : String) : ::CSS::Selector?
-        @compiled_selectors.fetch(selector) do
-          @compiled_selectors[selector] = (::CSS.compile(selector) rescue nil)
-        end
+        @compiled_selectors.fetch(selector) { ::CSS.compile(selector) rescue nil }
       end
 
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`

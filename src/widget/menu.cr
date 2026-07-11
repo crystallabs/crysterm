@@ -135,7 +135,7 @@ module Crysterm
       # re-runs, which replaces them with new objects, missing the identity
       # cache); keyed by identity. Cleared when the surface `bg` changes
       # (ALLOCS.md J5).
-      @surface_cache : Hash(::Crysterm::Style, ::Crysterm::Style)?
+      @surface_cache : Cache::Bounded(::Crysterm::Style, ::Crysterm::Style)?
       @surface_cache_bg : Int32? = nil
       @surface_cache_valid = false
 
@@ -579,16 +579,17 @@ module Crysterm
         # row and reuses it every frame instead of dup-ing per row per frame. A
         # changed surface `bg` (or a cascade, which mints new item styles) drops
         # the stale entries.
-        cache = @surface_cache ||= Hash(::Crysterm::Style, ::Crysterm::Style).new.compare_by_identity
+        cache = @surface_cache ||= Cache::Bounded(::Crysterm::Style, ::Crysterm::Style).new(Cache::MENU_SURFACE_CAPACITY, by_identity: true)
         if !@surface_cache_valid || surface != @surface_cache_bg
           cache.clear
           @surface_cache_bg = surface
           @surface_cache_valid = true
         end
+        # `Bounded#fetch` stores the block's result, so no explicit `cache[st] =`.
         cache.fetch(st) do
           out = st.dup
           out.bg = surface
-          cache[st] = out
+          out
         end
       end
 
