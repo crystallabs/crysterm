@@ -197,6 +197,12 @@ module Crysterm
       ansi_cursor = caps.ansi_cursor
 
       bce_opt = @optimization.bce?
+      # `@default_attr` is constant for the whole draw() call, so the bg/deco
+      # fields the BCE look-ahead gate compares against are hoisted here
+      # instead of being re-extracted from `@default_attr` per candidate space
+      # cell.
+      default_bg = Attr.bg(@default_attr)
+      default_deco = Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)
       fu = full_unicode?
       # Output color depth used to reduce SGR colors. NOT taken from the frozen
       # `caps.ncolors` (computed once at `compute_draw_caps`): `#colors` resolves
@@ -262,6 +268,14 @@ module Crysterm
         # Original line, as it was in the previous render
         o = @olines[y]
 
+        # Skip if no change in line. Checked BEFORE the row hoists below (line
+        # size, backing arrays, grapheme/link overlay probes): this depends
+        # only on line.dirty/c_artificial/y/cursor_y, so on any skipped row
+        # none of that hoisting work is needed at all.
+        if !line.dirty && !(c_artificial && (y == cursor_y))
+          next
+        end
+
         # Cache the row width once; read by the per-cell loop bound and the BCE
         # scans below.
         line_size = line.size
@@ -295,11 +309,6 @@ module Crysterm
         any_l = l_has_l || o_has_l
 
         # ::Log.trace { line } if line.any? &.char.!=(' ')
-
-        # Skip if no change in line
-        if !line.dirty && !(c_artificial && (y == cursor_y))
-          next
-        end
 
         # Bound the per-cell scan to the columns that actually changed
         # (`[scan_lo, scan_hi]`), read before the dirty flag is cleared below.
@@ -394,9 +403,8 @@ module Crysterm
           # out undecorated — and, `@olines` being mirrored as-drawn, stay
           # missing forever.
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
-             (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
-             ((Attr.flags(desired_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) ==
-               (Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)))
+             (has_bce || (Attr.bg(desired_attr) == default_bg)) &&
+             ((Attr.flags(desired_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) == default_deco)
             clr = true
             neq = false # line changed content vs. previous render
             breaker = line_size
@@ -1348,7 +1356,7 @@ module Crysterm
     # widget: `▄` shadows the top half (bottom-edge shadow), `▀` the bottom, `▐`
     # the left half (right-edge shadow), `▌` the right.
     def blend_region(alpha, xi, xl, yi, yl, glyph : Char? = nil)
-      each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, line|
+      each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, _line|
         if glyph
           base = cell.attr
           shadowed = Colors.blend(base, alpha: alpha)
@@ -1357,7 +1365,7 @@ module Crysterm
           cell.set_if_changed Attr.pack(0_i64, Attr.bg(base), Attr.bg(shadowed)), glyph
         else
           cell.attr = Colors.blend(cell.attr, alpha: alpha)
-          line.dirty = true
+          cell.mark_dirty
         end
       end
     end
@@ -1366,9 +1374,9 @@ module Crysterm
     # `1` = fully `color`) — the color overlay behind `style.tint`. Like
     # `#blend_region` but toward an arbitrary color instead of black.
     def tint_region(alpha, color, xi, xl, yi, yl)
-      each_region_cell(xi, xl, yi, yl) do |cell, line|
+      each_region_cell(xi, xl, yi, yl) do |cell, _line|
         cell.attr = Colors.tint(cell.attr, color, alpha)
-        line.dirty = true
+        cell.mark_dirty
       end
     end
   end

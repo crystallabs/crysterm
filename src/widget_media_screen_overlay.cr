@@ -46,6 +46,18 @@ module Crysterm
       # stack duplicate `Hide`/`Detach`/... handlers on this widget.
       @overlay_hooks_wired = false
 
+      # Scratch `LPos` reused by both `#invalidate_old_position` (the
+      # `PreRender` listener) and `#overlay_rendered` (the `Rendered`
+      # listener) to avoid a heap `LPos` allocation every window render
+      # (`_get_coords` with no `into:` allocates fresh; see
+      # widget_position.cr:638-641). Safe to share a single buffer: within one
+      # render pass `PreRender` fires and fully returns (consuming its coords
+      # synchronously into a plain `Tuple`) before `Rendered` fires later in
+      # the same pass — the two never interleave or hold the value across a
+      # yield point, so there's no risk of one clobbering the other's live
+      # value.
+      @overlay_lpos : LPos = LPos.new
+
       # Registers the erase-on-move (`PreRender`) and repaint-on-top (`Rendered`)
       # listeners on *s*, in that order, and remembers *s* + the wrappers; also
       # wires this widget's own lifecycle hooks (once).
@@ -147,7 +159,7 @@ module Crysterm
         return unless overlay_visible? && visible?
         last = @last_drawn || return
         s = window? || return
-        pos = _get_coords(false)
+        pos = _get_coords(false, into: @overlay_lpos)
         rect = pos.try { |p| overlay_rect(p) }
         # Scrolled or clipped out of an ancestor's viewport: coords are
         # unresolvable (or the rect degenerate), so `#redraw_image` won't run and
@@ -181,7 +193,7 @@ module Crysterm
       # `#overlay_cleared`). Otherwise fall through to the backend's repaint.
       private def overlay_rendered
         if @last_drawn && overlay_visible? && visible?
-          pos = _get_coords(false)
+          pos = _get_coords(false, into: @overlay_lpos)
           rect = pos.try { |p| overlay_rect(p) }
           if rect.nil? || rect[2] <= 0 || rect[3] <= 0
             clear_overlay

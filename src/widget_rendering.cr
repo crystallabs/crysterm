@@ -621,10 +621,15 @@ module Crysterm
         # own bg (not the terminal default), so a themed frame sits flush with
         # its interior.
         border_bg = border.bg || style.bg
-        top_attr = sattr border, border.top_fg, border_bg
-        bottom_attr = sattr border, border.bottom_fg, border_bg
-        left_attr = sattr border, border.left_fg, border_bg
-        right_attr = sattr border, border.right_fg, border_bg
+        # All four sides share `border` as the style object, so the SGR flag
+        # word (visible?/reverse?/blink?/underline?/italic?/strike?/bold?) is
+        # byte-identical across them — computed once here instead of 4x inside
+        # `sattr`, with only the packed fg differing per side.
+        border_flags = self.class.sattr_flags(border)
+        top_attr = self.class.sattr_pack border_flags, border, border.top_fg, border_bg
+        bottom_attr = self.class.sattr_pack border_flags, border, border.bottom_fg, border_bg
+        left_attr = self.class.sattr_pack border_flags, border, border.left_fg, border_bg
+        right_attr = self.class.sattr_pack border_flags, border, border.right_fg, border_bg
 
         # Resolved once here instead of re-dispatching per cell inside
         # `border_char`, with any per-position char overrides (CSS
@@ -947,27 +952,41 @@ module Crysterm
       with_inset_coords(with_children, true) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
-    def self.sattr(style, fg = nil, bg = nil) : Int64
+    # The 7-predicate SGR flag word for *style* (visible?/reverse?/blink?/
+    # underline?/italic?/strike?/bold?), independent of any fg/bg. Factored out
+    # of `#sattr` so a caller that needs the packed attr for several fg/bg
+    # combinations of the *same* style (e.g. a widget's four border sides,
+    # which all share `border` as the style object) can compute this once and
+    # reuse it via `#sattr_pack`, instead of paying for the predicate calls
+    # again on every combination.
+    def self.sattr_flags(style) : Int32
+      # TODO support style.* being Procs ?
+      (style.visible? ? 0 : Attr::INVISIBLE) |
+        (style.reverse? ? Attr::REVERSE : 0) |
+        (style.blink? ? Attr::BLINK : 0) |
+        (style.underline? ? Attr::UNDERLINE : 0) |
+        (style.italic? ? Attr::ITALIC : 0) |
+        (style.strike? ? Attr::STRIKE : 0) |
+        (style.bold? ? Attr::BOLD : 0)
+    end
+
+    # Packs a precomputed flag word (see `#sattr_flags`) together with *fg*/
+    # *bg* into a full attr, applying the same "both unset falls back to the
+    # style's own fg/bg" rule as `#sattr`.
+    def self.sattr_pack(flags : Int32, style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
       end
 
-      # TODO support style.* being Procs ?
-
-      flags =
-        (style.visible? ? 0 : Attr::INVISIBLE) |
-          (style.reverse? ? Attr::REVERSE : 0) |
-          (style.blink? ? Attr::BLINK : 0) |
-          (style.underline? ? Attr::UNDERLINE : 0) |
-          (style.italic? ? Attr::ITALIC : 0) |
-          (style.strike? ? Attr::STRIKE : 0) |
-          (style.bold? ? Attr::BOLD : 0)
-
       # `fg`/`bg` are already native colors (`0xRRGGBB` int, `-1` for terminal
       # default, `nil` for unset). `Attr.pack_color` packs that into a color
       # field; no per-frame string parsing.
       Attr.pack(flags, Attr.pack_color(fg || -1), Attr.pack_color(bg || -1))
+    end
+
+    def self.sattr(style, fg = nil, bg = nil) : Int64
+      sattr_pack sattr_flags(style), style, fg, bg
     end
 
     def sattr(style, fg = nil, bg = nil)

@@ -39,26 +39,45 @@ module Crysterm
 
     class InsertCommand < Command
       getter pos : Int32
-      getter text : String
       getter format : TextCharFormat
 
-      def initialize(@pos, @text, @format)
+      # Coalescing accumulator: a typing burst appends into `@io` (amortized
+      # O(1) per key) instead of `@text += other.text` rebuilding the whole
+      # accumulated String every keystroke (O(k^2) over a k-char run). `@size`
+      # tracks the codepoint length (contiguity/undo need it, `IO::Memory`
+      # counts bytes) and `@has_newline` caches the block-separator guard.
+      protected getter size : Int32
+      protected getter? has_newline : Bool
+
+      def initialize(@pos, text : String, @format)
+        @io = IO::Memory.new
+        @io << text
+        @size = text.size
+        @has_newline = text.includes?('\n')
+      end
+
+      # The accumulated inserted text, materialized on demand (redo path only —
+      # not the hot typing path). `IO::Memory#to_s` leaves the buffer writable,
+      # so later merges still append.
+      def text : String
+        @io.to_s
       end
 
       def undo(doc : TextDocument) : Nil
-        doc.raw_remove(@pos, @text.size)
+        doc.raw_remove(@pos, @size)
       end
 
       def redo(doc : TextDocument) : Nil
-        doc.raw_insert(@pos, @text, @format)
+        doc.raw_insert(@pos, text, @format)
       end
 
       def try_merge(other : Command) : Bool
         return false unless other.is_a?(InsertCommand)
-        return false if @text.includes?('\n') || other.text.includes?('\n')
-        return false unless other.pos == @pos + @text.size
+        return false if @has_newline || other.has_newline?
+        return false unless other.pos == @pos + @size
         return false unless other.format.same_appearance?(@format)
-        @text += other.text
+        @io << other.text
+        @size += other.size
         true
       end
     end

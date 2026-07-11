@@ -151,6 +151,25 @@ module Crysterm
           end
         end
 
+        # O(log) override of the mixin's flat prefix scan: the block index IS the
+        # logical-line index and the column is measured line-locally (from the
+        # block start to *c*), so no `0..c` document prefix is materialized.
+        private def cursor_line_col(c : Int32) : Tuple(Int32, Int32)
+          bi, _ = document.block_at(c)
+          base = document.block_position(bi)
+          {bi, expanded_width(buf_slice(base, c))}
+        end
+
+        # A logical line is exactly one block; check its (cached) text for a TAB
+        # rather than letting the mixin's `buf_index` char-walk over-scan the
+        # whole document (`'\t'` isn't a block separator, so it has no O(log)
+        # path).
+        private def buf_range_includes_tab?(from : Int32, to : Int32) : Bool
+          return false if to <= from
+          bi, _ = document.block_at(from)
+          document.blocks[bi].text.includes?('\t')
+        end
+
         # Fake (logical) lines are exactly the document's blocks.
         def buf_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
           k = fake_line.clamp(0, document.block_count - 1)

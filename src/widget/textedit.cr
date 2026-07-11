@@ -828,8 +828,16 @@ module Crysterm
       private def each_glyph(text : String, fu : Bool, & : (Char, String?, Int32) ->) : Nil
         if fu
           text.each_grapheme do |g|
-            s = g.to_s
-            yield s[0], (s.size > 1 ? s : nil), s.size
+            # Read the stdlib-internal `@cluster` (`Char | String`) instead of
+            # `g.to_s`, which allocates a fresh String for every (overwhelmingly
+            # common) single-`Char` cluster. Mirrors `Unicode.width`'s idiom;
+            # output is identical (a `String` cluster is always multi-codepoint).
+            case cluster = g.@cluster
+            in Char
+              yield cluster, nil, 1
+            in String
+              yield cluster[0], cluster, cluster.size
+            end
           end
         else
           text.each_char do |c|

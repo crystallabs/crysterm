@@ -25,9 +25,17 @@ module Crysterm
     # never merged into the fragments, so highlighting doesn't touch the
     # document content, undo stack, or interchange output. Read via
     # `#render_runs`.
-    property additional_formats : Array({Int32, Int32, TextCharFormat})?
+    getter additional_formats : Array({Int32, Int32, TextCharFormat})?
+
+    # Overrides the plain `property` setter to also invalidate `render_runs`'
+    # cache, since its output depends on this overlay too.
+    def additional_formats=(value : Array({Int32, Int32, TextCharFormat})?) : Array({Int32, Int32, TextCharFormat})?
+      @render_runs_cache = nil
+      @additional_formats = value
+    end
 
     @text_cache : String?
+    @render_runs_cache : Array({Int32, Int32, TextCharFormat})?
 
     def initialize(
       text : String = "",
@@ -149,6 +157,13 @@ module Crysterm
     # what the renderer paints. Equal-appearance neighbors are coalesced.
     # Plain `format_runs(0, size)` when no overlay is set.
     def render_runs : Array({Int32, Int32, TextCharFormat})
+      if cached = @render_runs_cache
+        return cached
+      end
+      @render_runs_cache = compute_render_runs
+    end
+
+    private def compute_render_runs : Array({Int32, Int32, TextCharFormat})
       base = format_runs(0, size)
       add = @additional_formats
       return base if add.nil? || add.empty?
@@ -243,6 +258,7 @@ module Crysterm
 
     private def invalidate! : Nil
       @text_cache = nil
+      @render_runs_cache = nil
     end
   end
 end

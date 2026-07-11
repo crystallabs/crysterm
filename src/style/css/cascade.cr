@@ -184,7 +184,16 @@ module Crysterm
         # for that key (so e.g. a focused style is `base + :focus`). States with
         # no rules fall back to `normal` lazily at render time.
         base.each do |key, entries|
-          states = stated_keys[key]?.try(&.dup) || Set(WidgetState).new
+          own = stated_keys[key]?
+          # Fast path for the overwhelmingly common widget-key that has base
+          # rules but no state rules and no "::" (so no parent-state fold to
+          # consider either): fold straight into Normal without allocating a
+          # throwaway Set that would end up holding exactly that one element.
+          if own.nil? && !key.includes?("::")
+            (acc[{key, WidgetState::Normal}] ||= [] of Entry).concat entries
+            next
+          end
+          states = own.try(&.dup) || Set(WidgetState).new
           states << WidgetState::Normal
           # A sub-element key (`uid::slot`) lives inside the parent widget's
           # per-state styles, so it must also fold into every state the parent
@@ -286,8 +295,9 @@ module Crysterm
         # layers on top. So row slots must be applied *before* cell slots; `acc`
         # is an unordered hash, so sort row slots first (order among cells, or
         # among rows, is immaterial — each targets an independent cell).
-        acc.to_a.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 }.each do |(key, state), entries|
-          next unless key.includes?("::")
+        subs = acc.to_a.select { |((key, _state), _entries)| key.includes?("::") }
+        subs.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 } if subs.any? { |((key, _state), _entries)| key.includes?("::row:") }
+        subs.each do |(key, state), entries|
           next unless target = index[key]?
           widget, slot = target
           next unless slot
@@ -324,6 +334,11 @@ module Crysterm
       end
 
       EMPTY_ENTRIES = [] of Entry
+
+      # `WidgetState.values` minus `Normal`, hoisted once so the per-widget
+      # inheritance tree-walk (`inherit_into`) doesn't heap-allocate a fresh
+      # Array(WidgetState) on every non-root widget every cascade.
+      private NON_NORMAL_STATES = WidgetState.values.reject(&.normal?)
 
       # Whether *node* has a descendant (or, with `:scope`, relative element)
       # matching the `:has(...)` inner selector.
@@ -647,8 +662,7 @@ module Crysterm
           # non-normal states too, wherever unset. A lazily-falling-back state
           # shares the `normal` object (`for_state` returns `normal` when
           # unset), so `same?` skips it — already sees the value via `normal`.
-          WidgetState.values.each do |state|
-            next if state.normal?
+          NON_NORMAL_STATES.each do |state|
             st = widget.styles.for_state(state)
             inherit_props st, parent unless st.same?(normal)
           end

@@ -78,7 +78,9 @@ module Crysterm
         # keeping `#occupy` (which iterates the span) proportional to real
         # grid cells rather than to `Int32::MAX`.
         max_origin = 0
+        total = 0
         each_arrangeable container do |el|
+          total += 1
           next unless hint = el.layout_hint.as?(Hint)
           row = hint.row.clamp(0, ROW_ORIGIN_CAP)
           col = hint.col.clamp(0, cols)
@@ -94,7 +96,7 @@ module Crysterm
         # hard-capped so degenerate input can't make occupancy per-frame work
         # unbounded. Spans are stored clamped, so the inference's `p[1] + p[3]`
         # also sees the clamped values.
-        row_bound = Math.min(@rows || (max_origin + 1 + arrangeable_count(container)), OCCUPANCY_ROW_CAP)
+        row_bound = Math.min(@rows || (max_origin + 1 + total), OCCUPANCY_ROW_CAP)
         row_bound = 1 if row_bound < 1
         placements.map! do |placement|
           el, row, col, rs, cs = placement
@@ -133,8 +135,12 @@ module Crysterm
         if r = @rows
           nrows = r
         else
-          start_rows = placements.reduce(0) { |m, p| Math.max(m, p[1] + 1) }
-          span_rows = placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
+          start_rows = 0
+          span_rows = 0
+          placements.each do |p|
+            start_rows = Math.max(start_rows, p[1] + 1)
+            span_rows = Math.max(span_rows, p[1] + p[3])
+          end
           nrows = Math.min(span_rows, Math.max(start_rows, placements.size))
         end
         nrows = 1 if nrows < 1

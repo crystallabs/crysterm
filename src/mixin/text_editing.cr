@@ -109,6 +109,13 @@ module Crysterm
       # by any other cursor movement or edit. `nil` means "no memory yet".
       @goal_col : Int32? = nil
 
+      # Transient carrier for the `{real_line, col}` a keystroke's
+      # `ensure_cursor_visible`/`_update_cursor` pair share, so `cursor_rowcol`
+      # runs once per movement rather than twice. Non-nil only for the duration
+      # of the paired `_update_cursor` call in `_listener`; `nil` everywhere
+      # else, so no stale mapping can leak across keystrokes.
+      @_pending_rowcol : Tuple(Int32, Int32)? = nil
+
       property _done : Proc(String?, Nil)?
       property __done : Proc(String?, Nil)?
       property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
@@ -281,7 +288,10 @@ module Crysterm
 
         # Map the insertion point (`@cursor_pos`, a buffer position) onto
         # the wrapped/displayed content: the real (post-wrap) line and column.
-        rl, col = cursor_rowcol
+        # `_listener` stashes the mapping it already computed for
+        # `ensure_cursor_visible` in `@_pending_rowcol` so a movement keystroke
+        # runs `cursor_rowcol` once, not once here and once there.
+        rl, col = @_pending_rowcol || cursor_rowcol
 
         # Place the cursor on its row within the viewport. `ensure_cursor_visible`
         # keeps the row in range already; the clamp is just a guard.
@@ -292,8 +302,12 @@ module Crysterm
 
         if wrap_content?
           rline = @_clines[rl]? || ""
-          prefix = rline[0...col.clamp(0, rline.size)]
-          cx = lpos.xi + ileft + row_text_x_offset(rl) + str_width(prefix)
+          c = col.clamp(0, rline.size)
+          # `@_clines[rl]` is the already-tab-expanded display piece, so in the
+          # legacy (non-full-unicode) width path its `[0, c)` width IS `c` — no
+          # substring needs to be built to measure a length already in hand.
+          w = full_unicode? ? str_width(rline[0...c]) : c
+          cx = lpos.xi + ileft + row_text_x_offset(rl) + w
         else
           # `@_clines[rl]` is horizontally *sliced* when scrolled (see `_hslice`),
           # so derive the caret's display column from the full value line and
@@ -351,23 +365,62 @@ module Crysterm
         end
       end
 
+      # Codepoint count of a grapheme cluster, read from the stdlib-internal
+      # `@cluster` ivar (`Char | String`) so the common single-`Char` cluster
+      # costs no `to_s` allocation. Identical to `g.to_s.size` (a `String`-backed
+      # cluster is always multi-codepoint; a `Char` one is exactly 1).
+      private def grapheme_cps(g : String::Grapheme) : Int32
+        case cluster = g.@cluster
+        in Char   then 1
+        in String then cluster.size
+        end
+      end
+
       # Number of codepoints in the grapheme cluster immediately *before* the
       # cursor (how far Left / Backspace move). One codepoint when full-unicode
       # is off. `0` at the start of the value.
+      #
+      # Only the LAST cluster before the cursor is needed, so scan back over a
+      # bounded window (widened only for the pathological cluster longer than the
+      # window) rather than materializing and grapheme-walking the whole prefix.
       private def cursor_prev_width
         return 0 if @cursor_pos <= 0
         return 1 unless full_unicode?
-        head = buf_slice(0, @cursor_pos)
-        head.size - chop_grapheme(head).size
+        k = 16
+        loop do
+          start = Math.max(0, @cursor_pos - k)
+          window = buf_slice(start, @cursor_pos)
+          last = nil
+          window.each_grapheme { |g| last = g }
+          size = last ? grapheme_cps(last) : 0
+          # `size < window.size` means the last cluster began after the window
+          # start, so it's whole; at buffer start there's nothing more to see.
+          return size if start == 0 || size < window.size
+          k *= 2
+        end
       end
 
       # Number of codepoints in the grapheme cluster immediately *at* the cursor
       # (how far Right / Delete move). One codepoint when full-unicode is off.
       # `0` at the end of the value.
+      #
+      # Only the FIRST cluster at the cursor is needed, so read it from a bounded
+      # window (widened only for a cluster longer than the window) rather than
+      # slicing the entire remaining buffer.
       private def cursor_next_width
         return 0 if @cursor_pos >= buf_size
         return 1 unless full_unicode?
-        buf_slice(@cursor_pos, buf_size).each_grapheme.first.to_s.size
+        n = buf_size
+        k = 16
+        loop do
+          stop = Math.min(@cursor_pos + k, n)
+          g = buf_slice(@cursor_pos, stop).each_grapheme.first
+          size = grapheme_cps(g)
+          # The cluster is whole when it ended before the window edge, or the
+          # window already reached the buffer end.
+          return size if stop == n || @cursor_pos + size < stop
+          k *= 2
+        end
       end
 
       # Start of the logical line the cursor is on (just after the previous
@@ -629,16 +682,14 @@ module Crysterm
       # offset within the real line.
       private def cursor_rowcol : Tuple(Int32, Int32)
         c = @cursor_pos.clamp(0, buf_size)
-        head = buf_slice(0, c)
-        fake_line = head.count('\n')
-        nl = head.rindex('\n')
-        # Column within the logical line, measured in the SAME tab-expanded
-        # codepoints `process_content` lays `@_clines` out with. The buffer stores
-        # a TAB as one char but the rendered line expands it to `tab_char *
-        # tab_size`; counting raw codepoints here would desync the caret by
-        # `tab_size - 1` per preceding TAB. With no TAB this is the original
-        # `c - (nl + 1)` / `c`.
-        col = expanded_width(nl ? head[(nl + 1)..] : head)
+        # `fake_line` is the logical (`\n`-delimited) line index; `col` is the
+        # tab-expanded column within it (the SAME units `process_content` lays
+        # `@_clines` out with — a TAB expands to `tab_char * tab_size`, so
+        # counting raw codepoints would desync the caret by `tab_size - 1` per
+        # preceding TAB). Both come from `#cursor_line_col`, which a document
+        # adapter overrides with an O(log) block lookup instead of a full-prefix
+        # scan.
+        fake_line, col = cursor_line_col c
 
         reals = @_clines.ftor[fake_line]?
         if reals.nil? || reals.empty?
@@ -658,6 +709,19 @@ module Crysterm
 
         last_r = reals[-1]
         {last_r, line_display_width(last_r)}
+      end
+
+      # `{logical-line index, tab-expanded column}` of buffer position *c* — the
+      # position→(fake line, col) half of `#cursor_rowcol`, factored out so the
+      # document adapter can override it (block lookup, O(log)) instead of
+      # allocating the whole `0..c` prefix. This flat default is line-local for
+      # the column (only the slice from the last `\n` to *c*), but still counts
+      # newlines over the prefix; `DocumentBuffer` replaces both with an O(log)
+      # block lookup.
+      private def cursor_line_col(c : Int32) : Tuple(Int32, Int32)
+        head = buf_slice(0, c)
+        nl = head.rindex('\n')
+        {head.count('\n'), expanded_width(nl ? head[(nl + 1)..] : head)}
       end
 
       # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a tab-expanded
@@ -681,7 +745,27 @@ module Crysterm
 
         # Convert back to a raw buffer offset: a TAB counts as one editable
         # char, not its `tab_size` rendered columns.
-        (base + unexpand_col(buf_slice(base, line_end), exp_col)).clamp(0, buf_size)
+        (base + unexpand_col_in(base, line_end, exp_col)).clamp(0, buf_size)
+      end
+
+      # Raw within-line offset for tab-expanded column *exp_col* on the logical
+      # line spanning buffer range `[base, line_end)`. In the common tab-free
+      # case the answer is just `min(exp_col, length)` — no line String is built;
+      # only a line that actually contains a TAB is materialized and walked
+      # (`#unexpand_col`).
+      private def unexpand_col_in(base : Int32, line_end : Int32, exp_col : Int32) : Int32
+        return Math.min(exp_col, line_end - base) unless buf_range_includes_tab?(base, line_end)
+        unexpand_col(buf_slice(base, line_end), exp_col)
+      end
+
+      # Whether the buffer range `[from, to)` (always a single logical line at
+      # the call sites) contains a TAB. Flat default: a cheap `String#index`
+      # byte scan with no allocation; `DocumentBuffer` overrides with a
+      # per-block check (its `buf_index` char-walk would over-scan the document).
+      private def buf_range_includes_tab?(from : Int32, to : Int32) : Bool
+        return false if to <= from
+        idx = buf_index('\t', from)
+        !!(idx && idx < to)
       end
 
       # The full display width (in the same tab-expanded codepoint units the caret
@@ -760,12 +844,13 @@ module Crysterm
         acc = 0
         idx = 0
         text.each_grapheme do |g|
-          s = g.to_s
-          w = str_width s
+          # `Unicode.width(g)` reads the grapheme's `@cluster` directly — equal
+          # to `str_width(g.to_s)` here but without the per-grapheme `String`.
+          w = Unicode.width g
           w = 1 if w <= 0 # zero-width (e.g. a lone combining mark): still one step
           return idx if acc + w / 2 > target_col
           acc += w
-          idx += s.size
+          idx += grapheme_cps g
         end
         idx
       end
@@ -842,8 +927,10 @@ module Crysterm
       #
       # Without this, the view never followed the cursor past the visible edge,
       # leaving it pinned while editing a scrolled-off line.
-      private def ensure_cursor_visible : Bool
-        rl, _ = cursor_rowcol
+      private def ensure_cursor_visible(rl : Int32? = nil) : Bool
+        # `_listener` passes the row it already mapped so a movement keystroke
+        # doesn't map `@cursor_pos` twice (here and again in `_update_cursor`).
+        rl ||= cursor_rowcol[0]
         ensure_visible rl
       end
 
@@ -855,8 +942,14 @@ module Crysterm
       # the caret is measured against columns actually shown and stays in sync
       # with the horizontal scroll base (`@child_base_x`), measured the same way.
       private def caret_display_column : Int32
-        prefix = expand_tabs(buf_slice(line_start_pos, @cursor_pos))
-        str_width prefix
+        start = line_start_pos
+        # Legacy width is the codepoint count; with no TAB in the line prefix the
+        # caret column is just the span length, so skip building (and measuring)
+        # the prefix String. The full-unicode path still measures display width.
+        if !full_unicode? && !buf_range_includes_tab?(start, @cursor_pos)
+          return @cursor_pos - start
+        end
+        str_width expand_tabs(buf_slice(start, @cursor_pos))
       end
 
       # Horizontal counterpart of `#ensure_cursor_visible`: when lines don't wrap,
@@ -960,7 +1053,13 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       def _listener(e)
         done = @_done
-        before = buf_text
+        # Change detection without serializing the whole document twice per key
+        # (`buf_text` is O(document) for the rich adapter). With no selection at
+        # the start, every content-changing edit here also changes the size, so a
+        # size snapshot suffices. A size-preserving change is only possible by
+        # replacing a selection, so capture the pre-edit text just in that case.
+        before_size = buf_size
+        before = has_selection? ? buf_text : nil
         also_check_char = false
         # Emacs/readline editing keys (gated by config). `killed` records whether
         # this keystroke was a kill, so consecutive kills accumulate in the ring
@@ -1069,9 +1168,13 @@ module Crysterm
           clear_selection if moved && !extend_sel
 
           if moved
+            # Map the caret once and share it: `ensure_cursor_visible` needs the
+            # row, `_update_cursor` needs row+col, and neither `@cursor_pos` nor
+            # the mapping changes between them.
+            rc = cursor_rowcol
             # Follow the cursor on both axes (no-op if already visible);
             # re-render if it moved, then place the terminal cursor.
-            scrolled = ensure_cursor_visible
+            scrolled = ensure_cursor_visible rc[0]
             scrolled = ensure_cursor_visible_x || scrolled
             # A selecting move must always repaint (the highlight changed even
             # when the view didn't scroll); a plain move only when it scrolled.
@@ -1079,7 +1182,9 @@ module Crysterm
             # too — otherwise the previously highlighted cells stay painted, since
             # `_update_cursor` only moves the terminal caret.
             request_render if scrolled || extend_sel || had_sel
+            @_pending_rowcol = rc
             _update_cursor
+            @_pending_rowcol = nil
           end
 
           # XXX
@@ -1170,8 +1275,17 @@ module Crysterm
           end
         end
 
-        if (after = buf_text) != before
-          emit Crysterm::Event::TextChange, after
+        if before
+          # A selection was present: a same-size replacement is possible, so
+          # compare the full text (both endpoints already needed the serialize).
+          if (after = buf_text) != before
+            emit Crysterm::Event::TextChange, after
+            request_render
+          end
+        elsif buf_size != before_size
+          # No starting selection: a size change is the only way the text changed,
+          # so an unchanged size means unchanged text — no serialization at all.
+          emit Crysterm::Event::TextChange, buf_text
           request_render
         end
 

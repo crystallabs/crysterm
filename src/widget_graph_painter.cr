@@ -34,9 +34,47 @@ module Crysterm
         ELLIPSE_R_MAX = 20_000
 
         # Stroke color as `0xRRGGBB`.
-        property pen : Int32 = 0xFFFFFF
+        @pen : Int32 = 0xFFFFFF
+
+        def pen : Int32
+          @pen
+        end
+
+        # Sets the stroke color. Also recomputes `@pen_px`, the pre-unpacked
+        # opaque pixel `#plot` writes directly in the common (`pen_alpha >=
+        # 255`) case, so the RGB unpack happens once per stroke instead of
+        # once per plotted pixel.
+        def pen=(v : Int32) : Int32
+          @pen = v
+          r, g, b = Media.rgb24(v)
+          @pen_px = PNGGIF::Pixel.new(r, g, b, 255)
+          v
+        end
+
         # Stroke opacity, 0..255.
-        property pen_alpha : UInt8 = 255_u8
+        @pen_alpha : UInt8 = 255_u8
+
+        def pen_alpha : UInt8
+          @pen_alpha
+        end
+
+        # Sets the stroke opacity. Also recomputes the blend-invariant
+        # `@pen_af`/`@pen_ia` factors so `#plot`'s translucent branch doesn't
+        # redo the `/255.0` division per pixel.
+        def pen_alpha=(v : UInt8) : UInt8
+          @pen_alpha = v
+          @pen_af = v / 255.0
+          @pen_ia = 1.0 - @pen_af
+          v
+        end
+
+        # Pre-unpacked opaque pixel for the current `@pen`, written directly by
+        # `#plot`'s opaque branch (see `#pen=`).
+        @pen_px : PNGGIF::Pixel = PNGGIF::Pixel.new(255, 255, 255, 255)
+        # Blend factor (`@pen_alpha / 255.0`) and its complement, for `#plot`'s
+        # translucent branch (see `#pen_alpha=`).
+        @pen_af : Float64 = 1.0
+        @pen_ia : Float64 = 0.0
 
         # Physical width:height of one device pixel (1.0 = square). Used by
         # `#draw_ellipse` so an intended circle isn't squashed on backends whose
@@ -83,7 +121,7 @@ module Crysterm
         def clear(color : Int32 = 0, alpha : UInt8 = 0_u8) : Nil
           r, g, b = Media.rgb24(color)
           px = PNGGIF::Pixel.new(r, g, b, alpha.to_i)
-          @height.times { |y| @width.times { |x| @bmp[y][x] = px } }
+          @bmp.each &.fill(px)
         end
 
         # --- primitives (logical coords) ---------------------------------------
@@ -241,17 +279,14 @@ module Crysterm
 
         private def plot(x : Int32, y : Int32) : Nil
           return if x < 0 || y < 0 || x >= @width || y >= @height
-          r, g, b = Media.rgb24(@pen)
           if @pen_alpha >= 255
-            @bmp[y][x] = PNGGIF::Pixel.new(r, g, b, 255)
+            @bmp[y][x] = @pen_px
           else
             old = @bmp[y][x]
-            af = @pen_alpha / 255.0
-            ia = 1.0 - af
             @bmp[y][x] = PNGGIF::Pixel.new(
-              (r * af + old.r * ia).round.to_i,
-              (g * af + old.g * ia).round.to_i,
-              (b * af + old.b * ia).round.to_i,
+              (@pen_px.r * @pen_af + old.r * @pen_ia).round.to_i,
+              (@pen_px.g * @pen_af + old.g * @pen_ia).round.to_i,
+              (@pen_px.b * @pen_af + old.b * @pen_ia).round.to_i,
               Math.max(@pen_alpha.to_i, old.a))
           end
         end

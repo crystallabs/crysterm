@@ -117,10 +117,6 @@ module Crysterm
         @filled_size.select! { |el, _| container.child? el }
 
         main = main_extent interior
-        # Only children this engine actually arranges (see `#each_arrangeable`)
-        # count: layout-excluded chrome must not consume a gap or justify slot.
-        n = arrangeable_count container
-        gaps = n > 1 ? @gap * (n - 1) : 0
 
         fixed = 0
         grow = 0
@@ -131,7 +127,13 @@ module Crysterm
         # engine does — or children overlap and flex over-allocates.
         margins = 0
         @measured.clear
+        # Only children this engine actually arranges (see `#each_arrangeable`)
+        # count: layout-excluded chrome must not consume a gap or justify slot.
+        # Counted here (rather than a separate `arrangeable_count` pass) since
+        # this loop already visits exactly those children.
+        n = 0
         each_arrangeable container do |el|
+          n += 1
           margins += main_margin el
           if main_flex? el
             grow += grow_of el
@@ -141,6 +143,7 @@ module Crysterm
             fixed += ms
           end
         end
+        gaps = n > 1 ? @gap * (n - 1) : 0
 
         @total_grow = grow
         @grow_seen = 0
@@ -211,7 +214,7 @@ module Crysterm
 
         # Main axis: explicit size wins; otherwise a grow-weighted share.
         size =
-          if main_flex? el
+          if !@measured.has_key?(el)
             # Distribute @avail by cumulative rounding rather than rounding each
             # child's share independently: an independent `(@avail * grow) //
             # total_grow` floors every child, dropping up to `total_grow - 1`

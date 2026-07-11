@@ -20,6 +20,10 @@ module Crysterm
     # threading note in `REACTIVE.md`.
     @@batch_depth = 0
     @@pending = [] of Deferrable
+    # Membership index for @@pending, so enqueue dedups in O(1) instead of an
+    # O(n) linear scan (a burst enqueuing m distinct consumers was O(m^2)).
+    # Kept in lock-step with @@pending: added in enqueue, cleared in flush.
+    @@pending_set = Set(Deferrable).new
 
     # Depth of the active *propagation wave* — the synchronous cascade a single
     # `Signal#value=` sets off (`Reactive.propagate`). Kept distinct from
@@ -60,7 +64,7 @@ module Crysterm
     # Records *item* to run at the end of the current batch, deduplicated so a
     # binding/effect woken by several writes still runs once.
     def self.enqueue(item : Deferrable) : Nil
-      @@pending << item unless @@pending.includes? item
+      @@pending << item if @@pending_set.add? item
     end
 
     # Runs *block* with binding execution deferred until it returns. Nesting is
@@ -88,6 +92,7 @@ module Crysterm
       return if @@pending.empty?
       pending = @@pending
       @@pending = [] of Deferrable
+      @@pending_set.clear
       # Run each deferred item isolated: if one raises, the rest must still run
       # (otherwise every binding queued after it is silently discarded). Remember
       # the first exception and re-raise it after the whole queue has drained.

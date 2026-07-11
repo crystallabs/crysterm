@@ -233,6 +233,17 @@ module Crysterm
           @row.mark_dirty @index
         end
       end
+
+      # Marks this cell's column dirty, narrowing the owning row's dirty range
+      # to include it (unlike a plain `line.dirty = true`, which conservatively
+      # widens to the whole row). For callers that mutate a cell directly
+      # (e.g. `Window#blend_region`/`#tint_region`) and want the same
+      # column-narrowing `#mark_dirty` that `fill_region`/`Plane#composite_onto`
+      # already use.
+      @[AlwaysInline]
+      def mark_dirty : Nil
+        @row.mark_dirty @index
+      end
     end
 
     # A single screen row.

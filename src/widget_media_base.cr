@@ -614,6 +614,13 @@ module Crysterm
       # External overlays are static; never auto-animate.
       @animate = false
 
+      # Scratch `LPos` reused by `#overlay_geometry` (the redraw-geometry
+      # preamble, run every `Rendered`) to avoid a heap `LPos` allocation per
+      # redraw (`_get_coords` with no `into:` allocates fresh — see
+      # widget_position.cr:638-641). The result is unpacked into a plain
+      # `Tuple` before returning, so reusing one buffer across calls is safe.
+      @overlay_geom_lpos : LPos = LPos.new
+
       # Animation is not supported by an external-helper overlay.
       def play
         unsupported "animation"
@@ -641,7 +648,7 @@ module Crysterm
       protected def overlay_geometry : Tuple(Int32, Int32, Int32, Int32)?
         return unless visible_in_tree?
         window? || return
-        pos = _get_coords(true) || return
+        pos = _get_coords(true, into: @overlay_geom_lpos) || return
         {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
       end
     end

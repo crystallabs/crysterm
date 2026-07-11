@@ -81,6 +81,14 @@ module Crysterm
       # `@last_drawn` and the listener-wrapper ivars (`@listener_screen`,
       # `@ev_prerender`, `@ev_rendered`) come from `Media::ScreenOverlay`.
 
+      # Scratch `LPos` reused by `#content_rect` (called by `#redraw_image`
+      # every `Rendered`, and by `#capture_layer`) to avoid a heap `LPos`
+      # allocation per call (`_get_coords` with no `into:` allocates fresh —
+      # see widget_position.cr:638-641). Each call fully unpacks the result
+      # into a plain `Tuple` before returning, so reusing one buffer across
+      # calls (even nested ones within the same render pass) is safe.
+      @content_lpos : LPos = LPos.new
+
       def initialize(
         @file = nil,
         # 0 = auto-detect from the terminal (falls back to a typical xterm cell).
@@ -241,7 +249,7 @@ module Crysterm
       # zero-sized. The shared geometry behind the paint path (`#redraw_image`)
       # and the capture path (`#capture_layer`).
       private def content_rect : Tuple(Int32, Int32, Int32, Int32)?
-        pos = _get_coords(true) || return nil
+        pos = _get_coords(true, into: @content_lpos) || return nil
         xi, yi, cols, rows = overlay_rect pos
         return nil if cols <= 0 || rows <= 0
         # A partially-offscreen widget (negative origin) is not drawable: the
