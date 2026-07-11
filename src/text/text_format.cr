@@ -274,39 +274,37 @@ module Crysterm
       )
     end
 
-    # A copy with the list reference replaced (or `nil` — cleared). `#merge`
-    # can't express clearing (nil = unspecified), so `TextList#add/#remove`
-    # rewrite the whole format through this.
-    def with_list_format(lf : TextListFormat?) : TextBlockFormat
+    # A full-field copy overriding exactly the given nil-able properties.
+    # Every field is forwarded from the `@`-ivars; the three `with_*` copiers
+    # below (which `#merge` can't express — nil = unspecified/cleared) each
+    # supply one override. Adding a block property means editing this once.
+    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats) : TextBlockFormat
       TextBlockFormat.new(
         alignment: @alignment, indent: @indent, top_margin: @top_margin,
         bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
-        horizontal_rule: @horizontal_rule, checked: @checked, list_format: lf,
-        table_format: @table_format, frame_formats: @frame_formats)
+        horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
+        table_format: @table_format, frame_formats: frame_formats)
+    end
+
+    # A copy with the list reference replaced (or `nil` — cleared). `#merge`
+    # can't express clearing (nil = unspecified), so `TextList#add/#remove`
+    # rewrite the whole format through this.
+    def with_list_format(lf : TextListFormat?) : TextBlockFormat
+      copy_with(list_format: lf)
     end
 
     # A copy with the checkbox state replaced (or cleared with `nil`). Toggles
     # a `Checkbox`-style item; `#merge` can't set `false` over a stored value
     # (nil = unspecified), same as `#with_list_format`.
     def with_checked(checked : Bool?) : TextBlockFormat
-      TextBlockFormat.new(
-        alignment: @alignment, indent: @indent, top_margin: @top_margin,
-        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
-        non_breakable: @non_breakable, quote_level: @quote_level,
-        horizontal_rule: @horizontal_rule, checked: checked, list_format: @list_format,
-        table_format: @table_format, frame_formats: @frame_formats)
+      copy_with(checked: checked)
     end
 
     # A copy with the frame path replaced (or `nil` — moved to the root
     # frame). `#merge` can't express clearing, same as `#with_list_format`.
     def with_frame_formats(ff : Array(TextFrameFormat)?) : TextBlockFormat
-      TextBlockFormat.new(
-        alignment: @alignment, indent: @indent, top_margin: @top_margin,
-        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
-        non_breakable: @non_breakable, quote_level: @quote_level,
-        horizontal_rule: @horizontal_rule, checked: @checked, list_format: @list_format,
-        table_format: @table_format, frame_formats: ff)
+      copy_with(frame_formats: ff)
     end
 
     def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats

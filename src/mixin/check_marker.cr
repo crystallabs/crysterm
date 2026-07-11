@@ -67,7 +67,7 @@ module Crysterm
       # retheme) or the label text changes, so the `String.build` is memoized
       # against the resolved inputs.
       @_selectable_content : String?
-      @_selectable_key : Tuple(Char?, Char?, Char?, Int32, String)?
+      @_selectable_key : Tuple(String?, String?, String?, Int32, String)?
 
       # Cells the composed marker occupies (the stable `marker_width` of
       # GLYPHS.md §4) and the mark cell's offset within it — the input
@@ -125,20 +125,24 @@ module Crysterm
         content
       end
 
-      # One marker piece: the CSS-specified char when present (`none` omits
-      # the piece — returns `nil`), else the registry role's char.
-      private def marker_piece(css : Char?, role : Glyphs::Role, tier : Glyphs::Tier) : Char?
-        if c = css
-          return nil if c == Glyphs::NONE
-          return c
+      # One marker piece: the CSS-specified grapheme when present (`none` omits
+      # the piece — returns `nil`), else the registry role's glyph. A CSS
+      # override may be a multi-codepoint grapheme (an emoji-presentation mark)
+      # and is kept whole; the registry fallback stays the narrow single-`Char`
+      # default (`Glyphs[]`), so an unstyled marker is byte-identical with
+      # history — the wide form is opt-in via CSS, never forced.
+      private def marker_piece(css : String?, role : Glyphs::Role, tier : Glyphs::Tier) : String?
+        if s = css
+          return nil if s == Glyphs::NONE_STR
+          return s
         end
-        Glyphs[role, tier]
+        Glyphs[role, tier].to_s
       end
 
       # Columns a piece occupies: 0 when omitted, else its terminal width (a
       # run role may legitimately be 2 cells wide — an emoji indicator).
-      private def char_cells(c : Char?) : Int32
-        c ? Unicode.width(c) : 0
+      private def char_cells(s : String?) : Int32
+        s ? Unicode.width(s) : 0
       end
 
       # The marker controls toggle (rather than push) on activation; the shared

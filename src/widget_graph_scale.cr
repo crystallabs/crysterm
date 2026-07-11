@@ -105,15 +105,7 @@ module Crysterm
             if full_unicode
               # Keep the leading `width` columns: drop trailing graphemes once
               # the next one would overflow (never split a grapheme).
-              kept = 0
-              end_byte = 0
-              text.each_grapheme do |g|
-                gw = Unicode.width(g)
-                break if kept + gw > width
-                kept += gw
-                end_byte += g.bytesize
-              end
-              io << text.byte_slice(0, end_byte)
+              io << text.byte_slice(0, Unicode.leading_byte_len(text, width, true))
             else
               io << text[0, width]
             end

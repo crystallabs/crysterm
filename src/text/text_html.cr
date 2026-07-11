@@ -139,6 +139,21 @@ module Crysterm
       io << "</table>"
     end
 
+    # Resolves a horizontal-alignment keyword (`"left"`/`"center"`/`"right"`,
+    # already case-folded) to a `Tput::AlignFlag` — horizontal center is
+    # `HCenter` — or `nil` for an unrecognized name. The single string→flag
+    # mapping shared by the HTML/tag importers and the CSS `text-align`
+    # geometry (the reverse of `align_css`); callers apply their own default
+    # for the `nil` case.
+    def self.align_flag(name : String) : Tput::AlignFlag?
+      case name
+      when "left"   then Tput::AlignFlag::Left
+      when "center" then Tput::AlignFlag::HCenter
+      when "right"  then Tput::AlignFlag::Right
+      else               nil
+      end
+    end
+
     private def self.align_css(a : Tput::AlignFlag?) : String?
       return nil unless a
       return "center" if a.h_center?
@@ -185,12 +200,11 @@ module Crysterm
 
     private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
       props = [] of String
-      if a = bf.alignment
-        name = a.h_center? ? "center" : (a.right? ? "right" : (a.left? ? "left" : nil))
-        props << "text-align:#{name}" if name
+      if (a = bf.alignment) && (name = align_css(a))
+        props << "text-align:#{name}"
       end
       if (bg = bf.bg) && bg >= 0
-        props << "background-color:#{hex(bg)}"
+        props << "background-color:#{Colors.hex(bg)}"
       end
       # Block spacing as CSS margins (1em = one blank row), so it survives
       # the round-trip into the importer's `margin-*` parsing.
@@ -220,11 +234,11 @@ module Crysterm
       end
       span = String.build do |s|
         if (c = fmt.fg) && c >= 0
-          s << "color:" << hex(c)
+          s << "color:" << Colors.hex(c)
         end
         if (c = fmt.bg) && c >= 0
           s << ';' unless s.empty?
-          s << "background-color:" << hex(c)
+          s << "background-color:" << Colors.hex(c)
         end
       end
       unless span.empty?
@@ -239,10 +253,6 @@ module Crysterm
       {% end %}
       io << escape_html(f.text)
       closers.reverse_each { |t| io << t }
-    end
-
-    private def self.hex(color : Int32) : String
-      "##{color.to_s(16).rjust(6, '0')}"
     end
 
     private def self.escape_html(text : String) : String
@@ -737,10 +747,8 @@ module Crysterm
         mt = mb = ind = nil
         collapse = true
         if st = attr_val(node, "style")
-          st.split(';').each do |decl|
-            k, _, v = decl.partition(':')
-            v = v.strip
-            case k.strip.downcase
+          each_style_decl(st) do |k, v|
+            case k
             when "text-align"
               align = align_flag(v.downcase) || align
             when "background-color", "background"
@@ -792,9 +800,8 @@ module Crysterm
       # attribute.
       private def cell_align(cell : HTML5::Node) : Tput::AlignFlag?
         if st = attr_val(cell, "style")
-          st.split(';').each do |decl|
-            k, _, v = decl.partition(':')
-            if k.strip.downcase == "text-align" && (a = align_flag(v.strip.downcase))
+          each_style_decl(st) do |k, v|
+            if k == "text-align" && (a = align_flag(v.downcase))
               return a
             end
           end
@@ -803,11 +810,19 @@ module Crysterm
       end
 
       private def align_flag(name : String) : Tput::AlignFlag?
-        case name
-        when "left"   then Tput::AlignFlag::Left
-        when "center" then Tput::AlignFlag::HCenter
-        when "right"  then Tput::AlignFlag::Right
-        else               nil
+        TextHtml.align_flag(name)
+      end
+
+      # Yields each `key, value` inline-style declaration of *style*, with the
+      # key lower-cased and both sides stripped — the shared `;`-split behind
+      # `#block_format_from`, `#style_patch`, and `#cell_align`. Declarations
+      # without a `:` (empty/trailing tokens) are skipped; they matched no
+      # case in the inline loops anyway.
+      private def each_style_decl(style : String, & : String, String ->) : Nil
+        style.split(';').each do |decl|
+          next unless decl.includes?(':')
+          k, _, v = decl.partition(':')
+          yield k.strip.downcase, v.strip
         end
       end
 
@@ -818,10 +833,8 @@ module Crysterm
         bold = italic = underline = strike = nil
         fg = bg = nil
         any = false
-        style.split(';').each do |decl|
-          k, _, v = decl.partition(':')
-          v = v.strip
-          case k.strip.downcase
+        each_style_decl(style) do |k, v|
+          case k
           when "color"
             if c = css_color(v)
               fg = c

@@ -101,7 +101,8 @@ module Crysterm
       self
     end
 
-    # Writes a single character styled like `#print`.
+    # Writes a single character styled like `#print`. `IO#<<` accepts a `Char`
+    # exactly as a `String`, so this delegates to `#print`.
     def putc(
       char : Char,
       fg = nil,
@@ -114,9 +115,7 @@ module Crysterm
       strike = false,
       invisible = false,
     ) : self
-      code = build_code fg, bg, bold, italic, underline, blink, reverse, strike, invisible
-      emit_styled(code) { |o| o << char }
-      self
+      print char, fg, bg, bold, italic, underline, blink, reverse, strike, invisible
     end
 
     # Sets a *persistent* style for subsequent raw output — the stateful

@@ -1,4 +1,24 @@
 module Crysterm
+  # Shared best-effort teardown-step guard for the two sides of a connection.
+  # Runs one terminal-mode teardown step — *block* — only when *enabled*,
+  # swallowing any error: a user-closed window leaves dead fds whose writes
+  # raise, and restore must press on regardless. Folds the repeated
+  # `if @_listened_… begin disable_… rescue end end` guard both `Window`
+  # (surface side, `restore_terminal`) and `Screen` (device side,
+  # `restore_input_modes`) apply to each optionally-enabled input mode.
+  # Included in both so the two copies stay in lockstep. Defined here (rather
+  # than in `window_connection.cr`) because `screen_input.cr` is required
+  # first, so the module exists before either `include RestoreGuard` resolves.
+  module RestoreGuard
+    private def restore_step(enabled : Bool, & : -> Nil) : Nil
+      return unless enabled
+      begin
+        yield
+      rescue
+      end
+    end
+  end
+
   # Device-side input-mode toggles — optional terminal input enhancements
   # negotiated over `tput`, with the bookkeeping flag each needs so teardown
   # (`Window#restore_terminal`) knows what to turn back off. Pure device
@@ -8,6 +28,8 @@ module Crysterm
   # Raw mouse reporting (`enable_mouse` / `@_listened_mouse` / gpm / cursor shape)
   # lives alongside this on the device in `screen_mouse_device.cr`.
   class Screen
+    include RestoreGuard
+
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?
 
@@ -166,16 +188,6 @@ module Crysterm
       i = input
       begin
         i.cooked! if i.responds_to?(:"cooked!") && i.responds_to?(:"tty?") && i.tty?
-      rescue
-      end
-    end
-
-    # Runs *block* only when *enabled*, swallowing any error (dead-fd writes on
-    # a user-closed window). Mirrors the surface-side guard in `window_connection.cr`.
-    private def restore_step(enabled : Bool, & : -> Nil) : Nil
-      return unless enabled
-      begin
-        yield
       rescue
       end
     end

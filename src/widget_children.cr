@@ -121,19 +121,9 @@ module Crysterm
       # like `Widget#remove`), and reset in `ensure` so a raising handler in the
       # unlink can't leak it into a later genuine remove/destroy.
       if element.parent
-        element.reparenting_same_screen = same_screen_move
-        begin
-          element.remove_from_parent
-        ensure
-          element.reparenting_same_screen = false
-        end
+        with_reparenting_guard(element, same_screen_move) { element.remove_from_parent }
       elsif (prev_screen = element.window?) && prev_screen.children.includes?(element)
-        element.reparenting_same_screen = same_screen_move
-        begin
-          prev_screen.remove element
-        ensure
-          element.reparenting_same_screen = false
-        end
+        with_reparenting_guard(element, same_screen_move) { prev_screen.remove element }
       end
 
       # For a suppressed same-window move, hand `attach` that shared window so it
@@ -175,6 +165,20 @@ module Crysterm
 
       element.emit Crysterm::Event::Reparent, self
       emit Crysterm::Event::Adopt, element
+    end
+
+    # Runs the unlink in *block* with `element.reparenting_same_screen` set to
+    # *same_screen_move*, resetting it to `false` in an `ensure` so a raising
+    # handler in the unlink (`Widget#remove`/`Window#remove`) can't leak the
+    # flag into a later genuine remove/destroy. Used by `#insert` around both
+    # detach flavors.
+    private def with_reparenting_guard(element, same_screen_move : Bool, &)
+      element.reparenting_same_screen = same_screen_move
+      begin
+        yield
+      ensure
+        element.reparenting_same_screen = false
+      end
     end
 
     # Removes `element` from list of children

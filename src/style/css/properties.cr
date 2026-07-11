@@ -160,20 +160,21 @@ module Crysterm
           style.animation = parse_animation(value)
         when "glyph"
           # Chrome-glyph override for the site this style lands on — see
-          # GLYPHS.md §3. `none` stores the `Glyphs::NONE` sentinel (omit on
-          # run roles, registry default on cell roles); an unparseable/blank
-          # value is dropped per CSS's invalid-declaration rule.
-          parse_char(value).try { |c| style.glyph = c }
+          # GLYPHS.md §3. `none` stores the `Glyphs::NONE_STR` sentinel (omit
+          # on run roles, registry default on cell roles); an unparseable/blank
+          # value is dropped per CSS's invalid-declaration rule. The value may
+          # be a multi-codepoint grapheme (`⚠️`) — kept whole (see `parse_glyph`).
+          parse_glyph(value).try { |s| style.glyph = s }
         when "glyph-ascii" # per-tier longhands
-          parse_char(value).try { |c| style.glyph_ascii = c }
+          parse_glyph(value).try { |s| style.glyph_ascii = s }
         when "glyph-unicode"
-          parse_char(value).try { |c| style.glyph_unicode = c }
+          parse_glyph(value).try { |s| style.glyph_unicode = s }
         when "glyph-extended"
-          parse_char(value).try { |c| style.glyph_extended = c }
+          parse_glyph(value).try { |s| style.glyph_extended = s }
         when "glyph-open" # delimiter pair for composed indicator markers
-          parse_char(value).try { |c| style.glyph_open = c }
+          parse_glyph(value).try { |s| style.glyph_open = s }
         when "glyph-close"
-          parse_char(value).try { |c| style.glyph_close = c }
+          parse_glyph(value).try { |s| style.glyph_close = s }
         when "glyphs"
           # Sequence steps (GLYPHS.md §3.4): the (optionally quoted) string's
           # characters are the frames/steps of the site's sequence role —
@@ -195,19 +196,19 @@ module Crysterm
           # plain full-cell alpha blend; a wide char is dropped (a shadow cell
           # is one column). These only pick the glyphs — `box-shadow` still
           # switches the shadow itself on.
-          shadow_char(value) { |c| style.shadow.horizontal_char = c }
+          with_cell_char(value) { |c| style.shadow.horizontal_char = c }
         when "shadow-char-vertical"
-          shadow_char(value) { |c| style.shadow.vertical_char = c }
+          with_cell_char(value) { |c| style.shadow.vertical_char = c }
         when "shadow-char-diagonal"
-          shadow_char(value) { |c| style.shadow.diagonal_char = c }
+          with_cell_char(value) { |c| style.shadow.diagonal_char = c }
         when "shadow-char-top-left"
-          shadow_char(value) { |c| style.shadow.top_left_char = c }
+          with_cell_char(value) { |c| style.shadow.top_left_char = c }
         when "shadow-char-top-right"
-          shadow_char(value) { |c| style.shadow.top_right_char = c }
+          with_cell_char(value) { |c| style.shadow.top_right_char = c }
         when "shadow-char-bottom-left"
-          shadow_char(value) { |c| style.shadow.bottom_left_char = c }
+          with_cell_char(value) { |c| style.shadow.bottom_left_char = c }
         when "shadow-char-bottom-right"
-          shadow_char(value) { |c| style.shadow.bottom_right_char = c }
+          with_cell_char(value) { |c| style.shadow.bottom_right_char = c }
         when "fill-char"
           # CSS spellings for the `Style` fill-character family. `none` has no
           # meaning for a fill (a cell is always painted), so it's dropped like
@@ -284,19 +285,38 @@ module Crysterm
       # blank value (collapsed undefined `var(--x)`) or an out-of-range code
       # point. Shared with `Geometry`'s `lineedit-password-character`.
       def self.parse_char(value : String) : Char?
+        # `parse_char` is `parse_glyph` reduced to its first code point: the two
+        # share identical control flow (strip / empty / `none` sentinel / numeric
+        # code point / quote-stripped literal), differing only in the sentinel
+        # (`Glyphs::NONE` vs `Glyphs::NONE_STR == NONE.to_s`) and whether the
+        # result is the first `Char` or the whole `String`. Delegate so there is
+        # one implementation: `nil` stays `nil`, the `none` sentinel maps to the
+        # `Char` sentinel, and any other string yields its first character.
+        case s = parse_glyph(value)
+        when nil              then nil
+        when Glyphs::NONE_STR then Glyphs::NONE
+        else                       s[0]
+        end
+      end
+
+      # `parse_char`'s widened sibling for the CSS `glyph` family: keeps the
+      # *whole* grapheme instead of its first code point, so a multi-codepoint
+      # value (`⚠️` = base + VS16, a flag, any combining sequence) survives into
+      # `Style#glyph`. `none` yields the `Glyphs::NONE_STR` sentinel; a numeric
+      # value is still a single code point (Qt convention); a blank/collapsed
+      # `var()` yields `nil` (drop the declaration). A *cell*-role consumer
+      # later reduces the result to a lone `Char` (`Widget#glyph`).
+      def self.parse_glyph(value : String) : String?
         v = value.strip
         return nil if v.empty?
-        return Glyphs::NONE if Case.fold_keyword(v) == "none"
-        # An *unquoted* number is a code point (quotes haven't been stripped
-        # yet, so a quoted digit like `"9"` stays a literal below). Anything
-        # that *starts* numeric but isn't a valid code point (overflow, junk
-        # tail, out of range) is dropped rather than read as a literal digit.
+        return Glyphs::NONE_STR if Case.fold_keyword(v) == "none"
+        # An *unquoted* number is a code point (quotes not yet stripped).
         if v[0].ascii_number?
           cp = v.to_i?(prefix: true)
-          return cp ? (cp.chr rescue nil) : nil
+          return cp ? (cp.chr.to_s rescue nil) : nil
         end
         v = v.strip('"').strip('\'')
-        v.empty? ? nil : v[0]
+        v.empty? ? nil : v
       end
 
       # `parse_char` for values where `none` has no meaning (fill characters):
@@ -305,11 +325,13 @@ module Crysterm
         parse_char(value).try { |c| c unless c == Glyphs::NONE }
       end
 
-      # Resolves a `shadow-char-*` value and yields the char to assign:
-      # `none` yields `nil` (clear the glyph — back to the full-cell blend),
-      # a one-column char yields itself, and an unparseable or wide value is
-      # dropped (no yield), per CSS's invalid-declaration rule.
-      private def self.shadow_char(value : String, & : Char? ->) : Nil
+      # Resolves a single-cell-char CSS value and yields the char to assign:
+      # `none` yields `nil` (clear the glyph), a one-column char yields itself,
+      # and an unparseable or wide value is dropped (no yield), per CSS's
+      # invalid-declaration rule. Shared by the `shadow-char-*` longhands (clear
+      # → full-cell blend) and `apply_border_char` (clear → the border type's
+      # normal glyph source).
+      private def self.with_cell_char(value : String, & : Char? ->) : Nil
         return unless c = parse_char(value)
         if c == Glyphs::NONE
           yield nil
@@ -650,12 +672,7 @@ module Crysterm
       # or one that isn't exactly one column (a border cell must be) — is
       # dropped, per CSS's invalid-declaration rule.
       private def self.apply_border_char(border : Border, position : Symbol, value : String) : Nil
-        return unless c = parse_char(value)
-        if c == Glyphs::NONE
-          border.set_char position, nil
-        elsif Unicode.width(c) == 1
-          border.set_char position, c
-        end
+        with_cell_char(value) { |c| border.set_char position, c }
       end
 
       # The `border-chars` shorthand (GLYPHS.md §3.3): six chars in

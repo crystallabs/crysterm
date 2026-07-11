@@ -104,7 +104,7 @@ module Crysterm
       props << "mt-#{bf.top_margin}" if bf.top_margin > 0
       props << "mb-#{bf.bottom_margin}" if bf.bottom_margin > 0
       if (bg = bf.bg) && bg >= 0
-        props << "bg-#{hex(bg)}"
+        props << "bg-#{Colors.hex(bg)}"
       end
       props << "nobreak" if bf.non_breakable?
       props << "q-#{bf.quote_level}" if bf.quote_level > 0
@@ -129,12 +129,12 @@ module Crysterm
       # An explicit `-1` ("terminal default") is visually the unset base
       # attr — emit nothing, so it degrades to `nil` on re-parse.
       if (c = fmt.fg) && c >= 0
-        io << '{' << hex(c) << "-fg}"
-        closers << "{/#{hex(c)}-fg}"
+        io << '{' << Colors.hex(c) << "-fg}"
+        closers << "{/#{Colors.hex(c)}-fg}"
       end
       if (c = fmt.bg) && c >= 0
-        io << '{' << hex(c) << "-bg}"
-        closers << "{/#{hex(c)}-bg}"
+        io << '{' << Colors.hex(c) << "-bg}"
+        closers << "{/#{Colors.hex(c)}-bg}"
       end
       FLAG_ORDER.each do |(attr, name)|
         if fmt.attributes.includes?(attr)
@@ -148,10 +148,6 @@ module Crysterm
       text = text.gsub(/[{}]/) { |s| s == "{" ? "{open}" : "{close}" } if text.includes?('{') || text.includes?('}')
       io << text
       closers.reverse_each { |t| io << t }
-    end
-
-    private def self.hex(color : Int32) : String
-      "##{color.to_s(16).rjust(6, '0')}"
     end
 
     # The import state machine — the `_parse_tags` loop re-targeted from SGR
@@ -275,7 +271,7 @@ module Crysterm
           if slash
             @aligns.pop?
           else
-            af = param == "center" ? Tput::AlignFlag::HCenter : (param == "right" ? Tput::AlignFlag::Right : Tput::AlignFlag::Left)
+            af = TextHtml.align_flag(param) || Tput::AlignFlag::Left
             @aligns << af
             @block_format = @block_format.merge(TextBlockFormat.new(alignment: af))
           end

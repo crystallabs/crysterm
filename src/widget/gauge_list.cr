@@ -175,7 +175,7 @@ module Crysterm
 
         # Bar: sub-cell horizontal block fill in the row's color. The ramp
         # resolves CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
-        hexcolor = "##{item.color.to_s(16).rjust(6, '0')}"
+        hexcolor = Colors.hex(item.color)
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(item.value, @minimum, @maximum, bar_cols)
         bar_cols.times do |c|

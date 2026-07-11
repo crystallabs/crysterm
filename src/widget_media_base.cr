@@ -211,6 +211,22 @@ module Crysterm
         @load_failed = false
       end
 
+      # Common `#load` source-reset preamble shared by every backend's `#load`
+      # override: stop any playback, point at the new *file*, and drop the
+      # decoded source, frame list, and frame index so the next render re-derives
+      # from *file*. Each backend then clears its own backend-specific caches.
+      protected def reset_source_state(file : String) : Nil
+        stop
+        @file = file
+        @source = nil
+        # Clear the failure latch so a new file is actually attempted — otherwise
+        # `#source` early-returns nil forever after any prior failed load (its own
+        # documented contract: "Reset on new file load").
+        @load_failed = false
+        @src_frames = nil
+        @anim_index = 0
+      end
+
       # The decoded source image (cached), or `nil` if none/failed to load. For a
       # streaming video this opens the live decoder and returns its 1-frame
       # resampling vehicle (`@stream` then drives playback); otherwise decodes

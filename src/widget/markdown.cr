@@ -136,10 +136,10 @@ module Crysterm
           if entering
             blank_line
             level = node.data["level"].as(Int32)
-            literal "{bold}{#{hex @md.heading_color}-fg}"
+            literal "{bold}{#{Colors.hex @md.heading_color}-fg}"
             literal("#" * level + " ")
           else
-            literal "{/#{hex @md.heading_color}-fg}{/bold}"
+            literal "{/#{Colors.hex @md.heading_color}-fg}{/bold}"
             newline
           end
         end
@@ -169,10 +169,10 @@ module Crysterm
           if entering
             blank_line
             @quote += 1
-            literal "{#{hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} "
+            literal "{#{Colors.hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} "
           else
             @quote -= 1
-            literal "{/#{hex @md.quote_color}-fg}"
+            literal "{/#{Colors.hex @md.quote_color}-fg}"
             newline
           end
         end
@@ -188,9 +188,9 @@ module Crysterm
           return unless entering
           blank_line
           node.text.chomp.each_line do |line|
-            literal "{#{hex @md.code_bg}-bg}{#{hex @md.code_color}-fg}  "
+            literal "{#{Colors.hex @md.code_bg}-bg}{#{Colors.hex @md.code_color}-fg}  "
             text_out line
-            literal "  {/#{hex @md.code_color}-fg}{/#{hex @md.code_bg}-bg}"
+            literal "  {/#{Colors.hex @md.code_color}-fg}{/#{Colors.hex @md.code_bg}-bg}"
             newline
           end
         end
@@ -216,7 +216,7 @@ module Crysterm
           # markd; swap it for a checkbox glyph and strip the `[ ] `.
           case task_marker node
           when :done
-            literal "{#{hex @md.quote_color}-fg}☑{/#{hex @md.quote_color}-fg} "
+            literal "{#{Colors.hex @md.quote_color}-fg}☑{/#{Colors.hex @md.quote_color}-fg} "
             @strip_task = 4
           when :todo
             literal "{#808a96-fg}☐{/#808a96-fg} "
@@ -251,9 +251,9 @@ module Crysterm
 
         def code(node : Markd::Node, entering : Bool)
           return if !entering || @in_table
-          literal "{#{hex @md.code_bg}-bg}{#{hex @md.code_color}-fg}"
+          literal "{#{Colors.hex @md.code_bg}-bg}{#{Colors.hex @md.code_color}-fg}"
           text_out node.text
-          literal "{/#{hex @md.code_color}-fg}{/#{hex @md.code_bg}-bg}"
+          literal "{/#{Colors.hex @md.code_color}-fg}{/#{Colors.hex @md.code_bg}-bg}"
         end
 
         def link(node : Markd::Node, entering : Bool)
@@ -261,9 +261,9 @@ module Crysterm
           if entering
             @link_url = node.data["destination"]?.try &.as(String)
             @link_text = ""
-            literal "{underline}{#{hex @md.link_color}-fg}"
+            literal "{underline}{#{Colors.hex @md.link_color}-fg}"
           else
-            literal "{/#{hex @md.link_color}-fg}{/underline}"
+            literal "{/#{Colors.hex @md.link_color}-fg}{/underline}"
             if url = @link_url
               @links << Link.new(@link_text, url)
             end
@@ -351,10 +351,6 @@ module Crysterm
           literal "\n"
         end
 
-        private def hex(color : Int32) : String
-          "##{color.to_s(16).rjust(6, '0')}"
-        end
-
         # --- GFM tables (rendered as box-drawing text) -------------------------
 
         # Whether *text* is a GFM table: a header row, then a delimiter row of
@@ -436,13 +432,12 @@ module Crysterm
         end
 
         private def pad_cell(cell : String, width : Int32, align : Symbol) : String
-          pad = width - ::Crysterm::Unicode.display_width(cell)
-          return cell if pad <= 0
-          case align
-          when :right  then (" " * pad) + cell
-          when :center then (" " * (pad // 2)) + cell + (" " * (pad - pad // 2))
-          else              cell + (" " * pad)
-          end
+          af = case align
+               when :right  then Tput::AlignFlag::Right
+               when :center then Tput::AlignFlag::HCenter
+               else              Tput::AlignFlag::Left
+               end
+          ::Crysterm::Unicode.pad(cell, width, af)
         end
       end
     end

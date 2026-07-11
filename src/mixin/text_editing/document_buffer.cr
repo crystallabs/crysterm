@@ -41,6 +41,12 @@ module Crysterm
         # shared document (whose caret shift this view must mirror).
         @self_edit = false
 
+        # `ContentsChange` handler wrapper on the current document, so
+        # `#unwire_document`/`#swap_document` can detach it. The includer's
+        # `#wire_document` (which differs per widget — follow vs relayout)
+        # installs it.
+        @ev_contents_change : Crysterm::Event::ContentsChange::Wrapper?
+
         def buf_text : String
           document.to_plain_text
         end
@@ -193,6 +199,73 @@ module Crysterm
           @cursor_pos = edit_cursor.position.clamp(0, buf_size)
           clear_selection
           @goal_col = nil
+        end
+
+        # Handles the undo/redo editing keys shared by `Widget::PlainTextEdit`
+        # and `Widget::TextEdit`: `C-z` undo, `M-z` redo (`C-S-z` is
+        # indistinguishable from `C-z` on most terminals; the emacs default
+        # `C-y` stays yank). The shared `Mixin::TextEditing` has no undo
+        # awareness — it lives here — so each widget's `_listener` calls this
+        # first (before its widget-specific handling) and returns when it
+        # consumed the key. `TextChange` is emitted only when the buffer text
+        # actually changed (before/after diff).
+        protected def handle_undo_redo_key(e) : Bool
+          if !read_only? && (k = e.key)
+            if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
+              e.accept
+              # A non-kill action ends the consecutive-kill run (emacs
+              # semantics) — same as the mixin's other early-return keys.
+              kill_ring.interrupt if Crysterm::Config.input_readline_keys
+              before = buf_text
+              if k == Tput::Key::CtrlZ ? undo : redo
+                ensure_cursor_visible
+                ensure_cursor_visible_x
+                after = buf_text
+                emit Crysterm::Event::TextChange, after if after != before
+                request_render
+                _update_cursor
+              end
+              return true
+            end
+          end
+          false
+        end
+
+        # Shared `document=` body (Qt `setDocument`): unwires the old
+        # document's `ContentsChange` handler, swaps in *doc*, resets the
+        # shared caret/selection/typing state, runs the widget's
+        # `#reset_document_caches` hook for its own display caches (in the same
+        # position the per-widget resets occupied), re-wires, and requests a
+        # render. Each widget's `document=` shrinks to a same-document guard
+        # plus this call. (`#wire_document` genuinely differs per widget —
+        # follow vs relayout — so it stays there.)
+        protected def swap_document(doc : TextDocument) : Nil
+          unwire_document
+          @document = doc
+          # The tracker cursor and typing format belong to the old document.
+          @edit_cursor = nil
+          @typing_format = nil
+          @cursor_pos = 0
+          clear_selection
+          @goal_col = nil
+          reset_document_caches
+          wire_document
+          mark_dirty
+          request_render if window?
+        end
+
+        # Widget-specific display cache reset run by `#swap_document` between
+        # the shared field resets and `#wire_document`. Empty by default;
+        # `Widget::PlainTextEdit` clears its `@_display_value`, `Widget::TextEdit`
+        # drops its block-layout cache.
+        protected def reset_document_caches : Nil
+        end
+
+        private def unwire_document : Nil
+          @ev_contents_change.try do |w|
+            @document.try &.off(Crysterm::Event::ContentsChange, w)
+          end
+          @ev_contents_change = nil
         end
 
         # Marks the document mutations made inside the block as this view's

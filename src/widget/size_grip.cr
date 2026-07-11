@@ -31,24 +31,31 @@ module Crysterm
       # Glyph drawn for the handle. Unset (`nil`) resolves the CSS `glyph` on
       # the grip's own style (`SizeGrip { glyph: "◢" }` — a single-glyph
       # widget needs no sub-control), then the `Glyphs` registry at the
-      # effective tier; assigning a `Char` pins it.
-      setter glyph : Char? = nil
+      # effective tier; assigning a `String` pins it. A wide or multi-codepoint
+      # grapheme (`"⚠️"`) is kept whole — the grip is a single-placement site,
+      # so `#render` grows the grip to the glyph's measured width (GLYPHS.md §4).
+      setter glyph : String? = nil
 
       # :ditto:
-      def glyph : Char
-        @glyph || glyph(Glyphs::Role::SizeGrip, style)
+      def glyph : String
+        @glyph || glyph_str(Glyphs::Role::SizeGrip, style)
       end
 
-      # Refreshes the handle character before drawing — the resolved glyph can
-      # change after construction (a stylesheet's `glyph`, `Glyphs.set`, a
-      # tier switch); `set_content` no-ops while it is unchanged.
+      # Refreshes the handle before drawing — the resolved glyph can change
+      # after construction (a stylesheet's `glyph`, `Glyphs.set`, a tier switch),
+      # and a wide upgrade must reserve its columns. `set_content`/`width=` both
+      # no-op while unchanged, so an unstyled `◢` grip stays byte-identical.
       def render
-        g = self.glyph.to_s
+        g = self.glyph
+        # Reserve the glyph's measured width: grow (never shrink) so a 2-column
+        # emoji isn't clipped by a `width: 1` grip. `◢` measures 1 → no change.
+        w = Unicode.width(g)
+        self.width = w if awidth < w
         set_content g unless content == g
         super
       end
 
-      def initialize(target : Widget? = nil, glyph : Char? = nil, min_drag_width = 3, min_drag_height = 3, **box)
+      def initialize(target : Widget? = nil, glyph : String? = nil, min_drag_width = 3, min_drag_height = 3, **box)
         @target = target
         @glyph = glyph
         @min_drag_width = min_drag_width
@@ -56,7 +63,7 @@ module Crysterm
 
         super **box
 
-        set_content self.glyph.to_s
+        set_content self.glyph
 
         # A drag source that stays put (no self-reposition); its motion resizes
         # the target instead.

@@ -127,17 +127,23 @@ module Crysterm
         self
       end
 
-      # Removes and returns the item at *index*.
-      def delete_at(index : Int) : T
-        # Normalize a negative index to a real slot before emitting, so a bound
-        # view patches the right row instead of bailing on a raw negative.
+      # Normalizes a negative *index* to a real, in-range slot before emitting,
+      # so a bound view patches the right row instead of bailing on a raw
+      # negative. A still-out-of-range index must raise here (like a plain
+      # `Array`), not fall through to the underlying `Array` mutator, which
+      # would re-normalize a still-negative `i` a second time and silently touch
+      # a valid-but-wrong slot while emitting a negative index (see BUGS13-R2 /
+      # BUGS14-R1). (`#insert` is a deliberate variant — `+1`, `> size`.)
+      private def resolve_existing_index(index : Int) : Int32
         i = index.to_i
         i += @array.size if i < 0
-        # A still-out-of-range index must raise here (like a plain `Array`), not
-        # fall through to `Array#delete_at`, which would re-normalize a
-        # still-negative `i` a second time and silently delete a valid-but-wrong
-        # slot while emitting a negative `Remove` index (see BUGS13-R2 / BUGS14-R1).
         raise IndexError.new if i < 0 || i >= @array.size
+        i
+      end
+
+      # Removes and returns the item at *index*.
+      def delete_at(index : Int) : T
+        i = resolve_existing_index index
         item = @array.delete_at i
         emit_change ListOp::Remove, i, 1
         item
@@ -157,15 +163,7 @@ module Crysterm
 
       # Replaces the item at *index* in place.
       def []=(index : Int, item : T) : T
-        # Normalize a negative index to a real slot before emitting, so a bound
-        # view rewrites the right row instead of bailing on a raw negative.
-        i = index.to_i
-        i += @array.size if i < 0
-        # As in `#delete_at`: a still-out-of-range index must raise here rather
-        # than fall through to `Array#[]=`, which would re-normalize a
-        # still-negative `i` and overwrite a valid-but-wrong slot while emitting a
-        # negative `Update` index (see BUGS13-R2 / BUGS14-R1).
-        raise IndexError.new if i < 0 || i >= @array.size
+        i = resolve_existing_index index
         @array[i] = item
         emit_change ListOp::Update, i, 1
         item

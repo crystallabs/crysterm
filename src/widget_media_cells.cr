@@ -76,17 +76,9 @@ module Crysterm
       # (Re)decodes *file* and starts playback when it's animated. On failure,
       # shows an error string as content instead of raising.
       def load(file : String)
-        stop
-        @file = file
-        @source = nil
-        # Clear the failure latch so a new file is actually attempted — otherwise
-        # `#source` early-returns nil forever after any prior failed load (its own
-        # documented contract: "Reset on new file load").
-        @load_failed = false
-        @src_frames = nil
+        reset_source_state file
         @frame_cache.clear
         clear_frame_derived
-        @anim_index = 0
         @rendered_size = nil
         @sample = nil
 

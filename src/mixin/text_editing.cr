@@ -233,11 +233,19 @@ module Crysterm
       # viewport. Returns whether it scrolled. No-op for a non-scrollable widget
       # (e.g. a fitting `PlainTextEdit`, or `LineEdit`, whose `#scroll` guards on
       # `@scrollable`). Uses the same row geometry as `#position_at`.
+      # The maximum visible content-row index for the viewport described by
+      # *lpos* — the `- iheight - 1` is the subtle part. Shared by the row
+      # mapping in `#autoscroll_for_drag`, `#_update_cursor` and `#position_at`
+      # (each caller applies its own `.clamp` tail, whose first operand differs).
+      private def max_content_row(lpos) : Int32
+        (lpos.yl - lpos.yi) - iheight - 1
+      end
+
       private def autoscroll_for_drag(y : Int32) : Bool
         return false unless @scrollable
         lpos = @lpos || _get_coords
         return false unless lpos
-        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        max_line = max_content_row(lpos)
         raw = y - lpos.yi - itop
         before = @child_base
         if raw < 0
@@ -277,7 +285,7 @@ module Crysterm
 
         # Place the cursor on its row within the viewport. `ensure_cursor_visible`
         # keeps the row in range already; the clamp is just a guard.
-        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        max_line = max_content_row(lpos)
         line = (rl - @child_base).clamp(0, Math.max(0, max_line))
 
         cy = lpos.yi + itop + line
@@ -569,14 +577,12 @@ module Crysterm
         end
       end
 
-      private def paste_clipboard : Nil
-        clip = text_clipboard
-        # A rich buffer takes a fresher rich payload wholesale (formats
-        # preserved); everything else — and the rich buffer's own fallback,
-        # e.g. when `max_length` would need truncation — pastes plain text.
-        return if buf_paste_rich(clip)
-        text = clip.text
-        return if text.empty?
+      # Inserts *text* at the cursor, replacing any selection, honoring
+      # `max_length` by truncating to the remaining room. Shared by paste and
+      # the `Ctrl-Y` yank, which differ only in where *text* comes from. The
+      # `break` still targets the `edit_replacing_selection` block (a full field
+      # inserts nothing), so the control flow is unchanged.
+      private def insert_capped(text : String) : Nil
         edit_replacing_selection do
           if ml = @max_length
             room = ml - buf_size
@@ -585,6 +591,17 @@ module Crysterm
           end
           insert_at_cursor text
         end
+      end
+
+      private def paste_clipboard : Nil
+        clip = text_clipboard
+        # A rich buffer takes a fresher rich payload wholesale (formats
+        # preserved); everything else — and the rich buffer's own fallback,
+        # e.g. when `max_length` would need truncation — pastes plain text.
+        return if buf_paste_rich(clip)
+        text = clip.text
+        return if text.empty?
+        insert_capped text
       end
 
       # Extra display columns painted left of real row *rl*'s text — block
@@ -702,7 +719,7 @@ module Crysterm
 
         # Mirrors the row math in `#_update_cursor`: clamp to the visible
         # content rows, then add the scroll offset to get the real line index.
-        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        max_line = max_content_row(lpos)
         line = (y - lpos.yi - itop).clamp(0, Math.max(0, max_line))
         rl = (line + @child_base).clamp(0, Math.max(0, @_clines.size - 1))
 
@@ -721,7 +738,7 @@ module Crysterm
           fake_line = @_clines.rtof[rl]? || 0
           base, line_end = buf_line_bounds(fake_line)
           raw_line = buf_slice(base, line_end)
-          expanded = raw_line.includes?('\t') ? raw_line.gsub('\t', style.tab_char * style.tab_size) : raw_line
+          expanded = expand_tabs(raw_line)
 
           target = (x - lpos.xi - ileft - row_text_x_offset(rl)).clamp(0, content_width) + @child_base_x
           base + unexpand_col(raw_line, column_index(expanded, target))
@@ -757,8 +774,15 @@ module Crysterm
       # as `process_content` expands it) — i.e. its width in the `@_clines` column
       # units the caret math runs in. Equal to `s.size` when *s* has no TAB.
       private def expanded_width(s : String) : Int32
-        return s.size unless s.includes?('\t')
-        s.gsub('\t', style.tab_char * style.tab_size).size
+        expand_tabs(s).size
+      end
+
+      # Expands TABs in *s* to `tab_char * tab_size`, exactly as
+      # `process_content` lays out `@_clines`. Guards on `includes?('\t')` so a
+      # tab-free string is returned untouched (the common fast path). The single
+      # source of the tab-expansion idiom the caret/column helpers share.
+      private def expand_tabs(s : String) : String
+        s.includes?('\t') ? s.gsub('\t', style.tab_char * style.tab_size) : s
       end
 
       # Inverse of `#expanded_width`: the raw codepoint offset into *line* whose
@@ -831,8 +855,7 @@ module Crysterm
       # the caret is measured against columns actually shown and stays in sync
       # with the horizontal scroll base (`@child_base_x`), measured the same way.
       private def caret_display_column : Int32
-        prefix = buf_slice(line_start_pos, @cursor_pos)
-        prefix = prefix.gsub('\t', style.tab_char * style.tab_size) if prefix.includes?('\t')
+        prefix = expand_tabs(buf_slice(line_start_pos, @cursor_pos))
         str_width prefix
       end
 
@@ -853,8 +876,7 @@ module Crysterm
       # start of *to*'s line (both are always same-line callers here, so no
       # embedded `\n` is sliced across).
       private def rendered_column(from : Int32, to : Int32) : Int32
-        s = buf_slice(from, to)
-        s = s.gsub('\t', style.tab_char * style.tab_size) if s.includes?('\t')
+        s = expand_tabs(buf_slice(from, to))
         str_width s
       end
 
@@ -1118,14 +1140,7 @@ module Crysterm
             # into one undo step) and honors `max_length` by truncating the
             # ring entry to the room left.
             if text = kill_ring.yank
-              edit_replacing_selection do
-                if ml = @max_length
-                  room = ml - buf_size
-                  break if room <= 0
-                  text = text[0, room] if text.size > room
-                end
-                insert_at_cursor text
-              end
+              insert_capped text
             end
           else
             edited = false

@@ -41,7 +41,6 @@ module Crysterm
       # edge); `really_scrollable_x?` is false while wrapping.
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
-      @ev_contents_change : Crysterm::Event::ContentsChange::Wrapper?
       # Last plain text pushed to the base content pipeline (`set_content`);
       # the display re-syncs only when the document text actually changed.
       @_display_value : String?
@@ -77,18 +76,11 @@ module Crysterm
       # document between several views. The caret rewinds to the start.
       def document=(doc : TextDocument)
         return if doc.same?(@document)
-        unwire_document
-        @document = doc
-        # The tracker cursor and typing format belong to the old document.
-        @edit_cursor = nil
-        @typing_format = nil
-        @cursor_pos = 0
-        clear_selection
-        @goal_col = nil
+        swap_document(doc)
+      end
+
+      protected def reset_document_caches : Nil
         @_display_value = nil
-        wire_document
-        mark_dirty
-        request_render if window?
       end
 
       private def wire_document : Nil
@@ -101,37 +93,10 @@ module Crysterm
         end
       end
 
-      private def unwire_document : Nil
-        @ev_contents_change.try do |w|
-          @document.try &.off(Crysterm::Event::ContentsChange, w)
-        end
-        @ev_contents_change = nil
-      end
-
-      # Adds undo/redo on top of the shared editing keys: `C-z` undo, `M-z`
-      # redo (`C-S-z` is indistinguishable from `C-z` on most terminals; the
-      # emacs default `C-y` stays yank). The shared `Mixin::TextEditing` has no
-      # undo awareness — it lives on the `DocumentBuffer` — so, like
-      # `Widget::TextEdit`, it is wired here before delegating to `super`.
+      # Adds undo/redo on top of the shared editing keys (see
+      # `DocumentBuffer#handle_undo_redo_key`) before delegating to `super`.
       def _listener(e)
-        if !read_only? && (k = e.key)
-          if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
-            e.accept
-            # A non-kill action ends the consecutive-kill run (emacs
-            # semantics) — same as the mixin's other early-return keys.
-            kill_ring.interrupt if Crysterm::Config.input_readline_keys
-            before = buf_text
-            if k == Tput::Key::CtrlZ ? undo : redo
-              ensure_cursor_visible
-              ensure_cursor_visible_x
-              after = buf_text
-              emit Crysterm::Event::TextChange, after if after != before
-              request_render
-              _update_cursor
-            end
-            return
-          end
-        end
+        return if handle_undo_redo_key(e)
         super
       end
 

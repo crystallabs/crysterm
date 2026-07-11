@@ -120,20 +120,21 @@ module Crysterm
       return if !(from && to) || from == to
       f, t = from || 0, to || 0
       anim = start_tween(dur, easing) do |clock|
-        set.call(lerp_color(f, t, clock.value))
+        # Per-channel `from + (to-from)*t` via the shared `Colors.mix`, whose
+        # first arg is weighted by `alpha`: weight-of-`t` (the target) = the
+        # tween value, so `mix(t, f, clock.value)`.
+        set.call(Colors.mix(t, f, clock.value))
       end
       (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       nil
     end
 
-    # Per-channel linear interpolation between two `0xRRGGBB` colors.
+    # Per-channel linear interpolation `from + (to-from)*t` between two
+    # `0xRRGGBB` colors, via the shared `Colors.mix` (whose first arg is
+    # weighted by `alpha`, so weight-of-`to` = `t`). Used by `#animate` in
+    # `widget_animation.cr`.
     private def lerp_color(from : Int32, to : Int32, t : Float64) : Int32
-      fr = (from >> 16) & 0xff; fg = (from >> 8) & 0xff; fb = from & 0xff
-      tr = (to >> 16) & 0xff; tg = (to >> 8) & 0xff; tb = to & 0xff
-      r = (fr + (tr - fr) * t).round.to_i.clamp(0, 255)
-      g = (fg + (tg - fg) * t).round.to_i.clamp(0, 255)
-      b = (fb + (tb - fb) * t).round.to_i.clamp(0, 255)
-      Colors.rgb(r, g, b)
+      Colors.mix(to, from, t)
     end
   end
 end

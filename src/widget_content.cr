@@ -1617,6 +1617,16 @@ module Crysterm
       Glyphs[role, glyph_tier]
     end
 
+    # The registry *grapheme* (String) for a *run* role at this widget's
+    # effective tier — the String companion to `#glyph`. A run-role site (an
+    # inline, measured text run) uses this so a multi-codepoint upgrade like
+    # `⚠️` renders whole, instead of the reject-to-fallback single `Char` that
+    # `#glyph` yields for fixed 1-column cell roles.
+    @[AlwaysInline]
+    def glyph_str(role : Glyphs::Role) : String
+      Glyphs.str(role, glyph_tier)
+    end
+
     # Like the above, but consulting a CSS-styled site first — the GLYPHS.md §5
     # resolution chain below the widget's own programmatic property (call
     # sites keep the `@thumb_char || glyph(...)` shape): the *slot* style's
@@ -1627,12 +1637,14 @@ module Crysterm
     # multi-part widget), or `style` itself for a single-glyph widget
     # (`SizeGrip { glyph: "◢" }`).
     #
-    # A CSS `glyph: none` — and, on a *cell* role, any character that isn't
-    # exactly one column — is unusable here and falls back to the registry;
-    # run-role callers that honor `none` by omitting the glyph use `#glyph?`.
+    # A CSS `glyph: none` — and, on a *cell* role, any value that isn't
+    # exactly one column (a wide emoji, or a multi-codepoint grapheme a `Char`
+    # can't hold) — is unusable here and falls back to the registry. Run-role
+    # callers that want the whole grapheme use `#glyph_str`/`#glyph_str?`; ones
+    # that honor `none` by omitting a single-`Char` glyph use `#glyph?`.
     def glyph(role : Glyphs::Role, slot : ::Crysterm::Style?) : Char
       tier = glyph_tier
-      if slot && (c = slot.glyph_for(tier)) && glyph_usable?(c, role)
+      if slot && (s = slot.glyph_for(tier)) && (c = usable_cell_glyph(s, role))
         return c
       end
       Glyphs[role, tier]
@@ -1640,25 +1652,74 @@ module Crysterm
 
     # Run-role variant of `#glyph(role, slot)` honoring CSS `glyph: none`:
     # returns `nil` when the style says to omit the glyph entirely (it
-    # contributes zero cells — GLYPHS.md §4). Never used for cell roles,
-    # which must always paint something.
+    # contributes zero cells — GLYPHS.md §4). `Char`-typed for callers that
+    # draw a single-cell affordance; a multi-codepoint CSS override can't fit
+    # here and reject-to-falls-back to the registry (use `#glyph_str?` for the
+    # whole grapheme). Never used for cell roles, which must always paint.
     def glyph?(role : Glyphs::Role, slot : ::Crysterm::Style?) : Char?
       tier = glyph_tier
-      if slot && (c = slot.glyph_for(tier))
-        return nil if c == Glyphs::NONE
-        return c
+      if slot && (s = slot.glyph_for(tier))
+        return nil if s == Glyphs::NONE_STR
+        return s[0] if s.size == 1
+        # Multi-codepoint override: not representable as a lone cell `Char`.
       end
       Glyphs[role, tier]
     end
 
-    # Whether a CSS-specified character can stand in for *role*: `none` never
-    # can here (`#glyph` answers a concrete cell), and a cell role addition-
-    # ally requires exactly one column (a wide emoji thumb would corrupt the
-    # grid). Width is checked only on this rare styled path — `Unicode.width`
-    # on a `Char` is allocation-free.
-    private def glyph_usable?(c : Char, role : Glyphs::Role) : Bool
-      return false if c == Glyphs::NONE
-      !role.cell? || Unicode.width(c) == 1
+    # Run-role, grapheme-returning companion to `#glyph(role, slot)`: the
+    # slot's CSS glyph *whole* (a multi-codepoint `⚠️` survives) when set and
+    # not `none`, else the registry grapheme. For measured inline runs where a
+    # wide/emoji override should render as-is rather than reduce to a `Char`.
+    def glyph_str(role : Glyphs::Role, slot : ::Crysterm::Style?) : String
+      tier = glyph_tier
+      if slot && (s = slot.glyph_for(tier)) && s != Glyphs::NONE_STR
+        return s
+      end
+      Glyphs.str(role, tier)
+    end
+
+    # `#glyph_str` honoring CSS `glyph: none` — returns `nil` to omit the glyph
+    # entirely (zero cells). The grapheme-returning analogue of `#glyph?`.
+    def glyph_str?(role : Glyphs::Role, slot : ::Crysterm::Style?) : String?
+      tier = glyph_tier
+      if slot && (s = slot.glyph_for(tier))
+        return nil if s == Glyphs::NONE_STR
+        return s
+      end
+      Glyphs.str(role, tier)
+    end
+
+    # The "always-measure" cell path (GLYPHS.md §4/§5) for a *single-placement*
+    # affordance role — the non-`cell?` roles a widget paints once into a box it
+    # can size (`SizeGrip`, `DockWidget`'s close/float buttons): the resolved
+    # glyph as the whole grapheme *and* the terminal COLUMNS it occupies. Unlike
+    # `#glyph(role, slot)` — which reduces to a lone 1-column `Char` and rejects
+    # a wide or multi-codepoint override to the registry — this keeps a wide
+    # CSS/registry upgrade (`⚠️`) whole and reports its measured width so the
+    # caller reserves that many columns for it (the box grows to fit rather than
+    # clipping). Fixed-cell, fill-region roles (scrollbar thumb/trough/arrows,
+    # slider handle/track/tick, rules and separators) stay on `#glyph`: a wide
+    # glyph makes no sense in a 1-cell run replicated across the cross axis.
+    #
+    # `none` is not honored here (a placed affordance always paints) — it falls
+    # back to the registry, exactly like `#glyph`, so an unstyled button is
+    # byte-identical with history.
+    def glyph_measured(role : Glyphs::Role, slot : ::Crysterm::Style?) : {String, Int32}
+      s = glyph_str(role, slot)
+      {s, Unicode.width(s)}
+    end
+
+    # Reduces a CSS-specified glyph *s* to the lone `Char` usable for *role* as
+    # a fixed cell, or `nil` when it can't stand in: `none`, a multi-codepoint
+    # grapheme (no lone code point), or — on a *cell* role — a wide char that
+    # would corrupt the grid. A run role tolerates a single wide char (an emoji
+    # affordance). Width is checked only on this rare styled path.
+    private def usable_cell_glyph(s : String, role : Glyphs::Role) : Char?
+      return nil if s == Glyphs::NONE_STR
+      return nil unless s.size == 1
+      c = s[0]
+      return nil if role.cell? && Unicode.width(c) != 1
+      c
     end
 
     # The sequence steps for *role* (spinner frames, dial pointer ring, fill
@@ -1765,14 +1826,12 @@ module Crysterm
       # here fast-rejected that common base+mark cluster, so `#extend_grapheme`
       # never ran and the mark rendered detached in its own cell.
       return false if base.ord < 0x300 && (nxt.nil? || nxt.ord < 0x300)
-      return true if base.mark? # a leading combining mark (zero-width; merges back)
-      bp = base.ord
-      return true if 0x1F1E6 <= bp <= 0x1F1FF # regional indicator (flag pair)
+      return true if base.mark?                        # a leading combining mark (zero-width; merges back)
+      return true if Unicode.regional_indicator?(base) # regional indicator (flag pair)
       return false unless nxt
-      np = nxt.ord
       # A following combining mark, ZWJ, variation selector, or skin-tone modifier
       # extends the cluster.
-      nxt.mark? || np == 0x200D || (0xFE00 <= np <= 0xFE0F) || (0x1F3FB <= np <= 0x1F3FF)
+      Unicode.grapheme_extender?(nxt)
     end
 
     # Assembles the grapheme cluster beginning with `base` (codepoint at
@@ -1788,8 +1847,8 @@ module Crysterm
       g << base
 
       # A flag is a pair of regional indicators.
-      if 0x1F1E6 <= base.ord <= 0x1F1FF
-        if (c = content[ci]?) && (0x1F1E6 <= c.ord <= 0x1F1FF)
+      if Unicode.regional_indicator?(base)
+        if (c = content[ci]?) && Unicode.regional_indicator?(c)
           g << c
           ci += 1
         end
@@ -1798,7 +1857,7 @@ module Crysterm
 
       while c = content[ci]?
         cp = c.ord
-        if c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
+        if Unicode.grapheme_extender?(c)
           g << c
           ci += 1
           # A ZWJ also pulls in the codepoint it joins (e.g. the next emoji).

@@ -444,21 +444,10 @@ module Crysterm
       widths.each_with_index do |w, i|
         cell = cells[i]? || ""
         a = alignments.try(&.[i]?)
-        frags << TextFragment.new(" #{pad_cell(cell, w, a)} ", cell_fmt)
+        frags << TextFragment.new(" #{Unicode.pad(cell, w, a)} ", cell_fmt)
         frags << TextFragment.new(v, border_fmt)
       end
       TextBlock.new(frags, bf)
-    end
-
-    private def self.pad_cell(cell : String, width : Int32, align : Tput::AlignFlag?) : String
-      pad = width - Unicode.display_width(cell)
-      return cell if pad <= 0
-      case align
-      when Nil        then cell + (" " * pad)
-      when .h_center? then (" " * (pad // 2)) + cell + (" " * (pad - pad // 2))
-      when .right?    then (" " * pad) + cell
-      else                 cell + (" " * pad)
-      end
     end
   end
 end

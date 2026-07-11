@@ -1979,8 +1979,13 @@ describe Crysterm::Widget::SizeGrip do
     s._render
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, grip.aleft, grip.atop, source: :test))
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 30, 12, source: :test))
-    win.width.should eq 31 # 30 - left(0) + 1
-    win.height.should eq 8 # 12 - top(5) + 1
+    # `right: 0`/`bottom: 0` is the documented inner-corner placement, so the grip
+    # sits one cell inside the bordered box. The BUGS14-M4 `edge_x`/`edge_y` inset
+    # (see bugs14_sizegrip_keymenu_spec) folds that offset in, so the target's
+    # *outer* edge tracks the pointer instead of lagging by the border. Pointer at
+    # (30, 12) → outer edge = pointer + inset(1).
+    win.width.should eq 32 # 30 - left(0) + 1 + edge_x(1)
+    win.height.should eq 9 # 12 - top(5) + 1 + edge_y(1)
   end
 end
 

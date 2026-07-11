@@ -116,12 +116,10 @@ module Crysterm
         when "text-align"
           # CSS keyword values are case-insensitive, so fold before matching
           # (see `Properties`) — otherwise a capitalized value (common in Qt
-          # themes) would silently leave the alignment unchanged.
-          case Case.fold_keyword(value.strip)
-          when "left"   then widget.align = Tput::AlignFlag::Left
-          when "center" then widget.align = Tput::AlignFlag::HCenter
-          when "right"  then widget.align = Tput::AlignFlag::Right
-          end
+          # themes) would silently leave the alignment unchanged. Routed through
+          # the shared string→flag resolver; an unrecognized value yields `nil`
+          # and leaves the alignment unchanged.
+          TextHtml.align_flag(Case.fold_keyword(value.strip)).try { |f| widget.align = f }
         when "spacing"
           # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
           # `gap` lives on the `Layout` base; engines that don't honor it (the

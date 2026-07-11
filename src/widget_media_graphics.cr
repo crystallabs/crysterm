@@ -198,16 +198,8 @@ module Crysterm
       # Loads *file*, dropping the cached source and render so the next draw
       # re-decodes. Sizing itself is lazy (done at draw time for the current box).
       def load(file : String)
-        stop
-        @file = file
-        @source = nil
-        # Clear the failure latch so a new file is actually attempted — otherwise
-        # `#source` early-returns nil forever after any prior failed load (its own
-        # documented contract: "Reset on new file load").
-        @load_failed = false
+        reset_source_state file
         @raw = nil
-        @src_frames = nil
-        @anim_index = 0
         reset_payload_cache
         request_render
       end

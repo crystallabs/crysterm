@@ -445,10 +445,7 @@ module Crysterm
               io << prefix << "```\n"
               # The fence run ends at a margin or quote-level boundary —
               # two fences separated by a blank line stay two fences.
-              while i < blocks.size && code_line?(blocks[i]) &&
-                    blocks[i].block_format.quote_level == blocks[first].block_format.quote_level &&
-                    (i == first || (blocks[i].block_format.top_margin == 0 &&
-                    blocks[i - 1].block_format.bottom_margin == 0))
+              while fence_member?(blocks, i, first, blocks[first].block_format.quote_level)
                 io << prefix << blocks[i].text << '\n'
                 i += 1
               end
@@ -496,6 +493,18 @@ module Crysterm
         b.fragments.all?(&.format.code?)
       end
 
+      # Whether `blocks[k]` continues the fenced-code run that started at
+      # *start* with quote level *ql*: a same-quote-level code line that is
+      # either the run's first block or has no margin break from the previous
+      # block. The single source of truth for where a fence run ends, shared by
+      # `#opens_fence?` and the exporter's fence-emit loop.
+      private def fence_member?(blocks : Array(TextBlock), k : Int32, start : Int32, ql : Int32) : Bool
+        k < blocks.size && code_line?(blocks[k]) &&
+          blocks[k].block_format.quote_level == ql &&
+          (k == start || (blocks[k].block_format.top_margin == 0 &&
+            blocks[k - 1].block_format.bottom_margin == 0))
+      end
+
       # Does the contiguous same-`bg`/quote-level run starting at *i* form a
       # fenced code block? A run opens a fence when it holds a real code line
       # (non-empty code fragments) or spans more than one line — so a code
@@ -507,10 +516,7 @@ module Crysterm
         j = i
         count = 0
         has_code = false
-        while j < blocks.size && code_line?(blocks[j]) &&
-              blocks[j].block_format.quote_level == ql &&
-              (j == i || (blocks[j].block_format.top_margin == 0 &&
-              blocks[j - 1].block_format.bottom_margin == 0))
+        while fence_member?(blocks, j, i, ql)
           count += 1
           has_code = true unless blocks[j].fragments.empty?
           j += 1

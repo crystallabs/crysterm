@@ -80,13 +80,19 @@ module Crysterm
         Math.max(1, visible_content_rows // (1 + @item_spacing))
       end
 
+      # Floors *base* to the last item's spaced content row: the "spaced extent"
+      # both `#get_scroll_height` and `#_scroll_bottom` need over their own
+      # `super`. Returns *base* unchanged when unspaced or empty.
+      private def spaced_extent(base : Int32) : Int32
+        return base if @item_spacing.zero? || @items.empty?
+        Math.max(base, item_row(@items.size - 1) + 1)
+      end
+
       # Total content height in rows, including inter-item gaps, so scrollbar/
       # overflow logic sees the real extent (`_scroll_bottom` otherwise counts
       # items, ignoring spacing). Unchanged when not spaced.
       def get_scroll_height
-        base = super
-        return base if @item_spacing.zero? || @items.empty?
-        Math.max(base, item_row(@items.size - 1) + 1)
+        spaced_extent super
       end
 
       # Spaced extent for the scroll clamp/thumb: the base `_scroll_bottom`
@@ -96,9 +102,7 @@ module Crysterm
       # spaced, overflowing list. Report the same spaced height as
       # `#get_scroll_height` so the clamp reaches the true bottom.
       def _scroll_bottom
-        base = super
-        return base if @item_spacing.zero? || @items.empty?
-        Math.max(base, item_row(@items.size - 1) + 1)
+        spaced_extent super
       end
 
       # When true, a single mouse click on an item activates it (rather than the

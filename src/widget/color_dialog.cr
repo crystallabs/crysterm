@@ -127,7 +127,7 @@ module Crysterm
       # Per-frame draw caches (mirroring `Gradient#render`). The 2-D field's
       # cell background colors depend only on `@hue` (and the style flags folded
       # into each packed attr); the hue bar's depend on nothing. Rather than run
-      # `hsv_to_rgb` + a full `sattr` derivation for all 260 cells every frame,
+      # `Colors.hsv_i` + a full `sattr` derivation for all 260 cells every frame,
       # cache the packed attrs and rebuild only when the key changes. The marker
       # cell (its position tracks `@saturation`/`@value_v` for the field and
       # `@hue` for the bar) is still drawn per frame via `put_cell`, so it stays
@@ -158,7 +158,7 @@ module Crysterm
 
       # The current color as a `"#rrggbb"` hex string.
       def current_color : String
-        r, g, b = hsv_to_rgb @hue, @saturation, @value_v
+        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @value_v))
         "#%02x%02x%02x" % {r, g, b}
       end
 
@@ -374,12 +374,12 @@ module Crysterm
         h = field_int(@lhspin, 0, 360).to_f
         s = field_int(@lsspin, 0, 100) / 100.0
         l = field_int(@llspin, 0, 100) / 100.0
-        r, g, b = hsl_to_rgb h, s, l
+        r, g, b = Colors.rgb_channels(Colors.hsl_to_rgb(h, s, l))
         set_rgb r, g, b
       end
 
       private def set_rgb(r : Int32, g : Int32, b : Int32) : Nil
-        @hue, @saturation, @value_v = rgb_to_hsv r, g, b
+        @hue, @saturation, @value_v = Colors.rgb_to_hsv(Colors.rgb(r, g, b))
         refresh_ui
       end
 
@@ -406,7 +406,7 @@ module Crysterm
       private def refresh_ui : Nil
         @syncing = true
         hex = current_color
-        r, g, b = hsv_to_rgb @hue, @saturation, @value_v
+        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @value_v))
         # Fold onto the preview's inline style so the swatch survives a
         # re-cascade (same reason `#paint_swatch` exists for the custom slots).
         if pv = @preview
@@ -418,7 +418,7 @@ module Crysterm
         sync_field @hspin, @hue.round.to_i.to_s
         sync_field @sspin, (@saturation * 100).round.to_i.to_s
         sync_field @vspin, (@value_v * 100).round.to_i.to_s
-        lh, ls, ll = rgb_to_hsl r, g, b
+        lh, ls, ll = Colors.rgb_to_hsl(Colors.rgb(r, g, b))
         sync_field @lhspin, lh.round.to_i.to_s
         sync_field @lsspin, (ls * 100).round.to_i.to_s
         sync_field @llspin, (ll * 100).round.to_i.to_s
@@ -665,7 +665,7 @@ module Crysterm
       end
 
       # The field's 240 packed cell attrs, keyed on `{@hue, flags}`. Cell
-      # backgrounds are `hsv_to_rgb(@hue, s, v)` — a pure function of the hue and
+      # backgrounds are `Colors.hsv_i(@hue, s, v)` — a pure function of the hue and
       # the cell's grid position — so the whole array only changes when `@hue`
       # (or the folded style flags) changes. Rebuilt lazily on a key mismatch.
       private def field_attrs(flags : Int64) : Array(Int64)
@@ -678,8 +678,7 @@ module Crysterm
             v = 1.0 - row / (FIELD_H - 1).to_f
             (0...FIELD_W).each do |col|
               s = col / (FIELD_W - 1).to_f
-              r, g, b = hsv_to_rgb @hue, s, v
-              bg = Colors.rgb(r, g, b)
+              bg = Colors.hsv_i(@hue, s, v)
               # Unmarked cell: fg == bg, matching `put_cell(..., marked: false)`.
               attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
             end
@@ -689,7 +688,7 @@ module Crysterm
       end
 
       # The hue bar's 20 packed cell attrs, keyed on `flags` alone — the bar's
-      # colors (`hsv_to_rgb(h, 1, 1)` per row) never change, so this is built
+      # colors (`Colors.hsv_i(h, 1, 1)` per row) never change, so this is built
       # once (and only rebuilt if the style flags ever change).
       private def hue_attrs(flags : Int64) : Array(Int64)
         if @hue_attrs_flags != flags
@@ -698,8 +697,7 @@ module Crysterm
           attrs.clear
           (0...HUE_H).each do |row|
             h = row / (HUE_H - 1).to_f * 360.0
-            r, g, b = hsv_to_rgb h, 1.0, 1.0
-            bg = Colors.rgb(r, g, b)
+            bg = Colors.hsv_i(h, 1.0, 1.0)
             (0...HUE_W).each do
               attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
             end
@@ -724,8 +722,7 @@ module Crysterm
               # one bg (its position tracks saturation/value, not `@hue`).
               v = 1.0 - row / (FIELD_H - 1).to_f
               s = col / (FIELD_W - 1).to_f
-              r, g, b = hsv_to_rgb @hue, s, v
-              put_cell x, y, '+', Colors.rgb(r, g, b), true, clip
+              put_cell x, y, '+', Colors.hsv_i(@hue, s, v), true, clip
             else
               put_cell_attr x, y, ' ', attrs[row * FIELD_W + col], clip
             end
@@ -746,8 +743,7 @@ module Crysterm
             if y == cur_hy && col == HUE_W - 1
               # Marker: recompute just this row's bg for the contrasting fg.
               h = row / (HUE_H - 1).to_f * 360.0
-              r, g, b = hsv_to_rgb h, 1.0, 1.0
-              put_cell x, y, '<', Colors.rgb(r, g, b), true, clip
+              put_cell x, y, '<', Colors.hsv_i(h, 1.0, 1.0), true, clip
             else
               put_cell_attr x, y, ' ', attrs[row * HUE_W + col], clip
             end
@@ -763,7 +759,7 @@ module Crysterm
       end
 
       # Writes one cell with an already-packed attr (the cached-swatch fast path,
-      # bypassing per-cell `hsv_to_rgb`/`sattr`). Cells outside the clipped LPos
+      # bypassing per-cell `Colors.hsv_i`/`sattr`). Cells outside the clipped LPos
       # (a partially offscreen / parent-clipped dialog) are dropped; a negative
       # index would otherwise wrap to the far side of the screen buffer.
       private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : LPos) : Nil
@@ -785,79 +781,6 @@ module Crysterm
         g = ((rgb >> 8) & 0xff) / 255.0
         b = (rgb & 0xff) / 255.0
         0.299 * r + 0.587 * g + 0.114 * b
-      end
-
-      # Maps a hue angle to its RGB sextant, scaled by chroma *c* and offset *m*
-      # — the shared tail of `hsv_to_rgb`/`hsl_to_rgb` (which differ only in how
-      # they derive *c*/*m* from value vs lightness).
-      private def hue_chroma_to_rgb(h : Float64, c : Float64, m : Float64) : {Int32, Int32, Int32}
-        h = h % 360.0
-        h += 360.0 if h < 0
-        x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs)
-        r1, g1, b1 =
-          case h
-          when .< 60.0  then {c, x, 0.0}
-          when .< 120.0 then {x, c, 0.0}
-          when .< 180.0 then {0.0, c, x}
-          when .< 240.0 then {0.0, x, c}
-          when .< 300.0 then {x, 0.0, c}
-          else               {c, 0.0, x}
-          end
-        {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
-      end
-
-      # Normalized channels and the common hue angle (0..360) — shared head of
-      # `rgb_to_hsv`/`rgb_to_hsl` (which finish with their own saturation and
-      # third axis, value vs lightness). Returns `{hue, max, min, delta}`.
-      private def rgb_components(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64, Float64}
-        rf = r / 255.0
-        gf = g / 255.0
-        bf = b / 255.0
-        max = {rf, gf, bf}.max
-        min = {rf, gf, bf}.min
-        delta = max - min
-
-        h =
-          if delta == 0.0
-            0.0
-          elsif max == rf
-            60.0 * (((gf - bf) / delta) % 6.0)
-          elsif max == gf
-            60.0 * (((bf - rf) / delta) + 2.0)
-          else
-            60.0 * (((rf - gf) / delta) + 4.0)
-          end
-        h += 360.0 if h < 0
-        {h, max, min, delta}
-      end
-
-      # HSV (h 0..360, s/v 0..1) → RGB (each 0..255).
-      private def hsv_to_rgb(h : Float64, s : Float64, v : Float64) : {Int32, Int32, Int32}
-        c = v * s
-        hue_chroma_to_rgb h, c, v - c
-      end
-
-      # RGB (each 0..255) → HSV (h 0..360, s/v 0..1).
-      private def rgb_to_hsv(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
-        h, max, _, delta = rgb_components r, g, b
-        s = max == 0.0 ? 0.0 : delta / max
-        {h, s, max}
-      end
-
-      # HSL (h 0..360, s/l 0..1) → RGB (each 0..255). Shares HSV's hue but uses
-      # lightness (mid-point) and its own saturation.
-      private def hsl_to_rgb(h : Float64, s : Float64, l : Float64) : {Int32, Int32, Int32}
-        c = (1.0 - (2.0 * l - 1.0).abs) * s
-        hue_chroma_to_rgb h, c, l - c / 2.0
-      end
-
-      # RGB (each 0..255) → HSL (h 0..360, s/l 0..1).
-      private def rgb_to_hsl(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
-        h, max, min, delta = rgb_components r, g, b
-        l = (max + min) / 2.0
-        denom = 1.0 - (2.0 * l - 1.0).abs
-        s = denom == 0.0 ? 0.0 : delta / denom
-        {h, s, l}
       end
     end
   end

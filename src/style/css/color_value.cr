@@ -160,19 +160,11 @@ module Crysterm
         h = hue_degrees(value) % 360.0
         s = (nums[1] / 100.0).clamp(0.0, 1.0)
         l = (nums[2] / 100.0).clamp(0.0, 1.0)
-        c = (1.0 - (2.0 * l - 1.0).abs) * s
-        x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs)
-        m = l - c / 2.0
-        r, g, b =
-          case h
-          when 0...60    then {c, x, 0.0}
-          when 60...120  then {x, c, 0.0}
-          when 120...180 then {0.0, c, x}
-          when 180...240 then {0.0, x, c}
-          when 240...300 then {x, 0.0, c}
-          else                {c, 0.0, x}
-          end
-        rgb clamp((r + m) * 255), clamp((g + m) * 255), clamp((b + m) * 255)
+        # The chroma/sextant math lives once in the `term_colors` shard
+        # (`Colors.hsl_to_rgb`), which returns the same packed `0xRRGGBB` this
+        # method needs. `s`/`l` are already clamped to `0..1` and `h` wrapped, so
+        # the shard's rounding/clamping is byte-identical to the former inline block.
+        Colors.hsl_to_rgb(h, s, l)
       end
 
       # The `hsl()` hue in degrees, honoring the optional CSS angle unit on the

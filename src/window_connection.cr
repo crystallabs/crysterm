@@ -16,6 +16,8 @@ module Crysterm
   #     the object and its widgets in memory), then `Window.open(into: screen)`
   #     to display the same `Window` in a fresh window.
   class Window
+    include RestoreGuard
+
     # Whether this screen is currently bound to a live terminal. While false,
     # rendering is suppressed (the render fiber keeps running but does not paint).
     @connected = true
@@ -187,14 +189,19 @@ module Crysterm
         @_resize_loop_fiber.try(&.dead?) != false
     end
 
+    # Whether *w* is a live sibling window sharing this window's device: a
+    # distinct, connected, not-destroyed `Window` on the same `Screen`. Tearing
+    # the device down while such a sibling exists would break it.
+    private def live_sibling_on_device?(w : Window) : Bool
+      !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+    end
+
     # Whether another live (connected, not-destroyed) `Window` still shares
     # this window's `Screen` — i.e. tearing the device down now would break a
     # sibling. Uses the global `Window.instances` registry so it holds even
     # for windows sharing a device without an `Application`.
     private def other_live_window_on_device? : Bool
-      Window.instances.any? do |w|
-        !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
-      end
+      Window.instances.any? { |w| live_sibling_on_device? w }
     end
 
     # Re-applies the surviving active window's cursor (shape/blink/color) and
@@ -206,15 +213,13 @@ module Crysterm
       surviving : Window? = nil
       application.try do |app|
         app.windows.reverse_each do |w|
-          if !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+          if live_sibling_on_device? w
             surviving = w
             break
           end
         end
       end
-      surviving ||= Window.instances.find do |w|
-        !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
-      end
+      surviving ||= Window.instances.find { |w| live_sibling_on_device? w }
       surviving.try do |w|
         begin
           w.apply_cursor
@@ -223,19 +228,6 @@ module Crysterm
           # Dead fds on a user-closed window raise on write; the sibling's
           # state re-assert must never break the disconnect itself.
         end
-      end
-    end
-
-    # Runs one terminal-mode teardown step — *block* — only when *enabled*,
-    # swallowing any error: a user-closed window leaves dead fds whose writes
-    # raise, and restore must press on regardless. Folds the repeated
-    # `if @_listened_… begin disable_… rescue end end` guard `restore_terminal`
-    # applies to each optionally-enabled input mode.
-    private def restore_step(enabled : Bool, & : -> Nil) : Nil
-      return unless enabled
-      begin
-        yield
-      rescue
       end
     end
 

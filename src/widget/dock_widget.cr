@@ -297,27 +297,34 @@ module Crysterm
       end
 
       # Title-bar button glyphs: CSS `DockWidget::close-button { glyph: … }` /
-      # `::float-button`, then the registry at the effective tier.
-      private def close_glyph : Char
-        glyph(Glyphs::Role::CloseButton, style.raw_sub_style("close-button"))
+      # `::float-button`, then the registry at the effective tier. Returned as a
+      # whole grapheme (single-placement affordance, GLYPHS.md §4) so a wide or
+      # multi-codepoint override renders whole and the button reserves its width.
+      private def close_glyph : String
+        glyph_str(Glyphs::Role::CloseButton, style.raw_sub_style("close-button"))
       end
 
       # :ditto:
-      private def float_glyph : Char
-        glyph(floating? ? Glyphs::Role::FloatingMark : Glyphs::Role::FloatButton,
+      private def float_glyph : String
+        glyph_str(floating? ? Glyphs::Role::FloatingMark : Glyphs::Role::FloatButton,
           style.raw_sub_style("float-button"))
       end
 
       private def build_buttons
-        @close_button = titlebutton(0, close_glyph.to_s) { close_dock } if closable?
-        @float_button = titlebutton(closable? ? 2 : 0, float_glyph.to_s) { toggle_floating } if floatable?
+        @close_button = titlebutton(0, close_glyph) { close_dock } if closable?
+        # The float button sits one cell left of the close button (when present),
+        # so its offset reserves the close glyph's measured width plus the gap.
+        float_offset = closable? ? Unicode.width(close_glyph) + 1 : 0
+        @float_button = titlebutton(float_offset, float_glyph) { toggle_floating } if floatable?
       end
 
-      # Builds one title-bar button: a 1x1 `Box` pinned to the bar's right edge
-      # at *offset*, showing *glyph*, invoking *handler* when clicked.
+      # Builds one title-bar button: a `Box` pinned to the bar's right edge at
+      # *offset*, as wide as *glyph* measures (1 for the classic single-cell
+      # marks, 2 for an emoji-presentation override), showing *glyph*, invoking
+      # *handler* when clicked.
       private def titlebutton(offset : Int32, glyph : String, &handler : ->) : Box
         btn = Box.new(
-          parent: titlebar, top: 0, right: offset, width: 1, height: 1,
+          parent: titlebar, top: 0, right: offset, width: Unicode.width(glyph), height: 1,
           content: glyph, focus_on_click: false,
         )
         btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
@@ -326,9 +333,20 @@ module Crysterm
       end
 
       private def refresh_buttons
-        @close_button.try &.set_content(close_glyph.to_s)
-        @float_button.try &.set_content(float_glyph.to_s)
+        # Re-measure on refresh: the float mark swaps FloatButton⇄FloatingMark on
+        # dock/float, and either state may carry a wide override, so the button's
+        # reserved width tracks the current glyph. `width=`/`set_content` no-op
+        # while unchanged (byte-identical for the single-cell marks).
+        @close_button.try { |b| set_button b, close_glyph }
+        @float_button.try { |b| set_button b, float_glyph }
         refresh_grip
+      end
+
+      # Points a title-bar button at *glyph*, reserving its measured width.
+      private def set_button(btn : Box, glyph : String) : Nil
+        w = Unicode.width(glyph)
+        btn.width = w unless btn.width == w
+        btn.set_content(glyph)
       end
 
       # A floatable dock owns a corner resize grip; non-floatable docks get none.

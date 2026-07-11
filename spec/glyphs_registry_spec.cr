@@ -81,6 +81,35 @@ describe Crysterm::Glyphs do
     end
   end
 
+  it "carries multi-codepoint graphemes in the String columns (emoji-presentation)" do
+    ext = Glyphs::Tier::Extended
+    # `⚠️` = U+26A0 + VS16: two codepoints a `Char` can't hold. The widened
+    # `extended` String column carries it; `str` returns it whole.
+    warn = Glyphs.str(Glyphs::Role::IconWarningSign, ext)
+    warn.should eq "⚠️"
+    warn.codepoints.size.should eq 2
+    # `char?` reports the fast-lane single codepoint, or nil for a cluster.
+    Glyphs.char?(Glyphs::Role::IconWarningSign, ext).should be_nil
+    Glyphs.char?(Glyphs::Role::IconWarningSign, Glyphs::Tier::Unicode).should eq '⚠'
+    # A cell-role `[]` read still reject-to-falls-back to a lone codepoint,
+    # never widening: extended's cluster drops to the single unicode symbol.
+    Glyphs[Glyphs::Role::IconWarningSign, ext].should eq '⚠'
+    # A lone-codepoint role answers the same char through all three accessors.
+    Glyphs.str(Glyphs::Role::BorderLineTL, Glyphs::Tier::Unicode).should eq "┌"
+    Glyphs.char?(Glyphs::Role::BorderLineTL, Glyphs::Tier::Unicode).should eq '┌'
+  end
+
+  it "accepts both Char and String overrides via set" do
+    begin
+      Glyphs.set Glyphs::Role::IconWarning, extended: "⚠️" # String
+      Glyphs.str(Glyphs::Role::IconWarning, Glyphs::Tier::Extended).should eq "⚠️"
+      Glyphs.set Glyphs::Role::IconWarning, unicode: '!' # Char still works
+      Glyphs[Glyphs::Role::IconWarning, Glyphs::Tier::Unicode].should eq '!'
+    ensure
+      Glyphs.reset
+    end
+  end
+
   it "retunes roles via set and restores via reset, bumping the generation" do
     gen = Glyphs.generation
     Glyphs.set Glyphs::Role::ScrollThumb, unicode: '▓'

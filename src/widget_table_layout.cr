@@ -262,15 +262,7 @@ module Crysterm
           io << cell.byte_slice(start_byte)
         else
           # Keep the leading `width` columns: drop trailing graphemes.
-          kept = 0
-          end_byte = 0
-          cell.each_grapheme do |g|
-            gw = fu ? Unicode.width(g) : g.size
-            break if kept + gw > width
-            kept += gw
-            end_byte += g.bytesize
-          end
-          io << cell.byte_slice(0, end_byte)
+          io << cell.byte_slice(0, Unicode.leading_byte_len(cell, width, fu))
         end
       else
         io << cell

@@ -141,8 +141,6 @@ module Crysterm
       @layout_revision = -1
       @rendered_revision = -1
 
-      @ev_contents_change : Crysterm::Event::ContentsChange::Wrapper?
-
       def initialize(
         input_on_focus = false,
         max_length = nil,
@@ -172,33 +170,19 @@ module Crysterm
       # whole layout cache drops.
       def document=(doc : TextDocument)
         return if doc.same?(@document)
-        unwire_document
-        @document = doc
-        # The tracker cursor and typing format belong to the old document.
-        @edit_cursor = nil
-        @typing_format = nil
-        @cursor_pos = 0
-        clear_selection
-        @goal_col = nil
+        swap_document(doc)
+      end
+
+      protected def reset_document_caches : Nil
         @block_layouts.clear
         @layout_key = nil
         @doc_revision += 1
-        wire_document
-        mark_dirty
-        request_render if window?
       end
 
       private def wire_document : Nil
         @ev_contents_change = document.on(Crysterm::Event::ContentsChange) do |e|
           on_contents_change(e.position, e.chars_removed, e.chars_added, e.kind)
         end
-      end
-
-      private def unwire_document : Nil
-        @ev_contents_change.try do |w|
-          @document.try &.off(Crysterm::Event::ContentsChange, w)
-        end
-        @ev_contents_change = nil
       end
 
       # Document edit hook: drop the layout cache entries of the blocks now
@@ -953,24 +937,7 @@ module Crysterm
       # splitting/joining blocks, and typing a list marker auto-formats when
       # `#auto_formatting` enables it.
       def _listener(e)
-        if !read_only? && (k = e.key)
-          if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
-            e.accept
-            # A non-kill action ends the consecutive-kill run (emacs
-            # semantics) — same as the mixin's other early-return keys.
-            kill_ring.interrupt if Crysterm::Config.input_readline_keys
-            before = buf_text
-            if k == Tput::Key::CtrlZ ? undo : redo
-              ensure_cursor_visible
-              ensure_cursor_visible_x
-              after = buf_text
-              emit Crysterm::Event::TextChange, after if after != before
-              request_render
-              _update_cursor
-            end
-            return
-          end
-        end
+        return if handle_undo_redo_key(e)
 
         # Table-aware routing: cell editing/navigation inside a table, and
         # the guards that keep outside edits from tearing the box rendering.

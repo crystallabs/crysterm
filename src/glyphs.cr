@@ -37,17 +37,79 @@ module Crysterm
     # painted. See `Role#cell?` and `Widget#glyph`/`Widget#glyph?`.
     NONE = '\0'
 
-    # One role's characters: `ascii` is mandatory, higher tiers optional
-    # (`nil` falls down a tier).
-    record Entry, ascii : Char, unicode : Char? = nil, extended : Char? = nil do
-      # The character to use at *tier*, falling down to lower tiers when this
-      # entry defines none for it.
+    # The `String` form of the "no glyph" sentinel, stored in `Style`'s
+    # (now `String`-typed) glyph fields — the widened companion to `NONE`.
+    # CSS `glyph: none` stores this; consumers compare against it to mean
+    # "omit" (run role) / "registry default" (cell role). A `String` sentinel
+    # is needed because the CSS glyph value can be a multi-codepoint grapheme
+    # (`⚠️`), so the fields can no longer be `Char?`.
+    NONE_STR = NONE.to_s
+
+    # One role's glyphs. `ascii` is a mandatory single 7-bit character — the
+    # guaranteed 1-column fast lane. `unicode`/`extended` are optional
+    # *Strings*, so a role can carry a multi-codepoint grapheme a `Char` can't
+    # hold: an emoji-presentation `⚠️` (base + VS16), a regional-indicator
+    # flag, any combining sequence. `nil` falls down a tier. `Char` arguments
+    # are accepted and widened, so the whole DEFAULTS table still reads as
+    # character literals.
+    #
+    # Three accessors, mirroring the cell layer's ascii/grapheme split:
+    # `#str` (the full grapheme, for measured *run* roles), `#char?` (the lone
+    # codepoint or `nil`, the fast lane), and `#for` (a guaranteed `Char` with
+    # reject-to-fallback, for fixed 1-column *cell* roles).
+    struct Entry
+      getter ascii : Char
+      getter unicode : String?
+      getter extended : String?
+
+      def initialize(@ascii : Char, unicode : Char | String | Nil = nil,
+                     extended : Char | String | Nil = nil)
+        @unicode = unicode.is_a?(Char) ? unicode.to_s : unicode
+        @extended = extended.is_a?(Char) ? extended.to_s : extended
+      end
+
+      # The full grapheme to use at *tier* (String), falling down to lower
+      # tiers when this entry defines none for it. The *run*-role accessor:
+      # returns the stored String reference (allocation-free) except on the
+      # Ascii-tier `ascii`-only fallback, where the single char is boxed.
+      def str(tier : Tier) : String
+        case tier
+        in .extended? then @extended || @unicode || @ascii.to_s
+        in .unicode?  then @unicode || @ascii.to_s
+        in .ascii?    then @ascii.to_s
+        end
+      end
+
+      # The single Char to use at *tier* when the resolved grapheme is exactly
+      # one codepoint, else `nil` — the lone-codepoint fast lane. `nil` tells a
+      # caller the glyph is a multi-codepoint cluster it must render via `#str`.
+      def char?(tier : Tier) : Char?
+        s = str tier
+        s.size == 1 ? s[0] : nil
+      end
+
+      # The Char to use at *tier* for a fixed 1-column *cell* role:
+      # reject-to-fallback to the nearest lower tier that is a lone codepoint,
+      # ending at `ascii`, so a multi-codepoint upgrade can never widen the
+      # cell. This is the accessor for the fill-region cell roles (scrollbar,
+      # slider, rules, junctions, borders — `Role#cell?`), which paint a single
+      # char across a cross-axis run and so must stay exactly one column.
+      #
+      # The *single-placement* affordance roles (`SizeGrip`, `DockWidget`
+      # close/float — not `cell?`) instead take the always-measure path via
+      # `Entry#str` + `Widget#glyph_measured`: they keep a wide grapheme whole
+      # and reserve its measured width. That split is why this reject-fallback
+      # stays — no type or table change; the two paths share this one table.
       def for(tier : Tier) : Char
         case tier
-        in .extended? then @extended || @unicode || @ascii
-        in .unicode?  then @unicode || @ascii
+        in .extended? then lone(@extended) || lone(@unicode) || @ascii
+        in .unicode?  then lone(@unicode) || @ascii
         in .ascii?    then @ascii
         end
+      end
+
+      private def lone(s : String?) : Char?
+        s && s.size == 1 ? s[0] : nil
       end
     end
 
@@ -631,11 +693,14 @@ module Crysterm
       set_in t, Role::IconFastForward, Entry.new('>', '»', '⏩')
       set_in t, Role::IconRewind, Entry.new('<', '«', '⏪')
 
-      # Warning / hazard / safety. `⚠` (the caution triangle) is the classic
-      # single-width symbol; `🔺` is the modern-font upgrade.
-      set_in t, Role::IconWarningSign, Entry.new('!', '⚠', '🔺')
-      set_in t, Role::IconRadioactive, Entry.new('!', '☢')
-      set_in t, Role::IconBiohazard, Entry.new('!', '☣')
+      # Warning / hazard / safety. The `unicode` column holds the classic
+      # single-width text symbol; `extended` upgrades to its emoji-presentation
+      # form — the base codepoint + VS16 (U+FE0F) that a `Char` couldn't hold
+      # and this widened String column now carries (the `⚠️` originally asked
+      # for). Cell-role callers still reject-to-fallback to the single symbol.
+      set_in t, Role::IconWarningSign, Entry.new('!', '⚠', "⚠️")
+      set_in t, Role::IconRadioactive, Entry.new('!', '☢', "☢️")
+      set_in t, Role::IconBiohazard, Entry.new('!', '☣', "☣️")
       set_in t, Role::IconNoEntry, Entry.new('O', nil, '⛔')
       set_in t, Role::IconExclamation, Entry.new('!', nil, '❗')
       set_in t, Role::IconExclamationDouble, Entry.new('!', '‼')
@@ -653,9 +718,9 @@ module Crysterm
       set_in t, Role::IconYinYang, Entry.new('o', '☯')
       set_in t, Role::IconPeace, Entry.new('O', '☮')
       set_in t, Role::IconAtom, Entry.new('*', '⚛')
-      set_in t, Role::IconAnchor, Entry.new('J', nil, '⚓')
-      set_in t, Role::IconScales, Entry.new('T', '⚖')
-      set_in t, Role::IconSwords, Entry.new('X', '⚔')
+      set_in t, Role::IconAnchor, Entry.new('J', nil, "⚓️")
+      set_in t, Role::IconScales, Entry.new('T', '⚖', "⚖️")
+      set_in t, Role::IconSwords, Entry.new('X', '⚔', "⚔️")
       set_in t, Role::IconHammer, Entry.new('h', '⚒', '🔨')
       set_in t, Role::IconSnowman, Entry.new('S', '☃')
       set_in t, Role::IconComet, Entry.new('*', '☄')
@@ -753,6 +818,22 @@ module Crysterm
       @@table.unsafe_fetch(role.value).for(tier)
     end
 
+    # The full grapheme for *role* at *tier* (String) — the *run*-role
+    # accessor. A multi-codepoint upgrade (`⚠️`, a flag, a combining sequence)
+    # survives here where `#[]` would reject-to-fallback to a lone codepoint.
+    @[AlwaysInline]
+    def self.str(role : Role, tier : Tier) : String
+      @@table.unsafe_fetch(role.value).str(tier)
+    end
+
+    # The single Char for *role* at *tier* when the glyph is one codepoint,
+    # else `nil` (a multi-codepoint cluster — render it with `#str`). The fast
+    # lane for callers that special-case the common single-character glyph.
+    @[AlwaysInline]
+    def self.char?(role : Role, tier : Tier) : Char?
+      @@table.unsafe_fetch(role.value).char?(tier)
+    end
+
     # The full entry for *role*.
     def self.entry(role : Role) : Entry
       @@table.unsafe_fetch(role.value)
@@ -761,8 +842,8 @@ module Crysterm
     # Overrides *role*'s characters. Omitted tiers keep their current value;
     # pass `unset: true` to clear the `unicode`/`extended` overrides back to
     # tier fall-down instead.
-    def self.set(role : Role, ascii : Char? = nil, unicode : Char? = nil,
-                 extended : Char? = nil, unset : Bool = false) : Nil
+    def self.set(role : Role, ascii : Char? = nil, unicode : Char | String | Nil = nil,
+                 extended : Char | String | Nil = nil, unset : Bool = false) : Nil
       e = @@table[role.value]
       @@table[role.value] = Entry.new(
         ascii || e.ascii,

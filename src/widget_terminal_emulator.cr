@@ -259,12 +259,18 @@ module Crysterm
     # blank one without allocating). Re-fits the line to `@cols` in the unusual
     # case its length drifted from the current width (e.g. a mid-stream resize).
     private def blank_in_place(line : Array(Cell)) : Nil
-      blank = Cell.new(erase_attr, ' ')
+      refill_line line, Cell.new(erase_attr, ' ')
+    end
+
+    # Overwrites an existing line with `cell`, reusing the line's storage and
+    # re-fitting to `@cols` when the line's length has drifted from the current
+    # width (shared by `#blank_in_place` and `#decaln`).
+    private def refill_line(line : Array(Cell), cell : Cell) : Nil
       if line.size == @cols
-        line.fill blank
+        line.fill cell
       else
         line.clear
-        @cols.times { line << blank }
+        @cols.times { line << cell }
       end
     end
 
@@ -405,13 +411,19 @@ module Crysterm
       {bytes, Bytes.empty}
     end
 
+    # True when the parser is inside a non-OSC escape/CSI/charset/hash sequence
+    # (the state set that `#handle_char`'s C0/ESC/DEL guards all key off).
+    private def in_escape_sequence? : Bool
+      @state == :esc || @state == :csi || @state == :charset || @state == :hash
+    end
+
     private def handle_char(c : Char) : Nil
       # An ESC arriving mid escape/CSI/charset aborts the sequence in progress and
       # begins a *new* escape (the VT500 "anywhere: ESC → clear + enter escape"
       # transition); otherwise an ESC mid-CSI dropped to `:ground` and the new
       # sequence's `[` leaked into the grid as literal text. `:osc` (string) is
       # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
-      if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
+      if c.ord == 0x1b && in_escape_sequence?
         @state = :esc
         return
       end
@@ -430,7 +442,7 @@ module Crysterm
       # sequence's final byte, aborting it and leaking the real final ('C'/'A')
       # into the grid as literal text. `:osc` is excluded: a control inside an OSC
       # string is either its BEL terminator or opaque payload (see `#handle_osc`).
-      if c.ord < 0x20 && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
+      if c.ord < 0x20 && in_escape_sequence?
         handle_ground c
         return
       end
@@ -439,7 +451,7 @@ module Crysterm
       # without this guard it reaches `dispatch_csi` (or `handle_esc`'s `else`)
       # as a spurious final byte and aborts the in-flight sequence. Mirrors the
       # C0 bypass above; `:osc` is excluded (DEL is opaque string payload).
-      if c.ord == 0x7f && (@state == :esc || @state == :csi || @state == :charset || @state == :hash)
+      if c.ord == 0x7f && in_escape_sequence?
         return
       end
       case @state
@@ -653,30 +665,17 @@ module Crysterm
     # or nil when there is no n-th field. An empty/non-numeric field reads as 0.
     # No allocation (replaces a per-CSI `split`/`map`).
     private def csi_param_raw(n : Int32) : Int32?
-      ptr = @csi_buf.buffer
-      size = @csi_buf.bytesize
       field = 0
-      val = 0
-      bad = false # non-digit field ⇒ reads as 0
-      idx = 0
-      while idx < size
-        b = ptr[idx].to_i
-        if b == ';'.ord
-          return (bad ? 0 : val) if field == n
-          field += 1
-          val = 0
-          bad = false
-        elsif '0'.ord <= b <= '9'.ord
-          # Clamp to the field maximum; `val <= PARAM_FIELD_MAX` keeps the
-          # accumulation itself far from Int32 overflow.
-          val = Math.min(val * 10 + (b - '0'.ord), PARAM_FIELD_MAX)
-        else
-          bad = true
-        end
-        idx += 1
+      result : Int32? = nil
+      # `#each_csi_param` yields the fields at indices 0, 1, 2, … in order (the
+      # same `;`-separated accumulation this used to open-code inline); capture
+      # the one at index `n`, leaving `nil` when there is no n-th field. The
+      # block inlines, so no allocation is added.
+      each_csi_param do |v|
+        result = v if field == n
+        field += 1
       end
-      return (bad ? 0 : val) if field == n
-      nil
+      result
     end
 
     # The n-th parameter, falling back to `default` when absent or zero (the VT
@@ -1064,11 +1063,7 @@ module Crysterm
         # IRM: open w cells at the cursor by shifting the tail of the line right
         # by w, dropping cells pushed past the end. Same in-place shift
         # `#insert_chars` (ICH) performs, applied per printed character.
-        i = line.size - 1
-        while i - w >= @x
-          line[i] = line[i - w]
-          i -= 1
-        end
+        shift_cells_right line, @x, w
       end
       line[@x] = Cell.new(@cur_attr, c)
       @last_char = c # remember the placed glyph so REP ('b') can repeat it
@@ -1211,19 +1206,25 @@ module Crysterm
         bot = @ybase + @scroll_bottom
         # Recycle the scrolled-off top line's storage as the fresh blank bottom
         # row instead of allocating a new `blank_line` (mirrors recycle_top_row).
-        line = @lines.delete_at top
-        blank_in_place line
-        @lines.insert bot, line
+        roll_line top, bot
       end
+    end
+
+    # Recycles one line's `Array(Cell)` storage by pulling it out of `@lines` at
+    # `from`, blanking it in place, and reinserting it at `to` — the shared
+    # "recycle the scrolled-off line" primitive used by scroll_up/scroll_down and
+    # insert_lines/delete_lines, so none of those paths allocate per line.
+    private def roll_line(from : Int32, to : Int32) : Nil
+      line = @lines.delete_at from
+      blank_in_place line
+      @lines.insert to, line
     end
 
     private def scroll_down : Nil
       top = @ybase + @scroll_top
       bot = @ybase + @scroll_bottom
       # Recycle the scrolled-off bottom line as the fresh blank top row.
-      line = @lines.delete_at bot
-      blank_in_place line
-      @lines.insert top, line
+      roll_line bot, top
     end
 
     private def erase_display(mode : Int32) : Nil
@@ -1292,9 +1293,7 @@ module Crysterm
       bot = @ybase + @scroll_bottom
       n.times do
         # Recycle the discarded bottom line as the blank line opened at the cursor.
-        line = @lines.delete_at bot
-        blank_in_place line
-        @lines.insert @ybase + @y, line
+        roll_line bot, @ybase + @y
       end
     end
 
@@ -1310,9 +1309,7 @@ module Crysterm
       bot = @ybase + @scroll_bottom
       n.times do
         # Recycle the removed line as the blank line backfilled at the bottom.
-        line = @lines.delete_at @ybase + @y
-        blank_in_place line
-        @lines.insert bot, line
+        roll_line @ybase + @y, bot
       end
     end
 
@@ -1326,13 +1323,22 @@ module Crysterm
       n = Math.min(n, line.size - @x)
       return if n <= 0
       blank = Cell.new(erase_attr, ' ')
-      i = line.size - 1
-      while i - n >= @x
-        line[i] = line[i - n]
-        i -= 1
-      end
+      shift_cells_right line, @x, n
+      i = @x + n - 1
       while i >= @x
         line[i] = blank
+        i -= 1
+      end
+    end
+
+    # In-place "open `by` cells at column `from`" shift: walks the tail of `line`
+    # rightward by `by`, dropping cells pushed past the end. Shared by ICH
+    # (`#insert_chars`) and the IRM branch of `#print_char`. (`#delete_chars` is a
+    # left-shift, intentionally separate.)
+    private def shift_cells_right(line : Array(Cell), from : Int32, by : Int32) : Nil
+      i = line.size - 1
+      while i - by >= from
+        line[i] = line[i - by]
         i -= 1
       end
     end
@@ -1394,13 +1400,7 @@ module Crysterm
     private def decaln : Nil
       cell = Cell.new(@cur_attr, 'E')
       @rows.times do |yy|
-        line = @lines[@ybase + yy]
-        if line.size == @cols
-          line.fill cell
-        else
-          line.clear
-          @cols.times { line << cell }
-        end
+        refill_line @lines[@ybase + yy], cell
       end
       @scroll_top = 0
       @scroll_bottom = @rows - 1

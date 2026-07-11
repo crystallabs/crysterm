@@ -513,7 +513,7 @@ module Crysterm
       # a tier switch, or a cascade that (re)set the submenu-arrow/separator
       # glyphs — the rows are rebuilt (a glyph change is a layout-affecting
       # event: column widths move; see GLYPHS.md §4).
-      private def glyph_key : {Glyphs::Tier, UInt64, Char?, Char?}
+      private def glyph_key : {Glyphs::Tier, UInt64, String?, String?}
         tier = glyph_tier
         {tier, Glyphs.generation,
          style.raw_sub_style("indicator").try(&.glyph_for(tier)),
@@ -521,7 +521,7 @@ module Crysterm
       end
 
       # :ditto:
-      @_glyph_key : {Glyphs::Tier, UInt64, Char?, Char?}?
+      @_glyph_key : {Glyphs::Tier, UInt64, String?, String?}?
 
       # Rebuilds the row texts when the resolved glyphs changed out from under
       # them (see `#glyph_key`); a no-op on the steady-state frame.

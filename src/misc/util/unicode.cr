@@ -48,6 +48,58 @@ module Crysterm
       w
     end
 
+    # Pads *cell* with spaces to *width* display columns under horizontal
+    # alignment *align* (`HCenter`/`Right`, else left), returning a new
+    # `String`. A cell already at/over *width* is returned unchanged (no
+    # clipping) — the shared pad/clip-nothing routine behind the pre-rendered
+    # table cells (`TextTable`) and the Markdown table renderer, which maps its
+    # `Symbol` alignment onto `Tput::AlignFlag` first. Distinct from the
+    # io-based clip-capable `TableLayout#pad_cell_to`.
+    def pad(cell : String, width : Int32, align : Tput::AlignFlag?) : String
+      pad = width - display_width(cell)
+      return cell if pad <= 0
+      case align
+      when Nil        then cell + (" " * pad)
+      when .h_center? then (" " * (pad // 2)) + cell + (" " * (pad - pad // 2))
+      when .right?    then (" " * pad) + cell
+      else                 cell + (" " * pad)
+      end
+    end
+
+    # Byte length of the leading run of whole grapheme clusters of *text* that
+    # fits in *width* columns (never splitting a grapheme) — i.e. the `end`
+    # argument for `text.byte_slice(0, …)` when keeping a text's leading
+    # *width* columns. *full_unicode* selects the width metric per grapheme:
+    # true measures display columns (wide CJK/emoji count as 2), false counts
+    # codepoints (`grapheme.size`), preserving each caller's sizing.
+    def leading_byte_len(text : String, cols : Int32, full_unicode : Bool) : Int32
+      kept = 0
+      end_byte = 0
+      text.each_grapheme do |g|
+        gw = full_unicode ? width(g) : g.size
+        break if kept + gw > cols
+        kept += gw
+        end_byte += g.bytesize
+      end
+      end_byte
+    end
+
+    # Whether *c* extends the grapheme cluster it follows: a combining mark, a
+    # zero-width joiner (U+200D), a variation selector (U+FE00..U+FE0F), or an
+    # emoji skin-tone modifier (U+1F3FB..U+1F3FF). The shared successor test
+    # for `Widget#needs_cluster?` / `#extend_grapheme`.
+    def grapheme_extender?(c : Char) : Bool
+      cp = c.ord
+      c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
+    end
+
+    # Whether *c* is a Unicode regional-indicator symbol (U+1F1E6..U+1F1FF); a
+    # pair of them forms a flag emoji. `Char` predicate counterpart of the
+    # internal codepoint check, shared with the cluster assembly.
+    def regional_indicator?(c : Char) : Bool
+      regional_indicator? c.ord
+    end
+
     # Display width of a single grapheme cluster (yielded by `each_grapheme`).
     #
     # Reads the stdlib-internal `@cluster` ivar (`Char | String`) directly to

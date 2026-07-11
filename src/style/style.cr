@@ -305,25 +305,32 @@ module Crysterm
     # one property is addressed at different sites via sub-controls and state
     # pseudos, e.g. `CheckBox::indicator:checked { glyph: "x" }`). All fields
     # are `nil`-signalled (unset = ask the `Glyphs` registry), so they cost no
-    # `specified_mask` bits. `Glyphs::NONE` (CSS `glyph: none`) means "omit"
-    # on run roles and "registry default" on cell roles — the consumer
-    # (`Widget#glyph`/`#glyph?`) decides by role class.
+    # `specified_mask` bits. `Glyphs::NONE_STR` (CSS `glyph: none`) means
+    # "omit" on run roles and "registry default" on cell roles — the consumer
+    # (`Widget#glyph`/`#glyph?`/`#glyph_str`) decides by role class.
+    #
+    # The fields are `String?`, not `Char?`: a CSS glyph value can be a
+    # multi-codepoint grapheme a `Char` can't hold (an emoji-presentation
+    # `⚠️` = base + VS16, a regional-indicator flag, any combining sequence),
+    # mirroring the widened `Glyphs::Entry`. A *cell*-role consumer reduces it
+    # to a lone `Char` (reject-to-fallback); a *run*-role consumer takes it
+    # whole via `Widget#glyph_str`.
 
-    # Universal override: use this character at any tier.
-    property glyph : Char?
+    # Universal override: use this grapheme at any tier.
+    property glyph : String?
 
     # Per-tier longhands (CSS `glyph-ascii`/`glyph-unicode`/`glyph-extended`).
     # Resolution falls *down* tiers within this layer, then to `glyph` — never
     # across layers mid-tier (GLYPHS.md §5).
-    property glyph_ascii : Char?
-    property glyph_unicode : Char?
-    property glyph_extended : Char?
+    property glyph_ascii : String?
+    property glyph_unicode : String?
+    property glyph_extended : String?
 
     # Delimiter pair around a composed indicator marker (CSS `glyph-open`/
-    # `glyph-close`), e.g. a checkbox's `[`/`]`. `Glyphs::NONE` omits the
+    # `glyph-close`), e.g. a checkbox's `[`/`]`. `Glyphs::NONE_STR` omits the
     # delimiter entirely, shrinking the marker (see `Mixin::CheckMarker`).
-    property glyph_open : Char?
-    property glyph_close : Char?
+    property glyph_open : String?
+    property glyph_close : String?
 
     # A sequence override (CSS `glyphs`, GLYPHS.md §3.4): the string's
     # characters are the ordered steps of the site's sequence role — spinner
@@ -333,10 +340,10 @@ module Crysterm
 
     # The CSS-specified glyph for *tier*: the tier longhand, falling down
     # tiers, else the universal `glyph`; `nil` when this style specifies none
-    # (the consumer then asks the `Glyphs` registry). May return
-    # `Glyphs::NONE` — see the field docs above.
+    # (the consumer then asks the `Glyphs` registry). May return the full
+    # multi-codepoint grapheme, or `Glyphs::NONE_STR` — see the field docs above.
     @[AlwaysInline]
-    def glyph_for(tier : Glyphs::Tier) : Char?
+    def glyph_for(tier : Glyphs::Tier) : String?
       case tier
       in .extended? then @glyph_extended || @glyph_unicode || @glyph_ascii || @glyph
       in .unicode?  then @glyph_unicode || @glyph_ascii || @glyph
@@ -671,12 +678,12 @@ module Crysterm
       foreground_char = nil,
       background_char = nil,
       draw_over_border = nil,
-      @glyph : Char? = nil,
-      @glyph_ascii : Char? = nil,
-      @glyph_unicode : Char? = nil,
-      @glyph_extended : Char? = nil,
-      @glyph_open : Char? = nil,
-      @glyph_close : Char? = nil,
+      @glyph : String? = nil,
+      @glyph_ascii : String? = nil,
+      @glyph_unicode : String? = nil,
+      @glyph_extended : String? = nil,
+      @glyph_open : String? = nil,
+      @glyph_close : String? = nil,
       @glyphs : String? = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized

@@ -905,22 +905,34 @@ module Crysterm
     # `ProgressBar`, `Gradient`). Returns the render's `LPos` (or `nil` when
     # nothing was rendered). Use `next` inside the block to bail out early while
     # still returning the coords.
-    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : LPos?
-      ret = _render
+    # Shared body of `with_inner_coords`/`with_content_coords`: runs the base
+    # `_render` (forwarding *with_children*), bails when nothing rendered, then
+    # insets the resulting coordinates by this widget's border — and, when *pad*
+    # is true, additionally by the padding — before yielding the interior
+    # rectangle `(xi, xl, yi, yl)`. Returns the render's `LPos` (or `nil`).
+    #
+    # The inset is strictly by-value: `ret` is this widget's cached `@lpos`, and
+    # `Border#adjust(pos)`/`Padding#adjust(pos)` would shrink it in place, so
+    # mutating it would permanently collapse `@lpos` to the interior,
+    # under-reporting mouse hit-testing, damage-tracking bounds, and
+    # `clear_last_rendered_position` until the next frame. The allocation-free
+    # by-value overloads used here leave `@lpos`/`ret` describing the full rect.
+    private def with_inset_coords(with_children, pad : Bool, & : (Int32, Int32, Int32, Int32) -> _) : LPos?
+      ret = _render with_children
       return unless ret
-      # Inset by the border to get the interior rectangle, but do NOT mutate
-      # `ret` — it's this widget's cached `@lpos`. `Border#adjust(pos)` shrinks
-      # in place, so mutating it via `style.border.try &.adjust(ret)` would
-      # permanently collapse `@lpos` to the interior, under-reporting mouse
-      # hit-testing, damage-tracking bounds, and `clear_last_rendered_position`
-      # until the next frame. Use the allocation-free by-value overload instead,
-      # leaving `@lpos`/`ret` describing the full widget rect.
       xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
       if border = style.border
         xi, xl, yi, yl = border.adjust xi, xl, yi, yl
       end
+      if pad
+        xi, xl, yi, yl = style.padding.adjust xi, xl, yi, yl
+      end
       yield xi, xl, yi, yl
       ret
+    end
+
+    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : LPos?
+      with_inset_coords(true, false) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
     # Like `with_inner_coords`, but insets the rendered rectangle by the border
@@ -932,17 +944,7 @@ module Crysterm
     # rendered). `with_children` is forwarded to `_render` so an interior-painting
     # widget can still opt out of rendering its children.
     def with_content_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : LPos?
-      ret = _render with_children
-      return unless ret
-      # By-value inset only — never mutate `ret` (it is this widget's cached
-      # `@lpos`); see the note in `with_inner_coords`.
-      xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
-      if border = style.border
-        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
-      end
-      xi, xl, yi, yl = style.padding.adjust xi, xl, yi, yl
-      yield xi, xl, yi, yl
-      ret
+      with_inset_coords(with_children, true) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
     def self.sattr(style, fg = nil, bg = nil) : Int64

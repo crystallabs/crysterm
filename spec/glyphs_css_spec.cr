@@ -22,68 +22,109 @@ private def apply(style, prop, value)
   Crysterm::CSS::Properties.apply(style, prop, value)
 end
 
-describe "CSS glyph value parsing (Properties.parse_char)" do
+describe "CSS glyph value parsing (Properties.parse_glyph)" do
   it "accepts a quoted character" do
     st = Style.new
     apply st, "glyph", %("▾")
-    st.glyph.should eq '▾'
+    st.glyph.should eq "▾"
   end
 
   it "accepts a bare character" do
     st = Style.new
     apply st, "glyph", "▾"
-    st.glyph.should eq '▾'
+    st.glyph.should eq "▾"
   end
 
   it "accepts decimal and hex code points (Qt convention)" do
     st = Style.new
     apply st, "glyph", "9662"
-    st.glyph.should eq '▾'
+    st.glyph.should eq "▾"
     apply st, "glyph", "0x25CF"
-    st.glyph.should eq '●'
+    st.glyph.should eq "●"
+  end
+
+  it "keeps a multi-codepoint grapheme whole (widened String storage)" do
+    st = Style.new
+    # `⚠️` = U+26A0 + VS16 — two code points a `Char` couldn't hold; the
+    # widened `String` field keeps the emoji-presentation form intact.
+    apply st, "glyph", %("⚠️")
+    st.glyph.should eq "⚠️"
+    st.glyph.not_nil!.codepoints.size.should eq 2
   end
 
   it "keeps a quoted digit a literal, not a code point" do
     st = Style.new
     apply st, "glyph", %("9")
-    st.glyph.should eq '9'
+    st.glyph.should eq "9"
   end
 
   it "stores the NONE sentinel for `none`" do
     st = Style.new
     apply st, "glyph", "none"
-    st.glyph.should eq Glyphs::NONE
+    st.glyph.should eq Glyphs::NONE_STR
   end
 
   it "drops a blank value (collapsed var()) and an out-of-range code point" do
     st = Style.new
     apply st, "glyph", "▾"
     apply st, "glyph", ""
-    st.glyph.should eq '▾' # unchanged
+    st.glyph.should eq "▾" # unchanged
     apply st, "glyph", "99999999999"
-    st.glyph.should eq '▾' # unchanged
+    st.glyph.should eq "▾" # unchanged
   end
 end
 
 describe "Style#glyph_for tier resolution" do
   it "resolves the tier longhand, falling down tiers, then the universal glyph" do
     st = Style.new
-    st.glyph = '*'
-    st.glyph_for(Glyphs::Tier::Extended).should eq '*'
-    st.glyph_for(Glyphs::Tier::Ascii).should eq '*'
+    st.glyph = "*"
+    st.glyph_for(Glyphs::Tier::Extended).should eq "*"
+    st.glyph_for(Glyphs::Tier::Ascii).should eq "*"
 
-    st.glyph_ascii = 'v'
-    st.glyph_unicode = '▾'
-    st.glyph_for(Glyphs::Tier::Extended).should eq '▾' # falls down to unicode
-    st.glyph_for(Glyphs::Tier::Unicode).should eq '▾'
-    st.glyph_for(Glyphs::Tier::Ascii).should eq 'v'
+    st.glyph_ascii = "v"
+    st.glyph_unicode = "▾"
+    st.glyph_for(Glyphs::Tier::Extended).should eq "▾" # falls down to unicode
+    st.glyph_for(Glyphs::Tier::Unicode).should eq "▾"
+    st.glyph_for(Glyphs::Tier::Ascii).should eq "v"
 
-    st.glyph_extended = '⯆'
-    st.glyph_for(Glyphs::Tier::Extended).should eq '⯆'
+    st.glyph_extended = "⯆"
+    st.glyph_for(Glyphs::Tier::Extended).should eq "⯆"
+
+    # A tier longhand may itself be a multi-codepoint grapheme.
+    st.glyph_extended = "⚠️"
+    st.glyph_for(Glyphs::Tier::Extended).should eq "⚠️"
   end
 
   it "answers nil when nothing is specified" do
     Style.new.glyph_for(Glyphs::Tier::Unicode).should be_nil
+  end
+end
+
+describe "Widget glyph accessors: cell reduce vs run grapheme" do
+  it "keeps a multi-codepoint CSS glyph whole on a run role, reduces on a cell role" do
+    s = gc_screen
+    b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1
+    st = Style.new
+    st.glyph = "⚠️"
+    # Run role: the whole grapheme flows through the String accessors.
+    b.glyph_str(Glyphs::Role::IconWarningSign, st).should eq "⚠️"
+    b.glyph_str?(Glyphs::Role::IconWarningSign, st).should eq "⚠️"
+    # Cell role: can't widen — reject-to-fallback to the registry cell `Char`.
+    b.glyph(Glyphs::Role::ScrollThumb, st).should eq(
+      Glyphs[Glyphs::Role::ScrollThumb, Glyphs::Tier::Unicode])
+    # The `Char`-typed run accessor also can't carry it → registry.
+    b.glyph?(Glyphs::Role::SubmenuArrow, st).should eq(
+      Glyphs[Glyphs::Role::SubmenuArrow, Glyphs::Tier::Unicode])
+  end
+
+  it "honors CSS `glyph: none` in glyph_str? (omit) but registry-fills glyph_str" do
+    s = gc_screen
+    b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1
+    st = Style.new
+    st.glyph = Glyphs::NONE_STR
+    b.glyph_str?(Glyphs::Role::IconWarningSign, st).should be_nil
+    b.glyph_str(Glyphs::Role::IconWarningSign, st).should eq(
+      Glyphs.str(Glyphs::Role::IconWarningSign, Glyphs::Tier::Unicode))
   end
 end
 

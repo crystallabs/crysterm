@@ -82,6 +82,14 @@ module Crysterm
       end || color
     end
 
+    # Formats a native color as a `#rrggbb` hex string (zero-padded to 6
+    # digits) — the single source for the `"##{c.to_s(16).rjust(6, '0')}"`
+    # idiom the document/tag exporters and the gauge bar would otherwise
+    # re-inline. Assumes a `0x000000..0xFFFFFF` value (callers guard `>= 0`).
+    def self.hex(color : Int) : String
+      "##{color.to_s(16).rjust(6, '0')}"
+    end
+
     # Packs three `0..255` channel bytes into a native `0xRRGGBB` color — the
     # single source for the `(r<<16)|(g<<8)|b` idiom that image/effect backends
     # would otherwise re-inline per pixel. Channels are assumed already in range
