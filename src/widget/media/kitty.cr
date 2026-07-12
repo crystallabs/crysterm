@@ -102,12 +102,24 @@ module Crysterm
         {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
+      # Reused RGBA scratch, sized to the current `pw*ph*4` and refilled in place
+      # each frame. A Kitty-backed chart/donut re-encodes every changed frame, so
+      # a fresh `Bytes.new(pw*ph*4)` here (plus the same-size base64 `String`
+      # below) was hundreds of KB of transient garbage *per frame* — the dominant
+      # per-frame allocation on the graphics path. Encoding runs only on the
+      # single render fiber, so one shared buffer is safe. Every byte is rewritten
+      # each frame (the `else` branch zeroes transparent pixels), so no stale
+      # bytes from a previous frame can survive the reuse.
+      @rgba_scratch : Bytes = Bytes.empty
+
       # Kitty places at the text cursor (positioned by the base class), so the
       # *ox*/*oy* pixel origin is unused.
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                  cols : Int32, rows : Int32) : String
-        # Pack raw RGBA, top-to-bottom.
-        rgba = Bytes.new(pw * ph * 4)
+        # Pack raw RGBA, top-to-bottom, into the reused scratch.
+        need = pw * ph * 4
+        rgba = @rgba_scratch
+        rgba = @rgba_scratch = Bytes.new(need) if rgba.size != need
         i = 0
         ph.times do |y|
           rin = bmp[y]
@@ -116,12 +128,14 @@ module Crysterm
             if px
               rgba[i] = px.r.to_u8!; rgba[i + 1] = px.g.to_u8!
               rgba[i + 2] = px.b.to_u8!; rgba[i + 3] = px.a.to_u8!
+            else
+              # Reused buffer: a transparent pixel must clear the previous
+              # frame's bytes at this position, not inherit them.
+              rgba[i] = 0u8; rgba[i + 1] = 0u8; rgba[i + 2] = 0u8; rgba[i + 3] = 0u8
             end
             i += 4
           end
         end
-
-        b64 = Base64.strict_encode rgba
 
         # Display scaled into the widget's cell box (c=/r=), filling it exactly
         # regardless of transmitted pixel size.
@@ -129,14 +143,19 @@ module Crysterm
         rows = 1 if rows < 1
 
         io = String::Builder.new
-        chunk = 4096
+        # Stream base64 straight into the payload in transmit-chunk units rather
+        # than materializing the whole encoded string first (a second same-size
+        # transient). 3072 raw bytes encode to exactly 4096 base64 chars with no
+        # interior padding (3072 % 3 == 0), so each chunk is self-contained and
+        # their concatenation is byte-identical to encoding the full buffer —
+        # only the final (short) chunk carries any `=` padding, exactly as before.
+        chunk_raw = 3072
         offset = 0
         first = true
-        total = b64.bytesize
-        while offset < total
-          slice = b64[offset, Math.min(chunk, total - offset)]
-          offset += chunk
-          more = offset < total ? 1 : 0
+        while offset < need
+          n = Math.min(chunk_raw, need - offset)
+          offset += n
+          more = offset < need ? 1 : 0
           io << "\e_G"
           if first
             # a=T transmit+display, f=32 RGBA, s/v pixel size, c/r cell box,
@@ -153,7 +172,9 @@ module Crysterm
           else
             io << "m=" << more
           end
-          io << ';' << slice << "\e\\"
+          io << ';'
+          Base64.strict_encode(rgba[offset - n, n], io)
+          io << "\e\\"
         end
         # Double-buffer: delete the *other* buffer now that the new frame is
         # placed. Wrapped by the base in synchronized output, so place+delete
