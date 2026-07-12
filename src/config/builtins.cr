@@ -169,6 +169,8 @@ module Superconf
     description: "Video decode strategy (auto|eager|stream): 'eager' loads all frames into memory (best for short loops), 'stream' decodes on demand at constant memory (best for long videos), 'auto' streams when the estimated frame count exceeds video.max_frames"
   option "media.double_buffer", true,
     description: "Present each animation frame atomically on in-band graphics backends (sixel/regis/kitty/iterm) via synchronized output; Kitty additionally swaps alternating image ids — eliminates tearing and the mid-update blank/flash"
+  option "media.reuse_buffers", false,
+    description: "EXPERIMENTAL: on in-band graphics backends (sixel/kitty/…), reuse per-frame scratch across renders instead of reallocating it — skip the identity resample copy in Media::Fitting when the source already matches the target pixel box (the common Graph::Canvas case), and pre-size the escape-payload builder. Cuts the dominant per-frame allocation of an animated graphic (e.g. Widget::Graph::Donut). Only the transient encode path opts in; capture/compositing still gets its own stable copy"
 
   # -- Widget defaults -------------------------------------------------------
   option "message.display_time", 3.seconds,

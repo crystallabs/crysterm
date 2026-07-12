@@ -142,7 +142,20 @@ module Crysterm
         cols = 1 if cols < 1
         rows = 1 if rows < 1
 
-        io = String::Builder.new
+        # Pre-size the builder to the payload's known final size when reuse is on,
+        # so a ~230 KB frame doesn't grow (and re-copy) the builder's buffer from
+        # its 64-byte default up in doublings — halving the per-frame payload
+        # garbage. The final `String` itself is inherent (its bytes change every
+        # frame), but the doubling copies are not. Estimate: base64 of `need`
+        # bytes + a per-chunk escape wrapper (`\e_Gm=1;` … `\e\\`) + the
+        # double-buffer delete suffix.
+        io = if Config.media_reuse_buffers
+               b64_len = ((need + 2) // 3) * 4
+               n_chunks = (need + 3071) // 3072
+               String::Builder.new(b64_len + n_chunks * 72 + 96)
+             else
+               String::Builder.new
+             end
         # Stream base64 straight into the payload in transmit-chunk units rather
         # than materializing the whole encoded string first (a second same-size
         # transient). 3072 raw bytes encode to exactly 4096 base64 chars with no

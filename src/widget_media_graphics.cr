@@ -281,9 +281,25 @@ module Crysterm
       # `Media::Fitting`. `pixel_box` marks the box as true device pixels, so
       # `Fit::None` draws the source at its native pixel size instead of a
       # cell footprint (which would halve its height by the cell aspect ratio).
-      protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
+      protected def fit_bitmap(bw : Int32, bh : Int32, transient : Bool = false) : PNGGIF::Bitmap?
         src = source || return nil
         frame = @src_frames.try(&.[@anim_index]?).try &.[0]
+        # Reuse fast path (opt-in via `media.reuse_buffers`): the graphics backends
+        # feed the fit bitmap straight into `#encode` and discard it — unlike
+        # `Media::Cells`, which caches its sample — so when a *transient* caller
+        # (`#build_payload`) asks and the source already matches the target box
+        # exactly, the resample in `Media::Fitting.compose` is a pure identity copy.
+        # That is the common `Graph::Canvas` case: it paints at
+        # `native_resolution == the pixel box`, so an animated donut/chart otherwise
+        # allocates a fresh `bw*bh` bitmap every frame just to copy pixels it already
+        # has. Hand the source pixels straight to `#encode` instead. `#capture_layer`
+        # never opts in — it hands the bitmap to an external holder (the capture
+        # compositor) that must own a copy stable across the next repaint.
+        if transient && Config.media_reuse_buffers
+          cand = frame || src.bmp
+          sw, sh = Media.dims(cand)
+          return cand if sw == bw && sh == bh
+        end
         Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true
       end
 
@@ -313,7 +329,7 @@ module Crysterm
       # `#raw_bytes` + the cell box instead.
       protected def build_payload(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
-        bmp = fit_bitmap(bw, bh) || return nil
+        bmp = fit_bitmap(bw, bh, transient: true) || return nil
         real_w, real_h = Media.dims(bmp)
         return nil if real_w == 0 || real_h == 0
         encode(bmp, real_w, real_h, ox, oy, cols, rows)
