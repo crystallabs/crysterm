@@ -483,8 +483,13 @@ module Crysterm
       end
 
       private def handle_mouse(e) : Nil
-        col = e.x - aleft - ileft
-        row = e.y - atop - itop
+        # Map the pointer through the *painted* position (`@lpos`), not the
+        # layout coords (`aleft`/`atop`): inside a scrolled container the painted
+        # rect is shifted by the ancestor's scroll base, and mouse dispatch
+        # hit-tests against `@lpos`. Mirrors `Mixin::CheckMarker`.
+        lpos = @lpos || return
+        col = e.x - (lpos.xi + ileft)
+        row = e.y - (lpos.yi + itop)
         return if col < 0 || row < 0
 
         if navigation_bar_visible? && row == 0
@@ -625,7 +630,12 @@ module Crysterm
         # the selected row into view — so the long year list opens already
         # scrolled to the current year instead of at its top.
         menu.selekt index
-        menu.popup aleft + ileft + col, atop + itop + 1
+        lpos = @lpos
+        if lpos
+          menu.popup lpos.xi + ileft + col, lpos.yi + itop + 1
+        else
+          menu.popup aleft + ileft + col, atop + itop + 1
+        end
       end
 
       # Whether absolute point (*x*, *y*) falls inside an open month/year nav
@@ -643,8 +653,9 @@ module Crysterm
       # grab region (see `#popup_nav_menu`).
       private def nav_grab_region?(x : Int32, y : Int32) : Bool
         return false unless navigation_bar_visible?
-        col = x - aleft - ileft
-        row = y - atop - itop
+        lpos = @lpos || return false
+        col = x - (lpos.xi + ileft)
+        row = y - (lpos.yi + itop)
         return false unless row == 0
         col == @nav_prev_col || col == @nav_next_col ||
           @nav_month_range.includes?(col) || @nav_year_range.includes?(col)

@@ -49,7 +49,10 @@ module Crysterm
 
     # Clears the last-rendered rect of *el*'s whole subtree (the widget-side
     # analog of `Layout#skip_subtree`). Explicit recursion, allocation-free.
-    private def clear_subtree_lpos(el : Widget) : Nil
+    # Shared: also called from `Widget#_render`'s early-return paths, whose
+    # callers filter out `layout_excluded?` chrome (the same way `skip_subtree`'s
+    # callers do — such chrome renders out-of-band with its own live `lpos`).
+    protected def clear_subtree_lpos(el : Widget) : Nil
       el.lpos = nil
       el.children.each { |c| clear_subtree_lpos c }
     end

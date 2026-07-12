@@ -140,6 +140,12 @@ module Crysterm
         end
 
         def draw_line(x0 : Number, y0 : Number, x1 : Number, y1 : Number) : Nil
+          # A non-finite endpoint would map through `to_px` to the far-off-canvas
+          # sentinel; unlike `#plot`'s per-pixel bounds check, `#line`'s Bresenham
+          # walk plots every pixel *between* the endpoints, so a valid point to a
+          # sentinel point draws a visible stray ray to the canvas edge and then
+          # iterates ~10^6 rejected pixels off-canvas. Skip the segment entirely.
+          return unless x0.to_f.finite? && y0.to_f.finite? && x1.to_f.finite? && y1.to_f.finite?
           line dx(x0), dy(y0), dx(x1), dy(y1)
         end
 
@@ -149,6 +155,7 @@ module Crysterm
           (1...points.size).each do |i|
             a = points[i - 1]
             b = points[i]
+            next unless a[0].finite? && a[1].finite? && b[0].finite? && b[1].finite?
             line dx(a[0]), dy(a[1]), dx(b[0]), dy(b[1])
           end
         end

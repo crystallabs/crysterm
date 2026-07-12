@@ -134,7 +134,11 @@ module Crysterm
     # Hides the tooltip (if shown). Qt's `QToolTip::hideText`.
     def remove_hover
       @_tooltip.try &.hide
-      window?.try &.schedule_render
+      # Render the tooltip's OWN window, not the widget's: after a cross-window
+      # reparent the tooltip may still live on the window it was created on, and
+      # `Widget#hide` schedules no render itself — so the old surface would keep
+      # showing the tooltip frame if we only re-rendered the widget's window.
+      @_tooltip.try &.window?.try &.schedule_render
     end
 
     private def wire_tooltip : Nil
@@ -187,6 +191,14 @@ module Crysterm
       text = @tool_tip
       return unless text && !text.empty?
       return unless s = window?
+      # A cross-window reparent strands the cached tooltip on the old window (it
+      # is a *satellite* window child, not ours), so reusing it would pop the
+      # tip up on the wrong surface at this window's coordinates. Drop the stale
+      # tooltip and let the lazy-create below rebuild it on the current window.
+      if (stale = @_tooltip) && stale.window? != s
+        ::Crysterm::Widget.destroy_satellite stale
+        @_tooltip = nil
+      end
       tip = (@_tooltip ||= begin
         t = Widget::ToolTip.new window: s
         s.append t

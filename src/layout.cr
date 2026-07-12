@@ -69,15 +69,35 @@ module Crysterm
         # chrome renders out-of-band with its own live `lpos`, so it's left
         # untouched.
         each_arrangeable(container) { |el| skip_subtree el }
+        render_chrome container
         return
       end
       arrange container, interior
+      render_chrome container
     end
 
     # Arranges (and renders) the container's children within `interior` (the
     # absolute interior rectangle from `#interior_coords`). Implementations set
     # each child's geometry and render it via `#render_child`, or `#skip` it.
     abstract def arrange(container : Widget, interior : LPos) : Nil
+
+    # Renders the container's *chrome* children — a border label or a bound
+    # scroll bar (`Widget#layout_chrome?`) — after `#arrange`. Unlike
+    # `layout_excluded?` chrome (rendered fully out-of-band from `Widget#_render`
+    # and skipped by `#render_child`), these are painted by the normal child pass
+    # but must not be *arranged* (measured/placed) as content slots: an installed
+    # engine would otherwise tear the title off the border row or turn a scroll
+    # bar into a flex cell (see finding — `#each_arrangeable` skips them). So the
+    # engine skips arranging them and this paints each at its own pinned
+    # coordinates. `Layout::Manual` renders every child (chrome included) through
+    # `#render_child` already and overrides `#render_children`, so it never
+    # reaches here — no double render. Rendered last, chrome paints on top of the
+    # content it overlays, as intended.
+    protected def render_chrome(container : Widget) : Nil
+      container.children.each do |el|
+        render_child el if el.layout_chrome?
+      end
+    end
 
     # Renders one child, performing the same render-index bookkeeping the
     # default (no-layout) loop in `Widget#_render` does.
@@ -155,23 +175,25 @@ module Crysterm
     end
 
     # Yields each of the container's *arrangeable* children — the ones an engine
-    # actually positions — skipping `layout_excluded?` chrome (e.g. a
+    # actually positions — skipping both `layout_excluded?` chrome (e.g. a
     # `background-image` layer or out-of-band scrollbar, rendered separately from
-    # `Widget#_render` with its own full-interior `lpos`). An excluded child must
-    # not consume a gap, a `justify`/page slot, a grid cell, a form label/field,
-    # a dock region, nor inflate a flow row, so this lives here once instead of
-    # per engine. Block-yielding, so it allocates nothing per frame.
+    # `Widget#_render` with its own full-interior `lpos`) and `layout_chrome?`
+    # chrome (a border label or bound scroll bar, painted by `#render_chrome` at
+    # its own pinned coordinates). Neither kind may consume a gap, a `justify`/
+    # page slot, a grid cell, a form label/field, a dock region, nor inflate a
+    # flow row, so this lives here once instead of per engine. Block-yielding, so
+    # it allocates nothing per frame.
     protected def each_arrangeable(container : Widget, &) : Nil
       container.children.each do |el|
-        next if el.layout_excluded?
+        next if el.layout_excluded? || el.layout_chrome?
         yield el
       end
     end
 
-    # Number of arrangeable (non-`layout_excluded?`) children — the slot/page
-    # count engines size their distribution against.
+    # Number of arrangeable (non-`layout_excluded?`, non-`layout_chrome?`)
+    # children — the slot/page count engines size their distribution against.
     protected def arrangeable_count(container : Widget) : Int32
-      container.children.count { |el| !el.layout_excluded? }
+      container.children.count { |el| !el.layout_excluded? && !el.layout_chrome? }
     end
 
     # The container's interior content rectangle (inside border + padding), in
@@ -211,16 +233,17 @@ module Crysterm
     # The most recently *rendered* child before index `i` (skipping children
     # that collapsed to nothing last frame), or nil if none.
     #
-    # Layout-excluded chrome is skipped too: a `background-image` layer is a
-    # `layout_excluded?` child rendered out-of-band (with a full-interior `lpos`)
-    # that still lives in `children`. Without this guard a flow child appended
-    # after such a layer would chain its left edge off the layer's full-width
+    # Layout-excluded and `layout_chrome?` chrome are skipped too: a
+    # `background-image` layer (`layout_excluded?`) or a border label / bound
+    # scroll bar (`layout_chrome?`) is rendered out-of-band (with a full-interior
+    # or pinned `lpos`) yet still lives in `children`. Without this guard a flow
+    # child appended after such chrome would chain its left edge off the chrome's
     # rect instead of off the previous flow child.
     protected def get_last(container : Widget, i : Int32) : Widget?
       while i > 0
         i -= 1
         el = container.children[i]
-        next if el.layout_excluded?
+        next if el.layout_excluded? || el.layout_chrome?
         return el if rendered? el
       end
       nil

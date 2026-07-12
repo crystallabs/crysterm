@@ -42,12 +42,42 @@ module Crysterm
       end
 
       # Color depth used to render pixels (see `ColorMode`).
-      property colors : ColorMode
+      getter colors : ColorMode
+
+      # Switches the render palette at runtime. The reduced-color path memoizes a
+      # whole dithered color plane per frame (`@dither_plane_memo`) and per-pixel
+      # nearest-palette lookups (`@quant_cache`), neither keyed on `@colors`; a
+      # bare setter would keep painting the old palette until an unrelated resize/
+      # reload happened to drop those caches. So a genuine change drops both and
+      # repaints (mirroring `HeatMap#colormap=`). A same-value assignment is a
+      # no-op so a per-frame reconcile doesn't churn the caches.
+      def colors=(mode : ColorMode) : ColorMode
+        unless mode == @colors
+          @colors = mode
+          clear_frame_derived # dithered planes were computed for the old palette
+          @quant_cache = nil  # ascii-foreground nearest-palette cache
+          request_render
+        end
+        mode
+      end
 
       # How pixel colors are dithered when reduced to the `C256`/`C16` palette.
       # Ignored in `ColorMode::TrueColor` (no reduction happens). `Dither::Auto`
       # by default: Floyd–Steinberg for a still, ordered (Bayer) for an animation.
-      property dither : Media::Dither = Media::Dither::Auto
+      getter dither : Media::Dither = Media::Dither::Auto
+
+      # Switches the dithering method at runtime. Like `#colors=`, the per-frame
+      # dithered plane is memoized without keying on `@dither`, so a genuine change
+      # must drop it and repaint; the `@quant_cache` (ascii foreground) is
+      # dither-independent and left intact.
+      def dither=(new_dither : Media::Dither) : Media::Dither
+        unless new_dither == @dither
+          @dither = new_dither
+          clear_frame_derived
+          request_render
+        end
+        new_dither
+      end
 
       # Scale factor used when neither `width` nor `height` is set on the widget.
       property scale : Float64

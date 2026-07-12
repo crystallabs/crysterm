@@ -532,9 +532,13 @@ module Crysterm
           next if row_end < row_start
 
           sel_cols = selection_columns_for_row(rl)
-          row_xsels, full_fmt = row_extra_selections(row_start, row_end)
-
+          # `offset` (the row's decoration inset) must be hoisted above the call:
+          # ranged extra selections are viewport columns and need it, matching
+          # `selection_columns_for_row`'s `off + rendered_column(...)` convention
+          # (BUGS15 #46).
           offset = meta.try(&.offset) || 0
+          row_xsels, full_fmt = row_extra_selections(row_start, row_end, offset)
+
           paint_decorations(line, xi, region_w, meta, bfmt, base_attr, full_fmt, bch) if meta && offset > 0
 
           # Right-side frame bars sit at fixed columns from the region's
@@ -850,7 +854,7 @@ module Crysterm
       # `{ranges of viewport columns + format}` for ranged ones, and the
       # merged format of full-width ones touching the row (painted across the
       # whole region width).
-      private def row_extra_selections(row_start : Int32, row_end : Int32) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
+      private def row_extra_selections(row_start : Int32, row_end : Int32, offset : Int32 = 0) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
         return {nil, nil} if @extra_selections.empty?
         ranged = nil
         full_fmt = nil
@@ -863,7 +867,7 @@ module Crysterm
             if xs.full_width
               full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
             else
-              cols = (rendered_column(row_start, s) - @child_base_x)...(rendered_column(row_start, e) - @child_base_x)
+              cols = (offset + rendered_column(row_start, s) - @child_base_x)...(offset + rendered_column(row_start, e) - @child_base_x)
               ranged ||= [] of Tuple(Range(Int32, Int32), TextCharFormat)
               ranged << {cols, xs.format}
             end

@@ -13,7 +13,8 @@ module Crysterm
       alpha : Float64?,
       fg : Int32?,
       bg : Int32?,
-      tint_alpha : Float64?
+      tint_alpha : Float64?,
+      tint : Int32?
 
     @css_animation : FrameClock?
     @css_animation_spec : ::Crysterm::Style::AnimationSpec?
@@ -96,6 +97,16 @@ module Crysterm
       iters = spec.iterations
       alt = spec.alternate
 
+      if iters == 0
+        # `animation-iteration-count: 0` → zero active duration; with the default
+        # fill-mode (`none`, the only mode this driver models) the element keeps
+        # its base style. Mark finished (so the resume branch doesn't restart it)
+        # and return before creating the FrameClock, never calling `apply_keyframe`
+        # — otherwise the settle branch would stamp the final keyframe's values.
+        @css_animation_finished = true
+        return
+      end
+
       # Drive progress from real wall-clock elapsed (like the tween/transition
       # path in `FrameClock`), not a fixed per-tick step: dropped/late ticks are
       # real time the animation must still count, or a finite animation runs
@@ -145,7 +156,8 @@ module Crysterm
       raw.map do |(off, decls)|
         s = ::Crysterm::Style.new
         decls.each { |k, v| ::Crysterm::CSS::Properties.apply(s, k, v) }
-        KFStop.new(off, s.alpha, s.fg, s.bg, (decls.has_key?("tint") ? s.tint_alpha : nil))
+        has_tint = decls.has_key?("tint")
+        KFStop.new(off, s.alpha, s.fg, s.bg, (has_tint ? s.tint_alpha : nil), (has_tint ? s.tint : nil))
       end
     end
 
@@ -179,6 +191,16 @@ module Crysterm
       end
       if (av = a.tint_alpha) && (bv = b.tint_alpha)
         st.tint_alpha = av + (bv - av) * t
+      elsif v = (a.tint_alpha || b.tint_alpha)
+        st.tint_alpha = v
+      end
+      # The tint *color* must be carried alongside the strength: `Style#tint?`
+      # (and thus the tint overlay) is inert while `@tint` is nil regardless of
+      # `tint_alpha`, so a tint-only keyframe animation is invisible without it.
+      if (ac = a.tint) && (bc = b.tint)
+        st.tint = lerp_color(ac, bc, t)
+      elsif c = (a.tint || b.tint)
+        st.tint = c
       end
       if (af = a.fg) && (bf = b.fg)
         st.fg = lerp_color(af, bf, t)

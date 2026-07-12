@@ -415,6 +415,13 @@ module Crysterm
         offsets = column_start_offsets
         max_left = Math.max(0, get_scroll_width - visible)
         max_col = column_for_offset max_left, offsets
+        # Ceil: `column_for_offset` floors to the last column starting at or
+        # before `max_left`. When no column starts exactly there (the normal
+        # case, viewport wider than the last column), the row tail past that
+        # column would be permanently unreachable. Permit snapping one column
+        # further so the last columns can be brought on screen (whole-column
+        # snap with blank slack on the right, which `reslice_rows` renders fine).
+        max_col += 1 if max_col + 1 < offsets.size && (offsets[max_col]? || 0) < max_left
         base = @child_base_x
         new_col = column_for_offset (base + offset).clamp(0, max_left), offsets
         # A nonzero request that snaps back to the current column (e.g. a

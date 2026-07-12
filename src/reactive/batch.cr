@@ -82,7 +82,12 @@ module Crysterm
         yield
       ensure
         @@batch_depth -= 1
-        flush if @@batch_depth == 0
+        # Match propagate's guard: only flush once *both* depths are zero. A
+        # batch opened and closed inside a `Changed` listener during a write's
+        # propagation wave must not flush mid-wave — that would run deferred leaf
+        # effects on a half-updated set of `Computed`s. The enclosing wave's own
+        # close (`propagate`'s ensure) performs the single flush once it settles.
+        flush if @@batch_depth == 0 && @@wave_depth == 0
       end
     end
 

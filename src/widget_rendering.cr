@@ -107,17 +107,30 @@ module Crysterm
       # fresh `LPos` every frame. Nil on first render, then it allocates.
       coords = _get_coords(true, into: @lpos, width_hint: aw)
       unless coords
+        # No on-screen rect this frame (scrolled/clipped out of a scrollable
+        # ancestor's viewport, or the ancestor has no `lpos`): this widget and
+        # its descendants paint nowhere, so clear their last-rendered rects.
+        # Otherwise `Window#widget_at` — which hit-tests every widget
+        # independently against its own `lpos` — keeps routing clicks/hovers to
+        # the stale subtree rects (same rationale as `Layout#skip_subtree`).
+        # Layout-excluded chrome renders out-of-band with its own live `lpos`,
+        # so leave it untouched (as `skip_subtree`'s callers do).
         @lpos = nil
+        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
         return
       end
 
       if coords.xl - coords.xi <= 0
         coords.xl = Math.max(coords.xl, coords.xi)
+        # Our own zero-width rect is un-hittable, but descendants would keep the
+        # previous frame's rects — clear their subtrees (see above).
+        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
         return
       end
 
       if coords.yl - coords.yi <= 0
         coords.yl = Math.max(coords.yl, coords.yi)
+        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
         return
       end
 

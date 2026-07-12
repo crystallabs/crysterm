@@ -42,7 +42,27 @@ module Crysterm
         end
       end
 
+      # An edge child sizes itself along the direction it consumes (height for
+      # Top/Bottom, width for Left/Right). Border resolves that raw size to
+      # cells (`aheight`/`awidth`), clamps it to the remaining span, and writes
+      # the resolved `Int32` back via `place_and_render` -> `set_geometry`. That
+      # write would otherwise *destroy* the child's original value — a `"50%"`
+      # string never resolves again (frozen at frame 1's cell count), and a
+      # transient clamp (container briefly shrunk) becomes permanent. Mirror
+      # `Layout::Box`'s `@flex_size` release bookkeeping: remember each child's
+      # raw consume-axis value and the Int we last assigned; restore the raw
+      # value before re-reading `aheight`/`awidth` (so a percent resolves
+      # against the *live* container every frame), and release the child the
+      # moment its raw size no longer matches — the user reclaimed it.
+      @consume_raw = {} of Widget => (Int32 | String | Nil)
+      @consume_assigned = {} of Widget => Int32
+
       def arrange(container : Widget, interior : LPos) : Nil
+        # Prune bookkeeping for children that have left the container (O(1)
+        # `child?` membership, as `Layout::Box#measure` does).
+        @consume_raw.select! { |el, _| container.child? el }
+        @consume_assigned.select! { |el, _| container.child? el }
+
         # Working rect in interior-local coordinates.
         x0 = 0
         y0 = 0
@@ -65,40 +85,80 @@ module Crysterm
         # child's height alone would let that shifted box overlap the neighboring
         # region; advancing by `size + margin` (mirroring `Layout::Box`) keeps
         # every region non-overlapping.
+        # Each edge assigns the child its full working extent along the *span*
+        # axis minus that child's span-axis margins (`x1 - x0 - mwidth` for a
+        # Top/Bottom bar, `y1 - y0 - mheight` for a Left/Right rail), mirroring
+        # `Layout::Box`'s cross-axis handling: the render pipeline shifts a
+        # fixed-size box out by its near margin *without* shrinking it, so
+        # assigning the full span would paint a margined child past the region's
+        # far edge (and, under the default `Overflow::Ignore`, past the
+        # container). Reserving the margins keeps it inside.
         each_arrangeable container do |el|
           next unless region_of(el).top?
+          restore_consume el, true
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y0, x1 - x0, ch
+          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), ch
+          record_consume el, ch
           y0 += ch + mh
         end
         each_arrangeable container do |el|
           next unless region_of(el).bottom?
+          restore_consume el, true
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y1 - ch - mh, x1 - x0, ch
+          place_and_render el, x0, y1 - ch - mh, Math.max(0, x1 - x0 - el.mwidth), ch
+          record_consume el, ch
           y1 -= ch + mh
         end
         each_arrangeable container do |el|
           next unless region_of(el).left?
+          restore_consume el, false
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x0, y0, cw, y1 - y0
+          place_and_render el, x0, y0, cw, Math.max(0, y1 - y0 - el.mheight)
+          record_consume el, cw
           x0 += cw + mw
         end
         each_arrangeable container do |el|
           next unless region_of(el).right?
+          restore_consume el, false
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x1 - cw - mw, y0, cw, y1 - y0
+          place_and_render el, x1 - cw - mw, y0, cw, Math.max(0, y1 - y0 - el.mheight)
+          record_consume el, cw
           x1 -= cw + mw
         end
         each_arrangeable container do |el|
-          # Center: everything not top/bottom/left/right.
+          # Center: everything not top/bottom/left/right. It consumes neither
+          # axis (fills what's left), so it needs no release bookkeeping — but it
+          # still reserves both of its own margins, like the edges.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
-          place_and_render el, x0, y0, x1 - x0, y1 - y0
+          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), Math.max(0, y1 - y0 - el.mheight)
         end
+      end
+
+      # Restores `el`'s remembered raw consume-axis size (height when
+      # *vertical*, width otherwise) before we re-read its resolved
+      # `aheight`/`awidth`, so a percent size resolves against the live
+      # container every frame and a transient clamp doesn't stick. If the raw
+      # size no longer equals what we last assigned, the user reclaimed it:
+      # forget the old value and honor the new one (cf. `Box#main_flex?`).
+      private def restore_consume(el : Widget, vertical : Bool) : Nil
+        raw = vertical ? el.height : el.width
+        if (assigned = @consume_assigned[el]?) && raw == assigned && @consume_raw.has_key?(el)
+          remembered = @consume_raw[el]
+          vertical ? (el.height = remembered) : (el.width = remembered)
+        else
+          @consume_raw[el] = raw
+        end
+      end
+
+      # Remembers the resolved `Int32` we just wrote into `el`'s consume axis, so
+      # the next frame can tell a layout-owned size from a user-reclaimed one.
+      private def record_consume(el : Widget, v : Int32) : Nil
+        @consume_assigned[el] = v
       end
 
       private def region_of(el : Widget) : Region

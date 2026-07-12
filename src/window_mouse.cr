@@ -343,20 +343,18 @@ module Crysterm
 
       return unless w
 
-      # A wheel acting on a widget implicitly focuses it, matching GUI toolkits.
-      # Done before the widget sees the event, so it applies even when the
-      # widget consumes the wheel itself (e.g. `Dial`/`SpinBox`/`Slider`) or via
-      # a focusable scrollable ancestor (e.g. a `List`).
-      if ev.action.wheel_up? || ev.action.wheel_down?
-        if target = focusable_at w
-          target.focus
-          render
-        end
-      end
+      # A wheel acting on a widget implicitly focuses it, matching GUI toolkits
+      # (see `#wheel_focuses`).
+      wheel_focuses w, ev
 
       # A disabled widget under the pointer takes no press/release/motion (see
       # `#disabled_interaction?`).
       return if disabled_interaction? w, ev
+
+      # A wheel over a disabled widget must never reach (or scroll) the widget
+      # itself — routes the scroll to a scrollable ancestor instead (see
+      # `#handle_disabled_wheel`).
+      return if handle_disabled_wheel w, ev
 
       # Reuse the pooled `Mouse` event. `emit(type, event)` returns it
       # regardless of listeners, but `reset` cleared `accepted`, so with no
@@ -389,6 +387,32 @@ module Crysterm
       elsif ev.action.wheel_down?
         scroll_under w, 1, horizontal: ev.shift?
       end
+    end
+
+    # A wheel acting on a widget implicitly focuses it (matching GUI toolkits),
+    # focusing the nearest focusable self-or-ancestor. Done before the widget
+    # sees the event, so it applies even when the widget consumes the wheel
+    # itself (e.g. `Dial`/`SpinBox`/`Slider`) or via a focusable scrollable
+    # ancestor (e.g. a `List`).
+    private def wheel_focuses(w : Widget, ev : ::Tput::Mouse::Event) : Nil
+      return unless ev.action.wheel_up? || ev.action.wheel_down?
+      if target = focusable_at w
+        target.focus
+        render
+      end
+    end
+
+    # A wheel over a disabled widget must never reach (or scroll) the widget
+    # itself — otherwise a disabled `Dial`/`Slider`/`ScrollBar` mutates its own
+    # value on scroll (their `Mixin::RangedValue#ranged_wheel` has no disabled
+    # guard). The documented intent (see `#disabled_interaction?`) is only that a
+    # scrollable *ancestor* can still take the wheel, so route the scroll from
+    # the parent up, skipping the disabled widget. Returns whether the wheel was
+    # consumed here (and must not reach the widget).
+    private def handle_disabled_wheel(w : Widget, ev : ::Tput::Mouse::Event) : Bool
+      return false unless w.disabled? && (ev.action.wheel_up? || ev.action.wheel_down?)
+      w.parent.try { |p| scroll_under p, ev.action.wheel_up? ? -1 : 1, horizontal: ev.shift? }
+      true
     end
 
     # A widget that captured the mouse (`#capture_mouse`) receives all motion
@@ -450,11 +474,13 @@ module Crysterm
       return false unless drag.sensor.mouse?
       if ev.action.move?
         drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
-      elsif drag.discrete? ? ev.action.down? : (ev.action.up? && gesture_end_button?(ev.button, @_drag_button))
-        # A continuous drag commits only on the ARMING button's release (or a
-        # buttonless legacy release) — an RMB tap mid-LMB-drag used to commit
-        # the Drop at the pointer mid-gesture. Non-matching ups (and any other
-        # buttons' downs) are swallowed with the rest of the pointer stream.
+      elsif drag.discrete? ? (ev.action.down? && gesture_end_button?(ev.button, @_drag_button)) : (ev.action.up? && gesture_end_button?(ev.button, @_drag_button))
+        # Both a continuous drag (commits on button-up) and a discrete two-click
+        # drag (commits on the next button-down) commit only on the ARMING
+        # button (or a buttonless legacy report) — an RMB tap mid-LMB-drag used
+        # to commit the Drop at the pointer mid-gesture. Non-matching ups/downs
+        # (and any other buttons' presses) are swallowed with the rest of the
+        # pointer stream.
         if drag.discrete?
           retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
         end

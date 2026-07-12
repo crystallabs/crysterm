@@ -130,7 +130,15 @@ module Crysterm
           return
         end
 
-        pty = Pty.new @shell, @args, cols, rows, @env
+        # Advertise the configured TERM to the child. Without this the child
+        # inherits the HOST terminal's TERM (e.g. xterm-kitty) and negotiates
+        # sequences TerminalEmulator does not implement, ignoring `@term_name`
+        # / the `terminal.term` config option entirely (BUGS15 #17). An explicit
+        # TERM already in `@env` wins.
+        env = {} of String => String?
+        @env.try &.each { |k, v| env[k] = v }
+        env["TERM"] = @term_name unless env.has_key?("TERM")
+        pty = Pty.new @shell, @args, cols, rows, env
         @pty = pty
         em.output = pty.master # so DSR/DA replies reach the child
 
@@ -337,19 +345,31 @@ module Crysterm
         yi = coords.yi + itop
         yl = coords.yl - ibottom
 
+        # When an ancestor clips this widget, `_get_coords` moves `coords.xi`/
+        # `coords.yi` inward to the clip edge and folds the clipped-top row count
+        # into `coords.base` (widget_position.cr). Map rows through `coords.base`
+        # and columns through the unclipped content origin (`aleft + ileft`, the
+        # true position of emulator column 0 — horizontal clipping has no `base`)
+        # so a partially clipped terminal shows the correct grid region rather
+        # than the top-left corner (BUGS15 #45).
+        origin_x = aleft + ileft
+
         disp = em.ydisp
         focused = window.focused == self
-        # The cursor is hidden while the user is scrolled back into history.
-        show_cursor = focused && !em.cursor_hidden? && disp == em.ybase
-        cur_y = yi + em.cursor_y
-        cur_x = xi + em.cursor_x
+        cur_y = yi + em.cursor_y - coords.base
+        cur_x = origin_x + em.cursor_x
+        # The cursor is hidden while the user is scrolled back into history, and
+        # skipped when it maps outside the (possibly clipped) visible viewport.
+        show_cursor = focused && !em.cursor_hidden? && disp == em.ybase &&
+                      cur_y >= Math.max(yi, 0) && cur_y < yl &&
+                      cur_x >= Math.max(xi, 0) && cur_x < xl
         full_unicode = window.full_unicode?
 
         y = Math.max yi, 0
         while y < yl
           line = lines[y]?
           break unless line
-          src = em.lines[disp + (y - yi)]?
+          src = em.lines[disp + coords.base + (y - yi)]?
           break unless src
 
           cursor_col = (show_cursor && y == cur_y) ? cur_x : -1
@@ -358,7 +378,7 @@ module Crysterm
           while x < xl
             cell = line[x]?
             break unless cell
-            scell = src[x - xi]?
+            scell = src[x - origin_x]?
             break unless scell
 
             attr = scell.attr

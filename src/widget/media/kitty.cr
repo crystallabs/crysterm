@@ -52,12 +52,27 @@ module Crysterm
       # `z = -1` shows through default-background cells but is hidden by a
       # concrete background color; below `INT32_MIN/2` (`-1_073_741_824`) also
       # goes under non-default cell backgrounds.
-      property z : Int32?
+      getter z : Int32?
+
+      # Runtime setter: `z` is baked into the encoded payload (`,z=`) by `#encode`,
+      # and the payload is memoized per geometry, while `#redraw_image`'s emit-skip
+      # compares a z-free key — so a plain assignment would neither re-encode nor
+      # re-emit, leaving the image on its old stacking layer until an unrelated
+      # move/resize changed the geometry key. Drop the payload cache and request a
+      # render so the new stacking order takes effect immediately.
+      def z=(v : Int32?) : Int32?
+        return v if v == @z
+        @z = v
+        reset_payload_cache
+        request_render
+        v
+      end
 
       # Convenience: render as a background (under text, `z = -1`) or back to the
-      # default on-top placement (`z = nil`).
+      # default on-top placement (`z = nil`). Routes through `#z=` so the change
+      # actually re-emits.
       def background=(on : Bool) : Bool
-        @z = on ? -1 : nil
+        self.z = on ? -1 : nil
         on
       end
 
@@ -89,7 +104,13 @@ module Crysterm
         # would re-upload a full-window frame every tick, tanking frame rate and
         # flashing blank during the multi-chunk replace. Cap resolution to the
         # source's, scaling uniformly to keep the box aspect distortion-free.
-        if res = source_resolution
+        # Skip the cap for `Fit::None`: its whole point is a fixed native pixel
+        # size independent of the box, which is NOT invariant under a box
+        # reduction — the reduced box makes `Media::Fitting.compose` crop the
+        # source, and the terminal's c=/r= then re-inflates that crop to fill the
+        # cell box (a magnified band instead of the native-size centered image).
+        # Stretch/Contain/Cover preserve aspect and are safe to cap.
+        if (res = source_resolution) && !@fit.none?
           sw, sh = res
           long_box = {pw, ph}.max
           long_src = {sw, sh}.max
@@ -312,6 +333,20 @@ module Crysterm
       private def delete_image(s : ::Crysterm::Window)
         s.tput._oprint "\e_Ga=d,d=i,i=#{@id_a},q=2\e\\\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
         s.tput.flush
+      end
+
+      # Switching to single-buffer while a double-buffered frame is still placed
+      # under `@id_b`: single-buffer only ever uses `@id_a`, so the last
+      # double-buffered frame parked under `@id_b` would linger as a frozen ghost
+      # layer. Delete it now (a no-op if `@id_b` was never placed, under q=2).
+      # The false→true direction needs no terminal action — the dropped payload
+      # cache re-encodes the place-then-delete swap into subsequent frames.
+      protected def on_double_buffer_changed(v : Bool)
+        return if v
+        window?.try do |s|
+          s.tput._oprint "\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
+          s.tput.flush
+        end
       end
     end
   end

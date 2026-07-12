@@ -69,7 +69,7 @@ module Crysterm
       private def pointer : Char
         ring = pointer_ring
         s = value_span
-        frac = s == 0 ? 0.0 : (@value - @minimum) / s.to_f
+        frac = s == 0 ? 0.0 : (@value.to_i64 - @minimum) / s.to_f
         # A wrapping dial maps the range onto the full circle, so the maximum
         # rolls back onto the minimum's "north" (`frac * size` rounds 1.0 → size,
         # `% size` folds to 0). A non-wrapping dial instead spreads the range

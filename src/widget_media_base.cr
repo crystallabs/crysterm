@@ -108,6 +108,15 @@ module Crysterm
       # re-attempting (re-opening ffmpeg) on every render. Reset on new file load.
       @load_failed = false
 
+      # Memoized resolution of "is `@file` a stream-mode video?" (`nil` = not yet
+      # resolved). Resolving it runs `Media::VideoSource.mode`, which under the
+      # default `media.video_decode = auto` spawns `ffprobe`; `#source` is called
+      # unconditionally on the render path (often after `#stop` has nilled
+      # `@source`/`@stream`), so without this the mode probe re-ran a synchronous
+      # ffprobe subprocess on every rendered frame. Reset whenever `@file` changes
+      # (`#reset_source_state`, `#clear_image`) so a new file re-resolves.
+      @stream_mode : Bool? = nil
+
       # Resolves the `animate:` constructor argument. `true`/`false` toggle
       # whether an animated source plays; a `Timer` enables playback *and*
       # drives it from that shared clock, syncing several widgets together.
@@ -209,6 +218,7 @@ module Crysterm
         @anim_index = 0
         @finished = false
         @load_failed = false
+        @stream_mode = nil # @file cleared: re-resolve on the next loaded file
       end
 
       # Common `#load` source-reset preamble shared by every backend's `#load`
@@ -223,6 +233,7 @@ module Crysterm
         # `#source` early-returns nil forever after any prior failed load (its own
         # documented contract: "Reset on new file load").
         @load_failed = false
+        @stream_mode = nil # new file: re-resolve the video decode mode (once)
         @src_frames = nil
         @anim_index = 0
       end
@@ -248,7 +259,7 @@ module Crysterm
         end
         return nil if @load_failed
         file = @file || return nil
-        if Media::VideoSource.video?(file) && Media::VideoSource.mode(file).stream?
+        if stream_mode_source? file
           return nil unless open_stream
           if st = Media::VideoSource::Stream.open(file)
             @stream = st
@@ -262,6 +273,19 @@ module Crysterm
           @load_failed = true if src.nil?
           @source = src
         end
+      end
+
+      # Whether *file* is a video resolved to *stream* decode mode, memoized in
+      # `@stream_mode` for `@file`'s lifetime. `Media::VideoSource.mode` spawns an
+      # `ffprobe` (under `media.video_decode = auto`) to estimate the frame count,
+      # so resolving it once — instead of on every `#source` call from the render
+      # path — is what keeps a stopped, still-attached stream source from churning
+      # a subprocess per rendered frame. `@stream_mode` is reset whenever `@file`
+      # changes so a new file re-probes exactly once.
+      private def stream_mode_source?(file : String) : Bool
+        cached = @stream_mode
+        return cached unless cached.nil?
+        @stream_mode = Media::VideoSource.video?(file) && Media::VideoSource.mode(file).stream?
       end
 
       # Whether the composited source frames have been built yet (decode/composite

@@ -111,8 +111,19 @@ module Crysterm
 
       def clear_image
         super
-        reset_sample_cache # @animated / @frame_cache / @rendered_size / @sample
+        @animated = false  # no source left: the animation branch must not run
+        reset_sample_cache # @frame_cache / @rendered_size / @sample
         set_content ""
+      end
+
+      # A directly-injected bitmap is a single-frame still (`Media::Base#bitmap=`
+      # wraps it as a 1-frame `PNGGIF::PNG`), so clear `@animated` here — unlike
+      # the source-neutral `#reset_sample_cache`, which `#fit=` also calls and
+      # which must NOT stop a running animation (clearing it there froze a playing
+      # GIF the moment `fit=` was assigned).
+      def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
+        @animated = false
+        super
       end
 
       # Streaming reuses frame index 0 with new content each tick; drop its cached
@@ -144,11 +155,13 @@ module Crysterm
         end
       end
 
-      # A directly-injected bitmap (`Media::Base#bitmap=`) changes content without
-      # changing box size, so clear the per-size sample so the next render
-      # re-samples it (live `Graph::Canvas` updates).
+      # Drops the per-size sample so the next render re-derives it. Source-neutral:
+      # called both when the source content changes (`Media::Base#bitmap=`, live
+      # `Graph::Canvas` updates) and when only the fit changes (`Media::Base#fit=`),
+      # so it must NOT touch `@animated` — clearing it here froze a playing
+      # animation the instant `fit=` was assigned. The call sites that actually
+      # replace the source clear `@animated` themselves (`#bitmap=`, `#clear_image`).
       protected def reset_sample_cache : Nil
-        @animated = false
         @frame_cache.clear
         clear_frame_derived
         @rendered_size = nil

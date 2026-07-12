@@ -189,7 +189,12 @@ module Crysterm
       # instead.
       sorted = @@sorted_stops
       sorted.clear
-      stops.each_key { |k| sorted << k }
+      # Skip negative stop rows: `lines[y]?` (below) treats a negative index as
+      # counting from the END of the array, so an off-top stop (e.g. a widget
+      # with a line border at `top: -1`, whose `coords.yi` registers unclamped)
+      # would resolve to and corrupt an unrelated row near the bottom of the
+      # screen. `neighbor_cell` guards this same wraparound hazard explicitly.
+      stops.each_key { |k| sorted << k if k >= 0 }
       sorted.sort!.each do |y|
         row = lines[y]?
         next unless row
@@ -278,6 +283,15 @@ module Crysterm
       # corner; likewise `└`/`┐`/`┘` against a single perpendicular rule. This
       # also subsumes the isolated-glyph rule (no neighbors → `recip == 0`).
       return ch if recip == 0
+
+      # In *ascii* mode, don't reduce a full four-arm `+` when only a single
+      # neighbor reciprocates: a plain-text `+` adjacent to another `+`/`-`/`|`
+      # on a stop row (e.g. "C++" sharing a row with a widget's ASCII border)
+      # would otherwise be rewritten to `-`/`|`. Genuine ASCII border junctions
+      # always reciprocate on >= 2 arms and still merge. (Also spares `┼`, which
+      # shares the full 4-arm pattern — a harmless side effect.)
+      return ch if ascii && (recip & (recip - 1)) == 0 &&
+                   self_bits == (BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE)
 
       # `recip | preserve` only ever carries the four arm bits, so it indexes
       # the 16-entry table directly; `'\0'` (the absent `0` entry) keeps `ch`.

@@ -38,8 +38,16 @@ module Crysterm
         super
 
         if @orientation.horizontal?
+          # Route through the same plane gate as `Widget#register_dock_stops`:
+          # a Line rendering into a compositing plane registers on the *plane*
+          # stops so overlay line art joins other overlay art but not the base
+          # content beneath it (else the composited buffer's base-layer glyphs
+          # dock to the floating separator). Skip negative rows, matching the
+          # `Docking.dock` wraparound guard.
+          scr = window
+          stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           (coords.yi..coords.yl - 1).each do |y|
-            window._dock_stops[y] = true
+            stops[y] = true if y >= 0
           end
         end
       end

@@ -23,11 +23,15 @@ module Crysterm
         @subs.on(signal, ::Crysterm::Event::Changed) { fire }
       end
 
-      # A watched signal changed: run now, or defer to the batch flush if a
-      # `Reactive.batch` is open (so a burst of writes runs this binding once).
+      # A watched signal changed: run now, or defer to the flush when execution
+      # must be deferred — an explicit `Reactive.batch` (so a burst of writes
+      # runs this binding once) *or* an in-flight propagation wave (so a binding
+      # watching `Computed`s runs once, after the wave settles, on a consistent
+      # set of derived values rather than a glitched half-updated pair). Matches
+      # `Effect#schedule`'s leaf branch; see `Reactive.deferring?`.
       protected def fire : Nil
         return if disposed?
-        if Reactive.batching?
+        if Reactive.deferring?
           Reactive.enqueue self
         else
           run

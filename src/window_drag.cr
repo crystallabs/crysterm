@@ -54,6 +54,22 @@ module Crysterm
     # modifier keys for mouse, per the desktop Ctrl→Copy / Shift→Move convention).
     def start_drag(source : Widget, x : Int32, y : Int32, sensor : DragSensor,
                    action : DragAction = DragAction::Move, discrete : Bool = false) : DragSession
+      # A new gesture must never silently replace a live one (e.g. a mouse press
+      # promoting to a drag while a keyboard-sensor drag — which doesn't own the
+      # pointer stream — is in flight): the old source would never get `DragEnd`
+      # and its target never `DragLeave`, breaking the "every DragEnter balanced
+      # by one Drop/DragLeave" invariant. Tear the old session down properly.
+      #
+      # `drag_cancel` nils `@_drag_button`, but the mouse callers set it BEFORE
+      # calling `start_drag` (the arming button of the NEW drag). Snapshot and
+      # restore it so cancelling the old session can't erase the new drag's
+      # button (a nil button makes any release/press commit the drop — see
+      # `gesture_end_button?`).
+      if old = @_drag
+        saved_button = @_drag_button
+        drag_cancel old
+        @_drag_button = saved_button
+      end
       data = DragData.new source, [action], action
       sess = DragSession.new source, data, x, y, sensor
       sess.discrete = discrete || sensor.keyboard?
@@ -348,7 +364,10 @@ module Crysterm
           drag_arrow sess, 1, 0; e.accept; return true
         end
         false
-      elsif (w = focused) && w.draggable? && e.char == ' '
+      elsif (w = focused) && w.draggable? && !w.disabled? && e.char == ' '
+        # Mirror the mouse arm gate (`window_mouse.cr`): a disabled widget can be
+        # focused (disabling doesn't rewind focus), but must not be draggable —
+        # the mouse sensor already refuses it, so the keyboard sensor must too.
         start_drag w, w.aleft, w.atop, ::Crysterm::DragSensor::Keyboard
         e.accept
         true

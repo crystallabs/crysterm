@@ -56,11 +56,42 @@ module Crysterm
       # partial/torn frame. `Media::Kitty` additionally double-buffers via
       # alternating image ids. Terminals that don't understand 2026 ignore the
       # wrapper, so this is always safe to leave on.
-      property? double_buffer : Bool = true
+      getter? double_buffer : Bool = true
+
+      # Runtime setter: the double-buffer flag changes the *shape* of the encoded
+      # per-frame payload (`Media::Kitty#encode` bakes in the place-then-delete
+      # swap suffix), and that payload is memoized per geometry — so a plain
+      # assignment would keep serving cached bytes built under the old mode
+      # (emitting a literal `{o}` placeholder in the single-buffer path, and
+      # never issuing the swap's delete). Drop the payload cache so subsequent
+      # frames re-encode under the new mode; the `#on_double_buffer_changed` hook
+      # lets a backend clean up terminal state the cache drop can't reach (a
+      # still-placed alternate buffer).
+      def double_buffer=(v : Bool) : Bool
+        unless v == @double_buffer
+          @double_buffer = v
+          reset_payload_cache
+          on_double_buffer_changed v
+        end
+        v
+      end
+
+      # Hook run after `double_buffer` actually changes, for a backend that must
+      # emit terminal state the cache drop can't (e.g. `Media::Kitty` deleting
+      # the now-unused second buffer left placed on screen). No-op by default.
+      protected def on_double_buffer_changed(v : Bool)
+      end
 
       # Original (undecoded) bytes cache, for backends that transmit the file
       # as-is (iTerm2). The decoded `@source`/frames live in `Media::Base`.
       @raw : Bytes?
+
+      # Latches a failed `#raw_bytes` read so a broken source (unreachable URL
+      # → curl/wget, or a deleted/unreadable local file → File.read) isn't
+      # re-attempted on every rendered frame. Mirrors `Media::Base`'s decode
+      # failure latch; cleared by `#load`/`#clear_image` so a corrected source
+      # is retried.
+      @raw_failed = false
 
       # Set once the first paint has checked whether the source is animated.
       @anim_checked = false
@@ -208,6 +239,8 @@ module Crysterm
       def load(file : String)
         reset_source_state file
         @raw = nil
+        @raw_failed = false
+        @anim_checked = false
         reset_payload_cache
         request_render
       end
@@ -217,6 +250,8 @@ module Crysterm
         clear_overlay
         super # stop + drop file/source/frames
         @raw = nil
+        @raw_failed = false
+        @anim_checked = false
         reset_payload_cache
       end
 
@@ -226,6 +261,7 @@ module Crysterm
         if b = @raw
           return b
         end
+        return nil if @raw_failed
         file = @file || return nil
         @raw =
           if file =~ /^https?:/
@@ -234,6 +270,7 @@ module Crysterm
             File.read(file).to_slice
           end
       rescue
+        @raw_failed = true
         nil
       end
 
@@ -377,12 +414,14 @@ module Crysterm
         reset_payload_cache
       end
 
-      # Drops the per-frame payload cache and all emit-tracking keys, and forces
-      # the next paint to re-detect whether the source animates. Shared by every
-      # entry point that invalidates the encoded-frame state (`#load`,
-      # `#clear_image`, `#reset_sample_cache`).
+      # Drops the per-frame payload cache and all emit-tracking keys. Shared by
+      # every entry point that invalidates the encoded-frame state (`#load`,
+      # `#clear_image`, `#reset_sample_cache`, the `double_buffer=`/`z=` setters).
+      # Deliberately does NOT reset `@anim_checked`: the first-paint auto-play
+      # probe re-arms only in `#load`/`#clear_image` (the two documented source
+      # changes), so a cache drop from `#fit=`/`double_buffer=`/`z=` on a stopped
+      # animation/video never silently resumes playback.
       private def reset_payload_cache : Nil
-        @anim_checked = false
         @frame_payloads.clear
         @payload_geom = nil
         @payload = nil
@@ -408,7 +447,18 @@ module Crysterm
         return unless has_image?
         ensure_animation
         # Draw into the *content* area, inside any border/padding (`#overlay_rect`).
-        xi, yi, cols, rows = content_rect || return
+        # An undrawable position (hidden, zero-sized, or slid to a negative
+        # origin) returns nil: if the graphic was previously on window, erase it
+        # now. `#clear_overlay` runs `#overlay_cleared` → `#graphic_cleared` (the
+        # Kitty `a=d` delete), invalidates the old cells once, and nils
+        # `@last_drawn` so this doesn't loop. Without it, a Kitty layer slid to a
+        # negative origin floats at its last position forever (and every
+        # backend needlessly re-invalidates the stale rect each frame).
+        unless rect = content_rect
+          clear_overlay if @last_drawn
+          return
+        end
+        xi, yi, cols, rows = rect
 
         pw, ph = target_pixels(cols, rows)
         ox, oy = origin_pixels(xi, yi)

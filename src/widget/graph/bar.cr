@@ -119,7 +119,7 @@ module Crysterm
           shown = @values.last(cap)
           n = shown.size
 
-          top = @max || shown.max
+          top = @max || (shown.select(&.finite?).max? || 0.0)
           # Total filled eighth-cells per shown bar.
           levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
 

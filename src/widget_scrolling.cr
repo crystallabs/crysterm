@@ -1,11 +1,47 @@
 module Crysterm
   class Widget
     # Is element scrollable?
-    property? scrollable = false
+    getter? scrollable = false
+
+    # Once-flag: has the `Event::ParsedContent → _recalculate_index` clamp handler
+    # been wired for this widget? Set true either by `Widget#initialize` (for a
+    # widget constructed `scrollable: true`) or by `#scrollable=` below, so the
+    # handler is installed exactly once regardless of which path enables scrolling.
+    @_scroll_index_wired = false
+
+    # Enables/disables scrolling at runtime. A widget constructed with
+    # `scrollable: true` gets its content-clamp handler
+    # (`Event::ParsedContent → _recalculate_index`) wired in `Widget#initialize`,
+    # but a widget flipped scrollable *later* (`w.scrollable = true`) previously
+    # never got it: on a later content shrink `@child_base` stayed past the
+    # content and the viewport rendered blank until a manual scroll repaired it.
+    # This setter wires the same handler (once, guarded) and clamps immediately.
+    def scrollable=(value : Bool) : Bool
+      return value if value == @scrollable
+      @scrollable = value
+      if value && !@_scroll_index_wired
+        @_scroll_index_wired = true
+        on(Crysterm::Event::ParsedContent) { _recalculate_index }
+        _recalculate_index
+      end
+      value
+    end
 
     # Whether the widget position is fixed even in presence of scroll?
     # (Used by labels and the scrollbar widget, which must not scroll away.)
     property? fixed = false
+
+    # Whether this widget is internal chrome — a border label or a bound scroll
+    # bar — that an installed layout engine must *not* arrange (measure/place) as
+    # a content slot. Set in `#set_label` and `#bind_scrollbar`. Distinct from
+    # `#layout_excluded?`: excluded chrome (a `background-image` layer) is skipped
+    # by the normal child pass entirely and painted out-of-band from `_render`;
+    # chrome flagged here is still painted by the child pass, but by
+    # `Layout#render_chrome` at its own pinned coordinates (`top: -itop`,
+    # `right: 0`, …) rather than as an arranged slot. Without this, any engine
+    # (VBox/Grid/…) tears a `GroupBox` title off its border row and turns a
+    # scroll bar into a flex cell (`Layout#each_arrangeable` skips it).
+    property? layout_chrome = false
 
     # When a scrollable widget shows its scroll bar — Qt's `Qt::ScrollBarPolicy`.
     enum ScrollBarPolicy
@@ -139,14 +175,27 @@ module Crysterm
     # sync when `#show_scrollbar?`, else hide (never destroy) so it can reappear
     # without losing state. Idempotent.
     protected def update_scrollbar_widget : Nil
+      # Reserve the bottom-right corner when both bars show (Qt's
+      # `QAbstractScrollArea` corner): shorten the vertical bar by the horizontal
+      # bar's row(s) and the horizontal bar by the vertical bar's column(s), so
+      # neither box claims the corner cell. Without this both `"100%"` extents
+      # overlap there — the second-created bar overpaints the other's last cell,
+      # truncating its thumb and stealing corner clicks. The `"100%-N"` form is
+      # resolved by `Widget.dimension`, and the size setters are change-guarded,
+      # so re-asserting this every frame is cheap. The corner is left to the
+      # parent's background fill (blank corner, absent a corner widget).
       if show_scrollbar?
-        ensure_scrollbar_widget.show
+        sb = ensure_scrollbar_widget
+        sb.height = show_horizontal_scrollbar? ? "100%-#{scrollbar_height}" : "100%"
+        sb.show
       else
         @scrollbar_widget.try &.hide
       end
 
       if show_horizontal_scrollbar?
-        ensure_horizontal_scrollbar_widget.show
+        hb = ensure_horizontal_scrollbar_widget
+        hb.width = show_scrollbar? ? "100%-#{scrollbar_width}" : "100%"
+        hb.show
       else
         @horizontal_scrollbar_widget.try &.hide
       end
@@ -176,6 +225,9 @@ module Crysterm
     # position. Returns *sb*.
     private def bind_scrollbar(sb : ScrollBar) : ScrollBar
       sb.fixed = true
+      # Chrome: pinned to an interior edge, never arranged as a content slot by
+      # an installed layout engine (see `#layout_chrome?`).
+      sb.layout_chrome = true
       sb.add_css_class "scrollbar"
       sb.attach self
       sb

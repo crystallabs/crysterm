@@ -296,7 +296,12 @@ module Crysterm
         # Place the cursor on its row within the viewport. `ensure_cursor_visible`
         # keeps the row in range already; the clamp is just a guard.
         max_line = max_content_row(lpos)
-        line = (rl - @child_base).clamp(0, Math.max(0, max_line))
+        # Use the clip-aware row origin the base renderer uses (`lpos.base`),
+        # not `@child_base`: when an ancestor clips the top, `_get_coords`
+        # accumulates the clipped row count into `coords.base`, so
+        # `lpos.base == @child_base + clipped`. Mapping through `@child_base`
+        # alone would place the caret `clipped` rows off (BUGS15 #36).
+        line = (rl - lpos.base).clamp(0, Math.max(0, max_line))
 
         cy = lpos.yi + itop + line
 
@@ -805,7 +810,11 @@ module Crysterm
         # content rows, then add the scroll offset to get the real line index.
         max_line = max_content_row(lpos)
         line = (y - lpos.yi - itop).clamp(0, Math.max(0, max_line))
-        rl = (line + @child_base).clamp(0, Math.max(0, @_clines.size - 1))
+        # Add the clip-aware scroll offset (`lpos.base`) the base renderer uses,
+        # not `@child_base`: an ancestor clip folds the clipped-top count into
+        # `coords.base`, so mapping a click through `@child_base` alone lands
+        # `clipped` lines above the clicked text (BUGS15 #36).
+        rl = (line + lpos.base).clamp(0, Math.max(0, @_clines.size - 1))
 
         if wrap_content?
           # `@_clines[rl]` is the actual painted (already tab-expanded) text for

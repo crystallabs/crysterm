@@ -405,6 +405,12 @@ module Crysterm
           @sorted_zs << {z, @sorted_zs.size, alpha} if bucket.empty?
           bucket << el
         end
+        # Alpha is tweened per frame by transitions/animations, so a fading
+        # z-indexed widget mints a near-unique {z, alpha} key every frame;
+        # without pruning, stale empty entries (this frame's bucket never
+        # touched) would accumulate in @plane_buckets forever. Reused (i.e.
+        # non-empty) keys survive this pass untouched.
+        @plane_buckets.reject! { |_k, v| v.empty? }
 
         @sorted_zs.sort!
 

@@ -119,7 +119,7 @@ module Crysterm
           n = shown.size
 
           sums = shown.map(&.sum)
-          top = @max || (sums.max? || 0.0)
+          top = @max || (sums.select(&.finite?).max? || 0.0)
           top = 1.0 if top <= 0.0
 
           # For each shown bar, the per-row (glyph, color) from top to bottom.

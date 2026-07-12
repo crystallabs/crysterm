@@ -133,8 +133,10 @@ module Crysterm
           # Only a value resolving to a cell count sets the tab width; an
           # unparseable value (typo, or collapsed `var(--x)`) is dropped, per
           # CSS's "drop the invalid declaration" rule, leaving the previous (or
-          # default `4`) tab width intact.
-          Length.to_cells(value).try { |c| style.tab_size = c }
+          # default `4`) tab width intact. A negative count is invalid too and is
+          # dropped: `tab_char * tab_size` in the render path raises
+          # `ArgumentError("Negative argument")` on a negative count.
+          Length.to_cells(value).try { |c| style.tab_size = c if c >= 0 }
         when "box-shadow"
           # Drop a blank value (collapsed undefined `var(--x)`) rather than
           # enabling a default drop shadow: `parse_box_shadow("")` would find
@@ -403,12 +405,22 @@ module Crysterm
       # Maps a `background-size` value to a `Style::BackgroundSize`. `cover`
       # (preserve aspect, fill, crop) is both the keyword and the fallback for
       # unrecognized input; `100% 100%` is the CSS spelling of a full stretch.
+      # CSS is whitespace-insensitive between component values, so the two `100%`
+      # tokens are tokenized rather than matched byte-for-byte (extra spaces, a
+      # tab, or a newline from a wrapped/var()-composed value must not degrade
+      # the stretch to a crop).
       private def self.parse_background_size(value : String) : Style::BackgroundSize
-        case value.strip.downcase
-        when "contain"           then Style::BackgroundSize::Contain
-        when "auto"              then Style::BackgroundSize::Auto
-        when "100% 100%", "100%" then Style::BackgroundSize::Stretch
-        else                          Style::BackgroundSize::Cover
+        v = value.strip.downcase
+        case v
+        when "contain" then Style::BackgroundSize::Contain
+        when "auto"    then Style::BackgroundSize::Auto
+        else
+          toks = v.split
+          if !toks.empty? && toks.size <= 2 && toks.all?("100%")
+            Style::BackgroundSize::Stretch
+          else
+            Style::BackgroundSize::Cover
+          end
         end
       end
 
@@ -534,6 +546,10 @@ module Crysterm
           elsif easing?(t)
             easing = css_easing(t)
           elsif (n = t.to_i?)
+            # A negative iteration count is invalid; drop the whole declaration
+            # (mirroring parse_transition's negative-duration drop). `0` is valid
+            # (play zero times) and handled at the driver.
+            return nil if n < 0
             iterations = n
           else
             # Anything that is not a time, keyword, easing or count is the
@@ -619,10 +635,10 @@ module Crysterm
         when "border-right"             then apply_border_side border, :right, value, el_color
         when "border-bottom"            then apply_border_side border, :bottom, value, el_color
         when "border-left"              then apply_border_side border, :left, value, el_color
-        when "border-top-width"         then border.top = border_cells(value, vertical: true)
-        when "border-right-width"       then border.right = border_cells(value)
-        when "border-bottom-width"      then border.bottom = border_cells(value, vertical: true)
-        when "border-left-width"        then border.left = border_cells(value)
+        when "border-top-width"         then border_cells?(value, vertical: true).try { |c| border.top = c }
+        when "border-right-width"       then border_cells?(value).try { |c| border.right = c }
+        when "border-bottom-width"      then border_cells?(value, vertical: true).try { |c| border.bottom = c }
+        when "border-left-width"        then border_cells?(value).try { |c| border.left = c }
         when "border-top-style"         then apply_border_style border, value, {:top}
         when "border-right-style"       then apply_border_style border, value, {:right}
         when "border-bottom-style"      then apply_border_style border, value, {:bottom}
@@ -998,6 +1014,16 @@ module Crysterm
       # resolve the fractional cells in one pass (`to_cells_f`) and clamp from it.
       # Only a rare `calc()` border falls back to `to_cells`.
       private def self.border_cells(value : String, vertical : Bool = false) : Int32
+        border_cells?(value, vertical) || 0
+      end
+
+      # Nilable variant of `border_cells`: returns `nil` when the value is not a
+      # length or named width *at all* (a blank/collapsed `var(--x)` or a typo
+      # like `thinn`), so a caller can drop the invalid declaration rather than
+      # hard-resetting the side to 0 — matching every sibling longhand
+      # (`padding-left`, `tab-size`, `border-top-style`). A genuine `0`, negative,
+      # or sub-cell length still resolves to a real cell count (0 / clamp-up).
+      private def self.border_cells?(value : String, vertical : Bool = false) : Int32?
         if nw = named_width(value)
           return nw
         end
@@ -1007,7 +1033,8 @@ module Crysterm
           return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible; 0 / negative → none
         end
         c = Length.to_cells(value, vertical) # a `calc()` border still resolves here
-        (c && c > 0) ? c : 0
+        return nil unless c                  # nothing parsed → invalid declaration, dropped by caller
+        c > 0 ? c : 0
       end
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default

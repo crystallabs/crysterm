@@ -52,19 +52,27 @@ module Crysterm
         PNGGIF::Pixel.new(r, g, b)
       end
 
-      # Parses the `;`-separated decimal CSI parameters in `data[ps...j]` (only
-      # digits and `;`) directly into the reused *into* array — one entry per
-      # field, an empty field yielding `0` — instead of `String.new + split + map`
-      # per sequence. Matches `"…".split(';').map { |p| p.empty? ? 0 : p.to_i }`.
-      private def self.parse_csi_params(data : Bytes, ps : Int32, j : Int32, into : Array(Int32)) : Array(Int32)
+      # Parses the `;`- or `:`-separated decimal CSI parameters in `data[ps...j]`
+      # (digits plus the `;`/`:` separators) directly into the reused *into*
+      # array — one entry per field, an empty field yielding `0` — instead of
+      # `String.new + split + map` per sequence. The parallel *colons* array
+      # records, per field, whether the separator preceding it was a ':' (the
+      # ISO 8613-6 / ITU T.416 sub-parameter separator) so extended-colour
+      # selectors can tell `38:2::r:g:b` (colon form, with colorspace-id) from
+      # `38;2;r;g;b`. Matches `"…".split(/[;:]/).map { |p| p.empty? ? 0 : p.to_i }`.
+      private def self.parse_csi_params(data : Bytes, ps : Int32, j : Int32, into : Array(Int32), colons : Array(Bool)) : Array(Int32)
         into.clear
+        colons.clear
         cur = 0
+        sep_colon = false # was the separator before the current field a ':'?
         k = ps
         while k < j
           b = data[k]
-          if b == 0x3B # ';'
+          if b == 0x3B || b == 0x3A # ';' or ':'
             into << cur
+            colons << sep_colon
             cur = 0
+            sep_colon = (b == 0x3A)
           elsif 0x30 <= b <= 0x39
             # Saturate instead of overflowing: a pathological digit run (a
             # corrupt/oversized parameter) would otherwise raise `OverflowError`
@@ -77,15 +85,17 @@ module Crysterm
           k += 1
         end
         into << cur
+        colons << sep_colon
         into
       end
 
       # Resolves an extended-colour SGR selector's sub-parameters (those after a
       # `38`/`48`, starting at *i*) into the nearest 16-colour `ANSI_PALETTE`
       # index (0..15) plus the number of sub-parameters consumed. Handles `5;n`
-      # (xterm-256) and `2;r;g;b` (truecolour); malformed/unknown consumes
-      # nothing and maps to `nil`.
-      private def self.ext_color_index(params : Array(Int32), i : Int32)
+      # (xterm-256) and `2;r;g;b` (truecolour), in both `;` and `:` forms;
+      # malformed/unknown consumes nothing and maps to `nil`. *colons* is the
+      # per-field separator flags from `parse_csi_params`.
+      private def self.ext_color_index(params : Array(Int32), colons : Array(Bool), i : Int32)
         none = {nil.as(Int32?), 0}
         case params[i]?
         when 5
@@ -94,10 +104,16 @@ module Crysterm
           r, g, b = xterm256_rgb(n)
           {nearest_index(ANSI_PALETTE, r, g, b).as(Int32?), 2}
         when 2
-          r = (params[i + 1]? || 0).clamp(0, 255)
-          g = (params[i + 2]? || 0).clamp(0, 255)
-          b = (params[i + 3]? || 0).clamp(0, 255)
-          {nearest_index(ANSI_PALETTE, r, g, b).as(Int32?), 4}
+          # The colon form (ISO 8613-6) may carry a leading colorspace-id field:
+          # `38:2:<cs>:r:g:b` (cs often empty -> 0). Four colon-separated fields
+          # after the `2` means the first is the colorspace id and must be
+          # skipped; the `;` form and the abbreviated colon form (`38:2:r:g:b`)
+          # keep r at i+1.
+          off = colons[i + 1]? && colons[i + 2]? && colons[i + 3]? && colons[i + 4]? ? 1 : 0
+          r = (params[i + 1 + off]? || 0).clamp(0, 255)
+          g = (params[i + 2 + off]? || 0).clamp(0, 255)
+          b = (params[i + 3 + off]? || 0).clamp(0, 255)
+          {nearest_index(ANSI_PALETTE, r, g, b).as(Int32?), 4 + off}
         else
           none
         end
@@ -181,7 +197,9 @@ module Crysterm
 
         # Reused across every CSI so the parameter list isn't reallocated per
         # sequence; consumed fully within each iteration before the next reparse.
+        # `colon_flags` runs parallel to `nums` (per-field ':'-separator flags).
         nums = [] of Int32
+        colon_flags = [] of Bool
 
         i = 0
         n = data.size
@@ -195,10 +213,10 @@ module Crysterm
             priv = j < n && 0x3C <= data[j] <= 0x3F
             j += 1 if priv
             ps = j
-            while j < n && (data[j] == 0x3B || (0x30 <= data[j] <= 0x39))
+            while j < n && (data[j] == 0x3B || data[j] == 0x3A || (0x30 <= data[j] <= 0x39))
               j += 1
             end
-            parse_csi_params(data, ps, j, nums)
+            parse_csi_params(data, ps, j, nums, colon_flags)
             # Skip any intermediate bytes (0x20..0x2F) preceding the final byte
             # (e.g. the space in DECSCUSR `ESC[1 q`).
             while j < n && 0x20 <= data[j] <= 0x2F
@@ -208,6 +226,7 @@ module Crysterm
             case priv ? 0_u8 : final
             when 0x6D # 'm' — SGR
               params = nums.empty? ? [0] : nums
+              param_colons = nums.empty? ? [false] : colon_flags
               k = 0
               while k < params.size
                 c = params[k]
@@ -229,7 +248,7 @@ module Crysterm
                   # they're misread as standalone SGR codes (e.g. a `0` channel
                   # in `48;2;r;0;b` reads as "reset all"). Mapped to the
                   # nearest entry in this decoder's 16-colour palette.
-                  idx, consumed = ext_color_index(params, k + 1)
+                  idx, consumed = ext_color_index(params, param_colons, k + 1)
                   k += consumed
                   if idx
                     if c == 38
@@ -313,7 +332,10 @@ module Crysterm
           cols.times do |cx|
             c = cells[{cx, cy}]?
             char, cfg, cfgb, cbg, cbgb, crev = c || {' ', nil, false, nil, false, false}
-            fg_rgb = pal(cfg ? (cfgb ? cfg + 8 : cfg) : 7)
+            # ANSI.SYS/VGA: SGR 1 (bold) intensifies the current foreground,
+            # including the default — `ESC[1m` alone is bright white (15), not
+            # light gray (7). So brighten the default fg too, not only explicit ones.
+            fg_rgb = pal((cfg || 7) + (cfgb ? 8 : 0))
             bg_rgb = pal(cbg ? (cbgb ? cbg + 8 : cbg) : 0)
             # Reverse video (SGR 7): swap ink/paper. Resolved here (after defaults)
             # so a reversed default cell becomes black-on-white, as on a real VT.

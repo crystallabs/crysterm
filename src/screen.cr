@@ -118,7 +118,9 @@ module Crysterm
     # Whether the tier was chosen explicitly — the `screen.glyphs` option came
     # from env/file/CLI/runtime rather than its registered default, or
     # `#glyph_tier=` was called. Pins `glyph_tier` against `#auto_glyph_tier`.
-    @glyph_tier_explicit : Bool = !Config["screen.glyphs"].source.default?
+    # Exposed (read-only) so `#reconnected`/`Window#switch_terminal` can carry
+    # a runtime pin across to the replacement device.
+    getter? glyph_tier_explicit : Bool = !Config["screen.glyphs"].source.default?
 
     # Explicitly chooses the glyph tier, pinning it against auto-detection.
     def glyph_tier=(value : Glyphs::Tier)
@@ -381,6 +383,12 @@ module Crysterm
       # Adopt honoring the pins carried above (a direct `s.width = ...`
       # assignment would overwrite a pinned axis).
       s.adopt_terminal_size
+      # Carry an explicit runtime `glyph_tier=` pin across too — otherwise the
+      # new device re-derives `@glyph_tier_explicit` from config only (see its
+      # initializer above), a pin set at runtime is lost, and `Window#screen=`
+      # -> `probe!` re-`auto_glyph_tier`s (e.g. upgrading to `extended` on a
+      # kitty/WezTerm reattach) even though the user pinned the tier.
+      s.glyph_tier = @glyph_tier if glyph_tier_explicit?
       s
     end
 

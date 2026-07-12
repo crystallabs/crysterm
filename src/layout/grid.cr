@@ -83,7 +83,13 @@ module Crysterm
           total += 1
           next unless hint = el.layout_hint.as?(Hint)
           row = hint.row.clamp(0, ROW_ORIGIN_CAP)
-          col = hint.col.clamp(0, cols)
+          # Clamp the origin to the *last* valid column (`cols - 1`), not `cols`
+          # (one past the grid): an origin of `cols` gives `c0 == c1 == cols`, so
+          # the cell collapses to zero width and lands past the interior's right
+          # edge, silently vanishing — asymmetric with a negative `col`, which
+          # clamps to column 0 and stays visible. `cols = Math.max(@columns, 1)`
+          # guarantees `cols - 1 >= 0`.
+          col = hint.col.clamp(0, cols - 1)
           rs = Math.max(hint.row_span, 1)
           cs = hint.col_span.clamp(1, Math.max(cols - col, 1))
           placements << {el, row, col, rs, cs}

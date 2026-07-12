@@ -152,6 +152,17 @@ module Crysterm
     # (see the unchanged-content short-circuit in `#set_content`).
     @_content_no_tags = false
 
+    # Transient guard set only for the duration of `rebuild_content_from_fake`'s
+    # `set_content` call. `@_clines.fake` holds POST-parse lines, so re-feeding
+    # them through `set_content` would run `_parse_tags` a SECOND time — dropping
+    # a literal `{`/`}` (escaped braces) or re-interpreting a literal tag-looking
+    # token as a live SGR sequence. Honored by `process_content` like a one-shot
+    # `no_tags = true` WITHOUT flipping the persistent `@_content_no_tags` (which
+    # would permanently disable tag parsing for the widget). Fresh line contents
+    # are pre-parsed by the line editors before splicing into `fake`, so tags in
+    # newly inserted/set lines still work — see `#insert_line`/`#set_line`.
+    @_rebuilding_from_fake = false
+
     # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
     # in `#set_content` and kept current by `#append_content` (from the raw
     # appended text, independent of `@parse_tags`/`no_tags` mode — exactly like
@@ -422,7 +433,7 @@ module Crysterm
         # resize, scroll, attach — all calling with default `no_tags = false`)
         # keeps tags literal instead of parsing what `set_text` asked to
         # preserve.
-        if !no_tags && !@_content_no_tags && @_content_has_tags
+        if !no_tags && !@_content_no_tags && !@_rebuilding_from_fake && @_content_has_tags
           content = _parse_tags content
           # This parse just consumed the whole raw content, so its end state IS
           # the boundary state a future append would splice at. (`_parse_tags`'s
@@ -1127,7 +1138,31 @@ module Crysterm
       # Preserve the widget's tag mode: the third positional arg is `no_tags`.
       # Passing only `no_clear` (true) would let `no_tags` default to false,
       # permanently flipping a literal-tags widget back into tag-parsing mode.
-      set_content(@_clines.fake.join("\n"), true, @_content_no_tags)
+      #
+      # `fake` holds POST-parse text, so the reparse `set_content` triggers would
+      # corrupt it (escaped braces dropped, literal tags re-interpreted). Suppress
+      # just this reparse via the transient flag rather than flipping the
+      # persistent `@_content_no_tags`; freshly edited lines were already parsed at
+      # their entry points. `ensure` so an unexpected raise can't leave the guard
+      # latched (which would silently disable tag parsing for the widget).
+      @_rebuilding_from_fake = true
+      begin
+        set_content(@_clines.fake.join("\n"), true, @_content_no_tags)
+      ensure
+        @_rebuilding_from_fake = false
+      end
+    end
+
+    # Brings a caller-supplied line into the POST-parse form `@_clines.fake`
+    # stores, so a freshly inserted/set line is spliced in the same shape a full
+    # `set_content` reparse would produce. Matches what `process_content` does to
+    # whole content (`clean_content_chars` then `_parse_tags`), so a tag in a new
+    # line still expands, while the subsequent `rebuild_content_from_fake` (which
+    # suppresses reparsing) leaves the rest of `fake` untouched. A no-op for
+    # tag-disabled widgets / `no_tags` content, matching their literal storage.
+    private def parse_fake_line(line : String) : String
+      return line unless @parse_tags && !@_content_no_tags
+      _parse_tags clean_content_chars line
     end
 
     # Scratch `CLines` reused across `append_content` calls so wrapping just the
@@ -1379,7 +1414,10 @@ module Crysterm
       end
 
       line.size.times do |j|
-        @_clines.fake.insert(i + j, line[j])
+        # Pre-parse each incoming line into the POST-parse form `fake` holds, so
+        # the reparse-suppressed rebuild below doesn't need to re-run (and thus
+        # corrupt) the other lines while still expanding a tag in this new line.
+        @_clines.fake.insert(i + j, parse_fake_line(line[j]))
       end
 
       rebuild_content_from_fake
@@ -1523,7 +1561,9 @@ module Crysterm
       while @_clines.fake.size <= i
         @_clines.fake.push("")
       end
-      @_clines.fake[i] = line
+      # Pre-parse into `fake`'s POST-parse form (see `#insert_line`) so the
+      # reparse-suppressed rebuild keeps the other lines intact.
+      @_clines.fake[i] = parse_fake_line(line)
       rebuild_content_from_fake
     end
 

@@ -16,11 +16,17 @@ module Crysterm
     # replaces (rather than stacks on) the one already in flight.
     @style_transitions : Hash(Symbol, FrameClock)?
 
-    # Snapshots the current animatable style values, but only when a `transition`
-    # is declared, so the common no-transition path stays free.
+    # Snapshots the current animatable style values. The snapshot is
+    # unconditional (not gated on the OLD state declaring `transitions`): CSS
+    # defines the *destination* state's `transition` as governing the enter
+    # animation, so a transition declared only in the target state rule (e.g.
+    # `Button:hover { transition: ... }`) must still tween on entry — which
+    # requires a `prev` snapshot even though the old style had no transitions.
+    # `TransitionFrom` is a struct, so this stays allocation-free, and
+    # `#apply_style_transitions` bails cheaply when the new style also has none
+    # (so the exit leg correctly snaps, per CSS).
     def transition_from : TransitionFrom?
       s = style
-      return nil if s.transitions.nil?
       TransitionFrom.new s.fg, s.bg, s.alpha, s.tint_alpha
     end
 
@@ -35,22 +41,52 @@ module Crysterm
     # driver documents and avoids in `widget_animation.cr`). `st` is only read
     # here, up front, for the tween targets — the new state's computed values.
     def apply_style_transitions(prev : TransitionFrom) : Nil
+      # Stop and clear every in-flight tween before (re)building. A state change
+      # into a state whose `transition` map omits — or drops entirely — a
+      # property currently tweening must not let that tween keep running: its
+      # tick writes through the per-tick re-resolved `state_style`, so it would
+      # interpolate toward the OLD state's now-stale target and corrupt the NEW
+      # state's style (which no recascade repairs for a subject-state rule).
+      # Properties the new map still declares are rebuilt from `prev` below.
+      @style_transitions.try { |h| h.each_value(&.stop); h.clear }
       return unless window?
       st = style
       trans = st.transitions
       return unless trans
       trans.each do |prop, spec|
-        dur, easing = spec
-        case prop
-        when "opacity"
-          transition_float(:opacity, prev.alpha || 1.0, st.alpha || 1.0, dur, easing) { |v| state_style.alpha = v }
-        when "color"
-          transition_color(:color, prev.fg, st.fg, dur, easing) { |v| state_style.fg = v }
-        when "background-color", "background"
-          transition_color(:bg, prev.bg, st.bg, dur, easing) { |v| state_style.bg = v }
-        when "tint"
-          transition_float(:tint, prev.tint_alpha, st.tint_alpha, dur, easing) { |v| state_style.tint_alpha = v }
+        # `all` is expanded below, after the explicit per-property entries, so
+        # an explicit entry can override it (per CSS).
+        next if prop == "all"
+        apply_transition_prop prop, spec[0], spec[1], prev, st
+      end
+      # `transition: all` (the common shorthand) tweens every supported
+      # property, but a concrete per-property entry overrides `all` — so skip
+      # any property the map declares explicitly (handling the `background`
+      # alias of `background-color`). This runs regardless of declaration order,
+      # unlike a parse-time expansion.
+      if all = trans["all"]?
+        {"opacity", "color", "background-color", "tint"}.each do |prop|
+          next if trans.has_key? prop
+          next if prop == "background-color" && trans.has_key?("background")
+          apply_transition_prop prop, all[0], all[1], prev, st
         end
+      end
+    end
+
+    # Dispatches a single animatable property to its tween, from *prev* to the
+    # new (post-state-change) *st* value. Shared by the per-property loop and
+    # the `all` expansion in `#apply_style_transitions`.
+    private def apply_transition_prop(prop : String, dur : Time::Span, easing : Easing,
+                                      prev : TransitionFrom, st : ::Crysterm::Style) : Nil
+      case prop
+      when "opacity"
+        transition_float(:opacity, prev.alpha || 1.0, st.alpha || 1.0, dur, easing) { |v| state_style.alpha = v }
+      when "color"
+        transition_color(:color, prev.fg, st.fg, dur, easing) { |v| state_style.fg = v }
+      when "background-color", "background"
+        transition_color(:bg, prev.bg, st.bg, dur, easing) { |v| state_style.bg = v }
+      when "tint"
+        transition_float(:tint, prev.tint_alpha, st.tint_alpha, dur, easing) { |v| state_style.tint_alpha = v }
       end
     end
 

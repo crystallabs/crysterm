@@ -110,7 +110,7 @@ module Crysterm
       pos = pos0
 
       loop do
-        c, term = sgr_param_at(src, pos, finish)
+        c, term, colon = sgr_param_at(src, pos, finish)
         case c
         when 0 # normal
           bg = Attr.bg(dfl)
@@ -144,18 +144,38 @@ module Crysterm
           fg = Attr.fg(dfl)
         when 49 # default bg
           bg = Attr.bg(dfl)
-        when 38, 48 # extended fg (38) / bg (48): 256-color or truecolor
+        when 38, 48 # extended fg (38) / bg (48): 256-color or truecolor.
+          # Sub-parameters may be `;`- or `:`-separated (ISO 8613-6 / ITU T.416):
+          # `38;5;n` / `38:5:n`, `38;2;r;g;b` / `38:2:r:g:b`, and the full colon
+          # form `38:2:<cs>:r:g:b` with a (usually empty) colorspace-id field.
           if term < finish
-            mode, mterm = sgr_param_at(src, term + 1, finish)
-            if mode == 5 && mterm < finish # `<38|48>;5;n` (256-color)
-              n, nterm = sgr_param_at(src, mterm + 1, finish)
+            mode, mterm, mcolon = sgr_param_at(src, term + 1, finish)
+            if mode == 5 && mterm < finish # `<38|48>[;:]5[;:]n` (256-color)
+              n, nterm, _ = sgr_param_at(src, mterm + 1, finish)
               rgb = Colors.palette_to_rgb(n)
               c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
               term = nterm
-            elsif mode == 2 && mterm < finish # `<38|48>;2;r;g;b` (truecolor)
-              r, rterm = sgr_param_at(src, mterm + 1, finish)
-              g, gterm = rterm < finish ? sgr_param_at(src, rterm + 1, finish) : {0, rterm}
-              b, bterm = gterm < finish ? sgr_param_at(src, gterm + 1, finish) : {0, gterm}
+            elsif mode == 2 && mterm < finish # `<38|48>[;:]2[;:]r[;:]g[;:]b` (truecolor)
+              rstart = mterm
+              # The colon form may carry a leading colorspace-id field
+              # (`38:2::r:g:b` / `38:2:<cs>:r:g:b`). Count the colon-separated
+              # fields after `2`; 4 of them means the first is the colorspace id
+              # and must be skipped so r/g/b line up.
+              if mcolon
+                fields = 0
+                p = mterm
+                loop do
+                  _, p, pcolon = sgr_param_at(src, p + 1, finish)
+                  fields += 1
+                  break unless pcolon
+                end
+                if fields >= 4
+                  _, rstart, _ = sgr_param_at(src, mterm + 1, finish)
+                end
+              end
+              r, rterm, _ = sgr_param_at(src, rstart + 1, finish)
+              g, gterm, _ = rterm < finish ? sgr_param_at(src, rterm + 1, finish) : {0, rterm, false}
+              b, bterm, _ = gterm < finish ? sgr_param_at(src, gterm + 1, finish) : {0, gterm, false}
               rgb = Colors.rgb(r, g, b)
               c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
               term = bterm
@@ -170,6 +190,17 @@ module Crysterm
         when 90..97   then fg = Attr.pack_color(Colors.palette_to_rgb(c - 90 + 8)) # bright fg
         end
 
+        # A `:`-terminated parameter we don't consume above carries ISO 8613-6
+        # sub-parameters (e.g. `4:3`, curly underline). The base code was already
+        # applied by the `case`; skip its sub-params up to the next `;` so the
+        # whole SGR isn't dropped (`4:3` degrades to a plain underline).
+        if colon && c != 38 && c != 48
+          loop do
+            _, term, colon = sgr_param_at(src, term + 1, finish)
+            break unless colon
+          end
+        end
+
         break if term >= finish
         pos = term + 1
       end
@@ -177,39 +208,53 @@ module Crysterm
       Attr.pack(flags, fg, bg)
     end
 
-    # Parses one ';'-separated decimal SGR parameter from `bytes` starting at
-    # `pos`, stopping at the next ';' or at `finish` (index of trailing 'm').
-    # Returns `{value, terminator}`. An empty parameter yields 0. Allocation-free
-    # helper for `attr2code`; assumes ASCII digits (guaranteed by `SGR_REGEX`).
+    # Parses one decimal SGR parameter from `bytes` starting at `pos`, stopping
+    # at the next ';' or ':' separator or at `finish` (index of trailing 'm').
+    # Returns `{value, terminator, colon?}` where `colon?` is true when the byte
+    # that ended the parameter was a ':' (ISO 8613-6 / ITU T.416 sub-parameter
+    # separator) rather than ';' or `finish`. An empty parameter yields 0.
+    # Allocation-free helper for `attr2code`. Non-digit bytes other than the two
+    # separators are ignored (the params entry points feed the raw CSI buffer
+    # with no regex pre-validation, so this must not assume clean input).
     # Largest value to keep accumulating; one more digit would overflow `Int32`.
     # A param this large isn't a real SGR code, so accumulation just stops
     # (freezing at an unrecognized magnitude) instead of raising `OverflowError`
     # on adversarial input like `\e[9999999999m`.
     SGR_PARAM_MAX = (Int32::MAX - 9) // 10
 
-    private def self.sgr_param_at(bytes : Bytes, pos : Int32, finish : Int32) : {Int32, Int32}
+    private def self.sgr_param_at(bytes : Bytes, pos : Int32, finish : Int32) : {Int32, Int32, Bool}
       value = 0
+      colon = false
       while pos < finish
         b = bytes.unsafe_fetch(pos)
         break if b == ';'.ord
+        if b == ':'.ord
+          colon = true
+          break
+        end
         value = value * 10 + (b.to_i - '0'.ord) if value <= SGR_PARAM_MAX
         pos += 1
       end
-      {value, pos}
+      {value, pos, colon}
     end
 
     # `StringIndex` counterpart of the `Bytes` overload above: reads the
     # parameter's ASCII digits by codepoint index instead of byte index. Same
-    # contract (empty parameter -> 0, stop at ';' or `finish`).
-    private def self.sgr_param_at(content : StringIndex, pos : Int32, finish : Int32) : {Int32, Int32}
+    # contract (empty parameter -> 0, stop at ';'/':' or `finish`, report ':').
+    private def self.sgr_param_at(content : StringIndex, pos : Int32, finish : Int32) : {Int32, Int32, Bool}
       value = 0
+      colon = false
       while pos < finish
         ch = content[pos]
         break if ch.nil? || ch == ';'
+        if ch == ':'
+          colon = true
+          break
+        end
         value = value * 10 + (ch.ord - '0'.ord) if value <= SGR_PARAM_MAX
         pos += 1
       end
-      {value, pos}
+      {value, pos, colon}
     end
 
     # Converts our own attribute format to an SGR string.

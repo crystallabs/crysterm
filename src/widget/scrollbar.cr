@@ -324,8 +324,11 @@ module Crysterm
       # than `#min_thumb` (down-clamped to the available track).
       private def thumb_size(avail : Int32) : Int32
         return avail if value_span <= 0
-        total = value_span + @page_step
-        size = (avail * @page_step / total.to_f).round.to_i
+        # `value_span` saturates at `Int32::MAX` for a full-span range, so
+        # `+ @page_step` (and `avail * @page_step`) must widen to Int64 or they
+        # overflow — same guard as `#thumb_offset`.
+        total = value_span.to_i64 + @page_step
+        size = (avail.to_i64 * @page_step / total.to_f).round.to_i
         size.clamp(Math.min(@min_thumb, avail), avail)
       end
 
@@ -333,7 +336,7 @@ module Crysterm
       private def thumb_offset(avail : Int32) : Int32
         return 0 if value_span <= 0
         room = avail - thumb_size(avail)
-        ((slider_position - @minimum).to_f * room / value_span).round.to_i.clamp(0, Math.max(0, room))
+        ((slider_position.to_i64 - @minimum).to_f * room / value_span).round.to_i.clamp(0, Math.max(0, room))
       end
 
       # Resolves a sub-style slot to *fallback* when not explicitly styled. The

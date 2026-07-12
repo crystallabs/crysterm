@@ -448,7 +448,7 @@ module Crysterm
       # `#renumber_prefixes` so both stay in sync.
       private def command_title(cmd : Command) : String
         if cmd.separator?
-          cmd.width = cmd.text.size + 2
+          cmd.width = str_width(cmd.text) + 2
           cmd.text
         else
           prefix = cmd.prefix
@@ -457,7 +457,13 @@ module Crysterm
           # Item boxes render with `parse_tags: true`, so measure the *rendered*
           # width with tags stripped — otherwise `{bold}File{/bold}` counts its
           # markup and oversizes the box, leaving a dead gap after the item.
-          len = clean_tags((prefix ? "#{prefix}:" : "") + cmd.text).size
+          # `str_width` (not a raw `.size`/`Unicode.display_width`) is the right
+          # hook here: it dispatches display-column vs codepoint counting on
+          # `full_unicode?`, matching how the box's own content engine lays the
+          # text out (legacy mode lays one codepoint per cell, so `.size` is
+          # the correct measure there; only full-unicode mode needs display
+          # width).
+          len = str_width clean_tags((prefix ? "#{prefix}:" : "") + cmd.text)
           cmd.width = len + 2
           title
         end

@@ -19,11 +19,21 @@ module Crysterm
       @row_offset = 0
       @row_index = 0
       @last_row_index = 0
+      # The previous *arranged* flow child this frame (whether or not it
+      # rendered). The chain in `#flow_place` normally follows the last
+      # *rendered* child (`get_last`), but a child that was placed yet produced
+      # no `lpos` this frame — e.g. scroll-clipped above the viewport — would
+      # break that chain and collapse every later child back to the interior
+      # origin. Keeping the immediate predecessor lets the chain continue off
+      # its assigned geometry instead. Reset each `arrange` (transient
+      # per-render state; a Flow instance serves a single container).
+      @prev_el : Widget? = nil
 
       def arrange(container : Widget, interior : LPos) : Nil
         @row_offset = 0
         @row_index = 0
         @last_row_index = 0
+        @prev_el = nil
         before_flow container
 
         children = container.children
@@ -66,6 +76,11 @@ module Crysterm
           # composited on its own plane, so `get_last` won't see its `lpos` this
           # frame — acceptable for the rare z-indexed flow child.
           render_or_defer el
+          # Record this placed child as the chain predecessor for the next one,
+          # so a scroll-clipped child (no `lpos` after render) doesn't strand
+          # the rest of the flow at the origin. Skipped children (`SkipWidget`/
+          # `StopRendering`, handled above) never reach here.
+          @prev_el = el
         end
       end
 
@@ -89,25 +104,38 @@ module Crysterm
         # computed for them at render time.
         el.resizable = true
 
-        # `get_last` only returns a rendered child, so `rendered_lpos` is
-        # non-nil whenever `last` is — binding it narrows `llp` for the rest of
-        # the method.
-        last = get_last container, i
-        unless last && (llp = rendered_lpos(last))
+        # Chain off the previous child's outer right edge. Normally that's the
+        # last *rendered* child (`get_last`, which also skips children that
+        # collapsed to nothing): `llp.xl` is its drawn (margin-inset) edge, so
+        # add back its right margin, and its drawn width is `llp.xl - llp.xi`.
+        # `el` self-offsets by its own left margin during render
+        # (`_get_coords`), giving adjacent flow children
+        # `last.margin.right + el.margin.left` separation (additive; no CSS
+        # margin-collapsing).
+        #
+        # When nothing rendered before `i` but the immediate predecessor *was*
+        # placed (its `lpos` was nil'd this frame by scroll-clipping, not by
+        # being skipped), chain off its assigned geometry instead — otherwise a
+        # scrolled flow blanks entirely as every later child re-piles at (0, 0).
+        # Only a genuine absence of any predecessor falls through to the origin.
+        if (last = get_last container, i) && (llp = rendered_lpos(last))
+          el.left = (llp.xl + last.mright) - xi
+          last_drawn = llp.xl - llp.xi
+        elsif (last = @prev_el)
+          el.left = last.left.as(Int) + last.mleft + last.awidth + last.mright
+          last_drawn = last.awidth
+        else
+          # No predecessor at all: start the row at the origin. `top` is
+          # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
+          # chain break can't fold later rows back onto row 0.
           el.left = 0
-          el.top = 0
+          el.top = @row_offset
           return
         end
-        # Chain off `last`'s outer right edge: `llp.xl` is its drawn
-        # (margin-inset) edge, so add back its right margin. `el` self-offsets
-        # by its own left margin during render (`_get_coords`), giving adjacent
-        # flow children `last.margin.right + el.margin.left` separation
-        # (additive; no CSS margin-collapsing).
-        el.left = (llp.xl + last.mright) - xi
 
         # Snap to the uniform column width in grid mode.
         if high_width > 0
-          el.left = el.left.as(Int) + high_width - (llp.xl - llp.xi)
+          el.left = el.left.as(Int) + high_width - last_drawn
         end
 
         # Include the child's own left margin: the render pipeline
@@ -119,23 +147,40 @@ module Crysterm
         if el.left.as(Int) + el.mleft + el.awidth <= width
           el.top = @row_offset
         else
-          # Doesn't fit on this row: advance the row offset by the tallest
-          # rendered child on the row we're leaving, and start a new row. Scan
-          # the row's index range directly instead of `children[@row_index...i]`,
-          # which allocated a slice copy on every wrap.
-          tallest = 0
-          each_rendered_in_range(container, @row_index, i) do |el2, elp|
-            # Outer height: add back the vertical margin lost to the inset,
-            # separating rows by this child's bottom margin plus the next's top.
-            eh = (elp.yl - elp.yi) + el2.mheight
-            tallest = eh if eh > tallest
-          end
-          @row_offset += tallest
+          # Doesn't fit on this row: advance the row offset by the tallest child
+          # on the row we're leaving, and start a new row.
+          @row_offset += row_tallest container, @row_index, i
           @last_row_index = @row_index
           @row_index = i
           el.left = 0
           el.top = @row_offset
         end
+      end
+
+      # Tallest *outer* height among the arranged children in `[from, to)` — the
+      # row we're leaving — used to advance `@row_offset` on wrap. A rendered
+      # child contributes its drawn rect height; a child that was placed but not
+      # rendered (scroll-clipped) contributes its assigned `aheight`, both plus
+      # the child's vertical margin. Without the clipped fallback the cursor
+      # stalls at 0 for a fully-clipped row, re-piling every later row on top of
+      # it. Scans the index range directly (no `children[from...to]` slice copy).
+      protected def row_tallest(container : Widget, from : Int32, to : Int32) : Int32
+        tallest = 0
+        j = from
+        while j < to
+          el = container.children[j]
+          unless el.layout_excluded?
+            eh =
+              if lp = rendered_lpos(el)
+                (lp.yl - lp.yi) + el.mheight
+              else
+                el.aheight + el.mheight
+              end
+            tallest = eh if eh > tallest
+          end
+          j += 1
+        end
+        tallest
       end
 
       # Yields each child in `container.children[from...to]` that this engine
@@ -171,7 +216,13 @@ module Crysterm
       # widths already carry).
       protected def overflow_action(container : Widget, el : Widget, interior : LPos) : Overflow?
         height = interior.yl - interior.yi
-        if el.top.as(Int) + el.aheight > height
+        # Include the top margin: the render pipeline shifts a fixed-size box
+        # down by `mtop` without shrinking it (`_get_coords`), so its real
+        # bottom edge is `top + mtop + aheight` — the vertical analogue of the
+        # `mleft` term the horizontal wrap check in `#flow_place` already carries.
+        # Safe for auto-height children too: their `aheight` already folds both
+        # vertical margins in, so adding `mtop` still can't exceed the interior.
+        if el.top.as(Int) + el.mtop + el.aheight > height
           return container.overflow
         end
         nil

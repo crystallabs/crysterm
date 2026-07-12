@@ -119,7 +119,7 @@ module Crysterm
       # Handle offset (in cells) from the low end of a track `avail` cells long.
       private def handle_offset(avail : Int32) : Int32
         return 0 if value_span == 0 || avail <= 0
-        ((@value - @minimum).to_f * avail / value_span).round.to_i.clamp(0, avail)
+        ((@value.to_i64 - @minimum).to_f * avail / value_span).round.to_i.clamp(0, avail)
       end
 
       # Effective value-space spacing between ticks.
@@ -149,7 +149,7 @@ module Crysterm
         else
           tv = @minimum
           while tv <= @maximum
-            yield ((tv - @minimum).to_f * avail / value_span).round.to_i
+            yield ((tv.to_i64 - @minimum).to_f * avail / value_span).round.to_i
             break if tv > @maximum - interval # guard the `tv += interval` overflow
             tv += interval
           end
@@ -195,7 +195,12 @@ module Crysterm
       end
 
       def render
-        with_inner_coords do |xi, xl, yi, yl|
+        # Paint into the *content* region (border AND padding inset), not just
+        # the border-only interior: the mouse handler maps clicks through
+        # `Mixin::TrackGeometry#pointer_offset`, whose `ileft`/`iwidth` insets
+        # include padding. Using `with_inner_coords` here made the drawn handle
+        # and the click-mapped value disagree on a padded slider.
+        with_content_coords do |xi, xl, yi, yl|
           track_attr = sattr style
           window.fill_region track_attr, track_char, xi, xl, yi, yl
 

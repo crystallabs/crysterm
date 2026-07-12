@@ -49,6 +49,11 @@ module Crysterm
       # Mark the box as a label so `_get_coords`' scrollable-ancestor clip
       # exempts it from border compensation (blessed's `_isLabel`).
       _label._is_label = true
+      # Chrome: glued to the border row, never arranged as a content slot by an
+      # installed layout engine (see `Widget#layout_chrome?`). Otherwise a
+      # `GroupBox` under a VBox would tear the title off the border into a flex
+      # slot, and `sync_label_position` would fight the engine every frame.
+      _label.layout_chrome = true
 
       place_label_side(_label, side)
 

@@ -81,6 +81,10 @@ module Crysterm
     @saved_gl = 0
     @saved_origin_mode = false
     @saved_autowrap = true
+    # DECSC also snapshots the pending-wrap (last-column deferred wrap) flag, part
+    # of the DECSC state per DEC STD-070/xterm: a DECRC onto the last column with a
+    # wrap pending must re-arm it, else the next printable overwrites in place.
+    @saved_wrap_pending = false
 
     # Deferred wrap: after writing the last column we stay on it until the next
     # printable char, matching xterm (prevents a spurious blank line when text
@@ -171,6 +175,7 @@ module Crysterm
     @main_saved_gl = 0
     @main_saved_origin_mode = false
     @main_saved_autowrap = true
+    @main_saved_wrap_pending = false
 
     # Mouse tracking requested by the child. `@mouse_tracking` is the active
     # DECSET tracking mode (0 = off, else 9/1000/1002/1003); `@mouse_encoding`
@@ -626,6 +631,11 @@ module Crysterm
       handler.call(String.new(ptr + idx + 1, size - idx - 1))
     end
 
+    # Largest CSI parameter buffer retained before further parameter bytes are
+    # dropped (mirrors OSC_MAX). xterm caps well under this; the exact value only
+    # bounds worst-case memory on an unterminated/adversarial sequence.
+    CSI_MAX = 4096
+
     private def handle_csi(c : Char) : Nil
       o = c.ord
       # A leading byte in 0x3c-0x3f (`<` `=` `>` `?`) is the private/intermediate
@@ -643,7 +653,12 @@ module Crysterm
         return
       end
       if o >= 0x30 && o <= 0x3f
-        @csi_buf.write_byte(o.to_u8) # parameter bytes (digits, ';', ':', private markers)
+        # Cap the parameter buffer like OSC_MAX: an unterminated CSI (a buggy
+        # child, or `ESC [` followed by megabytes of digit/`;`/`:` data) would
+        # otherwise grow @csi_buf without limit, retaining that capacity for the
+        # widget's lifetime. Terminator scanning below is unchanged, so state
+        # recovery is unaffected — an over-long field is simply truncated.
+        @csi_buf.write_byte(o.to_u8) if @csi_buf.bytesize < CSI_MAX # parameter bytes (digits, ';', ':', private markers)
         return
       end
       dispatch_csi c # final byte (0x40..0x7e)
@@ -926,6 +941,7 @@ module Crysterm
       @main_saved_gl = @saved_gl
       @main_saved_origin_mode = @saved_origin_mode
       @main_saved_autowrap = @saved_autowrap
+      @main_saved_wrap_pending = @saved_wrap_pending
     end
 
     private def unpark_saved_slot : Nil
@@ -937,6 +953,7 @@ module Crysterm
       @saved_gl = @main_saved_gl
       @saved_origin_mode = @main_saved_origin_mode
       @saved_autowrap = @main_saved_autowrap
+      @saved_wrap_pending = @main_saved_wrap_pending
     end
 
     # Resets the DECSC slot to defaults (home cursor, default rendition/charset).
@@ -950,6 +967,7 @@ module Crysterm
       @saved_gl = 0
       @saved_origin_mode = false
       @saved_autowrap = true
+      @saved_wrap_pending = false
     end
 
     # Switches to a fresh alternate page, parking the main buffer until
@@ -1065,10 +1083,23 @@ module Crysterm
         # `#insert_chars` (ICH) performs, applied per printed character.
         shift_cells_right line, @x, w
       end
+      # Repair any wide-glyph pair this write splits, matching xterm which blanks
+      # the surviving half. (1) Writing onto the trailing CONTINUATION cell leaves
+      # its lead at @x-1 orphaned — blank it, else the widget still treats the lead
+      # as 2-wide and hides the freshly printed char. (2) After placing a w-wide
+      # glyph, an old CONTINUATION at @x+w is now orphaned from its overwritten
+      # lead — blank it too.
+      if @x > 0 && line[@x].char == CONTINUATION
+        line[@x - 1] = Cell.new(erase_attr, ' ')
+      end
       line[@x] = Cell.new(@cur_attr, c)
       @last_char = c # remember the placed glyph so REP ('b') can repeat it
       if w == 2 && @x + 1 < @cols
         line[@x + 1] = Cell.new(@cur_attr, CONTINUATION)
+      end
+      e = @x + w
+      if e < line.size && line[e].char == CONTINUATION
+        line[e] = Cell.new(erase_attr, ' ')
       end
 
       if @x + w >= @cols
@@ -1228,6 +1259,11 @@ module Crysterm
     end
 
     private def erase_display(mode : Int32) : Nil
+      # xterm's ED 0/1/2 route through ClearBelow/ClearAbove/ClearScreen, all of
+      # which ResetWrap (like erase_line); a full-row wrap left pending before a
+      # CSI J must not fire on the next print. ED 3 (Erase Saved Lines) only trims
+      # scrollback and does NOT reset the flag in xterm, so gate it out.
+      @wrap_pending = false unless mode == 3
       case mode
       when 0 # cursor → end of window
         erase_in_line @x, @cols - 1
@@ -1377,6 +1413,7 @@ module Crysterm
       @saved_gl = @gl
       @saved_origin_mode = @origin_mode
       @saved_autowrap = @autowrap
+      @saved_wrap_pending = @wrap_pending
     end
 
     private def restore_cursor : Nil
@@ -1388,7 +1425,11 @@ module Crysterm
       @gl = @saved_gl
       @origin_mode = @saved_origin_mode
       @autowrap = @saved_autowrap
-      @wrap_pending = false
+      # Re-arm the deferred wrap only when the restored cursor actually lands on
+      # the last column with autowrap on (stricter than xterm's unconditional
+      # restore, safer since print_char consumes @wrap_pending without re-checking
+      # position).
+      @wrap_pending = @saved_wrap_pending && @autowrap && @x == @cols - 1
     end
 
     # DECALN (`ESC # 8`): fill the entire visible screen with 'E', reset the
