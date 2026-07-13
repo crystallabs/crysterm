@@ -80,12 +80,6 @@ module Crysterm
       # columns overflow its viewport (Qt's `AsNeeded`).
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
-      # Reused, allocation-free scratch set: rows that carry a CSS-computed cell
-      # style this frame (`#recolor_css_cells` repopulates it from `@css_cells`).
-      # The default theme styles only the `Header` (row 0), so an unstyled table
-      # skips per-cell CSS lookups for every body row.
-      @styled_rows = Set(Int32).new
-
       # --- per-row derived-style caches (allocation reduction, K1) -----------
       # `#render_style_for` runs once per body row per frame. With
       # `alternate_rows: true` that would derive a fresh `Style` for every even
@@ -611,8 +605,7 @@ module Crysterm
         # Only rows carrying a computed cell style need per-cell lookups; an
         # unstyled table styles only its header row via the default theme, so
         # every body row is skipped wholesale.
-        @styled_rows.clear
-        cells.each_key { |(r, _)| @styled_rows << r }
+        refresh_styled_rows
 
         y = itop
         while y < height
@@ -623,7 +616,7 @@ module Crysterm
           # straight to the data row recolored the wrong rows once scrolled.
           screen_row = y - itop
           row = screen_row == 0 ? 0 : screen_row + @child_base
-          if @styled_rows.includes?(row) && (line = lines[yi + y]?)
+          if styled_row?(row) && (line = lines[yi + y]?)
             x = ileft
             while x < width
               col = col_map[x]?

@@ -87,8 +87,12 @@ module Crysterm
         # must get their accelerators too: the menu emits `SetItems` on every
         # structural change (`Menu#<<`/`#>>`/`#add…` → `sync_items`), so re-run
         # the idempotent install then. Without this, a shortcut added post
-        # `add_menu` stayed silently dead until a detach/re-attach.
-        menu.on(::Crysterm::Event::SetItems) { install_menu_shortcuts }
+        # `add_menu` stayed silently dead until a detach/re-attach. Scope the
+        # (re)install to the changed menu — `SetItems` fires per-add while a bar
+        # is built, so re-walking *every* menu's actions each time is ~O((M·A)²);
+        # each other menu's shortcuts are already installed and the per-`Subscription`
+        # registration is idempotent, so the final state is identical.
+        menu.on(::Crysterm::Event::SetItems) { install_menu_shortcuts menu }
         # Close the menu when it loses focus to something outside the bar's world
         # (mouse-click dismissal is handled separately by `Menu#popup`'s
         # `on_press_outside`). Diving into a submenu or moving to the bar/another
@@ -115,6 +119,13 @@ module Crysterm
       private def install_menu_shortcuts : Nil
         w = window? || return
         @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
+      end
+
+      # :ditto: — for a single *menu* only. `Event::SetItems` fires per structural
+      # change and knows which menu changed, so only its actions need re-covering.
+      private def install_menu_shortcuts(menu : Menu) : Nil
+        w = window? || return
+        visit_actions(menu, &.install_shortcut(w, self))
       end
 
       # Withdraws every menu action's accelerator from *w* (the window the bar

@@ -311,9 +311,9 @@ module Crysterm
           case kind
           when .edit?
             return if removed == 0 && added == 0
-            np = shift_view_pos(@cursor_pos, pos, removed, added)
+            np = TextDocument.shift_position(@cursor_pos, pos, removed, added)
             if a = @selection_anchor
-              na = shift_view_pos(a, pos, removed, added)
+              na = TextDocument.shift_position(a, pos, removed, added)
               # A collapsed anchor is a landmine (see the mixin's mouse
               # handler) — drop it rather than leaving it equal to the caret.
               @selection_anchor = na == np ? nil : na
@@ -330,21 +330,6 @@ module Crysterm
             @goal_col = nil
           else
             # Format-only: positions are unaffected.
-          end
-        end
-
-        # `TextCursor#adjust_pos`'s mapping for a flat view position:
-        # insertions at or before the position push it forward; a position
-        # inside a removed range collapses to its start.
-        private def shift_view_pos(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
-          if removed == 0
-            p >= pos ? p + added : p
-          elsif p <= pos
-            p
-          elsif p >= pos + removed
-            p + added - removed
-          else
-            pos
           end
         end
 

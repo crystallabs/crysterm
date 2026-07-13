@@ -350,25 +350,13 @@ module Crysterm
     # how the editing cursor itself advances); positions inside a removed
     # range collapse to its start.
     protected def adjust(pos : Int32, removed : Int32, added : Int32) : Nil
-      @position = adjust_pos(@position, pos, removed, added)
-      @anchor = adjust_pos(@anchor, pos, removed, added)
+      @position = TextDocument.shift_position(@position, pos, removed, added)
+      @anchor = TextDocument.shift_position(@anchor, pos, removed, added)
     end
 
     protected def rewind_to_start : Nil
       @position = @anchor = 0
       @pending_format = nil
-    end
-
-    private def adjust_pos(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
-      if removed == 0
-        p >= pos ? p + added : p
-      elsif p <= pos
-        p
-      elsif p >= pos + removed
-        p + added - removed
-      else
-        pos
-      end
     end
 
     # === Movement internals ===
@@ -438,18 +426,14 @@ module Crysterm
     # chars. Same semantics as `Mixin::TextEditing#scan_word_left` — block
     # separators read as `'\n'` and count as non-word, so the scan crosses them.
     private def word_left_from(from : Int32) : Int32
-      p = from
-      while p > 0 && !word_char_at?(p - 1)
-        p -= 1
-      end
-      while p > 0 && word_char_at?(p - 1)
-        p -= 1
-      end
-      p
+      TextDocument.scan_word_left(from) { |i| !word_char_at?(i) }
     end
 
     # Start of the next word: skip the rest of the current word, then
-    # separators (Qt `WordRight`).
+    # separators (Qt `WordRight`). Note this is *word-run then separator-run* —
+    # the opposite phase order from the mirror-symmetric `.scan_word_left` /
+    # mixin `#scan_word_right` (which skip separators first), so it can't share
+    # them without changing where the caret lands.
     private def word_right_from(from : Int32) : Int32
       p = from
       sz = @document.size
@@ -467,15 +451,7 @@ module Crysterm
     # intent for double-click selection). Collapses to {pos, pos} in
     # whitespace-only surroundings.
     private def word_bounds_at(pos : Int32) : {Int32, Int32}
-      doc = @document
-      s = pos
-      while s > 0 && word_char_at?(s - 1)
-        s -= 1
-      end
-      e = pos
-      while e < doc.size && word_char_at?(e)
-        e += 1
-      end
+      s, e = TextDocument.word_run_at(pos, @document.size) { |i| word_char_at?(i) }
       if s == e
         # Not inside a word: take the word ending at or before pos.
         prev = word_left_from(pos)

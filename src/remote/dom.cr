@@ -1,4 +1,16 @@
 module Crysterm
+  # Shared `#to_layout_html : String` convenience over an `IO`-writing
+  # `#to_layout_html`. Both `Widget` and `Window` define their own writer
+  # overload (`Widget#to_layout_html(io, indent)`, `Window#to_layout_html(io)`);
+  # this gives each the identical `String.build` wrapper, resolved to the
+  # includer's own writer at call time, so the byte-identical convenience isn't
+  # duplicated in both classes.
+  module LayoutHtmlString
+    def to_layout_html : String
+      String.build { |io| to_layout_html io }
+    end
+  end
+
   # The *layout DOM* — an "extended", round-trippable sibling of the CSS
   # document (`#to_html`).
   #
@@ -22,6 +34,8 @@ module Crysterm
   # * `#dom_apply` — applies one parsed attribute back onto the widget.
   #   Subclasses override to handle their own keys, then fall through to `super`.
   class Widget
+    include LayoutHtmlString
+
     # Construction state serialized into the layout DOM as element attributes.
     #
     # Only the *inputs* a user would set are emitted (never computed values like
@@ -138,11 +152,6 @@ module Crysterm
       end
     end
 
-    # :ditto:
-    def to_layout_html : String
-      String.build { |io| to_layout_html io }
-    end
-
     # Finds the first widget in this subtree (self included) whose `#css_id`
     # matches `id`. Intended for grabbing a handle on a widget loaded from a
     # layout file to attach event handlers.
@@ -158,17 +167,14 @@ module Crysterm
   end
 
   class Window
+    include LayoutHtmlString
+
     # Serializes the whole window as layout DOM: a `w-window` root wrapping each
     # top-level widget's reconstructable subtree.
     def to_layout_html(io : IO) : Nil
       io << "<w-window>\n"
       children.each &.to_layout_html(io, 2)
       io << "</w-window>\n"
-    end
-
-    # :ditto:
-    def to_layout_html : String
-      String.build { |io| to_layout_html io }
     end
 
     # Finds the first widget on this window whose `#css_id` matches `id`.

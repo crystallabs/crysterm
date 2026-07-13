@@ -534,25 +534,44 @@ module Crysterm
         super
       end
 
+      # The nearest *selectable* index to *from* within `0...size`, stepping in
+      # *dir* over separators (the block returns whether an index is a
+      # separator). When the step runs off the end while still on a separator, it
+      # rescans the opposite way, so the result is never a separator. Returns
+      # `nil` only when *size* is 0 or every index is a separator.
+      #
+      # Shared, index-only navigation core: `#nearest_selectable(from)` and
+      # `#move` here, plus `Widget::Menu#skip_separators` (over `Array(Action)`),
+      # all route through it so the "never land the cursor on a separator" edge
+      # semantics live once. A class method because a `Widget::Menu` (an
+      # `ItemView`, not an `ActionBar`) reuses it without including this module.
+      def self.nearest_selectable(size : Int32, from : Int32, dir : Int32, & : Int32 -> Bool) : Int32?
+        return nil if size == 0
+        i = from.clamp(0, size - 1)
+        size.times do
+          break unless yield i
+          ni = i + dir
+          break if ni < 0 || ni >= size
+          i = ni
+        end
+        if yield i
+          # Landed on a separator at the array boundary: rescan the opposite way
+          # so the highlight never rests on one.
+          j = i
+          while (j -= dir) >= 0 && j < size
+            return j unless yield j
+          end
+          return nil
+        end
+        i
+      end
+
       # The nearest selectable (non-separator) command index at or before
       # *from*, else the nearest one after it, or `nil` when the bar holds no
       # selectable command at all. Used to keep the selection cursor off
       # separators after a removal (see `#remove_item`).
       private def nearest_selectable(from : Int32) : Int32?
-        n = @commands.size
-        return nil if n == 0
-        i = from.clamp(0, n - 1)
-        j = i
-        while j >= 0
-          return j unless @commands[j].separator?
-          j -= 1
-        end
-        j = i + 1
-        while j < n
-          return j unless @commands[j].separator?
-          j += 1
-        end
-        nil
+        ActionBar.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
       end
 
       # Moves the selection by `offset` (negative = left), stepping over any
@@ -564,11 +583,8 @@ module Crysterm
         dir = offset >= 0 ? 1 : -1
         idx = selected
         offset.abs.times do
-          ni = idx + dir
-          while ni >= 0 && ni < n && (@commands[ni]?.try &.separator?)
-            ni += dir
-          end
-          break if ni < 0 || ni >= n
+          ni = ActionBar.nearest_selectable(n, idx + dir, dir) { |i| @commands[i].separator? }
+          break unless ni
           idx = ni
         end
 

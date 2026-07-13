@@ -585,10 +585,13 @@ module Crysterm
         w = window? || return
         @ev_move.on(w, Crysterm::Event::Mouse) do |e|
           if e.action.move?
-            px = parent.try { |p| p.aleft + p.ileft } || 0
-            py = parent.try { |p| p.atop + p.itop } || 0
-            self.left = (e.x - @move_dx - px).clamp(0, drag_max_left)
-            self.top = (e.y - @move_dy - py).clamp(0, drag_max_top)
+            # Reuse Widget's drag machinery: `drag_origin` maps the absolute
+            # pointer to this widget's parent-content-relative `left`/`top`, and
+            # `drag_max_left`/`drag_max_top` clamp it in-bounds (identical to the
+            # reposition handler in `widget_interaction.cr`).
+            ox, oy = drag_origin
+            self.left = (e.x - @move_dx - ox).clamp(0, drag_max_left)
+            self.top = (e.y - @move_dy - oy).clamp(0, drag_max_top)
             e.accept
             request_render
           elsif e.action.up?

@@ -1,6 +1,7 @@
 require "./box"
 require "../action"
 require "../mixin/action_bar"
+require "../mixin/action_watcher"
 
 module Crysterm
   class Widget
@@ -27,15 +28,13 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class ToolBar < Box
       include Mixin::ActionBar
+      # Shared "watch each action's `Changed` signal + own the host association"
+      # concern (the hash, `associate`/`dissociate`, teardown), passing the
+      # tool-bar refresh body per action (see `#add_action`).
+      include Mixin::ActionWatcher
 
       # The action backing each button box (absent for plain buttons/separators).
       @item_actions = {} of Widget::Box => Action
-
-      # Per-action `Event::Changed` handler, kept so it can be removed in
-      # `#destroy` (mirroring `Menu`'s `@action_changed`); otherwise destroying
-      # the bar leaves a stale handler running `refresh`/`request_render` on a
-      # destroyed widget for every future change of that action.
-      @action_changed = {} of Action => ::Proc(::Crysterm::Event::Changed, ::Nil)
 
       def initialize(**listbar)
         super(**listbar.merge(keys: true))
@@ -57,17 +56,16 @@ module Crysterm
       def add_action(action : Action) : Widget::Box
         item = add(action.display_label) { activate_action action }
         @item_actions[item] = action
-        action.associate self # Qt's QAction::associatedWidgets bookkeeping
-        action.tool_tip.try { |t| item.tool_tip = t }
-        # Reflect external state changes (Qt's `QAction::changed()`): toggling a
-        # checkable action's `checked` from elsewhere must re-light its button.
-        handler = ->(_e : ::Crysterm::Event::Changed) do
+        # Associate this bar with the action and reflect external state changes
+        # (Qt's `QAction::changed()`): toggling a checkable action's `checked`
+        # from elsewhere must re-light its button. `#watch_action` (from
+        # `Mixin::ActionWatcher`) owns the association + handler bookkeeping.
+        watch_action(action) do |_e|
           refresh
           request_render
           nil
         end
-        action.on ::Crysterm::Event::Changed, handler
-        @action_changed[action] = handler
+        action.tool_tip.try { |t| item.tool_tip = t }
         # Wire the accelerator now if already on a window; otherwise
         # `install_action_shortcuts` does it on attach.
         window?.try { |w| action.install_shortcut w, self }
@@ -126,13 +124,10 @@ module Crysterm
         # uninstall handler over an already-cleared collection, leaving every
         # action's shortcut registered on the window forever.
         uninstall_action_shortcuts window?
-        @item_actions.each_value do |action|
-          if h = @action_changed.delete action
-            action.off ::Crysterm::Event::Changed, h
-          end
-          action.dissociate self
-        end
-        @action_changed.clear
+        # `#unwatch_all_actions` (Mixin::ActionWatcher) offs every action's
+        # `Changed` handler and dissociates it — the watched set is exactly
+        # `@item_actions`' values (every added action is watched).
+        unwatch_all_actions
         @item_actions.clear
         super
       end

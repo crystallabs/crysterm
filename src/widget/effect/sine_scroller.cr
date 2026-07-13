@@ -82,11 +82,9 @@ module Crysterm
 
             # Pack the attr's invariant parts once per frame (flags + bg), as
             # `Effect::Direct#paint` does. Only fg varies per column, so the
-            # per-column cost is a single `Attr.pack` rather than a full `sattr`
-            # rebuild on every glyph cell.
+            # per-column cost is a single `Attr.with_fg` (flags/bg/Opaque alpha
+            # reused from `da`) rather than a full `sattr` rebuild on every cell.
             da = sattr(style)
-            flags = Attr.flags da
-            bgf = Attr.bg da
             deff = Attr.fg da # widget's own fg, for the non-rainbow case
 
             # Background fill: the field the glyphs ride over.
@@ -103,7 +101,7 @@ module Crysterm
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
               fgf = rainbow? ? rainbow_fg(x, f) : deff
-              window.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
+              window.fill_region(Attr.with_fg(da, fgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
             end
           end
         end

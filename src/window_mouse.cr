@@ -35,21 +35,6 @@ module Crysterm
       !@grabs.empty?
     end
 
-    # Shared "click-away to dismiss" wiring for anything that opens an overlay
-    # (pop-up menus, a `Completer` drop-down, combo lists, …). Installs a
-    # screen-level watcher that calls *dismiss* on a mouse press whose position
-    # *inside* reports as outside it (returns `false`); returns the handler so
-    # the owner can remove it (via `#off`) when the overlay goes away.
-    #
-    # ```
-    # @ev_outside = screen.on_press_outside(->(x : Int32, y : Int32) { contains? x, y }) { close }
-    # ```
-    def on_press_outside(inside : Proc(Int32, Int32, Bool), &dismiss : -> Nil) : Crysterm::Event::Mouse::Wrapper
-      on(Crysterm::Event::Mouse) do |e|
-        dismiss.call if e.action.down? && !inside.call(e.x, e.y)
-      end
-    end
-
     # Whether the point (*x*, *y*) lies inside some active grab's region. True
     # when nothing is grabbing.
     private def within_grab?(x : Int32, y : Int32) : Bool
@@ -202,7 +187,7 @@ module Crysterm
     # dispatches so a mouse report doesn't heap-allocate a fresh event object
     # every time while a listener is installed — a screen-level `Event::Mouse`
     # listener is routine (every pop-up/menu/combo installs one via
-    # `#on_press_outside`), and mouse motion is high-frequency. See
+    # `Overlay::DismissSession`), and mouse motion is high-frequency. See
     # `Event::Mouse#reset` for the retention caveat.
     pooled_mouse_event mouse, Mouse
     pooled_mouse_event mouse_over, MouseOver
@@ -548,8 +533,8 @@ module Crysterm
     # regardless of tree position (see `Window#composite_planes`). So a
     # non-z-indexed widget later in the tree must not steal clicks from a
     # z-indexed widget painted above it — the hit test ranks candidates by
-    # effective layer (`hit_layer`) first, breaking ties within a layer by tree
-    # order.
+    # effective layer (`hit_visible_and_layer`) first, breaking ties within a
+    # layer by tree order.
     def widget_at(x, y, skip : Widget? = nil) : Widget?
       # Traverse without a captured `Proc`: `each_descendant do |el| … end`
       # reified a heap closure (capturing `found`/`found_key`/`x`/`y`/`skip`)
@@ -577,10 +562,14 @@ module Crysterm
     # matching the `each_descendant`/`next` form.
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?) : Nil
       if hit_candidate? el, x, y, skip
+        # One self-or-ancestor pass yields BOTH whole-chain visibility and the
+        # compositing layer key (see `#hit_visible_and_layer`), so this hot
+        # motion path walks the parent chain once, not twice. An invisible
+        # candidate (a "shown" widget inside a hidden container) is not a hit.
+        visible, key = hit_visible_and_layer el
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
-        key = hit_layer el
-        if @_hit_found.nil? || key >= @_hit_found_key
+        if visible && (@_hit_found.nil? || key >= @_hit_found_key)
           @_hit_found = el
           @_hit_found_key = key
         end
@@ -590,10 +579,12 @@ module Crysterm
       end
     end
 
-    # Whether *el* itself is the topmost-eligible widget occupying (*x*, *y*)
-    # under the pointer — the per-widget body of the `widget_at` scan; a failing
-    # check `return false`s rather than `next`s. Preserves the exact hit-test order:
-    # `lpos` first, then `wants_mouse?`, then whole-chain visibility.
+    # Whether *el* itself is a hit-test candidate occupying (*x*, *y*) — the
+    # per-widget body of the `widget_at` scan; a failing check `return false`s
+    # rather than `next`s. Runs the two cheap self-only checks in order (`lpos`
+    # first, then `wants_mouse?`); whole-chain visibility is resolved in the
+    # merged ancestor pass (`#hit_visible_and_layer`) alongside the layer key,
+    # so a passing candidate here is not yet guaranteed on-screen.
     private def hit_candidate?(el : Widget, x : Int32, y : Int32, skip : Widget?) : Bool
       return false if skip && el == skip
       # The transient drag ghost is decorative, never a drop target.
@@ -627,32 +618,43 @@ module Crysterm
       end
 
       return false unless el.wants_mouse?
-      # `#visible?` reflects only the widget's own flag, not its ancestors' —
-      # require the whole chain visible so a "shown" widget inside a hidden
-      # container (e.g. a non-current tab page) can't intercept clicks.
-      return false unless displayed_in_tree? el
       true
     end
 
-    # The compositing layer a hit-test candidate is painted into, as a sortable
-    # `{plane?, z}` key. `{0, 0}` is the base layer (no `z-index` on the widget
-    # or an ancestor); a z-indexed subtree resolves to `{1, z}` — above any base
-    # widget (leading `1` beats `0` even for negative `z`, matching
+    # Single self-or-ancestor pass returning `{displayed?, layer_key}` for a
+    # hit-test candidate — folds what were two separate parent-chain walks
+    # (whole-chain visibility, then outermost-`z_index` layer) into one, since
+    # `#widget_at` runs this on every mouse report (all motion included).
+    #
+    # *displayed?* is false when the widget or ANY ancestor is hidden — its own
+    # `#visible?` flag reflects only itself, so a "shown" widget inside a hidden
+    # container (e.g. a non-current tab page) must not intercept clicks. When
+    # false the layer key is meaningless (the candidate is discarded).
+    #
+    # *layer_key* is the compositing layer the candidate is painted into, as a
+    # sortable `{plane?, z}`: `{0, 0}` is the base layer (no `z-index` on the
+    # widget or an ancestor); a z-indexed subtree resolves to `{1, z}` — above
+    # any base widget (leading `1` beats `0` even for negative `z`, matching
     # `composite_planes`) and ordered among planes by `z`. The OUTERMOST
-    # self-or-ancestor `z_index` wins: painting defers only the FIRST z-indexed
-    # widget met on the walk down (a nested z-indexed subtree flattens into its
-    # enclosing plane — see `compositing_layers?`), so a nested z must not let
-    # an occluded widget out-rank the plane it is actually painted into.
-    private def hit_layer(el : Widget) : Tuple(Int32, Int32)
+    # self-or-ancestor `z_index` wins (each ancestor's value overwrites): painting
+    # defers only the FIRST z-indexed widget met on the walk down (a nested
+    # z-indexed subtree flattens into its enclosing plane — see
+    # `compositing_layers?`), so a nested z must not let an occluded widget
+    # out-rank the plane it is actually painted into.
+    #
+    # Returned as a value tuple (stack, no heap), keeping this path allocation-free.
+    private def hit_visible_and_layer(el : Widget) : Tuple(Bool, Tuple(Int32, Int32))
+      visible = true
       z = nil
       cur : Widget? = el
       while cur
+        visible = false unless cur.style.visible?
         if zz = cur.style.z_index
           z = zz
         end
         cur = cur.parent
       end
-      z ? {1, z} : {0, 0}
+      {visible, z ? {1, z} : {0, 0}}
     end
 
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not

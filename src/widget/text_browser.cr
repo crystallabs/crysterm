@@ -182,7 +182,7 @@ module Crysterm
         lpos = _get_coords
         return false unless lpos
 
-        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        max_line = max_content_row(lpos)
         row = y - lpos.yi - itop
         return false if row < 0 || row > max_line
 

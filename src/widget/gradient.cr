@@ -151,12 +151,11 @@ module Crysterm
           next if xl <= xi || yl <= yi
 
           # Only the bg color varies from cell to cell; the style flags and the
-          # foreground are invariant across the whole gradient, so compute them
-          # once and repack just the bg per cell instead of running `sattr`'s
+          # foreground are invariant across the whole gradient, so compute the
+          # base word (flags + fg, Opaque alpha from `sattr`) once and repack
+          # just the bg per cell via `Attr.with_bg` instead of running `sattr`'s
           # full flag derivation every time.
           base = sattr style, style.fg, style.bg
-          flags = Attr.flags base
-          fg_packed = Attr.fg base
 
           if @direction.horizontal?
             # Inclusive endpoints: with W columns, the divisor is W-1 so the last
@@ -165,14 +164,14 @@ module Crysterm
             span = (xl - xi).to_f
             den = span > 1 ? span - 1 : 1.0
             (xi...xl).each do |x|
-              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((x - xi) / den))
+              attr = Attr.with_bg base, Attr.pack_color(color_at((x - xi) / den))
               window.fill_region attr, ' ', x, x + 1, yi, yl
             end
           else
             span = (yl - yi).to_f
             den = span > 1 ? span - 1 : 1.0
             (yi...yl).each do |y|
-              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((y - yi) / den))
+              attr = Attr.with_bg base, Attr.pack_color(color_at((y - yi) / den))
               window.fill_region attr, ' ', xi, xl, y, y + 1
             end
           end

@@ -1781,6 +1781,14 @@ module Crysterm
       Glyphs.chars(role, glyph_tier)
     end
 
+    # The identity key of the currently-resolved chrome glyphs for *slot*: its raw
+    # glyph string, the active tier, and the global glyph generation. Widgets that
+    # memoize glyph-derived content compare against this and rebuild only when it
+    # changes. Replaces hand-written `{slot.glyphs, glyph_tier, Glyphs.generation}`.
+    def glyph_key(slot : ::Crysterm::Style = style) : {String?, Glyphs::Tier, UInt64}
+      {slot.glyphs, glyph_tier, Glyphs.generation}
+    end
+
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
     # stripped (they occupy no columns); whitespace is preserved. With
     # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise
@@ -1803,17 +1811,7 @@ module Crysterm
     def tail_within(text : String, cols : Int) : String
       return "" if cols <= 0
       return text if str_width(text) <= cols
-
-      kept = [] of String
-      width = 0
-      text.each_grapheme.to_a.reverse_each do |g|
-        gw = Unicode.width g
-        break if width + gw > cols
-        width += gw
-        kept << g.to_s
-      end
-      kept.reverse!
-      kept.join
+      text.byte_slice Unicode.trailing_byte_len(text, cols.to_i, true)
     end
 
     # Longest *prefix* of `text` whose display width fits within `cols` columns,
@@ -1823,16 +1821,7 @@ module Crysterm
     def head_within(text : String, cols : Int) : String
       return "" if cols <= 0
       return text if str_width(text) <= cols
-
-      kept = String::Builder.new
-      width = 0
-      text.each_grapheme do |g|
-        gw = Unicode.width g
-        break if width + gw > cols
-        width += gw
-        kept << g.to_s
-      end
-      kept.to_s
+      text.byte_slice 0, Unicode.leading_byte_len(text, cols.to_i, true)
     end
 
     # Returns `text` with its last grapheme cluster removed (e.g. a base +

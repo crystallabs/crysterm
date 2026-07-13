@@ -168,8 +168,17 @@ module Crysterm
       # The value for *key*, or `nil` if absent. In `lru` mode a hit is promoted
       # to most-recently-used.
       def []?(key : K) : V?
-        return nil unless @store.has_key? key
-        touch key
+        # FIFO mode has no reorder-on-read side effect, and both an absent key
+        # and a cached `nil` return `nil` here, so a single `[]?` is observably
+        # identical to `has_key?` + `touch` — one hash lookup instead of two.
+        # LRU must promote on a hit (and so must distinguish a cached `nil` from
+        # absence to know whether to reorder), so it keeps the two-step path.
+        if @lru
+          return nil unless @store.has_key? key
+          touch key
+        else
+          @store[key]?
+        end
       end
 
       # The value for *key*; raises `KeyError` if absent (like `Hash#[]`).

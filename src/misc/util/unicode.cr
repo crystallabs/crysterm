@@ -84,6 +84,33 @@ module Crysterm
       end_byte
     end
 
+    # Byte offset at which the trailing run of whole grapheme clusters of *text*
+    # that fits in *cols* columns begins (never splitting a grapheme) — i.e. the
+    # `start` argument for `text.byte_slice(…)` when keeping a text's trailing
+    # *cols* columns. The suffix mirror of `#leading_byte_len`. *full_unicode*
+    # selects the width metric per grapheme: true measures display columns (wide
+    # CJK/emoji count as 2), false counts codepoints (`grapheme.size`).
+    #
+    # Computed as "drop as few leading graphemes as needed so the remainder
+    # fits": a first pass sums the total width, a second drops leading clusters
+    # (advancing the byte offset) until the remainder is within *cols*. This
+    # yields exactly the same contiguous longest-fitting suffix a greedy
+    # scan-from-the-end would, with no per-grapheme allocation.
+    def trailing_byte_len(text : String, cols : Int32, full_unicode : Bool = true) : Int32
+      total = 0
+      text.each_grapheme { |g| total += full_unicode ? width(g) : g.size }
+      return 0 if total <= cols
+
+      start_byte = 0
+      remaining = total
+      text.each_grapheme do |g|
+        break if remaining <= cols
+        remaining -= full_unicode ? width(g) : g.size
+        start_byte += g.bytesize
+      end
+      start_byte
+    end
+
     # Whether *c* extends the grapheme cluster it follows: a combining mark, a
     # zero-width joiner (U+200D), a variation selector (U+FE00..U+FE0F), or an
     # emoji skin-tone modifier (U+1F3FB..U+1F3FF). The shared successor test

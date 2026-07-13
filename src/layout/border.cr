@@ -60,8 +60,8 @@ module Crysterm
       def arrange(container : Widget, interior : LPos) : Nil
         # Prune bookkeeping for children that have left the container (O(1)
         # `child?` membership, as `Layout::Box#measure` does).
-        @consume_raw.select! { |el, _| container.child? el }
-        @consume_assigned.select! { |el, _| container.child? el }
+        prune_managed container, @consume_raw
+        prune_managed container, @consume_assigned
 
         # Working rect in interior-local coordinates.
         x0 = 0
@@ -99,7 +99,7 @@ module Crysterm
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
           place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), ch
-          record_consume el, ch
+          record_managed el, @consume_assigned, ch
           y0 += ch + mh
         end
         each_arrangeable container do |el|
@@ -108,7 +108,7 @@ module Crysterm
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
           place_and_render el, x0, y1 - ch - mh, Math.max(0, x1 - x0 - el.mwidth), ch
-          record_consume el, ch
+          record_managed el, @consume_assigned, ch
           y1 -= ch + mh
         end
         each_arrangeable container do |el|
@@ -117,7 +117,7 @@ module Crysterm
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
           place_and_render el, x0, y0, cw, Math.max(0, y1 - y0 - el.mheight)
-          record_consume el, cw
+          record_managed el, @consume_assigned, cw
           x0 += cw + mw
         end
         each_arrangeable container do |el|
@@ -126,7 +126,7 @@ module Crysterm
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
           place_and_render el, x1 - cw - mw, y0, cw, Math.max(0, y1 - y0 - el.mheight)
-          record_consume el, cw
+          record_managed el, @consume_assigned, cw
           x1 -= cw + mw
         end
         each_arrangeable container do |el|
@@ -146,19 +146,9 @@ module Crysterm
       # size no longer equals what we last assigned, the user reclaimed it:
       # forget the old value and honor the new one (cf. `Box#main_flex?`).
       private def restore_consume(el : Widget, vertical : Bool) : Nil
-        raw = vertical ? el.height : el.width
-        if (assigned = @consume_assigned[el]?) && raw == assigned && @consume_raw.has_key?(el)
-          remembered = @consume_raw[el]
-          vertical ? (el.height = remembered) : (el.width = remembered)
-        else
-          @consume_raw[el] = raw
+        restore_managed(el, @consume_raw, @consume_assigned, vertical ? el.height : el.width) do |v|
+          vertical ? (el.height = v) : (el.width = v)
         end
-      end
-
-      # Remembers the resolved `Int32` we just wrote into `el`'s consume axis, so
-      # the next frame can tell a layout-owned size from a user-reclaimed one.
-      private def record_consume(el : Widget, v : Int32) : Nil
-        @consume_assigned[el] = v
       end
 
       private def region_of(el : Widget) : Region

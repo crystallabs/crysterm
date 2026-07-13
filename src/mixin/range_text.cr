@@ -9,11 +9,16 @@ module Crysterm
     # placeholder is added or renamed.
     module RangeText
       protected def format_range_text(fmt : String, percent : String, value : String, maximum : String, minimum : String) : String
-        fmt
-          .gsub("%p", percent)
-          .gsub("%v", value)
-          .gsub("%m", maximum)
-          .gsub("%M", minimum)
+        # Single pass, one allocation. Unknown `%x`, a lone `%`, and adjacent
+        # tokens are handled by the regex (only `%p`/`%v`/`%m`/`%M` match).
+        fmt.gsub(/%[pvmM]/) do |token|
+          case token
+          when "%p" then percent
+          when "%v" then value
+          when "%m" then maximum
+          else           minimum # "%M"
+          end
+        end
       end
     end
   end

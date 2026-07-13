@@ -137,6 +137,12 @@ module Crysterm
       end
 
       # Size of the value range (`maximum - minimum`), never negative.
+      #
+      # Byte-identical to `Mixin::RangedValue(Int32)#value_span`'s Int32 branch,
+      # kept as a private copy here rather than inherited: ProgressBar is
+      # intentionally *not* built on `RangedValue` (see that module's docs — its
+      # `complete:`-gated `Event::Complete` can't be expressed through the mixin's
+      # `#value=`/`#set_range`), so the two must be updated in lockstep.
       private def span : Int32
         # Widen the subtraction: a range wider than `Int32::MAX` (e.g.
         # `-1_500_000_000..1_500_000_000`) would overflow Int32 here.
@@ -145,13 +151,18 @@ module Crysterm
 
       # Current fill as a 0..100 percentage, derived from `#value`'s position in
       # the range. An empty range (`maximum == minimum`) reads as 0.
+      #
+      # The Int32 analogue of `Mixin::PercentRange#percent_of` (with avail=100):
+      # same position-in-range mapping, adapted to ProgressBar's integer range and
+      # 0-for-empty convention. `#filled=` is its inverse.
       def filled : Int32
         s = span
         return 0 if s == 0
         ((@value - @minimum) * 100.0 / s).round.to_i.clamp(0, 100)
       end
 
-      # Sets the fill from a 0..100 percentage by mapping it back onto the range.
+      # Sets the fill from a 0..100 percentage by mapping it back onto the range
+      # (the inverse of `#filled`).
       def filled=(percent : Int32) : Int32
         # Coerce to float before multiplying: `percent * span` as Int32 × Int32
         # overflows for a range whose `span` exceeds ~21M (at percent=100).

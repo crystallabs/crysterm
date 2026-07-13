@@ -331,12 +331,20 @@ module Crysterm
     # rather than a wall-clock-dependent mid-tween. Infinite `@keyframes`
     # animations have no settled state and are not counted here.
     def animating? : Bool
-      found = false
-      each_descendant do |w|
-        next if found
-        found = true if w.transition_running?
-      end
-      found
+      # Stop at the first tweening widget rather than walking the whole subtree:
+      # `each_descendant` yields every node, so a running check kept scanning
+      # after the answer was known. This local pre-order recursion (same visit
+      # order as `each_descendant`, self excluded) returns on the first match.
+      # `Array#any?` inlines its block (no per-node `Proc`), so the walk stays
+      # allocation-free.
+      children.any? { |c| descendant_transition_running? c }
+    end
+
+    # Whether *w* or any of its descendants has a `transition` currently tweening,
+    # returning `true` as soon as one is found (early-exit helper for `#animating?`).
+    private def descendant_transition_running?(w : Widget) : Bool
+      return true if w.transition_running?
+      w.children.any? { |c| descendant_transition_running? c }
     end
   end
 end

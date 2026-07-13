@@ -63,6 +63,12 @@ module Crysterm
       @dattr : Int64 = 0_i64
       @bootstrapped = false
 
+      # Reused scratch buffer for `#encode_mouse` (cleared, not reallocated, per
+      # event): avoids a per-event `IO::Memory` on the drag hot path under modes
+      # 1002/1003. The returned slice is consumed by `#forward_to_child` before
+      # the next event reuses it, so there's no aliasing hazard.
+      @mouse_buf = IO::Memory.new
+
       def initialize(
         *,
         shell : String? = nil,
@@ -258,7 +264,8 @@ module Crysterm
         y1 = row + 1
         released = e.action.up?
 
-        io = IO::Memory.new
+        io = @mouse_buf
+        io.clear
         case em.mouse_encoding
         when :sgr
           io << "\e[<" << cb << ';' << x1 << ';' << y1 << (released ? 'm' : 'M')

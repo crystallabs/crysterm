@@ -55,12 +55,30 @@ module Crysterm
         super **box
       end
 
+      # The `glyph_key` the header markers (expand/collapse arrows) were baked
+      # from; the guarded `#refresh_glyphs` rebuilds them when it moves (a retheme
+      # via `Glyphs.set`, or the post-probe tier upgrade — widgets are built
+      # before `Window#exec` probes). Matches how `Menu`/`GroupBox` guard
+      # glyph-derived content instead of recomputing it unconditionally.
+      @_glyph_key : {String?, Glyphs::Tier, UInt64}?
+
       # Relayout on every paint: section heights depend on the widget's resolved
       # inner size, only known once coordinates are computed (also fixes up the
       # first frame and any resize).
       def render(with_children = true)
+        refresh_glyphs
         relayout
         super
+      end
+
+      # Rebuilds the header markers when the resolved glyphs changed out from
+      # under them (see `#_glyph_key`); a no-op on the steady-state frame.
+      private def refresh_glyphs : Nil
+        key = glyph_key
+        if @_glyph_key != key
+          @_glyph_key = key
+          refresh_headers
+        end
       end
 
       # Appends a section titled *title* with body *widget*. The first item added

@@ -152,10 +152,9 @@ module Crysterm
             resize w, h
           end
 
-          # Default attr carries the widget's bg/flags; only the fg varies per cell.
+          # Default attr carries the widget's bg/flags; only the fg varies per
+          # cell, so `Attr.with_fg` reuses `da`'s flags/bg/Opaque alpha.
           da = sattr style
-          flags = Attr.flags da
-          bgf = Attr.bg da
           deff = Attr.fg da
 
           # Absolute coords (`yi`/`xi`) can be negative when the widget is
@@ -170,7 +169,7 @@ module Crysterm
               next unless c
               ch, color = cell rx, ry, w, h
               fgf = color < 0 ? deff : Attr.pack_color(color)
-              a = Attr.pack(flags, fgf, bgf)
+              a = Attr.with_fg(da, fgf)
               if c.attr != a || c.char != ch
                 c.attr = a
                 c.char = ch

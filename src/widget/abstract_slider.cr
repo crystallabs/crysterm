@@ -78,6 +78,19 @@ module Crysterm
         # `0..value_span` yields exactly the value `#value=` would clamp to.
         @minimum + (pos.to_f * value_span / span).round.clamp(0.0, value_span.to_f).to_i
       end
+
+      # Main-axis cell offset (from the low-value end) of value *v* on an
+      # *avail*-cell track: `round((v - #minimum) / value_span · avail)` — the
+      # inverse of `#value_at`, shared by `Slider` (`#handle_offset`, ticks) and
+      # `ScrollBar` (`#thumb_offset`). *v* is `Int64` because a full-span range
+      # saturates `value_span` at `Int32::MAX`, so `(v - #minimum) * avail` must
+      # widen or it overflows Int32. No end-clamp here: the callers guard
+      # `value_span`/`avail` and clamp (or not) as their geometry requires
+      # (`#handle_offset` to `avail`, `#thumb_offset` to its thumb room,
+      # `#each_tick_cell` not at all).
+      protected def value_to_cell(v : Int64, avail : Int32) : Int32
+        ((v - @minimum).to_f * avail / value_span).round.to_i
+      end
     end
   end
 end

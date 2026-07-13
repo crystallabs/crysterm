@@ -48,12 +48,6 @@ module Crysterm
       # scrolling entirely (`child_base_x` stays 0) — a wide table is just clipped
       # by its parent. For a scrollable wide table use `Widget::ListTable` instead.
 
-      # Reused scratch set: rows that carry a CSS-computed cell style this frame
-      # (`#draw_borders` repopulates it from `@css_cells`). Default theme styles
-      # only row 0 (Header), so an otherwise-unstyled table lets every body row
-      # skip per-cell CSS lookups.
-      @styled_rows = Set(Int32).new
-
       def initialize(
         rows = nil,
         data = nil,
@@ -168,9 +162,8 @@ module Crysterm
         # (cached, see `#cached_col_for_x`) only when CSS per-cell rules exist,
         # since a plain table re-renders every frame. `@styled_rows` lets unstyled
         # rows skip per-cell lookups entirely (~20x faster on an unstyled table).
-        @styled_rows.clear
+        refresh_styled_rows
         col_map = if (cc = @css_cells) && !cc.empty?
-                    cc.each_key { |(r, _)| @styled_rows << r }
                     cached_col_for_x
                   end
 
@@ -198,7 +191,7 @@ module Crysterm
               end
             # CSS cell overrides only exist on styled rows; skip the per-cell
             # `col_map`/`css_cell_style` lookups for every other row.
-            row_map = col_map.try { |cm| @styled_rows.includes?(row_index) ? cm : nil }
+            row_map = col_map.try { |cm| styled_row?(row_index) ? cm : nil }
             x = Math.max(ileft, -xi)
             while x < width
               if cell = line[xi + x]?

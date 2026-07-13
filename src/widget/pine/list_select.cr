@@ -189,15 +189,10 @@ module Crysterm
           end
         end
 
-        # Add space-bar toggling (multi mode) on top of the inherited arrow/Enter
-        # handling.
-        def on_keypress(e)
-          if @multi && e.char == ' '
-            toggle_selected
-            e.accept
-            return
-          end
-          super
+        # Space toggles the current row's checkbox only in multi mode (see
+        # `SelectableList#on_keypress`).
+        protected def space_toggles? : Bool
+          @multi
         end
 
         # Rebuilds every visible row in place from the current records (e.g.

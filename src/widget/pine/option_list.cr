@@ -266,21 +266,18 @@ module Crysterm
           end
         end
 
-        # Adds inline-editing keys and Space-toggling on top of the inherited
-        # arrow/Enter handling.
+        # Space toggles only when the selected option is a `Toggle` (see
+        # `SelectableList#on_keypress`).
+        protected def space_toggles? : Bool
+          !!records[selected]?.try(&.kind.toggle?)
+        end
+
+        # Adds inline-editing keys on top of the inherited arrow/Enter/Space
+        # handling (Space-toggling is provided by the base via `#space_toggles?`).
         def on_keypress(e)
           if @editing
             handle_edit_key e
             return
-          end
-
-          if e.char == ' '
-            o = records[selected]?
-            if o && o.kind.toggle?
-              toggle_selected
-              e.accept
-              return
-            end
           end
 
           super

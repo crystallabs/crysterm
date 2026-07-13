@@ -174,6 +174,62 @@ module Crysterm
       render_child el
     end
 
+    # --- Layout-owned ("managed") size bookkeeping -------------------------
+    #
+    # `Border`, `Form` (and, in a Set-backed variant, `Box`) resolve a child's
+    # raw size to cells and write the resolved `Int32` back through
+    # `set_geometry`. That write would otherwise *destroy* the child's original
+    # value — a `"50%"` string never resolves again (frozen at frame 1's cell
+    # count), a `nil`/auto size freezes at that cell count, a transient clamp
+    # sticks. Each engine therefore keeps a `raw_map` (the value the user set)
+    # beside an `assigned_map` (the Int we last wrote), restoring the raw value
+    # before re-measuring and releasing a child the moment its raw size no
+    # longer equals what we assigned (the user reclaimed it). These helpers
+    # single-source that shared core; the per-engine axis/field is supplied by
+    # the caller (which maps, the raw getter, the restore setter). All three are
+    # allocation-free: `prune_managed`'s `select!` block and `restore_managed`'s
+    # restore block are `yield`ed, never captured as a stored `Proc`.
+
+    # Drops bookkeeping entries for children that have left `container`. O(1)
+    # membership via `Widget#child?`; in-place `select!`, so it allocates
+    # nothing. Hash-shaped maps only (two-arg block); a `Set`-backed tracker
+    # (e.g. `Box`'s `@flex`/`@filled`) prunes with a one-arg `select!` inline.
+    protected def prune_managed(container : Widget, map) : Nil
+      map.select! { |el, _| container.child? el }
+    end
+
+    # Restores `el`'s remembered raw size (passed in as `raw`) before a
+    # re-measure — so a percent/nil/clamped size resolves against the *live*
+    # container every frame — or, when the raw size no longer equals what we
+    # last assigned, forgets the old value and records the new one (the user
+    # reclaimed the child; cf. `Box#main_flex?`). The block receives the
+    # remembered raw value and writes it back into the child's axis.
+    protected def restore_managed(el : Widget, raw_map, assigned_map, raw, &) : Nil
+      if (assigned = assigned_map[el]?) && raw == assigned && raw_map.has_key?(el)
+        yield raw_map[el]
+      else
+        raw_map[el] = raw
+      end
+    end
+
+    # Remembers the resolved `Int32` just written into `el`, so the next frame
+    # can tell a layout-owned size from a user-reclaimed one.
+    protected def record_managed(el : Widget, assigned_map, v : Int32) : Nil
+      assigned_map[el] = v
+    end
+
+    # Cumulative offset of fence line `i` when `total` is divided into `n`
+    # equal-as-possible parts: `floor(i * total / n)`. Successive fences give
+    # each part `fence(i + 1) - fence(i)`, summing to exactly `total` with the
+    # last part absorbing the remainder — the technique `Grid` uses to carve
+    # columns/rows (and `Box`, in a weighted variant, its grow-share/justify
+    # leftover). `i` is clamped to `0..n` so an off-grid span stops at the edge.
+    # Pure (no instance state), hence a class method; allocates nothing.
+    def self.fence(total : Int32, n : Int32, i : Int32) : Int32
+      i = i.clamp(0, n)
+      (i * total) // n
+    end
+
     # Yields each of the container's *arrangeable* children — the ones an engine
     # actually positions — skipping both `layout_excluded?` chrome (e.g. a
     # `background-image` layer or out-of-band scrollbar, rendered separately from

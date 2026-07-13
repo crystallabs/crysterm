@@ -119,7 +119,7 @@ module Crysterm
       # Handle offset (in cells) from the low end of a track `avail` cells long.
       private def handle_offset(avail : Int32) : Int32
         return 0 if value_span == 0 || avail <= 0
-        ((@value.to_i64 - @minimum).to_f * avail / value_span).round.to_i.clamp(0, avail)
+        value_to_cell(@value.to_i64, avail).clamp(0, avail)
       end
 
       # Effective value-space spacing between ticks.
@@ -149,7 +149,7 @@ module Crysterm
         else
           tv = @minimum
           while tv <= @maximum
-            yield ((tv.to_i64 - @minimum).to_f * avail / value_span).round.to_i
+            yield value_to_cell(tv.to_i64, avail)
             break if tv > @maximum - interval # guard the `tv += interval` overflow
             tv += interval
           end

@@ -445,31 +445,18 @@ module Crysterm
       # characters immediately to the left (those the block yields true for),
       # then the run of non-separators, returning the resulting index.
       # `#word_left_pos`/`#word_start_left_pos` differ only in what counts as a
-      # separator. The block is `yield`ed (inlined, no per-call closure).
+      # separator. The predicate is `yield`ed the character (inlined, no
+      # per-call closure); the two-phase scan itself is the shared
+      # `TextDocument.scan_word_left`, keyed by buffer index.
       private def scan_word_left(&) : Int32
-        i = @cursor_pos
-        while i > 0 && (yield buf_char(i - 1))
-          i -= 1
-        end
-        while i > 0 && !(yield buf_char(i - 1))
-          i -= 1
-        end
-        i
+        TextDocument.scan_word_left(@cursor_pos) { |i| yield buf_char(i) }
       end
 
       # Forward counterpart of `#scan_word_left`: skip the run of separators at
       # the cursor, then the run of non-separators. Shared by `#word_right_pos`
       # and `#word_end_right_pos`.
       private def scan_word_right(&) : Int32
-        i = @cursor_pos
-        n = buf_size
-        while i < n && (yield buf_char(i))
-          i += 1
-        end
-        while i < n && !(yield buf_char(i))
-          i += 1
-        end
-        i
+        TextDocument.scan_word_right(@cursor_pos, buf_size) { |i| yield buf_char(i) }
       end
 
       # Start of the (whitespace-delimited) word before the cursor: skip any
@@ -581,15 +568,7 @@ module Crysterm
       # non-word character (e.g. whitespace), which the caller treats as "no
       # word here". Uses the same `#word_char?` class as `Ctrl-Left`/`Ctrl-Right`.
       private def word_bounds_at(pos : Int32) : Tuple(Int32, Int32)
-        lo = pos
-        while lo > 0 && word_char?(buf_char(lo - 1))
-          lo -= 1
-        end
-        hi = pos
-        while hi < buf_size && word_char?(buf_char(hi))
-          hi += 1
-        end
-        {lo, hi}
+        TextDocument.word_run_at(pos, buf_size) { |i| word_char?(buf_char(i)) }
       end
 
       # The clipboard facade (`Application::Clipboard`) for copy/cut/paste: the

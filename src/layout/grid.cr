@@ -53,8 +53,8 @@ module Crysterm
       # `OCCUPANCY_ROW_CAP`: `#occupy` iterates the span, so a raw
       # `row_span: Int32::MAX` would insert 2^31 tuples into the occupancy set
       # on every arrange (every frame) — a permanent render-fiber stall.
-      # Placement geometry is unaffected by either cap: `#fence` clamps every
-      # cell to the real grid regardless.
+      # Placement geometry is unaffected by either cap: `Layout.fence` clamps
+      # every cell to the real grid regardless.
       ROW_ORIGIN_CAP    = 1_000_000
       OCCUPANCY_ROW_CAP =      4096
 
@@ -153,7 +153,7 @@ module Crysterm
 
         # Interior space the cells share, with inter-cell gaps removed.
         # Columns/rows are carved out by *cumulative* integer division (see
-        # #fence) rather than a single floored `cell_w`/`cell_h`: a uniform
+        # `Layout.fence`) rather than a single floored `cell_w`/`cell_h`: a uniform
         # floor would drop up to `cols - 1` columns (and `nrows - 1` rows) of
         # remainder as blank space at the right/bottom edge. Cumulative fences
         # make column widths differ by at most one and sum to exactly
@@ -166,7 +166,7 @@ module Crysterm
 
         placements.each do |(el, row, col, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
-          # terms. `#fence` already clamps the pixel fences, but gap
+          # terms. `Layout.fence` already clamps the pixel fences, but gap
           # multipliers using the raw span/start would add phantom inter-cell
           # gaps for an off-grid span (e.g. `col_span: 99` "span to the end"),
           # pushing the cell's edge past the interior. Counting gaps from the
@@ -176,10 +176,10 @@ module Crysterm
           c1 = (col + cs).clamp(0, cols)
           r0 = row.clamp(0, nrows)
           r1 = (row + rs).clamp(0, nrows)
-          x0 = fence inner_w, cols, c0
-          x1 = fence inner_w, cols, c1
-          y0 = fence inner_h, nrows, r0
-          y1 = fence inner_h, nrows, r1
+          x0 = Layout.fence inner_w, cols, c0
+          x1 = Layout.fence inner_w, cols, c1
+          y0 = Layout.fence inner_h, nrows, r0
+          y1 = Layout.fence inner_h, nrows, r1
           col_gaps = c1 > c0 ? c1 - c0 - 1 : 0
           row_gaps = r1 > r0 ? r1 - r0 - 1 : 0
           el.left = x0 + c0 * @gap
@@ -188,16 +188,6 @@ module Crysterm
           el.height = (y1 - y0) + row_gaps * @gap
           render_child el
         end
-      end
-
-      # Cumulative offset of fence line `i` when `total` is divided into `n`
-      # equal-as-possible parts: `floor(i * total / n)`. Successive fences give
-      # each cell `fence(i+1) - fence(i)`, summing to exactly `total` with the
-      # last absorbing the remainder. `i` clamped to `0..n` so an off-grid
-      # span (`col + col_span > columns`) stops at the interior edge.
-      private def fence(total : Int32, n : Int32, i : Int32) : Int32
-        i = i.clamp(0, n)
-        (i * total) // n
       end
 
       # Advances the row-major auto-flow cursor to the next cell, wrapping to

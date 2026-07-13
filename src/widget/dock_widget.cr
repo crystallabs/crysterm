@@ -216,20 +216,14 @@ module Crysterm
         # `left`/`top` are relative to the parent's *content* origin
         # (`widget_position.cr` adds `parent.ileft`/`itop`), so the origin to
         # subtract is `parent.aleft + parent.ileft` (and `atop + itop`), not the
-        # outer `aleft`/`atop`. Matches `Splitter#wire_divider`.
-        px, py = parent_content_origin
+        # outer `aleft`/`atop`. Matches `Splitter#wire_divider`. `drag_origin`
+        # (Widget) is that exact origin, with the window's content corner as the
+        # top-level fallback.
+        px, py = drag_origin
         # `with_margin: false`: the rect is stored back into `left`/`top`
         # (which layout re-adds the CSS margin to), so a margin-inclusive
         # `aleft`/`atop` would compound the margin on every float toggle.
         {aleft(with_margin: false) - px, atop(with_margin: false) - py, awidth, aheight}
-      end
-
-      # The parent's content origin as `{x, y}` (`aleft + ileft`, `atop + itop`),
-      # or `{0, 0}` when unparented. Child `left`/`top` are relative to this, so
-      # both `#current_float_rect` and the title-bar drag handler subtract it to
-      # convert between absolute and content-relative coordinates.
-      private def parent_content_origin : Tuple(Int32, Int32)
-        parent.try { |p| {p.aleft + p.ileft, p.atop + p.itop} } || {0, 0}
       end
 
       # Records the current floating rectangle for later restoration.
@@ -409,17 +403,15 @@ module Crysterm
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
           # `left`/`top` are content-origin-relative but the pointer (`e.x`/`e.y`)
-          # is absolute; convert by subtracting the parent's content origin
-          # (`aleft + ileft`, matching `#current_float_rect`), else the dock only
-          # tracks the pointer when its parent has no border/padding.
-          px, py = parent_content_origin
-          # Clamp against the parent's *content* extent (`awidth - iwidth`), not
-          # its outer size, so a floating dock can't be dragged out over the
-          # parent's border/padding.
-          bound_w = (parent.try { |p| p.awidth - p.iwidth } || (window.awidth - window.iwidth)) - awidth
-          bound_h = (parent.try { |p| p.aheight - p.iheight } || (window.aheight - window.iheight)) - aheight
-          self.left = (e.x - @drag_dx - px).clamp(0, Math.max(0, bound_w))
-          self.top = (e.y - @drag_dy - py).clamp(0, Math.max(0, bound_h))
+          # is absolute; `drag_origin` (Widget) subtracts the parent's content
+          # origin (`aleft + ileft`, matching `#current_float_rect`), else the
+          # dock only tracks the pointer when its parent has no border/padding.
+          # `drag_max_left`/`drag_max_top` clamp against the parent's *content*
+          # extent (`awidth - iwidth`), so a floating dock can't be dragged out
+          # over the parent's border/padding.
+          ox, oy = drag_origin
+          self.left = (e.x - @drag_dx - ox).clamp(0, drag_max_left)
+          self.top = (e.y - @drag_dy - oy).clamp(0, drag_max_top)
           request_render
         end
       end

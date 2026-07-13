@@ -148,21 +148,28 @@ module Crysterm
         private def fill_cells(w, h) : Array(Tuple(Int32, Int32))
           case f = @fill
           when FillProc then f.call(w, h)
-          when :rows    then (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
+          when :rows    then all_cells(w, h)
           when :columns then (0...w).flat_map { |x| (0...h).map { |y| {x, y} } }
           when :diagonal
-            cells = (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
+            cells = all_cells(w, h)
             cells.sort_by! { |(x, y)| {x + y, x} }
           when :random
-            cells = (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
+            cells = all_cells(w, h)
             cells.shuffle!
           when :radial
             ox, oy = emitter(w, h)
-            cells = (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
+            cells = all_cells(w, h)
             cells.sort_by! { |(x, y)| ((x - ox) ** 2 + (y - oy) ** 2) }
           else
             spiral_cells(w, h)
           end
+        end
+
+        # Every `{x, y}` cell of a *w*×*h* area in row-major order (top row
+        # L→R, then down). The unsorted base several fill strategies then sort
+        # or shuffle; `:columns` needs column-major so it builds its own.
+        private def all_cells(w, h) : Array(Tuple(Int32, Int32))
+          (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
         end
 
         # Clockwise spiral over every cell from the top-left corner inward: top row

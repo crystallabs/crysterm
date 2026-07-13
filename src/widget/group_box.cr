@@ -74,9 +74,9 @@ module Crysterm
       # disabled.
       getter? checked : Bool = true
 
-      # The `{glyph_tier, Glyphs.generation}` the baked title marker was built
-      # from; the `PreRender` handler rebuilds the label when it moves.
-      @_label_glyph_key : Tuple(Glyphs::Tier, UInt64)?
+      # The `glyph_key` the baked title marker was built from; the `PreRender`
+      # handler rebuilds the label when it moves.
+      @_label_glyph_key : {String?, Glyphs::Tier, UInt64}?
 
       # Whether the group is *flat* — drawn without its frame (Qt's
       # `QGroupBox#flat`). Surfaced as the `[flat]` attribute; the theme strips
@@ -107,7 +107,7 @@ module Crysterm
           # before `Window#exec` probes) would leave it stale. Rebuild when
           # the resolved tier/registry generation moves.
           if checkable?
-            key = {glyph_tier, Glyphs.generation}
+            key = glyph_key(style)
             if @_label_glyph_key != key
               @_label_glyph_key = key
               update_label

@@ -1,6 +1,8 @@
 require "./box"
 require "../action"
 require "../mixin/item_view"
+require "../mixin/action_bar"
+require "../mixin/action_watcher"
 
 module Crysterm
   class Widget
@@ -36,6 +38,10 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Menu < Box
       include Mixin::ItemView
+      # Shared "watch each action's `Changed` signal + own the host association"
+      # concern (the hash, `associate`/`dissociate`, teardown), passing the
+      # menu-specific refresh body per action (see `#<<`).
+      include Mixin::ActionWatcher
       # A menu is an overlay: at the unstyled floor it carries a structural
       # border to separate from the content behind it (a theme's CSS, e.g.
       # qdarkstyle's `QMenu { border: 0 }`, then owns the border).
@@ -188,44 +194,26 @@ module Crysterm
       # `#popup`), so it dismisses itself on outside click / after a leaf fires.
       @popup_mode = false
 
-      # Per-action `Event::Changed` handlers, so the menu can refresh when an
-      # action's display state (checked, text, enabled, visibility) is changed
-      # from the outside. Kept by action so the handler can be removed in `>>`.
-      @action_changed = {} of Action => ::Proc(::Crysterm::Event::Changed, ::Nil)
-
-      # Adds *action* to the menu (no-op if already present).
+      # Adds *action* to the menu (no-op if already present). `#watch_action`
+      # (from `Mixin::ActionWatcher`) associates it and re-renders whenever its
+      # display state changes, mirroring a Qt menu tracking its `QAction`s'
+      # `changed()` signal — without which external `action.checked =`/`text=`/
+      # `enabled=`/`visible=` wouldn't update rows.
       def <<(action : Action)
         unless @actions.includes? action
           @actions << action
-          action.associate self # Qt's QAction::associatedWidgets bookkeeping
-          watch_action action
+          watch_action(action) do |_e|
+            # Preserve the highlighted row across the rebuild (item count can
+            # shift when visibility toggles).
+            sel = selected
+            sync_items
+            selekt sel
+            request_render
+            nil
+          end
           sync_items
         end
         self
-      end
-
-      # Re-render whenever *action*'s display state changes, mirroring a Qt
-      # menu tracking its `QAction`s' `changed()` signal. Without this, external
-      # `action.checked =`/`text=`/`enabled=`/`visible=` wouldn't update rows.
-      private def watch_action(action : Action) : Nil
-        return if @action_changed.has_key? action
-        handler = ->(_e : ::Crysterm::Event::Changed) do
-          # Preserve the highlighted row across the rebuild (item count can
-          # shift when visibility toggles).
-          sel = selected
-          sync_items
-          selekt sel
-          request_render
-          nil
-        end
-        action.on ::Crysterm::Event::Changed, handler
-        @action_changed[action] = handler
-      end
-
-      private def unwatch_action(action : Action) : Nil
-        if handler = @action_changed.delete action
-          action.off ::Crysterm::Event::Changed, handler
-        end
       end
 
       # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
@@ -261,10 +249,10 @@ module Crysterm
         self
       end
 
-      # Removes *action* from the menu.
+      # Removes *action* from the menu. `#unwatch_action` (from
+      # `Mixin::ActionWatcher`) removes its `Changed` handler and dissociates it.
       def >>(action : Action)
         if @actions.delete action
-          action.dissociate self
           unwatch_action action
           sync_items
         end
@@ -512,21 +500,24 @@ module Crysterm
       # from the `@_glyph_key` stamped by `#sync_items` — a registry retheme,
       # a tier switch, or a cascade that (re)set the submenu-arrow/separator
       # glyphs — the rows are rebuilt (a glyph change is a layout-affecting
-      # event: column widths move; see GLYPHS.md §4).
-      private def glyph_key : {Glyphs::Tier, UInt64, String?, String?}
+      # event: column widths move; see GLYPHS.md §4). Builds on the shared
+      # `WidgetContent#glyph_key` base triple (`{glyphs, glyph_tier,
+      # Glyphs.generation}`), folding in the two sub-style glyphs the rows also
+      # bake in (submenu-arrow indicator, separator rule).
+      private def row_glyph_key : { {String?, Glyphs::Tier, UInt64}, String?, String? }
         tier = glyph_tier
-        {tier, Glyphs.generation,
+        {glyph_key,
          style.raw_sub_style("indicator").try(&.glyph_for(tier)),
          style.raw_sub_style("separator").try(&.glyph_for(tier))}
       end
 
       # :ditto:
-      @_glyph_key : {Glyphs::Tier, UInt64, String?, String?}?
+      @_glyph_key : { {String?, Glyphs::Tier, UInt64}, String?, String? }?
 
       # Rebuilds the row texts when the resolved glyphs changed out from under
-      # them (see `#glyph_key`); a no-op on the steady-state frame.
+      # them (see `#row_glyph_key`); a no-op on the steady-state frame.
       private def refresh_glyphs : Nil
-        sync_items if @_glyph_key != glyph_key
+        sync_items if @_glyph_key != row_glyph_key
       end
 
       # The currently highlighted action, or `nil` when the menu is empty.
@@ -710,7 +701,7 @@ module Crysterm
         # reads them without recomputing. Mark the row layout dirty so the next
         # `#size_rows` re-lays even at an unchanged width. Stamp the glyph key
         # so `#refresh_glyphs` knows the rows reflect the current resolution.
-        @_glyph_key = glyph_key
+        @_glyph_key = row_glyph_key
         acts = @visible_actions = @actions.select &.visible?
         lefts, rights = row_columns(acts)
         @row_lefts = lefts
@@ -782,28 +773,13 @@ module Crysterm
       private def skip_separators(index : Int, dir : Int, acts : Array(Action)) : Int32
         n = acts.size
         return index.to_i if n == 0
-        i = index.clamp(0, n - 1)
-        n.times do
-          a = acts[i]?
-          break unless a && a.separator?
-          ni = i + dir
-          break if ni < 0 || ni >= n
-          i = ni
-        end
-        # Stepping in `dir` stops on a separator if it hits the array boundary
-        # first (e.g. a leading/trailing separator). The highlight must never
-        # rest on a separator (`activate_index` refuses to fire one, a dead
-        # selection), so fall back to scanning the opposite way.
-        if acts[i]?.try &.separator?
-          j = i
-          while (j -= dir) >= 0 && j < n
-            unless acts[j].separator?
-              i = j
-              break
-            end
-          end
-        end
-        i
+        # Route through the shared `Mixin::ActionBar.nearest_selectable`: step in
+        # `dir` over separators, rescanning the opposite way at a boundary so the
+        # highlight never rests on a separator (`activate_index` refuses to fire
+        # one). `nil` means an all-separator list — a degenerate menu with no real
+        # rows — so fall back to the clamped index (still a separator, still
+        # unfireable, but a valid in-range index for `#selekt`'s `super`).
+        Mixin::ActionBar.nearest_selectable(n, index.to_i, dir) { |i| acts[i].separator? } || index.clamp(0, n - 1).to_i
       end
 
       private def activate_index(index : Int32)
@@ -1061,10 +1037,10 @@ module Crysterm
         # this menu (including submenus rebuilt on each open/close) doesn't leave
         # stale handlers running `sync_items`/`selekt`/`request_render` against a
         # destroyed widget, nor a dead `Menu` pinned in `action.associated_widgets`.
-        @actions.each do |a|
-          unwatch_action a
-          a.dissociate self
-        end
+        # `#unwatch_action` (Mixin::ActionWatcher) offs the handler when watched
+        # and dissociates every action — covering separators, which are
+        # associated (`#add_separator`) but never watched.
+        @actions.each { |a| unwatch_action a }
         @actions.clear
         super
       end

@@ -54,6 +54,11 @@ module Crysterm
           toggle_selected
         end
 
+        # Space always toggles the selected option (see `SelectableList#on_keypress`).
+        protected def space_toggles? : Bool
+          true
+        end
+
         # Toggles the currently-selected option and refreshes its row.
         def toggle_selected
           o = records[selected]?
@@ -68,16 +73,6 @@ module Crysterm
         def format_row(item : Option, index : Int32) : String
           mark = item.enabled? ? "X" : " "
           "  [#{mark}]  #{item.name.ljust(32)}#{item.description}"
-        end
-
-        # Add space-bar toggling on top of the inherited arrow/Enter handling.
-        def on_keypress(e)
-          if e.char == ' '
-            toggle_selected
-            e.accept
-            return
-          end
-          super
         end
       end
     end

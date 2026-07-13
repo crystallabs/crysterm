@@ -52,6 +52,10 @@ module Crysterm
 
     @cursors = [] of WeakRef(TextCursor)
     @block_offsets : Array(Int32)?
+    # Memoized `to_plain_text`; dropped on every structural edit (alongside
+    # `@block_offsets`) in `finish_edit`, the single choke point for content
+    # mutations. Hot for find-as-you-type and the buffer adapter's `value`.
+    @plain_cache : String?
     @last_block_count = 1
     @modified = false
     @undo_available = false
@@ -67,6 +71,70 @@ module Crysterm
     # buffer-protocol re-base) both use it.
     def self.word_char?(c : Char) : Bool
       c.alphanumeric? || c == '_'
+    end
+
+    # Shifts a flat position for an edit of `removed` -> `added` chars at
+    # `pos`: insertions at or before the position push it forward; a position
+    # inside a removed range collapses to the range start. The single mapping
+    # `TextCursor#adjust` and `Mixin::TextEditing::DocumentBuffer` both use to
+    # keep positions/carets consistent with an edit.
+    def self.shift_position(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
+      if removed == 0
+        p >= pos ? p + added : p
+      elsif p <= pos
+        p
+      elsif p >= pos + removed
+        p + added - removed
+      else
+        pos
+      end
+    end
+
+    # Two-phase backward word scan from `from`: skip the run of separator
+    # positions the block marks (`true`), then the run of non-separators,
+    # returning the resulting index. The block classifies a position by index
+    # so a caller can source the character however it likes (document
+    # `char_at` vs buffer `buf_char`). Shared by `TextCursor` word motion and
+    # `Mixin::TextEditing`'s buffer scans.
+    def self.scan_word_left(from : Int32, & : Int32 -> Bool) : Int32
+      i = from
+      while i > 0 && (yield i - 1)
+        i -= 1
+      end
+      while i > 0 && !(yield i - 1)
+        i -= 1
+      end
+      i
+    end
+
+    # Forward counterpart of `.scan_word_left`, bounded by `limit`: skip the
+    # separator run at `from`, then the run of non-separators.
+    def self.scan_word_right(from : Int32, limit : Int32, & : Int32 -> Bool) : Int32
+      i = from
+      while i < limit && (yield i)
+        i += 1
+      end
+      while i < limit && !(yield i)
+        i += 1
+      end
+      i
+    end
+
+    # The `{start, end}` of the word-character run touching `pos` (single-phase
+    # scan out in both directions), bounded by `size`. The block classifies a
+    # position by index. Empty (`{pos, pos}`) on a non-word position; callers
+    # differ only in what they do with that (see `TextCursor#word_bounds_at`'s
+    # previous-word fallback vs the mixin's "no word here").
+    def self.word_run_at(pos : Int32, size : Int32, & : Int32 -> Bool) : {Int32, Int32}
+      s = pos
+      while s > 0 && (yield s - 1)
+        s -= 1
+      end
+      e = pos
+      while e < size && (yield e)
+        e += 1
+      end
+      {s, e}
     end
 
     def blocks : Array(TextBlock)
@@ -137,7 +205,7 @@ module Crysterm
     end
 
     def to_plain_text : String
-      blocks.join('\n', &.text)
+      @plain_cache ||= blocks.join('\n', &.text)
     end
 
     # Plain text of `[from, to)`, separators as `'\n'`.
@@ -542,6 +610,7 @@ module Crysterm
     # adjustment on their own carets.
     private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
       @block_offsets = nil
+      @plain_cache = nil
       if kind.edit? && (removed > 0 || added > 0)
         each_cursor &.adjust(pos, removed, added)
       end

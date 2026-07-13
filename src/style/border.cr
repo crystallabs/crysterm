@@ -60,6 +60,14 @@ module Crysterm
     include Colorizable
     include SidedGeometry
 
+    # Whether every one of the named instance-variable fields is `nil` — the
+    # all-unset fast-path test. Keeps the hand-maintained `nil?` chain from
+    # drifting out of sync with the field set. (`Shadow#glyphs?` carries its
+    # own copy; a macro can't be shared across the two files/types by scope.)
+    private macro all_nil?(*fields)
+      ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
+    end
+
     property type = BorderType::Line
 
     # Border colors. Native form is a `0xRRGGBB` int (`-1` = terminal default,
@@ -165,9 +173,8 @@ module Crysterm
     # Whether any position/group char override is set — lets the renderer skip
     # the override merge entirely for the common untouched border.
     def chars? : Bool
-      !(@char_horizontal.nil? && @char_vertical.nil? && @char_corner.nil? &&
-        @char_top_left.nil? && @char_top_right.nil? &&
-        @char_bottom_left.nil? && @char_bottom_right.nil?)
+      !all_nil?(char_horizontal, char_vertical, char_corner,
+        char_top_left, char_top_right, char_bottom_left, char_bottom_right)
     end
 
     # The six glyphs of a line-family border with this border's char overrides

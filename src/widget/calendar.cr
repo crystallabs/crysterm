@@ -402,17 +402,18 @@ module Crysterm
             io << '\n'
           end
 
+          # ISO weeks are identified by their Thursday, not their first day.
+          # Under the default Sunday-first calendar the leftmost cell is a
+          # Sunday (last day of the *previous* ISO week), so labeling by it
+          # would misreport the week (e.g. Jan 1-6 2024 as "52" instead of
+          # "1"). Using the row's Thursday is correct for any
+          # `#first_day_of_week`. Row-independent, so computed once.
+          first_col = first_day_of_week.value % 7
+          thursday_offset = (::Time::DayOfWeek::Thursday.value % 7 - first_col + 7) % 7
+
           nrows.times do |r|
             if weeks
               row_date = first + (r * 7 - lead).days
-              # ISO weeks are identified by their Thursday, not their first day.
-              # Under the default Sunday-first calendar the leftmost cell is a
-              # Sunday (last day of the *previous* ISO week), so labeling by it
-              # would misreport the week (e.g. Jan 1-6 2024 as "52" instead of
-              # "1"). Using the row's Thursday is correct for any
-              # `#first_day_of_week`.
-              first_col = first_day_of_week.value % 7
-              thursday_offset = (::Time::DayOfWeek::Thursday.value % 7 - first_col + 7) % 7
               # The row's Thursday can land in January of year 10000 for the last
               # grid row of December 9999 (the default `@maximum_date`), which is
               # outside Crystal's `Time` range and raises `ArgumentError`. Fall

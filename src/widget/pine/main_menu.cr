@@ -55,15 +55,7 @@ module Crysterm
           super options, **list
         end
 
-        # The options currently displayed, parallel to the list items.
-        def options : Array(Option)
-          records
-        end
-
-        # Replaces the menu's options and rebuilds the visible rows.
-        def set_options(options : Array(Option))
-          set_records options
-        end
+        record_accessors options, option, Option
 
         # Returns the option key for the currently-selected row, if any.
         def selected_key : String?

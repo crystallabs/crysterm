@@ -42,6 +42,23 @@ module Crysterm
         {cols * cell_pixel_width, rows * cell_pixel_height}
       end
 
+      # Reused sixel band scratch, hoisted to instance vars and refilled in place
+      # each frame rather than reallocated (opt-in via `media.reuse_buffers`,
+      # mirroring `Media::Kitty`'s `@rgba_scratch`). A sixel-backed chart/donut
+      # re-encodes every changed frame, so the fresh `scratch` (`PALETTE.size`
+      # ≈252 `pw`-wide rows), `seen` and `band_of` (≈252 ints each) here were
+      # per-frame garbage. Encoding runs only on the single render fiber, so one
+      # shared buffer is safe. `@scratch_pw` guards the width: when `pw` changes
+      # the rows are rebuilt at the new size. Between frames the rows are left
+      # fully zeroed (every band's touched rows are `fill(0u8)`-reset at the end
+      # of the band, including the last), and `band_of` is re-seeded to `-1` at
+      # the start of every encode, so no stale bit from a previous frame can
+      # survive the reuse — output stays byte-identical to a fresh allocation.
+      @scratch : Array(Array(UInt8)) = Array(Array(UInt8)).new
+      @scratch_pw : Int32 = -1
+      @seen_scratch : Array(Int32) = [] of Int32
+      @band_of_scratch : Array(Int32) = [] of Int32
+
       # Sixel draws at the text cursor (positioned by the base class) at exact
       # pixel resolution, so *ox*/*oy* and the *cols*/*rows* cell box are unused.
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
@@ -61,9 +78,31 @@ module Crysterm
         # list of colors first touched this band (in first-touch order, so
         # emission order is deterministic), and `band_of[ci]` = the band that
         # last touched color `ci` (the allocation-free "seen this band?" test).
-        scratch = Array(Array(UInt8)).new(PALETTE.size) { Array(UInt8).new(pw, 0u8) }
-        seen = [] of Int32
-        band_of = Array(Int32).new(PALETTE.size, -1)
+        # With `media.reuse_buffers` these are reused across frames too (see the
+        # `@scratch` note above); otherwise they are freshly allocated per call.
+        if Config.media_reuse_buffers
+          scratch = @scratch
+          if @scratch_pw != pw
+            scratch.clear
+            PALETTE.size.times { scratch << Array(UInt8).new(pw, 0u8) }
+            @scratch_pw = pw
+          end
+          # scratch rows are left all-zero after a completed encode, so no
+          # start-of-frame clear is needed here.
+          seen = @seen_scratch
+          seen.clear
+          band_of = @band_of_scratch
+          if band_of.size == PALETTE.size
+            band_of.fill(-1)
+          else
+            band_of.clear
+            PALETTE.size.times { band_of << -1 }
+          end
+        else
+          scratch = Array(Array(UInt8)).new(PALETTE.size) { Array(UInt8).new(pw, 0u8) }
+          seen = [] of Int32
+          band_of = Array(Int32).new(PALETTE.size, -1)
+        end
 
         bands = (ph + 5) // 6
         bands.times do |band|

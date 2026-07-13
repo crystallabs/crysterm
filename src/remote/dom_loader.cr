@@ -96,22 +96,26 @@ module Crysterm
       built
     end
 
+    # Yields each direct child of `node` (of any kind — element, text, comment)
+    # in document order. The single sibling-walk primitive the traversals below
+    # (`#collect_style_css`, `#find_element`, `#each_element_child`) are all
+    # expressed over.
+    private def self.each_child(node : HTML5::Node, & : HTML5::Node ->) : Nil
+      child = node.first_child
+      while child
+        yield child
+        child = child.next_sibling
+      end
+    end
+
     # Concatenates the text of every `<style>` element in the document (the
     # parser keeps a `<style>`'s body as a raw text child).
     private def self.collect_style_css(node : HTML5::Node, io : IO) : Nil
       if node.element? && node.data == "style"
-        child = node.first_child
-        while child
-          io << child.data << '\n' if child.text?
-          child = child.next_sibling
-        end
+        each_child(node) { |child| io << child.data << '\n' if child.text? }
         return
       end
-      child = node.first_child
-      while child
-        collect_style_css child, io
-        child = child.next_sibling
-      end
+      each_child(node) { |child| collect_style_css child, io }
     end
 
     # Recursively constructs the widget for one element node and its subtree.
@@ -163,23 +167,17 @@ module Crysterm
     # Depth-first search for the first element node named `name`.
     private def self.find_element(node : HTML5::Node, name : String) : HTML5::Node?
       return node if node.element? && node.data == name
-      child = node.first_child
-      while child
+      each_child(node) do |child|
         if found = find_element(child, name)
           return found
         end
-        child = child.next_sibling
       end
       nil
     end
 
     # Yields each element (non-text, non-comment) child of `node` in order.
     private def self.each_element_child(node : HTML5::Node, & : HTML5::Node ->) : Nil
-      child = node.first_child
-      while child
-        yield child if child.element?
-        child = child.next_sibling
-      end
+      each_child(node) { |child| yield child if child.element? }
     end
   end
 

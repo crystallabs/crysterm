@@ -420,6 +420,20 @@ module Crysterm
       ((flags.to_i64 & FLAGS_MASK) << FLAGS_SHIFT) | ((fg.to_i64 & COLOR_MASK) << FG_SHIFT) | (bg.to_i64 & COLOR_MASK)
     end
 
+    # Returns *base* with only its foreground color field replaced by the
+    # already-packed color field *packed_fg* (flags, bg, and alpha preserved).
+    @[AlwaysInline]
+    def self.with_fg(base : Int64, packed_fg : Int64) : Int64
+      (base & ~(COLOR_MASK << FG_SHIFT)) | ((packed_fg & COLOR_MASK) << FG_SHIFT)
+    end
+
+    # Returns *base* with only its background color field replaced by the
+    # already-packed color field *packed_bg* (flags, fg, and alpha preserved).
+    @[AlwaysInline]
+    def self.with_bg(base : Int64, packed_bg : Int64) : Int64
+      (base & ~COLOR_MASK) | (packed_bg & COLOR_MASK)
+    end
+
     # The foreground channel's alpha mode.
     @[AlwaysInline]
     def self.fg_alpha(attr : Int64) : Alpha

@@ -11,8 +11,28 @@ module Crysterm
     module TableCells
       @css_cells : Hash(Tuple(Int32, Int32), Style)?
 
+      # Reused, allocation-free scratch set: data-row indices carrying a
+      # CSS-computed cell style this frame. Rebuilt per render via
+      # `#refresh_styled_rows`; the default theme styles only row 0 (Header), so
+      # an otherwise-unstyled table skips per-cell CSS lookups for every body row.
+      @styled_rows = Set(Int32).new
+
       private def css_cells : Hash(Tuple(Int32, Int32), Style)
         @css_cells ||= {} of Tuple(Int32, Int32) => Style
+      end
+
+      # Rebuilds `@styled_rows` from `@css_cells`, reusing the same Set
+      # (clear + repopulate) so a per-render refresh allocates nothing. A `nil`
+      # or empty `@css_cells` leaves the set empty.
+      def refresh_styled_rows : Nil
+        @styled_rows.clear
+        @css_cells.try &.each_key { |(r, _)| @styled_rows << r }
+      end
+
+      # Whether data row *r* carries a CSS-computed cell style (see
+      # `#refresh_styled_rows`).
+      def styled_row?(r : Int32) : Bool
+        @styled_rows.includes?(r)
       end
 
       # CSS-computed style for the cell at *row*/*col*, or `nil` if no rule

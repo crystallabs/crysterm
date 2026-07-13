@@ -45,8 +45,8 @@ module Crysterm
         fw = 0 if fw < 0
 
         # Prune bookkeeping for children no longer in the container.
-        @raw_height.select! { |el, _| container.child? el }
-        @assigned.select! { |el, _| container.child? el }
+        prune_managed container, @raw_height
+        prune_managed container, @assigned
 
         # Only pair arrangeable children (see `#each_arrangeable`); layout-excluded
         # chrome must not be consumed as a label/field slot.
@@ -63,8 +63,8 @@ module Crysterm
             rh = Math.max(row_height(label), row_height(field))
             place_child label, 0, y, lw, rh
             place_child field, lw + @gap, y, fw, rh
-            record_height label, rh
-            record_height field, rh
+            record_managed label, @assigned, rh
+            record_managed field, @assigned, rh
             render_child label
             render_child field
             y += rh + @row_gap
@@ -73,7 +73,7 @@ module Crysterm
             # Trailing odd child spans the full width.
             rh = row_height label
             place_and_render label, 0, y, w, rh
-            record_height label, rh
+            record_managed label, @assigned, rh
             y += rh + @row_gap
             i += 1
           end
@@ -96,18 +96,7 @@ module Crysterm
       # and the pair-row max never stays stuck. Releases the child when its raw
       # height no longer matches what we last assigned (the user set it).
       private def restore_height(el : Widget) : Nil
-        raw = el.height
-        if (assigned = @assigned[el]?) && raw == assigned && @raw_height.has_key?(el)
-          el.height = @raw_height[el]
-        else
-          @raw_height[el] = raw
-        end
-      end
-
-      # Remembers the row height just written into `el`, so the next frame can
-      # tell a layout-owned height from a user-reclaimed one.
-      private def record_height(el : Widget, v : Int32) : Nil
-        @assigned[el] = v
+        restore_managed(el, @raw_height, @assigned, el.height) { |v| el.height = v }
       end
     end
   end

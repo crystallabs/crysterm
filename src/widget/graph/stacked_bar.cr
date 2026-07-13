@@ -122,8 +122,12 @@ module Crysterm
           top = @max || (sums.select(&.finite?).max? || 0.0)
           top = 1.0 if top <= 0.0
 
+          # Fill ramp: CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
+          # Resolved once here rather than re-resolved per bar (as in `Bar`).
+          ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
+
           # For each shown bar, the per-row (glyph, color) from top to bottom.
-          columns = shown.map { |bar| column(bar, plot_rows, top) }
+          columns = shown.map { |bar| column(bar, plot_rows, top, ramp) }
 
           # Reserve up front (legend + plot_rows + label rows) so the per-frame
           # collection doesn't realloc its backing as it grows.
@@ -157,7 +161,7 @@ module Crysterm
         # `Bar`. Segment boundaries *within* the stack snap to whole cells
         # (a single cell can't show two colors); only the topmost segment keeps
         # the sub-cell partial.
-        private def column(bar : Array(Float64), plot_rows : Int32, top : Float64) : Array({Char, String?})
+        private def column(bar : Array(Float64), plot_rows : Int32, top : Float64, ramp : Array(Char)) : Array({Char, String?})
           blank = {' ', nil.as(String?)}
           col = Array({Char, String?}).new(plot_rows, blank)
           sum = bar.sum
@@ -183,8 +187,6 @@ module Crysterm
             prev = edge
           end
 
-          # Fill ramp: CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
-          ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
           plot_rows.times do |r|
             below = plot_rows - 1 - r # whole cells beneath this one
             glyph = Scale.ramp_glyph(ramp, total, below)

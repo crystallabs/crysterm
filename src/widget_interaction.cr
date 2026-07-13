@@ -274,8 +274,9 @@ module Crysterm
     # widget it's the window's content corner — `(window.ileft, window.itop)`,
     # since `aleft == window.ileft + left` (see `window.cr`). Used by the drag
     # handler to convert the pointer's absolute position into a parent-relative
-    # `left`/`top`.
-    private def drag_origin : Tuple(Int32, Int32)
+    # `left`/`top`. `protected` so subclasses with a custom drag entry
+    # (`ColorDialog`, `DockWidget`) reuse this exact origin math.
+    protected def drag_origin : Tuple(Int32, Int32)
       if p = parent
         {p.aleft + p.ileft, p.atop + p.itop}
       else
@@ -293,12 +294,12 @@ module Crysterm
     # `widget_decoration`) — not the full `awidth`, or a nested widget could be
     # dragged past the parent's border by the inset amount. Same logic applies
     # when the parent is the window (mirrors `drag_origin`).
-    private def drag_max_left : Int32
+    protected def drag_max_left : Int32
       c = parent_or_window
       {c.awidth - c.iwidth - awidth, 0}.max
     end
 
-    private def drag_max_top : Int32
+    protected def drag_max_top : Int32
       c = parent_or_window
       {c.aheight - c.iheight - aheight, 0}.max
     end

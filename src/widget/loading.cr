@@ -61,7 +61,7 @@ module Crysterm
         if pinned = @icons
           return pinned
         end
-        key = {style.glyphs, glyph_tier, Glyphs.generation}
+        key = glyph_key(style)
         if (f = @_frames) && @_frames_key == key
           return f
         end

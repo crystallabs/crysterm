@@ -32,6 +32,30 @@ module Crysterm
       end
     end
 
+    # The DECSC/DECRC (`ESC 7`/`ESC 8`) save slot as one value. A `struct` so a
+    # per-buffer park/unpark (see `#park_saved_slot`) is a single field-for-field
+    # copy rather than nine hand-enumerated assignments.
+    struct SavedCursor
+      property x : Int32
+      property y : Int32
+      property attr : Int64
+      property g0_special : Bool
+      property g1_special : Bool
+      property gl : Int32
+      property origin_mode : Bool
+      property autowrap : Bool
+      property wrap_pending : Bool
+
+      def initialize(@x, @y, @attr, @g0_special, @g1_special, @gl, @origin_mode, @autowrap, @wrap_pending)
+      end
+
+      # A fresh slot: home cursor, given default rendition, ASCII charset (G0/G1
+      # non-special, GL→G0), origin mode off, autowrap on, no pending wrap.
+      def self.default(default_attr : Int64) : SavedCursor
+        new(0, 0, default_attr, false, false, 0, false, true, false)
+      end
+    end
+
     # Maximum number of scrolled-off lines retained for scrollback.
     SCROLLBACK_LIMIT = 1000
 
@@ -68,23 +92,15 @@ module Crysterm
     @scroll_top : Int32 = 0
     @scroll_bottom : Int32 = 0
 
-    @saved_x : Int32 = 0
-    @saved_y : Int32 = 0
-    @saved_attr : Int64
-    # DECSC (`ESC 7`) also snapshots charset designations (G0/G1 special), the
-    # active GL invocation, origin mode (DECOM) and autowrap (DECAWM), all
-    # restored by DECRC (`ESC 8`) — otherwise a child drawing with the
+    # The live DECSC (`ESC 7`) save slot restored by DECRC (`ESC 8`). Besides the
+    # cursor position it snapshots the rendition, charset designations (G0/G1
+    # special) and active GL invocation, origin mode (DECOM), autowrap (DECAWM)
+    # and the pending-wrap (last-column deferred wrap) flag — all part of the
+    # DECSC state per DEC STD-070/xterm. Otherwise a child drawing with the
     # line-drawing set inside a DECSC/DECRC pair saw it switched back to ASCII
-    # after restore.
-    @saved_g0_special = false
-    @saved_g1_special = false
-    @saved_gl = 0
-    @saved_origin_mode = false
-    @saved_autowrap = true
-    # DECSC also snapshots the pending-wrap (last-column deferred wrap) flag, part
-    # of the DECSC state per DEC STD-070/xterm: a DECRC onto the last column with a
-    # wrap pending must re-arm it, else the next printable overwrites in place.
-    @saved_wrap_pending = false
+    # after restore, and a DECRC onto the last column with a wrap pending would
+    # drop it (the next printable would overwrite in place).
+    @saved : SavedCursor
 
     # Deferred wrap: after writing the last column we stay on it until the next
     # printable char, matching xterm (prevents a spurious blank line when text
@@ -167,15 +183,7 @@ module Crysterm
     # this same slot (not a private one), so `CSI ? 1049 h` overwrites a prior
     # `ESC 7` and a later `ESC 8` sees the 1049-saved cursor — exactly as xterm
     # does (vttest's alt-screen "cursor save/restore" check depends on it).
-    @main_saved_x = 0
-    @main_saved_y = 0
-    @main_saved_attr : Int64
-    @main_saved_g0_special = false
-    @main_saved_g1_special = false
-    @main_saved_gl = 0
-    @main_saved_origin_mode = false
-    @main_saved_autowrap = true
-    @main_saved_wrap_pending = false
+    @main_saved : SavedCursor
 
     # Mouse tracking requested by the child. `@mouse_tracking` is the active
     # DECSET tracking mode (0 = off, else 9/1000/1002/1003); `@mouse_encoding`
@@ -215,8 +223,8 @@ module Crysterm
       @rows = 1 if @rows < 1
       @default_attr = default_attr
       @cur_attr = default_attr
-      @saved_attr = default_attr
-      @main_saved_attr = default_attr
+      @saved = SavedCursor.default(default_attr)
+      @main_saved = SavedCursor.default(default_attr)
       @scroll_bottom = @rows - 1
       @lines = blank_page
       reset_tab_stops
@@ -930,44 +938,20 @@ module Crysterm
 
     # ───────────────────────── alternate window ─────────────────────────
 
-    # Parks the main buffer's DECSC save slot into `@main_saved_*` (on `#enter_alt`)
+    # Parks the main buffer's DECSC save slot into `@main_saved` (on `#enter_alt`)
     # and restores it (`#leave_alt`), so the two screens keep independent slots.
     private def park_saved_slot : Nil
-      @main_saved_x = @saved_x
-      @main_saved_y = @saved_y
-      @main_saved_attr = @saved_attr
-      @main_saved_g0_special = @saved_g0_special
-      @main_saved_g1_special = @saved_g1_special
-      @main_saved_gl = @saved_gl
-      @main_saved_origin_mode = @saved_origin_mode
-      @main_saved_autowrap = @saved_autowrap
-      @main_saved_wrap_pending = @saved_wrap_pending
+      @main_saved = @saved
     end
 
     private def unpark_saved_slot : Nil
-      @saved_x = @main_saved_x
-      @saved_y = @main_saved_y
-      @saved_attr = @main_saved_attr
-      @saved_g0_special = @main_saved_g0_special
-      @saved_g1_special = @main_saved_g1_special
-      @saved_gl = @main_saved_gl
-      @saved_origin_mode = @main_saved_origin_mode
-      @saved_autowrap = @main_saved_autowrap
-      @saved_wrap_pending = @main_saved_wrap_pending
+      @saved = @main_saved
     end
 
     # Resets the DECSC slot to defaults (home cursor, default rendition/charset).
     # Used for the alt buffer's fresh slot and by `#full_reset`.
     private def reset_saved_slot : Nil
-      @saved_x = 0
-      @saved_y = 0
-      @saved_attr = @default_attr
-      @saved_g0_special = false
-      @saved_g1_special = false
-      @saved_gl = 0
-      @saved_origin_mode = false
-      @saved_autowrap = true
-      @saved_wrap_pending = false
+      @saved = SavedCursor.default(@default_attr)
     end
 
     # Switches to a fresh alternate page, parking the main buffer until
@@ -1405,31 +1389,23 @@ module Crysterm
     end
 
     private def save_cursor : Nil
-      @saved_x = @x
-      @saved_y = @y
-      @saved_attr = @cur_attr
-      @saved_g0_special = @g0_special
-      @saved_g1_special = @g1_special
-      @saved_gl = @gl
-      @saved_origin_mode = @origin_mode
-      @saved_autowrap = @autowrap
-      @saved_wrap_pending = @wrap_pending
+      @saved = SavedCursor.new(@x, @y, @cur_attr, @g0_special, @g1_special, @gl, @origin_mode, @autowrap, @wrap_pending)
     end
 
     private def restore_cursor : Nil
-      @x = clamp(@saved_x, 0, @cols - 1)
-      @y = clamp(@saved_y, 0, @rows - 1)
-      @cur_attr = @saved_attr
-      @g0_special = @saved_g0_special
-      @g1_special = @saved_g1_special
-      @gl = @saved_gl
-      @origin_mode = @saved_origin_mode
-      @autowrap = @saved_autowrap
+      @x = clamp(@saved.x, 0, @cols - 1)
+      @y = clamp(@saved.y, 0, @rows - 1)
+      @cur_attr = @saved.attr
+      @g0_special = @saved.g0_special
+      @g1_special = @saved.g1_special
+      @gl = @saved.gl
+      @origin_mode = @saved.origin_mode
+      @autowrap = @saved.autowrap
       # Re-arm the deferred wrap only when the restored cursor actually lands on
       # the last column with autowrap on (stricter than xterm's unconditional
       # restore, safer since print_char consumes @wrap_pending without re-checking
       # position).
-      @wrap_pending = @saved_wrap_pending && @autowrap && @x == @cols - 1
+      @wrap_pending = @saved.wrap_pending && @autowrap && @x == @cols - 1
     end
 
     # DECALN (`ESC # 8`): fill the entire visible screen with 'E', reset the

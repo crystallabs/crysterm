@@ -52,7 +52,7 @@ module Crysterm
       # `DialPointers` at the effective tier. Memoized against its inputs —
       # `#pointer` runs per render.
       private def pointer_ring : Array(Char)
-        key = {style.glyphs, glyph_tier, Glyphs.generation}
+        key = glyph_key(style)
         if (r = @_ring) && @_ring_key == key
           return r
         end

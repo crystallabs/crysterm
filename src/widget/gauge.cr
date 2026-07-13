@@ -137,15 +137,15 @@ module Crysterm
       # build itself. Skip it while nothing observable changed. The stacked
       # segments are represented by `@segments_version` (bumped in `#segments=`)
       # rather than an `@segments.dup`, so the key stays allocation-free per frame.
-      # The trailing `{style.glyphs, glyph_tier, Glyphs.generation}` triple
-      # covers every input `glyph_seq` resolves the fill ramp from, so a
-      # post-probe tier upgrade / `Glyphs.set` / CSS `glyphs:` hot-reload
-      # rebuilds the content instead of keeping a stale ramp.
-      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, String?, Glyphs::Tier, UInt64)? = nil
+      # The trailing `glyph_key(style)` element covers every input `glyph_seq`
+      # resolves the fill ramp from, so a post-probe tier upgrade / `Glyphs.set`
+      # / CSS `glyphs:` hot-reload rebuilds the content instead of keeping a
+      # stale ramp.
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
         key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
-               style.glyphs, glyph_tier, Glyphs.generation}
+               glyph_key(style)}
         if key != @content_key
           @content_key = key
           self.content = build_content

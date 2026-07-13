@@ -115,6 +115,36 @@ module Crysterm
         def run_selected
           activate
         end
+
+        # Template-method hook: whether pressing the space bar toggles the
+        # current row. When it returns `true`, the shared `#on_keypress` handles
+        # `Space → #toggle_selected` and consumes the key; otherwise Space falls
+        # through to the inherited list handling. Defaults to `false` (most lists
+        # don't toggle); toggling subclasses override it with their own guard
+        # (e.g. `Setup` always, `OptionList` when the selected option is a
+        # `Toggle`, `ListSelect` in multi mode).
+        protected def space_toggles? : Bool
+          false
+        end
+
+        # Toggles the current row. A no-op hook by default; toggling subclasses
+        # (`Setup`, `OptionList`, `ListSelect`) override it. Invoked from
+        # `#on_keypress` only when `#space_toggles?` returns `true`.
+        def toggle_selected
+        end
+
+        # Shared key handling: space-bar toggling (gated by `#space_toggles?`) on
+        # top of the inherited arrow/Enter/paging navigation. Subclasses that
+        # need extra keys (e.g. `OptionList`'s inline editing) override
+        # `#on_keypress`, handle their keys, then `super` here.
+        def on_keypress(e)
+          if e.char == ' ' && space_toggles?
+            toggle_selected
+            e.accept
+            return
+          end
+          super
+        end
       end
     end
   end

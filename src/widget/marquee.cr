@@ -86,16 +86,14 @@ module Crysterm
 
           # Per-frame invariants hoisted out of the column loop. `base` is the
           # plain glyph attr, used as-is outside rainbow mode; in rainbow mode
-          # only the foreground varies, so flags and packed bg are reused and
-          # just the fg is repacked per column.
+          # only the foreground varies, so flags and bg (and Opaque alpha) are
+          # reused and just the fg is repacked per column via `Attr.with_fg`.
           base = sattr style, style.fg, style.bg
-          flags = Attr.flags base
-          bg_packed = Attr.bg base
 
           (0...w).each do |x|
             ch = scroll_glyph(f, x, n)
             next if ch == ' '
-            attr = rainbow? ? Attr.pack(flags, rainbow_fg(x, f), bg_packed) : base
+            attr = rainbow? ? Attr.with_fg(base, rainbow_fg(x, f)) : base
             window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
           end
         end

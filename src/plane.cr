@@ -126,8 +126,8 @@ module Crysterm
             pl_link = pr_has_l ? pr.link_at(x) : 0_u16
             b_link = br_has_l ? br.link_at(x) : 0_u16
             if under != result || bc.unsafe_fetch(x) != ch || bg != pg || b_link != pl_link
-              ba[x] = result
-              bc[x] = ch
+              ba.unsafe_put(x, result)
+              bc.unsafe_put(x, ch)
               if pg
                 br.set_grapheme x, pg
                 br_has_g = true

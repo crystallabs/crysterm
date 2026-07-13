@@ -3,6 +3,13 @@ module Crysterm
   class Shadow
     include SidedGeometry
 
+    # Whether every one of the named instance-variable fields is `nil` — the
+    # all-unset fast-path test for `#glyphs?`. Mirrors `Border`'s private copy
+    # (a macro can't be shared across the two files/types by scope).
+    private macro all_nil?(*fields)
+      ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
+    end
+
     # Fresh zero-shadow instance ("no shadow": all sides 0). Not a shared
     # singleton (like `Padding.default`/`Margin.default`): `Shadow` is mutable,
     # and `Style`'s default getter hands one to every `Style` — a shared
@@ -104,9 +111,9 @@ module Crysterm
     # When false the shadow is a plain full-cell alpha blend and the renderer
     # takes its faster, undivided path.
     def glyphs? : Bool
-      !(@horizontal_char.nil? && @vertical_char.nil? && @diagonal_char.nil? &&
-        @top_char.nil? && @bottom_char.nil? && @left_char.nil? && @right_char.nil? &&
-        @top_left_char.nil? && @top_right_char.nil? && @bottom_left_char.nil? && @bottom_right_char.nil?)
+      !all_nil?(horizontal_char, vertical_char, diagonal_char,
+        top_char, bottom_char, left_char, right_char,
+        top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end
 
     def initialize(

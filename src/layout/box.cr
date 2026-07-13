@@ -113,8 +113,8 @@ module Crysterm
         # O(tracked × children) per arrange, pure steady-state overhead.
         @flex.select! { |el| container.child? el }
         @filled.select! { |el| container.child? el }
-        @flex_size.select! { |el, _| container.child? el }
-        @filled_size.select! { |el, _| container.child? el }
+        prune_managed container, @flex_size
+        prune_managed container, @filled_size
 
         main = main_extent interior
 
