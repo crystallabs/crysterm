@@ -206,9 +206,16 @@ module Crysterm
     def dup
       copy = super
       @border.try { |border| copy.border = border.dup }
-      copy.padding = @padding.dup
-      copy.margin = @margin.dup
-      copy.shadow = @shadow.dup
+      # `padding`/`margin`/`shadow` are lazy (nil until first set/read), like
+      # `border`: the shallow `super` already copies a `nil` ivar for free, so a
+      # style that never touched a box sub-object costs no sub-object dup here —
+      # only a materialized one is copied (the cascade dups every recompute
+      # candidate per state, and most widgets set no box geometry). A copied
+      # object is given its own instance so later in-place longhand edits
+      # (`padding-top`, …) can't corrupt the original.
+      @padding.try { |padding| copy.padding = padding.dup }
+      @margin.try { |margin| copy.margin = margin.dup }
+      @shadow.try { |shadow| copy.shadow = shadow.dup }
       # The setters above stamp their bits into the copy's mask; restore our
       # exact mask so the dup reports precisely what we explicitly set.
       copy.specified_mask = @specified_mask
@@ -501,7 +508,11 @@ module Crysterm
       @padding = Padding.from value
     end
 
-    getter padding = Padding.default
+    # Lazy (nil until first set/read): an untouched box stays `nil` so `#dup`
+    # copies nothing for it (see `#dup`). Materialized on first access so the
+    # per-side longhands (`padding-left`, …) can mutate it in place. Never a
+    # shared singleton — each style owns its box (`Padding.default` is fresh).
+    getter padding : Padding { Padding.default }
 
     # Element's outer spacing. Unlike `padding`/`border` (inner insets), margin
     # offsets and shrinks the element itself within its allotted slot; see
@@ -511,8 +522,8 @@ module Crysterm
       @margin = Margin.from value
     end
 
-    # :ditto:
-    getter margin = Margin.default
+    # :ditto: (lazy, like `#padding`).
+    getter margin : Margin { Margin.default }
 
     sub_style_accessor scrollbar
 
@@ -522,8 +533,8 @@ module Crysterm
       @shadow = Shadow.from value
     end
 
-    # :ditto:
-    getter shadow = Shadow.default
+    # :ditto: (lazy, like `#padding`).
+    getter shadow : Shadow { Shadow.default }
 
     sub_style_accessor track
 

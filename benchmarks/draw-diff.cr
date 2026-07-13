@@ -22,7 +22,7 @@ H =  50
 ATTR_A = Attr.pack(0_i64, Attr.pack_color(0xFF5050), Attr.pack_color(0x101010))
 ATTR_B = Attr.pack(0_i64, Attr.pack_color(0x50A0FF), Attr.pack_color(0x101010))
 
-def make_screen(devnull) : Screen
+def make_screen(devnull) : Window
   s = Window.new input: IO::Memory.new, output: devnull, error: IO::Memory.new,
     width: W, height: H
   s.width = W
@@ -53,7 +53,7 @@ tgts = KINDS.to_h { |k| {k, targets(k)} }
 # scan of the dirty-column range). Otherwise `dirty = true` (full-width scan,
 # pre-change behavior). Both must produce byte-identical output (draw_diff_spec).
 @[AlwaysInline]
-def frame(s : Screen, ts : Array({Int32, Int32}), even : Bool, narrowed : Bool) : Nil
+def frame(s : Window, ts : Array({Int32, Int32}), even : Bool, narrowed : Bool) : Nil
   attr = even ? ATTR_A : ATTR_B
   ch = even ? 'A' : 'B'
   ts.each do |(y, x)|

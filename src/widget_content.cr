@@ -530,6 +530,15 @@ module Crysterm
     # maintain `@_content_open_tags_at_end`.
     @_parse_tags_left_open = false
 
+    # Whether `c` may appear in a tag name — the character class `[\w\-,;!#]`
+    # of `TAG_REGEX`, where `\w` (PCRE2 default, non-UCP) is ASCII
+    # `[A-Za-z0-9_]`. Lets `#_parse_tags` scan a `{tag}` by index instead of an
+    # allocating anchored regex match.
+    private def tag_name_char?(c : Char) : Bool
+      c.ascii_letter? || c.ascii_number? ||
+        c == '_' || c == '-' || c == ',' || c == ';' || c == '!' || c == '#'
+    end
+
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     # ameba:disable Metrics/CyclomaticComplexity
     def _parse_tags(text)
@@ -543,8 +552,10 @@ module Crysterm
       # whole result on every tag (O(n^2) for heavily-tagged content). The
       # cursor is an integer offset advanced via ANCHORED matches rather than
       # reslicing `text` each step (which would allocate a fresh tail `String`
-      # per tag, a second O(n^2)).
-      outbuf = String::Builder.new
+      # per tag, a second O(n^2)). Seed the builder near the input size (tags
+      # expand to SGR of comparable length) so it needn't repeatedly double its
+      # backing buffer from the 64-byte default for long tagged content.
+      outbuf = String::Builder.new text.bytesize
       bg = [] of String
       fg = [] of String
       flag = [] of String
@@ -602,75 +613,92 @@ module Crysterm
         # close restores the previous state); an unrecognized tag is dropped
         # (drop-malformed policy, todoc Q6). `Tput#_attr` returns "" for an
         # unknown name, non-empty for every known one, so `empty?` is the test.
-        if cap = TAG_REGEX.match(text, pos, options: anchored)
-          pos += cap[0].size
-          slash = cap[1] == "/"
-          # XXX Tags must be specified such as {light-blue-fg}, but are then
-          # parsed here with - being ' '. See why? Can we work with - and skip
-          # this replacement part?
-          # Char-`gsub`, only when a dash is present — dash-free tags (`bold`,
-          # `red`) reuse the captured name with no scan or allocation.
-          param = cap[2]
-          param = param.gsub('-', ' ') if param.includes?('-')
+        # Manual `{tag}` / `{/tag}` scan, replacing an anchored `TAG_REGEX`
+        # match whose `MatchData` (plus the `cap[0]`/`cap[1]`/`cap[2]` capture
+        # strings) allocated once per tag — the dominant allocation of
+        # heavily-tagged content. Mirrors `/\{(\/?)([\w\-,;!#]*)\}/` exactly:
+        # a `{`, an optional leading `/`, a run of tag-name chars, then a
+        # closing `}`. On any deviation (`}`, unterminated tag, non-name char
+        # before `}`) it falls through to the plain-run / drop-malformed
+        # handling below, just as a failed regex match did. `text[i]?` is O(1)
+        # for single-byte-optimizable (ASCII) content — the norm for tags.
+        if text[pos]? == '{'
+          slash = text[pos + 1]? == '/'
+          name_start = slash ? pos + 2 : pos + 1
+          k = name_start
+          while (nc = text[k]?) && tag_name_char?(nc)
+            k += 1
+          end
+          if text[k]? == '}'
+            tag_start = pos
+            pos = k + 1
+            # XXX Tags must be specified such as {light-blue-fg}, but are then
+            # parsed here with - being ' '. See why? Can we work with - and skip
+            # this replacement part?
+            # Char-`gsub`, only when a dash is present — dash-free tags (`bold`,
+            # `red`) reuse the name slice with no scan or allocation.
+            param = text[name_start...k]
+            param = param.gsub('-', ' ') if param.includes?('-')
 
-          if param == "open"
-            outbuf << '{'
-            next
-          elsif param == "close"
-            outbuf << '}'
-            next
-          elsif param == "left" || param == "center" || param == "right"
-            # `{left}`/`{center}`/`{right}` (and `{/...}` closers) are line-
-            # alignment tags, not attribute tags — no SGR, so the recognized-
-            # attribute path below would drop them as unknown, silently
-            # disabling `{center}…{/center}` alignment. `#_wrap_content` consumes
-            # them (matches `^{(left|center|right)}` / `{/(…)}$` per line) after
-            # `_parse_tags` runs, so they must survive parsing verbatim, like
-            # `{|}` above. `cap[0]` includes the slash, so opener and closer both
-            # pass through.
-            outbuf << cap[0]
+            if param == "open"
+              outbuf << '{'
+              next
+            elsif param == "close"
+              outbuf << '}'
+              next
+            elsif param == "left" || param == "center" || param == "right"
+              # `{left}`/`{center}`/`{right}` (and `{/...}` closers) are line-
+              # alignment tags, not attribute tags — no SGR, so the recognized-
+              # attribute path below would drop them as unknown, silently
+              # disabling `{center}…{/center}` alignment. `#_wrap_content` consumes
+              # them (matches `^{(left|center|right)}` / `{/(…)}$` per line) after
+              # `_parse_tags` runs, so they must survive parsing verbatim, like
+              # `{|}` above. The slice includes the slash, so opener and closer
+              # both pass through.
+              outbuf << text[tag_start...pos]
+              next
+            end
+
+            state = if param.ends_with?(" bg")
+                      bg
+                    elsif param.ends_with?(" fg")
+                      fg
+                    else
+                      flag
+                    end
+
+            if slash
+              if param.blank?
+                # `{/}` resets everything.
+                outbuf << window.tput._attr("normal")
+                bg.clear
+                fg.clear
+                flag.clear
+              elsif !window.tput._attr(param).empty? # recognized -> restore prior
+                # D O:
+                # if (param !== state[state.size - 1])
+                #   throw new Error('Misnested tags.')
+                # }
+                # `pop?` (not `pop`): a recognized closing tag with no matching open
+                # leaves the stack empty. Crystal's `Array#pop` raises on empty,
+                # which would crash the parse on unbalanced-but-recognized input.
+                # Blessed's JS `array.pop()` returns `undefined` and falls through
+                # to emit the tag's "off" SGR; `pop?` reproduces that.
+                state.pop?
+                outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
+              end
+              # else: unrecognized closing tag -> dropped
+            else
+              attr = window.tput._attr(param)
+              unless attr.empty? # recognized opening tag
+                state.push(param)
+                outbuf << attr
+              end
+              # else: unrecognized opening tag -> dropped
+            end
+
             next
           end
-
-          state = if param.ends_with?(" bg")
-                    bg
-                  elsif param.ends_with?(" fg")
-                    fg
-                  else
-                    flag
-                  end
-
-          if slash
-            if param.blank?
-              # `{/}` resets everything.
-              outbuf << window.tput._attr("normal")
-              bg.clear
-              fg.clear
-              flag.clear
-            elsif !window.tput._attr(param).empty? # recognized -> restore prior
-              # D O:
-              # if (param !== state[state.size - 1])
-              #   throw new Error('Misnested tags.')
-              # }
-              # `pop?` (not `pop`): a recognized closing tag with no matching open
-              # leaves the stack empty. Crystal's `Array#pop` raises on empty,
-              # which would crash the parse on unbalanced-but-recognized input.
-              # Blessed's JS `array.pop()` returns `undefined` and falls through
-              # to emit the tag's "off" SGR; `pop?` reproduces that.
-              state.pop?
-              outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
-            end
-            # else: unrecognized closing tag -> dropped
-          else
-            attr = window.tput._attr(param)
-            unless attr.empty? # recognized opening tag
-              state.push(param)
-              outbuf << attr
-            end
-            # else: unrecognized opening tag -> dropped
-          end
-
-          next
         end
 
         # A run of plain (brace-free) text passes through verbatim. Find the next

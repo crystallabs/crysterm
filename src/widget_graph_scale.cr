@@ -205,55 +205,52 @@ module Crysterm
           super
         end
 
-        # Builds one plot row of tagged content: each of the `n` bars contributes
-        # `bar_width` copies of its `{glyph, color}` (yielded for bar `i`),
-        # separated by `bar_spacing` blank columns. A blank glyph carries no color
-        # so coalesced color runs stay tight.
-        private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
-          # Stream the tagged row straight into the builder, coalescing runs of
-          # same-colored cells as we go (`open_color` is the color of the tag
-          # currently open, `nil` = none). This avoids the two per-row scratch
-          # `Array`s the `Scale.tagged_row` path materializes first — a live
-          # chart rebuilds this per row per data push. Output is byte-identical
-          # to feeding `tagged_row` the equivalent cells/colors.
-          String.build do |io|
-            open_color : String? = nil
-            n.times do |i|
-              glyph, color = yield i
-              cell_color = glyph == ' ' ? nil : color
-              @bar_width.times do
-                if cell_color != open_color
-                  io << "{/}" if open_color
-                  if c = cell_color
-                    io << '{' << c << "-fg}"
-                  end
-                  open_color = cell_color
+        # Writes one plot row of tagged content into *io*: each of the `n` bars
+        # contributes `bar_width` copies of its `{glyph, color}` (yielded for bar
+        # `i`), separated by `bar_spacing` blank columns. A blank glyph carries no
+        # color so coalesced color runs stay tight.
+        #
+        # Streams straight into the caller's builder so `#build_content` composes
+        # the whole widget in one `String.build` — no per-row scratch `String`
+        # and no final `Array#join` (a live chart rebuilds every row per data
+        # push). Also avoids the two per-row scratch `Array`s the
+        # `Scale.tagged_row` path materializes first. Output is byte-identical to
+        # feeding `tagged_row` the equivalent cells/colors.
+        private def plot_row(io : IO, n : Int32, & : Int32 -> {Char, String?}) : Nil
+          open_color : String? = nil
+          n.times do |i|
+            glyph, color = yield i
+            cell_color = glyph == ' ' ? nil : color
+            @bar_width.times do
+              if cell_color != open_color
+                io << "{/}" if open_color
+                if c = cell_color
+                  io << '{' << c << "-fg}"
                 end
-                io << glyph
+                open_color = cell_color
               end
-              if i < n - 1
-                @bar_spacing.times do
-                  if open_color
-                    io << "{/}"
-                    open_color = nil
-                  end
-                  io << ' '
+              io << glyph
+            end
+            if i < n - 1
+              @bar_spacing.times do
+                if open_color
+                  io << "{/}"
+                  open_color = nil
                 end
+                io << ' '
               end
             end
-            io << "{/}" if open_color
           end
+          io << "{/}" if open_color
         end
 
-        # Builds one caption row: each bar's text (yielded for bar `i`), centered
-        # within its bar width, followed by the inter-bar spacing (plain,
+        # Writes one caption row into *io*: each bar's text (yielded for bar `i`),
+        # centered within its bar width, followed by the inter-bar spacing (plain,
         # untagged).
-        private def field_line(n : Int32, &) : String
-          String.build do |io|
-            n.times do |i|
-              Scale.center_to(io, yield(i), @bar_width, full_unicode?)
-              @bar_spacing.times { io << ' ' } if i < n - 1
-            end
+        private def field_line(io : IO, n : Int32, &) : Nil
+          n.times do |i|
+            Scale.center_to(io, yield(i), @bar_width, full_unicode?)
+            @bar_spacing.times { io << ' ' } if i < n - 1
           end
         end
       end

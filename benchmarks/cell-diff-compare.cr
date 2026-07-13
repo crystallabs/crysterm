@@ -24,11 +24,11 @@ include Crysterm
 
 WIDTH  =  200
 ROUNDS = 5000
-attr = Crysterm::Screen::DEFAULT_ATTR
+attr = Crysterm::Window::DEFAULT_ATTR
 
 # Two equal rows: the common hot case where every cell is unchanged.
-line = Crysterm::Screen::Row.new
-o = Crysterm::Screen::Row.new
+line = Crysterm::Window::Row.new
+o = Crysterm::Window::Row.new
 WIDTH.times do |i|
   ch = 'a' + (i % 26)
   line.push attr, ch
@@ -36,7 +36,7 @@ WIDTH.times do |i|
 end
 
 # A half-changed row, exercising the not-equal branch.
-o_half = Crysterm::Screen::Row.new
+o_half = Crysterm::Window::Row.new
 WIDTH.times { |i| o_half.push attr, (i < WIDTH // 2 ? ('a' + (i % 26)) : 'Z') }
 
 # OLD per-cell read + compare, matching the pre-change draw loop.

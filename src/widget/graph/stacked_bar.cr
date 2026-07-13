@@ -129,29 +129,35 @@ module Crysterm
           # For each shown bar, the per-row (glyph, color) from top to bottom.
           columns = shown.map { |bar| column(bar, plot_rows, top, ramp) }
 
-          # Reserve up front (legend + plot_rows + label rows) so the per-frame
-          # collection doesn't realloc its backing as it grows.
-          lines = Array(String).new(legend_row + plot_rows + label_row)
+          # Compose the whole widget in one builder (rows separated by `\n`)
+          # instead of a per-row `String` array plus a final join — a live chart
+          # rebuilds this every data push, so the intermediate strings + the join
+          # copy are pure per-frame garbage.
+          String.build do |io|
+            wrote = false
 
-          # Legend along the top.
-          if legend_row == 1
-            lines << legend_line(seg_lbls.not_nil!, cols) # ameba:disable Lint/NotNil
+            # Legend along the top.
+            if legend_row == 1
+              legend_line(io, seg_lbls.not_nil!, cols) # ameba:disable Lint/NotNil
+              wrote = true
+            end
+
+            # Plot area.
+            plot_rows.times do |r|
+              io << '\n' if wrote
+              wrote = true
+              plot_row(io, n) { |i| columns[i][r] }
+            end
+
+            # Category captions along the bottom, offset to match the tail bars
+            # shown when values overflow the width (`@values.last(cap)`).
+            if label_row == 1
+              io << '\n' if wrote
+              names = lbls.not_nil! # ameba:disable Lint/NotNil
+              offset = @values.size - n
+              field_line(io, n) { |i| names[offset + i]? || "" }
+            end
           end
-
-          # Plot area.
-          plot_rows.times do |r|
-            lines << plot_row(n) { |i| columns[i][r] }
-          end
-
-          # Category captions along the bottom, offset to match the tail bars
-          # shown when values overflow the width (`@values.last(cap)`).
-          if label_row == 1
-            names = lbls.not_nil! # ameba:disable Lint/NotNil
-            offset = @values.size - n
-            lines << field_line(n) { |i| names[offset + i]? || "" }
-          end
-
-          lines.join('\n')
         end
 
         # Computes the per-row `{glyph, color}` for one bar (index 0 = top row).
@@ -206,20 +212,19 @@ module Crysterm
           col
         end
 
-        # Builds the one-row legend: `█ name` swatches, color-coded by level.
-        private def legend_line(names : Array(String), cols : Int32) : String
-          String.build do |io|
-            width = 0
-            names.each_with_index do |name, level|
-              entry = "#{Scale::FULL} #{name}"
-              # +1 for the separating space; must be in the overflow check
-              # too, or a too-wide entry overruns the legend by that separator.
-              sep = level > 0 ? 1 : 0
-              break if width + sep + entry.size > cols
-              io << ' ' if level > 0
-              io << "{#{segment_color(level)}-fg}#{Scale::FULL}{/} #{name}"
-              width += entry.size + sep
-            end
+        # Writes the one-row legend into *io*: `█ name` swatches, color-coded by
+        # level.
+        private def legend_line(io : IO, names : Array(String), cols : Int32) : Nil
+          width = 0
+          names.each_with_index do |name, level|
+            entry = "#{Scale::FULL} #{name}"
+            # +1 for the separating space; must be in the overflow check
+            # too, or a too-wide entry overruns the legend by that separator.
+            sep = level > 0 ? 1 : 0
+            break if width + sep + entry.size > cols
+            io << ' ' if level > 0
+            io << "{#{segment_color(level)}-fg}#{Scale::FULL}{/} #{name}"
+            width += entry.size + sep
           end
         end
       end

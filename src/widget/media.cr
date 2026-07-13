@@ -96,20 +96,33 @@ module Crysterm
       # `Diffusion` can spread the residual onto not-yet-visited neighbours. Fully
       # transparent pixels (`a == 0` or missing) are assigned *transparent* and
       # never reach the block. *animated* collapses `Dither::Auto`.
+      # *into*, when non-nil and already sized *ph* rows × *pw* wide, is reused as
+      # the output grid (rows overwritten in place, no per-frame outer/row
+      # allocation) — every cell is assigned on every pass (`transparent` or the
+      # block's value), so no stale value from a previous frame can survive. A
+      # per-frame-re-encoding backend (`Media::Sixel` with `media.reuse_buffers`)
+      # passes a persistent scratch here; callers that cache the result
+      # (`Media::Ansi`'s dither plane) must NOT, and leave it nil.
       def self.dither_rgb(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32,
                           dither : Dither, animated : Bool, transparent : V,
+                          into : Array(Array(V))? = nil,
                           & : Int32, Int32, Int32, Float64 -> Tuple(V, Int32, Int32, Int32)) : Array(Array(V)) forall V
         mode = dither.resolve(animated)
         diffuse = mode.diffusion?
         # Per-channel Floyd–Steinberg error carried to the current and next scan
         # line (kept as a two-row sliding window rather than a full-image buffer).
-        cur_r = Array(Float64).new(pw, 0.0); cur_g = Array(Float64).new(pw, 0.0); cur_b = Array(Float64).new(pw, 0.0)
-        nxt_r = Array(Float64).new(pw, 0.0); nxt_g = Array(Float64).new(pw, 0.0); nxt_b = Array(Float64).new(pw, 0.0)
+        # Only diffusion needs them; ordered/none leave them empty so an animated
+        # (ordered) sixel/regis frame doesn't allocate six pw-wide scratch rows it
+        # never reads.
+        dsize = diffuse ? pw : 0
+        cur_r = Array(Float64).new(dsize, 0.0); cur_g = Array(Float64).new(dsize, 0.0); cur_b = Array(Float64).new(dsize, 0.0)
+        nxt_r = Array(Float64).new(dsize, 0.0); nxt_g = Array(Float64).new(dsize, 0.0); nxt_b = Array(Float64).new(dsize, 0.0)
 
-        out = Array(Array(V)).new(ph)
+        reuse = !into.nil? && into.size == ph && (into[0]?.try(&.size) || 0) == pw
+        out = (reuse ? into : nil) || Array(Array(V)).new(ph)
         ph.times do |y|
           rin = bmp[y]
-          row = Array(V).new(pw, transparent)
+          row = reuse ? out.unsafe_fetch(y) : Array(V).new(pw, transparent)
           pw.times do |x|
             px = rin[x]?
             if px.nil? || px.a == 0
@@ -135,9 +148,10 @@ module Crysterm
               row[x] = value
             end
           end
-          out << row
+          out << row unless reuse
           # Next line's accumulated error becomes the current line's; reuse the
-          # drained buffers as the new (zeroed) next line.
+          # drained buffers as the new (zeroed) next line. No-ops for the empty
+          # ordered/none buffers.
           cur_r, nxt_r = nxt_r, cur_r; cur_g, nxt_g = nxt_g, cur_g; cur_b, nxt_b = nxt_b, cur_b
           nxt_r.fill(0.0); nxt_g.fill(0.0); nxt_b.fill(0.0)
         end

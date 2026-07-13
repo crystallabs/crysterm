@@ -42,30 +42,31 @@ module Crysterm
         {cols * cell_pixel_width, rows * cell_pixel_height}
       end
 
-      # Reused sixel band scratch, hoisted to instance vars and refilled in place
-      # each frame rather than reallocated (opt-in via `media.reuse_buffers`,
-      # mirroring `Media::Kitty`'s `@rgba_scratch`). A sixel-backed chart/donut
-      # re-encodes every changed frame, so the fresh `scratch` (`PALETTE.size`
-      # ≈252 `pw`-wide rows), `seen` and `band_of` (≈252 ints each) here were
-      # per-frame garbage. Encoding runs only on the single render fiber, so one
-      # shared buffer is safe. `@scratch_pw` guards the width: when `pw` changes
-      # the rows are rebuilt at the new size. Between frames the rows are left
-      # fully zeroed (every band's touched rows are `fill(0u8)`-reset at the end
-      # of the band, including the last), and `band_of` is re-seeded to `-1` at
-      # the start of every encode, so no stale bit from a previous frame can
-      # survive the reuse — output stays byte-identical to a fresh allocation.
-      @scratch : Array(Array(UInt8)) = Array(Array(UInt8)).new
-      @scratch_pw : Int32 = -1
-      @seen_scratch : Array(Int32) = [] of Int32
-      @band_of_scratch : Array(Int32) = [] of Int32
+      # Per-frame scratch reused across renders when `media.reuse_buffers` is on
+      # (a per-frame-re-encoding sixel — streaming video, a `Graph::Canvas` chart
+      # — otherwise re-allocates the whole set every frame). Encoding runs only on
+      # the single render fiber, so one shared set is safe. See `#encode`.
+      @quant_scratch : Array(Array(Int32))? = nil
+      @row_scratch : Array(Array(UInt8))? = nil
+      @seen_scratch : Array(Int32)? = nil
+      @band_of_scratch : Array(Int32)? = nil
+      # Previous frame's encoded byte size, used (with reuse on) to pre-size the
+      # output builder so a per-frame-re-encoding sixel doesn't grow (and re-copy)
+      # the builder buffer from its 64-byte default up in doublings each frame.
+      # RLE output size is content-dependent so it can't be computed up front, but
+      # consecutive animation/video frames are very close in size — a slight
+      # over/under-estimate at worst trims or triggers one growth. Mirrors
+      # `Media::Kitty`'s payload builder pre-size.
+      @last_payload_bytes = 0
 
       # Sixel draws at the text cursor (positioned by the base class) at exact
       # pixel resolution, so *ox*/*oy* and the *cols*/*rows* cell box are unused.
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                  cols : Int32, rows : Int32) : String
-        idx = quantize bmp, pw, ph
+        reuse = Config.media_reuse_buffers
+        idx = quantize bmp, pw, ph, reuse
 
-        io = String::Builder.new
+        io = (reuse && @last_payload_bytes > 0) ? String::Builder.new(@last_payload_bytes + 64) : String::Builder.new
         io << "\eP0;1;0q"                 # DCS sixel; P2=1 → leave 0-bits transparent
         io << "\"1;1;" << pw << ';' << ph # raster attrs: 1:1 aspect, pw×ph
 
@@ -78,30 +79,24 @@ module Crysterm
         # list of colors first touched this band (in first-touch order, so
         # emission order is deterministic), and `band_of[ci]` = the band that
         # last touched color `ci` (the allocation-free "seen this band?" test).
-        # With `media.reuse_buffers` these are reused across frames too (see the
-        # `@scratch` note above); otherwise they are freshly allocated per call.
-        if Config.media_reuse_buffers
-          scratch = @scratch
-          if @scratch_pw != pw
-            scratch.clear
-            PALETTE.size.times { scratch << Array(UInt8).new(pw, 0u8) }
-            @scratch_pw = pw
-          end
-          # scratch rows are left all-zero after a completed encode, so no
-          # start-of-frame clear is needed here.
-          seen = @seen_scratch
-          seen.clear
-          band_of = @band_of_scratch
-          if band_of.size == PALETTE.size
-            band_of.fill(-1)
-          else
-            band_of.clear
-            PALETTE.size.times { band_of << -1 }
-          end
+        # With reuse on, these persist across frames: the per-band `scratch[ci]`
+        # rows are already re-zeroed after each band below (so they end the frame
+        # clean), `seen` is `clear`ed per band, and `band_of` is reset to -1 here.
+        if reuse && (rs = @row_scratch) && (ss = @seen_scratch) && (bs = @band_of_scratch) &&
+           rs.size == PALETTE.size && (rs[0]?.try(&.size) || 0) == pw
+          scratch = rs
+          seen = ss
+          band_of = bs
+          band_of.fill(-1)
         else
           scratch = Array(Array(UInt8)).new(PALETTE.size) { Array(UInt8).new(pw, 0u8) }
           seen = [] of Int32
           band_of = Array(Int32).new(PALETTE.size, -1)
+          if reuse
+            @row_scratch = scratch
+            @seen_scratch = seen
+            @band_of_scratch = band_of
+          end
         end
 
         bands = (ph + 5) // 6
@@ -137,7 +132,9 @@ module Crysterm
         end
 
         io << "\e\\" # ST
-        io.to_s
+        result = io.to_s
+        @last_payload_bytes = result.bytesize if reuse
+        result
       end
 
       # Run-length-encode a band's sixel values (`!count char`, or literals for
@@ -154,9 +151,19 @@ module Crysterm
       end
 
       # Maps each pixel to a palette index via the shared dithering loop (`None`/
-      # `Ordered`/`Diffusion`), with `-1` for fully transparent pixels.
-      private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Int32))
-        Media.dither_rgb(bmp, pw, ph, @dither, frames_ready?, -1) do |r, g, b, t|
+      # `Ordered`/`Diffusion`), with `-1` for fully transparent pixels. With
+      # *reuse* on, the (large: `ph`×`pw`) index grid is filled into a persistent
+      # scratch instead of freshly allocated every frame — the dominant per-frame
+      # allocation of an animated sixel.
+      private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, reuse : Bool = false) : Array(Array(Int32))
+        into = nil
+        if reuse
+          qs = @quant_scratch
+          qs = @quant_scratch = Array(Array(Int32)).new(ph) { Array(Int32).new(pw, -1) } \
+            if qs.nil? || qs.size != ph || (qs[0]?.try(&.size) || 0) != pw
+          into = qs
+        end
+        Media.dither_rgb(bmp, pw, ph, @dither, frames_ready?, -1, into) do |r, g, b, t|
           rl = qlevel r, LR, t
           gl = qlevel g, LG, t
           bl = qlevel b, LB, t

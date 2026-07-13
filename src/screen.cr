@@ -202,6 +202,18 @@ module Crysterm
       smacs : Bytes,
       rmacs : Bytes,
       el : Bytes,
+      # The per-frame cursor-bracket sequences (`sc`/`rc`/`civis`/`cnorm`, with
+      # DECSC/DECRC/DECTCEM ANSI fallbacks), captured (`dup`'d off terminfo)
+      # ONCE here. `#draw`'s output block brackets each painted frame in
+      # save+hide … restore+show so the hardware cursor doesn't streak across
+      # the multi-write redraw; emitting them via `tput.save_cursor`/… re-`dup`'d
+      # the static capability (and re-saved the cursor Point) on EVERY
+      # output-producing frame (~48-80 B/frame of pure garbage). Written straight
+      # into `@pre`/`@post` in the `ansi_cursor` fast path instead.
+      save_cursor : Bytes,
+      restore_cursor : Bytes,
+      hide_cursor : Bytes,
+      show_cursor : Bytes,
       # Whether tput verified the terminal's `cup`/`cuf`/… are byte-for-byte
       # standard ANSI (`Tput::Features#ansi_cursor?`). When true, hot-path
       # cursor moves are emitted as direct inline ANSI; when false they route
@@ -409,6 +421,13 @@ module Crysterm
         smacs: (s.smacs? || Bytes.empty).dup,
         rmacs: (s.rmacs? || Bytes.empty).dup,
         el: (s.el? || Bytes.empty).dup,
+        # Cursor-bracket sequences, captured once (see the DrawCaps note). The
+        # ANSI fallbacks are exactly what tput's own `save_cursor`/… emit when a
+        # terminal lacks the capability, so the bytes are identical either way.
+        save_cursor: (s.sc? || "\e7".to_slice).dup,
+        restore_cursor: (s.rc? || "\e8".to_slice).dup,
+        hide_cursor: (s.civis? || "\e[?25l".to_slice).dup,
+        show_cursor: (s.cnorm? || "\e[?25h".to_slice).dup,
         ansi_cursor: tput.features.ansi_cursor?,
       )
     end

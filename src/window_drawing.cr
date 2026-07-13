@@ -860,14 +860,32 @@ module Crysterm
         # which writes no escape (leaving the hardware cursor visible and
         # streaking) and calls `render_if_active`, scheduling a redundant render
         # from *inside* `draw`. The captured sequences land in `@pre`/`@post`.
-        divert(@tmpbuf, @pre) do
-          tput.save_cursor
-          tput.hide_cursor unless hidden
-        end
+        #
+        # In the `ansi_cursor` fast path the bracket sequences are the constant
+        # ones cached in `DrawCaps` (`sc`/`rc`/`civis`/`cnorm`) — written straight
+        # into the buffers instead of `tput.save_cursor`/… whose per-call
+        # static-capability `.dup` (plus save_cursor's cursor-Point save) burned
+        # ~48-80 B on EVERY output-producing frame. draw's own cursor moves are
+        # raw inline ANSI here and never touch tput's software cursor tracker, so
+        # the save/restore position bookkeeping is a no-op on this path and only
+        # the physical bytes matter (identical to what tput would have emitted).
+        # A non-conforming terminal keeps the tput (divert) path, which also
+        # maintains that software cursor state.
+        if ansi_cursor
+          @pre.write caps.save_cursor
+          @pre.write caps.hide_cursor unless hidden
+          @post.write caps.restore_cursor
+          @post.write caps.show_cursor unless hidden
+        else
+          divert(@tmpbuf, @pre) do
+            tput.save_cursor
+            tput.hide_cursor unless hidden
+          end
 
-        divert(@tmpbuf, @post) do
-          tput.restore_cursor
-          tput.show_cursor unless hidden
+          divert(@tmpbuf, @post) do
+            tput.restore_cursor
+            tput.show_cursor unless hidden
+          end
         end
 
         # Account for the bytes to be emitted. `@_buf`'s buffered

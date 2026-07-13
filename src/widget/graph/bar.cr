@@ -123,33 +123,36 @@ module Crysterm
           # Total filled eighth-cells per shown bar.
           levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
 
-          # Exactly `plot_rows` plot lines plus optional value/label caption rows;
-          # reserve up front so the per-frame rebuild doesn't realloc as it grows.
-          lines = Array(String).new(plot_rows + value_row + label_row)
-
           # Plot area, top row down. The fill ramp resolves CSS-first
           # (`glyphs:`), then the registry's `ScaleVertical` (GLYPHS.md §3.4).
+          # Composed straight into one builder (rows separated by `\n`) instead
+          # of building a per-row `String` array and joining — a live chart
+          # rebuilds this every data push, so the intermediate strings + the join
+          # copy are pure per-frame garbage.
           ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
-          plot_rows.times do |r|
-            below = plot_rows - 1 - r
-            lines << plot_row(n) { |i| {Scale.ramp_glyph(ramp, levels[i], below), bar_color(i)} }
-          end
+          String.build do |io|
+            plot_rows.times do |r|
+              io << '\n' if r > 0
+              below = plot_rows - 1 - r
+              plot_row(io, n) { |i| {Scale.ramp_glyph(ramp, levels[i], below), bar_color(i)} }
+            end
 
-          # Value captions.
-          if value_row == 1
-            lines << field_line(n) { |i| Scale.fmt(shown[i]) }
-          end
+            # Value captions.
+            if value_row == 1
+              io << '\n'
+              field_line(io, n) { |i| Scale.fmt(shown[i]) }
+            end
 
-          # Category captions. When values overflow the width only the tail is
-          # shown (`@values.last(cap)`), so labels must follow the same offset —
-          # otherwise captions mislabel the visible (tail) bars.
-          if label_row == 1
-            names = lbls.not_nil! # ameba:disable Lint/NotNil
-            offset = @values.size - n
-            lines << field_line(n) { |i| names[offset + i]? || "" }
+            # Category captions. When values overflow the width only the tail is
+            # shown (`@values.last(cap)`), so labels must follow the same offset —
+            # otherwise captions mislabel the visible (tail) bars.
+            if label_row == 1
+              io << '\n'
+              names = lbls.not_nil! # ameba:disable Lint/NotNil
+              offset = @values.size - n
+              field_line(io, n) { |i| names[offset + i]? || "" }
+            end
           end
-
-          lines.join('\n')
         end
       end
     end

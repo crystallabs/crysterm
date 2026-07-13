@@ -13,16 +13,16 @@ include Crysterm
 
 WIDTH  = 200
 HEIGHT =  50
-attr = Crysterm::Screen::DEFAULT_ATTR
+attr = Crysterm::Window::DEFAULT_ATTR
 ch = ' '
 
 # Build a HEIGHT-row grid of plain ASCII cells (no grapheme overlays, the
 # common case), mirroring `@lines`.
 def make_grid
-  rows = Array(Crysterm::Screen::Row).new
+  rows = Array(Crysterm::Window::Row).new
   HEIGHT.times do
-    row = Crysterm::Screen::Row.new
-    WIDTH.times { |i| row.push Crysterm::Screen::DEFAULT_ATTR, ('a' + (i % 26)) }
+    row = Crysterm::Window::Row.new
+    WIDTH.times { |i| row.push Crysterm::Window::DEFAULT_ATTR, ('a' + (i % 26)) }
     rows << row
   end
   rows

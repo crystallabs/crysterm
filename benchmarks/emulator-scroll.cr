@@ -28,7 +28,7 @@ def gc_heap : UInt64
 end
 
 3.times do |run|
-  em = TerminalEmulator.new COLS, ROWS, Crysterm::Screen::DEFAULT_ATTR
+  em = TerminalEmulator.new COLS, ROWS, Crysterm::Window::DEFAULT_ATTR
   GC.collect
   before = gc_heap
   t0 = Time.instant
