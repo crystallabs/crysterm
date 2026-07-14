@@ -36,8 +36,13 @@ module Crysterm
     title: "Crysterm — Mutt-style demo",
     # Opt out of the app-global "q / Ctrl-Q hard-exits" default so `q` is ours
     # alone: on the index it opens the quit confirmation, on the pager/compose
-    # it means "back". Ctrl-Q is still an explicit escape hatch below. Without
-    # this, `Application#route_input` would race our quit prompt and exit on `q`.
+    # it means "back". Ctrl-Q is still an explicit escape hatch below.
+    #
+    # `Application#route_input` applies the default quit *after* dispatch, and
+    # only to a key no one `accept`ed — so the index's `q` (which accepts) would
+    # survive it either way. The pager/compose/help `q` branches don't accept,
+    # though, and would fall through to a hard exit. Opting out once is clearer
+    # than sprinkling `accept` across every branch.
     default_quit_keys: false,
   )
 
@@ -156,14 +161,14 @@ module Crysterm
   helpline = Widget::Box.new(
     parent: frame, height: 1, parse_tags: true,
     style: Style.new(reverse: true),
-    layout_hint: Layout::Border::Hint.new(:top),
+    layout_hint: :top,
   )
 
   # Left: the sidebar, then a one-column divider (Mutt's sidebar_divider_char).
   sidebar = Sidebar.new(parent: frame, width: 24, mailboxes: mailboxes,
-    layout_hint: Layout::Border::Hint.new(:left))
+    layout_hint: :left)
   sidebar.open = 0
-  Widget::VLine.new(parent: frame, width: 1, layout_hint: Layout::Border::Hint.new(:left))
+  Widget::VLine.new(parent: frame, width: 1, layout_hint: :left)
 
   # Center: the switchable main area, arranged by a `Stack` layout (Qt's
   # `QStackedLayout`) — all views fill the center; only `stack.current` renders,
@@ -172,7 +177,7 @@ module Crysterm
   # layout lays a view out freshly when it becomes current, and it suppresses
   # the others cleanly (no stale cells bleeding through).
   stack = Layout::Stack.new
-  center = Widget::Box.new(parent: frame, layout: stack, layout_hint: Layout::Border::Hint.new(:center))
+  center = Widget::Box.new(parent: frame, layout: stack, layout_hint: :center)
   index = MessageIndex.new(parent: center, messages: messages)
   pager = Widget::ScrollableText.new(parent: center, parse_tags: true, keys: true)
   # `resizable: false` so the editor fills the whole center area instead of
@@ -190,7 +195,7 @@ module Crysterm
   # or a prompt like "To:") and, during a text prompt, an inline editor to its
   # right — Mutt does all its prompting right here on the bottom line.
   footer = Widget::Box.new(parent: frame, height: 2, layout: Layout::VBox.new,
-    layout_hint: Layout::Border::Hint.new(:bottom))
+    layout_hint: :bottom)
   status = StatusBar.new
   footer.append status
   cmdline = Widget::Box.new(height: 1, width: "100%", layout: Layout::HBox.new)
@@ -198,7 +203,7 @@ module Crysterm
   # `cmd_label` fills the line for plain messages; for a prompt it shrinks to the
   # label width and `cmd_input` (flex) fills the rest.
   cmd_label = Widget::Box.new(height: 1, parse_tags: true)
-  cmd_input = Widget::LineEdit.new(height: 1, width: 0, visible: false)
+  cmd_input = Widget::LineEdit.new(height: 1, visible: false)
   cmdline.append cmd_label, cmd_input
 
   # ---------------------------------------------------- screen state & helpers
@@ -225,10 +230,8 @@ module Crysterm
   # the whole line, the inline editor stands down.
   show_message = ->(text : String) do
     cmd_input.hide
-    cmd_input.width = 0
     cmd_label.content = text
     cmd_label.width = nil
-    s.render
     nil
   end
 
@@ -260,35 +263,27 @@ module Crysterm
   # Open a command-line prompt (Mutt asks for To/Subject/headers this way): the
   # bold label shrinks to its width on the left, the inline editor fills the rest
   # of the line, and *on_done* runs with the submitted value.
-  # *e* is the keypress that triggered the prompt; it is `accept`ed so it can't
-  # also reach the freshly-focused editor. Without this the trigger key (e.g.
-  # `t` for To) leaks into the field — the window's built-in key dispatch runs
-  # *after* this screen handler and, seeing the editor now focused and grabbing
-  # keys, delivers the same keystroke into it.
+  #
+  # *e* is the keypress that triggered the prompt. Accepting it marks the key
+  # consumed, which is what stops `Application#route_input` from also treating a
+  # command letter as the app-global quit key.
   open_prompt = ->(label : String, initial : String, e : ::Crysterm::Event::KeyPress?, on_done : Proc(String, Nil)) do
     prompt_active = true
     prompt_done = on_done
     cmd_label.content = "{bold}#{label}{/bold}"
     cmd_label.width = label.size
-    cmd_input.width = nil
     cmd_input.value = initial
     cmd_input.show
-    # Lay the command line out *before* focusing the field. `cmd_input` went
-    # from width 0 (hidden) to flex, and its real column/width are assigned by
-    # the enclosing HBox only during a render. Focusing first would run
-    # `read_input` → `_update_cursor` against stale geometry, parking the caret
-    # at column 0 (over the label) and painting nothing typed. Rendering here
-    # resolves the layout so the caret lands in the field — the same
-    # render-before-focus order `show_page` relies on.
+    # Lay the command line out *before* focusing the field. `cmd_input` was
+    # hidden, so the enclosing HBox has not yet given it a column or a width —
+    # those are assigned during a render. Focusing first would run `read_input`
+    # → `_update_cursor` against unresolved geometry and park the caret at
+    # column 0, over the label. One synchronous render settles the layout so the
+    # caret lands in the field — the same render-before-focus order `show_page`
+    # relies on. (`focus` itself schedules the repaint that paints the field in
+    # its focused styling, so only this one render has to be explicit.)
     s._render
     cmd_input.focus
-    # Repaint now that the field is focused: the render above ran while the
-    # field was still `:normal` (focus comes after, for correct caret coords),
-    # so it painted the field's normal background. Without this second render
-    # the focused/input styling (distinct background) only appears once the
-    # first character is typed. Rendering here shows the styled, empty field
-    # immediately and re-places the caret against the settled layout.
-    s._render
     e.try &.accept
     nil
   end
@@ -298,7 +293,6 @@ module Crysterm
     prompt_done = nil
     cmd_input.value = ""
     cmd_input.hide
-    cmd_input.width = 0
     nil
   end
 
@@ -327,7 +321,7 @@ module Crysterm
 
   open_message = ->(m : Message) do
     i = messages.index(m) || 0
-    index.selekt i
+    index.current_index = i
     m.unread = false
     m.status = m.status.gsub('N', "")
     header = String.build do |b|
@@ -488,9 +482,11 @@ module Crysterm
 
   # ----------------------------------------------------- Mutt key shortcuts
   #
-  # The screen-level handler sees every keypress before the focused widget, so
-  # the command letters work with a list or pager focused, while arrows/Enter
-  # fall through to whichever pane is focused (its own navigation + callbacks).
+  # The window's built-in dispatcher runs *before* this handler (it is installed
+  # in `Window#initialize`, and handlers fire in registration order) — it is what
+  # forwards arrows/Enter to the focused pane for its own navigation + callbacks.
+  # This handler runs afterwards on the same event, so the Mutt command letters
+  # work whichever pane holds focus.
 
   s.on(::Crysterm::Event::KeyPress) do |e|
     ch = e.char
@@ -542,7 +538,6 @@ module Crysterm
           index.focus
           show_message.call "Index"
         end
-        s.render
         next
       end
 
@@ -559,7 +554,6 @@ module Crysterm
         active_pane = :sidebar
         sidebar.focus
         show_message.call "Select a mailbox and press Enter"
-        s.render
       when 'r', 'R' then (active_pane == :index) && index.selected_message.try { |m| reply_to.call m }
       when '$'
         before = messages.size
@@ -645,6 +639,8 @@ module Crysterm
     end
   end
 
+  # One synchronous render so the Border/Stack frame is arranged before the
+  # first page is shown and focused (see `show_page`).
   s._render
   goto_index.call
   s.exec

@@ -185,7 +185,7 @@ module Crysterm
 
   header = Widget::Pine::HeaderBar.new(
     parent: frame,
-    layout_hint: Layout::Border::Hint.new(:top),
+    layout_hint: :top,
     title_content: "ALPINE 2.26",
     section_content: "MAIN MENU",
     info_content: "Folder: INBOX",
@@ -196,7 +196,7 @@ module Crysterm
   # Only the footer declares a height (the extent it takes off the bottom edge);
   # everything inside it, and the body above it, follows from that.
   footer = Widget::Box.new parent: frame, height: 3, layout: Layout::VBox.new,
-    layout_hint: Layout::Border::Hint.new(:bottom)
+    layout_hint: :bottom
 
   status = Widget::Pine::StatusBar.new(parent: footer, status_content: "")
 
@@ -205,28 +205,19 @@ module Crysterm
   # A yes/no prompt and a percent-done bar, which take over the status line while
   # active — just as Alpine asks and reports on its message line. They are
   # *siblings* of the status line in the footer rather than boxes floating over
-  # it, so the row belongs to whichever of the three is standing: a `VBox` packs
-  # by height, so `status_line` (below) gives the winner the line and folds the
-  # other two away at `height: 0` — the trick mutt's demo uses on its inline
-  # prompt editor with `width: 0`. Declared here, ahead of the command bar,
-  # because a `VBox` stacks children in the order they were added.
+  # it, so the row belongs to whichever of the three is standing: a hidden child
+  # releases its slot back to the `VBox`, so showing one and hiding the other two
+  # hands the row to the winner. Declared here, ahead of the command bar, because
+  # a `VBox` stacks children in the order they were added.
 
-  confirm = KeyPrompt.new(parent: footer, width: "100%", height: 0, visible: false)
-  progress = Widget::Pine::ProgressBar.new(parent: footer, width: "100%", height: 0, visible: false, value: 0)
+  confirm = KeyPrompt.new(parent: footer, width: "100%", height: 1, visible: false)
+  progress = Widget::Pine::ProgressBar.new(parent: footer, width: "100%", height: 1, visible: false, value: 0)
 
   key_menu = KeyMenu.new(parent: footer)
 
   # Hand the shared status row to exactly one of its three occupants.
   status_line = ->(w : Widget) do
-    {status, confirm, progress}.each do |x|
-      if x == w
-        x.height = 1
-        x.show
-      else
-        x.height = 0
-        x.hide
-      end
-    end
+    {status, confirm, progress}.each { |x| x == w ? x.show : x.hide }
     nil
   end
 
@@ -243,7 +234,7 @@ module Crysterm
 
   show_status = ->(text : String) do
     status.status.content = text
-    s.render
+    nil
   end
 
   set_keys = ->(entries : Array(KeyMenu::Entry)) do
@@ -282,7 +273,7 @@ module Crysterm
   # not one names a row, a column or a size, and none has to reserve room for the
   # chrome around it.
 
-  body_opts = {parent: frame, layout_hint: Layout::Border::Hint.new(:center)}
+  body_opts = {parent: frame, layout_hint: :center}
 
   # MAIN MENU is the deliberate exception. Alpine centers it in the *terminal*,
   # floating over the body rather than filling it — and "centered on something
@@ -377,7 +368,6 @@ module Crysterm
   # Refocus whatever full-screen view is current (after a transient prompt is dismissed).
   refocus = -> do
     active_view.focus
-    s.render
     nil
   end
 
@@ -400,7 +390,6 @@ module Crysterm
     status_line.call confirm
     confirm.focus
     prompt_active = true
-    s.render
     nil
   end
 
@@ -409,10 +398,13 @@ module Crysterm
     header.info.content = label
     progress.value = 0
     status_line.call progress
-    s.render
+    # Synchronous renders: this mocks a blocking task, stepping the bar from
+    # its own loop. The scheduled (coalescing) render would collapse every step
+    # into a single frame, so each step paints itself.
+    s._render
     0.step(to: 100, by: 10) do |p|
       progress.value = p
-      s.render
+      s._render
       sleep 35.milliseconds
     end
     status_line.call status
@@ -464,7 +456,7 @@ module Crysterm
   open_message = ->(m : MessageIndex::Message) do
     current = :view
     i = messages.index(m) || 0
-    index.selekt i
+    index.current_index = i
     header.section.content = "MESSAGE TEXT"
     header.info.content = "Msg #{i + 1} of #{messages.size}"
     view.set_message(from: m.from, to: "you@example.com", date: m.date, subject: m.subject, body: body_of[m]? || "")
@@ -513,7 +505,6 @@ module Crysterm
     show_compose.call true, focus
     compose.fields["to"]?.try &.value = to
     compose.fields["subject"]?.try &.value = subject
-    s.render
     nil
   end
 
@@ -809,8 +800,8 @@ module Crysterm
       when '<', 'l', 'L' then goto_main.call
       when 'v', 'V', '>' then index.selected_message.try { |m| open_message.call(m) }
       when 'c', 'C'      then goto_compose.call("", "", "to")
-      when 'n', 'N'      then (index.down; s.render)
-      when 'p', 'P'      then (index.up; s.render)
+      when 'n', 'N'      then index.down
+      when 'p', 'P'      then index.up
       when 'r', 'R'      then index.selected_message.try { |m| reply_to.call(m) }
       when '$'           then goto_sort.call
       when '*'           then goto_flag.call
@@ -912,7 +903,9 @@ module Crysterm
     end
   end
 
-  s.render
+  # One synchronous render so the Border frame is arranged before the first
+  # view is shown and focused (see `show_only`).
+  s._render
   goto_main.call
   s.exec
 end

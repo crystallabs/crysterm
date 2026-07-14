@@ -261,7 +261,11 @@ describe "BUGS-F2 32: Calendar closes one nav dropdown before opening the other"
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
     cal.focus
-    s.render
+    # Synchronous: the clicks below are mapped through layout-assigned geometry,
+    # which only exists once a frame has actually run. `render` merely schedules
+    # one, leaving `handle_mouse`'s `_get_coords` nil — and its blanket `rescue`
+    # then swallows the click, so no menu ever opens.
+    s._render
 
     ox = cal.aleft + cal.ileft
     oy = cal.atop + cal.itop

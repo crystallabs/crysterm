@@ -95,6 +95,9 @@ module Crysterm
         # container). Reserving the margins keeps it inside.
         each_arrangeable container do |el|
           next unless region_of(el).top?
+          # Hidden and not holding its slot: consume no band, so the
+          # regions around it (and the center) take the space back.
+          next if vacant? el
           restore_consume el, true
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
@@ -104,6 +107,9 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).bottom?
+          # Hidden and not holding its slot: consume no band, so the
+          # regions around it (and the center) take the space back.
+          next if vacant? el
           restore_consume el, true
           mh = el.mheight
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
@@ -113,6 +119,9 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).left?
+          # Hidden and not holding its slot: consume no band, so the
+          # regions around it (and the center) take the space back.
+          next if vacant? el
           restore_consume el, false
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
@@ -122,6 +131,9 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).right?
+          # Hidden and not holding its slot: consume no band, so the
+          # regions around it (and the center) take the space back.
+          next if vacant? el
           restore_consume el, false
           mw = el.mwidth
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
@@ -135,6 +147,7 @@ module Crysterm
           # still reserves both of its own margins, like the edges.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
+          next if vacant? el
           place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), Math.max(0, y1 - y0 - el.mheight)
         end
       end

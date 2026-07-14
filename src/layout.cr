@@ -251,6 +251,31 @@ module Crysterm
       end
     end
 
+    # Whether *el* takes up no space this frame and the engine should pack as
+    # though it weren't there: it is hidden and hasn't asked to keep its slot
+    # (`Widget#retain_size_when_hidden?`). Qt's `QWidgetItem#isEmpty`.
+    #
+    # Only the *packing* engines consult this — `Layout::Box` (VBox/HBox) and
+    # `Layout::Border` — where "give the space back" is the unambiguous reading
+    # and the one Qt's `QBoxLayout` implements. `Layout::Stack` and
+    # `Layout::Grid` address their children by slot (page index, cell), so a
+    # hidden child there must keep its position; they ignore this, as
+    # `QStackedLayout`/`QGridLayout` do.
+    #
+    # Reads `#visible?` (the node's own flag — Qt's `isHidden`), not
+    # `#visible_in_tree?`: a hidden ancestor's subtree never arranges anyway.
+    protected def vacant?(el : Widget) : Bool
+      !el.visible? && !el.retain_size_when_hidden?
+    end
+
+    # `#each_arrangeable`, minus the children that are `#vacant?` this frame.
+    # The iteration packing engines want.
+    protected def each_occupying(container : Widget, &) : Nil
+      each_arrangeable(container) do |el|
+        yield el unless vacant? el
+      end
+    end
+
     # Number of arrangeable (non-`layout_excluded?`, non-`layout_chrome?`)
     # children — the slot/page count engines size their distribution against.
     protected def arrangeable_count(container : Widget) : Int32

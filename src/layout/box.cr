@@ -133,6 +133,10 @@ module Crysterm
         # this loop already visits exactly those children.
         n = 0
         each_arrangeable container do |el|
+          # A hidden child that isn't holding its slot open contributes no size,
+          # no grow weight, no margin and no gap — its siblings pack as though
+          # it weren't there. See `Layout#vacant?`.
+          next if vacant? el
           n += 1
           margins += main_margin el
           if main_flex? el
@@ -177,6 +181,14 @@ module Crysterm
       end
 
       private def place(el : Widget, interior : LPos) : Nil
+        # Counterpart to `#measure`'s skip: a vacant child was never measured,
+        # so it gets no position and — crucially — does not advance `@cursor`
+        # or consume a justify slot. Returning before `set_main_pos` leaves its
+        # stale geometry alone, which is harmless: it paints nothing while
+        # hidden (`Widget#_get_coords` bails on an invisible widget), and
+        # showing it again re-measures it on that frame.
+        return if vacant? el
+
         # Cross axis.
         cross = cross_extent interior
         if @align.stretch?

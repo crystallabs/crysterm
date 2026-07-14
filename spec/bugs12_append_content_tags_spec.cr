@@ -185,21 +185,40 @@ describe "Widget#append_content fast path retention" do
     box._clines.attr.should eq attrs_after_push
   end
 
-  it "bails once when tags first arrive, then resumes the fast path" do
+  it "stays fast when tags first arrive over brace-free content" do
     s = sized_screen
     box = make_box(s, parse_tags: true)
     box.set_content "plain"
     box.process_content
 
-    # First tagged segment over never-parsed content: bail (a reparse would now
-    # tag-parse the existing raw content too).
-    box.append_content("{bold}first{/bold}").should be_false
-    box.push_line "{bold}first{/bold}"
-
-    # Tag regime is established (and balanced), so appends are fast again.
+    # This append flips the reparse's tag gate on, but existing content holds no
+    # brace for the newly-enabled parse to reinterpret, so a standalone parse of
+    # the segment still matches a full reparse — no reason to bail.
+    box.append_content("{bold}first{/bold}").should be_true
     box.append_content("{bold}second{/bold}").should be_true
 
     lines_after_push = box._clines.lines.map(&.to_s)
+    force_full_reparse(box)
+    box._clines.lines.map(&.to_s).should eq lines_after_push
+  end
+
+  it "bails while a never-parsed stray brace sits in existing content" do
+    s = sized_screen
+    box = make_box(s, parse_tags: true)
+    # Matches no tag, so the gate stayed off and the brace rendered literally.
+    box.set_content "a { b"
+    box.process_content
+    box._clines.lines.map(&.to_s).should eq ["a { b"]
+
+    # Tag-parsing this segment on the fast path would leave the gate on for the
+    # next full reparse, which would then drop the literal `{` above and silently
+    # rewrite an already-rendered line. The slow path keeps the whole content on
+    # one consistent parse instead.
+    box.append_content("{bold}first{/bold}").should be_false
+    box.push_line "{bold}first{/bold}"
+
+    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push[0].should eq "a { b" # the stray brace survived
     force_full_reparse(box)
     box._clines.lines.map(&.to_s).should eq lines_after_push
   end

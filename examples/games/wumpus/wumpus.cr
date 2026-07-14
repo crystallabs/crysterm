@@ -149,7 +149,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       layout: Layout::Border.new
 
     @transcript = Widget::PlainTextEdit.new \
-      layout_hint: Layout::Border::Hint.new(:center),
+      layout_hint: :center,
       content: "",
       parse_tags: true,
       scrollbar: true,
@@ -157,7 +157,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
         scrollbar: Style.new(bg: "#5555aa"))
 
     @input = Widget::LineEdit.new \
-      layout_hint: Layout::Border::Hint.new(:bottom),
+      layout_hint: :bottom,
       height: 3,
       # Yellow text field, but give the border its own dark background/white
       # rule so it blends into the surrounding chrome (matching the transcript
@@ -185,8 +185,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       height: 7,
       title: " Score ",
       parse_tags: true,
-      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: :right)
-    @scorebox.style.z_index = 10
+      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: :right,
+        z_index: 10)
 
     frame.append @transcript
     frame.append @input
@@ -208,7 +208,6 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       end
       @input.value = ""
       @input.focus
-      @screen.render
     end
 
     @screen.on(Event::KeyPress) do |e|

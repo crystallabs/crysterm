@@ -172,6 +172,17 @@ module Crysterm
     # Defaults false.
     @_content_has_tags = false
 
+    # Whether `@content` contains any brace at all, decided in `#set_content` and
+    # kept current by `#append_content` (from the raw appended text). Distinct
+    # from `@_content_has_tags`: a brace that matches no tag leaves that flag
+    # false while still sitting in raw content, rendered literally because the
+    # parse gate is off. Appending a *tagged* segment flips that gate on, so a
+    # later full reparse would drop such a brace (drop-malformed policy) and
+    # change already-rendered lines — which is exactly when `append_content`'s
+    # fast path must bail. Brace-free content can't be affected by the flip, so
+    # it stays on the fast path. Defaults false.
+    @_content_has_braces = false
+
     # Whether `@content` contains any inline SGR escape (raw `\e`), decided once
     # in `#set_content`/`#append_content`. Together with `@_content_has_tags`
     # (tags expand to SGR via `_parse_tags`), tells `_parse_attr` whether any line
@@ -245,6 +256,11 @@ module Crysterm
       # `process_content` can skip `_parse_tags` (and its regex scan) when not.
       # The `{` check short-circuits the PCRE2 match for the common tag-free case.
       @_content_has_tags = content.includes?('{') && content.matches?(TAG_REGEX)
+      # Cheap byte search: records whether any brace survives in raw content, so
+      # `append_content` can tell "no tags AND nothing a parse-gate flip could
+      # reinterpret" (fast path stays available) from "no tags but stray braces
+      # are rendered literally" (a tagged append must bail).
+      @_content_has_braces = content.includes?('{') || content.includes?('}')
       # Cheap byte search: records whether inline SGR is present so `_parse_attr`
       # can skip its per-line scan for plain text.
       @_content_has_sgr = content.includes? '\e'
@@ -1270,13 +1286,18 @@ module Crysterm
       if @parse_tags && !@_content_no_tags && (@_content_has_tags || seg_has_tags) &&
          (seg.includes?('{') || seg.includes?('}'))
         # This append switches the reparse gate on over content that was never
-        # tag-parsed: a stray `{`/`}` in the existing raw content (kept literal
-        # so far — it matches no tag, so `@_content_has_tags` stayed false)
-        # would now be dropped by the reparse's drop-malformed policy, changing
-        # already-rendered lines. Bail so `insert_line`'s rebuild bakes the
-        # whole content through one consistent parse. One-time: `set_content`'s
-        # recompute leaves `@_content_has_tags` true afterwards.
-        return false unless @_content_has_tags
+        # tag-parsed. That only matters if the existing raw content actually has
+        # a brace: kept literal so far (it matches no tag, so
+        # `@_content_has_tags` stayed false), it would now be dropped by the
+        # reparse's drop-malformed policy, changing already-rendered lines. Bail
+        # to the slow path, which keeps the whole content on one consistent
+        # parse. Brace-free existing content is unaffected by the flip — a
+        # standalone parse of the segment still matches a full reparse — so it
+        # stays on the fast path. (Testing `@_content_has_tags` alone would bail
+        # here forever, not once: `push_line`'s rebuild re-derives the flag from
+        # POST-parse text, where the tags have already become SGR, so it lands
+        # back on false after every fallback.)
+        return false if !@_content_has_tags && @_content_has_braces
         # A full reparse re-parses raw `@content`, carrying its tag stacks (and
         # `{escape}` mode) across the append boundary; the fast path parses the
         # segment standalone, from empty state. Opening tags emit the same SGR
@@ -1369,6 +1390,7 @@ module Crysterm
       # reparses with a stale-false `@_content_has_tags` gate and the tags stay
       # literal permanently — unlike a `set_content` of the same total string.
       @_content_has_tags ||= seg_has_tags
+      @_content_has_braces ||= text.includes?('{') || text.includes?('}')
       @_content_has_align_tag ||= seg_has_align_tag
       # Keep inline-SGR flag current across deferred appends (cleaned `seg`
       # retains valid SGR; stray ESC already stripped above; tag-expanded SGR

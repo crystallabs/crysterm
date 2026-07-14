@@ -55,8 +55,7 @@ class Pong
     # onto them every tick by `sync`. That is what manual placement is for — a
     # child-arranging layout here would fight the simulation for control of
     # top/left every frame. Qt draws its game scenes the same way.
-    @table = Widget::Box.new parent: frame,
-      layout_hint: Layout::Border::Hint.new(:center)
+    @table = Widget::Box.new parent: frame, layout_hint: :center
 
     @lpaddle = Widget::Box.new parent: @table, width: 1, height: PADDLE_H, top: 0, left: 0,
       style: Style.new(bg: "yellow")
@@ -92,7 +91,7 @@ class Pong
     # Status bar along the very bottom: the controls on the left. Docked to the
     # frame's bottom edge; it declares its height, Border does the rest.
     statusbar = Widget::StatusBar.new parent: frame, height: 1,
-      layout_hint: Layout::Border::Hint.new(:bottom),
+      layout_hint: :bottom,
       style: Style.new(fg: "white", bg: "#303050")
     statusbar.show_message " Keys: left: a/z, right: k/m, both: up/down"
 
@@ -143,9 +142,11 @@ class Pong
     {dir * vx, vy}
   end
 
-  # Push the state onto the widgets and repaint. Deliberately does not erase
-  # previous positions by hand: `screen.render` clears the whole buffer and
-  # re-composites every frame. Manual erasing (the old
+  # Push the state onto the widgets. Each assignment schedules the frame that
+  # paints it, so there is no explicit render here.
+  #
+  # Deliberately does not erase previous positions by hand: the renderer clears
+  # the whole buffer and re-composites every frame. Manual erasing (the old
   # `clear_last_rendered_position` call) raced the async renderer and made
   # stationary paddles flicker — see git history.
   private def sync
@@ -153,8 +154,7 @@ class Pong
     @ball.top = @ball_t.round.to_i
     @lpaddle.top = @lpad_t
     @rpaddle.top = @rpad_t
-    @score.set_content "{green-fg}Score:{/green-fg} #{@score_l} | #{@score_r}"
-    @screen.render
+    @score.content = "{green-fg}Score:{/green-fg} #{@score_l} | #{@score_r}"
   end
 
   private def reset
@@ -177,9 +177,8 @@ class Pong
 
   private def lose(msg : String)
     @moving = false
-    @text.set_content msg
+    @text.content = msg
     @message.show
-    @screen.render
     spawn do
       sleep 1.second
       reset

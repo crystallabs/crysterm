@@ -43,7 +43,33 @@ module Crysterm
       property _list_initialized = false
 
       property ritems = [] of String
-      property selected = 0
+
+      # Index of the currently-selected item (Qt's `QAbstractItemView`
+      # `currentIndex`). Assigning routes through `#selekt`, so it clamps to the
+      # list, skips non-selectable rows, refreshes `#value`, scrolls the item
+      # into view and emits `Event::SelectItem` — everything a selection change
+      # owes. It used to be a bare `property`, whose setter did none of that and
+      # left the widget internally inconsistent.
+      getter selected = 0
+
+      # :ditto:
+      def selected=(index : Int) : Nil
+        selekt index
+      end
+
+      # Qt spelling of `#selected` / `#selected=`. Preferred in new code:
+      # `Widget::Toolbox` and `Widget::TabWidget` already expose
+      # `current_index`, and `#selekt` only carries its odd spelling because
+      # `select` is a Crystal keyword (channel `select`) and the mixin calls it
+      # on an implicit receiver.
+      def current_index : Int32
+        @selected
+      end
+
+      # :ditto:
+      def current_index=(index : Int) : Nil
+        selekt index
+      end
 
       # Blank rows of vertical spacing inserted *between* items (Qt's
       # `QListView` spacing). Gaps aren't items — nothing to click/select there.

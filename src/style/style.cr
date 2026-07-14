@@ -689,6 +689,17 @@ module Crysterm
       foreground_char = nil,
       background_char = nil,
       draw_over_border = nil,
+      z_index = nil,
+      tint = nil,
+      tint_alpha = nil,
+      gridline_color = nil,
+      background_image = nil,
+      background_size = nil,
+      transitions = nil,
+      animation = nil,
+      tab_size = nil,
+      tab_char = nil,
+      fill = nil,
       @glyph : String? = nil,
       @glyph_ascii : String? = nil,
       @glyph_unicode : String? = nil,
@@ -724,6 +735,21 @@ module Crysterm
       background_char.try { |v| self.background_char = v }
       # Only record an explicitly-passed `draw_over_border` as `specified`.
       draw_over_border.try { |v| self.draw_over_border = v }
+      # Tint/gridline are colors: route them through their `Colorizable`
+      # setters unconditionally, exactly like `fg`/`bg` above, so an
+      # `0xRRGGBB` int, a `"#rrggbb"`/named string, and `nil` each pick the
+      # matching overload.
+      self.tint = tint
+      self.gridline_color = gridline_color
+      z_index.try { |v| self.z_index = v }
+      tint_alpha.try { |v| self.tint_alpha = v }
+      background_image.try { |v| self.background_image = v }
+      background_size.try { |v| self.background_size = v }
+      transitions.try { |v| self.transitions = v }
+      animation.try { |v| self.animation = v }
+      tab_size.try { |v| self.tab_size = v }
+      tab_char.try { |v| self.tab_char = v }
+      fill.try { |v| self.fill = v }
     end
 
     def self.alpha_from(value : Float64 | Bool?)

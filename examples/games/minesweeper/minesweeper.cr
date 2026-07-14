@@ -151,8 +151,7 @@ class Minesweeper
     # spare column to the left (mid − half), the box engine floors
     # `(area − board) / 2` and rounds it to the right. Keeping `"center"` keeps
     # the board where it has always been drawn.
-    board_area = Widget::Box.new parent: frame,
-      layout_hint: Layout::Border::Hint.new(:center)
+    board_area = Widget::Box.new parent: frame, layout_hint: :center
 
     # The board declares its size and asks to be centred in the play area; that
     # area's position and extent come from the layout, so the board no longer
@@ -165,14 +164,13 @@ class Minesweeper
       height: @rows + 2,
       title: " MINESWEEPER ",
       parse_tags: true,
-      style: Style.new(fg: "white", border: true, margin: :top)
-    @board.style.shadow = Shadow.from(true)
+      style: Style.new(fg: "white", border: true, margin: :top, shadow: true)
 
     @status = Widget::StatusBar.new \
       parent: frame,
       height: 1, # the only size it declares: Border spans it across the window
       parse_tags: true,
-      layout_hint: Layout::Border::Hint.new(:bottom),
+      layout_hint: :bottom,
       style: Style.new(fg: "white", bg: "#303050")
 
     apply_theme
@@ -207,15 +205,12 @@ class Minesweeper
       end
     end
 
-    # Tick timer once a second while a game is in progress.
-    spawn do
-      loop do
-        sleep 1.second
-        if @state.playing? && (start = @started_at)
-          @elapsed = (Time.instant - start).total_seconds.to_i
-          render_status
-          @screen.render
-        end
+    # Tick the clock once a second while a game is in progress. `every` owns the
+    # fiber, the sleep and the repaint — the body only advances state.
+    @screen.every(1.second) do
+      if @state.playing? && (start = @started_at)
+        @elapsed = (Time.instant - start).total_seconds.to_i
+        render_status
       end
     end
   end
@@ -227,7 +222,7 @@ class Minesweeper
     menubar = Widget::MenuBar.new \
       parent: frame,
       height: 1,
-      layout_hint: Layout::Border::Hint.new(:top),
+      layout_hint: :top,
       menu_style: Style.new(border: true, fg: "white", bg: "#202030"),
       style: Style.new(fg: "white", bg: "#303050")
 
@@ -251,11 +246,9 @@ class Minesweeper
     help.add("Controls") do
       @status.show_message \
         " Left-click: reveal · Right-click: flag · click a number to chord · t: theme"
-      @screen.render
     end
     help.add("About") do
       @status.show_message " Minesweeper — a Crysterm example"
-      @screen.render
     end
   end
 
@@ -331,7 +324,6 @@ class Minesweeper
 
     render_status
     render_board
-    @screen.render
   end
 
   # Lay mines, keeping the first-clicked cell and its neighbours clear so the
@@ -361,15 +353,13 @@ class Minesweeper
   private def handle_click(e)
     return unless @state.ready? || @state.playing?
 
-    # Map absolute event coordinates to a grid cell using the board's inner
-    # origin (post-border).
-    origin_x = @board.aleft(true) + @board.ileft
-    origin_y = @board.atop(true) + @board.itop
-    return if e.x < origin_x || e.y < origin_y
+    # Map absolute event coordinates to a grid cell. `content_rect` is the
+    # board's rectangle as painted, already inset past the border.
+    return unless (r = @board.content_rect) && r.contains?(e.x, e.y)
 
-    col = (e.x - origin_x) // CELL_W
-    row = e.y - origin_y
-    return unless row >= 0 && row < @rows && col >= 0 && col < @cols
+    col = (e.x - r.xi) // CELL_W
+    row = e.y - r.yi
+    return unless row < @rows && col < @cols
 
     case e.button
     when Tput::Mouse::Button::Right, Tput::Mouse::Button::Middle
@@ -463,10 +453,11 @@ class Minesweeper
 
   # ---- Rendering -------------------------------------------------------------
 
+  # Repaint from current state. Setting content/geometry schedules the frame
+  # itself, so there is no explicit render here.
   private def refresh
     render_status
     render_board
-    @screen.render
   end
 
   # Mirror live stats into the status bar: game state / key hint as the

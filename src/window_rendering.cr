@@ -97,6 +97,30 @@ module Crysterm
       ring @render_wakeup
     end
 
+    # True only while `#_render` is building a frame on the render fiber.
+    # Gates `#request_frame`; see there for why.
+    getter? in_render : Bool = false
+
+    # Requests a frame on behalf of a *state-changing setter* (geometry,
+    # content, visibility, widget state — see `Macros.change_guarded_setter`
+    # and `Widget#mark_dirty`'s callers). Identical to `#schedule_render`,
+    # except it is a no-op while a frame is already being built.
+    #
+    # That exception is the whole point. Layout engines assign child geometry
+    # *during* the frame, through the very same setters (`Layout::Box#place`
+    # does `el.width = v` / `el.top = v`, `Layout#place_child` calls
+    # `Widget#set_geometry`). Ringing the doorbell from there would mark the
+    # frame dirty from inside itself and the render loop would spin at the FPS
+    # cap forever, on an idle UI. Anything a layout writes is painted by the
+    # frame that wrote it, so there is nothing to schedule.
+    #
+    # `#schedule_render` / `#render` / `Widget#request_render` stay
+    # unconditional: an explicit request from a `PreRender`/`Rendered` handler
+    # is a deliberate ask for another frame, and must still be honored.
+    def request_frame : Nil
+      schedule_render unless @in_render
+    end
+
     # Queues `block` to run on the render fiber just before the next render,
     # then schedules that render. Use to apply results computed off the render
     # fiber (a background fiber, or a thread under `-Dpreview_mt`) to widgets,
@@ -372,6 +396,15 @@ module Crysterm
     private def render_members_into_plane(pl : Plane, members : Enumerable(Widget)) : Nil
       with_render_target(pl.cells) do
         members.each do |el|
+          # A layer member is collected during the base walk but painted here,
+          # after it — so a widget can be destroyed in between (a popup `Menu`
+          # closed from a handler that a later sibling's render fired), leaving a
+          # stale entry pointing at a now-detached widget. Painting it would
+          # raise out of `_get_coords`'s `parent_or_window` (no parent, no
+          # window) and, since this runs on the render fiber, take rendering down
+          # for good rather than surfacing anywhere. A detached widget has
+          # nothing to paint anyway, so skip it.
+          next unless el.window?
           el.compositing = true
           el.render
           el.compositing = false
@@ -483,7 +516,21 @@ module Crysterm
     end
 
     # Real render
+    #
+    # Builds and flushes one frame synchronously, on the calling fiber. Sets
+    # `#in_render?` for the duration so the state-changing setters layout runs
+    # during the frame (`Layout::Box#place` and friends) don't ring the render
+    # doorbell from inside the frame they are part of — see `#request_frame`.
     def _render # (draw = true) #@@auto_draw)
+      @in_render = true
+      begin
+        _render_frame
+      ensure
+        @in_render = false
+      end
+    end
+
+    private def _render_frame
       t1 = Time.instant
 
       # Damage tracking (opt-in) needs to know if styling changed broadly this

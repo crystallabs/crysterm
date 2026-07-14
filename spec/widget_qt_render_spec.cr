@@ -539,8 +539,12 @@ describe "Horizontal scrolling" do
     s._render
 
     box.hscrollbar_rows.should eq 1
-    bar_glyphs = ->(y : Int32) { row_chars(s, y, 0, 12).chars.all? { |c| c == '█' || c == '░' } }
+    # Both bars show, so the horizontal one stops one column short of the right
+    # edge: the last cell is the reserved bottom-right corner (Qt's
+    # `QAbstractScrollArea` corner), left to the parent's background fill.
+    bar_glyphs = ->(y : Int32) { row_chars(s, y, 0, 11).chars.all? { |c| c == '█' || c == '░' } }
     bar_glyphs.call(4).should be_true      # the bottom row is the bar, not content
+    row_chars(s, 4, 11, 12).should eq " "  # …except the corner
     row_chars(s, 0, 0, 4).should eq "L1-A" # content sits in the rows above it
 
     # The last line stays reachable above the bar (not permanently hidden under it).
@@ -548,6 +552,7 @@ describe "Horizontal scrolling" do
     s._render
     row_chars(s, 3, 0, 4).should eq "L8-A"
     bar_glyphs.call(4).should be_true
+    row_chars(s, 4, 11, 12).should eq " "
   end
 
   it "draws the bottom border below a shown horizontal bar, not over it" do
@@ -562,7 +567,10 @@ describe "Horizontal scrolling" do
     box.show_horizontal_scrollbar?.should be_true
     # The bar reserves the last *interior* row (row 4); the bottom border stays at
     # the widget's true bottom edge (row 5) instead of being painted one row up.
-    row_chars(s, 4, 1, 11).chars.all? { |c| c == '█' || c == '░' }.should be_true
+    # Interior columns are [1,11); the bar runs to column 10, which is the
+    # reserved corner cell under the vertical bar (see the sibling example).
+    row_chars(s, 4, 1, 10).chars.all? { |c| c == '█' || c == '░' }.should be_true
+    row_chars(s, 4, 10, 11).should eq " "
     row_chars(s, 5, 0, 12).should eq "└──────────┘"
   end
 

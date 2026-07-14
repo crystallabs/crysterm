@@ -233,8 +233,8 @@ class Commando
     @field = Field.new \
       parent: frame,
       width: WORLD_W + 2,
-      style: Style.new(fg: "white", bg: "#101410", border: true)
-    @field.style.border = Border.new(BorderType::Line, fg: "#6a6a72")
+      style: Style.new(fg: "white", bg: "#101410",
+        border: Border.new(BorderType::Line, fg: "#6a6a72"))
     @field.painter = ->(f : Field) { draw_scene f }
 
     # The one row the field doesn't get. Only the size along the stacking axis is
@@ -262,8 +262,8 @@ class Commando
       height: 11,
       parse_tags: true,
       align: "center",
-      style: Style.new(fg: "white", bg: "#14180f", border: true, bold: true)
-    @overlay.style.border = Border.new(BorderType::Double, fg: "#c8b048")
+      style: Style.new(fg: "white", bg: "#14180f", bold: true,
+        border: Border.new(BorderType::Double, fg: "#c8b048"))
 
     # A slim top banner shown during the attract-mode demo, so the live
     # gameplay stays visible below it.
@@ -275,8 +275,8 @@ class Commando
       height: 6,
       parse_tags: true,
       align: "center",
-      style: Style.new(fg: "white", bg: "#14180f", border: true, bold: true)
-    @banner.style.border = Border.new(BorderType::Double, fg: "#c8b048")
+      style: Style.new(fg: "white", bg: "#14180f", bold: true,
+        border: Border.new(BorderType::Double, fg: "#c8b048"))
     @banner.hide
 
     @screen.on(Event::KeyPress) { |e| on_key e }
@@ -479,7 +479,6 @@ class Commando
       "{#7ef07e-fg}Press R to deploy again — Q to quit{/}"
     @banner.hide
     @overlay.show
-    @screen.render
   end
 
   # ---- Input -----------------------------------------------------------------
@@ -497,7 +496,6 @@ class Commando
       if e.char == 'p'
         @state = :playing
         @overlay.hide
-        @screen.render
       elsif e.char == 'r'
         deploy
       end
@@ -519,7 +517,6 @@ class Commando
       @state = :paused
       @overlay.content = "\n{#f7f24a-fg}— PAUSED —{/}\n\n\nPress P to resume."
       @overlay.show
-      @screen.render
     end
   end
 
@@ -855,13 +852,14 @@ class Commando
   # region, so it only overpaints the field's interior.
   private def draw_scene(f : Field)
     win = f.window
-    ox = f.aleft(true) + f.ileft
-    oy = f.atop(true) + f.itop
-    ih = f.aheight - f.itop - f.ibottom
-    iw = f.awidth - f.ileft - f.iright
+    # The field's rectangle as painted, already inset past its border. (The old
+    # `aleft(true) + ileft` / `awidth - iwidth` pair mixed the rendered and live
+    # geometry bases, which disagree mid-resize.)
+    r = f.content_rect || return
+    ox, oy = r.xi, r.yi
+    ih = r.height
     @view_h = ih
-    return if ih <= 0
-    view_w = {iw, WORLD_W}.min
+    view_w = {r.width, WORLD_W}.min
     return if view_w <= 0
 
     # 1) Terrain — coalesce horizontal runs of an identical cell into one

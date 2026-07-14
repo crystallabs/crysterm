@@ -197,10 +197,17 @@ module Crysterm
     # damage frame, used to address the overlap union-find. Transient scratch.
     property damage_idx : Int32 = -1
 
-    # Marks this widget as needing a repaint and registers it (mapped to its
-    # top-level ancestor) with the owning window's damage set. Safe to call from
-    # any state-changing setter; no-op when damage tracking is off. Call after an
-    # in-place change the tracked setters don't see (e.g. mutating a `Style` directly).
+    # Marks this widget as needing a repaint, registers it (mapped to its
+    # top-level ancestor) with the owning window's damage set, and requests the
+    # frame that paints it. Safe to call from any state-changing setter. Call
+    # after an in-place change the tracked setters don't see (e.g. mutating a
+    # `Style` directly).
+    #
+    # The frame request goes through `Window#request_frame`, so it is skipped
+    # while a frame is already being built — layout assigns child geometry
+    # through these same setters mid-frame, and that must not re-arm the
+    # doorbell from inside the frame it belongs to. The damage registration
+    # itself is a no-op when damage tracking is off.
     def mark_dirty : Nil
       @render_dirty = true
       # A dirtying change can alter the resolved style within the same frame
@@ -216,7 +223,10 @@ module Crysterm
         p.invalidate_minrect
         p = p.parent
       end
-      window?.try &.damage_mark_dirty(self)
+      window?.try do |w|
+        w.damage_mark_dirty self
+        w.request_frame
+      end
     end
 
     # Assigns all four geometry ivars (`left`/`top`/`width`/`height`) in one
@@ -257,6 +267,12 @@ module Crysterm
     # Requests a re-render of the owning `Window`, if attached. Safe form of
     # `window.render` for use after a state change (no-op when detached). Also
     # flags this widget for damage tracking.
+    #
+    # Unconditional, unlike the request `#mark_dirty` makes: this one still
+    # rings the doorbell mid-frame, so it's the right call for a driver that
+    # deliberately wants *another* frame after this one (animations,
+    # transitions, media decode). For a plain state change prefer `#mark_dirty`
+    # — or just the setter, which calls it for you.
     def request_render : Nil
       window?.try do |s|
         s.damage_mark_dirty self
@@ -303,7 +319,7 @@ module Crysterm
       align : Tput::AlignFlag | Shorthands = @align,
       overflow : Overflow | Shorthands | Nil = @overflow,
       @layout = @layout,
-      @layout_hint = @layout_hint,
+      layout_hint : Crysterm::Layout::Hint | Shorthands | Nil = @layout_hint,
 
       scrollbar : Bool? = nil,
       @scrollbar_policy = @scrollbar_policy,
@@ -341,6 +357,9 @@ module Crysterm
 
       self.align = align
       self.overflow = overflow
+      # Routed through the setter so a bare `Border::Region` (`layout_hint:
+      # :top`) is wrapped into a `Border::Hint`; see `#layout_hint=`.
+      self.layout_hint = layout_hint
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }

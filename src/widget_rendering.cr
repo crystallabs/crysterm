@@ -42,6 +42,45 @@ module Crysterm
     # (Border region, Grid cell+span, flex grow factor). See `Crysterm::Layout::Hint`.
     property layout_hint : Crysterm::Layout::Hint? = nil
 
+    # Whether this widget keeps its layout slot while hidden (Qt's
+    # `QSizePolicy#retainSizeWhenHidden`).
+    #
+    # Off by default: hiding a child of a packing engine (`Layout::VBox`,
+    # `HBox`, `Border`) gives its space back to its siblings, so `#hide` alone
+    # is enough to collapse a bar or a rail. Turn it on to hide a widget
+    # *in place*, holding the space open so its neighbours don't shift — e.g. a
+    # validation message that appears and disappears without the form jumping.
+    #
+    # Slot-addressed engines (`Layout::Stack` pages, `Layout::Grid` cells)
+    # ignore this: their children are identified by position, so a hidden one
+    # must keep its index. Qt draws the same distinction.
+    property? retain_size_when_hidden : Bool = false
+
+    # Docks this widget to a `Layout::Border` region, wrapping *region* in a
+    # `Layout::Border::Hint` for you — by far the most common hint, and the one
+    # whose ceremony was pure noise:
+    #
+    # ```
+    # # Before
+    # Widget::Box.new parent: frame, height: 1,
+    #   layout_hint: Layout::Border::Hint.new(:top)
+    # # After
+    # Widget::Box.new parent: frame, height: 1, layout_hint: :top
+    # ```
+    #
+    # Qt spells the same thing `addWidget(w, BorderLayout::North)`. Takes the
+    # same shorthand forms as `#align`/`#overflow` (`:top`, `"top"`). The
+    # `Layout::Hint` overload stays for engines with richer hints (Grid's
+    # cell+span, flex grow).
+    def layout_hint=(region : Crysterm::Layout::Border::Region) : Crysterm::Layout::Hint?
+      self.layout_hint = Crysterm::Layout::Border::Hint.new region
+    end
+
+    # :ditto:
+    def layout_hint=(region : ::Crystallabs::Helpers::Enums::Shorthands) : Crysterm::Layout::Hint?
+      self.layout_hint = ::Crystallabs::Helpers::Enums.from Crysterm::Layout::Border::Region, region
+    end
+
     # `Box.render` sets `lpos` (rendered coordinates) on the element. Stale if
     # later moved, but otherwise more accurate than recalculating: a parent
     # always renders before its children, so the parent's `lpos` can be reused

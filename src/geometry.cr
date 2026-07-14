@@ -13,6 +13,21 @@ module Crysterm
     # it here.
     def initialize(@xi, @xl, @yi, @yl, @get = false)
     end
+
+    # Width in cells. The x range is half-open (`xi...xl`).
+    def width : Int32
+      @xl - @xi
+    end
+
+    # Height in cells. The y range is half-open (`yi...yl`).
+    def height : Int32
+      @yl - @yi
+    end
+
+    # Whether the absolute cell (*x*, *y*) falls inside this rectangle.
+    def contains?(x : Int32, y : Int32) : Bool
+      x >= @xi && x < @xl && y >= @yi && y < @yl
+    end
   end
 
   # Minimal position interface holding a widget's last rendered position.

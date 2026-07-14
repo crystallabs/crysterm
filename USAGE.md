@@ -68,12 +68,15 @@ require "crysterm"
 
 alias C = Crysterm
 
-screen = C::Screen.new
+# A `Window` is the surface your widgets live on. (A `Screen` is the physical
+# terminal *device* behind it — see §3.1; you rarely construct one yourself.)
+window = C::Window.new title: "hello"
 
 # Optionally pull the widget classes into the current namespace:
 # include Crysterm::Widgets
 
 hello = C::Widget::Box.new \
+  parent: window,          # The surface this widget belongs to
   name: "helloworld box",  # Symbolic name (for your own reference)
   top: "center",           # Integer, "50%", "50%+10", or "center"
   left: "center",
@@ -83,50 +86,69 @@ hello = C::Widget::Box.new \
   parse_tags: true,        # Interpret {…} tags in content (default: true)
   style: C::Style.new(fg: "yellow", bg: "blue", border: true)
 
-screen.append hello
-
-# Exit on `q` or Ctrl-Q. You can subscribe to a specific key event
-# (C::Event::KeyPress::CtrlQ) or to all key presses and inspect the event.
-screen.on(C::Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    screen.destroy
-    exit
-  end
-end
+# `q` / Ctrl-Q already quit by default (see `Window#default_quit_keys?`), so
+# nothing else is needed here. To handle keys yourself, subscribe to a specific
+# key event (C::Event::KeyPress::CtrlQ) or to all of them and inspect the event:
+#
+#   window.on(C::Event::KeyPress) { |e| ... }
 
 # Run the main loop
-screen.exec
+window.exec
 ```
 
-A widget may be attached to its screen in either of two equivalent ways: by
-passing `parent:` (or `screen:`) when constructing it, or by calling
-`screen.append widget` afterwards. `append` is a convenience for the more
-general `insert`; children are kept in the screen's (and each widget's)
-`children` array.
+A widget may be attached to its window in either of two equivalent ways: by
+passing `parent:` when constructing it, or by calling `window.append widget`
+afterwards. `append` is a convenience for the more general `insert`; children
+are kept in the window's (and each widget's) `children` array.
 
-> If you construct a widget without specifying any parent or screen, it
-> attaches to a lazily-created global screen (`Screen.global`). This is
-> convenient for quick scripts, but real applications should create and manage
-> their own `Screen`.
+> If you construct a widget without specifying any parent, it attaches to a
+> lazily-created global window. This is convenient for quick scripts, but real
+> applications should create and manage their own `Window`.
 
 ### 2.3 What `exec` does
 
-`Screen#exec` is the usual way to start an application. It:
+`Window#exec` is the usual way to start an application. It:
 
-1. Performs the first **render** of the screen (via `render`, which schedules a
+1. Performs the first **render** of the window (via `render`, which schedules a
    frame — see [§8](#8-rendering-and-drawing)).
 2. Calls `listen`, which begins processing terminal input (keyboard, mouse,
    resize).
 3. Blocks the main fiber (currently with a plain `sleep`) so the program keeps
    running.
 
-Rendering itself happens on a dedicated background fiber, so `exec` does not run
-a classic "draw-everything-each-iteration" loop. Instead, changes to widgets
-*schedule* a frame, and the render fiber coalesces and paints them. This model
-is described in [§3.3](#33-the-single-threaded-render-model) and
+Rendering happens on a dedicated background fiber, so `exec` does not run a
+classic "draw-everything-each-iteration" loop. Instead, **changing a widget
+schedules the frame that paints it**, and the render fiber coalesces those
+requests: a burst of changes collapses into one repaint, capped at ~60fps. So
+application code sets state and stops there —
+
+```cr
+status.content = "Saved"   # repaints; no `window.render` needed
+panel.hide                 # ditto — and its layout slot is released
+```
+
+— and there is no need to call `window.render` after a mutation. Everything
+routed through `Widget#mark_dirty` does this: content, geometry
+(`left`/`top`/`width`/`height`), visibility (`show`/`hide`), focus and widget
+state. An idle UI produces no frames at all.
+
+You still call a render explicitly in two cases:
+
+* **`window.render`** — to request a frame for a change the setters can't see,
+  such as mutating a `Style` object in place (`widget.style.bg = "red"`). Or
+  call `widget.mark_dirty` after it, which is the same thing plus damage
+  tracking.
+* **`window._render`** — to paint *synchronously, right now*, when the next line
+  depends on the result. Two situations need it: reading layout-assigned
+  geometry (a layout engine only assigns a child's position and size during a
+  frame, so it isn't known before one), and driving an animation from a blocking
+  loop (the coalescing scheduler would collapse every step into a single frame).
+  See [§4.11](#411-layouts).
+
+This model is described in [§3.3](#33-the-single-threaded-render-model) and
 [§8](#8-rendering-and-drawing).
 
-To tear a screen down, call `Screen#destroy`.
+To tear a window down, call `Window#destroy`.
 
 ---
 
@@ -416,11 +438,56 @@ Widget::Box.new parent: box             # flexes to fill the rest
 
 The engines that ship today:
 
-- `Layout::Grid` — uniform, table-like rows and columns.
-- `Layout::Masonry` — masonry-like inline flow of variably-sized children.
 - `Layout::HBox` / `Layout::VBox` — Qt-style single-axis boxes; children with no
   explicit main-axis size share the leftover space equally, and are stretched to
   fill the cross axis.
+- `Layout::Border` — the five-region dock (header/footer/sidebars/center) most
+  application chrome wants. See the hint below.
+- `Layout::Stack` — Qt's `QStackedLayout`: every child fills the container, only
+  `#current` renders.
+- `Layout::Grid` / `Layout::UniformGrid` — table-like rows and columns.
+- `Layout::Form` — label/field pairs.
+- `Layout::Masonry` / `Layout::Wrap` — inline flow of variably-sized children.
+- `Layout::Manual` — the default when no engine is installed: children keep
+  their own coordinates. What you want for free-floating overlays and for
+  sprites whose position *is* application state.
+
+Some engines take a **per-child hint**, read off `Widget#layout_hint`. The
+common one is a `Border` region, which you give as a plain symbol:
+
+```crystal
+frame = Widget::Box.new parent: window, width: "100%", height: "100%",
+  layout: Layout::Border.new
+Widget::MenuBar.new parent: frame, height: 1, layout_hint: :top
+Widget::StatusBar.new parent: frame, height: 1, layout_hint: :bottom
+Widget::Box.new parent: frame, width: 20, layout_hint: :left
+body = Widget::Box.new parent: frame, layout_hint: :center   # takes what's left
+```
+
+An edge child declares only the size it consumes (a `:top` child its `height`, a
+`:left` child its `width`); the engine spans the other axis and hands the
+remainder to `:center`. Nothing needs a hand-computed `"100%-1"` or a `top:`
+counted off the bar above it.
+
+**Hiding a child releases its slot.** A packing engine (`HBox`/`VBox`/`Border`)
+arranges as though a hidden child weren't there, so `#hide` alone collapses a bar
+and gives its space back — Qt's `QLayout` behavior:
+
+```crystal
+footer_hint.hide    # the rows below it move up; nothing else to do
+```
+
+Set `retain_size_when_hidden = true` to hide a widget *in place* instead, holding
+its space open so its neighbours don't shift (Qt's
+`QSizePolicy::retainSizeWhenHidden`). Slot-addressed engines — `Stack` pages and
+`Grid` cells — always keep a hidden child's index, since their children are
+identified by position.
+
+Note that a layout assigns a child's position and size **during a frame**. Before
+the first render that arranges it, a layout-managed child has no resolved
+geometry — so code that must *read* that geometry (or focus a text field, so its
+caret lands in the right column) needs one synchronous `window._render` first.
+See [§2.3](#23-what-exec-does).
 
 The table widgets (`Widget::Table`, `Widget::ListTable`) instead mix in the
 `TableLayout` *content* layout, which lays out cell text within the widget's own
