@@ -81,9 +81,28 @@ module Crysterm
       Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
     end
 
+    # Whether a `Layout` suppressed this widget's subtree on the last render —
+    # e.g. a non-current `Layout::Stack` page (or an overflow-hidden `Flow`
+    # child): the layout called `Layout#skip_subtree` on it, so it painted
+    # nothing and holds no `lpos`. Cleared at the top of `#_render` whenever the
+    # widget actually renders. This distinguishes a *layout-hidden* widget —
+    # which must not be a focus/Tab target (it isn't on screen) — from one merely
+    # *scrolled out* of a scrollable viewport, which stays Tab-reachable and is
+    # scrolled back into view on focus. Both null `lpos`, so `lpos` alone can't
+    # tell them apart; this flag can. Mirrors how `Window#hit_candidate?` already
+    # keeps the mouse off `lpos`-less widgets, but without excluding the
+    # scrolled-out case that focus navigation must still reach.
+    property? layout_suppressed : Bool = false
+
     # Renders all child elements into the output buffer.
     # ameba:disable Metrics/CyclomaticComplexity
     def _render(with_children = true)
+      # Reaching `#_render` means a layout (or the direct render walk) is drawing
+      # this widget this frame — it is on the active layout branch, so clear any
+      # suppression left by a previous frame (see `#layout_suppressed?`). Set
+      # before the early-outs below so a scrolled/clipped-out widget (which still
+      # returns here) stays focus-reachable.
+      @layout_suppressed = false
       emit Crysterm::Event::PreRender
 
       # Let the parent dictate this widget's render style (a list highlights its

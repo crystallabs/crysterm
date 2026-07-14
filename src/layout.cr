@@ -147,6 +147,11 @@ module Crysterm
     # Explicit recursion (no captured block) keeps this allocation-free.
     protected def skip_subtree(el : Widget) : Nil
       el.lpos = nil
+      # Mark the subtree layout-suppressed so focus/Tab navigation skips it (a
+      # non-current `Stack` page must not be a focus target — see
+      # `Widget#layout_suppressed?`). Distinct from a scrolled-out widget, which
+      # is rendered (clearing the flag) even when it lands off-viewport.
+      el.layout_suppressed = true
       el.children.each { |c| skip_subtree c }
     end
 

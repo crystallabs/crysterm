@@ -72,6 +72,22 @@ module Crysterm
       end
     end
 
+    # Sets `visible` on `normal` and on every *materialized* (explicitly set)
+    # per-state style. Visibility is a widget-level property, not a per-state
+    # visual attribute, so `#hide`/`#show` must land on every state the widget
+    # can later switch into — otherwise gaining focus/hover/selection would
+    # resurrect a stale visibility from that state's own computed style (a
+    # widget shown while `:normal` would read back invisible once `:focused`).
+    # Unset (`nil`) states need no write: they fall back to `normal`, just set.
+    def visible=(value : Bool) : Nil
+      normal.visible = value
+      @blurred.try &.visible = value
+      @focused.try &.visible = value
+      @hovered.try &.visible = value
+      @selected.try &.visible = value
+      @disabled.try &.visible = value
+    end
+
     # TODO Add each/each_entry iterators
 
     def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)

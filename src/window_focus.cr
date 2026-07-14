@@ -55,7 +55,7 @@ module Crysterm
     # 2-clause check is intentionally narrower — it has no `disabled?` term —
     # and does not use this helper).
     private def focusable_here?(el)
-      el.window? == self && displayed_in_tree?(el) && !el.disabled?
+      el.window? == self && displayed_in_tree?(el) && !el.disabled? && !el.layout_suppressed?
     end
 
     # Restores focus to the previously saved focused element.
@@ -124,7 +124,7 @@ module Crysterm
       # `displayed_in_tree?` (not `style.visible?`): a widget whose own flag
       # is visible but whose container is hidden isn't actually on screen and
       # must not be re-focused. See the same helper in `window_mouse.cr`.
-      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e))
+      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e) && !e.layout_suppressed?)
         @history.pop
       end
       el = @history.last?

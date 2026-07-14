@@ -124,6 +124,30 @@ module Crysterm
       # Maintained across insert/remove so marked items track their rows.
       getter selected_indices = Set(Int32).new
 
+      # Row indices that behave as non-selectable dividers: the selection cursor
+      # steps *over* them (arrow/paging keys land on the nearest real row beyond)
+      # and a click or Enter on one does nothing. Empty by default, so a plain
+      # `List` is unaffected — the skip logic below is a no-op until a host marks
+      # rows (e.g. a `-- Attachments --` separator in a Mutt-style compose menu).
+      # `Widget::Menu` keeps its own richer `Action.separator?` model; this is the
+      # lightweight equivalent for a bare `List`. Set after `#set_items` (a
+      # wholesale replace does not clear it, since row *meaning* is the host's).
+      getter nonselectable = Set(Int32).new
+
+      # Marks *index* as a non-selectable divider (see `#nonselectable`).
+      def nonselectable=(indices : Enumerable(Int32)) : Nil
+        @nonselectable = indices.to_set
+      end
+
+      # The nearest selectable row to *index*, stepping in *dir* (`+1` forward,
+      # `-1` back) over any `#nonselectable` dividers; *index* itself when it is
+      # already selectable or nothing is marked. `nil` only if every row is a
+      # divider, in which case the caller keeps the raw index.
+      private def nearest_selectable_row(index : Int32, dir : Int32) : Int32?
+        return index if @nonselectable.empty?
+        Mixin::ActionBar.nearest_selectable(@items.size, index, dir) { |i| @nonselectable.includes? i }
+      end
+
       # Tag-stripped text of the currently selected item (`""` when empty).
       # Kept in sync by `#selekt`; used e.g. by `Widget::Form` value collection.
       getter value : String = ""
@@ -445,7 +469,7 @@ module Crysterm
           # (Blessed-style two-click). `#activate_on_click?` (menus) makes a
           # single click both select and activate.
           item.on(::Crysterm::Event::Click) do
-            if i = @items.index item
+            if (i = @items.index item) && !@nonselectable.includes?(i)
               # Honor the list's own `#focus_on_click?` opt-out, exactly as
               # `Window#dispatch_mouse`'s automatic click-to-focus does. A
               # focus-declining list (e.g. a `Completer` drop-down, whose owning
@@ -632,6 +656,16 @@ module Crysterm
           @_list_initialized = false
           scroll_to 0
           return
+        end
+
+        # Step the cursor over any non-selectable divider rows, in the direction
+        # of travel (moving down past a separator lands on the next real row;
+        # moving up, the previous one). No-op unless `#nonselectable` is set.
+        unless @nonselectable.empty?
+          dir = index >= @selected ? 1 : -1
+          if adj = nearest_selectable_row(index.to_i, dir)
+            index = adj
+          end
         end
 
         # Safe because the empty-list guard above returns early and `index` is
@@ -876,6 +910,10 @@ module Crysterm
       end
 
       def enter_selected(i)
+        # A click lands on a raw row index; ignore it on a divider (a bare
+        # `selekt i` would skip onto a neighbor and fire *its* action). Keyboard
+        # Enter is unaffected — `selekt` never rests the cursor on a divider.
+        return if @nonselectable.includes? i
         selekt i
         enter_selected
       end

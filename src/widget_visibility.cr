@@ -46,6 +46,15 @@ module Crysterm
       # `:focused`/`:selected` widget, so writing visibility through it would be
       # discarded (a focused `Button` could never be hidden).
       self.state_style.visible = value
+      # Visibility is a widget-level property, not a per-state visual: a
+      # CSS-styled widget has a *distinct* computed style per materialized state,
+      # and `state_style` only touches the current one. Without also writing the
+      # others, hiding/showing a widget that then changes state (e.g. gains
+      # focus) has no effect in the new state — the stale per-state visibility
+      # wins, leaving the widget invisible (and coordinate-less: `_get_coords`
+      # bails on `style.visible?`). Apply across every materialized state so the
+      # toggle survives the transition.
+      @styles.visible = value
       persist_inline_style(&.visible=(value))
     end
 
