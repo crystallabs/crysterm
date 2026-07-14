@@ -42,8 +42,21 @@ class Pong
   def initialize
     @screen = Window.new title: "pong.cr"
 
-    # Play field: full width, all but the bottom row (reserved for the status bar).
-    @table = Widget::Box.new parent: @screen, top: 0, left: 0, width: "100%", height: "100%-1"
+    # A `Border` layout carves the terminal into the two regions the game needs:
+    # the play field takes the center, the status bar docks to the bottom edge.
+    # The bar declares only its `height: 1`; Border spans it across the width and
+    # gives the field whatever is left — no `"100%-1"` arithmetic to keep in sync
+    # with the bar, and nothing pinned to a fixed coordinate.
+    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+      layout: Layout::Border.new
+
+    # Play field. It keeps `Layout::Manual` (no engine installed): the paddles,
+    # net and ball are *sprites* whose coordinates are the game state, pushed
+    # onto them every tick by `sync`. That is what manual placement is for — a
+    # child-arranging layout here would fight the simulation for control of
+    # top/left every frame. Qt draws its game scenes the same way.
+    @table = Widget::Box.new parent: frame,
+      layout_hint: Layout::Border::Hint.new(:center)
 
     @lpaddle = Widget::Box.new parent: @table, width: 1, height: PADDLE_H, top: 0, left: 0,
       style: Style.new(bg: "yellow")
@@ -63,16 +76,24 @@ class Pong
     @score = Widget::Box.new parent: @table, top: "center", left: "center", height: 3, width: 22,
       align: "center", parse_tags: true, style: Style.new(border: true, bold: true)
 
+    # A transient dialog floating over the field, so — like the scoreboard — it
+    # stays centered on the play field rather than occupying a layout slot.
+    # Inside it, though, a `VBox` owns the one text row: `justify: Center` puts
+    # it on the middle line and the default `align: Stretch` spans it across the
+    # interior, which is already inset by the border. That replaces the row's
+    # hand-computed `top: "center", left: 1, right: 1`.
     @message = Widget::Box.new parent: @table, width: "50%", height: 3,
-      top: "center", left: "center", style: Style.new(border: true)
+      top: "center", left: "center", style: Style.new(border: true),
+      layout: Layout::VBox.new(justify: Layout::Box::Justify::Center)
     # Overlay shown briefly on a miss; `lose` fills in the text before each show.
-    @text = Widget::Box.new parent: @message, top: "center", left: 1, right: 1, height: 1,
-      align: "center"
+    @text = Widget::Box.new parent: @message, height: 1, align: "center"
     @message.hide
 
-    # Status bar along the very bottom: the controls on the left.
-    statusbar = Widget::StatusBar.new parent: @screen, bottom: 0, left: 0, width: "100%",
-      height: 1, style: Style.new(fg: "white", bg: "#303050")
+    # Status bar along the very bottom: the controls on the left. Docked to the
+    # frame's bottom edge; it declares its height, Border does the rest.
+    statusbar = Widget::StatusBar.new parent: frame, height: 1,
+      layout_hint: Layout::Border::Hint.new(:bottom),
+      style: Style.new(fg: "white", bg: "#303050")
     statusbar.show_message " Keys: left: a/z, right: k/m, both: up/down"
 
     @screen.on(Event::KeyPress) do |e|

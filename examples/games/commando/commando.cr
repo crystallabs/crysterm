@@ -216,28 +216,42 @@ class Commando
     # faster and correct, exactly as in `quicktro.cr`.
     @screen = Window.new title: "commando.cr", optimization: OptimizationFlag::None
 
+    # The cabinet: one frame holding the two stacked regions this game has — the
+    # play field above, the status bar below. `Window` is not a `Widget`, so the
+    # layout hangs off a full-screen box.
+    #
+    # A `VBox` rather than a `Border` dock, because the vertical stack is only
+    # half the job: the play field is a *fixed* WORLD_W+2 columns wide (the world
+    # never scrolls sideways) and must sit centered in whatever terminal it finds
+    # itself in. `align: Center` is the box's cross axis, so the field is centered
+    # horizontally for free; the field then takes no explicit height and flexes
+    # into everything the status bar leaves. Qt would write this the same way:
+    # a QVBoxLayout with the arena added under Qt::AlignHCenter.
+    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+      layout: Layout::VBox.new(align: Layout::Box::Align::Center)
+
     @field = Field.new \
-      parent: @screen,
-      top: 0,
-      left: "center",
+      parent: frame,
       width: WORLD_W + 2,
-      height: "100%-1",
       style: Style.new(fg: "white", bg: "#101410", border: true)
     @field.style.border = Border.new(BorderType::Line, fg: "#6a6a72")
     @field.painter = ->(f : Field) { draw_scene f }
 
+    # The one row the field doesn't get. Only the size along the stacking axis is
+    # declared; the box supplies the row it lands on. (`width` stays explicit:
+    # under `align: Center` the cross axis is *not* stretched, so the bar has to
+    # ask for the full width it wants to span.)
     @status = Widget::StatusBar.new \
-      parent: @screen,
-      bottom: 0,
-      left: 0,
+      parent: frame,
       width: "100%",
       height: 1,
       parse_tags: true,
       style: Style.new(fg: "white", bg: "#20241c")
 
-    # Overlays are siblings of the field (children of the screen), created after
-    # it, so they composite ON TOP of the hand-painted scene instead of being
-    # overpainted by it.
+    # Overlays deliberately stay outside the layout: they are not regions of the
+    # frame but cards that float ON TOP of the live scene, so they keep their own
+    # coordinates (as a Qt overlay child would) and remain children of the screen
+    # — created after `frame`, hence composited over it rather than overpainted.
     #
     # Centered card for the title / pause / game-over / victory screens.
     @overlay = Widget::Box.new \

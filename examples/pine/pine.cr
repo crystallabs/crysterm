@@ -24,6 +24,13 @@ require "../../src/crysterm"
 #
 # Global keys mirror Alpine's bottom command bar; ^Q quits from anywhere.
 #
+# The chrome is arranged by *layout* engines, not by fixed top/left/width/height:
+# one `Border` frame docks the header on top and a `VBox` footer (status line +
+# the two-row command bar) at the bottom, and hands what is left — the body
+# rectangle — to every full-screen view. Only the two things that deliberately
+# *float* over the body, the MAIN MENU panel and the demo banner, carry
+# coordinates.
+#
 # Run with:  crystal examples/pine.cr   (TERM=xterm-256color recommended)
 module Crysterm
   include Tput::Namespace
@@ -47,12 +54,20 @@ module Crysterm
     title: "Crysterm — Alpine-style demo",
   )
 
-  # Full-screen backdrop, created first so it sits behind every other widget.
-  # Without it, areas no widget covers (e.g. around the centered MAIN MENU) are
-  # left to the screen's erase path; on a transparent terminal profile those
-  # cells render slightly differently, making the menu look like a distinct
-  # rectangle. The backdrop paints the whole screen uniformly instead.
-  Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
+  # ------------------------------------------------------------------ the frame
+  #
+  # A single `Border` layout carves the terminal into Alpine's regions: the
+  # header on top, a three-row footer at the bottom, and the body — every
+  # full-screen view — in the center. `Window` is not a `Widget`, so the frame is
+  # a full-screen `Box` on the window that everything else hangs off.
+  #
+  # It doubles as the backdrop. Created first, it sits behind every other widget,
+  # and it paints the cells its regions leave over (e.g. around the centered MAIN
+  # MENU). Without it those cells are left to the window's erase path; on a
+  # transparent terminal profile they render slightly differently, making the
+  # menu look like a distinct rectangle rather than part of the screen.
+  frame = Widget::Box.new parent: s, width: "100%", height: "100%",
+    layout: Layout::Border.new
 
   # ----------------------------------------------------------------- mock data
 
@@ -169,16 +184,57 @@ module Crysterm
   # ------------------------------------------------------------- shared chrome
 
   header = Widget::Pine::HeaderBar.new(
-    parent: s, top: 0,
+    parent: frame,
+    layout_hint: Layout::Border::Hint.new(:top),
     title_content: "ALPINE 2.26",
     section_content: "MAIN MENU",
     info_content: "Folder: INBOX",
   )
 
-  status = Widget::Pine::StatusBar.new(parent: s, bottom: 2, status_content: "")
-  key_menu = KeyMenu.new(parent: s, bottom: 0)
+  # The footer is the one edge where several bars stack, so the `Border`'s bottom
+  # region is itself a `VBox`: the status line above the two-row command bar.
+  # Only the footer declares a height (the extent it takes off the bottom edge);
+  # everything inside it, and the body above it, follows from that.
+  footer = Widget::Box.new parent: frame, height: 3, layout: Layout::VBox.new,
+    layout_hint: Layout::Border::Hint.new(:bottom)
 
-  # A yellow "this is only a demo" banner, shown on MAIN MENU only.
+  status = Widget::Pine::StatusBar.new(parent: footer, status_content: "")
+
+  # ---------------------------------------------------------- transient chrome
+  #
+  # A yes/no prompt and a percent-done bar, which take over the status line while
+  # active — just as Alpine asks and reports on its message line. They are
+  # *siblings* of the status line in the footer rather than boxes floating over
+  # it, so the row belongs to whichever of the three is standing: a `VBox` packs
+  # by height, so `status_line` (below) gives the winner the line and folds the
+  # other two away at `height: 0` — the trick mutt's demo uses on its inline
+  # prompt editor with `width: 0`. Declared here, ahead of the command bar,
+  # because a `VBox` stacks children in the order they were added.
+
+  confirm = KeyPrompt.new(parent: footer, width: "100%", height: 0, visible: false)
+  progress = Widget::Pine::ProgressBar.new(parent: footer, width: "100%", height: 0, visible: false, value: 0)
+
+  key_menu = KeyMenu.new(parent: footer)
+
+  # Hand the shared status row to exactly one of its three occupants.
+  status_line = ->(w : Widget) do
+    {status, confirm, progress}.each do |x|
+      if x == w
+        x.height = 1
+        x.show
+      else
+        x.height = 0
+        x.hide
+      end
+    end
+    nil
+  end
+
+  # A yellow "this is only a demo" banner, shown on MAIN MENU only. It is not a
+  # region: it floats over the body's third row, the way the MAIN MENU itself
+  # floats over the body. Docking it under the header would push the body down a
+  # row on every *other* screen too, where it is never shown — so it keeps its
+  # coordinate, on the window's default `Layout::Manual`.
   banner = Widget::Box.new(
     parent: s, top: 3, left: 0, width: "100%", height: 1,
     align: :hcenter, parse_tags: true, visible: false,
@@ -217,22 +273,22 @@ module Crysterm
     kp.try { |k2| s.emit k2 }
   end
 
-  # ---------------------------------------------------------- transient chrome
-  #
-  # These two overlay the status line (bottom: 2) when active: a yes/no prompt
-  # and a percent-done bar, just like Alpine asks/reports on its message line.
-
-  confirm = KeyPrompt.new(parent: s, bottom: 2, width: "100%", visible: false)
-  progress = Widget::Pine::ProgressBar.new(parent: s, bottom: 2, width: "100%", visible: false, value: 0)
-
   # ----------------------------------------------------------------- the views
   #
-  # The list/text views fill the body rectangle; the sparse MAIN MENU is
-  # centered in the terminal, the way Alpine presents it. Only one is shown at
-  # a time.
+  # Every list/text view is a `Border` *center* child. The five-region carve
+  # leaves exactly one rectangle — whatever the header and footer did not take —
+  # and the engine hands it to each of them; `show_only` (below) decides which
+  # one paints, since only one screen is ever up. That is their entire geometry:
+  # not one names a row, a column or a size, and none has to reserve room for the
+  # chrome around it.
 
-  body_opts = {parent: s, top: 1, bottom: 3, left: 0, width: "100%"}
+  body_opts = {parent: frame, layout_hint: Layout::Border::Hint.new(:center)}
 
+  # MAIN MENU is the deliberate exception. Alpine centers it in the *terminal*,
+  # floating over the body rather than filling it — and "centered on something
+  # other than my own slot" is not something a layout region can say (centering
+  # it in the body region would sit it a row off). So, like a modal panel, it
+  # stays a free-floating child of the window on the default `Layout::Manual`.
   main_menu = MainMenu.new(
     parent: s, top: "center", left: "center", width: 66, height: 13,
     options: [
@@ -310,10 +366,8 @@ module Crysterm
   flag_target = nil.as(MessageIndex::Message?)
 
   show_only = ->(w : Widget) do
-    confirm.hide
-    progress.hide
+    status_line.call status
     banner.hide
-    status.show
     all_views.each { |v| v == w ? v.show : v.hide }
     active_view = w
     w.focus
@@ -330,8 +384,7 @@ module Crysterm
   # Dismiss the status-line yes/no prompt and hand focus back to the view.
   dismiss_prompt = -> do
     prompt_active = false
-    confirm.hide
-    status.show
+    status_line.call status
     refocus.call
     nil
   end
@@ -344,8 +397,7 @@ module Crysterm
       KeyPrompt::Choice.new("Y", "Yes", -> { dismiss_prompt.call; on_yes.call; nil }),
       KeyPrompt::Choice.new("N", "No", -> { dismiss_prompt.call; nil }),
     ]
-    status.hide
-    confirm.show
+    status_line.call confirm
     confirm.focus
     prompt_active = true
     s.render
@@ -355,17 +407,15 @@ module Crysterm
   # Show the percent-done bar and animate it to 100% (mocking a blocking task).
   run_progress = ->(label : String) do
     header.info.content = label
-    status.hide
     progress.value = 0
-    progress.show
+    status_line.call progress
     s.render
     0.step(to: 100, by: 10) do |p|
       progress.value = p
       s.render
       sleep 35.milliseconds
     end
-    progress.hide
-    status.show
+    status_line.call status
     nil
   end
 

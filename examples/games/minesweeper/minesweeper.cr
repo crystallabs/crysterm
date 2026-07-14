@@ -136,31 +136,51 @@ class Minesweeper
   def initialize(@difficulty)
     @screen = Window.new title: "Minesweeper"
 
+    # A single Border layout carves the window into this game's three regions:
+    # the menu bar on top, the status bar at the bottom, and the play area
+    # filling whatever is left in between. Nothing below is placed at a
+    # hand-computed coordinate, and no region has to reserve room for another.
+    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+      layout: Layout::Border.new
+
+    # The play area: whatever the two bars leave over. The board is the only
+    # thing in it, so this box carries no engine of its own — the board sits in
+    # the default `Layout::Manual`, self-centring (below). A `VBox(align:
+    # Center)` would be the Qt idiom for centring a fixed-size panel, but the
+    # two disagree by a column on an odd leftover: `left: "center"` rounds the
+    # spare column to the left (mid − half), the box engine floors
+    # `(area − board) / 2` and rounds it to the right. Keeping `"center"` keeps
+    # the board where it has always been drawn.
+    board_area = Widget::Box.new parent: frame,
+      layout_hint: Layout::Border::Hint.new(:center)
+
+    # The board declares its size and asks to be centred in the play area; that
+    # area's position and extent come from the layout, so the board no longer
+    # knows a menu bar or a status bar exists. Its top margin — not a `top:`
+    # counted off the menu bar's height — is the row of breathing space above it.
     @board = Widget::GroupBox.new \
-      top: 2,
+      parent: board_area,
       left: "center",
       width: @cols * CELL_W + 2, # +2 for the left/right border
       height: @rows + 2,
       title: " MINESWEEPER ",
       parse_tags: true,
-      style: Style.new(fg: "white", border: true)
+      style: Style.new(fg: "white", border: true, margin: :top)
     @board.style.shadow = Shadow.from(true)
 
     @status = Widget::StatusBar.new \
-      parent: @screen,
-      bottom: 0,
-      left: 0,
-      width: "100%",
-      height: 1,
+      parent: frame,
+      height: 1, # the only size it declares: Border spans it across the window
       parse_tags: true,
+      layout_hint: Layout::Border::Hint.new(:bottom),
       style: Style.new(fg: "white", bg: "#303050")
 
-    @screen.append @board
     apply_theme
 
     # Built last so its drop-down menus append over the board, and after the
-    # widgets the menu actions reference exist.
-    build_menu_bar
+    # widgets the menu actions reference exist. The pop-ups parent themselves to
+    # the window (not to `frame`), so they stay outside the layout and float.
+    build_menu_bar frame
 
     # One handler covers the whole board; recover the clicked cell from event
     # coordinates. Acting on `down?` only means one action per press.
@@ -203,13 +223,11 @@ class Minesweeper
   # Build the top menu bar: a "Game" menu mirroring every keyboard command, and
   # a "Help" menu. Difficulty entries are checkable and act as a radio group
   # (current one ticked), updated in `new_game`.
-  private def build_menu_bar
+  private def build_menu_bar(frame : Widget)
     menubar = Widget::MenuBar.new \
-      parent: @screen,
-      top: 0,
-      left: 0,
-      width: "100%",
+      parent: frame,
       height: 1,
+      layout_hint: Layout::Border::Hint.new(:top),
       menu_style: Style.new(border: true, fg: "white", bg: "#202030"),
       style: Style.new(fg: "white", bg: "#303050")
 

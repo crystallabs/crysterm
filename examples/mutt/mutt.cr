@@ -14,8 +14,9 @@ require "../../src/crysterm"
 # threaded index with tree glyphs, the dashed status line, and a command line
 # that prompts at the bottom (edit a header, confirm quit, …).
 #
-# Unlike the Pine demo, every widget is positioned by a *layout* (a `Border`
-# frame with a nested `VBox` footer), never by fixed top/left/width/height.
+# As in the Pine demo, every widget is positioned by a *layout* (a `Border`
+# frame with a nested `VBox` footer), never by fixed top/left/width/height. Where
+# Pine switches its body views by visibility, the center here is a `Stack`.
 #
 # Run with:  crystal examples/mutt/mutt.cr   (TERM=xterm-256color recommended)
 module Crysterm

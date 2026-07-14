@@ -139,11 +139,17 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   def initialize(@opt : Hash(String, Bool))
     @screen = Window.new title: "Hunt the Wumpus"
 
+    # A `Border` layout carves the terminal into the teletype's two regions: the
+    # scrolling transcript takes the center, the input line docks to the bottom
+    # edge. The input declares only its `height: 3` (its own two border rows plus
+    # the text row); Border spans it across the width and hands the transcript
+    # whatever is left — so there is no `"100%-3"` height and no `top: "100%-3"`
+    # to keep in sync with each other whenever the input box's height changes.
+    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+      layout: Layout::Border.new
+
     @transcript = Widget::PlainTextEdit.new \
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%-3",
+      layout_hint: Layout::Border::Hint.new(:center),
       content: "",
       parse_tags: true,
       scrollbar: true,
@@ -151,9 +157,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
         scrollbar: Style.new(bg: "#5555aa"))
 
     @input = Widget::LineEdit.new \
-      top: "100%-3",
-      left: 0,
-      width: "100%",
+      layout_hint: Layout::Border::Hint.new(:bottom),
       height: 3,
       # Yellow text field, but give the border its own dark background/white
       # rule so it blends into the surrounding chrome (matching the transcript
@@ -167,6 +171,13 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # column once the log scrolls; `z-index: 10` floats the box above that bar
     # (theme puts the bar on plane 5) so its right border isn't eaten. See the
     # theme's `.popup`/`Menu` overlays for the same pattern.
+    #
+    # Deliberately *not* in the `frame` above, and so left on the window's
+    # default `Layout::Manual`: this is a floating annotation that sits on top of
+    # the transcript, not a region beside it. A dock region would reserve its
+    # 15 columns and reflow the text out from under it — and the box appears and
+    # disappears with the "score" flag, which would make the transcript's width
+    # jump. Qt hangs a HUD overlay off the plain parent for the same reason.
     @scorebox = Widget::GroupBox.new \
       top: 1,
       right: 1,
@@ -177,8 +188,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       style: Style.new(fg: "white", bg: "#16213e", border: true, margin: :right)
     @scorebox.style.z_index = 10
 
-    @screen.append @transcript
-    @screen.append @input
+    frame.append @transcript
+    frame.append @input
     @screen.append @scorebox
     @input.focus
 
@@ -219,6 +230,13 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   end
 
   def run
+    # Render once before the first game's prolog is printed. Under the `Border`
+    # layout the transcript learns its height only when the frame is arranged,
+    # and `say` immediately `scroll_to`s the bottom — with no height yet that
+    # scroll would run against a zero-row viewport and push every line printed
+    # here out of view. One synchronous render settles the layout first (the
+    # same render-before-use order the Mutt example relies on).
+    @screen._render
     new_game
     @screen.exec
   end

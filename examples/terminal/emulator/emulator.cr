@@ -40,9 +40,16 @@ module Crysterm
     default_quit_keys: false,
   )
 
+  # No coordinates, and no layout engine: the terminal *is* the window. A widget
+  # with no `width`/`height` already resolves to its parent's whole interior, and
+  # with no `left`/`top` it sits at the interior's origin — so `top: 0, left: 0,
+  # width: "100%", height: "100%"` would just spell out the default. There's also
+  # no layout to install: layouts exist to arrange siblings against each other,
+  # and there's exactly one child here. Qt does the same — a widget with no
+  # installed layout places its children by their own geometry (Layout::Manual),
+  # which for a lone full-bleed child is precisely what's wanted.
   term = Widget::Terminal.new(
     parent: window,
-    top: 0, left: 0, width: "100%", height: "100%",
     shell: shell, args: args,
   )
 
