@@ -15,12 +15,11 @@ module Crysterm
       # state to carry.
       #
       # Paints its interior straight into the window's cell buffer as packed
-      # `Int64` attrs (each fg a direct `0xRRGGBB`, via `Colors.hsv_i`) — see
-      # `Effect::Direct` — avoiding a tagged-content round-trip and per-frame tag
-      # re-parse. Reads its size lazily each frame (tracking resize and
-      # `%`-relative sizing). Call `#start` to spawn the render fiber and
-      # `#stop` to halt it. `#step` (state only) is public so the effect can
-      # instead be advanced from an external clock.
+      # `Int64` attrs (each fg a direct `0xRRGGBB`, via `Colors.hsv_i`), avoiding
+      # a tagged-content round-trip and per-frame tag re-parse. Reads its size
+      # lazily each frame, tracking resize and `%`-relative sizing. `#start`
+      # spawns the render fiber, `#stop` halts it. `#step` (state only) is public
+      # so the effect can instead be advanced from an external clock.
       #
       # ```
       # plasma = Widget::Effect::Plasma.new parent: window, width: "100%", height: "100%"
@@ -76,11 +75,10 @@ module Crysterm
         @sin_y = [] of Float64
         @sin_d = [] of Float64
 
-        # Frame the sine tables currently hold (`-1` = never filled). The tables
-        # are refilled lazily on the first `#cell` of a new frame, so they stay
-        # correct even when `#cell` is driven directly (bypassing the
-        # `#resize`/`#advance` render lifecycle), and are filled only once per
-        # painted frame.
+        # Frame the sine tables currently hold (`-1` = never filled). Refilled
+        # lazily on the first `#cell` of a new frame, so they stay correct even
+        # when `#cell` is driven directly, bypassing the `#resize`/`#advance`
+        # lifecycle, and are filled only once per painted frame.
         @wave_frame : Int64 = -1
 
         def initialize(
@@ -99,15 +97,13 @@ module Crysterm
         end
 
         # Advance the clock. The per-frame sine tables are refilled lazily on the
-        # first `#cell` of the new frame (see `#ensure_tables`), so a frame that
-        # is never painted does no table work.
+        # first `#cell` of the new frame, so an unpainted frame does no table work.
         def advance(w, h)
           @frame += 1
         end
 
-        # `Effect::Direct` hook: (re)build the distance table and (re)size the
-        # sine tables for a *w*×*h* interior. The sine values are (re)filled on
-        # next use.
+        # (Re)builds the distance table and (re)sizes the sine tables for a
+        # *w*×*h* interior. The sine values are (re)filled on next use.
         def resize(w, h)
           build_tables w, h
         end
@@ -115,7 +111,7 @@ module Crysterm
         # Glyph + packed `0xRRGGBB` colour for interior cell `{x, y}`. The three
         # position-separable wave terms are table lookups; only the radial term
         # (which folds in the per-frame phase `f`) is still a `Math.sin`, over the
-        # precomputed distance. Summation order matches the original exactly.
+        # precomputed distance.
         def cell(x, y, w, h) : {Char, Int32}
           ensure_tables w, h
           f = @frame * @speed
@@ -127,12 +123,11 @@ module Crysterm
           {@glyph, Colors.hsv_i(hue, @saturation, @brightness)}
         end
 
-        # Ensure the distance table matches the interior size and the sine tables
-        # hold the current frame, rebuilding/refilling only when the size or frame
-        # changed. Keeps `#cell` a pure function of (position, size, frame, params)
-        # even when driven directly (tests / an external clock) without the normal
-        # `#resize`+`#advance` lifecycle, while still filling the tables just once
-        # per painted frame on the hot path.
+        # Ensures the distance table matches the interior size and the sine tables
+        # hold the current frame, rebuilding only on a size or frame change. Keeps
+        # `#cell` a pure function of (position, size, frame, params) even when
+        # driven without the `#resize`+`#advance` lifecycle, while still filling
+        # the tables just once per painted frame.
         private def ensure_tables(w, h)
           build_tables(w, h) if @dist.size != w * h || @sin_x.size != w || @sin_y.size != h
           if @wave_frame != @frame
@@ -157,10 +152,9 @@ module Crysterm
           @wave_frame = -1
         end
 
-        # Fill the three sine tables at the current frame. Bit-identical to the
-        # inline `Math.sin(...)` terms `#cell` would otherwise compute: the same
-        # expressions, evaluated once per row/column/diagonal instead of once per
-        # cell.
+        # Fills the three sine tables at the current frame: the terms `#cell`
+        # would otherwise compute inline, evaluated once per row/column/diagonal
+        # instead of once per cell.
         private def fill_wave_tables(w, h)
           f = @frame * @speed
           w.times { |x| @sin_x[x] = Math.sin(x * @freq_x + f) }

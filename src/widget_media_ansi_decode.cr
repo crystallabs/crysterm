@@ -9,8 +9,8 @@ module Crysterm
       # no newlines at all; the layout is done entirely with cursor positioning).
       ANSI_ART_RE = /\.(ans|asc|nfo|diz|ansi)$/i
 
-      # CP437 (DOS OEM) high half, `0x80..0xFF` -> Unicode codepoints. Ported from
-      # blessed's `singlebyte.js`. The low half (`0x20..0x7E`) is plain ASCII.
+      # CP437 (DOS OEM) high half, `0x80..0xFF` -> Unicode codepoints. The low
+      # half (`0x20..0x7E`) is plain ASCII.
       CP437_HIGH = [
         0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7,
         0x00EA, 0x00EB, 0x00E8, 0x00EF, 0x00EE, 0x00EC, 0x00C4, 0x00C5,
@@ -53,13 +53,12 @@ module Crysterm
       end
 
       # Parses the `;`- or `:`-separated decimal CSI parameters in `data[ps...j]`
-      # (digits plus the `;`/`:` separators) directly into the reused *into*
-      # array — one entry per field, an empty field yielding `0` — instead of
-      # `String.new + split + map` per sequence. The parallel *colons* array
-      # records, per field, whether the separator preceding it was a ':' (the
-      # ISO 8613-6 / ITU T.416 sub-parameter separator) so extended-colour
-      # selectors can tell `38:2::r:g:b` (colon form, with colorspace-id) from
-      # `38;2;r;g;b`. Matches `"…".split(/[;:]/).map { |p| p.empty? ? 0 : p.to_i }`.
+      # into the reused *into* array — one entry per field, an empty field
+      # yielding `0` — instead of a `String.new + split + map` per sequence.
+      # The parallel *colons* array records, per field, whether the separator
+      # before it was a ':' (the ISO 8613-6 / ITU T.416 sub-parameter separator),
+      # so extended-colour selectors can tell `38:2::r:g:b` from `38;2;r;g;b`.
+      # Matches `"…".split(/[;:]/).map { |p| p.empty? ? 0 : p.to_i }`.
       private def self.parse_csi_params(data : Bytes, ps : Int32, j : Int32, into : Array(Int32), colons : Array(Bool)) : Array(Int32)
         into.clear
         colons.clear
@@ -74,12 +73,11 @@ module Crysterm
             cur = 0
             sep_colon = (b == 0x3A)
           elsif 0x30 <= b <= 0x39
-            # Saturate instead of overflowing: a pathological digit run (a
-            # corrupt/oversized parameter) would otherwise raise `OverflowError`
-            # on `cur * 10` and abort the whole decode — defeating the range
-            # clamping (`clampx`/`clampy`) every consumer already applies. The
-            # cap is far above any real CSI parameter and keeps `cur * 10` in
-            # `Int32` range.
+            # Saturate instead of overflowing: a pathological digit run would
+            # otherwise raise `OverflowError` on `cur * 10` and abort the whole
+            # decode, defeating the clamping (`clampx`/`clampy`) every consumer
+            # applies. The cap is far above any real CSI parameter and keeps
+            # `cur * 10` in `Int32` range.
             cur = cur < 100_000_000 ? cur * 10 + (b - 0x30) : cur
           end
           k += 1
@@ -174,13 +172,12 @@ module Crysterm
       # Decodes BBS / "textmode" ANSI art (*data*: CP437 bytes + ANSI escapes)
       # into a pixel bitmap, wrapped as a still `PNGGIF::PNG` so the ordinary
       # Media output backends (Ansi/Glyph/Sixel/Kitty/…) render it like any other
-      # image. This is an **input decoder**, a peer of `PNGGIF` — it never
-      # writes to the terminal itself.
+      # image. An **input decoder**, a peer of `PNGGIF` — it never writes to the
+      # terminal itself.
       #
-      # Runs a small self-contained ANSI interpreter (no terminal/emulator): a
-      # 2D cell grid is built honoring SGR colour/bold and cursor motion
-      # (CUP/CUU/CUD/CUF/CUB, CR/LF, ED), then each cell is rasterized with the
-      # bitmap `Font`.
+      # Runs a small self-contained ANSI interpreter (no terminal/emulator): a 2D
+      # cell grid honoring SGR colour/bold and cursor motion (CUP/CUU/CUD/CUF/CUB,
+      # CR/LF, ED), then each cell is rasterized with the bitmap `Font`.
       # ameba:disable Metrics/CyclomaticComplexity
       def self.decode_ansi(data : Bytes, font : Font = Font.default_normal) : PNGGIF::PNG
         # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright, reverse}
@@ -302,10 +299,9 @@ module Crysterm
         rows = {maxy + 1, 1}.max
 
         # Rasterize a small pixel-block per art cell (not the full 8x16 glyph,
-        # since output backends nearest-neighbour-downsample the bitmap, which
-        # would shred a high-res text image). Each sub-pixel is the glyph's
-        # fg/bg blended by the *coverage* (ink fraction) of the glyph region it
-        # maps to.
+        # since output backends nearest-neighbour-downsample the bitmap and would
+        # shred a high-res text image). Each sub-pixel is the glyph's fg/bg
+        # blended by the *coverage* (ink fraction) of the glyph region it maps to.
         #
         # Two resolutions, chosen by `media.ansi_art_detail`:
         #   * on (default): 2x4 per cell — enough sub-cell structure for the Glyph
@@ -313,7 +309,7 @@ module Crysterm
         #   * off: 1x2 per cell — one averaged colour; softer, but cleaner under
         #     the Ansi backend and at 1:1 (nothing to alias).
         #
-        # Block is 1-wide x 2-tall per sub-pixel-column scaled, so after the cell
+        # Each sub-pixel column is 1-wide x 2-tall scaled, so after the cell
         # backends' ~2:1 aspect correction, native size is the art's `cols`x`rows`
         # grid — "1:1" is one art cell per terminal cell.
         detail = Crysterm::Config.media_ansi_art_detail

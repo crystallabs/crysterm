@@ -15,9 +15,7 @@ module Crysterm
       # <body editor>
       # ```
       #
-      # Move between fields with Tab / Shift-Tab (the `Screen`'s built-in focus
-      # navigation). Each header field is a `Widget::LineEdit`; the body is a
-      # `Widget::PlainTextEdit`. Values are exposed via `#values` for the demo.
+      # Move between fields with Tab / Shift-Tab, or Up / Down.
       #
       # <!-- widget-examples:capture v1 -->
       # ![Compose screenshot](../../../tests/widget/pine/compose/compose.5s.apng)
@@ -35,17 +33,14 @@ module Crysterm
         def initialize(**box)
           super **box
 
-          # Three vertical bands via `VBox`: header, separator, body. Header and
-          # separator have fixed heights, so the body (no explicit height) fills
-          # the rest. Set the ivar directly (not `self.layout=`) so it's in place
-          # before children are appended below.
+          # Header, separator, body; the body has no explicit height, so it takes
+          # the leftover space. Assigned to the ivar so it is in place before the
+          # children below are appended.
           @layout = Crysterm::Layout::VBox.new
 
           label_style = Style.new bold: true
 
-          # Two-column form: fixed 10-wide label column (no gap), field column
-          # fills the rest. `Form` pairs appended children (label, field, label,
-          # field, …) into rows.
+          # `Form` pairs appended children (label, field, label, field, …) into rows.
           header = Widget::Box.new(
             window: window,
             height: FIELD_NAMES.size,
@@ -66,15 +61,12 @@ module Crysterm
               content: "",
             )
             # In a header field, Enter advances to the next field (Pine), not
-            # "submit-and-return": don't rewind focus on read completion, and turn
-            # the resulting `Submit` into a Tab. The body keeps Enter as a newline
-            # (it emits no `Submit`).
+            # "submit-and-return". The body keeps Enter as a newline.
             input.rewind_on_done = false
             input.on(::Crysterm::Event::Submit) do
               window.emit ::Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Tab)
             end
-            # Up/Down move between fields (not input history) — single-line, no
-            # in-field vertical movement to preserve.
+            # Up/Down move between fields rather than through input history.
             input.history_keys = false
 
             @fields[name.downcase] = input
@@ -92,8 +84,6 @@ module Crysterm
           )
           append separator
 
-          # No explicit height: `VBox` hands it the leftover space below the
-          # separator.
           body = Widget::PlainTextEdit.new(
             window: window,
             input_on_focus: true,
@@ -106,8 +96,7 @@ module Crysterm
         end
 
         # Up/Down move between the composer's controls (Pine convention). In the
-        # multi-line body, Up only leaves (to the previous control) when the
-        # caret is already on the first line — otherwise it moves within the text.
+        # body, Up leaves only when the caret is already on the first line.
         private def wire_vertical_field_navigation
           order = focus_order
           order.each_with_index do |w, i|
@@ -136,8 +125,7 @@ module Crysterm
           order
         end
 
-        # Whether the body's caret sits on its first line, so Up should leave the
-        # body rather than move within it.
+        # Whether the body's caret sits on its first line.
         private def body_at_top? : Bool
           body.value[0, body.cursor_pos].count('\n') == 0
         end
@@ -147,9 +135,7 @@ module Crysterm
           @fields["to"]?.try &.focus
         end
 
-        # Whether *w* is one of this composer's header input fields (for a host
-        # that wants Enter to advance between fields like Tab, leaving the body's
-        # Enter as a newline).
+        # Whether *w* is one of this composer's header input fields.
         def header_field?(w) : Bool
           @fields.each_value.includes? w
         end
@@ -163,11 +149,8 @@ module Crysterm
         # Clears every field and the body.
         def reset
           @fields.each_value &.value = ""
-          # Clear through the document (`DocumentBuffer#value=` →
-          # `document.set_plain_text("")`, caret rewound): `set_content ""`
-          # only blanks the display, so the first keystroke would re-`set_content`
-          # the stale document text (old body resurrecting) and `values["body"]`
-          # would still report it.
+          # Clear through the document: `set_content ""` only blanks the display,
+          # leaving the document text stale.
           body.value = ""
         end
 

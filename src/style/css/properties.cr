@@ -5,18 +5,16 @@ module Crysterm
     # Property names that have a clean CSS analog use that analog (`color`,
     # `background-color`, `font-weight`, ...). Where there is no standard CSS
     # property, a pragmatic spelling is chosen — e.g. reverse-video maps to
-    # `text-decoration: reverse`, chrome glyphs to the `glyph` family
-    # (GLYPHS.md §3), and the fill characters to `fill-char` & co.
+    # `text-decoration: reverse`, chrome glyphs to the `glyph` family, and the
+    # fill characters to `fill-char` & co.
     module Properties
       # Applies a single `property: value` declaration onto *style*. Unknown
       # properties are ignored, matching CSS's forgiving behavior.
       #
       # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(style : Style, property : String, value : String) : Nil
-        # CSS property names are case-insensitive, so match on a lower-cased
-        # name (`COLOR` == `color`). Custom properties (`--Foo`) are *case-
-        # sensitive* and aren't handled by this `case` anyway, so they're left
-        # untouched.
+        # CSS property names are case-insensitive (`COLOR` == `color`); custom
+        # properties (`--Foo`) are case-*sensitive* and stay untouched.
         prop = Case.fold_property(property)
         return apply_border(style, prop, value) if prop.starts_with?("border")
 
@@ -27,57 +25,44 @@ module Crysterm
           with_color(value, style.fg) { |c| style.bg = c }
         when "alternate-background-color"
           # Background of every other row in a `Table`/`ListTable` with
-          # `alternate_rows` on (Qt's property). Lives in the `alternate_row` sub-style.
+          # `alternate_rows` on (Qt's property).
           with_color(value, style.fg) { |c| style.alternate_background = c }
         when "gridline-color"
           # Color of a table's internal gridlines (Qt's `gridline-color`).
           with_color(value, style.fg) { |c| style.gridline_color = c }
         when "selection-color", "selection-background-color"
           # Selected-item colors. These target a *different* `Style` (the
-          # `:selected` state), so they can't be applied to *this* style here —
-          # the cascade rewrites them onto the selected state (see
-          # `Cascade#selection_entries`). Named here only so they're not treated
-          # as unknown; the value is consumed there.
+          # `:selected` state), so the cascade rewrites them onto it; named here
+          # only so they're not treated as unknown.
         when "background"
           # `background` shorthand: pulls out the color *and* a `url(...)` image.
           # Per CSS shorthand semantics, no `url(...)` clears any prior
-          # `background-image`. (position/repeat and `/size` are not parsed from
-          # the shorthand yet; use `background-size` longhand for scaling.)
+          # `background-image`. (position/repeat and `/size` aren't parsed from
+          # the shorthand; use the `background-size` longhand for scaling.)
           #
-          # A blank value (collapsed undefined `var(--x)`) is dropped rather than
-          # treated as a reset, per CSS's "drop the invalid declaration" rule —
-          # otherwise it would silently clear a `background-image` a lower-priority
-          # rule had set. Mirrors the same guard on the
-          # `font`/`text-decoration`/`padding`/`margin`/`box-shadow` shorthands.
+          # A blank value (collapsed undefined `var(--x)`) is dropped, not
+          # treated as a reset, per CSS's "drop the invalid declaration" rule.
           unless value.blank?
             parse_background_color(value, style.fg).try { |color| style.bg = color }
             style.background_image = parse_background_image(value)
           end
         when "background-image"
-          # `none` (or any value without `url(...)`) clears it; a blank value
-          # (collapsed undefined `var(--x)`) is dropped instead, per CSS's "drop
-          # the invalid declaration" rule, leaving a previously-cascaded image
-          # intact. Same guard as the `background` shorthand above.
+          # `none` (or any value without `url(...)`) clears it; a blank value is
+          # dropped, leaving a previously-cascaded image intact.
           style.background_image = parse_background_image(value) unless value.blank?
         when "background-size"
-          # Drop a blank value rather than resetting the size: `parse_background_size("")`
-          # matches no keyword and falls through to its `Cover` default, which would
-          # clobber a lower-priority rule's value *and* mark it `specified?`
-          # (polluting cascade inheritance). Same blank-guard as `background-image`.
+          # A blank value is dropped: `parse_background_size("")` would fall
+          # through to its `Cover` default, clobbering a lower-priority rule and
+          # marking it `specified?`.
           style.background_size = parse_background_size(value) unless value.blank?
         when "font"
-          # `font` shorthand: only the weight/style words matter here. Weight is
-          # recognized exactly as the `font-weight` longhand (`font_weight_bold`),
-          # so numeric/relative CSS weights count too (`font: 700 14px serif` /
-          # `bolder` are bold, not just the literal `bold` keyword). `oblique`
-          # slants like `italic`.
+          # `font` shorthand: only the weight/style words matter. Weight is
+          # recognized exactly as the `font-weight` longhand, so numeric/relative
+          # CSS weights count too (`font: 700 14px serif` / `bolder` are bold);
+          # `oblique` slants like `italic`.
           #
-          # A blank value (collapsed undefined `var(--x)`) is dropped rather than
-          # treated as a reset, per CSS's "drop the invalid declaration" rule:
-          # `"".split` would hard-reset bold/italic to false, clobbering a
-          # lower-priority rule. The `font-weight`/`font-style` longhands already
-          # preserve the current value on blank/unknown input; this mirrors that,
-          # and the same guard already on `color`/`z-index`/`visibility`/`display`.
+          # A blank value is dropped, per CSS's "drop the invalid declaration"
+          # rule: `"".split` would hard-reset bold/italic to false.
           unless value.blank?
             words = Case.fold_keyword(value).split
             style.bold = words.any? { |w| font_weight_bold(w, false) }
@@ -87,70 +72,56 @@ module Crysterm
           style.bold = font_weight_bold(value, style.bold?)
         when "font-style"
           # `italic`/`oblique` both map to the terminal's single slant attribute;
-          # `normal` clears it, matching the `font` shorthand's treatment of
-          # `oblique` above. An unrecognized value leaves the slant unchanged.
+          # `normal` clears it. An unrecognized value leaves the slant unchanged.
           style.italic = font_style_italic(value, style.italic?)
         when "text-decoration"
-          # A blank value (collapsed undefined `var(--x)`) is dropped rather than
-          # treated as a reset, per CSS's "drop the invalid declaration" rule:
-          # `"".split` would hard-reset underline/blink/strike/reverse to false,
-          # clobbering a lower-priority rule. Same guard as the `font` shorthand
-          # and the `color`/`z-index`/`visibility`/`display` properties.
+          # A blank value is dropped, per CSS's "drop the invalid declaration"
+          # rule: `"".split` would hard-reset underline/blink/strike/reverse.
           unless value.blank?
             words = Case.fold_keyword(value).split
             style.underline = words.includes?("underline")
             style.blink = words.includes?("blink")
-            # `line-through` maps to the terminal's strikethrough (`Style#strike` / SGR 9).
+            # `line-through` maps to the terminal's strikethrough (SGR 9).
             style.strike = words.includes?("line-through")
             # `reverse` (alias `inverse`) maps to reverse-video — the classic TUI
-            # selection/highlight look, with no standard CSS spelling.
+            # highlight look, with no standard CSS spelling.
             style.reverse = words.includes?("reverse") || words.includes?("inverse")
           end
         when "visibility"
-          # Only recognized keywords act; any other value (typo, or a `var(--x)`
-          # collapsed to "") is ignored, per CSS's "drop the invalid declaration"
-          # rule — leaves previously-cascaded visibility intact rather than
-          # un-hiding a widget a lower-priority rule had hidden. `collapse` hides
-          # like `hidden`.
+          # Only recognized keywords act; any other value is ignored, per CSS's
+          # "drop the invalid declaration" rule, leaving previously-cascaded
+          # visibility intact. `collapse` hides like `hidden`.
           case Case.fold_keyword(value.strip)
           when "visible"            then style.visible = true
           when "hidden", "collapse" then style.visible = false
           end
         when "display"
           # As with `visibility`: `none` hides, any other non-empty value shows.
-          # A blank value (e.g. collapsed `var()`) is ignored rather than forcing
-          # `visible = true`, which would un-hide a widget `display: none` had hidden.
+          # A blank value is ignored rather than forcing `visible = true`.
           v = Case.fold_keyword(value.strip)
           style.visible = (v != "none") unless v.empty?
         when "opacity"
           # CSS `opacity` is a `<number>` *or* a `<percentage>` (`opacity: 0.5`
           # == `opacity: 50%`, per CSS Color 4), clamped into `[0, 1]` since an
-          # out-of-range value would flow straight into `Colors.blend` as a bad
-          # mix factor. `parse_opacity` reads a trailing `%` and scales it
-          # (plain `to_f?` would drop the percentage form).
+          # out-of-range value would reach `Colors.blend` as a bad mix factor.
           parse_opacity(value).try { |num| style.alpha = num.clamp(0.0, 1.0) }
         when "tab-size"
           # Only a value resolving to a cell count sets the tab width; an
-          # unparseable value (typo, or collapsed `var(--x)`) is dropped, per
-          # CSS's "drop the invalid declaration" rule, leaving the previous (or
-          # default `4`) tab width intact. A negative count is invalid too and is
-          # dropped: `tab_char * tab_size` in the render path raises
-          # `ArgumentError("Negative argument")` on a negative count.
+          # unparseable one is dropped, leaving the previous width intact. A
+          # negative count is dropped too — `tab_char * tab_size` in the render
+          # path raises on it.
           Length.to_cells(value).try { |c| style.tab_size = c if c >= 0 }
         when "box-shadow"
-          # Drop a blank value (collapsed undefined `var(--x)`) rather than
-          # enabling a default drop shadow: `parse_box_shadow("")` would find
-          # neither `none` nor an alpha and return `Shadow.from(true)`, silently
-          # switching a shadow on from nothing.
+          # A blank value is dropped rather than enabling a default drop shadow:
+          # `parse_box_shadow("")` finds neither `none` nor an alpha and returns
+          # `Shadow.from(true)`.
           style.shadow = parse_box_shadow(value) unless value.blank?
         when "tint"
           parse_tint(style, value)
         when "z-index"
-          # `auto` clears it (back to the base layer). An unparseable value
-          # (typo, or collapsed `var(--x)`) is ignored, per CSS's "drop the
-          # invalid declaration" rule, rather than clearing a z-index a
-          # lower-priority rule had set (e.g. a theme's `Menu { z-index: 10 }`
-          # overlay promotion).
+          # `auto` clears it (back to the base layer). An unparseable value is
+          # ignored rather than clearing a z-index a lower-priority rule set
+          # (e.g. a theme's `Menu { z-index: 10 }` overlay promotion).
           if Case.fold_keyword(value.strip) == "auto"
             style.z_index = nil
           else
@@ -161,11 +132,10 @@ module Crysterm
         when "animation"
           style.animation = parse_animation(value)
         when "glyph"
-          # Chrome-glyph override for the site this style lands on — see
-          # GLYPHS.md §3. `none` stores the `Glyphs::NONE_STR` sentinel (omit
-          # on run roles, registry default on cell roles); an unparseable/blank
-          # value is dropped per CSS's invalid-declaration rule. The value may
-          # be a multi-codepoint grapheme (`⚠️`) — kept whole (see `parse_glyph`).
+          # Chrome-glyph override for the site this style lands on. `none` stores
+          # the `Glyphs::NONE_STR` sentinel (omit on run roles, registry default
+          # on cell roles); an unparseable/blank value is dropped. The value may
+          # be a multi-codepoint grapheme (`⚠️`), which is kept whole.
           parse_glyph(value).try { |s| style.glyph = s }
         when "glyph-ascii" # per-tier longhands
           parse_glyph(value).try { |s| style.glyph_ascii = s }
@@ -178,10 +148,9 @@ module Crysterm
         when "glyph-close"
           parse_glyph(value).try { |s| style.glyph_close = s }
         when "glyphs"
-          # Sequence steps (GLYPHS.md §3.4): the (optionally quoted) string's
-          # characters are the frames/steps of the site's sequence role —
-          # `Loading { glyphs: "◐◓◑◒" }`. `none` clears back to the registry
-          # sequence; a blank value (collapsed `var()`) is dropped.
+          # Sequence steps: the (optionally quoted) string's characters are the
+          # frames of the site's sequence role — `Loading { glyphs: "◐◓◑◒" }`.
+          # `none` clears back to the registry sequence; a blank value is dropped.
           v = value.strip
           unless v.blank?
             if Case.fold_keyword(v) == "none"
@@ -192,12 +161,11 @@ module Crysterm
             end
           end
         when "shadow-char-horizontal"
-          # CSS spellings for the half-block (thin) shadow glyphs (GLYPHS.md
-          # §3.3) — the `Shadow` axis/diagonal groups and per-corner overrides
-          # (`Shadow#horizontal_char` …). `none` clears a glyph back to the
-          # plain full-cell alpha blend; a wide char is dropped (a shadow cell
-          # is one column). These only pick the glyphs — `box-shadow` still
-          # switches the shadow itself on.
+          # CSS spellings for the half-block (thin) shadow glyphs — the `Shadow`
+          # axis/diagonal groups and per-corner overrides. `none` clears a glyph
+          # back to the plain full-cell alpha blend; a wide char is dropped (a
+          # shadow cell is one column). These only pick the glyphs — `box-shadow`
+          # still switches the shadow itself on.
           with_cell_char(value) { |c| style.shadow.horizontal_char = c }
         when "shadow-char-vertical"
           with_cell_char(value) { |c| style.shadow.vertical_char = c }
@@ -223,15 +191,11 @@ module Crysterm
         when "background-char"
           char_value(value).try { |c| style.background_char = c }
         when "padding"
-          # Drop a blank value (collapsed undefined `var(--x)`) rather than
-          # resetting padding to default — same guard as the
-          # `font`/`text-decoration` shorthands.
+          # A blank value is dropped rather than resetting padding to default.
           style.padding = parse_padding(value) unless value.blank?
         when "padding-left"
-          # Drop an unparseable/blank value (collapsed `var(--x)`) rather than
-          # hard-resetting the side to 0 (`cells` would), per CSS's "drop the
-          # invalid declaration" rule — same guard as `tab-size` and the
-          # `padding`/`margin` shorthands. Applies to all eight per-side longhands.
+          # An unparseable/blank value is dropped rather than hard-resetting the
+          # side to 0. Applies to all eight per-side longhands.
           Length.to_cells(value).try { |c| style.padding.left = c }
         when "padding-top"
           Length.to_cells(value, vertical: true).try { |c| style.padding.top = c }
@@ -240,8 +204,7 @@ module Crysterm
         when "padding-bottom"
           Length.to_cells(value, vertical: true).try { |c| style.padding.bottom = c }
         when "margin"
-          # Drop a blank value rather than resetting margin to default — same
-          # rationale as `padding` above.
+          # A blank value is dropped rather than resetting margin to default.
           style.margin = parse_margin(value) unless value.blank?
         when "margin-left"
           Length.to_cells(value).try { |c| style.margin.left = c }
@@ -284,16 +247,10 @@ module Crysterm
       # point, decimal (`9662`) or hex (`0x25BE`) — Qt's
       # `lineedit-password-character` convention; `none` yields the
       # `Glyphs::NONE` sentinel. Returns `nil` (drop the declaration) for a
-      # blank value (collapsed undefined `var(--x)`) or an out-of-range code
-      # point. Shared with `Geometry`'s `lineedit-password-character`.
+      # blank value or an out-of-range code point.
       def self.parse_char(value : String) : Char?
-        # `parse_char` is `parse_glyph` reduced to its first code point: the two
-        # share identical control flow (strip / empty / `none` sentinel / numeric
-        # code point / quote-stripped literal), differing only in the sentinel
-        # (`Glyphs::NONE` vs `Glyphs::NONE_STR == NONE.to_s`) and whether the
-        # result is the first `Char` or the whole `String`. Delegate so there is
-        # one implementation: `nil` stays `nil`, the `none` sentinel maps to the
-        # `Char` sentinel, and any other string yields its first character.
+        # `parse_glyph` reduced to its first code point: same control flow, only
+        # the sentinel (`Glyphs::NONE` vs `NONE_STR`) and the result type differ.
         case s = parse_glyph(value)
         when nil              then nil
         when Glyphs::NONE_STR then Glyphs::NONE
@@ -305,9 +262,8 @@ module Crysterm
       # *whole* grapheme instead of its first code point, so a multi-codepoint
       # value (`⚠️` = base + VS16, a flag, any combining sequence) survives into
       # `Style#glyph`. `none` yields the `Glyphs::NONE_STR` sentinel; a numeric
-      # value is still a single code point (Qt convention); a blank/collapsed
-      # `var()` yields `nil` (drop the declaration). A *cell*-role consumer
-      # later reduces the result to a lone `Char` (`Widget#glyph`).
+      # value is still a single code point (Qt convention); a blank value yields
+      # `nil`. A *cell*-role consumer later reduces the result to a lone `Char`.
       def self.parse_glyph(value : String) : String?
         v = value.strip
         return nil if v.empty?
@@ -330,9 +286,7 @@ module Crysterm
       # Resolves a single-cell-char CSS value and yields the char to assign:
       # `none` yields `nil` (clear the glyph), a one-column char yields itself,
       # and an unparseable or wide value is dropped (no yield), per CSS's
-      # invalid-declaration rule. Shared by the `shadow-char-*` longhands (clear
-      # → full-cell blend) and `apply_border_char` (clear → the border type's
-      # normal glyph source).
+      # invalid-declaration rule.
       private def self.with_cell_char(value : String, & : Char? ->) : Nil
         return unless c = parse_char(value)
         if c == Glyphs::NONE
@@ -344,10 +298,8 @@ module Crysterm
 
       # Splits a multi-token shorthand value on top-level whitespace, keeping a
       # function's parenthesized argument list intact so a color function with
-      # internal spaces/commas (`rgb(30, 30, 46)`, `hsl(210, 50%, 40%)`) survives
-      # as one token instead of being shredded by a plain `String#split` (which
-      # would break the color out of `background: rgb(30, 30, 46) url(x.png)`).
-      # Whitespace inside `(...)` stays in the token; `url(...)` tokenizes as before.
+      # internal spaces/commas (`rgb(30, 30, 46)`) survives as one token rather
+      # than being shredded by a plain `String#split`.
       private def self.split_top_level(value : String) : Array(String)
         tokens = [] of String
         depth = 0
@@ -406,9 +358,7 @@ module Crysterm
       # (preserve aspect, fill, crop) is both the keyword and the fallback for
       # unrecognized input; `100% 100%` is the CSS spelling of a full stretch.
       # CSS is whitespace-insensitive between component values, so the two `100%`
-      # tokens are tokenized rather than matched byte-for-byte (extra spaces, a
-      # tab, or a newline from a wrapped/var()-composed value must not degrade
-      # the stretch to a crop).
+      # tokens are tokenized rather than matched byte-for-byte.
       private def self.parse_background_size(value : String) : Style::BackgroundSize
         v = value.strip.downcase
         case v
@@ -585,9 +535,9 @@ module Crysterm
       end
 
       # Whether a token is a recognized CSS timing-function keyword (rather than an
-      # animation/keyframes name or property). Used by `parse_animation` /
-      # `parse_transition` to classify shorthand tokens by kind, so a name is not
-      # mistaken for an easing (and vice-versa).
+      # animation/keyframes name or property). Classifies the tokens of a
+      # shorthand by kind, so a name is not mistaken for an easing (and
+      # vice-versa).
       private def self.easing?(name : String) : Bool
         case Case.fold_keyword(name)
         when "linear", "ease", "ease-in", "ease-out", "ease-in-out" then true
@@ -682,8 +632,8 @@ module Crysterm
         end
       end
 
-      # A `border-<position>-char` longhand (GLYPHS.md §3.3): sets one border
-      # char override. `none` clears the override back to the type's normal
+      # A `border-<position>-char` longhand: sets one border char override.
+      # `none` clears the override back to the type's normal
       # glyph source (registry family / `fill_char`); an unparseable value —
       # or one that isn't exactly one column (a border cell must be) — is
       # dropped, per CSS's invalid-declaration rule.
@@ -691,7 +641,7 @@ module Crysterm
         with_cell_char(value) { |c| border.set_char position, c }
       end
 
-      # The `border-chars` shorthand (GLYPHS.md §3.3): six chars in
+      # The `border-chars` shorthand: six chars in
       # `tl tr bl br h v` order (`border-chars: "╭" "╮" "╰" "╯" "─" "│"`),
       # three for the `corner h v` groups, or one for everything. Each token
       # follows `apply_border_char`'s rules (`none` clears a position); a

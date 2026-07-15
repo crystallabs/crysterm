@@ -15,10 +15,10 @@ module Crysterm
     # Computed per-column widths, filled in by `#calculate_maxes`.
     @maxes = [] of Int32
 
-    # Whether `@maxes` needs recomputing. `#calculate_maxes` runs on every
-    # `render` but only depends on `@rows`, `@width` and `@pad`, which change
-    # exclusively through `#rows=` and `#pad=` (both set this). Skips the
-    # per-frame re-scan of every cell when nothing relevant changed.
+    # Whether `@maxes` needs recomputing. `#calculate_maxes` runs every `render`
+    # but depends only on `@rows`, `@width` and `@pad`, which change exclusively
+    # through `#rows=` and `#pad=` — both of which set this. Skips the per-frame
+    # re-scan of every cell when nothing relevant changed.
     @maxes_dirty : Bool = true
 
     # Extra padding added to each column when the table is sized to its
@@ -32,8 +32,7 @@ module Crysterm
     end
 
     # Marks the cached column widths (`@maxes`) stale so the next
-    # `#calculate_maxes` recomputes them. Called by the table widgets from
-    # `#rows=`.
+    # `#calculate_maxes` recomputes them.
     def invalidate_maxes
       @maxes_dirty = true
     end
@@ -47,10 +46,10 @@ module Crysterm
     property? fill_cell_borders : Bool = false
 
     # Horizontal alignment of cell text *within its column*. Kept separate from
-    # the widget's own `@align`: for `Table`, box align must stay top-left so
-    # it doesn't pad every line to the full box width and defeat
-    # shrink-to-content sizing; for `ListTable`, it decouples cell alignment
-    # from list-item alignment. Applied in `#pad_cell`.
+    # the widget's own `@align`: for `Table`, box align must stay top-left so it
+    # doesn't pad every line to the full box width and defeat shrink-to-content
+    # sizing; for `ListTable`, it decouples cell alignment from list-item
+    # alignment.
     # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
 
@@ -81,12 +80,11 @@ module Crysterm
       # `#row_width` exactly (`maxes.sum + maxes.size`).
       min_row = maxes.sum + maxes.size
 
-      # Columns fill the box interior (inside border/padding), so slack is
+      # Columns fill the box interior (inside border/padding), so slack must be
       # distributed against `@width - ihorizontal`, not the full outer `@width`.
-      # Targeting the full width would leave `row_width` one short, causing
-      # `Table#rows=`'s `@width = row_width + ihorizontal` to grow the table by
-      # `ihorizontal - 1` columns per call — a feedback loop widening the table
-      # beyond what was requested.
+      # Targeting the full width leaves `row_width` one short, and `Table#rows=`'s
+      # `@width = row_width + ihorizontal` then grows the table by `ihorizontal -
+      # 1` columns per call — a feedback loop.
       if (inner = numeric_inner_width) && inner >= min_row
         missing = inner - min_row
         per = missing // maxes.size
@@ -118,9 +116,9 @@ module Crysterm
     # Renders one row of cells into a string, padding each cell to its column
     # width and separating columns with a single space.
     #
-    # *first_col* drops the leading columns (used by `ListTable`'s column-level
-    # horizontal scroll); the default `0` renders the whole row. The emitted row
-    # begins at column *first_col* with no leading separator.
+    # *first_col* drops the leading columns; the default `0` renders the whole
+    # row. The emitted row begins at column *first_col* with no leading
+    # separator.
     #
     # A trailing space is appended so the row is one column wider than its
     # visible content: `Widget#_render`'s draw loop (`while x < xl - 1`) never
@@ -147,8 +145,7 @@ module Crysterm
 
     # Display column at which each table column *starts* in a full `#render_row`
     # output: `offsets[c] = @maxes[0...c].sum + c` (`+ c` for the one-column
-    # separators before it). Used by `ListTable` to snap the horizontal scroll
-    # offset to a column boundary. `offsets.size == @maxes.size`.
+    # separators before it). `offsets.size == @maxes.size`.
     def column_start_offsets : Array(Int32)
       offs = [] of Int32
       acc = 0
@@ -161,10 +158,8 @@ module Crysterm
 
     # Maps each interior text-column x to the `@maxes` column index it falls in,
     # packing columns left-to-right from *start_col* (inclusive) starting at
-    # display column *base_x* (the left content inset, `ileft`). Used by the
-    # table widgets to resolve a CSS per-cell style from an x position:
-    # `Table` maps every column (`start_col == 0`), `ListTable` maps from its
-    # first horizontally-visible column (`@first_col`).
+    # display column *base_x* (the left content inset, `ileft`). Resolves a
+    # per-cell CSS style from an x position.
     def col_for_x(start_col : Int32, base_x : Int32) : Hash(Int32, Int32)
       map = {} of Int32 => Int32
       cx = base_x
@@ -172,19 +167,16 @@ module Crysterm
         max = @maxes[col_i]
         (cx...cx + max).each { |xpos| map[xpos] = col_i }
         # Skip the single inter-column separator `#render_row` emits between
-        # cells (matching `#column_start_offsets`'s `acc += m + 1`). Without
-        # this `+ 1` the mapping would drift left by one cell per preceding column.
-        # The separator cell itself stays unmapped (a gridline gap).
+        # cells, or the mapping drifts left by one cell per preceding column. The
+        # separator cell itself stays unmapped (a gridline gap).
         cx += max + 1
       end
       map
     end
 
-    # Cached x→column map from `#col_for_x`, keyed on the inputs it depends
-    # on (`@maxes`, `ileft`, and *first_col*). `col_for_x` itself is cheap to
-    # call but callers (`Table#draw_borders`, `ListTable#recolor_css_cells`)
-    # run every frame, so this avoids rebuilding the `Hash` each time.
-    # Rebuilt only when `@maxes`, `ileft`, or *first_col* changes.
+    # Cached x→column map from `#col_for_x`, rebuilt only when `@maxes`, `ileft`
+    # or *first_col* changes — its callers run every frame and would otherwise
+    # rebuild the `Hash` each time.
     #
     # *first_col* is `0` for `Table` (maps every column) and `@first_col` for
     # `ListTable` (maps from its first horizontally-visible column).
@@ -205,20 +197,18 @@ module Crysterm
       cached
     end
 
-    # Pads/clips a single cell's text to `width` columns according to the
-    # widget's horizontal alignment, returning the result as a new `String`.
-    # Prefer `#pad_cell_to` on the render path, which writes straight into the
-    # row builder without this intermediate allocation; this wrapper is kept for
-    # callers/tests that want the padded cell in isolation.
+    # Pads/clips a single cell's text to `width` columns according to the widget's
+    # horizontal alignment, returning the result as a new `String`. Prefer
+    # `#pad_cell_to` on the render path, which writes straight into the row
+    # builder without this intermediate allocation.
     def pad_cell(cell : String, width : Int32) : String
       String.build { |io| pad_cell_to io, cell, width }
     end
 
-    # Writes *cell*, padded/clipped to *width* columns per the widget's
-    # horizontal alignment, straight to *io* — no per-cell `String` (and, on the
-    # clip path, no `graphemes` array / per-grapheme `String`) intermediates.
-    # This is the hot path: `#render_row` calls it per cell per row rebuild, i.e.
-    # N×M times per `#rows=` and per `ListTable` horizontal-scroll tick.
+    # Writes *cell*, padded/clipped to *width* columns per the widget's horizontal
+    # alignment, straight to *io* — no per-cell `String` (and, on the clip path,
+    # no `graphemes` array / per-grapheme `String`) intermediates. The hot path:
+    # called per cell per row rebuild, i.e. N×M times per `#rows=`.
     def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
       clen = cell_width cell
       align = cell_align
@@ -248,9 +238,8 @@ module Crysterm
         fu = full_unicode?
         if align.h_center? || align.right?
           # Keep the trailing `width` columns: drop leading graphemes until the
-          # remaining suffix fits. The suffix is maximal with width <= *width*,
-          # equivalently the smallest leading run whose width reaches
-          # `clen - width` (see the reverse-greedy proof this mirrors).
+          # remaining suffix fits. The maximal such suffix is what's left after
+          # the smallest leading run whose width reaches `clen - width`.
           drop = clen - width
           acc = 0
           start_byte = 0
@@ -275,10 +264,9 @@ module Crysterm
       rows.map { |row| row.map(&.to_s) }
     end
 
-    # Applies the optional cell-border/padding constructor options, each only
-    # when explicitly given (`nil` leaves the default). Shared by the table
-    # widgets' `#initialize`. Ivars assigned directly (not via `pad=`) since
-    # the cache is rebuilt by the following `#rows=` anyway.
+    # Applies the optional cell-border/padding constructor options, each only when
+    # explicitly given (`nil` leaves the default). Ivars are assigned directly
+    # (not via `pad=`) since the following `#rows=` rebuilds the cache anyway.
     def init_cell_options(pad, no_cell_borders, fill_cell_borders) : Nil
       pad.try { |v| @pad = v }
       no_cell_borders.try { |v| @no_cell_borders = v }
@@ -296,10 +284,9 @@ module Crysterm
       !@maxes.empty?
     end
 
-    # Interior extent of the rendered table for *coords*, shared by the border
-    # and CSS-recolor passes: the content origin (`xi`, `yi`) plus the content
-    # `width`/`height` reaching the right/bottom insets. Destructure as
-    # `xi, yi, width, height = border_extent(coords)`.
+    # Interior extent of the rendered table for *coords*: the content origin
+    # (`xi`, `yi`) plus the content `width`/`height` reaching the right/bottom
+    # insets. Destructure as `xi, yi, width, height = border_extent(coords)`.
     def border_extent(coords) : Tuple(Int32, Int32, Int32, Int32)
       {coords.xi, coords.yi, coords.xl - coords.xi - iright, coords.yl - coords.yi - ibottom}
     end
@@ -322,20 +309,19 @@ module Crysterm
     # left content origin (`coords.xi`).
     def draw_vertical_separators(line, xi : Int32, battr : Int64,
                                  start_col : Int32 = 0, width : Int32? = nil) : Nil
-      # `rx` is the pure within-content column offset (0 == first content
-      # column); the separator after column `mi` sits at content offset
-      # `sum(maxes[..mi])`. Paint it at `xi + ileft + rx`: content begins at the
-      # left inset (`ileft`), not a hardcoded one column. Using `xi + rx + 1`
-      # would assume `ileft == 1`, so a bordered+padded table would draw
-      # separators one cell short of the cells they divide.
+      # `rx` is the pure within-content column offset (0 == first content column);
+      # the separator after column `mi` sits at content offset `sum(maxes[..mi])`.
+      # Paint it at `xi + ileft + rx` — content begins at the left inset, so an
+      # `xi + rx + 1` form would assume `ileft == 1` and draw the separators of a
+      # bordered+padded table one cell short of the cells they divide.
       rx = 0
       g_v = glyph Glyphs::Role::LineVertical
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
-        # Clip against the *content* width: *width* as passed by callers is
-        # `xl - xi - iright`, which still includes the left inset the separator
-        # is painted past (`xi + ileft + rx`) — comparing bare `rx` overshot the
-        # content edge by `ileft` columns on a padded/bordered table.
+        # Clip against the *content* width: callers pass `width` as
+        # `xl - xi - iright`, which still includes the left inset the separator is
+        # painted past (`xi + ileft + rx`), so comparing bare `rx` would overshoot
+        # the content edge by `ileft` columns on a padded/bordered table.
         break if width && rx >= width - ileft
         # A separator left of the screen (negative absolute column, table
         # scrolled/positioned partly off the left edge) is skipped —

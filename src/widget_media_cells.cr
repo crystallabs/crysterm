@@ -15,20 +15,18 @@ module Crysterm
       # Memoizes a value derived from the *whole* current sample bitmap (e.g. a
       # dithered colour plane, a luminance threshold), keyed by **animation frame
       # index** (parallel to `@frame_cache`) and identity-validated against the
-      # bitmap it was computed for. The expensive whole-bitmap pass runs once per
-      # composed frame and is reused on every later render of that frame — so a
-      # looping GIF that cycles N distinct frame bitmaps hits per frame instead of
-      # thrashing on every frame change (as a single-slot memo keyed only on the
-      # current bitmap would). A still uses index 0, where its stable `@sample`
-      # gives the same reuse a single-slot memo would.
+      # bitmap it was computed for. The expensive whole-bitmap pass then runs once
+      # per composed frame and is reused on every later render of it, so a looping
+      # GIF cycling N frames hits per frame instead of thrashing on every frame
+      # change (as a single-slot memo keyed on the current bitmap would). A still
+      # uses index 0.
       #
-      # The identity check keeps it correct even if a frame index is reused with
-      # new content (streaming video pins index 0): the derived value is dropped
-      # when its bitmap no longer matches, and the owning `Media::Cells` also
-      # clears the matching entry wherever it clears `@frame_cache` (resize,
-      # reload, `bitmap=`/`reset_sample_cache`, streaming `invalidate_frame`).
-      # Memory is bounded by the frame count `@frame_cache` already accepts.
-      # Shared by `Media::Ansi` and `Media::Glyph`.
+      # The identity check keeps it correct when a frame index is reused with new
+      # content (streaming video pins index 0): the derived value is dropped once
+      # its bitmap no longer matches, and `Media::Cells` also clears the matching
+      # entry wherever it clears `@frame_cache` (resize, reload,
+      # `bitmap=`/`reset_sample_cache`, streaming `invalidate_frame`). Memory is
+      # bounded by the frame count `@frame_cache` already accepts.
       #
       # Non-generic interface so `Media::Cells` can keep a mixed list of
       # `FrameMemo(T)` in `@frame_memos` and clear them uniformly, without each
@@ -91,19 +89,18 @@ module Crysterm
         end
 
         # Only a *genuine* (multi-frame) animation drives the frame loop. A
-        # single-frame source whose `frames` is nonetheless non-nil — e.g. a
-        # 1-frame APNG (`build_apng_frames` returns its lone frame, unlike a GIF
-        # which leaves `frames` nil below 2 frames) — must be treated as a
-        # still: `Media::Base#play` bails on a single frame (never building
-        # `@src_frames`), so an errantly-set `@animated` would leave `#render`'s
-        # animation branch with no frames and nothing drawn. Matching `#play`'s
-        # `> 1` guard routes such a source through the still path instead.
+        # single-frame source whose `frames` is non-nil anyway — e.g. a 1-frame
+        # APNG, unlike a GIF, which leaves `frames` nil below 2 frames — must be
+        # treated as a still: `Media::Base#play` bails on a single frame (never
+        # building `@src_frames`), so an errant `@animated` would leave `#render`'s
+        # animation branch with no frames and nothing drawn. Mirror `#play`'s `> 1`
+        # guard so such a source takes the still path.
         fr = png.frames
-        # A live *streaming* video also needs `@animated` true even though its
-        # `source` only ever exposes a 1-frame vehicle: `Media::Base#play`
-        # plays whenever `@stream` is set, and `#render`'s animation branch
-        # reads the per-tick `@src_frames` slot the stream fills. Without this,
-        # the video would stay static with its ffmpeg subprocess left unread.
+        # A live *streaming* video needs `@animated` true even though its `source`
+        # only exposes a 1-frame vehicle: `Media::Base#play` plays whenever
+        # `@stream` is set, and `#render`'s animation branch reads the per-tick
+        # `@src_frames` slot the stream fills. Without this the video stays static
+        # with its ffmpeg subprocess left unread.
         @animated = ((!fr.nil? && fr.size > 1) || !@stream.nil?) && animate?
         on_loaded png
         play if @animated
@@ -117,10 +114,8 @@ module Crysterm
       end
 
       # A directly-injected bitmap is a single-frame still (`Media::Base#bitmap=`
-      # wraps it as a 1-frame `PNGGIF::PNG`), so clear `@animated` here — unlike
-      # the source-neutral `#reset_sample_cache`, which `#fit=` also calls and
-      # which must NOT stop a running animation (clearing it there froze a playing
-      # GIF the moment `fit=` was assigned).
+      # wraps it as a 1-frame `PNGGIF::PNG`), so clear `@animated` here rather
+      # than in the source-neutral `#reset_sample_cache`.
       def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
         @animated = false
         super
@@ -135,8 +130,8 @@ module Crysterm
 
       # Hook: a subclass memoizes data derived from the *whole* composed frame
       # bitmap (a dither plane, a luminance threshold) in a `FrameMemo`, keyed by
-      # animation frame index in lockstep with `@frame_cache`. Called at every
-      # point `@frame_cache` is invalidated so the derived data can never outlive
+      # animation frame index in lockstep with `@frame_cache`. Must be called
+      # everywhere `@frame_cache` is invalidated, so derived data can never outlive
       # the frame it was computed for. *idx* `nil` drops every frame's derived
       # data; a value drops only that frame's. No-op by default; a backend with a
       # `FrameMemo` overrides this and delegates to `#clear_frame_memo`.
@@ -158,9 +153,9 @@ module Crysterm
       # Drops the per-size sample so the next render re-derives it. Source-neutral:
       # called both when the source content changes (`Media::Base#bitmap=`, live
       # `Graph::Canvas` updates) and when only the fit changes (`Media::Base#fit=`),
-      # so it must NOT touch `@animated` — clearing it here froze a playing
-      # animation the instant `fit=` was assigned. The call sites that actually
-      # replace the source clear `@animated` themselves (`#bitmap=`, `#clear_image`).
+      # so it must NOT touch `@animated` — doing so would freeze a playing
+      # animation the instant `fit=` is assigned. The call sites that replace the
+      # source clear `@animated` themselves (`#bitmap=`, `#clear_image`).
       protected def reset_sample_cache : Nil
         @frame_cache.clear
         clear_frame_derived
@@ -175,7 +170,7 @@ module Crysterm
 
       # Samples *img* into a bitmap for a *cols*×*rows* content box. *frame* is the
       # source frame to sample for animation, or `nil` for a still. Subclasses pick
-      # the resolution (e.g. ×sub-grid) and cell aspect; see `Media::Fitting`.
+      # the resolution (e.g. ×sub-grid) and cell aspect.
       protected abstract def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32,
                                      frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
 
@@ -186,8 +181,7 @@ module Crysterm
       # alpha *a*: `<= 0` leaves the cell untouched (fully transparent, e.g. a
       # letterbox margin), `>= 1` overwrites opaquely, in between blends both
       # colors (keeping the underlying glyph when this cell would only draw a
-      # space). Shared primitive behind `Media::Ansi#paint_cell` and
-      # `Media::Glyph`'s sub-cell painters.
+      # space).
       protected def blend_cell(cell, char : Char, attr : Int64, a : Float64) : Nil
         return if a <= 0.0
         if a < 1.0

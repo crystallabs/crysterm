@@ -31,9 +31,7 @@ module Crysterm
     # ![Gauge screenshot](../../tests/widget/gauge/gauge.5s.apng)
     # <!-- /widget-examples:capture -->
     class Gauge < Box
-      # Float-valued `#span`/`#percent_of` helpers (shared with `GaugeList`).
       include Mixin::PercentRange
-      # `%p`/`%v`/`%m`/`%M` template expansion (shared with `ProgressBar`).
       include Mixin::RangeText
 
       # One colored slice of a stacked gauge.
@@ -72,17 +70,12 @@ module Crysterm
       # gauge renders as a stack and `#value` is ignored.
       getter segments : Array(Segment)?
 
-      # Bumped whenever `#segments` is replaced, so `#render`'s content-cache key
-      # can detect a stacked-data change with a cheap integer compare instead of
-      # snapshotting the array (an `@segments.dup` per frame). Callers that mutate
-      # the array in place should assign a fresh/updated array through `#segments=`
-      # (or bump via that setter) for the change to register.
+      # Bumped whenever `#segments` is replaced, so the content cache can detect a
+      # stacked-data change with a cheap integer compare. Callers that mutate the
+      # array in place must reassign through `#segments=` to register.
       @segments_version = 0
 
-      # Replaces the stacked segments, bumping `@segments_version` so the next
-      # `#render` rebuilds the cached content, and scheduling that render so the
-      # new data actually appears (as `#value=` does) instead of waiting for an
-      # unrelated frame to repaint.
+      # Replaces the stacked segments and schedules a repaint.
       def segments=(segs : Array(Segment)?) : Array(Segment)?
         @segments = segs
         @segments_version &+= 1
@@ -118,10 +111,8 @@ module Crysterm
         @value
       end
 
-      # Sets the value, clamping into range. Emits `Event::DoubleValueChanged`
-      # (the `Float64` value event, as in `DoubleSpinBox`) on an actual change,
-      # and `Event::Complete` upon reaching `#maximum` (shared `#value=` body
-      # from `Mixin::PercentRange`, with a repaint as its post-change action).
+      # Sets the value, clamping into range. Emits `Event::DoubleValueChanged` on
+      # an actual change, and `Event::Complete` upon reaching `#maximum`.
       def value=(v : Number) : Float64
         assign_completable(v) { request_render }
       end
@@ -132,23 +123,17 @@ module Crysterm
       end
 
       # Sets the fill from a `0..100` percentage by mapping it back onto the
-      # range (the inverse of `#percent`), so a gauge can be driven in plain
-      # percentages like `ProgressBar#percent=`. Routes through `#value=`, which
-      # clamps, sanitizes a non-finite result, emits and repaints.
+      # range; the inverse of `#percent`.
       def percent=(pct : Number) : Float64
         self.value = @minimum + pct.to_f.clamp(0.0, 100.0) * span / 100.0
       end
 
-      # Snapshot of every input `build_content` reads. Rebuilding the tagged
-      # content string allocates per-cell arrays + a `String.build` per row every
-      # frame; `set_content` already dedups an identical result, but not the
-      # build itself. Skip it while nothing observable changed. The stacked
-      # segments are represented by `@segments_version` (bumped in `#segments=`)
-      # rather than an `@segments.dup`, so the key stays allocation-free per frame.
-      # The trailing `glyph_key(style)` element covers every input `glyph_seq`
-      # resolves the fill ramp from, so a post-probe tier upgrade / `Glyphs.set`
-      # / CSS `glyphs:` hot-reload rebuilds the content instead of keeping a
-      # stale ramp.
+      # Snapshot of every input `build_content` reads; rebuilding the tagged
+      # content allocates per row, and `set_content` dedups an identical result
+      # but not the build itself. Must stay allocation-free per frame. The
+      # trailing `glyph_key(style)` covers every input the fill ramp resolves
+      # from, so a tier upgrade or CSS `glyphs:` hot-reload rebuilds instead of
+      # keeping a stale ramp.
       @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
@@ -187,7 +172,7 @@ module Crysterm
 
       # Single-mode fill: sub-cell horizontal blocks up to `#percent`. The fill
       # ramp resolves CSS-first (`Gauge { glyphs: " ▏▎▍▌▋▊▉█" }`), then the
-      # registry's `ScaleHorizontal` at the effective tier (GLYPHS.md §3.4).
+      # registry's `ScaleHorizontal` at the effective tier.
       private def fill_single(cells, colors) : Nil
         cols = cells.size
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
@@ -206,11 +191,8 @@ module Crysterm
       private def segment_spans(segs, cols : Int32) : Array({Int32, Int32})
         x = 0
         segs.map do |seg|
-          # A non-finite share (NaN/Infinity segment value, or NaN from a
-          # degenerate division) would raise OverflowError on `.round.to_i`
-          # inside the render fiber — treat it as an empty slice. A huge finite
-          # share would overflow `.to_i` too; clamp to `0..1` (the span is
-          # clipped to `cols` below anyway).
+          # A non-finite or huge share would overflow `.round.to_i` inside the
+          # render fiber; treat non-finite as an empty slice and clamp the rest.
           share = seg.value / span
           share = 0.0 unless share.finite?
           w = (cols * share.clamp(0.0, 1.0)).round.to_i

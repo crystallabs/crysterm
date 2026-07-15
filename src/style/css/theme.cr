@@ -21,9 +21,8 @@ module Crysterm
     #   from the terminal's own probed default background/foreground and
     #   16-color palette, so the app blends into the user's terminal colors.
     struct Theme
-      # The selectable values of the `colors.theme` config option (see
-      # `resolve_config_theme`). An explicit enum so the choice round-trips
-      # through a config dump rather than a free-form string.
+      # The selectable values of the `colors.theme` config option. An explicit
+      # enum so the choice round-trips through a config dump.
       enum Choice
         Terminal # Derive the palette from the terminal's own probed colors
         Dark     # Built-in dark theme
@@ -47,7 +46,7 @@ module Crysterm
 
       # Whether to paint the base surface background / base text color. The
       # terminal theme leaves these off when it couldn't detect the terminal's
-      # real colors, so the terminal's own default shows through instead of guessing.
+      # real colors, so the terminal's own default shows through.
       getter? paint_surface : Bool
       getter? paint_text : Bool
 
@@ -166,9 +165,9 @@ module Crysterm
         io << "Widget { color: var(--text); }\n" if paint_text?
       end
 
-      # The structural widget rules, identical across themes — only the
-      # variable values differ. A single CSS string for auditability; each
-      # rule is overridable by an author stylesheet (tier-0 defaults).
+      # The structural widget rules, identical across themes — only the variable
+      # values differ. Each rule is a tier-0 default, overridable by an author
+      # stylesheet.
       WIDGET_RULES = <<-CSS
 
       /* Editable fields (Button is an Input subclass, so this comes first and

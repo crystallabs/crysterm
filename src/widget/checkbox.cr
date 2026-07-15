@@ -14,8 +14,8 @@ module Crysterm
     # ![CheckBox screenshot](../../tests/widget/checkbox/checkbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class CheckBox < AbstractButton
-      # The `[x] label` / `(*) label` marker rendering, marker-click hit-test,
-      # activate-key toggle, and focus cursor — shared with `RadioButton`.
+      # The `[x] label` marker rendering, marker-click hit-test, activate-key
+      # toggle, and focus cursor.
       include Mixin::CheckMarker
 
       # TODO support for changing icons
@@ -39,10 +39,9 @@ module Crysterm
       end
 
       def render
-        # Composed, measured marker (see `Mixin::CheckMarker#marker_line`):
         # `[`/`]` and the state mark resolve CSS-first (`CheckBox::indicator`,
-        # with `:checked`/`:indeterminate` addressing the per-state mark),
-        # then the registry; the width is stabilized over every reachable state.
+        # with `:checked`/`:indeterminate` addressing the per-state mark), then
+        # the registry; the width is stabilized over every reachable state.
         content =
           if tristate?
             marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose, mark_role,
@@ -64,10 +63,8 @@ module Crysterm
         Glyphs::Role::CheckboxUnchecked
       end
 
-      # Resets the partially-checked state on a check/uncheck transition. This
-      # is the only per-widget delta in `AbstractButton#check`/`#uncheck`, so it
-      # is expressed as this hook and the shared transition body lives once (the
-      # `checked?`/`partial?` guards there already account for the tri-state).
+      # Resets the partially-checked state on a check/uncheck transition
+      # (`AbstractButton#check`/`#uncheck` hook).
       private def clear_partial : Nil
         @partial = false
       end
@@ -82,9 +79,8 @@ module Crysterm
         @partial = true
         invalidate_css
         # A checked→partial transition drops the checked state, so announce it
-        # (before `PartialCheck`) — otherwise a listener mirroring `checked?`
-        # (`ButtonGroup`, a bound model) keeps believing the box is checked while
-        # it renders `[-]`. `#check`/`#uncheck` handle their edges symmetrically.
+        # before `PartialCheck` — otherwise a listener mirroring `checked?` keeps
+        # believing the box is checked while it renders `[-]`.
         emit Crysterm::Event::UnCheck, false if was_checked
         emit Crysterm::Event::PartialCheck, false
         request_render # repaint the `-` marker

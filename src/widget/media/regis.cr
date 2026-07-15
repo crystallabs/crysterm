@@ -5,8 +5,8 @@ module Crysterm
     # Renders an image as **ReGIS** graphics: an in-band DCS sequence of vector
     # commands that a ReGIS-capable terminal (xterm built with
     # `--enable-regis-graphics`, or a real VT240/VT330/VT340) draws into the VT
-    # window. Like sixel the pixels are owned by the terminal, so this inherits
-    # `Media::Graphics`'s window-owns-pixels erase/redraw lifecycle.
+    # window. The terminal owns the pixels, so this inherits `Media::Graphics`'s
+    # erase/redraw lifecycle.
     #
     # ReGIS is a *vector* format with no native raster blit, so a photo is
     # quantized to ReGIS's small set of built-in named colors and emitted as
@@ -38,10 +38,8 @@ module Crysterm
       ]
 
       # How colors are dithered down to ReGIS' 8-color palette. `Dither::None`
-      # by default (unlike the raster backends): dithering looks noisy and
-      # explodes the vector count, since per-pixel color changes break up the
-      # run-length horizontal spans. `Ordered`/`Diffusion`/`Auto` are accepted
-      # for parity but rarely worth it.
+      # by default: dithering looks noisy and explodes the vector count, since
+      # per-pixel color changes break up the run-length horizontal spans.
       property dither : Media::Dither = Media::Dither::None
 
       # ReGIS addresses a *fixed logical window* (not raw window pixels): xterm
@@ -54,7 +52,7 @@ module Crysterm
 
       def initialize(*args, dither : Media::Dither | Bool = Media::Dither::None,
                      regis_width : Int32 = 0, regis_height : Int32 = 0, **opts)
-        # Accept a legacy Bool: true ⇒ ordered (its prior meaning), false ⇒ none.
+        # Accept a legacy Bool: true ⇒ ordered, false ⇒ none.
         @dither = Media::Dither.from_arg(dither, Media::Dither::Ordered)
         @regis_width = regis_width
         @regis_height = regis_height
@@ -124,8 +122,8 @@ module Crysterm
         io.to_s
       end
 
-      # ReGIS never drives a frame loop (`needs_frame_loop?` is false), so the
-      # dither is always resolved as for a still image.
+      # ReGIS never drives a frame loop, so the dither always resolves as for a
+      # still image.
       private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Int32))
         Media.dither_rgb(bmp, pw, ph, @dither, false, -1) do |r, g, b, t|
           if t != 0.0

@@ -2,21 +2,17 @@ module Crysterm
   module DOM
     # Subscribes every `on*` action binding declared in a window's widget tree
     # (e.g. `onclick="save"`, `onsubmit="send"`) and invokes `handler` when the
-    # corresponding event fires. Shared by the standalone declarative path and
-    # the HTTP bridge so the event-name -> `Event` class mapping lives in one
-    # place.
+    # corresponding event fires.
     #
-    # The handler receives `(widget, event_name, action, value)` where `value`
+    # The handler receives `(widget, event_name, action, value)`, where `value`
     # is the event's payload when meaningful (a `Submit`'s text, a `SelectItem`'s
     # index) and `nil` otherwise.
+    #
     # `wired`, when given, tracks each `(widget, event)` binding's *current
-    # action* plus its detacher, keyed by "uid:event". The HTTP bridge re-runs
-    # this on every `append`/`remove`/`setAttribute`, so without dedup bindings
-    # would fire 2x, 3x, ... per event. Crucially it dedups *by action*: an
-    # unchanged action is left alone, but a changed one (e.g.
-    # `setAttribute("onclick","delete")` over a previous `"save"`) detaches the
-    # stale binding and wires the new one — otherwise the old action keeps
-    # publishing forever.
+    # action* plus its detacher, keyed by "uid:event". This must be re-run on
+    # every `append`/`remove`/`setAttribute`, so without dedup bindings would fire
+    # 2x, 3x, … per event. It dedups *by action*: an unchanged action is left
+    # alone, a changed one detaches the stale binding and wires the new one.
     def self.each_binding(window : Window, wired : Hash(String, Tuple(String, Proc(Nil)))? = nil,
                           &handler : Widget, String, String, String? ->) : Nil
       window.children.each do |top|
@@ -49,8 +45,8 @@ module Crysterm
     end
 
     # The event names `on_widget_event` knows how to wire. Any other name wires
-    # nothing, so callers (e.g. the bridge's `subscribe`) can reject it up front
-    # rather than claiming a subscription that will never fire.
+    # nothing, so callers can reject it up front rather than claiming a
+    # subscription that will never fire.
     def self.known_event?(event_name : String) : Bool
       case event_name
       when "click", "press", "submit", "focus", "blur", "select", "change"
@@ -60,26 +56,21 @@ module Crysterm
       end
     end
 
-    # Maps a layout event name (`"click"`, `"submit"`, `"select"`, ...) to the
+    # Maps a layout event name (`"click"`, `"submit"`, `"select"`, …) to the
     # concrete `Event` class and subscribes to it, yielding `(canonical_type,
     # value)` when it fires — `value` carries the event's payload or `nil`.
-    # Shared by the action wiring here and the HTTP bridge's runtime
-    # subscriptions.
     #
-    # Returns a detacher `Proc` that removes exactly this handler (so the bridge
-    # can honor `unsubscribe`), or `nil` for an unknown event name (nothing was
-    # wired).
+    # Returns a detacher `Proc` that removes exactly this handler, or `nil` for
+    # an unknown event name (nothing was wired).
     def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Proc(Nil)?
       case event_name
       when "click", "press"
-        # `Event::Press` is emitted only by `Widget::AbstractButton#activate`,
-        # firing for both mouse click and keyboard activation (Enter/Space) — so
-        # a button's `onclick`/`"press"` reacts to either, like a browser button.
-        # Other widgets never emit `Press`, and since `Widget#wants_mouse?`
-        # doesn't count `Press` handlers, they wouldn't even be hit-tested. Bind
-        # those to `Event::Click` instead, which the window emits on a mouse
-        # press over any hit-tested widget; registering it also makes the widget
-        # mouse-responsive.
+        # `Event::Press` is emitted only by `AbstractButton`, for both mouse click
+        # and keyboard activation, so a button's `onclick` reacts to either, like
+        # a browser button. Other widgets never emit `Press` and aren't even
+        # hit-tested for it, so they bind `Event::Click` instead, which the window
+        # emits on a mouse press over any hit-tested widget; registering it also
+        # makes the widget mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
           h = widget.on(::Crysterm::Event::Press) { block.call "press", nil }
           -> { widget.off(::Crysterm::Event::Press, h); nil }

@@ -6,25 +6,19 @@ module Crysterm
   #
   # ## Naming
   #
-  # Event names follow the stage of the action they report, which also keeps
-  # them aligned with Qt (Qt names event *classes* as nouns — `QResizeEvent` —
-  # and *signals* in the past tense — `valueChanged`):
+  # An event's name states the stage of the action it reports:
   #
-  # * **`Pre`-prefixed / `AboutTo`-prefixed** — emitted *before* the action, so a
-  #   handler can still act on the old state (`PreRender`, `AboutToQuit`).
-  #   Use `AboutTo` where Qt has an established signal of that exact name
-  #   (`aboutToQuit`, `aboutToShow`, `aboutToHide`); `Pre` otherwise. Qt has no
-  #   `Pre`-prefixed signals — for pipeline stages it uses `beforeX`/`afterX`
-  #   (`beforeRendering`/`afterRendering`), which `PreRender`/`Rendered` mirrors.
+  # * **`Pre`- / `AboutTo`-prefixed** — emitted *before* the action, so a handler
+  #   can still act on the old state (`PreRender`, `AboutToQuit`). Use `AboutTo`
+  #   where Qt has a signal of that exact name (`aboutToQuit`, `aboutToShow`,
+  #   `aboutToHide`); `Pre` otherwise.
   # * **Noun** — a discrete occurrence, emitted as it happens (`Click`, `Move`,
-  #   `Resize`, `Paste`). These are Crysterm's analogue of Qt's event classes.
-  # * **Past tense** — a notification that state has *already* changed, emitted
-  #   after the mutation, and carrying the new value where one applies
-  #   (`Rendered`, `ValueChanged`, `TextChanged`, `Toggled`). This is the form to
-  #   use for any property-change signal; it matches Qt's `xChanged` contract.
+  #   `Resize`, `Paste`); the analogue of Qt's event classes.
+  # * **Past tense** — state has *already* changed (`Rendered`, `ValueChanged`,
+  #   `TextChanged`, `Toggled`), carrying the new value where one applies.
   #
-  # A property-change event must therefore be past tense and emitted *after* the
-  # assignment, guarded so it only fires on an actual change.
+  # A property-change event must therefore be past tense, emitted *after* the
+  # assignment, and guarded so it fires only on an actual change.
   #
   # Events currently unused have been commented. Uncomment on first use.
   module Event
@@ -53,7 +47,7 @@ module Crysterm
     event Exit, code : Int32? = nil
 
     # Emitted when a `Window` is bound to a freshly spawned terminal emulator
-    # window (see `Window.open`). `window` is the window now bound to a terminal.
+    # window. `window` is the window now bound to a terminal.
     event WindowOpened, window : Crysterm::Window
 
     # Emitted when the terminal emulator window backing a `Window` goes away —
@@ -147,9 +141,8 @@ module Crysterm
     # presenting the action can refresh. Mirrors Qt's `QAction::changed()`.
     event Changed
 
-    # A granular change to a `Reactive::ObservableList`. `op` says what happened
-    # (`Reactive::ListOp`); `index`/`count` locate it (`0` for `Reset`). Consumed
-    # by `Reactive.bind_items` to patch a bound item view row-by-row.
+    # A granular change to a `Reactive::ObservableList`. `op` says what happened;
+    # `index`/`count` locate it (`0` for `Reset`).
     event ListChanged, op : ::Crysterm::Reactive::ListOp, index : Int32 = 0, count : Int32 = 0
 
     # Emitted on checkbox checked
@@ -170,10 +163,9 @@ module Crysterm
     # Emitted by a `TextDocument` after every edit: `chars_removed` then
     # `chars_added` characters at `position`. Format-only changes report
     # `chars_removed == chars_added` over the affected range. Mirrors Qt's
-    # `QTextDocument#contentsChange(int, int, int)`; `kind` additionally says
-    # how positions were affected (see `TextDocument::ChangeKind`), which
-    # views need to keep their own `Int32` carets adjusted like registered
-    # `TextCursor`s.
+    # `QTextDocument#contentsChange(int, int, int)`, plus `kind`, which says how
+    # positions moved — a view holding its own `Int32` carets must adjust them by
+    # it, as registered `TextCursor`s are adjusted automatically.
     event ContentsChanged, position : Int32, chars_removed : Int32, chars_added : Int32, kind : Crysterm::TextDocument::ChangeKind = :edit
 
     # Emitted by a `TextDocument` when its number of blocks (paragraphs)
@@ -181,7 +173,7 @@ module Crysterm
     event BlockCountChanged, count : Int32
 
     # Emitted by a `TextDocument` when its modified state flips (edits away
-    # from / undo back to the last clean point; see `TextDocument#modified=`).
+    # from / undo back to the last clean point).
     # Mirrors Qt's `QTextDocument#modificationChanged(bool)`.
     event ModificationChanged, modified : Bool
 
@@ -235,12 +227,11 @@ module Crysterm
     event Submit, value : String
 
     # Emitted when a `Widget::Form` is submitted. Carries the collected
-    # name => value pairs of all input children (see `Widget::Form#submit`).
+    # name => value pairs of all input children.
     event SubmitData, data : Hash(String, String)
 
-    # Emitted when a document link/anchor is activated — the analog of Qt's
-    # `QTextBrowser::anchorClicked`. Carries the link's URL. Used by
-    # `Widget::Markdown#activate_link` and `Widget::TextBrowser`.
+    # Emitted when a document link/anchor is activated, carrying the link's URL.
+    # The analog of Qt's `QTextBrowser::anchorClicked`.
     event AnchorClick, url : String
 
     # Emitted when `Widget::TextBrowser` navigates to a new source (the
@@ -282,8 +273,8 @@ module Crysterm
 
     # Event emitted when a new log line intended for `Widget::Log` is issued
     event Log, text : String
-    # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
-    # in Crysterm not to conflict with `Log` coming from logger.
+    # NOTE Blessed's counterpart is `log`; the name must not collide with the
+    # logger's own `Log`.
 
     # Emitted by `Widget::Tree` when a node is expanded or collapsed. `index` is
     # the node's visible row at the time of the change. Mirror Qt's
@@ -295,15 +286,14 @@ module Crysterm
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
 
-    # Emitted by `Widget::ListBar` when a tab/command is selected via
-    # `#select_tab` (e.g. through `auto_command_keys`). `item` is the command's
-    # element box (`nil` if the index is out of range), `index` its position.
+    # Emitted by `Widget::ListBar` when a tab/command is selected. `item` is the
+    # command's element box (`nil` if the index is out of range), `index` its
+    # position.
     event SelectTab, item : Widget::Box?, index : Int32
 
     # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).
-    # `checked` carries the action's checked state *after* activation, so a
-    # checkable action reports its new on/off value to the handler; it is always
-    # `false` for non-checkable actions.
+    # `checked` is the action's state *after* activation; always `false` for a
+    # non-checkable action.
     event Triggered, checked : Bool = false
 
     # Emitted when a Widget or Action are hovered
@@ -311,8 +301,7 @@ module Crysterm
 
     # Emitted when an `Action`'s checked state changes — programmatically or via
     # activation (Qt's `QAction::toggled(bool)`). `checked` is the new state.
-    # Distinct from `Triggered`: `Toggled` fires on *any* checked change, whereas
-    # `Triggered` fires only on activation.
+    # Unlike `Triggered`, this fires on *any* checked change, not just activation.
     event Toggled, checked : Bool
 
     # Emitted when an `Action`'s `enabled` changes (Qt's
@@ -390,10 +379,9 @@ module Crysterm
 
     # Base class for keyboard events. Carries the key identity (`char` / `key` /
     # `sequence`) and, when the terminal speaks an enhanced keyboard protocol
-    # (kitty / modifyOtherKeys) enabled via `Window#enable_keyboard_protocol`,
-    # the rich `key_event` plus flat accessors for its details (`#alt?`,
-    # `#modifier_key`, …) — all `nil`/`false` for legacy (un-enhanced) input,
-    # none of which the flat `#key`/`#char` can express.
+    # (kitty / modifyOtherKeys), the rich `key_event` plus flat accessors for its
+    # details (`#alt?`, `#modifier_key`, …) — all `nil`/`false` for legacy
+    # (un-enhanced) input, which the flat `#key`/`#char` cannot express.
     #
     # The concrete events are `KeyPress` (a press or auto-repeat) and
     # `KeyRelease` (a release). Subscribe to:
@@ -408,10 +396,9 @@ module Crysterm
       property char : Char
       property key : ::Tput::Key?
 
-      # Raw input sequence backing `#sequence`. Stored nilable and materialized
-      # lazily: plain typing carries `nil` here (the parser passes no array via
-      # `Tput::InputEvent#sequence?`), so an ordinary keypress allocates no
-      # `[@char]` array unless a consumer actually reads `#sequence`.
+      # Raw input sequence backing `#sequence`. Nilable and materialized lazily so
+      # that plain typing — where the parser passes no array — allocates nothing
+      # unless a consumer actually reads `#sequence`.
       @sequence : Array(Char)?
 
       # The rich keyboard event when an enhanced protocol is active, else `nil`.
@@ -420,9 +407,8 @@ module Crysterm
       def initialize(@char, @key = nil, @sequence : Array(Char)? = nil, @key_event = nil)
       end
 
-      # Raw input sequence for this key. Lazily materializes the one-element
-      # `[@char]` fallback on first read (and caches it), so plain typing stays
-      # allocation-free until something asks for the sequence.
+      # Raw input sequence for this key, materializing and caching the
+      # one-element `[@char]` fallback on first read.
       def sequence : Array(Char)
         @sequence ||= [@char]
       end
@@ -473,13 +459,9 @@ module Crysterm
         @char == ' ' || @key == ::Tput::Key::Enter
       end
 
-      # This macro takes all enum members from Tput::Key
-      # and creates a `KeyPress::<member>` event for them,
-      # such as `Event::KeyPress::CtrlQ`.
-      #
-      # This is done as a convenience, so that users would
-      # not have to listen for all keypresses and then
-      # manually check for particular keys every time.
+      # A `KeyPress::<member>` event per `Tput::Key` member (e.g.
+      # `Event::KeyPress::CtrlQ`), so a listener can subscribe to one key rather
+      # than to every keypress.
       KEYS = {} of ::Tput::Key => self.class
       {% for m in ::Tput::Key.constants %}
         class {{m.id}} < self; end
@@ -495,14 +477,12 @@ module Crysterm
 
     # Emitted on any mouse activity (button press/release, motion, wheel).
     #
-    # This is the single, normalized mouse event for Crysterm. It is emitted
-    # both for mouse reports parsed from the terminal (xterm SGR/X10, via
-    # `Tput`) and for events coming from the Linux console `gpm` daemon — both
-    # sources are converted to a common `::Tput::Mouse::Event` and dispatched
-    # through `Window#dispatch_mouse`, so listeners need not care about origin.
+    # The single, normalized mouse event for Crysterm: terminal reports (xterm
+    # SGR/X10, via `Tput`) and Linux console `gpm` events are both converted to a
+    # common `::Tput::Mouse::Event`, so listeners need not care about origin.
     #
-    # It is emitted on the `Window` and, when the pointer is over a registered
-    # clickable `Widget`, on that widget as well (see `Window#widget_at`).
+    # Emitted on the `Window` and, when the pointer is over a registered clickable
+    # `Widget`, on that widget as well.
     class Mouse < EventHandler::Event
       include Acceptable
 
@@ -513,12 +493,10 @@ module Crysterm
       end
 
       # Re-targets this (pooled) event at a new underlying `mouse` report and
-      # clears any prior `accept`. Lets a `Window` reuse one `Mouse` (and one
-      # each of its `MouseOver`/`MouseMove`/`MouseOut` subclasses) across
-      # dispatches instead of allocating a fresh event per report while a
-      # listener is installed. Caveat: a handler that *retains* the event will
-      # see its fields mutate on the next report — handlers must copy anything
-      # they need to keep past their own invocation.
+      # clears any prior `accept`, so one event can be reused across dispatches
+      # instead of allocating per report. A handler that *retains* the event will
+      # see its fields mutate on the next report — copy anything to be kept past
+      # the handler's own invocation.
       def reset(@mouse : ::Tput::Mouse::Event) : self
         @accepted = false
         self
@@ -545,10 +523,8 @@ module Crysterm
       end
 
       # 0-based sub-cell pixel column, when SGR-Pixels (DEC 1016) reporting is
-      # active (`Window#enable_mouse(pixels: true)`); `nil` otherwise. `x`/`y`
-      # still carry the cell coordinates, so pixel-aware widgets (Canvas/Painter,
-      # image widgets, precise drag) can read `px`/`py` without disturbing the
-      # rest of the toolkit.
+      # active; `nil` otherwise. `x`/`y` still carry the cell coordinates, so
+      # pixel-aware widgets can read `px`/`py` without disturbing the rest.
       def px : Int32?
         @mouse.px
       end
@@ -571,15 +547,13 @@ module Crysterm
       end
     end
 
-    # Hover events. These carry the same payload as `Mouse` (they subclass it)
-    # but signal pointer *hovering* transitions rather than raw activity.
+    # Hover events. Same payload as `Mouse` (they subclass it), but signalling
+    # pointer *hovering* transitions rather than raw activity.
     #
-    # They are emitted on a `Widget` only — and only on the **topmost** widget
-    # under the pointer, mirroring how a click is dispatched (see
-    # `Window#dispatch_mouse`). A widget that is occluded by another does not
-    # receive hover events; if it needs to react while in the background, it can
-    # listen for the screen-level `Mouse` event (emitted for every mouse event)
-    # and do its own hit-testing.
+    # Emitted on a `Widget` only, and only on the **topmost** widget under the
+    # pointer, as a click is. An occluded widget gets no hover events; to react
+    # while in the background it must listen for the screen-level `Mouse` event
+    # and hit-test itself.
     #
     # Listeners subscribe to the specific transition they care about, e.g.
     # `widget.on(Event::MouseOver) { ... }`.
@@ -593,14 +567,13 @@ module Crysterm
     # Emitted once when the pointer leaves a widget (hover out).
     class MouseOut < Mouse; end
 
-    # Drag-and-drop events.
+    # Drag-and-drop events — a single, input-agnostic gesture.
     #
-    # A single, input-agnostic gesture (see `Crysterm::DragSession`). Source
-    # events (`DragStart`/`Drag`/`DragEnd`) fire on the dragged widget; target
-    # events (`DragEnter`/`DragOver`/`DragLeave`/`Drop`) fire on the widget
+    # Source events (`DragStart`/`Drag`/`DragEnd`) fire on the dragged widget;
+    # target events (`DragEnter`/`DragOver`/`DragLeave`/`Drop`) fire on the widget
     # currently under the pointer (mouse sensor) or focused (keyboard sensor).
-    # Both mouse and keyboard drive the same events, so a widget written once is
-    # draggable/droppable by either input.
+    # Mouse and keyboard drive the same events, so a widget written once is
+    # draggable/droppable by either.
     #
     # Every event carries the live `session`, whose `data` holds the MIME-typed
     # payload and the negotiated `DragAction`. A drop target opts in by
@@ -641,12 +614,10 @@ module Crysterm
         @session.data.accept action
       end
 
-      # Withdraws acceptance — the documented inverse of `#accept`. Must mirror
-      # `#accept` and also clear the *session's* accepted flag, because
-      # `drag_release`/`drop_external` decide whether to deliver `Drop` from
-      # `session.data.accepted?`, not the event flag. Overriding
-      # `Acceptable#ignore` (which only clears the event flag) so a target that
-      # accepts then withdraws via `e.ignore` actually cancels the drop.
+      # Withdraws acceptance, the inverse of `#accept`. Must clear the *session's*
+      # accepted flag too, not just the event's as `Acceptable#ignore` does:
+      # delivery of `Drop` is decided from `session.data.accepted?`, so otherwise
+      # a target that accepts then withdraws would still get the drop.
       def ignore
         @accepted = false
         @session.data.reject

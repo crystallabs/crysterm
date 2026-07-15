@@ -16,10 +16,7 @@ module Crysterm
   end
 
   # Explicit output color-depth override, independent of what the terminal
-  # advertises. `Auto` (default) keeps terminal detection but still honors the
-  # `NO_COLOR`/`FORCE_COLOR`/`CLICOLOR[_FORCE]` env conventions; the rest pin a
-  # fixed depth. Drives color reduction at output time — see `Screen#colors` /
-  # `Screen.resolve_color_depth`.
+  # advertises. Drives color reduction at output time.
   enum ColorDepth
     Auto      # Terminal detection (+ the NO_COLOR / FORCE_COLOR / CLICOLOR env vars)
     None      # Monochrome: emit no color (styles like bold still apply)
@@ -28,9 +25,8 @@ module Crysterm
     Xterm256  # 256-color palette
     TrueColor # 24-bit RGB
 
-    # The terminal color-count this depth maps to in `Screen#colors` terms
-    # (1 = monochrome, then 8 / 16 / 256 / 0x1000000). `Auto` has no fixed count
-    # and returns `nil` (the caller falls back to detection + env).
+    # The terminal color-count this depth maps to in `Screen#colors` terms.
+    # `Auto` has no fixed count and returns `nil`.
     def to_count : Int32?
       case self
       in Auto      then nil
@@ -44,32 +40,21 @@ module Crysterm
   end
 
   # The physical terminal/device — the `QScreen` analogue of the Qt object
-  # model (see QT-OBJECT-MODEL-PLAN.md). Owns everything binding Crysterm to a
-  # concrete tty: the IO fds, the `Tput` control-sequence generator, the
-  # statically-derived `DrawCaps`, the device cell size (`width`/`height`), the
-  # output color depth and SGR encoding, and the terminal's pixel cell geometry.
+  # model. Owns everything binding Crysterm to a concrete tty: the IO fds, the
+  # `Tput` control-sequence generator, the statically-derived `DrawCaps`, the
+  # device cell size (`width`/`height`), the output color depth and SGR
+  # encoding, and the terminal's pixel cell geometry.
   #
-  # A `Window` (the surface) *has-a* `Screen` and delegates
-  # to it. Splitting the device out lets one app drive multiple ttys, and
-  # powers detach/reattach (a `Window` surviving while its `Screen` is rebuilt
-  # — see `window_connection.cr`).
-  #
-  # SGR/color encoding methods live in `screen_attributes.cr`.
+  # A `Window` (the surface) *has-a* `Screen` and delegates to it. Splitting the
+  # device out lets one app drive multiple ttys, and powers detach/reattach: a
+  # `Window` survives while its `Screen` is rebuilt.
   class Screen
     # Input IO.
     #
-    # NOTE: not `STDIN.dup` — because of the `initialize(@input = @input)`
-    # default, this is evaluated on *every* `Screen.new`, even when `input:` is
-    # passed explicitly. `Object#dup` shallow-copies the IO and aliases the
-    # same fd with `close_on_finalize=true`, so a discarded alias closes the
-    # shared STDIN fd on GC — corrupting the standard streams with more than
-    # one `Screen` per process. Use the std stream directly (a single,
-    # never-collected global); matches the same fix in `Tput#initialize`.
-    # When non-interactive (see `Crysterm.headless?`), an `IO::Memory` is
-    # substituted so a `Screen` built without explicit IO drives a headless
-    # connection. A caller-supplied `input:`/`output:`/`error:` always wins.
-    # Each default is its own buffer so headless input reads never consume
-    # rendered output.
+    # NOTE: never `STDIN.dup` — the `initialize(@input = @input)` default is
+    # evaluated on *every* `Screen.new`, and a dup'd IO aliases the same fd with
+    # `close_on_finalize=true`, so a discarded alias closes the shared STDIN fd
+    # on GC. Use the std stream directly.
     property input : IO = Screen.default_input
 
     # Output IO. See the note on `input` re: not using `STDOUT.dup`.
@@ -82,8 +67,7 @@ module Crysterm
     # Default input/output/error IO for a `Screen` (or `Direct`) built without
     # explicit streams: the real std stream when interactive, else a fresh
     # per-call `IO::Memory` so a headless connection has its own buffer and
-    # headless input reads never consume rendered output. See the note on
-    # `input` re: not using `STDIN.dup`.
+    # headless input reads never consume rendered output.
     def self.default_input : IO
       Crysterm.headless? ? IO::Memory.new : STDIN
     end
@@ -102,24 +86,16 @@ module Crysterm
     property? force_unicode : Bool = Config.screen_force_unicode
 
     # Which set of chrome glyphs widgets pick from the `Glyphs` registry
-    # (`ascii` / `unicode` / `extended`). This is a proactive *choice* of
-    # characters — the reactive draw-time ACS/`ascii_fallback` reduction still
-    # applies on terminals that can't render the chosen set. Defaults to the
-    # `screen.glyphs` config option (`CRYSTERM_SCREEN_GLYPHS`), i.e. `unicode`,
-    # matching what the toolkit has always emitted. While the tier is left at
-    # that default, a device on a real tty auto-upgrades to `extended` when
-    # the terminal is identified as shipping a modern, well-covered font
-    # (`Glyphs.detected_tier` — see `#auto_glyph_tier`); an explicit config
-    # value or `#glyph_tier=` call pins the tier and disables auto-detection
-    # (font *coverage* can't be probed, and `full_unicode?` gates text
-    # *layout*, not glyph choice).
+    # (`ascii` / `unicode` / `extended`). A proactive *choice* of characters —
+    # the reactive draw-time ACS/`ascii_fallback` reduction still applies on
+    # terminals that can't render the chosen set. Left at its `screen.glyphs`
+    # default, a device on a real tty auto-upgrades to `extended` on a
+    # modern-font terminal; an explicit config value or `#glyph_tier=` pins the
+    # tier and disables auto-detection.
     getter glyph_tier : Glyphs::Tier = Config.screen_glyphs
 
-    # Whether the tier was chosen explicitly — the `screen.glyphs` option came
-    # from env/file/CLI/runtime rather than its registered default, or
-    # `#glyph_tier=` was called. Pins `glyph_tier` against `#auto_glyph_tier`.
-    # Exposed (read-only) so `#reconnected`/`Window#switch_terminal` can carry
-    # a runtime pin across to the replacement device.
+    # Whether the tier was chosen explicitly — from env/file/CLI/runtime rather
+    # than the registered default. Pins `glyph_tier` against `#auto_glyph_tier`.
     getter? glyph_tier_explicit : Bool = !Config["screen.glyphs"].source.default?
 
     # Explicitly chooses the glyph tier, pinning it against auto-detection.
@@ -131,7 +107,7 @@ module Crysterm
     # User option: enable grapheme/full-Unicode-aware rendering — text is
     # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
     # rather than one column per codepoint, grapheme clusters stay intact, and
-    # wide characters occupy two cells. Set via `full_unicode=`.
+    # wide characters occupy two cells.
     @full_unicode : Bool = Config.screen_full_unicode
 
     # :ditto:
@@ -158,20 +134,16 @@ module Crysterm
     property height = 1
 
     # Whether `width` / `height` were each given explicitly to the constructor.
-    # A pinned axis must not be overwritten by the size probed from the terminal
-    # (which, for a headless device whose output is an `IO::Memory`, falls back
-    # to the *real* controlling terminal — see `Tput#get_screen_size`). Kept
-    # per-axis so an **inline** window can pin its `height` (its reserved region
-    # size) while its `width` still tracks the terminal — see `Window`'s
-    # `alternate: false` mode. Tests/off-screen rendering pin both.
+    # A pinned axis must not be overwritten by the size probed from the terminal.
+    # Kept per-axis so an **inline** window can pin its `height` (its reserved
+    # region size) while its `width` still tracks the terminal.
     getter? explicit_width = false
 
     # :ditto:
     getter? explicit_height = false
 
     # Whether either axis is pinned (device size doesn't fully follow the
-    # terminal). Retained for callers that only care that *some* dimension is
-    # fixed.
+    # terminal).
     def explicit_size? : Bool
       @explicit_width || @explicit_height
     end
@@ -186,10 +158,9 @@ module Crysterm
     getter tput : ::Tput
 
     # Per-terminal draw capabilities, derived once per `@tput` via
-    # `#compute_draw_caps` instead of re-queried every frame. Includes the
+    # `#compute_draw_caps` rather than re-queried every frame. Includes the
     # static, parameter-free sequence bytes (`smacs`/`rmacs`/`el`) the drawer
-    # writes straight into the frame buffer, and the `ansi_cursor` flag gating
-    # inline-ANSI hot-path cursor moves.
+    # writes straight into the frame buffer.
     record DrawCaps,
       has_bce : Bool,
       parm_right_cursor : Bool,
@@ -202,35 +173,28 @@ module Crysterm
       smacs : Bytes,
       rmacs : Bytes,
       el : Bytes,
-      # The per-frame cursor-bracket sequences (`sc`/`rc`/`civis`/`cnorm`, with
-      # DECSC/DECRC/DECTCEM ANSI fallbacks), captured (`dup`'d off terminfo)
-      # ONCE here. `#draw`'s output block brackets each painted frame in
-      # save+hide … restore+show so the hardware cursor doesn't streak across
-      # the multi-write redraw; emitting them via `tput.save_cursor`/… re-`dup`'d
-      # the static capability (and re-saved the cursor Point) on EVERY
-      # output-producing frame (~48-80 B/frame of pure garbage). Written straight
-      # into `@pre`/`@post` in the `ansi_cursor` fast path instead.
+      # Cursor-bracket sequences (`sc`/`rc`/`civis`/`cnorm`, with
+      # DECSC/DECRC/DECTCEM ANSI fallbacks) used to wrap each painted frame in
+      # save+hide … restore+show, so the hardware cursor doesn't streak across
+      # the multi-write redraw. Captured once: going through `tput.save_cursor`/…
+      # per frame re-`dup`s the capability and costs ~48-80 B of garbage a frame.
       save_cursor : Bytes,
       restore_cursor : Bytes,
       hide_cursor : Bytes,
       show_cursor : Bytes,
       # Whether tput verified the terminal's `cup`/`cuf`/… are byte-for-byte
-      # standard ANSI (`Tput::Features#ansi_cursor?`). When true, hot-path
-      # cursor moves are emitted as direct inline ANSI; when false they route
-      # through tput (via `divert`) for a non-conforming terminal. Constant for
-      # the terminal, read once here.
+      # standard ANSI. When true, hot-path cursor moves are emitted as direct
+      # inline ANSI; when false they route through tput for a non-conforming
+      # terminal.
       ansi_cursor : Bool
 
-    # The per-terminal draw capabilities (`DrawCaps`). Assigned
-    # `= compute_draw_caps` wherever `@tput` is created — here and on
-    # reconnect — so it's always present and never derived per frame.
+    # The per-terminal draw capabilities. Must be recomputed wherever `@tput` is
+    # created or re-probed, so it is never derived per frame.
     getter draw_caps : DrawCaps
 
     # The `Application` this device is registered with — the dispatcher the
-    # input read fiber routes parsed events to (`Application#route_input`). Set
-    # by `Application#add` when an owning `Window` is registered; the fiber
-    # falls back to `Application.global` while nil. See `#listen_keys`
-    # (`screen_input.cr`).
+    # input read fiber routes parsed events to. The fiber falls back to
+    # `Application.global` while nil.
     property application : Application? = nil
 
     def initialize(
@@ -249,8 +213,7 @@ module Crysterm
                      Unibilium.from_env
                    rescue Unibilium::Error
                      # No usable terminfo for $TERM (e.g. unset, as on CI
-                     # runners). Fall back to a widely-available `xterm` entry
-                     # so a Screen can still be constructed headlessly.
+                     # runners); fall back so a Screen is still constructible.
                      Unibilium.from_terminal Config.terminal_fallback_term
                    end
                  in false, nil
@@ -259,20 +222,17 @@ module Crysterm
                    terminfo.as Unibilium
                  end
 
-      # Control sequences must reach the terminal promptly, not sit in a write
-      # buffer. `STDOUT` connected to a terminal is already `sync`, but a
-      # caller-supplied output (e.g. a second terminal via `File.open`) is
-      # fully buffered by default, leaving the screen blank. Force sync
-      # regardless of how the output was obtained.
+      # Control sequences must reach the terminal promptly. A caller-supplied
+      # output (e.g. a second terminal via `File.open`) is fully buffered by
+      # default, leaving the screen blank; force sync however it was obtained.
       if (output = @output).responds_to?(:sync=)
         output.sync = true
       end
 
-      # `probe: false`: don't run the live terminal round-trip in the
-      # constructor. That probe puts the tty into raw mode while waiting; the
-      # owning `Window` defers it to `#probe!` (after registration) so an
-      # interrupt is cleaned up. `compute_draw_caps` reads only
-      # terminfo-static capabilities, so deferring the probe is safe.
+      # `probe: false`: the live round-trip puts the tty into raw mode while it
+      # waits, so it is deferred to `#probe!` (after registration) where an
+      # interrupt gets cleaned up. `compute_draw_caps` reads only
+      # terminfo-static capabilities, so deferring is safe.
       @tput = ::Tput.new(
         terminfo: terminfo,
         input: @input,
@@ -281,18 +241,12 @@ module Crysterm
         use_buffer: false,
         probe: false,
       )
-      # Derive the terminal's static draw capabilities once. (A reattach builds
-      # a brand-new `Screen` via `#reconnected`, which derives them anew.)
       @draw_caps = compute_draw_caps
 
-      # With the terminal's env-detected identity and Unicode support in hand,
-      # resolve the automatic glyph tier; re-resolved by `#probe!` once
-      # XTVERSION hardens the identity. No-op when a tier was pinned.
+      # Resolve the automatic glyph tier from the env-detected identity;
+      # re-resolved once XTVERSION hardens it. No-op when a tier was pinned.
       auto_glyph_tier
 
-      # A pinned axis keeps its size; the terminal-probed size (in
-      # `#adopt_terminal_size`) must not replace it. Tracked per-axis so inline
-      # windows can fix height while width follows the terminal.
       width.try { |w| @explicit_width = true; @width = w }
       height.try { |h| @explicit_height = true; @height = h }
     end
@@ -307,33 +261,30 @@ module Crysterm
       @height
     end
 
-    # Runs the deferred live terminal probe that `Tput.new` skipped (see
-    # `probe: false`). Gated on the same config flag `Tput.new` uses; `probe!`
-    # no-ops on a non-tty.
+    # Runs the deferred live terminal probe that the constructor skipped. No-op
+    # on a non-tty.
     #
-    # The probe can upgrade terminal capabilities the constructor could only
-    # guess at from env/terminfo — most notably confirming 24-bit truecolor via
-    # a DECRQSS SGR readback, which raises `tput.features.number_of_colors` to
-    # 16M. `@draw_caps` (and its `ncolors` snapshot, read on the render hot path)
-    # was computed pre-probe, so refresh it afterward or rendering would keep
-    # downsampling colors to the stale pre-probe depth.
+    # The probe can upgrade capabilities the constructor could only guess at
+    # from env/terminfo — most notably confirming 24-bit truecolor via a DECRQSS
+    # SGR readback. `@draw_caps` snapshots the color depth, so it MUST be
+    # recomputed afterward or rendering keeps downsampling to the stale
+    # pre-probe depth.
     def probe! : Nil
       return unless ::Superconf.tput_probe
       @tput.probe!
       @draw_caps = compute_draw_caps
-      # The probe's XTVERSION reply refines the emulator identity
-      # (`Emulator#refine_from_probe!`) — it can confirm an env-detected
-      # modern-font terminal or revoke one that env leakage mis-identified —
-      # so re-resolve the automatic glyph tier in both directions.
+      # The probe's XTVERSION reply refines the emulator identity — confirming
+      # or revoking an env-detected modern-font terminal — so re-resolve the
+      # glyph tier in both directions.
       auto_glyph_tier
     end
 
     # Applies `Glyphs.detected_tier` (upgrade to `extended` on a
-    # Unicode-capable kitty/WezTerm/Ghostty/iTerm2, else the `unicode`
-    # default) while no tier was pinned explicitly. Only on a real tty: a
-    # headless/redirected device (tests, captures, pipes) is not rendered by
-    # the emulator the environment describes, and its output must not depend
-    # on which terminal the process happens to be launched from.
+    # Unicode-capable kitty/WezTerm/Ghostty/iTerm2, else the `unicode` default)
+    # while no tier was pinned explicitly. Only on a real tty: a
+    # headless/redirected device isn't rendered by the emulator the environment
+    # describes, and its output must not depend on where the process was
+    # launched from.
     private def auto_glyph_tier : Nil
       return if @glyph_tier_explicit || !@output.tty?
       @glyph_tier = Glyphs.detected_tier(@tput)
@@ -353,19 +304,15 @@ module Crysterm
       @height = height unless @explicit_height
     end
 
-    # Builds a **fresh** device for a new connection (a new IO pair) and
-    # returns it — the `Window#screen=` companion to reattach
-    # (`Window#connect`). Reuses this device's read-only terminfo and carries
-    # its options across (force/full unicode), so only the tty changes; the
-    # new device sizes itself from the new terminal. `Screen.new` uses
-    # `probe: false`, essential on reattach: the new tty has no responder yet,
-    # so a live round-trip would block forever.
+    # Builds and returns a **fresh** device for a new connection (a new IO
+    # pair). Reuses this device's read-only terminfo and carries its options
+    # across, so only the tty changes; the new device sizes itself from the new
+    # terminal.
     #
-    # Returning a *new* `Screen` (rather than mutating this one) makes
-    # reattach a clean `QWindow#screen=`: the previous connection's input
-    # fiber stays bound to the **old** device (its now-closed fd), so it can
-    # never steal input on the new tty or restore cooked mode on it; once the
-    # window swaps to the returned device, the old one is discarded.
+    # Returns a *new* `Screen` rather than mutating this one: the previous
+    # connection's input fiber stays bound to the **old** device (its now-closed
+    # fd), so it can never steal input on the new tty or restore cooked mode on
+    # it. Once the window swaps to the returned device, the old one is discarded.
     def reconnected(input : IO, output : IO) : Screen
       s = Screen.new(
         input: input,
@@ -373,12 +320,10 @@ module Crysterm
         error: @error,
         force_unicode: @force_unicode,
         full_unicode: @full_unicode,
-        # Carry the explicit-size pins across the reconnect: a pinned axis
-        # (e.g. an inline window's reserved `height`, or a test's fixed size)
-        # keeps its value on the new device too. Dropping the pins built the
-        # new device with `explicit_* == false`, so a reattached inline window
-        # ballooned to the full terminal height. An unpinned axis passes `nil`
-        # and is sized from the new terminal below.
+        # Carry the explicit-size pins across: a pinned axis (an inline window's
+        # reserved `height`, a test's fixed size) must keep its value on the new
+        # device. An unpinned axis passes `nil` and is sized from the new
+        # terminal below.
         width: (@explicit_width ? @width : nil),
         height: (@explicit_height ? @height : nil),
         # Reuse the existing read-only terminfo; `false` on the rare chance
@@ -395,11 +340,9 @@ module Crysterm
       # Adopt honoring the pins carried above (a direct `s.width = ...`
       # assignment would overwrite a pinned axis).
       s.adopt_terminal_size
-      # Carry an explicit runtime `glyph_tier=` pin across too — otherwise the
-      # new device re-derives `@glyph_tier_explicit` from config only (see its
-      # initializer above), a pin set at runtime is lost, and `Window#screen=`
-      # -> `probe!` re-`auto_glyph_tier`s (e.g. upgrading to `extended` on a
-      # kitty/WezTerm reattach) even though the user pinned the tier.
+      # Carry a runtime `glyph_tier=` pin across too: the new device derives
+      # `@glyph_tier_explicit` from config alone, so without this a runtime pin
+      # is lost and the reattach's `probe!` re-runs auto-detection over it.
       s.glyph_tier = @glyph_tier if glyph_tier_explicit?
       s
     end
@@ -421,9 +364,8 @@ module Crysterm
         smacs: (s.smacs? || Bytes.empty).dup,
         rmacs: (s.rmacs? || Bytes.empty).dup,
         el: (s.el? || Bytes.empty).dup,
-        # Cursor-bracket sequences, captured once (see the DrawCaps note). The
-        # ANSI fallbacks are exactly what tput's own `save_cursor`/… emit when a
-        # terminal lacks the capability, so the bytes are identical either way.
+        # The ANSI fallbacks are exactly what tput's own `save_cursor`/… emit
+        # when a terminal lacks the capability, so the bytes match either way.
         save_cursor: (s.sc? || "\e7".to_slice).dup,
         restore_cursor: (s.rc? || "\e8".to_slice).dup,
         hide_cursor: (s.civis? || "\e[?25l".to_slice).dup,
@@ -438,22 +380,20 @@ module Crysterm
     CELL_QUERY_TIMEOUT = 150.milliseconds
 
     # Detects the terminal's cell size in pixels at startup and feeds the
-    # derived aspect ratio to the CSS layer (see `#apply_cell_pixels`).
-    # Prefers the `TIOCGWINSZ` ioctl (no round-trip); falls back to querying
-    # via XTWINOPS when the kernel carries no pixel size (common under
-    # tmux/screen/ssh) — done before the input listen loop spawns, per
-    # `Tput::Response`'s synchronous-read rule. Leaves the CSS default
-    # untouched when the terminal reports nothing.
+    # derived aspect ratio to the CSS layer. Prefers the `TIOCGWINSZ` ioctl (no
+    # round-trip); falls back to querying via XTWINOPS when the kernel carries
+    # no pixel size (common under tmux/screen/ssh). MUST run before the input
+    # listen loop spawns — the fallback is a synchronous read that would race it.
+    # Leaves the CSS default untouched when the terminal reports nothing.
     def detect_cell_geometry : Nil
       cp = Widget::Media::Graphics.terminal_cell_pixels(self) || query_cell_pixels
       apply_cell_pixels(cp[0], cp[1]) if cp
     end
 
-    # Re-reads the terminal's cell pixel size on resize, via the `TIOCGWINSZ`
-    # ioctl *only* — the escape-sequence fallback must never run here since the
-    # input listen loop is active and a synchronous query would race it.
-    # Catches font/zoom changes arriving as `SIGWINCH`. (The in-band resize
-    # path takes the size straight from the report.)
+    # Re-reads the terminal's cell pixel size on resize, catching font/zoom
+    # changes arriving as `SIGWINCH`. Uses the `TIOCGWINSZ` ioctl *only*: the
+    # input listen loop is active by now, so the escape-sequence fallback would
+    # race it and must never run here.
     def refresh_cell_geometry : Nil
       if cp = Widget::Media::Graphics.terminal_cell_pixels(self)
         apply_cell_pixels(cp[0], cp[1])
@@ -463,22 +403,19 @@ module Crysterm
     # Stores a cell pixel size and feeds the derived aspect ratio (height ÷
     # width, clamped to a sane band so a bogus report can't wreck layout) to
     # the CSS layer — unless `css.cell_aspect_ratio` pins it. No-op for a
-    # non-positive size. Shared by startup detection, the resize ioctl
-    # refresh, and the in-band resize report (via the owning window).
+    # non-positive size.
     def apply_cell_pixels(width : Int32, height : Int32) : Nil
       return unless width > 0 && height > 0
       @cell_pixel_width = width
       @cell_pixel_height = height
       # Keep SGR-Pixels (DEC 1016) mouse decoding in step with a font/zoom
       # change: the parser divides pixel reports by this cached cell size, so a
-      # stale value would mis-map every pixel event to the wrong cell after a
-      # resize. Only refresh when pixel mode is already active (non-nil).
+      # stale value mis-maps every pixel event to the wrong cell. Only refresh
+      # when pixel mode is already active (non-nil).
       tput.mouse_cell_pixels = {width, height} if tput.mouse_cell_pixels
       # Feed the measured cell *width* into the CSS `px` anchor so an absolute
       # `px` length maps through the terminal's real geometry rather than the
-      # hardcoded `1 cell ≈ 10px` default — unless `css.px_per_cell` pins it. A
-      # terminal that reports no pixel size never reaches here (`width <= 0`),
-      # so `px` keeps its 10.0 default.
+      # hardcoded `1 cell ≈ 10px` default — unless `css.px_per_cell` pins it.
       CSS::Length.divisors["px"] = width.to_f unless CSS::Length.px_per_cell_configured?
       return if CSS::Length.cell_aspect_ratio_configured?
       CSS::Length.cell_aspect_ratio = (height.to_f / width.to_f).clamp(1.0, 4.0)
@@ -487,8 +424,8 @@ module Crysterm
     # Cell pixel size `{width, height}` queried from the terminal itself, for
     # when the ioctl reported nothing. Asks via XTWINOPS 16 (cell size in
     # pixels); if unanswered, derives it from text-area size in pixels (op 14)
-    # divided by the device's known size in cells. `nil` if neither answers
-    # (or isn't a tty — `query` no-ops instantly, so tests/pipes don't block).
+    # divided by the device's known size in cells. `nil` if neither answers (or
+    # on a non-tty — the query no-ops instantly, so tests/pipes don't block).
     private def query_cell_pixels : {Int32, Int32}?
       if cp = tput.get_cell_size_pixels(CELL_QUERY_TIMEOUT)
         return {cp[1], cp[0]} # XTWINOPS reports {height, width}; return {width, height}

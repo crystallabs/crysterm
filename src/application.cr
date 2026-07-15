@@ -18,15 +18,12 @@ module Crysterm
 
     # Surfaces (`Window`s) this application is driving — the per-app routing /
     # "active window" set (≈ `QGuiApplication::allWindows()` scoped to one app).
-    # Populated by `#add` (and `Window#listen` self-registers), kept clean by
-    # `Window#destroy` calling `#remove`.
     #
     # Deliberately **not** the same registry as class-level `Window.instances`,
-    # which tracks *every* surface ever created — including one never attached to
-    # an `Application` (`Window.new` enters the alternate buffer in its
-    # constructor, before any `#exec`/`#listen`) — and is what `at_exit` walks to
-    # restore every terminal on shutdown. Global teardown net vs. per-app routing
-    # view; kept separate rather than collapsed into one.
+    # which tracks *every* surface ever created — including one never attached
+    # to an `Application`, since `Window.new` enters the alternate buffer in its
+    # constructor — and is what `at_exit` walks to restore every terminal on
+    # shutdown. Global teardown net vs. per-app routing view; kept separate.
     getter windows = [] of Window
 
     def initialize
@@ -47,29 +44,28 @@ module Crysterm
 
     # The app-wide active window — the surface app-level input is routed to, and
     # whose device the clipboard facade talks to. The most-recently added or
-    # activated window (see `#activate`).
+    # activated window.
     def active_window : Window?
       @windows.last?
     end
 
     # Brings *window* to the front of its device and makes it active: becomes the
-    # most-recent window (so `#active_window` / `#active_window_for` route input
-    # to it) and is repainted over any sibling sharing the same `Screen`. The
-    # toolkit's "raise window" for stacked surfaces. No-op if not registered.
+    # most-recent window (so input routes to it) and is repainted over any
+    # sibling sharing the same `Screen`. The toolkit's "raise window" for stacked
+    # surfaces. No-op if not registered.
     def activate(window : Window) : Window?
       return unless @windows.includes? window
       @windows.delete window
       @windows << window
       # The frame diff runs against this window's PRIVATE `@olines` (what THIS
-      # window last sent); the terminal may currently show a sibling sharing
-      # the device, so an unchanged frame would emit zero bytes and the raise
-      # would be invisible. Poison the old-frame buffer so the whole surface is
-      # re-emitted (the raise counterpart of `Window#screen=`'s enter+realloc).
+      # window last sent), but the terminal may currently show a sibling sharing
+      # the device — an unchanged frame would emit zero bytes and the raise would
+      # be invisible. Poison the old-frame buffer to force a full re-emit.
       window.invalidate_region 0, window.awidth, 0, window.aheight
-      # Re-assert per-window terminal state a sibling may have overwritten on
-      # the shared device: the hardware cursor shape/blink/color (DECSCUSR /
-      # OSC 12 are pushed only from `apply_cursor`, so the raised window would
-      # otherwise keep running under the sibling's cursor indefinitely)...
+      # Re-assert per-window terminal state a sibling may have overwritten on the
+      # shared device. The hardware cursor (DECSCUSR / OSC 12) is pushed only
+      # from `apply_cursor`, so without this the raised window keeps running
+      # under the sibling's cursor indefinitely...
       window.apply_cursor
       # ...and the window title (OSC 0), same structural gap.
       window.title.try { |t| window.tput.title = t }
@@ -81,23 +77,20 @@ module Crysterm
     # the right surface — the `QGuiApplication` dispatch step. The device knows
     # nothing about focus or widgets: it hands its `Tput::InputEvent` here, this
     # resolves the active `Window` on that device, and the window does the
-    # mouse/paste/key demux and focus walk (`Window#handle_input`).
+    # mouse/paste/key demux and focus walk.
     #
     # Also home for **app-global hotkeys**, applied as a *fallback* after the
     # window has had its say. Default quit keys (`q` / Ctrl-Q): a press (never
     # release) on a window with `default_quit_keys?` tears it down and exits —
     # but only when no widget/handler `#accept`ed the key and no widget has
     # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
-    # edits instead of quitting the app. Windows that opt out
-    # (`default_quit_keys: false`) never quit here, so their own `q` bindings —
-    # or `Application.exec_all`'s graceful quit — run instead.
+    # edits instead of quitting the app. Windows that opt out never quit here.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
       win = active_window_for(screen)
       return unless win
 
-      # Dispatch to the window first (mirroring how Tab-navigation defers in
-      # `_listen_keys`), then quit only if the resulting `KeyPress` came back
-      # un-`accepted?` and no widget is grabbing the keyboard (BUGS-F2 #1).
+      # Dispatch to the window first, then quit only if the resulting `KeyPress`
+      # came back un-`accepted?` and no widget is grabbing the keyboard.
       ev = win.handle_input e
 
       if ev && win.default_quit_keys? && !win.grab_keys? && !ev.accepted? && quit_key?(ev.char, ev.key)
@@ -112,27 +105,23 @@ module Crysterm
     # `Event::AboutToQuit` so handlers can save state, tears every window down,
     # then exits the process with *status*.
     #
-    # This is the app-level quit — the one `Window#application` advertises, and
-    # what the default quit keys route through. It is the polite counterpart to
-    # a bare `exit`: that skips `AboutToQuit` entirely and leaves teardown to the
-    # `at_exit` net (which restores the terminals but runs no application code).
+    # The polite counterpart to a bare `exit`, which skips `AboutToQuit`
+    # entirely and leaves teardown to the `at_exit` net (that restores the
+    # terminals but runs no application code).
     #
     # NOTE `Application.exec_all` deliberately does *not* use this — it owns quit
-    # for its windows and returns normally instead of exiting the process (see
-    # that method).
+    # for its windows and returns normally instead of exiting the process.
     def quit(status : Int32 = 0) : NoReturn
       emit ::Crysterm::Event::AboutToQuit
       # Iterate a copy: `Window#destroy` calls `#remove`, which mutates
-      # `@windows` under an in-place iterator (cf. the `at_exit` net in
-      # `crysterm.cr`, same hazard).
+      # `@windows` under an in-place iterator.
       @windows.dup.each { |w| w.destroy unless w.destroyed? }
       exit status
     end
 
     # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).
-    # Factored out so `#route_input`'s hard-exit hotkey and `.exec_all`'s
-    # graceful close agree on what "quit" means. Pure, so it's unit-testable
-    # without driving the blocking input loop.
+    # Shared so the hard-exit hotkey and the graceful close agree on what
+    # "quit" means.
     def self.quit_key?(char : Char, key : ::Tput::Key?) : Bool
       char == 'q' || key == ::Tput::Key::CtrlQ
     end
@@ -144,10 +133,8 @@ module Crysterm
 
     # The most-recently-added `Window` shown on *screen*, or `nil`. Mirrors
     # `#active_window` but scoped to one device, so input read on a given tty
-    # reaches a window on *that* tty rather than the globally most-recent one
-    # (matters once an app drives several windows on distinct devices).
-    # Public so a `Window` can ask whether it is the one currently shown on its
-    # device (e.g. `Window#on_resize` repaints only the device-active window).
+    # reaches a window on *that* tty rather than the globally most-recent one —
+    # which matters once an app drives several windows on distinct devices.
     def active_window_for(screen : Screen) : Window?
       @windows.reverse_each { |w| return w if w.screen.same? screen }
       nil
@@ -162,7 +149,7 @@ module Crysterm
       @windows << window
       window.application = self
       # Back-link the device so its input read fiber can route up to this
-      # dispatcher (`Screen#listen_keys` -> `#route_input`).
+      # dispatcher.
       window.screen.application = self
       emit ::Crysterm::Event::ScreenAdded, window.screen if new_device
       window
@@ -177,8 +164,8 @@ module Crysterm
     end
 
     # The application clipboard facade ↔ `QGuiApplication::clipboard()`. One
-    # logical clipboard per app; the OSC-52 transport runs on the active window's
-    # device (see `Clipboard`).
+    # logical clipboard per app; the OSC-52 transport runs on the active
+    # window's device.
     getter clipboard : Clipboard { Clipboard.new self }
 
     # Renders *window* and runs the main loop — the `QApplication::exec()` entry.
@@ -213,11 +200,9 @@ module Crysterm
     # "tmux"), or nil to auto-detect (honoring `$TERMINAL`).
     #
     # Pass `listen: true` to start reading input immediately, so a single spawned
-    # window is interactive without a separate `#listen`/`#exec` call (caller
-    # still has to keep the process alive, e.g. with `sleep`). Otherwise a
-    # freshly opened screen renders but doesn't read input until `#listen` /
-    # `#exec` (or `Application.run`); a reattached screen restores whatever
-    # listening state it had before disconnecting.
+    # window is interactive without a separate `#listen`/`#exec` call (the caller
+    # still has to keep the process alive, e.g. with `sleep`). A reattached
+    # screen restores whatever listening state it had before disconnecting.
     def self.open(*, launcher : Terminal::Launcher | String | Nil = nil,
                   cols : Int32 = 80, rows : Int32 = 24,
                   title : String? = nil, env : Process::Env = nil,
@@ -258,31 +243,28 @@ module Crysterm
     # blocks until none remain — returning cleanly once the last one is gone.
     #
     # This wrapper *owns* quit for its windows: it opts each one out of the
-    # app-global hard-exit default (`#route_input`'s `win.destroy; exit`) via
-    # `default_quit_keys = false`, so `q`/Ctrl-Q falls through to
-    # `Window#handle_input` as `Event::KeyPress`. The handler below then runs a
-    # *graceful* close, tearing every managed window down through `finish` so
-    # `remaining`/`done` reach zero and `exec_all` returns normally instead of
-    # the process hard-exiting mid-loop.
+    # app-global hard-exit default via `default_quit_keys = false`, so `q`/Ctrl-Q
+    # falls through as an `Event::KeyPress`. The handler below then runs a
+    # *graceful* close, tearing every managed window down so `remaining`/`done`
+    # reach zero and `exec_all` returns normally instead of the process
+    # hard-exiting mid-loop.
     def self.exec_all(windows : Array(Window)) : Nil
       return if windows.empty?
       remaining = windows.size
       done = Channel(Nil).new(1)
       # Windows already counted as gone. `destroy` emits `Event::Destroy` at
-      # most once (guarded by `@destroyed`), but count through a set so a
-      # re-emission could never double-decrement `remaining`.
+      # most once, but count through a set so a re-emission could never
+      # double-decrement `remaining`.
       counted = Set(Window).new
 
       windows.each do |w|
-        # Take over quit from the app-global hotkey (see method doc): the
-        # graceful path below, not `route_input`'s `exit`, handles `q`/Ctrl-Q.
+        # Take over quit from the app-global hotkey (see method doc).
         w.default_quit_keys = false
         # Count a window out on ANY teardown path — the quit key below, a
-        # `WindowClosed`, or a direct programmatic `w.destroy` (the standard
-        # close API). Counting only inside the quit/close handlers left a
-        # directly-destroyed window forever uncounted, so `remaining` never
-        # reached zero and `done.receive` blocked this method (and the whole
-        # process) permanently.
+        # `WindowClosed`, or a direct programmatic `w.destroy`. Counting only
+        # inside the quit/close handlers leaves a directly-destroyed window
+        # uncounted, so `remaining` never reaches zero and `done.receive` blocks
+        # this method (and the whole process) permanently.
         w.on(Crysterm::Event::Destroy) do
           if counted.add? w
             remaining -= 1
@@ -291,9 +273,8 @@ module Crysterm
         end
         w.on(Crysterm::Event::KeyPress) do |e|
           # Quit only when no widget consumed the key and nothing is grabbing
-          # the keyboard — the same guards `#route_input` applies (BUGS-F2 #1).
-          # Without them, typing `q` into a reading `LineEdit`/`TextEdit`
-          # closed every window.
+          # the keyboard — the same guards `#route_input` applies. Without them,
+          # typing `q` into a reading `LineEdit`/`TextEdit` closes every window.
           next if e.accepted? || w.grab_keys?
           windows.each { |o| o.destroy unless o.destroyed? } if quit_key? e.char, e.key
         end
@@ -316,14 +297,13 @@ module Crysterm
       end
 
       # Last value set or received. Refreshed automatically when an OSC-52 read
-      # reply arrives (`#request` -> `#refresh_from_terminal`).
+      # reply arrives.
       getter text : String = ""
 
-      # Rich payload of the last copy, when it came from a rich-text source
-      # (`#set_rich`, e.g. `Widget::TextEdit`); the formatted counterpart of
-      # `#text`. Non-nil only while the *most recent* copy was rich: any plain
-      # `#text=` clears it, so a paste that prefers the fragment can never
-      # resurrect stale formatting over newer plain text (TEXTEDIT.md Phase 3).
+      # Rich payload of the last copy, when it came from a rich-text source; the
+      # formatted counterpart of `#text`. Non-nil only while the *most recent*
+      # copy was rich: any plain `#text=` clears it, so a paste that prefers the
+      # fragment can never resurrect stale formatting over newer plain text.
       getter fragment : TextDocumentFragment?
 
       # Sets the clipboard text and copies it to the active window's terminal.
@@ -334,11 +314,10 @@ module Crysterm
       # Like `#text=`, but the OSC-52 write goes to *window*'s own device (the
       # app-active window when nil). Input routing is per-device without
       # reordering `@windows`, so `active_window` (just `@windows.last`) may be
-      # a window on a *different* terminal than the one the copying widget
-      # lives on — the copy would land on (and clobber) the wrong terminal's
-      # clipboard while the user's terminal keeps its stale content. Callers
-      # that know their surface (e.g. a widget's copy_selection) pass it here;
-      # the in-process mirror (`#text`) stays app-wide either way.
+      # a window on a *different* terminal than the copying widget's — the copy
+      # would then clobber the wrong terminal's clipboard. Callers that know
+      # their surface should pass it; the in-process mirror (`#text`) stays
+      # app-wide either way.
       def set_text(value : String, window : Window? = nil) : String
         @fragment = nil
         @text = value
@@ -348,8 +327,8 @@ module Crysterm
 
       # Rich copy: *fragment* for in-process rich paste, plus its plain-text
       # rendering for the terminal (OSC-52 carries text only, so the system
-      # clipboard degrades to plain — per plan). *window* routes the device
-      # write like `#set_text`.
+      # clipboard degrades to plain). *window* routes the device write like
+      # `#set_text`.
       def set_rich(fragment : TextDocumentFragment, text : String, window : Window? = nil) : Nil
         set_text text, window
         @fragment = fragment

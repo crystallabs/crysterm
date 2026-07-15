@@ -7,13 +7,11 @@ module Crysterm
     # Is element clickable?
     property? clickable = false
 
-    # Whether this widget should receive mouse events by default.
-    #
-    # A widget is mouse-responsive if it is interactive (`input?`/`keyable?`),
-    # `scrollable?`, `draggable?`, explicitly marked `clickable?`, or already has
-    # a `Click`/`Mouse` listener attached. Used by `Window#widget_at` for
-    # hit-testing, so a plain `Box` that later gets an `Event::Click` handler
-    # automatically starts receiving clicks without also setting `clickable: true`.
+    # Whether this widget should receive mouse events by default: it is
+    # interactive, scrollable, draggable, explicitly `clickable?`, or already has
+    # a mouse listener attached. Keying off the listeners means a plain `Box` that
+    # gets an `Event::Click` handler starts receiving clicks without also being
+    # marked `clickable: true`.
     def wants_mouse?
       clickable? || input? || keyable? || scrollable? || draggable? ||
         # A widget listening for drops is a drop target and must be hit-testable
@@ -51,9 +49,8 @@ module Crysterm
       !state.disabled?
     end
 
-    # Is the widget disabled? While disabled it does not react to keyboard
-    # input (see `Window#_listen_keys`) and Tab/Shift+Tab step over it (see
-    # `Window#focus_offset`).
+    # Is the widget disabled? While disabled it does not react to keyboard input
+    # and Tab/Shift+Tab step over it.
     def disabled? : Bool
       state.disabled?
     end
@@ -62,11 +59,9 @@ module Crysterm
     # `Event::EnabledChanged` on a real change.
     #
     # Backed by `#state` rather than a flag of its own, so `Disabled` can't drift
-    # out of sync with the state the renderer and `Window#_listen_keys` read.
-    # Since `WidgetState` is single-valued, enabling resolves to `Normal` —
-    # re-disabling a widget that was `Focused`/`Hovered`/`Selected` and then
-    # re-enabling it lands on `Normal`, not the prior state. `#state=` already
-    # handles `mark_dirty` and the CSS re-cascade (`state-disabled` rules).
+    # out of sync with the state the renderer reads. Since `WidgetState` is
+    # single-valued, enabling always resolves to `Normal` — never back to a prior
+    # `Focused`/`Hovered`/`Selected`.
     def enabled=(value : Bool) : Bool
       return value if value == enabled?
       self.state = value ? WidgetState::Normal : WidgetState::Disabled
@@ -100,21 +95,13 @@ module Crysterm
     # it to the most recent still-valid entry in the window's focus history — or
     # blurring outright when none remains. No-op unless this widget currently
     # holds focus, so it can't disturb an unrelated focused widget.
-    #
-    # `Window#rewind_focus` (not `focus_pop`) is what pops-and-revalidates: it
-    # prunes history entries that have since been detached or hidden, which is
-    # exactly the state a widget being un-focused tends to be left in.
     def clear_focus : Nil
       return unless focused?
       window?.try &.rewind_focus
     end
 
-    # Returns whether widget is currently in focus.
-    #
-    # Uses the non-raising `#window?`: a detached widget holds no `@window` and
-    # derives none through a parent, so the raising `#window` would crash this
-    # pure query with `NilAssertionError`. A detached widget is never the
-    # window's focused widget, so the answer there is `false`.
+    # Returns whether widget is currently in focus. `false` for a detached
+    # widget, which is never the window's focused widget.
     @[AlwaysInline]
     def focused?
       window?.try(&.focused) == self
@@ -139,17 +126,14 @@ module Crysterm
       text
     end
 
-    # Whether the absolute point (*x*, *y*) lies within this widget's last-laid-out
-    # rectangle. Returns false before layout (coordinates raise). Shared hit-test
-    # used by pop-ups for outside-click dismissal and grab containment.
+    # Whether the absolute point (*x*, *y*) lies within this widget's
+    # last-laid-out rectangle. Returns false before layout.
     def contains_point?(x : Int32, y : Int32) : Bool
-      # Prefer the painted rectangle (`lpos`): like `Window#widget_at`, it carries
-      # the margin shift, enclosing-scroll offset and clipping, so a scrolled or
-      # clipped widget is tested where it actually appears (and one painted to
-      # nothing, `lpos == nil`, is never contained). Fall back to the computed
-      # rectangle only before the first render, when `lpos` is still nil for a
-      # widget that has laid out but not painted; `aleft` may raise pre-layout, so
-      # keep the rescue.
+      # Prefer the painted rectangle: it carries the margin shift,
+      # enclosing-scroll offset and clipping, so a scrolled or clipped widget is
+      # tested where it actually appears (and one painted to nothing is never
+      # contained). Fall back to the computed rectangle only before the first
+      # render; `aleft` may raise pre-layout, hence the rescue.
       if lp = lpos
         return lp.xi <= x < lp.xl && lp.yi <= y < lp.yl
       end
@@ -161,10 +145,9 @@ module Crysterm
     end
 
     # Whether the absolute point (*x*, *y*) belongs to this widget's *grab
-    # region* — used by `Window`'s input-grab to decide which points still
-    # interact while this widget is grabbing (see `Window#grab`). Default is the
-    # widget's own rectangle; pop-ups owning extra area (drop-downs, submenus)
-    # override this.
+    # region* — the points that still interact while this widget is grabbing
+    # input. Default is the widget's own rectangle; pop-ups owning extra area
+    # (drop-downs, submenus) override this.
     def grab_contains?(x : Int32, y : Int32) : Bool
       contains_point? x, y
     end
@@ -311,7 +294,7 @@ module Crysterm
     # `left`/`top` of 0 maps to in absolute cells. For a nested widget that's the
     # parent's content corner (`parent.aleft + parent.ileft`); for a top-level
     # widget it's the window's content corner — `(window.ileft, window.itop)`,
-    # since `aleft == window.ileft + left` (see `window.cr`). Used by the drag
+    # since `aleft == window.ileft + left`. Used by the drag
     # handler to convert the pointer's absolute position into a parent-relative
     # `left`/`top`. `protected` so subclasses with a custom drag entry
     # (`ColorDialog`, `DockWidget`) reuse this exact origin math.

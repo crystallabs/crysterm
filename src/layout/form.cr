@@ -17,12 +17,8 @@ module Crysterm
       # Width of the (left) label column.
       property label_width : Int32
 
-      # Horizontal gap between a row's label and its field, in cells.
-      #
-      # Named for symmetry with `#row_gap` rather than reusing the inherited
-      # `Layout#gap`: on every other engine that means "space between adjacent
-      # children", while here it would silently mean only the label-to-field
-      # gap. `Layout#gap` is therefore unused by this engine.
+      # Horizontal gap between a row's label and its field, in cells. Named for
+      # symmetry with `#row_gap`; the inherited `Layout#gap` is unused here.
       property column_gap : Int32
 
       # Vertical gap between rows, in cells.
@@ -32,14 +28,11 @@ module Crysterm
       # allocating a `reject` array per render.
       @row_children = [] of Widget
 
-      # `place_child` -> `set_geometry` writes the resolved row height back into
-      # each child's raw `@height`, which would destroy a `"30%"`/`nil` height
-      # (frozen forever at frame 1's resolved cells) and make the shared
-      # pair-row max sticky (a field next to a taller label keeps the max even
-      # after the label shrinks). Mirror `Layout::Border`'s release bookkeeping:
-      # remember each child's raw height and the Int we last assigned, restore
-      # the raw value before re-measuring, and release a child whose raw height
-      # the user changed out from under us.
+      # Placing a child writes the resolved row height back over its raw
+      # `@height`, which would freeze a `"30%"`/`nil` height at frame 1's cells
+      # and make the shared pair-row max sticky. Remember each child's raw height
+      # and the Int last assigned, restore the raw value before re-measuring, and
+      # release a child whose raw height the user changed.
       @raw_height = {} of Widget => (Int32 | String | Nil)
       @assigned = {} of Widget => Int32
 
@@ -56,8 +49,8 @@ module Crysterm
         prune_managed container, @raw_height
         prune_managed container, @assigned
 
-        # Only pair arrangeable children (see `#each_arrangeable`); layout-excluded
-        # chrome must not be consumed as a label/field slot.
+        # Only pair arrangeable children: layout-excluded chrome must not be
+        # consumed as a label/field slot.
         children = @row_children
         children.clear
         each_arrangeable(container) { |el| children << el }
@@ -99,10 +92,8 @@ module Crysterm
         end
       end
 
-      # Restores `el`'s remembered raw height before we re-measure it, so a
-      # percent/nil height survives the `set_geometry` write-back every frame
-      # and the pair-row max never stays stuck. Releases the child when its raw
-      # height no longer matches what we last assigned (the user set it).
+      # Restores `el`'s remembered raw height before it is re-measured. Releases
+      # the child when its raw height no longer matches what was last assigned.
       private def restore_height(el : Widget) : Nil
         restore_managed(el, @raw_height, @assigned, el.height) { |v| el.height = v }
       end

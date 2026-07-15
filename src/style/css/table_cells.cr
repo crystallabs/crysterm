@@ -11,26 +11,22 @@ module Crysterm
     module TableCells
       @css_cells : Hash(Tuple(Int32, Int32), Style)?
 
-      # Reused, allocation-free scratch set: data-row indices carrying a
-      # CSS-computed cell style this frame. Rebuilt per render via
-      # `#refresh_styled_rows`; the default theme styles only row 0 (Header), so
-      # an otherwise-unstyled table skips per-cell CSS lookups for every body row.
+      # Data-row indices carrying a CSS-computed cell style this frame, so an
+      # otherwise-unstyled table skips per-cell CSS lookups for every body row.
       @styled_rows = Set(Int32).new
 
       private def css_cells : Hash(Tuple(Int32, Int32), Style)
         @css_cells ||= {} of Tuple(Int32, Int32) => Style
       end
 
-      # Rebuilds `@styled_rows` from `@css_cells`, reusing the same Set
-      # (clear + repopulate) so a per-render refresh allocates nothing. A `nil`
-      # or empty `@css_cells` leaves the set empty.
+      # Rebuilds `@styled_rows` from `@css_cells`, reusing the same Set so a
+      # per-render refresh allocates nothing.
       def refresh_styled_rows : Nil
         @styled_rows.clear
         @css_cells.try &.each_key { |(r, _)| @styled_rows << r }
       end
 
-      # Whether data row *r* carries a CSS-computed cell style (see
-      # `#refresh_styled_rows`).
+      # Whether data row *r* carries a CSS-computed cell style.
       def styled_row?(r : Int32) : Bool
         @styled_rows.includes?(r)
       end
@@ -55,9 +51,9 @@ module Crysterm
       def css_extra_slots : Array(String)
         slots = [] of String
         rows.each_with_index do |row, ridx|
-          # A whole-row slot first (`Row { ... }`), then each cell. The cascade
-          # applies the row slot before the cells (see `Cascade`), so the row
-          # style becomes each cell's base and `Cell` rules layer on top.
+          # A whole-row slot first (`Row { ... }`), then each cell: the cascade
+          # applies slots in order, so the row style becomes each cell's base
+          # and `Cell` rules layer on top.
           slots << "row:#{ridx}"
           row.each_index { |cidx| slots << "cell:#{ridx}:#{cidx}" }
         end

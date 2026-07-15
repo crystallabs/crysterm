@@ -6,46 +6,21 @@ module Crysterm
     DEFAULT_ATTR = Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
     DEFAULT_CHAR = ' '
 
-    # Disabled, unused.
-    # class BorderStop
-    #  property? yes = false
-    #  property xi : Int32?
-    #  property xl : Int32?
-    # end
-
-    # Disabled, unused.
-    # class BorderStops < Hash(Int32, BorderStop)
-    #  def []=(idx : Int32, arg)
-    #    self[idx]? || (self[idx] = BorderStop.new)
-    #    case arg
-    #    when Bool
-    #      self[idx].yes = arg
-    #    else
-    #      self[idx].xi = arg.xi
-    #      self[idx].xl = arg.xl
-    #    end
-    #  end
-    # end
-
     # ---- Single-threaded rendering model -----------------------------------
     #
     # Crysterm renders on ONE fiber, Qt-style. The render fiber (`render_loop`)
-    # is the sole owner of the cell buffer (`@lines`) and the only place
-    # widgets are painted. Since the default Crystal runtime is
-    # single-threaded and fibers are cooperative, the render fiber and the
-    # input/handler fibers never run in parallel — they interleave only at
-    # yield points — so no locks are needed on widget state.
+    # is the sole owner of the cell buffer (`@lines`) and the only place widgets
+    # are painted. Fibers being cooperative, it never runs in parallel with the
+    # input/handler fibers, so no locks are needed on widget state.
     #
     # Coordination is a single capacity-1 channel used as a coalescing
-    # "doorbell": `schedule_render` rings it (non-blocking; extra rings while
-    # one is pending are dropped, batching bursts into one frame), and
-    # `render_loop` consumes the ring *before* rendering, so a change made
-    # during a render re-rings the doorbell and is picked up next frame (no
-    # lost updates). The channel is the only cross-fiber primitive — safe even
-    # under multi-threading — so `schedule_render`/`post` may be called from
-    # any fiber, but everything they hand off still runs on the one render
-    # fiber. Offloaded work should mutate widgets via `post` to land on the
-    # render fiber, not concurrently.
+    # "doorbell": `schedule_render` rings it (extra rings while one is pending
+    # are dropped, batching bursts into one frame), and `render_loop` consumes
+    # the ring *before* rendering, so a change made during a render re-rings the
+    # doorbell and is picked up next frame (no lost updates). The channel is the
+    # only cross-fiber primitive, so `schedule_render`/`post` may be called from
+    # any fiber; offloaded work must mutate widgets via `post` to land on the
+    # render fiber rather than concurrently.
 
     # Coalescing render doorbell (capacity 1: at most one render pending).
     @render_wakeup = Channel(Nil).new 1
@@ -53,19 +28,17 @@ module Crysterm
     # Set by `#destroy` to make `render_loop` exit on its next wake-up.
     @render_stop = false
 
-    # The fiber currently running `render_loop`, so `#revive` (destroy ->
-    # `#connect` rebinding) can wait for the stopped loop to actually exit
-    # before respawning — a woken-but-not-yet-exited old fiber would otherwise
-    # consume (and coalesce away) the revival repaint's doorbell ring.
+    # The fiber currently running `render_loop`, so `#revive` can wait for a
+    # stopped loop to actually exit before respawning — a woken-but-not-yet-
+    # exited old fiber would coalesce away the revival repaint's doorbell ring.
     @_render_loop_fiber : Fiber?
 
-    # Generation of the current render/resize loop fibers. `#revive`
-    # (destroy -> `#connect` rebinding) bumps it and spawns replacement loops
-    # that capture the new value; each loop exits when its captured generation
-    # no longer matches, so an old fiber that hasn't yet observed its stop
-    # flag terminates instead of racing its replacement for the same doorbell
-    # (the stop flags alone can't distinguish old fibers from new — revival
-    # must reset them before respawning).
+    # Generation of the current render/resize loop fibers. `#revive` bumps it
+    # and spawns replacement loops capturing the new value; each loop exits once
+    # its captured generation no longer matches, so an old fiber that hasn't yet
+    # observed its stop flag terminates instead of racing its replacement for
+    # the same doorbell (revival resets the stop flags, so they alone can't tell
+    # old fibers from new).
     @loop_generation = 0
 
     # Closures queued by other fibers to run *on the render fiber*, applied
@@ -83,7 +56,6 @@ module Crysterm
     # Rings a coalescing doorbell: a non-blocking send on a capacity-1 channel.
     # If a notification is already pending the send is dropped, so a burst of
     # calls collapses into the single wake-up the loop eventually observes.
-    # Shared by `#schedule_render` and `#schedule_resize`.
     private def ring(ch : Channel(Nil)) : Nil
       select
       when ch.send nil
@@ -98,21 +70,17 @@ module Crysterm
     end
 
     # True only while `#_render` is building a frame on the render fiber.
-    # Gates `#request_frame`; see there for why.
     getter? in_render : Bool = false
 
     # Requests a frame on behalf of a *state-changing setter* (geometry,
-    # content, visibility, widget state — see `Macros.change_guarded_setter`
-    # and `Widget#mark_dirty`'s callers). Identical to `#schedule_render`,
+    # content, visibility, widget state). Identical to `#schedule_render`,
     # except it is a no-op while a frame is already being built.
     #
-    # That exception is the whole point. Layout engines assign child geometry
-    # *during* the frame, through the very same setters (`Layout::Box#place`
-    # does `el.width = v` / `el.top = v`, `Layout#place_child` calls
-    # `Widget#set_geometry`). Ringing the doorbell from there would mark the
-    # frame dirty from inside itself and the render loop would spin at the FPS
-    # cap forever, on an idle UI. Anything a layout writes is painted by the
-    # frame that wrote it, so there is nothing to schedule.
+    # That exception is the whole point: layout engines assign child geometry
+    # *during* the frame, through these very setters, so ringing the doorbell
+    # would mark the frame dirty from inside itself and spin the render loop at
+    # the FPS cap forever on an idle UI. Anything a layout writes is painted by
+    # the frame that wrote it, so there is nothing to schedule.
     #
     # `#schedule_render` / `#render` / `Widget#request_render` stay
     # unconditional: an explicit request from a `PreRender`/`Rendered` handler
@@ -139,11 +107,10 @@ module Crysterm
           begin
             job.call
           rescue ex
-            # A posted job must never kill the render fiber: a dead render fiber
-            # freezes the whole UI and drains no further jobs. Cross-fiber
-            # callers that need the failure (e.g. the HTTP bridge's `on_ui`)
-            # capture it inside their own job and re-raise on the requesting
-            # fiber; here we swallow so the loop survives.
+            # A posted job must never kill the render fiber: that would freeze
+            # the whole UI and drain no further jobs. A cross-fiber caller
+            # needing the failure captures it inside its own job and re-raises
+            # on the requesting fiber.
           end
         else
           break
@@ -157,14 +124,14 @@ module Crysterm
     # Wraps a deque rather than subclassing `Deque(Int32)`: subclassing a stdlib
     # generic is deprecated and promotes every `Deque(Int32)` in the program
     # (including unrelated shards) to the virtual type `Deque(Int32)+`, causing
-    # confusing compile errors elsewhere (same class of problem as issue #30).
+    # confusing compile errors elsewhere.
     class Average
       def initialize(@capacity : Int32)
         @deque = Deque(Int32).new @capacity
         # Running sum, kept in sync on every push/shift so `avg` is O(1)
         # instead of re-summing each call. `Int64` because pushed values can be
-        # as large as `Int32::MAX` (see `Window#per_second`), and `capacity` of
-        # them would overflow an `Int32` sum.
+        # as large as `Int32::MAX`, and `capacity` of them would overflow an
+        # `Int32` sum.
         @sum = 0_i64
       end
 
@@ -190,17 +157,15 @@ module Crysterm
     getter render_rate : Int32 = 0
 
     # Frames/sec the draw (diffing the buffer and encoding escapes into the
-    # frame buffer) phase could sustain: `1 / draw_time`. The "D". Since the
-    # actual terminal write was split into `#flush_frame`, this now measures
-    # only the CPU-bound diff/encode — no terminal-backpressure stall.
+    # frame buffer) phase could sustain: `1 / draw_time`. The "D". Measures only
+    # the CPU-bound diff/encode, never a terminal-backpressure stall.
     getter draw_rate : Int32 = 0
 
     # Frames/sec the flush (writing the built frame to the terminal) phase could
     # sustain: `1 / flush_time`. On an unbuffered tty this is a blocking
     # `write()`, so it — not `draw_rate` — is where terminal backpressure lands
     # (the write stalls at the terminal's refresh cadence once the per-frame
-    # payload exceeds the pty buffer). Separated from `draw_rate` so each figure
-    # measures one thing.
+    # payload exceeds the pty buffer).
     getter flush_rate : Int32 = 0
 
     # Frames/sec the whole frame could sustain: `1 / (render_time + draw_time)`.
@@ -283,17 +248,14 @@ module Crysterm
     end
 
     # Rows where line-drawing characters were emitted this frame and need
-    # re-evaluation by the docking pass. Populated during rendering by
-    # `Widget#register_dock_stops` (borders and `Line` widgets) and consumed
-    # by `#_dock`. See `Crysterm::Docking`.
+    # re-evaluation by the docking pass.
     property _dock_stops = {} of Int32 => Bool
 
     # Like `#_dock_stops`, but for line-drawing rows emitted by widgets
     # rendering into a *compositing plane* (an overlay, e.g. a `Menu` chain).
     # Docking on the plane's own buffer — not the composited base — joins
     # overlapping overlay borders to each other without joining them to the
-    # content the overlay floats over. Collected per plane in
-    # `#composite_planes`.
+    # content the overlay floats over.
     property _plane_dock_stops = {} of Int32 => Bool
 
     # Rendering optimizations.
@@ -321,8 +283,7 @@ module Crysterm
 
     # Dockable borders won't dock if colors/attributes differ. This allows
     # docking regardless, which may produce odd multi-colored borders. Exposed
-    # so a widget docking its own line art (e.g. `Widget#dock_rows`) honors the
-    # same contrast policy as `#_dock`.
+    # so a widget docking its own line art honors the same contrast policy.
     getter dock_contrast : DockContrast = Config.render_dock_contrast
 
     property lines = Array(Row).new
@@ -334,8 +295,8 @@ module Crysterm
     @planes = {} of Int32 => Plane
 
     # Widgets deferred to a plane this frame (those with a `style.z_index`, at
-    # any nesting depth). Collected during the base render — see
-    # `#defer_layer` — and drained by `#composite_planes`. Cleared each frame.
+    # any nesting depth). Collected during the base render, drained and cleared
+    # each frame by `#composite_planes`.
     @layer_widgets = [] of Widget
 
     # True only while `#composite_planes` is rendering a layer into its plane,
@@ -345,13 +306,13 @@ module Crysterm
     getter? compositing_layers = false
 
     # Reused across frames by `#composite_planes` to bucket this frame's layer
-    # widgets by `{z-index, layer alpha}`. Clearing the member arrays each
-    # frame (rather than `Array#group_by`, which allocates a fresh `Hash` plus
-    # one `Array` per z-level every frame) keeps a steady-state layered UI
+    # widgets by `{z-index, layer alpha}`. Clearing the member arrays each frame
+    # (rather than `Array#group_by`, which allocates a fresh `Hash` plus one
+    # `Array` per z-level every frame) keeps a steady-state layered UI
     # allocation-free. Keyed by alpha as well as z: opacity is applied at fold
-    # time per plane, so two independent same-z roots with differing alpha
-    # must fold separately — one bucket per z made whichever root was
-    # collected first dictate every sibling's translucency.
+    # time per plane, so two independent same-z roots with differing alpha must
+    # fold separately, or the first-collected root dictates every sibling's
+    # translucency.
     @plane_buckets = {} of {Int32, Float64} => Array(Widget)
 
     # Reused list of this frame's non-empty bucket keys as
@@ -361,7 +322,6 @@ module Crysterm
     @sorted_zs = [] of {Int32, Int32, Float64}
 
     # Defers *el* (a z-indexed widget) to its plane instead of painting inline.
-    # Called from the base render wherever a child would be rendered.
     def defer_layer(el : Widget) : Nil
       @layer_widgets << el
     end
@@ -390,20 +350,17 @@ module Crysterm
     # Renders each of *members* into *pl*'s own buffer with `compositing` set
     # for the duration, so each layer widget paints opaquely into the plane
     # (render-time alpha self-blend suppressed); the layer's translucency is
-    # applied once at fold time as the plane's opacity. Shared by the full
-    # `#composite_planes` pass and the selective `#damage_plane_composite`
-    # (Phase 4); both manage `@compositing_layers` around their own call.
+    # applied once at fold time as the plane's opacity. The caller manages
+    # `@compositing_layers` around this.
     private def render_members_into_plane(pl : Plane, members : Enumerable(Widget)) : Nil
       with_render_target(pl.cells) do
         members.each do |el|
           # A layer member is collected during the base walk but painted here,
-          # after it — so a widget can be destroyed in between (a popup `Menu`
-          # closed from a handler that a later sibling's render fired), leaving a
-          # stale entry pointing at a now-detached widget. Painting it would
-          # raise out of `coords`'s `parent_or_window` (no parent, no
-          # window) and, since this runs on the render fiber, take rendering down
-          # for good rather than surfacing anywhere. A detached widget has
-          # nothing to paint anyway, so skip it.
+          # after it, so a widget can be destroyed in between (a popup `Menu`
+          # closed from a handler a later sibling's render fired), leaving a
+          # stale entry. Painting it would raise out of `coords`'s
+          # `parent_or_window` and, on the render fiber, take rendering down for
+          # good. A detached widget has nothing to paint anyway.
           next unless el.window?
           el.compositing = true
           el.render
@@ -460,11 +417,10 @@ module Crysterm
           @_plane_dock_stops.clear
           render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's
-          # own buffer before compositing down. The plane holds only the
-          # overlay widgets' cells (everything else transparent), so docking
-          # here can't reach into the base content the overlay floats over —
-          # fixing stray junctions the base `#_dock` produced where a popup
-          # overlapped a widget below it. Gated on `dock_borders`, like the base pass.
+          # own buffer before compositing down. The plane holds only the overlay
+          # widgets' cells (everything else transparent), so docking here can't
+          # reach into the base content the overlay floats over and produce
+          # stray junctions where a popup overlaps a widget below it.
           if @dock_borders && !@_plane_dock_stops.empty?
             Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
           end
@@ -476,8 +432,7 @@ module Crysterm
     end
 
     # Docks (joins) all line-drawing characters that cross or meet on the rows
-    # collected in `@_dock_stops` this frame. Delegates to `Crysterm::Docking`,
-    # shared between border docking and `Line` widget docking.
+    # collected in `@_dock_stops` this frame.
     def _dock
       Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
     end
@@ -490,7 +445,7 @@ module Crysterm
     # Drives an animation from its own fiber: repeatedly invoke *block*,
     # `render`, then sleep *interval*, until the program exits.
     #
-    # Collapses the boilerplate demos repeat everywhere —
+    # Collapses the usual boilerplate —
     #
     # ```
     # spawn do
@@ -518,9 +473,9 @@ module Crysterm
     # Real render
     #
     # Builds and flushes one frame synchronously, on the calling fiber. Sets
-    # `#in_render?` for the duration so the state-changing setters layout runs
-    # during the frame (`Layout::Box#place` and friends) don't ring the render
-    # doorbell from inside the frame they are part of — see `#request_frame`.
+    # `#in_render?` for the duration so the state-changing setters a layout runs
+    # during the frame don't ring the render doorbell from inside the frame they
+    # are part of — see `#request_frame`.
     def _render # (draw = true) #@@auto_draw)
       @in_render = true
       begin
@@ -553,26 +508,23 @@ module Crysterm
 
       @_dock_stops.clear
 
-      # Reset the effect detector for this frame (see `note_effect`).
+      # Reset the effect detector for this frame.
       @frame_used_effects = false
 
       # Compositing: either the selective damage path (when enabled and its
-      # preconditions hold) or the full re-composite below, which clears the
-      # whole in-memory cell buffer and re-renders every widget from scratch.
+      # preconditions hold) or a full re-composite, which clears the whole
+      # in-memory cell buffer and re-renders every widget from scratch.
       #
       # The full clear is required for correct alpha blending: alpha widgets
-      # blend their color into whatever is already in `@lines` (see
-      # `Colors.blend` in widget_rendering). Without it, each frame would blend
-      # on top of the previous frame's already-blended value, so a
-      # semi-transparent field would creep toward full saturation instead of
-      # staying constant. It also avoids needing `clear_region` calls wherever
-      # an element used to be (e.g. after moving/hiding). It's cheap on the
-      # wire: `clear_region`/`fill_region` only mark a line dirty when a cell
-      # actually changes, and `draw` still diffs every cell against `@olines`,
-      # so unchanged cells produce no output. The damage path replaces this
-      # whole-buffer clear with region-aware clears of just the changed
-      # subtrees, but only when it can prove output-equivalence (see
-      # `window_damage.cr`).
+      # blend into whatever is already in `@lines`, so without it each frame
+      # would blend on top of the previous frame's already-blended value and a
+      # semi-transparent field would creep toward full saturation. It also
+      # avoids needing `clear_region` calls wherever an element was last frame.
+      # It's cheap on the wire: `clear_region`/`fill_region` only mark a line
+      # dirty when a cell actually changes, and `draw` still diffs every cell
+      # against `@olines`. The damage path replaces the whole-buffer clear with
+      # region-aware clears of just the changed subtrees, but only when it can
+      # prove output-equivalence.
       if @optimization.damage_tracking?
         damage_composite
       else
@@ -589,7 +541,7 @@ module Crysterm
 
       # Write the built frame to the terminal. Timed separately from `draw` so
       # the CPU-bound diff/encode and the (blocking, backpressure-prone) tty
-      # write each get their own figure — see `draw_rate`/`flush_rate`.
+      # write each get their own figure.
       flush_frame
 
       t_flush = Time.instant
@@ -598,15 +550,11 @@ module Crysterm
       # is stale. Only some elements implement this; others are a noop.
       #
       # Only the cursor is repositioned here. A focus *event* is NOT emitted:
-      # `Event::Focus` denotes a focus *change*, fired once from
-      # `window_focus.cr#_focus` when focus actually moves (the rest of the
-      # code guards against spurious/duplicate Focus events — see
-      # `Widget#focus` and `_focus`'s `old == cur` handling). Re-emitting it
-      # every frame would fire all its focus side effects per render — e.g.
-      # `Widget::Terminal` reporting focus-in (`\e[I`) to its child PTY, a
-      # `text_editing` widget with `input_on_focus` re-entering `read_input`,
-      # `action_bar`/`menu_bar`/`completer`/remote DOM observers re-running
-      # their focus handlers — none of which the cursor workaround needs.
+      # `Event::Focus` denotes a focus *change*, fired once when focus actually
+      # moves. Re-emitting it every frame would fire all its side effects per
+      # render — a `Terminal` reporting focus-in (`\e[I`) to its child PTY, an
+      # `input_on_focus` widget re-entering `read_input`, menu/completer
+      # handlers re-running — none of which the cursor workaround needs.
       focused.try do |focused_widget|
         focused_widget._update_cursor(true)
       end
@@ -617,8 +565,7 @@ module Crysterm
 
       t3 = Time.instant
 
-      # Record this frame's performance figures so an optional `Widget::Fps`
-      # overlay can display them (see getters above). Always computed — cheap
+      # Record this frame's performance figures. Always computed — cheap
       # arithmetic — but nothing is drawn unless a widget reads them.
       @render_ns_last = (t2 - t1).total_nanoseconds.to_i64
       @draw_ns_last = (t_draw - t2).total_nanoseconds.to_i64
@@ -641,8 +588,8 @@ module Crysterm
     # Backing instance for `#last_rendered_position`, refreshed in place on every
     # call. This sits on the geometry hot path — every `awidth`/`aleft`
     # resolution of a top-level widget lands here, many times per widget per
-    # frame — so a fresh `RenderedGeometry` per call would put an allocation
-    # right in the middle of it.
+    # frame — so a fresh `RenderedGeometry` per call would allocate right in the
+    # middle of it.
     @last_rendered_geometry = RenderedGeometry.new
 
     # The window's rendered rectangle, reported exactly like a widget's, so that

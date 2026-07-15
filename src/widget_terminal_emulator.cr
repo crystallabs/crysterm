@@ -1,10 +1,8 @@
 module Crysterm
-  # A self-contained VT100/xterm-subset terminal emulator.
-  #
-  # SUPPORTING CODE — like `Pty`, no dependency on the widget tree; a candidate
-  # for extraction into its own shard. Consumes the raw byte stream a child
-  # writes to a PTY and maintains an in-memory grid of cells (attribute +
-  # character) a renderer can copy onto the window.
+  # A self-contained VT100/xterm-subset terminal emulator. No dependency on the
+  # widget tree: it consumes the raw byte stream a child writes to a PTY and
+  # maintains an in-memory grid of cells (attribute + character) a renderer can
+  # copy onto the window.
   #
   # Scope: the sequences a normal shell and common full-window programs (vim,
   # htop, less, top, man) rely on — cursor movement, SGR colours/styles,
@@ -13,17 +11,14 @@ module Crysterm
   # replies (DSR, primary/secondary DA, DECREQTPARM), the alternate buffer (DECSET
   # 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`), the screen-
   # alignment pattern (DECALN, `ESC # 8`), and mouse-mode tracking. Conformance is
-  # exercised against Paul Williams' `vttest` via `tools/vttest.cr`. Does NOT
-  # implement double-width/height lines, 132-column mode (DECCOLM), VT52 mode, or
-  # G2/G3 charset invocation (noted at each site).
-  #
-  # The SGR ('m') handler reuses `Crysterm::Screen.attr2code` so 16/256/truecolour
-  # behave identically to native content.
+  # exercised against Paul Williams' `vttest`. Does NOT implement double-width/
+  # height lines, 132-column mode (DECCOLM), VT52 mode, or G2/G3 charset
+  # invocation (noted at each site).
   class TerminalEmulator
-    # One grid cell. A `struct` so an `Array(Cell)` stores cells inline in one
-    # contiguous buffer (not `@cols` heap objects per line, which dominated
-    # scroll-path allocation). Since `arr[x]` is a *copy*, cells are never mutated
-    # through the index; writers replace the whole cell (`arr[x] = Cell.new(…)`).
+    # One grid cell. Must stay a `struct`, so an `Array(Cell)` holds cells inline
+    # in one contiguous buffer rather than `@cols` heap objects per line — that
+    # allocation dominates the scroll path. Since `arr[x]` is therefore a *copy*,
+    # cells are never mutated through the index; writers replace the whole cell.
     struct Cell
       property attr : Int64
       property char : Char
@@ -32,9 +27,8 @@ module Crysterm
       end
     end
 
-    # The DECSC/DECRC (`ESC 7`/`ESC 8`) save slot as one value. A `struct` so a
-    # per-buffer park/unpark (see `#park_saved_slot`) is a single field-for-field
-    # copy rather than nine hand-enumerated assignments.
+    # The DECSC/DECRC (`ESC 7`/`ESC 8`) save slot as one value, so parking and
+    # unparking a per-buffer slot is a single copy.
     struct SavedCursor
       property x : Int32
       property y : Int32
@@ -92,14 +86,10 @@ module Crysterm
     @scroll_top : Int32 = 0
     @scroll_bottom : Int32 = 0
 
-    # The live DECSC (`ESC 7`) save slot restored by DECRC (`ESC 8`). Besides the
-    # cursor position it snapshots the rendition, charset designations (G0/G1
-    # special) and active GL invocation, origin mode (DECOM), autowrap (DECAWM)
-    # and the pending-wrap (last-column deferred wrap) flag — all part of the
-    # DECSC state per DEC STD-070/xterm. Otherwise a child drawing with the
-    # line-drawing set inside a DECSC/DECRC pair saw it switched back to ASCII
-    # after restore, and a DECRC onto the last column with a wrap pending would
-    # drop it (the next printable would overwrite in place).
+    # The live DECSC (`ESC 7`) save slot restored by DECRC (`ESC 8`). Per DEC
+    # STD-070/xterm this snapshots more than the cursor position: rendition,
+    # charset designations (G0/G1 special) and active GL invocation, origin mode
+    # (DECOM), autowrap (DECAWM) and the pending-wrap flag are all DECSC state.
     @saved : SavedCursor
 
     # Deferred wrap: after writing the last column we stay on it until the next
@@ -120,14 +110,13 @@ module Crysterm
     @insert_mode = false
 
     # The last graphic character placed in the grid (after charset translation),
-    # so REP (`CSI Pn b`) can repeat it. ncurses emits REP (terminfo `rep`) to
-    # draw a run of one glyph in a few bytes.
+    # so REP (`CSI Pn b`) can repeat it.
     @last_char : Char? = nil
 
-    # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
-    # (cleared, not reallocated, per sequence): avoids the per-byte `String`
-    # allocation a `@csi_buf += c` would do, keeping long OSC payloads (e.g.
-    # OSC 52 clipboard) linear instead of quadratic.
+    # Parser state. The CSI/OSC accumulation buffers must stay reused
+    # `IO::Memory`s, cleared rather than reallocated per sequence: a `@csi_buf +=
+    # c` would allocate a `String` per byte, making a long OSC payload (e.g.
+    # OSC 52 clipboard) quadratic.
     @state : Symbol = :ground
     @csi_buf = IO::Memory.new
     @csi_private : Bool = false
@@ -137,11 +126,10 @@ module Crysterm
     # DA (`CSI > c`) or DEC-private DSR (`CSI ? 6 n`) from their plain forms.
     @csi_prefix : Char? = nil
     # True once an intermediate byte (0x20-0x2f, e.g. the `$` of DECCARA
-    # `CSI … $ r` or the SP of SL `CSI … SP @`) has been seen in the current
-    # CSI. None of the CSI finals implemented here take an intermediate, and the
-    # final byte alone collides with an unrelated command (`$ r` vs DECSTBM `r`,
-    # `SP @` vs ICH `@`), so `#dispatch_csi` ignores any sequence that carries
-    # one. Tracked separately from `@csi_prefix` and kept out of `@csi_buf` so
+    # `CSI … $ r` or the SP of SL `CSI … SP @`) has been seen in the current CSI.
+    # No CSI final implemented here takes an intermediate, and the final byte alone
+    # collides with an unrelated command (`$ r` vs DECSTBM `r`, `SP @` vs ICH `@`),
+    # so a sequence carrying one must be ignored. Kept out of `@csi_buf` so
     # parameter parsing stays numeric.
     @csi_intermediate : Bool = false
     @osc_buf = IO::Memory.new
@@ -181,14 +169,12 @@ module Crysterm
     # screen parks the main buffer's slot here and gives the alt buffer a fresh
     # one, so a DECSC on one screen can't restore onto the other. 1048/1049 use
     # this same slot (not a private one), so `CSI ? 1049 h` overwrites a prior
-    # `ESC 7` and a later `ESC 8` sees the 1049-saved cursor — exactly as xterm
-    # does (vttest's alt-screen "cursor save/restore" check depends on it).
+    # `ESC 7` and a later `ESC 8` sees the 1049-saved cursor — as in xterm.
     @main_saved : SavedCursor
 
     # Mouse tracking requested by the child. `@mouse_tracking` is the active
     # DECSET tracking mode (0 = off, else 9/1000/1002/1003); `@mouse_encoding`
-    # is how reports are framed (`:normal`, `:sgr`, `:utf8`, `:urxvt`). The
-    # widget reads these to decide whether/how to forward `Event::Mouse`.
+    # is how reports are framed (`:normal`, `:sgr`, `:utf8`, `:urxvt`).
     getter mouse_tracking : Int32 = 0
     getter mouse_encoding : Symbol = :normal
 
@@ -202,9 +188,9 @@ module Crysterm
     getter? bracketed_paste : Bool = false
     getter? focus_reporting : Bool = false
 
-    # Sentinel char marking the trailing half of a wide (2-column) glyph in the
-    # emulator grid. Matches `Window::Cell::CONTINUATION` so the widget can copy
-    # the notion straight through to the window's own continuation cells.
+    # Sentinel char marking the trailing half of a wide (2-column) glyph. Must
+    # stay equal to `Window::Cell::CONTINUATION`, so the widget can copy the
+    # notion straight through to the window's own continuation cells.
     CONTINUATION = '\u0000' # NUL — same sentinel as Window::Cell::CONTINUATION
 
     # VT100 DEC special-graphics map: the line-drawing glyphs a child selects via
@@ -231,7 +217,7 @@ module Crysterm
     end
 
     # Resets the horizontal tab stops to the default — one every 8 columns — for
-    # the current width. Used at construction, on RIS, and on resize.
+    # the current width.
     private def reset_tab_stops : Nil
       @tab_stops.clear
       i = 8
@@ -258,9 +244,7 @@ module Crysterm
       Array(Cell).new(@cols) { Cell.new(ea, ' ') }
     end
 
-    # A fresh page of `@rows` blank lines at the current width/erase attr. The
-    # initial grid, the alternate page (`#enter_alt`) and a full reset
-    # (`#full_reset`) all build their `@lines` this way.
+    # A fresh page of `@rows` blank lines at the current width/erase attr.
     private def blank_page : Array(Array(Cell))
       page = Array(Array(Cell)).new
       @rows.times { page << blank_line }
@@ -268,16 +252,14 @@ module Crysterm
     end
 
     # Overwrites every cell of an existing line with the current erase blank,
-    # reusing the line's storage (used to recycle a scrolled-off line into a fresh
-    # blank one without allocating). Re-fits the line to `@cols` in the unusual
-    # case its length drifted from the current width (e.g. a mid-stream resize).
+    # reusing the line's storage so recycling a scrolled-off line allocates nothing.
     private def blank_in_place(line : Array(Cell)) : Nil
       refill_line line, Cell.new(erase_attr, ' ')
     end
 
     # Overwrites an existing line with `cell`, reusing the line's storage and
-    # re-fitting to `@cols` when the line's length has drifted from the current
-    # width (shared by `#blank_in_place` and `#decaln`).
+    # re-fitting to `@cols` should the line's length have drifted from the current
+    # width (e.g. a mid-stream resize).
     private def refill_line(line : Array(Cell), cell : Cell) : Nil
       if line.size == @cols
         line.fill cell
@@ -287,12 +269,8 @@ module Crysterm
       end
     end
 
-    # Recycles the top line's `Array(Cell)` storage as a fresh blank bottom row
-    # (`shift` it off, blank it in place, `push` it back) instead of allocating a
-    # new `blank_line` and letting the displaced top become garbage. Used on the
-    # two full-window `#scroll_up` paths that discard the top line — the alt page
-    # (no scrollback) and a full scrollback buffer — so neither allocates per
-    # scrolled line.
+    # Recycles the top line's `Array(Cell)` storage as a fresh blank bottom row,
+    # so a full-window scroll that discards the top line allocates nothing.
     private def recycle_top_row : Nil
       recycled = @lines.shift
       blank_in_place recycled
@@ -321,9 +299,8 @@ module Crysterm
 
       # Fast path: terminal output is overwhelmingly ASCII, so feed those bytes
       # straight as chars without materializing a `String` (control/escape bytes
-      # are all ASCII, so this is safe for the parser). On a multibyte lead byte
-      # (>= 0x80), decode that one glyph in place and resume the ASCII loop —
-      # never copying the remainder of the chunk through a `String`.
+      # are all ASCII, so the parser is unaffected). A multibyte glyph is decoded
+      # in place and the ASCII loop resumes.
       ptr = complete.to_unsafe
       n = complete.size
       i = 0
@@ -333,12 +310,9 @@ module Crysterm
           handle_char b.unsafe_chr
           i += 1
         else
-          # Decode one multibyte UTF-8 glyph straight from the byte slice.
           # `split_incomplete_utf8` guarantees whole sequences at the chunk
-          # boundary, but a malformed lead *within* the chunk (a stray
-          # continuation byte, a truncated lead followed by ASCII, or a bad
-          # continuation byte) is handled by emitting U+FFFD and advancing one
-          # byte — matching `String`'s replacement behaviour without the copy.
+          # boundary, but a malformed lead *within* the chunk still emits U+FFFD
+          # and advances one byte, matching `String`'s replacement behaviour.
           if b < 0xC0
             handle_char '�' # stray continuation byte, no lead
             i += 1
@@ -368,13 +342,11 @@ module Crysterm
               cp = (cp << 6) | (cb & 0x3F)
               j += 1
             end
-            # Validating continuation bytes alone still admits invalid Chars:
-            # lead bytes >= 0xF8 aren't valid UTF-8 leads, and the decoded
-            # codepoint may be out of range (> U+10FFFF), a UTF-16 surrogate
-            # (U+D800..U+DFFF), or an overlong encoding of a smaller value. A
-            # real VT substitutes U+FFFD for all of these rather than emitting
-            # an invalid Char (which would re-serialize as invalid UTF-8 to the
-            # host terminal); the `else handle_char '�'` fallback does that.
+            # Continuation bytes alone don't make the glyph valid: a lead >= 0xF8
+            # isn't a UTF-8 lead, and the codepoint may be out of range
+            # (> U+10FFFF), a UTF-16 surrogate, or an overlong encoding. A real VT
+            # substitutes U+FFFD for all of these rather than emitting an invalid
+            # Char, which would re-serialize as invalid UTF-8 to the host terminal.
             ok &&= b < 0xF8 &&
                    cp <= 0x10FFFF &&
                    !(0xD800_u32 <= cp <= 0xDFFF_u32) &&
@@ -400,11 +372,10 @@ module Crysterm
     # Splits off any trailing bytes that form an *incomplete* UTF-8 sequence so
     # they can be prepended to the next chunk. Returns {complete, leftover}.
     #
-    # The leftover is `.dup`ed rather than returned as a `Slice` view: it is
-    # stashed in `@leftover` across `#feed` calls, but the caller (the terminal
-    # widget's reader fiber) reuses a single read buffer, so the next `read`
-    # would overwrite the very bytes the view points at before the next `feed`
-    # can prepend them. Copying makes `feed` never retain caller-owned memory.
+    # The leftover must be `.dup`ed, not returned as a `Slice` view: it is stashed
+    # across `#feed` calls, and callers reuse one read buffer, so the next read
+    # would overwrite the bytes a view pointed at. `feed` never retains
+    # caller-owned memory.
     private def split_incomplete_utf8(bytes : Bytes) : {Bytes, Bytes}
       n = bytes.size
       k = 1
@@ -424,46 +395,35 @@ module Crysterm
       {bytes, Bytes.empty}
     end
 
-    # True when the parser is inside a non-OSC escape/CSI/charset/hash sequence
-    # (the state set that `#handle_char`'s C0/ESC/DEL guards all key off).
+    # True when the parser is inside a non-OSC escape/CSI/charset/hash sequence.
     private def in_escape_sequence? : Bool
       @state == :esc || @state == :csi || @state == :charset || @state == :hash
     end
 
     private def handle_char(c : Char) : Nil
-      # An ESC arriving mid escape/CSI/charset aborts the sequence in progress and
-      # begins a *new* escape (the VT500 "anywhere: ESC → clear + enter escape"
-      # transition); otherwise an ESC mid-CSI dropped to `:ground` and the new
-      # sequence's `[` leaked into the grid as literal text. `:osc` (string) is
-      # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
+      # The VT500 "anywhere" transitions. `:osc` is excluded throughout: a string
+      # state runs its own ESC/terminator handling and treats controls as payload.
+      #
+      # ESC mid-sequence aborts the one in progress and begins a *new* escape.
       if c.ord == 0x1b && in_escape_sequence?
         @state = :esc
         return
       end
-      # CAN (0x18) / SUB (0x1a) mid-sequence abort it and return to ground (the
-      # VT500 "anywhere" transition); the byte itself produces no output. `:osc`
-      # is excluded — it runs its own terminator handling.
+      # CAN (0x18) / SUB (0x1a) abort the sequence and produce no output.
       if (c.ord == 0x18 || c.ord == 0x1a) && @state != :ground && @state != :osc
         @state = :ground
         return
       end
-      # Every other C0 control (0x00-0x1f except ESC/CAN/SUB, handled above)
-      # executes *immediately* without disturbing an in-flight escape/CSI/charset/
-      # hash sequence — the VT500 parser runs C0 controls "anywhere", then resumes
-      # the sequence. Without this a control embedded in a CSI (vttest's
-      # `CSI 2 <BS> C`, `CSI <CR> 2 C`, `CSI 1 <VT> A`) was mis-dispatched as the
-      # sequence's final byte, aborting it and leaking the real final ('C'/'A')
-      # into the grid as literal text. `:osc` is excluded: a control inside an OSC
-      # string is either its BEL terminator or opaque payload (see `#handle_osc`).
+      # Every other C0 control (0x00-0x1f) executes *immediately* and the
+      # in-flight sequence then resumes — a control embedded in a CSI (vttest's
+      # `CSI 2 <BS> C`, `CSI <CR> 2 C`, `CSI 1 <VT> A`) is not its final byte.
       if c.ord < 0x20 && in_escape_sequence?
         handle_ground c
         return
       end
-      # DEL (0x7f) mid-sequence is ignored (VT500 parser): it is neither an
-      # intermediate (0x20-0x2f), a parameter (0x30-0x3f), nor a final byte, so
-      # without this guard it reaches `dispatch_csi` (or `handle_esc`'s `else`)
-      # as a spurious final byte and aborts the in-flight sequence. Mirrors the
-      # C0 bypass above; `:osc` is excluded (DEL is opaque string payload).
+      # DEL (0x7f) mid-sequence is ignored: it is neither an intermediate
+      # (0x20-0x2f), a parameter (0x30-0x3f), nor a final byte, and must not
+      # reach a dispatcher as a spurious final.
       if c.ord == 0x7f && in_escape_sequence?
         return
       end
@@ -477,12 +437,10 @@ module Crysterm
       end
     end
 
-    # Final byte of an `ESC #` sequence. Only DECALN (`ESC # 8`, DEC screen-
-    # alignment test) is acted on — it fills the whole screen with 'E' and is
-    # what vttest's cursor-movement test uses to paint its frame of E's (fill,
-    # then erase all but a border). The line-size selectors (`ESC # 3`/`4`/`5`/`6`,
-    # double-height/width/single-width) are swallowed with no effect (double-sized
-    # lines are out of scope, noted at the top of the file).
+    # Final byte of an `ESC #` sequence. Only DECALN (`ESC # 8`, the screen-
+    # alignment test) is acted on; the line-size selectors (`ESC # 3`/`4`/`5`/`6`,
+    # double-height/width/single-width) are swallowed with no effect, double-sized
+    # lines being out of scope.
     private def handle_hash(c : Char) : Nil
       decaln if c == '8'
       @state = :ground
@@ -512,8 +470,7 @@ module Crysterm
       when 0x0f             then @gl = 0 # SI: invoke G0 into GL
       else
         # 0x7f (DEL) is a fill/padding control, not a glyph: VT100/xterm discard
-        # it. Without the guard it would pass the `>= 0x20` test and be written as
-        # a spurious cell. (0x80+ are printable multibyte glyphs.)
+        # it rather than writing a cell. (0x80+ are printable multibyte glyphs.)
         print_char c if c.ord >= 0x20 && c.ord != 0x7f
       end
     end
@@ -540,14 +497,12 @@ module Crysterm
                          end
         @state = :charset
       when '#'
-        # `ESC # n`: DECALN (`# 8`) is implemented (see `#handle_hash`); the
-        # double-size line selectors (`# 3`/`4`/`5`/`6`) are swallowed there.
         @state = :hash
       when ' ', '%'
         # 3-byte intermediate escapes whose final byte must be swallowed, not
         # printed: `ESC SP F/G` (S7C1T/S8C1T) and `ESC % @/G` (charset; always
-        # UTF-8 here). Route through charset state with a designate-nothing index
-        # (-1) so the next byte is consumed with no side effect.
+        # UTF-8 here). Index -1 designates nothing, so the next byte is consumed
+        # with no side effect.
         @charset_index = -1
         @state = :charset
       when 'P', 'X', '^', '_'
@@ -570,11 +525,10 @@ module Crysterm
     end
 
     # Largest OSC payload (window/icon title etc.) buffered before further bytes
-    # are dropped. An unterminated OSC (a buggy program, or a BEL/ST-free stream
-    # like base64/hex data emitted after `ESC ]`) would otherwise grow `@osc_buf`
-    # without limit — retaining that capacity for the widget's lifetime — while
-    # every byte is consumed as payload. Scanning for the terminator continues so
-    # state recovery is unchanged; an over-long title is simply truncated.
+    # are dropped. An unterminated OSC would otherwise grow `@osc_buf` without
+    # limit, retaining that capacity for the widget's lifetime. Terminator
+    # scanning continues past the cap, so state recovery is unaffected; an
+    # over-long title is simply truncated.
     OSC_MAX = 4096
 
     private def handle_osc(c : Char) : Nil
@@ -686,14 +640,12 @@ module Crysterm
 
     # The n-th `;`-separated parameter in `@csi_buf` (0-based), parsed in place,
     # or nil when there is no n-th field. An empty/non-numeric field reads as 0.
-    # No allocation (replaces a per-CSI `split`/`map`).
+    # No allocation.
     private def csi_param_raw(n : Int32) : Int32?
       field = 0
       result : Int32? = nil
-      # `#each_csi_param` yields the fields at indices 0, 1, 2, … in order (the
-      # same `;`-separated accumulation this used to open-code inline); capture
-      # the one at index `n`, leaving `nil` when there is no n-th field. The
-      # block inlines, so no allocation is added.
+      # `#each_csi_param` yields the fields at indices 0, 1, 2, … in order; the
+      # block inlines, so capturing the one at index `n` adds no allocation.
       each_csi_param do |v|
         result = v if field == n
         field += 1
@@ -714,8 +666,8 @@ module Crysterm
       csi_param_raw(n) || 0
     end
 
-    # Yields every `;`-separated parameter in turn (used by `set_mode`). Always
-    # yields at least one value (0 for an empty buffer).
+    # Yields every `;`-separated parameter in turn. Always yields at least one
+    # value (0 for an empty buffer).
     private def each_csi_param(& : Int32 ->) : Nil
       ptr = @csi_buf.buffer
       size = @csi_buf.bytesize

@@ -3,7 +3,7 @@ require "../../widget_pine_selectable_list"
 module Crysterm
   class Widget
     module Pine
-      # The kind of value an `OptionListOption` holds, and therefore how the row
+      # The kind of value an `OptionListOption` holds, which decides how its row
       # is rendered and what activating it (Enter) does.
       enum OptionKind
         # An on/off boolean, drawn `[X]`/`[ ]`; Enter or Space flips it.
@@ -20,9 +20,8 @@ module Crysterm
 
       # A single configurable option in an `OptionList`.
       #
-      # The value is stored canonically as a `String` regardless of `kind`; the
-      # typed accessors (`#on?`, `#to_i`) interpret it. This keeps the record
-      # trivially copyable/serializable and lets one list mix every `OptionKind`.
+      # The value is stored canonically as a `String` regardless of `kind`, so one
+      # list can mix every `OptionKind`; the typed accessors interpret it.
       class OptionListOption
         # Internal option name / label (e.g. `"line-wrap"`).
         property name : String
@@ -68,9 +67,8 @@ module Crysterm
       end
 
       # The Pine/Alpine SETUP/CONFIGURATION editor generalized: a scrollable list
-      # of named options, each of a `OptionKind` (toggle / text / number /
-      # choice), edited in place. It is the richer sibling of the toggle-only
-      # `Setup` widget.
+      # of named options, each of an `OptionKind` (toggle / text / number /
+      # choice), edited in place. The richer sibling of the toggle-only `Setup`.
       #
       # Each row shows the option name, a type-appropriate value display, and the
       # description:
@@ -111,7 +109,7 @@ module Crysterm
       # ![OptionList screenshot](../../../tests/widget/pine/option_list/option_list.5s.apng)
       # <!-- /widget-examples:capture -->
       class OptionList < SelectableList(OptionListOption)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::OptionListOption
 
         # Width of the option-name column, in characters.
@@ -127,9 +125,9 @@ module Crysterm
         @edit_buffer : String? = nil
 
         # The record index currently being edited, captured when editing begins.
-        # Anchored to this row, not the live `selected`, because a mouse click
-        # moves the selection before emitting the activating `ActionItem` — using
-        # `selected` would write the edit into whatever row was just clicked.
+        # Must be used instead of the live `selected`: a click moves the selection
+        # before emitting the activating `ActionItem`, so `selected` would write
+        # the edit into whatever row was just clicked.
         @edit_index : Int32? = nil
 
         def initialize(
@@ -138,9 +136,9 @@ module Crysterm
         )
           super options, **list
 
-          # A click on another row moves the selection (emitting `SelectItem`)
-          # before activating it. Finish any in-progress edit on a different row
-          # now, so it doesn't linger until a second click.
+          # A click on another row moves the selection before activating it, so an
+          # edit in progress elsewhere must be committed here — otherwise it
+          # lingers until a second click.
           on ::Crysterm::Event::SelectItem do
             commit_edit if @editing && @edit_index != selected
           end
@@ -157,9 +155,8 @@ module Crysterm
         # Enter (via `Event::ActionItem`) edits the selected option according to
         # its `kind` rather than running a one-shot callback.
         def activate
-          # While editing, any activation (Enter, or a click that just moved the
-          # selection) commits the in-progress edit to its own row and stops —
-          # must not act on the newly-selected row.
+          # While editing, any activation commits the in-progress edit to its own
+          # row and stops; it must not act on the newly-selected row.
           if @editing
             commit_edit
             return
@@ -265,14 +262,13 @@ module Crysterm
           end
         end
 
-        # Space toggles only when the selected option is a `Toggle` (see
-        # `SelectableList#on_keypress`).
+        # Space toggles only when the selected option is a `Toggle`.
         protected def space_toggles? : Bool
           !!records[selected]?.try(&.kind.toggle?)
         end
 
         # Adds inline-editing keys on top of the inherited arrow/Enter/Space
-        # handling (Space-toggling is provided by the base via `#space_toggles?`).
+        # handling.
         def on_keypress(e)
           if @editing
             handle_edit_key e
@@ -298,9 +294,9 @@ module Crysterm
           else
             insert_char e.char
           end
-          # While inline-editing, every key belongs to the editor — consume it so
-          # Enter/Escape/typed chars don't also drive a host dialog/wizard or
-          # window-level hotkeys (`Wizard#dialog_keys_active?` is `!e.accepted?`).
+          # While inline-editing every key belongs to the editor: consume it all,
+          # so Enter/Escape/typed chars don't also drive a host dialog or
+          # window-level hotkeys.
           e.accept
         end
 

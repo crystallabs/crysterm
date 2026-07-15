@@ -53,7 +53,7 @@ module Crysterm
         super **box
 
         # A form doesn't consume keys itself; it only reacts to keys bubbling
-        # up from focused descendants (see `Window#_listen_keys`).
+        # up from focused descendants.
         @ignore_keys = true
 
         auto_next.try { |v| @auto_next = v }
@@ -64,10 +64,9 @@ module Crysterm
           on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
         end
 
-        # Wire `auto_next` handlers eagerly as fields are adopted, not only lazily
-        # on the first `#focusable` call (a Tab). Otherwise submitting a field
-        # reached by a direct click — before any Tab ran `#focusable` — never
-        # advanced, since its `Submit` handler was never installed.
+        # Wire `auto_next` handlers eagerly as fields are adopted, not lazily on
+        # the first `#focusable` call: else submitting a field reached by a
+        # direct click never advances, its `Submit` handler never installed.
         if @auto_next
           on(Crysterm::Event::Adopt) { focusable }
         end
@@ -130,9 +129,9 @@ module Crysterm
       private def offset_focusable(direction : Int32) : Widget?
         list = focusable
         return if list.empty?
-        # `!disabled?` mirrors `Window#focus_offset`: focusing a disabled
-        # widget would set `state = :focused`, silently wiping its Disabled
-        # state (WidgetState is single-valued) and re-enabling it.
+        # `!disabled?`: focusing a disabled widget would set `state = :focused`,
+        # silently wiping its Disabled state (`WidgetState` is single-valued)
+        # and re-enabling it.
         return unless list.any? { |w| w.style.visible? && !w.disabled? }
 
         # Start from the selected child if still part of the form, otherwise
@@ -144,11 +143,9 @@ module Crysterm
         size = list.size
         sentinel = direction > 0 ? -1 : 0
         # Anchor on the child that *actually* holds focus when it differs from
-        # the last-navigated `@selected` — e.g. the user clicked/focused a field
-        # directly instead of Tabbing to it. Without this, Tab resumes from the
-        # stale `@selected` and skips over the field that is really focused.
+        # the last-navigated `@selected` — e.g. a field focused by a click.
         # Only when `@selected` is already set, so `#focus_first`/`#focus_last`
-        # (which `#reset_selected` to `nil` first) still enter from the sentinel.
+        # still enter from the sentinel.
         anchor = @selected
         if anchor && (foc = window?.try(&.focused)) && list.includes?(foc)
           anchor = foc
@@ -235,29 +232,23 @@ module Crysterm
       private def field_value(el : Widget) : String?
         case el
         # Match `Mixin::TextEditing`, not `PlainTextEdit`: `LineEdit` is a
-        # sibling (`< Input`), not a subclass, and only shares the buffer via
-        # this mixin. Keying off `PlainTextEdit` alone silently dropped
-        # `LineEdit` values on submit.
+        # sibling (`< Input`) that only shares the buffer via this mixin.
         when Mixin::TextEditing then el.value
-          # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`);
-          # `when CheckBox` alone wouldn't match `RadioButton`.
+          # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so
+          # each needs its own arm.
         when RadioButton then el.checked?.to_s
         when CheckBox    then el.checked?.to_s
           # Match the mixin, not `List`: `ListTable`/`Tree` are *siblings* of
-          # `List` (both `AbstractItemView` + `Mixin::ItemView`), so `when List`
-          # dropped their value on submit. A `FileManager` is a picker, not a
-          # form field, so it's excluded first (matched before the mixin arm).
+          # `List`. A `FileManager` is a picker, not a form field, so it is
+          # excluded before the mixin arm.
         when FileManager     then nil
         when Mixin::ItemView then el.value
-          # Numeric spin boxes (`< Input`, `Int32`/`Float64` value).
-          # `DoubleSpinBox` renders to `#decimals` places, so use `#formatted_value`.
+          # `DoubleSpinBox` renders to `#decimals` places.
         when SpinBox       then el.value.to_s
         when DoubleSpinBox then el.formatted_value
-          # `ComboBox` (`< Input`) already exposes a `String` `#value`.
-        when ComboBox then el.value
-          # Date/time editors carry a `Time`. `DateEdit`/`TimeEdit` are subclasses
-          # of `DateTimeEdit`, so they must be matched *before* it. Format to the
-          # same layout each widget displays.
+        when ComboBox      then el.value
+          # `DateEdit`/`TimeEdit` are subclasses of `DateTimeEdit`, so they must
+          # be matched *before* it. Format to the layout each widget displays.
         when DateEdit     then el.date.to_s("%Y-%m-%d")
         when TimeEdit     then el.time.to_s(el.show_seconds? ? "%H:%M:%S" : "%H:%M")
         when DateTimeEdit then el.date_time.to_s(el.show_seconds? ? "%Y-%m-%d %H:%M:%S" : "%Y-%m-%d %H:%M")
@@ -281,21 +272,19 @@ module Crysterm
       private def reset_children(el : Widget)
         case el
         when FileManager then el.refresh
-          # Reset every item view (`List`/`ListTable`/`Tree`), not just `List`
-          # (siblings, see `#field_value`). `FileManager` is handled above.
+          # Every item view (`List`/`ListTable`/`Tree`), which are siblings.
+          # `FileManager` is handled above.
         when Mixin::ItemView then el.select_index 0
-          # As in `#field_value`: clear via `Mixin::TextEditing` so `LineEdit`
-          # (an `Input`, not a `PlainTextEdit`) is reset too.
+          # Via `Mixin::TextEditing` so `LineEdit` is reset too.
         when Mixin::TextEditing then el.clear
           # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.
         when RadioButton then el.uncheck
         when CheckBox    then el.uncheck
         when ProgressBar then el.reset
-          # Spin boxes reset to their minimum (via the public `#value=`).
+          # Spin boxes reset to their minimum.
         when SpinBox       then el.value = el.minimum
         when DoubleSpinBox then el.value = el.minimum
-          # Combo box reselects its first option (see `ComboBox#reset`).
-        when ComboBox then el.reset
+        when ComboBox      then el.reset
           # Date/time editors have no stored initial value; reset to "now",
           # matching a freshly-constructed editor's default. `DateEdit`/`TimeEdit`
           # are subclasses of `DateTimeEdit`, so match them first.

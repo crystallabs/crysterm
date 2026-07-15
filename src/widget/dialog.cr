@@ -12,17 +12,15 @@ module Crysterm
     # Owns the family's shared **result protocol** (`#result` / `#done` /
     # `#accept` / `#reject`, the `Accepted`/`Rejected`/`Finished` signals), the
     # modal Enter/Escape accelerator, and modality (`#modal?`). Concrete dialogs
-    # add their own presentation and a block-based convenience form
-    # (`Message#display`, `Question#ask`, `Prompt#read_input`, `ColorDialog#pick`),
-    # which is sugar over the same protocol — both always agree.
+    # add their own presentation and a block-based convenience form, which is
+    # sugar over the same protocol.
     abstract class Dialog < Box
       # ---- Result protocol (Qt's `QDialog`) ----------------------------------
 
-      # The outcome of a dialog (Qt's `QDialog::DialogCode`). Qt's numbering is
-      # kept verbatim — `Rejected == 0`, `Accepted == 1` — rather than invented:
-      # `#done` takes a plain `Int32` like Qt's `done(int)` so a dialog can
-      # return a richer application-defined code, and Qt's convention is the one
-      # every such code is written against.
+      # The outcome of a dialog (Qt's `QDialog::DialogCode`), with Qt's numbering
+      # kept verbatim: `#done` takes a plain `Int32` like Qt's `done(int)` so a
+      # dialog can return a richer application-defined code, and Qt's convention
+      # is the one every such code is written against.
       enum Code
         Rejected = 0
         Accepted = 1
@@ -115,14 +113,12 @@ module Crysterm
       # override/remove this via `Mixin::Style#floor_border?`.
       include Mixin::Overlay
 
-      # ---- Modal key accelerator (FORMAL-WIDGETS B3.1 / B3.2) -----------------
+      # ---- Modal key accelerator ----------------------------------------------
       #
-      # Centralizes the modal Enter/Escape accelerator shared by every dialog:
-      # install a window-level `KeyPress` listener, remember the window so it can
-      # be `off`'d even after detach, and route Enter→accept / Escape→reject. The
-      # *mechanics* live here once; each dialog decides only *when* to install
-      # (on open vs. on attach) and *whether* a given key applies (via
-      # `#dialog_keys_active?`), plus what accept/reject do.
+      # The modal Enter/Escape accelerator shared by every dialog: a
+      # window-level `KeyPress` listener that routes Enter→accept /
+      # Escape→reject. Each dialog decides only *when* to install (on open vs.
+      # on attach) and *whether* a given key applies (`#dialog_keys_active?`).
 
       # Window-level accelerator subscription. A `Subscription` captures the
       # window it was installed on, so teardown works from `Detach`/`Destroy`
@@ -145,14 +141,12 @@ module Crysterm
       end
 
       # Default accelerator body: Enter accepts, Escape rejects. Runs only when
-      # `#dialog_keys_active?` allows it, so a focused editor/button keeps the key
-      # first. Subclasses tune the guard via `#dialog_keys_active?` and the
-      # actions via `#accept`/`#reject`.
+      # `#dialog_keys_active?` allows it, so a focused editor/button keeps the
+      # key first.
       protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
         # A focused dialog button (e.g. Cancel) may already have consumed this
         # Enter/Escape — don't also fire the window-level accelerator, or the
-        # key double-acts (both Rejected AND Accepted). This makes `Wizard`'s
-        # `dialog_keys_active? = !e.accepted?` override redundant, but harmless.
+        # key double-acts (both Rejected AND Accepted).
         return if e.accepted?
         return unless dialog_keys_active? e
         case e.key
@@ -163,15 +157,15 @@ module Crysterm
       end
 
       # Whether the accelerator should act on *e*. Default: always. Overridden to
-      # stand down while a field is focused (`ColorDialog`) or once the focused
-      # widget already consumed the key (`Wizard`).
+      # stand down while a field is focused, or once the focused widget already
+      # consumed the key.
       protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
         true
       end
 
       # Affirmative gesture (Enter / Ok), mirroring Qt's `QDialog#accept`:
-      # closes with `Code::Accepted`. Subclasses that override it to add their
-      # own bookkeeping must still end up in `#done`, so the contract holds.
+      # closes with `Code::Accepted`. An override must still end up in `#done`,
+      # so the contract holds.
       def accept : Nil
         done Code::Accepted
       end

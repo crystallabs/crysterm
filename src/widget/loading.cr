@@ -2,15 +2,19 @@ require "../widget_effect_direct"
 
 module Crysterm
   class Widget
-    # Box element
+    # A busy indicator: an animated spinner with an optional message, shown
+    # while a long operation runs.
+    #
+    # `#start` shows it and begins the frame loop, `#stop` stops and hides it.
+    # In `#compact?` mode the spinner and the message share one line.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Loading screenshot](../../tests/widget/loading/loading.5s.apng)
     # <!-- /widget-examples:capture -->
     class Loading < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
-      # `#step` advances the spinner one frame; `#start`/`#stop` are overridden
-      # below to add the show/content/hide lifecycle around the shared loop.
+      # `#start`/`#stop` are overridden below to add the show/content/hide
+      # lifecycle around the shared loop.
       include Effect::Animated
 
       # Built-in spinner animations, selectable by name via the `spinner:`
@@ -37,9 +41,7 @@ module Crysterm
       @text : String?
 
       # Cached `"<icon> <text>"` line used by compact-mode `#render`. Rebuilt in
-      # the state-change paths (`#step`, `#start`, `#stop`, `#spinner=`) rather
-      # than interpolated afresh every frame — the text only changes on a spinner
-      # tick (~14 fps max) or a start/stop, not per render.
+      # the state-change paths rather than interpolated every frame.
       @compact_content = ""
 
       # XXX Use a better name than 'icons', so that it doesn't
@@ -51,12 +53,10 @@ module Crysterm
 
       getter icon : Text
 
-      # The frames currently cycled: the pinned set when one was given, else
-      # the CSS `glyphs` string's characters (`Loading { glyphs: "◐◓◑◒" }`),
-      # else the registry's `SpinnerFrames` at the effective tier (`| / - \`
-      # everywhere but tier Extended, whose default upgrade is the braille
-      # ring). The resolved set is memoized against everything it derives
-      # from, so the per-tick `#step` costs a tuple compare.
+      # The frames currently cycled: the pinned set when one was given, else the
+      # CSS `glyphs` string's characters (`Loading { glyphs: "◐◓◑◒" }`), else the
+      # registry's `SpinnerFrames` at the effective tier. Memoized, so the
+      # per-tick `#step` costs a tuple compare.
       def icons : Array(String)
         if pinned = @icons
           return pinned
@@ -85,11 +85,9 @@ module Crysterm
           @orig_text = c
         end
 
-        # An explicit `icons:` pins the frames; an *empty* array would make
-        # `icons[0]` below raise `IndexError` at construction (and later
-        # `#step`'s `% icons.size` a `DivisionByZeroError`), so it counts as
-        # unset — resolve the default chain instead, mirroring how the
-        # block-glyph charts treat empty color arrays as "use the default".
+        # An explicit `icons:` pins the frames. An *empty* array counts as unset
+        # (resolve the default chain), else `icons[0]` would raise `IndexError`
+        # here and `#step`'s `% icons.size` a `DivisionByZeroError`.
         @icons = icons.try { |i| i.empty? ? nil : i }
 
         # A named built-in spinner overrides (and pins) the frames.
@@ -99,9 +97,8 @@ module Crysterm
 
         @pos = 0
 
-        # Built with placeholder content: the frame resolution (`#icons`) is a
-        # method call, which can't run until every ivar — `@icon` included —
-        # is initialized.
+        # Built with placeholder content: `#icons` is a method call, which can't
+        # run until every ivar — `@icon` included — is initialized.
         @icon = Text.new \
           align: :center,
           top: 2,
@@ -132,8 +129,7 @@ module Crysterm
         end
       end
 
-      # Blessed-compatible alias for `#start` (Blessed's Loading uses
-      # `load`/`stop`; Crysterm names them `start`/`stop`).
+      # Blessed-compatible alias for `#start`.
       def load(text = nil)
         start text
       end
@@ -144,9 +140,6 @@ module Crysterm
         set_content @text || @orig_text
         rebuild_compact_content
 
-        # XXX We don't want to do this? (Blessed does it)
-        # @window.propagate_keys = false
-
         super()
       end
 
@@ -154,10 +147,8 @@ module Crysterm
       # `Effect::Animated` loop handles `window.render` and the inter-frame sleep.
       #
       # `@pos` is advanced *before* painting: the icon already shows `icons[0]`
-      # from `initialize`/`spinner=`, so painting `icons[@pos]` first would
-      # re-draw the same frame on the very first tick, freezing the spinner on
-      # frame 0 for two intervals. Stepping first makes the first tick advance
-      # to `icons[1]`, so every interval shows a new frame.
+      # from `initialize`/`spinner=`, so painting first would freeze the spinner
+      # on frame 0 for two intervals.
       def step
         @pos = (@pos + @step) % icons.size
         @icon.set_content icons[@pos]
@@ -166,8 +157,6 @@ module Crysterm
 
       # Stops the spinner loop and hides the widget.
       def stop
-        # XXX We don't want to do this? (Blessed does it)
-        # @window.propagate_keys = true
         super
         hide
         @text = nil

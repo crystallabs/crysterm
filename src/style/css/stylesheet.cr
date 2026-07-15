@@ -3,8 +3,8 @@ module Crysterm
     # A parsed `@media` condition: a logical **OR** of comma-separated queries,
     # each a **conjunction** (AND) of feature tests, evaluated against the
     # terminal's size, color depth and glyph support tier. Only width/height,
-    # `min-colors`/`max-colors` and `glyphs`/`min-glyphs`/`max-glyphs`
-    # (GLYPHS.md §3.5) features are supported.
+    # `min-colors`/`max-colors` and `glyphs`/`min-glyphs`/`max-glyphs` features
+    # are supported.
     #
     # A comma in a media query is an OR of full queries (`@media (max-width: 40),
     # (min-width: 100)` matches a narrow *or* a wide terminal), so each
@@ -24,8 +24,6 @@ module Crysterm
       end
 
       # All feature conditions across every comma-separated group, flattened.
-      # Convenience accessor (a single-query prelude — the common case — has one
-      # group, so this returns exactly its conditions).
       def conditions : Array(Tuple(String, Int32))
         groups.flat_map { |(conds, _)| conds }
       end
@@ -69,10 +67,10 @@ module Crysterm
       GROUP_RE = /\([^()]*\)/
 
       # Matches a `(glyphs: <tier>)` / `(min-glyphs: …)` / `(max-glyphs: …)`
-      # group whose value is a support-tier keyword (GLYPHS.md §3.5). The tier
-      # is stored as its ordinal (ascii 0 < unicode 1 < extended 2), so the
-      # conditions ride the same `{feature, Int32}` tuples as the numeric
-      # features; a bare ordinal via `FEATURE_RE` works too.
+      # group whose value is a support-tier keyword. The tier is stored as its
+      # ordinal (ascii 0 < unicode 1 < extended 2), so the conditions ride the
+      # same `{feature, Int32}` tuples as the numeric features; a bare ordinal
+      # via `FEATURE_RE` works too.
       GLYPHS_FEATURE_RE = /\(\s*((?:min-|max-)?glyphs)\s*:\s*(ascii|unicode|extended)\s*\)/i
 
       # Parses a condition string such as `(min-width: 80) and (max-width: 120)`,
@@ -86,10 +84,9 @@ module Crysterm
           query.scan(GROUP_RE) do |group|
             if m = group[0].match(FEATURE_RE)
               feature = m[1].downcase
-              # `to_i?` (not `to_i`): a value beyond Int32 range (e.g.
-              # `(max-width: 3000000000)`) would otherwise raise `OverflowError`
-              # and crash the parse (which is contract-bound never to raise). An
-              # out-of-range value falls through to the unmatchable path below.
+              # `to_i?` (not `to_i`): a value beyond Int32 range would raise
+              # `OverflowError` out of a parse that never raises. It falls
+              # through to the unmatchable path below instead.
               if FEATURES.includes?(feature) && (value = m[2].to_i?)
                 conditions << {feature, value}
                 next
@@ -105,19 +102,13 @@ module Crysterm
             # `(orientation: portrait)`) makes this query unmatchable.
             matchable = false
           end
-          # A query that produced no usable condition is decided by the media
-          # type scan below — NOT unconditionally rejected here. An unparsable
-          # feature is already handled above (line marks it unmatchable), and a
-          # bare media type (`print` vs `screen`/`all`) must be judged by the
-          # word scan: rejecting every featureless query here would also kill a
-          # legitimate `@media screen`/`@media all`, which a terminal satisfies.
-          # Examine the text *outside* the `(...)` feature groups — the media
-          # type and logical keywords. `not` inverts the whole query; crysterm
-          # can't represent a negated media query, so treat it as unmatchable
-          # (never applies) rather than applying the un-negated feature (the
-          # inverted meaning). An unsupported media type (`print`/`speech`/…)
-          # AND-ed with a feature must not match a terminal either — only
-          # `screen`/`all` do; `and`/`only` are mere connectors.
+          # Scan the text *outside* the `(...)` groups: the media type and
+          # logical keywords. A featureless query must be decided here, not
+          # rejected above — `@media screen`/`@media all` is legitimate and a
+          # terminal satisfies it. `not` inverts the whole query, which crysterm
+          # can't represent, so it is unmatchable rather than applying the
+          # un-negated (inverted) meaning. An unsupported media type
+          # (`print`/`speech`/…) never matches a terminal either.
           query.gsub(GROUP_RE, ' ').split.each do |word|
             case word.downcase
             when "and", "only", "screen", "all"
@@ -133,11 +124,11 @@ module Crysterm
       end
 
       # Whether this query matches a terminal of *width*×*height* cells with
-      # *colors* available at glyph-tier ordinal *glyphs* (GLYPHS.md §3.5;
-      # defaults to Unicode, the toolkit default tier) — true when **any**
-      # comma-separated group matches (OR), each group requiring **all** its
-      # conditions (AND). `glyphs:` is an exact tier match; `min-`/`max-`
-      # range over the tier ordering ascii(0) < unicode(1) < extended(2).
+      # *colors* available at glyph-tier ordinal *glyphs* (defaults to Unicode,
+      # the toolkit default tier) — true when **any** comma-separated group
+      # matches (OR), each group requiring **all** its conditions (AND).
+      # `glyphs:` is an exact tier match; `min-`/`max-` range over the tier
+      # ordering ascii(0) < unicode(1) < extended(2).
       def matches?(width : Int32, height : Int32, colors : Int32, glyphs : Int32 = 1) : Bool
         groups.any? do |(conditions, matchable)|
           next false unless matchable
@@ -172,8 +163,7 @@ module Crysterm
       # names lower-cased.
       getter declarations : Hash(String, String)
 
-      # Declarations flagged `!important`; outrank everything else in the
-      # cascade (see `Cascade`).
+      # Declarations flagged `!important`; outrank everything else in the cascade.
       getter important : Hash(String, String)
 
       # The widget state this rule applies to, peeled from a trailing
@@ -193,7 +183,7 @@ module Crysterm
 
       # A `:has(...)` relational condition on the subject (already type-expanded),
       # or `nil`. Matched nodes are kept only if `node.css(has)` is non-empty.
-      # (Implemented here since the `html5` selector engine lacks `:has`.)
+      # Implemented here since the `html5` selector engine lacks `:has`.
       getter has : String?
 
       # `:has(...)` relational conditions borne by an *ancestor* compound (e.g.
@@ -256,13 +246,11 @@ module Crysterm
       # subject or an ancestor). `:has()` is an *upward* relation — its subject
       # can be an ancestor outside a changed widget's subtree — so a scoped
       # incremental restyle can't be trusted; the screen falls back to a full
-      # recompute when this is set (see `Window#restyle_subtree`).
+      # recompute when this is set.
       @has_relational : Bool = false
 
       # Whether any rule is guarded by an `@media` condition. When set, the
-      # screen must re-run the cascade on a terminal resize (the serialized CSS
-      # document doesn't encode terminal size, so the size is folded into the
-      # cascade-skip identity — see `Window#apply_stylesheet`).
+      # screen must re-run the cascade on a terminal resize.
       @has_media : Bool = false
 
       def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
@@ -310,10 +298,9 @@ module Crysterm
         nil
       end
 
-      # Compiled selectors, memoized by their structural string. Compiling once
-      # here — rather than letting `Node#css` re-lex/re-compile on each match —
-      # avoids repeated parser work. A `nil` entry marks an unparseable selector
-      # so it isn't retried. Bounded; see `Cache::SELECTOR_CAPACITY`.
+      # Compiled selectors, memoized by their structural string, so `Node#css`
+      # doesn't re-lex/re-compile on each match. A `nil` entry marks an
+      # unparseable selector so it isn't retried.
       @compiled_selectors = Cache::Bounded(String, ::CSS::Selector?).new(Cache::SELECTOR_CAPACITY)
 
       def compiled_selector(selector : String) : ::CSS::Selector?
@@ -334,13 +321,13 @@ module Crysterm
       }
 
       # Standard-CSS state pseudo-classes (Selectors L4) that Crysterm backs with
-      # boolean *attributes* rather than `.state-*` classes — `:checked` and
+      # boolean *attributes* rather than `.state-*` classes: `:checked` and
       # `:indeterminate` map to the `[checked]`/`[indeterminate]` attributes
-      # emitted by `widget_attributes.cr`, and `:enabled` to `:not(:disabled)`
-      # (its inner `:disabled` is then lowered to `.state-disabled`, legal inside
-      # `:not()`). Unlike `STATE_PSEUDOS`, these are rewritten textually into
-      # every stylesheet (author `.css`, inline, theme, `.qss`), so the idiomatic
-      # spelling works natively, not only when translated from Qt by `CSS::Qss`.
+      # widgets emit, and `:enabled` to `:not(:disabled)` (whose inner
+      # `:disabled` is then lowered to `.state-disabled`, legal inside `:not()`).
+      # Unlike `STATE_PSEUDOS`, these are rewritten textually into every
+      # stylesheet, so the idiomatic spelling works natively rather than only in
+      # `.qss` translation.
       ATTR_PSEUDOS = {
         "checked"       => "[checked]",
         "indeterminate" => "[indeterminate]",
@@ -348,20 +335,18 @@ module Crysterm
       }
 
       # Matches exactly the `ATTR_PSEUDOS` tokens as whole pseudo-classes (the
-      # trailing lookahead keeps `:enabled` from biting into a longer identifier).
-      # Case-insensitive (CSS pseudo-class names are), matching the state-pseudo
-      # matchers — the captured token is folded to lowercase for the lookup.
+      # trailing lookahead keeps `:enabled` from biting into a longer
+      # identifier). Case-insensitive, as CSS pseudo-class names are.
       ATTR_PSEUDO = /:(checked|indeterminate|enabled)(?![A-Za-z0-9_-])/i
 
-      # Matches a `::slot` pseudo-element token (`ProgressBar::indicator`). Lowered
-      # to the *capitalized descendant node* Crysterm emits for that slot; see
-      # `lower_sub_elements`. Case-insensitive (pseudo-element names are);
-      # `String#capitalize` normalizes the captured name's casing.
+      # Matches a `::slot` pseudo-element token (`ProgressBar::indicator`),
+      # lowered to the *capitalized descendant node* Crysterm emits for that
+      # slot. Case-insensitive, as pseudo-element names are.
       SUB_ELEMENT_PSEUDO = /::([a-z][a-z-]*)/i
 
       # The `:has(` opener, matched case-insensitively (`:HAS(` is legal CSS).
-      # Length is fixed at 5 chars regardless of case, so `index + 4` still points
-      # at the `(` — the peel/strip helpers rely on that.
+      # Length is fixed at 5 chars regardless of case, so `index + 4` still
+      # points at the `(` — the peel/strip helpers rely on that.
       HAS_OPEN = /:has\(/i
 
       # Mutable state threaded through the recursive parse.
@@ -403,7 +388,6 @@ module Crysterm
       # enclosing (already-combined) selectors for native nesting — empty at top
       # level; when non-empty, the scope's direct declarations are emitted as a
       # rule for them.
-      #
       private def self.parse_scope(css : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         declarations = {} of String => String
         important = {} of String => String
@@ -446,11 +430,10 @@ module Crysterm
             body = close ? css[(pos + 1)...close] : css[(pos + 1)..]
             pos = close ? close + 1 : n
             # Flush the scope's own declarations accumulated so far as a rule
-            # *before* descending into this nested block, so parent declarations
-            # get a lower source `order` than the nested rules. Per CSS nesting a
-            # parent declaration behaves as if it precedes nested rules, so on an
-            # equal-specificity tie a nested (`@media`/`&`) override must win —
-            # emitting the parent's declarations only at scope end inverted this.
+            # *before* descending into this nested block, so they get a lower
+            # source `order` than the nested rules. Per CSS nesting a parent
+            # declaration behaves as if it precedes nested rules, so on an
+            # equal-specificity tie a nested (`@media`/`&`) override wins.
             unless parents.empty? || (declarations.empty? && important.empty?)
               emit_rules(parents, declarations, important, media, layer_rank, ctx)
               declarations = {} of String => String
@@ -469,7 +452,7 @@ module Crysterm
       private def self.handle_statement(prelude : String, parents : Array(String), declarations, important, layer_rank : Int32, ctx : ParseCtx) : Nil
         return if prelude.empty?
         # At-rule names are case-insensitive (`@IMPORT`/`@Layer`); the slice
-        # offsets below are by the fixed name length, so they hold for any casing.
+        # offsets below are by the fixed name length, so they hold for any case.
         if Case.at_rule?(prelude, "import")
           handle_import prelude, layer_rank, ctx
         elsif Case.at_rule?(prelude, "layer")
@@ -485,7 +468,7 @@ module Crysterm
       # itself nest further rules).
       private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         # At-rule names are case-insensitive (`@MEDIA`/`@Keyframes`); the slice
-        # offsets below are by the fixed name length, so they hold for any casing.
+        # offsets below are by the fixed name length, so they hold for any case.
         if Case.at_rule?(prelude, "keyframes")
           # The enclosing (already AND-combined) `@media` guard applies to the
           # keyframes definition too — registering unconditionally would let a
@@ -508,7 +491,7 @@ module Crysterm
       # ordered stops (`from`=0%, `to`=100%), registered under *name* together
       # with the enclosing `@media` guard (*media*, `nil` when unconditional).
       # Each stop's declarations are kept raw and resolved by the animation
-      # driver; the guard is evaluated at lookup time (`Stylesheet#keyframes_for`).
+      # driver; the guard is evaluated at lookup time.
       private def self.parse_keyframes(name : String, body : String, media : MediaQuery?, ctx : ParseCtx) : Nil
         return if name.empty?
         stops = [] of Tuple(Float64, Hash(String, String))
@@ -543,8 +526,7 @@ module Crysterm
       # `from`=0, `to`=1, `NN%`=NN/100.
       private def self.keyframe_offset(s : String) : Float64?
         # `from`/`to` are CSS keywords, so case-insensitive (`From`/`TO` are
-        # valid keyframe selectors); fold before comparing. A `%` value keeps
-        # its digits as-is.
+        # valid keyframe selectors); fold before comparing.
         case Case.fold_keyword(s)
         when "from" then 0.0
         when "to"   then 1.0
@@ -573,12 +555,10 @@ module Crysterm
         return if declarations.empty? && important.empty?
         selectors.each do |selector|
           next if selector.empty?
-          # First lower the idiomatic Qt-ish spellings to Crysterm's internal
-          # forms: `::slot` pseudo-elements to capitalized descendant nodes, and
-          # the standard attribute-backed pseudos (`:checked` -> `[checked]`,
-          # `:enabled` -> `:not(:disabled)`). Everything below — specificity,
-          # peeling, the `.state-*` lowering of the resulting `:not(:disabled)`,
-          # `expand_types` — then operates on the form actually matched.
+          # Lower the idiomatic Qt-ish spellings to Crysterm's internal forms
+          # first — `::slot` to capitalized descendant nodes, `:checked` to
+          # `[checked]`, `:enabled` to `:not(:disabled)` — so everything below
+          # operates on the form actually matched.
           selector = lower_sub_elements(selector)
           selector = lower_attr_pseudos(selector)
           # Specificity is from the attr-lowered selector; then the subject's
@@ -616,11 +596,9 @@ module Crysterm
           ctx.warnings << "@import: cannot read #{resolved.inspect}"
           return
         end
-        # Resolve any `@import` *inside* the imported file relative to that
-        # file's own directory (not the top-level base): point `base_path` at
-        # the imported file for the duration of the recursive parse, then
-        # restore it so sibling imports back in the outer file still resolve
-        # against the outer directory.
+        # An `@import` *inside* the imported file resolves relative to that
+        # file's own directory, so `base_path` points at it for the recursive
+        # parse and is restored afterwards for sibling imports in the outer file.
         saved = ctx.base_path
         ctx.base_path = resolved
         begin
@@ -648,7 +626,7 @@ module Crysterm
       # few times so a variable whose value itself uses `var()` resolves too.
       def self.resolve_var(value : String, variables : Hash(String, String)) : String
         # `var(` is a case-insensitive CSS function name (`VAR(--x)`); the
-        # custom-property name inside it stays case-sensitive (see `Case::VAR_CALL`).
+        # custom-property name inside it stays case-sensitive.
         return value unless value.matches?(Case::VAR_CALL)
         result = value
         4.times do
@@ -710,9 +688,8 @@ module Crysterm
       # `@import`).
       def self.from_file(path : String | Path) : Stylesheet
         source = File.read(path)
-        # `.qss` (Qt Style Sheet) files are translated to Crysterm CSS first —
-        # strip the `Q` selector prefix and rename Qt classes to ours; see
-        # `CSS::Qss`. Unmapped selectors fall through to the tolerant parser.
+        # `.qss` (Qt Style Sheet) files are translated to Crysterm CSS first.
+        # Unmapped selectors fall through to the tolerant parser.
         source = Qss.to_css(source) if path.to_s.downcase.ends_with?(".qss")
         parse source, base_path: path.to_s
       end
@@ -720,11 +697,9 @@ module Crysterm
       # Strips `/* ... */` comments (including multi-line), honoring quoted
       # strings: a `/*` inside `"…"`/`'…'` — a `url()` path, an
       # attribute-selector value, a glyph string — is content, not a comment
-      # opener (a blanket regex corrupted `url("/a/*x*/b.png")` into
-      # `url("/a b.png")`). Quoted spans are copied through verbatim
-      # (`Selectors.skip_string` handles escapes); each comment outside them
-      # becomes a single space. An unterminated comment runs to end of input,
-      # per CSS tokenization.
+      # opener, so quoted spans are copied through verbatim. Each comment outside
+      # them becomes a single space; an unterminated comment runs to end of
+      # input, per CSS tokenization.
       private def self.decommented(css : String) : String
         return css unless css.includes?("/*")
         String.build(css.bytesize) do |io|
@@ -765,11 +740,9 @@ module Crysterm
           return
         end
         if name.starts_with?("--")
-          # A custom property may itself carry a trailing `!important` (which in
-          # real CSS raises the property's own cascade priority). The value that
-          # `var(--name)` substitutes must *not* include the marker, or every
-          # consumer inherits a bogus `red !important` value that then fails to
-          # parse — poisoning every `var()` reference. Strip it before storing.
+          # A custom property may carry a trailing `!important`, but the value
+          # `var(--name)` substitutes must not include the marker, or every
+          # consumer inherits a bogus `red !important` that fails to parse.
           if m = value.match(IMPORTANT_RE)
             value = m.pre_match.rstrip
           end
@@ -779,8 +752,7 @@ module Crysterm
         name = name.downcase
         ctx.warnings << "unknown property: #{name.inspect}" unless Properties.known?(name)
         # CSS permits whitespace between `!` and `important` (`red ! important`),
-        # so match tolerantly rather than testing a fixed 10-char suffix — else
-        # the spaced form is stored as a normal declaration with a bogus value.
+        # so match tolerantly rather than testing a fixed suffix.
         if m = value.match(IMPORTANT_RE)
           important[name] = m.pre_match.rstrip
         else
@@ -801,8 +773,7 @@ module Crysterm
       # (longest token first). Each pairs a boundary-anchored regex — leading
       # `:` bounds the start, negative lookahead forbids a trailing identifier
       # char so `:focus` can't match inside `:focus-within` — with the
-      # `.state-*` class it lowers to. Built once: compiling a regex per
-      # selector at parse time would be wasteful.
+      # `.state-*` class it lowers to.
       STATE_PSEUDO_MATCHERS = STATE_PSEUDOS_BY_LENGTH.map do |(token, state)|
         # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`); the
         # matcher rewrites only the `:state` token, leaving the rest of the
@@ -845,9 +816,8 @@ module Crysterm
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
           else
-            # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`), so
-            # compare the token span case-insensitively; the rest of the
-            # selector (type names, ids, classes) stays case-sensitive.
+            # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`);
+            # the rest of the selector (type names, ids, classes) is not.
             if depth == 0 && selector[i, token.size].compare(token, case_insensitive: true) == 0 && !ident_char?(selector[i + token.size]?)
               return i
             end
@@ -893,8 +863,7 @@ module Crysterm
       # The `:has(...)` inner (relative) selector carried between *open* (the
       # `(`) and *close* (the `)`) in *source*: the trimmed body, anchored at
       # `:scope` when it leads with a combinator (`> .x` / `+ .x` / `~ .x`) so
-      # the relational match is rooted at the subject. Shared by `peel_has` and
-      # `peel_ancestor_has`.
+      # the relational match is rooted at the subject.
       private def self.has_inner(source : String, open : Int32, close : Int32) : String
         inner = source[(open + 1)...close].strip
         inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~') ? ":scope #{inner}" : inner
@@ -924,10 +893,10 @@ module Crysterm
 
       # Peels every `:has(...)` borne by an *ancestor* compound out of *prefix*
       # (the part of the selector before the subject), returning
-      # `{conditions, prefix_without_has}`. Each condition is
-      # `{qualifier, inner}` — see `Rule#ancestor_has`. The structural prefix
-      # has all `:has(...)` stripped (the `html5` engine can't parse it); it's
-      # re-applied relationally in the cascade.
+      # `{conditions, prefix_without_has}`, each condition a
+      # `{qualifier, inner}` pair. The structural prefix has all `:has(...)`
+      # stripped (the `html5` engine can't parse it); it's re-applied
+      # relationally in the cascade.
       private def self.peel_ancestor_has(prefix : String) : Tuple(Array(Tuple(String, String))?, String)
         return {nil, prefix} unless prefix.matches?(HAS_OPEN)
         conditions = [] of Tuple(String, String)
@@ -942,8 +911,8 @@ module Crysterm
           # lowered as the structural selector is.
           compound_end = compound_end_index(prefix, close + 1)
           qualifier = Selectors.expand_types(lower_state_pseudos(strip_has(prefix[0...compound_end]))).strip
-          # Lower state pseudos in the inner too (same reason as `peel_has`): the
-          # engine can't parse `:focus`, but the document carries `.state-*`.
+          # Lower state pseudos in the inner too: the engine can't parse
+          # `:focus`, but the document carries `.state-*`.
           conditions << {qualifier, Selectors.expand_types(lower_state_pseudos(inner))} unless qualifier.empty?
           search = close + 1
         end
@@ -1018,34 +987,30 @@ module Crysterm
       end
 
       # Rewrites the standard-CSS `:checked`/`:indeterminate`/`:enabled`
-      # pseudo-classes into the attribute/`:not()` forms Crysterm matches against
-      # (see `ATTR_PSEUDOS`). Applied to the whole selector up front in
-      # `emit_rules`, before specificity/state peeling, so the rewrite is uniform
-      # across prefix and subject and specificity is computed on the form
-      # actually matched — an attribute and a pseudo-class weigh the same.
+      # pseudo-classes into the attribute/`:not()` forms Crysterm matches
+      # against. Must run on the whole selector before specificity/state
+      # peeling, so the rewrite is uniform across prefix and subject and
+      # specificity is computed on the form actually matched — an attribute and
+      # a pseudo-class weigh the same.
       private def self.lower_attr_pseudos(selector : String) : String
         return selector unless selector.includes?(':') # fast path: no pseudo at all
         selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1.downcase] }
       end
 
       # Sub-control spellings that alias an existing slot rather than naming
-      # their own node: `::handle`/`::thumb` are the conventional names for
-      # what Crysterm exposes as the `indicator` node (a `Slider`/`ScrollBar`
-      # handle). Applied by `lower_sub_elements` before capitalization, so
-      # `Slider::handle { glyph: "█" }` lands in the `indicator` sub-style.
-      # (`CSS::Qss` maps Qt's `::groove`/`::chunk` the same way for `.qss`.)
+      # their own node: `::handle`/`::thumb` are the conventional names for what
+      # Crysterm exposes as the `indicator` node, so `Slider::handle { glyph:
+      # "█" }` lands in the `indicator` sub-style.
       SUB_ELEMENT_ALIASES = {
         "handle" => "indicator",
         "thumb"  => "indicator",
       }
 
       # Rewrites `Type::slot` pseudo-elements into the capitalized descendant node
-      # Crysterm matches a slot by (`ProgressBar::indicator` -> `ProgressBar
+      # Crysterm matches a slot by: `ProgressBar::indicator` -> `ProgressBar
       # Indicator`, which `expand_types` turns into the `.Indicator` class on the
-      # slot node — see `html.cr`/`sub_elements.cr`). Lets the conventional
-      # `::slot` spelling work in every stylesheet, not only via `CSS::Qss`. A
-      # `::name` with no backing slot becomes a class matching nothing
-      # (tolerant). Run before `expand_types`, which otherwise keeps `::name`
+      # slot node. A `::name` with no backing slot becomes a class matching
+      # nothing. Must run before `expand_types`, which otherwise keeps `::name`
       # verbatim as an inert pseudo-element.
       private def self.lower_sub_elements(selector : String) : String
         return selector unless selector.includes?("::")

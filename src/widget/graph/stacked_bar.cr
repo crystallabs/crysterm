@@ -37,14 +37,14 @@ module Crysterm
         DEFAULT_COLORS = %w[green magenta cyan red blue yellow]
 
         # The data series. Each element is one bar: an array of segment values,
-        # bottom-most first. `getter` with the coercing `#values=` below as the
-        # sole setter, so every assignment bumps the content-cache version.
+        # bottom-most first. The coercing `#values=` is the sole setter, so every
+        # assignment bumps the content-cache version.
         getter values : Array(Array(Float64))
 
         # Category captions drawn (centered, one row) under each bar.
         chart_prop labels, Array(String)?
 
-        # Names of the stack levels, shown in the legend (see `#show_legend?`).
+        # Names of the stack levels, shown in the legend.
         chart_prop segment_labels, Array(String)?
 
         # Per-stack-level foreground colors, cycled by level.
@@ -89,14 +89,13 @@ module Crysterm
         def values=(vals : Array)
           @values = vals.map { |bar| bar.map(&.to_f) }
           bump_data_version
-          mark_dirty # repaint on data change (Qt's property-change-triggers-update)
+          mark_dirty
         end
 
         private def segment_color(level : Int32) : String
-          # Fall back to the default palette when `colors` was set to an empty
-          # array: segments are color-keyed, so there's no "no color" here (the
-          # return type is non-nil), and `level % @colors.size` would be
-          # `level % 0` — a `DivisionByZeroError` — on an empty array.
+          # An empty `colors` falls back to the default palette: segments are
+          # color-keyed so there is no "no color" here, and `level % 0` would
+          # raise `DivisionByZeroError`.
           colors = @colors.empty? ? DEFAULT_COLORS : @colors
           colors[level % colors.size]
         end
@@ -122,17 +121,16 @@ module Crysterm
           top = @max || (sums.select(&.finite?).max? || 0.0)
           top = 1.0 if top <= 0.0
 
-          # Fill ramp: CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
-          # Resolved once here rather than re-resolved per bar (as in `Bar`).
+          # Fill ramp: CSS-first (`glyphs:`), then the registry. Resolved once
+          # here rather than per bar.
           ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
 
           # For each shown bar, the per-row (glyph, color) from top to bottom.
           columns = shown.map { |bar| column(bar, plot_rows, top, ramp) }
 
-          # Compose the whole widget in one builder (rows separated by `\n`)
-          # instead of a per-row `String` array plus a final join — a live chart
-          # rebuilds this every data push, so the intermediate strings + the join
-          # copy are pure per-frame garbage.
+          # One builder for the whole widget, rows separated by `\n`. A per-row
+          # `String` array plus a final join would be pure per-frame garbage: a
+          # live chart rebuilds this on every data push.
           String.build do |io|
             wrote = false
 
@@ -162,11 +160,10 @@ module Crysterm
 
         # Computes the per-row `{glyph, color}` for one bar (index 0 = top row).
         #
-        # The bar's *total* height is measured in eighth-cells, so the top of
-        # the stack lands on a sub-cell block glyph (`▁`..`█`) — smooth, like
-        # `Bar`. Segment boundaries *within* the stack snap to whole cells
-        # (a single cell can't show two colors); only the topmost segment keeps
-        # the sub-cell partial.
+        # The bar's *total* height is measured in eighth-cells, so the top of the
+        # stack lands on a sub-cell block glyph (`▁`..`█`). Segment boundaries
+        # *within* the stack snap to whole cells, since a single cell can't show
+        # two colors; only the topmost segment keeps the sub-cell partial.
         private def column(bar : Array(Float64), plot_rows : Int32, top : Float64, ramp : Array(Char)) : Array({Char, String?})
           blank = {' ', nil.as(String?)}
           col = Array({Char, String?}).new(plot_rows, blank)
@@ -218,8 +215,8 @@ module Crysterm
           width = 0
           names.each_with_index do |name, level|
             entry = "#{Scale::FULL} #{name}"
-            # +1 for the separating space; must be in the overflow check
-            # too, or a too-wide entry overruns the legend by that separator.
+            # The separating space must be in the overflow check too, or a
+            # too-wide entry overruns the legend by that separator.
             sep = level > 0 ? 1 : 0
             break if width + sep + entry.size > cols
             io << ' ' if level > 0

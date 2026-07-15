@@ -77,9 +77,8 @@ module Crysterm
           build_canvas(type, glyph_mode) { |p| paint_pie p }
         end
 
-        # Appends a slice. `color` defaults to the next entry of `DEFAULT_COLORS`
-        # (cycled by slice index). Repaints the chart on change (Qt's
-        # property-change-triggers-update).
+        # Appends a slice. `color` defaults to the next entry of `DEFAULT_COLORS`,
+        # cycled by slice index.
         def add_slice(value : Number, color : Int32? = nil, label : String = "") : Slice
           color ||= DEFAULT_COLORS[@slices.size % DEFAULT_COLORS.size]
           slice = Slice.new value.to_f, color, label
@@ -149,18 +148,16 @@ module Crysterm
             y = top + i
             break if y >= yl
             # Swatch in the slice's own color, then the label (+ optional %) in
-            # the widget's foreground — mirroring how `Donut` mixes attrs across
-            # its overlay `put` calls.
+            # the widget's foreground.
             put_cell xi, y, Scale::FULL, overlay_attr(slice.color), xi, xl
             text = slice.label
             if show_percentages? && total > 0
-              # A non-finite slice value makes `total` infinite (`Inf > 0`
-              # passes the guard) and the share `Inf/Inf = NaN`; `.round.to_i`
-              # on a non-finite Float raises OverflowError in the render
-              # fiber. Show 0% for such a slice instead of crashing.
+              # A non-finite slice value makes `total` infinite (passing the
+              # guard) and the share `Inf/Inf = NaN`, on which `.round.to_i`
+              # raises OverflowError in the render fiber; show 0% instead. The
+              # clamp also keeps a huge finite share — possible when negative
+              # slices shrink `total` — within Int32.
               frac = 100.0 * slice.value / total
-              # (The clamp also keeps a huge finite share — possible when
-              # negative slices shrink `total` — within Int32.)
               pct = frac.finite? ? frac.clamp(-999_999.0, 999_999.0).round.to_i : 0
               text = text.empty? ? "#{pct}%" : "#{text} #{pct}%"
             end

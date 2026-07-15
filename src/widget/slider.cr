@@ -33,8 +33,7 @@ module Crysterm
       # Whether the low end of the range is drawn at the far end of the track
       # (Qt's `QSlider#invertedAppearance`). Unset, a horizontal slider runs
       # left→right and a vertical one bottom→top (Qt's defaults); set, each is
-      # mirrored. Handle, ticks and click/drag mapping all follow it — see
-      # `#track_cell`.
+      # mirrored. Handle, ticks and click/drag mapping all follow it.
       property? inverted_appearance : Bool = false
 
       # Whether the current value is drawn centered over the track.
@@ -91,8 +90,7 @@ module Crysterm
       )
         super **input
 
-        # Guarded range+value init: never store an inverted range (which would
-        # leave `#value` stuck after `clamp`). Shared with `Dial`/`ScrollBar`.
+        # Never store an inverted range; it would leave `#value` stuck after `clamp`.
         init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
@@ -117,16 +115,14 @@ module Crysterm
           pos, span_px = pointer_offset e, invert: !inverted_appearance?
           next if span_px <= 0
           pos = span_px - pos if @orientation.horizontal? && inverted_appearance?
-          # Through `#slider_position=` (not `#value=`) so an untracked slider
-          # moves only its handle until release. See `AbstractSlider#tracking?`.
+          # Through `#slider_position=`, not `#value=`, so an untracked slider
+          # moves only its handle until release.
           self.slider_position = value_at pos, span_px
           e.accept
         end
       end
 
-      # Cached value string. `#render` draws it every frame when `#show_value?`;
-      # `@value.to_s` only needs to rerun when the value changes (see
-      # `AbstractSlider#value_text_stale?`).
+      # Cached value string; `#render` draws it every frame when `#show_value?`.
       @value_text : String = ""
 
       # Returns `@value.to_s`, rebuilding only when the value changed.
@@ -166,17 +162,14 @@ module Crysterm
       end
 
       # Reused scratch for the (at most two) tick-mark edge rows/columns, so
-      # `#draw_ticks` doesn't allocate a fresh `[] of Int32` every frame while
-      # ticks are enabled. Only one branch runs per call; `.clear` + refill makes
-      # it safe to share across the horizontal/vertical paths.
+      # `#draw_ticks` doesn't allocate every frame while ticks are enabled. Only
+      # one branch runs per call, so sharing it across both is safe.
       @tick_edges = [] of Int32
 
       # Yields each tick's cell offset (`0..avail`) from the low-value end of a
-      # track `avail` cells long. Bounded by the track length so a large value
-      # range can't loop over value space — which was both a per-frame hang
-      # (~one iteration per `interval` across the whole range, independent of
-      # track length) and an Int32 overflow on the `tv += interval` accumulator
-      # when `@maximum` sits within `interval` of `Int32::MAX`.
+      # track `avail` cells long. Bounded by the track length: iterating value
+      # space instead would hang on a large range, and overflow the `tv` Int32
+      # accumulator when `@maximum` sits within `interval` of `Int32::MAX`.
       private def each_tick_cell(avail : Int32, interval : Int32, & : Int32 ->) : Nil
         return if avail <= 0 || interval <= 0 || value_span <= 0
         if value_span // interval > avail
@@ -200,8 +193,7 @@ module Crysterm
         interval = effective_tick_interval
         attr = sattr style
         edges = @tick_edges
-        # Hoisted out of the per-tick loops (registry resolution walks to the
-        # window).
+        # Hoisted out of the per-tick loops: registry resolution walks to the window.
         tick_ch = tick_char
 
         if @orientation.horizontal?
@@ -232,19 +224,17 @@ module Crysterm
       end
 
       def render
-        # Paint into the *content* region (border AND padding inset), not just
-        # the border-only interior: the mouse handler maps clicks through
-        # `Mixin::TrackGeometry#pointer_offset`, whose `ileft`/`ihorizontal` insets
-        # include padding. Using `with_inner_coords` here made the drawn handle
-        # and the click-mapped value disagree on a padded slider.
+        # Must paint into the *content* region (border AND padding inset), not the
+        # border-only interior: `#pointer_offset` maps clicks through insets that
+        # include padding, so anything else makes the drawn handle and the
+        # click-mapped value disagree on a padded slider.
         with_content_coords do |xi, xl, yi, yl|
           track_attr = sattr style
           window.fill_region track_attr, track_char, xi, xl, yi, yl
 
           handle_attr = sattr style.indicator
-          # The handle is a contiguous 1-cell-wide run across the cross axis, so
-          # it goes through `fill_region` (batched, skips unchanged cells) like
-          # the track above — not a per-cell loop.
+          # The handle is a contiguous run across the cross axis, so it goes
+          # through the batched `fill_region`, not a per-cell loop.
           if @orientation.horizontal?
             hx = handle_cell(xi, xl)
             window.fill_region handle_attr, handle_char, hx, hx + 1, yi, yl
@@ -259,8 +249,8 @@ module Crysterm
             txt = value_text
             cy = yi + (yl - yi - 1) // 2
             # Stamp the track attr too, not just the glyph: the center row also
-            # carries the handle cell, and writing only the char left a digit on
-            # the handle wearing its (indicator/reverse) attr.
+            # carries the handle cell, so a digit landing there would otherwise
+            # wear the handle's indicator attr.
             draw_centered_text cy, xi, xl, txt, track_attr
           end
         end

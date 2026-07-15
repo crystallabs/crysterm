@@ -3,14 +3,12 @@ module Crysterm
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 
-    # Per-widget override of the overflow action; `nil` = inherit. Read through
-    # `#overflow`, which falls back to the window default (`Config.window_overflow`)
-    # when unset. Set via `#overflow=` (an `Overflow`, a shorthand, or `nil`).
+    # Per-widget override of the overflow action; `nil` = inherit the window
+    # default. Read through `#overflow`.
     @overflow : Overflow? = nil
 
-    # Reused stops set for `#dock_rows`, cleared per call, so the per-frame
-    # docking of a menu's separator rows doesn't allocate a fresh Hash each
-    # frame (D1). Lazily allocated on first use (many widgets never dock rows).
+    # Reused stops set for `#dock_rows`, cleared per call. Lazily allocated on
+    # first use (many widgets never dock rows).
     @_dock_rows_stops : Hash(Int32, Bool)? = nil
 
     # Action when this widget overflows its parent's rectangle: the per-widget
@@ -20,7 +18,7 @@ module Crysterm
     end
 
     # The raw per-widget override (`nil` = inheriting the window default).
-    # Distinct from `#overflow`, which resolves the inherited value.
+    # Unlike `#overflow`, does not resolve the inherited value.
     def own_overflow : Overflow?
       @overflow
     end
@@ -33,44 +31,35 @@ module Crysterm
       @overflow = ::Crystallabs::Helpers::Enums.from(Overflow, value)
     end
 
-    # Layout engine arranging this widget's children, or nil for manual placement
-    # (children use their own coordinates). When nil, `#_render` falls back to
-    # `Layout::Manual`. Mirrors Qt's null `QWidget::layout()`.
+    # Layout engine arranging this widget's children, or `nil` for manual
+    # placement, in which case `#_render` uses `Layout::Manual`. Mirrors Qt's
+    # null `QWidget::layout()`.
     property layout : Crysterm::Layout? = nil
 
     # Optional per-child hint read by this widget's *parent's* layout engine
-    # (Border region, Grid cell+span, flex grow factor). See `Crysterm::Layout::Hint`.
+    # (Border region, Grid cell+span, flex grow factor).
     property layout_hint : Crysterm::Layout::Hint? = nil
 
     # Whether this widget keeps its layout slot while hidden (Qt's
-    # `QSizePolicy#retainSizeWhenHidden`).
-    #
-    # Off by default: hiding a child of a packing engine (`Layout::VBox`,
-    # `HBox`, `Border`) gives its space back to its siblings, so `#hide` alone
-    # is enough to collapse a bar or a rail. Turn it on to hide a widget
-    # *in place*, holding the space open so its neighbours don't shift — e.g. a
-    # validation message that appears and disappears without the form jumping.
+    # `QSizePolicy#retainSizeWhenHidden`). Off by default, so hiding a child of
+    # a packing engine (`Layout::VBox`, `HBox`, `Border`) gives its space back
+    # to its siblings; turn it on to hide a widget *in place*.
     #
     # Slot-addressed engines (`Layout::Stack` pages, `Layout::Grid` cells)
     # ignore this: their children are identified by position, so a hidden one
-    # must keep its index. Qt draws the same distinction.
+    # must keep its index.
     property? retain_size_when_hidden : Bool = false
 
     # Docks this widget to a `Layout::Border` region, wrapping *region* in a
-    # `Layout::Border::Hint` for you — by far the most common hint, and the one
-    # whose ceremony was pure noise:
+    # `Layout::Border::Hint`:
     #
     # ```
-    # # Before
-    # Widget::Box.new parent: frame, height: 1,
-    #   layout_hint: Layout::Border::Hint.new(:top)
-    # # After
     # Widget::Box.new parent: frame, height: 1, layout_hint: :top
     # ```
     #
     # Qt spells the same thing `addWidget(w, BorderLayout::North)`. Takes the
     # same shorthand forms as `#align`/`#overflow` (`:top`, `"top"`). The
-    # `Layout::Hint` overload stays for engines with richer hints (Grid's
+    # `Layout::Hint` overload serves engines with richer hints (Grid's
     # cell+span, flex grow).
     def layout_hint=(region : Crysterm::Layout::Border::Region) : Crysterm::Layout::Hint?
       self.layout_hint = Crysterm::Layout::Border::Hint.new region
@@ -81,39 +70,33 @@ module Crysterm
       self.layout_hint = ::Crystallabs::Helpers::Enums.from Crysterm::Layout::Border::Region, region
     end
 
-    # `Box.render` sets `lpos` (rendered coordinates) on the element. Stale if
-    # later moved, but otherwise more accurate than recalculating: a parent
-    # always renders before its children, so the parent's `lpos` can be reused
-    # instead of recomputing (which mishandles content shrinkage).
+    # A parent always renders before its children, so a child may reuse the
+    # parent's `lpos` rather than recomputing it (which mishandles content
+    # shrinkage). Stale if the parent is moved afterwards.
 
     property items = [] of Widget::Box
 
-    # True only while this widget renders as a layer root into its own `Plane`
-    # (see `Window#composite_planes`). Translucency then comes from the plane's
-    # opacity, so the render-time alpha self-blend is suppressed.
+    # True only while this widget renders as a layer root into its own `Plane`.
+    # Translucency then comes from the plane's opacity, so the render-time alpha
+    # self-blend is suppressed.
     property compositing = false
 
-    # Resolves the `Style` a *child* should render with. Base returns the child's
-    # own style; containers that style children (e.g. `Widget::List` highlighting
-    # the selected row) override this. Called on the child's parent from `#_render`.
+    # Resolves the `Style` a *child* should render with, called on the child's
+    # parent. Base returns the child's own style; containers that style children
+    # (e.g. `Widget::List` highlighting the selected row) override this.
     def render_style_for(item : Widget) : Style
       item.style
     end
 
-    # Column range (`x - xi` units, half-open) on real (post-wrap) line *rl*
-    # that `#_render` should paint with the selection highlight, or `nil` for
-    # none. A free no-op on every widget; `Mixin::TextEditing` overrides it
-    # while a mouse selection is active. Checked once per row, not per cell.
+    # Column range (`x - xi` units, half-open) on real (post-wrap) line *rl* to
+    # paint with the selection highlight, or `nil` for none. Overridden by
+    # widgets that can hold an active selection.
     protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
       nil
     end
 
-    # *attr* with the selection highlight applied (reverse video, the same
-    # idiom `Window#_artificial_cursor_attr` uses for the block cursor) when
-    # *col* falls inside *sel_cols*, else *attr* unchanged. `sel_cols` is `nil`
-    # on every widget without an active selection, so this is a single
-    # comparison in the common case. Never mutates the SGR-tracking `attr`
-    # local in `#_render`'s loop — only the value actually painted to the cell.
+    # *attr* with the selection highlight applied (reverse video) when *col*
+    # falls inside *sel_cols*, else *attr* unchanged.
     @[AlwaysInline]
     private def highlighted_attr(attr : Int64, sel_cols : Range(Int32, Int32)?, col : Int32) : Int64
       return attr unless sel_cols && sel_cols.includes?(col)
@@ -121,26 +104,18 @@ module Crysterm
     end
 
     # Whether a `Layout` suppressed this widget's subtree on the last render —
-    # e.g. a non-current `Layout::Stack` page (or an overflow-hidden `Flow`
-    # child): the layout called `Layout#skip_subtree` on it, so it painted
-    # nothing and holds no `lpos`. Cleared at the top of `#_render` whenever the
-    # widget actually renders. This distinguishes a *layout-hidden* widget —
-    # which must not be a focus/Tab target (it isn't on screen) — from one merely
-    # *scrolled out* of a scrollable viewport, which stays Tab-reachable and is
-    # scrolled back into view on focus. Both null `lpos`, so `lpos` alone can't
-    # tell them apart; this flag can. Mirrors how `Window#hit_candidate?` already
-    # keeps the mouse off `lpos`-less widgets, but without excluding the
-    # scrolled-out case that focus navigation must still reach.
+    # e.g. a non-current `Layout::Stack` page. Distinguishes a *layout-hidden*
+    # widget, which must not be a focus/Tab target, from one merely *scrolled
+    # out* of a viewport, which stays Tab-reachable; both null `lpos`, so `lpos`
+    # alone cannot tell them apart.
     property? layout_suppressed : Bool = false
 
     # Renders all child elements into the output buffer.
     # ameba:disable Metrics/CyclomaticComplexity
     def _render(with_children = true)
-      # Reaching `#_render` means a layout (or the direct render walk) is drawing
-      # this widget this frame — it is on the active layout branch, so clear any
-      # suppression left by a previous frame (see `#layout_suppressed?`). Set
-      # before the early-outs below so a scrolled/clipped-out widget (which still
-      # returns here) stays focus-reachable.
+      # Reaching here means this widget is on the active layout branch. Cleared
+      # before the early-outs below so a scrolled/clipped-out widget (which
+      # still returns here) stays focus-reachable.
       @layout_suppressed = false
       emit Crysterm::Event::PreRender
 
@@ -157,22 +132,20 @@ module Crysterm
 
       # `awidth(true)` is an O(1) read of the parent's already-rendered cached
       # `lpos`. Resolve once and pass to both `process_content` and `coords`
-      # instead of each walking the ancestor chain (O(depth)) separately.
+      # instead of each walking the ancestor chain separately.
       aw = awidth(true)
       process_content awidth_hint: aw
 
       # Pass `@lpos` so `coords` updates it in place rather than allocating a
-      # fresh `RenderedGeometry` every frame. Nil on first render, then it allocates.
+      # fresh `RenderedGeometry` every frame.
       coords = coords(true, into: @lpos, width_hint: aw)
       unless coords
         # No on-screen rect this frame (scrolled/clipped out of a scrollable
         # ancestor's viewport, or the ancestor has no `lpos`): this widget and
-        # its descendants paint nowhere, so clear their last-rendered rects.
-        # Otherwise `Window#widget_at` — which hit-tests every widget
-        # independently against its own `lpos` — keeps routing clicks/hovers to
-        # the stale subtree rects (same rationale as `Layout#skip_subtree`).
-        # Layout-excluded chrome renders out-of-band with its own live `lpos`,
-        # so leave it untouched (as `skip_subtree`'s callers do).
+        # its descendants paint nowhere, so clear their last-rendered rects, or
+        # `Window#widget_at` keeps routing clicks/hovers to the stale subtree
+        # rects. Layout-excluded chrome renders out-of-band with its own live
+        # `lpos`, so leave it untouched.
         @lpos = nil
         children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
         return
@@ -181,7 +154,7 @@ module Crysterm
       if coords.xl - coords.xi <= 0
         coords.xl = Math.max(coords.xl, coords.xi)
         # Our own zero-width rect is un-hittable, but descendants would keep the
-        # previous frame's rects — clear their subtrees (see above).
+        # previous frame's rects (see above).
         children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
         return
       end
@@ -192,9 +165,9 @@ module Crysterm
         return
       end
 
-      # `window` walks the parent chain on every call; bind it once. `full_unicode?`,
-      # `style.alpha?` and `style.padding` are constant for the render, so hoist
-      # them rather than re-evaluating in the per-cell loops below.
+      # `window` walks the parent chain on every call; bind it once. The style
+      # values below are constant for the render, so hoist them out of the
+      # per-cell loops.
       scr = window
       # No-op unless an `animation` is declared.
       ensure_css_animation
@@ -205,7 +178,6 @@ module Crysterm
       # so suppress the render-time self-blend while painting into the plane.
       style_alpha = @compositing ? nil : style.alpha?
       padding = style.padding
-      # Hoisted out of the content loop, which read it per cell.
       fill = style.fill?
       xi = coords.xi
       xl = coords.xl
@@ -215,7 +187,7 @@ module Crysterm
       # stale, caching into `@_pcontent`. Once per frame, not per appended line.
       pcontent = self.pcontent
       # Reuse the cached codepoint index unless `@_pcontent` was reparsed into a
-      # fresh `String` (identity check) — otherwise re-scan and rebuild.
+      # fresh `String` (identity check).
       content = @_content_index
       unless content && content.built_from?(pcontent)
         content = StringIndex.new pcontent
@@ -224,34 +196,7 @@ module Crysterm
       ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       bch = style.fill_char
 
-      # D O:
-      # Clip content if it's off the edge of the window
-      # if (xi + ileft < 0 || yi + itop < 0)
-      #   clines = @_clines.slice()
-      #   if (xi + ileft < 0)
-      #     for (i = 0; i < clines.size; i++)
-      #       t = 0
-      #       csi = ''
-      #       csis = ''
-      #       for (j = 0; j < clines[i].size; j++)
-      #         while (clines[i][j] == '\e')
-      #           csi = '\e'
-      #           while (clines[i][j++] != 'm') csi += clines[i][j]
-      #           csis += csi
-      #         end
-      #         if (++t == -(xi + ileft) + 1) break
-      #       end
-      #       clines[i] = csis + clines[i].substring(j)
-      #     end
-      #   end
-      #   if (yi + itop < 0)
-      #     clines = clines.slice(-(yi + itop))
-      #   end
-      #   content = clines.join('\n')
-      # end
-
       if coords.base >= @_clines.ci.size
-        # Can be @_pcontent, but this is the same here, plus not_nil!
         ci = content.size
       end
 
@@ -259,10 +204,9 @@ module Crysterm
 
       register_dock_stops coords
 
-      # `process_content` already cached `sattr(self.style)` in `@_parse_attr_default`.
-      # When the render style IS our own (vs. a parent substituting one, e.g. a
-      # `List` highlighting its selection), reuse it instead of repacking the
-      # same fields again. `|| sattr(style)` is a defensive fallback.
+      # `process_content` already cached `sattr(self.style)` in `@_parse_attr_default`;
+      # reuse it unless a parent substituted a style. `|| sattr(style)` is a
+      # defensive fallback.
       default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || sattr(style)
       attr = default_attr
 
@@ -277,32 +221,26 @@ module Crysterm
       end
 
       # Reserve the bottom row(s) for a shown horizontal scroll bar so content
-      # never paints under it. `may_scroll` skips this for the common
-      # non-scrollable case, but still reconciles a widget that *was* scrollable
-      # so its bar gets hidden when scrolling is turned off. `hsr` is reused by
-      # the restore below. (Computed here, before the pre-fill, which needs it
-      # to size the bottom band.)
+      # never paints under it. `may_scroll` also stays true for a widget that
+      # *was* scrollable, so its bar gets hidden when scrolling is turned off.
+      # Must be computed before the pre-fill, which needs `hsr` to size the
+      # bottom band.
       may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
       hsr = may_scroll ? hscrollbar_rows : 0
 
       # Padding/valign make the content loop skip some cells/lines, so fill
-      # those ahead of time. On the common opaque-fill path only the cells the
-      # content loop won't visit need pre-filling: the padding bands and the
-      # scrollbar-reserved rows (the loop paints the valign gap itself — a
-      # negative `ci` indexes to nil, i.e. the `bch` fill). A background-image
-      # widget keeps the whole-box fill (its content loop leaves empty cells
-      # untouched for the image). A `fill: false` widget draws no background at
-      # all, so it must NOT be filled here either — see the final `else`.
+      # those ahead of time. On the common opaque-fill path only the padding
+      # bands and the scrollbar-reserved rows need pre-filling (the loop paints
+      # the valign gap itself — a negative `ci` indexes to nil, i.e. the `bch`
+      # fill). A background-image widget keeps the whole-box fill; a
+      # `fill: false` widget must not be filled at all.
       if padding.any? || !@align.top?
         if alpha = style_alpha
-          # The content loop below already alpha-blends every cell of the
-          # (padding/hsr-inset) content region, so blending those cells here too
-          # would double-blend them — making a padded or vertically-aligned
-          # translucent widget's interior more opaque than its own padding (and
-          # than an unpadded translucent widget). Pre-blend only the bands the
-          # content loop won't reach; skip the content region. Exception: a
-          # background-image widget's content loop leaves empty cells untouched,
-          # so there the whole-box blend must stay (bands + interior).
+          # Pre-blend only the bands the content loop won't reach: it blends the
+          # content region itself, and blending twice makes a padded translucent
+          # widget's interior more opaque than its padding. A background-image
+          # widget's content loop leaves empty cells untouched, so there the
+          # whole-box blend must stay.
           pd = padding
           skip_content = style.background_image.nil?
           cxi = xi + pd.left
@@ -323,7 +261,6 @@ module Crysterm
                 break
               end
               cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
-              # cell.char = bch
               line.mark_dirty x
             end
           end
@@ -338,23 +275,18 @@ module Crysterm
           scr.fill_region(default_attr, bch, xi, xi + pd.left, yi + pd.top, yl - bot) if pd.left > 0
           scr.fill_region(default_attr, bch, xl - pd.right, xl, yi + pd.top, yl - bot) if pd.right > 0
         else
-          # Reached for a background-image widget (`fill` true, image present —
-          # the image paints over this base fill) or a `fill: false` widget.
-          # `fill: false` means "draw no background": the content loop skips
-          # every cell, and the no-padding/top-aligned path skips this whole
-          # block, leaving the widget transparent. Filling here would make it
-          # opaque *only* when it happens to have padding or vertical alignment
-          # — an inconsistency where those properties silently toggle the
-          # background. Gate on `fill` so a `fill: false` widget stays
-          # transparent regardless; the background-image branch is unaffected.
+          # A background-image widget (the image paints over this base fill) or
+          # a `fill: false` widget. The `fill` gate keeps the latter transparent:
+          # without it, padding or vertical alignment would silently turn its
+          # background opaque.
           scr.fill_region(default_attr, bch, xi, xl, yi, yl) if fill
         end
       end
 
       # Background image (CSS `background-image`): paint the internal `Media`
-      # layer before the content loop so text draws on top (see
-      # `widget_background.cr`). `bg_cells` tells the content loop to leave
-      # empty cells showing the image when a `Media::Cells` layer paints the buffer.
+      # layer before the content loop so text draws on top. `bg_cells` tells the
+      # content loop to leave empty cells showing the image when a
+      # `Media::Cells` layer paints the buffer.
       update_background_media
       bg_cells = background_paints_cells?
 
@@ -385,14 +317,9 @@ module Crysterm
 
       # Whether a row whose content is exhausted may be painted as one
       # `fill_region` sweep instead of walking the full per-cell machinery (the
-      # very common "large box, little content" case — most cells on screen are
-      # fill cells). Requires the constant `{attr, bch}` write to be exactly
-      # what the per-cell path does — everything except the alpha blend, which
-      # keeps the per-cell path. (Even a wide `bch` matches: fill cells have
-      # `has_content == false`, so the per-cell path never measures/clusters
-      # them either — one glyph per cell, no continuation claim.) Selection is
-      # checked per row (`sel_cols`); it can't actually reach rows past the
-      # content end, so that guard is defensive.
+      # very common "large box, little content" case). Everything except the
+      # alpha blend writes a constant `{attr, bch}` there, so only the blend
+      # needs the per-cell path.
       bulk_fill_ok = style_alpha.nil?
 
       # Draw the content and background.
@@ -408,25 +335,17 @@ module Crysterm
         # Rows above the top edge (`y < 0`) must still be walked so the content
         # index advances, but NOT painted: `Indexable#[]?` counts a negative
         # index from the END, so writing there corrupts the window bottom (same
-        # hazard per-cell for `x < 0`). `draw_row` and the `x < 0`/`target`
-        # guards gate every write.
+        # hazard per-cell for `x < 0`).
         draw_row = y >= 0
 
-        # Text-selection highlight (`Mixin::TextEditing`): resolved once per
-        # row, not per cell — a free `nil` on every widget without a selection.
-        # `y - yi` assumes top alignment, like `#selection_columns_for_row`'s
-        # own doc notes.
+        # `y - yi` assumes top alignment.
         sel_cols = selection_columns_for_row(coords.base + (y - yi))
 
         # Content exhausted: every remaining cell of this row is the constant
-        # `{attr, bch}` fill — no SGR can arrive (`content[ci]?` stays nil), the
-        # single-column `bch` never clusters, and with no selection on the row
-        # `highlighted_attr` is `attr` itself. Delegate to `fill_region`, whose
-        # per-cell write matches `set_if_changed` exactly (change-skip, overlay
-        # drop, dirty-range narrowing). `ci` intentionally stays put: every
-        # later read is `content[>= size]` → nil regardless. A `Media::Cells`
-        # background or `fill == false` paints nothing for such a row (the
-        # per-cell path would `next` every cell).
+        # `{attr, bch}` fill — no SGR can arrive, the single-column `bch` never
+        # clusters, and with no selection `highlighted_attr` is `attr` itself.
+        # `ci` intentionally stays put: every later read is `content[>= size]` →
+        # nil regardless.
         if bulk_fill_ok && ci >= content.size && sel_cols.nil?
           if fill && !bg_cells && draw_row
             scr.fill_region(attr, bch, xi, xl, y, y + 1)
@@ -463,16 +382,15 @@ module Crysterm
           # Handle escape codes.
           while ch == '\e'
             # Recognize the SGR sequence (`\e[[\d;]*m`) by scanning codepoints
-            # directly instead of `SGR_REGEX.match`, which allocated a
-            # `MatchData`/substring per escape. `ci - 1` is the `\e` just
-            # consumed; `ci` should be `[`, then digits/`;`, then `m`.
+            # directly rather than by regex, which allocates per escape. `ci - 1`
+            # is the `\e` just consumed; `ci` should be `[`, then digits/`;`,
+            # then `m`.
             if content[ci]? == '[' && (m = sgr_terminator(content, ci + 1))
               # `m` is the index of the trailing 'm'. Parse params straight out of
               # `content` (no substring), then advance past the 'm'.
               attr = scr.attr2code(content, ci - 1, m, attr, default_attr)
               ci = m + 1
-              # Ignore foreground changes for selected items (keep default fg,
-              # let the rest of the attr change); test hoisted to `keep_selected_fg`.
+              # Selected items keep the default fg; the rest of the attr changes.
               if keep_selected_fg
                 attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
               end
@@ -497,16 +415,11 @@ module Crysterm
               next
             end
             ch = bch
-            # A buffer-image background owns the rest of this line: leave its
-            # cells showing the painted image instead of clearing them. The
-            # column must still advance to the row end, though — otherwise the
-            # loop keeps consuming content and the next logical line's
-            # characters continue on this row.
-            #
-            # A `fill: false` widget likewise draws no background, so it must not
-            # paint `bch` across the row tail (the pre-fill, exhausted-content
-            # and per-cell paths all honor `fill`). Advance the column the same
-            # way so alignment/valign is preserved, but paint nothing.
+            # A buffer-image background owns the rest of this line, and a
+            # `fill: false` widget draws no background: paint nothing across the
+            # row tail. The column must still advance to the row end, or the loop
+            # keeps consuming content and the next logical line continues on this
+            # row.
             if bg_cells || !fill
               x = xl
             else
@@ -545,36 +458,30 @@ module Crysterm
 
           # Grapheme handling (full_unicode): lay multi-codepoint clusters (emoji
           # ZWJ, flags, base+combining) into one cell + a wide continuation cell;
-          # legacy keeps one codepoint per cell. `needs_cluster?` is a fast path
-          # ruling out the lone-codepoint common case (no alloc); the allocating
-          # `extend_grapheme` runs only for a real cluster.
+          # legacy keeps one codepoint per cell. `needs_cluster?` is an
+          # alloc-free fast path for the lone-codepoint common case.
           grapheme = ""
           cell_width = 1
           is_cluster = false
           if fu && has_content
             if needs_cluster? ch, content[ci]?
-              # Costly path — a real multi-codepoint cluster. The `String` alloc
-              # is unavoidable (no single-`Char` form; stored in the row's
-              # `@graphemes` overlay) but rare, so bounded by cluster cells on
-              # window, not total cell count.
+              # Costly path — a real multi-codepoint cluster, whose `String`
+              # alloc is unavoidable but bounded by cluster cells on window.
               grapheme, ci = extend_grapheme(content, ci, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
               is_cluster = true
               if cell_width == 0
                 # Zero-width cluster (e.g. a leading combining mark): merge into
-                # the previous cell rather than consuming one. Build the merged
-                # cluster in a single allocation: `Cell#grapheme` materializes a
-                # fresh `String` (overlay clone or `char.to_s`) and `+` then
-                # allocates a second — read the overlay directly and, on the
-                # common no-overlay cell, interpolate the base char + mark once (D4).
+                # the previous cell rather than consuming one. The overlay is
+                # read directly, and the base char interpolated, to build the
+                # merged cluster in a single allocation.
                 if draw_row && x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
                   merged =
                     if ov = prev.grapheme_overlay
                       ov + grapheme
                     else
                       base = prev.char
-                      # A continuation cell's `grapheme` is "" (see `Cell#grapheme`),
-                      # so preserve that: merge onto nothing.
+                      # A continuation cell's grapheme is "": merge onto nothing.
                       base == Window::Cell::CONTINUATION ? grapheme : "#{base}#{grapheme}"
                     end
                   prev.grapheme = merged
@@ -594,19 +501,13 @@ module Crysterm
           end
 
           # A wide (2-column) glyph whose continuation cell cannot be claimed —
-          # because it falls outside the content region (`x + 1 >= xl`) OR simply
-          # does not exist in the screen row (`line[x + 1]?.nil?`, true whenever
-          # `x + 1 >= awidth`, i.e. the last screen column even when `xl > awidth`
-          # under `Overflow::Ignore`) — cannot be shown: half a wide glyph
-          # desyncs cell-index from terminal column. `draw` (window_drawing)
-          # claims the continuation cell purely from the lead cell's width, with
-          # no knowledge of `xl`, so it would over-claim the neighboring column
-          # (e.g. the border) and skip emitting it. Blank the lead cell to a
-          # space instead (blessed's end-of-line safeguard), preserving the
-          # invariant "a width-2 cell is always followed by an in-region
-          # continuation" so `draw` never over-claims. This condition is the exact
-          # complement of the continuation-claim block below (`(x + 1 < xl) &&
-          # line[x + 1]?`), keeping the two in lockstep.
+          # outside the content region, or absent from the screen row — is blanked
+          # to a space (blessed's end-of-line safeguard), upholding the invariant
+          # "a width-2 cell is always followed by an in-region continuation".
+          # Drawing claims the continuation from the lead cell's width alone,
+          # knowing nothing of `xl`, so without this it over-claims the neighboring
+          # column. Must stay the exact complement of the continuation-claim block
+          # below.
           if fu && cell_width == 2 && (x + 1 >= xl || line[x + 1]?.nil?)
             ch = ' '
             grapheme = ""
@@ -639,16 +540,14 @@ module Crysterm
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
               if x >= 0
-                # Lead cell was actually painted; claim the next cell as its
-                # continuation so 1 cell == 1 terminal column.
                 nxt.attr = highlighted_attr(attr, sel_cols, x + 1 - xi)
                 nxt.continuation!
               else
                 # Lead cell fell at x == -1 (clipped by the left screen edge) and
                 # was never painted. Marking column 0 as a continuation with no
-                # lead anywhere would leave column 0 never repainted and shift the
-                # whole row left (see BUGS-F1 findings 10/11). Write a plain blank
-                # into column 0 instead, mirroring the end-of-line blanking above.
+                # lead anywhere would leave it never repainted and shift the whole
+                # row left. Write a plain blank instead, mirroring the
+                # end-of-line blanking above.
                 nxt.set_if_changed(highlighted_attr(attr, sel_cols, x + 1 - xi), ' ')
               end
               line.mark_dirty(x + 1)
@@ -659,8 +558,7 @@ module Crysterm
       end
 
       # Scrollbar: a real `Widget::ScrollBar` child (lazy, fixed at the right
-      # edge), styleable/interactive rather than an inline glyph. See
-      # `#update_scrollbar_widget`; renders below via `render_children`.
+      # edge), styleable/interactive rather than an inline glyph.
       update_scrollbar_widget if may_scroll
 
       style.border.try do |border|
@@ -672,7 +570,6 @@ module Crysterm
 
       # Add back the row(s) reserved for the horizontal scroll bar (subtracted
       # above): the border must draw at the true bottom edge, not the bar row.
-      # Reuses `hsr`.
       yl += hsr
 
       # Draw the border.
@@ -682,9 +579,8 @@ module Crysterm
 
         # An explicitly transparent border background (`bg: "transparent"` → -1,
         # distinct from an unset `nil`) shows whatever is already in the buffer
-        # behind the border — e.g. a backdrop widget beneath — instead of painting
-        # the terminal default over it. Each border cell then keeps its existing
-        # bg and only the glyph + fg are drawn over it (see below).
+        # behind the border; each border cell keeps its existing bg and only the
+        # glyph + fg are drawn over it.
         border_bg_transparent = border.bg == -1
 
         # Per-side attributes so `border-top-color` etc. can differ, each falling
@@ -692,25 +588,22 @@ module Crysterm
         # own bg (not the terminal default), so a themed frame sits flush with
         # its interior.
         border_bg = border.bg || style.bg
-        # All four sides share `border` as the style object, so the SGR flag
-        # word (visible?/reverse?/blink?/underline?/italic?/strike?/bold?) is
-        # byte-identical across them — computed once here instead of 4x inside
-        # `sattr`, with only the packed fg differing per side.
+        # All four sides share `border` as the style object, so the SGR flag word
+        # is identical across them — computed once, with only the fg per side.
         border_flags = self.class.sattr_flags(border)
         top_attr = self.class.sattr_pack border_flags, border, border.top_fg, border_bg
         bottom_attr = self.class.sattr_pack border_flags, border, border.bottom_fg, border_bg
         left_attr = self.class.sattr_pack border_flags, border, border.left_fg, border_bg
         right_attr = self.class.sattr_pack border_flags, border, border.right_fg, border_bg
 
-        # Resolved once here instead of re-dispatching per cell inside
-        # `border_char`, with any per-position char overrides (CSS
-        # `border-chars`/`border-top-left-char` …) merged over the family.
+        # The glyph family with any per-position char overrides (CSS
+        # `border-chars`/`border-top-left-char` …) merged over it, resolved once
+        # rather than per cell.
         glyphs = border.line_glyphs_with_overrides(glyph_tier)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
-        # each side's thickness. A side thicker than one cell fills its whole
-        # reserved band (nested/repeated lines), not just the outermost row/col —
-        # every cell of the outer box outside this interior is a border cell.
+        # each side's thickness. Every cell of the outer box outside it is a
+        # border cell, so a side thicker than one cell fills its whole band.
         in_yi = yi + border.top
         in_yl = yl - border.bottom
         in_xi = xi + border.left
@@ -728,10 +621,9 @@ module Crysterm
           next if in_top && coords.no_top?
           next if in_bot && coords.no_bottom?
 
-          # Only border cells are visited: a middle (non-band) row jumps from
-          # the end of the left band straight to the right band instead of
-          # walking (and skipping) every interior cell — O(perimeter) instead of
-          # O(area) for the whole loop. Band rows still walk full width.
+          # Only border cells are visited: a middle (non-band) row jumps from the
+          # end of the left band straight to the right band, making the loop
+          # O(perimeter) rather than O(area). Band rows still walk full width.
           x = xi < 0 ? 0 : xi # off the left edge (a negative index would wrap)
           while x < xl
             # Interior (content) region on a middle row: skip it in one jump.
@@ -773,16 +665,14 @@ module Crysterm
         end
       end
 
-      # Shadow: each side blends a band of cells toward black via
-      # `Window#blend_region`, differing only in bounds.
+      # Shadow: each side blends a band of cells toward black, differing only in
+      # bounds.
       if (s = style.shadow) && s.any?
-        # Half-block (thin) shadow: each band is split into the straight run
+        # Half-block (thin) shadow: each band splits into the straight run
         # alongside the box and the corner caps beyond its edges, so the cell
-        # where two bands meet gets its own diagonal glyph rather than the
-        # abutting side's (see `Shadow`'s glyph resolution). Corner ownership
-        # follows the same band-partition the plain path relies on, so no cell
-        # is painted twice. The plain (no-glyphs) path instead does a single
-        # blend per band, clamping the band's origin into the screen.
+        # where two bands meet gets its own diagonal glyph. Corner ownership
+        # follows the band partition, so no cell is painted twice. The plain
+        # (no-glyphs) path does a single blend per band instead.
         if s.left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
@@ -823,9 +713,8 @@ module Crysterm
         end
       end
 
-      # Tint: colored overlay across the whole box toward `style.tint`. Applied
-      # before children so each widget tints only its own cells; animatable via
-      # `Widget#tint_to`.
+      # Tint: colored overlay across the whole box toward `style.tint`. Must be
+      # applied before children, so each widget tints only its own cells.
       if t = style.tint?
         color, ta = t
         scr.tint_region ta, color, xi, xl, yi, yl
@@ -837,7 +726,7 @@ module Crysterm
         (@layout || Crysterm::Layout::Manual::DEFAULT).render_children self
       end
 
-      emit Crysterm::Event::Rendered # , coords
+      emit Crysterm::Event::Rendered
 
       coords
     end
@@ -864,22 +753,20 @@ module Crysterm
     end
 
     # Registers on the window the rows where this widget emits horizontal
-    # line-drawing chars, so the docking pass (`Window#_dock`) joins them with
-    # crossing chars from neighbors (see `Crysterm::Docking`). Only rows with
-    # horizontal segments need registering (verticals dock when a horizontal
-    # stop crosses them). Base registers top/bottom rows of a line-type border;
-    # widgets drawing lines otherwise (e.g. `Widget::Line`) override this.
+    # line-drawing chars, so the docking pass joins them with crossing chars from
+    # neighbors. Only rows with horizontal segments need registering (verticals
+    # dock when a horizontal stop crosses them). Base registers top/bottom rows
+    # of a line-type border; widgets drawing lines otherwise override this.
     def register_dock_stops(coords)
       style.border.try do |border|
         if border.any? && border.type.line?
           # A widget rendering into a compositing plane registers on the *plane*
           # stops so overlay borders join each other but not the base content
-          # beneath; a base-layer widget uses the window stops.
-          #
-          # Gate is the window's `compositing_layers?`, NOT this widget's
-          # `@compositing` (set only on the layer root) — else a bordered
-          # descendant would register on the BASE stops and dock to base
-          # content, producing stray junctions.
+          # beneath; a base-layer widget uses the window stops. The gate must be
+          # the window's `compositing_layers?`, NOT this widget's `@compositing`
+          # (set only on the layer root) — else a bordered descendant registers
+          # on the BASE stops and docks to base content, producing stray
+          # junctions.
           scr = window
           stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           stops[coords.yi] = true

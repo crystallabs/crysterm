@@ -1,35 +1,29 @@
 module Crysterm
   class Window
     # Terminal (not mouse) cursor
-    # module Cursor
     include Macros
 
     # The screen's default cursor, used whenever the focused widget defines no
-    # own (see `#active_cursor`). `Cursor` lives at namespace level
-    # (`Crysterm::Cursor`) so a `Widget` can own one too.
+    # own. `Cursor` lives at namespace level (`Crysterm::Cursor`) so a `Widget`
+    # can own one too.
     getter cursor = Cursor.new
 
-    # The cursor in effect: the focused widget's own cursor, else the screen
-    # default `#cursor`. Everything that draws (`Window#draw`) or applies it
-    # goes through here.
-    #
-    # Re-renders only once the screen has painted at least one frame
-    # (`@renders > 0`), since the artificial cursor is composited into the cell
-    # buffer by `#draw` and cursor-state changes must repaint to take effect.
-    # Centralizes the `render if @renders > 0` guard repeated across cursor and
-    # focus code.
+    # Re-renders only once the screen has painted at least one frame, since the
+    # artificial cursor is composited into the cell buffer by `#draw` and
+    # cursor-state changes must repaint to take effect.
     def render_if_active : Nil
       render if @renders > 0
     end
 
+    # The cursor in effect: the focused widget's own cursor, else the screen
+    # default `#cursor`.
     def active_cursor : Cursor
       focused.try(&.cursor) || @cursor
     end
 
-    # The hardware-cursor primitives (capability probes
-    # `hardware_cursor_styling?`/`hardware_cursor_color?` and the raw `tput`
-    # shape/color/show-hide/reset ops) live on the device (`Screen`,
-    # `screen_cursor.cr`); this surface delegates them (see `window.cr`).
+    # The hardware-cursor primitives (capability probes and the raw `tput`
+    # shape/color/show-hide/reset ops) live on the device (`Screen`); this
+    # surface delegates them.
 
     # Applies cursor `c`'s settings to the screen (defaults to `#active_cursor`).
     # Makes the hardware-vs-artificial decision:
@@ -40,10 +34,8 @@ module Crysterm
     def apply_cursor(c : Cursor = active_cursor)
       # If the hardware cursor can't satisfy the request, draw it ourselves.
       # Re-derived unconditionally every call: gating on the current
-      # `c.artificial?` would make the decision monotonic — once a cursor turned
-      # artificial (e.g. an underline shape the hardware couldn't style) a later
-      # request the hardware *can* render (a steady block) would stay artificial
-      # forever, as the `unless` would short-circuit the re-evaluation.
+      # `c.artificial?` would make the decision monotonic, so a cursor once
+      # turned artificial could never go back to hardware.
       c.artificial = c.shape.none? || (wants_cursor_styling?(c) && !hardware_cursor_styling?)
 
       if c.artificial?
@@ -69,7 +61,7 @@ module Crysterm
     # Pushes cursor `c`'s color to the hardware cursor: sets it when `c.style.fg`
     # is a real color (`>= 0`), else restores the terminal's own hardware cursor
     # color via OSC 112 (else a stale color from a previously-focused cursor
-    # persists). Shared by `#apply_cursor` and `#cursor_color`.
+    # persists).
     private def push_hardware_cursor_color(c : Cursor) : Nil
       if (color = c.style.fg) && color >= 0
         set_hardware_cursor_color color
@@ -88,24 +80,12 @@ module Crysterm
       apply_cursor active_cursor
     end
 
-    # XXX where does this belong?
-    # if (!@_cursorBlink)
-    # @_cursorBlink = setInterval(function()
-    #   if (!self.cursor.blink) return
-    #   self.cursor._state ^= 1
-    #   if (self.renders) self.render()
-    # }, 500)
-    # if (@_cursorBlink.unref)
-    #   @_cursorBlink.unref()
-    # end
-    # end
-
     # Sets cursor color on cursor `c` (screen default by default; a `Widget`
     # passes its own).
     #
-    # Color is stored as `c.style.fg` (the field the artificial renderer and
-    # `apply_cursor` read), so one concept drives both cursors. Artificial:
-    # recorded, applied on next `render`; otherwise pushed to the terminal.
+    # Color is stored as `c.style.fg`, the one field driving both the artificial
+    # renderer and `#apply_cursor`. An artificial cursor applies it on the next
+    # `render`; otherwise it is pushed to the terminal.
     def cursor_color(color : Int | String | Nil = nil, c : Cursor = @cursor)
       c.style.fg = color
       c._set = true
@@ -138,7 +118,6 @@ module Crysterm
       elsif cursor.shape.none?
         # `None` is the custom cursor: draw it from the cursor's own `style` (glyph and colors).
         cattr = Widget.sattr cursor.style
-        # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         flags = Attr.flags(attr)
         if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || cursor.style.italic? || cursor.style.strike? || !cursor.style.visible?
           flags = Attr.flags(cattr)
@@ -158,7 +137,6 @@ module Crysterm
       bg = (b = cursor.style.bg) ? Attr.pack_color(b) : Attr.bg(attr)
       attr = Attr.pack(Attr.flags(attr), fg, bg)
 
-      # Cell.new attr: attr, char: ch || ' '
       {attr, ch}
     end
 
@@ -192,12 +170,11 @@ module Crysterm
 
       c.shape = :block
       c.blink = false
-      # No forced color: the artificial block cursor is reverse-video of the cell
-      # (see `#_artificial_cursor_attr`), so needs no hardcoded fg/bg. `style.fg`
-      # is the single source of truth `#apply_cursor` reads (line ~57), so
-      # leaving it set would let a later re-apply (on the next focus change or
-      # `#cursor_shape`/`#cursor_color`) re-issue the old color — the OSC-112
-      # reset done here holds only until then.
+      # No forced color: the artificial block cursor is reverse-video of the
+      # cell, so needs no hardcoded fg/bg. `style.fg` is the single source of
+      # truth `#apply_cursor` reads, so leaving it set would let a later
+      # re-apply re-issue the old color — the OSC-112 reset here holds only
+      # until then.
       c.style.fg = nil
       c.style.bg = nil
       c._set = false
@@ -209,6 +186,5 @@ module Crysterm
     end
 
     alias_previous reset_cursor
-    # end
   end
 end

@@ -15,11 +15,10 @@ module Crysterm
       # tracks terminal resize and `%`-relative sizing automatically.
       #
       # Paints its interior straight into the window's cell buffer as packed
-      # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
-      # avoiding a tagged-content round-trip and per-frame tag re-parse. Call
-      # `#start` to spawn the render fiber and `#stop` to halt it (mirroring
-      # `Widget::Loading`). `#step` (state only) is public so the effect can
-      # instead be advanced from an external clock.
+      # `Int64` attrs (each fg a direct `0xRRGGBB` value), avoiding a
+      # tagged-content round-trip and per-frame tag re-parse. `#start` spawns the
+      # render fiber, `#stop` halts it. `#step` (state only) is public so the
+      # effect can instead be advanced from an external clock.
       #
       # ```
       # rain = Widget::Effect::Matrix.new parent: window, width: "100%", height: "100%"

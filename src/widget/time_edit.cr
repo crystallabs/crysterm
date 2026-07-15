@@ -16,11 +16,6 @@ module Crysterm
     #
     # The value is held as a `Time` so it composes with `DateEdit`/`Calendar`;
     # only its hour/minute/second are shown and edited.
-    # `TimeEdit < DateTimeEdit` mirrors Qt's `QTimeEdit < QDateTimeEdit`: a
-    # time-only specialization. Keeps its own `@time` backing store and
-    # overrides the section machinery (hour/minute/second); keyboard/mouse
-    # wiring, `#show_seconds?`, and initial render come from
-    # `DateTimeEdit#initialize`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![TimeEdit screenshot](../../tests/widget/time_edit/time_edit.5s.apng)
@@ -32,9 +27,8 @@ module Crysterm
 
       def initialize(time : Time? = nil, show_seconds = true, **input)
         @time = time || Mixin::SectionedField.default_today
-        # `DateTimeEdit#initialize` wires section keyboard/mouse handlers and
-        # renders once (hour section is the default `@section`). It defaults
-        # `@show_seconds` to true, so apply our own and re-render afterwards.
+        # `DateTimeEdit#initialize` defaults `@show_seconds` to true, so apply
+        # our own and re-render afterwards.
         super **input
         @show_seconds = show_seconds
         update_content
@@ -46,16 +40,14 @@ module Crysterm
         show_seconds? ? 3 : 2
       end
 
-      # Maps an absolute x to a section index. Sections sit at `HH:MM:SS` columns
-      # 0-1 / 3-4 / 6-7 (3 cells apart, the `:` at col 2/5 belonging to the field
-      # before it), so the inclusive end-columns are 2/5/7 (or 2/4 for `HH:MM`).
-      # `nil` past the text leaves the active section untouched (see
-      # `Mixin::SectionedField#section_from_columns`).
-      # Inclusive section end-columns for `HH:MM:SS` / `HH:MM`, hoisted so a mouse
-      # press/wheel doesn't rebuild the array each time.
+      # Inclusive section end-columns for `HH:MM:SS` / `HH:MM`: sections sit at
+      # columns 0-1 / 3-4 / 6-7, each `:` belonging to the field before it.
+      # Hoisted so a mouse press/wheel doesn't rebuild the array each time.
       SECTION_ENDS_SECONDS    = [2, 5, 7]
       SECTION_ENDS_NO_SECONDS = [2, 4]
 
+      # Maps an absolute x to a section index; `nil` past the text leaves the
+      # active section untouched.
       private def section_at(x : Int32) : Int32?
         section_from_columns x, show_seconds? ? SECTION_ENDS_SECONDS : SECTION_ENDS_NO_SECONDS
       end

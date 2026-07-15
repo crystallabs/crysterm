@@ -1,7 +1,7 @@
 module Crysterm
   # Type of border to draw.
   enum BorderType
-    Bg      # Bg color (a fill character, see `Border#fill_char`)
+    Bg      # Bg color (a fill character)
     Line    # Solid line, drawn in light box-drawing chars
     Dashed  # Dashed line (light box-drawing dashes)
     Dotted  # Dotted line (light box-drawing dots)
@@ -15,20 +15,17 @@ module Crysterm
     # Inset
     # Outset
 
-    # Whether this is a line-drawing border (as opposed to the `Bg`
-    # fill-character border). `Line`, `Dashed`, `Dotted`, `Double` and
-    # `Rounded` all use box-drawing glyphs; only their glyph set differs.
+    # Whether this is a line-drawing border, as opposed to the `Bg`
+    # fill-character one. Every line family uses box-drawing glyphs; only their
+    # glyph set differs.
     def line_family?
       self != Bg
     end
 
-    # The six glyphs used to draw a line-family border: the four corners
-    # (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical (`v`) runs,
-    # at support *tier* (defaults to the classic Unicode set). The dashed/
-    # dotted variants keep the light corners and only swap the straight runs;
-    # `Double` swaps all six; at `Tier::Ascii` every family collapses to
-    # `+`/`-`/`|` (`=` runs for `Double`). Values come from the central
-    # `Glyphs` registry, so `Glyphs.set` retunes borders toolkit-wide.
+    # The six glyphs used to draw a line-family border at support *tier*: the
+    # four corners (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical
+    # (`v`) runs. Values come from the central `Glyphs` registry, so `Glyphs.set`
+    # retunes borders toolkit-wide.
     def line_glyphs(tier : Glyphs::Tier = Glyphs::Tier::Unicode)
       case self
       when Double
@@ -55,31 +52,28 @@ module Crysterm
     end
   end
 
-  # Class for border definition.
+  # A widget's border.
   class Border
     include Colorizable
     include SidedGeometry
 
-    # Whether every one of the named instance-variable fields is `nil` — the
-    # all-unset fast-path test. Keeps the hand-maintained `nil?` chain from
-    # drifting out of sync with the field set. (`Shadow#glyphs?` carries its
-    # own copy; a macro can't be shared across the two files/types by scope.)
+    # Whether every named instance variable is `nil`. Keeps the hand-maintained
+    # `nil?` chain from drifting out of sync with the field set.
     private macro all_nil?(*fields)
       ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
     end
 
     property type = BorderType::Line
 
-    # Border colors. Native form is a `0xRRGGBB` int (`-1` = terminal default,
-    # `nil` = unset); `"#rrggbb"`/named strings are accepted for backwards
-    # compatibility and parsed via `Colors.convert`. See `Style#fg`. The setters
-    # come from `Colorizable`.
+    # Border colors, as a `0xRRGGBB` int (`-1` = terminal default, `nil` =
+    # unset). Setters come from `Colorizable` and also accept
+    # `"#rrggbb"`/named strings.
     getter bg : Int32?
     getter fg : Int32?
 
-    # Optional per-side foreground colors (`0xRRGGBB` int or `nil`). When unset,
-    # the side falls back to the whole-border `#fg` (see `#top_fg` etc.). These
-    # let `border-top-color`/`border-left-color`/... differ per edge.
+    # Optional per-side foreground colors, letting CSS `border-top-color`,
+    # `border-left-color`, ... differ per edge. Unset, a side falls back to the
+    # whole-border `#fg`.
     property fg_top : Int32?
     property fg_right : Int32?
     property fg_bottom : Int32?
@@ -109,17 +103,16 @@ module Crysterm
     # the three position-specific chars below.
     property fill_char = ' '
 
-    # Position-specific character overrides, honored by **every** border type
-    # (GLYPHS.md §3.3). When unset (`nil`) each position falls back to its
-    # group (`char_corner` for the four corners), then to the border's normal
-    # glyph source — the `BorderType` family from the `Glyphs` registry for a
-    # line border, `fill_char` for a `Bg` border. CSS spellings:
-    # `border-chars` (tl tr bl br h v) and the per-position longhands
-    # (`border-top-left-char: "╭"` — a rounded corner).
+    # Position-specific character overrides, honored by **every** border type.
+    # Unset (`nil`), each position falls back to its group (`char_corner` for the
+    # four corners), then to the border's normal glyph source — the `BorderType`
+    # family from the `Glyphs` registry for a line border, `fill_char` for a `Bg`
+    # border. CSS spellings: `border-chars` (tl tr bl br h v) and the
+    # per-position longhands (`border-top-left-char: "╭"`).
     #
-    # The horizontal/vertical/corner split exists because terminal cells have
-    # a ~1x2 (width:height) aspect ratio, so one char along a horizontal run
-    # reads "doubly wide" versus the same char stacked vertically.
+    # The horizontal/vertical/corner split exists because terminal cells have a
+    # ~1x2 (width:height) aspect ratio, so one char along a horizontal run reads
+    # "doubly wide" versus the same char stacked vertically.
     property char_horizontal : Char? = nil
     property char_vertical : Char? = nil
     property char_corner : Char? = nil
@@ -149,8 +142,8 @@ module Crysterm
     end
 
     # Per-corner chars for a `Bg` border: position override → corner group →
-    # `fill_char`. (A line border resolves the same overrides against its
-    # glyph family instead — see `#line_glyphs_with_overrides`.)
+    # `fill_char`. A line border resolves the same overrides against its glyph
+    # family instead.
     def top_left_char : Char
       @char_top_left || corner_char
     end
@@ -206,16 +199,14 @@ module Crysterm
       end
     end
 
-    # SGR text-attribute booleans (bold/italic/underline/blink/reverse/strike/
-    # visible) are owned by `TextAttributes`, shared with `Style`. They must
-    # be present here (rather than delegating to a `Style`) for `sattr()` to be
-    # able to work directly on the Border object.
+    # The SGR text attributes must live on `Border` itself, rather than being
+    # delegated to a `Style`, so that `sattr()` can work directly on a `Border`.
     include TextAttributes
 
-    # Per-side widths (default 1) and the all-sides / four-positional integer
-    # constructors, shared with `Padding`/`Margin` but defaulting to a 1-cell box.
+    # Per-side widths and integer constructors, defaulting to a 1-cell box.
     SidedGeometry.sided_properties 1
 
+    # Coerces *value* into a `Border`.
     def self.from(value)
       case value
       in true
@@ -228,7 +219,7 @@ module Crysterm
         value
       in Symbol
         # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
-        # named side(s); see `SidedGeometry.new_from_symbol`.
+        # named side(s).
         SidedGeometry.new_from_symbol value
       in Int
         Border.new value, value, value, value
@@ -250,21 +241,11 @@ module Crysterm
       self.fg = fg unless fg.nil?
     end
 
-    # XXX enable these two after -Dpreview_overload_order becomes the default
-    # def initialize(left_and_right, top_and_bottom)
-    #  @left = @right = left_and_right
-    #  @top = @bottom = top_and_bottom
-    # end
+    # XXX A `(left_and_right, top_and_bottom)` pair constructor and a
+    # `(all : Bool = true)` one are only addable once -Dpreview_overload_order
+    # is the default.
 
-    # def initialize(all : Bool = true)
-    #  @left = @top = @right = @bottom = all
-    # end
-
-    # Per-side width/color access keyed by a side *symbol*
-    # (`:top`/`:right`/`:bottom`/`:left`), so callers (`CSS::Properties`' per-side
-    # border longhands/shorthands) need not repeat the four-arm dispatch. Unknown
-    # side symbols are ignored. `set_color` targets the per-side
-    # `fg_<side>` override slots (see `#top_fg` etc.), not the whole-border `#fg`.
+    # Sets one side's width, keyed by side *symbol*. Unknown sides are ignored.
     def set_width(side : Symbol, value : Int32) : Nil
       case side
       when :top    then @top = value
@@ -274,7 +255,8 @@ module Crysterm
       end
     end
 
-    # :ditto:
+    # Sets one side's `fg_<side>` override slot, not the whole-border `#fg`.
+    # Unknown sides are ignored.
     def set_color(side : Symbol, value : Int32?) : Nil
       case side
       when :top    then @fg_top = value
@@ -293,8 +275,5 @@ module Crysterm
       else             @bottom
       end
     end
-
-    # Per-side predicates (`left?`/`top?`/`right?`/`bottom?`), `any?` and
-    # `adjust` come from `SidedGeometry`.
   end
 end

@@ -29,10 +29,9 @@ module Crysterm
           nil
         end
 
-        # `stat` is `File::Info?` (`rescue` above yields `nil` for a dangling
-        # symlink, a races-away entry, EACCES). Guard before `directory?`/
-        # `symlink?`, or it's a `Nil`-method compile error — latent only
-        # because nothing calls `find_file` outside its own recursion.
+        # `stat` is `File::Info?` — the `rescue` above yields `nil` for a dangling
+        # symlink, a races-away entry, or EACCES — so it must be guarded before
+        # `directory?`/`symlink?`.
         if stat && stat.directory? && !stat.symlink?
           found = find_file full, target
           return found if found
@@ -42,16 +41,13 @@ module Crysterm
       nil
     end
 
-    #
-    # NOTE Content-related functions below should stay here (instead of go to src/widget_content.cr)
-    # since they're generic functions, not instance methods on Widget.
-    #
+    # NOTE The content-related functions below belong here rather than on Widget:
+    # they are generic functions, not instance methods.
 
     # Drops any >U+FFFF characters in the text.
     def drop_unicode(text)
       return "" if text.nil? || text.size == 0
-      # TODO possibly find ready-made crystal method for this
-      text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
+      text.gsub(::Crysterm::Unicode::AllRegex, "??")
     end
 
     # Escapes text for tag-enabled elements where one does not want the tags enclosed in {...} to be treated specially, but literally.
@@ -79,12 +75,9 @@ module Crysterm
       clean_tags(text).strip
     end
 
-    # Combined {...}-tag + SGR-sequence regex, built once.
-    #
-    # Held as a constant so it compiles once rather than on every `clean_tags`
-    # call (which runs per-item in e.g. `List#index_of`): an
-    # interpolated `#{...}` regex, unlike a regex literal, recompiles on each
-    # evaluation.
+    # Combined {...}-tag + SGR-sequence regex. Held as a constant so it compiles
+    # once rather than on every `clean_tags` call: an interpolated `#{...}` regex,
+    # unlike a regex literal, recompiles on each evaluation.
     CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
 
     # Strips text of {...} tags and SGR sequences
@@ -93,40 +86,5 @@ module Crysterm
         # No replacement needed, just removing matches
       end
     end
-
-    # # Generates text tags based on the given style definition.
-    # # Don't use unless you need to.
-    # # ```
-    # # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
-    # # ```
-    # def generate_tags(style : Hash(String, String | Bool) = {} of String => String | Bool)
-    #  open = ""
-    #  close = ""
-
-    #  (style).each do |key, val|
-    #    if (val.is_a? String)
-    #      val = val.sub(/^light(?!-)/, "light-")
-    #      val = val.sub(/^bright(?!-)/, "bright-")
-    #      open = "{" + val + "-" + key + "}" + open
-    #      close += "{/" + val + "-" + key + "}"
-    #    else
-    #      if val
-    #        open = "{" + key + "}" + open
-    #        close += "{/" + key + "}"
-    #      end
-    #    end
-    #  end
-
-    #  {
-    #    open:  open,
-    #    close: close,
-    #  }
-    # end
-
-    # # :ditto:
-    # def generate_tags(style : Hash(String, String | Bool), text : String)
-    #  v = generate_tags style
-    #  v[:open] + text + v[:close]
-    # end
   end
 end

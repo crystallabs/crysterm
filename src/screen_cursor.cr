@@ -4,19 +4,18 @@ module Crysterm
   # `tput`/IO concerns, so they live on the device (`Screen`).
   #
   # The *artificial* cursor and the hardware-vs-artificial decision read surface
-  # state, so they stay on `Window` (`window_cursor.cr`), which drives the
-  # hardware path via the primitives here.
+  # state, so they stay on `Window`, which drives the hardware path via the
+  # primitives here.
   class Screen
     # Whether the terminal can style its *hardware* cursor (shape/blink, via
-    # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`
-    # (static, confirmable at runtime by `Tput#probe!`). When false,
-    # `Window#apply_cursor` falls back to an artificial cursor for non-default shapes.
+    # DECSCUSR or iTerm2's OSC 50). Static, but confirmable at runtime by the
+    # probe. When false, the surface falls back to an artificial cursor for
+    # non-default shapes.
     def hardware_cursor_styling?
       !!tput.features?.try(&.cursor_style?)
     end
 
-    # Whether the terminal can recolor its *hardware* cursor (OSC 12). Backed by
-    # `Tput::Features#cursor_color?`.
+    # Whether the terminal can recolor its *hardware* cursor (OSC 12).
     def hardware_cursor_color?
       !!tput.features?.try(&.cursor_color?)
     end

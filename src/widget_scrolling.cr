@@ -4,18 +4,16 @@ module Crysterm
     getter? scrollable = false
 
     # Once-flag: has the `Event::ParsedContent → _recalculate_index` clamp handler
-    # been wired for this widget? Set true either by `Widget#initialize` (for a
-    # widget constructed `scrollable: true`) or by `#scrollable=` below, so the
-    # handler is installed exactly once regardless of which path enables scrolling.
+    # been wired for this widget? Set by `Widget#initialize` (for a widget
+    # constructed `scrollable: true`) or by `#scrollable=` below, so the handler is
+    # installed exactly once regardless of which path enables scrolling.
     @_scroll_index_wired = false
 
-    # Enables/disables scrolling at runtime. A widget constructed with
-    # `scrollable: true` gets its content-clamp handler
-    # (`Event::ParsedContent → _recalculate_index`) wired in `Widget#initialize`,
-    # but a widget flipped scrollable *later* (`w.scrollable = true`) previously
-    # never got it: on a later content shrink `@child_base` stayed past the
-    # content and the viewport rendered blank until a manual scroll repaired it.
-    # This setter wires the same handler (once, guarded) and clamps immediately.
+    # Enables/disables scrolling at runtime, wiring the content-clamp handler
+    # (`Event::ParsedContent → _recalculate_index`) a widget constructed
+    # `scrollable: true` gets in `Widget#initialize`, and clamping immediately.
+    # Without the handler, a content shrink would leave `@child_base` past the
+    # content and the viewport blank until a manual scroll repaired it.
     def scrollable=(value : Bool) : Bool
       return value if value == @scrollable
       @scrollable = value
@@ -33,14 +31,13 @@ module Crysterm
 
     # Whether this widget is internal chrome — a border label or a bound scroll
     # bar — that an installed layout engine must *not* arrange (measure/place) as
-    # a content slot. Set in `#set_label` and `#bind_scrollbar`. Distinct from
-    # `#layout_excluded?`: excluded chrome (a `background-image` layer) is skipped
-    # by the normal child pass entirely and painted out-of-band from `_render`;
-    # chrome flagged here is still painted by the child pass, but by
-    # `Layout#render_chrome` at its own pinned coordinates (`top: -itop`,
+    # a content slot. Distinct from `#layout_excluded?`: excluded chrome (a
+    # `background-image` layer) is skipped by the normal child pass entirely and
+    # painted out-of-band from `_render`, whereas chrome flagged here is still
+    # painted by the child pass, at its own pinned coordinates (`top: -itop`,
     # `right: 0`, …) rather than as an arranged slot. Without this, any engine
-    # (VBox/Grid/…) tears a `GroupBox` title off its border row and turns a
-    # scroll bar into a flex cell (`Layout#each_arrangeable` skips it).
+    # tears a `GroupBox` title off its border row and turns a scroll bar into a
+    # flex cell.
     property? layout_chrome = false
 
     # When a scrollable widget shows its scroll bar — Qt's `Qt::ScrollBarPolicy`.
@@ -58,13 +55,12 @@ module Crysterm
     property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
     # Whether the scroll bar is enabled at all (policy not `AlwaysOff`).
-    # Back-compat alias for the former `scrollbar : Bool`.
     def scrollbar? : Bool
       !scrollbar_policy.always_off?
     end
 
-    # Back-compat sugar for the former `scrollbar : Bool`: `true` ⇒ `AsNeeded`,
-    # `false` ⇒ `AlwaysOff`.
+    # Boolean sugar over `#scrollbar_policy`: `true` ⇒ `AsNeeded`, `false` ⇒
+    # `AlwaysOff`.
     def scrollbar=(v : Bool) : Bool
       @scrollbar_policy = v ? ScrollBarPolicy::AsNeeded : ScrollBarPolicy::AlwaysOff
       v
@@ -80,11 +76,8 @@ module Crysterm
       self.scrollbar_policy = p
     end
 
-    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Consulted by
-    # `#show_horizontal_scrollbar?` (which drives `#hscrollbar_rows` and the
-    # horizontal bar chrome). Defaults to `AlwaysOff` on the base widget, so
-    # horizontal scrolling is opt-in per widget — `PlainTextEdit`/`ListTable`
-    # flip it to `AsNeeded`.
+    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Defaults to `AlwaysOff`
+    # on the base widget, so horizontal scrolling is opt-in per widget.
     property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
     # Thickness of the scroll bars, in cells — the **single source of truth** so
@@ -119,21 +112,18 @@ module Crysterm
     end
 
     # Content rows visible in the viewport: full height minus interior
-    # (border/padding) rows minus `#hscrollbar_rows`. Single source of truth for
-    # the viewport-height invariant shared by `#scroll`, `#ensure_visible`,
-    # `#clamp_child_base_to_content`, and the `ItemView`/`TextEditing` mixins.
+    # (border/padding) rows minus `#hscrollbar_rows`. The single source of truth
+    # for the viewport-height invariant.
     protected def visible_content_rows : Int32
       aheight - ivertical - hscrollbar_rows
     end
 
-    # Rows the horizontal bar reserves, computed *without* consulting the
-    # vertical scrollbar. The normal `#hscrollbar_rows` path runs the horizontal
-    # overflow test against `#content_width`, which subtracts the vertical bar's
-    # reserved column via `#content_margin_x` → `#show_scrollbar?` →
-    # `#really_scrollable?`. The vertical-overflow predicates below need the
-    # reserved-row count, so they must use *this* variant to avoid the cycle
-    # `really_scrollable? → hscrollbar_rows → … → really_scrollable?`. The
-    # horizontal test here uses the full interior width (`awidth - ihorizontal`).
+    # Rows the horizontal bar reserves, computed *without* consulting the vertical
+    # scrollbar: the horizontal test here uses the full interior width (`awidth -
+    # ihorizontal`). The vertical-overflow predicates below MUST use this variant
+    # rather than `#hscrollbar_rows`, whose overflow test runs against
+    # `#content_width` and would close the cycle `really_scrollable? →
+    # hscrollbar_rows → … → really_scrollable?`.
     private def hscrollbar_rows_indep : Int32
       reserve = policy_shows?(horizontal_scrollbar_policy) do
         !wrap_content? && (get_scroll_width > Math.max(0, awidth - ihorizontal))
@@ -161,13 +151,11 @@ module Crysterm
     end
 
     # The `Widget::ScrollBar` child rendering this widget's scrollbar, created
-    # lazily by `#ensure_scrollbar_widget` (`nil` until first shown). Precursor
-    # to Qt's `verticalScrollBar()`.
+    # lazily (`nil` until first shown). Qt's `verticalScrollBar()`.
     getter scrollbar_widget : ScrollBar?
 
     # The horizontal `Widget::ScrollBar` child rendering this widget's horizontal
-    # scrollbar, created lazily by `#ensure_horizontal_scrollbar_widget` (`nil`
-    # until first shown). Horizontal counterpart of `#scrollbar_widget`; Qt's
+    # scrollbar, created lazily (`nil` until first shown). Qt's
     # `horizontalScrollBar()`.
     getter horizontal_scrollbar_widget : ScrollBar?
 
@@ -178,12 +166,11 @@ module Crysterm
       # Reserve the bottom-right corner when both bars show (Qt's
       # `QAbstractScrollArea` corner): shorten the vertical bar by the horizontal
       # bar's row(s) and the horizontal bar by the vertical bar's column(s), so
-      # neither box claims the corner cell. Without this both `"100%"` extents
-      # overlap there — the second-created bar overpaints the other's last cell,
-      # truncating its thumb and stealing corner clicks. The `"100%-N"` form is
-      # resolved by `Widget.resolve_percentage`, and the size setters are change-guarded,
-      # so re-asserting this every frame is cheap. The corner is left to the
-      # parent's background fill (blank corner, absent a corner widget).
+      # neither box claims the corner cell. Otherwise both `"100%"` extents overlap
+      # there and the second-created bar overpaints the other's last cell,
+      # truncating its thumb and stealing corner clicks. The size setters are
+      # change-guarded, so re-asserting this every frame is cheap. The corner is
+      # left to the parent's background fill.
       if show_scrollbar?
         sb = ensure_scrollbar_widget
         sb.height = show_horizontal_scrollbar? ? "100%-#{scrollbar_height}" : "100%"
@@ -225,8 +212,8 @@ module Crysterm
     # position. Returns *sb*.
     private def bind_scrollbar(sb : ScrollBar) : ScrollBar
       sb.fixed = true
-      # Chrome: pinned to an interior edge, never arranged as a content slot by
-      # an installed layout engine (see `#layout_chrome?`).
+      # Chrome: pinned to an interior edge, never arranged as a content slot by an
+      # installed layout engine.
       sb.layout_chrome = true
       sb.add_css_class "scrollbar"
       sb.attach self

@@ -4,14 +4,13 @@ module Crysterm
   class Widget
     # Renders an image as **sixel** graphics: an in-band DCS escape sequence that
     # a sixel-capable terminal (xterm -ti vt340, foot, wezterm, mlterm, …) draws
-    # as true raster pixels at the cursor position. Unlike
-    # `Media::Ansi`/`Media::Glyph` the pixels are owned by the terminal, not
-    # Crysterm's cell grid — so this inherits `Media::Graphics`'s
-    # window-owns-pixels erase/redraw lifecycle.
+    # as true raster pixels at the cursor position. The pixels are owned by the
+    # terminal, not Crysterm's cell grid, so this inherits `Media::Graphics`'s
+    # erase/redraw lifecycle.
     #
     # The image is quantized to a fixed 6×7×6 (=252) level RGB palette and
-    # dithered to smooth gradients (see `dither`; `Dither::Auto` by default),
-    # then emitted as run-length-encoded sixel bands.
+    # dithered to smooth gradients, then emitted as run-length-encoded sixel
+    # bands.
     #
     # ```
     # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: window
@@ -26,10 +25,10 @@ module Crysterm
       LG = 7
       LB = 6
 
-      # How the image's colors are dithered down to the fixed palette. Defaults
-      # to `Dither::Auto`: Floyd–Steinberg error diffusion for a still (best
-      # quality), ordered (Bayer) dither for an animation (frame-stable, so the
-      # gradient noise doesn't shimmer between frames).
+      # How the image's colors are dithered down to the fixed palette. Under
+      # `Dither::Auto`: Floyd–Steinberg error diffusion for a still (best
+      # quality), ordered (Bayer) for an animation (frame-stable, so the gradient
+      # noise doesn't shimmer between frames).
       property dither : Media::Dither = Media::Dither::Auto
 
       def initialize(*args, dither : Media::Dither | Bool = Media::Dither::Auto, **opts)
@@ -42,25 +41,21 @@ module Crysterm
         {cols * cell_pixel_width, rows * cell_pixel_height}
       end
 
-      # Per-frame scratch reused across renders when `media.reuse_buffers` is on
-      # (a per-frame-re-encoding sixel — streaming video, a `Graph::Canvas` chart
-      # — otherwise re-allocates the whole set every frame). Encoding runs only on
-      # the single render fiber, so one shared set is safe. See `#encode`.
+      # Per-frame scratch reused across renders when `media.reuse_buffers` is on;
+      # a per-frame-re-encoding sixel would otherwise re-allocate the whole set
+      # every frame. Safe because encoding runs only on the single render fiber.
       @quant_scratch : Array(Array(Int32))? = nil
       @row_scratch : Array(Array(UInt8))? = nil
       @seen_scratch : Array(Int32)? = nil
       @band_of_scratch : Array(Int32)? = nil
       # Previous frame's encoded byte size, used (with reuse on) to pre-size the
-      # output builder so a per-frame-re-encoding sixel doesn't grow (and re-copy)
-      # the builder buffer from its 64-byte default up in doublings each frame.
-      # RLE output size is content-dependent so it can't be computed up front, but
-      # consecutive animation/video frames are very close in size — a slight
-      # over/under-estimate at worst trims or triggers one growth. Mirrors
-      # `Media::Kitty`'s payload builder pre-size.
+      # output builder. RLE output size is content-dependent so it can't be
+      # computed up front, but consecutive frames are very close in size — a
+      # slight over/under-estimate at worst trims or triggers one growth.
       @last_payload_bytes = 0
 
-      # Sixel draws at the text cursor (positioned by the base class) at exact
-      # pixel resolution, so *ox*/*oy* and the *cols*/*rows* cell box are unused.
+      # Sixel draws at the text cursor at exact pixel resolution, so *ox*/*oy*
+      # and the *cols*/*rows* cell box are unused.
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                  cols : Int32, rows : Int32) : String
         reuse = Config.media_reuse_buffers
@@ -74,14 +69,12 @@ module Crysterm
           io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
         end
 
-        # Reusable scratch shared across all bands (avoids per-band allocation):
-        # one `pw`-wide sixel row per palette color (`PALETTE.size` = 252), the
-        # list of colors first touched this band (in first-touch order, so
-        # emission order is deterministic), and `band_of[ci]` = the band that
-        # last touched color `ci` (the allocation-free "seen this band?" test).
-        # With reuse on, these persist across frames: the per-band `scratch[ci]`
-        # rows are already re-zeroed after each band below (so they end the frame
-        # clean), `seen` is `clear`ed per band, and `band_of` is reset to -1 here.
+        # Scratch shared across all bands: one `pw`-wide sixel row per palette
+        # color, `seen` = colors first touched this band (in first-touch order,
+        # so emission is deterministic), and `band_of[ci]` = the band that last
+        # touched color `ci` (an allocation-free "seen this band?" test). These
+        # persist across frames under reuse, so each band must leave its
+        # `scratch` rows re-zeroed below.
         if reuse && (rs = @row_scratch) && (ss = @seen_scratch) && (bs = @band_of_scratch) &&
            rs.size == PALETTE.size && (rs[0]?.try(&.size) || 0) == pw
           scratch = rs
@@ -150,11 +143,9 @@ module Crysterm
         end
       end
 
-      # Maps each pixel to a palette index via the shared dithering loop (`None`/
-      # `Ordered`/`Diffusion`), with `-1` for fully transparent pixels. With
-      # *reuse* on, the (large: `ph`×`pw`) index grid is filled into a persistent
-      # scratch instead of freshly allocated every frame — the dominant per-frame
-      # allocation of an animated sixel.
+      # Maps each pixel to a palette index, with `-1` for fully transparent
+      # pixels. With *reuse* on, the large `ph`×`pw` index grid is filled into a
+      # persistent scratch instead of freshly allocated every frame.
       private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, reuse : Bool = false) : Array(Array(Int32))
         into = nil
         if reuse

@@ -2,8 +2,8 @@ module Crysterm
   class Widget
     # Opacity animation — fades and pulses — built on the tween side of
     # `FrameClock`. Each frame eases `style.alpha` and requests a render; the
-    # per-cell alpha blend (`Colors.blend`, see `widget_rendering`) turns that
-    # into translucency over whatever is behind the widget.
+    # per-cell alpha blend turns that into translucency over whatever is behind
+    # the widget.
     #
     # ```
     # box.fade_in                       # 0 → opaque over the default duration
@@ -74,8 +74,7 @@ module Crysterm
                  fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
       fade_to(0.0, duration, easing, fps) do
         hide
-        # Clear the residual alpha == 0.0 (mirrors `fade_in`'s `set_alpha nil`):
-        # otherwise a later plain `#show` would paint nothing.
+        # Clear the residual alpha == 0.0, or a later plain `#show` paints nothing.
         set_alpha nil
         on_done.call
       end
@@ -99,14 +98,12 @@ module Crysterm
       # the value eases at both ends and runs until stopped.
       half = period.total_seconds
       # `period` is unvalidated public API: a zero/negative span makes `half == 0`,
-      # and the first tick's `elapsed % (2.0 * half)` (an `x % 0.0`) raises
-      # DivisionByZeroError, killing the ticker fiber. Floor it like the sibling
-      # declarative drivers (`start_css_animation` floors its total at 0.001).
+      # and the first tick's `elapsed % (2.0 * half)` raises DivisionByZeroError,
+      # killing the ticker fiber.
       half = 0.001 if half <= 0.0
-      # Drive the phase from real wall-clock elapsed (like the keyframe/tween
-      # path), not a fixed per-tick step: `FrameClock` drops catch-up ticks when
-      # behind, so a fixed accumulator undercounts every dropped/late tick and the
-      # breathe cadence stretches slow under CPU load / GC pauses.
+      # Drive the phase from real wall-clock elapsed, not a fixed per-tick step:
+      # `FrameClock` drops catch-up ticks when behind, so an accumulator would
+      # undercount every late tick and stretch the breathe cadence under load.
       start_at = Time.instant
       anim = FrameClock.new(interval) do |_clock|
         elapsed = elapsed_since(start_at)
@@ -159,15 +156,14 @@ module Crysterm
       @tint_anim = nil
     end
 
-    # Sets `style.alpha`, and — when CSS has taken over styling — persists it
-    # onto the inline `@style` so the next cascade doesn't discard it. Mirrors
-    # `#set_visible` (see `widget_visibility`).
+    # Sets `style.alpha`, and — when CSS has taken over styling — persists it onto
+    # the inline `@style` so the next cascade doesn't discard it, like
+    # `#set_visible`.
     private def set_alpha(value : Float64?) : Nil
       # Write the raw backing style (`#state_style`), not `#style`: at the
-      # unstyled floor, `#style` returns a transient reverse-video `#dup` for
-      # small focused/selected controls (`floor_focus_reverse?` — `Button`,
-      # `CheckBox`, `RadioButton`), so a write through it would be discarded
-      # (same trap `#set_visible` avoids).
+      # unstyled floor, `#style` returns a transient reverse-video `#dup` for small
+      # focused/selected controls (`Button`, `CheckBox`, `RadioButton`), so a write
+      # through it would be discarded.
       self.state_style.alpha = value
       persist_inline_style(&.alpha=(value))
       # The frame-memoized `#style` may hold a detached floor-highlight `dup`

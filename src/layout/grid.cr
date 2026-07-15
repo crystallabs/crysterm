@@ -37,24 +37,21 @@ module Crysterm
 
       # `#gap` (inter-cell spacing) is inherited from `Layout`.
 
-      # Per-arrange scratch, reused across frames (cleared, not reallocated) so
-      # a grid re-render allocates nothing. Transient, not retained past
-      # `#arrange`; a layout instance serves a single container.
+      # Per-arrange scratch, cleared rather than reallocated so a re-render
+      # allocates nothing. Not retained past `#arrange`.
       @occupied = Set({Int32, Int32}).new
       @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
 
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @gap : Int32 = 0)
       end
 
-      # Caps for degenerate `Grid::Hint` values (see `#arrange`). A row origin
-      # is clamped to `ROW_ORIGIN_CAP` so the checked adds in the row inference
-      # (`p[1] + 1`, `p[1] + p[3]`) can't raise `OverflowError` on
-      # `row: Int32::MAX`. Occupancy bookkeeping never records rows past
-      # `OCCUPANCY_ROW_CAP`: `#occupy` iterates the span, so a raw
-      # `row_span: Int32::MAX` would insert 2^31 tuples into the occupancy set
-      # on every arrange (every frame) — a permanent render-fiber stall.
-      # Placement geometry is unaffected by either cap: `Layout.fence` clamps
-      # every cell to the real grid regardless.
+      # Caps for degenerate `Grid::Hint` values. A row origin is clamped to
+      # `ROW_ORIGIN_CAP` so the checked adds in the row inference can't overflow
+      # on `row: Int32::MAX`. Occupancy never records rows past
+      # `OCCUPANCY_ROW_CAP`: `#occupy` iterates the span, so `row_span:
+      # Int32::MAX` would insert 2^31 tuples per frame — a render-fiber stall.
+      # Placement geometry is unaffected: `Layout.fence` clamps every cell to the
+      # real grid regardless.
       ROW_ORIGIN_CAP    = 1_000_000
       OCCUPANCY_ROW_CAP =      4096
 
@@ -70,25 +67,20 @@ module Crysterm
         placements.clear
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
-        # Hints are clamped to grid bounds before any bookkeeping (see the
-        # caps above): column origin/span to the fixed `columns`; the row
-        # origin to `ROW_ORIGIN_CAP`. The row *span* is clamped against
-        # `row_bound` below, once every explicit origin is known — preserving
-        # the file's "an over-large span spans to the end" semantics while
-        # keeping `#occupy` (which iterates the span) proportional to real
-        # grid cells rather than to `Int32::MAX`.
+        # Hints are clamped to grid bounds before any bookkeeping: column
+        # origin/span to `columns`, the row origin to `ROW_ORIGIN_CAP`. The row
+        # *span* is clamped against `row_bound` below, once every explicit origin
+        # is known.
         max_origin = 0
         total = 0
         each_arrangeable container do |el|
           total += 1
           next unless hint = el.layout_hint.as?(Hint)
           row = hint.row.clamp(0, ROW_ORIGIN_CAP)
-          # Clamp the origin to the *last* valid column (`cols - 1`), not `cols`
-          # (one past the grid): an origin of `cols` gives `c0 == c1 == cols`, so
-          # the cell collapses to zero width and lands past the interior's right
-          # edge, silently vanishing — asymmetric with a negative `column`, which
-          # clamps to column 0 and stays visible. `cols = Math.max(@columns, 1)`
-          # guarantees `cols - 1 >= 0`.
+          # Clamp to the *last* valid column, not `cols`: an origin of `cols`
+          # collapses the cell to zero width past the right edge, vanishing —
+          # asymmetric with a negative `column`, which clamps to 0 and stays
+          # visible.
           column = hint.column.clamp(0, cols - 1)
           rs = Math.max(hint.row_span, 1)
           cs = hint.column_span.clamp(1, Math.max(cols - column, 1))
@@ -96,12 +88,9 @@ module Crysterm
           max_origin = Math.max(max_origin, row)
         end
 
-        # The deepest row bookkeeping can meaningfully reach: the declared
-        # `rows`, or the row inference's own upper bound (content origins plus
-        # one row per arrangeable child — `nrows` below can never exceed it),
-        # hard-capped so degenerate input can't make occupancy per-frame work
-        # unbounded. Spans are stored clamped, so the inference's `p[1] + p[3]`
-        # also sees the clamped values.
+        # The deepest row bookkeeping can meaningfully reach: the declared `rows`,
+        # or the row inference's own upper bound, hard-capped so degenerate input
+        # can't make per-frame occupancy work unbounded.
         row_bound = Math.min(@rows || (max_origin + 1 + total), OCCUPANCY_ROW_CAP)
         row_bound = 1 if row_bound < 1
         placements.map! do |placement|
@@ -124,20 +113,12 @@ module Crysterm
           r, c = next_cell r, c, cols
         end
 
-        # Row count. When `rows` is given, use it. Otherwise infer from the
-        # placements — but unlike the column axis (whose count is the fixed
-        # `columns`, so an over-large `column_span: 99` "span to the end" is simply
-        # clamped to the last column by `#fence`), the row axis has no fixed
-        # bound to clamp an over-large `row_span` against. Taken literally,
-        # `p[1] + p[3]` would let a single `row_span: 99` inflate the grid to 99
-        # rows, squeezing every cell to nothing and driving `inner_h` negative
-        # once gaps are subtracted — collapsing the whole grid.
-        #
-        # So cap the inferred count at the rows that actually hold content: the
-        # deeper of the rows reached by child *origins* (`p[1] + 1`) and the
-        # child count (an upper bound on distinct rows). An over-large span then
-        # spans to the last real row via `#fence`'s clamp, making `row_span: 99`
-        # behave symmetrically to `column_span: 99` as "span to the last row".
+        # Row count: the declared `rows`, else inferred. Unlike the column axis
+        # (bounded by the fixed `columns`), the row axis has no natural bound, so
+        # a lone `row_span: 99` taken literally would inflate the grid to 99 rows
+        # and collapse it. Cap the inferred count at the rows that actually hold
+        # content, so an over-large span spans to the last real row — symmetric
+        # with `column_span`.
         if r = @rows
           nrows = r
         else
@@ -151,14 +132,10 @@ module Crysterm
         end
         nrows = 1 if nrows < 1
 
-        # Interior space the cells share, with inter-cell gaps removed.
-        # Columns/rows are carved out by *cumulative* integer division (see
-        # `Layout.fence`) rather than a single floored `cell_w`/`cell_h`: a uniform
-        # floor would drop up to `cols - 1` columns (and `nrows - 1` rows) of
-        # remainder as blank space at the right/bottom edge. Cumulative fences
-        # make column widths differ by at most one and sum to exactly
-        # `inner_w`, the last column/row absorbing the remainder — matching
-        # how Box/Form hand their leftover to the final cell.
+        # Interior space the cells share, with inter-cell gaps removed. Cells are
+        # carved by *cumulative* integer division (`Layout.fence`), so widths
+        # differ by at most one and sum to exactly `inner_w`; a uniform floored
+        # `cell_w` would strand the remainder as blank space at the far edge.
         inner_w = w - (cols - 1) * @gap
         inner_h = h - (nrows - 1) * @gap
         inner_w = 0 if inner_w < 0
@@ -166,12 +143,8 @@ module Crysterm
 
         placements.each do |(el, row, column, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
-          # terms. `Layout.fence` already clamps the pixel fences, but gap
-          # multipliers using the raw span/start would add phantom inter-cell
-          # gaps for an off-grid span (e.g. `column_span: 99` "span to the end"),
-          # pushing the cell's edge past the interior. Counting gaps from the
-          # on-grid extent keeps in-grid cells unaffected while making
-          # off-grid spans truly stop at the edge.
+          # terms: gap multipliers taken from a raw off-grid span would add
+          # phantom gaps and push the cell past the interior.
           c0 = column.clamp(0, cols)
           c1 = (column + cs).clamp(0, cols)
           r0 = row.clamp(0, nrows)
@@ -190,9 +163,8 @@ module Crysterm
         end
       end
 
-      # Advances the row-major auto-flow cursor to the next cell, wrapping to
-      # the start of the next row once past the last column. Shared by the
-      # free-cell scan and the post-placement step.
+      # Advances the row-major auto-flow cursor to the next cell, wrapping to the
+      # start of the next row once past the last column.
       private def next_cell(r : Int32, c : Int32, cols : Int32) : Tuple(Int32, Int32)
         c += 1
         if c >= cols

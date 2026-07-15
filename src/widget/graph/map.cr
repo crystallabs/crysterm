@@ -6,11 +6,11 @@ require "../../widget_graph_scale"
 module Crysterm
   class Widget
     module Graph
-      # A geographic map, modeled after Qt Location's `Map` rather than
-      # blessed-contrib's `map`. Coastlines are drawn on a backend-agnostic
-      # `Graph::Canvas` (sixel/kitty where available, else braille), and markers
-      # are placed by geographic coordinate and drawn as terminal glyphs on top —
-      # the same "outline = pixels, markers/labels = text" split as `LineChart`.
+      # A geographic map, modeled after Qt Location's `Map`. Coastlines are drawn
+      # on a backend-agnostic `Graph::Canvas` (sixel/kitty where available, else
+      # braille), and markers are placed by geographic coordinate and drawn as
+      # terminal glyphs on top — an "outline = pixels, markers/labels = text"
+      # split.
       #
       # The visible area is a longitude/latitude window (`#min_lon`..`#max_lon`,
       # `#min_lat`..`#max_lat`) under a plain equirectangular projection; the
@@ -93,15 +93,11 @@ module Crysterm
         property graticule_color : Int32
         property graticule_step : Float64
 
-        # Coastline-parameter setters: an assignment changes what `#paint_map`
-        # projects/draws onto the coastline Canvas, so — like `#look_at` — each
-        # must invalidate the Canvas raster (which otherwise skips repaint under
-        # its own `@paint_dirty`) and schedule a render. The docstring lists
-        # setting these directly as a supported path; the plain `property` setter
-        # left the coastlines stale (old viewport/color/graticule) until an
-        # unrelated repaint. Markers are a text overlay (`#draw_markers`), so they
-        # keep their own no-invalidate path. `canvas_prop` is from
-        # `Mixin::CanvasOwner`.
+        # Coastline-parameter setters. Assigning any of these changes what is
+        # projected onto the coastline Canvas, so each must invalidate the raster
+        # — which otherwise skips repaint under its own `@paint_dirty` — and
+        # schedule a render. Markers are a text overlay and keep their own
+        # no-invalidate path.
         canvas_prop min_lon, Float64
         canvas_prop max_lon, Float64
         canvas_prop min_lat, Float64
@@ -136,16 +132,16 @@ module Crysterm
                        color : Int32 = 0xE05050, label : String? = nil) : Marker
           m = Marker.new latitude.to_f, longitude.to_f, char || glyph(Glyphs::Role::MapMarker), color, label
           @markers << m
-          # Markers are a *text overlay* (`#draw_markers`), not part of the coastline
-          # Canvas paint (`#paint_map`), so deliberately do NOT invalidate the
-          # Canvas here: its content is unchanged and it can reuse the last raster.
+          # Markers are a text overlay, not part of the coastline Canvas paint, so
+          # deliberately do NOT invalidate the Canvas: its content is unchanged
+          # and it can reuse the last raster.
           request_render
           m
         end
 
         def clear_markers : Nil
           @markers.clear
-          # Overlay-only change (see `#add_marker`): the coastline Canvas is unaffected.
+          # Overlay-only change: the coastline Canvas is unaffected.
           request_render
         end
 
@@ -160,9 +156,8 @@ module Crysterm
           invalidate_canvas
         end
 
+        # Redraws everything, coastline Canvas included.
         def refresh : Nil
-          # Explicit "redraw everything" entry point: repaint the coastline Canvas
-          # too (markers are a text overlay redrawn by `#draw_markers` regardless).
           invalidate_canvas
         end
 

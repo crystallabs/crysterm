@@ -1,28 +1,19 @@
 module Crysterm
-  # Cross-cutting helpers for floating overlays (drop-downs, pop-up menus,
-  # completer lists): the shared *interaction* policy that every overlay owner
-  # otherwise re-decided inline.
+  # Cross-cutting interaction policy for floating overlays: drop-downs, pop-up
+  # menus, completer lists.
   module Overlay
     # Owns the "modal grab + click-away-to-dismiss" lifecycle for one open
-    # overlay, as a plain value object rather than a mixin — so it serves all
-    # three owner shapes uniformly: a widget owning a pop-up child
-    # (`Mixin::Popup` → `ComboBox`/`DateEdit`), a widget that *is* its own pop-up
-    # (`Menu`), and a non-widget owner (`Completer`, which attaches to a
-    # `LineEdit` and therefore can't inherit any widget lifecycle).
-    #
-    # The grab/watcher/teardown triple is otherwise hand-rolled per owner, where
-    # a "released grab on destroy" bug class recurs because the dismiss path and
-    # the destroy path each tear things down separately. Here a single idempotent
-    # `#close` is what both paths call.
+    # overlay. A plain value object rather than a mixin, so it serves every owner
+    # shape uniformly: a widget owning a pop-up child, a widget that *is* its own
+    # pop-up, and a non-widget owner that can inherit no widget lifecycle. Both
+    # the dismiss path and the destroy path call the same idempotent `#close`.
     #
     # The window is captured at construction and used for both grab and detach,
-    # so teardown works even from `Detach`/`Destroy`, where the owner's
-    # `window?` has already been nilled (the `window` vs `window?` hazard that
-    # made hand-rolled teardowns leak).
+    # so teardown works even from `Detach`/`Destroy`, where the owner's `window?`
+    # has already been nilled.
     class DismissSession
-      # The live outside-press watcher, as a tracked `Subscription` (captures the
-      # window, so `#close` detaches from the right emitter even after the owner
-      # detaches — see `Subscription`). Idle while closed.
+      # The live outside-press watcher. Captures the window, so `#close` detaches
+      # from the right emitter even after the owner detaches. Idle while closed.
       @watcher = ::Crysterm::Subscription.new
       @open = false
 

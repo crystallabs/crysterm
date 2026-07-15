@@ -36,7 +36,7 @@ module Crysterm
       # ![Setup screenshot](../../../tests/widget/pine/setup/setup.5s.apng)
       # <!-- /widget-examples:capture -->
       class Setup < SelectableList(SetupOption)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::SetupOption
 
         def initialize(
@@ -54,7 +54,7 @@ module Crysterm
           toggle_selected
         end
 
-        # Space always toggles the selected option (see `SelectableList#on_keypress`).
+        # Space always toggles the selected option.
         protected def space_toggles? : Bool
           true
         end

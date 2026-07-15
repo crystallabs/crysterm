@@ -16,11 +16,8 @@ module Crysterm
     class Dial < AbstractSlider
       property? show_value : Bool = true
 
-      # Pointer glyphs for the eight compass directions, starting at "north" and
-      # going clockwise — the historical default ring, now the registry's
-      # `DialPointers` unicode column. Kept for reference/compat; resolution
-      # goes through `#pointer_ring` (CSS `Dial { glyphs: "…" }`, then the
-      # registry at the effective tier).
+      # Default pointer glyphs for the eight compass directions, starting at
+      # "north" and going clockwise. Resolution goes through `#pointer_ring`.
       POINTERS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖']
 
       def initialize(
@@ -36,8 +33,8 @@ module Crysterm
         super **input
 
         @wrapping = wrapping
-        # Guarded range+value init: never store an inverted range (which would
-        # leave `#value` stuck after `clamp`). Shared with `Slider`/`ScrollBar`.
+        # Guarded range+value init: never store an inverted range, which would
+        # leave `#value` stuck after `clamp`.
         init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
@@ -47,10 +44,9 @@ module Crysterm
         end
       end
 
-      # The pointer ring cycled by `#pointer`: CSS `Dial { glyphs: "…" }`
-      # (each character one clockwise step from "north"), else the registry's
-      # `DialPointers` at the effective tier. Memoized against its inputs —
-      # `#pointer` runs per render.
+      # The pointer ring cycled by `#pointer`: CSS `Dial { glyphs: "…" }` (each
+      # character one clockwise step from "north"), else the registry's
+      # `DialPointers` at the effective tier. Memoized — `#pointer` runs per render.
       private def pointer_ring : Array(Char)
         key = glyph_key(style)
         if (r = @_ring) && @_ring_key == key
@@ -71,19 +67,14 @@ module Crysterm
         s = value_span
         frac = s == 0 ? 0.0 : (@value.to_i64 - @minimum) / s.to_f
         # A wrapping dial maps the range onto the full circle, so the maximum
-        # rolls back onto the minimum's "north" (`frac * size` rounds 1.0 → size,
-        # `% size` folds to 0). A non-wrapping dial instead spreads the range
-        # across the arc between the eight directions: `frac * (size - 1)` lands
-        # the maximum on the last glyph (`↖`). An unconditional `* size` here
-        # would show `↑` at both ends and could skip an in-between direction.
+        # rolls back onto the minimum's "north". A non-wrapping dial spreads the
+        # range across the arc instead, landing the maximum on the last glyph.
         steps = wrapping? ? ring.size : ring.size - 1
         ring[(frac * steps).round.to_i % ring.size]
       end
 
-      # Cached value strings (plain + focused-bracketed form). `#render` draws one
-      # of them every frame when `#show_value?`; interpolating `"‹#{@value}›"` /
-      # `@value.to_s` only needs to rerun when the value actually changes (see
-      # `AbstractSlider#value_text_stale?`). Focus selects between them per call.
+      # Cached value strings (plain + focused-bracketed form), rebuilt only when
+      # `@value` changes rather than per render.
       @value_plain : String = ""
       @value_bracketed : String = ""
 
@@ -114,7 +105,6 @@ module Crysterm
           # land on the pointer row: on a 1-row dial there is no spare row, so
           # keep the pointer rather than let the number overwrite it.
           if show_value? && (ty = yl - 1) != cy
-            # Bracket the number while focused to show the dial is active.
             draw_centered_text ty, xi, xl, value_text
           end
         end

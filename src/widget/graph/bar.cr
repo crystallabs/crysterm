@@ -35,9 +35,7 @@ module Crysterm
       class Bar < Box
         include BarChart
 
-        # The data series. Each element is one bar. `getter` with an explicit
-        # setter below (not `property`) so every assignment routes through the
-        # repaint-scheduling `#values=`.
+        # The data series. Each element is one bar.
         getter values : Array(Float64)
 
         # Category captions drawn (centered, one row) under each bar. `nil` or
@@ -91,13 +89,12 @@ module Crysterm
         def values=(vals : Array)
           @values = vals.map(&.to_f)
           bump_data_version
-          mark_dirty # repaint on data change, as in `StackedBar`
+          mark_dirty
         end
 
         private def bar_color(i : Int32) : String?
           # An empty `colors` array means "no per-bar color" (use `style.fg`),
-          # like `nil` — guarding the modulo, which would be `i % 0` (a
-          # `DivisionByZeroError`) on an empty array.
+          # like `nil`; it also guards the modulo against `i % 0`.
           c = @colors
           (c && !c.empty?) ? c[i % c.size] : nil
         end
@@ -124,11 +121,9 @@ module Crysterm
           levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
 
           # Plot area, top row down. The fill ramp resolves CSS-first
-          # (`glyphs:`), then the registry's `ScaleVertical` (GLYPHS.md §3.4).
-          # Composed straight into one builder (rows separated by `\n`) instead
-          # of building a per-row `String` array and joining — a live chart
-          # rebuilds this every data push, so the intermediate strings + the join
-          # copy are pure per-frame garbage.
+          # (`glyphs:`), then the registry's `ScaleVertical`. Composed straight
+          # into one builder (rows separated by `\n`): a live chart rebuilds this
+          # on every data push, so a per-row array + join would be pure garbage.
           ramp = glyph_seq(Glyphs::SeqRole::ScaleVertical, style, cells: true)
           String.build do |io|
             plot_rows.times do |r|
@@ -144,8 +139,8 @@ module Crysterm
             end
 
             # Category captions. When values overflow the width only the tail is
-            # shown (`@values.last(cap)`), so labels must follow the same offset —
-            # otherwise captions mislabel the visible (tail) bars.
+            # shown, so labels must follow the same offset or they mislabel the
+            # visible bars.
             if label_row == 1
               io << '\n'
               names = lbls.not_nil! # ameba:disable Lint/NotNil

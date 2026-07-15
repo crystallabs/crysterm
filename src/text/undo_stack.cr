@@ -4,16 +4,16 @@ module Crysterm
   #
   # Classic command list + index: `@commands[0...@index]` are undoable,
   # `@commands[@index..]` redoable. Pushing while redo entries exist drops
-  # them. Commands mutate the document exclusively through its `raw_*`
-  # primitives, which perform no undo bookkeeping — only the document's
-  # public editing methods push commands, so undo/redo can replay safely.
+  # them. Commands must mutate the document exclusively through its `raw_*`
+  # primitives, which perform no undo bookkeeping — otherwise replay would
+  # record itself.
   #
   # Typing coalescing (Qt semantics): a text insert merges into the previous
   # insert when it continues exactly where that one ended, with the same
-  # appearance and no block separator — so a typing burst is one undo step,
-  # and any jump elsewhere breaks the run naturally by failing the contiguity
-  # check. Delete and Backspace runs coalesce the same way. `begin_macro`/
-  # `end_macro` (Qt `beginEditBlock`) group arbitrary commands into one step.
+  # appearance and no block separator, so a typing burst is one undo step and
+  # any jump elsewhere breaks the run by failing the contiguity check. Delete
+  # and Backspace runs coalesce the same way. `begin_macro`/`end_macro` group
+  # arbitrary commands into one step.
   #
   # "Clean" tracking: `mark_clean` remembers the current index; `clean?`
   # compares against it and is unreachable (`CLEAN_INVALID`) once the clean
@@ -23,8 +23,8 @@ module Crysterm
     CLEAN_INVALID = Int32::MIN
 
     abstract class Command
-      # Set once no later command may coalesce into this one (macro boundaries,
-      # undo/redo). Checked by `push`.
+      # Set once no later command may coalesce into this one, at macro
+      # boundaries and across undo/redo.
       property? sealed = false
 
       abstract def undo(doc : TextDocument) : Nil
@@ -41,11 +41,11 @@ module Crysterm
       getter pos : Int32
       getter format : TextCharFormat
 
-      # Coalescing accumulator: a typing burst appends into `@io` (amortized
-      # O(1) per key) instead of `@text += other.text` rebuilding the whole
-      # accumulated String every keystroke (O(k^2) over a k-char run). `@size`
-      # tracks the codepoint length (contiguity/undo need it, `IO::Memory`
-      # counts bytes) and `@has_newline` caches the block-separator guard.
+      # Coalescing accumulator: a typing burst appends into `@io`, amortized
+      # O(1) per key, where rebuilding an accumulated String would be O(k^2)
+      # over a k-char run. `@size` tracks the codepoint length, which
+      # contiguity and undo need and `IO::Memory` cannot give (it counts
+      # bytes); `@has_newline` caches the block-separator guard.
       protected getter size : Int32
       protected getter? has_newline : Bool
 
@@ -56,8 +56,8 @@ module Crysterm
         @has_newline = text.includes?('\n')
       end
 
-      # The accumulated inserted text, materialized on demand (redo path only —
-      # not the hot typing path). `IO::Memory#to_s` leaves the buffer writable,
+      # The accumulated inserted text, materialized on demand — the redo path,
+      # not the hot typing path. `IO::Memory#to_s` leaves the buffer writable,
       # so later merges still append.
       def text : String
         @io.to_s
@@ -105,8 +105,8 @@ module Crysterm
         if other.pos == @pos
           # Forward-delete run: subsequent removal happens at the same
           # position. Merge into a clone — `@fragment` is the very object
-          # `TextDocument#remove` returned to its caller, which must not
-          # mutate under the caller's feet.
+          # handed back to the code that requested the removal, and must not
+          # mutate under it.
           merged = @fragment.blocks[0].clone
           merged.merge_with(other.fragment.blocks[0])
           @fragment = TextDocumentFragment.new([merged])
@@ -127,9 +127,9 @@ module Crysterm
     # never mutate their fragment, so several commands may share one (e.g.
     # the same clipboard fragment pasted twice).
     class InsertFragmentCommand < Command
-      # `@old_block_format`: the insertion-point block's format when a
-      # multi-block insertion at a block start replaced it with the
-      # fragment's head format (see `TextDocument#insert_fragment`).
+      # `@old_block_format`: the insertion-point block's format, when a
+      # multi-block insertion at a block start replaced it with the fragment's
+      # head format.
       def initialize(@pos : Int32, @fragment : TextDocumentFragment,
                      @old_block_format : TextBlockFormat? = nil)
       end

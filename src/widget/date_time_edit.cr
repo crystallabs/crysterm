@@ -59,16 +59,13 @@ module Crysterm
         show_seconds? ? 6 : 5
       end
 
-      # Maps an absolute x to a section over the `YYYY-MM-DD HH:MM:SS` layout
-      # (19 cols, last col 18) or `YYYY-MM-DD HH:MM` with seconds hidden (16 cols,
-      # last col 15). The inclusive end-columns per section: YYYY+`-` → 4, MM → 7,
-      # DD+` ` → 10, HH → 13, MM → 16, SS → 18. `nil` past the text (see
-      # `Mixin::SectionedField#section_from_columns`).
-      # Inclusive section end-columns for `YYYY-MM-DD HH:MM:SS` / `… HH:MM`,
-      # hoisted so a mouse press/wheel doesn't rebuild the array each time.
+      # Inclusive section end-columns for `YYYY-MM-DD HH:MM:SS` (19 cols) and
+      # `YYYY-MM-DD HH:MM` (16 cols): YYYY+`-` → 4, MM → 7, DD+` ` → 10, HH → 13,
+      # MM → 16, SS → 18. Hoisted so a mouse press/wheel doesn't rebuild the array.
       SECTION_ENDS_SECONDS    = [4, 7, 10, 13, 16, 18]
       SECTION_ENDS_NO_SECONDS = [4, 7, 10, 13, 15]
 
+      # Maps an absolute x to a section index; `nil` past the text.
       private def section_at(x : Int32) : Int32?
         section_from_columns x, show_seconds? ? SECTION_ENDS_SECONDS : SECTION_ENDS_NO_SECONDS
       end

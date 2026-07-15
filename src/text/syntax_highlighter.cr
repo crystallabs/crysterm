@@ -1,16 +1,14 @@
 module Crysterm
-  # Per-block syntax highlighting engine (Qt `QSyntaxHighlighter`;
-  # TEXTEDIT.md Phase 4). Subclass and implement `#highlight_block`, calling
-  # `#set_format` for each span to color; attach to a document via the
-  # constructor or `#document=`.
+  # Per-block syntax highlighting engine (Qt `QSyntaxHighlighter`). Subclass
+  # and implement `#highlight_block`, calling `#set_format` for each span to
+  # color; attach to a document via the constructor or `#document=`.
   #
   # Formats land in the block's `additional_formats` overlay — presentation
   # only, invisible to undo, plain-text and interchange output. The
-  # highlighter re-runs automatically for the blocks a document edit touches
-  # and cascades to following blocks while their `#current_block_state`
-  # keeps changing (the multi-line-construct protocol: store a state like
-  # "still inside a comment" and read the previous block's via
-  # `#previous_block_state`).
+  # highlighter re-runs for the blocks a document edit touches and cascades to
+  # following blocks while their `#current_block_state` keeps changing (the
+  # multi-line-construct protocol: store a state like "still inside a comment"
+  # and read the previous block's via `#previous_block_state`).
   #
   # ```
   # class TodoHighlighter < Crysterm::SyntaxHighlighter
@@ -51,10 +49,9 @@ module Crysterm
       if old = @document
         @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChanged, w) }
         @ev_contents_change = nil
-        # Detach cleanly: drop this highlighter's overlays and user states so
-        # the old document renders plain again (and a later, different
-        # highlighter starts from clean `previous_block_state`s), and poke a
-        # zero-length change so attached views repaint.
+        # Drop this highlighter's overlays and user states so the old document
+        # renders plain again and a later highlighter starts from clean
+        # `previous_block_state`s.
         changed = false
         old.blocks.each do |b|
           changed = true if b.additional_formats || b.user_state != -1
@@ -128,9 +125,8 @@ module Crysterm
       blocks = doc.blocks
       b1 = doc.block_at(pos)[0]
       # A removal ending exactly at a block boundary changes the *following*
-      # block's `previous_block_state` without touching its own text — extend
-      # the guaranteed window one block when anything was removed (Qt does
-      # the same), so the cascade check actually runs there.
+      # block's `previous_block_state` without touching its own text, so the
+      # window extends one block whenever anything was removed.
       b2 = doc.block_at(pos + added + (removed > 0 ? 1 : 0))[0]
       run_highlight do
         i = b1
@@ -145,14 +141,11 @@ module Crysterm
       end
     end
 
-    # Wraps a highlight batch: sets the reentrancy guard and — when any
-    # block's overlay or state actually changed — pokes the document (a
-    # zero-length `ContentsChanged`) so attached views repaint. The poke is
-    # what makes a manual `#rehighlight` (or an edit cascade past the edited
-    # blocks) visible without any widget knowing about highlighters; gating
-    # it on real change keeps two highlighters on one document from
-    # re-triggering each other forever (a stable second pass changes nothing
-    # and stays silent).
+    # Wraps a highlight batch: sets the reentrancy guard and, only when a
+    # block's overlay or state actually changed, pokes the document with a
+    # zero-length `ContentsChanged` so attached views repaint. Gating the poke
+    # on real change keeps two highlighters on one document from re-triggering
+    # each other forever.
     private def run_highlight(&) : Nil
       doc = @document || return
       @batch_changed = false

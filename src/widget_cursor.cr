@@ -5,7 +5,7 @@ module Crysterm
     # `nil` (the default) means this widget inherits the window's default cursor
     # (`Window#cursor`). Changing any cursor setting (via the methods below or
     # `#cursor!`) creates an override `Cursor` here, which takes precedence over
-    # the window default while focused (resolved in `Window#active_cursor`).
+    # the window default while focused.
     property cursor : Cursor? = nil
 
     # Returns this widget's own cursor, creating (and enabling) an override on
@@ -28,10 +28,8 @@ module Crysterm
     # artificial decision and (re)rendering are identical to the window cursor.
     #
     # On a detached widget the setting is recorded on the widget's own cursor
-    # (same fields `Window#cursor_shape` would set) instead of being silently
-    # dropped — matching the "recorded and applied on focus" contract and the
-    # always-recording `cursor!.shape=` path; it takes effect once attached and
-    # focused. Same for the color/show/hide methods below.
+    # rather than dropped, and takes effect once attached and focused. Same for
+    # the color/show/hide methods below.
     def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
       if s = window?
         s.cursor_shape shape, blink, cursor!

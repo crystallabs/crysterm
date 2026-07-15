@@ -4,12 +4,10 @@ require "./launchers"
 module Crysterm
   module Terminal
     # A spawned terminal-emulator window and everything needed to drive and tear
-    # it down. Built by `Terminal.spawn_window`; held by the `Window` bound to
-    # the window (see `Window#connect` / `Window#adopt_window`).
+    # it down.
     class Window
-      # The backing process (for most backends this is the window; for the
-      # gnome-terminal server, or D-Bus backends, it is a transient launcher —
-      # see the LAUNCHERS notes).
+      # The backing process. For most backends this is the window itself; for the
+      # gnome-terminal server, or D-Bus backends, it is a transient launcher.
       getter process : Process
       # The rendezvous connection to the in-window helper. Carries the initial
       # TTY report and subsequent `WINCH` notifications; its EOF means the window
@@ -20,7 +18,7 @@ module Crysterm
       # Device path of the window's TTY (e.g. `/dev/pts/7`).
       getter tty : String
       # Read/write file descriptors on the window's TTY — two separate handles,
-      # mirroring STDIN/STDOUT (see `examples/multiple-terminals.cr`).
+      # mirroring STDIN/STDOUT.
       getter input : IO::FileDescriptor
       getter output : IO::FileDescriptor
 
@@ -43,8 +41,7 @@ module Crysterm
       end
     end
 
-    # Monotonic-ish unique suffix for rendezvous paths without relying on
-    # `Time`/`Random` (kept simple and collision-free within a process).
+    # Unique suffix for rendezvous paths, collision-free within a process.
     @@counter = 0
 
     # How long to wait for the spawned window's helper to phone home.
@@ -77,9 +74,9 @@ module Crysterm
       File.delete(path) rescue nil
       server = UNIXServer.new(path)
 
-      # Tracks whether we hand the socket file to a live `Window` (which unlinks
-      # it on close); on every failure path the `ensure` deletes it so a failed
-      # spawn doesn't leak a dead `.sock` in `$XDG_RUNTIME_DIR`/tmp.
+      # Whether the socket file was handed to a live `Window`, which unlinks it on
+      # close. On every failure path the `ensure` deletes it instead, so a failed
+      # spawn leaks no dead `.sock`.
       success = false
       begin
         # Inline the handshake env var (and any user env) into the command, so it
@@ -158,9 +155,9 @@ module Crysterm
       end
     end
 
-    # If this process was launched as an in-window helper (env var set by
-    # `spawn_window`), run the helper loop and exit — never returning to the
-    # caller. Invoked once, very early, from `crysterm.cr`. A no-op otherwise.
+    # If this process was launched as an in-window helper, runs the helper loop
+    # and exits, never returning to the caller. A no-op otherwise. Must run very
+    # early in process startup.
     def self.run_helper_if_requested : Nil
       path = Crysterm::Config.terminal_window_helper
       return unless path
@@ -172,8 +169,7 @@ module Crysterm
     # the rendezvous socket, forwards SIGWINCH as resize notifications, then
     # parks until the parent closes the socket (or sends "QUIT"), at which
     # point it exits, closing the window. Never reads or alters its stdin,
-    # leaving the parent sole owner of the terminal's input/mode (documented
-    # in `examples/multiple-terminals.cr` as `exec sleep infinity`).
+    # leaving the parent sole owner of the terminal's input/mode.
     def self.run_helper(path : String) : Nil
       socket = UNIXSocket.new(path)
       tty = (File.readlink("/proc/self/fd/0") rescue nil)

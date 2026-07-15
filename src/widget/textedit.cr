@@ -4,8 +4,7 @@ require "../mixin/text_editing"
 
 module Crysterm
   class Widget
-    # Rich text editor over a `TextDocument`, modeled after Qt's `QTextEdit`
-    # (TEXTEDIT.md Phase 2).
+    # Rich text editor over a `TextDocument`, modeled after Qt's `QTextEdit`.
     #
     # Derives `AbstractScrollArea` (Qt: `QTextEdit < QAbstractScrollArea`) and
     # shares all navigation/selection/kill/mouse behavior with `LineEdit`/
@@ -66,16 +65,15 @@ module Crysterm
       # typed marker text), a second removes the marker keystrokes.
       property auto_formatting : AutoFormatting = AutoFormatting::None
 
-      # Per-display-row decoration metadata, parallel to `@_clines`
-      # (TEXTEDIT.md Phase 4). `offset` is the column where the row's text
-      # starts (frame insets + quote bars + indents + list marker + alignment
-      # shift) — what the shared geometry reads through `#row_text_x_offset`;
-      # `marker` is the list marker painted at the text's left edge (first
-      # row of a list item only); a `margin` row is a blank row holding no
-      # buffer positions (block margins and frame border rows). `fborder`
-      # marks a frame border row: `{path index of the frame, top?}` — painted
-      # as the frame's horizontal border with corners, the enclosing frames'
-      # side bars running through it.
+      # Per-display-row decoration metadata, parallel to `@_clines`. `offset` is
+      # the column where the row's text starts (frame insets + quote bars +
+      # indents + list marker + alignment shift), read by the shared geometry
+      # through `#row_text_x_offset`; `marker` is the list marker painted at the
+      # text's left edge (first row of a list item only); a `margin` row is blank
+      # and holds no buffer positions (block margins and frame border rows).
+      # `fborder` marks a frame border row: `{path index of the frame, top?}` —
+      # painted as the frame's horizontal border with corners, the enclosing
+      # frames' side bars running through it.
       private record RowMeta,
         offset : Int32,
         marker : String? = nil,
@@ -117,11 +115,10 @@ module Crysterm
 
       # Per-block wrap cache, keyed by `TextBlock` identity: each entry is the
       # standalone `CLines` `#wrap_block` produced for that block under the
-      # current `@layout_key`, wrapped at `colwidth - deco` (see
-      # `BlockLayout`). `ContentsChanged` deletes the touched blocks' entries;
-      # `#rebuild_layout` rebuilds misses (and deco-width mismatches) and
-      # drops entries whose blocks left the document (via the swap-hash
-      # sweep).
+      # current `@layout_key`, wrapped at `colwidth - deco`. `ContentsChanged`
+      # deletes the touched blocks' entries; `#rebuild_layout` rebuilds misses
+      # (and deco-width mismatches) and sweeps entries whose blocks left the
+      # document.
       @block_layouts = {} of UInt64 => BlockLayout
       @block_layouts_swap = {} of UInt64 => BlockLayout
 
@@ -186,20 +183,17 @@ module Crysterm
       end
 
       # Document edit hook: drop the layout cache entries of the blocks now
-      # overlapping the changed range (their wrapped rows are stale) and
-      # request a repaint. Untouched blocks keep their rows — that's what
-      # makes an edit O(block). Format-only changes (including block-format
-      # changes at a caret, which report `removed == added == 0`) land in the
-      # same path: block format now drives the decoration width and thus the
-      # wrap, so the touched blocks must re-wrap. Decoration-width fallout on
+      # overlapping the changed range (their wrapped rows are stale) and request
+      # a repaint. Untouched blocks keep their rows — that's what makes an edit
+      # O(block). Format-only changes (including block-format changes at a caret,
+      # which report `removed == added == 0`) land in the same path: block format
+      # drives the decoration width and thus the wrap. Decoration-width fallout on
       # *other* blocks (list renumbering) is caught by `BlockLayout#deco`
       # comparison in `#rebuild_layout` instead.
       #
-      # The caret also follows here: an edit made by another actor on a
-      # shared document (a second view, a `TextCursor`, direct document
-      # calls) shifts this view's caret/selection like a registered cursor
-      # (see `DocumentBuffer#follow_document_change`); the widget's own edits
-      # are skipped — the mixin moves the caret itself.
+      # The caret also follows here: an edit made by another actor on a shared
+      # document shifts this view's caret/selection like a registered cursor. The
+      # widget's own edits are skipped — the mixin moves the caret itself.
       private def on_contents_change(pos : Int32, removed : Int32, added : Int32, kind : TextDocument::ChangeKind) : Nil
         follow_document_change(kind, pos, removed, added)
         @doc_revision += 1
@@ -244,13 +238,12 @@ module Crysterm
       end
 
       # Assembles `@_clines` (rows + fake/real maps) and `@row_meta` from
-      # per-block layouts, wrapping only blocks without a cache entry (or
-      # whose decoration width changed — see `BlockLayout`). The swap hash
-      # keeps only blocks still in the document, so removed blocks' entries
-      # are swept. Decorated blocks wrap at `colwidth - deco`; block margins
-      # interleave blank rows that belong to the block (`rtof`) but carry no
-      # buffer positions (absent from `ftor`, `RowMeta#margin` set), which
-      # the shared geometry steps over.
+      # per-block layouts, wrapping only blocks without a cache entry (or whose
+      # decoration width changed). The swap hash keeps only blocks still in the
+      # document, sweeping removed blocks' entries. Decorated blocks wrap at
+      # `colwidth - deco`; block margins interleave blank rows that belong to the
+      # block (`rtof`) but carry no buffer positions (absent from `ftor`,
+      # `RowMeta#margin` set), which the shared geometry steps over.
       private def rebuild_layout(colwidth : Int32, key : Tuple(Int32, Int32, Bool, Int32)) : Nil
         @block_layouts.clear if key != @layout_key
         @layout_key = key
@@ -383,12 +376,11 @@ module Crysterm
         @_parse_attr_default = sattr(style)
       end
 
-      # One block's display rows under the current layout inputs, via the
-      # same wrap engine (`_wrap_content`) the base pipeline uses — identical
-      # cut points, wide-char handling and `content_margin_x` reservation,
-      # and the non-wrap `_hslice` viewport window. `wrap_width` is the
-      # column width left after the block's decorations. TABs are
-      # pre-expanded exactly like `clean_content_chars` does, matching the
+      # One block's display rows under the current layout inputs, via the same
+      # wrap engine (`_wrap_content`) the base pipeline uses — identical cut
+      # points, wide-char handling and `content_margin_x` reservation, and the
+      # non-wrap `_hslice` viewport window. `wrap_width` is the column width left
+      # after the block's decorations. TABs must be pre-expanded to match the
       # tab-expanded column units all the shared caret math runs in.
       private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
         text = blk.text
@@ -534,8 +526,7 @@ module Crysterm
           sel_cols = selection_columns_for_row(rl)
           # `offset` (the row's decoration inset) must be hoisted above the call:
           # ranged extra selections are viewport columns and need it, matching
-          # `selection_columns_for_row`'s `off + rendered_column(...)` convention
-          # (BUGS15 #46).
+          # `selection_columns_for_row`'s `off + rendered_column(...)` convention.
           offset = meta.try(&.offset) || 0
           row_xsels, full_fmt = row_extra_selections(row_start, row_end, offset)
 
@@ -573,7 +564,7 @@ module Crysterm
           lp = ls # block-local codepoint offset (indexes `runs`)
           ri = 0  # current format run
           run_attr = base_attr
-          run_link = 0_u16 # OSC 8 link id of the current run (see `Window#link_id`)
+          run_link = 0_u16 # OSC 8 link id of the current run
           run_hi = -1      # `lp` bound the cached `run_attr` is valid below
 
           each_glyph(row_text, fu) do |ch, cluster, cps|
@@ -832,10 +823,10 @@ module Crysterm
       private def each_glyph(text : String, fu : Bool, & : (Char, String?, Int32) ->) : Nil
         if fu
           text.each_grapheme do |g|
-            # Read the stdlib-internal `@cluster` (`Char | String`) instead of
+            # Read the stdlib-internal `@cluster` (`Char | String`) rather than
             # `g.to_s`, which allocates a fresh String for every (overwhelmingly
-            # common) single-`Char` cluster. Mirrors `Unicode.width`'s idiom;
-            # output is identical (a `String` cluster is always multi-codepoint).
+            # common) single-`Char` cluster. Output is identical: a `String`
+            # cluster is always multi-codepoint.
             case cluster = g.@cluster
             in Char
               yield cluster, nil, 1
@@ -942,8 +933,8 @@ module Crysterm
       # === Editing keys ===
 
       # Adds undo/redo on top of the shared editing keys: `C-z` undo, `M-z`
-      # redo (`C-S-z` is indistinguishable from `C-z` on most terminals, per
-      # TEXTEDIT.md the emacs default `C-y` stays yank) — plus the standard
+      # redo (`C-S-z` is indistinguishable from `C-z` on most terminals, and the
+      # emacs default `C-y` stays yank) — plus the standard
       # Qt list-editing behaviors: Enter on an empty list item and Backspace
       # at an item's start take the block out of the list instead of
       # splitting/joining blocks, and typing a list marker auto-formats when
@@ -1033,9 +1024,8 @@ module Crysterm
         _update_cursor
       end
 
-      # === Table editing (TEXTEDIT.md follow-up: editable tables + cell
-      # cursors). A `TextTable` is pre-rendered box-drawing blocks, so free
-      # editing would tear it; instead, editing keys inside a table become
+      # === Table editing. A `TextTable` is pre-rendered box-drawing blocks, so
+      # free editing would tear it; instead, editing keys inside a table become
       # cell operations that re-render the padding through the table's
       # undoable API (`TextTable#set_cell_text` & co.). ===
 
@@ -1255,14 +1245,14 @@ module Crysterm
         end
       end
 
-      # === Interchange (Qt setMarkdown/setHtml counterparts; TEXTEDIT.md
-      # Phase 3). Each set replaces the document content wholesale — not
-      # undoable, caret to the start (Qt behavior; contrast `#value=`, whose
-      # plain-text convention parks the caret at the end). The document's
-      # `ContentsChanged` drives relayout, so no display work happens here. ===
+      # === Interchange (Qt setMarkdown/setHtml counterparts). Each set replaces
+      # the document content wholesale — not undoable, caret to the start (Qt
+      # behavior; contrast `#value=`, whose plain-text convention parks the caret
+      # at the end). The document's `ContentsChanged` drives relayout, so no
+      # display work happens here. ===
 
       {% for f in %w(tags markdown html) %}
-        # Replaces the content from {{f.id}} markup (see `TextDocument#set_{{f.id}}`).
+        # Replaces the content from {{f.id}} markup.
         def set_{{f.id}}(str : String) : Nil
           document.set_{{f.id}}(str)
           interchange_reset_caret
@@ -1274,7 +1264,7 @@ module Crysterm
           str
         end
 
-        # The content as {{f.id}} markup (see `TextDocument#to_{{f.id}}`).
+        # The content as {{f.id}} markup.
         def to_{{f.id}} : String
           document.to_{{f.id}}
         end

@@ -15,16 +15,14 @@ module Crysterm
       # clock — several effects sharing one frame counter, one `window.render`
       # painting them all.
       #
-      # `Effect::Direct`, `Effect::CopperBar`, `Effect::SineScroller`, and
-      # `Effect::Spray` all include this. A finite effect (like a non-looping
-      # `Spray`) signals the end of its run through the `#done?` / `#on_done`
-      # hooks; an endless one leaves them at their defaults and runs until
-      # `#stop`.
+      # A finite effect (like a non-looping `Spray`) signals the end of its run
+      # through the `#done?` / `#on_done` hooks; an endless one leaves them at
+      # their defaults and runs until `#stop`.
       module Animated
         # Delay between frames.
         property interval : Time::Span = 0.07.seconds
 
-        # The frame clock; non-nil while running. The loop lives in `FrameClock`.
+        # The frame clock; non-nil while running.
         @animation : FrameClock?
 
         # Whether the one-time `Event::Destroy` teardown hook has been installed
@@ -57,10 +55,9 @@ module Crysterm
         # A no-op if already running.
         def start
           return if running?
-          # Stop the frame clock when the widget is destroyed. Without this the
-          # `FrameClock` fiber keeps ticking `step` + `request_render` on the dead
-          # widget for the process lifetime (e.g. a `SplashScreen`'s `Effect::Matrix`
-          # after `finish`). Installed once, on first start.
+          # Stop the frame clock when the widget is destroyed, or the fiber keeps
+          # ticking `step` + `request_render` on the dead widget for the process
+          # lifetime. Installed once, on first start.
           unless @animation_hooks_installed
             @animation_hooks_installed = true
             on(::Crysterm::Event::Destroy) { stop }
@@ -95,11 +92,11 @@ module Crysterm
       #
       # That pipeline is a content-change path: `_parse_tags` reslices the
       # remaining string on every tag (O(n²)), so driving it every frame for a
-      # fully-tagged full-window field is catastrophic — a single 80x24 plasma
-      # frame copies ~100 MB and parses for ~800 ms, freezing the render fiber
-      # (and the input loop, leaking mouse bytes to the terminal). A direct
-      # effect instead computes a glyph and `0xRRGGBB` color per cell and writes
-      # the packed attr in place, with no per-cell `String`.
+      # fully-tagged full-window field is catastrophic — one 80x24 plasma frame
+      # copies ~100 MB and parses for ~800 ms, freezing the render fiber (and the
+      # input loop, leaking mouse bytes to the terminal). A direct effect computes
+      # a glyph and `0xRRGGBB` per cell and writes the packed attr in place, with
+      # no per-cell `String`.
       #
       # An including widget is a `Box` and must define:
       #
@@ -129,11 +126,8 @@ module Crysterm
           mark_dirty # repaint under damage tracking
         end
 
-        # Position via the normal `Box` render (borders, background, docking, and
+        # Position via the normal `Box` render (borders, background, docking and
         # `@lpos`), then overwrite the interior cells directly from `#cell`.
-        # `with_content_coords` runs that render and hands back the border+padding
-        # inset content rectangle — exactly the region the content-draw loop
-        # would paint.
         def render(with_children = true)
           with_content_coords(with_children) do |xi, xl, yi, yl|
             paint xi, xl, yi, yl

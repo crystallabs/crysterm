@@ -11,17 +11,15 @@ module Crysterm
   # `#columns`/`#cell_text` recover the grid, and the interchange exporters
   # use it to round-trip GFM/HTML tables.
   #
-  # The table is also **editable** (the Phase-4 follow-up): `#cell_at` /
-  # `#cell_text_range` / `#cell_cursor` locate cells by document position
-  # (the per-cell-cursor primitives `Widget::TextEdit`'s in-table editing
-  # uses), `#set_cell_text` rewrites one cell, and `#insert_row` /
-  # `#remove_row` / `#insert_column` / `#remove_column` restructure the grid
-  # — each op re-renders the padding/borders through the document's undoable
-  # editing API as ONE undo step. Column ops move the table to a fresh
-  # `TextTableFormat` instance (the column count is part of the format);
-  # this view follows it, but other views over the old instance go empty and
-  # an undo restores the old instance — re-derive views after undo, as with
-  # `TextList#format=`.
+  # The table is also **editable**: `#cell_at` / `#cell_text_range` /
+  # `#cell_cursor` locate cells by document position, `#set_cell_text` rewrites
+  # one cell, and `#insert_row` / `#remove_row` / `#insert_column` /
+  # `#remove_column` restructure the grid — each op re-renders the
+  # padding/borders through the document's undoable editing API as ONE undo
+  # step. Column ops move the table to a fresh `TextTableFormat` instance (the
+  # column count is part of the format); this view follows it, but other views
+  # over the old instance go empty and an undo restores the old instance, so
+  # re-derive views after undo.
   #
   # Build one from a grid via `TextTable.build` (importers do), then insert
   # the returned blocks into a document.
@@ -56,7 +54,7 @@ module Crysterm
       TextTable.split_data_row(b.text)[column]?
     end
 
-    # === Cell cursors / editing (the QTextTable follow-up) ===
+    # === Cell cursors / editing ===
 
     # The `{row, column}` of the cell whose rendered segment contains
     # document position *pos*, or nil when *pos* is not on one of this
@@ -160,10 +158,9 @@ module Crysterm
       header.insert(at, sanitize_cell(header_text))
       body.each(&.insert(at, ""))
       als = @format.alignments.try(&.dup)
-      # A partial alignments array (fewer entries than columns — typical
-      # after HTML import) would make `Array#insert(at, …)` raise IndexError
-      # for `at > size`; pad to full width first so the insert lands in range
-      # and the new column's alignment is positioned correctly (T4).
+      # A partial alignments array — fewer entries than columns, typical after
+      # HTML import — would make `Array#insert(at, …)` raise IndexError for
+      # `at > size`, so pad to full width first.
       als.try do |a|
         while a.size < columns
           a << Tput::AlignFlag::Left
@@ -296,12 +293,12 @@ module Crysterm
       blocks.select { |b| TextTable.data_row?(b.text) }
     end
 
-    # === Rendering / recovery helpers (module-level so importers/exporters
+    # === Rendering / recovery helpers (module-level, so importers/exporters
     # work on detached blocks) ===
 
     # The vertical border glyph the pre-rendered blocks use. Model-level
-    # rendering is fixed to the Unicode tier, like `TextMarkdown.rule_text` —
-    # importers run widget-independent.
+    # rendering is fixed to the Unicode tier, as importers run
+    # widget-independent.
     protected def self.v_char : Char
       Glyphs[Glyphs::Role::LineVertical, Glyphs::Tier::Unicode]
     end
@@ -319,10 +316,9 @@ module Crysterm
       cells.map(&.strip)
     end
 
-    # Whether *text* is a GFM table: a `|` header row, then a delimiter row
-    # of `-`/`:`/`|`/spaces containing at least one `-` (same detection as
-    # `Widget::Markdown`, whose markd parser hands GFM tables through as a
-    # plain paragraph).
+    # Whether *text* is a GFM table: a `|` header row, then a delimiter row of
+    # `-`/`:`/`|`/spaces containing at least one `-`. The markd parser hands GFM
+    # tables through as a plain paragraph, so they must be detected here.
     def self.gfm_table?(text : String) : Bool
       lines = text.lines
       return false if lines.size < 2
@@ -331,8 +327,8 @@ module Crysterm
         lines[1].includes?('-')
     end
 
-    # Builds the pre-rendered blocks for a GFM table text (see
-    # `.gfm_table?`). Returns nil when *text* isn't one.
+    # Builds the pre-rendered blocks for a GFM table text. Returns nil when
+    # *text* isn't one.
     def self.build_from_gfm(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)?
       return nil unless gfm_table?(text)
       rows = text.lines.map(&.strip).reject(&.empty?)
@@ -352,9 +348,9 @@ module Crysterm
       build_blocks(header, body, alignments, header.size, bf, TextCharFormat.new(fg: theme.rule_color))
     end
 
-    # `#build`'s core with the format objects supplied — shared with the
-    # editing ops' `#rebuild_content`, which reuses the live table's block
-    # format (identity!) and border colors instead of fresh ones.
+    # `#build`'s core with the format objects supplied. The editing ops pass the
+    # live table's own block format (identity matters) and border colors rather
+    # than fresh ones.
     protected def self.build_blocks(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)?, cols : Int32, bf : TextBlockFormat, border_fmt : TextCharFormat) : Array(TextBlock)
       widths = Array.new(cols, 0)
       ([header] + body).each do |row|
@@ -400,8 +396,7 @@ module Crysterm
         end
       end
       cells << cur.to_s
-      # Outer pipes contribute empty edge cells; drop them like the
-      # historical leading/trailing-pipe strip did.
+      # Outer pipes contribute empty edge cells; drop them.
       cells.shift if row.starts_with?('|') && !cells.empty?
       cells.pop if cells.size > 1 && row.ends_with?('|') && cells.last.empty?
       cells.map(&.strip)

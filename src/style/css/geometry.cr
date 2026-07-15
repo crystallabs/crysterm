@@ -1,11 +1,11 @@
 module Crysterm
   class Widget
     # Pristine, pre-CSS snapshot of every widget property `CSS::Geometry` can
-    # write (see `Geometry::PROPERTIES`). Captured once, just before the cascade
-    # first applies a geometry declaration to this widget, and restored by the
-    # cascade's reset pass — so a geometry rule that stops matching (an `@media`
-    # condition, a removed class) reverts the widget instead of sticking
-    # forever. The `Style` side of the same contract is `css_base_styles`.
+    # write. Captured once, just before the cascade first applies a geometry
+    # declaration to this widget, and restored by the cascade's reset pass — so
+    # a geometry rule that stops matching (an `@media` condition, a removed
+    # class) reverts the widget instead of sticking forever. The `Style` side of
+    # the same contract is `css_base_styles`.
     record CssBaseGeometry,
       width : Int32 | String | Nil,
       height : Int32 | String | Nil,
@@ -40,9 +40,8 @@ module Crysterm
     end
 
     # Restores the pristine pre-CSS geometry (no-op when CSS never wrote any).
-    # Runs through the public change-guarded setters, so an unchanged value
-    # costs a comparison and a changed one marks dirty / emits Move/Resize like
-    # any programmatic assignment.
+    # Runs through the public change-guarded setters, so a changed value marks
+    # dirty / emits Move/Resize like any programmatic assignment.
     def restore_css_base_geometry : Nil
       snap = @css_base_geometry
       return unless snap
@@ -62,8 +61,7 @@ module Crysterm
     end
 
     # Drops the pristine geometry snapshot so it is recaptured from the current
-    # values on the next cascade — the geometry counterpart of
-    # `#reset_css_base_styles`. Call after deliberately changing a widget's
+    # values on the next cascade. Call after deliberately changing a widget's
     # programmatic geometry while CSS geometry rules are active.
     def reset_css_base_geometry : Nil
       @css_base_geometry = nil
@@ -85,9 +83,7 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
-      # The unit→cell divisor table, which lives in `CSS::Length` (shared with
-      # `Properties`). Kept here as a backwards-compatible alias so existing
-      # `Geometry.unit_divisors[...]` call sites/tuning keep working.
+      # Alias for the unit→cell divisor table in `CSS::Length`.
       def self.unit_divisors : Hash(String, Float64?)
         Length.divisors
       end
@@ -97,12 +93,10 @@ module Crysterm
       end
 
       # Applies a geometry declaration onto *widget*.
-      #
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
-        # All four edges resolve identically — `Widget#right`/`#bottom` accept
-        # the same `Int32 | String | Nil` as `#left`/`#top`, so `right: 50%`
-        # and `bottom: 50%` work like their near-side counterparts.
+        # All four edges resolve identically: `#right`/`#bottom` accept the same
+        # `Int32 | String | Nil` as `#left`/`#top`.
         when "width"  then resolve_dim(value).try { |d| widget.width = d }
         when "height" then resolve_dim(value, vertical: true).try { |d| widget.height = d }
         when "top"    then resolve_dim(value, vertical: true).try { |d| widget.top = d }
@@ -116,16 +110,12 @@ module Crysterm
         when "min-height" then size_cells(widget, value, vertical: true).try { |c| widget.min_height = c }
         when "max-height" then size_cells(widget, value, vertical: true).try { |c| widget.max_height = c }
         when "text-align"
-          # CSS keyword values are case-insensitive, so fold before matching
-          # (see `Properties`) — otherwise a capitalized value (common in Qt
-          # themes) would silently leave the alignment unchanged. Routed through
-          # the shared string→flag resolver; an unrecognized value yields `nil`
-          # and leaves the alignment unchanged.
+          # CSS keyword values are case-insensitive, so fold before matching;
+          # an unrecognized value leaves the alignment unchanged.
           TextHtml.align_flag(Case.fold_keyword(value.strip)).try { |f| widget.align = f }
         when "spacing"
           # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
-          # `gap` lives on the `Layout` base; engines that don't honor it (the
-          # flow layouts) simply ignore the value. No-op without a layout.
+          # Engines that don't honor `gap` ignore the value; no-op with no layout.
           value.to_i?.try { |cells| widget.layout.try(&.gap=(cells)) }
         when "lineedit-password-character"
           # Mask character for a censored `LineEdit` (Qt's
@@ -140,16 +130,14 @@ module Crysterm
       # give a Unicode code point as a bare number (e.g. `9679` ⇒ ●); a literal
       # (optionally quoted) value uses its first character. `nil` if empty, an
       # out-of-range code point, or `none` (a mask char can't be omitted).
-      # Shares `Properties.parse_char` with the `glyph` property family.
       private def self.password_char(value : String) : Char?
         Properties.parse_char(value).try { |c| c unless c == Glyphs::NONE }
       end
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)
       # passes through as its *string*, so the positioner re-resolves it against
-      # the window every frame and tracks terminal resize (see
-      # `Widget#resolve_dimension`); everything else resolves statically via
-      # `dimension`.
+      # the window every frame and tracks terminal resize; everything else
+      # resolves statically.
       private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
         # Only a viewport unit contains a 'v'; this allocation-free scan keeps
         # the VIEWPORT regex off every plain width/height/top/left value.

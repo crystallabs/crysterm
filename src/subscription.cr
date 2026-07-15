@@ -1,23 +1,11 @@
 module Crysterm
   # A single event subscription that remembers how to cancel itself.
   #
-  # Wraps the `on` → store-`Wrapper` → `off` triple that a dozen-odd widgets
-  # hand-rolled. Each of those sites names the event type twice (once to
-  # subscribe, once to remove) and several tore down against a *different*
-  # reference than they subscribed on (`window` on install, `window?` on
-  # teardown) — a latent leak when the owner detaches before teardown and
-  # `window?` has already gone nil.
-  #
-  # This captures the *target* at subscribe time inside the cancel closure, so
+  # The *target* is captured at subscribe time inside the cancel closure, so
   # `#off` always removes from the exact object it added to, regardless of the
   # owner's later `window?`. `#off` is idempotent, so a dismiss path and a
-  # `#destroy` can both call it without double-freeing, and `#on` re-installs
-  # cleanly (it cancels any previous handler first, so a slot re-armed on every
-  # focus can't leak the old one).
-  #
-  # The stored canceller is erased to `Proc(Nil)`, so no site pays the cost of a
-  # concrete `Event::Foo::Wrapper?` field per subscription, and a heterogeneous
-  # set of subscriptions (see `Subscriptions`) can be tracked in one collection.
+  # `#destroy` can both call it without double-freeing; `#on` cancels any
+  # previous handler first, so a slot re-armed on every focus can't leak.
   class Subscription
     @cancel : Proc(::Nil)?
 
@@ -46,11 +34,9 @@ module Crysterm
     end
   end
 
-  # A bag of `Subscription`s that are torn down together — the common
-  # "install several window/self handlers, `off` them all in `#destroy`/`#detach`"
-  # shape. `#on` adds a tracked subscription (and returns it, so a single one can
-  # still be re-armed or cancelled individually); `#off` cancels every remaining
-  # subscription, idempotently.
+  # A bag of `Subscription`s that are torn down together. `#on` adds a tracked
+  # subscription and returns it, so a single one can still be re-armed or
+  # cancelled individually; `#off` cancels every remaining one, idempotently.
   class Subscriptions
     @subs = [] of Subscription
 

@@ -1,12 +1,10 @@
 module Crysterm
-  # Text counterpart to `Capture`: serialize a region of the rendered cell
-  # buffer (`Window#lines`) into a deterministic, human-readable, diffable form.
-  # `Capture` produces pixels (bitmap render); `Dump` produces plain text (for
-  # `git diff`): the exact glyphs plus a run-length summary of non-default
-  # cell attributes.
+  # Text counterpart to `Capture`: serializes a region of the rendered cell
+  # buffer into a deterministic, human-readable, diffable form — the exact
+  # glyphs plus a run-length summary of non-default cell attributes.
   #
   # Enables golden testing without a comparison engine: commit a `.dump` next
-  # to the example's `.png`/`.apng`, and later changes show up as a localized
+  # to the example's `.png`/`.apng` and later changes show up as a localized
   # diff. The cell buffer is fully deterministic, so identical behavior
   # reproduces byte-for-byte identical text.
   module Dump
@@ -27,8 +25,6 @@ module Crysterm
         io << "w=" << w << " h=" << h << '\n'
         io << '+' << ("-" * w) << "+\n"
 
-        # Same region walk as `Capture.render`, shared via `Window#each_content_cell`
-        # so the two stay consistent; Capture rasterizes each cell, we stringify it.
         rows = Array(String::Builder).new(h) { String::Builder.new }
         screen.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
           g = cell.grapheme
@@ -90,10 +86,9 @@ module Crysterm
   class Window
     # Normalizes a capture/dump region to the screen: floors the origin at 0,
     # caps the far edge at the screen size, and collapses an inverted region
-    # (far edge before origin) to empty. Prevents `Dump.text` from receiving a
-    # negative width/height (which would raise an opaque `ArgumentError` in
-    # `"-" * w` / `Array.new(h)`) instead of yielding an empty dump. Shared by
-    # `#capture` and `#dump` so both clamp identically.
+    # (far edge before origin) to empty. Keeps a negative width/height from
+    # reaching `Dump.text`, which would raise an opaque `ArgumentError` instead
+    # of yielding an empty dump.
     private def clamp_capture_region(xi, xl, yi, yl) : {Int32, Int32, Int32, Int32}
       xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
       xi = 0 if xi < 0
@@ -108,8 +103,7 @@ module Crysterm
     # Entry point for capturing rendered screen content as an image or video.
     # Captures what the terminal shows — the flushed cell buffer rendered with a
     # bitmap font, plus in-band terminal-graphics backends (sixel/kitty/iterm/regis)
-    # composited on top; external-helper and separate-window backends are
-    # excluded (see `Crysterm::Capture`).
+    # composited on top; external-helper and separate-window backends are excluded.
     #
     # Options:
     # * region — `xi`/`xl`/`yi`/`yl` in cells (whole screen by default).
@@ -150,20 +144,16 @@ module Crysterm
       xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
       # Clamp the frame rate to at least 1 before it reaches the FrameClock /
-      # ffmpeg args. `fps == 0` builds `(1.0/0).seconds` == `Infinity.seconds`,
-      # which raises `OverflowError`; a negative `fps` makes the clock interval
-      # negative so `FrameClock#start` never sleeps (busy-spins at 100% CPU).
-      # Mirrors how the transition/animation paths floor non-positive durations.
+      # ffmpeg args. `fps == 0` builds `Infinity.seconds`, which raises
+      # `OverflowError`; a negative `fps` makes the clock interval negative so
+      # `FrameClock#start` never sleeps (busy-spins at 100% CPU).
       fps = 1 if fps < 1
 
-      # An inverted or fully out-of-range region clamps to empty (`xl == xi` or
-      # `yl == yi`) — reachable from `Widget#capture` with e.g.
-      # `include_decorations: false` on a widget narrower than its own insets, or
-      # a large negative `d*` delta. There is no image to produce, and
-      # `Capture.render` would raise an opaque `ArgumentError("empty region")` on
-      # a zero-size region: exactly what the shared clamp exists to avoid (see
-      # `#clamp_capture_region`, and `#dump`, which returns an empty result here).
-      # Return nothing gracefully instead of crashing.
+      # An inverted or fully out-of-range region clamps to empty — reachable
+      # from `Widget#capture` with `include_decorations: false` on a widget
+      # narrower than its own insets, or a large negative `d*` delta. There is
+      # no image to produce, and `Capture.render` would raise an opaque
+      # `ArgumentError("empty region")`.
       return nil if xl <= xi || yl <= yi
 
       fmt = (format || (path ? File.extname(path).lchop('.') : nil)).to_s.downcase
@@ -208,23 +198,19 @@ module Crysterm
 
     # :nodoc:
     # Feeds an animation's raw RGBA frames to *input*: one frame immediately,
-    # then one per `1/fps` tick of a `FrameClock` until *duration* elapses —
-    # so the clip's timeline tracks the wall clock. (The previous scheme wrote
-    # one frame per `Rendered` event into a fixed `-framerate` stream, making
-    # clip length `frames/fps` instead of `duration`: a 60fps UI captured at
-    # fps 10 played 6× slow motion, and 2 renders in 10 s yielded a 0.2 s
-    # clip.) An unchanged screen duplicates frames; a slow tick drops them
-    # (the clock resyncs rather than bursting). All writes are serialized: the
-    # initial frame completes on this fiber before the clock fiber starts.
-    # Public (`:nodoc:`) so the sampling cadence is testable without ffmpeg.
+    # then one per `1/fps` tick of a `FrameClock` until *duration* elapses, so
+    # the clip's timeline tracks the wall clock. An unchanged screen duplicates
+    # frames; a slow tick drops them (the clock resyncs rather than bursting).
+    # All writes are serialized: the initial frame completes on this fiber
+    # before the clock fiber starts. Public (`:nodoc:`) so the sampling cadence
+    # is testable without ffmpeg.
     def feed_animation_frames(input : IO, xi, xl, yi, yl, duration : Time::Span, fps : Int32,
                               font : Font = Font.default_normal,
                               bold_font : Font = Font.default_bold,
                               default_fg : Int32 = Capture::DEFAULT_FG,
                               default_bg : Int32 = Capture::DEFAULT_BG) : Nil
-      # Floor the rate here too — this is a public (`:nodoc:`) entry point
-      # reachable directly, so it must not build an `Infinity`/negative clock
-      # interval from a non-positive `fps` (see `#capture`).
+      # Floor the rate here too: a directly-reached public entry point must not
+      # build an `Infinity`/negative clock interval from a non-positive `fps`.
       fps = 1 if fps < 1
       first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
       input.write Capture.rgba(first) rescue nil
@@ -286,8 +272,8 @@ module Crysterm
     # visible cell with its region-relative column/row. Out-of-range rows/cells
     # are skipped, as is the trailing continuation half of a wide (2-column)
     # grapheme — the lead cell carries the whole cluster. The one place the
-    # "which cells are content" rule lives; `Capture.render` and `Dump.text`
-    # both drive off it so they can't disagree about wide glyphs or bounds.
+    # "which cells are content" rule lives, so no two consumers can disagree
+    # about wide glyphs or bounds.
     def each_content_cell(xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                           & : Window::Cell, Int32, Int32 ->) : Nil
       (yi...yl).each do |y|
@@ -326,17 +312,14 @@ module Crysterm
     end
 
     # Whether any declarative CSS `transition` is currently tweening on any
-    # widget in the tree. Used by capture/test harnesses to wait for a state
-    # change to settle before snapshotting, so the recorded frame is deterministic
-    # rather than a wall-clock-dependent mid-tween. Infinite `@keyframes`
-    # animations have no settled state and are not counted here.
+    # widget in the tree. Lets a capture/test harness wait for a state change to
+    # settle before snapshotting, so the recorded frame is deterministic rather
+    # than a wall-clock-dependent mid-tween. Infinite `@keyframes` animations
+    # have no settled state and are not counted here.
     def animating? : Bool
-      # Stop at the first tweening widget rather than walking the whole subtree:
-      # `each_descendant` yields every node, so a running check kept scanning
-      # after the answer was known. This local pre-order recursion (same visit
-      # order as `each_descendant`, self excluded) returns on the first match.
-      # `Array#any?` inlines its block (no per-node `Proc`), so the walk stays
-      # allocation-free.
+      # Local pre-order recursion rather than `each_descendant`, which yields
+      # every node and so keeps scanning past the answer. `Array#any?` inlines
+      # its block (no per-node `Proc`), so the walk stays allocation-free.
       children.any? { |c| descendant_transition_running? c }
     end
 

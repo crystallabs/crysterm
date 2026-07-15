@@ -22,7 +22,6 @@ module Crysterm
     # ![GaugeList screenshot](../../tests/widget/gauge_list/gauge_list.5s.apng)
     # <!-- /widget-examples:capture -->
     class GaugeList < Box
-      # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
       include Mixin::PercentRange
 
       # One gauge row.
@@ -48,11 +47,9 @@ module Crysterm
 
       getter gauges : Array(Item) = [] of Item
 
-      # Bumped whenever the gauge set changes (append / value set / clear), so
-      # `#render`'s content-cache key can detect a data change with a cheap
-      # integer compare instead of mapping `@gauges` to a fresh tuple array every
-      # frame. Mutating an `Item` directly (rather than through `#[]=`) won't
-      # register — go through the documented setters.
+      # Bumped whenever the gauge set changes, so the content cache can detect a
+      # data change with a cheap integer compare. Mutating an `Item` directly
+      # rather than through `#[]=` won't register.
       @version = 0
 
       def initialize(@minimum : Number = 0.0, @maximum : Number = 100.0,
@@ -63,15 +60,13 @@ module Crysterm
         self.parse_tags = true
       end
 
-      # Number of gauge rows (Qt's `QListWidget#count`), answered across the
-      # whole item-view family.
+      # Number of gauge rows (Qt's `QListWidget#count`).
       def count : Int32
         @gauges.size
       end
 
       # Appends a gauge and returns it. A `nil` color is auto-assigned from
-      # `DEFAULT_COLORS`. Spelled `add_item` — not `add_gauge` — so appending has
-      # one name across the family (`Mixin::ItemView`, `Mixin::ActionBar`).
+      # `DEFAULT_COLORS`.
       def add_item(label : String, value : Number = 0, color : Int32? = nil) : Item
         item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
         @gauges << item
@@ -112,16 +107,11 @@ module Crysterm
         request_render
       end
 
-      # Snapshot of every input `build_content` reads. Rebuilding the tagged
-      # content allocates per-cell arrays + a `String.build` per gauge every
-      # frame; skip it while nothing observable changed. The gauge set is
-      # represented by `@version` (bumped in `#add_item`/`#[]=`/`#clear`) rather
-      # than mapping `@gauges` to a fresh tuple array, so the key stays
-      # allocation-free per frame.
-      # The trailing `glyph_key(style)` element covers every input `glyph_seq`
-      # resolves the fill ramp from, so a post-probe tier upgrade / `Glyphs.set`
-      # / CSS `glyphs:` hot-reload rebuilds the content instead of keeping a
-      # stale ramp.
+      # Snapshot of every input `build_content` reads; rebuilding the tagged
+      # content allocates per gauge, so skip it while nothing observable changed.
+      # Must stay allocation-free per frame. The trailing `glyph_key(style)`
+      # covers every input the fill ramp resolves from, so a tier upgrade or CSS
+      # `glyphs:` hot-reload rebuilds instead of keeping a stale ramp.
       @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
@@ -164,8 +154,7 @@ module Crysterm
 
         # Label (default style), fit to exactly `lw` *display columns* so a wide
         # grapheme (1 codepoint, 2 columns) doesn't push the bar/percentage past
-        # the border and wrap the row. Emit chars until the next would overflow
-        # the column, then pad the remaining columns with spaces.
+        # the border and wrap the row.
         used = 0
         item.label.each_char do |ch|
           cw = str_width(ch.to_s)
@@ -182,7 +171,7 @@ module Crysterm
         colors << nil
 
         # Bar: sub-cell horizontal block fill in the row's color. The ramp
-        # resolves CSS-first (`glyphs:`), then the registry (GLYPHS.md §3.4).
+        # resolves CSS-first (`glyphs:`), then the registry.
         hexcolor = Colors.hex(item.color)
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(item.value, @minimum, @maximum, bar_cols)

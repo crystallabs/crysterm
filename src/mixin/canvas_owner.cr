@@ -1,16 +1,13 @@
 module Crysterm
   module Mixin
-    # Canvas ownership for the radial/vector graph widgets
-    # (`Widget::Graph::PieChart`, `HeatMap`, `Donut`, `Map`): they each build a
-    # single `Graph::Canvas` child that fills their interior, paint into it from
-    # an `#on_paint` callback, and must re-raster that Canvas whenever a data or
+    # Canvas ownership for the radial/vector graph widgets: each builds a single
+    # `Graph::Canvas` child filling its interior, paints into it from an
+    # `#on_paint` callback, and must re-raster that Canvas whenever a data or
     # geometry property changes (the Canvas skips repaint otherwise, under its
     # own `@paint_dirty`).
     #
     # Including types are `Box` subclasses that construct the Canvas via
-    # `#build_canvas` in their `#initialize` (after `super`). `LineChart` is not
-    # a member: its Canvas is named `plot` and is repositioned every frame inside
-    # the chart chrome, so it owns its own lifecycle.
+    # `#build_canvas` in their `#initialize`, after `super`.
     module CanvasOwner
       # The drawing surface, built in `#initialize` via `#build_canvas`. `canvas`
       # raises if read before construction completes; `canvas?` is the nilable
@@ -18,9 +15,9 @@ module Crysterm
       getter! canvas : Widget::Graph::Canvas
 
       # Change-guarded setter that re-rasters the Canvas: an assignment changes
-      # what the paint callback draws, so — unlike the plain `property` setter —
-      # it must invalidate the Canvas raster and schedule a render. Overrides the
-      # generated setter; a matching `getter`/`getter?` stays.
+      # what the paint callback draws, so — unlike a plain `property` setter — it
+      # must invalidate the raster and schedule a render. Overrides the generated
+      # setter; a matching `getter`/`getter?` stays.
       macro canvas_prop(name, type)
         def {{name.id}}=(v : {{type}}) : {{type}}
           return v if v == @{{name.id}}
@@ -40,9 +37,7 @@ module Crysterm
         @canvas = cv
       end
 
-      # Marks the Canvas content stale and schedules a render, so a data or
-      # geometry change repaints (the Canvas skips otherwise, under its own
-      # `@paint_dirty`).
+      # Marks the Canvas content stale and schedules a render.
       protected def invalidate_canvas : Nil
         canvas?.try &.invalidate_paint
         request_render

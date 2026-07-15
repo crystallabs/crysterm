@@ -13,8 +13,8 @@ module Crysterm
     # The horizontal axis mirrors this: `Left`/`Right` (and, with `vi`, `h`/`l`)
     # scroll by a column, `Ctrl-Left`/`Ctrl-Right` by a full page (one content
     # width), and `Shift-Home`/`Shift-End` (or vi `0`/`$`) jump to the first/last
-    # column. The scroll machinery itself lives in the base `Widget`
-    # (`widget_scrolling.cr`); this only wires the keys.
+    # column. The scroll machinery itself lives in the base `Widget`; this only
+    # wires the keys.
     #
     # <!-- widget-examples:capture v1 -->
     # ![ScrollableBox screenshot](../../tests/widget/scrollable_box/scrollable_box.5s.apng)
@@ -24,8 +24,8 @@ module Crysterm
 
       @scrollable = true
       # Show a real `ScrollBar` automatically when the content overflows (Qt's
-      # default `AsNeeded`). Inherited by `ScrollableText`/`Log`. Opt out with
-      # `scrollbar_policy: AlwaysOff` (or the legacy `scrollbar: false`).
+      # default `AsNeeded`). Opt out with `scrollbar_policy: AlwaysOff` (or the
+      # legacy `scrollbar: false`).
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       def initialize(**box)
@@ -43,9 +43,7 @@ module Crysterm
         # (`visible`). Floored at 1 so a degenerate viewport still advances.
         hpage = Math.max content_width, 1
 
-        # The vertical axis is classified by the single-sourced `NavKeys` table
-        # (shared with `Mixin::Interactive`/`ItemView`); the horizontal axis stays
-        # inline below since `NavKeys` is vertical-only.
+        # `NavKeys` classifies the vertical axis only; the horizontal axis stays inline.
         case nav_intent(e)
         when .backward?      then scroll -1
         when .forward?       then scroll 1

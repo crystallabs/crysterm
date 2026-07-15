@@ -1,7 +1,6 @@
 module Crysterm
   # Base for document-level structures (Qt `QTextObject`): things that group
-  # blocks or fragments and belong to exactly one `TextDocument` — frames,
-  # tables (via `TextFrame`) and lists (via `TextBlockGroup`, Phase 4).
+  # blocks or fragments and belong to exactly one `TextDocument`.
   abstract class TextObject
     getter document : TextDocument
 
@@ -11,22 +10,16 @@ module Crysterm
 
   # A frame of the document (Qt `QTextFrame`).
   #
-  # The *root* frame owns the document's block list (a document always
-  # contains at least one — possibly empty — block, the Qt invariant that
-  # makes cursor math total). *Child* frames are lightweight views, the
-  # `TextList`/`TextTable` convention: membership is carried per block by
-  # `TextBlockFormat#frame_formats` — the block's chain of enclosing frame
-  # formats, outermost first — where the shared `TextFrameFormat` *instance*
-  # is the frame's identity. Undo, block splits and clipboard fragments
-  # preserve frame membership for free, and no document-side registry exists.
+  # The *root* frame owns the document's block list; a document always contains
+  # at least one — possibly empty — block, the invariant that makes cursor math
+  # total. *Child* frames are lightweight views: membership is carried per
+  # block by `TextBlockFormat#frame_formats` — the block's chain of enclosing
+  # frame formats, outermost first — where the shared `TextFrameFormat`
+  # *instance* is the frame's identity. Undo, block splits and clipboard
+  # fragments therefore preserve frame membership with no registry.
   #
-  # Create child frames with `TextCursor#insert_frame`; navigate with
-  # `#child_frames`/`#parent_frame`, or `TextDocument#frame_at` /
-  # `TextCursor#current_frame` for the innermost frame at a position.
-  #
-  # Deviation from Qt: frames contain whole blocks (`insert_frame` reformats
-  # the selected blocks rather than splitting mid-block) — on a cell grid a
-  # frame boundary is a row boundary anyway.
+  # Deviation from Qt: frames contain whole blocks rather than splitting
+  # mid-block, since on a cell grid a frame boundary is a row boundary anyway.
   class TextFrame < TextObject
     # The frame's format. For child frames the *instance* is the frame's
     # identity: every member block's `frame_formats` path contains it.
@@ -35,8 +28,7 @@ module Crysterm
     # Block storage — non-nil only on the root frame.
     @storage : Array(TextBlock)?
 
-    # Root-frame constructor (used by `TextDocument#root_frame`): owns the
-    # document's block list.
+    # Root-frame constructor: owns the document's block list.
     def initialize(document : TextDocument, @frame_format : TextFrameFormat = TextFrameFormat.default)
       super(document)
       @storage = [TextBlock.new]
@@ -60,7 +52,7 @@ module Crysterm
     end
 
     # The frame's blocks in document order — for the root frame the live
-    # storage array (mutated by the document's editing primitives), for a
+    # storage array, which the document's editing primitives mutate; for a
     # child frame a fresh selection.
     def blocks : Array(TextBlock)
       @storage || document.blocks.select { |b| member?(b) }

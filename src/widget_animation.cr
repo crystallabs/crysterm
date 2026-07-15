@@ -21,14 +21,12 @@ module Crysterm
     # True once a *finite* animation has run out its iterations, so it isn't
     # restarted on every subsequent render.
     @css_animation_finished = false
-    # The raw `@keyframes` stops the running animation was resolved from —
-    # the object `Window#css_keyframes(spec.name)` returned at start time.
+    # The raw `@keyframes` stops the running animation was resolved from.
     # `@css_animation_spec` alone can't detect a stylesheet swap whose
-    # `animation:` declaration is unchanged but whose `@keyframes` body changed
-    # (or vanished): the spec is a value record and compares equal, so the old
-    # clock would keep writing obsolete stops forever. A reparse allocates new
-    # stop arrays, so a cheap per-render `same?` against the current lookup
-    # catches the swap (hot-reload is a documented workflow).
+    # `animation:` declaration is unchanged but whose `@keyframes` body changed or
+    # vanished: the spec is a value record and compares equal, so the old clock
+    # would keep writing obsolete stops forever. A reparse allocates new stop
+    # arrays, so a per-render `same?` against the current lookup catches the swap.
     @css_animation_keyframes : Array(Tuple(Float64, Hash(String, String)))?
 
     # Starts/keeps/stops this widget's CSS `animation` to match its current style.
@@ -55,11 +53,9 @@ module Crysterm
       @css_animation_keyframes = nil
     end
 
-    # Seconds elapsed since *start_at* (a `Time.instant` reading), driving
-    # progress from real wall-clock time rather than a fixed per-tick step —
-    # `FrameClock` drops catch-up ticks when behind, so a fixed accumulator
-    # would undercount every dropped/late tick. Shared by this file's keyframe
-    # driver and `#pulse` (`widget_fade.cr`).
+    # Seconds elapsed since *start_at* (a `Time.instant` reading), driving progress
+    # from real wall-clock time rather than a fixed per-tick step — `FrameClock`
+    # drops catch-up ticks when behind, so an accumulator would undercount them.
     private def elapsed_since(start_at : Time::Instant) : Float64
       (Time.instant - start_at).total_seconds
     end
@@ -107,10 +103,9 @@ module Crysterm
         return
       end
 
-      # Drive progress from real wall-clock elapsed (like the tween/transition
-      # path in `FrameClock`), not a fixed per-tick step: dropped/late ticks are
-      # real time the animation must still count, or a finite animation runs
-      # longer than its duration and a looping one drifts slow under load.
+      # Drive progress from real wall-clock elapsed, not a fixed per-tick step:
+      # dropped/late ticks are real time the animation must still count, or a
+      # finite animation outruns its duration and a looping one drifts under load.
       start_at = Time.instant
       anim = FrameClock.new(step.seconds) do |clock|
         elapsed = elapsed_since(start_at)
@@ -120,9 +115,9 @@ module Crysterm
           # finished so the next render doesn't restart it.
           frac = (alt && (iters - 1).odd?) ? 0.0 : 1.0
           # Resolve `style` per tick rather than capturing it once: a recascade
-          # replaces the widget's `Style` wholesale (`css_base_styles.deep_dup`),
-          # so a captured object would be orphaned — the clock would mutate a
-          # `Style` nothing renders while the animation appears frozen.
+          # replaces the widget's `Style` wholesale, so a captured object would be
+          # orphaned — the clock mutating a `Style` nothing renders, while the
+          # animation appears frozen.
           apply_keyframe stops, style, frac
           @css_animation_finished = true
           clock.stop
@@ -140,10 +135,9 @@ module Crysterm
     # elapsed (`elapsed / duration`), honoring the alternate-direction flag *alt*.
     #
     # Uses float modulo rather than `cycles.to_i`: for `iterations: infinite`
-    # `cycles` grows without bound, and `Float64#to_i` raises `OverflowError`
-    # past `Int32::MAX` — which would kill the driving `FrameClock` fiber.
-    # `cycles % 2.0 >= 1.0` reproduces the old `cycles.to_i.odd?` parity (an odd
-    # integer part) exactly, so the alternate (ping-pong) direction is preserved.
+    # `cycles` grows without bound, and `Float64#to_i` raises `OverflowError` past
+    # `Int32::MAX`, killing the driving `FrameClock` fiber. `cycles % 2.0 >= 1.0`
+    # tests the same odd-integer-part parity the ping-pong direction needs.
     protected def keyframe_cycle_frac(cycles : Float64, alt : Bool) : Float64
       frac = cycles % 1.0
       frac = 1.0 - frac if alt && (cycles % 2.0) >= 1.0
@@ -166,8 +160,8 @@ module Crysterm
       p = p.clamp(0.0, 1.0)
       a = stops.first
       b = stops.last
-      # Plain index loop instead of `each_cons(2)` to avoid per-call allocation;
-      # runs once per tick (~30fps) per running animation.
+      # Plain index loop instead of `each_cons(2)`: this runs once per tick per
+      # running animation, and must not allocate.
       i = 0
       while i < stops.size - 1
         if p >= stops[i].offset && p <= stops[i + 1].offset
@@ -178,10 +172,10 @@ module Crysterm
       end
       span = b.offset - a.offset
       # Clamp the interpolation fraction: when the declared stops don't span the
-      # whole `0%..100%` range (CSS would fill the missing boundary from the
-      # element's computed value, which we don't synthesize), `p` outside
-      # `[a.offset, b.offset]` yields `t` outside `[0,1]`, extrapolating alpha
-      # past `[0,1]` and the color lerps past their endpoints.
+      # whole `0%..100%` range (CSS fills the missing boundary from the element's
+      # computed value; this driver doesn't synthesize that), a `p` outside
+      # `[a.offset, b.offset]` would extrapolate alpha and colors past their
+      # endpoints.
       t = span > 0 ? ((p - a.offset) / span).clamp(0.0, 1.0) : 0.0
 
       if (av = a.alpha) && (bv = b.alpha)

@@ -32,8 +32,8 @@ module Crysterm
       @dividers = [] of Box
 
       # The dividers (one fewer than `#panes`), in order. A copy: these boxes are
-      # the splitter's own machinery, placed by `#relayout` from `#positions` —
-      # adding or dropping one here would leave the two out of step. Move one with
+      # the splitter's own machinery, and adding or dropping one here would leave
+      # them out of step with the pane list. Move one with
       # `#set_divider_position`; add panes with `#add_pane`.
       def dividers : Array(Box)
         @dividers.dup
@@ -59,22 +59,18 @@ module Crysterm
         on(Crysterm::Event::Resize) { relayout; request_render }
       end
 
-      # Relayout on every paint. Pane sizes depend on the splitter's resolved
-      # span, only known once coordinates are computed. Doing layout here (as
-      # well as in the `Resize`/`Attach` hooks, which cover headless/no-render
-      # paths) guarantees panes are fitted to the span actually being painted.
+      # Relayout on every paint: pane sizes depend on the splitter's resolved
+      # span, only known once coordinates are computed. The `Resize`/`Attach`
+      # hooks cover the headless/no-render paths.
       def render(with_children = true)
         relayout
         refresh_divider_glyphs
         super
       end
 
-      # An unstyled divider (no `.divider { background: … }` theme rule, i.e.
-      # not `css_styled`) is otherwise an invisible one-cell gap. Fill it with
-      # the orientation-appropriate line glyph (`│`/`─`) so the split reads on
-      # any terminal; under a theme it's a colored bar instead, so the glyph is
-      # cleared. Written through `state_style` so it persists like any other
-      # programmatic default.
+      # An unstyled divider is an invisible one-cell gap, so fill it with the
+      # orientation-appropriate line glyph (`│`/`─`); under a theme it's a
+      # colored bar instead and the glyph is cleared.
       private def refresh_divider_glyphs
         line_glyph = glyph(horizontal? ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
         @dividers.each do |div|
@@ -134,9 +130,7 @@ module Crysterm
         @panes[1]?
       end
 
-      # The first divider, or `nil` when there are fewer than two panes — mirroring
-      # `#pane1`/`#pane2`, which are `Widget?` for exactly the same reason. (It
-      # used to raise on an empty splitter while its two siblings answered `nil`.)
+      # The first divider, or `nil` when there are fewer than two panes.
       def divider : Box?
         @dividers.first?
       end
@@ -155,8 +149,7 @@ module Crysterm
       # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------
 
       # Extent of each pane along the split axis, in content cells — one entry per
-      # pane, the dividers' own cells excluded. The pane-side view of the divider
-      # offsets `#divider_position` reports.
+      # pane, the dividers' own cells excluded.
       def sizes : Array(Int32)
         n = @panes.size
         return [] of Int32 if n == 0
@@ -213,10 +206,9 @@ module Crysterm
 
       private def wire_divider(div : Box, i : Int)
         # Drive the split from the pointer position relative to the splitter's
-        # content origin, not the built-in `draggable` reposition (which moves
-        # `left`/`top` in parent-relative terms, only correct at the window
-        # origin). `set_divider_position` → `relayout` snaps the divider back
-        # onto its track.
+        # content origin, not the built-in `draggable` reposition, which moves
+        # `left`/`top` in parent-relative terms — only correct at the window
+        # origin.
         div.on(Crysterm::Event::Drag) do |e|
           if horizontal?
             set_divider_position i, e.x - aleft - ileft
@@ -255,8 +247,7 @@ module Crysterm
       # * *Absolute room* — panes/dividers on either side need at least one
       #   cell each, so *i* can't go below `1 + 2*i` nor above
       #   `total - 2*(n-1-i)`. Depends only on `total`, so a shrinking span
-      #   pulls every divider back inside it (clamping solely against neighbor
-      #   offsets let a divider stay past the right edge after a resize).
+      #   pulls every divider back inside it.
       # * *Non-crossing* — tightened against live neighbor offsets so a dragged
       #   divider can't pass the one beside it.
       private def clamp_position(i : Int, pos : Int32) : Int32
@@ -278,11 +269,9 @@ module Crysterm
         total = total_span
         return if total <= 0
         w = Math.max(1, (total - (n - 1)) // n)
-        # Fill `@positions` in place (it is already sized `n-1` by `add_pane`)
-        # rather than reassigning a freshly `.map`-ped array — this runs from
-        # `#render`'s `relayout` every frame while `@user_positioned` is false, so
-        # the per-frame array allocation was pure garbage. Rebuild only on the
-        # rare size mismatch.
+        # Fill `@positions` in place: this runs every frame while
+        # `@user_positioned` is false, so a freshly mapped array would be
+        # per-frame garbage. Rebuild only on the rare size mismatch.
         if @positions.size == n - 1
           (0...n - 1).each { |i| @positions[i] = (i + 1) * w + i }
         else

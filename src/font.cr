@@ -21,7 +21,7 @@ module Crysterm
     DEFAULT_NORMAL_PATH = "#{__DIR__}/../data/font/unifont.hex"
     DEFAULT_BOLD_PATH   = "#{__DIR__}/../data/font/unifont.hex"
 
-    # Loaded faces, keyed by `path` + weight. Bounded; see `Cache::FONT_CAPACITY`.
+    # Loaded faces, keyed by `path` + weight.
     @@cache = Cache::Bounded(String, Font).new(Cache::FONT_CAPACITY, "font", register: true)
 
     # Glyph cell size in pixels (8×16 for Unifont half-width; 8×14 for Terminus).
@@ -109,10 +109,9 @@ module Crysterm
       return blank if per_row == 0
       w = per_row * 4
       Array(Array(Int32)).new(@height) do |r|
-        # `to_u32?` (not strict `to_u32`): a corrupt/hand-made `.hex` font can
-        # carry a non-hex bitmap payload (`0041:ZZ...`), which would raise
-        # `ArgumentError` mid-capture. Treat an unparseable row as all-off,
-        # mirroring `load_hex`'s codepoint guard and `glyph`'s blank fallback.
+        # `to_u32?` (not strict `to_u32`): a corrupt `.hex` font can carry a
+        # non-hex bitmap payload (`0041:ZZ...`), which would raise mid-capture.
+        # An unparseable row is all-off.
         bits = hex[r * per_row, per_row].to_u32?(16) || 0_u32
         bits |= bits >> 1 if @bold
         Array(Int32).new(w) { |c| ((bits >> (w - 1 - c)) & 1).to_i }
@@ -123,9 +122,8 @@ module Crysterm
     # an *h*×*w* 0/1 grid.
     private def convert(lines : Array(String), w : Int32, h : Int32) : Array(Array(Int32))
       rows = lines.dup
-      # Center-crop toward *h* rows, removing from top and bottom. Guard the
-      # bottom `pop` so a single excess row drops one row (not two, which would
-      # undershoot *h* and force a real row to be re-padded back).
+      # Center-crop toward *h* rows, removing from top and bottom. The guarded
+      # bottom `pop` keeps a single excess row from dropping two and undershooting.
       while rows.size > h
         rows.shift
         rows.pop if rows.size > h
@@ -143,8 +141,8 @@ module Crysterm
       grid
     end
 
-    # Shared, memoized all-zero fallback grid. Callers only read glyph grids
-    # (never mutate them), so a single instance is safe to hand out repeatedly.
+    # Shared, memoized all-zero fallback grid. Safe to hand out repeatedly:
+    # callers only read glyph grids, never mutate them.
     @blank : Array(Array(Int32))?
 
     private def blank : Array(Array(Int32))

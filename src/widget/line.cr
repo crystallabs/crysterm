@@ -1,6 +1,6 @@
 module Crysterm
   class Widget
-    # Simple Line widget. Draws a horizontal or vertical
+    # Draws a horizontal or vertical line.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Line screenshot](../../tests/widget/line/line.5s.apng)
@@ -14,10 +14,8 @@ module Crysterm
         super **box
 
         # `size` is the line's *length* (`width` when horizontal, `height` when
-        # vertical). Apply it when explicitly given; otherwise default to filling
-        # the parent (`100%`). An unconditional `"100%"` default would silently
-        # clobber an explicit `width:`/`height:` passed through `**box` (e.g.
-        # `HLine.new(width: 40)` would end up `100%`-wide).
+        # vertical), defaulting to `100%`. Only apply the default when unset, so
+        # a `width:`/`height:` passed through `**box` isn't clobbered.
         if size
           self.line_size = size
         elsif (@orientation.horizontal? ? @width : @height).nil?
@@ -33,17 +31,14 @@ module Crysterm
       # of line-drawing characters across its row(s), so those rows must
       # participate in docking. A *vertical* line emits only `│` down a single
       # column and needs no stop of its own — it's docked whenever a horizontal
-      # line/border registers the crossing row. See `Crysterm::Docking`.
+      # line/border registers the crossing row.
       def register_dock_stops(coords)
         super
 
         if @orientation.horizontal?
-          # Route through the same plane gate as `Widget#register_dock_stops`:
-          # a Line rendering into a compositing plane registers on the *plane*
-          # stops so overlay line art joins other overlay art but not the base
-          # content beneath it (else the composited buffer's base-layer glyphs
-          # dock to the floating separator). Skip negative rows, matching the
-          # `Docking.dock` wraparound guard.
+          # A Line rendering into a compositing plane registers on the *plane*
+          # stops, so overlay line art joins other overlay art but not the base
+          # content beneath it. Skip negative rows, matching `Docking.dock`.
           scr = window
           stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           (coords.yi..coords.yl - 1).each do |y|
@@ -55,7 +50,7 @@ module Crysterm
       # The line's *length* along its `#orientation` — i.e. `#width` when
       # horizontal, `#height` when vertical — in the user-set form (`Int32`,
       # a `"50%"`-style String, or `nil` when unset). `#awidth`/`#aheight` give
-      # the resolved cell count. The counterpart of `#line_size=`.
+      # the resolved cell count.
       def line_size : Int32 | String | Nil
         @orientation.vertical? ? @height : @width
       end

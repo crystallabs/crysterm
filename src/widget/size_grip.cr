@@ -33,7 +33,7 @@ module Crysterm
       # widget needs no sub-control), then the `Glyphs` registry at the
       # effective tier; assigning a `String` pins it. A wide or multi-codepoint
       # grapheme (`"⚠️"`) is kept whole — the grip is a single-placement site,
-      # so `#render` grows the grip to the glyph's measured width (GLYPHS.md §4).
+      # so `#render` grows the grip to the glyph's measured width.
       setter glyph : String? = nil
 
       # :ditto:

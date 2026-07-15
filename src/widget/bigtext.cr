@@ -32,8 +32,8 @@ module Crysterm
 
       # Cached grapheme cluster strings for `@text`, plus the text they were built
       # from (identity-compared) and the memoized shrink-to-content advance width.
-      # Rebuilt only when `@text` changes, so the per-frame `#render` no longer
-      # allocates a grapheme array + a `String` per cluster.
+      # Rebuilt only when `@text` changes, keeping the per-frame `#render` free of
+      # a grapheme array + a `String` per cluster.
       @graphemes = [] of String
       @_graphemes_src : String?
       @_shrink_width_value : Int32?
@@ -57,10 +57,8 @@ module Crysterm
 
         # Text renders as big glyphs from `@text`; clear the plain `content`
         # that `super` set from the same string, otherwise the base renderer
-        # draws it as normal-size text showing through the glyph gaps. Done
-        # *after* `@active_font` is assigned: calling `set_content` earlier
-        # would leave `@active_font` uninitialized, which Crystal rejects as a
-        # nilable-ivar access.
+        # draws it as normal-size text showing through the glyph gaps. Must come
+        # *after* `@active_font` is assigned, which `set_content` requires.
         set_content "", true
       end
 
@@ -68,9 +66,8 @@ module Crysterm
         @content = ""
         @_content_version += 1
         @text = content || ""
-        # Glyphs are drawn from `@text`, so a content change must schedule a
-        # repaint like the base `set_content` does — otherwise the new text
-        # only appears on the next render triggered by something else.
+        # Glyphs are drawn from `@text`, so a content change must schedule its
+        # own repaint the way the base `set_content` does.
         mark_dirty
       end
 
@@ -83,8 +80,8 @@ module Crysterm
       end
 
       # Refreshes the cached `@graphemes` array (and invalidates the memoized
-      # shrink width) when `@text` has changed since the last build. Identity
-      # compare, so a steady render (unchanged text) does no work or allocation.
+      # shrink width) when `@text` has changed. Identity compare, so a steady
+      # render does no work or allocation.
       private def ensure_graphemes : Nil
         src = @_graphemes_src
         return if src && src.same?(@text)
@@ -98,8 +95,7 @@ module Crysterm
         if @width.nil? || @_shrink_width
           # Sum per-grapheme glyph widths, not `@ratio.width * codepoints`: the
           # renderer advances the pen by each glyph's own column count, so a
-          # codepoint-count width sized a CJK/emoji box half as wide as its glyphs
-          # need and clipped the text.
+          # codepoint count sizes a CJK/emoji box half as wide as its glyphs need.
           @width = (@_shrink_width_value ||= @graphemes.sum { |g| glyph_width(g) })
           @_shrink_width = true
         end
@@ -126,18 +122,13 @@ module Crysterm
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
         # One glyph per grapheme cluster (so a base + combining mark is a single
-        # glyph slot, not two), keyed into the font by the cluster string. The
-        # cluster strings are cached in `@graphemes` (refreshed by
-        # `ensure_graphemes`), so no per-frame array/`String` allocation here.
+        # glyph slot, not two), keyed into the font by the cluster string.
         graphemes = @graphemes
         # Fit whole glyphs by their real advance widths, not by counting glyphs in
-        # half-width cell units (`(right - left)//@ratio.width`). A full-width
-        # CJK/emoji glyph advances 2×`@ratio.width`, so the old count admitted more
-        # glyphs than fit: `advance` could exceed the interior and a right-aligned
-        # `right - advance` pen origin fell left of — even before — `left`, wrapping
-        # negative row indices to the far end of the screen row. Accumulating per-
-        # glyph widths until the next glyph would overflow keeps `advance` within
-        # the interior, and matches the pen advance in the paint loop below.
+        # half-width cell units (`(right - left)//@ratio.width`): a full-width
+        # CJK/emoji glyph advances 2×`@ratio.width`, so a plain count admits more
+        # glyphs than fit and pushes `advance` past the interior. Accumulating
+        # per-glyph widths matches the pen advance in the paint loop below.
         interior = right - left
         advance = 0
         max_chars = 0
@@ -157,9 +148,8 @@ module Crysterm
           # row to the font width, so `map[y - top]` is a non-nil row.
           map = @active_font.glyph(ch)
           # Full-width glyphs (CJK, etc.) decode to a 16-px-wide grid even though
-          # `@ratio.width` is the half-width cell size (8 for Unifont). Use the
-          # glyph's own column count so wide glyphs render in full and the pen
-          # advances past all of them instead of clipping to the left half.
+          # `@ratio.width` is the half-width cell size (8 for Unifont), so the
+          # glyph's own column count is what the pen must advance by.
           gw = map[0]?.try(&.size) || @ratio.width
           # Start at row 0 when the widget hangs off the top edge (`top < 0`):
           # negative indices into `lines` would wrap to the bottom of the
@@ -172,12 +162,10 @@ module Crysterm
               mcell = mline[mx]?
               break if mcell.nil?
 
-              # Clip at the interior's left edge: skip cells left of `left` so a
-              # glyph that starts before the interior never paints outside it (and
-              # never turns into a negative `x + mx` that `Row#[]?` would wrap to
-              # the far right of the screen row). Clamp `left` to 0 too — when the
-              # widget hangs off the left edge `left` itself is negative and would
-              # admit negative columns.
+              # Clip at the interior's left edge so a glyph starting before it
+              # never paints outside (a negative `x + mx` would wrap to the far
+              # right of the screen row). `left` is clamped to 0 as well: it is
+              # itself negative when the widget hangs off the left edge.
               if x + mx >= Math.max(left, 0)
                 lines[y]?.try(&.[x + mx]?).try do |cell|
                   if style.foreground_char != ' '

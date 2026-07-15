@@ -5,19 +5,18 @@ module Crysterm
     include Macros
 
     # Surface-side mouse handling — the *hit-test* half: takes a parsed
-    # `::Tput::Mouse::Event` (delivered by the device via `Application#route_input`
-    # → `#handle_input`), emits `Event::Mouse` on this surface and on the widget
-    # under the pointer, and runs the default focus/click/wheel/hover/drag
-    # behaviors. The raw-input half (terminal mouse reporting, `gpm` reader, GUI
-    # cursor shape) lives on the device (`Screen`, in `screen_mouse_device.cr`);
-    # this surface delegates to it (see `window.cr`).
+    # `::Tput::Mouse::Event` delivered by the device, emits `Event::Mouse` on
+    # this surface and on the widget under the pointer, and runs the default
+    # focus/click/wheel/hover/drag behaviors. The raw-input half (terminal mouse
+    # reporting, `gpm` reader, GUI cursor shape) lives on the device (`Screen`);
+    # this surface delegates to it.
 
     # Stack of widgets with an *input grab* — an open pop-up (menu, combo
     # drop-down, …) behaving modally: while any grab is active, only points
-    # inside a grab's own region (`Widget#grab_contains?`) deliver hover/click.
-    # Other widgets get no `MouseOver`/`Click` (so a tooltip never appears under
-    # an open menu); the grab's outside-click dismissal still runs via the
-    # screen-level `Event::Mouse`. Stacked so nested pop-ups compose.
+    # inside a grab's own region deliver hover/click. Other widgets get no
+    # `MouseOver`/`Click`, so a tooltip never appears under an open menu; the
+    # grab's outside-click dismissal still runs via the screen-level
+    # `Event::Mouse`. Stacked so nested pop-ups compose.
     @grabs = [] of Widget
 
     # Registers *w* as an active input grab (no-op if already grabbing).
@@ -61,18 +60,17 @@ module Crysterm
     end
 
     # The widget that has currently captured the mouse (`#capture_mouse`), or
-    # `nil`. :nodoc: — exposed so the transient-state teardown (see
-    # `#release_transient_state_for`) is observable in tests.
+    # `nil`. :nodoc: — exposed so the transient-state teardown is observable in
+    # tests.
     def mouse_captor : Widget?
       @_mouse_captor
     end
 
     # Number of consecutive presses on the same widget at the same spot within
     # `Config.mouse_double_click_interval` of each other: `1` for a single
-    # click, `2` for a double, `3`+ for triple and beyond. Valid to read from
-    # within a widget's `Event::Mouse`/`Event::Click` handler for the current
-    # press (computed by `#dispatch_mouse` before the widget is notified). See
-    # `Mixin::TextEditing`'s word/line select.
+    # click, `2` for a double, `3`+ for triple and beyond. Resolved before the
+    # widget is notified, so a widget's `Event::Mouse`/`Event::Click` handler can
+    # read it for the current press.
     getter click_count : Int32 = 0
 
     @_last_click_at : Time::Instant?
@@ -113,8 +111,8 @@ module Crysterm
     # release reports route to it (via `Event::Mouse`) regardless of what's
     # under the pointer, and the release clears the capture. Lets a widget keep
     # receiving a press-drag it started even after the pointer leaves its bounds
-    # (e.g. `Mixin::TextEditing` extending a selection past the edge) — the
-    # lightweight, self-managed counterpart of the `draggable?` drag machinery.
+    # (e.g. extending a text selection past the edge) — the lightweight,
+    # self-managed counterpart of the `draggable?` drag machinery.
     @_mouse_captor : Widget?
 
     # Button that armed the current mouse capture — the button of the press
@@ -143,12 +141,11 @@ module Crysterm
     end
 
     # Tears down every transient mouse-interaction pointer that points into the
-    # subtree rooted at *subtree* — hover, pending press-arm (`@_arm`), mouse
-    # captor (`@_mouse_captor`), in-flight drag source/target (`@_drag`), and
-    # modal input grabs (`@grabs`) — bracketing the unlink performed by the
-    # yielded block. The stale relations are sampled *before* the block runs
-    # (while the subtree is still relatable via `covers?`) and dropped *after*,
-    # so a removed/detached subtree can never leave this window hovering,
+    # subtree rooted at *subtree* — hover, pending press-arm, mouse captor,
+    # in-flight drag source/target, and modal input grabs — bracketing the unlink
+    # performed by the yielded block. The stale relations MUST be sampled before
+    # the block runs (while the subtree is still relatable via `covers?`) and
+    # dropped after, so a removed subtree can never leave this window hovering,
     # capturing, dragging, or modally grabbing a widget no longer on it:
     #
     #   * `@_hover` → next `MouseMove` fires `MouseOut` on a dead widget, an
@@ -160,10 +157,6 @@ module Crysterm
     #   * `@_drag` source/target → screen stays modally locked / a later `Drop`
     #     fires on an off-screen widget.
     #   * `@grabs` → the modal lock never lifts.
-    #
-    # Shared by `Window#remove` (a top-level child) and `Widget#remove` (a nested
-    # child, invoked on the child's window) so both removal paths tear the
-    # window's mouse state down identically. See BUGS14-C2.
     def release_transient_state_for(subtree : Widget, &) : Nil
       drop_hover = (h = @_hover) && subtree.covers?(h)
       drop_arm = (a = @_arm) && subtree.covers?(a)
@@ -186,17 +179,12 @@ module Crysterm
     # Per-Window pooled mouse events (one per concrete class), reused across
     # dispatches so a mouse report doesn't heap-allocate a fresh event object
     # every time while a listener is installed — a screen-level `Event::Mouse`
-    # listener is routine (every pop-up/menu/combo installs one via
-    # `Overlay::DismissSession`), and mouse motion is high-frequency. See
-    # `Event::Mouse#reset` for the retention caveat.
+    # listener is routine (every pop-up/menu/combo installs one), and mouse
+    # motion is high-frequency. See `Event::Mouse#reset` for the retention caveat.
     pooled_mouse_event mouse, Mouse
     pooled_mouse_event mouse_over, MouseOver
     pooled_mouse_event mouse_move, MouseMove
     pooled_mouse_event mouse_out, MouseOut
-
-    # The raw mouse transport (terminal reporting, `gpm` reader, GUI cursor
-    # shape) lives on the device (`Screen`, in `screen_mouse_device.cr`); this
-    # surface delegates to it (see `window.cr`).
 
     # Turns off mouse reporting on the device and drops this surface's hover
     # state — `Screen#disable_mouse` handles terminal/gpm/cursor teardown; the
@@ -207,20 +195,6 @@ module Crysterm
       @_hover = nil
     end
 
-    # The single dispatch point for *all* mouse events, regardless of source.
-    #
-    # Emits an `Event::Mouse` on the screen, then locates the topmost
-    # mouse-responsive widget under the pointer (`#widget_at`). If one is found,
-    # it emits an `Event::Mouse` on it and then — unless a listener `#accept`ed
-    # that event — applies the default, out-of-the-box behaviors:
-    #
-    #   * **Button press** (`action.down?`) focuses the widget (when it is
-    #     focusable and `focus_on_click?`) and emits an `Event::Click`.
-    #   * **Wheel** (`action.wheel_up?`/`wheel_down?`) scrolls the widget, or its
-    #     nearest scrollable ancestor.
-    #
-    # A widget that wants to override a default can simply `accept` the
-    # `Event::Mouse` in its own handler.
     # Inline mode: the device reports rows in physical terminal coordinates,
     # but the surface (widgets, hit-test) lives in `[0, aheight)` at physical
     # rows `[offset, offset + aheight)`. Translate the pointer back into
@@ -234,13 +208,23 @@ module Crysterm
       ev
     end
 
+    # The single dispatch point for *all* mouse events, regardless of source.
+    #
+    # Emits an `Event::Mouse` on the screen, then locates the topmost
+    # mouse-responsive widget under the pointer. If one is found, it emits an
+    # `Event::Mouse` on it and then — unless a listener `#accept`ed that event —
+    # applies the default, out-of-the-box behaviors:
+    #
+    #   * **Button press** (`action.down?`) focuses the widget (when it is
+    #     focusable and `focus_on_click?`) and emits an `Event::Click`.
+    #   * **Wheel** (`action.wheel_up?`/`wheel_down?`) scrolls the widget, or its
+    #     nearest scrollable ancestor.
+    #
+    # A widget that wants to override a default can simply `accept` the
+    # `Event::Mouse` in its own handler.
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       ev = translate_inline_mouse ev
 
-      # Reuse the pooled `Mouse` event (reset in place) instead of allocating a
-      # fresh object per report — a screen-level listener is routine, and mouse
-      # reports (especially motion) are high-frequency. `emit(type, event)`
-      # still early-outs when nothing is subscribed.
       emit ::Crysterm::Event::Mouse, mouse_event(ev)
 
       # Focus in/out reports (mode 1004) share this channel but carry no
@@ -248,9 +232,7 @@ module Crysterm
       return if ev.focus_event?
 
       # A widget that captured the mouse or an in-flight drag consumes all
-      # motion/release regardless of the pointer's position; if either claims
-      # this event we're done. Capture is checked first since it's the lighter
-      # mechanism a non-`draggable?` widget opts into.
+      # motion/release regardless of the pointer's position.
       return if handle_mouse_captor ev
       return if handle_active_drag ev
 
@@ -261,10 +243,8 @@ module Crysterm
       # via the screen-level `Event::Mouse` above).
       w = nil unless within_grab? ev.x, ev.y
 
-      # Resolve the click count before the target sees the press, so a widget's
-      # own `Event::Mouse`/`Event::Click` handler can read `#click_count` for
-      # this press (double/triple detection). Only a real button press counts;
-      # motion/release/wheel leave the running count alone.
+      # Resolve the click count before the target sees the press. Only a real
+      # button press counts; motion/release/wheel leave the running count alone.
       if ev.action.down?
         bump_click_count(w, ev.x, ev.y, ev.button, Time.instant)
         # Remember which button this press dispatch carries, so a widget press
@@ -285,7 +265,7 @@ module Crysterm
           # double-click interval would read an inflated `#click_count`.
           reset_click_count
           # Record the lifting button so only its release/press terminates the
-          # gesture (see `handle_active_drag`).
+          # gesture.
           @_drag_button = ev.button
           start_drag w, ev.x, ev.y, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move),
@@ -307,11 +287,9 @@ module Crysterm
           # The arming press is consumed by this drag and never reaches the
           # widget as an `Event::Click`, so undo the count bumped on `down` —
           # otherwise a later real click on the same spot within the
-          # double-click interval would read an inflated `#click_count`
-          # (mirrors the two-click-drag branch above).
+          # double-click interval would read an inflated `#click_count`.
           reset_click_count
-          # The drag commits only on the ARMING press's button (see
-          # `handle_active_drag`).
+          # The drag commits only on the ARMING press's button.
           @_drag_button = @_arm_button
           sess = start_drag armed, ax, ay, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move)
@@ -328,23 +306,18 @@ module Crysterm
 
       return unless w
 
-      # A wheel acting on a widget implicitly focuses it, matching GUI toolkits
-      # (see `#wheel_focuses`).
+      # A wheel acting on a widget implicitly focuses it, matching GUI toolkits.
       wheel_focuses w, ev
 
-      # A disabled widget under the pointer takes no press/release/motion (see
-      # `#disabled_interaction?`).
+      # A disabled widget under the pointer takes no press/release/motion.
       return if disabled_interaction? w, ev
 
-      # A wheel over a disabled widget must never reach (or scroll) the widget
-      # itself — routes the scroll to a scrollable ancestor instead (see
-      # `#handle_disabled_wheel`).
+      # A wheel over a disabled widget routes to a scrollable ancestor instead.
       return if handle_disabled_wheel w, ev
 
-      # Reuse the pooled `Mouse` event. `emit(type, event)` returns it
-      # regardless of listeners, but `reset` cleared `accepted`, so with no
-      # handler (or a handler that didn't `accept`) `me.accepted?` is false and
-      # we correctly fall through to the default handling below.
+      # `emit(type, event)` returns the pooled event regardless of listeners,
+      # and `reset` cleared `accepted`, so with no handler (or one that didn't
+      # `accept`) this correctly falls through to the default handling below.
       me = w.emit ::Crysterm::Event::Mouse, mouse_event(ev)
       if me.accepted?
         # A `draggable?` widget handling the press itself opts out of the
@@ -360,7 +333,7 @@ module Crysterm
       if ev.action.down?
         # Click-to-focus, the GUI-toolkit default. `focus_on_click?` lets a
         # widget opt out (e.g. list items); a disabled widget is never focused,
-        # matching Tab navigation (`focus_offset`) and `focusable_at`.
+        # matching Tab navigation.
         if w.focus_on_click? && w.keyable? && !w.disabled?
           w.focus
           render
@@ -389,11 +362,9 @@ module Crysterm
 
     # A wheel over a disabled widget must never reach (or scroll) the widget
     # itself — otherwise a disabled `Dial`/`Slider`/`ScrollBar` mutates its own
-    # value on scroll (their `Mixin::RangedValue#ranged_wheel` has no disabled
-    # guard). The documented intent (see `#disabled_interaction?`) is only that a
-    # scrollable *ancestor* can still take the wheel, so route the scroll from
-    # the parent up, skipping the disabled widget. Returns whether the wheel was
-    # consumed here (and must not reach the widget).
+    # value on scroll, their ranged-wheel handling having no disabled guard.
+    # Only a scrollable *ancestor* may take the wheel, so route the scroll from
+    # the parent up. Returns whether the wheel was consumed here.
     private def handle_disabled_wheel(w : Widget, ev : ::Tput::Mouse::Event) : Bool
       return false unless w.disabled? && (ev.action.wheel_up? || ev.action.wheel_down?)
       w.parent.try { |p| scroll_under p, ev.action.wheel_up? ? -1 : 1, horizontal: ev.shift? }
@@ -462,8 +433,8 @@ module Crysterm
       elsif drag.discrete? ? (ev.action.down? && gesture_end_button?(ev.button, @_drag_button)) : (ev.action.up? && gesture_end_button?(ev.button, @_drag_button))
         # Both a continuous drag (commits on button-up) and a discrete two-click
         # drag (commits on the next button-down) commit only on the ARMING
-        # button (or a buttonless legacy report) — an RMB tap mid-LMB-drag used
-        # to commit the Drop at the pointer mid-gesture. Non-matching ups/downs
+        # button, or a buttonless legacy report; otherwise an RMB tap mid-LMB-drag
+        # would commit the Drop at the pointer mid-gesture. Non-matching ups/downs
         # (and any other buttons' presses) are swallowed with the rest of the
         # pointer stream.
         if drag.discrete?
@@ -477,8 +448,7 @@ module Crysterm
     # The nearest widget at or above *w* that can take focus by pointer
     # (`keyable?` and not opted out via `focus_on_click?`), or `nil`.
     private def focusable_at(w : Widget) : Widget?
-      # Skip disabled widgets (not a focus target), matching Tab navigation
-      # (`focus_offset`) and the click-to-focus guard below.
+      # Skip disabled widgets (not a focus target), matching Tab navigation.
       w.first_self_or_ancestor { |el| el.focus_on_click? && el.keyable? && !el.disabled? }
     end
 
@@ -502,9 +472,6 @@ module Crysterm
     #   * Leaving the prior one    -> `Event::MouseOut`  on it.
     #   * Moving while staying on  -> `Event::MouseMove` (hovering) on it.
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
-      # Pooled hover events (reset in place) — `emit(type, event)` still
-      # early-outs when unsubscribed, keeping the common (no handler) case
-      # allocation-free on pointer movement.
       if w != @_hover
         if old = @_hover
           old.emit ::Crysterm::Event::MouseOut, mouse_out_event(ev)
@@ -522,25 +489,23 @@ module Crysterm
     # rectangle contains the 0-based point (*x*, *y*), or `nil` if none.
     #
     # Hit-testing follows render/z order rather than registration order: the
-    # tree is walked depth-first in paint order (`@children` array order; see
-    # `Window#_render`), and the last match wins (topmost). This is what makes
-    # `Widget#front!`/`Widget#back!` affect hit-testing: reordering a widget in
-    # its parent's `children` both raises it visually and makes it the hit
-    # target, with no separate bookkeeping.
+    # tree is walked depth-first in paint order (`@children` array order), and
+    # the last match wins (topmost). This is what makes `Widget#front!`/
+    # `Widget#back!` affect hit-testing: reordering a widget in its parent's
+    # `children` both raises it visually and makes it the hit target, with no
+    # separate bookkeeping.
     #
     # `z-index` layers on top of tree order: a subtree with `style.z_index` is
     # deferred to a compositing `Plane` painted *above* the base layer
-    # regardless of tree position (see `Window#composite_planes`). So a
-    # non-z-indexed widget later in the tree must not steal clicks from a
-    # z-indexed widget painted above it — the hit test ranks candidates by
-    # effective layer (`hit_visible_and_layer`) first, breaking ties within a
+    # regardless of tree position. So a non-z-indexed widget later in the tree
+    # must not steal clicks from a z-indexed widget painted above it — the hit
+    # test ranks candidates by effective layer first, breaking ties within a
     # layer by tree order.
     def widget_at(x, y, skip : Widget? = nil) : Widget?
-      # Traverse without a captured `Proc`: `each_descendant do |el| … end`
-      # reified a heap closure (capturing `found`/`found_key`/`x`/`y`/`skip`)
-      # on every call — i.e. every mouse report including all motion. The scan
-      # accumulates the best hit in scratch ivars instead; dispatch is
-      # single-fiber synchronous, so reusing ivars across the recursion is safe.
+      # Traverse without a captured `Proc`: an `each_descendant` block would
+      # reify a heap closure on every call — i.e. every mouse report, motion
+      # included. The scan accumulates the best hit in scratch ivars instead;
+      # dispatch is single-fiber synchronous, so reusing them is safe.
       @_hit_found = nil
       @_hit_found_key = {0, 0}
       children.each do |el|
@@ -555,17 +520,16 @@ module Crysterm
     @_hit_found : Widget?
     @_hit_found_key : Tuple(Int32, Int32) = {0, 0}
 
-    # Pre-order depth-first walk mirroring `Mixin::Children#each_descendant`
-    # (visit *el*, then recurse into its children in `@children` order), scoring
-    # each widget as a hit-test candidate into `@_hit_found`/`@_hit_found_key`.
-    # A widget that fails the candidate test still has its subtree scanned,
-    # matching the `each_descendant`/`next` form.
+    # Pre-order depth-first walk (visit *el*, then recurse into its children in
+    # `@children` order), scoring each widget as a hit-test candidate into
+    # `@_hit_found`/`@_hit_found_key`. A widget that fails the candidate test
+    # still has its subtree scanned.
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?) : Nil
       if hit_candidate? el, x, y, skip
         # One self-or-ancestor pass yields BOTH whole-chain visibility and the
-        # compositing layer key (see `#hit_visible_and_layer`), so this hot
-        # motion path walks the parent chain once, not twice. An invisible
-        # candidate (a "shown" widget inside a hidden container) is not a hit.
+        # compositing layer key, so this hot motion path walks the parent chain
+        # once, not twice. An invisible candidate (a "shown" widget inside a
+        # hidden container) is not a hit.
         visible, key = hit_visible_and_layer el
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).

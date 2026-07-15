@@ -1,25 +1,14 @@
 module Crysterm
   module Mixin
-    # Shared bounded-range value behavior for the numeric controls
-    # `Widget::Slider`, `Widget::SpinBox`, `Widget::Dial` and
-    # `Widget::DoubleSpinBox`: a `#value` kept within `[#minimum, #maximum]`
-    # (clamped, or wrapped when `#wrapping?`), stepped by `#step`, emitting a
-    # value-change signal only on an actual change.
+    # Shared bounded-range value behavior for numeric controls: a `#value` kept
+    # within `[#minimum, #maximum]` (clamped, or wrapped when `#wrapping?`),
+    # stepped by `#step`, emitting a value-change signal only on an actual change.
     #
-    # The module is generic over the numeric type *T*, so the integer controls
-    # include `RangedValue(Int32)` and `DoubleSpinBox` includes
-    # `RangedValue(Float64)` — collapsing the range machinery each had copied.
-    # The two signals differ by type, so they route through the overridable
-    # `#emit_value_change`/`#emit_range_change` hooks: the default emits the
-    # `Int32` `Event::ValueChanged`/`Event::RangeChanged`, and `DoubleSpinBox`
-    # overrides `#emit_value_change` to emit `Event::DoubleValueChanged` (and
-    # `#emit_range_change` to a no-op, since there is no `Float64` range event).
-    #
-    # `Widget::ProgressBar` is intentionally *not* built on this even though its
-    # range is `Int32`: its value drives a derived fill percentage and emits an
-    # extra `Event::Complete` gated on a `complete:` flag that a range-shrink
-    # re-clamp must suppress — a shape `#value=`/`#set_range` here can't express —
-    # so it keeps its own implementation.
+    # Generic over the numeric type *T*: integer controls include
+    # `RangedValue(Int32)`, float ones `RangedValue(Float64)`. Because the two
+    # signals are distinct types, they route through the overridable
+    # `#emit_value_change`/`#emit_range_change` hooks, defaulting to the `Int32`
+    # `Event::ValueChanged`/`Event::RangeChanged`.
     module RangedValue(T)
       @minimum : T = T.zero
       @maximum : T = T.zero
@@ -112,10 +101,9 @@ module Crysterm
         self.value = @value + by
       rescue OverflowError
         # `@value + by` exceeded T's representable range (e.g. Up at
-        # `maximum: Int32::MAX`). Saturate to the bound (Qt behavior) instead
-        # of letting the exception escape and kill the key/render fiber; a
-        # wrapping control wraps to the opposite bound, exactly as an
-        # in-range overshoot would.
+        # `maximum: Int32::MAX`). Saturate to the bound (Qt behavior) rather than
+        # let the exception escape and kill the key/render fiber; a wrapping
+        # control wraps to the opposite bound, as an in-range overshoot would.
         step_overflow_saturate(by >= T.zero)
       end
 
@@ -128,13 +116,6 @@ module Crysterm
       # Steps the value by *steps* line-steps (Qt's `QAbstractSpinBox#stepBy`),
       # saturating/wrapping exactly as `#increment`/`#decrement` do. Negative
       # *steps* move down.
-      #
-      # These three Qt names are homed here, not on `Widget::AbstractSpinBox`:
-      # that base is shared with `Widget::DateTimeEdit`, which has no numeric
-      # `@step`/`#increment` at all (it steps a *section* via
-      # `Mixin::SectionedField`), so a `step_by` declared there could only be
-      # abstract — forcing an implementation into the sectioned editors. Here
-      # they land on exactly the types that have a steppable numeric value.
       def step_by(steps : Int32) : Nil
         return if steps == 0
         steps > 0 ? increment(@step * steps) : decrement(@step * -steps)
@@ -177,12 +158,11 @@ module Crysterm
         {% end %}
       end
 
-      # Constructor-time range+value initialiser: stores a non-inverted range and
-      # a clamped value *directly* (no `Event::RangeChanged`/`ValueChanged` — nothing
+      # Constructor-time range+value initialiser: stores a non-inverted range and a
+      # clamped value *directly* (no `Event::RangeChanged`/`ValueChanged` — nothing
       # is listening during construction). Call from a subclass constructor so the
-      # "never store an inverted range" guard (which `#value=`/`#value_span`/the
-      # percent helpers all assume) can't be forgotten — e.g.
-      # `ScrollBar.new(minimum: 100, maximum: 0)` must not store an inverted range.
+      # "never store an inverted range" guard — which `#value=`/`#value_span`/the
+      # percent helpers all assume — can't be forgotten.
       protected def init_range(min : T, max : T, value : T? = nil) : Nil
         @minimum = min
         @maximum = Math.max(min, max)
@@ -209,12 +189,11 @@ module Crysterm
         end
       end
 
-      # Handles the stepping keys shared by `Widget::Slider`, `Widget::Dial` and
-      # `Widget::ScrollBar`: Right (and `l`) steps up, Left (and `h`) steps down,
-      # Up/Down (and `k`/`j`) and Page Up/Down step the vertical axis, and
-      # Home/End jump to the bounds. Accepts *e* and returns `true` when a key was
-      # handled; stepping routes through `#value=`, which repaints only on a real
-      # change.
+      # Handles the shared stepping keys: Right (and `l`) steps up, Left (and `h`)
+      # steps down, Up/Down (and `k`/`j`) and Page Up/Down step the vertical axis,
+      # and Home/End jump to the bounds. Accepts *e* and returns `true` when a key
+      # was handled; stepping routes through `#value=`, which repaints only on a
+      # real change.
       #
       # `invert: true` flips only the *vertical* keys (Up/Down, PageUp/PageDown,
       # `k`/`j`) so a scroll bar's up-arrow decreases the value while its
@@ -259,18 +238,16 @@ module Crysterm
       def set_range(min : T, max : T) : Nil
         # Never store an inverted range: `#value=`/`#value_span`/the percent
         # helpers all assume `min <= max`. Mirrors Qt's `setRange`, where a max
-        # below min collapses the range to `min`. (`#minimum=`/`#maximum=`
-        # already pre-adjust the other bound; this guards a direct call too.)
+        # below min collapses the range to `min`.
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
         on_range_changed
         emit_range_change
-        # Pre-clamp (rather than let `#value=` handle it) so a `#wrapping?` control
-        # clamps on a range change instead of wrapping to the opposite bound:
-        # an out-of-range `@value` would trip `#value=`'s wrap branch. A
-        # pre-clamped value makes that check a no-op, behaving as a plain clamp.
+        # Pre-clamp so a `#wrapping?` control clamps on a range change instead of
+        # wrapping to the opposite bound: an out-of-range `@value` would trip
+        # `#value=`'s wrap branch.
         self.value = @value.clamp(@minimum, @maximum)
         request_render
       end
@@ -291,35 +268,32 @@ module Crysterm
       end
 
       # Overridable hook run (before the value-change signal) whenever the value
-      # actually changes — e.g. `SpinBox` refreshes its displayed text. No-op by
-      # default.
+      # actually changes. No-op by default.
       protected def on_value_changed
       end
 
-      # Emits the value-change signal on an actual change. The default is the
-      # `Int32` `Event::ValueChanged` used by the integer controls
-      # (`Slider`/`Dial`/`ScrollBar`/`SpinBox`); `DoubleSpinBox` overrides it to
-      # emit the `Float64` `Event::DoubleValueChanged`. Kept as a hook because the
-      # two events are distinct types — a single `emit` here would not type-check
-      # across both `T` instantiations.
+      # Emits the value-change signal on an actual change. Defaults to the `Int32`
+      # `Event::ValueChanged`; a `Float64` control overrides it to emit
+      # `Event::DoubleValueChanged`. A hook rather than a plain `emit` because the
+      # two events are distinct types, which would not type-check across both `T`
+      # instantiations.
       protected def emit_value_change : Nil
         emit Crysterm::Event::ValueChanged, @value
       end
 
-      # Emits the range-change signal on an actual change. The default is the
-      # `Int32` `Event::RangeChanged`; `DoubleSpinBox` overrides it to a no-op
-      # (there is no `Float64` range event).
+      # Emits the range-change signal on an actual change. Defaults to the `Int32`
+      # `Event::RangeChanged`; a `Float64` control overrides it to a no-op, there
+      # being no `Float64` range event.
       protected def emit_range_change : Nil
         emit Crysterm::Event::RangeChanged, @minimum, @maximum
       end
     end
 
-    # Float-valued range helpers shared by the read-only meter widgets
-    # `Widget::Gauge`, `Widget::GaugeList` and `Widget::Graph::Donut`. All keep a
-    # `Float64` `[minimum, maximum]` range; this provides a `#span` that never
-    # reports zero (keeping divisions safe; an empty range simply renders empty)
-    # and a `#percent_of` that maps a value onto a `0..100` percentage of that
-    # range, plus the shared `#value=` body `#assign_completable`.
+    # Float-valued range helpers for read-only meter widgets, which keep a
+    # `Float64` `[minimum, maximum]` range. Provides a `#span` that never reports
+    # zero (keeping divisions safe; an empty range simply renders empty), a
+    # `#percent_of` that maps a value onto a `0..100` percentage of that range,
+    # and the shared `#value=` body `#assign_completable`.
     module PercentRange
       # Size of the value range (`maximum - minimum`), never zero.
       def span : Float64
@@ -332,15 +306,13 @@ module Crysterm
         ((value - minimum) / span * 100).clamp(0.0, 100.0)
       end
 
-      # Shared `#value=` body for the read-only `Float64` meters `Widget::Gauge`
-      # and `Widget::Graph::Donut`: clamps *v* into `[minimum, maximum]`, and on
-      # an actual change stores it, emits `Event::DoubleValueChanged` (the
-      # `Float64` value event), emits `Event::Complete` upon reaching `#maximum`
-      # (only when the range is non-empty, so an empty `minimum == maximum` bar
-      # never "completes"), then runs the widget's own post-change *action* — a
-      # repaint (`Gauge`) or Canvas invalidation (`Donut`). Block-yielding, so it
-      # allocates no `Proc`. Returns the stored value (matching each site's
-      # `#value=` return).
+      # Shared `#value=` body for a read-only `Float64` meter: clamps *v* into
+      # `[minimum, maximum]`, and on an actual change stores it, emits
+      # `Event::DoubleValueChanged`, emits `Event::Complete` upon reaching
+      # `#maximum` (only when the range is non-empty, so an empty
+      # `minimum == maximum` bar never "completes"), then runs the widget's own
+      # post-change block. Block-yielding, so it allocates no `Proc`. Returns the
+      # stored value.
       protected def assign_completable(v : Number, &) : Float64
         v = v.to_f
         # Sanitize non-finite input at ingestion: NaN survives `clamp` (every

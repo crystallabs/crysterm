@@ -1,18 +1,16 @@
 module Crysterm
-  # Class for shadow definition.
+  # A widget's drop shadow.
   class Shadow
     include SidedGeometry
 
-    # Whether every one of the named instance-variable fields is `nil` — the
-    # all-unset fast-path test for `#glyphs?`. Mirrors `Border`'s private copy
-    # (a macro can't be shared across the two files/types by scope).
+    # Whether every named instance variable is `nil`. Keeps the hand-maintained
+    # `nil?` chain from drifting out of sync with the field set.
     private macro all_nil?(*fields)
       ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
     end
 
-    # Fresh zero-shadow instance ("no shadow": all sides 0). Not a shared
-    # singleton (like `Padding.default`/`Margin.default`): `Shadow` is mutable,
-    # and `Style`'s default getter hands one to every `Style` — a shared
+    # A fresh zero shadow ("no shadow": all sides 0). Must never be a shared
+    # singleton: `Shadow` is mutable and every `Style` gets one, so a shared
     # instance would let one style's edit leak into all others.
     def self.default : Shadow
       new 0, 0, 0, 0
@@ -26,29 +24,18 @@ module Crysterm
     # Shadow alpha value (0 == full transparency, 1 == full opacity)
     property alpha : Float64 = 0.5
 
-    # Optional glyphs used to paint a *thin* shadow. When a band's glyph is set,
-    # that band is drawn with the half-block character instead of darkening the
-    # whole cell — so the shadow occupies only part of a cell and escapes the
-    # terminal's ~2:1 cell aspect ratio. `nil` (the default for every field)
-    # keeps the classic full-cell alpha-blended shadow.
+    # Optional glyphs used to paint a *thin* shadow: a band with a glyph set is
+    # drawn with that half-block character rather than by darkening the whole
+    # cell, so the shadow occupies only part of a cell. `nil` (the default) keeps
+    # the classic full-cell alpha-blended shadow.
     #
-    # The shadow tone is the cell *background* (a gap-free solid fill), and the
-    # glyph's foreground carries the untouched backdrop over the other half —
-    # so choose the glyph whose *solid* half faces away from the widget: `▄`
-    # shadows the top half (a bottom-edge shadow that hugs the widget), `▀` the
-    # bottom, `▐` the left half (a right-edge shadow), `▌` the right.
-    #
-    # There are eight independently selectable glyphs — the four sides and the
-    # four diagonal (corner) cells where two sides meet — resolved through group
-    # fallbacks so you set only what differs:
-    #
-    # * side runs fall back per axis to `horizontal_char` (top/bottom) and
-    #   `vertical_char` (left/right);
-    # * the corner cells fall back to `diagonal_char`, then to `horizontal_char`
-    #   (the glyph running along the merge line).
-    #
-    # Split this finely because a cell's height and width differ, so each run and
-    # corner may need its own half-block to read as equally thin.
+    # The shadow tone is the cell *background* and the glyph's foreground carries
+    # the untouched backdrop over the other half, so pick the glyph whose *solid*
+    # half faces away from the widget: `▄` shadows the top half (a bottom-edge
+    # shadow), `▀` the bottom, `▐` the left half (a right-edge shadow), `▌` the
+    # right. Eight glyphs are selectable — four sides, four corners — since a
+    # cell's height and width differ; each resolves through the group fallbacks
+    # below, so you set only what differs.
     property horizontal_char : Char? = nil
     property vertical_char : Char? = nil
     property diagonal_char : Char? = nil
@@ -108,8 +95,8 @@ module Crysterm
     end
 
     # Whether any half-block glyph is configured (any group, side or corner).
-    # When false the shadow is a plain full-cell alpha blend and the renderer
-    # takes its faster, undivided path.
+    # When false the shadow is a plain full-cell alpha blend, which the renderer
+    # paints on a faster, undivided path.
     def glyphs? : Bool
       !all_nil?(horizontal_char, vertical_char, diagonal_char,
         top_char, bottom_char, left_char, right_char,
@@ -128,7 +115,7 @@ module Crysterm
     )
     end
 
-    # Parse shadow value
+    # Coerces *value* into a `Shadow`.
     def self.from(value)
       case value
       in true
@@ -139,22 +126,18 @@ module Crysterm
         value
       in Symbol
         # A side symbol (`:right`, `:horizontal`, ...) turns the named side(s)
-        # on at their default extent (see `Bool` constructor, `SidedGeometry.sides`).
+        # on at their default extent.
         s = SidedGeometry.sides value
         Shadow.new s[:left] > 0, s[:top] > 0, s[:right] > 0, s[:bottom] > 0
       in Float
         Shadow.new value
       in Int
-        # Consistent with `Border`/`Padding`/`Margin` `.from`: a bare integer sets
-        # every side to that width (alpha stays at its default). Sides are `Int32`.
+        # A bare integer sets every side to that width, alpha staying at its
+        # default — consistent with `Border`/`Padding`/`Margin`.
         v = value.to_i32
         Shadow.new(v, v, v, v)
       end
     end
-
-    # def initialize(all : Int)
-    #  @left = @top = @right = @bottom = all
-    # end
 
     def initialize(@alpha : Float64)
     end
@@ -176,7 +159,5 @@ module Crysterm
       @right = dim right, 2
       @bottom = dim bottom, 1
     end
-
-    # Per-side predicates and `any?` come from `SidedGeometry`.
   end
 end

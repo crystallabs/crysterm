@@ -1,6 +1,6 @@
 require "../src/crysterm"
 
-# Deterministic allocation check for ALLOCS.md Group B mouse-dispatch fixes.
+# Deterministic allocation check for the mouse-dispatch hot path.
 #
 # B1 — `Window#widget_at` traversed with `each_descendant do |el| … end`, which
 #      reifies a heap closure (capturing found/found_key/x/y/skip) on *every*

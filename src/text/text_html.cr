@@ -1,27 +1,25 @@
 require "html5"
 
 module Crysterm
-  # HTML-subset import/export for `TextDocument` (TEXTEDIT.md Phase 3) — the
-  # `QTextDocument::setHtml`/`toHtml` counterpart, parsed with the `html5`
-  # shard (already a dependency of the CSS subsystem).
+  # HTML-subset import/export for `TextDocument` — the
+  # `QTextDocument::setHtml`/`toHtml` counterpart, parsed with the `html5` shard.
   #
   # Supported on import: `p div h1..h6 b/strong i/em u/ins s/strike/del a[href]
   # br hr ul ol li pre code/tt/kbd/samp blockquote span[style] font[color]`,
   # plus the style properties `color`, `background(-color)`, `font-weight`,
   # `font-style`, `text-decoration(-line)`, `text-align` and `white-space:
   # pre*`; the `align` attribute works too. Unknown elements are transparent
-  # (children walked); `script`/`style`/`head` subtrees are skipped. Tables
-  # parse in Phase 4.
+  # (children walked); `script`/`style`/`head` subtrees are skipped.
   #
   # Whitespace collapses HTML-style (runs → one space, block-edge trimmed)
   # except under `pre` or a `white-space: pre*` block — which the exporter
   # emits whenever a block's text carries significant spaces, so structural
   # prefixes (list indents) round-trip.
   #
-  # The block model matches `TextMarkdown`'s (Phase-4 structures: `ul`/`ol`
-  # → one `TextList` per list element, `blockquote` nesting →
-  # `TextBlockFormat#quote_level`, `hr` → a `horizontal_rule` block; code
-  # blocks as code-bg rows), so documents cross-convert consistently.
+  # The block model matches `TextMarkdown`'s — `ul`/`ol` → one `TextList` per
+  # list element, `blockquote` nesting → `TextBlockFormat#quote_level`, `hr` → a
+  # `horizontal_rule` block, code blocks as code-bg rows — so documents
+  # cross-convert consistently.
   # `<p>a</p><p>b</p>` imports as two *adjacent* blocks; block spacing is
   # `TextBlockFormat` margins (the margins re-base), carried as
   # `margin-top`/`margin-bottom` styles on export and parsed back on import
@@ -127,8 +125,8 @@ module Crysterm
         io << "<tr>"
         TextTable.split_data_row(b.text).each_with_index do |cell, ci|
           io << '<' << tag
-          # Column alignment rides on each cell (the shape the importer —
-          # and browsers — read back).
+          # Column alignment rides on each cell, the shape both the importer and
+          # browsers read back.
           if name = align_css(als.try(&.[ci]?))
             io << %( style="text-align:) << name << '"'
           end
@@ -141,10 +139,8 @@ module Crysterm
 
     # Resolves a horizontal-alignment keyword (`"left"`/`"center"`/`"right"`,
     # already case-folded) to a `Tput::AlignFlag` — horizontal center is
-    # `HCenter` — or `nil` for an unrecognized name. The single string→flag
-    # mapping shared by the HTML/tag importers and the CSS `text-align`
-    # geometry (the reverse of `align_css`); callers apply their own default
-    # for the `nil` case.
+    # `HCenter` — or `nil` for an unrecognized name. Callers apply their own
+    # default for the `nil` case.
     def self.align_flag(name : String) : Tput::AlignFlag?
       case name
       when "left"   then Tput::AlignFlag::Left
@@ -263,9 +259,8 @@ module Crysterm
       escape_html(text).gsub('"', "&quot;")
     end
 
-    # DOM → blocks. Same shape as `TextMarkdown::Importer`: a patch stack for
-    # inline formats, `TextList`/quote-level/rule block structures, code-bg
-    # code blocks.
+    # DOM → blocks: a patch stack for inline formats,
+    # `TextList`/quote-level/rule block structures, code-bg code blocks.
     private class Importer
       @blocks = [] of TextBlock
       @frags = [] of TextFragment
@@ -288,7 +283,7 @@ module Crysterm
       @pending_item_format : TextBlockFormat?
       # Whitespace-collapse flag parsed off the `li` element (e.g. a
       # `white-space:pre-wrap` on the item), adopted by the item's first
-      # block so TABs / significant spaces survive the round-trip (T3).
+      # block so TABs / significant spaces survive the round-trip.
       @pending_item_collapse : Bool?
       # Whether the pending `li` is a checked checkbox item (its block's
       # `checked` flag; the `Checkbox` list style comes from the enclosing
@@ -404,8 +399,8 @@ module Crysterm
         when "ul", "ol"
           end_block(discard_virgin: true)
           # `to_i?` accepts values up to `Int32::MAX`, which overflow the
-          # plain-Int32 marker/numbering arithmetic downstream; clamp at the
-          # single import choke point so the model stays sane (T7).
+          # plain-Int32 marker/numbering arithmetic downstream; clamp at this
+          # single import choke point so the model stays sane.
           start = (attr_val(node, "start").try(&.to_i?) || 1).clamp(1, 1_000_000)
           @list_stack << TextListFormat.new(
             style: list_style(node),
@@ -600,7 +595,7 @@ module Crysterm
         end
       end
 
-      # === Block assembly (see `TextMarkdown::Importer`) ===
+      # === Block assembly ===
 
       private def start_block(bf : TextBlockFormat = TextBlockFormat.default, collapse : Bool = true) : Nil
         @frags = [] of TextFragment
@@ -620,7 +615,7 @@ module Crysterm
           bf = bf.merge(TextBlockFormat.new(list_format: li))
           bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
           # A pre-wrap li opens its first block uncollapsed so its TABs /
-          # significant spaces are not run through `WS_RUN` (T3).
+          # significant spaces are not run through `WS_RUN`.
           collapse = false if @pending_item_collapse == false
           @pending_item_collapse = nil
           @pending_item = nil

@@ -6,14 +6,13 @@ require "../../widget_graph_scale"
 module Crysterm
   class Widget
     module Graph
-      # An X/Y chart, modeled after Qt Charts' `QChart` rather than
-      # blessed-contrib's `line`. The plot is drawn on a `Graph::Canvas` (best
-      # graphics backend available — sixel/kitty, else braille), while the
-      # chrome — title, axes with ticks/labels, legend — is real terminal text
-      # around it. This "plot = pixels, labels = text" split keeps axis text
-      # crisp and selectable on every backend.
+      # An X/Y chart, modeled after Qt Charts' `QChart`. The plot is drawn on a
+      # `Graph::Canvas` (best graphics backend available — sixel/kitty, else
+      # braille), while the chrome — title, axes with ticks/labels, legend — is
+      # real terminal text around it. This "plot = pixels, labels = text" split
+      # keeps axis text crisp and selectable on every backend.
       #
-      # Qt-style pieces:
+      # The pieces:
       #
       # * `Series` — a named data series with a color and a `Kind`
       #   (`Line`/`Scatter`/`Area`), like `QLineSeries`/`QScatterSeries`/
@@ -60,8 +59,7 @@ module Crysterm
           end
         end
 
-        # A named data series. `Kind` chooses how its points are drawn, mirroring
-        # Qt's `QLineSeries` / `QScatterSeries` / `QAreaSeries`.
+        # A named data series. `Kind` chooses how its points are drawn.
         class Series
           enum Kind
             Line
@@ -93,11 +91,9 @@ module Crysterm
         property? show_legend : Bool
         property? show_grid : Bool
 
-        # Toggling the grid changes what `#paint_plot` draws onto the plot Canvas,
-        # so — like `#add_series` — the setter must invalidate the Canvas raster
-        # (which otherwise skips repaint under its own `@paint_dirty`) and
-        # schedule a render. The plain `property?` setter did neither, leaving a
-        # stale grid on window until an unrelated repaint.
+        # Toggling the grid changes what `#paint_plot` draws, so the setter must
+        # invalidate the Canvas raster — which otherwise skips its repaint — and
+        # schedule a render, or a stale grid stays on screen.
         def show_grid=(v : Bool) : Bool
           return v if v == @show_grid
           @show_grid = v
@@ -106,13 +102,11 @@ module Crysterm
           v
         end
 
-        # The Canvas the plot is drawn on. Built in `#initialize` after `super`,
-        # so stored nilable but never `nil` post-construction. `plot` raises if
-        # read before construction completes; `plot?` is the nilable variant.
+        # The Canvas the plot is drawn on. Nilable only until `#initialize` has
+        # run `super`; never `nil` post-construction.
         getter! plot : Canvas
 
-        # Resolved data ranges for the current frame (set in `#compute_ranges`,
-        # read by the plot's paint callback).
+        # Resolved data ranges for the current frame.
         @xmin = 0.0
         @xmax = 1.0
         @ymin = 0.0

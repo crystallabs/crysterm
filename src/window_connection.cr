@@ -6,10 +6,6 @@ module Crysterm
   # buffer/mode setup — as opposed to its window-independent content (the
   # widget tree and cell buffer, which survive across connections).
   #
-  # Keeping connect/disconnect grouped here would let the connection later be
-  # lifted into a separate `Display` object without disturbing the content
-  # side. For now it all lives on `Window`.
-  #
   # It powers two capabilities:
   #   * `Window.open` — spawn a real emulator window and drive it with a `Window`.
   #   * detach/reattach — `#disconnect` a `Window` (closing its window but keeping
@@ -41,8 +37,7 @@ module Crysterm
     getter window : Terminal::Window?
 
     # Registers *win* as this (freshly constructed) screen's window and starts
-    # watching it. Used internally by `Application.open` for new screens; the
-    # screen is already connected via its constructor.
+    # watching it. The screen is already connected via its constructor.
     def adopt_window(win : Terminal::Window) : Nil
       @owns_io = true
       @window = win
@@ -59,9 +54,9 @@ module Crysterm
       # the previous window, its fibers, or its watcher.
       disconnect if @connected
       @owns_io = true
-      # Rebinding a `#destroy`ed window is supported, but needs more than
-      # clearing the flag — `destroy` also killed one-shot machinery that the
-      # connection swap below does not re-establish. See `#revive`.
+      # Rebinding a `#destroy`ed window needs more than clearing the flag:
+      # `destroy` also killed one-shot machinery the connection swap below does
+      # not re-establish.
       revive if @destroyed
       # Mark connected before the swap below so its repaint isn't suppressed
       # (the render fiber no-ops while `@connected` is false).
@@ -71,12 +66,10 @@ module Crysterm
       @_resize_handler ||= subscribe_global_resize
 
       # Reattach as `QWindow#screen=`: swap onto a freshly-built device for the
-      # new tty (reusing the old device's terminfo + options, sized from the
-      # new terminal). `#screen=` enters the alternate buffer, reallocs, and
-      # fully repaints; the old device (its closed tput, unwound input fiber)
-      # is discarded. Building a new device rather than mutating the old one
-      # keeps the previous input fiber from ever touching the new tty. See
-      # `Screen#reconnected`.
+      # new tty (reusing the old device's terminfo + options, sized from the new
+      # terminal). `#screen=` enters the alternate buffer, reallocs, and fully
+      # repaints. Building a new device rather than mutating the old one keeps
+      # the previous input fiber from ever touching the new tty.
       self.screen = @screen.reconnected(input, output)
 
       @window = window
@@ -98,8 +91,8 @@ module Crysterm
     def disconnect : Nil
       return unless @connected
       @connected = false
-      # The input read fiber now lives on the device; ask it whether it was
-      # running so a reattach can restore the prior listening state.
+      # The input read fiber lives on the device; ask it whether it was running
+      # so a reattach can restore the prior listening state.
       @was_listening = @screen.listening?
 
       # Multiple `Window`s can share one `Screen` (one tty). The device-level
@@ -111,10 +104,9 @@ module Crysterm
       # already disconnecting, so the device is restored exactly once.
       if other_live_window_on_device?
         # The departing window may have pinned a hardware cursor shape/color
-        # (DECSCUSR / OSC 12) or an OSC title on the shared device; this
-        # early-return path skips `restore_terminal`, so nothing would ever
-        # undo them and they'd outlive the window. Hand that per-window state
-        # back to the surviving active window on the device.
+        # (DECSCUSR / OSC 12) or an OSC title on the shared device. This path
+        # skips `restore_terminal`, so hand that per-window state back to the
+        # surviving active window instead of letting it outlive the window.
         reassert_sibling_terminal_state
         return
       end
@@ -133,28 +125,18 @@ module Crysterm
       @window = nil
     end
 
-    # Brings a `#destroy`ed window back to life so `#connect` can rebind it.
-    # Beyond the flags, `destroy` tore down one-shot state that the connection
-    # swap does not restore:
+    # Brings a `#destroy`ed window back to life so `#connect` can rebind it,
+    # restoring the one-shot state `destroy` tore down: the render and resize
+    # loop fibers, membership in `Window.instances`, and the `Application`
+    # routing entry.
     #
-    #   * the render and resize loop fibers exited permanently (their stop
-    #     flags were set and their doorbells rung) — without respawning them,
-    #     every `render` rings `@render_wakeup` with no receiver and the
-    #     terminal stays blank;
-    #   * the window left `Window.instances` (the at_exit terminal-restore /
-    #     sibling-liveness registry, via `Instances#destroy`);
-    #   * the window left its `Application`'s routing table, so input would
-    #     no longer be dispatched to it.
-    #
-    # The old loops must have actually exited before the flags are reset:
-    # `destroy`'s wake-up may still be in flight, and a woken-but-not-yet-run
-    # old fiber would consume — and, the doorbells being coalescing, swallow —
-    # the revival repaint's ring, or see the reset flag and keep running
-    # alongside its replacement. So this first waits (bounded) for the old
-    # fibers to die, and additionally tags each spawn with a generation the
-    # loops check, retiring a pathological straggler that outlives the wait.
-    # Only called with `@destroyed` true, so a plain disconnect/reconnect never
-    # double-spawns the loops.
+    # The old loops must have actually exited before the stop flags are reset:
+    # an old fiber woken but not yet run would either swallow the revival
+    # repaint's (coalescing) doorbell ring or see the reset flag and run
+    # alongside its replacement. So this waits (bounded) for them to die, and
+    # tags each spawn with a generation the loops check to retire a straggler
+    # that outlives the wait. Only called with `@destroyed` true, so a plain
+    # disconnect/reconnect never double-spawns the loops.
     private def revive : Nil
       @destroyed = false
       await_loop_exit
@@ -166,8 +148,8 @@ module Crysterm
       # Re-register in the global teardown/liveness registry (idempotent).
       bind
       # Re-register with the driving `Application`, if any, so input is routed
-      # to this window again (`add` is idempotent; `destroy`'s `remove` keeps
-      # the `application` back-link, so the app is still reachable here).
+      # to this window again. `destroy`'s `remove` keeps the `application`
+      # back-link, so the app is still reachable here.
       application.try &.add self
     end
 
@@ -205,10 +187,10 @@ module Crysterm
     end
 
     # Re-applies the surviving active window's cursor (shape/blink/color) and
-    # title after this window departs a shared device (see `#disconnect`'s
-    # sibling path). Prefers the `Application`'s active window for the device
-    # (routing order), falling back to any live sibling from the global
-    # registry. Best-effort: the device may already be half torn down.
+    # title after this window departs a shared device. Prefers the
+    # `Application`'s active window for the device (routing order), falling back
+    # to any live sibling from the global registry. Best-effort: the device may
+    # already be half torn down.
     private def reassert_sibling_terminal_state : Nil
       surviving : Window? = nil
       application.try do |app|
@@ -232,10 +214,10 @@ module Crysterm
     end
 
     # Best-effort restore of the terminal to its normal state, split along the
-    # surface/device line: this surface tears down its alt buffer (`leave`)
-    # and the mouse, then the device (`Screen#restore_input_modes`) turns off
-    # the input-mode toggles and restores the tty's line discipline. All steps
-    # are guarded because a user-closed window leaves dead fds that raise on write.
+    # surface/device line: this surface tears down its alt buffer and the mouse,
+    # then the device turns off the input-mode toggles and restores the tty's
+    # line discipline. All steps are guarded because a user-closed window leaves
+    # dead fds that raise on write.
     private def restore_terminal : Nil
       restore_step(true) { leave }
 
@@ -284,10 +266,6 @@ module Crysterm
       disconnect
       emit Crysterm::Event::WindowClosed, self
     end
-
-    # Multi-window orchestration (`Application.open` / `.run` / `.exec_all`)
-    # lives on `Application`; the per-window connection primitives it drives
-    # (`#connect` / `#disconnect` / `#adopt_window`) remain here.
 
     # :nodoc: exposed for `Application.exec_all`'s shared-quit bookkeeping.
     def destroyed? : Bool

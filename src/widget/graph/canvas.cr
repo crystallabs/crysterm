@@ -5,16 +5,14 @@ require "../../widget_graph_painter"
 module Crysterm
   class Widget
     module Graph
-      # A backend-agnostic vector drawing surface — like blessed-contrib's
-      # braille `canvas`, but *not* tied to braille.
+      # A backend-agnostic vector drawing surface.
       #
       # Draw with a `Graph::Painter` (a `QPainter`-style API) inside an
       # `#on_paint` block; the result is rasterized into a `PNGGIF::Bitmap` and
       # displayed through whichever `Widget::Media` backend the terminal
       # supports — Kitty/Sixel/iTerm graphics where available, falling back to
-      # sub-cell Unicode glyphs (braille by default), then plain cells.
-      # Backend selection reuses `Media.resolve(Content::Painter)`, so the user's
-      # `image.backend` / `image.exclude` preferences apply as for images:
+      # sub-cell Unicode glyphs (braille by default), then plain cells. The
+      # user's `image.backend` / `image.exclude` preferences apply as for images:
       #
       # * `type:` forces a specific backend (e.g. `Media::Type::Glyph`, or a
       #   pinned variant like `Media::Type::GlyphBraille`).
@@ -24,8 +22,8 @@ module Crysterm
       #
       # The bitmap is sized to the chosen backend's *native* resolution, so a line
       # is crisp on every backend with no resampling. Drawing is in logical
-      # coordinates (see `Painter#set_window`), so the same paint code is
-      # resolution-independent across backends.
+      # coordinates, so the same paint code is resolution-independent across
+      # backends.
       #
       # ```
       # cv = Widget::Graph::Canvas.new parent: s, width: 40, height: 12,
@@ -43,10 +41,9 @@ module Crysterm
       # ![Canvas screenshot](../../../tests/widget/graph/canvas/canvas.5s.apng)
       # <!-- /widget-examples:capture -->
       class Canvas < Box
-        # The Media backend presenting the painted bitmap. Built in `#initialize`
-        # (after `super`, once the window is reachable for backend detection),
-        # so stored nilable but never `nil` post-construction. `device` raises
-        # if read before then; `device?` is the nilable variant.
+        # The Media backend presenting the painted bitmap. Nilable only until
+        # `#initialize` can reach the window for backend detection; never `nil`
+        # post-construction.
         getter! device : Media::Base
 
         # The glyph family used when the backend resolved to `Media::Glyph`
@@ -60,14 +57,10 @@ module Crysterm
         @bmp_w = 0
         @bmp_h = 0
 
-        # Whether the painted content is stale and must be re-rasterized. Set on
-        # `#refresh`, on `#on_paint` (re)assignment, and whenever the bitmap is
-        # (re)allocated in `#paint_frame` (first paint / resize). While clear,
-        # `#paint_frame` skips the whole raster→resample→encode pipeline (and the
-        # `device.bitmap=` that resets the backend's sample cache), so a static
-        # chart landing in an unrelated render doesn't repaint. Owning container
-        # widgets (`Donut`/`Map`/`LineChart`) call `#invalidate_paint` from their
-        # state mutators so a value/viewport/series change still repaints.
+        # Whether the painted content is stale and must be re-rasterized. While
+        # clear, painting skips the whole raster→resample→encode pipeline, so a
+        # static chart landing in an unrelated render doesn't repaint. Any state
+        # a paint callback reads must therefore invalidate this on change.
         @paint_dirty = true
 
         def initialize(
@@ -77,16 +70,14 @@ module Crysterm
         )
           super **box
 
-          # Resolve the backend like an image, then build it as a child that
-          # fills our interior and presents each painted frame. `Media.resolve`
-          # applies the `media.backend` pin (config / `CRYSTERM_MEDIA_BACKEND` /
-          # `--media-backend`) and `media.exclude` uniformly — no Canvas-specific
-          # backend logic, so the painter path can't drift from images/video.
+          # Resolve the backend like an image — going through `Media.resolve`
+          # applies the `media.backend` pin and `media.exclude` uniformly, so the
+          # painter path can't drift from images/video.
           resolved = type || Media.resolve(Media::Content::Painter, window?.try &.tput)
-          # Stretch to our *content* area, not `"100%"`: a string dimension is
-          # 100% of the parent's full size (border included), which would
-          # overrun the border. Leaving width/height unset with all four
-          # offsets at 0 makes auto-stretch subtract our insets instead.
+          # Stretch to the *content* area, not `"100%"`: a string dimension is
+          # 100% of the parent's full size, border included, which would overrun
+          # the border. Unset width/height with all four offsets at 0 makes
+          # auto-stretch subtract the insets instead.
           @device = Media.new(type: resolved, parent: self,
             top: 0, left: 0, right: 0, bottom: 0)
           @device.as?(Media::Glyph).try do |g|
@@ -97,8 +88,7 @@ module Crysterm
           end
 
           # Paint into the device's bitmap just before children render this
-          # frame. `PreRender` fires at the top of our own `_render`, ahead of
-          # the child render pass.
+          # frame; `PreRender` fires ahead of the child render pass.
           on(Crysterm::Event::PreRender) { paint_frame }
         end
 
@@ -115,18 +105,15 @@ module Crysterm
         end
 
         # Marks the painted content stale so the next render re-runs the paint
-        # callback, *without* itself scheduling a render. For a container widget
-        # that owns this Canvas and issues its own `request_render` (for a text
-        # overlay drawn atop the chart): it just needs the Canvas to repaint on
-        # that same frame. Cheaper than `#refresh` (no second render schedule),
-        # and leaves the container's damage/overlay behavior untouched.
+        # callback, *without* itself scheduling a render. For a container that
+        # owns this Canvas and issues its own `request_render`: it only needs the
+        # Canvas to repaint on that same frame.
         def invalidate_paint : Nil
           @paint_dirty = true
         end
 
         # Paints the current frame into the backend's bitmap at its native
-        # resolution. Runs from our `PreRender`, so the device child renders
-        # the fresh frame.
+        # resolution.
         private def paint_frame : Nil
           cols = awidth - ihorizontal
           rows = aheight - ivertical
@@ -146,10 +133,8 @@ module Crysterm
           end
 
           # Nothing changed since the last paint: the backend already holds this
-          # exact bitmap (with a valid sample cache), so skip re-rasterizing,
-          # re-sampling and re-encoding — and skip `dev.bitmap=`, which would
-          # needlessly drop that cache. `bmp` is guaranteed non-nil here (the
-          # branch above allocates when it was nil, and sets `@paint_dirty`).
+          # exact bitmap, so skip re-rasterizing, re-sampling and re-encoding —
+          # and skip `dev.bitmap=`, which would drop its sample cache.
           return unless @paint_dirty
           @paint_dirty = false
 

@@ -1,10 +1,7 @@
 module Crysterm
   # Shared `#to_layout_html : String` convenience over an `IO`-writing
-  # `#to_layout_html`. Both `Widget` and `Window` define their own writer
-  # overload (`Widget#to_layout_html(io, indent)`, `Window#to_layout_html(io)`);
-  # this gives each the identical `String.build` wrapper, resolved to the
-  # includer's own writer at call time, so the byte-identical convenience isn't
-  # duplicated in both classes.
+  # `#to_layout_html`, resolved to the includer's own writer overload at call
+  # time.
   module LayoutHtmlString
     def to_layout_html : String
       String.build { |io| to_layout_html io }
@@ -22,15 +19,14 @@ module Crysterm
   # The layout DOM (`#to_layout_html`) is a superset that carries enough state
   # to *reconstruct* a widget: its position/size, content, name, and any
   # per-widget reproducible state a subclass chooses to expose. Paired with the
-  # `DOM` loader (see `dom_loader.cr`), it lets a GUI's structure live in an
-  # `.html` file — structure + geometry in the HTML, appearance in the
-  # stylesheet (just like the web), with behavior wired up in code afterwards by
-  # looking widgets up via their `#css_id`.
+  # `DOM` loader, it lets a GUI's structure live in an `.html` file — structure
+  # and geometry in the HTML, appearance in the stylesheet, behavior wired up in
+  # code afterwards by looking widgets up via their `#css_id`.
   #
   # Two hooks make this extensible per widget, mirroring `#css_attributes`:
   #
   # * `#dom_attributes` — the construction state to serialize. Subclasses
-  #   override and `super.merge(...)` to add their own (see `dom_widgets.cr`).
+  #   override and `super.merge(...)` to add their own.
   # * `#dom_apply` — applies one parsed attribute back onto the widget.
   #   Subclasses override to handle their own keys, then fall through to `super`.
   class Widget
@@ -53,12 +49,10 @@ module Crysterm
       if n = name
         attrs["name"] = n unless n.empty?
       end
-      # Emit both booleans *explicitly* (never rely on a Widget-level default):
-      # a subclass may flip the default (e.g. `Table#wrap_content = false`,
-      # `Calendar#parse_tags = true`), so a one-sided emit ("only when true" /
-      # "only when false") would drop the attribute and let the subclass's
-      # constructor default win on reload — `snapshot -> load_layout` would not
-      # be a fixed point. `dom_coerce_bool` accepts both "true" and "false".
+      # Both booleans are emitted *explicitly*, never relying on a Widget-level
+      # default: a subclass may flip it, so a one-sided emit would drop the
+      # attribute and let the subclass's constructor default win on reload,
+      # making `snapshot -> load_layout` not a fixed point.
       attrs["parse-tags"] = parse_tags? ? "true" : "false"
       attrs["wrap-content"] = wrap_content? ? "true" : "false"
       c = content
@@ -77,7 +71,7 @@ module Crysterm
 
     # Applies a single parsed layout-DOM attribute back onto this widget.
     # Returns `true` if the key was recognized. Subclasses override to handle
-    # their own keys (see `dom_widgets.cr`) and delegate the rest via `super`.
+    # their own keys and delegate the rest via `super`.
     def dom_apply(key : String, value : String?) : Bool
       case key
       when "left"              then self.left = dom_coerce_dimension(value)
@@ -109,13 +103,10 @@ module Crysterm
       value.to_i? || value
     end
 
-    # Coerces a layout-DOM boolean attribute. Follows HTML boolean-attribute
-    # semantics: a present-but-valueless attribute (`<w-box parse-tags>`, which
-    # the serializer documents as "a bare boolean attribute" via a nil-valued
-    # entry) is `true`, as is `="true"`; only `="false"` (or any other explicit
-    # value) is `false`. Shared by the hand-written keys here and the generated
-    # bool branches in `dom_autoserialize.cr`, so bare attributes parse
-    # consistently everywhere.
+    # Coerces a layout-DOM boolean attribute, following HTML boolean-attribute
+    # semantics: a present-but-valueless attribute (`<w-box parse-tags>`) is
+    # `true`, as is `="true"`; only `="false"` — or any other explicit value —
+    # is `false`.
     protected def dom_coerce_bool(value : String?) : Bool
       value.nil? || value.empty? || value == "true"
     end
@@ -137,12 +128,10 @@ module Crysterm
         io << ' ' << key
         value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
       end
-      # Item views reconstruct their rows from serialized state (e.g. `List`'s
-      # `items=` attribute), not from child nodes: their `children` *are* the
-      # backing item boxes (`Mixin::ItemView#add_item` pushes each into the
-      # real children). Emitting them as `<w-box>` children would duplicate the
-      # rows on load — once via the attribute, once as re-appended boxes — so an
-      # item view serializes as childless.
+      # Item views reconstruct their rows from serialized state, not from child
+      # nodes: their `children` *are* the backing item boxes. Emitting those as
+      # `<w-box>` children would duplicate the rows on load — once via the
+      # attribute, once as re-appended boxes — so an item view is childless here.
       if children.empty? || is_a?(Mixin::ItemView)
         io << "></" << tag << ">\n"
       else

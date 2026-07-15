@@ -5,8 +5,7 @@ module Crysterm
     # Horizontal box layout (cf. Qt's `QHBoxLayout`). Lays children out
     # left-to-right; children without an explicit `width` share the leftover
     # space by their `grow` factor, and (with the default `align: Stretch`)
-    # those without an explicit `height` fill the interior height. See
-    # `Layout::Box`.
+    # those without an explicit `height` fill the interior height.
     #
     # <!-- widget-examples:capture v1 -->
     # ![HBox screenshot](../../tests/layout/hbox/hbox.5s.apng)

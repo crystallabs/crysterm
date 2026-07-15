@@ -21,11 +21,9 @@ module Crysterm
         )
           super **layout, style: style, width: w, height: h
 
-          # Give the child its own `Style` copy: a shared instance means a
-          # visibility/state change on one bleeds onto the other, so
-          # hiding/showing the bar would flip the child's `visible` flag and
-          # never restore it. Mirrors `Widget::ToolBox`, which dups child
-          # styles for the same reason.
+          # The child needs its own `Style` copy: a shared instance would let a
+          # visibility/state change on one bleed onto the other, so hiding the bar
+          # would flip the child's `visible` flag and never restore it.
           @status = Widget::Box.new(
             height: h,
             width: "100%",

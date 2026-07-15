@@ -12,9 +12,6 @@ module Crysterm
     # previous); the active title is highlighted, none when no menu is open.
     # Escape, an outside click, or activating a leaf closes the menu.
     #
-    # Built on `Mixin::ActionBar` (layout, keyboard navigation, hotkeys) and
-    # `Menu` (the pop-ups).
-    #
     # ```
     # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # file = bar.add_menu "File"
@@ -47,15 +44,14 @@ module Crysterm
         # Titles pack flush (only trailing the last title); each keeps its own side padding.
         @item_gap = 0
 
-        # Keep highlight on the open menu regardless of bar focus — the action bar
-        # would otherwise re-light its own selected item.
+        # Keep the highlight on the open menu regardless of bar focus; the action
+        # bar would otherwise re-light its own selected item.
         on(::Crysterm::Event::Focus) { sync_highlight }
         on(::Crysterm::Event::Blur) { sync_highlight }
 
         # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
-        # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action shortcuts).
-        # On a cross-window reparent the pop-up menus (children of the *old*
-        # window) migrate first, so they open on the window the bar now lives on.
+        # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action
+        # shortcuts). Menus must be rehomed first, so they open on the bar's window.
         on(::Crysterm::Event::Attach) do
           rehome_menus
           install_menu_shortcuts
@@ -71,11 +67,10 @@ module Crysterm
       def add_menu(title : String, actions : Array(Action) = [] of Action) : Menu
         # `parent: window` appends the pop-up to the render tree so it actually
         # draws (a bare `window:` would leave it visible-flagged but undrawn).
-        # Border/look come from the theme (`Menu { ... }`) unless `@menu_style` is set.
         menu = Menu.new(parent: window, style: @menu_style)
         actions.each { |a| menu << a }
-        # Bar is normally already attached here, so wire accelerators now;
-        # `install_menu_shortcuts` re-covers them on a later re-attach.
+        # The bar is normally already attached, so wire accelerators now; a later
+        # re-attach re-covers them.
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
@@ -84,14 +79,11 @@ module Crysterm
         menu.treat_as_inside { |x, y| grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
         # Actions added *after* this call (`file.add action` on an attached bar)
-        # must get their accelerators too: the menu emits `SetItems` on every
-        # structural change (`Menu#<<`/`#remove_action`/`#add…` → `sync_items`), so re-run
-        # the idempotent install then. Without this, a shortcut added post
-        # `add_menu` stayed silently dead until a detach/re-attach. Scope the
-        # (re)install to the changed menu — `SetItems` fires per-add while a bar
-        # is built, so re-walking *every* menu's actions each time is ~O((M·A)²);
-        # each other menu's shortcuts are already installed and the per-`Subscription`
-        # registration is idempotent, so the final state is identical.
+        # need their accelerators too: the menu emits `SetItems` on every
+        # structural change, so re-run the idempotent install then. Scope it to
+        # the changed menu — `SetItems` fires per-add while a bar is built, so
+        # re-walking *every* menu's actions each time is ~O((M·A)²) for an
+        # identical final state.
         menu.on(::Crysterm::Event::SetItems) { install_menu_shortcuts menu }
         # Close the menu when it loses focus to something outside the bar's world
         # (mouse-click dismissal is handled separately by `Menu#popup`'s
@@ -121,8 +113,7 @@ module Crysterm
         @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
       end
 
-      # :ditto: — for a single *menu* only. `Event::SetItems` fires per structural
-      # change and knows which menu changed, so only its actions need re-covering.
+      # :ditto: — for a single *menu* only.
       private def install_menu_shortcuts(menu : Menu) : Nil
         w = window? || return
         visit_actions(menu, &.install_shortcut(w, self))
@@ -137,8 +128,8 @@ module Crysterm
 
       # Moves any pop-up menu still hosted on a previous window over to the
       # bar's current one (safe while closed — the menus are hidden window
-      # children). Without this, a bar reparented cross-window opened its
-      # menus (and took their modal grab) on the OLD window.
+      # children), so a cross-window reparent doesn't leave the menus opening
+      # (and taking their modal grab) on the old window.
       private def rehome_menus : Nil
         w = window? || return
         @menus.each do |m|
@@ -165,7 +156,7 @@ module Crysterm
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
         @open_index = i = i.to_i
         # Move the bar's current item to match, so hover-switching also carries
-        # the keyboard cursor. `select_index` re-imposes the open-menu highlight below.
+        # the keyboard cursor.
         select_index i
         menu.popup title_x(i), menu_y
       end
@@ -195,8 +186,8 @@ module Crysterm
         super
       end
 
-      # Switches to the menu *dir* away (wrapping), used by the open menu's
-      # `Menu#on_navigate` for Left/Right.
+      # Switches to the menu *dir* away (wrapping), as Left/Right does with a
+      # menu open.
       private def switch_relative(dir : Int32) : Nil
         return unless oi = @open_index
         n = @menus.size
@@ -238,10 +229,9 @@ module Crysterm
       end
 
       # Title highlight tracks the *open* menu, not the action bar's raw
-      # selection. `Mixin::ActionBar#trigger` re-`select_index`s the clicked item after
-      # our toggle callback runs, so a click that closed the menu would otherwise
-      # leave its title lit — the shared `#reapply_highlight` scaffold re-imposes
-      # the open-menu highlight through this predicate.
+      # selection: `ActionBar#trigger` re-`select_index`s the clicked item after
+      # the toggle callback runs, so a click that closed the menu would otherwise
+      # leave its title lit.
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
         index == @open_index
       end
@@ -254,11 +244,10 @@ module Crysterm
 
       # The pop-up menus are window children, so tear them down with the bar.
       def destroy
-        # Withdraw the accelerators NOW, while `@menus` is still populated: the
-        # `Detach` emitted during `super`'s teardown runs the uninstall handler
-        # over an already-cleared collection, leaving every action's shortcut
-        # registered on the window forever (firing against the torn-down UI and
-        # pinning the actions alive).
+        # Must happen while `@menus` is still populated: the `Detach` emitted
+        # during `super`'s teardown runs the uninstall handler over an
+        # already-cleared collection, leaving every action's shortcut registered
+        # on the window forever.
         uninstall_menu_shortcuts window?
         @menus.each { |m| Widget.destroy_satellite m }
         @menus.clear

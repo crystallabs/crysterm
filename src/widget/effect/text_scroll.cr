@@ -4,22 +4,15 @@ require "../../colors"
 module Crysterm
   class Widget
     module Effect
-      # Shared substrate for the horizontally-looping rainbow text scrollers —
-      # `Widget::Marquee` (flat, single-row) and `Effect::SineScroller` (the same
-      # message composited across the full height on a sine wave).
+      # Shared substrate for the horizontally-looping rainbow text scrollers.
       #
-      # Both decompose the message into a `@chars` buffer once, loop it modulo its
-      # own length (trailing spaces become the inter-repeat gap), advance one
-      # column per `#step`, and optionally tint each glyph with a cycling hue.
-      # This mixin owns that common machinery — the character buffer, the
-      # scroll-index/glyph lookup, the rainbow hue properties and per-column
-      # tint, the frame clock, and the self-driven animation loop (`Animated`).
-      # The including widget keeps only its distinct `#render` compositing (and
-      # its own `text=` repaint policy).
+      # The message is decomposed into a `@chars` buffer once and looped modulo
+      # its own length (trailing spaces become the inter-repeat gap), advancing
+      # one column per `#step`, optionally tinting each glyph with a cycling hue.
+      # The including widget supplies its own `#render` compositing and `text=`
+      # repaint policy.
       module TextScroll
         # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
-        # `#step` below supplies the per-frame state work; the including widget's
-        # `#render` reads `@frame`.
         include Animated
 
         # The message scrolled across the widget. Reassigning it is safe at any
@@ -32,7 +25,7 @@ module Crysterm
         # make a frame O(w·n); this cache is rebuilt only when `text` changes.
         @chars : Array(Char) = [] of Char
 
-        # Direction the text travels (shared enum, defined on `Marquee`).
+        # Direction the text travels.
         property direction : Marquee::Direction = Marquee::Direction::Left
 
         # When true, each non-space glyph is tinted with a cycling hue instead of
@@ -49,12 +42,12 @@ module Crysterm
         # realistic runtime; indexing uses a (sign-safe) modulo of `text.size`.
         @frame : Int64 = 0_i64
 
-        # Advance one column. Painting happens in the including widget's `#render`
-        # (state-only, like `CopperBar#step`), which reads `@frame` — so an
-        # external master clock can call `step` then trigger a single render.
+        # Advance one column. State only — painting happens in the including
+        # widget's `#render`, so an external master clock can call `step` and then
+        # trigger a single render.
         def step
           @frame += 1
-          mark_dirty # repaint under damage tracking
+          mark_dirty
         end
 
         # The glyph shown in column *x* at frame *f* for a message of length *n*.

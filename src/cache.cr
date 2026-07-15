@@ -2,23 +2,21 @@ module Crysterm
   # Central home for Crysterm's caches.
   #
   # Crysterm memoizes many computed results (loaded fonts, converted colors,
-  # decoded images, per-widget layout/attr memos, …). This module provides the
-  # shared machinery for that — a bounded, self-evicting cache type
-  # (`Cache::Bounded`) and a registry that makes every *process-wide* cache
-  # introspectable and clearable from one place — plus the single catalog of
-  # size caps (below), so tuning any cache means editing this file.
+  # decoded images, per-widget layout/attr memos, …). This module holds the shared
+  # machinery: a bounded, self-evicting cache type (`Cache::Bounded`), a registry
+  # making every *process-wide* cache introspectable and clearable from one place,
+  # and the catalog of size caps below.
   #
   # ## What lives here vs. what stays put
   #
-  # * **Process-wide caches** (shared across the whole run — fonts, color
-  #   conversions, image decodes) are *defined* here as module-level instances
-  #   and register themselves, so `Cache.stats` / `Cache.clear_all` see them.
-  # * **Per-instance caches** (a memo tied to one widget/painter/document) must
-  #   stay with their instance — their whole correctness model is that they live,
-  #   invalidate, and die with that instance. They can still opt into
-  #   `Cache::Bounded` for a size cap (reading their cap from a `*_CAPACITY`
-  #   constant here), but they do **not** register globally: tracking thousands
-  #   of short-lived instance caches in a process-global list would leak them.
+  # * **Process-wide caches** (fonts, color conversions, image decodes) are
+  #   *defined* here as module-level instances and register themselves, so
+  #   `Cache.stats` / `Cache.clear_all` see them.
+  # * **Per-instance caches** (a memo tied to one widget/painter/document) stay
+  #   with their instance — they must live, invalidate and die with it. They may
+  #   still use `Cache::Bounded` for a size cap (reading a `*_CAPACITY` constant
+  #   here), but must **not** register globally: tracking thousands of short-lived
+  #   instance caches in a process-global list would leak them.
   #
   # ## Catalog of caps
   #
@@ -27,7 +25,7 @@ module Crysterm
   module Cache
     # -- Capacity catalog ------------------------------------------------------
     #
-    # Process-wide caches (defined in this file):
+    # Process-wide caches:
 
     # `Font.load` — loaded bitmap faces, keyed by path+weight. A handful at most.
     FONT_CAPACITY = 64
@@ -60,8 +58,7 @@ module Crysterm
 
     # `Widget::Menu#item_on_surface` — source `Style` → surface-filled copy,
     # keyed by object identity. Bounded by the menu's item count and dropped on
-    # every cascade/`bg` change; the cap is a generous ceiling it should never
-    # reach in practice.
+    # every cascade/`bg` change; the cap is a generous ceiling.
     MENU_SURFACE_CAPACITY = 512
 
     # `Widget::ListTable` CSS-row derived styles (`css_without_border` /
@@ -72,9 +69,8 @@ module Crysterm
 
     # -- Registry --------------------------------------------------------------
 
-    # The introspectable interface a registered cache exposes. Any cache that
-    # registers (see `Bounded.new(register: true)`) can be enumerated, sized,
-    # and cleared through `Cache`.
+    # The introspectable interface a registered cache exposes: it can be
+    # enumerated, sized and cleared through `Cache`.
     module Registered
       abstract def cache_name : String
       abstract def size : Int32
@@ -122,13 +118,11 @@ module Crysterm
     #   for negative caching). This differs from `Hash#fetch`, which does *not*
     #   store.
     #
-    # Eviction is FIFO by default because most memo caches are small and hot:
-    # FIFO keeps reads as pure `Hash` lookups (no reordering), preserving
-    # hot-path performance. Pass `lru: true` when recency-of-use should decide
-    # what survives (e.g. an image decode cache) and the read cost is affordable.
+    # FIFO is the default because it keeps reads as pure `Hash` lookups, with no
+    # reordering. Pass `lru: true` when recency-of-use should decide what survives
+    # (e.g. an image decode cache) and the read cost is affordable.
     #
-    # Not thread-safe, matching the plain hashes it replaces — Crysterm's caches
-    # are touched from the single event loop.
+    # Not thread-safe: Crysterm's caches are touched from the single event loop.
     class Bounded(K, V)
       include Registered
 
@@ -168,11 +162,10 @@ module Crysterm
       # The value for *key*, or `nil` if absent. In `lru` mode a hit is promoted
       # to most-recently-used.
       def []?(key : K) : V?
-        # FIFO mode has no reorder-on-read side effect, and both an absent key
-        # and a cached `nil` return `nil` here, so a single `[]?` is observably
-        # identical to `has_key?` + `touch` — one hash lookup instead of two.
-        # LRU must promote on a hit (and so must distinguish a cached `nil` from
-        # absence to know whether to reorder), so it keeps the two-step path.
+        # FIFO has no reorder-on-read, and an absent key and a cached `nil` both
+        # return `nil`, so one `[]?` is observably identical to `has_key?` +
+        # `touch` at half the lookups. LRU must promote on a hit — and so must
+        # tell a cached `nil` from absence — and keeps the two-step path.
         if @lru
           return nil unless @store.has_key? key
           touch key

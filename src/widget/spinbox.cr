@@ -44,9 +44,6 @@ module Crysterm
       end
 
       # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
-      # Spelled here so the spin boxes and the text editors
-      # (`Mixin::TextEditing#read_only?`) name the same concept the same way;
-      # they had it at opposite polarity under different names.
       def read_only? : Bool
         !editable?
       end

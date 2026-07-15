@@ -38,8 +38,7 @@ module Crysterm
       bg0 = rgb(default_bg)
       canvas = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, bg0) }
 
-      # Text cells from the rendered buffer. The region walk is shared with
-      # `Dump.text` via `Window#each_content_cell`; here each cell is rasterized.
+      # Text cells from the rendered buffer.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width
@@ -67,7 +66,7 @@ module Crysterm
     end
 
     # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the format ffmpeg
-    # ingests as `-f rawvideo -pixel_format rgba`. The per-frame payload for an
+    # ingests as `-f rawvideo -pixel_format rgba` — the per-frame payload for an
     # `ffmpeg` stdin stream.
     def self.rgba(bmp : PNGGIF::Bitmap) : Bytes
       h = bmp.size
@@ -89,8 +88,7 @@ module Crysterm
     # Builds the `ffmpeg` argv that reads rawvideo (rgba, *vw*×*vh*, at *fps*) from
     # stdin and encodes it to format *fmt*, writing to *path* or to stdout
     # (`pipe:1`, which needs an explicit `-f`). *loops* sets the gif/apng loop
-    # count (0 = infinite). *extra* is appended verbatim. Used by `Window#capture`
-    # for every non-PNG / animated output; still PNG is encoded in-process.
+    # count (0 = infinite). *extra* is appended verbatim.
     def self.ffmpeg_args(vw : Int32, vh : Int32, fps : Int32, fmt : String,
                          path : String?, loops : Int32, extra : Array(String)?) : Array(String)
       a = ["-hide_banner", "-loglevel", "error", "-y",
@@ -159,11 +157,9 @@ module Crysterm
         span.times { |gx| row[px + gx] = bgpx }
       end
 
-      # Foreground marks — the glyph AND the line decorations — are all painted
-      # in the cell's foreground color, so INVISIBLE (concealed) must suppress
-      # every one of them. Gating only the glyph left a concealed cell's
-      # underline/strikethrough drawn, revealing the hidden text's presence and
-      # width (e.g. a masked password field), so they share the guard.
+      # INVISIBLE (concealed) must suppress every foreground mark, not just the
+      # glyph: a drawn underline/strikethrough would reveal the hidden text's
+      # presence and width (e.g. a masked password field).
       if (flags & Attr::INVISIBLE) == 0
         glyph = ((flags & Attr::BOLD) != 0 ? bold_font : font).glyph(cell.char.to_s)
         gh = Math.min(ch, glyph.size)
@@ -227,12 +223,11 @@ module Crysterm
 
     private def self.collect_graphics(node, acc : Array(Widget::Media::Base)) : Nil
       node.children.each do |child|
-        # A hidden subtree isn't shown by the terminal, so it must not appear in
-        # a capture. `capture_layer` guards a graphics widget's own `visible?`
-        # flag but not its ancestors': a widget inside a hidden container
-        # (non-current tab page, hidden parent) is flag-visible yet off-window.
-        # Pruning the walk at any hidden node drops the whole subtree, matching
-        # `displayed_in_tree?` used by hit-testing and focus traversal.
+        # A hidden subtree isn't shown by the terminal, so it must not appear in a
+        # capture. `capture_layer` guards a graphics widget's own `visible?` flag
+        # but not its ancestors': a widget inside a hidden container (non-current
+        # tab page, hidden parent) is flag-visible yet off-window. Pruning the
+        # walk at any hidden node drops the whole subtree.
         next unless child.visible?
         acc << child if child.is_a?(Widget::Media::Base) && child.capture_pixels?
         collect_graphics child, acc

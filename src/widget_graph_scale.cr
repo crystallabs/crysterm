@@ -19,11 +19,9 @@ module Crysterm
         # Number of filled eighth-cells (`0 .. cells*8`) representing `value` on
         # a `[min, max]` scale that spans `cells` whole character cells.
         def self.eighths(value : Float64, min : Float64, max : Float64, cells : Int32) : Int32
-          # A non-finite value (NaN from a `0/0` data point, or Infinity)
-          # survives `clamp` (all NaN comparisons are false, so `clamp` returns
-          # NaN) and `NaN.round.to_i` raises `OverflowError`, crashing the render
-          # — same crash mode `Scale.fmt` guards against below. Render a
-          # non-finite datum as an empty column (0 filled eighths) instead.
+          # A non-finite value (NaN from a `0/0` data point, or Infinity) survives
+          # `clamp` — all NaN comparisons are false — and `NaN.round.to_i` raises
+          # `OverflowError`, crashing the render. Render it as an empty column.
           return 0 unless value.finite?
           range = max - min
           range = 1.0 if range <= 0.0
@@ -45,11 +43,11 @@ module Crysterm
           HORIZONTAL[(filled_eighths - left_cells * 8).clamp(0, 8)]
         end
 
-        # `hglyph`/`vglyph` over an arbitrary fill *ramp* (empty → full steps —
-        # a CSS `glyphs:` override or a registry sequence, see GLYPHS.md §3.4).
-        # The cell's fill (its eighths, relative to `offset_cells` whole cells
-        # before it) maps onto the ramp's steps: a 9-step ramp indexes 1:1
-        # (the classic eighth blocks), other lengths scale proportionally.
+        # `hglyph`/`vglyph` over an arbitrary fill *ramp* (empty → full steps — a
+        # CSS `glyphs:` override or a registry sequence). The cell's fill (its
+        # eighths, relative to `offset_cells` whole cells before it) maps onto the
+        # ramp's steps: a 9-step ramp indexes 1:1 (the classic eighth blocks),
+        # other lengths scale proportionally.
         def self.ramp_glyph(ramp : Array(Char), filled_eighths : Int32, offset_cells : Int32) : Char
           eighths = (filled_eighths - offset_cells * 8).clamp(0, 8)
           last = ramp.size - 1
@@ -80,8 +78,8 @@ module Crysterm
         end
 
         # Centers `text` within a field of `width` cells (truncating if longer),
-        # padding with spaces. Used to place value/category labels under bars.
-        # Returns a new `String`; prefer `#center_to` on the render path.
+        # padding with spaces. Returns a new `String`; prefer `#center_to` on the
+        # render path.
         def self.center(text : String, width : Int32, full_unicode : Bool = false) : String
           String.build { |io| center_to io, text, width, full_unicode }
         end
@@ -93,11 +91,8 @@ module Crysterm
         #
         # When *full_unicode* is true the field is measured and truncated in
         # terminal DISPLAY columns (wide CJK/emoji graphemes count as 2, and
-        # graphemes are never split), matching how the plot rows above are laid
-        # out — mirroring `TableLayout#pad_cell_to`'s clip path. Otherwise the
-        # legacy codepoint sizing (`text.size` / `text[0, width]`) is kept. This
-        # is a module class method with no widget receiver, so the flag is passed
-        # in by the caller (e.g. `BarChart#field_line` threads `full_unicode?`).
+        # graphemes are never split), matching how the plot rows are laid out.
+        # Otherwise codepoint sizing (`text.size` / `text[0, width]`) applies.
         def self.center_to(io : IO, text : String, width : Int32, full_unicode : Bool = false) : Nil
           return if width <= 0
           tw = full_unicode ? Unicode.display_width(text) : text.size
@@ -126,9 +121,8 @@ module Crysterm
           # A non-finite value (Infinity from a divide-by-zero / `log(0)` in the
           # plotted data, or NaN) has `v == v.round`, so the whole-number branch
           # would call `Infinity.to_i64` — an `OverflowError` that crashes the
-          # render. A *finite* whole value beyond Int64 (≥ ~9.22e18, e.g. a
-          # HeatMap fed `1e19`) overflows `to_i64` just the same. Render both
-          # as their plain string ("Infinity"/"NaN"/"1.0e+19") instead.
+          # render. A *finite* whole value beyond Int64 (≥ ~9.22e18) overflows it
+          # just the same. Render both as their plain string.
           return v.to_s unless v.finite? && v.abs < 9.2e18
           v == v.round ? v.to_i64.to_s : v.round(1).to_s
         end
@@ -140,8 +134,7 @@ module Crysterm
       module InteriorCoords
         # The interior content rectangle `{xi, xl, yi, yl}` for the current frame,
         # inset by both padding *and* border (the base `with_inner_coords` insets
-        # by border only), or `nil` when the widget isn't positioned yet
-        # (`@lpos` unset). Callers early-return via `... || return`.
+        # by border only), or `nil` when the widget isn't positioned yet.
         private def interior_coords : Tuple(Int32, Int32, Int32, Int32)?
           lp = @lpos || return nil
           {lp.xi + ileft, lp.xl - iright, lp.yi + itop, lp.yl - ibottom}
@@ -159,21 +152,18 @@ module Crysterm
         @data_version = 0
 
         # The last built tagged-content string and the `{cols, rows, version}` key
-        # it was built for. When nothing that affects the plot has changed since
-        # the last frame, `#render` reuses the string instead of rebuilding it
-        # (per-row char/string arrays, `String.build` per row, the final join).
+        # it was built for. When nothing affecting the plot changed since the last
+        # frame, `#render` reuses the string instead of rebuilding it.
         @content_cache : String?
         @content_cache_key : Tuple(Int32, Int32, Int32)?
 
-        # Invalidate the built-content cache. Called from `values=` and each
-        # decoration setter (see `Bar`/`StackedBar`).
+        # Invalidate the built-content cache.
         protected def bump_data_version : Nil
           @data_version &+= 1
         end
 
         # A getter plus a setter that also bumps the content-cache version, so a
-        # decoration change invalidates the per-frame build cache. Declared here
-        # so the including bar charts (`Bar`/`StackedBar`) share one definition.
+        # decoration change invalidates the per-frame build cache.
         macro chart_prop(name, type)
           getter {{name.id}} : {{type}}
 
@@ -211,11 +201,9 @@ module Crysterm
         # color so coalesced color runs stay tight.
         #
         # Streams straight into the caller's builder so `#build_content` composes
-        # the whole widget in one `String.build` — no per-row scratch `String`
-        # and no final `Array#join` (a live chart rebuilds every row per data
-        # push). Also avoids the two per-row scratch `Array`s the
-        # `Scale.tagged_row` path materializes first. Output is byte-identical to
-        # feeding `tagged_row` the equivalent cells/colors.
+        # the whole widget in one `String.build`: no per-row scratch `String`, no
+        # final `Array#join`, and none of the scratch `Array`s `Scale.tagged_row`
+        # materializes. Output is byte-identical to `tagged_row`'s.
         private def plot_row(io : IO, n : Int32, & : Int32 -> {Char, String?}) : Nil
           open_color : String? = nil
           n.times do |i|

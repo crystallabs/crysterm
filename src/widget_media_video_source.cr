@@ -17,9 +17,9 @@ module Crysterm
     #   constant memory regardless of length, fast first paint, re-decodes on
     #   loop. Best for long videos that can't fit in memory.
     #
-    # `auto` picks streaming when the estimated frame count exceeds
-    # `video.max_frames`, else eager. Nothing here raises: failures yield `nil`
-    # and the caller falls back to its usual "could not load" state.
+    # `auto` streams when the estimated frame count exceeds `video.max_frames`,
+    # else eager. Nothing here raises: failures yield `nil` and the caller falls
+    # back to its usual "could not load" state.
     module Media::VideoSource
       extend self
 
@@ -100,14 +100,12 @@ module Crysterm
 
         # Two preallocated bitmaps ping-ponged by `#read_ppong`, so a streamed
         # frame overwrites pixels in place (`PNGGIF::Pixel` is a value struct, so
-        # reassigning a row slot mutates the stored pixel with no allocation)
-        # instead of building a fresh `h`-array-of-`w`-arrays bitmap every tick.
-        # Two (not one) keep the downstream identity checks — `FrameMemo`'s
-        # `entry[0].same?(bmp)` and the graphics per-frame payload cache — seeing
-        # each frame as new content (consecutive frames are distinct objects),
-        # while `invalidate_frame(0)` still clears the caches. Allocated lazily on
-        # first use, reused for the stream's whole life (dimensions are fixed at
-        # construction, but `#read_ppong` reallocates if @w/@h ever change).
+        # reassigning a row slot allocates nothing) instead of building a fresh
+        # `h`-array-of-`w`-arrays bitmap every tick. Two, not one, so consecutive
+        # frames stay distinct objects and the downstream identity checks
+        # (`FrameMemo`'s `entry[0].same?(bmp)`, the graphics per-frame payload
+        # cache) still see each frame as new content. Allocated lazily and reused
+        # for the stream's life.
         @ppong_a : PNGGIF::Bitmap?
         @ppong_b : PNGGIF::Bitmap?
         @ppong_toggle = false
@@ -200,10 +198,8 @@ module Crysterm
         end
 
         # Decodes the just-read `@buf` into one of the two ping-pong bitmaps,
-        # overwriting its pixels in place, and alternates which buffer is used so
-        # consecutive returned frames are distinct objects (see the ivar note).
-        # The buffers are allocated lazily and reused for the stream's life;
-        # they're reallocated only if @w/@h somehow change after construction.
+        # overwriting its pixels in place and alternating buffers so consecutive
+        # frames are distinct objects (see the ivar note).
         private def read_ppong : PNGGIF::Bitmap
           @ppong_toggle = !@ppong_toggle
           bmp =
@@ -212,8 +208,8 @@ module Crysterm
             else
               @ppong_b ||= VideoSource.blank_bitmap(@w, @h)
             end
-          # Guard against a dimension change: if the cached buffer no longer
-          # matches @w×@h, replace it (keeps the in-place fill valid).
+          # Replace a cached buffer that no longer matches @w×@h, keeping the
+          # in-place fill valid.
           if bmp.size != @h || (bmp[0]?.try(&.size) || 0) != @w
             bmp = VideoSource.blank_bitmap(@w, @h)
             @ppong_toggle ? (@ppong_a = bmp) : (@ppong_b = bmp)
@@ -370,8 +366,7 @@ module Crysterm
         bmp.map(&.dup)
       end
 
-      # Decodes the RGBA quad at byte offset *i* of *buf* into a pixel. Shared by
-      # `#to_bitmap` (fresh alloc) and `#fill_bitmap` (in-place reuse).
+      # Decodes the RGBA quad at byte offset *i* of *buf* into a pixel.
       @[AlwaysInline]
       private def pixel_at(buf : Bytes, i : Int32) : PNGGIF::Pixel
         PNGGIF::Pixel.new(buf[i].to_i, buf[i + 1].to_i, buf[i + 2].to_i, buf[i + 3].to_i)

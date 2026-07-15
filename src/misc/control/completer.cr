@@ -66,15 +66,13 @@ module Crysterm
       # Moving the pointer onto a row highlights it (box keeps focus, so the
       # list gets these as hover, not key, events).
       @hover_select = true
-      # The wheel scrolls the viewport under a stationary pointer (see
-      # `Mixin::ItemView#wheel_scroll`), agreeing with hover-select rather than
-      # fighting it.
+      # The wheel scrolls the viewport under a stationary pointer, agreeing with
+      # hover-select rather than fighting it.
       @wheel_mode = Mixin::ItemView::WheelMode::ScrollViewUnderPointer
-      # The drop-down never takes focus — the box keeps it the whole time (so
-      # typing keeps filtering). Otherwise a wheel/click over the popup would
-      # auto-focus it (`Window#dispatch_mouse` focuses the topmost focusable
-      # widget under a wheel/press), blurring the box, which the completer
-      # treats as "focus left" and closes the popup.
+      # The drop-down never takes focus — the box keeps it the whole time, so
+      # typing keeps filtering. Otherwise a wheel/click over the popup would
+      # auto-focus it, blurring the box, which the completer treats as "focus
+      # left" and closes the popup.
       @focus_on_click = false
 
       property completer : Completer?
@@ -105,18 +103,17 @@ module Crysterm
         up
       end
 
-      # Arrow-key movement (via `cursor_down`/`cursor_up`) funnels through here so
-      # each keypress steps exactly one row: the base `move` would step by the raw
-      # offset, skipping rows; `selected=` avoids recursing back into `move`. The
-      # wheel does *not* come through here — it has its own `#wheel_scroll`.
+      # Arrow-key movement funnels through here so each keypress steps exactly one
+      # row: the base `move` would step by the raw offset, skipping rows, and
+      # `selected=` avoids recursing back into `move`. The wheel does *not* come
+      # through here — it has its own `#wheel_scroll`.
       def move(offset) : Nil
         return if offset == 0
         self.selected = @selected + (offset > 0 ? 1 : -1)
       end
 
-      # The drop-down's auto-created scrollbar (appears once the match set
-      # overflows `max_visible_items`) must not steal focus either — same reason as
-      # `@focus_on_click = false` above.
+      # The drop-down's auto-created scrollbar must not steal focus either — same
+      # reason as `@focus_on_click = false` above.
       private def bind_scrollbar(sb : Widget::ScrollBar) : Widget::ScrollBar
         sb.focus_on_click = false
         super
@@ -141,13 +138,11 @@ module Crysterm
     # in `#detach`. Each `Subscription` captures the box, so teardown reaches it
     # without re-fetching `@widget` (which `#detach` may already have nilled).
     @subs = Crysterm::Subscriptions.new
-    # The per-keystroke filter, re-armed at the tail on every focus (a `Subscription`
-    # so re-arming cancels the previous one — see `#install_filter`).
+    # The per-keystroke filter, re-armed at the tail on every focus. A
+    # `Subscription`, so re-arming cancels the previous one.
     @filter = Crysterm::Subscription.new
     # "Click-away to dismiss" lifecycle, live only while the drop-down is open.
-    # A shared `Overlay::DismissSession` with *no* grab (grab_owner: nil) — the
-    # box must keep reacting to keystrokes — replacing hand-rolled
-    # `on_press_outside`/`off` bookkeeping. Same object `Mixin::Popup`/`Menu` use.
+    # Takes no modal grab — the box must keep reacting to keystrokes.
     @dismiss : Crysterm::Overlay::DismissSession?
     # Set when the intercept handler has consumed a key, so the filter handler
     # skips that same keypress.
@@ -170,12 +165,11 @@ module Crysterm
         handle_intercept e
       end
 
-      # (Re)install the filter at the tail on *every* focus, not just the first.
-      # The box re-registers its own input handler each time it (re)enters read
-      # mode (`#read_input`), appending it after our filter — so a once-installed
-      # filter would, from the second focus on, run before the box updates
-      # `#value` and miss the keystroke. Re-appending on each focus keeps the
-      # filter last.
+      # The filter must be (re)installed at the tail on *every* focus, not just
+      # the first: the box re-registers its own input handler each time it
+      # re-enters read mode, appending it after ours, so a once-installed filter
+      # would from the second focus on run before the box updates `#value` and
+      # miss the keystroke.
       @subs.on(widget, Crysterm::Event::Focus) { install_filter widget }
       install_filter widget if widget.focused?
 
@@ -189,10 +183,9 @@ module Crysterm
       # Don't leave an orphaned popup behind when focus leaves the box.
       @subs.on(widget, Crysterm::Event::Blur) { close }
 
-      # Tear down with the box: the popup is a *window* child, so destroying
-      # the box alone would leave it in the window's children forever (and the
-      # completer referencing a dead widget). ComboBox/DateEdit destroy their
-      # popups in `#destroy`; this is the non-widget equivalent.
+      # Tear down with the box: the popup is a *window* child, so destroying the
+      # box alone would leave it in the window's children forever, with the
+      # completer referencing a dead widget.
       @subs.on(widget, Crysterm::Event::Destroy) { detach }
     end
 
@@ -390,11 +383,10 @@ module Crysterm
           overflow: Crysterm::Overflow::MoveWidget,
         )
         pop.completer = self
-        # The wheel scrolls the list while it's open (box keeps focus, so the list
-        # won't get these as key events). A wheel over a *row* is handled by the
-        # per-item handler `List` installs (routed through `Popup#wheel_scroll`);
-        # this handler covers a wheel over the popup's border/padding, going
-        # through the same `#wheel_scroll` so both behave identically.
+        # The wheel scrolls the list while it's open. A wheel over a *row* is
+        # handled by `List`'s per-item handler; this covers a wheel over the
+        # popup's border/padding, going through the same `#wheel_scroll` so both
+        # behave identically.
         pop.on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
             pop.wheel_scroll 1; e.accept; pop.request_render
@@ -415,11 +407,8 @@ module Crysterm
       w = Math.max(widget.awidth, 8)
       pop.width = w
       # Prefer directly below the field; flip above only when the list can't fit
-      # below (a field near the bottom of the screen). `Overlay.place_child` owns
-      # the fit choice, the on-window clamp, and the single absolute→window-local
-      # inset conversion (the popup is a window-appended child whose `left`/`top`
-      # are relative to the window content origin, so a padded/bordered window
-      # would otherwise shift it by the inset).
+      # below. `Overlay.place_child` owns the fit choice, the on-window clamp, and
+      # the absolute→window-local inset conversion the window-appended popup needs.
       Overlay.place_child(pop, {widget.aleft, widget.atop, widget.awidth, widget.aheight},
         {w, h}, [Overlay::Side::Below, Overlay::Side::Above])
     rescue

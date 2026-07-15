@@ -1,24 +1,16 @@
 module Crysterm
   module Mixin
     # Shared paged-container machinery: a list of `#pages` of which exactly one is
-    # visible at a time, identified by `#current_index`. Factored out of
-    # `Widget::StackedWidget` (Qt's `QStackedWidget`), `Widget::TabWidget` (Qt's
-    # `QTabWidget`) and `Widget::ToolBox` (Qt's `QToolBox`), which all keep
-    # parallel pages, raise one and hide the rest, and step through them with
-    # wrap-around.
-    #
-    # It also fixes the vocabulary for the whole family, so a caller who knows one
-    # of these widgets knows all of them: `#count`, `#current_index` /
-    # `#current_index=`, `#current_widget` / `#current_widget=`, and
-    # `Event::CurrentChanged` (Qt's `currentChanged(int)`) on every change. Each
-    # widget keeps only the *adding* verb its domain wants (`#add_page`/`#add_tab`/
-    # `#add_item`); nothing else is per-widget spelling.
+    # visible at a time, identified by `#current_index`. Provides the common
+    # vocabulary — `#count`, `#current_index` / `#current_index=`,
+    # `#current_widget` / `#current_widget=`, and `Event::CurrentChanged` (Qt's
+    # `currentChanged(int)`) on every change. Each including widget keeps only the
+    # *adding* verb its domain wants (`#add_page`/`#add_tab`/`#add_item`).
     #
     # The including widget appends its own pages to `#pages` (with whatever sizing
     # it needs), then drives selection through the protected `#show_index`,
-    # `#next_index` and `#previous_index` core. Per-widget work after a switch
-    # (e.g. `TabWidget` mirroring the selection in its tab bar) goes in
-    # `#after_show_index`, the default being a no-op.
+    # `#next_index` and `#previous_index` core. Per-widget work after a switch goes
+    # in `#after_show_index`, the default being a no-op.
     module PagedContainer
       # The pages, in insertion order.
       getter pages = [] of Widget
@@ -41,9 +33,8 @@ module Crysterm
       # The currently visible page, or `nil` when there are none (Qt's
       # `currentWidget`).
       def current_widget : Widget?
-        # Guard the `-1` sentinel explicitly: Crystal's `[]?` treats a negative
-        # index as counting from the end, so `@pages[-1]?` would wrongly return
-        # the last page instead of `nil`.
+        # Crystal's `[]?` counts a negative index from the end, so `@pages[-1]?`
+        # would return the last page instead of `nil`.
         return nil if @current_index < 0
         @pages[@current_index]?
       end
@@ -78,17 +69,14 @@ module Crysterm
         emit ::Crysterm::Event::CurrentChanged, -1
       end
 
-      # Hook for per-widget work after the visible page changes (e.g. mirroring
-      # the selection elsewhere). Default: nothing.
+      # Hook for per-widget work after the visible page changes. Default: nothing.
       protected def after_show_index(index : Int) : Nil
       end
 
       # Finalizes the visibility of a freshly-added *page*: the first page added
       # (`@current_index` still the `-1` sentinel) is raised via `#show_index 0`
       # and becomes current; every later one comes up hidden. Call after pushing
-      # *page* onto `#pages` and appending its child — each container appends with
-      # its own sizing, and `TabWidget` needs the new index in between, so the
-      # push/append stay at the call site.
+      # *page* onto `#pages` and appending its child.
       protected def register_page(page : Widget) : Nil
         if @current_index < 0
           show_index 0
@@ -106,10 +94,9 @@ module Crysterm
       # Selects the previous page, wrapping at the start.
       protected def previous_index : Nil
         return if @pages.empty?
-        # Guard the `-1` sentinel explicitly, mirroring `#current_widget`: a raw
-        # `(@current_index - 1) % size` maps `-1` to `size - 2`, silently
-        # skipping the last page. From unselected, "previous" should wrap to the
-        # last page, symmetric with `#next_index` landing on the first.
+        # A raw `(@current_index - 1) % size` maps the `-1` sentinel to
+        # `size - 2`, silently skipping the last page. From unselected,
+        # "previous" wraps to the last page.
         i = @current_index < 0 ? @pages.size - 1 : (@current_index - 1) % @pages.size
         show_index i
       end

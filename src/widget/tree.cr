@@ -5,14 +5,12 @@ module Crysterm
   class Widget
     # Hierarchical item view, modeled after Qt's `QTreeWidget`/`QTreeView`.
     #
-    # A `Tree` is an `AbstractItemView` (a sibling of `List`, as Qt makes
-    # `QTreeWidget` a sibling of `QListWidget` under `QAbstractItemView`) whose
-    # rows are the *visible* nodes of a node hierarchy, flattened depth-first with
-    # each node indented by its depth and prefixed with an expand marker (`▸`
-    # collapsed, `▾` expanded, blank for a leaf). Collapsing a node hides its
-    # subtree; expanding brings it back. All of `Mixin::ItemView`'s navigation
-    # (arrow keys, Home/End, PageUp/Down, incremental search, mouse) works
-    # unchanged.
+    # A `Tree` is an `AbstractItemView` whose rows are the *visible* nodes of a
+    # node hierarchy, flattened depth-first with each node indented by its depth
+    # and prefixed with an expand marker (`▸` collapsed, `▾` expanded, blank for a
+    # leaf). Collapsing a node hides its subtree; expanding brings it back. The
+    # usual item-view navigation (arrow keys, Home/End, PageUp/Down, incremental
+    # search, mouse) works unchanged.
     #
     # On top of that the tree adds: Right to expand (or descend into an already-
     # expanded node), Left to collapse (or jump to the parent), and Space/Enter to
@@ -49,14 +47,12 @@ module Crysterm
         # The parent node, or `nil` for a top-level node.
         property parent : Node?
 
-        # The owning tree, set when the node is attached. Used to refresh the
-        # flattened view after a structural change.
+        # The owning tree, set when the node is attached.
         getter tree : Tree?
 
-        # Setting the owning tree adopts the whole subtree, not just this node: a
-        # detached `Node` built with children keeps those children's `#tree` nil
-        # otherwise, so a later `grandchild.add "x"` would skip `rebuild` and
-        # leave the view stale.
+        # Setting the owning tree adopts the whole subtree, not just this node:
+        # otherwise a detached `Node` built with children leaves those children's
+        # `#tree` nil, and a later `grandchild.add "x"` would skip `rebuild`.
         def tree=(@tree : Tree?) : Tree?
           @children.each(&.tree=(@tree))
           @tree
@@ -70,10 +66,6 @@ module Crysterm
         # `Event::Expand`/`Event::Collapse` is emitted; a no-op for a leaf or an
         # unchanged state. Detached nodes (no `#tree` yet) just record the flag,
         # which the first `Tree#add` then honors.
-        #
-        # It used to be a bare `property?`, whose setter did neither — so
-        # `node.expanded = true` left the rows stale and every listener unaware,
-        # while the equivalent `Tree#expand` did the right thing.
         def expanded=(value : Bool) : Bool
           if t = @tree
             t.set_expanded self, value
@@ -83,9 +75,9 @@ module Crysterm
           value
         end
 
-        # Assigns the raw flag with no rebuild/notification. For the owning
-        # `Tree`, which batches the single rebuild and the per-node emit around a
-        # run of these (`#set_expanded`, `#expand_all`/`#collapse_all`).
+        # Assigns the raw flag with no rebuild or notification, for the owning
+        # `Tree` to batch a single rebuild and the per-node emits around a run of
+        # these.
         protected def expanded_flag=(value : Bool) : Nil
           @expanded = value
         end
@@ -169,9 +161,8 @@ module Crysterm
       # Spaces of indentation added per depth level.
       getter indent : Int32 = 2
 
-      # Re-flattens the rows at the new width. Dropping the memoized indent
-      # strings alone left every already-built row at the old spacing until the
-      # next unrelated structural change.
+      # Re-flattens the rows at the new indentation. Dropping the memoized indent
+      # strings alone would leave every already-built row at the old spacing.
       def indent=(v : Int32) : Int32
         return v if v == @indent
         @indent = v
@@ -213,18 +204,15 @@ module Crysterm
         @leaf_char || glyph(Glyphs::Role::TreeLeaf)
       end
 
-      # `initialize` is inherited from `Mixin::ItemView` unchanged.
-
       # Depth of the active `begin_update`/`end_update` batch (nestable), and
       # whether a `rebuild` was requested while batching.
       @update_depth : Int32 = 0
       @rebuild_pending : Bool = false
 
       # Suspends view rebuilds until the matching `#end_update`. Structural edits
-      # (`#add`, `Node#add`, expand/collapse) made in between coalesce into a
-      # single re-flatten, turning an O(N²) bulk load (one rebuild per `add`)
-      # into O(N). Nestable; a lone `add` outside a batch rebuilds immediately as
-      # before.
+      # made in between coalesce into a single re-flatten, turning an O(N²) bulk
+      # load into O(N). Nestable; a lone `add` outside a batch rebuilds
+      # immediately.
       def begin_update : Nil
         @update_depth += 1
       end
@@ -251,12 +239,8 @@ module Crysterm
       end
 
       # Appends a top-level node (given as text, or an existing `Node`) and
-      # refreshes the view. Returns the node — which is why the tree keeps `add`
-      # rather than the family's `#add_item` (that returns a row box, and it is
-      # the returned `Node` you go on to build the hierarchy with:
-      # `tree.add("src").add "widget"`). Everything else in the vocabulary —
-      # `#remove_node`/`#clear`/`#count`/`#current_index` — reads the same here
-      # as on every sibling.
+      # refreshes the view. Returns the node, which is what you go on to build the
+      # hierarchy with: `tree.add("src").add "widget"`.
       def add(text : String, data : String? = nil) : Node
         add Node.new(text, data)
       end
@@ -272,10 +256,8 @@ module Crysterm
 
       # Removes *node* from the hierarchy — wherever it sits — and returns it, or
       # `nil` when it is not in this tree (Qt's `QTreeWidget#takeTopLevelItem` /
-      # `QTreeWidgetItem#removeChild`, which the tree had no equivalent of at
-      # all). Named `remove_node`, not `remove`: `Widget#remove` already means
-      # "detach a child widget", and one name for two unrelated removals reads as
-      # a trap.
+      # `QTreeWidgetItem#removeChild`). Named `remove_node`, not `remove`, because
+      # `Widget#remove` already means "detach a child widget".
       def remove_node(node : Node) : Node?
         if p = node.parent
           return p.remove_child node
@@ -286,9 +268,9 @@ module Crysterm
         node
       end
 
-      # Removes every node (Qt's `QTreeWidget#clear`). Overrides
-      # `Mixin::ItemView#clear`, which would drop the rendered rows while leaving
-      # the hierarchy behind to be re-flattened by the next `#rebuild`.
+      # Removes every node (Qt's `QTreeWidget#clear`). Must override the item
+      # view's `#clear`, which drops the rendered rows but leaves the hierarchy
+      # behind for the next `#rebuild` to re-flatten.
       def clear : Nil
         return if @roots.empty?
         @roots.each(&.tree=(nil))
@@ -296,9 +278,9 @@ module Crysterm
         rebuild
       end
 
-      # Number of top-level nodes (Qt's `QTreeWidget#topLevelItemCount`).
-      # `#count`, inherited from `Mixin::ItemView`, is the number of *visible
-      # rows* — the unit `#item`/`#current_index`/`#selected_node` all work in.
+      # Number of top-level nodes (Qt's `QTreeWidget#topLevelItemCount`). Not to be
+      # confused with `#count`, the number of *visible rows* — the unit
+      # `#item`/`#current_index`/`#selected_node` all work in.
       def top_level_count : Int32
         @roots.size
       end
@@ -317,12 +299,10 @@ module Crysterm
       # Re-flattens the visible node hierarchy into the underlying list rows,
       # preserving the cursor on the same node when it is still visible.
       #
-      # Protected: every mutator here (`#add`, `Node#add`/`#remove_child`,
-      # `#indent=`, the expand/collapse family) refreshes the view itself, so
-      # this is the tree's own plumbing rather than something a caller drives.
+      # Protected: every mutator refreshes the view itself, so this is the tree's
+      # own plumbing rather than something a caller drives.
       protected def rebuild : Nil
-        # Inside a `begin_update` batch, defer the (potentially repeated) work to
-        # the single flush in `end_update`.
+        # Inside a `begin_update` batch, defer the work to the flush in `end_update`.
         if @update_depth > 0
           @rebuild_pending = true
           return
@@ -357,7 +337,7 @@ module Crysterm
       end
 
       # *depth* is threaded down the recursion (top-level nodes at 0) rather than
-      # recomputed per node via `Node#depth` (an O(depth) parent-chain walk).
+      # recomputed per node via `Node#depth`, an O(depth) parent-chain walk.
       private def flatten(node : Node, rows : Array(String), depth : Int32) : Nil
         @nodes << node
         rows << row_text node, depth
@@ -384,8 +364,7 @@ module Crysterm
 
       # Sets *node*'s expanded state, rebuilds the flattened view, and emits
       # `Event::Expand`/`Event::Collapse`. A no-op for a leaf or an unchanged
-      # state. The single funnel every path goes through — `#expand`/`#collapse`,
-      # `#toggle`, and `Node#expanded=`.
+      # state. The single funnel every expand/collapse path goes through.
       def set_expanded(node : Node, expanded : Bool) : Nil
         return if node.leaf? || node.expanded? == expanded
         if expanded
@@ -395,8 +374,7 @@ module Crysterm
         end
       end
 
-      # Shared body of `#set_expanded`'s two branches, which differ only in the
-      # flag and the event. *event* carries the node's pre-rebuild row index.
+      # *event* carries the node's pre-rebuild row index.
       private def apply_expanded(node : Node, expanded : Bool, event) : Nil
         i = @nodes.index node
         node.expanded_flag = expanded
@@ -420,10 +398,9 @@ module Crysterm
       end
 
       # Expands or collapses every non-leaf node: one `#rebuild` for the whole
-      # batch (not one per node), then *event* per node that actually changed —
-      # Qt's `expandAll`/`collapseAll` still emit `expanded()`/`collapsed()` for
-      # each item. Both used to poke `node.expanded` directly and emit nothing at
-      # all. The row index carried is the node's *post*-rebuild row, since a
+      # batch, then *event* per node that actually changed — Qt's
+      # `expandAll`/`collapseAll` likewise emit `expanded()`/`collapsed()` per
+      # item. The row index carried is the node's *post*-rebuild row, since a
       # subtree revealed by this very call has no pre-rebuild row to name.
       private def set_expanded_all(expanded : Bool, event) : Nil
         changed = [] of Node

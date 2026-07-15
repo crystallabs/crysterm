@@ -27,19 +27,13 @@ module Crysterm
     # ![TabWidget screenshot](../../tests/widget/tab_widget/tab_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class TabWidget < Box
-      # `#pages`, `#count`, `#current_index` / `#current_index=`,
-      # `#current_widget` / `#current_widget=` and the show/next/previous core
-      # (raise one page, hide the rest) come from here.
       include Mixin::PagedContainer
-      # `#apply_substyle`, used by `#sync_tab_style`.
       include Mixin::SubStyle
-      # Carousel timer install/teardown across the window lifecycle.
       include Mixin::WindowLifecycle
 
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /
-      # `South`). Qt's `West`/`East` have no counterpart here: `#layout_page`
-      # splits the widget along the horizontal only, so a side bar would be a
-      # layout change, not just another enum member.
+      # `South`). Qt's `West`/`East` have no counterpart here: the widget splits
+      # along the horizontal only, so a side bar would be a layout change.
       enum Position
         Top
         Bottom
@@ -69,15 +63,14 @@ module Crysterm
       # Whether the current tab can be reordered with `<`/`>`.
       property? movable : Bool = false
 
-      # When set, the widget behaves as a *carousel* (à la blessed-contrib's
-      # `carousel`): it auto-advances to the next tab every interval, wrapping at
-      # the end. `nil` disables it. Set via the constructor or `#auto_advance=`.
+      # When set, the widget behaves as a *carousel*: it auto-advances to the
+      # next tab every interval, wrapping at the end. `nil` disables it.
       getter auto_advance : Time::Span?
 
       # The running auto-advance timer, if any.
       @carousel_timer : FrameClock?
 
-      # Guards against the bar↔page selection feedback loop (see `#rebuild_bar`).
+      # Guards against the bar↔page selection feedback loop.
       @switching = false
 
       def initialize(tab_height = 1, tab_position : Position = :top, tabs_closable = false, movable = false,
@@ -105,8 +98,8 @@ module Crysterm
           self.current_index = e.index unless @switching
         end
 
-        # Wheel over the bar's free cells cycles tabs (a wheel over a tab *item*
-        # is handled per item in `#wire_close`, since mouse events don't bubble).
+        # Wheel over the bar's free cells cycles tabs; a wheel over a tab *item*
+        # is handled per item, since mouse events don't bubble.
         bar.on(::Crysterm::Event::Mouse) { |e| wheel_cycle e }
 
         # Close (Delete) and reorder (`<`/`>`) the current tab from the bar.
@@ -123,13 +116,9 @@ module Crysterm
           end
         end
 
-        # Closing via the `✕` marker is wired per tab-item in `#wire_close`: each
-        # item box is itself the topmost widget under the pointer, so the click's
-        # `Event::Mouse` is delivered to the item, not the bar (no bubbling).
-
         # Push any `TabWidget::tab`/`::pane` styling onto tabs/current page each
-        # frame (see `#sync_tab_style`). PreRender fires after the cascade and
-        # before children draw, so it lands even though they snapshot style once.
+        # frame. PreRender fires after the cascade and before children draw, so
+        # it lands even though they snapshot style once.
         on(::Crysterm::Event::PreRender) { sync_tab_style }
 
         # Carousel auto-advance: start once attached to a window (the timer needs
@@ -137,12 +126,11 @@ module Crysterm
         # a plain detach (`remove` without `destroy`): otherwise the `FrameClock`
         # timer keeps firing `next_tab` on the now-windowless widget forever,
         # pinning it alive via the closure. A later re-attach re-arms via `Attach`.
-        # Starts now too, in case we are already on a window (parent: window).
         wire_window_lifecycle destroy: true
       end
 
       # The carousel timer lives with the window: (re)start on attach, stop on
-      # detach/destroy (see `Mixin::WindowLifecycle`).
+      # detach/destroy.
       private def on_attach_window : Nil
         start_carousel
       end
@@ -154,11 +142,8 @@ module Crysterm
 
       # Applies the `TabWidget::tab` (Qt's `QTabBar::tab`) and `TabWidget::pane`
       # (`QTabWidget::pane`) sub-styles onto the bar's tabs and the current page.
-      # Each push is guarded by `same?`: no matching rule falls back to the
-      # widget's own style, a no-op, keeping the default look unchanged.
+      # With no matching rule each push is a no-op, keeping the default look.
       private def sync_tab_style : Nil
-        # `apply_substyle` `dup`s the sub-style per child, so the current page's
-        # copy can't be mutated (`show`/`hide`'s `visible`) and leak into the next.
         bar.items.each { |it| apply_substyle it, style.tab }
 
         # `::pane` styles the current page itself, since it fills the pane region.
@@ -191,8 +176,8 @@ module Crysterm
       end
 
       # Wires *item* (a tab's bar box) so a click on its right-most two cells —
-      # where `display_title` puts the `✕` — closes the tab instead of selecting
-      # it. Accepting the `Event::Mouse` suppresses the follow-up `Event::Click`.
+      # where the `✕` is drawn — closes the tab instead of selecting it.
+      # Accepting the `Event::Mouse` suppresses the follow-up `Event::Click`.
       private def wire_close(item : Widget) : Nil
         item.on(::Crysterm::Event::Mouse) do |e|
           next if wheel_cycle e
@@ -225,9 +210,8 @@ module Crysterm
       end
 
       # Re-points every tab command's callback at its current index: commands
-      # capture an absolute index when added (`bar.add … { self.current_index = index }`),
-      # which goes stale after a tab is removed/reordered. Callers wrap it in
-      # `@switching`.
+      # capture an absolute index when added, which goes stale after a tab is
+      # removed or reordered. Callers wrap it in `@switching`.
       private def repoint_tab_callbacks : Nil
         @tab_titles.each_with_index do |_, i|
           bar.commands[i].callback = -> { self.current_index = i }
@@ -313,8 +297,8 @@ module Crysterm
         # A title sets its bar item's width, and hence every later item's offset,
         # so the bar is rebuilt wholesale rather than poking one box's content.
         rebuild_bar
-        # `#rebuild_bar`'s `items=` resets the bar's own selection, so put the
-        # highlight back on the current tab.
+        # Rebuilding resets the bar's own selection, so put the highlight back
+        # on the current tab.
         @switching = true
         bar.current_index = @current_index if @current_index >= 0
         @switching = false
@@ -331,7 +315,7 @@ module Crysterm
       end
 
       # Mirrors the new selection in the bar without re-triggering its
-      # `SelectItem` handler (see `#initialize`). Runs after `#show_index`.
+      # `SelectItem` handler.
       protected def after_show_index(index : Int) : Nil
         unless bar.selected == index
           @switching = true

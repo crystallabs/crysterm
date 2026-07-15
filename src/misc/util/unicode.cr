@@ -19,27 +19,22 @@ module Crysterm
   module Unicode
     extend self
 
-    # Matches astral (> U+FFFF) characters. Used by the non-full-unicode
-    # fallback (`Helpers#drop_unicode`) to replace what a narrow terminal cannot
-    # render.
+    # Matches astral (> U+FFFF) characters, which the non-full-unicode fallback
+    # replaces with what a narrow terminal can render.
     AllRegex = /[\x{10000}-\x{10FFFF}]/
 
     # Display width, in terminal columns, of a whole string: the sum of the
     # widths of its grapheme clusters.
     def display_width(string : String) : Int32
       # Fast path for printable-ASCII content: every char in `0x20..0x7E` is its
-      # own width-1 grapheme (no combining marks, wide glyphs, VS16 promotion, or
-      # flag pairs), so column width equals bytesize. Skips the `each_grapheme`
-      # walk (decode + grapheme-break state machine per char) and the
-      # per-grapheme `String` allocation `width(Grapheme)`'s `#to_s` incurs.
+      # own width-1 grapheme, so column width equals bytesize, skipping the
+      # `each_grapheme` walk and its per-grapheme `String` allocation.
       #
-      # `ascii_only?` alone is not enough: it is also true for C0 controls
-      # (TAB/CR/ESC) and DEL, which `codepoint_width` maps to 0 — the fast path
-      # would miscount those, so fall through to the grapheme walk instead.
-      # Scanning the raw bytes subsumes the `ascii_only?` check (any byte ≥ 0x80
-      # fails the range test) and, unlike a blockless `each_char.all?`,
-      # allocates no iterator — this runs per append/wrap while
-      # streaming content.
+      # `ascii_only?` alone would be wrong: it is also true for C0 controls and
+      # DEL, which `codepoint_width` maps to 0. The raw byte scan subsumes it
+      # (any byte ≥ 0x80 fails the range test) and, unlike a blockless
+      # `each_char.all?`, allocates no iterator — this runs per append/wrap
+      # while streaming content.
       if string.to_slice.all? { |b| 0x20_u8 <= b <= 0x7E_u8 }
         return string.bytesize
       end
@@ -49,12 +44,8 @@ module Crysterm
     end
 
     # Pads *cell* with spaces to *width* display columns under horizontal
-    # alignment *align* (`HCenter`/`Right`, else left), returning a new
-    # `String`. A cell already at/over *width* is returned unchanged (no
-    # clipping) — the shared pad/clip-nothing routine behind the pre-rendered
-    # table cells (`TextTable`) and the Markdown table renderer, which maps its
-    # `Symbol` alignment onto `Tput::AlignFlag` first. Distinct from the
-    # io-based clip-capable `TableLayout#pad_cell_to`.
+    # alignment *align* (`HCenter`/`Right`, else left), returning a new `String`.
+    # A cell already at or over *width* is returned unchanged — this never clips.
     def pad(cell : String, width : Int32, align : Tput::AlignFlag?) : String
       pad = width - display_width(cell)
       return cell if pad <= 0
@@ -92,10 +83,9 @@ module Crysterm
     # CJK/emoji count as 2), false counts codepoints (`grapheme.size`).
     #
     # Computed as "drop as few leading graphemes as needed so the remainder
-    # fits": a first pass sums the total width, a second drops leading clusters
-    # (advancing the byte offset) until the remainder is within *cols*. This
-    # yields exactly the same contiguous longest-fitting suffix a greedy
-    # scan-from-the-end would, with no per-grapheme allocation.
+    # fits": one pass sums the total width, a second drops leading clusters until
+    # the remainder is within *cols*. Yields the same longest-fitting suffix a
+    # greedy scan-from-the-end would, with no per-grapheme allocation.
     def trailing_byte_len(text : String, cols : Int32, full_unicode : Bool = true) : Int32
       total = 0
       text.each_grapheme { |g| total += full_unicode ? width(g) : g.size }
@@ -113,16 +103,14 @@ module Crysterm
 
     # Whether *c* extends the grapheme cluster it follows: a combining mark, a
     # zero-width joiner (U+200D), a variation selector (U+FE00..U+FE0F), or an
-    # emoji skin-tone modifier (U+1F3FB..U+1F3FF). The shared successor test
-    # for `Widget#needs_cluster?` / `#extend_grapheme`.
+    # emoji skin-tone modifier (U+1F3FB..U+1F3FF).
     def grapheme_extender?(c : Char) : Bool
       cp = c.ord
       c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
     end
 
     # Whether *c* is a Unicode regional-indicator symbol (U+1F1E6..U+1F1FF); a
-    # pair of them forms a flag emoji. `Char` predicate counterpart of the
-    # internal codepoint check, shared with the cluster assembly.
+    # pair of them forms a flag emoji.
     def regional_indicator?(c : Char) : Bool
       regional_indicator? c.ord
     end
@@ -130,15 +118,13 @@ module Crysterm
     # Display width of a single grapheme cluster (yielded by `each_grapheme`).
     #
     # Reads the stdlib-internal `@cluster` ivar (`Char | String`) directly to
-    # avoid the fresh `String` `grapheme.to_s` allocates for the common
-    # Char-backed cluster (every CJK ideograph, precomposed accent, narrow
-    # glyph). Behavior-identical to `width(grapheme.to_s)`: for a
-    # single codepoint no VS16 promotion is possible (a lone codepoint can't
-    # carry a following U+FE0F), so the `String` overload's VS16 scan — which
-    # only fires for `size > 1` — would be a no-op anyway; a lone regional
+    # avoid the fresh `String` that `grapheme.to_s` allocates for the common
+    # Char-backed cluster. Behavior-identical to `width(grapheme.to_s)`: a single
+    # codepoint admits no VS16 promotion (it cannot carry a following U+FE0F), so
+    # the `String` overload's VS16 scan would be a no-op; a lone regional
     # indicator still renders wide. Multi-codepoint clusters take the `String`
-    # branch, preserving VS16/flag handling exactly. Pinned by a spec against
-    # the `@cluster` layout (`Char | String`, stable since graphemes landed).
+    # branch, preserving VS16/flag handling exactly. A spec pins the `@cluster`
+    # layout this depends on.
     def width(grapheme : String::Grapheme) : Int32
       case cluster = grapheme.@cluster
       in Char

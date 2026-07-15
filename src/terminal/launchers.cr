@@ -22,8 +22,8 @@ module Crysterm
       @command : Proc(Array(String), Int32, Int32, String?, Array(String))
 
       # Optional fully-custom spawner for backends that aren't a single argv
-      # (e.g. yakuake, driven over D-Bus). Used instead of `@command` +
-      # `Process.new` when set. Receives the same (env-inlined) `inner`.
+      # (e.g. yakuake, driven over D-Bus). Used instead of `@command` when set,
+      # and receives the same env-inlined `inner`.
       @spawn : Proc(Array(String), Int32, Int32, String?, Process)?
 
       def initialize(@name, @command, @spawn = nil)
@@ -94,8 +94,7 @@ module Crysterm
         geometry: ->(c : Int32, r : Int32) { ["-g", "#{c}x#{r}"] },
         title: ->(t : String) { ["-t", t] }),
       # gnome-terminal forks to a server, so process-based teardown is
-      # unreliable; the in-window helper exiting still closes the tab (see
-      # Window#close).
+      # unreliable; the in-window helper exiting still closes the tab.
       Launcher.flags("gnome-terminal", run_flag: "--",
         geometry: ->(c : Int32, r : Int32) { ["--geometry=#{c}x#{r}"] },
         title: ->(t : String) { ["--title", t] }),

@@ -21,7 +21,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class StatusBar < Box
       # Generation-guarded timed dismissal: a pending `#show_message` timeout only
-      # clears *its own* message, not a newer one (see `Mixin::TimedDismissal`).
+      # clears *its own* message, not a newer one.
       include ::Crysterm::Mixin::TimedDismissal
 
       # The current temporary (left-aligned) message.
@@ -31,17 +31,16 @@ module Crysterm
       # sits left-most of the right group (Qt's `addPermanentWidget` order).
       @permanent = [] of String
 
-      # A **snapshot** of the permanent sections (see `@permanent`). A copy, not
-      # the live array: the render string is cached against the sections
-      # (`@permanent_text`), so mutating them behind the bar's back would leave
-      # the two out of sync and paint stale text. Add and remove through
+      # A snapshot of the permanent sections. A copy, not the live array: the
+      # render string is cached against the sections, so mutating them behind
+      # the bar's back would paint stale text. Add and remove through
       # `#add_permanent`/`#clear_permanent`, which keep the cache honest.
       def permanent : Array(String)
         @permanent.dup
       end
 
       # Cached joined render string for `#permanent`, rebuilt only when the
-      # sections change (rather than re-joining a reversed copy every frame).
+      # sections change.
       @permanent_text = ""
 
       # Cached left-truncated permanent string plus the `(avail, source)` it was
@@ -52,7 +51,6 @@ module Crysterm
 
       def initialize(**box)
         super **box
-        # Colors come from the CSS theme (`StatusBar { ... }`).
       end
 
       # Shows *text* as the temporary message. With *timeout*, the message clears
@@ -120,12 +118,10 @@ module Crysterm
           return if avail <= 0
           text = @permanent_text
           # Right-aligned: on overflow drop the *left* end so the tail (the most
-          # recently added sections) stays visible, rather than truncating the
-          # right end by pinning the start to `xi`. The sliced tail is cached
+          # recently added sections) stays visible. The sliced tail is cached
           # against `(avail, source)` so an overflowing bar doesn't re-slice each
           # frame. All accounting is in display cells (`str_width`), not
-          # codepoints: wide (CJK/emoji) sections measured by `.size` started
-          # the run too far right and left-truncated too few cells.
+          # codepoints, or wide (CJK/emoji) sections misplace the run.
           tw = str_width text
           if tw > avail
             key = {avail, text}

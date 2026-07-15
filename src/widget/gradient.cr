@@ -6,8 +6,7 @@ module Crysterm
     # backdrop, header, or a strip of color swatches.
     #
     # Colors come from `colors:` (gradient *stops*, interpolated in RGB across
-    # the axis). With **no** stops it renders a full **HSV rainbow** sweep, which
-    # is the common case (and what the `truecolor`/`styling` demos use).
+    # the axis). With **no** stops it renders a full **HSV rainbow** sweep.
     #
     # `phase` offsets the gradient along its axis and wraps, so advancing it
     # *scrolls* / *cycles* the colors. That advance can be driven three ways via
@@ -52,9 +51,8 @@ module Crysterm
       # Phase advance applied on each animation tick.
       property speed : Float64
 
-      # Setters that change the rendered appearance schedule a repaint (Qt's
-      # property-changes-trigger-update principle), so e.g. `gradient.phase = …`
-      # from an external clock actually scrolls the colors.
+      # Setters that change the rendered appearance schedule a repaint, so e.g.
+      # `gradient.phase = …` from an external clock scrolls the colors.
       def stops=(@stops : Array(Int32))
         mark_dirty
       end
@@ -77,10 +75,8 @@ module Crysterm
       @own_timer : Timer?
 
       # This widget's subscription to `@timer`'s `Tick`, kept so `#destroy` can
-      # remove it. For a *shared* `animate:` clock the timer outlives the widget,
-      # so without this the closure would keep mutating a destroyed widget on
-      # every tick and pin it forever. A `Subscription` captures the timer it was
-      # installed on, so `#off` reaches that exact (possibly shared) clock.
+      # remove it: a *shared* `animate:` clock outlives the widget, and the
+      # closure would otherwise keep mutating a destroyed widget and pin it.
       @tick_sub = ::Crysterm::Subscription.new
 
       def initialize(
@@ -110,12 +106,10 @@ module Crysterm
         end
       end
 
-      # Stops the privately-owned animation timer (if any) so its tick fiber
-      # doesn't outlive the widget. A shared `animate:` timer belongs to the
-      # caller and is left running.
+      # Unsubscribes from the (possibly shared) clock and stops the
+      # privately-owned animation timer, if any. A shared `animate:` timer
+      # belongs to the caller and is left running.
       def destroy
-        # Unsubscribe from the (possibly shared) clock so its tick fiber stops
-        # mutating this destroyed widget, then stop a privately-owned timer.
         @tick_sub.off
         @own_timer.try &.stop
         super
@@ -131,11 +125,9 @@ module Crysterm
           @stops[0]
         else
           pf = p - p.floor # wrapped into 0.0...1.0
-          # A position landing exactly on a cycle boundary (whole `p`, e.g. the
-          # inclusive endpoint `t == 1.0` of a single-cycle gradient) is the
-          # gradient's *end*, not the start of the next repeat: keep it at 1.0 so
-          # the final stop's exact color is painted rather than wrapping to the
-          # first stop.
+          # A position landing exactly on a cycle boundary is the gradient's
+          # *end*, not the start of the next repeat: keep it at 1.0 so the final
+          # stop's color is painted rather than wrapping to the first stop.
           pf = 1.0 if pf == 0.0 && p > 0.0
           seg = pf * (@stops.size - 1)
           i = seg.to_i
@@ -146,19 +138,17 @@ module Crysterm
       end
 
       def render
-        # Interior inset (border kept intact), mirroring `Widget::ProgressBar`.
+        # Interior inset; border kept intact.
         with_inner_coords do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi
 
-          # Only the bg color varies from cell to cell; the style flags and the
-          # foreground are invariant across the whole gradient, so compute the
-          # base word (flags + fg, Opaque alpha from `sattr`) once and repack
-          # just the bg per cell via `Attr.with_bg` instead of running `sattr`'s
-          # full flag derivation every time.
+          # Only the bg varies from cell to cell, so compute the base word
+          # (flags + fg) once and repack just the bg per cell via `Attr.with_bg`
+          # rather than running `sattr`'s full flag derivation every time.
           base = sattr style, style.fg, style.bg
 
           if @direction.horizontal?
-            # Inclusive endpoints: with W columns, the divisor is W-1 so the last
+            # Inclusive endpoints: with W columns the divisor is W-1, so the last
             # column maps to t = 1.0 and paints the final stop's exact color. A
             # single-column bar has no span to divide, so it just shows t = 0.
             span = (xl - xi).to_f

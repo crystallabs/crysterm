@@ -4,9 +4,7 @@ module Crysterm
   #
   # Crysterm reuses the desktop *data model* (this enum plus the MIME-typed
   # payload in `DragData`) without the window-to-window wire protocol — a TUI
-  # owns no window and can't be an XDND peer. This keeps the engine
-  # self-contained while making optional edge bridges (a desktop file-drop as a
-  # `text/uri-list` drop, or an outbound OSC 52 clipboard transfer) trivial.
+  # owns no window and can't be an XDND peer.
   enum DragAction
     None
     Move

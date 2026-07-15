@@ -17,10 +17,7 @@ module Crysterm
       include Mixin::TextEditing
       include Mixin::TextEditing::FlatBuffer
 
-      # How the value is displayed, mirroring Qt's `QLineEdit::EchoMode`. The
-      # four modes are mutually exclusive by construction — the two independent
-      # `secret`/`censor` `Bool`s this replaces could be set to contradict each
-      # other, and one silently won.
+      # How the value is displayed, mirroring Qt's `QLineEdit::EchoMode`.
       enum EchoMode
         # Show the value as it is (the default).
         Normal
@@ -55,8 +52,8 @@ module Crysterm
       property placeholder_text : String = ""
 
       # Whether Up/Down walk the input history. On by default (shell-prompt
-      # style); a form field that wants Up/Down to move between fields sets this
-      # false so the keys pass through for the host/screen to navigate.
+      # style); set false so the keys pass through for the host to navigate, e.g.
+      # to move between form fields.
       property? history_keys : Bool = true
 
       # Submitted lines, oldest first — the input history walked by Up/Down
@@ -65,10 +62,10 @@ module Crysterm
       getter history = [] of String
 
       # Cursor into `@history`; `nil` is the sentinel "on the live line you're
-      # typing" (Up steps back from the newest entry, Down returns here). Kept
-      # lazily as `nil` rather than eagerly set to `history.size`, so a
-      # pre-seeded history is reachable from the start (resolve as
-      # `@history_pos || @history.size` at each walker).
+      # typing" (Up steps back from the newest entry, Down returns here). Left
+      # lazily `nil` rather than eagerly `history.size`, so a pre-seeded history
+      # is reachable from the start; walkers resolve it as
+      # `@history_pos || @history.size`.
       @history_pos : Int32? = nil
       # The half-typed line stashed on the first Up, restored when Down walks
       # back past the newest entry — so browsing history never loses your draft.
@@ -107,8 +104,7 @@ module Crysterm
           return
         end
         # Single-line, so Up/Down can't move between rows — repurposed to walk
-        # the input history. A form wanting Up/Down to move between fields turns
-        # this off (`history_keys = false`), letting the keys fall through.
+        # the input history.
         if history_keys?
           if e.key == Tput::Key::Up
             e.accept
@@ -176,13 +172,11 @@ module Crysterm
 
       # Snapshot of every input `#compute_display` reads, plus the resulting
       # `@view_start`. The build slices 3-5 intermediate strings (and, in the
-      # `Password` modes, a fresh mask string) every call; `#value=`'s
-      # `@_value` guard dedups `set_content`, but not the build itself. `#value=`
-      # runs once per frame via `Mixin::TextEditing#render`, so at steady state
-      # (nothing typed/resized) this key is unchanged and the cached string is
-      # returned untouched. `@value` is keyed by object identity + size — the L1
-      # fix keeps the same String object across redisplay frames, so identity is
-      # a valid (allocation-free) change signal; a genuine edit swaps the object.
+      # `Password` modes, a fresh mask string) every call, and `#value=`'s
+      # `@_value` guard dedups only `set_content`, not the build. `#value=` runs
+      # once per frame, so at steady state this key is unchanged and the cached
+      # string is returned untouched. `@value` is keyed by object identity + size:
+      # a redisplay keeps the same String object, a genuine edit swaps it.
       @display_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, EchoMode, UInt64, Char, Bool)? = nil
       @display_cache : String = ""
 
@@ -192,14 +186,12 @@ module Crysterm
       end
 
       def value=(value = nil)
-        # Shared prologue (authoritative-value + caret + selection); a non-nil
+        # Shared prologue (authoritative value + caret + selection); a non-nil
         # argument is an external set (cursor to the end), `nil` a redisplay that
-        # preserves the cursor (see `PlainTextEdit#value=`). The block strips
-        # newlines — this is single-line — on both paths. `_listener`
-        # mutates `@value` directly, so `assign_value` recording it before the
-        # display dedup guard is what keeps an external set like `input.value =
-        # ""` from being no-op'd (and leaving stale text across submits) when the
-        # `@_value` last-displayed cache is stale.
+        # preserves the cursor. The block strips newlines — this is single-line —
+        # on both paths. `assign_value` must record the value *before* the display
+        # dedup guard, or a stale `@_value` cache would no-op an external set like
+        # `input.value = ""` and leave stale text across submits.
         assign_value(value) { |v| v.includes?('\n') ? v.delete('\n') : v }
 
         # `@_value` caches the *displayed* text so the dedup guard also fires
@@ -242,11 +234,10 @@ module Crysterm
             # Visible width (`awidth - ihorizontal - 1`; -1 leaves room for the caret).
             # `cols` is a *display*-column budget.
             cols = Math.max 0, awidth - ihorizontal - 1
-            # `@view_start` is a codepoint index into `val`; measure the slide in
-            # *display* columns so wide (CJK/emoji) glyphs count as 2. Mixing the
-            # codepoint index against a display-column budget would leave the caret
-            # off-screen for wide content (`caret_cp - cols` under-scrolls). Convert
-            # back to a codepoint index via `column_index` for the actual slice.
+            # `@view_start` is a codepoint index into `val`, but the slide must be
+            # measured in *display* columns so wide (CJK/emoji) glyphs count as 2;
+            # a codepoint index against a column budget under-scrolls and leaves
+            # the caret off-screen. `column_index` converts back for the slice.
             caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
             caret_col = str_width val, 0, caret_cp
             view_col = str_width val, 0, @view_start
@@ -296,23 +287,19 @@ module Crysterm
         @__listener.try &.call Crysterm::Event::KeyPress.new '\r', Tput::Key::Enter
       end
 
-      # Overrides `Mixin::TextEditing#selection_columns_for_row` for the same
-      # reason `#position_at` is overridden: the visible line is a re-sliced
-      # *tail* of `@value` (`@_value`), so selection columns must be measured
-      # from the first visible `@value` index, not from the logical line start
-      # the generic (`@child_base_x`-based) version assumes. Highlight is
-      # suppressed in every non-`Normal` echo mode (nothing meaningful to mark,
-      # and a masked field's selection shouldn't be visually revealed anyway).
+      # The visible line is a re-sliced *tail* of `@value` (`@_value`), so
+      # selection columns must be measured from the first visible `@value` index,
+      # not from the logical line start the generic (`@child_base_x`-based)
+      # version assumes. Highlight is suppressed in every non-`Normal` echo mode:
+      # a masked field's selection shouldn't be visually revealed.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
         return nil unless rl == 0
         return nil unless effective_echo_mode.normal?
         return nil unless range = selection_range
 
-        # First and last `@value` indices actually shown. `@_value` is a window
-        # of the tab-expanded value starting at `@view_start` expanded columns
-        # (see `#compute_display`); map both edges back to raw `@value` indices.
-        # The window can be scrolled left of the value's end, so *both* ends of
-        # the selection can fall off-view.
+        # First and last `@value` indices actually shown, mapped back from the
+        # `@_value` window. The window can be scrolled left of the value's end,
+        # so *both* ends of the selection can fall off-view.
         vis_start = unexpand_col(@value, @view_start)
         vis_end = unexpand_col(@value, @view_start + @_value.size)
 
@@ -325,12 +312,10 @@ module Crysterm
         col_lo...col_hi
       end
 
-      # Overrides `Mixin::TextEditing#position_at`: `LineEdit`'s single visible
-      # line (`@_value`) is `value=`'s own re-sliced tail of `@value` (see
-      # `#value=`), not a `@_clines`/`@child_base_x` viewport slice — the
-      # generic mixin version assumes the latter, so it would map a click to
-      # the wrong `@value` index whenever the field is scrolled (i.e. its
-      # content overflows the box).
+      # The single visible line (`@_value`) is a re-sliced tail of `@value`, not
+      # the `@_clines`/`@child_base_x` viewport slice the generic mixin version
+      # assumes — which would map a click to the wrong `@value` index whenever
+      # the field is scrolled.
       def position_at(x : Int32, y : Int32) : Int32
         return 0 if @value.empty?
         mode = effective_echo_mode
@@ -345,9 +330,8 @@ module Crysterm
         disp_idx = column_index(@_value, (x - left).clamp(0, content_width))
 
         if mode.password?
-          # `@_value` is one mask char per grapheme of `@value` (see
-          # `#value=`) — `disp_idx` is already a grapheme count; convert to a
-          # codepoint offset by walking that many graphemes.
+          # `@_value` is one mask char per grapheme of `@value`, so `disp_idx` is
+          # already a grapheme count; walk that many to get a codepoint offset.
           if full_unicode?
             offset = 0
             seen = 0
@@ -362,9 +346,8 @@ module Crysterm
           end
         else
           # `@_value` is the tab-expanded window of `@value` actually shown,
-          # starting at `@view_start` expanded columns (see `#compute_display`).
-          # Offset the click's index within the window by that dropped prefix,
-          # then undo the tab expansion to land on a raw `@value` index.
+          # starting at `@view_start` expanded columns; offset the click's index
+          # by that dropped prefix, then undo the tab expansion.
           unexpand_col(@value, @view_start + disp_idx)
         end
       end
@@ -378,8 +361,8 @@ module Crysterm
         @value.gsub('\t', style.tab_char * style.tab_size)
       end
 
-      # Caret's *display* column within the shown window (see `#compute_display`),
-      # used by `#_update_cursor`. `0` under `NoEcho` (nothing shown);
+      # Caret's *display* column within the shown window (see `#compute_display`).
+      # `0` under `NoEcho` (nothing shown);
       # grapheme/codepoint count before the caret under `Password` (the mask
       # isn't windowed). Measured with `str_width` so a wide glyph before the
       # caret advances the column by 2, keeping the caret off-by drift-free.
@@ -398,12 +381,11 @@ module Crysterm
         str_width val, @view_start, caret_cp
       end
 
-      # Overrides `Mixin::TextEditing#_update_cursor`: the inherited version maps
-      # `@cursor_pos` onto `@_clines`, which for `LineEdit` is only the re-sliced
-      # window (`#compute_display`) — so it clamps the caret to the window's end
-      # instead of tracking the real edit point. Place the caret at its column
-      # within that window instead, clamped into the viewport (the trailing
-      # `content_width` column is reserved for an end-of-line caret).
+      # Places the caret at its column within the `#compute_display` window,
+      # clamped into the viewport (the trailing `content_width` column is
+      # reserved for an end-of-line caret). The inherited version maps
+      # `@cursor_pos` onto `@_clines` — here only the re-sliced window — so it
+      # would clamp the caret to the window's end instead of the real edit point.
       def _update_cursor(get = false, to_scroll_pos = false)
         return unless focused?
 
@@ -418,12 +400,10 @@ module Crysterm
         move_terminal_caret display, cx, cy
       end
 
-      # Overrides the mixin's `#ensure_cursor_visible_x` (a no-op while not a
-      # scroll area, which `LineEdit` isn't — it scrolls a `@view_start` window
-      # instead). Reports whether the caret currently sits outside that window,
-      # so a caret move that needs to scroll flags `scrolled` in the key handler
-      # and triggers a render; the actual window shift is done by
-      # `#compute_display` on that render.
+      # Reports whether the caret sits outside the `@view_start` window (this is
+      # not a scroll area; it scrolls that window instead), so a caret move
+      # needing a scroll flags `scrolled` and triggers a render. The window shift
+      # itself happens in `#compute_display` on that render.
       private def ensure_cursor_visible_x : Bool
         # Only `Normal` windows the value; the masked modes render unwindowed.
         return false unless effective_echo_mode.normal?

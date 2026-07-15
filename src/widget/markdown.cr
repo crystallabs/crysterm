@@ -18,8 +18,7 @@ module Crysterm
     # programmatically with `#activate_link`, which emits `Event::AnchorClick`
     # (the `QTextBrowser::anchorClicked` analog). Link *text* is styled so it
     # reads as a link, but **no terminal hyperlink escape sequences are emitted**
-    # and pointer-based clicking is intentionally not wired up yet (that needs its
-    # own design pass).
+    # and pointer-based clicking is not wired up.
     #
     # ```
     # md = Widget::Markdown.new parent: s, width: 60, height: 20,
@@ -94,7 +93,7 @@ module Crysterm
 
       # Activates the link with the given *url*, emitting `Event::AnchorClick`
       # (Qt's `anchorClicked`). Programmatic entry point; pointer click-detection
-      # isn't wired up yet.
+      # is not wired up.
       def activate_link(url : String) : Nil
         emit Crysterm::Event::AnchorClick, url
       end
@@ -131,14 +130,11 @@ module Crysterm
           super(OPTIONS)
         end
 
-        # `Markd::Renderer#render` strips the first newline of the output.
-        # Prepend a sacrificial one directly to the buffer (not via `#literal`,
-        # so it doesn't touch `@emitted`/`@last_output`) so the real first
-        # line break survives.
-        #
-        # `markd`'s `#render` takes a syntax-highlighting *formatter* for code
-        # blocks (a `Tartrazine::Formatter`); we style code blocks ourselves, so
-        # pass `nil`.
+        # `Markd::Renderer#render` strips the first newline of the output, so
+        # prepend a sacrificial one straight to the buffer — not via `#literal`,
+        # which would touch `@emitted`/`@last_output`. The *formatter* argument
+        # is markd's code-block syntax highlighter; code blocks are styled here,
+        # so it stays `nil`.
         def render(document : Markd::Node) : String
           @output_io << "\n"
           super document, nil
@@ -235,8 +231,8 @@ module Crysterm
           newline
         end
 
-        # *formatter* is `markd`'s optional syntax highlighter; unused (see
-        # `#render`), but it's part of the abstract signature.
+        # *formatter* is `markd`'s optional syntax highlighter; unused, but part
+        # of the abstract signature.
         def code_block(node : Markd::Node, entering : Bool, formatter : T?) : Nil forall T
           return unless entering
           blank_line

@@ -7,11 +7,11 @@ module Crysterm
     # inside a pseudo-terminal and renders its output as a live, scrollable
     # window.
     #
-    # Split into two self-contained helpers: `Crysterm::Pty` spawns and talks
-    # to the child via a PTY, `Crysterm::TerminalEmulator` parses its byte
-    # stream into a cell grid. This widget wires them to the window: sizes them
-    # from its inner area, forwards keystrokes, copies the emulator grid onto
-    # `window.lines` each render, and draws the cursor.
+    # `Crysterm::Pty` spawns and talks to the child via a PTY, and
+    # `Crysterm::TerminalEmulator` parses its byte stream into a cell grid. This
+    # widget wires them to the window: sizes them from its inner area, forwards
+    # keystrokes, copies the emulator grid onto `window.lines` each render, and
+    # draws the cursor.
     #
     # Usage:
     # ```
@@ -63,10 +63,10 @@ module Crysterm
       @dattr : Int64 = 0_i64
       @bootstrapped = false
 
-      # Reused scratch buffer for `#encode_mouse` (cleared, not reallocated, per
-      # event): avoids a per-event `IO::Memory` on the drag hot path under modes
-      # 1002/1003. The returned slice is consumed by `#forward_to_child` before
-      # the next event reuses it, so there's no aliasing hazard.
+      # Reused scratch buffer for `#encode_mouse`, cleared rather than
+      # reallocated per event: avoids an `IO::Memory` on the drag hot path under
+      # modes 1002/1003. The returned slice must be consumed before the next
+      # event reuses it.
       @mouse_buf = IO::Memory.new
 
       def initialize(
@@ -126,21 +126,18 @@ module Crysterm
         @emulator = em
 
         if handler = @handler
-          # Externally driven: nothing to spawn. Keystrokes go to the handler
-          # (see #on_data); output arrives via #write. The emulator's solicited
-          # replies (DSR cursor-position, DA device-attributes) are child-bound
-          # too, so route them to the handler as well — otherwise `em.output`
-          # stays nil and a child probing the terminal at startup (vim/htop
-          # query DA/CPR) waits forever. PTY path wires this to `pty.master` below.
+          # Externally driven: nothing to spawn. The emulator's solicited replies
+          # (DSR cursor-position, DA device-attributes) are child-bound too, so
+          # route them to the handler as well — otherwise a child probing the
+          # terminal at startup (vim/htop query DA/CPR) waits forever.
           em.output = HandlerSink.new handler
           return
         end
 
         # Advertise the configured TERM to the child. Without this the child
         # inherits the HOST terminal's TERM (e.g. xterm-kitty) and negotiates
-        # sequences TerminalEmulator does not implement, ignoring `@term_name`
-        # / the `terminal.term` config option entirely (BUGS15 #17). An explicit
-        # TERM already in `@env` wins.
+        # sequences `TerminalEmulator` does not implement. An explicit TERM
+        # already in `@env` wins.
         env = {} of String => String?
         @env.try &.each { |k, v| env[k] = v }
         env["TERM"] = @term_name unless env.has_key?("TERM")
@@ -162,11 +159,10 @@ module Crysterm
           # Child closed the PTY: reap it, surface exit status, tear down.
           code = pty.reap
           emit ::Crysterm::Event::Exit, code
-          # Marshal the real teardown onto the render fiber. Emitting a bare
-          # `Event::Destroy` here (without calling `#destroy`) left the widget
-          # attached, keyable, and focusable while listeners believed it dead —
-          # and a later `#destroy` would emit `Event::Destroy` a second time.
-          # `#destroy` emits it once, off the render fiber; `#kill` is idempotent
+          # Marshal the real teardown onto the render fiber. It must go through
+          # `#destroy`: emitting a bare `Event::Destroy` would leave the widget
+          # attached, keyable and focusable while listeners believed it dead, and
+          # a later `#destroy` would emit the event twice. `#kill` is idempotent
           # for the already-reaped PTY.
           window?.try &.post { destroy }
         end
@@ -219,9 +215,9 @@ module Crysterm
       def on_mouse(e : ::Crysterm::Event::Mouse) : Nil
         em = @emulator
         return unless em && em.mouse_enabled?
-        # Only forward what the child's active tracking mode asked for (see
-        # `#mouse_event_wanted?`) — forwarding everything floods a child in
-        # normal mode with unrequested motion reports.
+        # Only forward what the child's active tracking mode asked for;
+        # forwarding everything floods a child in normal mode with unrequested
+        # motion reports.
         return unless mouse_event_wanted? em, e
 
         # Coordinates relative to the inner (content) area, 0-based.
@@ -229,7 +225,8 @@ module Crysterm
         row = e.y - (atop + itop)
         return if col < 0 || row < 0 || col >= term_cols || row >= term_rows
 
-        # A click still focuses the terminal (default path suppressed below via accept).
+        # A click still focuses the terminal; the default path is suppressed by
+        # the `accept` below.
         focus if e.action.down? && !focused?
 
         report = encode_mouse em, e, col, row
@@ -352,13 +349,12 @@ module Crysterm
         yi = coords.yi + itop
         yl = coords.yl - ibottom
 
-        # When an ancestor clips this widget, `coords` moves `coords.xi`/
-        # `coords.yi` inward to the clip edge and folds the clipped-top row count
-        # into `coords.base` (widget_position.cr). Map rows through `coords.base`
-        # and columns through the unclipped content origin (`aleft + ileft`, the
-        # true position of emulator column 0 — horizontal clipping has no `base`)
-        # so a partially clipped terminal shows the correct grid region rather
-        # than the top-left corner (BUGS15 #45).
+        # When an ancestor clips this widget, `coords` moves `coords.xi`/`coords.yi`
+        # inward to the clip edge and folds the clipped-top row count into
+        # `coords.base`. Rows must map through `coords.base` and columns through
+        # the unclipped content origin — the true position of emulator column 0,
+        # since horizontal clipping has no `base` — or a partially clipped
+        # terminal shows its top-left corner instead of the correct grid region.
         origin_x = aleft + ileft
 
         disp = em.ydisp
@@ -391,8 +387,8 @@ module Crysterm
             attr = scell.attr
             ch = scell.char
             # The emulator parks a NUL in the trailing half of a wide glyph;
-            # render as blank (in full-unicode mode the wide glyph below claims
-            # the following cell as a real continuation, skipping this).
+            # render it blank. In full-unicode mode the wide-glyph branch below
+            # claims the following cell as a real continuation, skipping this.
             ch = ' ' if ch == TerminalEmulator::CONTINUATION
 
             if x == cursor_col
@@ -407,16 +403,14 @@ module Crysterm
 
             # Wide glyph: claim the following window cell as its continuation so
             # the window grid stays 1 cell == 1 terminal column. This holds even
-            # when the cursor sits on the lead half (`x == cursor_col`): `attr`
-            # already carries the cursor styling from `apply_cursor` above, so
-            # we still consume both columns rather than emitting only one.
+            # when the cursor sits on the lead half — `attr` already carries the
+            # cursor styling — so both columns are still consumed.
             if full_unicode && (nxt = line[x + 1]?) &&
                x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2
               nxt_attr = attr
-              # If the cursor sits on the TRAILING (continuation) half of this
-              # wide glyph, this branch would otherwise swallow the cursor column
-              # (`x += 2` skips it) leaving the cursor invisible. Carry the cursor
-              # styling onto the continuation cell so it stays visible there.
+              # With the cursor on the TRAILING half of a wide glyph, `x += 2`
+              # would skip its column and leave it invisible; carry the cursor
+              # styling onto the continuation cell instead.
               if x + 1 == cursor_col
                 nxt_attr, _ = apply_cursor attr, ' '
               end
@@ -438,9 +432,8 @@ module Crysterm
       private def apply_cursor(attr : Int64, ch : Char) : {Int64, Char}
         case @cursor_shape
         when :line
-          # A bar/beam cursor overlays the column (the host terminal draws the
-          # real beam there); it must not hide the cell's glyph or color, so
-          # preserve both `ch` and `attr` rather than overwriting with '│'.
+          # The host terminal draws the real beam in this column, so both `ch` and
+          # `attr` must be preserved rather than overwritten with '│'.
           {attr, ch}
         when :underline
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
@@ -478,8 +471,7 @@ module Crysterm
       end
 
       # Write-only `IO` delivering the emulator's solicited replies to the
-      # external `handler`. Used in handler mode (no PTY); PTY path uses
-      # `pty.master` directly.
+      # external `handler`, in handler mode (no PTY).
       private class HandlerSink < IO
         def initialize(@handler : Proc(String, Nil))
         end

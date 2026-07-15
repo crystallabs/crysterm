@@ -4,13 +4,13 @@ require "./widget/box"
 module Crysterm
   class Widget
     # Raised by an image backend asked for a feature it can't provide, when the
-    # `image.unsupported` config option is `"error"` (see `Media::Base#unsupported`).
+    # `image.unsupported` config option is `"error"`.
     class Media::UnsupportedError < Exception
     end
 
-    # Common abstract base for every `Widget::Media` backend. Formalizes the
+    # Common abstract base for every `Widget::Media` backend, formalizing the
     # backend contract (image source, fit, animation) so the factory
-    # (`Widget::Media.new`) can return one type (`Media::Base`) instead of a union.
+    # (`Widget::Media.new`) returns one type instead of a union.
     #
     # Families specialize it further:
     #
@@ -23,8 +23,8 @@ module Crysterm
     # fiber), then a loop advances `#anim_index` and calls `request_render` at
     # each frame's delay; the backend samples the current frame in its own
     # `#render`. Backends whose terminal animates for them (iTerm2), or that
-    # can't animate (external/static ones), opt out — the latter route
-    # `#play`/`#pause`/`#stop` through `#unsupported`.
+    # can't animate, opt out — the latter route `#play`/`#pause`/`#stop` through
+    # `#unsupported`.
     abstract class Media::Base < Box
       # Path (or `http(s)` URL) of the loaded image.
       property file : String? = nil
@@ -33,8 +33,7 @@ module Crysterm
       getter fit : Media::Fit = Media::Fit::Stretch
 
       # Changes the fit mode, dropping any cached per-size sample so the next
-      # render re-derives it under the new fit (mirroring `#load`). Only a genuine
-      # change invalidates — a same-value assignment is a no-op so a per-frame
+      # render re-derives it. Only a genuine change invalidates, so a per-frame
       # reconcile (`Widget#update_background_media`) doesn't churn the cache.
       def fit=(new_fit : Media::Fit) : Media::Fit
         unless new_fit == @fit
@@ -45,14 +44,10 @@ module Crysterm
       end
 
       # Playback speed multiplier for animations (1.0 = native speed).
-      # `#speed=` is unvalidated public API: a `0`, negative, or non-finite value
-      # would make both playback pacers (`#animate_loop`, `#stream_loop`) divide
-      # by it and produce a non-finite period that overflows the integer/`Time::Span`
-      # conversion, killing the frame fiber. Clamp it to a sane positive value.
       getter speed : Float64 = 1.0
 
-      # Clamp non-positive/non-finite speeds to native (1.0) so the animation and
-      # stream loops never divide by zero (see `#animate_loop`, `#stream_loop`).
+      # Clamps non-positive/non-finite speeds to native (1.0) so the playback
+      # pacers (`#animate_loop`, `#stream_loop`) never divide by zero.
       def speed=(v : Float64) : Float64
         @speed = (v.finite? && v > 0) ? v : 1.0
       end
@@ -70,8 +65,8 @@ module Crysterm
       # `#stream_loop`).
       @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
 
-      # Whether playback is wanted. Single source of truth: every place that
-      # sets it false ends the loop, since the frame clock checks it each tick.
+      # Whether playback is wanted. Single source of truth: the frame clock
+      # checks it each tick, so setting it false ends the loop.
       getter? playing = false
 
       # Private frame clock advancing `#anim_index` over time, used for solo
@@ -79,10 +74,9 @@ module Crysterm
       # clock instead.
       @animation : FrameClock? = nil
 
-      # A shared frame clock (a `Timer`) when the widget was created with
-      # `animate: someTimer`. While set, playback advances one frame per tick of
-      # that clock — in lockstep with every other widget on it — instead of
-      # running its own `@animation`. Owned by the caller; the widget only
+      # A shared frame clock (`animate: someTimer`). While set, playback advances
+      # one frame per tick of that clock, in lockstep with every other widget on
+      # it, instead of running `@animation`. Owned by the caller; the widget only
       # subscribes/unsubscribes.
       @clock : Timer? = nil
 
@@ -95,13 +89,10 @@ module Crysterm
       @stream : Media::VideoSource::Stream? = nil
 
       # Generation token for the self-paced streaming playback loop
-      # (`#stream_loop`), mirroring `Media::Tek#anim_gen`. Bumped on every
-      # `#play`/`#pause`/`#stop`; each `#stream_loop` captures the value when
-      # spawned and exits as soon as it no longer matches. Without it a
-      # pause→play or stop→play within a frame period would leave the old loop
-      # fiber (still sleeping between frames) running alongside the new one —
-      # double-speed playback, racing `restart`s, and a discarded ffmpeg that
-      # nothing ever closes. Exposed for tests.
+      # (`#stream_loop`). Bumped on every `#play`/`#pause`/`#stop`; each loop
+      # captures the value when spawned and exits as soon as it no longer
+      # matches, so a pause→play within a frame period can't leave the old loop
+      # fiber running alongside the new one. Exposed for tests.
       getter stream_gen : Int32 = 0
 
       # Set once a source fails to load, so `#source` returns `nil` without
@@ -109,12 +100,10 @@ module Crysterm
       @load_failed = false
 
       # Memoized resolution of "is `@file` a stream-mode video?" (`nil` = not yet
-      # resolved). Resolving it runs `Media::VideoSource.mode`, which under the
-      # default `media.video_decode = auto` spawns `ffprobe`; `#source` is called
-      # unconditionally on the render path (often after `#stop` has nilled
-      # `@source`/`@stream`), so without this the mode probe re-ran a synchronous
-      # ffprobe subprocess on every rendered frame. Reset whenever `@file` changes
-      # (`#reset_source_state`, `#clear_image`) so a new file re-resolves.
+      # resolved). Resolving runs `Media::VideoSource.mode`, which spawns an
+      # `ffprobe` under the default `media.video_decode = auto`, and `#source` is
+      # called on every rendered frame. Must be reset whenever `@file` changes so
+      # a new file re-resolves.
       @stream_mode : Bool? = nil
 
       # Resolves the `animate:` constructor argument. `true`/`false` toggle
@@ -136,18 +125,15 @@ module Crysterm
       getter anim_index : Int32 = 0
 
       # Whether a *finite* animation ran to completion and is now holding its last
-      # frame. Distinguishes "done" from "paused mid-stream" so `#play` can rewind
-      # before replaying (a completed loop leaves `@anim_index` at the last frame;
-      # replaying without a rewind would only re-show that frame and re-stop).
+      # frame. Distinguishes "done" from "paused mid-stream" so `#play` rewinds
+      # before replaying instead of re-showing the last frame and re-stopping.
       @finished = false
 
-      # Sets the shown frame. Assigning a *new* index marks the widget dirty so it
-      # repaints under `OptimizationFlag::DamageTracking` (on by default): unlike
-      # the internal animation loops — which assign `@anim_index` directly and pair
-      # it with `request_render` — an external clock writing `anim_index =` would
-      # otherwise change the frame without notifying the damage tracker, so the
-      # selective composite would carry over the stale cells and the image would
-      # appear frozen. A no-op write (same index) leaves the dirty set untouched.
+      # Sets the shown frame. A *new* index marks the widget dirty so it repaints
+      # under `OptimizationFlag::DamageTracking`: without that, an external clock
+      # writing `anim_index =` changes the frame without notifying the damage
+      # tracker and the selective composite keeps the stale cells (image appears
+      # frozen). A no-op write leaves the dirty set untouched.
       def anim_index=(i : Int32) : Int32
         unless i == @anim_index
           @anim_index = i
@@ -166,18 +152,15 @@ module Crysterm
       end
 
       # Sets the backend's source directly from an in-memory RGBA bitmap instead
-      # of decoding a file. Wraps it as a single-frame `PNGGIF::PNG` so the
-      # existing sample/compose/render pipeline renders it unchanged. Entry point
-      # `Graph::Canvas` uses to display a freshly painted frame; clears any
-      # per-size sample cache so a same-size update re-renders. Bitmap must be
-      # non-empty.
+      # of decoding a file, wrapping it as a single-frame `PNGGIF::PNG` so the
+      # sample/compose/render pipeline renders it unchanged. Clears any per-size
+      # sample cache so a same-size update re-renders. Bitmap must be non-empty.
       def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
         w, h = Media.dims(bmp)
         raise ArgumentError.new("Media#bitmap=: empty bitmap") if w <= 0 || h <= 0
-        # Stop any in-progress animation before swapping the source out from under
-        # it (mirrors each backend's `#load`). Without this a zombie `FrameClock`
-        # keeps advancing at the old GIF's rate, or a streaming decoder stays open.
-        # Safe for a never-playing single-frame device: `#stop` is a no-op then.
+        # Stop before swapping the source out from under a running animation,
+        # else a zombie `FrameClock` keeps advancing at the old GIF's rate or a
+        # streaming decoder stays open.
         stop
         @file = nil
         @load_failed = false
@@ -188,23 +171,20 @@ module Crysterm
       end
 
       # The backend's native pixel resolution for a *cols*×*rows* content box —
-      # the size `Graph::Canvas` should allocate its bitmap at to render crisply
-      # (no resampling). Default is one pixel per cell; `Glyph` (sub-cell) and
-      # `Graphics` (true-pixel) override it.
+      # the size a bitmap must be allocated at to render crisply (no
+      # resampling). Default is one pixel per cell.
       def native_resolution(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         {cols, rows}
       end
 
       # Physical width:height of one of this backend's device pixels (1.0 =
-      # square), for `Graph::Painter#pixel_aspect` so circles stay round.
-      # Default assumes a ~1:2 cell. Overridden by `Glyph` (sub-cell) and
-      # `Graphics` (true square pixels).
+      # square), so circles stay round. Default assumes a ~1:2 cell.
       def native_pixel_aspect : Float64
         0.5
       end
 
       # Hook: drop any cached per-size sample so the next render re-derives it
-      # from the (newly set) source. No-op here; `Media::Cells` overrides it.
+      # from the newly set source. No-op here.
       protected def reset_sample_cache : Nil
       end
 
@@ -221,17 +201,15 @@ module Crysterm
         @stream_mode = nil # @file cleared: re-resolve on the next loaded file
       end
 
-      # Common `#load` source-reset preamble shared by every backend's `#load`
-      # override: stop any playback, point at the new *file*, and drop the
-      # decoded source, frame list, and frame index so the next render re-derives
-      # from *file*. Each backend then clears its own backend-specific caches.
+      # Common `#load` preamble: stop playback, point at the new *file*, and drop
+      # the decoded source, frame list, and frame index so the next render
+      # re-derives. Each backend then clears its own caches.
       protected def reset_source_state(file : String) : Nil
         stop
         @file = file
         @source = nil
-        # Clear the failure latch so a new file is actually attempted — otherwise
-        # `#source` early-returns nil forever after any prior failed load (its own
-        # documented contract: "Reset on new file load").
+        # Clear the failure latch, else `#source` early-returns nil forever after
+        # any prior failed load.
         @load_failed = false
         @stream_mode = nil # new file: re-resolve the video decode mode (once)
         @src_frames = nil
@@ -244,15 +222,11 @@ module Crysterm
       # eagerly via `Media.decode`. A failed open is not retried (`@load_failed`).
       #
       # Opening the live decoder (ffprobe ×2 + ffmpeg) is *explicit*: only the
-      # playback/load entry points pass `open_stream: true`. Every other caller
-      # — notably each backend's `#render`/`#redraw_image`, which call `source`
-      # unconditionally on the render fiber — gets `nil` for an unopened
-      # stream-mode source instead. Without the gate, `#stop` (which nils
-      # `@stream`/`@source` so the next `#play` re-opens) was undone by the very
-      # next render: it re-launched ffmpeg on the render fiber with `@playing`
-      # false, so nothing drained the pipe and the decoder blocked forever —
-      # stop never stuck. The render paths fall back to their retained sample/
-      # payload of the last shown frame.
+      # playback/load entry points may pass `open_stream: true`. A render path
+      # must not — it would re-launch ffmpeg with `@playing` false, so nothing
+      # drains the pipe and the decoder blocks forever, undoing `#stop`. Such
+      # callers get `nil` and fall back to their retained sample/payload of the
+      # last shown frame.
       protected def source(open_stream : Bool = false) : PNGGIF::PNG?
         if s = @source
           return s
@@ -275,13 +249,10 @@ module Crysterm
         end
       end
 
-      # Whether *file* is a video resolved to *stream* decode mode, memoized in
-      # `@stream_mode` for `@file`'s lifetime. `Media::VideoSource.mode` spawns an
-      # `ffprobe` (under `media.video_decode = auto`) to estimate the frame count,
-      # so resolving it once — instead of on every `#source` call from the render
-      # path — is what keeps a stopped, still-attached stream source from churning
-      # a subprocess per rendered frame. `@stream_mode` is reset whenever `@file`
-      # changes so a new file re-probes exactly once.
+      # Whether *file* is a video resolved to *stream* decode mode, memoized for
+      # `@file`'s lifetime. `Media::VideoSource.mode` spawns an `ffprobe`, so the
+      # memo is what keeps a stopped, still-attached stream source from churning
+      # a subprocess per rendered frame.
       private def stream_mode_source?(file : String) : Bool
         cached = @stream_mode
         return cached unless cached.nil?
@@ -289,17 +260,15 @@ module Crysterm
       end
 
       # Whether the composited source frames have been built yet (decode/composite
-      # happens in a background fiber on first `#play`). Useful to a recorder
-      # that wants to start capturing only once playback is underway.
+      # happens in a background fiber on first `#play`).
       def frames_ready? : Bool
         !@src_frames.nil?
       end
 
       # Whether this backend's pixels are *visible to the terminal* and so must
-      # be composited into a capture (`Crysterm::Capture`). False here: `Cells`
-      # already lives in the window's cell buffer (captured for free), while
-      # `External`/`Tek` are painted by an external program or separate window
-      # the terminal can't see. `Media::Graphics` overrides this to true.
+      # be composited into a capture. False here: `Cells` already lives in the
+      # window's cell buffer (captured for free), while `External`/`Tek` are
+      # painted by a program or window the terminal can't see.
       def capture_pixels? : Bool
         false
       end
@@ -307,7 +276,7 @@ module Crysterm
       # The current frame as a capture layer: an RGBA `PNGGIF::Bitmap` sized to
       # the widget's content cell-box × (*font_w* × *font_h*) pixels, plus the
       # content's top-left cell coordinates `{bmp, cell_xi, cell_yi}`. `nil` by
-      # default; `Media::Graphics` overrides.
+      # default.
       def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
         nil
       end
@@ -317,11 +286,9 @@ module Crysterm
       # first paint); the loop then advances the frame index and re-renders.
       def play
         return if @playing
-        # Replaying a finite animation that ran to completion: rewind to the
-        # first frame. Without this the loop would start already at the last
-        # frame and immediately re-complete, only flashing that frame. `#pause`
-        # keeps `@anim_index` for resume, so gate on the completion flag rather
-        # than the index value.
+        # Rewind a finite animation that ran to completion, else the loop starts
+        # at the last frame and immediately re-completes. Gate on the completion
+        # flag, not the index: `#pause` keeps `@anim_index` for resume.
         if @finished
           @anim_index = 0
           @finished = false
@@ -329,21 +296,19 @@ module Crysterm
         png = source(open_stream: true) # (re)opens the streaming decoder when applicable
         return unless png
 
-        # Only a *genuine* animation plays: a live video stream (`@stream`), or a
-        # decoded source with more than one frame. A single-frame source is a
-        # still — notably one injected via `#bitmap=`, whose `frames` is non-nil
-        # unlike a decoded still's. Without this guard, auto-play on such a
-        # source (e.g. `Graph::Canvas`'s `#ensure_animation`, which plays any
-        # source with non-nil `frames`) would spin a one-frame loop re-rendering
-        # forever at the minimum interval.
+        # Only a *genuine* animation plays: a live video stream, or a decoded
+        # source with more than one frame. A single-frame source injected via
+        # `#bitmap=` has non-nil `frames` (unlike a decoded still), and without
+        # this guard auto-play would spin a one-frame loop re-rendering forever
+        # at the minimum interval.
         return unless @stream || ((fr = png.frames) && fr.size > 1)
 
         @playing = true
 
         if @stream
-          # Streaming video: pull frames into a single reused slot. Grouped on a
-          # shared clock (`animate: timer`), the clock pulls one frame per tick
-          # in lockstep; otherwise a private fiber pulls at the video's own rate.
+          # Streaming video: pull frames into a single reused slot. On a shared
+          # clock the clock pulls one frame per tick in lockstep; otherwise a
+          # private fiber pulls at the video's own rate.
           @src_frames = nil
           if @clock
             subscribe_clock
@@ -359,12 +324,10 @@ module Crysterm
             Fiber.yield # let the current layout paint before the heavy build
             sw, sh = Media::Fitting.source_size png
             frames = png.animation_cellmaps(sw, sh, 1.0)
-            # Generation guard (mirroring `@stream_gen` for `#stream_loop`): a
-            # `#load`/`#bitmap=` while this fiber was compositing replaced the
-            # source, and playback state belongs to the NEW source's session
-            # now. Committing anyway would clobber the new source's frames with
-            # the old GIF's (or, via the `@playing = false` arm below, kill the
-            # new session's playback with an empty stale composite).
+            # Generation guard: a `#load`/`#bitmap=` during the composite
+            # replaced the source, and playback state belongs to the new
+            # session now. Committing anyway would clobber the new source's
+            # frames with the old GIF's, or kill its playback below.
             next unless @source.same?(png)
             @src_frames = frames
             if frames && !frames.empty? && @playing
@@ -377,7 +340,7 @@ module Crysterm
       end
 
       # Begins advancing frames once `@src_frames` exists: drive from the shared
-      # clock if given (`animate: timer`), else run a private `FrameClock`.
+      # clock if given, else run a private `FrameClock`.
       private def start_playback
         if @clock
           subscribe_clock
@@ -400,16 +363,14 @@ module Crysterm
       private def tick_frame : Nil
         return unless @playing
         if st = @stream
-          # Mirror `#stream_loop`'s termination: a false return means EOF with a
-          # failed restart (or playback stopped). Without honoring it, the shared
-          # clock keeps calling `advance_stream` every tick — relaunching (and
-          # killing) an ffmpeg per frame forever with `playing?` stuck true.
+          # A false return means EOF with a failed restart (or playback stopped)
+          # and must end playback, else the clock keeps calling `advance_stream`
+          # every tick, relaunching (and killing) an ffmpeg per frame forever.
           unless advance_stream st
-            # Only end playback for a stream we still own (mirroring
-            # `#stream_loop`'s post-loop check): a stop→play during restart's
-            # yield window replaces `@stream`, and the false is then about the
-            # discarded stream — the new session owns `@playing` and the clock
-            # subscription now.
+            # Only end playback for a stream we still own: a stop→play during
+            # restart's yield window replaces `@stream`, and the false is then
+            # about the discarded stream — the new session owns `@playing` and
+            # the clock subscription now.
             if st.same?(@stream)
               @playing = false
               unsubscribe_clock
@@ -466,11 +427,10 @@ module Crysterm
         end
       end
 
-      # Frame clock: advance the frame index over time and trigger a render
-      # (which samples the current frame to the current box). Honours `speed`
-      # and the image's loop count (`num_plays`; 0 = loop forever). Each tick
-      # sets the next sleep to that frame's own delay, so GIFs keep their
-      # variable per-frame timing.
+      # Frame clock: advance the frame index over time and trigger a render.
+      # Honours `speed` and the image's loop count (`num_plays`; 0 = loop
+      # forever). Each tick sets the next sleep to that frame's own delay, so
+      # GIFs keep their variable per-frame timing.
       private def animate_loop
         src = @src_frames
         return unless src
@@ -483,8 +443,8 @@ module Crysterm
         @animation.try &.stop
         # Advance the index at the START of each tick (the FrameClock fires its
         # first tick immediately, so `first` presents frame 0 unadvanced), THEN
-        # request the render and set the interval from the frame actually being
-        # displayed — so each frame is shown for its OWN delay, including frame 0.
+        # render and set the interval from the frame actually displayed — so
+        # each frame is shown for its OWN delay, including frame 0.
         first = true
         @animation = FrameClock.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
           if @playing
@@ -519,19 +479,15 @@ module Crysterm
         @animation.try &.start
       end
 
-      # Background fiber for a *streaming* video: pull the next frame from the
-      # live ffmpeg decoder into a single reused `@src_frames` slot, drop the
-      # backend's cache for it (`#invalidate_frame`), and re-render — constant
-      # memory regardless of length. At end-of-stream the decoder restarts.
-      # Honours `speed`; stops when `@playing` clears (`#stop` closes the pipe,
-      # unblocking a pending read).
+      # Background fiber for a *streaming* video: pull frames from the live
+      # ffmpeg decoder into a single reused `@src_frames` slot and re-render —
+      # constant memory regardless of length. Honours `speed`; stops when
+      # `@playing` clears (`#stop` closes the pipe, unblocking a pending read).
       private def stream_loop(gen : Int32)
         stream = @stream || return
         # Deadline-based pacing: decode + render takes real time, so a plain
-        # `sleep(delay)` would drift the video slower than its true fps. Instead
-        # advance a target deadline by the frame period and sleep only the
-        # remainder, absorbing decode time into the period. If decode falls
-        # behind, reset the deadline rather than burst-rendering to catch up.
+        # `sleep(delay)` drifts the video slower than its true fps. Advance a
+        # deadline by the frame period and sleep only the remainder.
         next_at = Time.instant
         # Exit as soon as a newer play/pause/stop has bumped the generation,
         # even if `@playing` was flipped back to true under us by a fresh loop.
@@ -552,43 +508,38 @@ module Crysterm
           # Still the live loop: end playback (EOF/close reached the loop).
           @playing = false
         elsif !stream.same?(@stream)
-          # Superseded, and our captured stream has been discarded (stop nilled
-          # or a new play replaced `@stream`): close it to reap its ffmpeg.
-          # Don't touch `@playing` — the loop that replaced us owns it now.
+          # Superseded, and our captured stream was discarded: close it to reap
+          # its ffmpeg. Don't touch `@playing` — the loop that replaced us owns
+          # it now.
           stream.close
         end
       end
 
       # Pulls the next live frame from *stream* into the single reused
-      # `@src_frames` slot, drops the backend's cached render for it
-      # (`#invalidate_frame`), and re-renders. At end-of-stream the decoder
-      # restarts. Returns false when the stream ended and couldn't be reopened
-      # (or playback stopped), so the caller halts. Shared by the self-paced
-      # `#stream_loop` and the shared-clock `#tick_frame`.
+      # `@src_frames` slot, drops the backend's cached render for it, and
+      # re-renders; at end-of-stream the decoder restarts. Returns false when
+      # the stream ended and couldn't be reopened (or playback stopped), so the
+      # caller halts.
       private def advance_stream(stream) : Bool
         bmp = stream.next_frame
         if bmp.nil?
           return false unless @playing
           # Only loop a stream we still own. A superseded loop reaching EOF must
           # not `restart` a discarded stream — that relaunches an ffmpeg on an
-          # object nothing owns (never closed/reaped). The loop's post-check
-          # closes our captured stream instead.
+          # object nothing owns (never closed/reaped).
           return false unless stream.same?(@stream)
           restarted = stream.restart # loop the video
-          # Re-check ownership AFTER restart too: its yield points (`close` →
-          # `wait`, `launch`, the first-frame read) let a `stop` or a new play
-          # disown this stream mid-restart. A `stop` landing between `close`
-          # and `launch` finds `@process` nil and reaps nothing, so only we can
-          # close the ffmpeg `restart` relaunches; do so (idempotent if `stop`
-          # already got it) and bail. A failed restart while disowned is an
-          # artifact of the disowning, so don't latch `@load_failed` for it.
+          # Re-check ownership AFTER restart: its yield points let a `stop` or a
+          # new play disown this stream mid-restart. A `stop` landing between
+          # `close` and `launch` finds `@process` nil and reaps nothing, so only
+          # we can close the ffmpeg `restart` relaunches. A failed restart while
+          # disowned is an artifact of the disowning — don't latch `@load_failed`.
           unless stream.same?(@stream)
             stream.close
             return false
           end
-          # Latch a permanently failed restart so no playback path retries a dead
-          # source every frame (file deleted/moved/truncated mid-playback). `#source`
-          # then returns nil, so a later `#play` won't respawn ffmpeg either.
+          # Latch a permanently failed restart (file deleted/truncated
+          # mid-playback) so no playback path retries a dead source every frame.
           unless restarted # bail if the video won't reopen
             @load_failed = true
             return false
@@ -606,8 +557,7 @@ module Crysterm
 
       # Hook: a backend caches per-frame renders keyed by frame index; streaming
       # reuses index 0 with changing content, so the loop calls this to drop the
-      # stale cache entry for *idx*. No-op by default; cell/graphics families
-      # override it.
+      # stale cache entry for *idx*. No-op by default.
       protected def invalidate_frame(idx : Int32)
       end
 
@@ -631,18 +581,16 @@ module Crysterm
     # through `Media::Base#unsupported`, following the `image.unsupported`
     # policy instead of silently doing nothing.
     #
-    # The unified `fit` knob is advisory here: each helper has its own richer
-    # scaling control — `Media::Overlay#stretch`/`#center`,
-    # `Media::Ueberzug#scaler` — which actually takes effect.
+    # The unified `fit` knob is advisory here: each helper's own scaling control
+    # is what actually takes effect.
     abstract class Media::External < Media::Base
       # External overlays are static; never auto-animate.
       @animate = false
 
-      # Scratch `RenderedGeometry` reused by `#overlay_geometry` (the redraw-geometry
-      # preamble, run every `Rendered`) to avoid a heap `RenderedGeometry` allocation per
-      # redraw (`coords` with no `into:` allocates fresh — see
-      # widget_position.cr:638-641). The result is unpacked into a plain
-      # `Tuple` before returning, so reusing one buffer across calls is safe.
+      # Scratch `RenderedGeometry` reused by `#overlay_geometry`, run every
+      # `Rendered`, to avoid a heap allocation per redraw (`coords` with no
+      # `into:` allocates fresh). The result is unpacked into a plain `Tuple`
+      # before returning, so reusing one buffer across calls is safe.
       @overlay_geom_lpos : RenderedGeometry = RenderedGeometry.new
 
       # Animation is not supported by an external-helper overlay.
@@ -651,24 +599,21 @@ module Crysterm
       end
 
       # Displays *file*, replacing any image currently shown, and re-renders.
-      # (`Media::Base#set_image` does the same but without the
-      # `request_render`: the cell-grid/graphics backends already re-render
-      # via their normal dirty/render path, but an external-overlay backend is
-      # painted out-of-band by its `#redraw_image` hook, so showing a new
-      # image needs an explicit kick.)
+      # The explicit `request_render` (which `Media::Base#set_image` omits) is
+      # needed because an external-overlay backend is painted out-of-band by its
+      # `#redraw_image` hook, not by the normal dirty/render path.
       def set_image(file : String)
         load file
         request_render
       end
 
       # Current cell rectangle (`{xi, yi, w, h}`) this widget should be
-      # (re)painted at this frame, or `nil` if it shouldn't be painted at
-      # all — hidden (directly or via an ancestor), detached, or with no
-      # resolvable box yet. Shared redraw-geometry preamble for
-      # `Media::Overlay`/`Media::Ueberzug#redraw_image`. Mirrors
-      # `Media::Graphics#redraw_image`: a standalone `Rendered` listener must
-      # not resolve `coords(true)` against a hidden ancestor with no
-      # rendered position (it would raise and kill the render fiber).
+      # (re)painted at this frame, or `nil` if it shouldn't be painted at all —
+      # hidden (directly or via an ancestor), detached, or with no resolvable
+      # box yet. The `visible_in_tree?` guard is required: a standalone
+      # `Rendered` listener must not resolve `coords(true)` against a hidden
+      # ancestor with no rendered position, which raises and kills the render
+      # fiber.
       protected def overlay_geometry : Tuple(Int32, Int32, Int32, Int32)?
         return unless visible_in_tree?
         window? || return
@@ -687,12 +632,9 @@ module Crysterm
     # * `Media::Tek` — a separate Tektronix window driven by its own PAGE-clear
     #   redraw, not by re-emitting cells.
     #
-    # Both register a single `Rendered` listener and tear it down on destroy,
-    # with identical boilerplate for the listener-wrapper ivars and add/remove
-    # dance, which lives here. Each backend supplies just the paint block and
-    # any extra teardown (`Media::Tek` stops its animation loop, `Media::Ueberzug`
-    # removes its placement). `Media::ScreenOverlay` documents why those two are
-    # kept out of this module's lifecycle.
+    # Both register a single `Rendered` listener and tear it down on destroy;
+    # the shared listener-wrapper ivars and add/remove dance live here. Each
+    # backend supplies just the paint block and any extra teardown.
     module Media::RenderHook
       # Window the listener was registered on, kept so it can be removed on
       # destroy even after the widget is detached (`#window?` is nil).
@@ -701,7 +643,7 @@ module Crysterm
 
       # The paint block, kept for the widget's whole life (not one-shot): a
       # cross-window reparent needs it again to re-register the `Rendered`
-      # listener on the NEW window (see `#wire_render_hook_lifecycle`).
+      # listener on the new window.
       @render_hook_block : (::Crysterm::Event::Rendered ->)?
 
       # One-shot guard for the self lifecycle hooks, so re-registering the
@@ -731,8 +673,7 @@ module Crysterm
         end
       end
 
-      # Wires this widget's own lifecycle hooks, exactly once per widget
-      # (mirroring `Media::ScreenOverlay#wire_overlay_lifecycle_hooks`):
+      # Wires this widget's own lifecycle hooks, exactly once per widget:
       #
       # * `Attach`/`Reparent` — wired unconditionally, not only for a detached
       #   construction, so a widget built already-attached still migrates its
@@ -740,9 +681,8 @@ module Crysterm
       #   `@listener_screen` guard makes a same-window `Reparent` a no-op.
       # * `Detach` — a cross-window reparent emits `Detach(previous)` then
       #   `Attach(new)`: drop the old window's `Rendered` listener so the paint
-      #   block stops firing off a window the widget no longer lives on (and
-      #   the old window stops referencing `self`); the `Attach` hook then
-      #   re-registers on the new window.
+      #   block stops firing off a window the widget no longer lives on, and the
+      #   old window stops referencing `self`.
       private def wire_render_hook_lifecycle
         return if @render_hook_wired
         @render_hook_wired = true
@@ -751,9 +691,9 @@ module Crysterm
         on(::Crysterm::Event::Detach) { teardown_render_hook }
       end
 
-      # Fires from the `Attach`/`Reparent` hooks: registers the retained block
-      # on the current window, guarded on `@listener_screen` so a re-attach to
-      # the same window doesn't double-register.
+      # Registers the retained block on the current window, guarded on
+      # `@listener_screen` so a re-attach to the same window doesn't
+      # double-register.
       private def try_register_render_hook_deferred
         return if @listener_screen
         s = window? || return
@@ -762,8 +702,8 @@ module Crysterm
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &blk)
       end
 
-      # Removes the listener registered above and forgets the window. (The paint
-      # block is retained so an `Attach` to another window can re-register it.)
+      # Removes the listener and forgets the window. The paint block is retained
+      # so an `Attach` to another window can re-register it.
       protected def teardown_render_hook
         s = @listener_screen || return
         @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }

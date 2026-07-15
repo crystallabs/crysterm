@@ -3,11 +3,9 @@ module Crysterm
   # position-calculating methods — most visibly `Widget#contents_rect`.
   #
   # Both axes are **half-open**: the rectangle covers columns `xi...xl` and rows
-  # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`
-  # with no off-by-one. `#right`/`#bottom` are defined the same way (exclusive),
-  # *unlike* Qt's `QRect#right`, which returns the inclusive `x + width - 1` and
-  # is a long-standing source of off-by-one bugs. Every accessor here agrees
-  # with the half-open reading; there is no inclusive variant.
+  # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`.
+  # `#right`/`#bottom` are exclusive too, *unlike* Qt's `QRect#right`, which
+  # returns the inclusive `x + width - 1`. There is no inclusive variant here.
   struct Rectangle
     # Start column (inclusive).
     getter xi : Int32
@@ -55,7 +53,7 @@ module Crysterm
     end
 
     # Right edge, **exclusive** — alias of `#xl`. One past the last covered
-    # column, *not* Qt's inclusive `x + width - 1`; see the type docs.
+    # column, *not* Qt's inclusive `x + width - 1`.
     def right : Int32
       @xl
     end
@@ -116,13 +114,12 @@ module Crysterm
   end
 
   # A widget's last rendered position: the rectangle it painted into, plus the
-  # absolute offsets and insets resolved from it (see
-  # `Widget#last_rendered_position`, which fills the `a*`/`i*` fields lazily).
+  # absolute offsets and insets resolved from it (the `a*`/`i*` fields fill
+  # lazily).
   #
-  # Instances are **reused across frames** and mutated in place by
-  # `Widget#coords` — the render path resolves one of these per widget per
-  # frame, so allocating a fresh one would put a heap allocation on the hot
-  # path. Read the values; never retain the object past the current frame.
+  # Instances are **reused across frames** and mutated in place, keeping a heap
+  # allocation per widget per frame off the render hot path. Read the values;
+  # never retain the object past the current frame.
   class RenderedGeometry
     # TODO Can almost be replaced with a struct; see tech-demo example.
 
@@ -200,9 +197,8 @@ module Crysterm
     )
     end
 
-    # Re-initializes this instance in place to a freshly-constructed state. Used
-    # by `Widget#coords` on the render hot path to reuse the widget's
-    # `@lpos` instead of allocating a new `RenderedGeometry` per widget per frame.
+    # Re-initializes this instance in place to a freshly-constructed state, so the
+    # render hot path can reuse a widget's `@lpos` rather than allocate.
     #
     # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`):
     # they're keyed to the previous frame's geometry and would otherwise return

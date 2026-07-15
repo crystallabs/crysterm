@@ -13,18 +13,16 @@ module Crysterm
     getter height : Int32 | String | Nil
 
     # Whether the widget sizes itself to its content and children rather than to
-    # its slot — blessed's `shrink`, roughly CSS `width: fit-content`. Only the
-    # dimensions the user left unset (`nil` `width`/`height`) shrink; see
-    # `#minimal_rectangle`, applied in `#coords`.
+    # its slot — roughly CSS `width: fit-content`. Only the dimensions the user
+    # left unset (`nil` `width`/`height`) shrink.
     #
-    # NOTE Despite the old name (`resizable`), this has nothing to do with the
-    # *user* being able to resize the widget (Qt's size policies, CSS `resize:`)
-    # — for a draggable resize handle see `Widget::SizeGrip`.
+    # NOTE This has nothing to do with the *user* being able to resize the widget
+    # (Qt's size policies, CSS `resize:`) — for a draggable resize handle see
+    # `Widget::SizeGrip`.
     property? shrink_to_fit = false
 
     # `width=`/`height=`: change-guarded setters that mark dirty and emit
     # `Resize`. The assign lands *before* the emit so in-tree Resize listeners
-    # (e.g. `Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s cursor recompute)
     # observe the new size, not the old one.
     {% for dim in %w[width height] %}
       # Sets widget's total {{dim.id}}
@@ -37,27 +35,24 @@ module Crysterm
     # stylesheet by `CSS::Geometry`; settable directly too.
     #
     # NOTE These are **cells only** — unlike `#width`/`#height` (and
-    # `#left`/`#top`/`#right`/`#bottom`), a percentage `String` is not accepted.
-    # `min_width: "50%"` is a compile error rather than a silent misbehavior, but
-    # the asymmetry with `width` is real and simply not implemented yet: the
-    # clamp runs inside `awidth`/`aheight`, which would have to resolve the
-    # percentage against the parent before clamping.
+    # `#left`/`#top`/`#right`/`#bottom`), a percentage `String` is not accepted;
+    # `min_width: "50%"` is a compile error. Supporting it would mean resolving
+    # the percentage against the parent inside `awidth`/`aheight`, where the
+    # clamp runs.
     getter min_width : Int32? = nil
     getter max_width : Int32? = nil
     getter min_height : Int32? = nil
     getter max_height : Int32? = nil
 
     # `min_*=`/`max_*=` alter effective `awidth`/`aheight` like `width=`/`height=`,
-    # so they emit `Resize` too — otherwise listeners (`Mixin::ItemView#on_resize`,
-    # `Mixin::TextEditing`'s Resize→`_update_cursor`) go stale. Assign-before-emit
-    # so those listeners see the new constraint.
+    # so they emit `Resize` too, or its listeners go stale. Assign-before-emit, so
+    # those listeners see the new constraint.
     {% for dim in %w[min_width max_width min_height max_height] %}
       change_guarded_setter {{dim.id}}, Resize, Int32?
     {% end %}
 
     # Clamps a computed dimension to `[min, max]`. `max` is applied before `min`
-    # so `min` wins a `min > max` conflict, per CSS. Shared by
-    # `#clamp_awidth`/`#clamp_aheight`.
+    # so `min` wins a `min > max` conflict, per CSS.
     private def clamp_dim(v : Int32, min : Int32?, max : Int32?) : Int32
       v = Math.min(v, max) if max
       v = Math.max(v, min) if min
@@ -76,9 +71,9 @@ module Crysterm
 
     # Returns computed width, in cells.
     #
-    # *rendered* resolves against the parent's **last-rendered** position
-    # (`#last_rendered_position`) instead of its live geometry — what the render
-    # path wants, since the parent has already been placed for this frame.
+    # *rendered* resolves against the parent's **last-rendered** position instead
+    # of its live geometry — what the render path wants, since the parent has
+    # already been placed for this frame.
     def awidth(rendered = false) : Int32
       oleft = @left
       oright = @right
@@ -103,11 +98,9 @@ module Crysterm
       # so it's calculated here too.
       if width.nil?
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # `parent.awidth` climbs the whole ancestor chain (or reads the stored
-        # `RenderedGeometry` under `rendered`). Needed twice here (string base + width
-        # subtraction); computing it once collapses O(2^depth) to O(depth) for a
-        # chain of nil-width + string-left widgets. Kept inside this branch so an
-        # integer-width widget never walks the chain.
+        # `parent.awidth` climbs the whole ancestor chain. It's needed twice here
+        # (string base + width subtraction); computing it once collapses
+        # O(2^depth) to O(depth) for a chain of nil-width + string-left widgets.
         pw = parent.awidth || 0
         left = oleft || 0
         if left.is_a? String
@@ -123,12 +116,10 @@ module Crysterm
         width -= parent.iright
 
         # `width: auto` fills the slot, so the element's *own* margins eat into
-        # the filled content (CSS: a stretched box shrinks by its margins). A
-        # fixed width instead keeps its size and shifts (see `coords`), so
-        # only this auto branch folds the margin in.
-        # Subtract the margin from the filled size *before* clamping so the
-        # [min_width, max_width] constraints apply to the post-margin (used)
-        # size, matching CSS min/max semantics.
+        # the filled content (CSS: a stretched box shrinks by its margins); a fixed
+        # width keeps its size and shifts instead, so only this branch folds the
+        # margin in. Subtract before clamping, so `[min_width, max_width]` applies
+        # to the post-margin (used) size, per CSS min/max semantics.
         mw = (mg = style.margin).any? ? mg.left + mg.right : 0
         return clamp_awidth(width - mw)
       end
@@ -159,9 +150,8 @@ module Crysterm
       # by the element's own height, so it's calculated here too.
       if height.nil?
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # See `awidth`: one `parent.aheight` shared between string base and
-        # height subtraction, kept inside this branch so a fixed-height widget
-        # never recurses. O(2^depth) → O(depth).
+        # See `awidth`: one `parent.aheight` shared between string base and height
+        # subtraction. O(2^depth) → O(depth).
         ph = parent.aheight || 0
         top = otop || 0
         if top.is_a? String
@@ -175,10 +165,8 @@ module Crysterm
         end
         height -= parent.ibottom
 
-        # See `awidth`: only an auto (stretched) height folds in the element's
-        # own margins; a fixed height shifts instead.
-        # Subtract the margin before clamping so [min_height, max_height] apply
-        # to the post-margin (used) size, matching CSS min/max semantics.
+        # See `awidth`: only an auto (stretched) height folds in the element's own
+        # margins, and the margin comes off before the clamp.
         mh = (mg = style.margin).any? ? mg.top + mg.bottom : 0
         return clamp_aheight(height - mh)
       end
@@ -203,35 +191,28 @@ module Crysterm
       # them what we have so far.
       if rendered
         _lpos = @lpos
-        # A reused per-widget scratch (children only read it transiently via
-        # `parent.lpos` during this pass), NOT `@lpos` itself — provisional and
+        # A reused per-widget scratch — children only read it transiently via
+        # `parent.lpos` during this pass — NOT `@lpos` itself: provisional and
         # final coords differ.
         @lpos = (@_shrink_lpos ||= RenderedGeometry.new).reset(
           xi: xi, xl: xl, yi: yi, yl: yl, base: 0,
           no_left: false, no_right: false, no_top: false, no_bottom: false,
           renders: 0)
-        # D O:
-        # @shrink_to_fit = false
       end
 
-      # One reused scratch for every child's coordinate result: it's read (and
-      # for anchored children adjusted) within the iteration only, so a heap
-      # `RenderedGeometry` per child per frame was pure garbage. Distinct from
-      # `@_shrink_lpos` above, which is exposed via `@lpos` for the same pass.
+      # One reused scratch for every child's coordinate result: it's read (and for
+      # anchored children adjusted) within the iteration only, so a heap
+      # `RenderedGeometry` per child per frame would be pure garbage. Distinct
+      # from `@_shrink_lpos` above, which is exposed via `@lpos` for the same pass.
       scratch = (@_shrink_child_lpos ||= RenderedGeometry.new)
       @children.each do |el|
-        # Skip layout-excluded chrome, exactly as the layout engines do: e.g.
-        # the background-image `Media` layer is pinned 0/0/0/0 (spanning the
-        # whole current slot), so measuring it would lock a shrink-to-content
-        # widget at whatever size the previous frame stretched the layer to —
-        # after frame 1 the widget balloons to its parent's full size and
-        # never shrinks again.
+        # Skip layout-excluded chrome, exactly as the layout engines do: the
+        # background-image `Media` layer is pinned 0/0/0/0 (spanning the whole
+        # current slot), so measuring it would lock a shrink-to-content widget at
+        # whatever size the previous frame stretched the layer to — the widget
+        # balloons to its parent's full size and never shrinks again.
         next if el.layout_excluded?
         ret = el.coords(rendered, into: scratch)
-
-        # D O:
-        # Or just (seemed to work, but probably not good):
-        # ret = el.lpos || @lpos
 
         if !ret
           next
@@ -240,19 +221,15 @@ module Crysterm
         # A shrunk parent's children assume max available space, so a
         # right/bottom-anchored child would inflate the parent's shrunken size;
         # use just the element's own height/width instead.
-        # D O:
-        # if rendered
         if el.left.nil? && !el.right.nil?
           ret.xl = xi + (ret.xl - ret.xi)
           ret.xi = xi
-          # Maybe just do this no matter what.
           ret.xl += ileft
           ret.xi += ileft
         end
         if el.top.nil? && !el.bottom.nil?
           ret.yl = yi + (ret.yl - ret.yi)
           ret.yi = yi
-          # Maybe just do this no matter what.
           ret.yl += itop
           ret.yi += itop
         end
@@ -265,26 +242,20 @@ module Crysterm
 
       if rendered
         @lpos = _lpos
-        # D O:
-        # @shrink_to_fit = true
       end
 
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
-          # `mxl - mxi` already bakes in the *near* (left) inset: children are
-          # positioned at `parent.ileft`, while `mxi` is seeded to the parent's
-          # own left edge, so the span is `ileft + content`. To size the box to
-          # `content + ihorizontal` (exactly what the left-anchored branch below
-          # produces via `xl += iright`), pull the left edge back by the *far*
-          # (right) inset — NOT `ileft`, which would double-count the near inset
-          # and, under an asymmetric border/padding, over-size the box by
-          # `ileft - iright`.
+          # `mxl - mxi` already bakes in the *near* (left) inset: children sit at
+          # `parent.ileft` while `mxi` is seeded to the parent's own left edge, so
+          # the span is `ileft + content`. Pull the left edge back by the *far*
+          # (right) inset to size the box to `content + ihorizontal` — matching
+          # the left-anchored branch's `xl += iright`. Using `ileft` here would
+          # double-count the near inset and over-size an asymmetrically-inset box.
           xi -= iright
         else
           xl = mxl
-          # D O:
-          # xl += style.padding.try(&.right) || 0
           xl += iright
         end
       end
@@ -293,32 +264,25 @@ module Crysterm
         # calculated from item count.
         if @_is_list
           # Anchor the extent at the widget's own top: `myi`/`myl` are absolute
-          # window coordinates here (seeded from `yi` above), and the
-          # top-anchored placement below uses `myl` absolutely (`yl = myl;
-          # yl += ibottom`). A 0-based `myi` is only correct at `yi == 0`; for
-          # any other position the rectangle comes out inverted/truncated and
-          # the span comparison in `minimal_rectangle_uncached` collapses the
-          # box to its (near-empty) content rectangle.
+          # window coordinates, and the top-anchored placement below uses `myl`
+          # absolutely. A 0-based `myi` is correct only at `yi == 0`; anywhere else
+          # the rectangle comes out inverted/truncated and the span comparison in
+          # `minimal_rectangle_uncached` collapses the box to its content rect.
           myi = yi
-          # `@items.size` counts only the content rows, so fold the *top* inset
-          # into `myl` here: the top-anchored placement below is `yl = myl;
-          # yl += ibottom`, which adds only the bottom inset, so without this the
-          # box comes out `itop` rows too short — a bordered shrink-to-content
-          # list clips its last item (rendered `items + ibottom` tall instead
-          # of `items + ivertical`). Adding `itop` (not `ibottom`) avoids the
-          # opposite, double-`ibottom`, error. `myi = yi` keeps the
-          # bottom-anchored branch's span (`myl - myi == items + itop`) unchanged.
+          # `@items.size` counts only content rows, and the top-anchored placement
+          # below (`yl = myl; yl += ibottom`) adds only the bottom inset — so fold
+          # the *top* inset in here, or a bordered shrink-to-content list comes out
+          # `itop` rows short and clips its last item. `itop` (not `ibottom`), or
+          # the error inverts; `myi = yi` keeps the bottom-anchored branch's span
+          # (`myl - myi == items + itop`) unchanged.
           myl = yi + @items.size + itop
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
           # `myl - myi` already bakes in the *near* (top) inset (see the x-axis
-          # branch above), so pull the top edge back by the *far* (bottom) inset
-          # to size the box to `content + ivertical` — matching the top-anchored
-          # branch's `yl += ibottom`. Using `itop` here double-counts the near
-          # inset, over-sizing an asymmetrically-inset bottom-anchored shrink box
-          # (and, for a list, `myl == items + itop`, so this yields exactly
-          # `items + ivertical`).
+          # branch above), so pull the top edge back by the *far* (bottom) inset to
+          # size the box to `content + ivertical`, matching the top-anchored
+          # branch's `yl += ibottom`.
           yi -= ibottom
         else
           yl = myl
@@ -348,25 +312,24 @@ module Crysterm
           xl = xi + w + ihorizontal
         end
       end
-      # end
 
       if @height.nil? && (@top.nil? || @bottom.nil?) &&
          (!@scrollable || @_is_list)
         if @top.nil? && !@bottom.nil?
-          yi = yl - h - ivertical # (ivertical == 1 ? 0 : ivertical)
+          yi = yl - h - ivertical
         else
-          yl = yi + h + ivertical # (ivertical == 1 ? 0 : ivertical)
+          yl = yi + h + ivertical
         end
       end
 
       Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
     end
 
-    # Frame memo for `minimal_rectangle`: nested shrink_to_fit widgets re-derive
-    # the same subtree rectangle once per ancestor shrink pass plus their own
-    # render — O(depth × subtree) per frame without this. Keyed on the exact
+    # Frame memo for `minimal_rectangle`: without it, nested shrink_to_fit widgets
+    # re-derive the same subtree rectangle once per ancestor shrink pass plus
+    # their own render — O(depth × subtree) per frame. Keyed on the exact
     # arguments plus `Window#renders`, so a moved/resized caller or a new frame
-    # recomputes; `#mark_dirty` (content/geometry changes) clears it eagerly.
+    # recomputes; `#mark_dirty` clears it eagerly.
     @_minrect : Rectangle?
     @_minrect_key : Tuple(Int32, Int32, Int32, Int32, Bool, Int32)?
 
@@ -411,10 +374,9 @@ module Crysterm
         yl = content_rect.yl
       end
 
-      # Recenter shrunken elements (matches `center`/`center±N` via
-      # `center_expr?`): a shrunk widget pulled its origin back by half its
-      # full width in `aleft`, so recentering by half the freed space is needed
-      # to keep an offset-centered (`center+N`) widget from landing far off.
+      # Recenter shrunken elements (`center`/`center±N`): a shrunk widget pulled
+      # its origin back by half its full width in `aleft`, so recentering by half
+      # the freed space keeps an offset-centered widget from landing far off.
       if xl < xll && center_expr?(@left)
         xll = (xll - xl) // 2
         xi += xll

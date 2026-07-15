@@ -1,17 +1,16 @@
 require "./screen"
 
 module Crysterm
-  # Inline styled output — the notcurses *direct mode* analogue (`direct.h` /
-  # `src/lib/direct.c`). Emits color, styling, cursor moves and box drawing into
-  # a **normal scrolling terminal**, without entering the alternate buffer or
-  # running a render loop. Drop-in for colorizing an ordinary CLI tool.
+  # Inline styled output — the notcurses *direct mode* analogue. Emits color,
+  # styling, cursor moves and box drawing into a **normal scrolling terminal**,
+  # without entering the alternate buffer or running a render loop. Drop-in for
+  # colorizing an ordinary CLI tool.
   #
   # Unlike `Window` (the full-screen surface), `Direct` owns no cell buffer and
   # does no damage tracking: the caller drives output and `Direct` formats it,
-  # synchronously. It *has-a* `Screen` (the device — IO, `Tput`, color depth)
-  # and reuses the very same color/SGR down-reduction pipeline the renderer uses
-  # (`Screen.code2attr_to` + `Colors.sgr_color_to`), so a 16- or 256-color
-  # terminal gets the same faithful palette reduction here as under `Window`.
+  # synchronously. It *has-a* `Screen` (the device — IO, `Tput`, color depth) and
+  # reuses the renderer's color/SGR down-reduction pipeline, so a 16- or
+  # 256-color terminal gets the same palette reduction here as under `Window`.
   #
   # ```
   # d = Crysterm::Direct.new
@@ -21,10 +20,8 @@ module Crysterm
   # d.flush
   # ```
   #
-  # Cursor bookkeeping without a cell buffer: absolute moves (`#move_yx`, `#box`)
-  # and relative moves (`#cursor_up`/`#down`/`#left`/`#right`) are delegated to
-  # `Tput`, which keeps its own `{x, y}` shadow and clamps to the screen — we add
-  # none of our own.
+  # With no cell buffer, all cursor bookkeeping is delegated to `Tput`, which
+  # keeps its own `{x, y}` shadow and clamps to the screen.
   #
   # NOTE: like `Window`, a `Direct` built with no explicit `output:` follows the
   # `screen.headless` convention (`Crysterm.headless?`) — when STDOUT is **not** a
@@ -32,16 +29,14 @@ module Crysterm
   # the pipe. To colorize output destined for a pager or file
   # (`mytool | less -R`), pass `output: STDOUT` explicitly.
   class Direct
-    # The physical terminal/device backing this direct-mode session. Owns IO,
-    # `Tput`, and color depth; reused wholesale (no `Window`, no render loop).
+    # The physical terminal/device backing this session: IO, `Tput`, color depth.
     getter screen : Screen
 
     # Device concerns delegated to the `Screen`.
     delegate tput, output, colors, truecolor?, to: @screen
 
     # Scratch buffer reused for building each SGR sequence (`code2attr_to` needs
-    # a seekable `IO::Memory`). Direct mode is not a hot path, but reusing one
-    # buffer keeps per-`print` allocation off the caller's back.
+    # a seekable `IO::Memory`), keeping per-`print` allocation down.
     @sgr_buf = IO::Memory.new
 
     def initialize(
@@ -63,10 +58,10 @@ module Crysterm
       # an explicitly-sized/headless device).
       @screen.adopt_terminal_size
 
-      # Run the live capability probe `Screen.new` skips (`probe: false`). Direct
-      # mode has no input listen fiber, so the synchronous round-trip races
-      # nothing; it can upgrade the terminal to confirmed truecolor, so SGR
-      # emission reduces to the right depth. No-ops on a non-tty / when disabled.
+      # Run the live capability probe `Screen.new` skips (`probe: false`); it can
+      # upgrade the terminal to confirmed truecolor, so SGR emission reduces to
+      # the right depth. Direct mode has no input listen fiber, so the synchronous
+      # round-trip races nothing. No-ops on a non-tty / when disabled.
       @screen.probe!
     end
 
@@ -101,8 +96,7 @@ module Crysterm
       self
     end
 
-    # Writes a single character styled like `#print`. `IO#<<` accepts a `Char`
-    # exactly as a `String`, so this delegates to `#print`.
+    # Writes a single character styled like `#print`.
     def putc(
       char : Char,
       fg = nil,
@@ -179,17 +173,15 @@ module Crysterm
 
     # Moves the cursor **relative to its current position**: *dy* rows (negative
     # = up) and *dx* columns (negative = left). `relative(-2, -2)` moves two rows
-    # up and two columns left. The shared "relative addressing" primitive — it
-    # reuses Tput's tracked position, so callers never compute absolute
-    # coordinates. See `CursorAnchor#relative` for the placement-math counterpart.
+    # up and two columns left. Reuses Tput's tracked position, so callers never
+    # compute absolute coordinates.
     def relative(dy : Int = 0, dx : Int = 0) : self
       tput.rmove dx, dy
       self
     end
 
-    # A `CursorAnchor` over this session's terminal, so callers can compute
-    # placement relative to the live cursor (`anchor.relative(1, 0)` = the line
-    # below) using the same abstraction inline `Window`s and the completer use.
+    # A `CursorAnchor` over this session's terminal, for computing placement
+    # relative to the live cursor (`anchor.relative(1, 0)` = the line below).
     def cursor_anchor : CursorAnchor
       TerminalCursorAnchor.new @screen
     end

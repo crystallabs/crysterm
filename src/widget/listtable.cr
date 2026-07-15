@@ -8,9 +8,8 @@ module Crysterm
     #
     # Combines `Mixin::ItemView` (selectable rows, keyboard/mouse navigation)
     # with the column layout of `Widget::Table`. The first row of the supplied
-    # data is a fixed header pinned at the top while body rows scroll. A
-    # sibling of `List` under `AbstractItemView` (no exact Qt class), reusing
-    # row machinery via the mixin rather than inheritance.
+    # data is a fixed header pinned at the top while body rows scroll. It has no
+    # exact Qt analogue.
     #
     # ```
     # Widget::ListTable.new(
@@ -31,7 +30,6 @@ module Crysterm
       include Mixin::ItemView
       include TableLayout
 
-      # The table data (including the header row at index 0).
       # The table data (including the header row at index 0). Read-only; assign
       # through `#rows=`, which rebuilds items + header.
       getter rows : Array(Array(String)) = [] of Array(String)
@@ -82,36 +80,31 @@ module Crysterm
       # columns overflow its viewport (Qt's `AsNeeded`).
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
-      # --- per-row derived-style caches (allocation reduction, K1) -----------
-      # `#render_style_for` runs once per body row per frame. With
-      # `alternate_rows: true` that would derive a fresh `Style` for every even
-      # row every frame (`without_border`/`overlay_colors` each `#dup`). The CSS
-      # cascade replaces a widget's whole `styles` tree on recompute
-      # (`cascade.cr`: `widget.styles = css_base_styles.deep_dup`) rather than
-      # mutating it, so a derived `Style` stays valid until its source `Style`
-      # object is replaced. These caches key on source-object identity
-      # (`same?`) and rebuild only when the source changes.
+      # --- per-row derived-style caches ---------------------------------------
+      # `#render_style_for` runs once per body row per frame, and would otherwise
+      # derive a fresh `Style` per even row per frame. The CSS cascade *replaces*
+      # a widget's whole `styles` tree on recompute rather than mutating it, so a
+      # derived `Style` stays valid until its source object is replaced — hence
+      # these key on source-object identity (`same?`).
 
-      # Non-CSS even rows (`without_border(style.alternate_row)`): the source is
-      # one shared object across every even row, so a single derived style
-      # (border stripped once) serves them all until the source is replaced.
+      # Non-CSS even rows: the source is one shared object across every even row,
+      # so a single border-stripped derived style serves them all.
       @_alt_row_src : Style? = nil
       @_alt_row_derived : Style? = nil
 
       # CSS-styled rows: each row box carries its own computed `Style`, so these
-      # memoize per source-`Style` identity in an identity-keyed `Cache::Bounded`
-      # (`by_identity: true`, so keys compare by reference). The whole set is
-      # dropped when `styles.normal`'s identity flips — the cascade recompute
-      # that replaces this widget's styles also replaces every row box's, so
-      # their old keys are stale together.
+      # memoize per source-`Style` identity. The whole set is dropped when
+      # `styles.normal`'s identity flips — the cascade recompute that replaces
+      # this widget's styles also replaces every row box's, so their old keys go
+      # stale together.
       @_row_style_gen : Style? = nil
       @_row_wb = Cache::Bounded(Style, Style).new(Cache::LISTTABLE_ROW_CAPACITY, by_identity: true)      # without_border(item.style)
       @_row_overlay = Cache::Bounded(Style, Style).new(Cache::LISTTABLE_ROW_CAPACITY, by_identity: true) # overlay_colors(base, alternate_row)
       @_row_overlay_src : Style? = nil                                                                   # alternate_row source guarding @_row_overlay
 
-      # NOTE: there is deliberately no `data:` parameter — see `Widget::Table`,
-      # which dropped the same second spelling of `rows:` (it collided with the
-      # unrelated `Widget#data`, `Mixin::Data`'s `YAML::Any?` slot).
+      # NOTE: there is deliberately no `data:` parameter — it would collide with
+      # the inherited `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot), as in
+      # `Widget::Table`. Pass `rows:`.
       def initialize(
         rows = nil,
         pad = nil,
@@ -138,18 +131,14 @@ module Crysterm
         # Header overlay, pinned to the top of the list, kept above the items.
         # Positioned at `left: 0` / `top: 0` like the item boxes: children are
         # laid out relative to the list's content area (already inside the
-        # border), so an `ileft` offset here would shift the header right of
-        # the items and clip its last column.
+        # border), so an `ileft` offset here would shift the header right of the
+        # items and clip its last column. Its style must be border-stripped —
+        # the table draws the frame and `│` separators itself, and an inherited
+        # border would give the header box insets that clip the last column.
         #
-        # TODO (deferred to the width/scrollbar rework): when content-sized (no
-        # explicit `width:`) the header collapses to its text width instead of
-        # stretching to the row width, so `style.header`'s background stops a
-        # few cells short of the right border.
-        # The header must not carry the table's own border (the table draws the
-        # frame and `│` separators itself). Inheriting it via `style.header`
-        # gave the header box `ileft`/`iright` insets that shrank its content
-        # area by two columns, clipping the last visible column's text
-        # (`City` → `Cit`). Strip it, mirroring body rows' `render_style_for`.
+        # TODO: when content-sized (no explicit `width:`) the header collapses to
+        # its text width instead of stretching to the row width, so
+        # `style.header`'s background stops short of the right border.
         @header = Box.new(
           parent: self,
           left: 0,
@@ -169,11 +158,9 @@ module Crysterm
         end
 
         # Click a header cell to sort by that column (toggling direction). Uses
-        # `Event::Mouse` (not bare `Click`) because it carries coordinates.
+        # `Event::Mouse`, not bare `Click`, because it carries coordinates.
         # Installed unconditionally and gated on the *current* `sortable?`, so
-        # toggling `sortable=` at runtime takes effect in both directions
-        # (a construction-time-only install left `sortable = true` inert and
-        # `sortable = false` ignored).
+        # toggling `sortable=` at runtime takes effect in both directions.
         header.on(Crysterm::Event::Mouse) do |e|
           next unless sortable? && e.action.down?
           if col = column_at(e.x - header.aleft)
@@ -185,14 +172,11 @@ module Crysterm
 
         on(Crysterm::Event::Attach) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
-          # `#rows=` rebuilds `@maxes`/width and every item — only needed when
-          # the column layout depends on the widget's own width, i.e. a
-          # fixed- or percent-width table (`@content_sized == false`, since a
-          # given `width:` — int or `"50%"` — leaves `@width` non-nil). A
-          # content-sized table's columns are content-driven and don't change
-          # with the parent, so skip the full rebuild (which an interactive
-          # resize drag would otherwise fire on every step). Percent-width
-          # tables keep rebuilding here, as their columns do track the parent.
+          # `#rows=` rebuilds `@maxes`/width and every item — only needed when the
+          # column layout depends on the widget's own width, i.e. a fixed- or
+          # percent-width table. A content-sized table's columns are
+          # content-driven and don't change with the parent, so skip the rebuild
+          # an interactive resize drag would otherwise fire on every step.
           unless @content_sized
             sel = selected
             self.rows = @rows
@@ -217,23 +201,19 @@ module Crysterm
           item.state = selected ? WidgetState::Selected : WidgetState::Normal
           # A row never draws its own border: the table owns the outer frame and
           # `│` column separators, so a cell box painting a border would nest a
-          # frame inside each cell. The non-CSS paths strip it
-          # (`item_render_style`, `without_border`); the per-item CSS style must too.
-          # Cached by the row's own `Style` identity (`#css_without_border`).
+          # frame inside each cell. Every path — including this per-item CSS one —
+          # must strip it.
           base = css_without_border(item.style)
           return selection_overlay(base) if selected
           # Alternating body rows pick up the table-level
           # `alternate-background-color`, held on the normal style's
-          # `alternate_row` (table-wide, independent of focus/selection), so
-          # read it from there and overlay onto the row's own CSS style.
+          # `alternate_row` (table-wide, independent of focus/selection), so read
+          # it from there and overlay onto the row's own CSS style.
           # `alternate_row?` gates before the index lookup, so an unstyled table
-          # skips it for every row. The lookup is the mixin's O(1) identity map
-          # (`item_index_of`), not the O(n) `@items.index` scan, which with
-          # `alternate_rows: true` would run for every row of every frame
-          # (O(n²)/frame). `item_index_of` returns nil for a
-          # non-item child (the pinned header, a scroll bar), so those keep
-          # falling through — matching `@items.index`, and unlike a naive
-          # `item.top`-as-index map, whose header `top` tracks `@child_base`.
+          # skips it for every row. `item_index_of` is an O(1) identity map, not
+          # the O(n) `@items.index` scan, which here would be O(n²) per frame; it
+          # returns nil for a non-item child (the pinned header, a scroll bar), so
+          # those keep falling through.
           n = styles.normal
           if alternate_rows? && n.alternate_row? && (i = item_index_of item) && i > 0 && i.even?
             return css_alt_overlay(base, n.alternate_row)
@@ -251,9 +231,8 @@ module Crysterm
       end
 
       # Border-stripped `style.alternate_row` for the non-CSS alternating-row
-      # path, memoized by source identity. Every even row shares the one
-      # `style.alternate_row` object, so one derived style serves them all until
-      # the cascade (or `#alternate_background=`) replaces the source.
+      # path, memoized by source identity: every even row shares the one
+      # `style.alternate_row` object.
       private def alt_row_style : Style
         src = style.alternate_row
         if (d = @_alt_row_derived) && @_alt_row_src.same?(src)
@@ -289,9 +268,8 @@ module Crysterm
       end
 
       # `overlay_colors(base, source)` for a CSS even row, memoized by *base*
-      # identity. *source* (`styles.normal.alternate_row`) is shared across even
-      # rows and guards the cache in `#sync_row_style_cache`, so keying on *base*
-      # alone is sufficient.
+      # identity. *source* is shared across even rows and guards the cache in
+      # `#sync_row_style_cache`, so keying on *base* alone is sufficient.
       private def css_alt_overlay(base : Style, source : Style) : Style
         @_row_overlay.fetch(base) { overlay_colors(base, source) }
       end
@@ -302,7 +280,7 @@ module Crysterm
       def sort_by_column(col : Int32, descending = false)
         @sort_column = col
         @sort_descending = descending
-        # `#rows=` re-applies the active sort (via `apply_sort`) over `@rows`.
+        # `#rows=` re-applies the active sort over `@rows`.
         self.rows = @rows
       end
 
@@ -318,10 +296,9 @@ module Crysterm
 
         descending = @sort_descending
         head = @rows.first
-        # Schwartzian transform: precompute one `{Float64?, String}` sort key per
-        # body row (O(n) `clean_tags` + `to_f?`) and sort the keyed pairs, rather
-        # than re-stripping tags for both operands inside the O(n log n)
-        # comparator.
+        # Schwartzian transform: precompute one sort key per body row and sort the
+        # keyed pairs, rather than re-stripping tags for both operands inside the
+        # O(n log n) comparator.
         keyed = @rows[1..].map do |r|
           c = clean_tags(r[col]? || "")
           {c.to_f?, c, r}
@@ -349,9 +326,8 @@ module Crysterm
       # widths (`@maxes`). Returns `nil` for a negative offset.
       private def column_at(x : Int32) : Int32?
         return nil if x < 0
-        # Header/rows render from `@first_col` (see `reslice_rows`), so a click
-        # at relative `x == 0` lands on column `@first_col`, not column 0 —
-        # accumulate the visible window from there.
+        # Header/rows render from `@first_col`, so a click at relative `x == 0`
+        # lands on column `@first_col`, not column 0.
         acc = 0
         (@first_col...@maxes.size).each do |i|
           acc += @maxes[i] + 1 # +1 for the inter-column separator
@@ -360,10 +336,9 @@ module Crysterm
         @maxes.empty? ? nil : @maxes.size - 1
       end
 
-      # Body rows draw with `style.cell` (selected rows with `styles.selected`),
-      # mirroring Blessed's `style.item = style.cell` mapping (a plain `List`
-      # uses `style.item`). `Style#cell` falls back to the list's own style
-      # when no `cell:` is given, so the default look is unchanged.
+      # Body rows draw with `style.cell` (selected rows with `styles.selected`);
+      # a plain `List` uses `style.item` instead. `Style#cell` falls back to the
+      # list's own style when no `cell:` is given.
       def item_render_style(selected : Bool) : Style
         without_border(selected ? styles.selected : style.cell)
       end

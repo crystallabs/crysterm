@@ -4,28 +4,22 @@ require "./text_editing/document_buffer"
 
 module Crysterm
   module Mixin
-    # The "editable text buffer" concern, extracted from `Widget::PlainTextEdit`
-    # so it can be shared without inheritance.
+    # The "editable text buffer" concern: buffer, caret, wrapping, selection and
+    # key handling, shared without inheritance.
     #
     # Qt's `QLineEdit` is a `QWidget`, *not* a `QAbstractScrollArea` (which is
-    # `QPlainTextEdit`'s base). Crysterm mirrors that: `PlainTextEdit` derives
-    # `AbstractScrollArea` and includes this module, while `LineEdit` derives
-    # `Input` and includes it too — getting buffer, caret, wrapping, and key
-    # handling without becoming a scroll area.
-    #
+    # `QPlainTextEdit`'s base). Crysterm mirrors that by sharing the editing
+    # behavior as a module, so a widget can get it without becoming a scroll area.
     # The viewport machinery this calls (`@child_base`, `_clines`,
     # `ensure_visible`, `scroll`, `process_content`, …) lives on the base
-    # `Widget` (`widget_scrolling.cr`), not on `AbstractScrollArea`, so a plain
-    # `Box`/`Input` includer has it available.
+    # `Widget`, so a plain `Box`/`Input` includer has it available.
     #
-    # Call `setup_text_editing` from `initialize` (after `super`) to wire the
-    # cursor-tracking and read handlers.
-    #
-    # All buffer access goes through the `Buffer` protocol (TEXTEDIT.md §5):
-    # an includer also includes an adapter — `FlatBuffer` (one `String`, what
-    # `LineEdit`/`PlainTextEdit` use) or a `TextDocument`-backed one — which
-    # provides the `buf_*` methods and the `value`/`value=` widget API this
-    # module's shared logic calls.
+    # The including widget:
+    #   * also includes a `Buffer` adapter — `FlatBuffer` (one `String`) or a
+    #     `TextDocument`-backed one — supplying the `buf_*` methods and the
+    #     `value`/`value=` widget API this module's shared logic calls;
+    #   * calls `setup_text_editing` from `initialize` (after `super`) to wire the
+    #     cursor-tracking and read handlers.
     module TextEditing
       include Buffer
 
@@ -47,11 +41,8 @@ module Crysterm
       # The buffer's text — Qt's `QLineEdit#text` / `QPlainTextEdit#toPlainText`,
       # and the name to reach for on a text widget.
       #
-      # A synonym for `#value`, which stays as the *generic* widget-value name:
-      # it is the cross-widget contract `Widget::Form` collects fields through,
-      # and the one the non-text value widgets (spin boxes, sliders, progress
-      # bars) already answer to. So `#value` is what "this widget's value" means
-      # toolkit-wide, and `#text` is what it means *for a text widget*.
+      # A synonym for `#value`, which stays the *generic* widget-value name every
+      # value widget answers to.
       def text : String
         value
       end
@@ -64,9 +55,8 @@ module Crysterm
       # Inserts *str* at the cursor, replacing the selection if there is one —
       # exactly what typing the characters would do (Qt's `QLineEdit#insert`).
       #
-      # Named `insert_text`, not `insert`: `Widget#insert` already means "insert
-      # a child widget" (`Mixin::Children#insert`), the same collision that keeps
-      # `Widget#<<` off the content API (see `#push_line`).
+      # Named `insert_text`, not `insert`: `Widget#insert` already means "insert a
+      # child widget" (`Mixin::Children#insert`).
       def insert_text(str : String) : Nil
         # Nothing to insert and nothing to replace ⇒ no change, so no event and
         # no repaint (inserting `""` over a selection still deletes it).
@@ -85,12 +75,11 @@ module Crysterm
       # `full_unicode?`, a single codepoint otherwise.
       property cursor_pos = 0
 
-      # The fixed end of an in-progress mouse selection (a codepoint index into
-      # the buffer), or `nil` when nothing is selected. `#cursor_pos` is the other,
-      # moving end. Set by the mouse-down handler installed in
-      # `#_setup_text_mouse`; any keyboard interaction (`#_listener`) or external
-      # `value=` drops it, since there's no keyboard-extend (Shift+arrow) support
-      # yet — a plain keystroke always means "the selection is no longer live".
+      # The fixed end of an in-progress mouse selection (a codepoint index into the
+      # buffer), or `nil` when nothing is selected. `#cursor_pos` is the other,
+      # moving end. Any keyboard interaction or external `value=` drops it: there
+      # is no keyboard-extend (Shift+arrow) support yet, so a plain keystroke
+      # always means "the selection is no longer live".
       property selection_anchor : Int32? = nil
 
       # The selected range as `[lo, hi)` codepoint indices into the buffer, or
@@ -115,9 +104,7 @@ module Crysterm
       end
 
       # Selects the whole buffer, parking the cursor at the end (Qt's
-      # `selectAll`). Anchoring at `0` and moving the cursor to the end is
-      # exactly the state a drag from the start would leave behind, so the
-      # existing `#selection_range` / rendering path needs no special case.
+      # `selectAll`).
       def select_all : Nil
         @selection_anchor = 0
         @cursor_pos = buf_size
@@ -131,11 +118,11 @@ module Crysterm
         @selection_anchor = nil
       end
 
-      # Overrides `Mixin::Interactive#viewer_scroll_keys?`: while this widget is
-      # reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End are editing keys
-      # routed to `#_listener`, so the Interactive scroll handler must stand down
-      # to avoid double-handling them (scrolling the viewport AND moving the
-      # caret/killing text). Outside reading, viewer scrolling is fine.
+      # While this widget is reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End
+      # are editing keys routed to `#_listener`, so the `Mixin::Interactive` scroll
+      # handler must stand down to avoid double-handling them (scrolling the
+      # viewport AND moving the caret/killing text). Outside reading, viewer
+      # scrolling is fine.
       def viewer_scroll_keys? : Bool
         !@_reading
       end
@@ -158,9 +145,8 @@ module Crysterm
 
       # Transient carrier for the `{real_line, col}` a keystroke's
       # `ensure_cursor_visible`/`_update_cursor` pair share, so `cursor_rowcol`
-      # runs once per movement rather than twice. Non-nil only for the duration
-      # of the paired `_update_cursor` call in `_listener`; `nil` everywhere
-      # else, so no stale mapping can leak across keystrokes.
+      # runs once per movement rather than twice. MUST be non-nil only for the
+      # duration of that paired call, so no stale mapping leaks across keystrokes.
       @_pending_rowcol : Tuple(Int32, Int32)? = nil
 
       property _done : Proc(String?, Nil)?
@@ -202,19 +188,16 @@ module Crysterm
 
       # Installs the click-to-position / drag-to-select mouse handler.
       #
-      # A press moves the cursor to the clicked position and drops an anchor
-      # there. It deliberately does NOT `#accept` the event: `Window#dispatch_mouse`
-      # still needs to run its own default click-to-focus and emit `Event::Click`
-      # (see `Window#dispatch_mouse`'s `unless me.try(&.accepted?)` gate) — this
-      # handler only owns the cursor/selection side effect, not the click itself.
+      # A press moves the cursor to the clicked position and drops an anchor there.
+      # It deliberately does NOT `#accept` the event: `Window#dispatch_mouse` still
+      # needs to run its own default click-to-focus and emit `Event::Click`. This
+      # handler owns only the cursor/selection side effect, not the click itself.
       #
       # A subsequent `Event::Mouse` reporting motion with a button still held
-      # (`ev.button` is populated on `Move`, not just `Down`/`Up` — see
-      # `Tput::Mouse::Event`) extends the selection to the new position and
-      # requests a render so the highlight (`#selection_columns_for_row`) tracks
-      # the drag live. Requesting the anchor lazily (`@selection_anchor ||=`)
-      # tolerates a drag whose initial press this widget didn't see (e.g. focus
-      # moved here without a matching `Down`).
+      # (`ev.button` is populated on `Move`, not just `Down`/`Up`) extends the
+      # selection and repaints so the highlight tracks the drag live. Taking the
+      # anchor lazily (`@selection_anchor ||=`) tolerates a drag whose initial
+      # press this widget didn't see.
       private def _setup_text_mouse : Nil
         on(Crysterm::Event::Mouse) do |e|
           if e.action.down?
@@ -222,12 +205,9 @@ module Crysterm
             pos = position_at(e.x, e.y)
             clicks = window?.try(&.click_count) || 1
             if clicks >= 3
-              # Triple-click selects the whole logical line. On an empty logical
-              # line `line_start_pos == line_end_pos`, so seeding the anchor there
-              # leaves the same dangling-anchor-equal-to-caret landmine the
-              # double-click branch nils out below (a later edit shrinks the buffer
-              # and resurrects it as an out-of-bounds range → IndexError). So nil
-              # the anchor when the span is empty; only seed a real selection.
+              # Triple-click selects the whole logical line. An empty span must
+              # leave the anchor nil, never seed it at the caret — see the
+              # single-click branch below.
               @cursor_pos = pos
               a = line_start_pos
               b = line_end_pos
@@ -235,25 +215,19 @@ module Crysterm
               @cursor_pos = b
             elsif clicks == 2
               # Double-click selects the word under the pointer. On non-word text
-              # `word_bounds_at` returns an empty `{pos, pos}`; seeding the anchor
-              # there leaves the same dangling-anchor-equal-to-caret landmine the
-              # single-click branch nils out below (a later edit shrinks the buffer
-              # and resurrects it as an out-of-bounds range → IndexError). So nil
-              # the anchor when the word is empty; only seed a real selection.
+              # `word_bounds_at` returns an empty `{pos, pos}`, which must leave
+              # the anchor nil — see the single-click branch below.
               a, b = word_bounds_at(pos)
               @selection_anchor = (a == b ? nil : a)
               @cursor_pos = b
             else
               @cursor_pos = pos
-              # A plain click positions the caret with NO selection. Leave the
-              # anchor nil rather than seeding it at the caret: the drag path
-              # establishes it lazily on the first motion (`@selection_anchor ||=
-              # @cursor_pos` below), so an eager seed here is redundant — and a
-              # dangling anchor equal to the caret is a live landmine. It reports
-              # as "no selection" only while the caret sits on it; the next
-              # cursor-moving edit (Backspace/Delete/type) leaves the stale anchor
-              # behind, turning it into a bogus range whose end can exceed the
-              # now-shorter value and crash `#delete_selection` with an IndexError.
+              # A plain click positions the caret with NO selection. An anchor
+              # equal to the caret is a landmine: it reports as "no selection"
+              # only while the caret sits on it, and the next cursor-moving edit
+              # leaves it behind as a bogus range whose end can exceed the
+              # now-shorter value, crashing `#delete_selection` with an IndexError.
+              # The drag path seeds the anchor lazily on first motion instead.
               @selection_anchor = nil
             end
             # Capture the mouse so a drag that leaves our bounds keeps extending
@@ -261,9 +235,8 @@ module Crysterm
             window?.try &.capture_mouse(self)
             # Reflect the reposition/selection ourselves rather than relying on
             # `dispatch_mouse`'s click-to-focus render, which is skipped when
-            # `focus_on_click?` is off. `render` repositions the terminal caret
-            # via `_update_cursor` too. Not `#accept`ed (see method doc), so the
-            # default click behavior still runs.
+            # `focus_on_click?` is off. `render` repositions the terminal caret via
+            # `_update_cursor` too.
             request_render
           elsif e.action.move? && !e.button.none? && focused?
             # Extend the selection to the pointer. If the pointer is past the
@@ -282,19 +255,16 @@ module Crysterm
         end
       end
 
-      # During a drag-select, scrolls one row when the pointer is past the top
-      # or bottom of the visible content, so the selection can extend beyond the
-      # viewport. Returns whether it scrolled. No-op for a non-scrollable widget
-      # (e.g. a fitting `PlainTextEdit`, or `LineEdit`, whose `#scroll` guards on
-      # `@scrollable`). Uses the same row geometry as `#position_at`.
-      # The maximum visible content-row index for the viewport described by
-      # *lpos* — the `- ivertical - 1` is the subtle part. Shared by the row
-      # mapping in `#autoscroll_for_drag`, `#_update_cursor` and `#position_at`
-      # (each caller applies its own `.clamp` tail, whose first operand differs).
+      # The maximum visible content-row index for the viewport described by *lpos*.
+      # Each caller applies its own `.clamp` tail, whose first operand differs.
       private def max_content_row(lpos) : Int32
         (lpos.yl - lpos.yi) - ivertical - 1
       end
 
+      # During a drag-select, scrolls one row when the pointer is past the top or
+      # bottom of the visible content, so the selection can extend beyond the
+      # viewport. Returns whether it scrolled. No-op for a non-scrollable widget.
+      # Uses the same row geometry as `#position_at`.
       private def autoscroll_for_drag(y : Int32) : Bool
         return false unless @scrollable
         lpos = @lpos || coords
@@ -310,10 +280,10 @@ module Crysterm
         @child_base != before
       end
 
-      # A text editor's "scrollable right now" is a real content-vs-height
-      # overflow test, not the `@shrink_to_fit` always-scrollable short-circuit it'd
-      # otherwise inherit from `Input` (which made an `AsNeeded` vertical bar
-      # show even when content fits, on every editor including one-line ones).
+      # A text editor's "scrollable right now" is a real content-vs-height overflow
+      # test, not the `@shrink_to_fit` always-scrollable short-circuit inherited
+      # from `Input`, which would show an `AsNeeded` vertical bar even when the
+      # content fits.
       def really_scrollable?
         content_overflows_height?
       end
@@ -333,21 +303,21 @@ module Crysterm
 
         display = window
 
-        # Map the insertion point (`@cursor_pos`, a buffer position) onto
-        # the wrapped/displayed content: the real (post-wrap) line and column.
-        # `_listener` stashes the mapping it already computed for
-        # `ensure_cursor_visible` in `@_pending_rowcol` so a movement keystroke
-        # runs `cursor_rowcol` once, not once here and once there.
+        # Map the insertion point (`@cursor_pos`, a buffer position) onto the
+        # wrapped/displayed content: the real (post-wrap) line and column.
+        # `@_pending_rowcol` carries the mapping `_listener` already computed for
+        # `ensure_cursor_visible`, so a movement keystroke runs `cursor_rowcol`
+        # once, not twice.
         rl, col = @_pending_rowcol || cursor_rowcol
 
         # Place the cursor on its row within the viewport. `ensure_cursor_visible`
         # keeps the row in range already; the clamp is just a guard.
         max_line = max_content_row(lpos)
-        # Use the clip-aware row origin the base renderer uses (`lpos.base`),
-        # not `@child_base`: when an ancestor clips the top, `coords`
-        # accumulates the clipped row count into `coords.base`, so
-        # `lpos.base == @child_base + clipped`. Mapping through `@child_base`
-        # alone would place the caret `clipped` rows off (BUGS15 #36).
+        # Use the clip-aware row origin the base renderer uses (`lpos.base`), not
+        # `@child_base`: when an ancestor clips the top, `coords` accumulates the
+        # clipped row count into `coords.base`, so `lpos.base == @child_base +
+        # clipped`. Mapping through `@child_base` alone places the caret `clipped`
+        # rows off.
         line = (rl - lpos.base).clamp(0, Math.max(0, max_line))
 
         cy = lpos.yi + itop + line
@@ -378,22 +348,12 @@ module Crysterm
           cx = (left + row_text_x_offset(rl) + caret_display_column - @child_base_x).clamp(left, left + content_width)
         end
 
-        # XXX Not sure, but this may still sometimes
-        # cause problems when leaving editor.
-        # E O:
-        # if (cy == display.tput.cursor.y) && (cx == display.tput.cursor.x)
-        #  return
-        # end
-        # Redundant: the logic below already no-ops if cursor is at coords.
-
         move_terminal_caret display, cx, cy
       end
 
       # Emits the minimal terminal caret move from the terminal's current cursor
       # to `(cx, cy)`: a relative `cuf`/`cub`/`cud`/`cuu` when the caret shares a
-      # row or column with it (a no-op when already there), else an absolute
-      # `cup`. Shared with `LineEdit#_update_cursor`, which computes `cx`/`cy`
-      # differently but emits the caret move identically.
+      # row or column with it (a no-op when already there), else an absolute `cup`.
       private def move_terminal_caret(display, cx, cy)
         # `cy` is a surface row; the terminal's tracked cursor (`tput.cursor.y`)
         # is physical. In an inline window they differ by the render offset —
@@ -489,19 +449,15 @@ module Crysterm
       end
 
       # Two-phase backward word scan from the cursor: skip the run of *separator*
-      # characters immediately to the left (those the block yields true for),
-      # then the run of non-separators, returning the resulting index.
-      # `#word_left_pos`/`#word_start_left_pos` differ only in what counts as a
-      # separator. The predicate is `yield`ed the character (inlined, no
-      # per-call closure); the two-phase scan itself is the shared
-      # `TextDocument.scan_word_left`, keyed by buffer index.
+      # characters immediately to the left (those the block yields true for), then
+      # the run of non-separators, returning the resulting index. The predicate is
+      # `yield`ed the character, so it inlines with no per-call closure.
       private def scan_word_left(&) : Int32
         TextDocument.scan_word_left(@cursor_pos) { |i| yield buf_char(i) }
       end
 
-      # Forward counterpart of `#scan_word_left`: skip the run of separators at
-      # the cursor, then the run of non-separators. Shared by `#word_right_pos`
-      # and `#word_end_right_pos`.
+      # Forward counterpart of `#scan_word_left`: skip the run of separators at the
+      # cursor, then the run of non-separators.
       private def scan_word_right(&) : Int32
         TextDocument.scan_word_right(@cursor_pos, buf_size) { |i| yield buf_char(i) }
       end
@@ -520,13 +476,11 @@ module Crysterm
         scan_word_right(&.whitespace?)
       end
 
-      # Whether *c* is a "word constituent" for word-wise cursor motion: a
-      # letter, digit, or underscore (the usual readline word set). This is a
-      # finer split than the whitespace-only `word_left_pos`/`word_right_pos`
-      # (which back `Ctrl-W`/`Alt-D` kills): `Ctrl-Left`/`Ctrl-Right` stop at `-`
-      # and punctuation too, matching most editors' word navigation. The single
-      # definition lives on `TextDocument`, shared with `TextCursor`'s word
-      # motion (TEXTEDIT.md §5).
+      # Whether *c* is a "word constituent" for word-wise cursor motion: a letter,
+      # digit, or underscore (the usual readline word set). A finer split than the
+      # whitespace-only `word_left_pos`/`word_right_pos` backing the
+      # `Ctrl-W`/`Alt-D` kills: `Ctrl-Left`/`Ctrl-Right` stop at `-` and
+      # punctuation too, matching most editors' word navigation.
       private def word_char?(c : Char) : Bool
         TextDocument.word_char?(c)
       end
@@ -553,10 +507,9 @@ module Crysterm
 
       # Kill the text between *start* (a buffer position *before* the cursor)
       # and the cursor: push it onto the kill ring (prepending, so a run of
-      # backward kills reads in forward order) and pull the cursor back to
-      # *start*. Returns whether anything was killed (so the caller can record the
-      # kill for the consecutive-kill run). Shared by `Ctrl-W` (word) and `Ctrl-U`
-      # (line start), which differ only in how *start* is computed.
+      # backward kills reads in forward order) and pull the cursor back to *start*.
+      # Returns whether anything was killed, so the caller can record the kill for
+      # the consecutive-kill run.
       private def kill_backward_to(start) : Bool
         return false unless start < @cursor_pos
         @goal_col = nil
@@ -567,10 +520,9 @@ module Crysterm
         true
       end
 
-      # Kill the text between the cursor and *stop* (a buffer position
-      # *after* the cursor): push it onto the kill ring, leaving the cursor put.
-      # Returns whether anything was killed. Shared by `Alt-D` (word) and `Ctrl-K`
-      # (line end), which differ only in how *stop* is computed.
+      # Kill the text between the cursor and *stop* (a buffer position *after* the
+      # cursor): push it onto the kill ring, leaving the cursor put. Returns
+      # whether anything was killed.
       private def kill_forward_to(stop) : Bool
         return false unless stop > @cursor_pos
         @goal_col = nil
@@ -580,9 +532,8 @@ module Crysterm
         true
       end
 
-      # Inserts `text` at the cursor and advances the cursor past it, clearing
-      # the goal column as every edit does. Shared by character typing and the
-      # `Ctrl-Y` yank, which differ only in where `text` comes from.
+      # Inserts `text` at the cursor and advances the cursor past it, clearing the
+      # goal column as every edit does.
       private def insert_at_cursor(text : String) : Nil
         @goal_col = nil
         buf_insert(@cursor_pos, text)
@@ -590,10 +541,9 @@ module Crysterm
       end
 
       # Removes the selected range from the buffer, parks the cursor at its start,
-      # and clears the selection. Returns whether anything was deleted (`false`
-      # when there was no selection), so callers can branch on "replaced a
-      # selection vs. plain edit". Used by typing/Backspace/Delete/cut/paste to
-      # make a selection behave as a single replaceable unit.
+      # and clears the selection. Returns whether anything was deleted (`false` when
+      # there was no selection), so callers can branch on "replaced a selection vs.
+      # plain edit".
       private def delete_selection : Bool
         # Even when there's no live range (collapsed selection, anchor == cursor),
         # drop the anchor: a stale collapsed anchor would otherwise resurrect as a
@@ -612,8 +562,8 @@ module Crysterm
 
       # The `[start, end)` bounds of the word-character run touching *pos* — the
       # word double-click selects. Empty (`{pos, pos}`) when *pos* sits on a
-      # non-word character (e.g. whitespace), which the caller treats as "no
-      # word here". Uses the same `#word_char?` class as `Ctrl-Left`/`Ctrl-Right`.
+      # non-word character (e.g. whitespace), which the caller treats as "no word
+      # here".
       private def word_bounds_at(pos : Int32) : Tuple(Int32, Int32)
         TextDocument.word_run_at(pos, buf_size) { |i| word_char?(buf_char(i)) }
       end
@@ -627,28 +577,23 @@ module Crysterm
         (window?.try(&.application) || Crysterm::Application.global).clipboard
       end
 
-      # Copies the current selection to the clipboard (mirror + terminal).
-      # Returns whether there was a selection, so `Ctrl-X` only deletes when
-      # something was actually cut. Routed through the buffer protocol so a
-      # rich buffer carries formats alongside the plain text.
+      # Copies the current selection to the clipboard (mirror + terminal). Returns
+      # whether there was a selection, so `Ctrl-X` only deletes when something was
+      # actually cut. Routed through the buffer protocol so a rich buffer carries
+      # formats alongside the plain text.
       private def copy_selection : Bool
         return false unless r = selection_range
         buf_copy_to_clipboard(text_clipboard, r.begin, r.end, window?)
         true
       end
 
-      # Inserts the clipboard's current text at the cursor, replacing any
-      # selection. Reads the in-process mirror (see `#text_clipboard`), so a
-      # copy→paste round-trip within the app is synchronous. Honors `max_length`
-      # by truncating the pasted text to the remaining room. A single-line
-      # `LineEdit` strips any pasted newlines on its next redisplay (`#value=`).
-      # Runs the block (an insert) after removing any selected text, the two
-      # grouped into ONE undo step (Qt: typing/pasting over a selection undoes
-      # as a single action). Without a live selection no group is opened —
-      # wrapping every plain keystroke in an edit block would seal it against
-      # the undo stack's typing coalescing, turning each character into its
-      # own undo step. The selection-less path still drops a stale collapsed
-      # anchor, exactly as `delete_selection` does.
+      # Runs the block (an insert) after removing any selected text, the two grouped
+      # into ONE undo step (Qt: typing/pasting over a selection undoes as a single
+      # action). Without a live selection no group is opened — wrapping every plain
+      # keystroke in an edit block would seal it against the undo stack's typing
+      # coalescing, turning each character into its own undo step. The
+      # selection-less path still drops a stale collapsed anchor, as
+      # `#delete_selection` does.
       private def edit_replacing_selection(&) : Nil
         if selection?
           buf_edit_group do
@@ -662,10 +607,8 @@ module Crysterm
       end
 
       # Inserts *text* at the cursor, replacing any selection, honoring
-      # `max_length` by truncating to the remaining room. Shared by paste and
-      # the `Ctrl-Y` yank, which differ only in where *text* comes from. The
-      # `break` still targets the `edit_replacing_selection` block (a full field
-      # inserts nothing), so the control flow is unchanged.
+      # `max_length` by truncating to the remaining room. The `break` targets the
+      # `edit_replacing_selection` block, so a full field inserts nothing.
       private def insert_capped(text : String) : Nil
         edit_replacing_selection do
           if ml = @max_length
@@ -677,31 +620,34 @@ module Crysterm
         end
       end
 
+      # Inserts the clipboard's current text at the cursor, replacing any
+      # selection. Reads the in-process mirror (see `#text_clipboard`), so a
+      # copy→paste round-trip within the app is synchronous. Honors `max_length` by
+      # truncating the pasted text to the remaining room.
       private def paste_clipboard : Nil
         clip = text_clipboard
-        # A rich buffer takes a fresher rich payload wholesale (formats
-        # preserved); everything else — and the rich buffer's own fallback,
-        # e.g. when `max_length` would need truncation — pastes plain text.
+        # A rich buffer takes a rich payload wholesale (formats preserved);
+        # everything else — and the rich buffer's own fallback, e.g. when
+        # `max_length` would need truncation — pastes plain text.
         return if buf_paste_rich(clip)
         text = clip.text
         return if text.empty?
         insert_capped text
       end
 
-      # Extra display columns painted left of real row *rl*'s text — block
-      # indent, list markers, quote bars, alignment shift (TEXTEDIT.md
-      # Phase 4). 0 on the flat editors; `Widget::TextEdit` overrides it from
-      # its per-row layout metadata. Every shared row/column mapping (caret
-      # placement, mouse mapping, selection columns) applies it, so decorated
-      # rows stay position-exact.
+      # Extra display columns painted left of real row *rl*'s text — block indent,
+      # list markers, quote bars, alignment shift. 0 on a flat editor; a decorated
+      # one overrides it from its per-row layout metadata. Every shared row/column
+      # mapping (caret placement, mouse mapping, selection columns) applies it, so
+      # decorated rows stay position-exact.
       private def row_text_x_offset(rl : Int32) : Int32
         0
       end
 
-      # Nearest text-bearing real row to *rl* searching in direction *dir*
-      # (±1): a decorated layout may interleave rows that hold no buffer
-      # positions (block margins), which vertical caret motion must step
-      # over. Identity on the flat editors.
+      # Nearest text-bearing real row to *rl* searching in direction *dir* (±1): a
+      # decorated layout may interleave rows that hold no buffer positions (block
+      # margins), which vertical caret motion must step over. Identity on a flat
+      # editor.
       private def nearest_text_row(rl : Int32, dir : Int32) : Int32
         rl
       end
@@ -714,12 +660,10 @@ module Crysterm
       private def cursor_rowcol : Tuple(Int32, Int32)
         c = @cursor_pos.clamp(0, buf_size)
         # `fake_line` is the logical (`\n`-delimited) line index; `col` is the
-        # tab-expanded column within it (the SAME units `process_content` lays
-        # `@_clines` out with — a TAB expands to `tab_char * tab_size`, so
-        # counting raw codepoints would desync the caret by `tab_size - 1` per
-        # preceding TAB). Both come from `#cursor_line_col`, which a document
-        # adapter overrides with an O(log) block lookup instead of a full-prefix
-        # scan.
+        # tab-expanded column within it — the SAME units `process_content` lays
+        # `@_clines` out with. A TAB expands to `tab_char * tab_size`, so counting
+        # raw codepoints would desync the caret by `tab_size - 1` per preceding
+        # TAB.
         fake_line, col = cursor_line_col c
 
         reals = @_clines.ftor[fake_line]?
@@ -743,12 +687,11 @@ module Crysterm
       end
 
       # `{logical-line index, tab-expanded column}` of buffer position *c* — the
-      # position→(fake line, col) half of `#cursor_rowcol`, factored out so the
-      # document adapter can override it (block lookup, O(log)) instead of
-      # allocating the whole `0..c` prefix. This flat default is line-local for
-      # the column (only the slice from the last `\n` to *c*), but still counts
-      # newlines over the prefix; `DocumentBuffer` replaces both with an O(log)
-      # block lookup.
+      # position→(fake line, col) half of `#cursor_rowcol`, separated so a document
+      # adapter can override it with an O(log) block lookup instead of allocating
+      # the whole `0..c` prefix. This flat default is line-local for the column
+      # (only the slice from the last `\n` to *c*), but still counts newlines over
+      # the prefix.
       private def cursor_line_col(c : Int32) : Tuple(Int32, Int32)
         head = buf_slice(0, c)
         nl = head.rindex('\n')
@@ -789,10 +732,9 @@ module Crysterm
         unexpand_col(buf_slice(base, line_end), exp_col)
       end
 
-      # Whether the buffer range `[from, to)` (always a single logical line at
-      # the call sites) contains a TAB. Flat default: a cheap `String#index`
-      # byte scan with no allocation; `DocumentBuffer` overrides with a
-      # per-block check (its `buf_index` char-walk would over-scan the document).
+      # Whether the buffer range `[from, to)` (always a single logical line at the
+      # call sites) contains a TAB. Flat default: a cheap `String#index` byte scan
+      # with no allocation.
       private def buf_range_includes_tab?(from : Int32, to : Int32) : Bool
         return false if to <= from
         idx = buf_index('\t', from)
@@ -805,10 +747,9 @@ module Crysterm
       # In wrap mode `@_clines[rl]` is the whole wrapped piece, so its size IS the
       # width. In non-wrap mode `@_clines[rl]` is only the horizontally *sliced*
       # viewport window (`_hslice`), so its size undercounts a line wider than the
-      # viewport — reconstruct the real line from the buffer instead (as
-      # `#position_at`'s and `#_update_cursor`'s non-wrap branches do). Without
-      # this, Up/Down snaps a caret past the viewport back to ~viewport width and
-      # a selection entirely right of `content_width` paints no highlight.
+      # viewport — reconstruct the real line from the buffer instead. Otherwise
+      # Up/Down snaps a caret past the viewport back to ~viewport width, and a
+      # selection entirely right of `content_width` paints no highlight.
       private def line_display_width(rl : Int32) : Int32
         if wrap_content?
           (@_clines[rl]? || "").size
@@ -822,12 +763,11 @@ module Crysterm
       # Maps an absolute screen point (as delivered by `Event::Mouse`) to the
       # nearest buffer position — the mouse-click counterpart of
       # `#cursor_rowcol`/`#pos_from_rowcol`, kept consistent with how
-      # `#_update_cursor` actually places the caret (so clicking exactly where
-      # the caret is currently drawn is a no-op). Overridden by `LineEdit`,
-      # whose single visible line is a separately re-sliced tail of the value
-      # rather than the `@_clines`/`@child_base_x` model this generic version
-      # assumes. Returns the current `#cursor_pos` unchanged if the widget has
-      # no on-window geometry yet (not rendered, or off-window).
+      # `#_update_cursor` actually places the caret, so clicking exactly where the
+      # caret is drawn is a no-op. Assumes the `@_clines`/`@child_base_x` model; a
+      # widget rendering a separately re-sliced line must override it. Returns the
+      # current `#cursor_pos` unchanged when the widget has no on-window geometry
+      # yet.
       def position_at(x : Int32, y : Int32) : Int32
         lpos = coords
         return cursor_pos unless lpos
@@ -839,7 +779,7 @@ module Crysterm
         # Add the clip-aware scroll offset (`lpos.base`) the base renderer uses,
         # not `@child_base`: an ancestor clip folds the clipped-top count into
         # `coords.base`, so mapping a click through `@child_base` alone lands
-        # `clipped` lines above the clicked text (BUGS15 #36).
+        # `clipped` lines above the clicked text.
         rl = (line + lpos.base).clamp(0, Math.max(0, @_clines.size - 1))
 
         if wrap_content?
@@ -849,10 +789,9 @@ module Crysterm
           col = column_index(rline, x - lpos.xi - ileft - row_text_x_offset(rl))
           pos_from_rowcol(rl, col)
         else
-          # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport
-          # (see `_hslice`), so it can't be walked directly — reconstruct the
-          # real line's own (tab-expanded) text from the buffer instead, exactly
-          # as `#_update_cursor`'s `caret_display_column` does, and undo the
+          # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport (see
+          # `_hslice`), so it can't be walked directly — reconstruct the real
+          # line's own (tab-expanded) text from the buffer instead, and undo the
           # `@child_base_x` scroll to land back in that line's own column space.
           fake_line = @_clines.rtof[rl]? || 0
           base, line_end = buf_line_bounds(fake_line)
@@ -866,12 +805,10 @@ module Crysterm
 
       # The codepoint index within *text* whose accumulated display width
       # (`#str_width`, wide-character aware) is nearest *target_col* — the
-      # character boundary nearest a click at that pixel column. Rounds to
-      # the nearest boundary (not always down), so clicking the right half of
-      # a wide character lands after it. Walks whole grapheme clusters under
-      # `#full_unicode?`, matching how `#cursor_prev_width`/`#cursor_next_width`
-      # keep the cursor off cluster-internal codepoints elsewhere in this
-      # module. Shared by both branches of `#position_at`.
+      # character boundary nearest a click at that pixel column. Rounds to the
+      # nearest boundary (not always down), so clicking the right half of a wide
+      # character lands after it. Walks whole grapheme clusters under
+      # `#full_unicode?`, keeping the cursor off cluster-internal codepoints.
       private def column_index(text : String, target_col : Int32) : Int32
         return 0 if target_col <= 0
         return target_col.clamp(0, text.size) unless full_unicode?
@@ -897,10 +834,9 @@ module Crysterm
         expand_tabs(s).size
       end
 
-      # Expands TABs in *s* to `tab_char * tab_size`, exactly as
-      # `process_content` lays out `@_clines`. Guards on `includes?('\t')` so a
-      # tab-free string is returned untouched (the common fast path). The single
-      # source of the tab-expansion idiom the caret/column helpers share.
+      # Expands TABs in *s* to `tab_char * tab_size`, exactly as `process_content`
+      # lays out `@_clines`. Guards on `includes?('\t')` so a tab-free string is
+      # returned untouched (the common fast path).
       private def expand_tabs(s : String) : String
         s.includes?('\t') ? s.gsub('\t', style.tab_char * style.tab_size) : s
       end
@@ -933,9 +869,8 @@ module Crysterm
         goal = (@goal_col ||= col)
 
         target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
-        # Landing on a positionless row (a block margin) would bounce the
-        # caret back to its source row — step over it in the direction of
-        # travel instead.
+        # Landing on a positionless row (a block margin) would bounce the caret
+        # back to its source row — step over it in the direction of travel.
         target = nearest_text_row(target, rows < 0 ? -1 : 1)
         return if target == rl
 
@@ -943,28 +878,22 @@ module Crysterm
         @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
       end
 
-      # Visual rows to move per Page Up/Down: one viewport's worth, less one row
-      # of overlap for reading continuity (at least 1). "Viewport's worth" is
-      # visible content rows, so a shown horizontal bar's reserved row
-      # (`hscrollbar_rows`) is subtracted — as `#scroll`, `#ensure_visible`, and
-      # `#clamp_child_base_to_content` do. Omitting it over-counts the page by
-      # the bar's row. No-op (0) when no bar is shown.
+      # Visual rows to move per Page Up/Down: one viewport's worth, less one row of
+      # overlap for reading continuity (at least 1). "Viewport's worth" is *visible
+      # content* rows, which excludes a shown horizontal bar's reserved row —
+      # counting that row over-counts the page.
       private def page_rows
         Math.max(1, visible_content_rows - 1)
       end
 
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
       # row stays on window. `@child_offset` is left at 0 — the caret is
-      # `@cursor_pos`, not a scroll offset — for a single scroll model shared
-      # with the attached `ScrollBar`. Delegates to `#ensure_visible` (same
-      # primitive `List`/`Tree` use); returns whether the view moved, so the
-      # caller can re-render (this doesn't render itself).
-      #
-      # Without this, the view never followed the cursor past the visible edge,
-      # leaving it pinned while editing a scrolled-off line.
+      # `@cursor_pos`, not a scroll offset — for a single scroll model shared with
+      # the attached `ScrollBar`. Returns whether the view moved, so the caller can
+      # re-render; this doesn't render itself.
       private def ensure_cursor_visible(rl : Int32? = nil) : Bool
-        # `_listener` passes the row it already mapped so a movement keystroke
-        # doesn't map `@cursor_pos` twice (here and again in `_update_cursor`).
+        # Callers pass the row they already mapped so a movement keystroke doesn't
+        # map `@cursor_pos` twice (here and again in `_update_cursor`).
         rl ||= cursor_rowcol[0]
         ensure_visible rl
       end
@@ -1000,30 +929,26 @@ module Crysterm
       # wide-character aware) — the render-column distance between two buffer
       # indices on the same line. `#position_at`'s inverse, used to turn the
       # selection's buffer indices into the column range
-      # `#selection_columns_for_row` paints. `from` must be at or before the
-      # start of *to*'s line (both are always same-line callers here, so no
-      # embedded `\n` is sliced across).
+      # `#selection_columns_for_row` paints. *from* must be at or before the start
+      # of *to*'s line, so no embedded `\n` is sliced across.
       private def rendered_column(from : Int32, to : Int32) : Int32
         s = expand_tabs(buf_slice(from, to))
         str_width s
       end
 
-      # Overrides `Widget#selection_columns_for_row` (a free no-op there): the
-      # portion of `#selection_range` that falls on real (post-wrap) line *rl*,
-      # as a `x - xi` column range for `Widget#_render`'s highlight pass, or
-      # `nil` when the selection doesn't touch this row.
+      # The portion of `#selection_range` that falls on real (post-wrap) line *rl*,
+      # as a `x - xi` column range for `Widget#_render`'s highlight pass, or `nil`
+      # when the selection doesn't touch this row.
       #
-      # `rl` is assumed to be `@child_base`-relative like everywhere else in
-      # this module (`#position_at`, `#cursor_rowcol`) — exact for the default
-      # top-aligned case `_render` uses when computing it; approximate (like
-      # `#cursor_rowcol` itself) under vertical center/bottom alignment.
+      # *rl* is `@child_base`-relative like everywhere else in this module — exact
+      # for the default top-aligned case, approximate (like `#cursor_rowcol`
+      # itself) under vertical center/bottom alignment.
       #
       # Columns are shifted left by `@child_base_x` so a horizontally-scrolled
-      # non-wrap view highlights the right cells (0 in wrap mode, where there is
-      # no horizontal scroll). A range whose start is left of the viewport comes
-      # back with a negative `begin`, which the per-cell `includes?` check in
-      # `_render` handles correctly. `LineEdit` renders a re-sliced *tail* rather
-      # than a `@child_base_x` slice, so it overrides this entirely.
+      # non-wrap view highlights the right cells (0 in wrap mode, where there is no
+      # horizontal scroll). A range whose start is left of the viewport comes back
+      # with a negative `begin`, which the per-cell `includes?` check in `_render`
+      # handles correctly.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
         return nil unless range = selection_range
         return nil if rl < 0 || rl >= @_clines.size
@@ -1041,19 +966,17 @@ module Crysterm
         col_lo...col_hi
       end
 
-      # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows,
-      # keeping `@child_offset` at 0 so `get_scroll == child_base` and the bound
-      # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`
-      # (whose `@child_offset` book-keeping models a moving cursor/selection,
-      # here tracked separately as `@cursor_pos`). Used by the wheel and a
-      # dragged scroll bar (via `#scroll_to`); the caret is untouched and may
+      # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows, keeping
+      # `@child_offset` at 0 so `get_scroll == child_base` and the bound
+      # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`,
+      # whose `@child_offset` book-keeping models a moving cursor/selection —
+      # tracked here as `@cursor_pos` instead. The caret is untouched and may
       # scroll out of view, as in Qt's text edit.
       def scroll(offset = 1, always = false)
         return unless @scrollable && window?
-        # Reserve a shown horizontal bar's row (`hscrollbar_rows`) when counting
-        # visible content rows — as the base `#scroll`, `#ensure_visible`, and
-        # `#clamp_child_base_to_content` do. Omitting it over-counts the viewport,
-        # stopping the view one line short of the bar. No-op when no bar shown.
+        # Count *visible content* rows, which excludes a shown horizontal bar's
+        # reserved row; counting it over-counts the viewport, stopping the view one
+        # line short of the bar.
         visible = visible_content_rows
         return if visible <= 0
 
@@ -1080,9 +1003,6 @@ module Crysterm
             read_input
           end
         end
-
-        # (Alternatively we could do nothing if a handler
-        # is already installed and yes==true).
       end
 
       # ameba:disable Metrics/CyclomaticComplexity
@@ -1102,15 +1022,13 @@ module Crysterm
         rl = Crysterm::Config.input_readline_keys
         killed = false
         # Whether the editor consumed this keystroke. Used to `#accept` the event
-        # so sibling window-level accelerators (ActionBar hotkeys, `Question#ask`,
-        # dialog Escape) stand down for keys the field handled — `grab_keys` stops
-        # propagation *up the widget tree* but not other window-level KeyPress
-        # listeners on the same emission. Keys the editor ignores stay
-        # un-accepted so those accelerators still fire for them.
+        # so sibling window-level accelerators stand down for keys the field
+        # handled — `grab_keys` stops propagation *up the widget tree* but not
+        # other window-level KeyPress listeners on the same emission. Keys the
+        # editor ignores stay un-accepted so those accelerators still fire.
         handled = false
 
         if k = e.key
-          # return if k == Tput::Key::Return
           if k == Tput::Key::Enter
             e.char = '\n'
             also_check_char = true
@@ -1138,9 +1056,7 @@ module Crysterm
           # A plain (non-extending) Left/Right over a live selection collapses the
           # caret to the selection's near edge — its start for Left, its end for
           # Right — instead of stepping one grapheme past it, matching Qt's
-          # `QLineEdit` and every GUI editor. Captured before the move mutates the
-          # cursor; `nil` when extending or with no live selection, so a plain
-          # move without a selection still steps normally.
+          # `QLineEdit`. Must be captured before the move mutates the cursor.
           collapse_sel = extend_sel ? nil : selection_range
 
           # Cursor movement. Left/Right step over a whole grapheme cluster under

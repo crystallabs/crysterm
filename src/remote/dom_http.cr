@@ -15,10 +15,9 @@ module Crysterm
   #   `focus`, `append`, `remove`, `quit`, ...) or a getter (`getContent`,
   #   `query`, `snapshot`). HTTP request/response pairing makes getters synchronous.
   #
-  # Selectors are full CSS (via `Window#resolve_selector`), so commands act on
-  # every match. Declarative `on*` actions in the HTML run in-process (see
-  # `DOM::Actions`); only *named* actions reach the handler. Optional bearer
-  # token gates `/rpc` and `/events` for non-local binds.
+  # Selectors are full CSS, so commands act on every match. Declarative `on*`
+  # actions in the HTML run in-process; only *named* actions reach the handler.
+  # An optional bearer token gates `/rpc` and `/events` for non-local binds.
   #
   # Concurrency: all widget mutation/reads marshal onto Crysterm's render fiber
   # via `Window#post` (`#on_ui`); events fan out with a non-blocking send so a
@@ -26,9 +25,7 @@ module Crysterm
   class HTTPBridge
     getter? running = false
     @on_quit : Proc(Nil)
-    # The listening server, kept so `quit` can close it (and its listener fibers).
-    # A local var would leak the socket when an embedder calls `quit` without
-    # exiting the process.
+    # The listening server, kept so `quit` can close it and its listener fibers.
     @server : HTTP::Server?
 
     def initialize(@window : Window, @host : String = "127.0.0.1", @port : Int32 = 7000, @token : String? = nil)
@@ -44,21 +41,18 @@ module Crysterm
       @subscriptions = [] of Tuple(String, String)
       @event_wired = Set(String).new
       # Detachers for the live forwarders installed by `forward_event`, keyed by
-      # "uid:event", so `unsubscribe` can actually stop delivery instead of
-      # deferring to a reload that (with the fswatch stub) never runs.
+      # "uid:event", so `unsubscribe` can stop delivery.
       @forwarders = {} of String => Proc(Nil)
       # The forwarder keys ("uid:event") wired for each `{selector, event}`
       # runtime subscription, captured at wire time. `unsubscribe` detaches by
-      # this recorded set rather than re-resolving the selector — a widget that
-      # stopped matching in the meantime (a class was removed) would otherwise
-      # keep its forwarder firing forever.
+      # this recorded set rather than re-resolving the selector: a widget that
+      # stopped matching in the meantime would otherwise keep its forwarder
+      # firing forever.
       @wired_keys = {} of Tuple(String, String) => Set(String)
-      # Tracks each declarative `on*` binding's current action + its detacher,
-      # keyed by "uid:event", so a repeated `rewire` (each `append`/`remove`, or
-      # a `setAttribute("onclick", …)`) can *replace* a changed action — detach
-      # the stale binding, wire the new one — instead of leaving the old one
-      # firing forever. A flat "already wired" set couldn't tell a changed action
-      # from an unchanged one.
+      # Each declarative `on*` binding's current action plus its detacher, keyed
+      # by "uid:event", so a repeated `rewire` can *replace* a changed action.
+      # A flat "already wired" set couldn't tell a changed action from an
+      # unchanged one.
       @declarative_wired = {} of String => Tuple(String, Proc(Nil))
       @on_quit = -> { quit; nil }
     end
@@ -66,9 +60,9 @@ module Crysterm
     # Starts the HTTP server in a background fiber and wires the current tree's
     # events. Idempotent. Use `#run` for the full blocking lifecycle.
     #
-    # No-op unless remote control is enabled at runtime (see `Crysterm::Remote`):
-    # a `-Dremote` build opens no port until enabled via `CRYSTERM_REMOTE` or
-    # `Crysterm::Remote.enabled = true`.
+    # No-op unless remote control is enabled at runtime: a `-Dremote` build opens
+    # no port until enabled via `CRYSTERM_REMOTE` or `Crysterm::Remote.enabled =
+    # true`.
     def start : Nil
       return if @running
       return unless Crysterm::Remote.enabled?
@@ -80,10 +74,10 @@ module Crysterm
       server.bind_tcp @host, @port
       @server = server
       @running = true
-      # `listen` blocks until the server is closed. Guard the closed-server race:
-      # a very early `quit` can `close` the server before this fiber schedules,
-      # and `listen` on an already-closed server raises "Can't re-start closed
-      # server" — a benign shutdown, not a failure to surface.
+      # `listen` blocks until the server is closed. The rescue guards a race: a
+      # very early `quit` can close the server before this fiber schedules, and
+      # `listen` on a closed server raises — a benign shutdown, not a failure to
+      # surface.
       spawn do
         begin
           server.listen
@@ -108,8 +102,6 @@ module Crysterm
     # Tears the app down cleanly: restores the terminal and unblocks `#run`.
     def quit : Nil
       @window.destroy rescue nil
-      # Close the listener socket and its fibers; a local-var server would leak
-      # them when an embedder calls `quit` without exiting the process.
       @server.try &.close rescue nil
       @server = nil
       @running = false
@@ -125,21 +117,18 @@ module Crysterm
     # the fswatch callback runs outside the render fiber, so a blocking
     # cross-fiber `receive` here would deadlock.
     def reload_layout(html : String) : Nil
-      # `#destroy` (not `#remove`): a plain `Window#remove` only detaches the
-      # subtree — it doesn't stop animations or tear down backing processes. A
-      # pulsing/keyframed widget or `Widget::Terminal` (live PTY) from the
-      # previous layout would otherwise leak its fiber/child-process on every
-      # hot-reload. `#destroy` recurses the subtree, stops animations, kills
-      # PTYs, and unlinks from the window (leaving `@window.children` empty for
-      # the rebuild).
+      # `#destroy`, not `#remove`: a plain `Window#remove` only detaches the
+      # subtree, leaking the previous layout's animation fibers and PTY child
+      # processes on every hot-reload. `#destroy` recurses the subtree, stops
+      # animations, kills PTYs, and unlinks from the window.
       @window.children.dup.each(&.destroy)
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
       @forwarders.clear        # their forwarders died with them (widgets destroyed)
       @wired_keys.clear        # ...and the forwarder keys we recorded for them are stale
       @declarative_wired.clear # ...and their declarative on* bindings
       # Hot-reload replaces the whole layout, so the new markup's inline `<style>`
-      # replaces the previous one (`replace_styles: true`). A selector-less
-      # `append` (below) instead merges, so it never wipes the page's CSS.
+      # replaces the previous one. A selector-less `append` instead merges, so it
+      # never wipes the page's CSS.
       DOM.load html, @window, replace_styles: true
       rewire
       @window.render
@@ -155,9 +144,9 @@ module Crysterm
         begin
           # A built-in declarative verb runs in-process; everything else is
           # forwarded to the handler. `declarative?` is true for any colon-bearing
-          # action, but `run` only handles a recognized verb — a colon-bearing
-          # action whose verb isn't built-in (e.g. `navigate:home`) must still
-          # reach the handler, hence checking `run`'s return, not just `declarative?`.
+          # action but `run` only handles a recognized verb, so an unrecognized
+          # one (e.g. `navigate:home`) must still reach the handler — hence
+          # checking `run`'s return, not just `declarative?`.
           unless DOM::Actions.declarative?(action) && DOM::Actions.run(action, widget, @window, @on_quit)
             publish_event type, widget, action, value: value
           end
@@ -226,9 +215,8 @@ module Crysterm
     private def authorized?(context : HTTP::Server::Context) : Bool
       return true unless token = @token
       # Only the `X-Crysterm-Token` header is honored: a query-param token lands
-      # in access logs, proxy logs and browser history, so it's rejected.
-      # Compared in constant time so a caller can't probe
-      # the secret byte-by-byte via response timing.
+      # in access logs, proxy logs and browser history. Compared in constant time
+      # so a caller can't probe the secret byte-by-byte via response timing.
       presented = context.request.headers["X-Crysterm-Token"]? || ""
       Crypto::Subtle.constant_time_compare presented, token
     end
@@ -239,11 +227,10 @@ module Crysterm
       response = context.response
       response.content_type = "text/event-stream"
       response.headers["Cache-Control"] = "no-cache"
-      # Flush the status line + headers (and a comment line) immediately.
-      # `HTTP::Server` sends headers lazily on first write, so without this an
-      # EventSource client that waits for the stream to *open* before issuing
-      # RPCs would stall until the first event or the 15 s ping — up to 15 s of
-      # dead air on connect.
+      # The status line, headers and a comment line are flushed immediately.
+      # `HTTP::Server` sends headers lazily on first write, so an EventSource
+      # client waiting for the stream to *open* before issuing RPCs would
+      # otherwise stall until the first event or the 15 s ping.
       response.print ": connected\n\n"
       response.flush
       begin
@@ -349,11 +336,9 @@ module Crysterm
         name = string_param params, "name"
         attr_value = params.try(&.["value"]?).try(&.as_s)
         n = each_match(selector) { |w| set_attribute w, name, attr_value }
-        # An `on*` change only updates `widget.dom_events`; the binding is wired
-        # by `rewire`, which `setAttribute` never called (only `remove`/`append`
-        # did) — so a new `onclick` stayed dormant and a changed one kept firing
-        # the old action. Re-wire on the render fiber, like `remove` does; the
-        # replaceable declarative-binding tracking detaches the stale action.
+        # An `on*` change only updates `widget.dom_events`; the binding itself is
+        # wired by `rewire`, so without this a new `onclick` would stay dormant
+        # and a changed one keep firing the old action.
         on_ui { rewire } if name.starts_with?("on")
         n
       when "addClass"
@@ -369,18 +354,16 @@ module Crysterm
         each_match(selector, &.focus)
       when "remove"
         # Detach from wherever the widget is attached — nested from its parent,
-        # top-level from the window. See `Widget#detach_from_tree`.
+        # top-level from the window.
         n = each_match(selector, &.detach_from_tree)
         on_ui { rewire } # re-wire on the render fiber, like every other mutation
         n
       when "append"
         html = string_param params, "html"
         built = on_ui do
-          # A selector matching nothing must not silently fall back to a
-          # top-level append (would drop the fragment at the window root and
-          # still report nonzero); return 0 instead so a handler can tell
-          # "parent not found" from "appended". No selector at all is documented
-          # as a top-level append.
+          # A selector matching nothing returns 0 rather than falling back to a
+          # top-level append, so a handler can tell "parent not found" from
+          # "appended". No selector at all *is* a top-level append.
           if selector
             if parent = match(selector).first?
               n = DOM.load(html, @window, parent).size
@@ -400,9 +383,9 @@ module Crysterm
       when "subscribe"
         event = string_param params, "event"
         sel = selector || raise BadParams.new(%(missing param "selector"))
-        # Reject an unknown event up front (mirroring the missing-param errors):
-        # otherwise it would be recorded and re-attempted (always a no-op) on
-        # every future `rewire` for the process lifetime, with no client error.
+        # An unknown event is rejected up front; otherwise it would be recorded
+        # and re-attempted — always a no-op — on every future `rewire`, with no
+        # client error.
         raise BadParams.new(%(unknown event "#{event}")) unless DOM.known_event? event
         @subscriptions << {sel, event} unless @subscriptions.includes?({sel, event})
         on_ui { wire_subscription sel, event }
@@ -410,11 +393,10 @@ module Crysterm
         event = string_param params, "event"
         sel = selector || raise BadParams.new(%(missing param "selector"))
         @subscriptions.reject! { |s| s == {sel, event} }
-        # Detach the live forwarders now, by the uids recorded at wire time — not
-        # by re-resolving the selector, which misses a widget that stopped
-        # matching (e.g. `removeClass`) between subscribe and unsubscribe and
-        # would leave its forwarder firing forever. The forwarder is installed
-        # via `Widget#on`, so it must be removed via its `Widget#off` detacher.
+        # Detach the live forwarders by the uids recorded at wire time, not by
+        # re-resolving the selector: a widget that stopped matching between
+        # subscribe and unsubscribe would otherwise keep its forwarder firing
+        # forever.
         on_ui do
           if keys = @wired_keys.delete({sel, event})
             keys.each do |key|
@@ -445,20 +427,19 @@ module Crysterm
     end
 
     # Applies one attribute with DOM `setAttribute` *replace* semantics. `class`
-    # is special-cased: it replaces the whole user class list (clear, then add
-    # each token), matching a browser's `setAttribute("class", …)`. `dom_apply`'s
-    # `class` handler is additive (built for load-time attribute replay), so
-    # routing through it here would only ever grow the list.
+    # is special-cased to replace the whole user class list, matching a browser's
+    # `setAttribute("class", …)`: `dom_apply`'s `class` handler is additive, built
+    # for load-time replay, so routing through it here would only grow the list.
     private def set_attribute(widget : Widget, name : String, value : String?) : Nil
       if name == "class"
         widget.css_classes.dup.each { |c| widget.remove_css_class c }
         value.try &.split.each { |c| widget.add_css_class c unless c.empty? }
       else
         widget.dom_apply name, value
-        # Universal backstop for the generated `dom_apply`: a runtime
-        # `setAttribute` must repaint and re-match CSS even for keys whose setter
-        # is a plain ivar write (no `invalidate_css`/`mark_dirty` of its own), so
-        # `:checked`/`[value]`-style selectors and damage tracking stay correct.
+        # Backstop for the generated `dom_apply`: a runtime `setAttribute` must
+        # repaint and re-match CSS even for keys whose setter is a plain ivar
+        # write, so `:checked`/`[value]`-style selectors and damage tracking stay
+        # correct.
         widget.invalidate_css
         widget.mark_dirty
       end
@@ -488,18 +469,15 @@ module Crysterm
     end
 
     private def on_ui(&block : -> T) : T forall T
-      # Runs `block` on the render fiber and blocks until it produces a value.
-      # The block's exception is *captured* and shipped back over the channel,
-      # then re-raised here on the requesting (HTTP) fiber. Two failures are
-      # avoided: (1) if the block raised on the render fiber without sending,
-      # this `receive` would block forever and hang the HTTP request; (2) an
-      # unhandled raise on the render fiber would kill it and freeze the UI.
-      # Re-raising here lets `handle_rpc` map it to a JSON-RPC -32603.
+      # Runs `block` on the render fiber and blocks until it produces a value. The
+      # block's exception is *captured* and shipped back over the channel, then
+      # re-raised on this (HTTP) fiber, avoiding two failures: a raise without a
+      # send would hang this `receive` forever, and an unhandled raise on the
+      # render fiber would kill it and freeze the UI.
       #
-      # Fail fast when the window is already destroyed (e.g. an embedder called
-      # `quit` and keeps issuing RPCs): its render loop has exited, so a `post`ed
-      # block would never execute and the `receive` below would block this HTTP
-      # fiber forever — wedging every subsequent request.
+      # A destroyed window fails fast: its render loop has exited, so a `post`ed
+      # block would never execute and the `receive` below would wedge this fiber
+      # and every subsequent request.
       raise InvalidRequest.new "window is destroyed" if @window.destroyed?
       result = Channel(T | Exception).new(1)
       @window.post do
@@ -518,7 +496,7 @@ module Crysterm
     # ---- event fan-out ------------------------------------------------------
 
     # Surfaces an asynchronous engine-side failure to handlers as an `error`
-    # event (synchronous command failures go back as JSON-RPC errors instead).
+    # event; synchronous command failures go back as JSON-RPC errors instead.
     private def publish_error(message : String?) : Nil
       publish_event "error", value: message
     end

@@ -52,8 +52,8 @@ require "../../crysterm"
       screen = Window.new
       if cp = css_path
         # `load_stylesheet` records the external source; inline `<style>` from the
-        # layout composes with it. Hot-reload (`--watch`) is temporarily disabled
-        # — see `CSS::FileWatcher` — so this currently has no effect.
+        # layout composes with it. Stylesheet hot-reload is currently disabled, so
+        # this has no effect.
         screen.auto_reload_stylesheet = false unless watch
         screen.load_stylesheet cp
       end
@@ -62,8 +62,7 @@ require "../../crysterm"
       bridge = HTTPBridge.new screen, host: host, port: port, token: token
 
       if watch
-        # File-watching disabled: `CSS::FileWatcher.watch` is a no-op until
-        # watching is re-integrated via event_handler.
+        # File-watching is disabled: `CSS::FileWatcher.watch` is a no-op.
         CSS::FileWatcher.watch(lp) { bridge.reload_layout File.read(lp) rescue nil }
       end
 

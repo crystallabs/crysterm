@@ -40,9 +40,7 @@ module Crysterm
 
     @buttons = [] of Widget
     @ids = {} of Widget => Int32
-    # Per-button event subscriptions (an `Event::Check` listener, and an
-    # `Event::UnCheck` one implementing the "can't uncheck the selected member by
-    # clicking it" radio rule — see `#on_member_unchecked`), bagged together so
+    # Per-button `Event::Check`/`Event::UnCheck` subscriptions, bagged together so
     # `#remove` tears down both. Each `Subscriptions` captures the button it was
     # installed on, so teardown reaches the right one regardless of later state.
     @subs = {} of Widget => Subscriptions
@@ -118,9 +116,7 @@ module Crysterm
     # others; then re-announces the click on the group.
     private def on_member_checked(button : Widget) : Nil
       return if @suppress
-      # Exclusive mode enforces "at most one checked" via the shared
-      # `ExclusiveGroup` rule; `suppressed` stops the cascade of unchecks from
-      # re-entering this handler (see `#on_member_unchecked`).
+      # `suppressed` stops the cascade of unchecks from re-entering this handler.
       suppressed { exclude_peers @buttons, button } if exclusive?
       emit Crysterm::Event::ButtonClick, button
     end
@@ -130,11 +126,10 @@ module Crysterm
     # with nothing selected, re-check it. The re-check is `@suppress`ed so it
     # neither cascades nor re-announces a `ButtonClick`.
     #
-    # `@suppress` is already set during a legitimate switch (A→B unchecks A from
-    # inside `#on_member_checked`), so a normal selection change passes straight
-    # through — only a direct uncheck of the sole checked member is reverted.
-    # `Widget::RadioButton`'s `#toggle` only ever checks, so this only affects
-    # `CheckBox`/`Button` members.
+    # `@suppress` is already set during a legitimate switch (A→B unchecks A), so
+    # a normal selection change passes straight through — only a direct uncheck
+    # of the sole checked member is reverted. `Widget::RadioButton`'s `#toggle`
+    # only ever checks, so this affects only `CheckBox`/`Button` members.
     private def on_member_unchecked(button : Widget) : Nil
       return if @suppress || !exclusive?
       return if @buttons.any? { |b| member_checked? b }
@@ -149,16 +144,15 @@ module Crysterm
       begin
         yield
       ensure
-        # Reset even if a user Check/UnCheck handler raises, else `@suppress`
-        # would stay set and silently disable exclusivity from then on.
+        # Must reset even if a user Check/UnCheck handler raises, or `@suppress`
+        # stays set and silently disables exclusivity from then on.
         @suppress = false
       end
     end
 
-    # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and
-    # `RadioButton` all derive from it), which declares the shared
-    # `#checked?`/`#uncheck` interface, so dispatch through that one type
-    # rather than the concrete leaf types (which would miss `RadioButton`).
+    # Dispatch through `Widget::AbstractButton`, which declares the shared
+    # `#checked?`/`#uncheck` interface; the concrete leaf types would miss
+    # `RadioButton`.
     private def member_checked?(b : Widget) : Bool
       b.is_a?(Widget::AbstractButton) ? b.checked? : false
     end

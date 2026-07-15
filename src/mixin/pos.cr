@@ -7,12 +7,12 @@ module Crysterm
       property renders = 0
 
       # Absolute offsets of the including object's origin, `nil` meaning "no
-      # offset" (`widget_position.cr` reads them as `parent.aleft || 0`).
+      # offset".
       #
       # Read-only on purpose: only `Window` answers through these, where `nil` is
       # the correct constant — a surface's origin is always 0. On `Widget` they
-      # are shadowed by the computed `#aleft`/`#atop`/`#aright`/`#abottom` in
-      # `widget_position.cr`, so a writer here would be settable but never read.
+      # are shadowed by the computed `#aleft`/`#atop`/`#aright`/`#abottom`, so a
+      # writer here would be settable but never read.
       getter aleft : Int32? = nil
 
       # :ditto:

@@ -1,11 +1,11 @@
 module Crysterm
   # A detached, formatted slice of a document (Qt `QTextDocumentFragment`):
-  # one or more blocks whose boundaries represent block separators. This is
-  # the unit of rich copy/paste and of undo snapshots for removals.
+  # one or more blocks whose boundaries represent block separators. The unit
+  # of rich copy/paste and of undo snapshots for removals.
   #
-  # Fragments own their blocks: `TextDocument` snapshots ranges into fresh
-  # blocks and re-inserts *copies*, so a fragment held by the undo stack can't
-  # be corrupted by later document edits.
+  # Fragments own their blocks; ranges are snapshotted into fresh blocks and
+  # re-inserted as *copies*, so a fragment held by the undo stack cannot be
+  # corrupted by later document edits.
   class TextDocumentFragment
     getter blocks : Array(TextBlock)
 

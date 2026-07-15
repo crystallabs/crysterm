@@ -1,13 +1,12 @@
 module Crysterm
   # An independent, window-sized cell buffer with a z-order — the unit a widget
   # (and its subtree) renders into once promoted to a *layer* (via CSS
-  # `z-index`, or `style.z_index`). After the base buffer is painted by the
-  # normal painter, each plane is composited over it bottom-to-top, honoring
-  # the per-cell `Attr::Alpha` modes and the plane's own `opacity`. This is
-  # what lets an "opaque" overlay show other widgets' content through it.
+  # `z-index`, or `style.z_index`). After the base buffer is painted, each plane
+  # is composited over it bottom-to-top, honoring the per-cell `Attr::Alpha`
+  # modes and the plane's own `opacity` — this is what lets an "opaque" overlay
+  # show other widgets' content through it.
   #
-  # Planes are opt-in: a UI with no z-index allocates none and the render path
-  # is unchanged.
+  # Planes are opt-in: a UI with no z-index allocates none.
   class Plane
     # A cleared cell carries both channels' alpha as `Transparent` and a space,
     # so an untouched cell contributes nothing. A widget's render overwrites
@@ -62,24 +61,19 @@ module Crysterm
     # (transparent-sentinel) cells are skipped.
     #
     # `xi`/`xl`/`yi`/`yl` clip the fold to a half-open sub-rectangle (default:
-    # whole plane). Damage tracking uses this to re-fold only the region of the
-    # base it just rebuilt — re-folding over an already-folded base would
-    # saturate, so the caller rebuilds the base in this rectangle first.
+    # whole plane). Re-folding over an already-folded base would saturate, so the
+    # caller must rebuild the base within this rectangle first.
     def composite_onto(base : Array(Window::Row), xi : Int32 = 0, xl : Int32 = Int32::MAX, yi : Int32 = 0, yl : Int32 = Int32::MAX) : Nil
       op = @opacity
-      # Opacity is constant for the whole composite, so decide once whether a
-      # cell is taken straight from the fold or blended toward the base.
+      # Constant for the whole composite: decide once, not per cell.
       opaque = op >= 1.0
       rows = {@cells.size, base.size}.min
       y = yi < 0 ? 0 : yi
       rows = yl if yl < rows
       while y < rows
         pr = @cells.unsafe_fetch(y)
-        # A plane row no widget painted this frame is entirely the transparent
-        # sentinel (`#clear` set `dirty = false`; the render path sets it true
-        # on any row it writes), so the scan can skip it. The base is rebuilt
-        # every frame, so no stale overlay is ever left on a transparent row.
-        # This collapses the O(width×height) scan to just the touched rows.
+        # An unpainted plane row is entirely the transparent sentinel, so skip
+        # it — this collapses the O(width×height) scan to the touched rows.
         unless pr.dirty
           y += 1
           next
@@ -89,20 +83,11 @@ module Crysterm
         ba = br.attrs; bc = br.chars
         cols = {pa.size, ba.size}.min
         cols = xl if xl < cols
-        # Whether this row carries any grapheme-cluster overlay. When not (the
-        # common all-single-codepoint case), the per-cell `grapheme_at?` probe
-        # below is skipped; the base cell's overlay is still cleared so an
-        # opaque plane cell never inherits a stale cluster.
+        # Row-level gates hoisting the per-cell grapheme/link overlay probes out
+        # of the common all-single-codepoint, no-link case. Installs below flip a
+        # flag, but only at already-visited columns, so probes at `x` stay exact.
         pr_has_g = pr.has_graphemes?
-        # Same gate for the BASE row's overlay: with none, the per-cell
-        # `br.grapheme_at?` probe and `delete_grapheme` are skipped. Installing
-        # an overlay below flips the flag; installs happen at already-visited
-        # columns, so probes at the current `x` stay exact.
         br_has_g = br.has_graphemes?
-        # Mirror of the grapheme hoists for the OSC 8 *link* overlay: a layered
-        # widget's links must survive the fold onto the base, and a base cell's
-        # old link must not bleed through an opaque overlay cell (the raw-array
-        # writes below bypass `Cell#char=`'s link-clear invariant).
         pr_has_l = pr.has_links?
         br_has_l = br.has_links?
         x = xi < 0 ? 0 : xi
@@ -113,16 +98,13 @@ module Crysterm
             under = ba.unsafe_fetch(x)
             folded = Colors.composite(patt, under)
             result = opaque ? folded : Colors.blend(folded, under, op)
-            # The base `char` array stores only a cluster's BASE codepoint, so the
-            # attr/char compare above is blind to grapheme-overlay differences
-            # (e.g. base "e" under an overlay painting "é" with identical style).
-            # Include the overlay in the change test so the accent is installed,
-            # and so a stale cluster under a matching base cell is cleared.
+            # The `char` array stores only a cluster's BASE codepoint, so the
+            # attr/char compare is blind to overlay-only differences (base "e"
+            # under an overlay painting "é" with identical style). Graphemes and
+            # links must join the change test below, or such a difference never
+            # writes through to the base — and hence never reaches `draw`'s diff.
             pg = pr_has_g ? pr.grapheme_at?(x) : nil
             bg = br_has_g ? br.grapheme_at?(x) : nil
-            # Links participate in the change test like graphemes: a link-only
-            # difference (same glyph/attr) must still write through, so the
-            # base row's overlay — and hence `draw`'s diff — sees it.
             pl_link = pr_has_l ? pr.link_at(x) : 0_u16
             b_link = br_has_l ? br.link_at(x) : 0_u16
             if under != result || bc.unsafe_fetch(x) != ch || bg != pg || b_link != pl_link
@@ -134,16 +116,15 @@ module Crysterm
               elsif br_has_g
                 br.delete_grapheme x
               end
-              # Same install/clear for the link overlay.
               if pl_link != 0_u16
                 br.set_link x, pl_link
                 br_has_l = true
               elsif br_has_l
                 br.delete_link x
               end
-              # Narrow the dirty range to the changed columns (a plain
-              # `dirty = true` widened it to full width, defeating draw's
-              # scan-bounding for plane frames).
+              # Narrow the dirty range to the changed columns; a plain
+              # `dirty = true` would widen it to full width and defeat draw's
+              # scan-bounding for plane frames.
               br.mark_dirty x
             end
           end

@@ -39,22 +39,18 @@ module Crysterm
       # A table is sized to its content by default.
       @shrink_to_fit = true
 
-      # Content is pre-formatted into fixed-width columns; must never be
-      # line-wrapped (would push following rows down and desync cell borders,
-      # especially visible with wide/CJK cells).
+      # Content is pre-formatted into fixed-width columns; line-wrapping it would
+      # push following rows down and desync the cell borders.
       @wrap_content = false
 
       # A `Table` is content-sized: `#render` pins `@width` so the box always fits
       # every column and never overflows horizontally. It opts out of horizontal
-      # scrolling entirely (`child_base_x` stays 0) — a wide table is just clipped
-      # by its parent. For a scrollable wide table use `Widget::ListTable` instead.
+      # scrolling entirely — a wide table is just clipped by its parent. For a
+      # scrollable wide table use `Widget::ListTable` instead.
 
-      # NOTE: there is deliberately no `data:` parameter. It used to be a second
-      # spelling of `rows:`, on a widget that *also* inherits an unrelated
-      # `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot) — so `Table.new(data:
-      # rows)` set the rows while `table.data = x` set the YAML. Pass `rows:`.
-      # (`Widget::Pine::SelectableList` documents dodging the same collision by
-      # naming its array `records`.)
+      # NOTE: there is deliberately no `data:` parameter — it would collide with
+      # the inherited `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot). Pass
+      # `rows:`.
       def initialize(
         rows = nil,
         pad = nil,
@@ -81,20 +77,15 @@ module Crysterm
         end
       end
 
-      # Replaces the table data and rebuilds the rendered content.
-      #
-      # A real setter, not the one `property rows` used to generate: that one
-      # assigned `@rows` and stopped, bypassing `#reload_rows` — so `@maxes_dirty`
-      # was never set and the column widths, the pinned `@width` and the rendered
-      # content all kept describing the OLD data, while `#render` went on sizing
-      # the box's height from the NEW `@rows.size`. The working path was
-      # `set_data`/`set_rows`; both are folded in here, since one argument is one
-      # argument and `rows=` is how Crystal spells it.
+      # Replaces the table data and rebuilds the rendered content. Must go through
+      # here rather than assigning `@rows`: that would bypass `#reload_rows`,
+      # leaving the column widths, the pinned `@width` and the content describing
+      # the old data while `#render` sized the box from the new row count.
       def rows=(rows)
         unless reload_rows rows
           # Empty/column-less data must empty the view too: `reload_rows` has
-          # already replaced `@rows`, so returning with the old content rendered
-          # would show rows the model no longer holds.
+          # already replaced `@rows`, so keeping the old content would show rows
+          # the model no longer holds.
           set_content ""
           return
         end
@@ -119,15 +110,14 @@ module Crysterm
       end
 
       def render(with_children = true)
-        # Re-pin the size now that the CSS cascade has run. `#rows=` pins width
-        # at construction/Attach time, but a border arriving via CSS isn't folded
-        # into `style` yet then, so `ihorizontal` would omit the border columns and
-        # leave internal separators overshooting the right edge.
+        # Re-pin the size now that the CSS cascade has run: `#rows=` pins width at
+        # construction/Attach time, before a border arriving via CSS is folded into
+        # `style`, so `ihorizontal` would omit the border columns and leave
+        # internal separators overshooting the right edge.
         #
         # Height is pinned too: cell-border junctions are placed relative to the
-        # content rows, so a taller box (e.g. explicit `height:`) would leave a
-        # malformed half-drawn separator below the last junction. Content spans
-        # `2*rows - 1` grid rows (render_row lines + blank separators) plus insets.
+        # content rows, so a taller box would leave a half-drawn separator below
+        # the last junction. Content spans `2*rows - 1` grid rows plus insets.
         #
         # Both assigned directly to avoid the `Resize`-before-store recursion our
         # own `Resize` handler would trigger.
@@ -146,8 +136,7 @@ module Crysterm
         coords
       end
 
-      # Recolors header/cell text and draws the internal cell borders. Ported
-      # from Blessed's `Table.prototype.render`, adapted to Crysterm's cell grid.
+      # Recolors header/cell text and draws the internal cell borders.
       # ameba:disable Metrics/CyclomaticComplexity
       private def draw_borders(coords)
         lines = window.lines
@@ -167,21 +156,20 @@ module Crysterm
           end
 
         # Maps each relative text-column x to its table column index, so CSS
-        # per-cell styles (`#css_cell_style`) can override the row default. Built
-        # (cached, see `#cached_col_for_x`) only when CSS per-cell rules exist,
-        # since a plain table re-renders every frame. `@styled_rows` lets unstyled
-        # rows skip per-cell lookups entirely (~20x faster on an unstyled table).
+        # per-cell styles can override the row default. Built only when per-cell
+        # rules exist, since a plain table re-renders every frame; `@styled_rows`
+        # lets unstyled rows skip the lookups entirely (~20x faster).
         refresh_styled_rows
         col_map = if (cc = @css_cells) && !cc.empty?
                     cached_col_for_x
                   end
 
         # Apply header/cell attributes to text cells that still hold the default
-        # attribute (so explicit tags inside cells are preserved).
+        # attribute, so explicit tags inside cells are preserved.
         #
-        # Walks are clamped to the screen: a table scrolled/positioned partly off
-        # the top/left edge has negative `yi`/`xi`, and `Indexable#[]?` wraps
-        # negative indices — recoloring cells at the far end of the buffer.
+        # Walks are clamped to the screen: a table positioned partly off the
+        # top/left edge has negative `yi`/`xi`, and `Indexable#[]?` wraps negative
+        # indices, recoloring cells at the far end of the buffer.
         y = Math.max(itop, -yi)
         while y < height
           if line = lines[yi + y]?
@@ -228,18 +216,15 @@ module Crysterm
         rows_n = @rows.size
         last = @maxes.size - 1
 
-        # Internal grid rows are addressed relative to the real content origin
-        # (`ytop = yi + itop - 1`), not a hardcoded `itop == 1`: with vertical
-        # padding (`itop > 1`) the whole doubled-row grid shifts down with the
-        # text, so the `─` fills and `┼` junctions land on the blank separator
-        # rows instead of overwriting the padded cell text. The outer `┬`/`┴`
-        # rows stay pinned to the actual top/bottom border rows (which the
-        # padding band separates from the content). Mirrors the x axis, which
-        # already offsets by `ileft`.
+        # Internal grid rows are addressed relative to the real content origin,
+        # never a hardcoded `itop == 1`: with vertical padding the whole
+        # doubled-row grid shifts down with the text, so the `─` fills and `┼`
+        # junctions must follow it rather than overwrite the padded cell text. The
+        # outer `┬`/`┴` rows stay pinned to the actual top/bottom border rows.
         ytop = yi + itop - 1
 
-        # Gridline glyphs at the effective tier, hoisted out of the per-cell
-        # loops below (`#glyph` walks to the window; once per render is enough).
+        # Gridline glyphs at the effective tier, hoisted out of the per-cell loops
+        # below: `#glyph` walks to the window, and once per render is enough.
         tier = glyph_tier
         g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
         g_v = Glyphs[Glyphs::Role::LineVertical, tier]
@@ -262,17 +247,14 @@ module Crysterm
               ytop + ry
             end
 
-          # Clip to the rendered coords: a scrollable / `overflow: Hidden`
-          # ancestor lowers `coords.yl`, but the screen buffer still holds the
-          # rows below it — stop before stamping gridlines outside the widget's
-          # visible rectangle (`lines[...]?` alone only guards the buffer).
+          # Clip to the rendered coords: a scrollable / `overflow: Hidden` ancestor
+          # lowers `coords.yl` while the screen buffer still holds the rows below
+          # it, and `lines[...]?` alone only guards the buffer.
           break if row >= coords.yl
 
-          # With no top border the `ry == 0` junction row computes to `yi - 1` —
-          # one row ABOVE the widget (the bottom junction is naturally clipped by
-          # the `coords.yl` check above) — skip it. A row scrolled above the
-          # screen (negative) is skipped too: `lines[...]?` wraps negative
-          # indices to the far end of the buffer.
+          # With no top border the `ry == 0` junction row computes to `yi - 1`, one
+          # row above the widget. A row scrolled above the screen is skipped too:
+          # `lines[...]?` wraps negative indices to the far end of the buffer.
           if (ry == 0 && border.top == 0) || row < 0
             ry += 2
             next
@@ -287,7 +269,6 @@ module Crysterm
 
             # First column draws the left edge on the box border, independent of
             # the last-column handling below, so a single-column table gets both.
-            # Skipped when the column sits left of the screen (negative wrap).
             if mi == 0
               if xi >= 0 && (cell = line[xi]?)
                 cell.attr = battr
@@ -299,15 +280,12 @@ module Crysterm
             end
 
             if mi == last
-              # The last cell is followed by a trailing spare column (see
-              # `TableLayout#render_row`), with the box's right border one column
-              # further. On an internal separator row, continue the rule across
-              # the spare column and place ┤ on the border itself — a naive
-              # `xi + rx` would leave a stray char short of the border.
-              #
-              # Positions are `xi + ileft + rx` (content begins at the left inset
-              # `ileft`, not a hardcoded one column); `rx` is the content-column
-              # offset. Both cells are clipped past the visible right edge.
+              # The last cell is followed by a trailing spare column, with the
+              # box's right border one column further. On an internal separator
+              # row, continue the rule across the spare column and place ┤ on the
+              # border itself; a naive `xi + rx` would leave a stray char short of
+              # it. Content begins at the left inset `ileft`, not a hardcoded one
+              # column, hence `xi + ileft + rx`.
               internal = ry != 0 && !bottom
               if 0 <= (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
                 rx += 1
@@ -323,12 +301,10 @@ module Crysterm
               next
             end
 
-            # Center junction between this column and the next (never reached for
-            # the last column, which returned above). Painted at `xi + ileft + rx`
-            # (see the last-column note); `rx += 1` steps past the separator.
-            # Stop once the junction would fall outside the visible right edge;
-            # columns left of the screen (negative) are skipped, not stamped
-            # wrapped at the buffer's right end.
+            # Center junction between this column and the next; `rx += 1` steps
+            # past the separator. Stop once the junction would fall outside the
+            # visible right edge; columns left of the screen are skipped, not
+            # stamped wrapped at the buffer's right end.
             break if (xi + ileft + rx) >= coords.xl
             if (xi + ileft + rx) >= 0 && (cell = line[xi + ileft + rx]?)
               if ry == 0
@@ -349,13 +325,12 @@ module Crysterm
           ry += 2
         end
 
-        # Draw internal horizontal/vertical border runs (relative to `ytop`).
+        # Draw internal horizontal/vertical border runs, relative to `ytop`.
         ry = 1
         while ry < rows_n * 2
           row = ytop + ry
           break if row >= coords.yl
-          # Rows scrolled above the screen are skipped, not wrapped (see the
-          # junction pass).
+          # Rows scrolled above the screen are skipped, not wrapped.
           if row < 0
             ry += 1
             next
@@ -366,9 +341,8 @@ module Crysterm
           if ry.odd?
             draw_vertical_separators line, xi, battr, width: width
           else
-            # Horizontal `─` fill across each column's content cells. Start at the
-            # left content inset (`ileft`), not a hardcoded column 1. Columns left
-            # of the screen (negative) are skipped, not wrapped.
+            # Horizontal `─` fill across each column's content cells, starting at
+            # the left content inset `ileft`, not a hardcoded column 1.
             rx = ileft
             @maxes.each do |max|
               max.times do

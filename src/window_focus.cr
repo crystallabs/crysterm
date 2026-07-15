@@ -52,10 +52,8 @@ module Crysterm
 
     # Whether `el` is a valid focus target on this screen right now: attached
     # to THIS screen, actually on screen (not hidden nor inside a hidden
-    # container), and not disabled. Shared by `restore_focus`/`focus_offset`;
-    # keep all call sites in sync with this definition (`rewind_focus`'s
-    # 2-clause check is intentionally narrower — it has no `disabled?` term —
-    # and does not use this helper).
+    # container), and not disabled. `rewind_focus`'s check is deliberately
+    # narrower — no `disabled?` term — and does not use this helper.
     private def focusable_here?(el)
       el.window? == self && displayed_in_tree?(el) && !el.disabled? && !el.layout_suppressed?
     end
@@ -64,35 +62,19 @@ module Crysterm
     def restore_focus
       return unless sf = @saved_focus
       @saved_focus = nil
-      # The saved widget may have been detached/removed (or moved to another
-      # screen) while focus was held elsewhere — e.g. a dialog that saved the
-      # previously-focused widget (see `Widget::Message`/`Question`/`Prompt`/
-      # `FileManager`/`ColorDialog`) outlives the widget it saved. `Widget#focus`
-      # would then dereference that widget's now-nil `screen` (`window?.not_nil!`)
-      # and crash. Restore focus only when still attached to THIS screen; mirrors
-      # the `window?`/attachment guards in `rewind_focus`/`focus_offset`.
-      #
-      # `displayed_in_tree?` (not `style.visible?`): while the dialog was open,
-      # the saved widget or a container above it may have been hidden (switched
-      # tab page, hidden parent) — attached but off-screen. `Widget#focus` does
-      # not itself gate on visibility, so without this it would focus an
-      # invisible widget and emit `Event::Focus`. If no valid target remains,
-      # leave focus as-is, as the other two focus paths do for a hidden candidate.
-      #
-      # `!sf.disabled?`: the saved widget may have been disabled while the dialog
-      # was open (a wizard disabling a field). `WidgetState` is single-valued and
-      # `_focus` sets `state = :focused`, so re-focusing a disabled widget would
-      # silently clobber `Disabled` back to keyable and hand it keys the app
-      # disabled — every other focus entry point (`focus_offset`) already guards
-      # on this (BUGS-F2 #26).
+      # A dialog can outlive the widget it saved, so by now the saved widget may
+      # have been detached, moved to another screen, hidden (switched tab page,
+      # hidden parent) or disabled. `Widget#focus` guards none of that: it would
+      # dereference a nil `screen` and crash, focus an off-screen widget, or —
+      # `WidgetState` being single-valued — clobber `Disabled` back to keyable
+      # and hand a disabled widget keys. With no valid target, leave focus as-is.
       sf.focus if focusable_here?(sf)
       focused
     end
 
-    # Discards the saved-focus slot without restoring it. Used by callers that
-    # finish a focus-owning interaction (e.g. a reading text field that ended
-    # while still focused, or after focus deliberately moved elsewhere) so the
-    # stale save can't be replayed by an unrelated later `#restore_focus`.
+    # Discards the saved-focus slot without restoring it, so a finished
+    # focus-owning interaction can't have its stale save replayed by an
+    # unrelated later `#restore_focus`.
     def clear_saved_focus
       @saved_focus = nil
     end
@@ -106,58 +88,37 @@ module Crysterm
       old = @history.pop?
 
       # Prune only the invalid *trailing* entries, popping back-to-front until
-      # the top is a still-valid target (or the history empties). Blessed's
-      # `rewindFocus` prunes just this tail; an `@history.clear` here would
-      # discard ALL older-but-still-valid entries too, so a second
-      # `rewind_focus` (e.g. Tab A→B→C, hide C rewinds to B, then hide B) would
-      # find nothing to fall back to and blur focus entirely, even though an older
-      # valid entry (A) was still visible and should be refocused.
+      # the top is a still-valid target (or the history empties). Clearing the
+      # whole history would discard older-but-still-valid entries, so a second
+      # `rewind_focus` (Tab A→B→C, hide C rewinds to B, then hide B) would blur
+      # focus entirely instead of falling back to the still-visible A.
       #
-      # Per-entry validity:
-      #
-      # `window? == self` (not the raising `screen`, nor a bare truthy
-      # `window?`): a destroyed/detached widget has no screen, and `#screen`
-      # would crash here (e.g. closing a menu whose focused submenu was just
-      # torn down). A bare `window?` would still accept a widget MOVED to
-      # another screen — and `@history` entries (unlike `@keyable`, now pruned
-      # on remove via `Window#unregister`) are never pruned at all. Require
-      # attachment to THIS screen, as `restore_focus` does.
-      #
-      # `displayed_in_tree?` (not `style.visible?`): a widget whose own flag
-      # is visible but whose container is hidden isn't actually on screen and
-      # must not be re-focused. See the same helper in `window_mouse.cr`.
+      # Per-entry validity: `window? == self`, not the raising `screen` (a
+      # destroyed/detached widget has none) nor a bare truthy `window?` (which
+      # accepts a widget moved to another screen; `@history` entries are never
+      # pruned). `displayed_in_tree?`, not `style.visible?`, so a widget whose
+      # own flag is visible inside a hidden container is not re-focused.
       while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e) && !e.layout_suppressed?)
         @history.pop
       end
       el = @history.last?
 
       unless el
-        # No valid prior target remains. Focus is now cleared (`@history` is
-        # empty, so `focused` already returns nil), but `old` (just popped) must
-        # still be *blurred* — drop its `:focused` state and emit `Event::Blur`,
-        # as `_focus` does on a normal transition. Otherwise the detached/hidden
-        # widget lingers in `WidgetState::Focused` (e.g. reappears visually
-        # focused on `#show`) with no listener ever seeing focus leave it. `nil`
-        # payload: no widget is taking over focus.
-        # Mirror `_focus`'s guard: only blur-reset a widget that is actually
-        # Focused. `WidgetState` is single-valued, so an unconditional
-        # `state = :normal` re-enables a widget disabled while focused and
-        # clobbers a Selected/Hovered state — and would emit `Blur` for a widget
-        # that wasn't focused (BUGS-F2 #27).
+        # No valid prior target remains, so `focused` already returns nil — but
+        # the just-popped `old` must still be *blurred*, or the detached/hidden
+        # widget lingers in `WidgetState::Focused` (reappearing visually focused
+        # on `#show`) with no listener ever seeing focus leave it. `nil` payload:
+        # no widget is taking over focus.
         old.try do |o|
-          # Reset the widget's `:focused` state (guarded; see `#blur_state_reset`)
-          # and, since no widget is taking over focus here, emit `Blur` with a
-          # `nil` payload — as `_focus` does on a normal transition.
           o.emit Crysterm::Event::Blur, nil if blur_state_reset o
         end
         return
       end
 
-      # `el` is already on top of `@history` (the surviving valid entry after
-      # the trailing tail was pruned), so it must NOT be pushed again — doing so
-      # would stack a duplicate top entry. `_focus` (below) already emits
-      # `Event::Blur` on `old`, as `focus_push`/`focus_pop` rely on; emitting it
-      # here too would double-Blur `old`.
+      # `el` is already on top of `@history` (the surviving entry after the
+      # trailing tail was pruned), so it must NOT be pushed again. `_focus`
+      # already emits `Event::Blur` on `old`; emitting it here too would
+      # double-Blur.
       _focus el, old
       el
     end
@@ -165,17 +126,12 @@ module Crysterm
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     def focus_push(el)
       old = @history.last?
-      # Re-focusing the already-current element is not a history change.
-      # Pushing it again would stack a duplicate top entry and, once `@history`
-      # reaches `focus_history_size`, rotate a legitimately older entry off the
-      # front, corrupting the `focus_pop`/`rewind_focus` back-stack walk (a
-      # later `focus_pop` would pop the duplicate instead of returning to the
-      # real prior widget). Screen-level entry points reach here with
-      # `old == el` readily: `focus_offset`/Tab resolves back onto the focused
-      # widget when it's the sole focusable one, and `Window#focus` has no
-      # `Widget#focus`-style `focused?` guard. `_focus` already treats
-      # `old == el` as a full no-op (see `focus_refocus_emission_spec`), so
-      # re-run that and leave the history untouched.
+      # Re-focusing the already-current element is not a history change. Pushing
+      # it again would stack a duplicate top entry and, once `@history` reaches
+      # `focus_history_size`, rotate a legitimately older entry off the front,
+      # corrupting the `focus_pop`/`rewind_focus` back-stack walk. Screen-level
+      # entry points reach here with `old == el` readily (Tab with a single
+      # focusable widget). `_focus` already treats it as a full no-op.
       if old == el
         _focus el, old
         return
@@ -187,17 +143,14 @@ module Crysterm
 
     # Removes focus from the current element and focuses the element that was previously in focus.
     def focus_pop
-      # Non-raising pop: `focus_pop` is public API and the history may be empty
-      # (mirrors `rewind_focus`, which also uses `pop?`).
+      # Non-raising pop: `focus_pop` is public API and the history may be empty.
       old = @history.pop?
       if el = @history.last?
         _focus el, old
       elsif old
-        # No prior target remains (history is now empty, so `focused` returns
-        # nil), but the just-popped widget must still be *blurred* — drop its
-        # `:focused` state and emit `Event::Blur` with a `nil` payload, exactly
-        # as `rewind_focus`'s empty-history branch does. Otherwise it lingers in
-        # `WidgetState::Focused` with no listener seeing focus leave it.
+        # No prior target remains, but the just-popped widget must still be
+        # blurred, or it lingers in `WidgetState::Focused` with no listener
+        # seeing focus leave it.
         old.emit Crysterm::Event::Blur, nil if blur_state_reset old
       end
       old
@@ -213,39 +166,15 @@ module Crysterm
     def focus_offset(offset)
       return if offset.zero?
 
-      # We only need to know whether *any* keyable element is visible, so
-      # `any?` (short-circuits on the first match) is enough; a
-      # `count { ... }.zero?` would always scan the entire list.
-      #
-      # `window? == self` (not the raising `screen`, nor a bare truthy
-      # `window?`): defensive attachment check. `#remove`/`Widget#remove` now
-      # prune `@keyable` via `Window#unregister`, but a widget can still be gone
-      # from the tree without that path having run for it (e.g. mid-reparent, or a
-      # future caller mutating `@screen` directly), so a detached (`@screen` nil)
-      # or moved-to-another-screen entry can't be assumed impossible. `screen`
-      # (`window?.not_nil!`) would crash on a detached entry; a bare `window?`
-      # would still select a widget on a DIFFERENT screen. Require attachment to
-      # THIS screen, matching `restore_focus`/`rewind_focus`.
-      #
-      # `displayed_in_tree?` (not `style.visible?`) so a candidate inside a
-      # hidden container is skipped even if its own flag is visible. Mirrors
-      # `rewind_focus` and the mouse hit-test.
-      #
-      # `!el.disabled?`: a disabled widget doesn't react to keys (see
-      # `_listen_keys`), so Tab/Shift+Tab must step over it (the GUI-toolkit
-      # convention). Landing on it would also route through `_focus`, which sets
-      # `state = :focused` and silently clears the `Disabled` state. Folding the
-      # check in here (and into the skip loop below) keeps the loop's
-      # termination guarantee intact: `any?` proves an acceptable candidate exists.
+      # The skip loop below only terminates because this proves an acceptable
+      # candidate exists, so it must use the very same predicate.
       return unless @keyable.any? { |el| focusable_here?(el) }
 
       # With no current focus, enter from the natural end: forward navigation
-      # (`focus_next`) must land on the FIRST focusable widget, backward
-      # (`focus_previous`) on the LAST. A single `-1` sentinel only gets the
-      # forward case right (`-1 + 1 == 0`); for a negative offset, `-1 + -1`
-      # wraps to second-from-last, never the last. So when `focused` isn't in
-      # the list, pick the virtual start per direction: just-before-0 forward, 0
-      # backward (so the first backward step is `-1`, wrapping to the last).
+      # lands on the FIRST focusable widget, backward on the LAST. Hence a
+      # virtual start per direction — just-before-0 forward, 0 backward (so the
+      # first backward step is `-1`, wrapping to the last). A single `-1`
+      # sentinel would only get the forward case right.
       i = if idx = @keyable.index(focused)
             idx + offset
           elsif offset > 0
@@ -264,12 +193,10 @@ module Crysterm
     end
 
     # Clears a blurred widget's transient `:focused` state — but only when it is
-    # actually Focused — returning whether it reset. `WidgetState` is single-valued,
-    # so an unconditional `state = :normal` would re-enable a widget disabled
-    # *while focused* (e.g. a wizard "Back" button) — silently flipping it back to
-    # `:normal`/keyable — and clobber a Selected/Hovered state a blurred widget may
-    # legitimately hold (and, at the `rewind_focus` site, would emit `Blur` for a
-    # widget that wasn't focused; BUGS-F2 #27). Shared by the two blur sites.
+    # actually Focused — returning whether it reset. `WidgetState` is
+    # single-valued, so an unconditional `state = :normal` would re-enable a
+    # widget disabled *while focused* and clobber a Selected/Hovered state a
+    # blurred widget may legitimately hold.
     @[AlwaysInline]
     private def blur_state_reset(o : Widget) : Bool
       return false unless o.state.focused?
@@ -280,18 +207,12 @@ module Crysterm
     protected def _focus(cur : Widget, old : Widget? = nil)
       # Re-focusing the already-focused widget has no "previous" to blur or
       # un-highlight: treating `cur` as its own `old` would set its state to
-      # `:focused` (no-op) then immediately back to `:normal` (clobbering the
-      # highlight), plus emit a spurious `Blur`. Reachable via the public
-      # `Window#focus`/`focus_offset` (e.g. Tab with a single focusable widget
-      # wraps back onto it); `Widget#focus` already guards it, but the
-      # screen-level entry points do not.
-      #
-      # It's also not a focus *change*, so the terminating `Event::Focus` below
-      # is suppressed too — emitting it would re-run focus side effects on an
-      # already-focused widget (`Widget::Terminal` re-reporting focus-in to its
-      # PTY, `input_on_focus` re-entering `read_input`, menu/completer handlers
-      # re-firing), the same spurious-Focus defect `window_rendering.cr#_render`
-      # already guards against per frame.
+      # `:focused` then immediately back to `:normal` (clobbering the
+      # highlight), plus emit a spurious `Blur`. It's also not a focus *change*,
+      # so the terminating `Event::Focus` is suppressed too — emitting it would
+      # re-run focus side effects on an already-focused widget (a `Terminal`
+      # re-reporting focus-in to its PTY, `input_on_focus` re-entering
+      # `read_input`, menu/completer handlers re-firing).
       refocus = old == cur
       old = nil if refocus
 
@@ -300,18 +221,13 @@ module Crysterm
       el = cur.parent.try &.first_self_or_ancestor &.scrollable?
 
       cur.state = :focused
-      # Clear the blurred widget's `:focused` state (guarded; see `#blur_state_reset`).
       old.try { |o| blur_state_reset o }
 
       # If we're in a scrollable element, automatically scroll the focused
-      # element into view. Delegate to `#ensure_widget_visible`, the purpose-built
-      # primitive that maps the descendant's row into `el`'s content space via
-      # absolute tops (`cur.atop - el.atop - el.itop`) and uses
-      # `#visible_content_rows` for the viewport. Hand-rolled math using
-      # `cur.rtop` would be relative to `cur`'s *immediate* parent — correct
-      # only when `cur` is a direct child of `el`; for a deeper descendant (an
-      # input inside a plain container inside a scrollable box) it omits the
-      # intervening offsets and scrolls to the wrong place (or not at all).
+      # element into view. `#ensure_widget_visible` maps the descendant's row
+      # into `el`'s content space via absolute tops; hand-rolled `cur.rtop` math
+      # would be relative to `cur`'s *immediate* parent, so it omits the
+      # intervening offsets for anything deeper than a direct child.
       if el && el.window
         cur.window.render if el.ensure_widget_visible cur
       end

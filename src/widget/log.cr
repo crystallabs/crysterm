@@ -41,8 +41,6 @@ module Crysterm
       # `Time#to_s` format used when `#timestamps?`.
       property timestamp_format : String = "%H:%M:%S"
 
-      # Delegates to the real scroll-percentage methods; a plain `property`
-      # (inert Int) meant `self.scroll_percentage = 100` never actually scrolled.
       def scroll_percentage
         get_scroll_perc false
       end
@@ -122,8 +120,6 @@ module Crysterm
         log Level::Error, *args
       end
 
-      # Re-render when content changes; tail-following is the generic
-      # `#follow_tail` sticky-bottom (see `#stick_to_tail?` below).
       def on_set_content(e)
         request_render
       end

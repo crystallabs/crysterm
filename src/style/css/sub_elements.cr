@@ -4,9 +4,9 @@ module Crysterm
   # can be targeted by their capitalized name (e.g. `Table Cell { ... }`,
   # `ListBar Prefix { ... }`, `ProgressBar Indicator { ... }`).
   #
-  # The cascade already routes each slot into the matching `Style` sub-style
-  # (see `Cascade#get_sub_style`); these overrides just make the nodes exist.
-  # Each calls `super` to preserve the base scrollbar/track slots.
+  # The cascade routes each slot into the matching `Style` sub-style; these
+  # overrides just make the nodes exist. Each calls `super` to preserve the base
+  # scrollbar/track slots.
   class Widget
     class List
       def css_sub_elements : Array(String)
@@ -39,9 +39,8 @@ module Crysterm
     # The checkable marker controls expose their `[x]`/`(*)` marker as the
     # `indicator` sub-control (Qt's `QCheckBox::indicator`), carrying the
     # `glyph`/`glyph-open`/`glyph-close` family; state pseudos address the
-    # per-state mark (`CheckBox::indicator:checked { glyph: "x" }` — the
-    # `[checked]` attribute is emitted on the sub-element node too, see
-    # `html.cr`).
+    # per-state mark (`CheckBox::indicator:checked { glyph: "x" }`, since the
+    # `[checked]` attribute is emitted on the sub-element node too).
     class CheckBox
       def css_sub_elements : Array(String)
         super + ["indicator"]
@@ -83,7 +82,7 @@ module Crysterm
 
     # NOTE: `Table` and `ListTable` expose their cells as individual per-cell
     # nodes (`Cell`/`Header`/`Row`) instead of representative header/cell/
-    # alternate slots — see `table_cells.cr`.
+    # alternate slots.
 
     class ProgressBar
       def css_sub_elements : Array(String)

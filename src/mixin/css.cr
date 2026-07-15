@@ -12,7 +12,7 @@ module Crysterm
     #   `Input` into the class selector `.Input` — so `Input { ... }` matches
     #   `Button` and every other `Input` subclass (Qt-style base matching),
     #   while the exact widget name is what the user writes. Computed at compile
-    #   time (see the `inherited` hook); never changes at runtime.
+    #   time; never changes at runtime.
     # * **User classes** (`#css_classes`) — an arbitrary, mutable set the user
     #   assigns, matched by `.name` selectors just like HTML classes.
     # * **CSS id** (`#css_id`) — an optional, user-facing, *semantic* id matched

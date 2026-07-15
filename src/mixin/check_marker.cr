@@ -1,14 +1,12 @@
 module Crysterm
   module Mixin
     # Shared rendering and interaction for the marker-style checkable controls —
-    # `Widget::CheckBox` (`[x] label`) and `Widget::RadioButton` (`(*) label`).
+    # `[x] label`, `(*) label`. Provides the marker-only click hit-test, the
+    # activate-key toggle, focus/blur cursor placement over the marker, and the
+    # `<open><glyph><close> text` line builder. The glyph set, tri-state and
+    # group exclusivity stay per-widget.
     #
-    # Both derive `Widget::AbstractButton` directly as siblings (like Qt's
-    # `QCheckBox`/`QRadioButton` under `QAbstractButton`, not one inheriting
-    # the other). This module holds their common implementation: marker-only
-    # click hit-test, activate-key toggle, focus/blur cursor placement over the
-    # marker, and the `<open><glyph><close> text` line builder. Differing
-    # pieces (glyph set, tri-state, radio group exclusivity) stay per-widget.
+    # The including type must derive `Widget::AbstractButton`.
     module CheckMarker
       # The label drawn after the marker glyph. A marker control renders the
       # composed `<open><mark><close> text` line as its `#content`, so it cannot
@@ -30,19 +28,16 @@ module Crysterm
       end
 
       # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
-      # `#text` from an explicit `content:` (normally `input["content"]?`), and
-      # wires marker input via `#setup_check_marker`. Call from `initialize`,
-      # after `super`. Shared by `CheckBox` and `RadioButton`; each still handles
-      # its own extra constructor args (`tristate`, the radio's `Event::Check`
-      # subscription) around this call.
+      # `#text` from an explicit `content:`, and wires marker input via
+      # `#setup_check_marker`. Call from `initialize`, after `super`; the
+      # including widget handles its own extra constructor args around it.
       private def setup_marker_control(checked, content) : Nil
         @checkable = true # a marker control is inherently checkable
         @checked = checked
 
-        # An explicit `content:` is the label for a marker control. `text:`
-        # (already applied by `AbstractButton#initialize`) is the preferred
-        # spelling; the two are mutually exclusive at any one call site, so
-        # this only fires when `content:` was the one given.
+        # An explicit `content:` is the label for a marker control. `text:` is
+        # the preferred spelling and is already applied by the base
+        # `initialize`; the two are mutually exclusive at any one call site.
         content.try do |c|
           @text = c
         end
@@ -53,8 +48,8 @@ module Crysterm
       # Wires the activate keys, focus/blur cursor handling, and the marker-click
       # hit-test. Call from `initialize`, after `super`.
       private def setup_check_marker : Nil
-        # `KeyPress` is already wired by `AbstractButton#initialize` (activate
-        # keys are family-wide); here we add only the marker-specific handlers.
+        # `KeyPress` is already wired by the base `initialize`; only the
+        # marker-specific handlers are added here.
         handle Crysterm::Event::Focus
         handle Crysterm::Event::Blur
 
@@ -65,10 +60,8 @@ module Crysterm
         on(Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           # Compute the marker cell from the *painted* position (`@lpos`), not
-          # the layout coords (`atop`/`aleft`): inside a scrolled container the
-          # painted row is shifted up by the scroll base, and mouse dispatch
-          # hit-tests against `@lpos`. Using `atop`/`aleft` made the marker click
-          # dead once the container scrolled. Mirrors `on_focus`.
+          # the layout coords: inside a scrolled container the two differ by the
+          # scroll base, and mouse dispatch hit-tests against `@lpos`.
           next unless lpos = @lpos
           marker_start = lpos.xi + ileft
           # Row check needed because `Mouse` fires for clicks anywhere in the
@@ -83,29 +76,26 @@ module Crysterm
         end
       end
 
-      # Cached last-built line and the inputs it was built from. The marker
-      # controls call `marker_line` from `#render` every frame, but the line
-      # only changes when a marker piece (check state, CSS glyph, registry/tier
-      # retheme) or the label text changes, so the `String.build` is memoized
-      # against the resolved inputs.
+      # Cached last-built line and the inputs it was built from: `marker_line`
+      # runs every frame, but the line changes only when a marker piece (check
+      # state, CSS glyph, registry/tier retheme) or the label text does, so the
+      # `String.build` is memoized against the resolved inputs.
       @_selectable_content : String?
       @_selectable_key : Tuple(String?, String?, String?, Int32, String)?
 
-      # Cells the composed marker occupies (the stable `marker_width` of
-      # GLYPHS.md §4) and the mark cell's offset within it — the input
-      # geometry for the marker click hit-test and the focus cursor. Defaults
-      # match the classic 3-cell `[x]`.
+      # Cells the composed marker occupies and the mark cell's offset within it
+      # — the input geometry for the marker click hit-test and the focus cursor.
+      # Defaults match the classic 3-cell `[x]`.
       @_marker_width : Int32 = 3
       @_mark_offset : Int32 = 1
 
       # Builds the composed `<open?><mark?><close?> text` line for a marker
-      # control (GLYPHS.md §4): each piece resolves CSS-first (the widget's
-      # `::indicator` sub-style — `glyph-open`/`glyph-close`/the `glyph`
-      # family) and falls back to its registry role; a `none` piece is omitted
-      # outright, shrinking the marker. The marker is padded (text side) to
-      # the max width over *state_roles* — every mark this control can show —
-      # so toggling never jitters the label. Memoized like the old fixed-slot
-      # builder: no allocation on repeated identical renders.
+      # control: each piece resolves CSS-first (the widget's `::indicator`
+      # sub-style — `glyph-open`/`glyph-close`/the `glyph` family) and falls back
+      # to its registry role; a `none` piece is omitted outright, shrinking the
+      # marker. The marker is padded (text side) to the max width over
+      # *state_roles* — every mark this control can show — so toggling never
+      # jitters the label. Memoized: no allocation on repeated identical renders.
       private def marker_line(open_role : Glyphs::Role, close_role : Glyphs::Role,
                               mark_role : Glyphs::Role, *state_roles : Glyphs::Role) : String
         ind = style.raw_sub_style("indicator")
@@ -151,8 +141,7 @@ module Crysterm
       # the piece — returns `nil`), else the registry role's glyph. A CSS
       # override may be a multi-codepoint grapheme (an emoji-presentation mark)
       # and is kept whole; the registry fallback stays the narrow single-`Char`
-      # default (`Glyphs[]`), so an unstyled marker is byte-identical with
-      # history — the wide form is opt-in via CSS, never forced.
+      # default, so the wide form is opt-in via CSS, never forced.
       private def marker_piece(css : String?, role : Glyphs::Role, tier : Glyphs::Tier) : String?
         if s = css
           return nil if s == Glyphs::NONE_STR
@@ -167,8 +156,7 @@ module Crysterm
         s ? Unicode.width(s) : 0
       end
 
-      # The marker controls toggle (rather than push) on activation; the shared
-      # `AbstractButton#on_keypress` calls this.
+      # The marker controls toggle, rather than push, on activation.
       protected def activate
         toggle
         request_render
@@ -182,7 +170,6 @@ module Crysterm
           # for an inline window (no-op at offset 0). The mark cell sits
           # `@_mark_offset` columns in (0 when the open delimiter is `none`-d away).
           s.tput.cursor_pos lpos.yi + itop + s.render_row_offset, lpos.xi + @_mark_offset + ileft
-          # s.show_cursor # XXX
         end
       end
 

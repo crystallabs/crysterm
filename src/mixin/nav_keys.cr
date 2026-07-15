@@ -1,21 +1,10 @@
 module Crysterm
   module Mixin
-    # The vertical navigation key-map, single-sourced.
+    # The vertical navigation key-map, single-sourced: it classifies a key into
+    # an intent, leaving the including type to map that intent onto its own
+    # action (scrolling a viewport, moving a selection cursor, …).
     #
-    # `Mixin::Interactive` (viewport scrolling) and `Mixin::ItemView`
-    # (selection movement) both answer the same question — *which physical key
-    # means "one back", "a page forward", "jump to the end"?* — and then map that
-    # intent onto a different action (`scroll`/`page_scroll`/`scroll_to` vs
-    # `up`/`down`/`move`/`select_index`). The *classification* is identical; only the
-    # *action* differs. Keeping the key table in one place is exactly the
-    # anti-drift point of the formalization work: a key added or rebound here
-    # reaches both families at once, instead of one silently keeping the old map.
-    #
-    # `ActionBar` is intentionally NOT a member: it navigates *horizontally*
-    # (Left/Right/Tab/ShiftTab, none of the keys below) and its vi bindings
-    # conflict with these (`k` activates a command there, but means "one back"
-    # here), so a shared classifier would have to be parameterized by orientation
-    # and a second vi-map — indirection, not dedup.
+    # The including type must provide `@vi`.
     module NavKeys
       # A vertical-navigation intent, orientation- and action-neutral so both a
       # scroller and a selection cursor can consume it. "Backward" is toward the
@@ -34,9 +23,8 @@ module Crysterm
 
       # Classifies a `KeyPress` into a `NavIntent`, honoring `@vi` for the
       # single-char bindings. Returns `NavIntent::None` for any other key, so the
-      # caller can fall through to its own (widget-specific) handling. The
-      # paging/jump keys are not vi-gated (matching `ScrollableBox#on_keypress`);
-      # only `k`/`j`/`g`/`G` are.
+      # caller can fall through to its own handling. Only `k`/`j`/`g`/`G` are
+      # vi-gated; the paging/jump keys are always live.
       def nav_intent(e) : NavIntent
         key = e.key
         ch = e.char

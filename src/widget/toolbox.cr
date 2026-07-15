@@ -22,11 +22,8 @@ module Crysterm
     # ![ToolBox screenshot](../../tests/widget/toolbox/toolbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolBox < Box
-      # `#pages` (each section's content widget), `#count`, `#current_index` /
-      # `#current_index=`, `#current_widget` / `#current_widget=` and the
-      # show/next/previous core all come from here — the same core
-      # `StackedWidget`/`TabWidget` run on. `#sections` carries the extra
-      # per-item data (title + header box), parallel to `#pages`.
+      # `#pages` holds each section's content widget; `#sections` carries the
+      # extra per-item data (title + header box), parallel to it.
       include Mixin::PagedContainer
 
       # One section of a `ToolBox`.
@@ -62,15 +59,12 @@ module Crysterm
       end
 
       # The `glyph_key` the header markers (expand/collapse arrows) were baked
-      # from; the guarded `#refresh_glyphs` rebuilds them when it moves (a retheme
-      # via `Glyphs.set`, or the post-probe tier upgrade — widgets are built
-      # before `Window#exec` probes). Matches how `Menu`/`GroupBox` guard
-      # glyph-derived content instead of recomputing it unconditionally.
+      # from; `#refresh_glyphs` rebuilds them when it moves (a retheme, or the
+      # post-probe tier upgrade — widgets are built before the window probes).
       @_glyph_key : {String?, Glyphs::Tier, UInt64}?
 
       # Relayout on every paint: section heights depend on the widget's resolved
-      # inner size, only known once coordinates are computed (also fixes up the
-      # first frame and any resize).
+      # inner size, only known once coordinates are computed.
       def render(with_children = true)
         refresh_glyphs
         relayout
@@ -78,7 +72,7 @@ module Crysterm
       end
 
       # Rebuilds the header markers when the resolved glyphs changed out from
-      # under them (see `#_glyph_key`); a no-op on the steady-state frame.
+      # under them; a no-op on the steady-state frame.
       private def refresh_glyphs : Nil
         key = glyph_key
         if @_glyph_key != key
@@ -93,9 +87,8 @@ module Crysterm
         # The header must start visible regardless of the toolbox's own state:
         # `Widget#hide` persists `visible = false` into `style`, so a header
         # created while the toolbox is hidden would dup that hidden state and
-        # never be shown again (`#relayout` only toggles section *content*
-        # widgets) — a permanently blank, unclickable title row. Same hazard
-        # `Mixin::ItemView#create_item` defends against.
+        # never be shown again — `#relayout` only toggles section *content*
+        # widgets — leaving a permanently blank, unclickable title row.
         st = style.dup
         st.visible = true
         header = Widget::Box.new(
@@ -115,8 +108,7 @@ module Crysterm
         @pages << widget
 
         # `#register_page` raises the first item added and hides every later one;
-        # `#relayout` then gives the expanded one its rows. (It also runs from
-        # `#after_show_index`, so this only matters for the hidden ones.)
+        # `#relayout` then gives the expanded one its rows.
         register_page widget
         relayout
 
@@ -128,9 +120,8 @@ module Crysterm
       end
 
       # Re-marks the headers, re-fits the expanded section, and reports the
-      # header that was picked. (`#show_index` owns the index bookkeeping, the
-      # page show/hide and `Event::CurrentChanged`; `Event::SelectItem` carries
-      # the header box, which `CurrentChanged` has no room for.)
+      # header that was picked via `Event::SelectItem`, which carries the header
+      # box that `Event::CurrentChanged` has no room for.
       protected def after_show_index(index : Int) : Nil
         refresh_headers
         relayout

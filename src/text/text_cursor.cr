@@ -11,16 +11,15 @@ module Crysterm
   # Document-level cursors know blocks, not visual lines: `StartOfLine` ==
   # `StartOfBlock` and `Up`/`Down` move by block preserving the block-local
   # column. Wrapped-line motion and sticky visual columns belong to the
-  # viewing widget (TEXTEDIT.md Phase 2).
+  # viewing widget.
   class TextCursor
     enum MoveMode
       Move
       KeepAnchor
     end
 
-    # Movement operations (the Qt subset per TEXTEDIT.md §4 Phase 1; Qt's
-    # duplicate names — `Left`/`PreviousCharacter` etc. — are distinct members
-    # that behave identically, as in Qt).
+    # Movement operations. Qt's duplicate names — `Left`/`PreviousCharacter`
+    # and friends — are distinct members that behave identically, as in Qt.
     enum MoveOperation
       NoMove
       Start
@@ -171,10 +170,9 @@ module Crysterm
 
     # === Editing ===
 
-    # Inserts at the cursor, replacing any selection (one undo step). The
-    # cursor ends after the inserted text — that falls out of the document's
-    # cursor adjustment, not manual repositioning. Format precedence:
-    # explicit argument, then pending typing format, then inherited.
+    # Inserts at the cursor, replacing any selection (one undo step); the
+    # cursor ends after the inserted text. Format precedence: explicit
+    # argument, then pending typing format, then inherited.
     def insert_text(text : String, format : TextCharFormat? = nil) : Nil
       format ||= @pending_format
       if selection?
@@ -189,7 +187,7 @@ module Crysterm
 
     # Inserts a formatted fragment at the cursor, replacing any selection —
     # one undo step (Qt `insertFragment`). The cursor ends after the inserted
-    # content via the document's cursor adjustment.
+    # content.
     def insert_fragment(frag : TextDocumentFragment) : Nil
       if selection?
         @document.begin_edit_block
@@ -259,8 +257,8 @@ module Crysterm
       end
     end
 
-    # Merges into the selection's char formats (see `TextCharFormat#merge`);
-    # without a selection, merges into the typing format.
+    # Merges into the selection's char formats; without a selection, merges
+    # into the typing format.
     def merge_char_format(format : TextCharFormat) : Nil
       if selection?
         @document.apply_char_format(selection_start, selection_end, format, merge: true)
@@ -277,7 +275,7 @@ module Crysterm
       @document.apply_block_format(selection_start, selection_end, format, merge: true)
     end
 
-    # === Lists (Qt `createList`/`insertList`/`currentList`; TEXTEDIT.md Phase 4) ===
+    # === Lists (Qt `createList`/`insertList`/`currentList`) ===
 
     # Makes the selected blocks (or the current block) items of a new list
     # sharing *format* (undoable). Membership in a previous list is replaced —
@@ -314,7 +312,7 @@ module Crysterm
       block.block_format.list_format.try { |lf| TextList.new(@document, lf) }
     end
 
-    # === Frames (Qt `insertFrame`/`currentFrame`; TEXTEDIT.md follow-up) ===
+    # === Frames (Qt `insertFrame`/`currentFrame`) ===
 
     # Nests the selected blocks (or the current block) in a new child frame
     # under the frame at the selection start (undoable). Deviation from Qt's
@@ -343,12 +341,12 @@ module Crysterm
       @document.end_edit_block
     end
 
-    # === Document-edit adjustment (called by the registry) ===
+    # === Document-edit adjustment ===
 
     # Shifts position and anchor for an edit of `removed` -> `added` chars at
     # `pos`. Insertions push positions at the insertion point forward (that's
-    # how the editing cursor itself advances); positions inside a removed
-    # range collapse to its start.
+    # how the editing cursor itself advances); positions inside a removed range
+    # collapse to its start.
     protected def adjust(pos : Int32, removed : Int32, added : Int32) : Nil
       @position = TextDocument.shift_position(@position, pos, removed, added)
       @anchor = TextDocument.shift_position(@anchor, pos, removed, added)
@@ -416,24 +414,23 @@ module Crysterm
     end
 
     # Whether the character at *i* is a word character. `char_at` is nilable
-    # only out of bounds, which every caller's index guard already excludes;
-    # an (impossible) nil reads as non-word rather than crashing.
+    # only out of bounds, which every caller's index guard excludes; the
+    # unreachable nil reads as non-word rather than crashing.
     private def word_char_at?(i : Int32) : Bool
       (c = @document.char_at(i)) ? TextDocument.word_char?(c) : false
     end
 
     # Start of the current/previous word: skip separators left, then word
-    # chars. Same semantics as `Mixin::TextEditing#scan_word_left` — block
-    # separators read as `'\n'` and count as non-word, so the scan crosses them.
+    # chars. Block separators read as `'\n'` and count as non-word, so the
+    # scan crosses them.
     private def word_left_from(from : Int32) : Int32
       TextDocument.scan_word_left(from) { |i| !word_char_at?(i) }
     end
 
     # Start of the next word: skip the rest of the current word, then
-    # separators (Qt `WordRight`). Note this is *word-run then separator-run* —
-    # the opposite phase order from the mirror-symmetric `.scan_word_left` /
-    # mixin `#scan_word_right` (which skip separators first), so it can't share
-    # them without changing where the caret lands.
+    # separators (Qt `WordRight`). Deliberately *word-run then separator-run* —
+    # the opposite phase order from the separators-first scan helpers, so it
+    # cannot reuse them without moving where the caret lands.
     private def word_right_from(from : Int32) : Int32
       p = from
       sz = @document.size
@@ -447,9 +444,7 @@ module Crysterm
     end
 
     # {start, end} of the word around `pos`; the preceding word when between
-    # words (matching `Mixin::TextEditing#word_bounds_at`'s "the word here"
-    # intent for double-click selection). Collapses to {pos, pos} in
-    # whitespace-only surroundings.
+    # words. Collapses to {pos, pos} in whitespace-only surroundings.
     private def word_bounds_at(pos : Int32) : {Int32, Int32}
       s, e = TextDocument.word_run_at(pos, @document.size) { |i| word_char_at?(i) }
       if s == e

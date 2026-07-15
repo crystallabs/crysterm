@@ -1,10 +1,9 @@
 module Crysterm
   class Widget
     module Pine
-      # Shared building blocks for Pine's single-key command bars (`KeyMenu`
-      # entries and `KeyPrompt` choices): the item record, the highlighted-key
-      # tag lookup, and the content builder that uses it. Layout and click
-      # handling differ between the two widgets and stay in each of them.
+      # Shared building blocks for Pine's single-key command bars: the item
+      # record, the highlighted-key tag lookup, and the content builder. Layout
+      # and click handling stay in each bar widget.
       module KeyBar
         # A single key-triggered item: a `key` to press (shown highlighted), a
         # `label`, and an optional `callback`.

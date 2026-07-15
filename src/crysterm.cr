@@ -68,16 +68,15 @@ require "./widget/**"
 # after the widgets are defined.
 require "./cursor_anchor"
 require "./capture"
-# Loaded after widgets: `misc/control/*` subclass widgets (e.g. `Completer::Popup
-# < Widget::List`), so the widget types must already be defined.
+# `misc/control/*` subclass widgets (e.g. `Completer::Popup < Widget::List`), so
+# the widget types must already be defined.
 require "./misc/**"
 require "./layout"
 require "./layout/**"
 require "./widgets"
 
-# Reactive state (signals + bindings). Loaded after widgets: `bind` references
-# `Widget`/`Window`, and `Signal` reuses the `event_handler` machinery and
-# `Subscriptions` (already required above).
+# Reactive state (signals + bindings). Must follow the widgets: `bind` references
+# `Widget`/`Window`.
 require "./reactive/signal"
 require "./reactive/batch"
 require "./reactive/binding"
@@ -90,10 +89,9 @@ require "./reactive/bind_items"
 require "./style/css/**"
 
 # Remote control: HTML layout DOM (serialize/load, declarative actions) and the
-# HTTP/JSON-RPC bridge. Lives in `src/remote/`, compiled in only with `-Dremote`
-# (avoids the per-widget auto-serialization macro sweep and HTTP server in
-# default builds). Even when compiled in, the server stays closed until enabled
-# at runtime (see `Crysterm::Remote`).
+# HTTP/JSON-RPC bridge. Compiled in only with `-Dremote`, keeping the per-widget
+# auto-serialization macro sweep and the HTTP server out of default builds. Even
+# when compiled in, the server stays closed until enabled at runtime.
 {% if flag?(:remote) %}
   require "./remote/*"
 {% end %}
@@ -120,12 +118,10 @@ module Crysterm
   # single member shorthand (`Symbol` or `String`), or a collection of
   # shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
   # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
-  # See `Crystallabs::Helpers::Enums`.
   alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
 
   # Whether this process's STDOUT is a TTY. False if redirected to a file/pipe
-  # or there's no controlling terminal (e.g. CI). Used by `headless?` to decide
-  # a `Window` built without explicit IO.
+  # or there's no controlling terminal (e.g. CI).
   def self.interactive? : Bool
     STDOUT.tty?
   rescue
@@ -154,16 +150,13 @@ module Crysterm
   # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
   # are unordered)
 
-  # SIGINT (Ctrl+C) must be trapped: Crystal's default action terminates the
-  # process without running `at_exit`, skipping the terminal-restore chain
-  # (`at_exit` -> `Window#destroy` -> `#disconnect` -> `#restore_terminal`).
-  # Routing it through `exit` (like TERM/QUIT) ensures cleanup runs. Matters
-  # most during startup: between `Window.new` (enters alt buffer) and the input
-  # fiber establishing raw mode (`#listen`), the tty is still in cooked mode, so
-  # Ctrl+C arrives as a real SIGINT rather than a keystroke — interrupting there
-  # without this trap leaves the terminal in the alt buffer with raw
-  # mode/mouse reporting partially on. Once raw mode is active, ISIG is off and
-  # Ctrl+C is handled as a keystroke by the quit keys, making this trap dormant.
+  # SIGINT (Ctrl+C) must be trapped: Crystal's default action terminates without
+  # running `at_exit`, skipping the terminal-restore chain. Routing it through
+  # `exit` (like TERM/QUIT) ensures cleanup runs. It matters during startup —
+  # between `Window.new` (enters the alt buffer) and the input fiber establishing
+  # raw mode, the tty is still cooked, so Ctrl+C arrives as a real SIGINT and
+  # interrupting there would strand the terminal in the alt buffer. Once raw mode
+  # is active ISIG is off, Ctrl+C is a keystroke, and this trap is dormant.
   Signal::INT.trap do
     exit
   end
@@ -175,9 +168,7 @@ module Crysterm
   end
   # NOTE No `Signal::KILL.trap`: SIGKILL (like SIGSTOP) is uncatchable — the
   # kernel never delivers it to a handler, so `sigaction` for it just fails
-  # silently (cf. `widget_media_video_source.cr`, which kills ffmpeg with
-  # SIGKILL precisely because it can't be trapped). `kill -9` unavoidably
-  # leaves the terminal unrestored.
+  # silently. `kill -9` unavoidably leaves the terminal unrestored.
   Signal::WINCH.trap do
     # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
     # additional support here if necessary.
@@ -185,12 +176,11 @@ module Crysterm
   end
 
   # Hands every connected window's terminal back before the process suspends:
-  # leaves the alt buffer, turns off mouse reporting/keyboard protocol/paste,
-  # restores cooked mode (`Tput#pause` stores a resume continuation). Without
-  # this, an external `kill -TSTP` (or Ctrl+Z in the pre-raw startup window)
-  # suspends with the alt buffer active and mouse reporting on — the shell
-  # prompt lands inside the app's screen and pointer motion spews SGR
-  # sequences. Best-effort per window (a dead fd must not block the rest).
+  # leaves the alt buffer, turns off mouse reporting/keyboard protocol/paste and
+  # restores cooked mode (`Tput#pause` stores a resume continuation). Without it,
+  # a suspend leaves the shell prompt inside the app's alt buffer with pointer
+  # motion spewing SGR sequences. Best-effort per window: a dead fd must not
+  # block the rest.
   def self.suspend_terminals : Nil
     Window.instances.dup.each do |w|
       next unless w.connected?
@@ -203,9 +193,9 @@ module Crysterm
 
   # Restores every connected window's terminal after the process continues
   # (`SIGCONT`): re-enters the alt buffer/modes via the continuation `#pause`
-  # stored, then reallocs (invalidating `@olines` — the terminal no longer
-  # shows the pre-suspend frame, so diffing against it would leave shell
-  # output as permanent corruption) and repaints.
+  # stored, then reallocs (invalidating `@olines` — the terminal no longer shows
+  # the pre-suspend frame, so diffing against it would leave shell output as
+  # permanent corruption) and repaints.
   def self.resume_terminals : Nil
     Window.instances.dup.each do |w|
       next unless w.connected?
@@ -232,8 +222,7 @@ module Crysterm
   at_exit do
     # Iterate a copy: `Window#destroy` calls `@@instances.delete self`, so
     # iterating the live registry in place shifts elements under the index-based
-    # iterator and skips some windows — leaving their terminal unrestored
-    # (finding 8).
+    # iterator and skips windows, leaving their terminal unrestored.
     Window.instances.dup.each &.destroy
   end
 end

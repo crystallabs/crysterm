@@ -10,12 +10,11 @@ module Crysterm
       # pluggable strategy (`#fill`) — spiral (default), raster scan, radial
       # spread, random, or any caller-supplied ordering.
       #
-      # Like `Widget::Effect::Plasma`, it paints straight into the window's cell
-      # buffer as packed `Int64` attrs (direct `0xRRGGBB` fg) via `Effect::Direct`,
-      # avoiding per-cell `String`s and per-frame tag parsing. Each frame the slot
-      # simulation resolves once into two flat `w*h` buffers (glyph and color) in
-      # `#advance`, which `#cell` then reads. Self-contained and self-animating;
-      # call `#start`/`#stop`.
+      # Paints straight into the window's cell buffer as packed `Int64` attrs
+      # (direct `0xRRGGBB` fg), avoiding per-cell `String`s and per-frame tag
+      # parsing. Each frame the slot simulation resolves once into two flat `w*h`
+      # buffers (glyph and color) in `#advance`, which `#cell` then reads.
+      # Self-contained and self-animating; call `#start`/`#stop`.
       #
       # ```
       # # Default: a spiral of dithered DOS bricks (`▒`) filling the box.
@@ -107,11 +106,10 @@ module Crysterm
         # Run once, after a non-looping spray has filled the area.
         property on_complete : Proc(Nil)?
 
-        # Per-area state, (re)built lazily whenever the area's size changes (`@cols`
-        # / `@rows` are the interior size, owned by `Effect::Direct`).
+        # Per-area state, (re)built lazily whenever the area's size changes.
         @slots = [] of Tuple(Int32, Int32, Char)
-        # Int64 (matching `CopperBar`/`TextScroll`) so `@frame * 9`/`* 6` in
-        # `#colorize` never wrap even on an animation left looping for months.
+        # Int64 so the multiplications in `#colorize` never wrap, even on an
+        # animation left looping for months.
         @frame : Int64 = 0_i64
 
         # Flat `w*h` per-cell buffers (row-major), filled once per frame in
@@ -120,8 +118,7 @@ module Crysterm
         @cell_glyph = [] of Char
         @cell_color = [] of Int32
 
-        # Set by `#advance`: `true` once a non-looping spray has filled the area.
-        # Read by the shared animation loop via `#done?`.
+        # `true` once a non-looping spray has filled the area.
         @done = false
 
         def initialize(
@@ -214,18 +211,18 @@ module Crysterm
           @slots.size * @spacing + @travel
         end
 
-        # `Effect::Direct` hook: (re)allocate per-area state when the interior size
-        # changes. Builds the landing slots and the two flat `w*h` cell buffers,
-        # both cleared to blank glyph / default fg.
+        # (Re)allocates per-area state when the interior size changes: the landing
+        # slots and the two flat `w*h` cell buffers, both cleared to blank glyph /
+        # default fg.
         def resize(w, h)
           reset_slots w, h
           @cell_glyph = Array(Char).new(w * h, ' ')
           @cell_color = Array(Int32).new(w * h, -1)
         end
 
-        # `Effect::Direct` hook: resolve one frame of the spray simulation into the
-        # flat cell buffers, then advance time. Sets `@done` once a non-looping
-        # spray has finished filling.
+        # Resolves one frame of the spray simulation into the flat cell buffers,
+        # then advances time. Sets `@done` once a non-looping spray has finished
+        # filling.
         def advance(w, h)
           return @done = false if w <= 0 || h <= 0 || @slots.empty?
           recompute w, h
@@ -233,9 +230,10 @@ module Crysterm
           @done = !loop? && @frame > fill_frame
         end
 
-        # Project every slot to its position/glyph/color for the current frame and
-        # write it into the flat cell buffers. Cleared first so uncovered cells
-        # fall back to blank. No allocation: only overwrites buffers `#resize` sized.
+        # Projects every slot to its position/glyph/color for the current frame and
+        # writes it into the flat cell buffers, cleared first so uncovered cells
+        # fall back to blank. Allocation-free: only overwrites the buffers
+        # `#resize` sized.
         private def recompute(w, h)
           ox, oy = emitter(w, h)
           cycle = fill_frame + @hold
@@ -247,11 +245,10 @@ module Crysterm
           @slots.each_with_index do |(dx, dy, ch), i|
             launch = i * @spacing
             if f < launch
-              # Slots are ordered by increasing `launch`, so once one is still
-              # pending every later slot is too, and they all resolve to the same
-              # emitter cell/glyph `'·'`. Whichever pending slot the loop wrote
-              # last (the highest index, `@slots.size - 1`) is what survives, so
-              # set that once and stop — the whole pending tail is redundant work.
+              # Slots are ordered by increasing `launch`, so once one is pending
+              # every later slot is too, and all resolve to the same emitter
+              # cell/glyph. The last one written (`@slots.size - 1`) is what
+              # survives, so write it once and stop.
               if 0 <= ox < w && 0 <= oy < h
                 idx = oy * w + ox
                 @cell_glyph[idx] = '·'
@@ -274,8 +271,8 @@ module Crysterm
           end
         end
 
-        # `Effect::Direct` hook: glyph and packed `0xRRGGBB` fg (or `-1` for widget
-        # default) for interior cell `{x, y}`, read from the buffers `#advance` filled.
+        # Glyph and packed `0xRRGGBB` fg (or `-1` for widget default) for interior
+        # cell `{x, y}`, read from the buffers `#advance` filled.
         def cell(x, y, w, h) : {Char, Int32}
           idx = y * w + x
           {@cell_glyph[idx], @cell_color[idx]}
@@ -284,8 +281,8 @@ module Crysterm
         # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
         private def colorize(i, phase) : Int32
           if c = @color
-            # The public color proc's frame param is `Int32`; wrap (never raise)
-            # on the astronomically-unlikely Int64 overflow of the widened counter.
+            # The public color proc's frame param is `Int32`; wrap rather than
+            # raise if the Int64 counter exceeds it.
             return c.call(i, @frame.to_i32!, phase)
           end
           case phase
@@ -295,8 +292,8 @@ module Crysterm
           end
         end
 
-        # A non-looping spray finishes once it has filled the area (see `#advance`),
-        # at which point the shared animation loop stops and runs `#on_complete`.
+        # A non-looping spray finishes once it has filled the area, at which point
+        # the animation loop stops and runs `#on_complete`.
         protected def done? : Bool
           @done
         end

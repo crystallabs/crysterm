@@ -2,9 +2,6 @@ module Crysterm
   # Easing curves mapping linear progress (`0.0..1.0`) to eased progress
   # (`0.0..1.0`). `Linear` is the identity; the rest accelerate (`In`),
   # decelerate (`Out`), or both (`InOut`).
-  #
-  # Independent of any clock: `FrameClock` tweens read it, and the CSS layer
-  # maps `transition`/`animation` timing-function keywords onto it.
   enum Easing
     Linear
     InQuad

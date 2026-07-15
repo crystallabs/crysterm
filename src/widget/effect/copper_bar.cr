@@ -8,14 +8,14 @@ module Crysterm
       # A hue-cycling "copper" / raster bar — the scrolling colored band of
       # Amiga-demo fame, as a self-contained, self-animating widget.
       #
-      # Extracted from the `cracktro.cr` feature demo: every frame it repaints its
-      # background with the next hue. `hue_offset` staggers several bars apart
-      # (forming a moving rainbow) and `hue_speed` sets how fast each cycles.
+      # Every frame it repaints its background with the next hue. `hue_offset`
+      # staggers several bars apart (forming a moving rainbow) and `hue_speed`
+      # sets how fast each cycles.
       #
-      # Like `Effect::Matrix` and `Marquee`, it drives its own animation: call
-      # `#start` to spawn the render fiber and `#stop` to halt it. `#step` (repaints
-      # `style.bg` only; no render/sleep) is public so the bar can instead be
-      # advanced from an external clock shared by several effects.
+      # Drives its own animation: `#start` spawns the render fiber, `#stop` halts
+      # it. `#step` (repaints `style.bg` only; no render/sleep) is public so the
+      # bar can instead be advanced from an external clock shared by several
+      # effects.
       #
       # ```
       # bar = Widget::Effect::CopperBar.new parent: window, top: 0, left: 0,

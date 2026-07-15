@@ -17,6 +17,8 @@ module Crysterm
     #   cross axis for children without an explicit cross size; `Start`/`Center`/
     #   `End` keep the child's own cross size and position it.
     #
+    # A hidden child releases its slot: siblings pack as though it weren't there.
+    #
     # Assigned sizes are remembered (`@flex`/`@filled`) so a sized child stays
     # recognised as managed, and reassigned through the normal setters (no-op
     # when unchanged) so a stable layout emits no events after the first frame.
@@ -57,36 +59,28 @@ module Crysterm
       @cursor = 0
       @avail = 0
       @total_grow = 0
-      # Running sum of grow factors of flex children placed so far; used to
-      # distribute @avail by cumulative rounding (see #place). Reset each
-      # #measure, consumed in #place order.
+      # Running sum of grow factors of flex children placed so far; distributes
+      # `@avail` by cumulative rounding. Reset each measure, consumed in place order.
       @grow_seen = 0
       # Leftover space distributed along the main axis by `justify` when nothing
-      # grows. Carved into per-child gaps by *cumulative* rounding (see `#place`
-      # and `#justify_before`) rather than a floored `leftover // slots`, which
-      # drops up to `slots - 1` columns (last child of `SpaceBetween` falls short
-      # of the far edge, `SpaceAround` comes out lopsided) — same fix Grid/Form
-      # use. `@just_n` is the arranged-child count, `@just_k` the placement ordinal.
+      # grows, carved into per-child gaps by *cumulative* rounding rather than a
+      # floored `leftover // slots`, which strands up to `slots - 1` columns.
+      # `@just_n` is the arranged-child count, `@just_k` the placement ordinal.
       @just_leftover = 0
       @just_n = 0
       @just_around = false
       @just_k = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
-      # Last main/cross size this layout *assigned* to a flex/filled child, so a
-      # child can be released from layout control when its raw size is changed
-      # out from under us. `@flex`/`@filled` alone can't tell a layout-assigned
-      # size (which is non-nil after `place`) from a fresh user-set size, so
-      # without this a `child.width = 20` after the first frame is silently
-      # overwritten by a grow-share every frame. `main_flex?`/`cross_flex?` treat
-      # a set-member as managed only while its raw size still equals what we
-      # last put there; a mismatch means the user reclaimed it (see BUGS6 §5).
+      # Last main/cross size this layout *assigned* to a flex/filled child.
+      # `@flex`/`@filled` alone can't tell a layout-assigned size from a fresh
+      # user-set one, so a member counts as managed only while its raw size still
+      # equals what was last put there; a mismatch means the user reclaimed it.
       @flex_size = {} of Widget => Int32
       @filled_size = {} of Widget => Int32
-      # Per-arrange cache of fixed children's resolved main-axis size, so
-      # `a_main_size` (an ancestor-chain walk) computed in `measure` isn't walked
-      # again in `place`. Repopulated every `measure`; stable between passes since
-      # only cross-axis size changes in between.
+      # Per-arrange cache of fixed children's resolved main-axis size, so the
+      # ancestor-chain walk in `a_main_size` runs once per frame, not per pass.
+      # Stable between passes since only cross-axis size changes in between.
       @measured = {} of Widget => Int32
 
       def initialize(
@@ -108,9 +102,8 @@ module Crysterm
       # Measures the main axis: total fixed size, total grow weight, the leftover
       # to distribute, and (when nothing grows) the `justify` lead/extra-gap.
       private def measure(container : Widget, interior : RenderedGeometry) : Nil
-        # O(1) `child?` (backed by `@children_set`) instead of `children.includes?`
-        # (a linear scan): pruning four sets by a linear membership test was
-        # O(tracked × children) per arrange, pure steady-state overhead.
+        # `child?` is O(1); a linear membership test here would make pruning
+        # O(tracked × children) per arrange.
         @flex.select! { |el| container.child? el }
         @filled.select! { |el| container.child? el }
         prune_managed container, @flex_size
@@ -120,22 +113,18 @@ module Crysterm
 
         fixed = 0
         grow = 0
-        # The render pipeline shifts every laid child outward by its near margin
-        # (`coords`), and a Box-assigned size is a fixed `Int32` that (unlike
-        # an auto fill) never folds its margin in. So each child's main-axis
-        # margins consume space the packing must reserve — exactly as the `Flow`
-        # engine does — or children overlap and flex over-allocates.
+        # The render pipeline shifts every laid child outward by its near margin,
+        # and a Box-assigned size is a fixed `Int32` that never folds its margin
+        # in, so the packing must reserve both main-axis margins — otherwise
+        # children overlap and flex over-allocates.
         margins = 0
         @measured.clear
-        # Only children this engine actually arranges (see `#each_arrangeable`)
-        # count: layout-excluded chrome must not consume a gap or justify slot.
-        # Counted here (rather than a separate `arrangeable_count` pass) since
-        # this loop already visits exactly those children.
+        # Only arranged children count: layout-excluded chrome must not consume a
+        # gap or justify slot.
         n = 0
         each_arrangeable container do |el|
-          # A hidden child that isn't holding its slot open contributes no size,
-          # no grow weight, no margin and no gap — its siblings pack as though
-          # it weren't there. See `Layout#vacant?`.
+          # A hidden child not holding its slot contributes no size, grow weight,
+          # margin or gap.
           next if vacant? el
           n += 1
           margins += main_margin el
@@ -165,8 +154,7 @@ module Crysterm
           when .center? then lead = leftover // 2
           when .end?    then lead = leftover
           when .space_between?
-            # First child flush start, last flush end; leftover between them
-            # carved by cumulative rounding in `#place`.
+            # First child flush start, last flush end.
             @just_leftover = leftover
           when .space_around?
             # Equal space on both sides of every child (half-slot at each end).
@@ -181,12 +169,9 @@ module Crysterm
       end
 
       private def place(el : Widget, interior : RenderedGeometry) : Nil
-        # Counterpart to `#measure`'s skip: a vacant child was never measured,
-        # so it gets no position and — crucially — does not advance `@cursor`
-        # or consume a justify slot. Returning before `set_main_pos` leaves its
-        # stale geometry alone, which is harmless: it paints nothing while
-        # hidden (`Widget#coords` bails on an invisible widget), and
-        # showing it again re-measures it on that frame.
+        # A vacant child was never measured, so it takes no position and must not
+        # advance `@cursor` or consume a justify slot. Its stale geometry is
+        # harmless: it paints nothing while hidden, and showing it re-measures it.
         return if vacant? el
 
         # Cross axis.
@@ -194,10 +179,8 @@ module Crysterm
         if @align.stretch?
           if cross_flex? el
             # Fill the interior *minus* the child's cross-axis margins: the
-            # assigned size is fixed (no auto margin-fold), and the render shift
-            # pushes it out by the near margin, so a full-extent size would clip
-            # by `near + far`. Setting pos 0 lets that shift place it at the near
-            # margin; the reduced size then lands flush against the far margin.
+            # assigned size is fixed and the render shift pushes it out by the
+            # near margin, so a full-extent size would clip by `near + far`.
             cs = cross - cross_margin(el)
             cs = 0 if cs < 0
             set_cross_size el, cs
@@ -206,14 +189,10 @@ module Crysterm
           end
           set_cross_pos el, 0
         else
-          # Reserve the child's cross-axis margins, exactly as the Stretch
-          # branch does. The render shift pushes the border box out by the near
-          # margin, and a `Center`/`End` offset computed from the border size
-          # alone (`cross - cs`) would then overflow the far edge by that margin
-          # and mis-center. Positioning the child's whole *margin* box
-          # (`cs + cross_margin`) and letting the shift place the border box at
-          # the near margin keeps `End` flush against the far margin and centers
-          # the margin box symmetrically — the cross-axis analogue of BUGS8 §5.
+          # Position the child's whole *margin* box (`cs + cross_margin`), not its
+          # border box: the render shift pushes the border box out by the near
+          # margin, so an offset computed from `cross - cs` alone would overflow
+          # the far edge and mis-center.
           cs = a_cross_size el
           cm = cross_margin el
           off = case @align
@@ -227,12 +206,10 @@ module Crysterm
         # Main axis: explicit size wins; otherwise a grow-weighted share.
         size =
           if !@measured.has_key?(el)
-            # Distribute @avail by cumulative rounding rather than rounding each
-            # child's share independently: an independent `(@avail * grow) //
-            # total_grow` floors every child, dropping up to `total_grow - 1`
-            # columns at the far edge. Taking each child's size as the difference
-            # of successive cumulative floors sums to exactly @avail (the last
-            # flex child absorbs the remainder), matching Grid/Form.
+            # Cumulative rounding: each child's size is the difference of
+            # successive cumulative floors, which sums to exactly `@avail`.
+            # Rounding each share independently would floor every child and
+            # strand up to `total_grow - 1` columns at the far edge.
             s =
               if @total_grow > 0
                 before = (@avail * @grow_seen) // @total_grow
@@ -244,37 +221,27 @@ module Crysterm
             set_main_size el, s
             @flex << el
             @flex_size[el] = s
-            # Advance the cursor by the *clamped* used size, not the raw share
-            # `s`: a CSS min/max-width (min/max-height in a VBox) makes the child
-            # render at `a_main_size`, not `s`, so advancing by `s` would overlap
-            # the next child (min > s) or leave a gap (max < s, last child short
-            # of the far edge). An unconstrained child clamps back to exactly
-            # `s`, preserving the remainder-exact fill (BUGS3 §4). Mirrors the
-            # fixed branch, which already advances by the clamped `a_main_size`.
+            # Advance by the *clamped* used size, not the raw share `s`: a CSS
+            # min/max size makes the child render at `a_main_size`, so advancing
+            # by `s` would overlap the next child or leave a gap. An
+            # unconstrained child clamps back to exactly `s`.
             a_main_size el
           else
-            # Reuse the size measured for this fixed child in `measure`.
             @measured[el]? || a_main_size el
           end
 
         set_main_pos el, @cursor
-        # Advance past this child, its base `@gap`, and its share of the justify
-        # leftover. The justify gap is the difference of successive cumulative
-        # offsets (see `#justify_before`), so per-child gaps sum to exactly the
-        # leftover and the last child lands flush against the far edge.
         gap_after = justify_before(@just_k + 1) - justify_before(@just_k)
         @just_k += 1
-        # Advance past this child's whole margin box: the near margin (the render
-        # shift already placed the border box at `@cursor + near`), the border
-        # size, and the far margin — plus the base gap and justify share. Without
-        # the margin term the next child's `@cursor` would land inside this one.
+        # Advance past this child's whole *margin* box, plus the base gap and its
+        # justify share. Without the margin term the next child's `@cursor` would
+        # land inside this one.
         @cursor += size + main_margin(el) + @gap + gap_after
       end
 
       # Cumulative justify offset laid down *before* the `j`-th placed child, so a
       # child's gap is `justify_before(k + 1) - justify_before(k)`. Sums to
-      # `@just_leftover` exactly (no remainder stranded at the far edge),
-      # mirroring the cumulative grow-share and Grid `#fence` distributions.
+      # `@just_leftover` exactly, stranding no remainder at the far edge.
       #
       # * `SpaceBetween`: `j` of the `n - 1` gaps precede child `j`, i.e.
       #   `floor(j * leftover / (n - 1))` — 0 before the first, the whole leftover
@@ -298,16 +265,12 @@ module Crysterm
         (el.layout_hint.as?(Hint)).try(&.grow) || 1
       end
 
-      # The child's total margin along the main axis (near + far): left+right for
-      # a horizontal box, top+bottom for a vertical one. The render pipeline
-      # shifts a laid child out by its near margin without shrinking a fixed size,
-      # so the packing must reserve both.
+      # The child's total margin along the main axis (near + far).
       private def main_margin(el : Widget) : Int32
         orientation.horizontal? ? el.mhorizontal : el.mvertical
       end
 
-      # The child's total margin along the cross axis (top+bottom for a
-      # horizontal box, left+right for a vertical one).
+      # The child's total margin along the cross axis.
       private def cross_margin(el : Widget) : Int32
         orientation.horizontal? ? el.mvertical : el.mhorizontal
       end

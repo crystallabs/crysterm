@@ -12,10 +12,9 @@ module Crysterm
     # Differs from `Media::Overlay` in two ways: the helper speaks a JSON
     # protocol on stdin (`{"action":"add",…}` / `{"action":"remove",…}`) and
     # positions/sizes placements in *terminal cells* (not pixels); and its
-    # override-redirect window stays on top, so — unlike w3m — it doesn't get
-    # covered by subsequently drawn text and need re-painting every frame. So we
-    # just (re)send `add` when the cell rectangle changes and `remove` on
-    # hide/detach/destroy.
+    # override-redirect window stays on top, so it isn't covered by later-drawn
+    # text and needs no per-frame repaint. `add` is therefore only (re)sent when
+    # the cell rectangle changes, and `remove` on hide/detach/destroy.
     #
     # Requires the `ueberzug` or `ueberzugpp` binary on PATH and a real X
     # display; with neither present the widget is inert (it draws nothing).
@@ -45,9 +44,9 @@ module Crysterm
       # deleted on reload/clear/teardown instead of leaking into `/tmp`.
       @tmp_path : String? = nil
 
-      # The shared `Media::Base` contract knobs (`fit`/`animate`/`speed`) are
-      # accepted so the `Media` factory can forward them uniformly, but are
-      # advisory here: überzug does its own scaling (`scaler`) and can't animate.
+      # `fit`/`animate`/`speed` are accepted so the `Media` factory can forward
+      # them uniformly, but are advisory here: überzug does its own scaling
+      # (`scaler`) and can't animate.
       def initialize(@file = nil, @scaler : String = "forced_cover",
                      @fit : Media::Fit = Media::Fit::Stretch,
                      @animate : Bool = false,
@@ -71,8 +70,6 @@ module Crysterm
         @path = local_path file
         @last = nil
       end
-
-      # `#set_image` (load + re-render) comes from `Media::External`.
 
       def clear_image
         remove
@@ -100,10 +97,9 @@ module Crysterm
       protected def self.proc : Process?
         if p = @@proc
           return p unless p.terminated?
-          # Terminated: reap it before replacing. `terminated?` is `kill(pid, 0)`
-          # based, which reports a *zombie* (dead but unwaited) as still alive —
-          # so without this the dead helper would be handed back as "live" once,
-          # and the unreaped process would linger as a zombie.
+          # Reap before replacing, or the dead helper lingers as a zombie — and
+          # `terminated?` (a `kill(pid, 0)` probe) would then report that zombie
+          # as still alive and hand it back as "live".
           spawn { p.wait rescue nil }
           @@proc = nil
         end
@@ -149,10 +145,9 @@ module Crysterm
           stdin.flush
         end
       rescue
-        # Helper went away (EPIPE on write). Reap the dead process (else it stays
-        # a zombie — see `self.proc`) and drop the cache so the next call
-        # respawns. Retry the command once on the fresh helper so the placement
-        # isn't silently lost until the rect next changes.
+        # Helper went away (EPIPE on write). Reap the dead process, drop the
+        # cache so the next call respawns, and retry once on the fresh helper so
+        # the placement isn't silently lost until the rect next changes.
         old = @@proc
         @@proc = nil
         old.try { |o| spawn { o.wait rescue nil } }
@@ -176,14 +171,13 @@ module Crysterm
         nil
       end
 
-      # Fetches *file*'s bytes over the network. Isolated as a seam so tests can
-      # exercise the temp-file lifecycle without real network access.
+      # Fetches *file*'s bytes over the network. Kept as a seam so tests can
+      # exercise the temp-file lifecycle without network access.
       protected def fetch_bytes(file : String) : Bytes
         Widget::Media::Ansi.fetch file
       end
 
-      # Path of the temp file the most recent URL fetch wrote to (if any), so
-      # tests can assert it is created and later cleaned up.
+      # Path of the temp file the most recent URL fetch wrote to, if any.
       protected def tmp_path : String?
         @tmp_path
       end

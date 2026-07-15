@@ -28,9 +28,6 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class ToolBar < Box
       include Mixin::ActionBar
-      # Shared "watch each action's `Changed` signal + own the host association"
-      # concern (the hash, `associate`/`dissociate`, teardown), passing the
-      # tool-bar refresh body per action (see `#add_action`).
       include Mixin::ActionWatcher
 
       # The action backing each button box (absent for plain buttons/separators).
@@ -40,14 +37,14 @@ module Crysterm
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
         # Buttons pack flush — no gap cells between them (only trailing the last
-        # one); each button box keeps its own side padding. Same as MenuBar.
+        # one); each button box keeps its own side padding.
         @item_gap = 0
         # Install/withdraw keyboard accelerators with the bar's attach lifecycle,
         # so e.g. `Ctrl+B` fires whenever the bar is on a window, not only on click.
         on(::Crysterm::Event::Attach) { install_action_shortcuts }
-        # Uninstall from the window carried on the event: `Widget#remove` nulls
-        # `parent`/`window` before `Window#detach` emits `Event::Detach`, so
-        # `window?` is already nil here — the previous window comes via the payload.
+        # Uninstall from the window carried on the event: `parent`/`window` are
+        # nulled before `Event::Detach` is emitted, so `window?` is already nil
+        # here — the previous window comes via the payload.
         on(::Crysterm::Event::Detach) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
       end
 
@@ -58,8 +55,7 @@ module Crysterm
         @item_actions[item] = action
         # Associate this bar with the action and reflect external state changes
         # (Qt's `QAction::changed()`): toggling a checkable action's `checked`
-        # from elsewhere must re-light its button. `#watch_action` (from
-        # `Mixin::ActionWatcher`) owns the association + handler bookkeeping.
+        # from elsewhere must re-light its button.
         watch_action(action) do |_e|
           refresh
           request_render
@@ -100,9 +96,7 @@ module Crysterm
 
       # A tool bar has no persistent cursor: only checkable buttons stay lit, so
       # the highlight tracks each action's checked state rather than the raw
-      # selection. `Mixin::ActionBar#select_index` re-applies this via the shared
-      # `#reapply_highlight` scaffold, so a click/move no longer leaves the last
-      # button highlighted.
+      # selection.
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
         act = @item_actions[item]?
         !!(act && act.checkable? && act.checked?)
@@ -116,17 +110,13 @@ module Crysterm
 
       # Remove every per-action `Changed` handler and association before teardown,
       # so no stale handler fires against the destroyed bar and no dead bar lingers
-      # in `action.associated_widgets`. (Keyboard accelerators are withdrawn on the
-      # `Detach` emitted during teardown.)
+      # in `action.associated_widgets`.
       def destroy
         # Withdraw the accelerators NOW, while `@item_actions` is still
-        # populated: the `Detach` emitted during `super`'s teardown runs the
+        # populated: the `Detach` emitted during `super`'s teardown would run the
         # uninstall handler over an already-cleared collection, leaving every
         # action's shortcut registered on the window forever.
         uninstall_action_shortcuts window?
-        # `#unwatch_all_actions` (Mixin::ActionWatcher) offs every action's
-        # `Changed` handler and dissociates it — the watched set is exactly
-        # `@item_actions`' values (every added action is watched).
         unwatch_all_actions
         @item_actions.clear
         super

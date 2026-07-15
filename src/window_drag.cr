@@ -2,9 +2,8 @@ module Crysterm
   class Window
     # Drag-and-drop engine.
     #
-    # A drag is modal and per-screen: at most one gesture is in flight at a time
-    # (`@_drag`). The mouse sensor (`#dispatch_mouse`) and keyboard sensor
-    # (`#_drag_key_handled`) drive the same session and emit the same
+    # A drag is modal and per-screen: at most one gesture is in flight at a time.
+    # The mouse and keyboard sensors drive the same session and emit the same
     # source/target events, so widgets need no per-input branching.
 
     # In-flight drag gesture, or `nil`.
@@ -22,8 +21,8 @@ module Crysterm
     @_arm_button : ::Tput::Mouse::Button? = nil
 
     # Button that initiated the in-flight mouse drag: only its release commits
-    # the Drop (see `Window#handle_active_drag`) — a stray other-button tap
-    # mid-gesture must not commit at the pointer. `nil` for keyboard drags.
+    # the Drop — a stray other-button tap mid-gesture must not commit at the
+    # pointer. `nil` for keyboard drags.
     @_drag_button : ::Tput::Mouse::Button? = nil
 
     # Transient "ghost" widget floated under the pointer during a transfer drag.
@@ -48,23 +47,21 @@ module Crysterm
       @_drag
     end
 
-    # Begins a drag with *source* as the dragged widget. Shared by both sensors.
-    # *x*/*y* are absolute cell coordinates of the anchor (the pointer for mouse;
-    # the source's top-left for keyboard). *action* seeds the negotiation (from
-    # modifier keys for mouse, per the desktop Ctrl→Copy / Shift→Move convention).
+    # Begins a drag with *source* as the dragged widget. *x*/*y* are absolute
+    # cell coordinates of the anchor (the pointer for mouse; the source's
+    # top-left for keyboard). *action* seeds the negotiation (from modifier keys
+    # for mouse, per the desktop Ctrl→Copy / Shift→Move convention).
     def start_drag(source : Widget, x : Int32, y : Int32, sensor : DragSensor,
                    action : DragAction = DragAction::Move, discrete : Bool = false) : DragSession
       # A new gesture must never silently replace a live one (e.g. a mouse press
-      # promoting to a drag while a keyboard-sensor drag — which doesn't own the
-      # pointer stream — is in flight): the old source would never get `DragEnd`
-      # and its target never `DragLeave`, breaking the "every DragEnter balanced
-      # by one Drop/DragLeave" invariant. Tear the old session down properly.
+      # promoting to a drag while a keyboard-sensor drag is in flight): the old
+      # source would never get `DragEnd` and its target never `DragLeave`,
+      # breaking the "every DragEnter balanced by one Drop/DragLeave" invariant.
       #
       # `drag_cancel` nils `@_drag_button`, but the mouse callers set it BEFORE
       # calling `start_drag` (the arming button of the NEW drag). Snapshot and
-      # restore it so cancelling the old session can't erase the new drag's
-      # button (a nil button makes any release/press commit the drop — see
-      # `gesture_end_button?`).
+      # restore it, or cancelling the old session erases the new drag's button —
+      # and a nil button makes any release/press commit the drop.
       if old = @_drag
         saved_button = @_drag_button
         drag_cancel old
@@ -130,15 +127,14 @@ module Crysterm
       src = sess.source
       src.emit ::Crysterm::Event::Drag, sess
       # Re-sync the anchor to the source's ACTUAL (clamped) position. The
-      # reposition handler clamps `left`/`top` to the parent's bounds
-      # (`widget_interaction.cr`), but `sess.x`/`sess.y` above accumulate freely.
-      # Without this, once the widget is pinned at an edge each further arrow in
-      # that direction pushes the virtual anchor past the edge, and the user must
-      # first unwind that overshoot before the widget moves back — input looks
-      # dead for N presses. At pickup the anchor equals `aleft + offset_x`
-      # (`offset_x == @_drag_dx`, both `x - aleft`), so recomputing it from the
-      # post-clamp `aleft` keeps anchor and widget in lockstep. (Mouse drags set
-      # `sess.x = x` absolutely, so they were never affected.)
+      # reposition handler clamps `left`/`top` to the parent's bounds, but
+      # `sess.x`/`sess.y` above accumulate freely: without this, once the widget
+      # is pinned at an edge each further arrow pushes the virtual anchor past
+      # it, and the user must unwind that overshoot before the widget moves back
+      # — input looks dead for N presses. At pickup the anchor equals
+      # `aleft + offset_x`, so recomputing it from the post-clamp `aleft` keeps
+      # anchor and widget in lockstep. Mouse drags set `sess.x` absolutely and
+      # are unaffected.
       sess.x = src.aleft + sess.offset_x
       sess.y = src.atop + sess.offset_y
       render
@@ -166,17 +162,15 @@ module Crysterm
     end
 
     # Re-evaluate the drop target: point the session at *t* and immediately
-    # re-ask it to accept. `retarget` and `over` are always invoked as this pair
-    # (every place that changes the target must re-ask the new one), so they are
-    # kept together here.
+    # re-ask it to accept. Every place that changes the target must re-ask the
+    # new one, so the two always go together.
     private def retarget_over(sess : DragSession, t : Widget?) : Nil
       retarget sess, t
       over sess
     end
 
     # Steps keyboard focus one widget (*forward* or back), retargets the drag's
-    # drop candidate onto the newly-focused widget, and re-renders — the shared
-    # body of the Tab/Shift-Tab keys and the transfer-source arrow navigation.
+    # drop candidate onto the newly-focused widget, and re-renders.
     private def drag_focus_step(sess : DragSession, forward : Bool) : Nil
       forward ? focus_next : focus_previous
       retarget_over sess, focused
@@ -197,11 +191,9 @@ module Crysterm
         announce "Dropped on #{describe t}"
       else
         # A target that received `DragEnter` but did not accept the drop must
-        # still be told the drag left it, or it stays in its drag-entered
-        # visual state forever. Every `DragEnter` is balanced by exactly one
-        # `Drop` or `DragLeave` — as `retarget` (on target change) and
-        # `drag_cancel` (on Escape) already guarantee; this rejection-on-release
-        # path was the one gap.
+        # still be told the drag left it, or it stays in its drag-entered visual
+        # state forever: every `DragEnter` is balanced by exactly one `Drop` or
+        # `DragLeave`.
         sess.target.try &.emit ::Crysterm::Event::DragLeave, sess
         announce "Dropped"
       end
@@ -249,9 +241,9 @@ module Crysterm
       g = Widget::Box.new(
         parent: self,
         # Size by terminal COLUMNS, not codepoints: a CJK/emoji label needs ~2
-        # columns per glyph, so `label.size` gave the ghost half its width and
-        # clipped the label mid-glyph for the whole drag. (`Unicode.width`
-        # measures a single grapheme cluster; `display_width` sums the string.)
+        # columns per glyph, so `label.size` would halve the ghost's width and
+        # clip the label mid-glyph. (`Unicode.width` measures a single grapheme
+        # cluster; `display_width` sums the string.)
         width: {::Crysterm::Unicode.display_width(label) + 2, 6}.max,
         height: 1,
         left: gx,
@@ -272,10 +264,9 @@ module Crysterm
 
     # Ghost `left`/`top` so it floats at absolute cell (`sess.x + 1`, `sess.y`),
     # under the pointer. A top-level widget's `left`/`top` are relative to the
-    # screen's content origin (`aleft == screen.ileft + left`), while
+    # screen's content origin (`aleft == screen.ileft + left`) while
     # `sess.x`/`sess.y` are absolute, so the screen's padding must be subtracted
-    # here — same as `Widget#drag_origin` does for reposition. On an unpadded
-    # screen `ileft`/`itop` are 0, so this is a no-op there.
+    # here. A no-op on an unpadded screen, where `ileft`/`itop` are 0.
     private def ghost_origin(sess : DragSession) : Tuple(Int32, Int32)
       {sess.x + 1 - ileft, sess.y - itop}
     end
@@ -290,7 +281,7 @@ module Crysterm
     # --- Desktop-edge bridges -------------------------------------------------
 
     # Outbound interop (`#copy_to_clipboard`, OSC-52 clipboard write) lives on
-    # `Screen` (`screen_osc.cr`); this surface delegates it (see `window.cr`).
+    # `Screen`; this surface delegates it.
 
     # Inbound interop: synthesize a drop of externally-provided *uris* (e.g. a
     # file dragged from the desktop file manager, delivered as pasted
@@ -319,8 +310,7 @@ module Crysterm
       dropped
     end
 
-    # Keyboard sensor. Called first from the screen key handler; returns true if
-    # it consumed the key.
+    # Keyboard sensor; returns true if it consumed the key.
     #
     #   * No drag in flight: **Space** on a focused `draggable?` widget lifts it.
     #   * Dragging: **Tab/Shift-Tab** move focus (retargeting the drop target),
@@ -328,9 +318,9 @@ module Crysterm
     #     cancels.
     def _drag_key_handled(e : ::Crysterm::Event::KeyPress) : Bool
       if sess = @_drag
-        # Escape cancels a drag from EITHER sensor: a mouse drag otherwise had
-        # no cancel path at all (the non-keyboard early-return below meant
-        # `drag_cancel`'s documented "e.g. Escape" never fired for it).
+        # Escape cancels a drag from EITHER sensor — checked before the
+        # keyboard-only early-return below, which would leave a mouse drag with
+        # no cancel path at all.
         if e.key == ::Tput::Key::Escape
           drag_cancel sess
           e.accept
@@ -365,9 +355,8 @@ module Crysterm
         end
         false
       elsif (w = focused) && w.draggable? && !w.disabled? && e.char == ' '
-        # Mirror the mouse arm gate (`window_mouse.cr`): a disabled widget can be
-        # focused (disabling doesn't rewind focus), but must not be draggable —
-        # the mouse sensor already refuses it, so the keyboard sensor must too.
+        # A disabled widget can be focused (disabling doesn't rewind focus), but
+        # must not be draggable — matching the mouse sensor's arm gate.
         start_drag w, w.aleft, w.atop, ::Crysterm::DragSensor::Keyboard
         e.accept
         true

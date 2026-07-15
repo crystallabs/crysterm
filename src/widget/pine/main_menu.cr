@@ -39,18 +39,18 @@ module Crysterm
       # ![MainMenu screenshot](../../../tests/widget/pine/main_menu/main_menu.5s.apng)
       # <!-- /widget-examples:capture -->
       class MainMenu < SelectableList(MenuOption)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::MenuOption
 
         def initialize(
           options : Array(Option) = [] of Option,
           *,
-          # Blank rows between options (Pine spaces its menu out). Real list
-          # spacing — gaps are NOT items, so they can't be selected or clicked.
-          # Assigned before `super` so the first layout uses it.
+          # Blank rows between options (Pine spaces its menu out). The gaps are
+          # not items: they can't be selected or clicked.
           spacing : Int32 = 1,
           **list,
         )
+          # Must be assigned before `super` so the first layout uses it.
           @item_spacing = spacing
           super options, **list
         end
@@ -62,8 +62,8 @@ module Crysterm
           selected_record.try &.key
         end
 
-        # Formats one option into a fixed-column row. Kept compact (small left
-        # indent) since the menu is normally centered as a block, as Alpine does.
+        # Formats one option into a fixed-column row. The indent is small because
+        # Alpine centers the menu as a block.
         def format_row(item : Option, index : Int32) : String
           "    #{item.key.ljust(2)}    #{item.title.ljust(16)} -  #{item.description}"
         end

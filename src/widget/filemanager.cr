@@ -5,9 +5,8 @@ module Crysterm
   class Widget
     # File manager element.
     #
-    # An `AbstractItemView` (a sibling of `List`, reusing the row machinery via
-    # `Mixin::ItemView`) whose items are the entries of a directory. Selecting a
-    # directory (with `Enter`) navigates into it; selecting a file emits
+    # An `AbstractItemView` whose items are the entries of a directory. Selecting
+    # a directory (with `Enter`) navigates into it; selecting a file emits
     # `Event::OpenFile`. Directory changes emit `Event::ChangeDir`, and each
     # (re)listing emits `Event::Refresh`.
     #
@@ -27,9 +26,8 @@ module Crysterm
       # Current working directory.
       getter cwd : String
 
-      # The directory the file manager was created in. `#reset` returns here
-      # (Qt/Blessed: `reset` goes back to the originally-configured `cwd`, not
-      # to wherever the user last navigated or selected).
+      # The directory the file manager was created in. `#reset` returns here, not
+      # to wherever the user last navigated or selected.
       @initial_cwd : String
 
       # The most recently selected entry (directory or file), as an absolute
@@ -41,9 +39,9 @@ module Crysterm
       property label_format : String?
 
       # Real entry names (`".."`, `"foo"`, …), parallel to the rendered rows.
-      # `#open_selected` resolves from these rather than the decorated row text,
-      # which carries color tags and a `/`/`@` suffix that could mangle a
-      # filename containing `{...}` or a trailing `@`.
+      # Paths must resolve from these, not the decorated row text: that carries
+      # color tags and a `/`/`@` suffix, which would mangle a filename containing
+      # `{...}` or a trailing `@`.
       @entry_names = [] of String
 
       # The OpenFile/Cancel handlers live only for the duration of one `#pick`,
@@ -83,17 +81,14 @@ module Crysterm
         rescue File::NotFoundError
           home = home_dir
           # Restore `@cwd` and re-enter through the *parameter* so the retry
-          # captures the original directory as its `prev_cwd` — the success
-          # path below then announces the fallback (label + `ChangeDir`)
-          # relative to where we really came from.
+          # captures the original directory as its `prev_cwd`, and announces the
+          # fallback relative to where we really came from.
           @cwd = prev_cwd
           return refresh(cwd != home ? home : "/")
         rescue
-          # Unreadable dir (e.g. `File::AccessDeniedError` on a `chmod 000`
-          # directory): roll `@cwd` back so it, the `%path` label, and the shown
-          # rows all stay on the last good directory rather than pointing at a
-          # dir whose listing we never loaded. `open_selected` commits the label
-          # and `ChangeDir` only after this returns with `@cwd == target`.
+          # Unreadable dir: roll `@cwd` back so it, the `%path` label, and the
+          # shown rows all stay on the last good directory rather than pointing at
+          # a dir whose listing we never loaded.
           @cwd = prev_cwd
           return self
         end
@@ -132,10 +127,8 @@ module Crysterm
 
         emit Crysterm::Event::Refresh
 
-        # Announce a directory change (label + `ChangeDir`) on *every* path
-        # that lands somewhere new — `#reset`, a direct `refresh("/dir")` and
-        # the NotFound fallback used to leave a stale `%path` label and emit
-        # no `ChangeDir`; only `#open_selected` kept them in sync.
+        # Announce a directory change (label + `ChangeDir`) on *every* path that
+        # lands somewhere new, so no caller can leave a stale `%path` label.
         if @cwd != prev_cwd
           @label_format.try { |fmt| set_label fmt.gsub("%path", @cwd) if fmt.includes?("%path") }
           emit Crysterm::Event::ChangeDir, @cwd, prev_cwd
@@ -145,12 +138,11 @@ module Crysterm
       end
 
       # Resets the file manager back to its initial directory (or *cwd*, when
-      # given) and reloads. Uses the construction-time directory, not `@file`
-      # (the last-selected entry, which can be a regular file).
+      # given) and reloads. Uses the construction-time directory, not `@file`,
+      # which is the last-selected entry and can be a regular file.
       def reset(cwd : String? = nil)
-        # Route the target through `#refresh`'s parameter (rather than
-        # pre-assigning `@cwd`) so its change detection sees the old directory
-        # and refreshes the `%path` label / emits `ChangeDir`.
+        # Route the target through `#refresh`'s parameter rather than
+        # pre-assigning `@cwd`, so its change detection sees the old directory.
         refresh cwd || @initial_cwd
       end
 
@@ -202,8 +194,7 @@ module Crysterm
 
       private def open_selected
         return if @items.empty?
-        # Resolve from the stored real name (see `@entry_names`), not the
-        # decorated row text.
+        # Resolve from the stored real name, not the decorated row text.
         name = @entry_names[selected]?
         return unless name
 
@@ -218,10 +209,9 @@ module Crysterm
         @file = target
 
         if info.directory?
-          # `refresh target` rolls `@cwd` back if `target` is unreadable, and
-          # announces the navigation (label + `ChangeDir`) itself only when it
-          # actually landed somewhere new — so a failed entry updates nothing
-          # and emits no spurious `ChangeDir` for a move that never happened.
+          # `#refresh` rolls `@cwd` back if `target` is unreadable and announces
+          # the navigation itself only when it actually landed somewhere new, so a
+          # failed entry emits no spurious `ChangeDir`.
           refresh target
         else
           emit Crysterm::Event::OpenFile, target

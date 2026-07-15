@@ -10,22 +10,19 @@ module Crysterm
     # Number of colors the output terminal supports (1 for monochrome, 8, 16,
     # 256, or 16_777_216 for TrueColor). Drives color reduction at output time.
     # The terminal-detected count is overridden by the `colors.depth` config
-    # option and the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` env vars —
-    # see `.resolve_color_depth`.
+    # option and the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` env vars.
     #
-    # Computed fresh on each call (once per frame, not per cell), so it always
-    # reflects the current `colors.depth`, including config/env/CLI overrides
-    # applied at any point, rather than freezing a value at first paint.
+    # Computed fresh on each call — cheap enough at once per frame, and it must
+    # not freeze a value at first paint, since an override can land at any time.
     def colors : Int32
       self.class.resolve_color_depth(tput.features.number_of_colors)
     end
 
     # Resolves the effective output color count from the `colors.depth` config
     # option and the `screen.color_force` policy (resolved once at startup from
-    # the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` conventions — see
-    # `Crysterm.color_force_from_env`), falling back to the terminal-detected
-    # count. `1` means monochrome (no color emitted; styles still apply), then
-    # `8` / `16` / `256` / `0x1000000` (TrueColor).
+    # the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` conventions), falling
+    # back to the terminal-detected count. `1` means monochrome (no color
+    # emitted; styles still apply).
     def self.resolve_color_depth(detected : Int32) : Int32
       # An explicit config depth wins outright.
       if forced = Config.colors_depth.to_count
@@ -49,8 +46,7 @@ module Crysterm
     # Converts an SGR string to our own attribute format (an `Int64`).
     #
     # Delegates to the pure class method: the conversion depends only on its
-    # arguments (no screen/tput state), which also makes it unit-testable
-    # without constructing a `Screen`.
+    # arguments, no screen/tput state.
     def attr2code(code, cur : Int64, dfl : Int64) : Int64
       self.class.attr2code code, cur, dfl
     end
@@ -69,27 +65,25 @@ module Crysterm
     end
 
     # Converts a bare SGR parameter list — `;`-separated numbers, no `\e[`
-    # framing, no trailing `m` (e.g. `TerminalEmulator`'s `@csi_buf`) — into our
-    # `Int64` attribute. Equivalent to `attr2code("\e[" + params + "m", cur, dfl)`
-    # without building that bridging `String` per SGR sequence.
+    # framing, no trailing `m` — into our `Int64` attribute. Equivalent to
+    # `attr2code("\e[" + params + "m", cur, dfl)` without building that bridging
+    # `String` per SGR sequence.
     def self.attr2code_params(params : String, cur : Int64, dfl : Int64) : Int64
       bytes = params.to_slice
       attr2code_impl bytes, 0, bytes.size, cur, dfl
     end
 
-    # :ditto: reading the parameter bytes straight out of a `Bytes` view (e.g.
-    # `IO::Memory#to_slice` over a reused CSI accumulation buffer), avoiding a
-    # `String` per SGR sequence.
+    # :ditto: reading the parameter bytes straight out of a `Bytes` view,
+    # avoiding a `String` per SGR sequence.
     def self.attr2code_params(params : Bytes, cur : Int64, dfl : Int64) : Int64
       attr2code_impl params, 0, params.size, cur, dfl
     end
 
     # Parses an SGR sequence straight out of a `StringIndex` between the
     # codepoint index of its `\e` (*esc*) and its trailing `m` (*finish*), with
-    # no intermediate substring. Render hot path entry point: `widget_rendering`
-    # already locates the sequence's bounds while scanning codepoint-by-codepoint,
-    # so feeding those bounds here avoids the `Regex::MatchData` + substring
-    # `SGR_REGEX.match` + `code[0]` used to allocate per color change. SGR is
+    # no intermediate substring. Render hot path entry point: the caller already
+    # locates the sequence's bounds while scanning codepoint-by-codepoint, so
+    # feeding them here avoids a regex match + substring per color change. SGR is
     # pure ASCII, so codepoints and bytes coincide within the sequence.
     def self.attr2code(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
       attr2code_impl content, esc + 2, finish, cur, dfl
@@ -208,20 +202,19 @@ module Crysterm
       Attr.pack(flags, fg, bg)
     end
 
-    # Parses one decimal SGR parameter from `bytes` starting at `pos`, stopping
-    # at the next ';' or ':' separator or at `finish` (index of trailing 'm').
-    # Returns `{value, terminator, colon?}` where `colon?` is true when the byte
-    # that ended the parameter was a ':' (ISO 8613-6 / ITU T.416 sub-parameter
-    # separator) rather than ';' or `finish`. An empty parameter yields 0.
-    # Allocation-free helper for `attr2code`. Non-digit bytes other than the two
-    # separators are ignored (the params entry points feed the raw CSI buffer
-    # with no regex pre-validation, so this must not assume clean input).
     # Largest value to keep accumulating; one more digit would overflow `Int32`.
     # A param this large isn't a real SGR code, so accumulation just stops
-    # (freezing at an unrecognized magnitude) instead of raising `OverflowError`
-    # on adversarial input like `\e[9999999999m`.
+    # instead of raising `OverflowError` on adversarial input like
+    # `\e[9999999999m`.
     SGR_PARAM_MAX = (Int32::MAX - 9) // 10
 
+    # Parses one decimal SGR parameter from `bytes` starting at `pos`, stopping
+    # at the next ';' or ':' separator or at `finish` (index of trailing 'm').
+    # Returns `{value, terminator, colon?}`, where `colon?` marks an ISO 8613-6 /
+    # ITU T.416 sub-parameter separator. An empty parameter yields 0.
+    # Allocation-free. Non-digit bytes other than the two separators are ignored:
+    # the params entry points feed the raw CSI buffer with no pre-validation, so
+    # this must not assume clean input.
     private def self.sgr_param_at(bytes : Bytes, pos : Int32, finish : Int32) : {Int32, Int32, Bool}
       value = 0
       colon = false
@@ -267,19 +260,15 @@ module Crysterm
     # the terminal's color count (`#colors`). Emits nothing when `code` carries
     # no flags and only default colors.
     #
-    # Used on the draw hot path (BCE line-clear in `screen_drawing`), avoiding a
-    # `String` allocation per cleared line per frame. See `benchmarks/render-hotpath.cr`.
-    #
-    # `io` must support seeking backwards (an `IO::Memory`); mirrors the inline
-    # SGR emission in `screen_drawing`.
+    # `io` must support seeking backwards (an `IO::Memory`).
     def self.code2attr_to(io : IO::Memory, code : Int64, n : Int) : Nil
       flags = Attr.flags(code)
       fg = Attr.unpack_color(Attr.fg(code)) # -1 (default) or 0xRRGGBB
       bg = Attr.unpack_color(Attr.bg(code))
 
       # Decide up front whether the sequence is non-empty (matching `code2attr`'s
-      # "" return for the default attr). This avoids writing "\e[" only to have
-      # to truncate it back out of the IO when nothing follows.
+      # "" return for the default attr), rather than writing "\e[" and having to
+      # truncate it back out of the IO when nothing follows.
       style_flags = flags & (Attr::BOLD | Attr::ITALIC | Attr::UNDERLINE | Attr::BLINK | Attr::REVERSE | Attr::INVISIBLE | Attr::STRIKE)
       return if style_flags == 0 && fg == -1 && bg == -1
 
@@ -294,11 +283,8 @@ module Crysterm
     # Writes the SGR style-flag and color parameters of `code` (between the
     # leading `"\e["` and terminating `"m"`) into `io`, each followed by `';'`.
     # Returns whether anything was written. `n` is the terminal's color count
-    # (`#colors`).
-    #
-    # Shared by `code2attr_to` and the inline SGR emission on the draw hot path
-    # (`screen_drawing`); those differ only in framing (when to emit `"\e["`,
-    # early-return, termination), so only this common middle portion is factored out.
+    # (`#colors`). Only the middle portion: framing is the caller's, since the
+    # draw hot path and `code2attr_to` frame it differently.
     def self.sgr_params_to(io : IO::Memory, code : Int64, n : Int) : Bool
       start = io.size
       flags = Attr.flags(code)

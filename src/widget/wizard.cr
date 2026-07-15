@@ -59,17 +59,16 @@ module Crysterm
         next_button.on(::Crysterm::Event::Press) { advance }
         cancel_button.on(::Crysterm::Event::Press) { reject }
 
-        # Enter advances/finishes, Escape cancels — the modal-dialog convention
-        # `ColorDialog`/`Question` follow. The `Dialog` base owns the window-level
-        # accelerator; the wizard keeps it installed while attached and torn down
-        # on detach/destroy so it can't fire on a dead widget.
+        # Enter advances/finishes, Escape cancels. The accelerator stays
+        # installed while attached and is torn down on detach/destroy so it
+        # can't fire on a dead widget.
         wire_window_lifecycle destroy: true
 
         refresh_buttons
       end
 
       # Enter/Escape accelerator lives with the window: (re)install on attach,
-      # tear down on detach/destroy (see `Mixin::WindowLifecycle`).
+      # tear down on detach/destroy.
       private def on_attach_window : Nil
         install_dialog_keys
       end
@@ -80,11 +79,10 @@ module Crysterm
       end
 
       # Enter **advances** rather than accepting outright — a wizard's Enter means
-      # "next page", and only on the last page does it finish. Overriding
-      # `#accept` to mean "advance" (as this used to) broke the `Dialog#accept`
-      # contract, so the remap lives here in the accelerator instead: Enter →
-      # `#advance` (which calls `#accept` itself once there's nothing left to
-      # advance to), Escape → `#reject`.
+      # "next page", and only on the last page does it finish. The remap lives in
+      # the accelerator, not in an `#accept` override, which would break the
+      # `Dialog#accept` contract: Enter → `#advance` (which calls `#accept`
+      # itself once there's nothing left to advance to), Escape → `#reject`.
       protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
         return if e.accepted?
         return unless dialog_keys_active? e
@@ -95,23 +93,18 @@ module Crysterm
         request_render if e.accepted?
       end
 
-      # The window's own key routing delivers to the focused widget *first* (see
-      # `window_interaction.cr`); if that widget already consumed the key — a text
-      # editor taking Enter, a focused footer button activating on it —
-      # `e.accepted?` is set and the accelerator stands down, so it never hijacks
-      # a field's Enter nor double-advances when a button already handled it.
-      # A hidden wizard (e.g. on a non-current `StackedWidget`/`TabWidget` page)
-      # keeps the accelerator installed while attached, so it must stand down
-      # while not visible — otherwise it steals every unconsumed Enter/Escape,
-      # advancing pages and emitting Complete/Cancel invisibly.
+      # The window routes keys to the focused widget first, so `e.accepted?`
+      # means a field's Enter or a footer button already handled it and the
+      # accelerator must stand down. A hidden wizard (e.g. on a non-current
+      # stack page) keeps the accelerator installed while attached, so it must
+      # also stand down while invisible — otherwise it steals every unconsumed
+      # Enter/Escape, advancing pages and emitting Complete/Cancel invisibly.
       protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
         !e.accepted? && visible_in_tree?
       end
 
       # Builds one of the wizard's footer buttons: a centered `Button` pinned to
-      # the bottom row with the given left/right anchor. Uses `align: :center`
-      # like the rest of the dialog-button family (`DialogButtonBox#make_button`,
-      # `OkCancelDialog.dialog_button`) — one styling convention across the dialogs.
+      # the bottom row with the given left/right anchor.
       private def wizard_button(label : String, left = nil, right = nil) : Button
         ::Crysterm::Mixin::OkCancelDialog.dialog_button(
           label, 8,

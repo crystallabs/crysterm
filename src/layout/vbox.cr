@@ -5,8 +5,7 @@ module Crysterm
     # Vertical box layout (cf. Qt's `QVBoxLayout`). Lays children out
     # top-to-bottom; children without an explicit `height` share the leftover
     # space by their `grow` factor, and (with the default `align: Stretch`)
-    # those without an explicit `width` fill the interior width. See
-    # `Layout::Box`.
+    # those without an explicit `width` fill the interior width.
     #
     # <!-- widget-examples:capture v1 -->
     # ![VBox screenshot](../../tests/layout/vbox/vbox.5s.apng)

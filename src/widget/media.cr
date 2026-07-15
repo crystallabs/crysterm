@@ -75,19 +75,16 @@ module Crysterm
         end
 
         # Coerces a constructor's legacy `Dither | Bool` `dither:` argument to a
-        # `Dither`: a `Dither` value passes through unchanged; a `Bool` maps
-        # `true` to *if_true* (the backend's prior "dithering on" default) and
-        # `false` to `None`. Shared by `Media::Sixel`, `Media::Regis`, and
-        # `Media::Tek`.
+        # `Dither`: a `Dither` passes through unchanged; a `Bool` maps `true` to
+        # *if_true* and `false` to `None`.
         def self.from_arg(dither : Dither | Bool, if_true : Dither) : Dither
           dither.is_a?(Bool) ? (dither ? if_true : None) : dither
         end
       end
 
       # Quantizes an RGBA *bmp* (*pw*×*ph*) to one backend value per pixel,
-      # applying the requested *dither*. Shared color-reduction loop for every
-      # palette backend (`Media::Sixel`, `Media::Regis`, `Media::Ansi`);
-      # `Media::Tek` does its own 1-bit variant.
+      # applying the requested *dither*. Shared color-reduction loop for the
+      # palette backends; `Media::Tek` does its own 1-bit variant.
       #
       # The block is invoked once per opaque pixel with the channels to quantize
       # and an ordered-dither threshold *t* (Bayer offset in `[-0.5, 0.5)` for
@@ -96,13 +93,12 @@ module Crysterm
       # `Diffusion` can spread the residual onto not-yet-visited neighbours. Fully
       # transparent pixels (`a == 0` or missing) are assigned *transparent* and
       # never reach the block. *animated* collapses `Dither::Auto`.
+      #
       # *into*, when non-nil and already sized *ph* rows × *pw* wide, is reused as
-      # the output grid (rows overwritten in place, no per-frame outer/row
-      # allocation) — every cell is assigned on every pass (`transparent` or the
-      # block's value), so no stale value from a previous frame can survive. A
-      # per-frame-re-encoding backend (`Media::Sixel` with `media.reuse_buffers`)
-      # passes a persistent scratch here; callers that cache the result
-      # (`Media::Ansi`'s dither plane) must NOT, and leave it nil.
+      # the output grid, avoiding a per-frame allocation; every cell is assigned on
+      # every pass, so no stale value can survive. Only a backend that re-encodes
+      # per frame may pass a persistent scratch here — a caller that caches the
+      # returned grid must leave it nil.
       def self.dither_rgb(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32,
                           dither : Dither, animated : Bool, transparent : V,
                           into : Array(Array(V))? = nil,
@@ -110,10 +106,9 @@ module Crysterm
         mode = dither.resolve(animated)
         diffuse = mode.diffusion?
         # Per-channel Floyd–Steinberg error carried to the current and next scan
-        # line (kept as a two-row sliding window rather than a full-image buffer).
-        # Only diffusion needs them; ordered/none leave them empty so an animated
-        # (ordered) sixel/regis frame doesn't allocate six pw-wide scratch rows it
-        # never reads.
+        # line, as a two-row sliding window rather than a full-image buffer. Only
+        # diffusion needs them; ordered/none leave them empty so an ordered frame
+        # doesn't allocate six pw-wide scratch rows it never reads.
         dsize = diffuse ? pw : 0
         cur_r = Array(Float64).new(dsize, 0.0); cur_g = Array(Float64).new(dsize, 0.0); cur_b = Array(Float64).new(dsize, 0.0)
         nxt_r = Array(Float64).new(dsize, 0.0); nxt_g = Array(Float64).new(dsize, 0.0); nxt_b = Array(Float64).new(dsize, 0.0)
@@ -159,25 +154,18 @@ module Crysterm
       end
 
       # Rec.709 relative luminance of *px* (`0.2126·R + 0.7152·G + 0.0722·B`), in
-      # the channels' own 0..255 scale. Shared brightness measure for backends
-      # mapping colour to a glyph/bit/intensity (`Media::Glyph`, `Media::Tek`,
-      # `Media::Ansi`). Callers fold alpha/scale themselves on the result (e.g.
-      # `Media::Ansi`: `luminance(px) * a / 255`).
+      # the channels' own 0..255 scale. Callers fold alpha/scale in themselves.
       def self.luminance(px : PNGGIF::Pixel) : Float64
         0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
       end
 
-      # Clamps *v* into the `0..255` byte range. Shared by the palette backends
-      # (`Media::Ansi`, `Media::Regis`) when nudging a channel by a dither offset
-      # before the nearest-color search.
+      # Clamps *v* into the `0..255` byte range.
       def self.clamp8(v : Int32) : Int32
         v < 0 ? 0 : (v > 255 ? 255 : v)
       end
 
       # Index of the nearest entry in *palette* (packed `0xRRGGBB` values) to
-      # *r*,*g*,*b* by squared RGB distance; ties go to the lower index. Shared
-      # nearest-color search behind `Media::Ansi` (xterm-256/16 cube) and
-      # `Media::Regis` (8 named colors), differing only in the palette passed.
+      # *r*,*g*,*b* by squared RGB distance; ties go to the lower index.
       def self.nearest_index(palette : Array(Int32), r : Int32, g : Int32, b : Int32) : Int32
         best = 0
         bestd = Int32::MAX
@@ -199,10 +187,7 @@ module Crysterm
       end
 
       # Scans a *row* of *width* values into maximal runs of equal adjacent
-      # values, yielding each run's value, start column, and length. Shared
-      # horizontal run-length kernel for the vector/RLE graphics backends —
-      # `Media::Sixel` (sixel RLE bands), `Media::Regis`/`Media::Tek` (one
-      # horizontal vector per run).
+      # values, yielding each run's value, start column, and length.
       def self.each_run(row : Indexable(T), width : Int32, & : T, Int32, Int32 ->) forall T
         x = 0
         while x < width
@@ -217,10 +202,8 @@ module Crysterm
       end
 
       # Dimensions `{w, h}` of a row-major 2D grid *bmp* (`bmp.size` rows, each
-      # `bmp[0].size` wide; `{0, 0}` if empty). Shared by every backend that
-      # derives a bitmap's size from its rows instead of tracking it separately
-      # — generic so it covers both a `PNGGIF::Bitmap` and other row-major
-      # grids (e.g. a glyph mask, `Array(Array(Int32))`).
+      # `bmp[0].size` wide; `{0, 0}` if empty). Generic, so it covers both a
+      # `PNGGIF::Bitmap` and other row-major grids.
       def self.dims(bmp : Array(Array(T))) : Tuple(Int32, Int32) forall T
         h = bmp.size
         w = h > 0 ? bmp[0].size : 0
@@ -228,10 +211,8 @@ module Crysterm
       end
 
       # Unpacks a packed `0xRRGGBB` color into its `{r, g, b}` byte channels.
-      # Shared by every backend that stores colors packed (`Graph::Painter`,
-      # ANSI-art decoding) instead of as separate channels. `@[AlwaysInline]`
-      # because the dither backends call it per pixel — inlining lets LLVM
-      # scalarize the intermediate tuple away, matching the old open-coded shifts.
+      # Inlined because the dither backends call it per pixel: it lets LLVM
+      # scalarize the intermediate tuple away.
       @[AlwaysInline]
       def self.rgb24(v : Int32) : Tuple(Int32, Int32, Int32)
         Colors.rgb_channels(v)
@@ -267,9 +248,9 @@ module Crysterm
       end
 
       # Selectable values of the `media.backend` config option: `Auto` (pick the
-      # best `Type` the terminal supports) plus one member per `Type`, named
-      # identically so a non-`Auto` choice maps via `Type.parse?(choice.to_s)`.
-      # A real enum keeps the option explicit, validated, and dump-round-trippable.
+      # best `Type` the terminal supports) plus one member per `Type`. Members
+      # must stay named identically to `Type`'s, so a non-`Auto` choice maps via
+      # `Type.parse?(choice.to_s)`.
       enum Backend
         Auto # Pick the best backend the terminal supports (see `resolve`)
         Ansi
@@ -323,30 +304,23 @@ module Crysterm
       end
 
       # File extensions that denote an animated image, selecting the
-      # `Content::AnimatedImage` ranking (which favors backends that animate
-      # natively, e.g. iTerm2 for GIFs). A `.gif` is treated as animated even
-      # when a particular file happens to be a single frame — the ranking still
-      # renders a still correctly; only the backend *preference order* differs.
-      # Ambiguous containers can't be told apart by extension — a `.png` that is
-      # really APNG, an animated `.webp` — so auto-detection stays with
-      # `Content::Image` for those; a caller that needs the animated ranking must
-      # pass an explicit `type:` rather than rely on it being inferred.
+      # `Content::AnimatedImage` ranking. A `.gif` is treated as animated even
+      # when the file happens to be a single frame — only the backend preference
+      # order differs, and the ranking still renders a still correctly. Ambiguous
+      # containers (APNG-in-`.png`, animated `.webp`) can't be told apart by
+      # extension and stay `Content::Image`; a caller needing the animated ranking
+      # for those must pass an explicit `type:`.
       ANIMATED_IMAGE_EXTENSIONS = %w[gif apng]
 
-      # Whether *file*'s extension denotes an animated image (see
-      # `ANIMATED_IMAGE_EXTENSIONS`).
+      # Whether *file*'s extension denotes an animated image.
       def self.animated_image?(file : String) : Bool
         ANIMATED_IMAGE_EXTENSIONS.includes? File.extname(file).lstrip('.').downcase
       end
 
       # The default backend when `type:` is not given: classifies *file*'s content
       # kind *by extension* — video, animated image, else still image — and defers
-      # to `resolve`, which applies the `media.backend` pin (config /
-      # `CRYSTERM_MEDIA_BACKEND` / `--media-backend`), `media.exclude`, and
-      # terminal-capability ranking uniformly — the same rules `Graph::Canvas` /
-      # `Video` / `Background` get, by construction. Content that extension can't
-      # disambiguate (APNG-in-`.png`, animated `.webp`) is the caller's job to
-      # declare via an explicit `type:`.
+      # to `resolve` for the pin/exclude/capability rules. Content that extension
+      # can't disambiguate is the caller's job to declare via an explicit `type:`.
       def self.default_type(file : String? = nil) : Type
         content =
           if file.nil?
@@ -361,28 +335,23 @@ module Crysterm
         resolve content
       end
 
-      # The backend `Type` for *content*, honoring the user's configuration. This
-      # is the **single** point where a backend is chosen, so every caller — the
-      # image factory (`default_type`), `Graph::Canvas`, `Video`, `Background` —
-      # gets identical rules and none can silently diverge:
+      # The backend `Type` for *content*, honoring the user's configuration. Every
+      # caller must come through here — it is the single point where a backend is
+      # chosen, so none can silently diverge:
       #
-      # 1. A non-`auto` `media.backend` pin (config / `CRYSTERM_MEDIA_BACKEND` /
-      #    `--media-backend`), when *compatible* with *content* (see
-      #    `backend_applicable?`), is authoritative: returned verbatim, *skipping*
-      #    the terminal-capability gate. The user named a backend, so it is used
-      #    even where the terminal can't drive it — failing loudly beats a silent
-      #    downgrade. Unknown names fall back to `Ansi`. A pin that *can't* serve
-      #    the category (e.g. `sixel` for a `Background`, which must sit under
-      #    text) is ignored, and resolution continues at (2) for that category.
-      # 2. Otherwise (`auto`, or an inapplicable pin) it walks the ranked candidate
-      #    list for *content* (most native/optimized first; see `candidates_for`),
-      #    skips any excluded via `media.exclude`, and returns the first the
-      #    terminal supports — falling back to the universal cell grid (`Ansi`)
-      #    when nothing qualifies.
+      # 1. A non-`auto` `media.backend` pin, when compatible with *content*, is
+      #    authoritative: returned verbatim, *skipping* the terminal-capability
+      #    gate. The user named a backend, so it is used even where the terminal
+      #    can't drive it — failing loudly beats a silent downgrade. Unknown names
+      #    fall back to `Ansi`. A pin that can't serve the category is ignored and
+      #    resolution continues at (2).
+      # 2. Otherwise it walks the ranked candidate list for *content*, skips any
+      #    excluded via `media.exclude`, and returns the first the terminal
+      #    supports — falling back to the universal cell grid (`Ansi`).
       #
-      # *tput* describes the terminal (the global window's by default); facts
-      # come from `Tput::Emulator`/`Features`, so no probing happens here. With
-      # no window/terminal handle, the last non-excluded candidate is returned.
+      # *tput* describes the terminal (the global window's by default); facts come
+      # from `Tput::Emulator`/`Features`, so no probing happens here. With no
+      # terminal handle, the last non-excluded candidate is returned.
       def self.resolve(content : Content = Content::Image, tput : ::Tput? = nil) : Type
         # (1) An explicit, non-`auto` pin overrides content ranking *and* terminal
         # capability — but only where it's compatible with the content category,
@@ -420,11 +389,11 @@ module Crysterm
           .compact_map { |s| Type.parse?(s) }
       end
 
-      # Ranked best→fallback backend candidates for *content* (see `resolve`).
+      # Ranked best→fallback backend candidates for *content*.
       private def self.candidates_for(content : Content) : Array(Type)
-        # Auto-selection ranks by family default (`Glyph`/`Ansi`); the widget
-        # then picks the concrete mode/colormode (e.g. `Graph::Canvas` sets
-        # braille). A specific variant can be forced via `image.backend`/`type:`.
+        # Ranks by family default (`Glyph`/`Ansi`); the widget then picks the
+        # concrete mode/colormode. A specific variant can be forced via
+        # `image.backend`/`type:`.
         case content
         in Content::Image
           [Type::Kitty, Type::Iterm, Type::Sixel, Type::Glyph, Type::Ansi]
@@ -449,26 +418,22 @@ module Crysterm
         end
       end
 
-      # Whether *type* is *compatible* with the *content* category — the gate a
-      # non-`auto` `media.backend` pin is subject to, distinct from
-      # `candidates_for` (the narrower auto ranking) and `backend_supported?`
-      # (terminal capability). Only `Background` constrains it: a background
-      # composites *under* the cell grid, so it needs a backend whose pixels sit
-      # beneath text — a cell-grid family (`Ansi`/`Glyph`, painted into the
-      # buffer) or `Kitty` (a negative-`z` terminal layer). Sixel/iTerm/ReGIS/Tek
-      # own their region and the external overlays paint over it, so none can be
-      # a background; a pin to one of those is *not* honored there (normal
-      # resolution proceeds instead). Every other content kind accepts any pinned
-      # backend — an incapable terminal then fails visibly rather than silently.
+      # Whether *type* is compatible with the *content* category — the gate a
+      # non-`auto` `media.backend` pin is subject to, distinct from the auto
+      # ranking and from terminal capability. Only `Background` constrains it: a
+      # background composites *under* the cell grid, so it needs a backend whose
+      # pixels sit beneath text — a cell-grid family or `Kitty` (a negative-`z`
+      # terminal layer). Sixel/iTerm/ReGIS/Tek own their region and the external
+      # overlays paint over it, so a pin to one of those is not honored there.
+      # Every other content kind accepts any pinned backend.
       def self.backend_applicable?(type : Type, content : Content) : Bool
         return true unless content.background?
         type.kitty? || cell_grid_type?(type)
       end
 
-      # Whether *type* is a cell-grid backend (`Media::Cells`) — an `Ansi`/`Glyph`
+      # Whether *type* is a cell-grid backend (`Media::Cells`): an `Ansi`/`Glyph`
       # family member that paints into the window buffer, as opposed to the
-      # in-band-graphics (sixel/regis/kitty/iterm), external-overlay
-      # (overlay/ueberzug), or separate-window (tek) families.
+      # in-band-graphics, external-overlay, or separate-window families.
       def self.cell_grid_type?(type : Type) : Bool
         case type
         when .ansi?, .ansi_true_color?, .ansi_c256?, .ansi_c16?, .ansi_c8?,
@@ -481,11 +446,9 @@ module Crysterm
       end
 
       # Whether *type* can render on the terminal described by *emu*/*feat*.
-      # Accepts both the family types (`Glyph`/`Ansi`, what `resolve` ranks) and
-      # their single-variant members (`GlyphOctant`, `AnsiC256`, …), so
-      # `available?` can gate a specific rendering. Overlay/Ueberzug/Regis/Tek
-      # are never auto-selected (set `image.backend` or pass `type:` explicitly
-      # for those) and report unsupported here.
+      # Accepts both the family types and their single-variant members, so a
+      # specific rendering can be gated. Overlay/Ueberzug/Regis/Tek are never
+      # auto-selected and report unsupported here.
       private def self.backend_supported?(type : Type, emu : ::Tput::Emulator, feat : ::Tput::Features) : Bool
         case type
         when .kitty? then emu.kitty_graphics?
@@ -496,8 +459,8 @@ module Crysterm
           # which some fonts/terminals lack and render as `?`.
           feat.unicode? && emu.legacy_computing_sextant?
         when .glyph_octant?
-          # The octant range (U+1CD00) is newer than sextants and gated
-          # separately (see `Tput::Emulator#legacy_computing_octant?`).
+          # The octant range (U+1CD00) is newer than sextants, hence gated
+          # separately.
           feat.unicode? && emu.legacy_computing_octant?
         when .glyph_ascii?
           true # pure ASCII contour — needs no Unicode
@@ -512,15 +475,13 @@ module Crysterm
         end
       end
 
-      # Whether *type* can actually render in the current environment — terminal
-      # capability for in-band backends (Kitty/Iterm/Sixel) and the high-res
-      # glyph families (see `backend_supported?`), Unicode for the rest of the
-      # cell grid, helper-binary presence for the external ones (Overlay needs
-      # `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` always report
-      # unavailable. Accepts family types and their single-variant members
-      # (`GlyphOctant`, `AnsiC256`, …), so a specific rendering can be gated. Use
-      # to gate UI selection so an undrivable backend is never invoked. *tput*
-      # defaults to the global window's.
+      # Whether *type* can actually render in the current environment: terminal
+      # capability for the in-band backends and high-res glyph families, Unicode
+      # for the rest of the cell grid, helper-binary presence for the external
+      # ones (Overlay needs `w3mimgdisplay`, Ueberzug needs `ueberzug`).
+      # `Regis`/`Tek` always report unavailable. Use to gate UI selection so an
+      # undrivable backend is never invoked. *tput* defaults to the global
+      # window's.
       def self.available?(type : Type, tput : ::Tput? = nil) : Bool
         case type
         when .overlay?      then w3m_available?
@@ -538,7 +499,7 @@ module Crysterm
         end
       end
 
-      # Whether the `w3mimgdisplay` helper (used by `Media::Overlay`) is present.
+      # Whether the `w3mimgdisplay` helper is present.
       def self.w3m_available? : Bool
         paths = [Crysterm::Config.environment_w3mimgdisplay,
                  "/usr/lib/w3m/w3mimgdisplay", "/usr/libexec/w3m/w3mimgdisplay",
@@ -547,8 +508,7 @@ module Crysterm
         paths.any? { |p| p && File.exists?(p) }
       end
 
-      # Whether an `ueberzug`/`ueberzugpp` helper (used by `Media::Ueberzug`) is
-      # on `PATH`.
+      # Whether an `ueberzug`/`ueberzugpp` helper is on `PATH`.
       def self.ueberzug_available? : Bool
         {"ueberzug", "ueberzugpp", "ueberzug++"}.any? { |n| Process.find_executable(n) }
       end
@@ -558,9 +518,8 @@ module Crysterm
       # resolved via `default_type` for the current terminal and *file*'s
       # content kind; pass *type* explicitly to force a specific backend.
       #
-      # *double_buffer* applies only to the in-band graphics backends
-      # (`Media::Graphics`: sixel/regis/kitty/iterm); silently ignored on
-      # cell/external backends, so it can be passed uniformly here.
+      # *double_buffer* applies only to the in-band graphics backends; it is
+      # silently ignored on the others, so it can be passed uniformly.
       def self.new(*, type : Type? = nil, file : String? = nil, double_buffer : Bool? = nil, **opts) : Media::Base
         type ||= default_type(file)
         opts = opts.merge(file: file)
@@ -596,18 +555,14 @@ module Crysterm
         widget
       end
 
-      # Process-wide decode cache: the same file shown by several widgets (or
-      # reloaded) is parsed only once. Every widget derives its sized render
-      # from the shared `PNGGIF::PNG` read-only. A `nil` value is a cached
-      # *failure* (see `decode`).
-      # Bounded, least-recently-used: decoded entries can be large, so cap the
-      # window and evict the least-recently-shown ones. See
-      # `Cache::IMAGE_DECODE_CAPACITY`.
+      # Process-wide decode cache: the same file shown by several widgets is
+      # parsed only once, and every widget derives its sized render from the
+      # shared `PNGGIF::PNG` read-only. A `nil` value is a cached *failure*.
+      # Bounded LRU, since decoded entries can be large.
       @@decode_cache = Cache::Bounded(String, PNGGIF::PNG?).new(Cache::IMAGE_DECODE_CAPACITY, "image_decode", register: true, lru: true)
 
       # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
-      # URL is fetched to bytes (via `Ansi.fetch`); a local path passes through
-      # as-is. Shared by `#decode` and `Media::Tek`.
+      # URL is fetched to bytes; a local path passes through as-is.
       def self.source_data(file : String) : String | Bytes
         file =~ /^https?:/ ? Ansi.fetch(file) : file
       end
@@ -616,10 +571,10 @@ module Crysterm
       # keyed on path + size + mtime (so an on-disk change invalidates it).
       # Returns `nil` on failure.
       #
-      # Failures are cached too: `source` is called every render pass, so
-      # without negative caching a file that fails to decode — especially a
-      # video whose ffprobe/ffmpeg pipeline errors — would re-spawn the
-      # subprocess pipeline every frame and stall the UI.
+      # Failures must be cached too: `source` is called every render pass, so
+      # without negative caching a file that fails to decode — especially a video
+      # whose ffprobe/ffmpeg pipeline errors — re-spawns the subprocess pipeline
+      # every frame and stalls the UI.
       def self.decode(file : String) : PNGGIF::PNG?
         key = file
         unless file =~ /^https?:/
@@ -629,13 +584,12 @@ module Crysterm
         end
         # ANSI-art decoding depends on the detail setting, so key on it too.
         key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
-        # `fetch` caches the result — including a `nil` *failure* (negative
-        # caching; see above) — and only runs the block on a miss.
+        # `fetch` caches the result — including a `nil` failure — and only runs
+        # the block on a miss.
         @@decode_cache.fetch(key) do
           begin
             if file =~ ANSI_ART_RE
-              # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap
-              # (see `#decode_ansi`).
+              # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
               raw = file =~ /^https?:/ ? Ansi.fetch(file) : File.open(file, &.getb_to_end)
               decode_ansi(raw)
             elsif VideoSource.video? file

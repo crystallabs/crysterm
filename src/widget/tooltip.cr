@@ -36,7 +36,7 @@ module Crysterm
 
       # A tooltip is an overlay: at the unstyled floor it carries a structural
       # border so it separates from the content behind it (a theme otherwise
-      # supplies a `ToolTip` background; see `Mixin::Style#floor_border?`).
+      # supplies a `ToolTip` background).
       include Mixin::Overlay
 
       # Shows the tooltip displaying *text* with its top-left near (*x*, *y*),
@@ -48,22 +48,17 @@ module Crysterm
         # Pad each line by one leading space so the text doesn't hug the edge.
         set_content lines.map { |l| " #{l}" }.join('\n')
 
-        # Cascade now so insets below reflect the themed style. The shared
-        # tooltip is created lazily and shown in the same tick, so on first
-        # show it hasn't been cascaded yet: `#style` would fall back to the
-        # unstyled floor border (see `Mixin::Style#ensure_floor_border`) and
-        # over-measure the height even under a borderless theme, until a later
-        # render cascaded it. Cascading here fixes the first show too.
+        # Cascade now so the insets below reflect the themed style. A tooltip is
+        # created lazily and shown in the same tick, so on first show it hasn't
+        # been cascaded yet: `#style` would fall back to the unstyled floor
+        # border and over-measure the height even under a borderless theme.
         s.apply_stylesheet
 
         # Reserve space for the frame (border + padding) so a bordered tooltip
-        # isn't squished into a single collapsed row. Reading `ihorizontal`/`ivertical`
-        # resolves `#style` (installing the floor border per `#floor_border?`),
-        # so insets reflect the border this render will draw; under a theme with
-        # a background instead of a border these insets are 0.
-        # Measure in display cells (`str_width`), not codepoints: a CJK/emoji
-        # tooltip measured by `.size` under-sizes the box, wrapping and
-        # clipping the text inside it.
+        # isn't squished into a single collapsed row; under a theme with a
+        # background instead of a border these insets are 0. Measure in display
+        # cells (`str_width`), not codepoints: a CJK/emoji tooltip measured by
+        # `.size` under-sizes the box, wrapping and clipping the text inside it.
         w = (lines.max_of? { |l| str_width l } || 0) + 2 + ihorizontal # one cell of padding each side
         h = lines.size + ivertical
 

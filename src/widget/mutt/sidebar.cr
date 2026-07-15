@@ -33,9 +33,7 @@ module Crysterm
 
       # Mutt's signature **sidebar**: a narrow, always-visible pane listing the
       # user's mailboxes with their unread/total counts, drawn to the left of the
-      # index/pager. This is the one piece of Mutt chrome that has no Pine/Alpine
-      # analogue, so it earns its own widget; everything else reuses the same
-      # `SelectableList` machinery the Pine widgets do.
+      # index/pager.
       #
       # ```
       #  > INBOX             3
@@ -47,16 +45,14 @@ module Crysterm
       # ```
       #
       # Two independent markers, mirroring Mutt: the **highlighted** row (the
-      # cursor, drawn reverse via `styles.selected`) moves with the arrow keys,
-      # while the **open** mailbox — the folder actually shown in the index — is
-      # flagged with a `>` indicator and set via `#open=`. Enter/click on a row
-      # runs its `callback` (and opens it).
+      # cursor, drawn reverse) moves with the arrow keys, while the **open**
+      # mailbox — the folder actually shown in the index — is flagged with a `>`
+      # indicator and set via `#open=`. Enter/click on a row runs its `callback`.
       #
       # The divider Mutt draws between the sidebar and the main area is left to
-      # the surrounding layout (e.g. a right border on this widget, or the
-      # `Border` layout's edge), so the widget stays purely a list.
+      # the surrounding layout, so the widget stays purely a list.
       class Sidebar < ::Crysterm::Widget::Pine::SelectableList(Mailbox)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Mailbox = ::Crysterm::Widget::Mutt::Mailbox
 
         # Index of the currently-open mailbox (the one shown in the index), or a
@@ -73,9 +69,8 @@ module Crysterm
           col_width : Int32? = nil,
           **list,
         )
-          # Resolve the count column width from the configured width when the
-          # caller doesn't override it (an integer width; percentage widths fall
-          # back to a sensible default).
+          # Percentage widths aren't resolvable here, so they fall back to a
+          # default.
           @col_width = col_width || (list[:width]?.as?(Int32)) || 22
           super mailboxes, **list
         end

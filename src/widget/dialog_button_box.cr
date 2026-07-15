@@ -21,11 +21,10 @@ module Crysterm
     #
     # Buttons with an accepting role (Ok/Save/Yes/…) emit `Event::Accepted` on
     # the box; rejecting ones (Cancel/No/Close/Discard) emit `Event::Rejected`.
-    # *Every* button — whatever its role — also emits box-level
-    # `Event::ButtonClick` carrying the button (Qt's `QDialogButtonBox#clicked`),
-    # which `#standard_button` maps back to its `StandardButton`. Each button
-    # additionally emits its own `Event::Press`, and `#button` gives access to a
-    # specific one for custom handling.
+    # *Every* button also emits box-level `Event::ButtonClick` carrying the
+    # button (Qt's `QDialogButtonBox#clicked`), which `#standard_button` maps
+    # back to its `StandardButton`. Each button additionally emits its own
+    # `Event::Press`, and `#button` gives access to a specific one.
     #
     # <!-- widget-examples:capture v1 -->
     # ![DialogButtonBox screenshot](../../tests/widget/dialog_button_box/dialog_button_box.5s.apng)
@@ -101,10 +100,10 @@ module Crysterm
         build_standard buttons
       end
 
-      # Replaces the set of standard buttons (Qt's `setStandardButtons`), so the
-      # box isn't frozen at construction. Only the standard buttons are rebuilt;
-      # any added via `#add_button` are kept, and — since the rebuilt standard
-      # ones are appended after them — end up at the head of the row.
+      # Replaces the set of standard buttons (Qt's `setStandardButtons`). Only
+      # the standard buttons are rebuilt; any added via `#add_button` are kept,
+      # and — since the rebuilt standard ones are appended after them — end up at
+      # the head of the row.
       def standard_buttons=(buttons : StandardButton) : StandardButton
         return buttons if @standard_buttons == buttons
         @standard.each_key do |b|
@@ -118,8 +117,7 @@ module Crysterm
       end
 
       # Creates, labels and orders the standard buttons in *buttons*, then
-      # re-runs the row layout. Shared by the constructor and
-      # `#standard_buttons=`.
+      # re-runs the row layout.
       private def build_standard(buttons : StandardButton) : Nil
         @standard_buttons = buttons
         DISPLAY_ORDER.each do |sb|
@@ -161,17 +159,15 @@ module Crysterm
         )
         b.on(Crysterm::Event::Press) do
           # Box-level "some button was clicked" (Qt's `clicked(QAbstractButton*)`),
-          # emitted for every role — including the ones with no accept/reject
-          # meaning — so a caller can handle the whole row from one handler and
-          # resolve `#standard_button` on it, instead of wiring each button.
+          # emitted for every role, so a caller can handle the whole row from one
+          # handler and resolve `#standard_button` on it.
           emit Crysterm::Event::ButtonClick, b
           case role
           when .accept?                then emit Crysterm::Event::Accepted
           when .reject?, .destructive? then emit Crysterm::Event::Rejected
           else
             # Apply/Reset/Help carry no accept/reject meaning; a caller wanting
-            # those listens on `ButtonClick` above (or the button itself, via
-            # `#button`).
+            # those listens on `ButtonClick` above.
           end
         end
         @buttons << b

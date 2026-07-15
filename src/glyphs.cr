@@ -7,9 +7,8 @@ module Crysterm
   #
   # A tier is a *glyph choice*, not an output encoding: picking `Tier::Ascii`
   # makes widgets ask for `+`/`-`/`|` style characters up front, while the
-  # existing draw-time ACS/`ascii_fallback` reduction (see `window_drawing.cr`)
-  # remains the reactive safety net for terminals that can't render whatever
-  # was chosen.
+  # draw-time ACS/`ascii_fallback` reduction remains the reactive safety net
+  # for terminals that can't render whatever was chosen.
   module Glyphs
     # Ordered support tiers. Resolution falls *down*: a role with no value at
     # the effective tier answers with the next lower tier's value, ending at
@@ -18,8 +17,7 @@ module Crysterm
       # 7-bit printable characters only. For dumb/serial/non-UTF-8 targets.
       Ascii
       # The CP437/WGL4-era repertoire (box drawing, blocks, simple geometric
-      # shapes) that effectively every monospace font renders. The default —
-      # it matches what the toolkit has always emitted.
+      # shapes) that effectively every monospace font renders. The default.
       Unicode
       # Glyphs that need a modern font (fancy dingbats, Nerd Font icons,
       # emoji). Font coverage can't be *probed* (a missing glyph renders as
@@ -37,12 +35,11 @@ module Crysterm
     # painted. See `Role#cell?` and `Widget#glyph`/`Widget#glyph?`.
     NONE = '\0'
 
-    # The `String` form of the "no glyph" sentinel, stored in `Style`'s
-    # (now `String`-typed) glyph fields — the widened companion to `NONE`.
-    # CSS `glyph: none` stores this; consumers compare against it to mean
-    # "omit" (run role) / "registry default" (cell role). A `String` sentinel
-    # is needed because the CSS glyph value can be a multi-codepoint grapheme
-    # (`⚠️`), so the fields can no longer be `Char?`.
+    # The `String` form of the "no glyph" sentinel, stored in `Style`'s glyph
+    # fields. CSS `glyph: none` stores this; consumers compare against it to
+    # mean "omit" (run role) / "registry default" (cell role). The sentinel is
+    # a `String` because a CSS glyph value can be a multi-codepoint grapheme
+    # (`⚠️`), which a `Char` can't hold.
     NONE_STR = NONE.to_s
 
     # One role's glyphs. `ascii` is a mandatory single 7-bit character — the
@@ -50,8 +47,8 @@ module Crysterm
     # *Strings*, so a role can carry a multi-codepoint grapheme a `Char` can't
     # hold: an emoji-presentation `⚠️` (base + VS16), a regional-indicator
     # flag, any combining sequence. `nil` falls down a tier. `Char` arguments
-    # are accepted and widened, so the whole DEFAULTS table still reads as
-    # character literals.
+    # are accepted and widened, so the DEFAULTS table reads as character
+    # literals.
     #
     # Three accessors, mirroring the cell layer's ascii/grapheme split:
     # `#str` (the full grapheme, for measured *run* roles), `#char?` (the lone
@@ -98,8 +95,7 @@ module Crysterm
       # The *single-placement* affordance roles (`SizeGrip`, `DockWidget`
       # close/float — not `cell?`) instead take the always-measure path via
       # `Entry#str` + `Widget#glyph_measured`: they keep a wide grapheme whole
-      # and reserve its measured width. That split is why this reject-fallback
-      # stays — no type or table change; the two paths share this one table.
+      # and reserve its measured width. Both paths share this one table.
       def for(tier : Tier) : Char
         case tier
         in .extended? then lone(@extended) || lone(@unicode) || @ascii
@@ -181,8 +177,8 @@ module Crysterm
       # media transport, navigation), pre-picked per tier so applications don't
       # browse Unicode tables themselves: `tool_bar.add "#{glyph(Glyphs::Role::IconSave)} Save"`.
       # Not consumed by any widget — pure palette. These are *run* roles
-      # (inline text, measured — see GLYPHS.md §4), so the `extended` column
-      # may hold double-width emoji; `ascii`/`unicode` stay single-width.
+      # (inline text, measured), so the `extended` column may hold
+      # double-width emoji; `ascii`/`unicode` stay single-width.
 
       # File / document actions
       IconFileNew
@@ -412,7 +408,7 @@ module Crysterm
       IconRupee
       IconWon
 
-      # -- Border families (see `BorderType#line_glyphs`) ---------------------
+      # -- Border families -----------------------------------------------------
       # Four corners + horizontal/vertical runs per line family. The ASCII
       # values collapse every family to `+ - |`.
       BorderLineTL
@@ -452,8 +448,7 @@ module Crysterm
       # `glyph` landing on a cell role must be exactly one column wide;
       # anything else (including `none`) falls back to the registry (see
       # `Widget#glyph`). Everything else is a *run* role: part of an inline
-      # text run, measured, where `none` legitimately contributes zero cells
-      # (GLYPHS.md §4).
+      # text run, measured, where `none` legitimately contributes zero cells.
       def cell? : Bool
         case self
         when .scroll_thumb?, .scroll_trough?,
@@ -471,10 +466,10 @@ module Crysterm
       end
     end
 
-    # Built-in defaults. The `unicode` column reproduces exactly what the
-    # toolkit hardcoded before the registry existed (so the default tier is
-    # byte-identical with history); the `ascii` column is the honest 7-bit
-    # rendition; `extended` holds opt-in upgrades only.
+    # Built-in defaults. The `unicode` column is the toolkit's long-standing
+    # rendition, so the default tier renders exactly as it always has; the
+    # `ascii` column is the honest 7-bit rendition; `extended` holds opt-in
+    # upgrades only.
     DEFAULTS = begin
       t = Array(Entry).new(Role.values.size, Entry.new(' '))
       set_in t, Role::CheckboxOpen, Entry.new('[')
@@ -695,9 +690,8 @@ module Crysterm
 
       # Warning / hazard / safety. The `unicode` column holds the classic
       # single-width text symbol; `extended` upgrades to its emoji-presentation
-      # form — the base codepoint + VS16 (U+FE0F) that a `Char` couldn't hold
-      # and this widened String column now carries (the `⚠️` originally asked
-      # for). Cell-role callers still reject-to-fallback to the single symbol.
+      # form — the base codepoint + VS16 (U+FE0F), which only the String column
+      # can carry. Cell-role callers reject-to-fallback to the single symbol.
       set_in t, Role::IconWarningSign, Entry.new('!', '⚠', "⚠️")
       set_in t, Role::IconRadioactive, Entry.new('!', '☢', "☢️")
       set_in t, Role::IconBiohazard, Entry.new('!', '☣', "☣️")
@@ -806,9 +800,9 @@ module Crysterm
     # The live table. Starts as the defaults; `Glyphs.set` retunes it.
     @@table : Array(Entry) = DEFAULTS.dup
 
-    # Bumped by every `Glyphs.set` so cached derivations (composed markers,
-    # future frame caches) can notice a retheme. Registry changes are an
-    # app-setup-time event; running screens should be asked to re-render after.
+    # Bumped by every `Glyphs.set` so cached derivations (composed markers and
+    # the like) can notice a retheme. Registry changes are an app-setup-time
+    # event; running screens should be asked to re-render after.
     class_getter generation : UInt64 = 0_u64
 
     # The character for *role* at *tier* (falling down tiers within the
@@ -860,7 +854,7 @@ module Crysterm
       @@generation += 1
     end
 
-    # -- Sequence (multi-char) roles — GLYPHS.md phase 4 ----------------------
+    # -- Sequence (multi-char) roles ------------------------------------------
     #
     # Some chrome isn't a single glyph but an ordered *sequence* of steps: a
     # spinner's frames, a dial's pointer ring, the sub-cell fill ramps. These
@@ -877,7 +871,7 @@ module Crysterm
     end
 
     # One sequence role's steps per tier: `ascii` is mandatory, higher tiers
-    # optional (`nil` falls down a tier). Mirrors `Entry`.
+    # optional (`nil` falls down a tier).
     record SeqEntry, ascii : Array(Char), unicode : Array(Char)? = nil, extended : Array(Char)? = nil do
       # The steps to use at *tier*, falling down to lower tiers when this
       # entry defines none for it.
@@ -890,10 +884,10 @@ module Crysterm
       end
     end
 
-    # Built-in sequence defaults. As with `DEFAULTS`, the column holding
-    # today's literals keeps the default tier byte-identical with history:
-    # the spinner's `| / - \` sits in `ascii` (it always was 7-bit), the
-    # dial arrows and eighth-block ramps in `unicode`; `extended` holds
+    # Built-in sequence defaults. As with `DEFAULTS`, each long-standing
+    # literal sits in the column that keeps the default tier rendering as it
+    # always has: the spinner's `| / - \` in `ascii` (it always was 7-bit),
+    # the dial arrows and eighth-block ramps in `unicode`; `extended` holds
     # opt-in upgrades (the braille spinner).
     SEQ_DEFAULTS = begin
       t = Array(SeqEntry).new(SeqRole.values.size) { SeqEntry.new([' ']) }
@@ -931,7 +925,7 @@ module Crysterm
 
     # Overrides sequence *role*'s steps. Omitted tiers keep their current
     # value; pass `unset: true` to clear the `unicode`/`extended` overrides
-    # back to tier fall-down instead. Mirrors `Glyphs.set`.
+    # back to tier fall-down instead.
     def self.set_chars(role : SeqRole, ascii : Array(Char)? = nil, unicode : Array(Char)? = nil,
                        extended : Array(Char)? = nil, unset : Bool = false) : Nil
       e = @@seq_table[role.value]

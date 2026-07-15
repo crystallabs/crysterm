@@ -1,17 +1,14 @@
 module Crysterm
-  # `Event::ListChanged` (the granular list-mutation event these bindings consume)
-  # is declared with the other events in `src/event.cr`.
   module Reactive
     # Binds an item view (`Widget::List`/`Tree`/`Menu`/… — anything including
     # `Mixin::ItemView`) to an `ObservableList`, keeping the widget's rows in
     # sync with the collection. *render* maps each element to display text.
     #
-    # The view is filled once immediately, then **patched incrementally** on each
+    # The view is filled once immediately, then patched incrementally on each
     # `Event::ListChanged`: an insert adds just those rows, a remove drops just
-    # those, an update rewrites one row's content, and only a reset rebuilds — so
-    # a thousand-row list appending one item touches one row, not a thousand. A
-    # repaint is scheduled after each change. The binding is torn down when the
-    # view is destroyed. Returns the `Subscription` so it can be cancelled early.
+    # those, an update rewrites one row, and only a reset rebuilds. A repaint is
+    # scheduled after each change, and the binding is torn down when the view is
+    # destroyed. Returns the `Subscription` so it can be cancelled early.
     #
     # ```
     # names = Crysterm::Reactive::ObservableList(String).new %w[Ada Alan]

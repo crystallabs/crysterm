@@ -1,20 +1,16 @@
 module Crysterm
   module Mixin
     # Tracks `Action`s' `Event::Changed` signal on behalf of a host that presents
-    # them (a `Widget::Menu`, `Widget::ToolBar`, …), so the host re-renders when
-    # an action's display state (checked, text, enabled, visibility) is changed
-    # from the outside — mirroring how a Qt widget tracks its `QAction`'s
-    # `changed()` signal.
+    # them, so the host re-renders when an action's display state (checked, text,
+    # enabled, visibility) changes from the outside — mirroring how a Qt widget
+    # tracks its `QAction`'s `changed()` signal.
     #
-    # The host calls `#watch_action` with the body to run on each change; this
-    # mixin owns the per-action handler map, the Qt-style host association
-    # (`Action#associate`/`#dissociate`), and the teardown loop. Its
+    # The host calls `#watch_action` with the body to run on each change. Its
     # `#unwatch_all_actions` (or `#unwatch_action` per action) must run in the
-    # host's `#destroy` so no stale handler fires against a torn-down widget and
+    # host's `#destroy`, so no stale handler fires against a torn-down widget and
     # no dead widget lingers in `Action#associated_widgets`.
     module ActionWatcher
-      # Per-action `Event::Changed` handler, kept by action so it can be removed
-      # again (`#unwatch_action`/`#unwatch_all_actions`).
+      # Per-action `Event::Changed` handler, kept by action so it can be removed.
       @action_changed = {} of Action => ::Proc(::Crysterm::Event::Changed, ::Nil)
 
       # Associates *action* with this host and re-runs *on_change* whenever the
@@ -29,8 +25,7 @@ module Crysterm
 
       # Stops watching *action* (removing its handler if present) and dissociates
       # it from this host. Dissociates even a never-watched action, so a host that
-      # associates extras itself (e.g. `Widget::Menu`'s separators) can route them
-      # through this shared dissociate path.
+      # associates extras itself can route them through this path.
       def unwatch_action(action : Action) : Nil
         if handler = @action_changed.delete action
           action.off ::Crysterm::Event::Changed, handler

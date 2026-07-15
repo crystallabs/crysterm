@@ -46,13 +46,13 @@ module Crysterm
         style: style.label,
         shrink_to_fit: true,
       )
-      # Mark the box as a label so `coords`' scrollable-ancestor clip
-      # exempts it from border compensation (blessed's `_isLabel`).
+      # Mark the box as a label so `coords`' scrollable-ancestor clip exempts it
+      # from border compensation.
       _label._is_label = true
       # Chrome: glued to the border row, never arranged as a content slot by an
-      # installed layout engine (see `Widget#layout_chrome?`). Otherwise a
-      # `GroupBox` under a VBox would tear the title off the border into a flex
-      # slot, and `sync_label_position` would fight the engine every frame.
+      # installed layout engine. Otherwise a `GroupBox` under a VBox would tear
+      # the title off the border into a flex slot, and `sync_label_position` would
+      # fight the engine every frame.
       _label.layout_chrome = true
 
       place_label_side(_label, side)
@@ -86,10 +86,9 @@ module Crysterm
     end
 
     # Re-glues the label to its horizontal inset for the current frame, but only
-    # when it has drifted — change-detected like `move_label_top`. `place_label_side`
-    # bakes the construction-time inset (`2 - ileft` / `2 - iright`) into the
-    # position, so a border cascading in after construction leaves the title one
-    # cell off; re-running `place_label_side` compensates. Returns whether it moved.
+    # when it has drifted. `place_label_side` bakes the construction-time inset
+    # into the position, so a border cascading in later leaves the title one cell
+    # off; re-running it compensates. Returns whether it moved.
     private def move_label_side(lbl) : Bool
       if @label_side == "right"
         return false if lbl.right == 2 - iright
@@ -100,7 +99,7 @@ module Crysterm
       true
     end
 
-    # Repositions label to the right place. Usually called from resize event
+    # Repositions label to the right place.
     def reposition_label(event = nil)
       @_label.try do |_label|
         # Only re-render when the label actually moves: fires on every Scroll
@@ -112,8 +111,8 @@ module Crysterm
     # Re-glues the label to the top inset for the current frame. `set_label`
     # positions the label at construction time, but a CSS-cascade border lands
     # only at render time, so a stylesheet-styled border (e.g. `GroupBox`) would
-    # otherwise leave the label one row inside the box. Called from `_render`
-    # once styles are resolved; cheap for label-less widgets.
+    # otherwise leave the label one row inside the box. Must run once styles are
+    # resolved; cheap for label-less widgets.
     protected def sync_label_position : Nil
       @_label.try do |_label|
         move_label_top(_label, @child_base - itop)
@@ -124,10 +123,9 @@ module Crysterm
     # Removes widget label
     def remove_label
       return unless @_label
-      # The wrapper ivars are nilable and the event_handler shard has no `off`
-      # overload for `Nil`; passing a nil wrapper would fall through to the
-      # catch-all `off(type)` = `remove_all_handlers`, wiping *every* Scroll and
-      # Resize handler on the widget. Only detach the specific wrappers we own.
+      # The wrapper ivars are nilable and `off` has no `Nil` overload: a nil
+      # wrapper would fall through to the catch-all `off(type)` and wipe *every*
+      # Scroll and Resize handler on the widget. Detach only the wrappers we own.
       @ev_label_scroll.try { |w| off ::Crysterm::Event::Scroll, w }
       @ev_label_resize.try { |w| off ::Crysterm::Event::Resize, w }
       @_label.try &.remove_from_parent

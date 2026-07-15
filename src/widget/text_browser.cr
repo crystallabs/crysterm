@@ -3,7 +3,7 @@ require "./textedit"
 module Crysterm
   class Widget
     # A read-only rich-text viewer with link navigation (Qt `QTextBrowser <
-    # QTextEdit`; TEXTEDIT.md Phase 4).
+    # QTextEdit`).
     #
     # Anchors in the document are enumerable via `#links`. While reading
     # (focused input), `Tab`/`Shift-Tab` cycle link focus (rendered inverse,
@@ -49,13 +49,11 @@ module Crysterm
       def initialize(input_on_focus = false, read_only = true, document : TextDocument? = nil, **input)
         super(**input, input_on_focus: input_on_focus, read_only: read_only, document: document)
 
-        # Pointer activation: a plain click on an anchor follows it. Runs
-        # after the shared caret/selection mouse handler; not `#accept`ed, so
-        # click-to-focus still works. `text_hit?` gates first: `position_at`
-        # *clamps* (right of a line → line end, below the document → last
-        # row), and `anchor_at` resolves a line-end position to the preceding
-        # char's format — so without the exact hit-test a click on empty
-        # space (click-to-focus) would activate the nearest trailing link.
+        # Pointer activation: a plain click on an anchor follows it. Not
+        # `#accept`ed, so click-to-focus still works. `text_hit?` must gate
+        # first: `position_at` *clamps* and `anchor_at` resolves a line-end
+        # position to the preceding char's format, so without the exact
+        # hit-test a click on empty space would activate a trailing link.
         on(Crysterm::Event::Mouse) do |e|
           if e.action.down? && (window?.try(&.click_count) || 1) == 1
             if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
@@ -143,9 +141,8 @@ module Crysterm
         true
       end
 
-      # Browser keys on top of the shared (read-only) editing keys:
-      # `Tab`/`Shift-Tab` cycle links, `Enter` activates the focused one,
-      # `Backspace` goes back.
+      # Browser keys: `Tab`/`Shift-Tab` cycle links, `Enter` activates the
+      # focused one, `Backspace` goes back.
       def _listener(e)
         if k = e.key
           case k
@@ -174,10 +171,9 @@ module Crysterm
       end
 
       # Whether the absolute screen point (*x*, *y*) lands exactly on a
-      # display row's text — mirrors `#position_at`'s coordinate math but
-      # *without* its clamping: a click below the last display row, on a
-      # margin row, left of the text, or at/past the row's text end is a
-      # miss. Used to gate pointer link activation.
+      # display row's text — `#position_at`'s coordinate math but *without* its
+      # clamping: a click below the last display row, on a margin row, left of
+      # the text, or at/past the row's text end is a miss.
       private def text_hit?(x : Int32, y : Int32) : Bool
         lpos = coords
         return false unless lpos

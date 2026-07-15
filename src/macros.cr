@@ -20,8 +20,6 @@ module Crysterm
     # person.name      # => "John"
     # person.full_name # => "John"
     # ```
-    #
-    # This macro was present in Crystal until commit 7c3239ee505e07544ec372839efed527801d210a.
     macro alias_method(new_method, old_method)
       def {{new_method.id}}(*args)
         {{old_method.id}}(*args)
@@ -37,10 +35,7 @@ module Crysterm
 
     # Defines a change-guarded property setter: bail if unchanged, otherwise
     # assign, mark the widget dirty, then emit *event*. The assign happens
-    # *before* the emit so in-tree listeners observe the new value, not the old
-    # one (`Move` listeners for a position change, `Resize` for a size/constraint
-    # change). Homes the byte-identical bodies of `left=`/`top=`/`right=`/
-    # `bottom=` (Move) and `width=`/`height=`/`min_*=`/`max_*=` (Resize).
+    # *before* the emit so listeners observe the new value, not the old one.
     #
     # The backing ivar is `@name`. Pass *val_type* to type-annotate the argument.
     macro change_guarded_setter(name, event, val_type = nil)
@@ -105,7 +100,6 @@ module Crysterm
     # ivar plus a private `<name>_event(ev)` that lazily constructs one instance
     # of `Crysterm::Event::<klass>` and `reset`s it on every dispatch, so a
     # high-frequency mouse report doesn't heap-allocate a fresh event each time.
-    # See `Event::Mouse#reset` for the retention caveat.
     macro pooled_mouse_event(name, klass)
       @_{{name.id}}_event : Crysterm::Event::{{klass.id}}?
 

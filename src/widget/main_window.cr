@@ -30,11 +30,8 @@ module Crysterm
     # ![MainWindow screenshot](../../tests/widget/main_window/main_window.5s.apng)
     # <!-- /widget-examples:capture -->
     class MainWindow < Box
-      # The menu bar, constructed (and parented) on first access — Qt's
-      # `menuBar()` never returns null, which is what makes `win.menu_bar.add_menu "File"`
-      # the one-liner it is. The declared type is the concrete `MenuBar`, not a
-      # bare `Widget`: a `Widget?` slot meant even a correctly-assigned bar
-      # needed a cast before any of its own methods would compile.
+      # The menu bar, constructed (and parented) on first access — like Qt's
+      # `menuBar()`, it never returns null.
       getter menu_bar : MenuBar { MenuBar.new(parent: self) }
 
       # :ditto:
@@ -60,7 +57,7 @@ module Crysterm
 
       # The tool bars, top to bottom in the order added. A copy — mutate via
       # `#add_tool_bar`/`#remove_tool_bar`, which also do the parenting a bare
-      # `push` here would skip, leaving the bar unrendered.
+      # `push` would skip, leaving the bar unrendered.
       def tool_bars : Array(ToolBar)
         @tool_bars.dup
       end
@@ -78,13 +75,10 @@ module Crysterm
       property tool_height : Int32 = 1
       property status_height : Int32 = 1
 
-      # `initialize` is inherited from `Box` unchanged.
-
       # Defines a `<name>=` setter for one of the singular top-level slots
-      # (menu/status bar, central widget): it detaches the slot's previous
-      # occupant, stores and appends the new widget, and returns it — the
-      # identical body shared by each of these setters. `nil` just clears the
-      # slot, so a bar can be taken away again.
+      # (menu/status bar, central widget): detaches the slot's previous
+      # occupant, stores and appends the new widget, and returns it. `nil`
+      # clears the slot, so a bar can be taken away again.
       private macro def_slot_setter(name, type)
         def {{name.id}}=(w : {{type.id}}?) : {{type.id}}?
           @{{name.id}}.try &.remove_from_parent

@@ -6,12 +6,10 @@ module Crysterm
   #
   # Offsets here are block-local codepoint indexes, `0..size`. Mutators keep
   # the fragment list normalized (no empty runs, adjacent same-appearance runs
-  # merged), so fragment counts are stable for equality checks in specs and
-  # for the renderer.
+  # merged), so fragment counts are stable.
   #
-  # Unlike Qt (where QTextBlock is a lightweight handle into piece-table
-  # storage) this is the storage itself; TEXTEDIT.md §2 keeps the API
-  # Qt-shaped so the representation can change without breaking callers.
+  # Unlike Qt — where QTextBlock is a lightweight handle into piece-table
+  # storage — this is the storage itself.
   class TextBlock
     getter fragments : Array(TextFragment)
     property block_format : TextBlockFormat
@@ -23,12 +21,11 @@ module Crysterm
     # Overlay format runs `{from, to, patch}` a `SyntaxHighlighter` laid over
     # this block (Qt's layout `additionalFormats`): purely presentational,
     # never merged into the fragments, so highlighting doesn't touch the
-    # document content, undo stack, or interchange output. Read via
-    # `#render_runs`.
+    # document content, undo stack, or interchange output.
     getter additional_formats : Array({Int32, Int32, TextCharFormat})?
 
-    # Overrides the plain `property` setter to also invalidate `render_runs`'
-    # cache, since its output depends on this overlay too.
+    # Also invalidates the `render_runs` cache, whose output depends on this
+    # overlay.
     def additional_formats=(value : Array({Int32, Int32, TextCharFormat})?) : Array({Int32, Int32, TextCharFormat})?
       @render_runs_cache = nil
       @additional_formats = value
@@ -66,8 +63,8 @@ module Crysterm
       end
     end
 
-    # Deep copy (fragment list is fresh; strings and formats are immutable and
-    # shared). Used to detach undo/clipboard snapshots from live blocks.
+    # Deep copy: the fragment list is fresh, while strings and formats are
+    # immutable and shared.
     def clone : TextBlock
       TextBlock.new(@fragments.map { |f| TextFragment.new(f.text, f.format) }, @block_format)
     end
@@ -104,8 +101,8 @@ module Crysterm
       normalize!
     end
 
-    # Non-destructive copy of the `[from, to)` range as a new block (same
-    # block format). Building block for `TextDocumentFragment` snapshots.
+    # Non-destructive copy of the `[from, to)` range as a new block, with the
+    # same block format.
     def slice(from : Int32, to : Int32) : TextBlock
       frags = [] of TextFragment
       acc = 0
@@ -122,7 +119,7 @@ module Crysterm
       TextBlock.new(frags, @block_format)
     end
 
-    # Applies (or merges, see `TextCharFormat#merge`) `format` over `[from, to)`.
+    # Applies (or merges) `format` over `[from, to)`.
     def apply_char_format(from : Int32, to : Int32, format : TextCharFormat, merge : Bool = false) : Nil
       from = from.clamp(0, size)
       to = to.clamp(0, size)
@@ -137,7 +134,7 @@ module Crysterm
     end
 
     # Format runs overlapping `[from, to)` in block-local coordinates, clipped
-    # to the range. Used for undo snapshots of format changes.
+    # to the range.
     def format_runs(from : Int32, to : Int32) : Array({Int32, Int32, TextCharFormat})
       runs = [] of {Int32, Int32, TextCharFormat}
       acc = 0
@@ -152,10 +149,10 @@ module Crysterm
       runs
     end
 
-    # The block's whole format-run list with `additional_formats` merged
-    # over the fragments' own formats (Qt merge semantics per overlay patch) —
-    # what the renderer paints. Equal-appearance neighbors are coalesced.
-    # Plain `format_runs(0, size)` when no overlay is set.
+    # What the renderer paints: the block's format runs with
+    # `additional_formats` merged over the fragments' own formats, with
+    # equal-appearance neighbors coalesced. Plain `format_runs(0, size)` when
+    # no overlay is set.
     def render_runs : Array({Int32, Int32, TextCharFormat})
       if cached = @render_runs_cache
         return cached
@@ -219,8 +216,8 @@ module Crysterm
       normalize!
     end
 
-    # Ensures a fragment boundary at `offset`; returns the index of the
-    # fragment starting there (== `fragments.size` when `offset == size`).
+    # `{fragment index, offset within it}` for `offset`; `{fragments.size, 0}`
+    # when `offset == size`.
     private def locate(offset : Int32) : {Int32, Int32}
       acc = 0
       @fragments.each_with_index do |f, i|
@@ -230,6 +227,8 @@ module Crysterm
       {@fragments.size, 0}
     end
 
+    # Ensures a fragment boundary at `offset`; returns the index of the
+    # fragment starting there (== `fragments.size` when `offset == size`).
     private def split_fragment_at(offset : Int32) : Int32
       fi, local = locate(offset)
       return fi if local == 0

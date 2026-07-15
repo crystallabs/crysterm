@@ -8,9 +8,9 @@ module Crysterm
   #
   # ### The contract
   #
-  # Once the container has drawn itself and its `#lpos` is known, `Widget#_render`
-  # calls `#render_children`, which computes the interior rectangle and hands it
-  # to the single abstract method every engine implements:
+  # Once the container has drawn itself and its `#lpos` is known,
+  # `#render_children` computes the interior rectangle and hands it to the
+  # single abstract method every engine implements:
   #
   # ```
   # abstract def arrange(container, interior)
@@ -39,39 +39,33 @@ module Crysterm
   # own content rather than arranging child widgets, so they are not engines.
   abstract class Layout
     # Per-child placement hint. Engines requiring data beyond a child's own
-    # `left`/`top`/`width`/`height` define a concrete subclass (e.g. a Border
-    # region, a Grid `{row, column, row_span, column_span}`, a flex `grow` factor) and
-    # read it off `Widget#layout_hint`. Open extension point for new engines.
+    # `left`/`top`/`width`/`height` define a concrete subclass (a Border region,
+    # a Grid `{row, column, row_span, column_span}`, a flex `grow` factor) and
+    # read it off `Widget#layout_hint`.
     abstract class Hint
     end
 
-    # Spacing between adjacent children, in cells. This is **Qt's layout
-    # `spacing`** under its CSS name (`gap`); the CSS-flavoured spelling is kept
-    # since the toolkit is styled with CSS, and `Style::CSS::Geometry` maps the
-    # `spacing` property onto it. Lives on the base so it can be set uniformly
-    # regardless of engine. Honored by the box/grid engines; flow engines
-    # (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it, and `Form` uses its
-    # own `#column_gap`/`#row_gap` (this one has no meaning there).
+    # Spacing between adjacent children, in cells — Qt's layout `spacing` under
+    # its CSS name. Honored by the box/grid engines; the flow engines ignore it,
+    # and `Form` uses its own `#column_gap`/`#row_gap` instead.
     property gap : Int32 = 0
 
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
-    # frame instead of allocating a fresh `RenderedGeometry` per render.
-    # `#arrange` reads only its four coordinates and never retains it past the
-    # call, and a layout instance serves a single container, so one cached
-    # rectangle is safe.
+    # frame rather than allocating a `RenderedGeometry` per render. Safe only
+    # because `#arrange` never retains it past the call and a layout instance
+    # serves a single container.
     @interior_geometry = RenderedGeometry.new
 
-    # Entry point invoked by `Widget#_render`. Computes the container's interior
-    # content rectangle and, if non-empty, delegates to `#arrange`.
+    # Computes the container's interior content rectangle and, if non-empty,
+    # delegates to `#arrange`.
     def render_children(container : Widget) : Nil
       interior = interior_coords container
       unless interior
         # Interior collapsed to nothing: the children paint nowhere this frame,
         # so clear their last-rendered rects — otherwise they'd stay
-        # mouse-clickable/hoverable at the previous frame's positions (same
-        # rationale as `Flow#arrange`'s `StopRendering` branch). Layout-excluded
-        # chrome renders out-of-band with its own live `lpos`, so it's left
-        # untouched.
+        # mouse-clickable/hoverable at the previous frame's positions.
+        # Layout-excluded chrome renders out-of-band with its own live `lpos`,
+        # so it's left untouched.
         each_arrangeable(container) { |el| skip_subtree el }
         render_chrome container
         return
@@ -85,18 +79,12 @@ module Crysterm
     # each child's geometry and render it via `#render_child`, or `#skip` it.
     abstract def arrange(container : Widget, interior : RenderedGeometry) : Nil
 
-    # Renders the container's *chrome* children — a border label or a bound
-    # scroll bar (`Widget#layout_chrome?`) — after `#arrange`. Unlike
-    # `layout_excluded?` chrome (rendered fully out-of-band from `Widget#_render`
-    # and skipped by `#render_child`), these are painted by the normal child pass
-    # but must not be *arranged* (measured/placed) as content slots: an installed
-    # engine would otherwise tear the title off the border row or turn a scroll
-    # bar into a flex cell (see finding — `#each_arrangeable` skips them). So the
-    # engine skips arranging them and this paints each at its own pinned
-    # coordinates. `Layout::Manual` renders every child (chrome included) through
-    # `#render_child` already and overrides `#render_children`, so it never
-    # reaches here — no double render. Rendered last, chrome paints on top of the
-    # content it overlays, as intended.
+    # Renders the container's `layout_chrome?` children — a border label, a
+    # bound scroll bar — after `#arrange`, each at its own pinned coordinates.
+    # They are painted by the normal child pass but must not be *arranged* as
+    # content slots, or an engine would tear the title off the border row or
+    # turn a scroll bar into a flex cell. Runs last, so chrome paints on top of
+    # the content it overlays.
     protected def render_chrome(container : Widget) : Nil
       container.children.each do |el|
         render_child el if el.layout_chrome?
@@ -107,7 +95,7 @@ module Crysterm
     # default (no-layout) loop in `Widget#_render` does.
     protected def render_child(el : Widget) : Nil
       # Layout-excluded chrome (e.g. a `background-image` layer) renders
-      # out-of-band from `Widget#_render`, never through the child pass.
+      # out-of-band, never through the child pass.
       return if el.layout_excluded?
       bump_index el
       render_or_defer el
@@ -115,10 +103,8 @@ module Crysterm
 
     # Renders `el` inline, or — when it carries a `z_index` and we aren't
     # already compositing a layer — defers it to its own plane (composited after
-    # the base tree); while compositing a layer, nested layers flatten into the
-    # enclosing plane and render inline. Split from `#render_child` (which also
-    # bumps the render index) so flow/stack engines, which bump every child
-    # themselves, can still honor the z-index deferral.
+    # the base tree). While compositing a layer, nested layers flatten into the
+    # enclosing plane and render inline.
     protected def render_or_defer(el : Widget) : Nil
       scr = el.window
       if el.style.z_index && !scr.compositing_layers?
@@ -128,10 +114,8 @@ module Crysterm
       end
     end
 
-    # Assigns the child its z-order/render index for this frame. Split out from
-    # `#render_child` so flow engines keep the index bookkeeping consistent
-    # (every child consumes an index, even one later `#skip`ped) while still
-    # controlling whether the child renders.
+    # Assigns the child its z-order/render index for this frame. Every child
+    # must consume an index, even one later `#skip`ped, or the ordering drifts.
     protected def bump_index(el : Widget) : Nil
       if el.window.render_index_cursor != -1
         el.render_index = el.window.render_index_cursor
@@ -144,40 +128,34 @@ module Crysterm
       el.lpos = nil
     end
 
-    # Marks `el`'s whole subtree as not rendered this frame. An unrendered
-    # widget's descendants paint nothing either, but `Window#widget_at`
-    # hit-tests every widget independently against its own `lpos`, so a stale
-    # grandchild rect would still take clicks even with the parent's cleared.
-    # Explicit recursion (no captured block) keeps this allocation-free.
+    # Marks `el`'s whole subtree as not rendered this frame. The whole subtree,
+    # because hit-testing matches every widget independently against its own
+    # `lpos`, so a stale grandchild rect would still take clicks even with the
+    # parent's cleared. Explicit recursion (no captured block) keeps this
+    # allocation-free.
     protected def skip_subtree(el : Widget) : Nil
       el.lpos = nil
-      # Mark the subtree layout-suppressed so focus/Tab navigation skips it (a
-      # non-current `Stack` page must not be a focus target — see
-      # `Widget#layout_suppressed?`). Distinct from a scrolled-out widget, which
-      # is rendered (clearing the flag) even when it lands off-viewport.
+      # Suppressed, so focus/Tab navigation skips the subtree (a non-current
+      # `Stack` page must not be a focus target). Distinct from a scrolled-out
+      # widget, which is rendered (clearing the flag) even when it lands
+      # off-viewport.
       el.layout_suppressed = true
       el.children.each { |c| skip_subtree c }
     end
 
-    # Assigns `el`'s full rectangle (left/top/width/height) in one call — the
-    # four-assignment geometry block the rectangular engines (`Border`, `Form`)
-    # would otherwise repeat at every placement. Does not render; the caller
-    # follows with `#render_child` (so engines placing several children before
-    # rendering them, e.g. `Form`'s label/field pair, stay in control of order).
+    # Assigns `el`'s full rectangle (left/top/width/height) in one call. Does not
+    # render, so an engine placing several children before rendering them stays
+    # in control of the order. One combined geometry write, so the whole
+    # rectangle costs a single `mark_dirty` and at most one `Move` + one
+    # `Resize`, rather than four independent setter runs.
     protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
-      # One combined geometry write: a single `mark_dirty` (parent-chain walk +
-      # minrect invalidation + window-damage registration) and at most one
-      # `Move` + one `Resize` for the whole rectangle, rather than four
-      # independent setter runs. See `Widget#set_geometry`.
       el.set_geometry left, top, width, height
     end
 
-    # Places `el`'s full rectangle and immediately renders it — the
-    # place-then-render pair rectangular engines repeat when placing one child at
-    # a time (every `Border` region, `Form`'s trailing full-width child).
-    # `Form`'s label/field pair deliberately does **not** use this: it places
-    # both children before rendering either (so shared row height applies to
-    # both), keeping `#place_child`/`#render_child` calls separate.
+    # Places `el`'s full rectangle and immediately renders it. Not for engines
+    # that must place several children before rendering any of them (e.g. to
+    # apply a shared row height to both) — those call `#place_child` and
+    # `#render_child` separately.
     protected def place_and_render(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
       place_child el, left, top, width, height
       render_child el
@@ -185,34 +163,29 @@ module Crysterm
 
     # --- Layout-owned ("managed") size bookkeeping -------------------------
     #
-    # `Border`, `Form` (and, in a Set-backed variant, `Box`) resolve a child's
-    # raw size to cells and write the resolved `Int32` back through
-    # `set_geometry`. That write would otherwise *destroy* the child's original
-    # value — a `"50%"` string never resolves again (frozen at frame 1's cell
-    # count), a `nil`/auto size freezes at that cell count, a transient clamp
-    # sticks. Each engine therefore keeps a `raw_map` (the value the user set)
-    # beside an `assigned_map` (the Int we last wrote), restoring the raw value
-    # before re-measuring and releasing a child the moment its raw size no
-    # longer equals what we assigned (the user reclaimed it). These helpers
-    # single-source that shared core; the per-engine axis/field is supplied by
-    # the caller (which maps, the raw getter, the restore setter). All three are
-    # allocation-free: `prune_managed`'s `select!` block and `restore_managed`'s
-    # restore block are `yield`ed, never captured as a stored `Proc`.
+    # An engine that resolves a child's raw size to cells and writes the
+    # resolved `Int32` back would *destroy* the original value: a `"50%"` string
+    # would never resolve again (frozen at frame 1's cell count), an auto size
+    # would freeze, a transient clamp would stick. So an engine keeps a
+    # `raw_map` (the value the user set) beside an `assigned_map` (the Int it
+    # last wrote), restoring the raw value before re-measuring and releasing a
+    # child once its raw size no longer equals what was assigned. These helpers
+    # single-source that core; the caller supplies the per-engine axis/field.
+    # All three are allocation-free — the blocks are `yield`ed, never captured.
 
-    # Drops bookkeeping entries for children that have left `container`. O(1)
-    # membership via `Widget#child?`; in-place `select!`, so it allocates
-    # nothing. Hash-shaped maps only (two-arg block); a `Set`-backed tracker
-    # (e.g. `Box`'s `@flex`/`@filled`) prunes with a one-arg `select!` inline.
+    # Drops bookkeeping entries for children that have left `container`.
+    # Hash-shaped maps only (two-arg block); a `Set`-backed tracker prunes with
+    # a one-arg `select!` inline.
     protected def prune_managed(container : Widget, map) : Nil
       map.select! { |el, _| container.child? el }
     end
 
     # Restores `el`'s remembered raw size (passed in as `raw`) before a
     # re-measure — so a percent/nil/clamped size resolves against the *live*
-    # container every frame — or, when the raw size no longer equals what we
+    # container every frame — or, when the raw size no longer equals what was
     # last assigned, forgets the old value and records the new one (the user
-    # reclaimed the child; cf. `Box#main_flex?`). The block receives the
-    # remembered raw value and writes it back into the child's axis.
+    # reclaimed the child). The block receives the remembered raw value and
+    # writes it back into the child's axis.
     protected def restore_managed(el : Widget, raw_map, assigned_map, raw, &) : Nil
       if (assigned = assigned_map[el]?) && raw == assigned && raw_map.has_key?(el)
         yield raw_map[el]

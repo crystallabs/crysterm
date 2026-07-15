@@ -57,7 +57,7 @@ module Crysterm
 
       # Spawn *command* (with *args*) and stream its stdout **and** stderr into the
       # plane, merged into one pipe so diagnostics interleave with output like a
-      # real terminal tail. stdin is closed. This is the `ncsubproc` case.
+      # real terminal tail. stdin is closed.
       #
       # The child is spawned immediately (so a bad command raises here, not later)
       # but only drained once the widget is attached. `#close` / destroy terminate
@@ -99,8 +99,7 @@ module Crysterm
 
       # Splits *carry* + *chunk* on the newline byte into complete lines, stripping
       # a trailing `\r` (CRLF streams), and returns the extracted lines plus the
-      # leftover partial line to carry into the next call. Pure and side-effect
-      # free — the whole line/UTF-8-boundary contract is exercised through here.
+      # leftover partial line to carry into the next call. Pure and side-effect free.
       def self.extract_lines(carry : Bytes, chunk : Bytes) : {Array(String), Bytes}
         buf = Bytes.new(carry.size + chunk.size)
         carry.copy_to(buf) unless carry.empty?
@@ -124,8 +123,7 @@ module Crysterm
 
       # Feed a raw chunk (bytes or string) into the plane: split into complete
       # lines, append each, and carry any trailing partial line to the next call.
-      # Invoked by the reader fiber (marshalled onto the render fiber via
-      # `Window#post`) but public so you can drive the widget from your own source.
+      # Public so you can drive the widget from your own source.
       def feed(data : Bytes | String) : Nil
         slice = data.is_a?(String) ? data.to_slice : data
         lines, @carry = LogFd.extract_lines(@carry, slice)

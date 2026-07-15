@@ -14,12 +14,11 @@ end
 
 # Automatic per-widget option (de)serialization — no opt-in required.
 #
-# Every `Crysterm::Widget` subclass is serializable by virtue of its namespace
-# (see `dom_loader.cr` for the matching auto-registration). Generates each
-# widget's `#dom_attributes`/`#dom_apply` by scanning its initializer
-# arguments: any arg whose backing ivar is exactly a supported type — `Bool`,
-# `String`, `Int32`, the `Int32 | String | Nil` dimension union, or their
-# nilable forms — is emitted and loaded automatically.
+# Every `Crysterm::Widget` subclass is serializable by virtue of its namespace.
+# Generates each widget's `#dom_attributes`/`#dom_apply` by scanning its
+# initializer arguments: any arg whose backing ivar is exactly a supported type
+# — `Bool`, `String`, `Int32`, the `Int32 | String | Nil` dimension union, or
+# their nilable forms — is emitted and loaded automatically.
 #
 # Mechanics:
 #  * Generated on every concrete `Widget` subclass (the `JSON::Serializable`
@@ -38,15 +37,14 @@ end
 #    `List`) is skipped here, opting it out.
 #
 # The two generated methods share one compile-time scan, hosted in
-# `dom_autoserialize_body` below, so the instance-var/initializer-arg
-# collection can't drift between them. The call is expanded inside `verbatim`
-# so it re-resolves per concrete widget. The round-trip invariant spec
-# exercises every registered widget as a backstop.
+# `dom_autoserialize_body` below, so the instance-var/initializer-arg collection
+# can't drift between them. The call is expanded inside `verbatim` so it
+# re-resolves per concrete widget. A round-trip invariant spec exercises every
+# registered widget as a backstop.
 
 # Emits the body of a generated `#dom_attributes` (`mode == :attributes`) or
-# `#dom_apply` (`mode == :apply`). The `supported`/`names` collection is
-# identical for both; see the file-level comment for why it lives here rather
-# than inline in each method.
+# `#dom_apply` (`mode == :apply`); the `supported`/`names` collection is
+# identical for both.
 macro dom_autoserialize_body(mode)
   {% begin %}
     {% supported = {} of Nil => Nil %}
@@ -103,19 +101,18 @@ macro dom_autoserialize_body(mode)
       case key
       {% for n in names %}
         {% kind = supported[n][0] %}{% nilable = supported[n][1] %}{% key = n.split("_").join("-") %}
-        # Prefer the public setter over a raw ivar write when one exists: a
-        # custom setter (e.g. `ProgressBar#value=` clamps + emits `ValueChanged`,
-        # `#maximum=` re-clamps) carries side effects the bridge's runtime
-        # `setAttribute` must not skip. A plain `property` setter is
-        # equivalent to the ivar write, so this is safe as a blanket rule; only
-        # ivars with no setter at all fall back to `@ivar =`.
+        # Prefer the public setter over a raw ivar write when one exists: a custom
+        # setter (e.g. `ProgressBar#value=` clamps and emits `ValueChanged`)
+        # carries side effects a runtime `setAttribute` must not skip. A plain
+        # `property` setter is equivalent to the ivar write, so this is safe as a
+        # blanket rule; only ivars with no setter fall back to `@ivar =`.
         {% setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == n + "=" } } %}
         when {{ key }}
           {% if kind == "bool" %}
             {% if setter %}
-              self.{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
+              self.{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics
             {% else %}
-              @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics; see dom.cr
+              @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics
             {% end %}
           {% elsif kind == "dim" %}
             {% if setter %}
@@ -154,16 +151,14 @@ end
 
 macro finished
   {% for t in Crysterm::Widget.all_subclasses %}
-    # Generate on every concrete widget, not just direct children of Widget. A
-    # verbatim body re-resolves @type to the concrete widget only on a
-    # statically-known concrete receiver; under the virtual dispatch
-    # Widget#to_layout_html / the DOM loader use, an inherited branch-root
-    # method runs with @type pinned to the branch root, silently missing a
-    # deeper subclass's own options (e.g. SpinBox#editable, ScrollBar#tracking).
-    # Defining the method on each concrete subclass gives it its own
-    # specialization (the JSON::Serializable pattern). super keeps @type at the
-    # concrete type, so each level re-scans the same option set into the shared
-    # hash (idempotent), bottoming out at the hand-written Widget base handler.
+    # Generated on every concrete widget, not just direct children of Widget: a
+    # verbatim body re-resolves @type only on a statically-known concrete
+    # receiver, so under virtual dispatch an inherited branch-root method would
+    # run with @type pinned to the branch root and silently miss a deeper
+    # subclass's own options. Defining it per concrete subclass gives each its own
+    # specialization. super keeps @type at the concrete type, so each level
+    # re-scans the same option set into the shared hash (idempotent), bottoming
+    # out at the hand-written Widget base handler.
     {% if !t.abstract? &&
             !t.methods.any? { |m| m.name == "dom_attributes" || m.name == "dom_apply" } %}
       class ::{{ t }}

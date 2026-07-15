@@ -65,10 +65,9 @@ module Crysterm
         cw = png.width if cw <= 0
         ch = png.height if ch <= 0
         return {cw, ch} if cw <= cap && ch <= cap
-        # Clamp the derived (short) edge to >= 1: an extreme aspect ratio
-        # (> cap:1) would otherwise floor it to 0, and a 0-sized resample builds
-        # empty frames — a very wide/short (or tall/thin) animation drawing
-        # nothing. Mirrors `Fit::None`'s `{..., 1}.max` and `cap_size`'s clamp.
+        # Clamp the derived (short) edge to >= 1: an extreme aspect ratio (> cap:1)
+        # would floor it to 0, and a 0-sized resample builds empty frames, so a
+        # very wide/short (or tall/thin) animation draws nothing.
         cw >= ch ? {cap, {ch * cap // cw, 1}.max} : { {cw * cap // ch, 1}.max, cap }
       end
 
@@ -119,11 +118,11 @@ module Crysterm
         return place_centered(src_bmp, bw, bh) if fit.none? && pixel_box
 
         # 1:1 — draw at the source's native terminal-cell footprint, centered/
-        # cropped. Uses the terminal's measured cell aspect ratio (height ÷
-        # width, auto-detected — see `CSS::Length.cell_aspect_ratio`), independent
-        # of backend/sub-grid; the sub-grid only multiplies it into sub-pixels.
-        # So every backend/sub-mode shows the image at the same size; finer
-        # sub-grids just resolve more detail within it.
+        # cropped. Uses the terminal's measured cell aspect ratio (height ÷ width),
+        # independent of backend/sub-grid — the sub-grid only multiplies it into
+        # sub-pixels. So every backend/sub-mode
+        # shows the image at the same size, finer sub-grids just resolving more
+        # detail within it.
         if fit.none?
           car = Crysterm::CSS::Length.cell_aspect_ratio
           car = 2.0 if car <= 0
@@ -142,13 +141,12 @@ module Crysterm
 
         # Align the drawn image to whole terminal cells (sub-cell backends only,
         # where sub_w/sub_h > 1). Otherwise the image↔letterbox boundary can land
-        # in the middle of an edge cell, which then samples partly image and
-        # partly transparent margin and paints as a dim fringe hugging the whole
-        # border — visible along the top/bottom or left/right edge, and flickering
-        # as a resizing box crosses cell parities. Snapping the size and offset to
-        # the sub-grid makes every edge cell fall wholly inside or outside the
-        # image, so letterbox meets image on a clean cell boundary. Stretch fills
-        # exactly (no margin) and 1:1 backends have sub == 1, so both are untouched.
+        # mid-cell, and that edge cell samples partly image and partly transparent
+        # margin, painting as a dim fringe along the border that flickers as a
+        # resizing box crosses cell parities. Snapping size and offset to the
+        # sub-grid puts every edge cell wholly inside or outside the image. Stretch
+        # fills exactly (no margin) and 1:1 backends have sub == 1, so both are
+        # untouched.
         unless fit.stretch?
           dw = {snap(dw, sub_w), sub_w}.max
           dh = {snap(dh, sub_h), sub_h}.max
@@ -190,17 +188,15 @@ module Crysterm
       end
 
       # Copies *src* into a *bw*×*bh* fully-transparent canvas at pixel offset
-      # (*ox*, *oy*), clipping anything outside the canvas. Shared by the fit
-      # (`#compose`) and 1:1 centering (`#place_centered`) paths.
+      # (*ox*, *oy*), clipping anything outside the canvas.
       #
-      # *into* lets a caller pass a reusable destination canvas: when it is
-      # already sized *bw*×*bh* it is cleared to transparent and reused (no
-      # per-frame outer/row allocation); otherwise a fresh canvas is built.
-      # NOTE: internal callers do not pass *into* because `#compose`'s result is
-      # cached per animation frame downstream (`Media::Cells` sample cache,
-      # graphics `@frame_payloads`) — reusing one canvas across frames would
-      # mutate an already-cached frame. The hook is here for a future
-      # cache-aware caller that owns the canvas and controls its lifetime.
+      # *into* lets a caller pass a reusable destination canvas: already sized
+      # *bw*×*bh*, it is cleared to transparent and reused (no per-frame
+      # outer/row allocation); otherwise a fresh canvas is built. Internal callers
+      # must NOT pass *into*, since `#compose`'s result is cached per animation
+      # frame downstream (`Media::Cells` sample cache, graphics `@frame_payloads`)
+      # and reusing one canvas across frames would mutate an already-cached frame.
+      # The hook is for a future cache-aware caller owning the canvas lifetime.
       private def self.place_at(src : PNGGIF::Bitmap, bw : Int32, bh : Int32,
                                 ox : Int32, oy : Int32,
                                 into : PNGGIF::Bitmap? = nil) : PNGGIF::Bitmap

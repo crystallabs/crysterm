@@ -1,12 +1,7 @@
 module Crysterm
-  # A single phase-locked frame clock with optional tweening — the one place the
-  # "spawn a fiber, do a bit of work, sleep, repeat" pattern lives.
-  #
-  # Everything that animates is built on this: `Timer` (a shared tick source,
-  # see below), `Window#every`, `Widget::Effect::Animated`, and `Widget::Media`
-  # frame playback all delegate their loop here instead of hand-rolling one, so
-  # drift correction and lifecycle (`start`/`stop`/`toggle`/`running?`) are
-  # written and fixed once.
+  # A phase-locked frame clock with optional tweening: a fiber that runs a block
+  # on a drift-corrected cadence, with a `start`/`stop`/`toggle`/`running?`
+  # lifecycle. Everything in Crysterm that animates is built on it.
   #
   # Two shapes, picked by whether a `duration` is given:
   #
@@ -58,14 +53,13 @@ module Crysterm
     @on_tick : FrameClock ->
     @on_stop : (->)?
 
-    # Creates a clock ticking *block* every *interval*. With a *duration* it
-    # is a tween (see class docs): runs for *duration*, easing `#value` with
-    # *easing*, then stops itself. Does not start until `#start`.
+    # Creates a clock ticking *block* every *interval*. With a *duration* it is a
+    # tween: runs for *duration*, easing `#value` with *easing*, then stops
+    # itself. Does not start until `#start`.
     #
-    # The block is handed the `FrameClock` itself, so it can drive its own
-    # cadence (`clock.interval = …`), end the run early (`clock.stop`), or
-    # read `clock.value`, without an outside reference. A block needing none
-    # of that can omit the parameter.
+    # The block is handed the `FrameClock` itself, so it can drive its own cadence
+    # (`clock.interval = …`), end the run early (`clock.stop`), or read
+    # `clock.value`. A block needing none of that can omit the parameter.
     def initialize(@interval : Time::Span, *, duration : Time::Span? = nil,
                    easing : Easing | Symbol = Easing::Linear, &@on_tick : FrameClock ->)
       @duration = duration
@@ -87,11 +81,9 @@ module Crysterm
       # at `value == 1.0`, then stop) so CSS transitions/fades land immediately.
       # Tickers have no duration and run normally.
       if @duration && Config.render_reduced_motion
-        # Bump the generation even on this fiber-less path: a previous run's
-        # fiber that was `#stop`ped but hasn't yet observed it still holds the
-        # old generation, and would otherwise match `@generation == gen` on
-        # waking and fire `on_stop` a second time if reduced-motion flipped on
-        # between that run's `#start` and this one.
+        # Bump the generation even on this fiber-less path: a previous run's fiber
+        # that was `#stop`ped but hasn't observed it yet still holds the old
+        # generation, and would otherwise match on waking and fire `on_stop` twice.
         @generation += 1
         @completed = true
         @value = 1.0
@@ -105,9 +97,9 @@ module Crysterm
       gen = (@generation += 1) # this run's identity; a superseding `#start` bumps it
 
       dur = @duration
-      # Phase-lock to a moving deadline instead of `sleep interval` after the
-      # work: the latter makes the real period `interval + tick_work`, drifting
-      # slow and desyncing animations sharing a nominal clock.
+      # Phase-lock to a moving deadline rather than `sleep interval` after the
+      # work, which would make the real period `interval + tick_work` and desync
+      # animations sharing a nominal clock.
       start_at = Time.instant
       next_at = start_at
 
@@ -169,9 +161,8 @@ module Crysterm
   # A periodic tick source: a `FrameClock` that, instead of running one
   # captured block, multicasts `Event::Tick` to any number of subscribers.
   #
-  # Exists for sharing a clock: pass one `Timer` to several widgets and they
-  # advance in lockstep off a single fiber, and `stop`/`start` controls them
-  # all at once.
+  # Pass one `Timer` to several widgets and they advance in lockstep off a single
+  # fiber, with `stop`/`start` controlling them all at once.
   #
   # ```
   # clock = Crysterm::Timer.new 0.1.seconds      # one shared clock...
@@ -183,10 +174,6 @@ module Crysterm
   #
   # A widget given `animate: true` instead makes its own private `Timer`; one
   # given `animate: false` doesn't animate at all.
-  #
-  # All timing machinery (phase-locked loop, drift correction, lifecycle) is
-  # inherited from `FrameClock`; `Timer` only swaps the single-block tick for
-  # an `Event::Tick` broadcast.
   class Timer < FrameClock
     include EventHandler
 

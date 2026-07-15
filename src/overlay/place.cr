@@ -3,32 +3,24 @@ module Crysterm
     # Fit-based auto-placement for a floating overlay (drop-down list, pop-up
     # menu, completer list, submenu).
     #
-    # Every overlay owner otherwise hand-rolls its own "place a rectangle next
-    # to an anchor, flip/clamp on overflow" math, and such copies drift on
-    # coordinate conventions (some subtracting the window inset, some not) and on
-    # flip policy (below-only vs. flip-above vs. clamp-only). This function
-    # replaces the *policy* with a declarative one: the caller supplies an
-    # ordered list of `Side`s it *prefers*, and the placer returns the first
-    # candidate that fully fits inside `bounds`; if none fits, it falls back to
-    # the candidate with the most visible area and clamps that into `bounds`.
+    # Placement is declarative: the caller supplies an ordered list of `Side`s it
+    # prefers, and the placer returns the first candidate that fully fits inside
+    # `bounds`; if none fits, it falls back to the candidate with the most
+    # visible area and clamps that into `bounds`.
     #
-    # ### Coordinate convention (the invariant that keeps callers consistent)
+    # ### Coordinate convention
     #
     # Everything here is in **absolute screen coordinates** — `anchor`, `bounds`,
     # `point`, and the returned top-left. A caller whose overlay is a
     # *window-appended* child (whose `left`/`top` are relative to the window's
-    # content origin, i.e. `aleft == window.ileft + left`) converts the result
-    # once, uniformly:
+    # content origin, i.e. `aleft == window.ileft + left`) must convert the
+    # result once:
     #
     # ```
     # x, y = Overlay.place(...)
     # child.left = x - window.ileft
     # child.top = y - window.itop
     # ```
-    #
-    # That single conversion is what a padded/bordered window needs; applying it
-    # uniformly is why the placer can serve every owner without per-site inset
-    # divergence.
 
     # Where to place the overlay relative to its anchor. Listed in a caller's
     # `prefer` order; the first that fits wins.
@@ -41,9 +33,8 @@ module Crysterm
     end
 
     # Shared `prefer:` list for the common "open below, flip above on overflow"
-    # policy (drop-downs, date pickers). A frozen module constant so call sites
-    # in `Popup#render`/paint loops don't heap-allocate a fresh `[Below, Above]`
-    # array on every placement.
+    # policy. A module constant so paint-loop call sites heap-allocate no fresh
+    # array per placement.
     BELOW_ABOVE = [Side::Below, Side::Above]
 
     # Returns the absolute top-left `{x, y}` for a `size`-sized overlay placed
@@ -92,18 +83,15 @@ module Crysterm
       clamp(candidate(best, anchor, w, h, point), w, h, bounds)
     end
 
-    # Adoption helper: places *child* — a window-appended overlay — against
-    # *anchor* and assigns its `left`/`top`, owning the single
-    # absolute→window-local conversion so no call site repeats or forgets it
-    # (forgetting it mis-places an overlay on a bordered window).
+    # Places *child* — a window-appended overlay — against *anchor* and assigns
+    # its `left`/`top`, owning the absolute→window-local conversion.
     #
     # - *child*  — the overlay (a top-level child appended to its `window`).
     # - *anchor* — an absolute `{x, y, w, h}` rect. Build it from a widget with
     #   `{w.aleft, w.atop, w.awidth, w.aheight}`, or from a computed row rect for
     #   a submenu.
-    # - *size*   — the child's outer `{w, h}`. The caller sizes the child first
-    #   (row count, border) — that logic is legitimately per-overlay; the helper
-    #   only positions.
+    # - *size*   — the child's outer `{w, h}`. The caller sizes the child first;
+    #   this helper only positions.
     #
     # See `.place` for *prefer*/*point*. The bounds are the window's absolute
     # content box; a `Window` sits at the screen origin, so `aleft == ileft +

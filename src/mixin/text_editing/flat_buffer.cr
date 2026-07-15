@@ -5,10 +5,8 @@ module Crysterm
     module TextEditing
       # Flat-`String` implementation of the `Buffer` protocol: the whole
       # document is one `String` (`@value`); positions are codepoint indices
-      # into it. This is the storage `LineEdit` and `PlainTextEdit` have
-      # always used (include it alongside `Mixin::TextEditing`); rich-text
-      # `Widget::TextEdit` swaps in a `TextDocument`-backed adapter instead
-      # (TEXTEDIT.md §5).
+      # into it. Include it alongside `Mixin::TextEditing` for plain-text
+      # storage; rich text wants a `TextDocument`-backed adapter instead.
       module FlatBuffer
         include Buffer
 
@@ -60,25 +58,20 @@ module Crysterm
           @cursor_pos = @value.size
         end
 
-        # Cached logical-line-start offsets into `@value` (`@_line_offsets`), plus
-        # the exact `@value` object they were computed for (`@_line_offsets_value`).
-        # `@_line_offsets[k]` is the codepoint index where fake line *k* begins:
-        # `[0, first_nl+1, second_nl+1, …]`, always at least `[0]`. Rebuilt lazily
-        # by `#line_offsets` whenever `@value` is reassigned.
+        # Cached logical-line-start offsets into `@value`, plus the exact `@value`
+        # object they were computed for. `@_line_offsets[k]` is the codepoint index
+        # where fake line *k* begins: `[0, first_nl+1, second_nl+1, …]`, always at
+        # least `[0]`. Rebuilt lazily by `#line_offsets`.
         @_line_offsets = [0]
         @_line_offsets_value : String? = nil
 
         # Line-start offsets for the current `@value`, rebuilding the cache only
-        # when `@value` is a different object than last time. Keyed on the `@value`
-        # String *identity* (`same?`) rather than `@_content_version`: `@value` is
-        # exactly what `#buf_line_bounds` scans, Crystal Strings are immutable, and
-        # every edit reassigns `@value` — so a fresh object always means fresh
-        # newlines, and an unchanged object always means unchanged ones. That is
-        # strictly tighter than `@_content_version`, which only bumps on the later
-        # `set_content` at render time (a keystroke mutates `@value` first, and
-        # `#pos_from_rowcol`/`#line_display_width` can run — e.g. Up/Down's
-        # `move_cursor_vertically` — before that bump, when the version would be
-        # stale relative to `@value`).
+        # when `@value` is a different object than last time. Keyed on String
+        # *identity* (`same?`), not `@_content_version`: Strings are immutable and
+        # every edit reassigns `@value`, so a fresh object always means fresh
+        # newlines. `@_content_version` would be stale here — it only bumps on the
+        # later `set_content` at render time, after a keystroke has already mutated
+        # `@value` and callers like `#pos_from_rowcol` may have run.
         private def line_offsets : Array(Int32)
           cached = @_line_offsets_value
           return @_line_offsets if cached && cached.same?(@value)
@@ -92,10 +85,9 @@ module Crysterm
         end
 
         # `@_clines.fake` is TAB-expanded, so its codepoint sizes can't index raw
-        # `@value`; this reads the cached newline offsets (`#line_offsets`)
-        # instead of rescanning `@value` from 0 on every call. Byte-identical to
-        # rescanning from 0: `base` is the line's start, `line_end` is the
-        # following `\n` (or `@value.size` for the last line).
+        # `@value`; this reads the cached newline offsets instead. `base` is the
+        # line's start, `line_end` the following `\n` (or `@value.size` for the
+        # last line).
         def buf_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
           starts = line_offsets
           k = fake_line.clamp(0, starts.size - 1)
@@ -104,18 +96,17 @@ module Crysterm
           {base, line_end}
         end
 
-        # Records `value` as the authoritative content and repositions the caret,
-        # shared by this `#value=` and `LineEdit#value=` (which overrides only the
-        # display half). A non-nil `value` is an external set: record it, cursor
-        # to the end, and drop any selection whose indices the new content
-        # invalidates. `nil` is a redisplay (e.g. from `render`): keep the cursor
-        # where it is, just clamped in case the content changed underneath
-        # (typing/deletion updates `@cursor_pos` in `_listener`). The block
-        # normalizes the resolved value before storing it — the multi-line editor
-        # keeps newlines, `LineEdit` strips them. Returns whether this was an
-        # external set. The authoritative value is stored *before* the display
-        # dedup guard the caller applies, so an external set (e.g. clearing) is
-        # never lost when the last-displayed cache is stale.
+        # Records `value` as the authoritative content and repositions the caret.
+        # A non-nil `value` is an external set: record it, cursor to the end, and
+        # drop any selection the new content invalidates. `nil` is a redisplay
+        # (e.g. from `render`): keep the cursor where it is, clamped in case the
+        # content changed underneath. The block normalizes the resolved value
+        # before storing it — the multi-line editor keeps newlines, `LineEdit`
+        # strips them. Returns whether this was an external set.
+        #
+        # Stores the authoritative value *before* the caller's display dedup
+        # guard, so an external set (e.g. clearing) is never lost when the
+        # last-displayed cache is stale.
         protected def assign_value(value : String?, & : String -> String) : Bool
           external = !value.nil?
           before = @value
@@ -123,20 +114,16 @@ module Crysterm
           @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
           clear_selection if external
           # An external set moves the caret to the end; drop the vertical goal
-          # column so the next Up/Down tracks the caret's actual column, not a
-          # stale one from before the set. The redisplay path (`nil` value) must
-          # leave `@goal_col` intact so an in-progress Up/Down sequence survives a
-          # `render`.
+          # column so the next Up/Down tracks the caret's actual column. The
+          # redisplay path (`nil` value) must leave `@goal_col` intact so an
+          # in-progress Up/Down sequence survives a `render`.
           @goal_col = nil if external
 
           # A programmatic set notifies too, like Qt's `QLineEdit::textChanged`
-          # (which fires on `setText`, not only on typing) and like the
-          # document-backed editors, whose `TextDocument` signals every change.
-          # Only the external branch emits: interactive edits mutate `@value`
-          # through `buf_insert`/`buf_delete` and emit from `#_listener`, and the
-          # `nil` redisplay path (once per frame, per field) isn't a change at
-          # all — so the guard short-circuits before the `String` compare on that
-          # hot path. Emitted last, so handlers observe the settled caret and
+          # firing on `setText`. Only the external branch emits: interactive edits
+          # emit from `#_listener`, and the `nil` redisplay path isn't a change at
+          # all — the guard short-circuits before the `String` compare on that hot
+          # path. Emitted last, so handlers observe the settled caret and
           # selection.
           emit ::Crysterm::Event::TextChanged, @value if external && @value != before
 

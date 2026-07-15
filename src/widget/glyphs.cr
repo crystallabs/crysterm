@@ -1,11 +1,8 @@
 module Crysterm
   class Widget
-    # Deprecated glyph constants, superseded by the central `Crysterm::Glyphs`
-    # registry (`Glyphs::Role::LineVertical`, `::LineHorizontal`,
-    # `::TreeExpanded`, `::TreeCollapsed` — resolved per support tier via
-    # `Widget#glyph`). Kept only for source compatibility; being compile-time
-    # constants they can't follow `Screen#glyph_tier` or `Glyphs.set`, so new
-    # code should use the registry.
+    # Deprecated glyph constants, superseded by the `Crysterm::Glyphs` registry
+    # (resolved per support tier via `Widget#glyph`). Being compile-time
+    # constants they can't follow `Screen#glyph_tier` or `Glyphs.set`.
 
     @[Deprecated("Use `glyph(Glyphs::Role::LineVertical)` (tier-aware) instead")]
     LINE_VERTICAL = '│'

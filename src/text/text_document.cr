@@ -1,9 +1,8 @@
 require "weak_ref"
 
 module Crysterm
-  # A structured, formatted text buffer (Qt `QTextDocument`): the model
-  # behind `Widget::TextEdit`, independent of any widget so several views can
-  # share one document. See TEXTEDIT.md.
+  # A structured, formatted text buffer (Qt `QTextDocument`), independent of
+  # any widget so several views can share one document.
   #
   # Content is the root `TextFrame`'s block list; positions are codepoint
   # indexes into the blocks joined by an implicit `'\n'` separator (one
@@ -30,9 +29,8 @@ module Crysterm
       WholeWords
     end
 
-    # How an `Event::ContentsChanged` affected document positions — what a
-    # view needs to keep its own flat `Int32` caret adjusted the way
-    # registered `TextCursor`s are (they get this same treatment internally):
+    # How an `Event::ContentsChanged` affected document positions, so a view
+    # can adjust its own flat caret the way registered `TextCursor`s are:
     #
     # - `Edit`: a structural edit; positions at/after it shift (insertions
     #   push forward, positions inside a removed range collapse to its start).
@@ -52,9 +50,8 @@ module Crysterm
 
     @cursors = [] of WeakRef(TextCursor)
     @block_offsets : Array(Int32)?
-    # Memoized `to_plain_text`; dropped on every structural edit (alongside
-    # `@block_offsets`) in `finish_edit`, the single choke point for content
-    # mutations. Hot for find-as-you-type and the buffer adapter's `value`.
+    # Memoized `to_plain_text`; must be dropped alongside `@block_offsets` on
+    # every structural edit.
     @plain_cache : String?
     @last_block_count = 1
     @modified = false
@@ -66,9 +63,7 @@ module Crysterm
       set_plain_text(text) unless text.empty?
     end
 
-    # The shared word-character class for word motion — the single definition:
-    # `TextCursor`'s word ops and `Mixin::TextEditing#word_char?` (the §5
-    # buffer-protocol re-base) both use it.
+    # The single definition of the word-character class for all word motion.
     def self.word_char?(c : Char) : Bool
       c.alphanumeric? || c == '_'
     end
@@ -76,8 +71,7 @@ module Crysterm
     # Shifts a flat position for an edit of `removed` -> `added` chars at
     # `pos`: insertions at or before the position push it forward; a position
     # inside a removed range collapses to the range start. The single mapping
-    # `TextCursor#adjust` and `Mixin::TextEditing::DocumentBuffer` both use to
-    # keep positions/carets consistent with an edit.
+    # every caret adjustment goes through.
     def self.shift_position(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
       if removed == 0
         p >= pos ? p + added : p
@@ -91,11 +85,9 @@ module Crysterm
     end
 
     # Two-phase backward word scan from `from`: skip the run of separator
-    # positions the block marks (`true`), then the run of non-separators,
-    # returning the resulting index. The block classifies a position by index
-    # so a caller can source the character however it likes (document
-    # `char_at` vs buffer `buf_char`). Shared by `TextCursor` word motion and
-    # `Mixin::TextEditing`'s buffer scans.
+    # positions the block marks (`true`), then the run of non-separators. The
+    # block classifies a position by index, so callers can source the character
+    # however they like.
     def self.scan_word_left(from : Int32, & : Int32 -> Bool) : Int32
       i = from
       while i > 0 && (yield i - 1)
@@ -122,9 +114,8 @@ module Crysterm
 
     # The `{start, end}` of the word-character run touching `pos` (single-phase
     # scan out in both directions), bounded by `size`. The block classifies a
-    # position by index. Empty (`{pos, pos}`) on a non-word position; callers
-    # differ only in what they do with that (see `TextCursor#word_bounds_at`'s
-    # previous-word fallback vs the mixin's "no word here").
+    # position by index. Empty (`{pos, pos}`) on a non-word position — callers
+    # decide what that means.
     def self.word_run_at(pos : Int32, size : Int32, & : Int32 -> Bool) : {Int32, Int32}
       s = pos
       while s > 0 && (yield s - 1)
@@ -194,7 +185,7 @@ module Crysterm
       off == b.size ? '\n' : b.text[off]
     end
 
-    # Format of the character preceding `pos` (see `TextBlock#char_format_at`).
+    # Format of the character preceding `pos`.
     def char_format_at(pos : Int32) : TextCharFormat
       bi, off = block_at(pos)
       blocks[bi].char_format_at(off)
@@ -235,8 +226,8 @@ module Crysterm
       TextDocumentFragment.new(parts)
     end
 
-    # Character-format runs of `[from, to)` in absolute positions (separators
-    # carry no char format and are skipped). Undo snapshot for format changes.
+    # Character-format runs of `[from, to)` in absolute positions; separators
+    # carry no char format and are skipped.
     def char_format_runs(from : Int32, to : Int32) : Array({Int32, Int32, TextCharFormat})
       runs = [] of {Int32, Int32, TextCharFormat}
       each_block_in(from, to) do |bi, lo, hi|
@@ -255,11 +246,9 @@ module Crysterm
       replace_content(text.split('\n').map { |l| TextBlock.new(l) })
     end
 
-    # Shared tail of `set_plain_text` and the interchange setters
-    # (`set_tags`/`set_markdown`/`set_html`): swaps in *new_blocks* wholesale,
-    # with `set_plain_text`'s reset semantics (undo stack cleared, cursors
-    # rewound, document unmodified). The blocks are adopted, not copied —
-    # callers hand over freshly built ones.
+    # Swaps in *new_blocks* wholesale with `set_plain_text`'s reset semantics:
+    # undo stack cleared, cursors rewound, document unmodified. The blocks are
+    # adopted, not copied — callers must hand over freshly built ones.
     protected def replace_content(new_blocks : Array(TextBlock)) : Nil
       old_size = size
       bs = blocks
@@ -276,7 +265,7 @@ module Crysterm
       set_plain_text("")
     end
 
-    # === Public editing API (undoable). `TextCursor` is the usual caller. ===
+    # === Public editing API (undoable) ===
 
     # Inserts `text` at `pos`; `'\n'`s split blocks. Without an explicit
     # format, inherits the format at the insertion point. Returns the number
@@ -302,17 +291,15 @@ module Crysterm
       frag
     end
 
-    # Inserts a formatted fragment at `pos` — the rich-paste primitive
-    # (document half of Qt `QTextCursor::insertFragment`). Undoable. Returns
-    # the number of positions inserted. The fragment is only read (inserted
-    # blocks are copies), so a caller-held fragment — e.g. the clipboard's —
-    # stays valid.
+    # Inserts a formatted fragment at `pos` (Qt `QTextCursor::insertFragment`),
+    # undoably, returning the number of positions inserted. The fragment is
+    # only read and inserted blocks are copies, so a caller-held fragment —
+    # e.g. the clipboard's — stays valid.
     def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
       return 0 if frag.size == 0
       pos = pos.clamp(0, size)
       # A multi-block insertion at a block start replaces the head block's
-      # format with the fragment's (see `raw_insert_fragment`); record the
-      # original so undo restores it exactly.
+      # format with the fragment's; record the original so undo restores it.
       bi, off = block_at(pos)
       old_bf = off == 0 && frag.blocks.size > 1 ? blocks[bi].block_format : nil
       raw_insert_fragment(pos, frag)
@@ -441,8 +428,8 @@ module Crysterm
     end
 
     # === Raw primitives: structural edits with cursor adjustment and change
-    # signals but no undo recording. Callers are the public methods above and
-    # `TextUndoStack` command replay — never widgets. ===
+    # signals but no undo recording. Only the public methods above and undo
+    # command replay may call these — never widgets. ===
 
     protected def raw_insert(pos : Int32, text : String, format : TextCharFormat) : Nil
       bi, off = block_at(pos)
@@ -480,11 +467,11 @@ module Crysterm
       frag
     end
 
-    # Re-inserts a formatted fragment (undo of a removal, later rich paste).
-    # Multi-block fragments split the target block; the re-created trailing
-    # block takes the fragment's last block format — the inverse of
-    # `raw_remove`'s merge, so undo restores block formats exactly. Inserted
-    # blocks are copies; the fragment stays detached for future replays.
+    # Re-inserts a formatted fragment. Multi-block fragments split the target
+    # block; the re-created trailing block takes the fragment's last block
+    # format — the exact inverse of `raw_remove`'s merge, so undo restores
+    # block formats. Inserted blocks are copies, keeping the fragment detached
+    # for future replays.
     protected def raw_insert_fragment(pos : Int32, frag : TextDocumentFragment) : Nil
       return if frag.size == 0
       bi, off = block_at(pos)
@@ -498,10 +485,10 @@ module Crysterm
         end
       else
         tail = block.split(off)
-        # At a block start the fragment's first block IS the new head block:
-        # its block format (list/table/frame membership) must ride along, or
-        # a pasted list/table corrupts. Mid-block (off > 0) the head half
-        # legitimately keeps the surrounding block's format.
+        # At a block start the fragment's first block IS the new head block, so
+        # its block format (list/table/frame membership) must ride along or a
+        # pasted list/table corrupts. Mid-block, the head half keeps the
+        # surrounding block's format.
         block.block_format = fblocks[0].block_format if off == 0
         fblocks[0].fragments.each { |f| block.insert(block.size, f.text, f.format) }
         new_blocks = Array(TextBlock).new(fblocks.size - 1)
@@ -549,7 +536,7 @@ module Crysterm
     end
 
     # Re-evaluates undo/redo availability and modified state, emitting the
-    # transition events. Called by the undo stack after every push/undo/redo.
+    # transition events. Must run after every push/undo/redo.
     protected def refresh_undo_state : Nil
       ua = @undo_stack.undo_available?
       ra = @undo_stack.redo_available?
@@ -582,7 +569,7 @@ module Crysterm
     end
 
     # Yields {block index, local from, local to} for each block overlapping
-    # `[from, to)` — the shared range walk under formats, slicing and search.
+    # `[from, to)`.
     private def each_block_in(from : Int32, to : Int32, & : Int32, Int32, Int32 ->) : Nil
       b1, o1 = block_at(from)
       b2, o2 = block_at(to)
@@ -603,11 +590,10 @@ module Crysterm
     end
 
     # Common tail of every raw edit: drop the position index, shift live
-    # cursors, emit change signals. `kind` says how positions were affected
-    # (`ChangeKind`) — only `Edit` shifts cursors; `Format` reports a changed
-    # range but must not move cursors within it, and `Replace` already rewound
-    # them. The kind rides on `ContentsChanged` so views can mirror the same
-    # adjustment on their own carets.
+    # cursors, emit change signals. Only `Edit` shifts cursors — `Format`
+    # reports a changed range but must not move cursors within it, and
+    # `Replace` has already rewound them. The kind rides on `ContentsChanged`
+    # so views can mirror the adjustment on their own carets.
     private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
       @block_offsets = nil
       @plain_cache = nil

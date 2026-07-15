@@ -1,13 +1,12 @@
 module Crysterm
   # Import/export between `TextDocument` content and the toolkit's native tag
   # markup (`{bold}…{/bold}`, `{red-fg}`, `{#rrggbb-bg}` — the vocabulary
-  # `Widget#_parse_tags` renders) — the "home" interchange format, standing in
-  # for Qt's HTML (TEXTEDIT.md Phase 3). Lossless for the char-format set;
-  # newlines separate blocks.
+  # widgets render), the "home" interchange format standing in for Qt's HTML.
+  # Lossless for the char-format set; newlines separate blocks.
   #
-  # Extensions beyond the widget vocabulary (chosen to *degrade cleanly*: all
-  # but `{link=…}` match the widget's `TAG_REGEX`, so `_parse_tags` drops them
-  # silently instead of leaking text):
+  # Extensions beyond the widget vocabulary are chosen to *degrade cleanly*:
+  # all but `{link=…}` match the widget's `TAG_REGEX`, so the widget parser
+  # drops them silently instead of leaking text.
   #
   # - `{!block;prop;…}` — block-format prefix, conventionally at the start of
   #   its line. Props: `h1`..`h6` (heading level), `align-left|center|right`,
@@ -20,21 +19,21 @@ module Crysterm
   #   distinct lists with equal props therefore merge on a round-trip).
   #   Number prefix/suffix are not serialized.
   # - Alignment additionally round-trips through the widget-native
-  #   `{center}…{/center}` / `{right}…{/right}` wrapping tags (the export
-  #   form, since widgets understand it).
-  # - `{link=URL}…{/link}` — anchors (`{`/`}` in the URL percent-encoded).
-  #   The one form `_parse_tags` does NOT match; feeding it to a plain widget
-  #   leaks the tag text, so strip links first if that matters.
-  # - `{dim}`/`{code}` — flags without a widget/SGR rendering today; parsed
-  #   and stored (`code` is the semantic verbatim marker).
+  #   `{center}…{/center}` / `{right}…{/right}` wrapping tags — the export
+  #   form, since widgets understand it.
+  # - `{link=URL}…{/link}` — anchors, with `{`/`}` in the URL percent-encoded.
+  #   The one form the widget parser does NOT match; feeding it to a plain
+  #   widget leaks the tag text, so strip links first if that matters.
+  # - `{dim}`/`{code}` — flags with no widget/SGR rendering; parsed and stored
+  #   (`code` is the semantic verbatim marker).
   #
-  # Unknown tags and stray braces are dropped (the widget's drop-malformed
-  # policy); `{open}`/`{close}` emit literal braces; `{escape}…{/escape}`
-  # passes verbatim; `{/}` resets all char formats. `{|}` (the right-align
-  # separator) has no document representation and is dropped.
+  # Unknown tags and stray braces are dropped, matching the widget's
+  # drop-malformed policy; `{open}`/`{close}` emit literal braces;
+  # `{escape}…{/escape}` passes verbatim; `{/}` resets all char formats. `{|}`,
+  # the right-align separator, has no document representation and is dropped.
   module TextTags
-    # Same shape as `Widget::TAG_REGEX` (duplicated so the document framework
-    # stands alone, like `TextDocument.word_char?`).
+    # Same shape as `Widget::TAG_REGEX`, duplicated so the document framework
+    # stands alone.
     TAG_REGEX  = /\{(\/?)([\w\-,;!#]*)\}/
     LINK_REGEX = /\{link=([^}]*)\}/
 
@@ -150,11 +149,10 @@ module Crysterm
       closers.reverse_each { |t| io << t }
     end
 
-    # The import state machine — the `_parse_tags` loop re-targeted from SGR
-    # strings to fragments/blocks. Char-format state is proper per-category:
-    # depth counters per boolean attribute (so nesting the same flag twice
-    # needs two closes) and stacks for fg/bg/link (a close restores the
-    # enclosing value).
+    # The import state machine. Char-format state is per-category: depth
+    # counters per boolean attribute, so nesting the same flag twice needs two
+    # closes, and stacks for fg/bg/link, where a close restores the enclosing
+    # value.
     private class Parser
       @blocks = [] of TextBlock
       @frags = [] of TextFragment

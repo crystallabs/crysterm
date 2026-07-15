@@ -32,8 +32,7 @@ module Crysterm
         )
           super **opts, width: w, height: h
 
-          # The three zones flow left-to-right via masonry's inline arrangement.
-          # Set the ivar directly (not `self.layout=`) since
+          # The three zones flow left-to-right. Assigned to the ivar because
           # `@title`/`@section`/`@info` aren't initialized yet.
           @layout = Crysterm::Layout::Masonry.new
 

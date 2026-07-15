@@ -9,10 +9,9 @@ module Crysterm
     property? propagate_keys : Bool = Config.window_propagate_keys
 
     # Whether this window opts into the default quit keys. When on, `q`/Ctrl-Q
-    # destroys the window and exits the program. Handled as an app-global
-    # hotkey by `Application#route_input` before the key reaches any widget.
-    # Apps that bind those keys themselves can turn it off via the
-    # `window.default_quit_keys` config option or `default_quit_keys: false`.
+    # destroys the window and exits the program, as an app-global hotkey applied
+    # before the key reaches any widget. Apps that bind those keys themselves
+    # can turn it off.
     property? default_quit_keys : Bool = Config.window_default_quit_keys
 
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
@@ -26,29 +25,13 @@ module Crysterm
 
     # Sets up IO listeners for keyboard and mouse input.
     def listen
-      # Ensure this surface is registered with an `Application` (the dispatcher
-      # input is routed through: `Screen` → `Application#route_input` →
-      # `Window#handle_input`). `#add` is idempotent — usually `Application#exec`
+      # Ensure this surface is registered with an `Application`, the dispatcher
+      # input is routed through. `#add` is idempotent — usually `Application#exec`
       # already registered us; standalone/reattach paths self-register here.
       (@application ||= Application.global).add self
 
-      # D O:
-      # Potentially reset screen title on exit:
-      # if !tput.rxvt?
-      #  if !tput.vte?
-      #    tput.set_title_mode_feature 3
-      #  end
-      #  manipulate_window(21) { |err, data|
-      #    return if err
-      #    @_original_title = data.text
-      #  }
-      # end
-
-      # Listen for keys/mouse on input. The read fiber lives on the device
-      # (`Screen#listen_keys`): it parses bytes and routes each event up to the
-      # `Application` dispatcher (`route_input` → `Window#handle_input`).
-      # if (@tput.input._our_input == 0)
-      #  @tput.input._out_input = 1
+      # Listen for keys/mouse on input. The read fiber lives on the device: it
+      # parses bytes and routes each event up to the `Application` dispatcher.
       @screen.listen_keys
 
       # `listen_keys` only spawns the input fiber; that fiber puts the terminal
@@ -62,18 +45,17 @@ module Crysterm
       @screen.listen_mouse
 
       # Enable, by default, the input enhancements that are safe and universally
-      # expected — done here (after raw mode, like mouse, so enable sequences
-      # aren't echoed):
+      # expected — after raw mode, like mouse, so enable sequences aren't echoed:
       #
-      #   * keyboard-protocol escape-code disambiguation — pure correctness win
-      #     (Esc is instant, Tab/Ctrl+I etc. distinguishable via `key_event`),
-      #     projects back onto legacy `key`/`char` so the event stream is
-      #     unchanged; no-op on unsupported terminals.
+      #   * keyboard-protocol escape-code disambiguation (Esc is instant,
+      #     Tab/Ctrl+I etc. distinguishable via `key_event`), which projects back
+      #     onto legacy `key`/`char` so the event stream is unchanged.
       #   * bracketed paste — a paste arrives as `Event::Paste` instead of being
-      #     interpreted as keystrokes; harmless on unsupported terminals.
+      #     interpreted as keystrokes.
       #
-      # Modifier/release reporting (`enable_keyboard_protocol(events: true)`)
-      # stays opt-in, since it changes the event stream.
+      # Both are no-ops on unsupported terminals. Modifier/release reporting
+      # (`enable_keyboard_protocol(events: true)`) stays opt-in, since it changes
+      # the event stream.
       #
       # Only negotiate with a real terminal — writing enable sequences to a
       # pipe/file would corrupt the output stream.
@@ -88,41 +70,23 @@ module Crysterm
         # funnel into the same `Event::Resize`.
         enable_in_band_resize if tput.features.in_band_resize?
       end
-      # else
-      #  @tput.input._our_input += 1
-      # end
 
-      # TODO Do this if it's possible to get resize events on individual IOs.
-      # Listen for resize on output
-      # if (@output._our_output==0)
-      #  @output._our_output = 1
-      #  listen_output
-      # else
-      #  @output._our_output += 1
-      # end
+      # TODO Listen for resize on the output IO, if per-IO resize events ever
+      # become possible.
     end
 
-    # The input read fiber now lives on the device (`Screen#listen_keys`, in
-    # `screen_input.cr`): it parses bytes and routes each event up to the
-    # `Application` dispatcher. `#listen` (above) starts it via `@screen.listen_keys`.
-
     # The input-mode toggles (keyboard-protocol / bracketed-paste /
-    # in-band-resize / color-scheme) and their `_listened_*?` flags now live on
-    # the device (`Screen`, in `screen_input.cr`); this surface delegates them
-    # (see the `delegate … to: @screen` block in `window.cr`).
-
-    # The OSC escape-sequence transport (`copy` / `request_clipboard` / OSC-52
-    # clipboard, `report_cwd`, `progress`) now lives on the device (`Screen`, in
-    # `screen_osc.cr`); this surface delegates them (see `window.cr`).
+    # in-band-resize / color-scheme) and their `_listened_*?` flags live on the
+    # device (`Screen`), as does the OSC escape-sequence transport (`copy` /
+    # `request_clipboard`, `report_cwd`, `progress`); this surface delegates them.
 
     # Demuxes one parsed input event (`Tput::InputEvent`) into the right Crysterm
-    # event on this surface — the per-window handler `Application#route_input`
-    # forwards to. Mouse reports go through the unified mouse path; a paste
-    # becomes `Event::Paste`; in-band resize feeds the same debounced path as
-    # SIGWINCH; everything else is a key transition — a release (only seen when
-    # event reporting is enabled) becomes `Event::KeyRelease` so `Event::KeyPress`
-    # always means a press, with the base `Event::Key` also emitted for
-    # listeners that want every transition.
+    # event on this surface. Mouse reports go through the unified mouse path; a
+    # paste becomes `Event::Paste`; in-band resize feeds the same debounced path
+    # as SIGWINCH; everything else is a key transition — a release (only seen
+    # when event reporting is enabled) becomes `Event::KeyRelease` so
+    # `Event::KeyPress` always means a press, with the base `Event::Key` also
+    # emitted for listeners that want every transition.
     #
     # :nodoc:
     def handle_input(e : Tput::InputEvent) : Crysterm::Event::KeyPress?
@@ -144,8 +108,8 @@ module Crysterm
           # geometry directly from it, no ioctl/escape round-trip.
           @screen.apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows)
           # Hand the authoritative cell size to the debounced `#resize` path
-          # instead of re-probing via `TIOCGWINSZ` — the ioctl in-band resize
-          # (DEC 2048) exists to bypass where SIGWINCH/ioctl are unreliable.
+          # instead of re-probing via the `TIOCGWINSZ` ioctl that in-band resize
+          # (DEC 2048) exists to bypass.
           @pending_inband_size = {r.cols, r.rows}
         end
         schedule_resize
@@ -154,9 +118,8 @@ module Crysterm
         emit ev
         emit Crysterm::Event::Key, ev if has_handlers?(Crysterm::Event::Key)
       else
-        # Return the emitted `KeyPress` so `Application#route_input` can apply the
-        # default quit keys as a *fallback* — only when no widget/handler
-        # `#accept`ed the key (BUGS-F2 #1).
+        # Return the emitted `KeyPress` so the caller can apply the default quit
+        # keys as a *fallback*, only when no widget/handler `#accept`ed the key.
         press = Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
         emit press
         emit Crysterm::Event::Key, press if has_handlers?(Crysterm::Event::Key)
@@ -165,18 +128,9 @@ module Crysterm
       nil
     end
 
-    # Disabled since they exist, but nothing calls them within blessed:
-    # def enable_keys(el = nil)
-    #  _listen_keys(el)
-    # end
-    # def enable_input(el = nil)
-    #  # _listen_mouse(el)
-    #  _listen_keys(el)
-    # end
-
     # Registers `el` as a widget that wants to receive keyboard input. Once
-    # registered, the general key listener (`#_listen_keys`) dispatches key
-    # presses to it, and it participates in keyboard focus navigation.
+    # registered, the general key listener dispatches key presses to it, and it
+    # participates in keyboard focus navigation.
     #
     # Widgets do not need to call this themselves: `Widget#initialize`
     # registers them automatically when they ask for keys (`#keys?`/`#input?`).
@@ -185,9 +139,9 @@ module Crysterm
     end
 
     # Adds *el* to input-registry *coll* if not already present, returning whether
-    # it was newly added — so the caller can run its one-time side effects (set the
-    # widget's intrinsic flag, enable mouse reporting) only on first registration.
-    # Shared scaffold of `#register_keyable`/`#register_clickable`.
+    # it was newly added — so the caller can run its one-time side effects (set
+    # the widget's intrinsic flag, enable mouse reporting) only on first
+    # registration.
     private def register_in(el : Widget, coll : Array(Widget)) : Bool
       return false if coll.includes? el
       coll.push el
@@ -195,19 +149,15 @@ module Crysterm
     end
 
     # Removes `el` and its entire subtree from this window's keyboard and mouse
-    # registries. The counterpart to `#register_keyable`/`#register_clickable`,
-    # invoked on removal (`Window#remove`/`Widget#remove`).
+    # registries — the counterpart to `#register_keyable`/`#register_clickable`.
+    # Without it the lists grow unboundedly, pinning every widget ever inserted,
+    # and `@keyable` keeps handing detached entries to the focus navigation.
     #
-    # Without it the lists grow unboundedly and pin every widget ever inserted (a
-    # leak), and `@keyable` keeps handing detached entries to the focus
-    # navigation — harmless only because every read there is guarded by
-    # `window? == self` (see `window_focus.cr#focus_offset`), but still wasted work.
-    #
-    # Walks `self_and_each_descendant` because removing a container also detaches
-    # its descendants, whose entries must go too. Leaves each widget's intrinsic
-    # `keyable?`/`clickable?` flag alone: it records that the widget *wants* keys/
-    # mouse, so a later re-`insert` re-registers it. `Array#delete` is by value
-    # and a no-op when absent, so unregistering a never-registered widget is safe.
+    # The whole subtree goes, because removing a container also detaches its
+    # descendants. Each widget's intrinsic `keyable?`/`clickable?` flag is left
+    # alone: it records that the widget *wants* keys/mouse, so a later
+    # re-`insert` re-registers it. `Array#delete` is by value and a no-op when
+    # absent, so unregistering a never-registered widget is safe.
     def unregister(el : Widget)
       el.self_and_each_descendant do |e|
         @keyable.delete e
@@ -221,10 +171,6 @@ module Crysterm
     def _listen_keys
       return if @_listening_keys
       @_listening_keys = true
-
-      # Emission order: screen, then element and its parents until one
-      # `#accept`s it. After the first keypress, the handler checks whether
-      # grab_keys/propagate_keys/focused changed and reacts accordingly.
 
       on(Crysterm::Event::KeyPress) do |e|
         # Keyboard drag-and-drop sensor: Space lifts a focused draggable widget,
@@ -246,11 +192,9 @@ module Crysterm
         # grab_keys=true has no internal code processing it. Hook may be missing.
 
         grab_keys = @grab_keys
-        # If key grab is not active, or key is whitelisted, announce it.
-        # (emit_key emits both the generic key press and the specific key event.)
+        # XXX Announce the key at screen level when grab isn't active or the key
+        # is whitelisted: `emit_key self, e`. Not wired up.
         if !grab_keys || always_propagate
-          # XXX
-          # emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
@@ -262,10 +206,9 @@ module Crysterm
         # until someone `#accept`s it; drop it if it reaches the toplevel
         # unhandled.
         #
-        # When a widget has grabbed keys (e.g. a `PlainTextEdit`/`LineEdit` reading
-        # input), the key goes to the focused widget only — it must NOT also
-        # propagate up to ancestors, or e.g. typing `j`/`k` into a text field
-        # inside a `vi:`-enabled `Form` would both insert the character and
+        # When a widget has grabbed keys (e.g. a text edit reading input), the
+        # key goes to the focused widget ONLY: typing `j`/`k` into a text field
+        # inside a `vi:`-enabled `Form` must not both insert the character and
         # trigger the form's navigation. `always_propagate` keys (Tab, etc.) are
         # the deliberate exception: they still bubble so the form can navigate.
         grabbed = @grab_keys && !always_propagate
@@ -282,17 +225,16 @@ module Crysterm
               break
             end
 
-            # Stop at the focused widget while keys are grabbed (see above).
+            # Stop at the focused widget while keys are grabbed.
             break if grabbed
 
             el2 = el2.parent
           end
         end
 
-        # Default focus navigation. If no widget consumed the key, `Tab`/
-        # `Shift+Tab` move focus to the next/previous focusable widget — the
-        # standard behavior users expect from GUI toolkits. Opt out per-screen
-        # via `tab_navigation = false`.
+        # Default focus navigation: if no widget consumed the key, `Tab`/
+        # `Shift+Tab` move focus to the next/previous focusable widget. Opt out
+        # per-screen via `tab_navigation = false`.
         if @tab_navigation && !e.accepted?
           case e.key
           when Tput::Key::Tab
@@ -330,15 +272,5 @@ module Crysterm
         end
       end
     end
-
-    # # Unused
-    # def key(key, handler)
-    # end
-
-    # def once_key(key, handler)
-    # end
-
-    # def remove_key(key, wrapper)
-    # end
   end
 end

@@ -12,13 +12,13 @@ module Crysterm
     # key handling lives in `Mixin::TextEditing`, shared with `LineEdit` (an
     # `Input`, not a scroll area).
     #
-    # Storage is a `TextDocument` via `Mixin::TextEditing::DocumentBuffer` — the
-    # same architecture Qt uses (`QPlainTextEdit` drives a `QTextDocument` with a
-    # plain layout), which is what gives editing undo/redo (`C-z` / `M-z`). The
-    # document is plain (no rich formats are entered), so rendering still goes
-    # through the base content pipeline (`@_pcontent`), not `TextEdit`'s document
-    # paint path; `#value=` bridges the document text back into `set_content`.
-    # The document is settable/shareable between views, exactly like `TextEdit`.
+    # Storage is a `TextDocument` via `Mixin::TextEditing::DocumentBuffer`, as in
+    # Qt (`QPlainTextEdit` drives a `QTextDocument` with a plain layout), which is
+    # what gives editing undo/redo (`C-z` / `M-z`). The document is plain (no rich
+    # formats are entered), so rendering goes through the base content pipeline
+    # (`@_pcontent`), not `TextEdit`'s document paint path; `#value=` bridges the
+    # document text back into `set_content`. The document is settable/shareable
+    # between views, exactly like `TextEdit`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![PlainTextEdit screenshot](../../tests/widget/plaintextedit/plaintextedit.5s.apng)
@@ -32,10 +32,8 @@ module Crysterm
       # Scroll source of truth is `@child_base` (top visible wrapped row); the
       # text caret (`@cursor_pos`) is tracked separately. Unlike `List`, where
       # `@child_offset` is the selected row, this widget keeps `@child_offset` at
-      # 0 (`#scroll` is a pure viewport scroll, `#ensure_cursor_visible` only
-      # moves `@child_base`), so `get_scroll == child_base` and the attached
-      # `ScrollBar` drives the viewport top, matching Qt (dragging the bar moves
-      # the view, not the caret).
+      # 0, so `get_scroll == child_base` and the attached `ScrollBar` drives the
+      # viewport top, matching Qt (dragging the bar moves the view, not the caret).
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
       # Only engages with `wrap_content: false` (long lines run off the right
       # edge); `really_scrollable_x?` is false while wrapping.
@@ -64,9 +62,6 @@ module Crysterm
 
         super **(input.merge({keys: true}))
 
-        # No need to register for keys here: `Widget#initialize` already does
-        # that for widgets that ask for keys (`keys`/`input`).
-
         setup_text_editing input_on_focus: input_on_focus, install_enter: !!input["keys"]?
 
         wire_document
@@ -80,9 +75,8 @@ module Crysterm
       end
 
       # Replaces the whole text (Qt's `setPlainText`): the caret parks at the
-      # end and the undo stack clears — this is a *reset*, not an undoable edit
-      # (see `DocumentBuffer#value=`). Use `#insert_text` / `#append_plain_text`
-      # for edits the user can undo.
+      # end and the undo stack clears — this is a *reset*, not an undoable edit.
+      # Use `#insert_text` / `#append_plain_text` for edits the user can undo.
       def plain_text=(text : String)
         self.value = text
       end
@@ -118,19 +112,17 @@ module Crysterm
         end
       end
 
-      # Adds undo/redo on top of the shared editing keys (see
-      # `DocumentBuffer#handle_undo_redo_key`) before delegating to `super`.
+      # Adds undo/redo on top of the shared editing keys.
       def _listener(e)
         return if handle_undo_redo_key(e)
         super
       end
 
-      # Re-adds the flat display half that `DocumentBuffer#value=` omits (it
-      # relies on `ContentsChanged` for a document paint, but `PlainTextEdit`
-      # renders through the base `@_pcontent` content pipeline): push the
-      # document's plain text into `set_content` whenever it changed. Mirrors
-      # `FlatBuffer#value=`'s contract; the mixin's `#render` calls this with
-      # `nil` every frame (a redisplay) and external sets pass the new text.
+      # Pushes the document's plain text into `set_content` whenever it changed:
+      # `DocumentBuffer#value=` relies on `ContentsChanged` for a document paint,
+      # but this widget renders through the base `@_pcontent` pipeline. The
+      # mixin's `#render` calls this with `nil` every frame (a redisplay);
+      # external sets pass the new text.
       def value=(value = nil)
         super
         v = buf_text

@@ -41,14 +41,10 @@ module Crysterm
 
         super **box
 
-        # Dialogs start hidden, like Blessed's `options.hidden = true`: `read_input`
-        # calls `show` to reveal the prompt. Otherwise it renders on the first
-        # frame and, with several dialogs sharing a window, they stack up.
+        # Dialogs start hidden; `#read_input` calls `show`. Otherwise the prompt
+        # renders on the first frame, and dialogs sharing a window stack up.
         hide
 
-        # Echo mode (`LineEdit::EchoMode`, Qt's `QLineEdit::EchoMode`): hide the
-        # text entirely (`NoEcho`) or mask it (`Password`), plus an optional
-        # placeholder.
         echo_mode.try { |v| @textinput.echo_mode = v }
         placeholder_text.try { |v| @textinput.placeholder_text = v }
         @validator = validator
@@ -71,16 +67,7 @@ module Crysterm
         @textinput.value = value
 
         window.save_focus
-        # focus
 
-        # ev_keys = window.on(Event::KeyPress) do |e|
-        #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
-        #  done.call nil, e.key == Tput::Key::Enter
-        # end
-
-        # The buttons are just the two dialog gestures (which drive the embedded
-        # field — see `#accept`/`#reject`), so they wire straight to them rather
-        # than to a pair of near-identical relay methods.
         ev_ok = @ok.on(::Crysterm::Event::Press) { accept }
 
         ev_cancel = @cancel.on(::Crysterm::Event::Press) { reject }
@@ -98,8 +85,7 @@ module Crysterm
             end
 
             teardown_ok_cancel ev_ok, ev_cancel
-            # Record the outcome and signal it (`Accepted`/`Rejected` +
-            # `Finished`) before the callback runs, so both see the same
+            # Record the outcome before the callback runs, so both see the same
             # `#result`.
             done(data ? Code::Accepted : Code::Rejected)
 
@@ -114,9 +100,9 @@ module Crysterm
       end
 
       # The affirmative gesture submits the embedded field rather than closing
-      # outright: the field's own read callback is what carries the entered
-      # value (and runs the `#validator`), and it closes the dialog through
-      # `Dialog#done` from there. Closing here directly would discard the text.
+      # outright: the field's own read callback carries the entered value, runs
+      # the `#validator`, and closes the dialog from there. Closing here
+      # directly would discard the text.
       def accept : Nil
         @textinput.submit
       end

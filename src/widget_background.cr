@@ -20,8 +20,8 @@ module Crysterm
     #   the image, while text cells draw over it (and `style.alpha` grades them).
     #
     # The host doesn't branch on the backend except to mark a Kitty layer as a
-    # background (`z=-1`); the Cells case is distinguished in `_render` by the
-    # layer being a `Media::Cells` (see `#background_paints_cells?`).
+    # background (`z=-1`); the Cells case is recognized by the layer being a
+    # `Media::Cells`.
 
     # Whether this widget is internal chrome that the layout engines must neither
     # arrange (measure/place) nor render in the normal child pass. The background
@@ -29,29 +29,25 @@ module Crysterm
     getter? layout_excluded = false
 
     # :ditto: — a runtime `false → true` flip also clears the subtree's
-    # last-rendered rects (mirroring `Layout#skip_subtree`): every engine
-    # early-returns on an excluded child without touching its `lpos`, so the
-    # widget would stop painting while `Window#widget_at` — which hit-tests
-    # every widget independently against its own `lpos` — kept routing
-    # clicks/hovers to it (and its descendants) at the stale rects. Chrome that
-    # renders out-of-band (the background layer) immediately refreshes its own
-    # `lpos`, so the clear is harmless there.
+    # last-rendered rects: every engine early-returns on an excluded child without
+    # touching its `lpos`, so the widget would stop painting while hit-testing
+    # kept routing clicks/hovers to it and its descendants at the stale rects.
+    # Chrome that renders out-of-band (the background layer) refreshes its own
+    # `lpos` immediately, so the clear is harmless there.
     def layout_excluded=(value : Bool) : Bool
       if value != @layout_excluded
         clear_subtree_lpos self if value
-        # Either flip changes what the child pass paints, invisibly to the
-        # tracked geometry setters — flag damage so the optimized render
-        # repaints the area (and, on re-inclusion, renders this subtree again).
+        # Either flip changes what the child pass paints, invisibly to the tracked
+        # geometry setters — flag damage so the optimized render repaints the area
+        # (and, on re-inclusion, renders this subtree again).
         mark_dirty
       end
       @layout_excluded = value
     end
 
-    # Clears the last-rendered rect of *el*'s whole subtree (the widget-side
-    # analog of `Layout#skip_subtree`). Explicit recursion, allocation-free.
-    # Shared: also called from `Widget#_render`'s early-return paths, whose
-    # callers filter out `layout_excluded?` chrome (the same way `skip_subtree`'s
-    # callers do — such chrome renders out-of-band with its own live `lpos`).
+    # Clears the last-rendered rect of *el*'s whole subtree. Explicit recursion,
+    # allocation-free. Callers must filter out `layout_excluded?` chrome, which
+    # renders out-of-band with its own live `lpos`.
     protected def clear_subtree_lpos(el : Widget) : Nil
       el.lpos = nil
       el.children.each { |c| clear_subtree_lpos c }
@@ -65,9 +61,9 @@ module Crysterm
     @background_url : String?
 
     # Reconciles the background-image layer with `style.background_image` and
-    # renders it. Called once per frame from `_render`, *before* the content is
-    # drawn. Creates the layer on first use, reloads it on a URL change, and tears
-    # it down when the property is cleared (or no capable backend exists).
+    # renders it — once per frame, *before* the content is drawn. Creates the
+    # layer on first use, reloads it on a URL change, and tears it down when the
+    # property is cleared (or no capable backend exists).
     protected def update_background_media : Nil
       src = style.background_image
       if src && (bg = ensure_background_media(src))
@@ -86,8 +82,8 @@ module Crysterm
 
     # Whether the active background layer paints into the cell buffer
     # (`Media::Cells`) rather than a separate terminal-graphics layer (Kitty).
-    # `_render` uses this to leave the layer's empty cells showing the image
-    # instead of overwriting them with the widget's own fill.
+    # When it does, the layer's empty cells must be left showing the image
+    # instead of being overwritten by the widget's own fill.
     def background_paints_cells? : Bool
       @background_media.is_a?(Media::Cells)
     end

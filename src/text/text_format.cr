@@ -1,33 +1,31 @@
 module Crysterm
-  # Base of the text-format family used by the `TextDocument` framework,
-  # mirroring Qt's QTextFormat hierarchy (see TEXTEDIT.md §2/§3).
+  # Base of the text-format family, mirroring Qt's QTextFormat hierarchy.
   #
-  # Formats are *immutable*: every derivation (`#merge`, setters would be
-  # copies) returns a new object, so fragments, undo snapshots and pending
-  # cursor formats can share references freely. Classes (not structs) because
-  # Qt's hierarchy has concrete inheritance (`QTextTableFormat <
-  # QTextFrameFormat`, `QTextImageFormat < QTextCharFormat`), which Crystal
-  # structs don't allow.
+  # Formats are *immutable*: every derivation returns a new object, so
+  # fragments, undo snapshots and pending cursor formats can share references
+  # freely. Classes rather than structs, because Qt's hierarchy uses concrete
+  # inheritance (`QTextTableFormat < QTextFrameFormat`, `QTextImageFormat <
+  # QTextCharFormat`) and Crystal structs don't allow it.
   abstract class TextFormat
   end
 
   # Character-level format (Qt `QTextCharFormat`), reduced to the
-  # SGR-expressible set per TEXTEDIT.md §3. Colors are stored like `Style`'s:
-  # native `0xRRGGBB` ints (`-1` = terminal default, `nil` = unset), with
-  # `"#rrggbb"`/named strings accepted and parsed via `Colors.convert_cached`.
+  # SGR-expressible set. Colors are stored like `Style`'s: native `0xRRGGBB`
+  # ints (`-1` = terminal default, `nil` = unset), with `"#rrggbb"`/named
+  # strings accepted and parsed.
   #
   # Alongside the attribute *values* the format carries `attr_mask`: which
-  # boolean attributes were explicitly specified. That is Qt's property-
-  # presence semantics — it lets a format act as a *patch* in `#merge`, so
+  # boolean attributes were explicitly specified (Qt's property-presence
+  # semantics). It lets a format act as a *patch* in `#merge`, so
   # `TextCharFormat.new(bold: false)` can un-bold a selection while leaving
   # unspecified attributes alone. The mask is meaningless for stored/rendered
   # formats; visual identity is `#same_appearance?`, which ignores it.
   class TextCharFormat < TextFormat
     # Boolean attributes. All but `Code` are SGR-expressible; `Code` is a
-    # *semantic* marker (Qt `fontFixedPitch`) — verbatim/monospace text — that
-    # the interchange formats (markdown backticks, HTML `<code>`) need to
-    # round-trip. It renders only through whatever colors the importer paired
-    # it with, like `anchor_href` (the other non-SGR semantic property).
+    # *semantic* marker (Qt `fontFixedPitch`) for verbatim/monospace text that
+    # the interchange formats (markdown backticks, HTML `<code>`) round-trip.
+    # It renders only through whatever colors the importer paired it with, like
+    # `anchor_href` — the other non-SGR semantic property.
     @[Flags]
     enum Attr
       Bold
@@ -116,8 +114,8 @@ module Crysterm
       )
     end
 
-    # Visual identity — what fragment normalization merges on. Ignores
-    # `attr_mask` (patch bookkeeping), unlike `==`.
+    # Visual identity — what fragment normalization merges on. Unlike `==`,
+    # ignores `attr_mask`, which is patch bookkeeping.
     def same_appearance?(other : TextCharFormat) : Bool
       @attributes == other.attributes && @fg == other.fg &&
         @bg == other.bg && @anchor_href == other.anchor_href
@@ -137,25 +135,22 @@ module Crysterm
     # Block background color; same convention as `TextCharFormat#bg`.
     getter bg : Int32?
 
-    # The list this block belongs to, or nil. List membership is carried by
-    # *instance identity* of the shared `TextListFormat` (all items of one
-    # list reference the same object; see `TextList`) — the stand-in for Qt's
-    # `objectIndex` that survives detached blocks (clipboard fragments,
-    # importer output) with no document-side registry. Block splits/merges and
-    # undo snapshots copy the reference, so pressing Enter in a list item
-    # continues the list and undo restores membership, as in Qt.
+    # The list this block belongs to, or nil. Membership is carried by
+    # *instance identity* of the shared `TextListFormat` — all items of one
+    # list reference the same object — standing in for Qt's `objectIndex` so
+    # that detached blocks (clipboard fragments, importer output) need no
+    # document-side registry. Splits/merges and undo snapshots copy the
+    # reference, so Enter in a list item continues the list and undo restores
+    # membership.
     getter list_format : TextListFormat?
 
-    # The table this block is a rendered row of, or nil — same shared-
-    # instance identity convention as `list_format` (see `TextTable`).
+    # The table this block is a rendered row of, or nil — same shared-instance
+    # identity convention as `list_format`.
     getter table_format : TextTableFormat?
 
     # The block's frame *path*: the chain of child frames containing it,
-    # outermost first — nil/empty means the block sits directly in the
-    # document's root frame. Same shared-instance identity convention as
-    # `list_format`: all blocks of one frame reference the same
-    # `TextFrameFormat` instance (see `TextFrame`), so splits/merges, undo
-    # and clipboard fragments preserve frame membership for free.
+    # outermost first; nil/empty means the block sits directly in the root
+    # frame. Same shared-instance identity convention as `list_format`.
     getter frame_formats : Array(TextFrameFormat)?
 
     # Shared all-defaults instance.
@@ -169,9 +164,8 @@ module Crysterm
     @quote_level : Int32?
     @horizontal_rule : Bool?
     # Whether this block is a *checked* item of a `Checkbox`-style list.
-    # `nil`/`false` = unchecked; only meaningful when `list_format`'s style
-    # is `Checkbox`. Kept per-block because the list format is shared by all
-    # items (the stand-in for Qt's per-item state on a shared list object).
+    # `nil`/`false` = unchecked; only meaningful when `list_format`'s style is
+    # `Checkbox`. Per-block because the list format is shared by all items.
     @checked : Bool?
 
     def initialize(
@@ -229,8 +223,7 @@ module Crysterm
       heading_level > 0
     end
 
-    # Whether the block resists being broken across pages/frames. Kept for Qt
-    # parity; unused until frames render.
+    # Whether the block resists being broken across pages/frames.
     def non_breakable? : Bool
       @non_breakable || false
     end
@@ -274,10 +267,9 @@ module Crysterm
       )
     end
 
-    # A full-field copy overriding exactly the given nil-able properties.
-    # Every field is forwarded from the `@`-ivars; the three `with_*` copiers
-    # below (which `#merge` can't express — nil = unspecified/cleared) each
-    # supply one override. Adding a block property means editing this once.
+    # A full-field copy overriding exactly the given nil-able properties. Every
+    # field is forwarded from the `@`-ivars, so adding a block property means
+    # editing this once.
     private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats) : TextBlockFormat
       TextBlockFormat.new(
         alignment: @alignment, indent: @indent, top_margin: @top_margin,
@@ -287,22 +279,20 @@ module Crysterm
         table_format: @table_format, frame_formats: frame_formats)
     end
 
-    # A copy with the list reference replaced (or `nil` — cleared). `#merge`
-    # can't express clearing (nil = unspecified), so `TextList#add/#remove`
-    # rewrite the whole format through this.
+    # A copy with the list reference replaced, or cleared with `nil` — which
+    # `#merge` cannot express, since nil there means "unspecified".
     def with_list_format(lf : TextListFormat?) : TextBlockFormat
       copy_with(list_format: lf)
     end
 
-    # A copy with the checkbox state replaced (or cleared with `nil`). Toggles
-    # a `Checkbox`-style item; `#merge` can't set `false` over a stored value
-    # (nil = unspecified), same as `#with_list_format`.
+    # A copy with the checkbox state replaced, or cleared with `nil`. `#merge`
+    # cannot set `false` over a stored value, same as `#with_list_format`.
     def with_checked(checked : Bool?) : TextBlockFormat
       copy_with(checked: checked)
     end
 
-    # A copy with the frame path replaced (or `nil` — moved to the root
-    # frame). `#merge` can't express clearing, same as `#with_list_format`.
+    # A copy with the frame path replaced, or `nil` to move the block to the
+    # root frame. `#merge` cannot express clearing, same as `#with_list_format`.
     def with_frame_formats(ff : Array(TextFrameFormat)?) : TextBlockFormat
       copy_with(frame_formats: ff)
     end
@@ -311,18 +301,16 @@ module Crysterm
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering
-  # start and prefix/suffix. One *instance* is shared by all member blocks of
-  # a list — instance identity IS list identity (see
-  # `TextBlockFormat#list_format`) — so treat instances as one-per-list, not
-  # as interchangeable values.
+  # start and prefix/suffix. One *instance* is shared by all member blocks of a
+  # list, and instance identity IS list identity — so treat instances as
+  # one-per-list, not as interchangeable values.
   class TextListFormat < TextFormat
     enum Style
       Disc
       Circle
       Square
-      # A GFM task-list marker (`[x]`/`[ ]`); the per-item checked state
-      # lives on the member block (`TextBlockFormat#checked?`), since the
-      # format instance is shared by every item.
+      # A GFM task-list marker (`[x]`/`[ ]`). The per-item checked state lives
+      # on the member block, since the format instance is shared by every item.
       Checkbox
       Decimal
       LowerAlpha
@@ -361,16 +349,16 @@ module Crysterm
 
     # The rendered marker of 0-based item *item* under this format, including
     # the separating trailing space: `"• "`, `"3. "`, `"c) "`, `"[x] "`…
-    # `checked` selects the mark of a `Checkbox`-style item (its state lives
-    # on the member block, not here); it is ignored by the other styles.
+    # `checked` selects the mark of a `Checkbox`-style item and is ignored by
+    # the other styles.
     def marker(item : Int32, tier : Glyphs::Tier = Glyphs::Tier::Unicode, checked : Bool = false) : String
       case style
       when .disc?   then "#{Glyphs[Glyphs::Role::IconBullet, tier]} "
       when .circle? then "#{Glyphs[Glyphs::Role::IconCircle, tier]} "
       when .square? then "#{Glyphs[Glyphs::Role::IconSquareFilled, tier]} "
       when .checkbox?
-        # Composed like the `CheckBox` widget's marker: `[x]`/`[ ]` in the
-        # ascii tier, `[✓]`/`[ ]` in unicode — all single-width cells.
+        # `[x]`/`[ ]` in the ascii tier, `[✓]`/`[ ]` in unicode — all
+        # single-width cells.
         mark = checked ? Glyphs[Glyphs::Role::CheckboxChecked, tier] : Glyphs[Glyphs::Role::CheckboxUnchecked, tier]
         "#{Glyphs[Glyphs::Role::CheckboxOpen, tier]}#{mark}#{Glyphs[Glyphs::Role::CheckboxClose, tier]} "
       else
@@ -422,8 +410,8 @@ module Crysterm
     def_equals_and_hash @style, @indent, @start, @number_prefix, @number_suffix
   end
 
-  # Frame format (Qt `QTextFrameFormat`). Margins/border in cells; border
-  # renders as box-drawing when frames render (Phase 4).
+  # Frame format (Qt `QTextFrameFormat`). Margins and border in cells; the
+  # border renders as box-drawing.
   class TextFrameFormat < TextFormat
     getter margin : Int32
     getter? border : Bool
@@ -434,10 +422,9 @@ module Crysterm
     end
   end
 
-  # Table format (Qt `QTextTableFormat < QTextFrameFormat`). One *instance*
-  # per table — instance identity is table identity, referenced from every
-  # member block's `TextBlockFormat#table_format` (the `TextListFormat`
-  # convention; see `TextTable`).
+  # Table format (Qt `QTextTableFormat < QTextFrameFormat`). One *instance* per
+  # table — instance identity is table identity, referenced from every member
+  # block's `TextBlockFormat#table_format`, as with `TextListFormat`.
   class TextTableFormat < TextFrameFormat
     getter columns : Int32
 
@@ -449,8 +436,7 @@ module Crysterm
     end
   end
 
-  # Inline image (Qt `QTextImageFormat < QTextCharFormat`). Phase 4+ —
-  # read-only embedded blocks via the media/sixel path, if at all.
+  # Inline image (Qt `QTextImageFormat < QTextCharFormat`).
   class TextImageFormat < TextCharFormat
     # Image source (path or URL).
     getter name : String
@@ -464,7 +450,7 @@ module Crysterm
     end
   end
 
-  # Table cell format (Qt `QTextTableCellFormat < QTextCharFormat`). Phase 4.
+  # Table cell format (Qt `QTextTableCellFormat < QTextCharFormat`).
   class TextTableCellFormat < TextCharFormat
     getter row_span : Int32
     getter column_span : Int32

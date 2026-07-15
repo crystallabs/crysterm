@@ -16,38 +16,33 @@ module Crysterm
     # replaces (rather than stacks on) the one already in flight.
     @style_transitions : Hash(Symbol, FrameClock)?
 
-    # Snapshots the current animatable style values. The snapshot is
-    # unconditional (not gated on the OLD state declaring `transitions`): CSS
-    # defines the *destination* state's `transition` as governing the enter
-    # animation, so a transition declared only in the target state rule (e.g.
-    # `Button:hover { transition: ... }`) must still tween on entry — which
-    # requires a `prev` snapshot even though the old style had no transitions.
-    # `TransitionFrom` is a struct, so this stays allocation-free, and
-    # `#apply_style_transitions` bails cheaply when the new style also has none
-    # (so the exit leg correctly snaps, per CSS).
+    # Snapshots the current animatable style values. Unconditional — *not* gated
+    # on the OLD state declaring `transitions` — because CSS lets the destination
+    # state's `transition` govern the enter animation: `Button:hover { transition:
+    # ... }` must still tween on entry, which needs a `prev` snapshot the old
+    # style never asked for. `TransitionFrom` is a struct, so this stays
+    # allocation-free.
     def transition_from : TransitionFrom?
       s = style
       TransitionFrom.new s.fg, s.bg, s.alpha, s.tint_alpha
     end
 
     # Tweens each declared, changed animatable property from *prev* to the new
-    # (post-state-change) style value. Called from `Mixin::Style#state=`.
+    # (post-state-change) style value.
     #
     # The tick blocks write through `state_style` re-resolved per tick, never a
     # `Style` captured here: a recascade replaces the widget's per-state `Style`
-    # wholesale (`css_base_styles.deep_dup`), so a captured object would be
-    # orphaned mid-tween — the clock mutating a `Style` nothing renders while
-    # the visible value snaps to the target (the exact hazard the keyframe
-    # driver documents and avoids in `widget_animation.cr`). `st` is only read
-    # here, up front, for the tween targets — the new state's computed values.
+    # wholesale, so a captured object would be orphaned mid-tween — the clock
+    # mutating a `Style` nothing renders while the visible value snaps to the
+    # target. `st` is read once, up front, for the tween targets.
     def apply_style_transitions(prev : TransitionFrom) : Nil
       # Stop and clear every in-flight tween before (re)building. A state change
-      # into a state whose `transition` map omits — or drops entirely — a
-      # property currently tweening must not let that tween keep running: its
-      # tick writes through the per-tick re-resolved `state_style`, so it would
-      # interpolate toward the OLD state's now-stale target and corrupt the NEW
-      # state's style (which no recascade repairs for a subject-state rule).
-      # Properties the new map still declares are rebuilt from `prev` below.
+      # into a state whose `transition` map omits a currently-tweening property
+      # must not let that tween keep running: it writes through the per-tick
+      # re-resolved `state_style`, so it would interpolate toward the OLD state's
+      # now-stale target and corrupt the NEW state's style, which no recascade
+      # repairs for a subject-state rule. Properties the new map still declares
+      # are rebuilt from `prev` below.
       @style_transitions.try { |h| h.each_value(&.stop); h.clear }
       return unless window?
       st = style
@@ -59,11 +54,11 @@ module Crysterm
         next if prop == "all"
         apply_transition_prop prop, spec[0], spec[1], prev, st
       end
-      # `transition: all` (the common shorthand) tweens every supported
-      # property, but a concrete per-property entry overrides `all` — so skip
-      # any property the map declares explicitly (handling the `background`
-      # alias of `background-color`). This runs regardless of declaration order,
-      # unlike a parse-time expansion.
+      # `transition: all` tweens every supported property, but a concrete
+      # per-property entry overrides it (per CSS), so skip any property the map
+      # declares explicitly — including the `background` alias of
+      # `background-color`. Expanding here rather than at parse time makes this
+      # independent of declaration order.
       if all = trans["all"]?
         {"opacity", "color", "background-color", "tint"}.each do |prop|
           next if trans.has_key? prop
@@ -74,8 +69,7 @@ module Crysterm
     end
 
     # Dispatches a single animatable property to its tween, from *prev* to the
-    # new (post-state-change) *st* value. Shared by the per-property loop and
-    # the `all` expansion in `#apply_style_transitions`.
+    # new (post-state-change) *st* value.
     private def apply_transition_prop(prop : String, dur : Time::Span, easing : Easing,
                                       prev : TransitionFrom, st : ::Crysterm::Style) : Nil
       case prop
@@ -106,19 +100,10 @@ module Crysterm
       @style_transitions.try { |h| h[key]?.try(&.stop); h.delete key }
     end
 
-    # Builds a tween: cancels whatever is already running (via *cancel* — e.g.
-    # `#cancel_transition`, or clearing a fade/tint ivar), skips creating a new
-    # `FrameClock` when *skip* is true (having still cancelled), otherwise
-    # builds one that hands *tick* the clock each frame and requests a render,
-    # wires *on_done* to fire only on natural completion (not on an
-    # interrupting `#stop`), records it via *store* — *before* starting it, so
-    # a synchronous start (e.g. reduced motion) already sees it stored — and
-    # starts it. Returns the `FrameClock`, or `nil` when skipped.
-    #
-    # Shared by `#transition_float`/`#transition_color` below (keyed storage,
-    # several concurrent transitions per widget) and the fade/tint builders in
-    # `widget_fade.cr` (a single ivar each) — they differ only in how they
-    # cancel/store the tween, so those steps are passed in as procs.
+    # Builds and starts a tween: a `FrameClock` handing *tick* the clock each
+    # frame and requesting a render, with *on_done* fired only on natural
+    # completion (not on an interrupting `#stop`). *store* records it *before* the
+    # start, so a synchronous start (e.g. reduced motion) already sees it stored.
     private def start_tween(duration : Time::Span, easing : Easing | Symbol,
                             fps : Int32 = 30, on_done : Proc(Nil)? = nil, store : Proc(FrameClock, Nil)? = nil,
                             &tick : FrameClock ->) : FrameClock
@@ -167,8 +152,7 @@ module Crysterm
 
     # Per-channel linear interpolation `from + (to-from)*t` between two
     # `0xRRGGBB` colors, via the shared `Colors.mix` (whose first arg is
-    # weighted by `alpha`, so weight-of-`to` = `t`). Used by `#animate` in
-    # `widget_animation.cr`.
+    # weighted by `alpha`, so weight-of-`to` = `t`).
     private def lerp_color(from : Int32, to : Int32, t : Float64) : Int32
       Colors.mix(to, from, t)
     end

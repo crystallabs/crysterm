@@ -1,15 +1,11 @@
 module Crysterm
-  # A decorated list of blocks (Qt `QTextList`): the blocks of a document
-  # whose `TextBlockFormat#list_format` is this list's `TextListFormat`
-  # *instance* — instance identity is list identity (see
-  # `TextBlockFormat#list_format`). Items are numbered in document order; the
-  # marker (bullet glyph or number) renders left of each item, indented
+  # A decorated list of blocks (Qt `QTextList`): the blocks of a document whose
+  # `TextBlockFormat#list_format` is this list's `TextListFormat` *instance* —
+  # instance identity is list identity. Items are numbered in document order;
+  # the marker (bullet glyph or number) renders left of each item, indented
   # `(format.indent - 1) * 2` cells per nesting level.
   #
-  # Obtain one from `TextCursor#create_list`/`#insert_list`/`#current_list`
-  # or construct a view over an existing format instance directly. All
-  # mutations (`#add`, `#remove`, `#format=`) go through the document's
-  # undoable block-format API.
+  # All mutations go through the document's undoable block-format API.
   class TextList < TextBlockGroup
     getter format : TextListFormat
 
@@ -65,10 +61,9 @@ module Crysterm
     end
 
     # Replaces the list's format for every member (undoable). Membership
-    # identity moves to *fmt*'s instance: this view follows it, but other
-    # `TextList` views over the old instance see an empty list, and an undo
-    # restores the old instance (not this view's) — re-derive views via
-    # `TextCursor#current_list` after undo, as in Qt after `setFormat`.
+    # identity moves to *fmt*'s instance: this view follows it, but other views
+    # over the old instance see an empty list, and an undo restores the old
+    # instance rather than this view's — so re-derive views after an undo.
     def format=(fmt : TextListFormat) : TextListFormat
       old = @format
       @format = fmt

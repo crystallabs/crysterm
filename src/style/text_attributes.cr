@@ -1,7 +1,5 @@
 module Crysterm
-  # SGR text-attribute booleans shared by `Style` and `Border`. `Border` needs
-  # its own copies (rather than delegating to a `Style`) so `sattr()` (see
-  # `widget_rendering.cr`) can work directly on a `Border` object.
+  # SGR text-attribute booleans shared by `Style` and `Border`.
   module TextAttributes
     # Bold?
     property? bold : Bool = false

@@ -16,11 +16,10 @@ module Crysterm
     #
     # An **animated** source (GIF/APNG) plays in the Tek window: each frame is a
     # full PAGE-clear + redraw (the storage tube can't update in place), so it
-    # flickers and is heavier than the raster backends. Since the Tek window
-    # isn't driven by the window render loop, this overrides `Media::Base`'s
-    # render-driven animation with its own window loop. Animation defaults to
-    # ordered (Bayer) dithering (frame-independent, stable); error diffusion
-    # (default for a still) would shimmer.
+    # flickers and is heavier than the raster backends. The Tek window isn't
+    # driven by the window render loop, so this replaces `Media::Base`'s
+    # render-driven animation with its own loop. Animation defaults to ordered
+    # (Bayer) dithering, which is frame-stable; error diffusion would shimmer.
     #
     # ```
     # tek = Widget::Media::Tek.new file: "pic.png", parent: window
@@ -49,10 +48,9 @@ module Crysterm
       # Invert ink/paper (draw the dark areas instead of the bright ones).
       getter? invert : Bool
 
-      # The Tek display is a separate window that xterm auto-rescales from the
-      # 4014 logical coordinate space, so a window/box resize needs no redraw —
-      # but changing a drawing parameter does. Defines a *name*`=` setter that,
-      # on an actual change, stores the value and re-fires `#redraw!`.
+      # Defines a *name*`=` setter that stores the value and re-fires `#redraw!`
+      # on an actual change. xterm auto-rescales the Tek window from the 4014
+      # logical space, so a resize needs no redraw, but a drawing parameter does.
       private macro redraw_setter(name, type)
         def {{name.id}}=(v : {{type}})
           return if v == @{{name.id}}
@@ -76,17 +74,13 @@ module Crysterm
 
       @drawn = false
       # Set once decoding the source failed (bad path/URL, undecodable data), so
-      # we stop retrying it every render. `#draw_tek` runs as an `Event::Rendered`
-      # listener whose `emit` has no rescue, so an unhandled decode exception here
-      # would propagate out of `Window#render` and kill the render fiber. Exposed
-      # for tests. Cleared on `#load`/`#clear_image`/`#redraw!` so a corrected
-      # source can be retried.
+      # it isn't retried on every render. Drawing runs inside a render event
+      # whose `emit` has no rescue, so an escaping decode exception would kill
+      # the render fiber.
       getter? decode_failed : Bool = false
-      # Generation token for the animation loop, bumped on every (re)start (see
-      # `#start_drawing`). A running `#animate_loop` exits as soon as its
-      # generation no longer matches, so a `#redraw!` that stops playback and
-      # lets the next render spawn a fresh loop can't leave the old loop running
-      # concurrently. Exposed for tests.
+      # Generation token for the animation loop, bumped on every (re)start. A
+      # running `#animate_loop` exits as soon as its generation no longer
+      # matches, so a `#redraw!` can't leave two loops running concurrently.
       getter anim_gen : Int32 = 0
 
       def initialize(
@@ -147,8 +141,7 @@ module Crysterm
             Media.source_data(file)
           rescue
             # Unfetchable URL / unreadable path: degrade instead of crashing the
-            # render fiber (`draw_tek` runs inside the render's `emit`, which has
-            # no rescue). Mirrors `Media::Overlay#redraw_image`'s `@helper_failed`.
+            # render fiber.
             @decode_failed = true
             return
           end
@@ -163,7 +156,6 @@ module Crysterm
         iw = probe.width
         ih = probe.height
         return if iw <= 0 || ih <= 0
-        # `Media::Fit#layout` already clamps the drawn size to >= 1, so no extra clamp.
         dw, dh, ox, oy = @fit.layout(TEK_W, TEK_H, iw, ih)
 
         frames = @animate ? probe.animation_cellmaps(dw, dh, 1.0) : nil
@@ -171,8 +163,7 @@ module Crysterm
           @src_frames = frames
           @playing = true
           # Bump the generation so a loop still running from a previous draw
-          # sees a stale generation and exits instead of fighting this one for
-          # the Tek window.
+          # exits instead of fighting this one for the Tek window.
           gen = (@anim_gen += 1)
           spawn animate_loop(s, ox, oy, gen)
         else
@@ -193,8 +184,7 @@ module Crysterm
       private def animate_loop(s : ::Crysterm::Window, ox : Int32, oy : Int32, gen : Int32)
         frames = @src_frames || return
         # The frame list is fixed and cycles, so dither + build each frame's
-        # vector payload once up front (mirrors `Media::Graphics`' `@frame_payloads`)
-        # instead of re-running `to_bits` + string-building it every tick.
+        # vector payload once up front instead of every tick.
         payloads = frames.map { |(bmp, _delay)| build_frame(bmp, ox, oy) }
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush

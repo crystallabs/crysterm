@@ -4,13 +4,12 @@ module Crysterm
   class Widget
     module Pine
       # The Pine/Alpine "percent-done" progress indicator: a plain, single-row
-      # horizontal bar showing completion percentage (Alpine renders this via its
-      # `percent_done` display, see `busy.c`).
+      # horizontal bar showing completion percentage (Alpine's `percent_done`
+      # display).
       #
       # Thin subclass of `Widget::ProgressBar` that only changes defaults to match
-      # the Pine look: percentage text shown wrapped in a `[..%]` label, bar one
-      # row tall. No border is forced — leave that to CSS. Everything else (value/
-      # range model, fill math, keys) is inherited unchanged.
+      # the Pine look: percentage wrapped in a `[..%]` label, bar one row tall. No
+      # border is forced — that is left to CSS.
       #
       # ```
       # require "crysterm"

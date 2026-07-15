@@ -22,7 +22,7 @@ module Crysterm
       # * fixes the record type, e.g. `class FolderList < SelectableList(Folder)`
       #   (Crystal forbids naming a *nested* type in a class's own superclass
       #   clause, so each record class is declared at `Pine` scope and re-exposed
-      #   under its historical nested name with an `alias`),
+      #   under its nested name with an `alias`),
       # * implements `#format_row(item, index)` to render one record as a row,
       # * optionally overrides `#activate` (what Enter does), `#selected_index`
       #   (when visible rows don't map 1:1 to records) or `#rows` (to inject
@@ -109,34 +109,26 @@ module Crysterm
           selected_record.try &.callback.try &.call
         end
 
-        # Activates the currently-selected record. Subclasses may override
-        # `#activate` for different behavior (e.g. `Setup`, which toggles
-        # instead of invoking a callback).
+        # Activates the currently-selected record.
         def run_selected
           activate
         end
 
-        # Template-method hook: whether pressing the space bar toggles the
-        # current row. When it returns `true`, the shared `#on_keypress` handles
-        # `Space → #toggle_selected` and consumes the key; otherwise Space falls
-        # through to the inherited list handling. Defaults to `false` (most lists
-        # don't toggle); toggling subclasses override it with their own guard
-        # (e.g. `Setup` always, `OptionList` when the selected option is a
-        # `Toggle`, `ListSelect` in multi mode).
+        # Whether pressing the space bar toggles the current row. When `true`,
+        # `#on_keypress` handles `Space → #toggle_selected` and consumes the key;
+        # otherwise Space falls through to the inherited list handling.
         protected def space_toggles? : Bool
           false
         end
 
-        # Toggles the current row. A no-op hook by default; toggling subclasses
-        # (`Setup`, `OptionList`, `ListSelect`) override it. Invoked from
-        # `#on_keypress` only when `#space_toggles?` returns `true`.
+        # Toggles the current row. A no-op hook by default, invoked only when
+        # `#space_toggles?` returns `true`.
         def toggle_selected
         end
 
-        # Shared key handling: space-bar toggling (gated by `#space_toggles?`) on
-        # top of the inherited arrow/Enter/paging navigation. Subclasses that
-        # need extra keys (e.g. `OptionList`'s inline editing) override
-        # `#on_keypress`, handle their keys, then `super` here.
+        # Space-bar toggling (gated by `#space_toggles?`) on top of the inherited
+        # arrow/Enter/paging navigation. A subclass needing extra keys overrides
+        # this, handles its keys, then calls `super`.
         def on_keypress(e)
           if e.char == ' ' && space_toggles?
             toggle_selected

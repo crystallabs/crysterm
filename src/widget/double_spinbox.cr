@@ -12,11 +12,6 @@ module Crysterm
     # (digits, one `.`, and a leading `-` when negatives are in range); Enter
     # commits, Escape/blur discards. Emits `Event::DoubleValueChanged` on change.
     #
-    # Its value/range logic is `Mixin::RangedValue(Float64)` — the same generic
-    # bounded-range machinery the integer controls use as `RangedValue(Int32)`;
-    # it overrides only the value-change signal (`Event::DoubleValueChanged`
-    # instead of the `Int32` `Event::ValueChanged`).
-    #
     # <!-- widget-examples:capture v1 -->
     # ![DoubleSpinBox screenshot](../../tests/widget/double_spinbox/double_spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
@@ -63,8 +58,7 @@ module Crysterm
         setup_spinbox_editing value, wrapping
       end
 
-      # Emit the `Float64` value-change signal (`RangedValue` hook); the integer
-      # controls emit `Event::ValueChanged` here instead.
+      # Emit the `Float64` value-change signal (`RangedValue` hook).
       protected def emit_value_change : Nil
         emit Crysterm::Event::DoubleValueChanged, @value
       end
@@ -75,9 +69,6 @@ module Crysterm
       end
 
       # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
-      # Spelled here so the spin boxes and the text editors
-      # (`Mixin::TextEditing#read_only?`) name the same concept the same way;
-      # they had it at opposite polarity under different names.
       def read_only? : Bool
         !editable?
       end

@@ -4,24 +4,16 @@ module Crysterm
   class Widget
     # Abstract base for the button family, modeled after Qt's `QAbstractButton`.
     #
-    # `Button` (push/checkable), `ToolButton`, `CheckBox` and `RadioButton` all
-    # derive this directly as siblings, matching Qt's
-    # `QPushButton`/`QToolButton`/`QCheckBox`/`QRadioButton` under
-    # `QAbstractButton` (rather than chaining `QToolButton` off `QPushButton` or
-    # `QRadioButton` off `QCheckBox`).
-    #
     # Holds the shared `QAbstractButton`-level state — `#text`, `#checkable?`,
     # `#checked?`, `#group` — and the canonical activate/toggle behavior
     # (`#click`/`#toggle`/`#check`/`#uncheck` plus activate-key/click handlers).
-    # Push-style buttons (`Button`, `ToolButton`) inherit this wholesale; marker
-    # controls (`CheckBox`, `RadioButton`) override rendering/toggle and wire
-    # their own input via `Mixin::CheckMarker`.
+    # Push-style buttons inherit this wholesale; marker controls (`CheckBox`,
+    # `RadioButton`) override rendering/toggle and wire their own input via
+    # `Mixin::CheckMarker`.
     abstract class AbstractButton < Input
-      # The button's text label (Qt's `QAbstractButton#text`) — the one label
-      # API for the family. The push buttons store it as their `#content` (so
-      # `text:` and `content:` can never disagree); `ToolButton` adds/strips its
-      # `▾` indicator around it, and the marker controls (`Mixin::CheckMarker`)
-      # back it with their own ivar and draw it after the `[x]`/`(*)` glyph.
+      # The button's text label (Qt's `QAbstractButton#text`) — the one label API
+      # for the family. The push buttons store it as their `#content`, so `text:`
+      # and `content:` can never disagree.
       def text : String
         content
       end
@@ -39,8 +31,7 @@ module Crysterm
       getter? checkable : Bool = false
 
       # Sets checkability (Qt's `setCheckable`), re-cascading (`:checked` only
-      # ever matches a checkable button) and repainting on a real change. A bare
-      # `property?` setter only assigned the ivar, so neither happened.
+      # ever matches a checkable button) and repainting on a real change.
       def checkable=(value : Bool) : Bool
         return value if value == @checkable
         # Uncheck *before* dropping checkability: `#uncheck` is gated on
@@ -59,9 +50,8 @@ module Crysterm
 
       # Sets the checked state (Qt's `setChecked`), routing through
       # `#check`/`#uncheck` so the re-cascade, the `Event::Check`/`UnCheck` emit
-      # and the repaint all happen. A bare `property?` setter only assigned the
-      # ivar, leaving `:checked` selectors and the painted marker stale. No-op
-      # unless `#checkable?`, hence the honest `#checked?` return.
+      # and the repaint all happen. No-op unless `#checkable?`, hence the honest
+      # `#checked?` return.
       def checked=(value : Bool) : Bool
         value ? check : uncheck
         @checked
@@ -69,14 +59,12 @@ module Crysterm
 
       # The `ButtonGroup` this button belongs to, or `nil` (Qt's
       # `QAbstractButton#group`). A `RadioButton` grouped by containment under a
-      # `Widget::RadioSet` has no `ButtonGroup` and reports `nil` — see
-      # `RadioSet#checked_button` for that model's counterpart.
+      # `Widget::RadioSet` has no `ButtonGroup` and reports `nil`.
       getter group : ::Crysterm::ButtonGroup?
 
       # :nodoc:
-      # Assigned by `ButtonGroup#add` / cleared by `#remove`; not a user knob
-      # (membership is owned by the group, and assigning here would leave the
-      # group's own list out of sync).
+      # Not a user knob: membership is owned by the group, and assigning here
+      # would leave the group's own list out of sync.
       setter group
 
       def initialize(text : String? = nil, checkable : Bool = false, checked : Bool = false, **input)
@@ -85,16 +73,12 @@ module Crysterm
         @checked = checked
 
         # `text:` is the family-level spelling of `content:`; assigning it after
-        # `super` routes through the subclass's `#text=`, so each renders it the
-        # way it renders any other label.
+        # `super` routes through the subclass's `#text=`.
         text.try { |t| self.text = t }
 
-        # Activate-key wiring is shared by the whole family (push buttons and the
-        # marker controls both activate on Space/Enter), so it lives here rather
-        # than in each subclass — a subclass can no longer be silently dead to
-        # the keyboard by forgetting it. The `Click` wiring is push-only and
-        # stays in `Button`/`ToolButton` (the marker controls hit-test the marker
-        # glyph via `Mouse` instead — see `Mixin::CheckMarker`).
+        # Activate-key wiring is shared by the whole family. `Click` wiring is
+        # push-only and stays in the push buttons; the marker controls hit-test
+        # the marker glyph via `Mouse` instead.
         handle Crysterm::Event::KeyPress
       end
 
@@ -102,10 +86,9 @@ module Crysterm
       # `#focus_on_click?` is off), emits `Event::Press`, and toggles the checked
       # state when `#checkable?`.
       #
-      # A keyboard activation already has focus, so gating on `#focus_on_click?`
-      # only suppresses mouse-click focus theft — letting a dialog button opt out
-      # (`focus_on_click: false`) so a click doesn't pull focus off a live read
-      # (e.g. a `Prompt`'s `LineEdit`), which would end the read as a cancel.
+      # A keyboard activation already has focus, so `#focus_on_click?` only gates
+      # mouse-click focus theft: a dialog button can opt out (`focus_on_click:
+      # false`) so a click doesn't pull focus off a live read and cancel it.
       def click
         focus if focus_on_click?
         emit Crysterm::Event::Press
@@ -127,22 +110,18 @@ module Crysterm
       end
 
       # Whether a third, partially-checked (indeterminate) state is currently
-      # set. Always false for a plain button; `CheckBox` overrides it (via its
-      # `#tristate?` support) so `#check`/`#uncheck` here treat "partial" as a
-      # state that a transition must settle out of.
+      # set. Always false for a plain button; `CheckBox` overrides it, so
+      # `#check`/`#uncheck` treat "partial" as a state to settle out of.
       def partial? : Bool
         false
       end
 
       # Clears any partially-checked state as part of a `#check`/`#uncheck`
-      # transition. No-op for a plain button; `CheckBox` overrides it to reset
-      # its `@partial` flag, letting the transition body below live once.
+      # transition. No-op for a plain button.
       private def clear_partial : Nil
       end
 
       # Settles `#checked?` to *to*, clearing any partial state and re-cascading.
-      # The identical body of `#check`/`#uncheck`, which differ only in the
-      # settle-guard and the emitted event around this.
       private def set_checked(to : Bool) : Nil
         @checked = to
         clear_partial
@@ -150,8 +129,7 @@ module Crysterm
       end
 
       # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
-      # if it changed. Lets a checkable button be driven through the same
-      # interface as `CheckBox` (e.g. by `ButtonGroup`).
+      # if it changed.
       def check
         return unless checkable?
         return if checked? && !partial? # already settled on checked
@@ -170,18 +148,13 @@ module Crysterm
         request_render
       end
 
-      # Button-family controls indicate focus via reverse-video at the unstyled
-      # floor (see `Mixin::Style#floor_focus_reverse?`) — inverting a small,
-      # mostly single-line control is the clearest no-color focus cue, unlike a
-      # large container/editor, which this hook leaves alone.
+      # Indicates focus via reverse-video at the unstyled floor.
       def floor_focus_reverse? : Bool
         true
       end
 
       # The keyboard activation gesture, invoked by `#on_keypress` on Space/Enter.
-      # A push button `#click`s; the marker controls (`CheckBox`/`RadioButton`)
-      # override this via `Mixin::CheckMarker` to `#toggle` instead, so one
-      # `#on_keypress` serves the whole family.
+      # A push button `#click`s; the marker controls override it to `#toggle`.
       protected def activate
         click
       end

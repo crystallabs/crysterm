@@ -9,9 +9,8 @@ module Crysterm
       # several with `[X]` checkboxes (multi-select), confirming with Enter.
       # Think of it as a terminal `<select>` / `<select multiple>`.
       #
-      # The widget is fully generic over the item type `T`: the caller supplies a
-      # *label* proc describing how to render each item, so it carries no domain
-      # semantics of its own.
+      # Generic over the item type `T`: the caller supplies a *label* proc
+      # describing how to render each item, so it carries no domain semantics.
       #
       # Single-select (Enter confirms the highlighted item):
       #
@@ -70,8 +69,8 @@ module Crysterm
           on_confirm : Proc(Array(T), Nil)? = nil,
           **list,
         )
-          # Assigned before `super` because the base's `super` runs
-          # `#records=`, which calls `#format_row` (which needs both).
+          # Must be assigned before `super`: it ends up calling `#format_row`,
+          # which needs all of these.
           @label = label
           @multi = multi
           @checked_indices = Set(Int32).new
@@ -79,8 +78,7 @@ module Crysterm
 
           super items, **list
 
-          # In multi mode a click toggles the row's checkbox (like Space) rather
-          # than confirming — see `#activate`.
+          # In multi mode a click toggles the row's checkbox rather than confirming.
           self.activate_on_click = true if @multi
         end
 
@@ -129,9 +127,8 @@ module Crysterm
           refresh_rows
         end
 
-        # Replaces the checked set with *items* (multi mode) — e.g. to preselect
-        # the entries that are already active before showing the picker. Items not
-        # present in the list are ignored.
+        # Replaces the checked set with *items* (multi mode). Items not present in
+        # the list are ignored.
         def set_checked(items : Enumerable(T))
           return unless @multi
           @checked_indices.clear
@@ -159,9 +156,8 @@ module Crysterm
         end
 
         # Invoked on `Event::ActionItem` (Enter / click). In multi mode toggles
-        # the current row's checkbox without dismissing the list (read
-        # `#checked`/`#selection` when the user leaves). In single mode confirms
-        # the highlighted item via `on_confirm`.
+        # the current row's checkbox without dismissing the list; in single mode
+        # confirms the highlighted item via `on_confirm`.
         def activate
           if @multi
             toggle_selected
@@ -171,8 +167,6 @@ module Crysterm
         end
 
         # Confirms the current `#selection` via `on_confirm`, regardless of mode.
-        # Hosts call this to apply a multi-select (e.g. when the user presses a
-        # dedicated key or leaves the picker).
         def confirm
           @on_confirm.try &.call(selection)
         end
@@ -189,14 +183,13 @@ module Crysterm
           end
         end
 
-        # Space toggles the current row's checkbox only in multi mode (see
-        # `SelectableList#on_keypress`).
+        # Space toggles the current row's checkbox only in multi mode.
         protected def space_toggles? : Bool
           @multi
         end
 
-        # Rebuilds every visible row in place from the current records (e.g.
-        # after a bulk checkbox change), preserving the cursor position.
+        # Rebuilds every row in place from the current records, preserving the
+        # cursor position.
         private def refresh_rows
           records.each_with_index do |item, i|
             set_item i, format_row(item, i)

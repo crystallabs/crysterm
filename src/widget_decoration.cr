@@ -2,13 +2,10 @@ module Crysterm
   class Widget
     # Widget decorations
 
-    # The `{ileft, itop, iright, ibottom}` inner insets, cached per frame. Each
-    # getter otherwise resolves `#style` twice (border + padding), and they
-    # fire many times per widget per frame: per auto-sized child (`awidth`'s nil
-    # branch reads the parent's), ×4 per container in `Layout#interior_coords`,
-    # and inside `_render`'s clip guards. Validity is tied to the frame-memoized
-    # style: `#style` clears this on every (re)resolution, and
-    # `#invalidate_frame_style` clears both.
+    # The `{ileft, itop, iright, ibottom}` inner insets, cached per frame: the
+    # getters fire many times per widget per frame and each would otherwise
+    # resolve `#style` twice (border + padding). Validity is tied to the
+    # frame-memoized style, which clears this on every (re)resolution.
     @_frame_insets : Tuple(Int32, Int32, Int32, Int32)?
 
     private def frame_insets : Tuple(Int32, Int32, Int32, Int32)
@@ -70,10 +67,10 @@ module Crysterm
     # This is the rectangle to map pointer coordinates against, and the one to
     # paint into. Both callers get the right frame for free:
     #
-    # * from an `Event::Mouse` handler it is the last painted rectangle — the
-    #   one the user actually clicked on;
-    # * from inside `#render` it is this frame's, since `@lpos` is assigned
-    #   before children (and any custom painting) run.
+    # * from an `Event::Mouse` handler it is the last painted rectangle — the one
+    #   the user actually clicked on;
+    # * from inside `#render` it is this frame's, since `@lpos` is assigned before
+    #   children (and any custom painting) run.
     #
     # ```
     # # Map a click to a cell of a fixed-width grid.
@@ -97,10 +94,8 @@ module Crysterm
       Rectangle.new xi, xl, yi, yl
     end
 
-    # Outer (margin) offsets. Counterpart to the inner `i*` offsets above,
-    # applied to the resolved rectangle in `#coords`. Used by
-    # shrink-to-content sizing (`widget_size.cr`) so margin doesn't eat into a
-    # shrunk widget's content.
+    # Outer (margin) offsets — counterpart to the inner `i*` offsets above,
+    # applied to the resolved rectangle in `#coords`.
 
     {% for side in %w[left top right bottom] %}
       # Margin offset on the {{side.id}} side

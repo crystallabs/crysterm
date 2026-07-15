@@ -22,10 +22,9 @@ module Crysterm
     # ![DockWidget screenshot](../../tests/widget/dock_widget/dock_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class DockWidget < Box
-      # `#apply_substyle`, used by the `PreRender` handler below.
       include Mixin::SubStyle
       # A floating dock is an overlay (structural border at the unstyled floor);
-      # `#floor_border_value` below narrows which sides a docked pane draws.
+      # `#floor_border_value` narrows which sides a docked pane draws.
       include Mixin::Overlay
 
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
@@ -39,17 +38,14 @@ module Crysterm
 
       getter title : String
 
-      # Where the dock sits in a `MainWindow`. A `MainWindow` re-lays-out on the
-      # next frame; `MainWindow#add_dock(area, dock)` assigns through here.
+      # Where the dock sits in a `MainWindow`, which re-lays-out on the next frame.
       getter area : Area
 
       # :ditto:
       #
       # Not a bare `property`: `#floor_border_value` depends on the area (which
-      # side faces the content), and the frame style memoizing it must be dropped
-      # with it — the same bookkeeping `#toggle_floating` does, and without it a
-      # re-docked pane kept the old area's border. The float button's glyph
-      # tracks `#floating?` too.
+      # side faces the content), so the frame style memoizing it must be dropped
+      # with it; the float button's glyph tracks `#floating?` too.
       def area=(value : Area) : Area
         return value if @area == value
         @area = value
@@ -59,9 +55,7 @@ module Crysterm
         value
       end
 
-      # Updates the stored title and the rendered title-bar text at runtime. A
-      # plain `property` left the title-bar content a construction-time snapshot,
-      # so `dock.title = "…"` never changed anything on screen.
+      # Updates the stored title and the rendered title-bar text.
       def title=(value : String) : String
         @title = value
         @titlebar.try &.set_content(value)
@@ -85,11 +79,9 @@ module Crysterm
       @close_button : Box?
       @float_button : Box?
 
-      # Per-button memo backing `#sync_titlebutton`. Holds the `Style` copy last
-      # pushed onto the button plus the inputs it was derived from (the chosen
-      # source `Style`'s identity, and the source's + bar's bg/fg). Steady state
-      # compares these and reuses the copy instead of duplicating a `Style` per
-      # button per frame.
+      # Per-button style memo: the `Style` copy last pushed onto the button plus
+      # the inputs it was derived from. Steady state reuses the copy instead of
+      # duplicating a `Style` per button per frame.
       private class TitlebuttonStyle
         property src : ::Crysterm::Style?
         property src_bg : Int32?
@@ -103,7 +95,7 @@ module Crysterm
       @float_button_style = TitlebuttonStyle.new
 
       # The bottom-right resize grip. Present only on a `#floatable?` dock and
-      # shown only while floating (see `#refresh_grip`).
+      # shown only while floating.
       getter size_grip : SizeGrip?
 
       # Grab offset captured at the start of a title-bar drag (floating only).
@@ -133,9 +125,8 @@ module Crysterm
 
         # `DockWidget::title`/`::close-button`/`::float-button { … }` style the
         # title bar and its buttons. Pushed onto each child box every frame after
-        # the cascade; guarded by `same?` so a missing rule is a no-op and the
-        # elements keep their `.titlebar`/`.titlebutton` theme look. See
-        # `Widget::TabWidget#sync_tab_style`.
+        # the cascade; a missing rule is a no-op and the elements keep their
+        # `.titlebar`/`.titlebutton` theme look.
         on(::Crysterm::Event::PreRender) do
           apply_substyle titlebar, style.title
           # Float/close buttons default to the bar's own colors so they stay
@@ -153,8 +144,8 @@ module Crysterm
       end
 
       # A floating dock is an overlay, so it gets a full frame. A docked pane
-      # only needs a border on the side facing the content. `#ensure_floor_border`
-      # re-syncs this as the dock floats/re-docks (and across `Area` changes).
+      # only needs a border on the side facing the content. Re-synced as the
+      # dock floats/re-docks and across `Area` changes.
       def floor_border_value : Bool | Border
         return true if floating? # full frame for a detached pane
         case @area
@@ -214,9 +205,8 @@ module Crysterm
           @area = Area::Floating
         end
         refresh_buttons
-        # `floor_border_value` depends on `@area` (full frame while floating,
-        # content-facing edge while docked) — drop the frame-memoized style so
-        # `ensure_floor_border` re-syncs on the next `#style` read.
+        # `floor_border_value` depends on `@area`, so drop the frame-memoized
+        # style and let it re-sync on the next `#style` read.
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating?
         window?.try &.schedule_render
@@ -232,12 +222,10 @@ module Crysterm
       # `{left, top, width, height}`. Coordinate accessors raise before layout,
       # handled by callers' `rescue`.
       private def current_float_rect : Tuple(Int32, Int32, Int32, Int32)
-        # `left`/`top` are relative to the parent's *content* origin
-        # (`widget_position.cr` adds `parent.ileft`/`itop`), so the origin to
-        # subtract is `parent.aleft + parent.ileft` (and `atop + itop`), not the
-        # outer `aleft`/`atop`. Matches `Splitter#wire_divider`. `drag_origin`
-        # (Widget) is that exact origin, with the window's content corner as the
-        # top-level fallback.
+        # `left`/`top` are relative to the parent's *content* origin, so the
+        # origin to subtract is `parent.aleft + parent.ileft` (and `atop + itop`),
+        # not the outer `aleft`/`atop`. `drag_origin` is that exact origin, with
+        # the window's content corner as the top-level fallback.
         px, py = drag_origin
         # `with_margin: false`: the rect is stored back into `left`/`top`
         # (which layout re-adds the CSS margin to), so a margin-inclusive
@@ -278,14 +266,13 @@ module Crysterm
       private def sync_titlebutton(btn : Box?, sub : Style, memo : TitlebuttonStyle) : Nil
         return unless btn
         bar = titlebar.style
-        # `sub.same?(style)` means no explicit `::close-button`/`::float-button`
-        # rule matched, so fall back to the bar's own style as the source.
+        # `sub.same?(style)` means no explicit rule matched, so fall back to the
+        # bar's own style as the source.
         src = sub.same?(style) ? bar : sub
 
-        # Steady state: the source object and the colors feeding the overlay are
-        # unchanged since last frame, so reuse the pushed copy — no dup. The
-        # cascade replaces sub-`Style` objects on recompute (never mutates them),
-        # so identity + bg/fg fully capture whether the output would differ.
+        # Steady state: reuse the pushed copy — no dup. The cascade replaces
+        # sub-`Style` objects on recompute (never mutates them), so identity +
+        # bg/fg fully capture whether the output would differ.
         if (cached = memo.result) &&
            (last = memo.src) && last.same?(src) &&
            memo.src_bg == src.bg && memo.src_fg == src.fg &&
@@ -311,8 +298,8 @@ module Crysterm
 
       # Title-bar button glyphs: CSS `DockWidget::close-button { glyph: … }` /
       # `::float-button`, then the registry at the effective tier. Returned as a
-      # whole grapheme (single-placement affordance, GLYPHS.md §4) so a wide or
-      # multi-codepoint override renders whole and the button reserves its width.
+      # whole grapheme so a wide or multi-codepoint override renders whole and
+      # the button reserves its width.
       private def close_glyph : String
         glyph_str(Glyphs::Role::CloseButton, style.raw_sub_style("close-button"))
       end
@@ -346,10 +333,9 @@ module Crysterm
       end
 
       private def refresh_buttons
-        # Re-measure on refresh: the float mark swaps FloatButton⇄FloatingMark on
-        # dock/float, and either state may carry a wide override, so the button's
-        # reserved width tracks the current glyph. `width=`/`set_content` no-op
-        # while unchanged (byte-identical for the single-cell marks).
+        # Re-measure: the float mark swaps FloatButton⇄FloatingMark on
+        # dock/float and either state may carry a wide override, so the button's
+        # reserved width tracks the current glyph.
         @close_button.try { |b| set_button b, close_glyph }
         @float_button.try { |b| set_button b, float_glyph }
         refresh_grip
@@ -363,7 +349,7 @@ module Crysterm
       end
 
       # A floatable dock owns a corner resize grip; non-floatable docks get none.
-      # Starts hidden, revealed only while floating (`#refresh_grip`).
+      # Starts hidden, revealed only while floating.
       private def build_size_grip
         return unless floatable?
         g = SizeGrip.new(
@@ -376,8 +362,8 @@ module Crysterm
       end
 
       # A docked pane is resized via its dock separator, not a corner handle, so
-      # the grip is shown only while floating and kept in front of the content
-      # (which would otherwise paint over it). Placement handled by `#position_grip`.
+      # the grip is shown only while floating and kept in front of the content,
+      # which would otherwise paint over it.
       private def refresh_grip
         @size_grip.try do |g|
           if floating?
@@ -409,10 +395,9 @@ module Crysterm
       private def wire_drag
         titlebar.enable_drag reposition: false
         titlebar.on(::Crysterm::Event::DragStart) do |e|
-          # `with_margin: false` for the same reason as `#current_float_rect`:
-          # the offsets are replayed into `left`/`top` on Drag, which layout
-          # re-adds the CSS margin to — a margin-inclusive origin would make
-          # the dock jump by the margin on the first motion.
+          # `with_margin: false`: the offsets are replayed into `left`/`top` on
+          # Drag, which layout re-adds the CSS margin to — a margin-inclusive
+          # origin would make the dock jump by the margin on the first motion.
           @drag_dx = e.x - aleft(with_margin: false)
           @drag_dy = e.y - atop(with_margin: false)
           # Undock in place (`restore: false`) so `aleft`/`atop` — hence the
@@ -421,13 +406,11 @@ module Crysterm
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
-          # `left`/`top` are content-origin-relative but the pointer (`e.x`/`e.y`)
-          # is absolute; `drag_origin` (Widget) subtracts the parent's content
-          # origin (`aleft + ileft`, matching `#current_float_rect`), else the
-          # dock only tracks the pointer when its parent has no border/padding.
-          # `drag_max_left`/`drag_max_top` clamp against the parent's *content*
-          # extent (`awidth - ihorizontal`), so a floating dock can't be dragged out
-          # over the parent's border/padding.
+          # `left`/`top` are content-origin-relative but the pointer is absolute,
+          # so subtract the parent's content origin — else the dock only tracks
+          # the pointer when its parent has no border/padding. The clamps are
+          # against the parent's *content* extent, so a floating dock can't be
+          # dragged out over the parent's border/padding.
           ox, oy = drag_origin
           self.left = (e.x - @drag_dx - ox).clamp(0, drag_max_left)
           self.top = (e.y - @drag_dy - oy).clamp(0, drag_max_top)

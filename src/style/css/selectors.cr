@@ -1,12 +1,7 @@
 module Crysterm
   module CSS
-    # Selector text utilities.
-    #
-    # Also houses the shared, allocation-free `String`+index scanning primitives
-    # (`skip_balanced`, `skip_string`) used across the CSS selector/specificity
-    # parsers and the `Stylesheet` parser — one implementation, no `Array(Char)`
-    # twin. These run at stylesheet-load time (not per-frame), so operating on
-    # the source `String` directly (rather than a `chars` array) is fine.
+    # Selector text utilities, plus the shared allocation-free `String`+index
+    # scanning primitives (`skip_balanced`, `skip_string`) the CSS parsers use.
     module Selectors
       # Rewrites bare *type* selectors into *class* selectors so widget type
       # names emitted as element classes can be targeted by their plain name.
@@ -60,9 +55,7 @@ module Crysterm
       end
 
       # Copies the balanced region opened by *open* at *i* verbatim into *io*,
-      # returning the index just past its matching *close*. Extent (nesting,
-      # quoted strings) is found via `skip_balanced`, then the exact slice is
-      # emitted.
+      # returning the index just past its matching *close*.
       private def self.copy_balanced(str : String, i : Int32, open : Char, close : Char, io) : Int32
         stop = skip_balanced(str, i, open, close)
         io << str[i...stop]
@@ -70,8 +63,7 @@ module Crysterm
       end
 
       # Index just past the region opened by *open* at *i* up to its matching
-      # *close*, honoring nesting and quoted strings. Shared by `copy_balanced`,
-      # `Specificity`, and the `Stylesheet` parser.
+      # *close*, honoring nesting and quoted strings.
       def self.skip_balanced(str : String, i : Int32, open : Char, close : Char) : Int32
         depth = 0
         n = str.size
@@ -92,25 +84,22 @@ module Crysterm
       end
 
       # Index just past the quoted string starting at the opening quote *i*,
-      # honoring backslash escapes. Shared by every selector scanner (this
-      # module, `Specificity`, the `Stylesheet` parser).
+      # honoring backslash escapes.
       def self.skip_string(str : String, i : Int32) : Int32
         quote = str[i]
         i += 1
         n = str.size
         while i < n
           return i + 1 if str[i] == quote
-          # Skip the escaped char (the loop's `+= 1` consumes the backslash);
-          # `i + 1 < n` guard keeps a malformed trailing `\` from running the
-          # index past the string end.
+          # Skip the escaped char; the `i + 1 < n` guard keeps a malformed
+          # trailing `\` from running the index past the string end.
           i += 1 if str[i] == '\\' && i + 1 < n
           i += 1
         end
         i
       end
 
-      # Whether *ch* may appear inside a CSS identifier. Shared by every selector
-      # scanner (this module, `Specificity`, the `Stylesheet` parser).
+      # Whether *ch* may appear inside a CSS identifier.
       def self.ident?(ch : Char) : Bool
         ch.alphanumeric? || ch == '-' || ch == '_'
       end

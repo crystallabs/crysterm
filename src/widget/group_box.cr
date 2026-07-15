@@ -20,14 +20,11 @@ module Crysterm
     # ![GroupBox screenshot](../../tests/widget/group_box/group_box.5s.apng)
     # <!-- /widget-examples:capture -->
     class GroupBox < Box
-      # `#apply_substyle`, used by the `PreRender` handler below.
       include Mixin::SubStyle
 
       getter title : String = ""
 
-      # Updates the stored title and the rendered border label at runtime. A
-      # plain `property` left the label a construction-time snapshot, so
-      # `gb.title = "…"` never changed anything on screen.
+      # Updates the stored title and the rendered border label.
       def title=(value : String) : String
         @title = value
         update_label
@@ -39,9 +36,8 @@ module Crysterm
       # contents (Qt's `QGroupBox#checkable`).
       getter? checkable : Bool = false
 
-      # Enabling checkability at runtime must also add the `[x]` marker and wire
-      # the title-row click/adopt handlers, which construction only did when
-      # `checkable?` was already set.
+      # Enabling checkability at runtime also adds the `[x]` marker and wires the
+      # title-row click/adopt handlers.
       def checkable=(value : Bool) : Bool
         return value if value == @checkable
         @checkable = value
@@ -52,8 +48,7 @@ module Crysterm
         else
           # No longer checkable ⇒ the "disabled because unchecked" reason is
           # gone, and there's no checkbox left to toggle back on. Restore any
-          # children we greyed out so the contents stay usable (Qt re-enables a
-          # group's children when it becomes non-checkable).
+          # greyed-out children so the contents stay usable, as Qt does.
           restore_disabled_children
         end
         request_render
@@ -64,9 +59,8 @@ module Crysterm
       # `checkable=` is toggled more than once.
       @checkable_wired = false
 
-      # Memo backing the `PreRender` `::title` sub-style push: the last
-      # `style.title` object seen and the border-stripped copy derived from it.
-      # Rebuilt only when `style.title` returns a different object.
+      # Memo for the `::title` sub-style push: the last `style.title` object
+      # seen and the border-stripped copy derived from it.
       @_title_style_src : ::Crysterm::Style?
       @_title_style_copy : ::Crysterm::Style?
 
@@ -79,8 +73,8 @@ module Crysterm
       @_label_glyph_key : {String?, Glyphs::Tier, UInt64}?
 
       # Whether the group is *flat* — drawn without its frame (Qt's
-      # `QGroupBox#flat`). Surfaced as the `[flat]` attribute; the theme strips
-      # the default border via `GroupBox[flat]`, and Qt's `:flat` targets it.
+      # `QGroupBox#flat`). Surfaced as the `[flat]` attribute, which the theme
+      # targets via `GroupBox[flat]` to strip the default border.
       getter? flat : Bool = false
 
       def initialize(title = "", checkable = false, checked = true, flat = false, **box)
@@ -95,17 +89,15 @@ module Crysterm
         # (`GroupBox { border: solid }`) so it stays overridable by author CSS.
         update_label
 
-        # `GroupBox::title { … }` styles the title — the auto-created label child
-        # (`#set_label`, snapshotting `style.label` at creation) — so push the
-        # computed `title` sub-style onto it each frame after the cascade.
-        # Guarded by `same?`: no-op unless a `::title` rule matched. See
-        # `Widget::TabWidget#sync_tab_style`.
+        # `GroupBox::title { … }` styles the title — the auto-created label
+        # child, which snapshots its style at creation — so push the computed
+        # `title` sub-style onto it each frame after the cascade. A no-op unless
+        # a `::title` rule matched.
         on(::Crysterm::Event::PreRender) do
-          # The checkable marker is baked into the label at `update_label`
-          # time, so a later glyph-tier change (a retheme via `Glyphs.set`, or
-          # the screen's post-probe auto tier upgrade — widgets are built
-          # before `Window#exec` probes) would leave it stale. Rebuild when
-          # the resolved tier/registry generation moves.
+          # The checkable marker is baked into the label at `update_label` time,
+          # so a later glyph-tier change (a retheme, or the post-probe auto tier
+          # upgrade — widgets are built before the window probes) would leave it
+          # stale. Rebuild when the resolved tier/registry generation moves.
           if checkable?
             key = glyph_key(style)
             if @_label_glyph_key != key
@@ -118,14 +110,11 @@ module Crysterm
           unless t.same?(style)
             # The title is an inline label, not a framed box, but the `title`
             # sub-style inherits the group's own border — which would draw a full
-            # box around the title text. Strip it on an own copy, as
-            # `Menu#render_style_for` does for its separator rule (GroupBox-specific,
-            # so done here rather than via `apply_substyle`).
+            # box around the title text. Strip it on an own copy.
             #
             # Cache the stripped copy: the cascade replaces the `::title`
-            # sub-`Style` object on recompute (never mutates it), so refresh the
-            # copy only when `style.title` returns a different object. Steady
-            # state reuses it instead of duplicating a `Style` per frame.
+            # sub-`Style` object on recompute (never mutates it), so refresh only
+            # when `style.title` returns a different object.
             unless t.same?(@_title_style_src)
               @_title_style_src = t
               c = t.dup
@@ -142,15 +131,13 @@ module Crysterm
       end
 
       # Wires the title-row toggle-click and the child-adopt reflect handlers.
-      # Extracted so `checkable=` can install them when checkability is enabled
-      # after construction; idempotent via `@checkable_wired`.
+      # Idempotent via `@checkable_wired`.
       private def install_checkable_handlers : Nil
         return if @checkable_wired
         @checkable_wired = true
 
-        # Toggle only when the *title* row is clicked (Qt toggles via the group's
-        # checkbox, not the whole area) — toggling on any click made stray clicks
-        # near the controls disable everything. Uses `Mouse` (not `Click`)
+        # Toggle only when the *title* row is clicked, as Qt toggles via the
+        # group's checkbox, not the whole area. Uses `Mouse` (not `Click`)
         # because only it carries coordinates. Guarded on `checkable?` so a later
         # `checkable = false` stops it from toggling.
         on(Crysterm::Event::Mouse) do |e|
@@ -204,10 +191,8 @@ module Crysterm
       end
 
       # Checks / unchecks the group. The `AbstractButton` trio (`#check`,
-      # `#uncheck`, `#toggle`) spelled for a `GroupBox` too, so the two
-      # checkable families are driven the same way — a `GroupBox` is not a
-      # `Widget::AbstractButton` (Qt makes `QGroupBox` a `QWidget`), so it
-      # cannot inherit them.
+      # `#uncheck`, `#toggle`) spelled for a `GroupBox`, which is a plain
+      # `Widget` (as Qt makes `QGroupBox` a `QWidget`) and cannot inherit them.
       def check : Nil
         self.checked = true
       end
@@ -218,7 +203,7 @@ module Crysterm
       end
 
       # Toggles the flat (frameless) look, re-cascading so `GroupBox[flat]`
-      # matches/unmatches (the shared CSS-toggle setter, `Box`).
+      # matches/unmatches.
       css_toggle_setter flat
 
       # Reflects the checked state onto children's `state`, so an unchecked
@@ -228,8 +213,6 @@ module Crysterm
       # are restored to `:normal`; a child in any other state — focus, hover,
       # selection — is left alone.
       private def apply_enabled
-        # Re-checking restores exactly what `#restore_disabled_children` does;
-        # only the unchecked case (grey the children out) is unique here.
         return restore_disabled_children if checked?
         @children.each do |c|
           next if c.same? @_label
@@ -237,11 +220,9 @@ module Crysterm
         end
       end
 
-      # Restores children that we previously greyed out (currently `:disabled`)
-      # back to `:normal`, leaving the auto-created label and any child in some
-      # other state (focus, hover, selection) alone. Used when checkability is
-      # turned off, where `#apply_enabled` can't help (it would re-disable an
-      # unchecked group's children).
+      # Restores children that were greyed out (currently `:disabled`) back to
+      # `:normal`, leaving the auto-created label and any child in some other
+      # state (focus, hover, selection) alone.
       private def restore_disabled_children
         @children.each do |c|
           next if c.same? @_label

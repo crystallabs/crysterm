@@ -9,18 +9,17 @@ module Crysterm
     # reads and writes go straight to the row's parallel arrays (`attrs`,
     # `chars`) and the sparse grapheme overlay.
     #
-    # This keeps the contiguous-array memory layout (benchmarks in
-    # `benchmarks/cells-vs-arrays.cr` show ~2.7x faster than a heap-allocated
-    # `class Cell`) while preserving the familiar `line[x].attr = ...`
-    # mutation API used throughout rendering and drawing.
+    # This keeps the contiguous-array memory layout (~2.7x faster than a
+    # heap-allocated `class Cell`) while preserving the familiar
+    # `line[x].attr = ...` mutation API used throughout rendering and drawing.
     #
-    # Grapheme support (Phase 1): the common case — one codepoint per cell —
-    # is stored directly in `chars : Array(Char)` for speed. A cell holding a
-    # multi-codepoint **grapheme cluster** (e.g. base + combining mark) keeps
-    # its *base* codepoint in `chars` and the full cluster in the row's sparse
-    # `graphemes` overlay (allocated lazily). A **wide** (2-column) grapheme
-    # occupies two cells: the grapheme cell and a following *continuation*
-    # cell (`CONTINUATION` sentinel) the draw loop emits nothing for. Legacy
+    # Graphemes: the common case — one codepoint per cell — is stored directly
+    # in `chars : Array(Char)` for speed. A cell holding a multi-codepoint
+    # **grapheme cluster** (e.g. base + combining mark) keeps its *base*
+    # codepoint in `chars` and the full cluster in the row's sparse `graphemes`
+    # overlay (allocated lazily). A **wide** (2-column) grapheme occupies two
+    # cells: the grapheme cell and a following *continuation* cell
+    # (`CONTINUATION` sentinel) the draw loop emits nothing for. Legacy
     # (non-`full_unicode`) rendering never creates overlay or continuation
     # cells, so its fast path is unchanged.
     struct Cell
@@ -102,10 +101,9 @@ module Crysterm
       end
 
       # Whether this cell's grapheme equals `value`, without materializing the
-      # cell's own grapheme as a `String` first. Mirrors `grapheme == value`
-      # (see `#grapheme`), but on the common single-codepoint cell does only a
-      # `Char` compare — no allocation — since this drives the per-cell diff
-      # guard in `widget_rendering`.
+      # cell's own grapheme as a `String` first. Mirrors `grapheme == value`,
+      # but on the common single-codepoint cell does only a `Char` compare — no
+      # allocation — as befits a per-cell diff guard.
       def grapheme_eq?(value : String) : Bool
         if g = @row.grapheme_at?(@index)
           g == value
@@ -128,7 +126,7 @@ module Crysterm
 
       # Marks this cell as the continuation of the preceding wide grapheme.
       # Clears any hyperlink, like every content write; a linked wide glyph's
-      # writer re-asserts the link on both cells (see `#link=`).
+      # writer re-asserts the link on both cells.
       def continuation! : Nil
         @row.chars.unsafe_put(@index, CONTINUATION)
         @row.delete_grapheme @index
@@ -136,7 +134,7 @@ module Crysterm
       end
 
       # The cell's OSC 8 hyperlink id (an index into the owning window's link
-      # registry, see `Window#link_id`); `0` = no link.
+      # registry); `0` = no link.
       def link : UInt16
         @row.link_at(@index)
       end
@@ -182,15 +180,12 @@ module Crysterm
       end
 
       # Cell-vs-tuple equality compares cell *values* (attr + char). Drives the
-      # diffing renderer: the unchanged-cell skip in `screen_drawing`
-      # (`ox == {desired_attr, desired_char}`), the BCE line-clear (`line[xx] !=
-      # {desired_attr, ' '}`), and the `cell != {attr, ch}` write guards in
-      # `widget_rendering`/`fill_region`. A cell holding a multi-codepoint
-      # cluster is never equal to a single-char tuple, so such writes are not
-      # skipped.
+      # diffing renderer's unchanged-cell skips and write guards. A cell holding
+      # a multi-codepoint cluster is never equal to a single-char tuple, so such
+      # writes are not skipped.
       #
       # The `legacy_cell_eq` compile flag forces this to constant-false for A/B
-      # testing/benchmarking against a full-repaint path (the tuple compare never
+      # benchmarking against a full-repaint path (the tuple compare never
       # matches, so every frame fully repaints).
       def ==(other : Tuple(Int64, Char))
         {% if flag?(:legacy_cell_eq) %}
@@ -222,9 +217,7 @@ module Crysterm
 
       # Writes *attr*/*char* into this cell only when they differ from what it
       # already holds (a grapheme-cluster overlay always counts as differing,
-      # see `#==(Tuple)`), and marks the column dirty on a real change. This is
-      # the per-cell write-if-changed guard the render loops in
-      # `widget_rendering` repeat.
+      # see `#==(Tuple)`), and marks the column dirty on a real change.
       @[AlwaysInline]
       def set_if_changed(attr : Int64, char : Char) : Nil
         if self != {attr, char}
@@ -235,11 +228,8 @@ module Crysterm
       end
 
       # Marks this cell's column dirty, narrowing the owning row's dirty range
-      # to include it (unlike a plain `line.dirty = true`, which conservatively
-      # widens to the whole row). For callers that mutate a cell directly
-      # (e.g. `Window#blend_region`/`#tint_region`) and want the same
-      # column-narrowing `#mark_dirty` that `fill_region`/`Plane#composite_onto`
-      # already use.
+      # to include it — unlike a plain `line.dirty = true`, which conservatively
+      # widens to the whole row. For callers that mutate a cell directly.
       @[AlwaysInline]
       def mark_dirty : Nil
         @row.mark_dirty @index
@@ -262,7 +252,7 @@ module Crysterm
     # `Array(Cell)`. Subclassing a stdlib generic is deprecated and promotes
     # every `Array(Cell)` in the program (including unrelated shards) to the
     # virtual type `Array(Cell)+`, producing confusing compile errors far from
-    # here (issue #30).
+    # here.
     class Row
       include Indexable(Cell)
 
@@ -295,7 +285,7 @@ module Crysterm
       # Marks column *x* dirty, widening the dirty range to include it. Multiple
       # writers in a frame union naturally (min/max), and a prior full
       # `dirty = true` stays full. Inlined: called per changed cell in the
-      # render hot loops (`widget_rendering`/`fill_region`).
+      # render hot loops.
       @[AlwaysInline]
       def mark_dirty(x : Int32) : Nil
         @dirty = true
@@ -311,9 +301,8 @@ module Crysterm
       @graphemes : Hash(Int32, String)? = nil
 
       # Sparse overlay of OSC 8 hyperlink ids (cell index -> id in the owning
-      # window's link registry; see `Window#link_id`). Lazily allocated; nil
-      # for rows with no linked cells — the common case, so per-cell probes on
-      # hot paths are a nil check.
+      # window's link registry). Lazily allocated; nil for rows with no linked
+      # cells — the common case, so per-cell probes on hot paths are a nil check.
       @links : Hash(Int32, UInt16)? = nil
 
       def initialize
@@ -338,8 +327,8 @@ module Crysterm
       end
 
       # Whether this row carries any multi-codepoint grapheme-cluster overlay.
-      # Lets a per-cell consumer (e.g. `Plane#composite_onto`) skip the
-      # `grapheme_at?` hash probe on the common all-single-codepoint row.
+      # Lets a per-cell consumer skip the `grapheme_at?` hash probe on the
+      # common all-single-codepoint row.
       def has_graphemes? : Bool
         if g = @graphemes
           !g.empty?
@@ -379,8 +368,7 @@ module Crysterm
         @links.try(&.[index.to_i32]?) || 0_u16
       end
 
-      # Stores hyperlink id *id* at `index` (allocating the overlay on first
-      # use). `Cell#link=` is the usual writer.
+      # Stores hyperlink id *id* at `index` (allocating the overlay on first use).
       def set_link(index : Int, id : UInt16) : Nil
         (@links ||= {} of Int32 => UInt16)[index.to_i32] = id
       end

@@ -12,9 +12,9 @@ module Crysterm
         )
           super **box, parse_tags: true, keys: true
 
-          # `ScrollableBox#initialize` already registered `on_keypress` (via
-          # virtual dispatch it reaches this override). Registering it again here
-          # would fire the handler twice per key — scrolling double.
+          # Deliberately does not register `on_keypress`: `super` already did, and
+          # virtual dispatch reaches this override. Registering again would scroll
+          # twice per key.
         end
 
         # Replaces the displayed content and scrolls back to the top.
@@ -40,8 +40,7 @@ module Crysterm
           else
             return
           end
-          # Consume the handled key so it doesn't also drive an ancestor, and
-          # repaint (mirrors the base `ScrollableBox#on_keypress`).
+          # Consume the handled key so it doesn't also drive an ancestor.
           e.accept
           request_render
         end

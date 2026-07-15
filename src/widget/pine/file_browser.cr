@@ -7,11 +7,8 @@ module Crysterm
       # Pine look. Browse a directory with the arrow keys; Enter navigates into a
       # directory or opens (emits `Event::OpenFile` for) a file.
       #
-      # Thin subclass: only flips defaults so a bare `FileBrowser.new` looks and
-      # behaves like Pine (selected row full-width reverse video, keyboard nav
-      # on). No email semantics; `FileManager` does all the work (see
-      # `#refresh`, `#open_selected`, `#cwd`, `#file`, `Event::OpenFile` /
-      # `Event::ChangeDir` / `Event::Refresh`).
+      # Thin subclass: it only flips defaults to the Pine look, and adds no email
+      # semantics of its own — `FileManager` does all the work.
       #
       # ```
       # fb = Crysterm::Widget::Pine::FileBrowser.new parent: screen, cwd: Dir.current

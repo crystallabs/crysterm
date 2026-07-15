@@ -1,14 +1,14 @@
 require "markd"
 
 module Crysterm
-  # Markdown import/export for `TextDocument` (TEXTEDIT.md Phase 3) — the
+  # Markdown import/export for `TextDocument` — the
   # `QTextDocument::setMarkdown`/`toMarkdown` counterpart. Import walks the
   # `markd` CommonMark AST straight into blocks/fragments (no tag-string
   # intermediate); export walks blocks back to markdown, keying on *semantic*
   # properties (`heading_level`, `TextCharFormat#code?`, `anchor_href`), so
   # the `TextTheme` colors the importer applies never affect round-trips.
   #
-  # Mapping (re-based onto the Phase-4 structures):
+  # Mapping:
   #
   # - Headings → `TextBlockFormat#heading_level` + theme heading color.
   # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans also get the
@@ -30,8 +30,7 @@ module Crysterm
   #   empty `horizontal_rule` block.
   # - Fenced code → one block per line, `code`-flagged fragments over a
   #   theme-code-bg block (the exporter's fence detector); the fence info
-  #   string is not kept. GFM tables pass through as plain text (tables are
-  #   the Phase-4 tail).
+  #   string is not kept.
   module TextMarkdown
     # Thematic-break rule the importer emits (and the exporter detects, along
     # with plain `-` runs).
@@ -151,7 +150,7 @@ module Crysterm
           url = node.data["destination"]?.try(&.as(String))
           with_patch(TextCharFormat.new(fg: @theme.link_color, anchor_href: url)) { walk_children(node) }
         when .image?
-          # No inline images on a cell grid (Phase 4+): degrade to alt text.
+          # No inline images on a cell grid: degrade to alt text.
           with_patch(TextCharFormat.new(fg: @theme.muted_color)) do
             push_frag "🖼 "
             walk_children(node)
@@ -169,9 +168,8 @@ module Crysterm
         end
       end
 
-      # A paragraph node — or, when its text has the GFM-table shape (markd
-      # hands tables through as a plain paragraph of `|` rows — the same
-      # detection `Widget::Markdown` uses), a table.
+      # A paragraph node — or a table, when its text has the GFM-table shape:
+      # markd hands tables through as a plain paragraph of `|` rows.
       private def import_paragraph(node : Markd::Node) : Nil
         txt = node_text(node)
         separator if top_level?
@@ -273,9 +271,9 @@ module Crysterm
         @emitted = true
       end
 
-      # Appends a GFM table's pre-rendered blocks (see `TextTable.build`),
-      # carrying any enclosing quote level. Cell inline markup degrades to
-      # its plain text (markd never parsed it).
+      # Appends a GFM table's pre-rendered blocks, carrying any enclosing quote
+      # level. Cell inline markup degrades to its plain text (markd never parsed
+      # it).
       private def import_table(txt : String) : Nil
         bs = TextTable.build_from_gfm(txt, @theme) || return
         bs[0].block_format = take_margin(bs[0].block_format)
@@ -313,9 +311,8 @@ module Crysterm
         false
       end
 
-      # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker
-      # (markd tokenizes it as plain text — same detection as
-      # `Widget::Markdown`).
+      # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker, which
+      # markd tokenizes as plain text.
       private def task_marker(item : Markd::Node) : Symbol?
         s = node_text item
         if md = s.match(/\A\[([ xX])\]\s/)
@@ -426,7 +423,7 @@ module Crysterm
               # A continuation paragraph (indent > 0, no list structure)
               # following a list item or another continuation needs a blank
               # line so CommonMark reads it as an indented continuation
-              # rather than a lazy line that merges into the item (T1).
+              # rather than a lazy line that merges into the item.
               cont = cf.indent > 0 && cf.list_format.nil? &&
                      (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
               blank = pf.bottom_margin > 0 || cf.top_margin > 0 ||
@@ -496,8 +493,7 @@ module Crysterm
       # Whether `blocks[k]` continues the fenced-code run that started at
       # *start* with quote level *ql*: a same-quote-level code line that is
       # either the run's first block or has no margin break from the previous
-      # block. The single source of truth for where a fence run ends, shared by
-      # `#opens_fence?` and the exporter's fence-emit loop.
+      # block. The single source of truth for where a fence run ends.
       private def fence_member?(blocks : Array(TextBlock), k : Int32, start : Int32, ql : Int32) : Bool
         k < blocks.size && code_line?(blocks[k]) &&
           blocks[k].block_format.quote_level == ql &&
@@ -509,7 +505,7 @@ module Crysterm
       # fenced code block? A run opens a fence when it holds a real code line
       # (non-empty code fragments) or spans more than one line — so a code
       # block whose leading (or every) line is blank still fences at its first
-      # block (T5), while a lone empty styled block does not (T19).
+      # block, while a lone empty styled block does not.
       private def opens_fence?(blocks : Array(TextBlock), i : Int32) : Bool
         return false unless blocks[i].block_format.bg
         ql = blocks[i].block_format.quote_level
@@ -577,9 +573,9 @@ module Crysterm
 
         # A list-item continuation paragraph imports with `indent > 0` and no
         # list structure; re-emit indentation to the enclosing item's content
-        # column (the importer's `indent` is a 2/level approximation, but the
-        # marker width — e.g. 3 for "1. " — is what CommonMark needs to keep
-        # the paragraph inside the item rather than merging it) (T1).
+        # column. The importer's `indent` is a 2/level approximation, but the
+        # marker width — e.g. 3 for "1. " — is what CommonMark needs to keep the
+        # paragraph inside the item rather than merging it.
         if bf.indent > 0
           pad = @item_cols[bf.indent // 2]? || bf.indent
           io << " " * pad
@@ -709,7 +705,7 @@ module Crysterm
   end
 
   class TextDocument
-    # Builds a document from markdown (see `TextMarkdown`).
+    # Builds a document from markdown.
     def self.from_markdown(text : String, theme : TextTheme = TextTheme.default) : TextDocument
       doc = TextDocument.new
       doc.set_markdown(text, theme)
@@ -729,12 +725,12 @@ module Crysterm
   end
 
   class TextDocumentFragment
-    # Builds a detached fragment from markdown (see `TextMarkdown`).
+    # Builds a detached fragment from markdown.
     def self.from_markdown(text : String, theme : TextTheme = TextTheme.default) : TextDocumentFragment
       new(TextMarkdown.parse(text, theme))
     end
 
-    # The fragment as markdown (see `TextMarkdown`).
+    # The fragment as markdown.
     def to_markdown : String
       TextMarkdown.generate(@blocks)
     end

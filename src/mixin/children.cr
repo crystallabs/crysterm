@@ -4,12 +4,9 @@ module Crysterm
       # Widget's children `Widget`s.
       getter children = [] of Widget
 
-      # O(1) membership index for `@children`, kept in sync by `insert`/`remove`.
-      # Without it, `insert`'s "already a child?" guard would be a linear
-      # `@children.includes?` scan, making a batch of N appends O(N²). The only
-      # other direct mutator of `@children` is the reorder in
-      # `widget_children.cr`, which removes and re-adds the same element so
-      # membership is unchanged.
+      # O(1) membership index for `@children`, kept in sync by `insert`/`remove`;
+      # without it a batch of N appends would be O(N²) on the duplicate guard.
+      # Any other direct mutator of `@children` must keep this in sync.
       @children_set = Set(Widget).new
 
       # Adds `element` to list of children. Convenience method identical to `append`
@@ -17,9 +14,8 @@ module Crysterm
         append widget
       end
 
-      # O(1) direct-child membership test, backed by `@children_set`. Use in
-      # place of `children.includes? element` (a linear `@children` scan) on hot
-      # paths that repeatedly probe membership.
+      # O(1) direct-child membership test. Prefer over `children.includes?` (a
+      # linear scan) on hot paths that repeatedly probe membership.
       def child?(element) : Bool
         @children_set.includes? element
       end
@@ -57,14 +53,10 @@ module Crysterm
 
       # Low-level list primitive: inserts `element` into the children list at `i`.
       #
-      # This bare form is a no-op (returns nil) if `element` is already present —
-      # the `@children_set` guard rejects the duplicate before any list mutation,
-      # so on its own it can't reposition an existing child. Real widgets never
-      # hit that path for a re-insert: `Widget#insert`/`Window#insert` override
-      # this to first detach `element` from its current parent and then call
-      # `super`, which is how `append`/`prepend`/`insert_before`/`insert_after`
-      # *do* reposition an existing child (remove-then-add). `#stack_index=`
-      # (`widget_children.cr`) is the other reorder path.
+      # This bare form is a no-op (returns nil) if `element` is already present,
+      # so on its own it cannot reposition an existing child. Overriders detach
+      # `element` from its current parent before calling `super`, which is what
+      # makes `append`/`prepend`/`insert_before`/`insert_after` reposition.
       def insert(element, i = -1)
         return unless @children_set.add? element
         @children.insert i, element
@@ -76,30 +68,28 @@ module Crysterm
       def remove(element)
         return unless @children_set.delete element
         return unless i = @children.index(element)
-        # No need to erase the removed element's old footprint: `Window#_render`
-        # clears the whole cell buffer each frame, so it just stops being repainted.
+        # No need to erase the removed element's old footprint: the cell buffer
+        # is cleared each frame, so it simply stops being repainted.
         @children.delete_at i
         mark_structure_changed
         element
       end
 
       # Propagates a structural change to the children list (an add/remove) to the
-      # subsystems that depend on it: the CSS tree and damage tracking. Shared by
-      # `#insert` and `#remove`, which both invalidate exactly this pair.
+      # subsystems that depend on it: the CSS tree and damage tracking.
       private def mark_structure_changed : Nil
         invalidate_css_tree
         _damage_invalidate_structure
       end
 
-      # Hook invoked after a structural children-list change. CSS overrides this
-      # (on `Widget`/`Window`) to mark styling dirty and force a re-parse, since
-      # structure can alter which selectors match. No-op by default.
+      # Hook invoked after a structural children-list change. Overridden to mark
+      # styling dirty and force a re-parse, since structure can alter which
+      # selectors match. No-op by default.
       protected def invalidate_css_tree : Nil
       end
 
-      # Structural-change hook for damage tracking. Overridden on `Widget`
-      # (forwards to its window) and `Window` (forces full re-composite next
-      # frame). No-op by default. See `OptimizationFlag::DamageTracking`.
+      # Structural-change hook for damage tracking. Overridden to force a full
+      # re-composite next frame. No-op by default.
       protected def _damage_invalidate_structure : Nil
       end
 
@@ -124,10 +114,7 @@ module Crysterm
       end
 
       # Self-inclusive `#ancestor_of?`: true if `other` *is* `self` or sits
-      # somewhere in `self`'s subtree — i.e. whether `self` "covers" `other`.
-      # Nil-safe: `other` may be a possibly-absent widget reference (a captured
-      # focus/hover/drag/grab pointer), and `same?`/`#ancestor_of?` already treat
-      # `nil` as "not found" (`Reference#same?(other : Nil)` is `false`).
+      # somewhere in `self`'s subtree. Nil-safe — a nil *other* is "not found".
       def covers?(other : Widget?) : Bool
         same?(other) || ancestor_of?(other)
       end
@@ -171,12 +158,11 @@ module Crysterm
       end
 
       # Returns the first of self-or-ancestors (walking up via `parent`) for
-      # which the block is truthy, or `nil` if none match. Yield-based on
-      # purpose: the window hit-test/focus/scroll hot paths call this per event
-      # and must not allocate the `Proc` that `each_ancestor` would (block is
-      # inlined, early-returns on the match). Block may return any value; the
-      # walk stops on the first truthy result, matching the hand-rolled
-      # `while el && !pred; el = el.parent` loops it replaces.
+      # which the block is truthy, or `nil` if none match. The walk stops on the
+      # first truthy result.
+      #
+      # Yield-based on purpose: the hit-test/focus/scroll hot paths call this per
+      # event and must not allocate the `Proc` that `each_ancestor` would.
       def first_self_or_ancestor(&) : Widget?
         el : Widget? = self
         while el

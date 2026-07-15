@@ -1,9 +1,9 @@
 # Single source of truth for Crysterm's own tunables, registered into the shared
 # `Superconf` registry. Each `option` mints a config key + env var + CLI flag +
 # typed accessor (`Superconf.<key with dots as underscores>`, reachable as
-# `Crysterm::Config.<...>` via the alias), and shows up in `Config.dump`
-# alongside options registered by tput. These are only *declarations*: until an
-# app loads env/args/file, each option holds its default below.
+# `Crysterm::Config.<...>` via the alias), and appears in `Config.dump`. These
+# are only *declarations*: until an app loads env/args/file, each option holds
+# its default below.
 #
 # Apps append their own options the same way, anywhere after `require "crysterm"`:
 #
@@ -16,12 +16,10 @@
 # ```
 
 module Crysterm
-  # Forced colour-depth policy, derived from the standard colour-convention
-  # environment variables. Resolved from *several* env vars (see
-  # `.color_force_from_env`) into the one `screen.color_force` option, rather
-  # than one option per variable. `resolve_color_depth` turns it into a
-  # concrete count with the terminal-detected count in hand; `Min16` / `Min256`
-  # never *lower* the detected depth.
+  # Forced colour-depth policy, resolved from several standard colour-convention
+  # environment variables into the one `screen.color_force` option. It becomes a
+  # concrete count only once the terminal-detected count is known; `Min16` /
+  # `Min256` never *lower* the detected depth.
   enum ColorForce
     None      # no env directive: use the detected count
     Mono      # force monochrome (count 1)
@@ -55,9 +53,9 @@ module Crysterm
 end
 
 module Superconf
-  # Parser for a `String?`-valued option (a presence/value environment mirror):
-  # the built-in casts cover `String` but not the `String | Nil` union, so these
-  # options pass this proc explicitly. A present value is taken verbatim.
+  # Parser for a `String?`-valued option: the built-in casts cover `String` but
+  # not the `String | Nil` union, so these options pass this proc explicitly. A
+  # present value is taken verbatim.
   ENV_STRING = ->(s : String) { s.as(String?) }
 
   # -- Screen ----------------------------------------------------------------
@@ -193,11 +191,10 @@ module Superconf
 
   # -- External programs / environment --------------------------------------
   # The standard `SHELL` / `TERM` / `HOME` (and the CRYSTERM_* knobs below) reach
-  # Crysterm as the *default* of these options — read once from the environment at
-  # registration. Sourcing the env var in the default (rather than binding `env:`
-  # to the real variable) keeps a config file or CLI flag outranking the OS
-  # variable. Each option still gets its own derived CRYSTERM_* env/CLI surface
-  # for explicit overrides.
+  # Crysterm as the *default* of these options, read once from the environment at
+  # registration. Sourcing the env var in the default, rather than binding `env:`
+  # to the real variable, is what keeps a config file or CLI flag outranking the
+  # OS variable.
   option "input.shell", (ENV["SHELL"]? || "sh"),
     description: "Shell launched by Widget::Terminal (defaults from $SHELL)"
   option "terminal.term", (ENV["TERM"]? || "xterm"),
@@ -210,10 +207,9 @@ module Superconf
     description: "Starting directory for Widget::FileManager (defaults from $HOME)"
 
   # -- Headless capture (Crysterm's own CRYSTERM_* knobs) -------------------
-  # Read once at registration as the option default (config/CLI still win).
-  # When set, each names a file the screen captures itself into on first
-  # render, then exits — see `Window#capture_from_env?`. Presence paths
-  # (empty/unset = off), read via `#presence` at the call site.
+  # Read once at registration as the option default (config/CLI still win). When
+  # set, each names a file the screen captures itself into on first render, then
+  # exits. Presence paths: empty/unset = off.
   option "window.shot", ENV["CRYSTERM_SHOT"]?, parse: ENV_STRING,
     description: "When set, path to write a single still PNG of the first rendered frame to, then exit (headless self-capture)"
   option "window.dump", ENV["CRYSTERM_DUMP"]?, parse: ENV_STRING,
@@ -226,10 +222,10 @@ module Superconf
     description: "Frame rate of a window.anim (CRYSTERM_ANIM) capture"
 
   # -- Observed environment variables (standard names from the OS / other tools)
-  # Mirror externally-defined variables into the registry so they appear in
+  # Externally-defined variables are mirrored into the registry so they appear in
   # dumps/docs and can be overridden like any other option. Each is read once at
-  # registration as its option default and modeled as a presence/value
-  # `String?`, so callers read `Config.environment_*` instead of the raw variable.
+  # registration as its option default and modeled as a presence/value `String?`,
+  # so callers read `Config.environment_*` instead of the raw variable.
   option "screen.color_force", Crysterm.color_force_from_env,
     description: "Forced colour-depth policy resolved at startup from the standard colour-convention env vars NO_COLOR / CLICOLOR / FORCE_COLOR / CLICOLOR_FORCE (precedence in that order). Override directly to force none|mono|min16|min256|truecolor regardless of the environment"
   option "environment.w3mimgdisplay", ENV["W3MIMGDISPLAY_ENV"]?, parse: ENV_STRING,

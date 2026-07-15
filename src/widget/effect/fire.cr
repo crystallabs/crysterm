@@ -16,11 +16,10 @@ module Crysterm
       # red → orange → yellow → white ramp; cells below `ignition` render blank.
       #
       # It paints its interior straight into the window's cell buffer as packed
-      # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
-      # so there is no tagged-content round-trip and no per-frame tag re-parse.
-      # It drives its own animation: call `#start` to spawn the render fiber and
-      # `#stop` to halt it. `#step` (state only) is public so the effect can
-      # instead be advanced from an external clock.
+      # `Int64` attrs (each fg a direct `0xRRGGBB` value), so there is no
+      # tagged-content round-trip and no per-frame tag re-parse. `#start` spawns
+      # the render fiber, `#stop` halts it. `#step` (state only) is public so the
+      # effect can instead be advanced from an external clock.
       #
       # ```
       # fire = Widget::Effect::Fire.new parent: window, width: "100%", height: "100%"
@@ -97,11 +96,9 @@ module Crysterm
           base = (h - 1) * w
           w.times { |x| @heat[base + x] = @ignition + rand * (1.0 - @ignition) }
 
-          # Peel the two edge columns (which have one fewer neighbour) out of the
-          # inner loop, so the interior runs a branch-free 3-tap average. All
-          # indices are in-bounds (the `@heat.size != w * h` guard above), so the
-          # reads/writes use `unsafe_fetch`/`unsafe_put`. Addition is commutative
-          # in IEEE-754, so the regrouped sums are bit-identical to the originals.
+          # The two edge columns (one fewer neighbour) are peeled out of the inner
+          # loop, so the interior runs a branch-free 3-tap average. The size guard
+          # above keeps every index in bounds, hence `unsafe_fetch`/`unsafe_put`.
           (h - 2).downto(0) do |y|
             row = y * w
             below = (y + 1) * w

@@ -16,8 +16,7 @@ module Crysterm
       #
       # When the user presses a key matching a choice, that choice becomes the
       # `#answer`, its `callback` runs, and the widget emits `Event::Action`
-      # with the chosen key. Wire it up by giving the widget focus, like any
-      # other interactive widget.
+      # with the chosen key. It must have focus to receive keys.
       #
       # ```
       # prompt = Widget::Pine::KeyPrompt.new "Save changes?", [
@@ -65,12 +64,10 @@ module Crysterm
           **layout,
         )
           @choices = choices
-          # `keys: true` registers the prompt as keyable so the screen dispatches
-          # key presses to it once focused — a plain `Box` never receives
-          # `Event::KeyPress` otherwise.
+          # `keys: true` is required: a plain `Box` never receives `Event::KeyPress`.
           super **layout, width: w, height: h, parse_tags: true, keys: true
-          # Flow the question + choice boxes left-to-right (like `HeaderBar`).
-          # Set the ivar directly so it's in place before `#rebuild` appends children.
+          # Flow the question + choice boxes left-to-right. Assigned to the ivar
+          # so it is in place before `rebuild` appends children.
           @layout = Crysterm::Layout::Masonry.new
           rebuild
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
@@ -117,8 +114,7 @@ module Crysterm
         def on_keypress(e)
           char = e.char
           return if char == '\0'
-          # Compare the pressed `Char` against each single-character choice key
-          # directly (both lowercased as `Char`s), avoiding a `String` per keypress
+          # Compare as `Char`s: a `String` comparison would allocate per keypress
           # and per choice.
           dc = char.downcase
           choice = @choices.find { |c| c.key.size == 1 && c.key[0].downcase == dc }
@@ -136,8 +132,8 @@ module Crysterm
         end
 
         # (Re)creates the child boxes: an optional question box, then one
-        # clickable box per choice (highlighted key + label, `KeyMenu` look).
-        # `focus_on_click` is off so a click doesn't pull focus off the prompt.
+        # clickable box per choice. `focus_on_click` is off so a click doesn't
+        # pull focus off the prompt.
         private def rebuild : Nil
           @cells.each &.remove_from_parent
           @cells.clear

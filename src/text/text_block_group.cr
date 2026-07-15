@@ -1,12 +1,11 @@
 module Crysterm
   # Base for objects that group whole blocks of a document (Qt
-  # `QTextBlockGroup`); `TextList` is the concrete Phase-4 group.
+  # `QTextBlockGroup`).
   #
   # Unlike Qt — where the group is registered storage the blocks point into —
   # a Crysterm group is a lightweight *view*: membership is decided per block
-  # by `#member?` (for lists, identity of the shared `TextListFormat`
-  # instance), so groups need no document-side registry, survive undo/redo and
-  # clipboard round-trips for free, and can be re-created cheaply at any time.
+  # by `#member?`, so groups need no document-side registry, survive undo/redo
+  # and clipboard round-trips, and are cheap to re-create at any time.
   abstract class TextBlockGroup < TextObject
     # Whether *block* belongs to this group.
     abstract def member?(block : TextBlock) : Bool

@@ -36,9 +36,8 @@ module Crysterm
       end
 
       # Mutt's **message index**, the threaded counterpart to Pine's flat
-      # `MessageIndex`. It reuses the same `SelectableList` scaffolding but draws
-      # the ASCII/Unicode **thread tree** Mutt is known for before each subject,
-      # computed from each message's `depth`:
+      # `MessageIndex`. It draws the ASCII/Unicode **thread tree** before each
+      # subject, computed from each message's `depth`:
       #
       # ```
       #    1 N Jun 18  Alpine Team        (1.2K) Welcome to Mutt!
@@ -51,15 +50,15 @@ module Crysterm
       # The selected row is drawn reverse. Navigate with the arrow keys; Enter
       # activates the message (runs its `callback` and emits `Event::ActionItem`).
       class MessageIndex < ::Crysterm::Widget::Pine::SelectableList(Message)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Mutt::Message
 
         # Thread-tree glyphs (Mutt's `$ascii_chars` off). Override for a
         # pure-ASCII look: `vline: "| ", tee: "|-", corner: "`-", ...`.
-        property tree_vline : String = "│ " # │
+        property tree_vline : String = "│ "
         property tree_gap : String = "  "
-        property tree_tee : String = "├─"    # ├─
-        property tree_corner : String = "└─" # └─
+        property tree_tee : String = "├─"
+        property tree_corner : String = "└─"
         property tree_arrow : String = ">"
 
         def initialize(
@@ -89,12 +88,10 @@ module Crysterm
           end
         end
 
-        # Builds the thread-tree prefix for the message at *index* from the
-        # depths of the surrounding messages. A message at depth `d` draws a
-        # tee (`├─`) or corner (`└─`) at its own level — corner when it is the
-        # last reply at that level — preceded by a continuation line (`│`) or a
-        # gap for each ancestor level, depending on whether that ancestor has
-        # further replies below.
+        # Builds the thread-tree prefix for the message at *index* from the depths
+        # of the surrounding messages: a tee (`├─`), or a corner (`└─`) when it is
+        # the last reply at its level, preceded by one continuation line (`│`) or
+        # gap per ancestor level.
         private def thread_prefix(index : Int32) : String
           d = records[index].depth
           return "" if d <= 0
@@ -109,7 +106,7 @@ module Crysterm
         end
 
         # Whether the message at *index* is the last one in its sibling group at
-        # *depth* — i.e. no later message stays at `depth` before the thread pops
+        # *depth*, i.e. no later message sits at `depth` before the thread pops
         # back out to a shallower level.
         private def last_at_level?(index : Int32, depth : Int32) : Bool
           (index + 1...records.size).each do |j|
@@ -120,10 +117,8 @@ module Crysterm
           true
         end
 
-        # Whether the ancestor branch at *level* (an ancestor depth `< d`) has a
-        # further sibling below *index*, so its vertical connector continues. It
-        # does when a later message sits at exactly *level* before the thread
-        # rises above *level*.
+        # Whether the ancestor branch at *level* has a further sibling below
+        # *index*, so its vertical connector continues.
         private def ancestor_continues?(index : Int32, level : Int32) : Bool
           (index + 1...records.size).each do |j|
             dj = records[j].depth

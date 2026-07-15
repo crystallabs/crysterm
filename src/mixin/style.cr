@@ -8,18 +8,16 @@ module Crysterm
 
       # Re-wraps the generated `state=` setters so a state transition invalidates
       # styling and the cascade re-runs (needed for ancestor-state rules like
-      # `Form:focus Button`). Guarded on actual change to avoid needless restyles
-      # (e.g. lists re-asserting an item's state every frame).
+      # `Form:focus Button`). Guarded on actual change to avoid needless restyles.
       def state=(value : WidgetState) : WidgetState
         return value if @state == value
         # Snapshot the old state's animatable style values so a CSS `transition`
         # can tween to the new state's values.
         prev = transition_from
         @state = value
-        # The resolved style depends on the state (per-state lookup + highlight
-        # fallbacks), so drop the frame-memoized resolution. Must run AFTER the
-        # `transition_from` snapshot above, which resolves (and re-caches) the
-        # OLD state's style.
+        # The resolved style depends on the state, so drop the frame-memoized
+        # resolution. Must run AFTER the `transition_from` snapshot above, which
+        # resolves (and re-caches) the OLD state's style.
         invalidate_frame_style
         # The style swap is in-place and invisible to the tracked geometry
         # setters, so flag damage explicitly — otherwise the optimized render
@@ -52,9 +50,8 @@ module Crysterm
         # the pristine base snapshot, whose floor border is stripped), so the
         # floor-border sync memo no longer describes the live object. Without
         # dropping it, `#ensure_floor_border` believes the border is still
-        # installed and skips reinstalling — an overlay (Menu/Dialog/ToolTip)
-        # that once rendered unstyled would stay borderless forever after a
-        # cascade reset.
+        # installed and skips reinstalling — an overlay that once rendered
+        # unstyled would stay borderless forever after a cascade reset.
         @floor_border_applied = nil
         @styles = styles
       end
@@ -85,12 +82,13 @@ module Crysterm
 
       # The pristine snapshot's `normal` style, but only when the snapshot was
       # already captured (i.e. this widget has been through a cascade) — `nil`
-      # otherwise, so callers never force an eager capture. Used by
-      # `Widget#persist_inline_style` to persist programmatic changes
-      # (`hide`/fade alpha) on widgets that live under active CSS yet match no
-      # rule (`css_styled? == false`): the cascade still resets them to a fresh
-      # dup of this snapshot on every restyle, so a change written only to the
-      # computed styles would be silently undone (a hidden widget reappearing).
+      # otherwise, so callers never force an eager capture.
+      #
+      # A programmatic change (`hide`/fade alpha) to a widget under active CSS that
+      # matches no rule (`css_styled? == false`) must be persisted here too: the
+      # cascade resets such a widget to a fresh dup of this snapshot on every
+      # restyle, so a change written only to the computed styles would be silently
+      # undone (a hidden widget reappearing).
       def css_base_normal_if_captured : ::Crysterm::Style?
         @css_base_styles.try(&.normal)
       end
@@ -143,11 +141,9 @@ module Crysterm
         @styles.for_state(@state)
       end
 
-      # The resolved `Style` for the current frame, memoized per widget per
-      # window frame. Resolution (`#resolve_style`: floor-border sync, per-state
-      # dispatch, highlight fallbacks — worst case a heap `Style#dup` per call
-      # for a focused/selected floor widget) runs ~15-25× per widget per frame
-      # otherwise, and was the hottest render leaf.
+      # The resolved `Style` for the current frame, memoized per widget per window
+      # frame. `#resolve_style` runs ~15-25× per widget per frame otherwise, worst
+      # case a heap `Style#dup` per call for a focused/selected floor widget.
       @_frame_style : ::Crysterm::Style?
 
       # `Window#renders` value `@_frame_style` was resolved at; a stamp mismatch
@@ -155,23 +151,19 @@ module Crysterm
       # are picked up without any explicit invalidation.
       @_frame_style_stamp : Int32 = -1
 
-      # Memo for the unstyled-floor reverse-video fallback copy (see
-      # `#reverse_highlight_fallback`): the source per-state `Style` it was
-      # derived from, and the derived copy. The frame-style memo above caps
-      # resolution at once per widget per frame, but its stamp mismatches every
-      # new frame — so a focused/selected floor widget re-`dup`ed ~5 heap objects
-      # per frame forever. Keying on source-style identity survives across frames
-      # instead: the cascade *replaces* per-state style objects (`Styles#deep_dup`
-      # per recompute), so a `same?` hit means the copy is still valid. Dropped by
-      # `#invalidate_frame_style`, which fires on every style-swapping change.
+      # Memo for the unstyled-floor reverse-video fallback copy: the source
+      # per-state `Style` it was derived from, and the derived copy. Keyed on
+      # source-style identity so it survives across frames (the frame-style memo
+      # above mismatches every new frame): the cascade *replaces* per-state style
+      # objects on recompute, so a `same?` hit means the copy is still valid.
+      # Dropped by `#invalidate_frame_style`.
       @_reverse_fallback_src : ::Crysterm::Style?
       @_reverse_fallback_copy : ::Crysterm::Style?
 
-      # Drops the frame-memoized style resolution (and the insets derived from
-      # it — see `Widget#frame_insets`). Called by every same-frame-visible
-      # style change: `#state=`, `#style=`, `#styles=`, and the CSS cascade via
-      # `#css_styled=`. Rendering is single-fiber, so these hooks plus the
-      # per-frame stamp cover all reachable staleness.
+      # Drops the frame-memoized style resolution and the insets derived from it.
+      # Every same-frame-visible style change must call this; rendering is
+      # single-fiber, so that plus the per-frame stamp covers all reachable
+      # staleness.
       def invalidate_frame_style : Nil
         @_frame_style = nil
         @_frame_insets = nil
@@ -195,18 +187,16 @@ module Crysterm
         st
       end
 
-      # Uncached style resolution — the former body of `#style`.
+      # Uncached style resolution.
       private def resolve_style : ::Crysterm::Style
         # When CSS has computed this widget's styles, inline `@style` is already
         # folded in, so use the per-state style. Otherwise inline `@style` wins
         # wholesale, and the floor border is installed lazily here (the one
         # render-only step `#state_style` omits).
         unless @css_styled
-          # Skip `ensure_floor_border` when an inline `@style` will win wholesale
-          # (it bypasses `@styles.normal`, so the border would never be observed
-          # anyway). `#style` runs ~10x per widget per frame, and the virtual
-          # dispatch + per-state lookups in `ensure_floor_border` were the hottest
-          # render leaf — pure waste for inline-styled widgets.
+          # Skip `ensure_floor_border` when an inline `@style` wins wholesale: it
+          # bypasses `@styles.normal`, so the border would never be observed —
+          # pure waste on a path that runs ~10× per widget per frame.
           if style = @style
             return style
           end
@@ -225,23 +215,19 @@ module Crysterm
       end
 
       # Whether this widget should carry a default structural border at the
-      # unstyled floor (no CSS active). Overlays (Menu, popups, dialogs,
-      # tooltips, splash screens) override to `true` to separate from content
-      # when there's no color to do it; plain content widgets don't. May be
-      # dynamic: a `DockWidget` returns `true` only while floating (docked panes
-      # stay borderless, separated by layout instead) — `#ensure_floor_border`
-      # installs and removes to track such changes. Any active theme makes the
-      # widget `css_styled`, putting the cascade fully in control (free to set
-      # any border, including none, e.g. qdarkstyle's `QMenu { border: 0 }`).
+      # unstyled floor (no CSS active). Overlays (menus, popups, dialogs,
+      # tooltips) override to `true` to separate from content when there's no
+      # color to do it; plain content widgets don't. May be dynamic — e.g. `true`
+      # only while a pane floats — and `#ensure_floor_border` installs and removes
+      # to track that. Any active theme makes the widget `css_styled`, putting the
+      # cascade fully in control.
       def floor_border? : Bool
         false
       end
 
       # Which floor border to install when unstyled, as a value `Border.from`
       # accepts: `false` (none), `true` (all four sides), or a `Border` selecting
-      # specific sides. Defaults to a full border iff `#floor_border?`. A
-      # `DockWidget` overrides this to a full frame while floating but only the
-      # edge facing the central content while docked.
+      # specific sides. Defaults to a full border iff `#floor_border?`.
       def floor_border_value
         floor_border? ? true : false
       end
@@ -249,8 +235,7 @@ module Crysterm
       # Whether this widget should indicate focus via reverse-video at the
       # unstyled floor (no CSS active). Defaults to `false`: a large focusable
       # widget (container, list, text editor) must not invert its whole viewport
-      # on focus. The small button family (`Button`/`CheckBox`/`RadioButton` —
-      # see `AbstractButton`) overrides this to `true` so a focused control reads
+      # on focus. Small controls override it to `true` so a focused control reads
       # on any terminal with no theme.
       def floor_focus_reverse? : Bool
         false
@@ -259,7 +244,7 @@ module Crysterm
       # The `{left, top, right, bottom}` of the floor border this widget last
       # applied to `styles.normal`, or `nil` before it ever applied one. Drives
       # change detection (re-assign only when the wanted sides change) and the
-      # cascade-base strip (see `#css_base_styles`).
+      # cascade-base strip.
       @floor_border_applied : Tuple(Int32, Int32, Int32, Int32)? = nil
 
       # Whether a border was already set explicitly (inline style / author CSS)
@@ -268,8 +253,7 @@ module Crysterm
       # that explicit choice (including `border: false`) owns the border for good.
       @floor_border_user_set : Bool? = nil
 
-      # Whether a floor border is currently installed (any side). Used by
-      # `#css_base_styles` to strip it from the cascade snapshot.
+      # Whether a floor border is currently installed (any side).
       private def floor_border_installed? : Bool
         (s = @floor_border_applied) ? (s != {0, 0, 0, 0}) : false
       end
@@ -277,10 +261,9 @@ module Crysterm
       # Syncs the structural floor border on `styles.normal` to what the widget
       # currently wants (`#floor_border_value`), reached from `#style` only while
       # no CSS is active. Installs and removes (and updates sides) so a dynamic
-      # floor border (e.g. a `DockWidget` floating/re-docking) stays in lock-step.
-      # Set in place (not on a dup) so it survives `hide`/`show`, and excluded
-      # from the cascade base (see `#css_base_styles`). An explicit author/inline
-      # border is honored — including `border: false`.
+      # floor border stays in lock-step. Set in place (not on a dup) so it
+      # survives `hide`/`show`, and excluded from the cascade base. An explicit
+      # author/inline border is honored — including `border: false`.
       private def ensure_floor_border : Nil
         normal = @styles.normal
         # Capture once whether a border was explicitly set before the floor ever
@@ -294,11 +277,10 @@ module Crysterm
 
         val = floor_border_value
         # Resolve wanted sides without constructing a `Border` for the common
-        # `Bool` floor values — `#ensure_floor_border` runs on every render of an
-        # unstyled widget, and allocating a throwaway `Border` just to read its
-        # sides back was ~2 KB/widget/frame of garbage. Non-`Bool` values still
-        # resolve through `Border.from` as before; out-of-sync changes still
-        # build the `Border` needed for the actual assignment.
+        # `Bool` floor values: this runs on every render of an unstyled widget,
+        # and a throwaway `Border` just to read its sides back costs
+        # ~2 KB/widget/frame of garbage. Non-`Bool` values resolve through
+        # `Border.from`.
         if quick = floor_border_quick_sides(val)
           return if @floor_border_applied == quick # already in sync — no allocation
           normal.border = ::Crysterm::Border.from(val)
@@ -324,10 +306,9 @@ module Crysterm
         end
       end
 
-      # At the unstyled floor, a `:selected` widget whose style carries no
-      # visible distinction (no fg/bg/reverse — e.g. a `MenuBar`/`ToolBar`/
-      # `ListBar` item falling back to `normal`) is shown via reverse-video, so
-      # the active entry reads with no theme.
+      # At the unstyled floor, a `:selected` widget whose style carries no visible
+      # distinction (no fg/bg/reverse) is shown via reverse-video, so the active
+      # entry reads with no theme.
       private def selection_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         reverse_highlight_fallback st
       end
@@ -344,34 +325,26 @@ module Crysterm
       # Shared core of `#selection_highlight_fallback`/`#focus_highlight_fallback`:
       # at the unstyled floor, a state style with no visible distinction of its
       # own (no fg/bg/reverse) is shown via reverse-video; otherwise *st* is
-      # returned untouched.
-      #
-      # Inlines `Style#with_reverse_fallback` (dup + `reverse = true`) so the copy
-      # can be memoized by source identity in `@_reverse_fallback_src` /
-      # `@_reverse_fallback_copy`: a focused/selected floor widget otherwise
-      # re-dups ~5 heap objects every frame (the frame-style memo re-resolves each
-      # new frame). The cascade replaces the backing per-state style on recompute,
-      # so a `same?` hit means the copy is still current; `#invalidate_frame_style`
-      # drops the memo on any style-swapping change.
+      # returned untouched. The copy is memoized by source identity in
+      # `@_reverse_fallback_src` / `@_reverse_fallback_copy` — a focused/selected
+      # floor widget otherwise re-dups ~5 heap objects every frame.
       private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         result, @_reverse_fallback_src, @_reverse_fallback_copy =
           reverse_fallback_memo st, @css_styled, @_reverse_fallback_src, @_reverse_fallback_copy
         result
       end
 
-      # Shared core of the reverse-video source-identity memo — used by
-      # `#reverse_highlight_fallback` (above) and byte-for-byte by
-      # `Mixin::ItemView#selection_fallback`. When *st* is stylable as a
-      # highlight (not *skip*ped, and not already `visibly_styled?`), returns a
-      # reverse-video copy of it, reusing the previously memoized *copy* while
-      # its source *src* is unchanged (`same?`) — the cascade swaps the backing
-      # per-state `Style`, so a `same?` hit means the copy is still current,
-      # avoiding a `Style#dup` per call.
+      # Shared core of the reverse-video source-identity memo. When *st* is
+      # stylable as a highlight (not *skip*ped, and not already
+      # `visibly_styled?`), returns a reverse-video copy of it, reusing the
+      # previously memoized *copy* while its source *src* is unchanged (`same?`) —
+      # the cascade swaps the backing per-state `Style`, so a `same?` hit means the
+      # copy is still current, avoiding a `Style#dup` per call.
       #
-      # Stateless on purpose: it returns the new `{result, src, copy}` as a
-      # value tuple (no heap) rather than owning ivars, so each caller keeps its
-      # own memo pair. A `List` runs *both* memos per frame (focus-highlight and
-      # selection), which is why the storage must stay separate.
+      # Stateless on purpose: it returns the new `{result, src, copy}` as a value
+      # tuple (no heap) rather than owning ivars, so each caller keeps its own memo
+      # pair. One widget may run several of these memos per frame (e.g.
+      # focus-highlight and selection), so the storage must stay separate.
       protected def reverse_fallback_memo(st : ::Crysterm::Style, skip : Bool,
                                           src : ::Crysterm::Style?, copy : ::Crysterm::Style?)
         return {st, src, copy} if skip
@@ -383,31 +356,6 @@ module Crysterm
         c.reverse = true
         {c, st, c}
       end
-
-      # Version with keeping @state and @style in sync:
-      # getter state = WidgetState::Normal
-      # # :ditto:
-      # def state=(state : WidgetState)
-      #  @state = state
-      #  @style = case state
-      #           in .normal?
-      #             @styles.normal
-      #           in .focused?
-      #             @styles.focused
-      #           in .selected?
-      #             @styles.selected
-      #           in .hovered?
-      #             @styles.hovered
-      #           in .blurred?
-      #             @styles.blurred
-      #           end
-      # end
-      # Current style applied during rendering, kept in sync with `Widget#state`.
-      # A reference, not a copy — editing `style` edits whatever it points to.
-      # If a widget is e.g. `focused` but has no focus style defined, it renders
-      # `normal`; editing `style` then actually edits `normal`, not `focused`.
-      # property style : Style # = Style.new # Placeholder
-
     end
   end
 end

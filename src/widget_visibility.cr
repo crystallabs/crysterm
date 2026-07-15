@@ -6,24 +6,22 @@ module Crysterm
       set_visible true
       mark_dirty
       emit Crysterm::Event::Show
-      # Descendants stop/resume rendering with the ancestor but never receive
-      # their own `Show`/`Hide` otherwise, so their hover/tooltip/pointer-shape
-      # cleanup (see `widget_interaction.cr`) is skipped. Propagate down so those
-      # handlers run; they're idempotent, so re-emitting is safe.
+      # Descendants stop/resume rendering with the ancestor but get no `Show`/
+      # `Hide` of their own, skipping their hover/tooltip/pointer-shape cleanup.
+      # Propagate down so those handlers run; they're idempotent.
       emit_descendants Crysterm::Event::Show
     end
 
     # Hides widget from window
     def hide
       return if !self.state_style.visible?
-      # No need to erase the old footprint: `Window#_render` clears the whole
-      # cell buffer before each frame, so a hidden widget's old cells are gone
-      # on the next render.
+      # No need to erase the old footprint: the whole cell buffer is cleared
+      # before each frame, so a hidden widget's old cells are gone next render.
       set_visible false
       mark_dirty
       emit Crysterm::Event::Hide
-      # See `#show`: descendants must run their own Hide cleanup (tooltip removal,
-      # OSC-22 pointer-shape restore) even though only the ancestor was hidden.
+      # As in `#show`: descendants must run their own Hide cleanup (tooltip
+      # removal, OSC-22 pointer-shape restore) even though only we were hidden.
       emit_descendants Crysterm::Event::Hide
 
       window?.try do |s|
@@ -41,36 +39,28 @@ module Crysterm
     # change would land only on the computed per-state style and be discarded by
     # the next cascade, making the widget reappear/disappear on any restyle.
     private def set_visible(value : Bool) : Nil
-      # Write to the *raw* backing style (see `Mixin::Style#state_style`): at the
-      # unstyled floor `#style` returns a transient reverse-video `#dup` for a
-      # `:focused`/`:selected` widget, so writing visibility through it would be
-      # discarded (a focused `Button` could never be hidden).
+      # Write to the *raw* backing style: at the unstyled floor `#style` returns a
+      # transient reverse-video `#dup` for a `:focused`/`:selected` widget, so a
+      # write through it would be discarded (a focused `Button` could never hide).
       self.state_style.visible = value
-      # Visibility is a widget-level property, not a per-state visual: a
-      # CSS-styled widget has a *distinct* computed style per materialized state,
-      # and `state_style` only touches the current one. Without also writing the
-      # others, hiding/showing a widget that then changes state (e.g. gains
-      # focus) has no effect in the new state — the stale per-state visibility
-      # wins, leaving the widget invisible (and coordinate-less: `coords`
-      # bails on `style.visible?`). Apply across every materialized state so the
-      # toggle survives the transition.
+      # Visibility is a widget-level property, not a per-state visual, but a
+      # CSS-styled widget has a distinct computed style per materialized state and
+      # `state_style` touches only the current one. Apply across every state, or a
+      # widget that later changes state resurrects its stale per-state visibility.
       @styles.visible = value
       persist_inline_style(&.visible=(value))
     end
 
-    # Mirrors a just-applied state-style change onto the inline `@style`, but
-    # only when CSS has taken over styling (`css_styled?`) — otherwise the next
-    # cascade would discard it. The active-style write itself stays at the call
-    # site, since callers deliberately differ on targeting `#style` vs the raw
-    # `#state_style` (see `#set_visible` vs `#set_alpha`).
+    # Mirrors a just-applied state-style change onto the inline `@style`, but only
+    # when CSS has taken over styling (`css_styled?`) — otherwise the next cascade
+    # would discard it. The active-style write stays at the call site: callers
+    # deliberately differ on targeting `#style` vs the raw `#state_style`.
     #
-    # A widget under *active* CSS that matches no rule ends `css_styled? ==
-    # false`, yet the cascade still resets it to a fresh dup of its pristine
-    # snapshot on every restyle — so the change must also land on the snapshot
-    # (`css_base_styles.normal`), or the next cascade silently undoes it (a
-    # programmatically hidden widget reappears, a faded one snaps back to full
-    # alpha). Widgets never touched by a cascade have no snapshot and need no
-    # persistence — no-op for them.
+    # A widget under *active* CSS that matches no rule ends `css_styled? == false`,
+    # yet every restyle still resets it to a fresh dup of its pristine snapshot,
+    # so the change must land on that snapshot too or the next cascade silently
+    # undoes it (a hidden widget reappears; a faded one snaps back to full alpha).
+    # Widgets no cascade ever touched have no snapshot — no-op for them.
     protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
       if css_styled?
         yield (@style ||= ::Crysterm::Style.new)
@@ -91,13 +81,10 @@ module Crysterm
       self.state_style.visible? ? hide : show
     end
 
-    # Returns whether widget is visible. Currently does not check if all parents are also visible.
+    # Returns whether widget is visible. Does not check whether the ancestors are
+    # visible too; see `#visible_in_tree?`.
     def visible?
       self.state_style.visible?
-      # Alternative that also checks the full ancestor chain:
-      # visible = true
-      # self_and_each_ancestor { |a| visible &&= a.style.visible? }
-      # visible
     end
 
     # Inverse of `#visible?` (Qt's `QWidget#isHidden`). Consults only this
@@ -106,13 +93,11 @@ module Crysterm
       !visible?
     end
 
-    # Returns whether this widget *and every ancestor* is visible. Unlike
-    # `#visible?` (which consults only this node's own flag), this walks the
-    # whole parent chain, so it is false when a container above us is hidden.
-    # Standalone `Rendered` listeners (the media overlays) must use this before
-    # resolving rendered coordinates: hiding an ancestor only clears that node's
-    # flag, leaving a descendant `visible?`, but the hidden ancestor has no
-    # rendered position and `coords(true)` would raise against it.
+    # Returns whether this widget *and every ancestor* is visible, walking the
+    # whole parent chain. Standalone `Rendered` listeners (the media overlays)
+    # must use this before resolving rendered coordinates: hiding an ancestor
+    # clears only that node's flag, leaving a descendant `visible?`, but the
+    # hidden ancestor has no rendered position and `coords(true)` would raise.
     def visible_in_tree? : Bool
       anc = self
       while anc

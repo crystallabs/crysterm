@@ -1,17 +1,10 @@
 module Crysterm
   module Mixin
     # The "install-on-`Attach` / uninstall-on-`Detach` / and-also-now" window
-    # lifecycle, extracted from the several widgets that each hand-rolled it.
-    #
-    # A widget that needs a *live window* for something — a window-level key
-    # accelerator (`Widget::Wizard`, `Widget::SplashScreen`), a render-fiber
-    # timer (`Widget::TabWidget`'s carousel) — must (re)install that thing every
-    # time it lands on a window and tear it down every time it leaves, plus do
-    # the install once immediately in case it was constructed already attached
-    # (`parent:`/`window:`). The subscription plumbing for that triple is
-    # identical everywhere; only *what* gets installed/torn down differs, so the
-    # including widget supplies just that by overriding `#on_attach_window` /
-    # `#on_detach_window`.
+    # lifecycle, for a widget that needs a *live window* for something — a
+    # window-level key accelerator, a render-fiber timer. The including widget
+    # supplies what gets installed and torn down by overriding
+    # `#on_attach_window` / `#on_detach_window`.
     #
     # Call `wire_window_lifecycle` from `initialize` after `super`. Pass
     # `destroy: true` to also tear down on `Event::Destroy` (a direct destroy
@@ -19,10 +12,9 @@ module Crysterm
     # the immediate install (for a widget whose per-item `add` installs its own
     # pieces, so there is nothing to install until items exist).
     #
-    # Widgets whose teardown needs the *leaving* window from the `Detach`
-    # payload (`window?` is already nil by then — e.g. `Widget::MenuBar`,
-    # `Widget::ToolBar`) do **not** use this: their `#on_detach_window` couldn't
-    # recover that window. They keep their own explicit wiring.
+    # Not usable by a widget whose teardown needs the *leaving* window from the
+    # `Detach` payload: `window?` is already nil by then, and
+    # `#on_detach_window` takes no argument. Those wire it up explicitly.
     module WindowLifecycle
       # (Re)installs whatever this widget needs a live window for. Overridden by
       # the including widget. Called on `Event::Attach` and — unless wired with

@@ -26,17 +26,14 @@ module Crysterm
 
         super **box
 
-        # Dialogs start hidden, like Blessed's `options.hidden = true`: `ask` /
-        # `ask_choices` call `show` to reveal the dialog. Without this it
-        # renders on the first frame and stacks with other dialogs on window.
+        # Dialogs start hidden: `ask`/`ask_choices` call `show` to reveal them.
+        # Without this the dialog renders on the first frame and stacks with
+        # other dialogs on the window.
         hide
 
         # Custom button labels (Qt lets you relabel the standard buttons).
         ok_text.try { |t| @ok.set_content t }
         cancel_text.try { |t| @cancel.set_content t }
-
-        # Should not be needed when ivar exists and is already set
-        # @visible = box["visible"]? ? true : box["hidden"]? || false
 
         append @ok
         append @cancel
@@ -48,13 +45,6 @@ module Crysterm
       # `Code::Rejected` (`Event::Rejected`), and `Event::Finished` follows
       # either way.
       def ask(text = nil, &block : String?, Bool -> Nil)
-        # D O:
-        # Keep above:
-        # @parent.try do |p|
-        #   detach
-        #   p.append self
-        # end
-
         set_content text || @text
         show
         @result = Code::Rejected.to_i
@@ -72,16 +62,15 @@ module Crysterm
         done_called = false
 
         # `finish` must be defined *before* the handlers that call it are
-        # registered: otherwise a key/press arriving before assignment would
-        # invoke an uninitialized Proc (crash).
+        # registered: a key/press arriving before assignment would invoke an
+        # uninitialized Proc.
         finish = ->(err : String?, data : Bool) do
           unless done_called
             done_called = true
             teardown_ok_cancel ev_ok, ev_cancel
             ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
-            # Record the outcome and signal it (`Accepted`/`Rejected` +
-            # `Finished`) before the block runs, so a `Finished` handler and the
-            # block see the same `#result`.
+            # Record the outcome and signal it before the block runs, so a
+            # `Finished` handler and the block see the same `#result`.
             done(data ? Code::Accepted : Code::Rejected)
             block.call err, data
             request_render
@@ -116,16 +105,15 @@ module Crysterm
         request_render
       end
 
-      # Asks the user to pick one of an arbitrary list of *choices* (Qt-style
-      # "multiple standard buttons"; see TODO above). The block receives the
-      # chosen 0-based index, or `-1` if dismissed with Escape. Buttons are laid
-      # out in a row; Left/Right move focus, Enter/Space or a click activates
-      # the focused one.
+      # Asks the user to pick one of an arbitrary list of *choices*. The block
+      # receives the chosen 0-based index, or `-1` if dismissed with Escape.
+      # Buttons are laid out in a row; Left/Right move focus, Enter/Space or a
+      # click activates the focused one.
       #
-      # The index is the answer, so it rides the block, not `Dialog#result`:
-      # picking any choice closes with `Code::Accepted`,
-      # Escape with `Code::Rejected`. Feeding the index into `#result` would
-      # collide with Qt's codes (choice `1` would read as `Accepted`).
+      # The index rides the block, not `Dialog#result`: picking any choice closes
+      # with `Code::Accepted`, Escape with `Code::Rejected`. Feeding the index
+      # into `#result` would collide with Qt's codes (choice `1` would read as
+      # `Accepted`).
       def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32 -> Nil)
         set_content text || @text
         show
@@ -135,10 +123,9 @@ module Crysterm
         @ok.hide
         @cancel.hide
 
-        # Build the choice row through `DialogButtonBox`, which owns the
-        # single-row button style and left-to-right layout. The
-        # buttons carry `Role::Apply`, so the box emits no accept/reject signal —
-        # each choice's meaning is its index, wired on its own `Press` below.
+        # The choice buttons carry `Role::Apply`, so the box emits no
+        # accept/reject signal — each choice's meaning is its index, wired on its
+        # own `Press` below.
         bb = DialogButtonBox.new parent: self, top: 4, left: 1
         choices.each { |label| bb.add_button label, DialogButtonBox::Role::Apply }
         buttons = bb.buttons
@@ -158,8 +145,6 @@ module Crysterm
           @ok.focus
           bb.destroy
           window.restore_focus
-          # Hides, records `#result` and emits `Accepted`/`Rejected` +
-          # `Finished` — the same funnel `#ask` closes through.
           done(idx >= 0 ? Code::Accepted : Code::Rejected)
           block.call idx
           request_render

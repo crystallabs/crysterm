@@ -10,9 +10,8 @@ module Crysterm
     # Resolves a percentage position/size expression against the parent
     # dimension *against*. Accepts `"50%"`, `"50%+5"`, `"50%-3"` (callers pre-map
     # `"center"`/`"half"` to `"50%"`); returns `(against * pct).to_i + offset`.
-    # Allocation-free: byte-scans for the `+`/`-` separator, parses the offset
-    # in place, and only materializes the percentage number (so `"33.5%"`
-    # decimals still work). Pure, so it is unit-tested directly.
+    # Allocation-free: byte-scans for the `+`/`-` separator and parses both the
+    # percentage (decimals included, so `"33.5%"` works) and the offset in place.
     def self.resolve_percentage(expr : String, against : Int32) : Int32
       bytes = expr.to_slice
 
@@ -30,11 +29,10 @@ module Crysterm
       end
 
       pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
-      # Parse the percentage number in place (optional sign, digits, one dot) —
-      # `byte_slice(...).to_f?` heap-allocated a String per call, and this runs
-      # for every string-positioned widget every frame. A non-clean percentage
-      # (e.g. `0.5em` -> `0.5e`) yields 0 rather than raising — last-line guard
-      # so layout never aborts.
+      # Parse the percentage number in place (optional sign, digits, one dot):
+      # `byte_slice(...).to_f?` would allocate a String per call, and this runs for
+      # every string-positioned widget every frame. A non-clean percentage (e.g.
+      # `0.5em` -> `0.5e`) yields 0 rather than raising, so layout never aborts.
       k = 0
       neg_pct = false
       if pct_end > 0
@@ -76,16 +74,15 @@ module Crysterm
         j = sep + 1
         while j < bytes.size
           b = bytes.unsafe_fetch(j)
-          # Only digits form a valid offset. Folding arbitrary bytes through the
-          # `*10 +` accumulator turned "50%+1.5" into +135 and "50% + 5" into
-          # -155; the documented contract is malformed → 0.
+          # Only digits form a valid offset; the contract is malformed → 0.
+          # Folding arbitrary bytes through the `*10 +` accumulator would read
+          # "50%+1.5" as +135 and "50% + 5" as -155.
           unless '0'.ord <= b <= '9'.ord
             off = 0
             break
           end
           # Clamp the accumulator so a pathologically long (≥10-digit) offset
-          # can't overflow Int32 on `off * 10` and raise OverflowError in the
-          # per-frame render path (mirrors the emulator/ANSI parsers' caps).
+          # can't overflow Int32 on `off * 10` and raise in the render path.
           off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
           j += 1
         end
@@ -95,15 +92,14 @@ module Crysterm
       (against * pct).to_i + off
     end
 
-    # The four edge offsets, exactly as the user set them — not computed (the
-    # equivalent of `widget.position` in blessed). `nil` means "unanchored on
-    # this edge"; see `#aleft` and friends for the resolved values.
+    # The four edge offsets, exactly as the user set them — not computed. `nil`
+    # means "unanchored on this edge"; see `#aleft` and friends for the resolved
+    # values.
     #
     # All four accept the same `Int32 | String | Nil`, the `String` being a
-    # percentage of the parent's content extent (`"50%"`, `"50%+5"`, `"50%-3"`)
-    # or a `center` expression (`"center"`, `"center+5"`). They are generated as
-    # one family below, and resolve through the same path, so the four stay
-    # symmetric: `right: "50%"` works exactly like `left: "50%"`.
+    # percentage of the parent's content extent (`"50%"`, `"50%+5"`, `"50%-3"`) or
+    # a `center` expression (`"center"`, `"center+5"`), and all four resolve
+    # through the same path: `right: "50%"` works exactly like `left: "50%"`.
 
     # User-defined left
     getter left : Int32 | String | Nil
@@ -144,15 +140,14 @@ module Crysterm
 
     # Resolves a `String` position/size expression to an absolute cell count
     # against `parent_dim`, first mapping the *aliased* word ("center" for
-    # positions, "half" for sizes) to "50%". Shared by `aleft`/`atop`/`awidth`/
-    # `aheight`; `aliased` is passed (rather than mapping both words) so an
-    # unusual input like `width: "center"` keeps its original meaning.
+    # positions, "half" for sizes) to "50%". Only the caller's own word is mapped,
+    # so an unusual input like `width: "center"` keeps its original meaning.
     private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
       # Viewport units resolve against the window every frame (`width: 50vw`
       # re-sizes on terminal resize): `vw`→width, `vh`→height, `vmin`/`vmax`→
-      # smaller/larger side, like CSS. The `'v'` check is an allocation-free
-      # gate keeping the heavier regex off the per-frame hot path.
-      # `viewport_cells` returns nil (falls through) for a non-viewport string.
+      # smaller/larger side, like CSS. The `'v'` check is an allocation-free gate
+      # keeping the heavier regex off the per-frame hot path; `viewport_cells`
+      # returns nil for a non-viewport string.
       if expr.includes?('v') || expr.includes?('V')
         scr = window
         if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
@@ -162,9 +157,9 @@ module Crysterm
       if expr == aliased
         expr = "50%"
       elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')
-        # `center+5`/`half-3`: 50% of the parent plus the offset, parsed in
-        # place rather than rebuilding `"50%" + expr[aliased.size..]`, which
-        # would allocate two Strings per call, every frame.
+        # `center+5`/`half-3`: 50% of the parent plus the offset, parsed in place
+        # rather than rebuilding `"50%" + expr[aliased.size..]`, which would
+        # allocate two Strings per call, every frame.
         bytes = expr.to_slice
         off = 0
         j = aliased.size + 1
@@ -188,10 +183,9 @@ module Crysterm
 
     # Resolves a raw edge value (`@left`/`@top`/`@right`/`@bottom`) to cells: an
     # `Int32` passes through, `nil` reads as 0, and a `String` resolves as a
-    # percentage/`center` expression against *parent_dim*. Callers that only
-    # have `parent_dim` behind an ancestor walk must keep the `String` test
-    # outside this helper, so the common `Int32` case doesn't pay for the walk
-    # (see `#aright`).
+    # percentage/`center` expression against *parent_dim*. Callers that only have
+    # `parent_dim` behind an ancestor walk must keep the `String` test outside
+    # this helper, so the common `Int32` case doesn't pay for the walk.
     private def resolve_edge(o, parent_dim : Int32) : Int32
       case o
       when String then resolve_dimension(o, parent_dim, "center")
@@ -216,9 +210,9 @@ module Crysterm
 
     # Returns computed absolute left position.
     #
-    # `width`, when given, is this widget's already-resolved `awidth(rendered)`, needed
-    # by the right-anchored and `"center"` branches; passing it in avoids a second
-    # `awidth` walk per frame. When nil it is resolved on demand.
+    # `width`, when given, is this widget's already-resolved `awidth(rendered)`,
+    # needed by the right-anchored and `"center"` branches; passing it in avoids a
+    # second `awidth` walk per frame. When nil it is resolved on demand.
     def aleft(rendered = false, width = nil, parent_pos = nil, with_margin = true) : Int32
       # Original left
       oleft = @left
@@ -227,10 +221,9 @@ module Crysterm
       mg = style.margin
 
       # Right-anchored: the outward margin pushes the box LEFT by its own right
-      # margin. Included so hit-test geometry (`Window#widget_at` /
-      # `#contains_point?`) matches where `coords` paints it; `coords`
-      # and the anchoring callers below pass `with_margin: false` so the shift is
-      # applied exactly once.
+      # margin. Included so hit-test geometry matches where `coords` paints it;
+      # `coords` and the anchoring callers below pass `with_margin: false` so the
+      # shift is applied exactly once.
       if oleft.nil? && !oright.nil?
         mr = (with_margin && mg.any?) ? mg.right : 0
         return window.awidth - (width || awidth(rendered)) - aright(rendered) - mr
@@ -260,8 +253,7 @@ module Crysterm
     end
 
     # Returns computed absolute top position. `height`, when given, is this
-    # widget's already-resolved `aheight(rendered)` — see `#aleft` (avoids a redundant
-    # `aheight` walk for bottom-anchored / `"center"` widgets).
+    # widget's already-resolved `aheight(rendered)` — see `#aleft`.
     def atop(rendered = false, height = nil, parent_pos = nil, with_margin = true) : Int32
       otop = @top
       obottom = @bottom
@@ -312,10 +304,9 @@ module Crysterm
         return right
       end
 
-      # A `String` right (`"50%"`) resolves against the parent's width, exactly
-      # as a `String` left does in `#aleft`. Kept behind the `is_a?` so the
-      # common `Int32`/`nil` case never triggers the `parent.awidth` ancestor
-      # walk this would otherwise cost on every frame.
+      # A `String` right (`"50%"`) resolves against the parent's width, exactly as
+      # a `String` left does in `#aleft`. Kept behind the `is_a?` so the common
+      # `Int32`/`nil` case never triggers the `parent.awidth` ancestor walk.
       right = if oright.is_a? String
                 resolve_dimension(oright, parent.awidth || 0, "center")
               else
@@ -354,12 +345,11 @@ module Crysterm
       bottom
     end
 
-    # Shifts the `lo..hi` pair by the widget's own margin (see `coords`):
-    # outward by `far` when only the far side is anchored (`near_anchor` nil,
-    # `far_anchor` not), otherwise outward by `near`. `near_anchor`/`far_anchor`
-    # are the raw `@left`/`@right` (or `@top`/`@bottom`) values, passed through
-    # untouched — this is an unconditional shift, not a bounds clamp, so it is
-    # a distinct shape from `translate_into_bounds` below. Used once per axis.
+    # Shifts the `lo..hi` pair by the widget's own margin: outward by `far` when
+    # only the far side is anchored (`near_anchor` nil, `far_anchor` not),
+    # otherwise outward by `near`. `near_anchor`/`far_anchor` are the raw
+    # `@left`/`@right` (or `@top`/`@bottom`) values. An unconditional shift, not a
+    # bounds clamp — unlike `translate_into_bounds` below.
     private def shift_margin(lo : Int32, hi : Int32, near_anchor, far_anchor, near : Int32, far : Int32) : {Int32, Int32}
       if near_anchor.nil? && !far_anchor.nil?
         {lo - far, hi - far}
@@ -369,8 +359,8 @@ module Crysterm
     end
 
     # Clamps `lo` up to at least `min` and `hi` down to at most `max`,
-    # independently (a widget's edges never cross past its `ShrinkWidget`
-    # parent's inner rectangle). Used once per axis.
+    # independently: a widget's edges never cross past its `ShrinkWidget` parent's
+    # inner rectangle.
     private def clamp_edge_pair(lo : Int32, hi : Int32, min : Int32, max : Int32) : {Int32, Int32}
       lo = min if lo < min
       hi = max if hi > max
@@ -378,9 +368,9 @@ module Crysterm
     end
 
     # Translates the `lo..hi` pair (preserving its width) so it fits within
-    # `min..max`: pulls in from the far edge first, then the near edge — so a
-    # span wider than `max - min` ends up anchored at `min` with overflow on
-    # the far side. Used by `overflow: MoveWidget`, once per axis.
+    # `min..max`: pulls in from the far edge first, then the near edge, so a span
+    # wider than `max - min` ends up anchored at `min` with overflow on the far
+    # side.
     private def translate_into_bounds(lo : Int32, hi : Int32, min : Int32, max : Int32) : {Int32, Int32}
       if hi > max
         d = hi - max
@@ -404,11 +394,6 @@ module Crysterm
         return
       end
 
-      # D O:
-      # if @parent._rendering
-      #   rendered = true
-      # end
-
       # Resolve the parent (or window) and its rendered position once for the
       # whole coordinate pass, threaded through instead of `aleft`/`atop` and
       # the clip/shrink section each re-resolving it.
@@ -418,11 +403,10 @@ module Crysterm
       # Resolve each dimension once, reused for both the anchored origin
       # (`aleft`/`atop`) and the far edge (`xl`/`yl`), so a right-anchored or
       # `"center"` widget doesn't walk `awidth`/`aheight` twice per frame.
-      # `awidth`/`aheight` give the border-box size (an auto width already folds
-      # in the margin; a fixed one does not — see `Widget#awidth`); the margin
-      # block below only *shifts* this box. The origin getters are called with
-      # `with_margin: false` so the shift is applied here exactly once.
-      # `width_hint` is `awidth(rendered)`, computed by `#_render` just before.
+      # `awidth`/`aheight` give the border-box size (an auto width already folds in
+      # the margin; a fixed one does not); the margin block below only *shifts*
+      # this box, and the origin getters take `with_margin: false` so the shift is
+      # applied here exactly once.
       w = width_hint || awidth(rendered)
       h = aheight(rendered)
       xi = aleft(rendered, w, ppos, with_margin: false)
@@ -450,15 +434,13 @@ module Crysterm
         yi = coords.yi
         yl = coords.yl
 
-        # Re-apply the `[min, max]` size constraints: `awidth`/`aheight` clamp
-        # the pre-shrink size, but the content/children-derived rectangle
-        # replaces it wholesale, bypassing them. The clamp must respect the
-        # anchored edge — a right/bottom-anchored shrink keeps its far edge
-        # (`xl`/`yl`) and grew toward the near one, so the correction moves
-        # `xi`/`yi`; every other anchoring keeps the near edge and moves the
-        # far one. Guarded on `!=` so an unconstrained (or non-shrunk, already
-        # clamped) axis is untouched; floored at 0 so a pathological
-        # constraint can't invert the rectangle.
+        # Re-apply the `[min, max]` size constraints: `awidth`/`aheight` clamp the
+        # pre-shrink size, but the content/children-derived rectangle replaces it
+        # wholesale, bypassing them. The clamp must respect the anchored edge — a
+        # right/bottom-anchored shrink keeps its far edge and grew toward the near
+        # one, so the correction moves `xi`/`yi`; every other anchoring moves the
+        # far edge. Guarded on `!=` so an unconstrained axis is untouched, and
+        # floored at 0 so a pathological constraint can't invert the rectangle.
         sw = xl - xi
         cw = clamp_awidth(sw)
         if cw != sw
@@ -481,12 +463,11 @@ module Crysterm
         end
       end
 
-      # Apply the element's own margin, CSS-style (*outward*): the border box
-      # keeps its size and is pushed away from its anchored edge by the near
-      # margin — right/left when right/left-anchored, so the margin reserves
-      # space *outside* the box rather than eating into it. (A stretched auto
-      # size already had its margin folded into `awidth`/`aheight`, so shifting
-      # is all that remains; a fixed size never shrinks.)
+      # Apply the element's own margin, CSS-style (*outward*): the border box keeps
+      # its size and is pushed away from its anchored edge by the near margin, so
+      # the margin reserves space *outside* the box rather than eating into it. A
+      # stretched auto size already folded its margin into `awidth`/`aheight`, so
+      # shifting is all that remains; a fixed size never shrinks.
       if (margin = style.margin).any?
         xi, xl = shift_margin(xi, xl, @left, @right, margin.left, margin.right)
         yi, yl = shift_margin(yi, yl, @top, @bottom, margin.top, margin.bottom)
@@ -511,14 +492,8 @@ module Crysterm
       # Check that we're visible and inside the visible scroll area.
       # Note: Lists have a property where only the list items are obfuscated.
 
-      # Old way of doing things, this would not render right if a shrunken element
-      # with lots of boxes in it was within a scrollable element.
-      # See: $ c test/widget-shrink-fail.cr
-      # scrollable_parent = @parent
-
-      # First/closest clipping parent (scrollable, or `overflow: Hidden`). Named
-      # `scrollable_parent` for historical reasons; for a Hidden parent the
-      # scroll-specific terms (`.base`) are simply zero.
+      # First/closest clipping parent: scrollable, or `overflow: Hidden`. For a
+      # Hidden parent the scroll-specific terms (`.base`) are simply zero.
       scrollable_parent = el
 
       # Using scrollable_parent && el here to restrict both to non-nil
@@ -532,13 +507,6 @@ module Crysterm
           return
         end
 
-        # D O:
-        # The shrink_to_fit option can cause a stack overflow
-        # by calling coords on the child again.
-        # if !rendered && !scrollable_parent.shrink_to_fit?
-        #   scrollable_parent_lpos = scrollable_parent.coords()
-        # end
-
         # O: TODO Figure out how to fix base (and cbase) to only
         # take into account the *parent's* padding.
         yi -= scrollable_parent_lpos.base
@@ -551,23 +519,18 @@ module Crysterm
 
         b = sp_border.top
         # The clip on each edge must trigger at THAT edge's inner (border) width:
-        # the bottom clip against the parent's BOTTOM border and the horizontal
-        # clips against the LEFT/RIGHT borders. Reusing `b` (the top border) for
-        # all edges mis-clips asymmetric borders (e.g. `border-top-width: 1;
-        # border-bottom-width: 0`, or a left border of 1 with `left: -1`).
+        # the bottom clip against the parent's BOTTOM border, the horizontal clips
+        # against the LEFT/RIGHT ones. Reusing `b` (the top border) for all edges
+        # mis-clips asymmetric borders.
         bb = sp_border.bottom
         bl = sp_border.left
         br = sp_border.right
 
-        # D O:
-        # XXX
-        # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
-        # if @left < 0 || @right < 0 || @top < 0 || @bottom < 0
-        # This exempts a widget that *is* a label (sits ON the parent's border)
-        # from border compensation — blessed's `if (this._isLabel) b = 0`.
-        # Testing `@_label` instead ("widget HAS a label") is the wrong
-        # direction: it would clip labels out of scrollable widgets and zero all
-        # four compensations for any labeled child in a scrolled container.
+        # Exempt a widget that *is* a label (it sits ON the parent's border) from
+        # border compensation. Testing `@_label` instead ("widget HAS a label") is
+        # the wrong direction: it would clip labels out of scrollable widgets and
+        # zero all four compensations for any labeled child in a scrolled
+        # container.
         if _is_label?
           b = 0
           bb = 0
@@ -608,9 +571,6 @@ module Crysterm
           end
         end
 
-        # D O:
-        # Shouldn't be necessary.
-        # (yi < yl) || raise "No good"
         if yi >= yl
           return
         end
@@ -629,10 +589,6 @@ module Crysterm
           xl += my_border.right
           xl -= sp_border.right
         end
-        # D O:
-        # if xi > xl
-        #  return
-        # end
         if xi >= xl
           return
         end
@@ -647,11 +603,9 @@ module Crysterm
       end
 
       # `MoveWidget`: translate the whole rectangle to fit the window's visible
-      # area, preserving size (e.g. a completion list that would run off the
-      # bottom slides up to stay on window). Unlike `ShrinkWidget` (parent-policy,
-      # clamps edges), this is child-policy: the widget declares it for itself.
-      # Far edges are pulled in first, then near edges clamped, so a widget
-      # larger than the window starts at top/left with overflow on the far side.
+      # area, preserving size (e.g. a completion list that would run off the bottom
+      # slides up to stay on window). Unlike `ShrinkWidget` (parent-policy, clamps
+      # edges), this is child-policy: the widget declares it for itself.
       if self.overflow.move_widget?
         scr = window
         s_left = scr.ileft
@@ -663,16 +617,10 @@ module Crysterm
         yi, yl = translate_into_bounds(yi, yl, s_top, s_bottom)
       end
 
-      # D O:
-      # if parent.lpos
-      #   parent.lpos._scroll_bottom = Math.max(parent.lpos._scroll_bottom, yl)
-      # end
-      # p xi, xl, yi, xl
-
-      # Reuse the widget's existing `RenderedGeometry` when the caller offers one (the render
-      # hot path passes `@lpos`), turning a per-frame heap allocation into an
-      # in-place update. All early returns above precede this, so `into` is
-      # never mutated on a path that yields no coords.
+      # Reuse the widget's existing `RenderedGeometry` when the caller offers one
+      # (the render hot path passes `@lpos`), turning a per-frame heap allocation
+      # into an in-place update. All early returns above precede this, so `into`
+      # is never mutated on a path that yields no coords.
       if v = into
         v.reset \
           xi: xi,

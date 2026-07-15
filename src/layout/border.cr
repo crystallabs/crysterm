@@ -6,8 +6,7 @@ module Crysterm
     # are docked to an edge via a `Border::Hint`; the center fills whatever is
     # left. Edge children are processed top/bottom first (spanning the full
     # width), then left/right (spanning the remaining height), then center —
-    # the classic five-region carve. Used for TUI chrome: header, footer,
-    # sidebars, main pane.
+    # the classic five-region carve.
     #
     # ```
     # b = Widget::Box.new parent: window, width: "100%", height: "100%",
@@ -42,24 +41,17 @@ module Crysterm
         end
       end
 
-      # An edge child sizes itself along the direction it consumes (height for
-      # Top/Bottom, width for Left/Right). Border resolves that raw size to
-      # cells (`aheight`/`awidth`), clamps it to the remaining span, and writes
-      # the resolved `Int32` back via `place_and_render` -> `set_geometry`. That
-      # write would otherwise *destroy* the child's original value — a `"50%"`
-      # string never resolves again (frozen at frame 1's cell count), and a
-      # transient clamp (container briefly shrunk) becomes permanent. Mirror
-      # `Layout::Box`'s `@flex_size` release bookkeeping: remember each child's
-      # raw consume-axis value and the Int we last assigned; restore the raw
-      # value before re-reading `aheight`/`awidth` (so a percent resolves
-      # against the *live* container every frame), and release the child the
-      # moment its raw size no longer matches — the user reclaimed it.
+      # Placing a child writes a resolved `Int32` back over its consume-axis
+      # size, which would destroy the raw value: a `"50%"` would freeze at frame
+      # 1's cell count and a transient clamp would stick. Remember each child's
+      # raw size and the Int last assigned, restore the raw value before
+      # re-reading `aheight`/`awidth`, and release the child once its raw size
+      # no longer matches what we assigned — the user reclaimed it.
       @consume_raw = {} of Widget => (Int32 | String | Nil)
       @consume_assigned = {} of Widget => Int32
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
-        # Prune bookkeeping for children that have left the container (O(1)
-        # `child?` membership, as `Layout::Box#measure` does).
+        # Prune bookkeeping for children that have left the container.
         prune_managed container, @consume_raw
         prune_managed container, @consume_assigned
 
@@ -69,34 +61,21 @@ module Crysterm
         x1 = interior.xl - interior.xi
         y1 = interior.yl - interior.yi
 
-        # Five region passes directly over the live child array (filtering by
-        # `region_of`, an O(1) hint read) instead of bucketing into five
-        # `Array(Widget)` per frame; children keep their relative order within
-        # a region. Each edge consumes only what the working rect has left
-        # (`#aheight`/`#awidth` clamped to the remaining span) — without the
-        # clamp, edges whose sizes together exceed the interior would
-        # overlap and hand the center a negative width/height. Clamping keeps
-        # every region non-negative and non-overlapping, collapsing squeezed-out
-        # ones to zero instead. No-op when the edges fit.
-        # Reserve each edge child's margin box, not just its border box: the
-        # render pipeline (`coords`) shifts a fixed-size child outward by its
-        # near margin without shrinking it, so a top child with `margin top: N` is
-        # drawn N rows below its assigned `y0`. Advancing the working rect by the
-        # child's height alone would let that shifted box overlap the neighboring
-        # region; advancing by `size + margin` (mirroring `Layout::Box`) keeps
-        # every region non-overlapping.
-        # Each edge assigns the child its full working extent along the *span*
-        # axis minus that child's span-axis margins (`x1 - x0 - mhorizontal` for a
-        # Top/Bottom bar, `y1 - y0 - mvertical` for a Left/Right rail), mirroring
-        # `Layout::Box`'s cross-axis handling: the render pipeline shifts a
-        # fixed-size box out by its near margin *without* shrinking it, so
-        # assigning the full span would paint a margined child past the region's
-        # far edge (and, under the default `Overflow::Ignore`, past the
-        # container). Reserving the margins keeps it inside.
+        # Five passes filter the live child array by `region_of` rather than
+        # bucketing into five `Array(Widget)` per frame; children keep their
+        # relative order within a region.
+        #
+        # Each edge consumes only what the working rect has left, clamped to the
+        # remaining span: without the clamp, oversized edges would overlap and
+        # hand the center a negative extent.
+        #
+        # Regions reserve each child's *margin* box, not its border box: the
+        # render pipeline shifts a fixed-size child outward by its near margin
+        # without shrinking it, so advancing by size alone (or assigning the full
+        # span) would paint a margined child over its neighbor.
         each_arrangeable container do |el|
           next unless region_of(el).top?
-          # Hidden and not holding its slot: consume no band, so the
-          # regions around it (and the center) take the space back.
+          # Hidden and not holding its slot: consume no band.
           next if vacant? el
           restore_consume el, true
           mh = el.mvertical
@@ -107,8 +86,7 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).bottom?
-          # Hidden and not holding its slot: consume no band, so the
-          # regions around it (and the center) take the space back.
+          # Hidden and not holding its slot: consume no band.
           next if vacant? el
           restore_consume el, true
           mh = el.mvertical
@@ -119,8 +97,7 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).left?
-          # Hidden and not holding its slot: consume no band, so the
-          # regions around it (and the center) take the space back.
+          # Hidden and not holding its slot: consume no band.
           next if vacant? el
           restore_consume el, false
           mw = el.mhorizontal
@@ -131,8 +108,7 @@ module Crysterm
         end
         each_arrangeable container do |el|
           next unless region_of(el).right?
-          # Hidden and not holding its slot: consume no band, so the
-          # regions around it (and the center) take the space back.
+          # Hidden and not holding its slot: consume no band.
           next if vacant? el
           restore_consume el, false
           mw = el.mhorizontal
@@ -142,9 +118,8 @@ module Crysterm
           x1 -= cw + mw
         end
         each_arrangeable container do |el|
-          # Center: everything not top/bottom/left/right. It consumes neither
-          # axis (fills what's left), so it needs no release bookkeeping — but it
-          # still reserves both of its own margins, like the edges.
+          # Center: everything not top/bottom/left/right. Consumes neither axis,
+          # so it needs no release bookkeeping.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
           next if vacant? el
@@ -152,12 +127,10 @@ module Crysterm
         end
       end
 
-      # Restores `el`'s remembered raw consume-axis size (height when
-      # *vertical*, width otherwise) before we re-read its resolved
-      # `aheight`/`awidth`, so a percent size resolves against the live
-      # container every frame and a transient clamp doesn't stick. If the raw
-      # size no longer equals what we last assigned, the user reclaimed it:
-      # forget the old value and honor the new one (cf. `Box#main_flex?`).
+      # Restores `el`'s remembered raw consume-axis size (height when *vertical*,
+      # width otherwise) before its `aheight`/`awidth` is re-read. If the raw size
+      # no longer equals what was last assigned, the user reclaimed it: forget the
+      # old value and honor the new one.
       private def restore_consume(el : Widget, vertical : Bool) : Nil
         restore_managed(el, @consume_raw, @consume_assigned, vertical ? el.height : el.width) do |v|
           vertical ? (el.height = v) : (el.width = v)

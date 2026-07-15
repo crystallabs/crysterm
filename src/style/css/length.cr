@@ -1,7 +1,7 @@
 module Crysterm
   module CSS
-    # Shared CSS length → terminal-cell conversion, used by both `Geometry`
-    # (width/height/top/left) and `Properties` (padding/margin/border-width).
+    # Shared CSS length → terminal-cell conversion, for geometry
+    # (width/height/top/left) and box properties (padding/margin/border-width).
     #
     # A terminal cell is not a pixel, so each unit carries a *divisor*:
     # `cells = round(value / divisor)`. E.g. `divisors["px"] == 10.0` makes
@@ -31,20 +31,18 @@ module Crysterm
       PHYSICAL = Set{"px", "pt", "pc", "cm", "mm", "in"}
 
       # Cell height ÷ width. Scales an absolute unit's divisor on the vertical
-      # axis (see module docs). Defaults to `2.0`; the Window replaces it at
-      # startup with the measured cell size (`Window#detect_cell_geometry`), or
-      # an explicit `css.cell_aspect_ratio` pins it (`apply_config`).
+      # axis. Defaults to `2.0`; the Window replaces it at startup with the
+      # terminal's measured cell size, unless `css.cell_aspect_ratio` pins it.
       class_property cell_aspect_ratio : Float64 = 2.0
 
-      # Anchored on `1 cell ≈ 10px` by default; the `px` anchor is replaced at
-      # startup with the terminal's *measured* cell width when available
-      # (`Screen#apply_cell_pixels`), unless `css.px_per_cell` pins it — falling
-      # back to `10.0` when the terminal reports no pixel size. The absolute
-      # units below are derived from the fixed CSS ratios (`1in = 96px = 72pt =
-      # 6pc`) so they agree with each other. Relative units use TUI conventions:
-      # `1ch ≡ 1 cell` (width of `0`),
-      # `1em/1rem ≈ 1 cell`, `1ex ≈ ½em → 2/cell`. Physical units (`cm`/`mm`/`in`)
-      # have no terminal meaning, so they stay dropped (map to a number to opt in).
+      # Anchored on `1 cell ≈ 10px`; the `px` anchor is replaced at startup with
+      # the terminal's *measured* cell width when available, unless
+      # `css.px_per_cell` pins it. The absolute units are derived from the fixed
+      # CSS ratios (`1in = 96px = 72pt = 6pc`) so they agree with each other.
+      # Relative units use TUI conventions: `1ch ≡ 1 cell` (width of `0`),
+      # `1em/1rem ≈ 1 cell`, `1ex ≈ ½em → 2/cell`. Physical units (`cm`/`mm`/
+      # `in`) have no terminal meaning, so they stay dropped (map to a number to
+      # opt in).
       class_property divisors : Hash(String, Float64?) = {
         "px"  => 10.0,  # anchor: 1 cell ≈ 10px  (200px → 20 cells)
         "pt"  => 7.5,   # 1pt = 1/72in = 1.333px → 7.5pt per 10px cell
@@ -70,7 +68,7 @@ module Crysterm
           divisors["px"] = Superconf.css_px_per_cell
         end
         # Explicit config pins the ratio; otherwise the Window feeds in the
-        # terminal's measured value (`Window#detect_cell_geometry`).
+        # terminal's measured value.
         if config_set?("css.cell_aspect_ratio")
           self.cell_aspect_ratio = Superconf.css_cell_aspect_ratio
         end
@@ -84,7 +82,7 @@ module Crysterm
 
       # Whether `css.px_per_cell` was explicitly configured. Lets the Window
       # skip feeding the terminal's *measured* cell width into the `px` divisor
-      # (see `Screen#apply_cell_pixels`) when the user has already pinned it.
+      # when the user has already pinned it.
       def self.px_per_cell_configured? : Bool
         config_set?("css.px_per_cell")
       end
@@ -159,12 +157,9 @@ module Crysterm
         s = value.strip
         # Fast path for a bare integer (`5`, `0`, `-3`), no regex. Only a bare
         # decimal (`5.5`) needs NUMBER, only a unit'd length needs PATTERN.
-        # `to_f?` (not strict `to_f`) throughout: a numeric literal past
-        # Float64 range (309+ digits — a generated/corrupted stylesheet value)
-        # makes `to_f` raise `ArgumentError` on ERANGE, and nothing between
-        # `Properties.apply` and `Cascade.apply_sheets` rescues — one bad token
-        # would crash the app, violating this module's "Never raises" contract.
-        # (Matches the `to_i?` fast path and the `MediaQuery` precedent.)
+        # `to_f?` (not strict `to_f`) throughout: a literal past Float64 range
+        # makes `to_f` raise on ERANGE, and nothing up the cascade rescues —
+        # that would break the "never raises" contract.
         if i = s.to_i?
           i.to_f
         elsif s.matches?(NUMBER)
@@ -199,8 +194,8 @@ module Crysterm
                 when "vmin" then {screen_width, screen_height}.min
                 else             {screen_width, screen_height}.max
                 end
-        # `to_f?`: an out-of-Float64-range literal must yield `nil`, not raise
-        # (see `to_cells_f`); `to_cell_count` clamps any overflowing product.
+        # `to_f?`: an out-of-Float64-range literal must yield `nil`, not raise;
+        # `to_cell_count` clamps any overflowing product.
         m[1].to_f?.try { |f| to_cell_count(basis * f / 100.0) }
       end
 

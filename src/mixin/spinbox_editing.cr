@@ -1,22 +1,19 @@
 module Crysterm
   module Mixin
-    # Shared direct-entry/keyboard editing machinery for the spin-box controls
-    # `Widget::SpinBox` (integer) and `Widget::DoubleSpinBox` (floating point).
+    # Shared direct-entry/keyboard editing machinery for spin-box controls,
+    # numeric type left open.
     #
-    # It centralizes the in-progress edit buffer (`@editing`), the displayed
-    # `#text`, `#editing?`, `#update_content`, commit/cancel, the mouse-wheel and
-    # blur wiring, and the whole `#on_keypress` dispatch (digit/sign entry,
-    # Enter/Escape/Backspace, Up/Down/`+`/`k`/`j`, PageUp/PageDown, Home/End).
+    # Provides the in-progress edit buffer (`@editing`), the displayed `#text`,
+    # `#editing?`, `#update_content`, commit/cancel, the mouse-wheel and blur
+    # wiring, `#prefix`/`#suffix`/`#editable?`, the `on_value_changed` hook, and
+    # the whole `#on_keypress` dispatch (digit/sign entry, Enter/Escape/Backspace,
+    # Up/Down/`+`/`k`/`j`, PageUp/PageDown, Home/End).
     #
-    # It also declares `#prefix`/`#suffix`/`#editable?` (identical across both
-    # widgets) and the `on_value_changed` hook that refreshes the displayed text.
-    #
-    # The two widgets differ only in their numeric type and a few small spots, so
-    # the including widget must provide:
+    # The including widget must provide:
     #
     #   * `#value` / `#value=` / `#increment` / `#decrement` and `@minimum` /
-    #     `@maximum` / `@step` — its numeric value/range logic (from
-    #     `Mixin::RangedValue` for `SpinBox`, or defined directly);
+    #     `@maximum` / `@step` — its numeric value/range logic (e.g. from
+    #     `Mixin::RangedValue`);
     #   * `#parse_buffer(buf : String)` — parse the edit buffer to the widget's
     #     numeric type, returning `nil` on failure (`to_i?` / `to_f?`);
     #   * `#body_text : String` — the committed value as shown (e.g. `value.to_s`
@@ -24,8 +21,8 @@ module Crysterm
     #   * `#extra_entry_char?(ch : Char) : Bool` — whether *ch* is an accepted
     #     entry character beyond digits and a leading sign (e.g. a single `.`).
     #
-    # The including widget wires the wheel/blur handlers by calling
-    # `#install_spinbox_editing` from its own `#initialize`.
+    # It also wires the wheel/blur handlers by calling `#install_spinbox_editing`
+    # from its own `#initialize`.
     module SpinBoxEditing
       # The in-progress edit buffer (`nil` when not editing). While editing, the
       # box shows this text instead of the committed value.
@@ -39,19 +36,19 @@ module Crysterm
       # inverted). When false the box only responds to stepping.
       property? editable : Bool = true
 
-      # Refresh the displayed number whenever the value changes (`RangedValue`
-      # hook, overriding its no-op default — include order matters: this mixin
-      # must come after `Mixin::RangedValue` for the override to apply).
+      # Refresh the displayed number whenever the value changes. Overrides
+      # `RangedValue`'s no-op hook, so this mixin must be included *after*
+      # `Mixin::RangedValue`.
       protected def on_value_changed
         update_content
       end
 
-      # Shared spin-box `#initialize` tail — both controls run it after `super`
-      # (and after `DoubleSpinBox` sets up `@decimals`/`@fmt`): stores a
-      # non-inverted range and a clamped `value` (the shared guard;
-      # `RangedValue#init_range` does the `maximum >= minimum` fix-up an inverted
-      # range would otherwise leave `#value` stuck under), wires key handling and
-      # the wheel/blur handlers, and paints the initial content.
+      # Shared spin-box `#initialize` tail: stores a non-inverted range and a
+      # clamped `value` (`RangedValue#init_range` does the `maximum >= minimum`
+      # fix-up an inverted range would otherwise leave `#value` stuck under),
+      # wires key handling and the wheel/blur handlers, and paints the initial
+      # content. Run it after `super`, and after any numeric formatting state the
+      # widget needs for `#body_text` is set up.
       protected def setup_spinbox_editing(value, wrapping) : Nil
         @wrapping = wrapping
         init_range @minimum, @maximum, value
@@ -71,10 +68,9 @@ module Crysterm
 
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
-            # Discard any in-progress edit first, matching `#stepping_key`: while
-            # `@editing` is non-nil the box shows the buffer, so a wheel step would
-            # change the committed value invisibly (then be revealed by Escape or
-            # overwritten by Enter).
+            # While `@editing` is non-nil the box shows the buffer, so a wheel step
+            # would change the committed value invisibly. Discard the edit first,
+            # matching `#stepping_key`.
             cancel_edit
             increment
             e.accept
@@ -112,11 +108,10 @@ module Crysterm
         return unless buf
         @editing = nil
         if v = parse_buffer(buf)
-          # Clamp here rather than leaning on `#value=`: on a `#wrapping?` box,
-          # `#value=` treats an out-of-range value as a single-step overshoot
-          # and snaps to the *opposite* bound (typing 150 on a 0..100 wrap box
-          # would commit 0). A typed entry is an absolute value, not a step, so
-          # it must clamp into range regardless of `#wrapping?`.
+          # A typed entry is an absolute value, not a step, so it must clamp
+          # regardless of `#wrapping?`. On a wrapping box `#value=` alone would
+          # treat an out-of-range value as a single-step overshoot and snap to the
+          # *opposite* bound (typing 150 on a 0..100 wrap box would commit 0).
           self.value = v.clamp(@minimum, @maximum) # emits a value-change event if changed
         end
         update_content # revert the display even when value did not change
@@ -139,10 +134,8 @@ module Crysterm
            (('0'..'9').includes?(ch) ||
            extra_entry_char?(ch) ||
            # A leading `-` is only accepted as the first buffer character. Test
-           # emptiness rather than `@editing.nil?`: backspacing to empty leaves a
-           # non-nil `""`, so a nil check wrongly blocked re-entering `-` after a
-           # full backspace. `(@editing || "").empty?` covers both cases while
-           # still rejecting `-` mid-number.
+           # emptiness, not `@editing.nil?`: backspacing to empty leaves a
+           # non-nil `""`, which must still accept `-`.
            (ch == '-' && @minimum < 0 && (@editing || "").empty?))
           apply_edit(e) { @editing = (@editing || "") + ch }
           return
@@ -173,20 +166,17 @@ module Crysterm
         end
       end
 
-      # The PageUp/PageDown delta: 10 line-steps, saturating to the numeric
-      # type's own bound instead of raising when `step * 10` overflows (e.g. a
-      # `SpinBox` step above `Int32::MAX / 10`). `#increment`/`#decrement` then
-      # saturate to the range bound as usual.
+      # The PageUp/PageDown delta: 10 line-steps, saturating to the numeric type's
+      # own bound instead of raising when `step * 10` overflows.
+      # `#increment`/`#decrement` then saturate to the range bound as usual.
       private def page_step_delta(step : T) : T forall T
         step * 10
       rescue OverflowError
         step >= T.zero ? T::MAX : T::MIN
       end
 
-      # Discards any in-progress edit buffer, runs the stepping *action*, then
-      # accepts the event and repaints — shared by every value-stepping key
-      # (Up/Down, `+`/`k`/`j`, PageUp/PageDown, Home/End). Block-yielding, so it
-      # allocates no `Proc`.
+      # Discards any in-progress edit buffer, runs the stepping *block*, then
+      # accepts the event and repaints. Block-yielding, so it allocates no `Proc`.
       private def stepping_key(e, &) : Nil
         cancel_edit
         yield
@@ -195,8 +185,7 @@ module Crysterm
       end
 
       # Applies a buffer mutation (the *block* edits `@editing`), then refreshes
-      # the displayed text, accepts the event and repaints — shared by the
-      # buffer-editing keys (direct entry and Backspace), the display-side
+      # the displayed text, accepts the event and repaints — the display-side
       # counterpart to `#stepping_key`. Block-yielding, so it allocates no `Proc`.
       private def apply_edit(e, &) : Nil
         yield

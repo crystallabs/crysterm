@@ -7,17 +7,13 @@ module Crysterm
   class Widget
     module Graph
       # A 2D heatmap: a matrix of `Float64` values rendered as a grid of colored
-      # cells, in the spirit of matplotlib's `imshow` / Qt's `QGraphicsScene`
-      # image tiles. A grid sibling of `Graph::PieChart`/`Graph::Donut` (not a
-      # subclass): a pie shows one value per category, a heatmap shows one value
-      # per `(row, col)` cell, its color read off a `#colormap`.
+      # cells, one value per `(row, col)`, its color read off a `#colormap`.
       #
       # Each cell is drawn as a solid rectangle on a backend-agnostic
-      # `Graph::Canvas` (sixel/kitty where available, else glyph cells) with
-      # `Painter#fill_rect`; the default `glyph_mode` is **block** (one solid
-      # color per terminal cell), not braille — a heatmap is a grid of flat
-      # colors, so a block cell reads cleanly with no mid-cell color bleed on the
-      # glyph fallback. A `NaN` cell is left transparent (missing data).
+      # `Graph::Canvas` (sixel/kitty where available, else glyph cells). The
+      # default `glyph_mode` is **block** rather than braille: a heatmap is a
+      # grid of flat colors, so a block cell reads cleanly with no mid-cell color
+      # bleed on the glyph fallback. A `NaN` cell is left transparent.
       #
       # A value `v` maps to a color by normalizing it to `t = (v - #vmin) /
       # (#vmax - #vmin)` (clamped to `0..1`) and indexing a 256-entry color LUT
@@ -46,7 +42,7 @@ module Crysterm
 
         # One colormap stop: a normalized position `stop` (`0.0..1.0`) and its
         # color `rgb` (`0xRRGGBB`). Colors between stops are linearly
-        # interpolated in RGB (via `Colors.mix`, as `Widget::Gradient` does).
+        # interpolated in RGB.
         record ColorStop, stop : Float64, rgb : Int32
 
         # Named colormaps as ordered stops (first at `0.0`, last at `1.0`).
@@ -105,12 +101,12 @@ module Crysterm
         property? show_labels : Bool
 
         # 256-entry color LUT for the current `#colormap` (`t*255 -> 0xRRGGBB`),
-        # built lazily and reused across repaints so the paint loop never does
-        # per-cell float interpolation. Rebuilt only when `#colormap` changes.
+        # so the paint loop never does per-cell float interpolation. Must be
+        # dropped when `#colormap` changes.
         @lut : Array(Int32)?
 
-        # Resolved `{vmin, vmax}` for the current data/bounds/`#symmetric`, cached
-        # so repeated `#color_for` calls don't re-scan the matrix. Invalidated
+        # Resolved `{vmin, vmax}` for the current data/bounds/`#symmetric`, so
+        # repeated `#color_for` calls don't re-scan the matrix. Must be dropped
         # when the data or any bound-affecting property changes.
         @bounds : Tuple(Float64, Float64)?
 
@@ -141,9 +137,8 @@ module Crysterm
 
           build_canvas(type, glyph_mode) { |p| paint_grid p }
 
-          # Map hovering onto the grid and re-emit as `Event::CellHover`. Hover
-          # events fire on the topmost widget under the pointer; subscribing here
-          # makes this widget mouse-hit-testable (`#wants_mouse?`).
+          # Map hovering onto the grid and re-emit as `Event::CellHover`.
+          # Subscribing also makes this widget mouse-hit-testable.
           on(Crysterm::Event::MouseOver) { |e| handle_hover e }
           on(Crysterm::Event::MouseMove) { |e| handle_hover e }
           on(Crysterm::Event::MouseOut) { @hover_cell = nil }
@@ -215,13 +210,12 @@ module Crysterm
         end
 
         # The `0xRRGGBB` color for value *v* under the current colormap and
-        # resolved bounds: normalize to `t`, then index the precomputed LUT (no
-        # per-cell interpolation on the paint path).
+        # resolved bounds: normalize to `t`, then index the precomputed LUT.
         def color_for(v : Float64) : Int32
           lo, hi = resolved_bounds
           t = ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
-          # Belt-and-braces: a NaN `t` (e.g. `0/0` from a degenerate scale) would
-          # make `(t * 255).round.to_i` raise OverflowError. Fall back to `0`.
+          # A NaN `t` (e.g. `0/0` from a degenerate scale) would make
+          # `(t * 255).round.to_i` raise OverflowError.
           t = 0.0 unless t.finite?
           lut[(t * 255).round.to_i]
         end
@@ -240,8 +234,7 @@ module Crysterm
         end
 
         # Interpolates the colormap *stops* at normalized position *t* by linear
-        # RGB lerp between the bracketing stops (reusing `Colors.mix`, exactly as
-        # `Widget::Gradient#color_at` blends its stops). Only runs 256×/LUT build.
+        # RGB lerp between the bracketing stops.
         private def sample_stops(stops : Array(ColorStop), t : Float64) : Int32
           return stops.first.rgb if t <= stops.first.stop
           return stops.last.rgb if t >= stops.last.stop
@@ -295,9 +288,8 @@ module Crysterm
         end
 
         # Grid pass: map the logical `cols × rows` space onto the whole canvas
-        # and fill each finite cell with its color. Ragged rows
-        # are tolerated (cells past a row's length are skipped); `NaN` cells are
-        # left transparent.
+        # and fill each finite cell with its color. Ragged rows are tolerated;
+        # `NaN` cells are left transparent.
         private def paint_grid(p : Painter) : Nil
           d = @matrix
           rows = d.size
@@ -356,8 +348,7 @@ module Crysterm
 
         # Stamps the colorbar down the right edge: one cell per row from `vmax`
         # (top) to `vmin` (bottom) in the colormap's colors, with numeric end
-        # labels to its left. Uses colored cells (via `TextOverlay`) rather than
-        # a second paint pass, mirroring how `PieChart` stamps its legend.
+        # labels to its left. Uses colored cells, not a second paint pass.
         private def draw_legend : Nil
           return unless show_legend?
           xi, xl, yi, yl = interior_coords || return
@@ -382,8 +373,7 @@ module Crysterm
 
         # Emits `Event::CellHover` for the grid cell under the pointer, but only
         # when it differs from the last-hovered cell (avoids event spam on
-        # motion). Reuses the pooled `Event::Mouse`'s absolute `x`/`y` and the
-        # `interior_coords` mapping.
+        # motion).
         private def handle_hover(e : Crysterm::Event::Mouse) : Nil
           rc = cell_at e.x, e.y
           return if rc == @hover_cell
@@ -396,8 +386,8 @@ module Crysterm
         end
 
         # Maps an absolute cell (*x*, *y*) back to a `{row, col}` in the grid, or
-        # `nil` when outside the interior or the data is empty. Inverse of the
-        # `paint_grid` mapping (the grid fills the whole interior).
+        # `nil` when outside the interior or the data is empty. Must stay the
+        # inverse of the `paint_grid` mapping.
         private def cell_at(x : Int32, y : Int32) : Tuple(Int32, Int32)?
           d = @matrix
           rows = d.size

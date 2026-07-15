@@ -36,8 +36,7 @@ module Crysterm
     property? exclusive : Bool = true
 
     # Per-member subscriptions, so `#remove_action` detaches exactly the handlers
-    # this group installed (each `Subscription` captured its own action and event
-    # type), leaving any the caller wired on the same action alone.
+    # this group installed and leaves the caller's own alone.
     @subs = {} of Action => Subscriptions
 
     def initialize(*, exclusive : Bool = true)
@@ -45,23 +44,21 @@ module Crysterm
     end
 
     # Adds *action* to the group and returns it (Qt's `QActionGroup#addAction`).
-    # Idempotent. An exclusive group makes its members checkable, since
-    # exclusivity is meaningless without a checked state — mirroring Qt, which
-    # does the same on add.
+    # Idempotent. An exclusive group forces its members checkable, as Qt does —
+    # exclusivity is meaningless without a checked state.
     def add_action(action : Action) : Action
       return action if @actions.includes? action
       @actions << action
       action.checkable = true if exclusive?
       subs = @subs[action] = Subscriptions.new
       # Relay the member's activation as the group's own signal, carrying the
-      # post-activation checked state like `Action#activate` does.
+      # post-activation checked state.
       subs.on(action, ::Crysterm::Event::Triggered) do |e|
         enforce_exclusivity action
         emit ::Crysterm::Event::Triggered, e.checked
       end
-      # A member checked programmatically (`action.checked = true`, not a user
-      # activation) must un-check the rest too, or the group could show two
-      # checked entries.
+      # A member checked programmatically (not via activation) must un-check the
+      # rest too, else the group could show two checked entries.
       subs.on(action, ::Crysterm::Event::Toggled) do |e|
         enforce_exclusivity action if e.checked
       end

@@ -18,10 +18,10 @@ module Crysterm
     class UniformGrid < Flow
       @high_width = 0
 
-      # Widest child becomes the uniform column width. Skips layout-excluded
-      # chrome (e.g. a full-width `background-image` layer), matching
-      # `Flow#arrange`'s placement loop, otherwise such a layer would inflate
-      # the column to the whole interior and collapse the grid to one column.
+      # Widest child becomes the uniform column width. Layout-excluded chrome
+      # (e.g. a full-width `background-image` layer) is skipped; it would
+      # otherwise inflate the column to the whole interior and collapse the grid
+      # to one column.
       protected def before_flow(container : Widget) : Nil
         @high_width = container.children.reduce(0) do |o, el|
           next o if el.layout_excluded?

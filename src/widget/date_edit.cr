@@ -15,20 +15,10 @@ module Crysterm
     # `Widget::Calendar` to pick a day (clicking again, or Escape, closes it).
     # Emits `Event::DateChanged` whenever the date changes.
     #
-    # The shared section machinery (selection, navigation, wheel/press handling)
-    # lives in `Mixin::SectionedField`.
-    # `DateEdit < DateTimeEdit` mirrors Qt's `QDateEdit < QDateTimeEdit`: a
-    # date-only specialization keeping its own `@date` backing store, overriding
-    # the section machinery (three sections instead of six) and adding the
-    # calendar popup. Keyboard/mouse wiring and initial render are inherited
-    # from `DateTimeEdit#initialize`.
-    #
     # <!-- widget-examples:capture v1 -->
     # ![DateEdit screenshot](../../tests/widget/date_edit/date_edit.5s.apng)
     # <!-- /widget-examples:capture -->
     class DateEdit < DateTimeEdit
-      # Calendar-popup lifecycle (open flag, modal grab, outside-click dismissal,
-      # grab region, teardown). We supply `#popup_widget` and `#close`.
       include Mixin::Popup
 
       @date : Time
@@ -43,16 +33,13 @@ module Crysterm
         @date = (date || Mixin::SectionedField.default_today).at_beginning_of_day
         @calendar_popup = calendar_popup
 
-        # `DateTimeEdit#initialize` wires the section keyboard/mouse handlers,
-        # sets `@parse_tags`, and renders once (highlighting the default section).
         super **input
         @section = 2 # start on the day section
         update_content
       end
 
-      # A press toggles the calendar popup (click to open, click again to close);
-      # a wheel dismisses an open popup before stepping. (`Mixin::SectionedField`
-      # hooks, run after the section under the pointer is selected.)
+      # A press toggles the calendar popup; a wheel dismisses an open one before
+      # stepping.
       protected def on_section_press : Nil
         toggle if calendar_popup?
       end
@@ -61,26 +48,20 @@ module Crysterm
         close if @open
       end
 
-      # `#toggle` (open the calendar if closed, close it if open) comes from
-      # `Mixin::Popup`.
-
       section_value date, @date, at_beginning_of_day
 
       private def section_count : Int32
         3
       end
 
-      # Maps an absolute x to a section index (year/month/day at the `YYYY-MM-DD`
-      # columns 0-4 / 5-7 / 8-9); `nil` when off the field. A separator column
-      # belongs to the field it follows — the `-` at col 4 is part of the year and
-      # the `-` at col 7 part of the month — so the inclusive end-columns 4/7/9
-      # match `DateTimeEdit`'s for the shared `YYYY-MM-DD` prefix. The field is
-      # exactly 10 columns (last col 9); `nil` past it leaves the active section
-      # untouched (see `Mixin::SectionedField#section_from_columns`).
-      # Inclusive section end-columns for the `YYYY-MM-DD` layout (year/month/day),
-      # hoisted so a mouse press/wheel doesn't rebuild the array each time.
+      # Inclusive section end-columns for the `YYYY-MM-DD` layout (year/month/day);
+      # hoisted so a mouse press/wheel doesn't rebuild the array each time. A
+      # separator column belongs to the field it follows, so these must match
+      # `DateTimeEdit`'s for the shared `YYYY-MM-DD` prefix.
       SECTION_ENDS = [4, 7, 9]
 
+      # Maps an absolute x to a section index; `nil` when off the field, which
+      # leaves the active section untouched.
       private def section_at(x : Int32) : Int32?
         section_from_columns x, SECTION_ENDS
       end
@@ -92,31 +73,25 @@ module Crysterm
 
       # Steps the active section by *delta*, wrapping within that section's own
       # range without carrying: day within month, month within year, year
-      # unbounded; day then clamped to the (possibly shorter) target month. The
-      # date-only sections 0/1/2 map to the year/month/day component indices
-      # directly; the date carries no time, so the untouched h/m/s stay 0.
+      # unbounded; day then clamped to the (possibly shorter) target month.
       private def step(delta : Int32) : Nil
         self.date = step_time_field @date, @section, delta
       end
 
-      # The calendar drop-down (for `Mixin::Popup`).
+      # The calendar drop-down.
       def popup_widget : ::Crysterm::Widget?
         @popup
       end
 
-      # Extends `Mixin::Popup`'s modal grab region (this field plus the calendar)
-      # to also cover the calendar's own open month/year nav dropdowns. Those
-      # `Menu` pop-ups are window-level siblings of the calendar and routinely
-      # overhang its rectangle (the ±100-year list especially), so without this a
-      # click on a month/year row below the calendar reads as a click-away and
-      # dismisses the whole calendar — instead of only the dropdown, leaving the
-      # user back on the open calendar.
+      # Extends the modal grab region to cover the calendar's own month/year nav
+      # dropdowns. They are window-level siblings that overhang the calendar's
+      # rectangle, so without this a click on one reads as a click-away and
+      # dismisses the whole calendar instead of only the dropdown.
       def grab_contains?(x : Int32, y : Int32) : Bool
         super || (@popup.try(&.nav_popup_contains?(x, y)) || false)
       end
 
-      # Drops the calendar. Grab, outside-click dismissal, and the open flag
-      # come from `Mixin::Popup`.
+      # Drops the calendar.
       def open : Nil
         return if @open || !calendar_popup?
         pop = ensure_popup
@@ -131,10 +106,8 @@ module Crysterm
       end
 
       private def ensure_popup : Calendar
-        # A cross-window reparent strands the cached calendar on the old window
-        # (it is a *window* child, not ours): reopening would render it over
-        # there while placement and the dismiss grab use the new window. Drop
-        # the stale popup and rebuild on the current window.
+        # The calendar is a *window* child, not ours, so a cross-window reparent
+        # strands it on the old window. Drop it and rebuild on the current one.
         if (stale = @popup) && stale.window? != window?
           ::Crysterm::Widget.destroy_satellite stale
           @popup = nil
@@ -164,11 +137,7 @@ module Crysterm
       end
 
       # Places the calendar against the field: below when its full height fits,
-      # otherwise flipped above (Qt opens upward when it would run off the
-      # bottom), clamped on-window. `Overlay.place_child` owns the below/above
-      # fit choice, the on-window clamp, and the single absolute→window-local
-      # inset conversion (a window-appended popup's `left`/`top` are relative to
-      # the window content origin).
+      # otherwise flipped above, clamped on-window.
       private def position_popup(pop : Calendar) : Nil
         Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
           Overlay::BELOW_ABOVE)

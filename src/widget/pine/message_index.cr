@@ -45,14 +45,12 @@ module Crysterm
       # ![MessageIndex screenshot](../../../tests/widget/pine/message_index/message_index.5s.apng)
       # <!-- /widget-examples:capture -->
       class MessageIndex < SelectableList(Message)
-        # Nested-name alias for the record type (see `SelectableList`).
+        # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Pine::Message
 
-        # Width of the leftmost status/flags column. Defaults to Alpine's
-        # compact 3 (a marker, a space, and one status char); widen it to show
-        # several flag characters at once without disturbing the rest of the
-        # columns — every row pads its status to this width, so they stay
-        # aligned.
+        # Width of the leftmost status/flags column. Defaults to Alpine's compact
+        # 3 (a marker, a space, and one status char); every row pads its status to
+        # this width, so widening it keeps the other columns aligned.
         property status_width : Int32 = 3
 
         def initialize(
@@ -70,7 +68,6 @@ module Crysterm
           format_message(item, index + 1)
         end
 
-        # Formats one message into a fixed-column row.
         private def format_message(m : Message, number : Int32) : String
           status = m.status.presence || (m.unread? ? "N" : " ")
           String.build do |s|

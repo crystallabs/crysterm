@@ -5,10 +5,9 @@ module Crysterm
     # runs once immediately, so *owner* reflects current state at bind time, and
     # is disposed automatically when *owner* emits `Event::Destroy`.
     #
-    # Dependencies are **explicit** — you name the signals to watch, and the
-    # watched set is fixed for the binding's life (the permanent-registration
-    # default). For a side effect whose dependency *set* changes between runs,
-    # the Phase-2 re-tracking `Effect` is the tool (see `REACTIVE.md`).
+    # Dependencies are **explicit**: you name the signals to watch, and the
+    # watched set is fixed for the binding's life. For a side effect whose
+    # dependency *set* changes between runs, use the re-tracking `Effect`.
     #
     # Returns the `Binding` so it can be disposed early by hand if needed.
     #

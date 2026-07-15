@@ -40,10 +40,8 @@ module Crysterm
           @pen
         end
 
-        # Sets the stroke color. Also recomputes `@pen_px`, the pre-unpacked
-        # opaque pixel `#plot` writes directly in the common (`pen_alpha >=
-        # 255`) case, so the RGB unpack happens once per stroke instead of
-        # once per plotted pixel.
+        # Sets the stroke color, and recomputes `@pen_px` so the RGB unpack happens
+        # once per stroke instead of once per plotted pixel.
         def pen=(v : Int32) : Int32
           @pen = v
           r, g, b = Media.rgb24(v)
@@ -58,9 +56,9 @@ module Crysterm
           @pen_alpha
         end
 
-        # Sets the stroke opacity. Also recomputes the blend-invariant
-        # `@pen_af`/`@pen_ia` factors so `#plot`'s translucent branch doesn't
-        # redo the `/255.0` division per pixel.
+        # Sets the stroke opacity, and recomputes the blend-invariant
+        # `@pen_af`/`@pen_ia` factors so `#plot` doesn't redo the `/255.0`
+        # division per pixel.
         def pen_alpha=(v : UInt8) : UInt8
           @pen_alpha = v
           @pen_af = v / 255.0
@@ -69,10 +67,10 @@ module Crysterm
         end
 
         # Pre-unpacked opaque pixel for the current `@pen`, written directly by
-        # `#plot`'s opaque branch (see `#pen=`).
+        # `#plot`'s opaque branch.
         @pen_px : PNGGIF::Pixel = PNGGIF::Pixel.new(255, 255, 255, 255)
         # Blend factor (`@pen_alpha / 255.0`) and its complement, for `#plot`'s
-        # translucent branch (see `#pen_alpha=`).
+        # translucent branch.
         @pen_af : Float64 = 1.0
         @pen_ia : Float64 = 0.0
 
@@ -206,8 +204,8 @@ module Crysterm
         # (cx, cy), between `r_inner`..`r_outer` radii, over `start_deg`..
         # `start_deg + sweep_deg`. `0°` is up (12 o'clock), angles increase
         # clockwise. Vertical radius is scaled by `#pixel_aspect` so the ring is
-        # physically round on non-square backends. Used by `Graph::Donut`; works
-        # in device space so geometry is independent of any window/viewport.
+        # physically round on non-square backends. Works in device space, so the
+        # geometry is independent of any window/viewport.
         def fill_ring(cx : Number, cy : Number, r_inner : Number, r_outer : Number,
                       start_deg : Number = 0.0, sweep_deg : Number = 360.0,
                       step_deg : Number = 0.7) : Nil
@@ -232,12 +230,11 @@ module Crysterm
           return unless start.finite? && stop.finite?
           step = step_deg.to_f
           step = 0.7 if !step.finite? || step <= 0.0
-          # Refine the angular step so adjacent spokes stay ≤ ~0.5 px apart at
-          # the OUTER radius: with the fixed 0.7° default the tangential spoke
-          # spacing is `ro · 0.0122` px, which exceeds 1 px for `ro ≳ 100` —
-          # e.g. a sixel/Kitty donut at `ro ≈ 150` shows radial pinhole
-          # banding. Floored at 0.05° so a huge radius can't explode the spoke
-          # count (the 0.5 px radial step already fills between rings).
+          # Refine the angular step so adjacent spokes stay ≤ ~0.5 px apart at the
+          # OUTER radius: at the 0.7° default the tangential spacing is
+          # `ro · 0.0122` px, which exceeds 1 px for `ro ≳ 100` and shows radial
+          # pinhole banding. Floored at 0.05° so a huge radius can't explode the
+          # spoke count; the 0.5 px radial step already fills between rings.
           fine = (0.5 / ro) * 180.0 / Math::PI
           fine = 0.05 if fine < 0.05
           step = fine if step > fine
@@ -362,18 +359,17 @@ module Crysterm
         end
       end
 
-      # Shared text-overlay helpers for the Canvas-backed graph widgets
-      # (`LineChart`, `Donut`, `Map`). These graphs draw their plot/pixels on a
-      # `Graph::Canvas` child, then stamp crisp terminal text (titles, axis
-      # labels, markers, readouts) directly onto `window.lines` on top. This
-      # module centralizes that stamping plus a small per-color attr memoizer.
+      # Text-overlay helpers for the Canvas-backed graph widgets. Such a graph
+      # draws its plot/pixels on a `Graph::Canvas` child, then stamps crisp
+      # terminal text (titles, axis labels, markers, readouts) directly onto
+      # `window.lines` on top. This module does that stamping, plus a small
+      # per-color attr memoizer.
       #
-      # Including types are `Widget` subclasses, so `window`, `style` and
-      # `sattr` are available.
+      # Including types must be `Widget` subclasses, for `window`/`style`/`sattr`.
       module TextOverlay
-        # Memoized cell attrs, keyed on *both* the requested color and the
-        # current `style.bg`, so a background change doesn't keep serving a stale
-        # attr captured at first use. Bounded; see `Cache::GRAPH_ATTR_CAPACITY`.
+        # Memoized cell attrs, keyed on *both* the requested color and the current
+        # `style.bg`, so a background change doesn't keep serving a stale attr
+        # captured at first use.
         @attr_cache = Cache::Bounded(Tuple(Int32, Int32?), Int64).new(Cache::GRAPH_ATTR_CAPACITY)
 
         # Returns (and caches) the packed cell attr for *color* on the widget's
@@ -435,11 +431,11 @@ module Crysterm
         end
       end
 
-      # Shared center/radius geometry for the ring-based Canvas graphs
-      # (`Donut`, `PieChart`): given a `Painter` sized to the device, returns the
-      # `{cx, cy, ro}` of the largest physically-round circle that fits, or `nil`
-      # when the surface is degenerate. Callers pass their own inner radius to
-      # `Painter#fill_ring`, so this stays policy-free (no thickness knob here).
+      # Center/radius geometry for the ring-based Canvas graphs: given a `Painter`
+      # sized to the device, returns the `{cx, cy, ro}` of the largest
+      # physically-round circle that fits, or `nil` when the surface is
+      # degenerate. Callers pass their own inner radius to `Painter#fill_ring`, so
+      # this stays policy-free — no thickness knob here.
       module RingGeometry
         private def ring_geometry(p : Painter) : Tuple(Float64, Float64, Float64)?
           w = p.width

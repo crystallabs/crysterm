@@ -3,13 +3,11 @@ require "base64"
 module Crysterm
   # Device-side OSC escape-sequence transport: OSC-52 system clipboard (write +
   # read-back), OSC 7 working directory, and OSC 9;4 progress. These live on the
-  # device (`Screen`), like the input-mode toggles; the owning `Window` delegates
-  # to them (see `delegate … to: @screen` in `window.cr`).
+  # device (`Screen`), like the input-mode toggles; the owning `Window`
+  # delegates to them.
   #
-  # `Application#clipboard` (≈ `QGuiApplication::clipboard()`) talks to the active
-  # window's device through these. The async OSC-52 read reply arrives as an
-  # `Event::Paste`; wiring `clipboard.text` to refresh on it is a separate
-  # follow-up.
+  # `Application#clipboard` (≈ `QGuiApplication::clipboard()`) talks to the
+  # active window's device through these.
   class Screen
     # OSC 52: copies *text* to the terminal clipboard *selection* (`"c"`
     # clipboard, `"p"` primary). Works over SSH/tmux; ignored where unsupported.
@@ -25,8 +23,7 @@ module Crysterm
     end
 
     # Outbound interop: copy *text* to the system clipboard via OSC 52 (no-op
-    # where unsupported). How a cross-app "transfer" gets delivered — see
-    # `DragData`.
+    # where unsupported). How a cross-app "transfer" gets delivered.
     def copy_to_clipboard(text : String) : Nil
       tput.sel_data "c", Base64.strict_encode(text)
     end

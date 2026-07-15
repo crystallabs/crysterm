@@ -3,37 +3,27 @@ require "term_colors"
 
 module Crysterm
   class Widget
-    # Renders a PNG / APNG / GIF image as colored terminal cells, ported from
-    # Blessed's `ansiimage` element.
+    # Renders a PNG / APNG / GIF image as colored terminal cells.
     #
-    # Unlike `Widget::Media::Overlay` (which paints a true-color image over the
-    # terminal via the external `w3mimgdisplay` helper), `Media::Ansi` decodes
-    # the image itself with the pure-Crystal `PNGGIF::PNG` reader and draws it
+    # Decodes the image with the pure-Crystal `PNGGIF::PNG` reader and draws it
     # into the normal cell grid: each downscaled pixel becomes one cell whose
-    # background is that pixel's color, portable to any TrueColor terminal with
-    # no external dependencies.
-    #
-    # Because Crysterm renders in TrueColor, pixel RGB values are used directly;
-    # there is no 256-color palette-matching step as in Blessed.
+    # background is that pixel's color, needing no external helper (unlike
+    # `Widget::Media::Overlay`).
     #
     # ```
     # img = Widget::Media::Ansi.new file: "picture.png", width: 30, parent: window
     # ```
     #
     # Animated images (APNG, animated GIF) play automatically unless `animate:
-    # false` is passed; `#play`, `#pause` and `#stop` control playback (the
-    # animation framework is shared, in `Media::Base`).
+    # false` is passed; `#play`, `#pause` and `#stop` control playback.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Ansi screenshot](../../../tests/widget/media/ansi/ansi.5s.apng)
     # <!-- /widget-examples:capture -->
     class Media::Ansi < Media::Cells
-      # Color depth the image is rendered in. Crysterm is natively TrueColor and
-      # only reduces colors at output time when the terminal can't do 24-bit; the
-      # non-`TrueColor` modes here additionally quantize the pixels themselves to
-      # the xterm-256/16/8-color palette, producing the classic low-color look
-      # regardless of terminal capability (matching Blessed's `ansiimage` palette-
-      # matching portability).
+      # Color depth the image is rendered in. The non-`TrueColor` modes quantize
+      # the pixels themselves to the xterm-256/16/8-color palette, producing the
+      # classic low-color look regardless of terminal capability.
       enum ColorMode
         TrueColor # 24-bit RGB used directly (default)
         C256      # quantized to the xterm 256-color palette
@@ -44,13 +34,9 @@ module Crysterm
       # Color depth used to render pixels (see `ColorMode`).
       getter colors : ColorMode
 
-      # Switches the render palette at runtime. The reduced-color path memoizes a
-      # whole dithered color plane per frame (`@dither_plane_memo`) and per-pixel
-      # nearest-palette lookups (`@quant_cache`), neither keyed on `@colors`; a
-      # bare setter would keep painting the old palette until an unrelated resize/
-      # reload happened to drop those caches. So a genuine change drops both and
-      # repaints (mirroring `HeatMap#colormap=`). A same-value assignment is a
-      # no-op so a per-frame reconcile doesn't churn the caches.
+      # Switches the render palette at runtime. Neither the dithered-plane memo
+      # nor the quantization cache is keyed on `@colors`, so a genuine change
+      # must drop both and repaint.
       def colors=(mode : ColorMode) : ColorMode
         unless mode == @colors
           @colors = mode
@@ -66,10 +52,8 @@ module Crysterm
       # by default: Floyd–Steinberg for a still, ordered (Bayer) for an animation.
       getter dither : Media::Dither = Media::Dither::Auto
 
-      # Switches the dithering method at runtime. Like `#colors=`, the per-frame
-      # dithered plane is memoized without keying on `@dither`, so a genuine change
-      # must drop it and repaint; the `@quant_cache` (ascii foreground) is
-      # dither-independent and left intact.
+      # Switches the dithering method at runtime. The memoized dithered plane is
+      # not keyed on `@dither`, so a genuine change must drop it and repaint.
       def dither=(new_dither : Media::Dither) : Media::Dither
         unless new_dither == @dither
           @dither = new_dither
@@ -96,16 +80,15 @@ module Crysterm
         animate : Bool | Timer = true,
         @ascii : Bool = false,
         @speed : Float64 = 1.0,
-        # Cell height÷width; defaults to the terminal's measured ratio (CSS
-        # layer), not a hardcoded 2:1, so proportions match the real cells.
+        # Cell height÷width; defaults to the terminal's measured ratio.
         @cell_aspect : Float64 = Crysterm::CSS::Length.cell_aspect_ratio,
         @colors : ColorMode = ColorMode::TrueColor,
         @dither : Media::Dither = Media::Dither::Auto,
         @fit : Media::Fit = Media::Fit::Stretch,
         **box,
       )
-        # Blessed's `options.shrink = true` equivalent: `shrink_to_fit` sizes the
-        # widget to the image when no explicit width/height is given.
+        # `shrink_to_fit` sizes the widget to the image when no explicit
+        # width/height is given.
         super(**box.merge(shrink_to_fit: true))
         setup_animate animate # before set_image, so a shared clock is known when play subscribes
 
@@ -122,10 +105,8 @@ module Crysterm
       # Size the widget to a native-scaled render when no explicit size was given;
       # `#render` then (re)samples to the actual box.
       protected def on_loaded(png : PNGGIF::PNG)
-        # Only auto-size an axis the caller left unset. A non-nil size —
-        # including a String like "100%"/"50%" — is explicit and must be
-        # honored. A `@width.as?(Int32)` test would treat any non-Int as
-        # unset, silently replacing a percentage width with the native size.
+        # Only auto-size an axis the caller left unset; any non-nil size,
+        # including a String like "50%", is explicit and must be honored.
         return unless @width.nil? || @height.nil?
         native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
         self.width = (native[0]?.try(&.size) || 0) if @width.nil?
@@ -141,12 +122,11 @@ module Crysterm
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
         lines = window.lines
         # In a reduced-color mode, dither the whole sample to the palette up
-        # front (error diffusion needs neighbours, can't be done per cell).
-        # Memoized per sample bitmap; unused in TrueColor.
+        # front: error diffusion needs neighbours, so it can't be done per cell.
         plane = @colors.true_color? ? nil : @dither_plane_memo.get(anim_index, bmp) { dither_plane bmp }
-        # Clamp the walks to the screen: a widget partially off the top/left
-        # edge has negative `yi`/`xi`, and `Indexable#[]?` wraps negative
-        # indices — painting rows/columns at the far end of the buffer.
+        # Clamp the walks to the screen: `Indexable#[]?` wraps negative indices,
+        # so a widget partially off the top/left edge would paint rows/columns
+        # at the far end of the buffer.
         (Math.max(yi, 0)...yl).each do |y|
           cmrow = bmp[y - yi]?
           next unless cmrow
@@ -168,8 +148,8 @@ module Crysterm
       end
 
       # Writes one image pixel into a window *cell* (its background *rgb* already
-      # palette-reduced for the active mode), blending against the cell's current
-      # contents when the pixel is translucent.
+      # palette-reduced), blending against the cell's current contents when the
+      # pixel is translucent.
       private def paint_cell(cell, px : PNGGIF::Pixel, a : Float64, rgb : Int32)
         if ascii?
           ch, fg = ascii_glyph px, a
@@ -180,7 +160,6 @@ module Crysterm
           attr = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb))
         end
 
-        # Composite the image pixel over whatever is currently in the cell.
         blend_cell cell, ch, attr, a
       end
 
@@ -196,20 +175,16 @@ module Crysterm
         {ch, fg}
       end
 
-      # Memoizes the dithered colour plane per animation frame index (the full
-      # Floyd–Steinberg/ordered pass is the per-render hot spot). Keyed by frame
-      # so a looping GIF reuses each frame's plane across loops instead of
-      # recomputing every frame; a still uses index 0 (see `FrameMemo`). Cleared
-      # via `#clear_frame_derived` wherever the base drops `@frame_cache`.
+      # Memoizes the dithered colour plane per animation frame index, so a
+      # looping GIF reuses each frame's plane across loops; a still uses index 0.
       @dither_plane_memo = FrameMemo(Array(Array(Int32))).new
 
       protected def clear_frame_derived(idx : Int32? = nil)
         clear_frame_memo @dither_plane_memo, idx
       end
 
-      # Builds a palette-quantized, dithered color plane for the whole sample —
-      # one packed RGB per pixel (`-1` for fully transparent). Used only in the
-      # reduced-color modes; `paint_cell` reads it instead of quantizing per cell.
+      # Builds a palette-quantized, dithered color plane for the whole sample:
+      # one packed RGB per pixel (`-1` for fully transparent).
       private def dither_plane(bmp : PNGGIF::Bitmap) : Array(Array(Int32))
         ph = bmp.size
         pw = bmp[0]?.try(&.size) || 0
@@ -236,20 +211,19 @@ module Crysterm
       end
 
       # Quantizes a packed *rgb* to the active palette (`C256`/`C16`), or returns
-      # it unchanged in `TrueColor`. Memoized; used for the `ascii` foreground (the
-      # cell background is dithered through `dither_plane`).
+      # it unchanged in `TrueColor`. Used for the `ascii` foreground; the cell
+      # background is dithered through `dither_plane` instead.
       private def quantize(rgb : Int32) : Int32
         return rgb if @colors.true_color?
         cache = (@quant_cache ||= Cache::Bounded(Int32, Int32).new(Cache::MEDIA_QUANT_CAPACITY))
         cache.fetch(rgb) { nearest_palette_rgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff) }
       end
 
-      # Source RGB → nearest-palette RGB; bounded, see `Cache::MEDIA_QUANT_CAPACITY`.
+      # Source RGB → nearest-palette RGB.
       @quant_cache : Cache::Bounded(Int32, Int32)?
 
-      # The xterm palette as packed `0xRRGGBB`, precomputed once from
-      # `TermColors::HI2RGB` so `Media.nearest_index` is a flat `Array(Int32)`
-      # scan: first 8 entries are `C8`, first 16 are `C16`, all 256 are `C256`.
+      # The xterm palette as packed `0xRRGGBB`: first 8 entries are `C8`, first
+      # 16 are `C16`, all 256 are `C256`.
       C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| Colors.rgb(pr, pg, pb) }
       C16_PALETTE  = C256_PALETTE[0, 16]
       C8_PALETTE   = C256_PALETTE[0, 8]
@@ -276,13 +250,9 @@ module Crysterm
     end
 
     # ---- single-colormode ASCII backends -------------------------------
-    # The no-Unicode capability tier: each concrete widget pins one `Ansi`
-    # `ColorMode`, giving a one-variant backend that can be exemplified and
-    # documented on its own. Grouped under `Ascii::` (parallel to `Unicode::`);
-    # `Ansi` itself stays mode-selectable via `colors:` for programmatic use.
-    # `Solid` variants paint space + bg = pixel colour; `Art` variants render
-    # the libcaca luminance ramp (`ascii: true`). Palette depth is the second
-    # axis (`TrueColor`/`C256`/`C16`/`C8`).
+    # The no-Unicode capability tier: each widget pins one `Ansi` `ColorMode`.
+    # Top-level variants paint space + bg = pixel colour; `Art` variants render
+    # the libcaca luminance ramp (`ascii: true`).
     module Media::Ascii
       # Solid color blocks (space + bg = pixel color), by palette depth.
       #

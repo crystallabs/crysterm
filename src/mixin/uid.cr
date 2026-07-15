@@ -15,9 +15,8 @@ module Crysterm
       # NOTE This is an instance var; setting it to the value of `@@uid` happens in includers.
       property uid : Int32 = ::Crysterm::Mixin::Uid.next_uid
 
-      # The uid in `String` form, memoized. CSS cascade/document index key
-      # nodes by this string on each recompute, so caching avoids a per-widget
-      # `Int#to_s` allocation. Setter below clears the cache if uid is reassigned.
+      # The uid in `String` form, memoized: the CSS cascade keys nodes by this
+      # string on each recompute, so caching avoids a per-widget `Int#to_s`.
       @uid_s : String?
 
       # :ditto:

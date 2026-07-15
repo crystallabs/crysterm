@@ -32,7 +32,7 @@ module Crysterm
     end
 
     # Path the active stylesheet was loaded from, for `#reload_stylesheet` /
-    # `#watch_stylesheet`. Set by `#load_stylesheet`.
+    # `#watch_stylesheet`.
     getter css_stylesheet_path : String?
 
     # Caches the last CSS document the cascade ran against, so an
@@ -46,41 +46,38 @@ module Crysterm
     @css_last_size : Tuple(Int32, Int32)?
 
     # Glyph tier at the last cascade — the `@media (glyphs: …)` analog of
-    # `@css_last_size`: a `screen.glyph_tier = …` switch marks nothing dirty,
-    # so a media-guarded cascade re-runs when the tier changed since
-    # (GLYPHS.md §3.5). `nil` until the first cascade.
+    # `@css_last_size`: a `glyph_tier = …` switch marks nothing dirty, so a
+    # media-guarded cascade re-runs when the tier changed since. `nil` until the
+    # first cascade.
     @css_last_glyph_tier : Glyphs::Tier?
 
-    # `CSS.default_stylesheet_generation` at the last `#apply_stylesheet` run.
-    # Lets `#apply_stylesheet_if_dirty` notice a runtime theme / default-sheet
-    # swap (which marks nothing dirty on any window) and force a full recompute,
-    # the same way `@css_last_size` catches a media-relevant resize. `nil` until
-    # the first run.
+    # `CSS.default_stylesheet_generation` at the last `#apply_stylesheet` run,
+    # so a runtime theme / default-sheet swap (which marks nothing dirty on any
+    # window) forces a full recompute. `nil` until the first run.
     @css_last_default_generation : Int32?
 
     # Whether a cascade has styled this window's widgets (and no reset has
     # reverted them since). Gates the revert-to-pristine pass in
     # `#apply_stylesheet`'s no-active-rules branch, so a window that was never
     # styled doesn't walk its tree on every render while unstyled.
-    # (`@css_last_document` can't serve as this marker: the `stylesheet=`
-    # setters nil it to force the next cascade — including the very assignment
-    # that clears the stylesheet.)
+    # `@css_last_document` can't serve as this marker: the `stylesheet=` setters
+    # nil it to force the next cascade, including the assignment that clears the
+    # stylesheet.
     @css_widgets_styled = false
 
     # Cached parsed document and the string it was parsed from, plus a
     # `data-uid -> node` index. Reused across cascades: an attribute-only change
-    # patches nodes in place (see `@css_patch_widgets`) rather than re-parsing;
-    # a structural change (`@css_structural`) forces a fresh parse + index.
+    # patches nodes in place rather than re-parsing; a structural change forces
+    # a fresh parse + index.
     @css_parsed_doc : HTML5::Node?
     @css_parsed_doc_string : String?
     @css_node_index : Hash(String, HTML5::Node)?
 
     # Cached parsed *structural* document (the `to_html(structural: true)`
     # variant, which omits sub-element pseudo-nodes) and the string it was
-    # parsed from. The cascade builds this only when a rule uses a backward/only
-    # structural pseudo (`:last-child`, `:nth-last-child`, …) against a tree
-    # that has sub-elements. Reused across cascades and invalidated whenever the
-    # structural serialization changes (see `#css_structural_document`).
+    # parsed from. Built only when a rule uses a backward/only structural pseudo
+    # (`:last-child`, `:nth-last-child`, …) against a tree that has
+    # sub-elements, and invalidated whenever the serialization changes.
     @css_structural_doc : HTML5::Node?
     @css_structural_doc_string : String?
 
@@ -109,13 +106,11 @@ module Crysterm
     end
 
     # Whether `#load_stylesheet` automatically starts hot-reloading the loaded
-    # file (see `#watch_stylesheet`). On by default; set to `false` *before*
-    # loading to opt out.
+    # file. On by default; set to `false` *before* loading to opt out.
     property? auto_reload_stylesheet = true
 
-    # File-watching is temporarily disabled (`fswatch` shard removed), so no
-    # live watcher is held. Path placeholder for eventual re-integration via
-    # `event_handler`.
+    # Path being watched for hot-reload. No live watcher is held while
+    # file-watching is disabled.
     @css_watched_path : String?
 
     # Raw text of the stylesheet last read from a file. Used to skip redundant
@@ -133,9 +128,9 @@ module Crysterm
 
     # Applies the startup stylesheet configured via `Config.colors_stylesheet`
     # (a `.css` file path or inline CSS text), unless this screen already has an
-    # author stylesheet set in code — explicit assignment always wins. Called
-    # once from the constructor, after the theme is installed, so configured
-    # author CSS layers over the theme. Empty config value is a no-op.
+    # author stylesheet set in code — explicit assignment always wins. Must run
+    # after the theme is installed, so configured author CSS layers over it.
+    # Empty config value is a no-op.
     #
     # Treated as inline CSS when it contains a `{` (a rule body); otherwise a
     # file path (`~` expanded, `@import` resolved relative to it).
@@ -161,19 +156,15 @@ module Crysterm
     # reload can be skipped.
     private def apply_stylesheet_source(source : String, path : String) : Nil
       @css_loaded_source = source
-      # A `.qss` (Qt Style Sheet) file is translated to Crysterm CSS first (`Q`
-      # selector prefix stripped, Qt class names mapped, see `CSS::Qss`). The raw
-      # text is what's cached above for the unchanged-reload check; only the
+      # A `.qss` (Qt Style Sheet) file is translated to Crysterm CSS first. The
+      # raw text is what's cached above for the unchanged-reload check; only the
       # copy fed to the parser is rewritten.
       css = path.downcase.ends_with?(".qss") ? CSS::Qss.to_css(source) : source
       self.stylesheet = CSS::Stylesheet.parse(css, base_path: path)
     end
 
-    # Stylesheet hot-reload. Temporarily DISABLED: the `fswatch` shard was
-    # removed, so this no longer starts a file watcher — it just records the
-    # path and returns. Remains callable (still invoked by `#load_stylesheet`)
-    # so call sites keep working. Call `#reload_stylesheet` manually; hot-reload
-    # is to be re-introduced via `event_handler`.
+    # Starts stylesheet hot-reload for *path*. Currently disabled: this only
+    # records the path, so call `#reload_stylesheet` manually.
     def watch_stylesheet(path : String? = @css_stylesheet_path) : Nil
       @css_watched_path = path || raise "no stylesheet path to watch (call load_stylesheet first)"
       nil
@@ -248,7 +239,6 @@ module Crysterm
     # default (theme) stylesheet — honoring any `@media` guard the definition
     # was declared under, evaluated against this terminal's current metrics
     # (the same metrics `Cascade.apply_sheets` feeds rule-level `@media`).
-    # Used by the widget CSS-animation driver.
     def css_keyframes(name : String) : Array(Tuple(Float64, Hash(String, String)))?
       media_colors = begin
         colors.to_i32
@@ -260,13 +250,11 @@ module Crysterm
         CSS.default_stylesheet.keyframes_for(name, width, height, media_colors, media_glyphs)
     end
 
-    # Notes that *element*'s subtree — arriving from another window via
-    # `Window#attach`'s cross-window path — may carry widgets a previous
-    # window's cascade styled (`css_styled?`). The revert-to-pristine pass in
-    # `#apply_stylesheet`'s no-active-rules branch is gated on the per-window
-    # `@css_widgets_styled` flag, so without flipping it a widget styled on
-    # window A and moved to a rule-less window B would keep A's computed styles
-    # (and its disabled inline-`@style` short-circuit) forever.
+    # Notes that *element*'s subtree, arriving from another window, may carry
+    # widgets a previous window's cascade styled. The revert-to-pristine pass is
+    # gated on the per-window `@css_widgets_styled` flag, so without flipping it
+    # a widget styled on window A and moved to a rule-less window B would keep
+    # A's computed styles forever.
     def css_note_styled_attach(element : Widget) : Nil
       return if @css_widgets_styled
       styled = false
@@ -286,29 +274,26 @@ module Crysterm
       # CSS is active whenever either an author or the default (theme)
       # stylesheet has rules; with neither, widgets keep their programmatic look.
       if (author.nil? || author.rules.empty?) && default.rules.empty?
-        # No active rules: nothing to cascade. But if a previous cascade styled
-        # widgets, they must not keep those computed styles forever — assigning
-        # a stylesheet restyles everything, so clearing it must too. The
-        # reset-to-pristine pass lives in `Cascade.apply_sheets`, never reached
-        # with no rules, so revert here.
+        # No active rules: nothing to cascade. But a previous cascade's widgets
+        # must not keep their computed styles — assigning a stylesheet restyles
+        # everything, so clearing it must too. The cascade's reset-to-pristine
+        # pass isn't reached with no rules, so revert here.
         css_reset_styled_widgets if @css_widgets_styled
         @css_last_default_generation = CSS.default_stylesheet_generation
-        # Clear only the dirty/scope flags,
-        # but keep `@css_structural`/`@css_patch_widgets` (and the parse cache)
-        # intact — structural/attribute changes made during this unstyled period
-        # must still be reflected when a stylesheet is (re)assigned. Wiping them
-        # here (as the full `clear_css_dirty` does) would leave the next active
-        # cascade patching a stale cached document against an empty patch set.
+        # Clear only the dirty/scope flags, keeping `@css_structural`/
+        # `@css_patch_widgets` and the parse cache: changes made during this
+        # unstyled period must still be reflected when a stylesheet is
+        # (re)assigned, or the next active cascade patches a stale cached
+        # document against an empty patch set.
         clear_css_dirty_scope
         return
       end
       document = to_html
       # The serialized document encodes uids/classes/attributes but *not* the
       # terminal size, so an `@media`-guarded cascade is byte-identical before
-      # and after a resize and would be wrongly skipped here. When any active
-      # sheet has `@media` rules, fold the terminal size into the skip identity
-      # so a resize re-evaluates the media conditions (and record it for
-      # `#apply_stylesheet_if_dirty`'s size-change trigger).
+      # and after a resize and would be wrongly skipped. When any active sheet
+      # has `@media` rules, the terminal size joins the skip identity so a
+      # resize re-evaluates the media conditions.
       @css_last_size = {width, height}
       @css_last_glyph_tier = glyph_tier
       @css_last_default_generation = CSS.default_stylesheet_generation
@@ -316,9 +301,9 @@ module Crysterm
       # The glyph tier joins the size in the identity: an `@media (glyphs: …)`
       # cascade is byte-identical across a tier switch and would be skipped.
       identity = "#{width}x#{height}@#{glyph_tier.value}\n#{document}" if css_media_active?
-      # The default-sheet generation is part of the identity too: a runtime
-      # theme swap leaves the document byte-identical, and even an explicit
-      # `restyle` would otherwise be swallowed by this skip.
+      # The default-sheet generation joins it too: a runtime theme swap leaves
+      # the document byte-identical, and even an explicit `restyle` would
+      # otherwise be swallowed by this skip.
       identity = "g#{CSS.default_stylesheet_generation}\n#{identity}"
       if identity == @css_last_document
         clear_css_dirty
@@ -328,7 +313,7 @@ module Crysterm
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       # `Cascade.apply` folds the default stylesheet in beneath the author one;
-      # with no author sheet, run the default (theme) by itself.
+      # with no author sheet, the default (theme) runs by itself.
       if author
         CSS::Cascade.apply author, self, doc, scope
       else
@@ -375,22 +360,15 @@ module Crysterm
     end
 
     # The parsed *structural* document (`to_html(structural: true)`), cached
-    # across cascades. Called by the cascade only when a backward/only
-    # structural pseudo (`:last-child`, …) must be matched against a tree with
-    # sub-elements (see `Cascade.apply_sheets`).
+    # across cascades. Built only when a backward/only structural pseudo
+    # (`:last-child`, …) must be matched against a tree with sub-elements.
     #
-    # Invalidation: the structural serialization is compared byte-for-byte with
-    # the cached string; any difference re-parses. This shares the main cache's
-    # correctness — a structural (insert/remove) *or* attribute change both alter
-    # the serialization and force a fresh parse — but is deliberately coarser: it
-    # does not implement the main cache's attribute-only in-place *patch* path
-    # (`css_patch_nodes`), so an attribute-only change re-parses the structural
-    # doc rather than patching it. That is always correct (never a stale
-    # `:last-child`) and avoids a subtle staleness hazard: this doc is built only
-    # on the cascades where such a rule fires, so `@css_structural` may be
-    # cleared (by the main cache's `clear_css_dirty`) on a cascade that never
-    # built it — a patch path keyed on `@css_structural` could then miss a real
-    # structural change. The string compare cannot. (Finer patch path deferred.)
+    # Invalidation is a byte-compare of the serialization against the cached
+    # string; any difference re-parses. Deliberately coarser than the main
+    # cache: it has no attribute-only in-place patch path. This doc is built
+    # only on the cascades where such a rule fires, so `@css_structural` may be
+    # cleared on a cascade that never built it — a patch path keyed on that flag
+    # could miss a real structural change, while the string compare cannot.
     def css_structural_document : HTML5::Node
       document = to_html(structural: true)
       if (cached = @css_structural_doc) && document == @css_structural_doc_string
@@ -413,9 +391,9 @@ module Crysterm
         node.attr.clear
         node.attr.concat widget.css_node_attributes
         # The widget's sub-element pseudo-nodes repeat its intrinsic attributes
-        # (`[checked]` on the checkbox's Indicator — see `html.cr`), so an
-        # attribute-only change must refresh them too or `::indicator:checked`
-        # rules would match against the stale toggle state.
+        # (`[checked]` on the checkbox's Indicator), so an attribute-only change
+        # must refresh them too or `::indicator:checked` rules would match
+        # against the stale toggle state.
         widget.css_sub_elements.each do |slot|
           sub = index["#{widget.uid_s}::#{slot}"]?
           next unless sub
@@ -452,18 +430,17 @@ module Crysterm
     # Reverts every widget to its pristine pre-CSS look: styles back to a fresh
     # dup of the base snapshot, `css_styled` off (so `#style` honors the inline
     # `@style` short-circuit again), extra computed state cleared, and any
-    # CSS-written geometry restored — the same reset `Cascade.apply_sheets`
-    # performs before re-applying rules, minus the re-apply. Run when styling
-    # transitions to "no active rules" after a cascade styled widgets (author
-    # sheet cleared/emptied, theme removed). Also drops `@css_last_document`,
-    # so a later re-assigned stylesheet recascades from scratch.
+    # CSS-written geometry restored — the cascade's own reset, minus the
+    # re-apply. Run when styling transitions to "no active rules" after a
+    # cascade styled widgets. Also drops `@css_last_document`, so a later
+    # re-assigned stylesheet recascades from scratch.
     private def css_reset_styled_widgets : Nil
       css_each_widget do |widget|
         widget.styles = widget.css_base_styles.deep_dup
         widget.css_styled = false
         widget.css_reset_extra
-        # Same as the cascade reset: the wipe removed any pushed sub-control
-        # style, so the `apply_substyle` memo must not keep skipping the push.
+        # The wipe removed any pushed sub-control style, so the `apply_substyle`
+        # memo must not keep skipping the push.
         widget._substyle_src = nil
         widget.restore_css_base_geometry
       end
@@ -471,9 +448,8 @@ module Crysterm
       @css_last_document = nil
     end
 
-    # Yields every widget in this window's tree, pre-order. Captured block
-    # (recursion can't inline a yielding block) — cold path, mirrors
-    # `#css_each_node`.
+    # Yields every widget in this window's tree, pre-order. Cold path, so the
+    # block is captured (recursion can't inline a yielding block).
     private def css_each_widget(&block : Widget ->) : Nil
       children.each { |child| css_walk_widget child, &block }
     end
@@ -512,12 +488,10 @@ module Crysterm
       CSS.default_stylesheet.has_media?
     end
 
-    # Runs the cascade if styling is dirty. Invoked from the render path. Also
-    # re-runs it after a terminal resize when media-guarded rules are active:
-    # the resize path marks nothing dirty, but `@media` applicability may have
-    # changed, so a size change since the last cascade forces a full recompute.
-    # A default-stylesheet (theme) swap likewise marks nothing dirty on any
-    # window, so a generation change since the last run forces one too.
+    # Runs the cascade if styling is dirty. Also re-runs after a terminal resize
+    # when media-guarded rules are active, and after a default-stylesheet
+    # (theme) swap: neither marks anything dirty, yet both can change which
+    # rules apply, so each forces a full recompute.
     protected def apply_stylesheet_if_dirty : Nil
       if @css_dirty
         apply_stylesheet

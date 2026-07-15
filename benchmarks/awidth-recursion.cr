@@ -2,14 +2,14 @@ require "benchmark"
 require "../src/crysterm"
 
 # `Widget#awidth(get: false)` climbs the ancestor chain. The nil-width +
-# string-left branch used to call `parent.awidth` TWICE (the `resolve_dimension`
-# base and the width subtraction), so each level doubled the work below it —
-# O(2^depth) for a chain of centered, auto-width boxes (a completely ordinary
-# config). Sharing the one `parent.awidth` value collapses that to O(depth).
+# string-left branch must share a single `parent.awidth` value between the
+# `resolve_dimension` base and the width subtraction; calling it twice doubles
+# the work at each level, making a chain of centered, auto-width boxes (a
+# completely ordinary config) O(2^depth) rather than O(depth).
 #
 # Measured at depth 16:
-#   combinatorial (str-left, nil-width)  OLD 2.52ms, 1.0MB/op   NEW 704ns, 256B/op
-#   (linear int-left/nil-width was already ~250ns and is unchanged.)
+#   combinatorial (str-left, nil-width)  704ns, 256B/op  (doubled: 2.52ms, 1.0MB/op)
+#   (linear int-left/nil-width is ~250ns.)
 
 def build_chain(depth, &block : Crysterm::Widget::Box -> Nil)
   screen = Crysterm::Window.new

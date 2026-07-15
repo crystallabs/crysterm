@@ -3,21 +3,20 @@ require "./buffer"
 module Crysterm
   module Mixin
     module TextEditing
-      # `TextDocument`-backed implementation of the `Buffer` protocol
-      # (TEXTEDIT.md §5): flat positions map 1:1 onto document positions
-      # (blocks joined by an implicit `'\n'`, one position each — exactly the
-      # `TextDocument` coordinate system), and mutations go through the
-      # document's undoable editing API, so character formats survive edits
-      # and every keystroke is recorded on the undo stack.
+      # `TextDocument`-backed implementation of the `Buffer` protocol: flat
+      # positions map 1:1 onto document positions (blocks joined by an implicit
+      # `'\n'`, one position each), and mutations go through the document's
+      # undoable editing API, so character formats survive edits and every
+      # keystroke is recorded on the undo stack.
       #
-      # `Widget::TextEdit` includes this alongside `Mixin::TextEditing`. The
-      # includer owns reacting to document changes (layout invalidation,
-      # re-render) by listening to `Event::ContentsChanged` — see
-      # `TextEdit#document=`.
+      # Include alongside `Mixin::TextEditing`. The includer owns reacting to
+      # document changes (layout invalidation, re-render) by listening to
+      # `Event::ContentsChanged`, and defines `#wire_document` to install that
+      # handler.
       module DocumentBuffer
-        # The document this view edits. Lazy default so a standalone widget
-        # just works; `Widget::TextEdit#document=` swaps in a shared one
-        # (several views can edit the same document, Qt semantics).
+        # The document this view edits. Lazy default so a standalone widget just
+        # works; `#document=` swaps in a shared one (several views can edit the
+        # same document, Qt semantics).
         getter document : TextDocument { TextDocument.new }
 
         # Tracker cursor registered on the document, kept at the end of this
@@ -27,12 +26,9 @@ module Crysterm
         # the caret should go (Qt behavior).
         getter edit_cursor : TextCursor { TextCursor.new(document) }
 
-        # Char format applied to the next inserts (Qt's cursor "typing
-        # format"), set by `TextEdit#merge_current_char_format` with no
-        # selection. `nil` inherits the format at the insertion point.
-        # Deviation from Qt: persists across cursor movement until replaced
-        # or cleared (the shared `Mixin::TextEditing` motion code has no
-        # movement hook to clear it from).
+        # Char format applied to the next inserts (Qt's cursor "typing format").
+        # `nil` inherits the format at the insertion point. Deviation from Qt:
+        # persists across cursor movement until replaced or cleared.
         property typing_format : TextCharFormat?
 
         # Set while a mutation initiated *through this buffer* is inside the
@@ -43,8 +39,7 @@ module Crysterm
 
         # `ContentsChanged` handler wrapper on the current document, so
         # `#unwire_document`/`#swap_document` can detach it. The includer's
-        # `#wire_document` (which differs per widget — follow vs relayout)
-        # installs it.
+        # `#wire_document` installs it.
         @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
 
         def buf_text : String
@@ -114,7 +109,7 @@ module Crysterm
 
         # Rich copy: the clipboard carries the selection as a formatted
         # `TextDocumentFragment` alongside its plain text (which is all the
-        # OSC-52 system clipboard can take) — TEXTEDIT.md Phase 3.
+        # OSC-52 system clipboard can take).
         def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32, window : Crysterm::Window? = nil) : Nil
           clipboard.set_rich(document.copy_fragment(from, to), document.plain_text(from, to), window)
         end
@@ -220,20 +215,17 @@ module Crysterm
           @goal_col = nil
         end
 
-        # Handles the undo/redo editing keys shared by `Widget::PlainTextEdit`
-        # and `Widget::TextEdit`: `C-z` undo, `M-z` redo (`C-S-z` is
-        # indistinguishable from `C-z` on most terminals; the emacs default
-        # `C-y` stays yank). The shared `Mixin::TextEditing` has no undo
-        # awareness — it lives here — so each widget's `_listener` calls this
-        # first (before its widget-specific handling) and returns when it
-        # consumed the key. `TextChanged` is emitted only when the buffer text
-        # actually changed (before/after diff).
+        # Handles the undo/redo editing keys: `C-z` undo, `M-z` redo (`C-S-z` is
+        # indistinguishable from `C-z` on most terminals; the emacs default `C-y`
+        # stays yank). `Mixin::TextEditing` has no undo awareness, so the
+        # including widget's `_listener` must call this first — before its own
+        # handling — and return when it consumed the key. `TextChanged` is emitted
+        # only when the buffer text actually changed.
         protected def handle_undo_redo_key(e) : Bool
           if !read_only? && (k = e.key)
             if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
               e.accept
-              # A non-kill action ends the consecutive-kill run (emacs
-              # semantics) — same as the mixin's other early-return keys.
+              # A non-kill action ends the consecutive-kill run (emacs semantics).
               kill_ring.interrupt if Crysterm::Config.input_readline_keys
               before = buf_text
               if k == Tput::Key::CtrlZ ? undo : redo
@@ -250,14 +242,11 @@ module Crysterm
           false
         end
 
-        # Shared `document=` body (Qt `setDocument`): unwires the old
-        # document's `ContentsChanged` handler, swaps in *doc*, resets the
-        # shared caret/selection/typing state, runs the widget's
-        # `#reset_document_caches` hook for its own display caches (in the same
-        # position the per-widget resets occupied), re-wires, and requests a
-        # render. Each widget's `document=` shrinks to a same-document guard
-        # plus this call. (`#wire_document` genuinely differs per widget —
-        # follow vs relayout — so it stays there.)
+        # Shared `document=` body (Qt `setDocument`): unwires the old document's
+        # `ContentsChanged` handler, swaps in *doc*, resets the shared
+        # caret/selection/typing state, runs the widget's `#reset_document_caches`
+        # hook, re-wires, and requests a render. Each widget's `document=` is a
+        # same-document guard plus this call.
         protected def swap_document(doc : TextDocument) : Nil
           unwire_document
           @document = doc
@@ -273,10 +262,8 @@ module Crysterm
           request_render if window?
         end
 
-        # Widget-specific display cache reset run by `#swap_document` between
-        # the shared field resets and `#wire_document`. Empty by default;
-        # `Widget::PlainTextEdit` clears its `@_display_value`, `Widget::TextEdit`
-        # drops its block-layout cache.
+        # Widget-specific display cache reset run by `#swap_document` between the
+        # shared field resets and `#wire_document`. Empty by default.
         protected def reset_document_caches : Nil
         end
 
@@ -304,8 +291,7 @@ module Crysterm
         # applies to registered cursors, keyed by the change's
         # `TextDocument::ChangeKind`. The including widget calls this from its
         # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
-        # skipped: the shared mixin logic moves the caret itself, exactly as
-        # it does over a flat buffer.
+        # skipped: the mixin logic moves the caret itself.
         def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
           return if @self_edit
           case kind
@@ -314,8 +300,8 @@ module Crysterm
             np = TextDocument.shift_position(@cursor_pos, pos, removed, added)
             if a = @selection_anchor
               na = TextDocument.shift_position(a, pos, removed, added)
-              # A collapsed anchor is a landmine (see the mixin's mouse
-              # handler) — drop it rather than leaving it equal to the caret.
+              # A collapsed anchor is a landmine — drop it rather than leaving
+              # it equal to the caret.
               @selection_anchor = na == np ? nil : na
             end
             if np != @cursor_pos

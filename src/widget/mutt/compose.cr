@@ -26,12 +26,10 @@ module Crysterm
       # `-- Attachments --` separator and the list of attachments (the message
       # body itself is always the first attachment in Mutt). It is a single
       # navigable **menu**: the arrow keys move the highlight through the header
-      # lines *and* the attachments alike, Enter acts on the highlighted row
-      # (edit that header / re-edit the body), and the header command keys still
-      # work as shortcuts. It is therefore one `List` — headers, a non-selectable
-      # `-- Attachments --` divider (`Mixin::ItemView#nonselectable`, which the
-      # cursor steps over), then attachment rows — not a static header `Box`
-      # stacked over a separate list.
+      # lines *and* the attachments alike, and Enter acts on the highlighted row.
+      # It is therefore a single `List` — headers, a non-selectable
+      # `-- Attachments --` divider the cursor steps over, then attachment rows —
+      # rather than a static header `Box` stacked over a separate list.
       #
       # ```
       #     From: you@example.com
@@ -43,17 +41,16 @@ module Crysterm
       #   2 patch.diff               [text/x-diff, 4.0K]
       # ```
       #
-      # Headers are read/written via `#set_header` / `#header`; attachments via
-      # `#add_attachment` / `#clear_attachments`. The host inspects `#selected_row`
-      # (or listens for `Event::ActionItem` on `#menu`) to route Enter/clicks to
-      # the right edit, and pops its own command-line prompt for header edits.
+      # The widget edits nothing itself: the host inspects `#selected_row` to
+      # route Enter/clicks to the right edit, and pops its own prompt for header
+      # edits.
       class Compose < Widget::Box
         # The header fields shown, in order. All are display-only except as the
         # host wires them; From is conventionally fixed.
         FIELDS = ["From", "To", "Cc", "Bcc", "Subject"]
 
-        # What a menu row represents. `#row_at` / `#selected_row` return one of
-        # these plus a sub-index (which header field, or which attachment).
+        # What a menu row represents, returned alongside a sub-index (which header
+        # field, or which attachment).
         enum RowKind
           Header
           Separator
@@ -67,7 +64,7 @@ module Crysterm
         getter attachments : Array(Attachment)
 
         # The single navigable menu: header rows, the `-- Attachments --` divider,
-        # then attachment rows. Host focuses this and listens for `ActionItem`.
+        # then attachment rows.
         getter menu : Widget::List
 
         def initialize(**opts)
@@ -80,8 +77,7 @@ module Crysterm
 
           @menu = Widget::List.new(width: "100%", height: "100%", parse_tags: true)
           @menu.styles.selected = Style.new reverse: true
-          # A single click edits the highlighted row (friendlier than Blessed's
-          # two-click activate for a compose menu); the divider ignores clicks.
+          # A single click edits the highlighted row; the divider ignores clicks.
           @menu.activate_on_click = true
 
           append @menu
@@ -147,7 +143,7 @@ module Crysterm
         # non-selectable so the cursor steps over it.
         def refresh
           rows = [] of String
-          # Mutt right-justifies the field labels (colons line up), unlike
+          # Mutt right-justifies the field labels so the colons line up, unlike
           # Pine's left-justified `To      :`.
           FIELDS.each { |f| rows << "{bold}#{"#{f}:".rjust(9)}{/bold} #{@headers[f]}" }
           rows << separator

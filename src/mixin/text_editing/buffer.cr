@@ -2,21 +2,16 @@ module Crysterm
   module Mixin
     module TextEditing
       # The buffer protocol `Mixin::TextEditing`'s shared logic (navigation,
-      # selection, kill ops, mouse mapping, caret math) runs against — the §5
-      # extraction from TEXTEDIT.md. Positions are flat `Int32` codepoint
-      # indices into the buffer text, `0..buf_size`, regardless of how the
-      # text is actually stored:
+      # selection, kill ops, mouse mapping, caret math) runs against.
+      # Positions are flat `Int32` codepoint indices into the buffer text,
+      # `0..buf_size`, regardless of how the text is actually stored:
+      # `FlatBuffer` keeps one `String`, while a document adapter maps flat
+      # positions to `TextDocument` (block, offset) pairs and routes mutations
+      # through a `TextCursor`, so formats survive edits and undo records them.
       #
-      # - `FlatBuffer` stores one `String` (`@value`) — `LineEdit` and
-      #   `PlainTextEdit`.
-      # - `Widget::TextEdit`'s document adapter (Phase 2) maps flat positions
-      #   to `TextDocument` (block, offset) pairs and routes mutations through
-      #   a `TextCursor`, so formats survive edits and undo records them.
-      #
-      # Mutations (`buf_insert`/`buf_delete`) only change the text: the caller
-      # (`Mixin::TextEditing`) owns `@cursor_pos`/`@selection_anchor` and
-      # adjusts them itself, exactly as the pre-extraction inline `@value`
-      # splices did.
+      # Mutations (`buf_insert`/`buf_delete`) only change the text:
+      # `Mixin::TextEditing` owns `@cursor_pos`/`@selection_anchor` and adjusts
+      # them itself.
       #
       # An adapter must also provide the widget-facing `value=(String?)`
       # (external set / `nil` redisplay semantics — see `FlatBuffer#value=`),
@@ -55,10 +50,8 @@ module Crysterm
         # last line). A *fake_line* past the last line clamps to it.
         abstract def buf_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
 
-        # The widget's authoritative text — what `Event::Submit`/`Action`
-        # carry and `Widget::Form` collects. Equal to `buf_text` in content;
-        # kept as a separate method because it is widget API, not buffer
-        # geometry.
+        # The widget's authoritative text. Equal to `buf_text` in content; kept
+        # separate because it is widget API, not buffer geometry.
         abstract def value : String
 
         # Groups the mutations made inside the block into one undoable step
@@ -69,11 +62,10 @@ module Crysterm
           yield
         end
 
-        # Copies `[from, to)` to *clipboard*. Default: plain text. A rich
-        # buffer overrides to carry formats alongside (the document adapter
-        # sets a `TextDocumentFragment` via `Clipboard#set_rich`). *window*
-        # routes the OSC-52 device write to the copying widget's own terminal
-        # rather than the app-active window's (see `Clipboard#set_text`).
+        # Copies `[from, to)` to *clipboard*. Default: plain text; a rich buffer
+        # overrides to carry formats alongside. *window* routes the OSC-52 device
+        # write to the copying widget's own terminal rather than the app-active
+        # window's.
         def buf_copy_to_clipboard(clipboard : Application::Clipboard, from : Int32, to : Int32, window : Window? = nil) : Nil
           clipboard.set_text buf_slice(from, to), window
         end

@@ -22,10 +22,9 @@ module Crysterm
       end
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
-        # `#current_index` indexes the *pages* this engine arranges, not the raw child
-        # array: layout-excluded chrome (rendered out-of-band; see
-        # `#each_arrangeable`) must not occupy a page slot, or page indices shift
-        # (or `#current_index` lands on an excluded child and nothing renders).
+        # `#current_index` indexes the *pages* this engine arranges, not the raw
+        # child array: layout-excluded chrome must not occupy a page slot, or page
+        # indices shift.
         n = arrangeable_count container
         return if n == 0
         shown = current_index.clamp(0, n - 1)

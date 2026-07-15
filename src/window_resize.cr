@@ -6,32 +6,27 @@ require "./mixin/children"
 
 module Crysterm
   class Window
-    # File related to display's ability to resize
-
     # Debounce interval before redrawing after the last terminal resize event.
-    # Qt uses 0.3s, console apps commonly use 0.2s; another option is the frame
-    # rate (1/29s). Reduce this to redraw while resizing is still in progress.
+    # Reduce this to redraw while resizing is still in progress.
     property resize_interval : Time::Span = Config.window_resize_interval
 
     @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
 
-    # Set by `#destroy` to make `resize_loop` exit on its next wake-up (finding
-    # 12). Without it the resize fiber loops forever on `@_resize_channel.receive`,
-    # pinning the destroyed window (and possibly running `#resize` on it after
-    # teardown). Mirrors the render fiber's `@render_stop`.
+    # Set by `#destroy` to make `resize_loop` exit on its next wake-up. Without
+    # it the resize fiber loops forever on `@_resize_channel.receive`, pinning
+    # the destroyed window and possibly resizing it after teardown.
     @resize_stop = false
 
-    # Notifies `resize_loop` that the terminal size changed. A capacity of 1
-    # is enough: while a redraw is in progress any number of incoming events
+    # Notifies `resize_loop` that the terminal size changed. A capacity of 1 is
+    # enough: while a redraw is in progress any number of incoming events
     # collapse into a single pending notification.
     @_resize_channel = Channel(Nil).new(1)
 
     # Authoritative new terminal size in cells (`{cols, rows}`) carried by the
     # most recent in-band resize report (DEC 2048), awaiting the debounced
     # `#resize`. `nil` for a SIGWINCH-driven resize, which has no report and must
-    # fall back to the `TIOCGWINSZ` ioctl. Set in `#handle_input`, consumed and
-    # cleared by `#resize`.
+    # fall back to the `TIOCGWINSZ` ioctl.
     @pending_inband_size : {Int32, Int32}? = nil
 
     # Signals the resize loop that a terminal resize was observed. Repeated
@@ -44,7 +39,7 @@ module Crysterm
     # Subscribes to the global (SIGWINCH-driven) `Event::Resize`, debouncing it
     # onto this window's resize loop. The in-band-resize (DEC 2048) path, when
     # active, reports size via the input stream, so the global signal is ignored
-    # to avoid double handling. Shared by `#on_attach` and reconnection.
+    # to avoid double handling.
     private def subscribe_global_resize : ::Crysterm::Event::Resize::Wrapper
       GlobalEvents.on(::Crysterm::Event::Resize) do |_|
         schedule_resize unless _listened_in_band_resize?
@@ -60,12 +55,10 @@ module Crysterm
       if size = @pending_inband_size
         @pending_inband_size = nil
         cols, rows = size
-        # An in-band resize report (DEC 2048) already delivered the authoritative
-        # new size, so trust it directly instead of re-probing via the
-        # `reset_screen_size` ioctl (which in-band resize exists to bypass where
-        # SIGWINCH/`TIOCGWINSZ` are unreliable). Mirror its bookkeeping (cached
-        # size, cursor clamp) so the rest of the stack stays consistent; the
-        # report's cell pixel geometry was already applied in `#handle_input`.
+        # The in-band resize report (DEC 2048) is authoritative, so trust it
+        # instead of re-probing via the `TIOCGWINSZ` ioctl that in-band resize
+        # exists to bypass. Mirror the ioctl path's bookkeeping (cached size,
+        # cursor clamp) to keep the rest of the stack consistent.
         tput.screen.width = cols
         tput.screen.height = rows
         tput._ncoords
@@ -83,10 +76,9 @@ module Crysterm
     # :nodoc:
     # TODO Will this be affected when we move all GUI actions happening in a single thread?
     #
-    # Waits for resize notifications from `schedule_resize` and, once the
-    # terminal has been quiet for `resize_interval`, re-reads the size and
-    # triggers a redraw. Ensures the (potentially expensive) redraw runs once
-    # per burst instead of once per event.
+    # Waits for resize notifications, and once the terminal has been quiet for
+    # `resize_interval`, re-reads the size and triggers a redraw. The
+    # (potentially expensive) redraw runs once per burst, not once per event.
     def resize_loop(generation : Int32 = 0)
       loop do
         # Block until at least one resize is requested.

@@ -4,12 +4,10 @@ module Crysterm
     # then classes/attributes/pseudo-classes, then types/pseudo-elements —
     # compared lexicographically (`Tuple` is `Comparable`).
     #
-    # This is a real single-pass tokenizer rather than a naive character count,
-    # so it handles the tricky cases correctly: it skips the contents of
-    # `[...]` attribute values and `(...)` pseudo arguments (so a `.` or `#`
-    # inside a quoted attribute value isn't miscounted), distinguishes `::`
-    # pseudo-elements from `:` pseudo-classes, ignores `*` and combinators, and
-    # recurses into `:not()`/`:is()` (and treats `:where()` as zero, per spec).
+    # A single-pass tokenizer: skips the contents of `[...]` attribute values
+    # and `(...)` pseudo arguments, distinguishes `::` pseudo-elements from `:`
+    # pseudo-classes, ignores `*` and combinators, and recurses into
+    # `:not()`/`:is()` (`:where()` scores zero, per spec).
     module Specificity
       # Functional pseudo-classes whose argument's specificity replaces the
       # pseudo-class itself.
@@ -40,11 +38,8 @@ module Crysterm
               i = (name_end < n && selector[name_end] == '(') ? Selectors.skip_balanced(selector, name_end, '(', ')') : name_end
             else
               name_end = skip_ident(selector, i + 1)
-              # Pseudo-class names are case-insensitive; fold so `:NOT(#id)` scores
-              # like `:not(#id)` (recurse into its argument) rather than counting
-              # as a plain class, and `:WHERE(...)` contributes nothing like
-              # `:where(...)`. (An ident here is never a custom-property/type name,
-              # so folding is safe.)
+              # Pseudo-class names are case-insensitive, so `:NOT(#id)` must
+              # score like `:not(#id)`.
               name = selector[(i + 1)...name_end].downcase
               if name_end < n && selector[name_end] == '('
                 arg_end = Selectors.skip_balanced(selector, name_end, '(', ')')

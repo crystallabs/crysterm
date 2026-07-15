@@ -22,21 +22,19 @@ module Crysterm
       getter maximum : Int32 = 100
 
       # Sets the lower bound (Qt's `setMinimum`), re-clamping the value into the
-      # new range and repainting. See `#set_range`.
+      # new range and repainting.
       def minimum=(v : Int32) : Int32
         set_range v, @maximum
         @minimum
       end
 
       # Sets the upper bound (Qt's `setMaximum`), re-clamping the value into the
-      # new range and repainting. See `#set_range`.
+      # new range and repainting.
       #
       # Mirrors Qt's `setMaximum` (`setRange(qMin(minimum, maximum), maximum)`):
-      # a new maximum below the current minimum pulls the minimum *down* with it
-      # (yielding `[v, v]`), so the new bound always wins. Passing it straight to
-      # `set_range(@minimum, v)` would instead let `set_range`'s inverted-range
-      # guard collapse `max` back up to `@minimum`, silently discarding `v` —
-      # and would be asymmetric with `#minimum=`, which already honors its bound.
+      # a new maximum below the current minimum pulls the minimum *down* with it,
+      # so the new bound always wins rather than being collapsed back up by
+      # `#set_range`'s inverted-range guard.
       def maximum=(v : Int32) : Int32
         set_range Math.min(@minimum, v), v
         @maximum
@@ -52,11 +50,8 @@ module Crysterm
         @minimum = min
         @maximum = max
         # Re-clamp without emitting `Event::Complete`: shrinking the range onto
-        # the current value (e.g. reusing a full bar for a new, shorter task) is
-        # a reconfiguration, not a completion — `Complete` should fire only when
-        # the value *rises* to `maximum`. `#request_render` below covers the
-        # value-unchanged-but-range-changed case (the clamp emits only on a real
-        # change).
+        # the current value is a reconfiguration, not a completion — `Complete`
+        # fires only when the value *rises* to `maximum`.
         set_value @value.clamp(@minimum, @maximum), complete: false
         request_render
       end
@@ -67,8 +62,8 @@ module Crysterm
       # Crystal's own `Range` semantics; a degenerate empty exclusive range
       # (`n...n`) collapses to the single value `n` instead of inverting.
       #
-      # Byte-identical to `Mixin::RangedValue#range=`, hand-copied for the same
-      # reason `#span` is (ProgressBar can't include that mixin — see `#span`).
+      # Must stay byte-identical to `Mixin::RangedValue#range=`; ProgressBar can't
+      # include that mixin, so update the two in lockstep.
       def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
         max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
         set_range r.begin, max
@@ -76,8 +71,7 @@ module Crysterm
       end
 
       # Amount a single key press (or default `#progress`) moves the value by,
-      # in domain units. Qt's `QAbstractSlider#singleStep`, spelled as in
-      # `Mixin::RangedValue#single_step`.
+      # in domain units. Qt's `QAbstractSlider#singleStep`.
       property single_step : Int32 = 5
 
       property orientation : Tput::Orientation = :horizontal
@@ -113,14 +107,13 @@ module Crysterm
         super **input
 
         # Never start with an inverted range: `#percent`/`#span`/the `%p` text all
-        # assume `minimum <= maximum`, and `#set_range` already refuses to store
-        # one — guard the direct-`@ivar` constructor path too (mirrors the
-        # `#init_range` guard `Slider`/`Dial`/`ScrollBar` run). A `maximum` below
-        # `minimum` collapses the range to `minimum`, matching Qt's `setRange`.
+        # assume `minimum <= maximum`, and this constructor path bypasses
+        # `#set_range`'s guard. A `maximum` below `minimum` collapses the range to
+        # `minimum`, matching Qt's `setRange`.
         @maximum = @minimum if @maximum < @minimum
 
-        # `value` (domain units) takes precedence; otherwise honor `percent`
-        # (percentage). Default to the minimum (empty bar).
+        # `value` (domain units) takes precedence over `percent`; default to the
+        # minimum (empty bar).
         if value
           self.value = value
         elsif percent
@@ -135,13 +128,13 @@ module Crysterm
 
         if @mouse
           # Click (or drag) to set the progress from the pointer position along
-          # the bar. Uses `Event::Mouse` (not `Event::Click`) since it carries
+          # the bar. Uses `Event::Mouse`, not `Event::Click`, since it carries
           # cursor coordinates.
           on(Crysterm::Event::Mouse) do |e|
             next unless e.action.down?
 
-            # Vertical bar fills bottom-up (see `#render`), so invert the axis: a
-            # click near the top reads as full, near the bottom as empty.
+            # A vertical bar fills bottom-up, so invert the axis: a click near the
+            # top reads as full, near the bottom as empty.
             pos, span = pointer_offset e, invert: true
             next if span <= 0
 
@@ -153,23 +146,18 @@ module Crysterm
 
       # Size of the value range (`maximum - minimum`), never negative.
       #
-      # Byte-identical to `Mixin::RangedValue(Int32)#value_span`'s Int32 branch,
-      # kept as a private copy here rather than inherited: ProgressBar is
-      # intentionally *not* built on `RangedValue` (see that module's docs — its
-      # `complete:`-gated `Event::Complete` can't be expressed through the mixin's
-      # `#value=`/`#set_range`), so the two must be updated in lockstep.
+      # ProgressBar is intentionally *not* built on `Mixin::RangedValue` — its
+      # `complete:`-gated `Event::Complete` can't be expressed through that
+      # mixin's `#value=`/`#set_range`. This must stay byte-identical to
+      # `RangedValue(Int32)#value_span`'s Int32 branch; update the two in lockstep.
       private def span : Int32
-        # Widen the subtraction: a range wider than `Int32::MAX` (e.g.
-        # `-1_500_000_000..1_500_000_000`) would overflow Int32 here.
+        # Widen the subtraction: a range wider than `Int32::MAX` would overflow.
         (@maximum.to_i64 - @minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
       end
 
       # Current fill as a 0..100 percentage, derived from `#value`'s position in
-      # the range. An empty range (`maximum == minimum`) reads as 0.
-      #
-      # The Int32 analogue of `Mixin::PercentRange#percent_of` (with avail=100):
-      # same position-in-range mapping, adapted to ProgressBar's integer range and
-      # 0-for-empty convention. `#percent=` is its inverse.
+      # the range. An empty range (`maximum == minimum`) reads as 0. `#percent=`
+      # is its inverse.
       def percent : Int32
         s = span
         return 0 if s == 0
@@ -197,9 +185,7 @@ module Crysterm
       end
 
       # Assigns the value (clamped), emitting `Event::ValueChanged` on a real
-      # change and — when *complete* — `Event::Complete` upon reaching
-      # `#maximum`. `#set_range`'s re-clamp passes `complete: false` so shrinking
-      # the range onto the value doesn't fire a spurious completion.
+      # change and — when *complete* — `Event::Complete` upon reaching `#maximum`.
       protected def set_value(v : Int32, complete : Bool) : Int32
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
@@ -211,10 +197,8 @@ module Crysterm
       end
 
       # Cached indicator text and the `{value, minimum, maximum, format}` it was
-      # built for. `#render` calls `#formatted_text` every frame when
-      # `#show_value?`; the four chained `gsub`s + four `to_s` only need to rerun
-      # when one of those inputs changes (`#percent` derives from the range, so
-      # it's covered by the key).
+      # built for; `#render` calls `#formatted_text` every frame when
+      # `#show_value?`. `#percent` derives from the range, so the key covers it.
       @text_cache : String?
       @text_cache_key : Tuple(Int32, Int32, Int32, String)?
 
@@ -255,16 +239,16 @@ module Crysterm
           if show_value?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
-            # Overlay on the stable top interior row (`yi`), not `fill_yi`, which
-            # for a vertical bar is the moving top edge of the filled region (the
-            # label would slide with the value). `fill_yi == yi` for horizontal.
+            # Overlay on the stable top interior row (`yi`), not `fill_yi` — for a
+            # vertical bar that is the moving top edge of the fill, so the label
+            # would slide with the value.
             draw_text_run yi, xi, pc, xl
           end
         end
       end
 
-      # Draws `text` centered over the whole inner region (used for `show_value?`)
-      # so the indicator stays readable regardless of fill amount.
+      # Draws `text` centered over the whole inner region, so the indicator stays
+      # readable regardless of fill amount.
       private def draw_overlay_text(text : String) : Nil
         return if text.empty?
         with_inner_coords do |xi, xl, yi, yl|
@@ -293,7 +277,6 @@ module Crysterm
         k = e.key
         ch = e.char
         # Keys don't conflict, so support both regardless of orientation.
-        # `#progress` routes through `#value=`, which repaints on actual change.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
           progress -@single_step
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'

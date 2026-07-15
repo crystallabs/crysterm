@@ -17,7 +17,7 @@ module Crysterm
     #     Crysterm::Widget::Fps.new(parent: window,
     #       format: "R %s  D %s  TX %s/s", args: [:render, :draw, :throughput_h])
     #
-    # Available `args` (see `#value_for`):
+    # Available `args`:
     #   :render  :draw  :flush  :fps      current per-frame rates (Int). `:draw`
     #                                     is the CPU-bound diff/encode; `:flush`
     #                                     is the terminal write (where tty
@@ -43,7 +43,7 @@ module Crysterm
     # ![Fps screenshot](../../tests/widget/fps/fps.5s.apng)
     # <!-- /widget-examples:capture -->
     class Fps < Box
-      # Auto-size to its single line of text, like `Label`.
+      # Auto-size to its single line of text.
       @shrink_to_fit = true
 
       # Default layout: the classic `R/D/FPS: cur/cur/cur (avg/avg/avg)` line,
@@ -68,7 +68,7 @@ module Crysterm
       property format : String = DEFAULT_FORMAT
 
       # Metric names supplying the `#format` arguments, in order. See the class
-      # docs / `#value_for` for the recognized symbols.
+      # docs for the recognized symbols.
       property args : Array(Symbol) = DEFAULT_ARGS
 
       @render_avg : Window::Average
@@ -115,8 +115,6 @@ module Crysterm
 
       def render(with_children = true)
         if s = window?
-          # Update the rolling averages once per frame, then build the text
-          # before the standard box render paints it.
           @render_avg_val = @render_avg.avg s.render_rate
           @draw_avg_val = @draw_avg.avg s.draw_rate
           @flush_avg_val = @flush_avg.avg s.flush_rate

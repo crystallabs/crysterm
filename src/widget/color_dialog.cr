@@ -1,41 +1,33 @@
 require "./dialog"
 
-# `SpinBox`, `LineEdit`, `Button` and `DialogButtonBox` are referenced only in
-# method bodies (resolved after the whole `widget/**` glob is required), so they
-# need no explicit `require` here — requiring `lineedit` directly would fail
-# since it relies on the glob having loaded its `PlainTextEdit` parent first.
+# `SpinBox`, `LineEdit`, `Button` and `DialogButtonBox` resolve through the
+# `widget/**` glob; requiring `lineedit` here would fail before the glob has
+# loaded its `PlainTextEdit` parent.
 
 module Crysterm
   class Widget
-    # Rich modal color picker, modeled after Qt's `QColorDialog` / the KDE color
-    # dialog.
+    # Rich modal color picker, modeled after Qt's `QColorDialog`.
     #
     # All editors stay in sync on one HSV state:
     #
     #   * a 2-D **saturation/value field** — a gradient of the current hue;
-    #     click or drag anywhere in it to set saturation (X) and value (Y); the
-    #     wheel nudges the value.
-    #   * a vertical **hue bar** — the full spectrum; click/drag/wheel sets hue.
+    #     click or drag to set saturation (X) and value (Y), wheel to nudge value.
+    #   * a vertical **hue bar** — click/drag/wheel sets hue.
     #   * a **live preview** swatch.
-    #   * editable **R/G/B**, **H/S/V** and **H/S/L** spin-box columns (type or
-    #     wheel to set a component precisely) plus an editable **Hex** field; an
-    #     edit to any field updates all the others and the preview immediately.
+    #   * editable **R/G/B**, **H/S/V** and **H/S/L** spin-box columns plus an
+    #     editable **Hex** field; an edit to any updates all the others.
     #   * a **Basic colors** palette and a row of **Custom colors** slots — the
     #     "+" button stores the current color into the next slot; clicking a
     #     filled slot recalls it.
-    #   * a **Pick** button — an eyedropper: after pressing it, the next click
-    #     anywhere on the window reads the color under the pointer into the next
-    #     custom slot (and makes it current).
+    #   * a **Pick** button — an eyedropper: the next click anywhere on the
+    #     window reads the color under the pointer into the next custom slot.
     #   * an **Ok / Cancel** `DialogButtonBox`.
     #
-    # The dialog is a **movable window**: drag its border (or any empty interior
-    # area) to reposition it; the gradient field and hue bar keep their own
-    # click/drag behavior.
+    # Drag the border, or any empty interior area, to move the dialog.
     #
-    # On Ok it emits `Event::Action` (carrying the chosen `"#rrggbb"` hex) and
+    # On Ok it emits `Event::Action` (the chosen `"#rrggbb"` hex) and
     # `Event::Accepted`; on Cancel/Escape it emits `Event::Rejected`. Either way
-    # it closes through `Dialog#done`, so `Event::Finished` and `Dialog#result`
-    # follow. The convenience `#pick` form also delivers the hex (or `nil` when
+    # it closes through `Dialog#done`. `#pick` delivers the hex (or `nil` when
     # cancelled) to a block, restoring the previously-focused widget.
     #
     # ```
@@ -59,8 +51,7 @@ module Crysterm
       HUE_H   = FIELD_H
       INFO_X  = HUE_X + HUE_W + 2 # 29 — origin of the right-hand editor column
       COLOR_W = 3                 # cell width of one palette/custom swatch
-      # Right-hand editor rows. A blank row separates the preview from the
-      # columns, and another separates the columns from the Hex field.
+      # Right-hand editor rows.
       PREVIEW_Y = 0
       PREVIEW_H = 2
       HEAD_Y    = 3 # column headers ("RGB"/"HSV"/"HSL")
@@ -104,35 +95,27 @@ module Crysterm
       @custom_index = 0
 
       @callback : Proc(String?, Nil)?
-      # Guards the editor<->state feedback loop while we push state into the
-      # spin boxes / hex field (their `value=` would otherwise re-enter here).
+      # Guards the editor↔state feedback loop while state is pushed into the
+      # fields (their `value=` would otherwise re-enter here).
       @syncing = false
 
-      # Window-move (drag the border/empty area to reposition the dialog). While
-      # a move is in flight, a window-level listener owns the pointer so the drag
-      # keeps tracking even off the dialog.
-      # A `Subscription` (not a bare wrapper) so teardown removes from the exact
-      # window it subscribed on, even if the dialog detached meanwhile.
+      # Window-move drag. A window-level listener owns the pointer while a move
+      # is in flight, so the drag keeps tracking off the dialog. A
+      # `Subscription` captures the window it subscribed on, so teardown reaches
+      # it even after the dialog detached.
       @ev_move = Crysterm::Subscription.new
       @move_dx = 0
       @move_dy = 0
 
-      # Window color pick ("eyedropper"): after the "Pick" button, the next click
-      # anywhere reads the color under it into a custom slot. Same captured-target
-      # `Subscription` as `@ev_move` — `#end_pick` and `#release_window_state`
-      # both tear it down, and each formerly used `window?`, which could differ
-      # from the `scr` it subscribed on.
+      # Eyedropper: after the "Pick" button, the next click anywhere reads the
+      # color under it into a custom slot. Window-captured like `@ev_move`.
       @ev_pick = Crysterm::Subscription.new
       @picking = false
 
-      # Per-frame draw caches (mirroring `Gradient#render`). The 2-D field's
-      # cell background colors depend only on `@hue` (and the style flags folded
-      # into each packed attr); the hue bar's depend on nothing. Rather than run
-      # `Colors.hsv_i` + a full `sattr` derivation for all 260 cells every frame,
-      # cache the packed attrs and rebuild only when the key changes. The marker
-      # cell (its position tracks `@saturation`/`@value_v` for the field and
-      # `@hue` for the bar) is still drawn per frame via `put_cell`, so it stays
-      # byte-identical.
+      # Per-frame draw caches. The field's cell backgrounds depend only on
+      # `@hue` (plus the folded style flags), the hue bar's on nothing, so the
+      # packed attrs are cached instead of deriving 260 cells per frame. The
+      # marker cell is still drawn per frame, keeping output byte-identical.
       @field_attrs = [] of Int64
       @field_attrs_hue : Float64? = nil # `@hue` the field cache was built for
       @field_attrs_flags : Int64? = nil # style flags folded into that cache
@@ -141,16 +124,13 @@ module Crysterm
 
       def initialize(colors : Array(String)? = nil, **box)
         @colors = colors || DEFAULT_COLORS
-        # One custom slot per basic color, minus its first cell (taken by the
-        # "＋" button) — so the custom row lines up with the palette above (e.g.
-        # 16 colors -> "＋" plus 15 slots).
+        # One custom slot per basic color, minus the cell taken by the "+"
+        # button, so the custom row lines up with the palette above.
         @custom_colors = Array(String?).new(Math.max(@colors.size - 1, 1), nil)
 
         super **box
 
         build_children
-        # Clicks/drags/wheel over the gradient field and hue bar (the child
-        # widgets handle their own mouse input).
         on(Crysterm::Event::Mouse) { |e| on_mouse e }
         refresh_ui
       end
@@ -176,9 +156,8 @@ module Crysterm
       end
 
       # Shows the dialog and runs *block* with the chosen hex (or `nil` on
-      # cancel) — the block-based sugar over `Event::Accepted`/`Rejected`. Saves
-      # and later restores focus, and installs the modal Enter (accept) / Escape
-      # (reject) handler.
+      # cancel). Saves and later restores focus, and installs the modal Enter
+      # (accept) / Escape (reject) accelerator.
       def pick(&block : String? -> Nil) : Nil
         @callback = block
         window.save_focus
@@ -186,7 +165,6 @@ module Crysterm
         show
         front!
         focus
-        # The `Dialog` base owns the window-level Enter/Escape accelerator.
         install_dialog_keys
         request_render
       end
@@ -208,13 +186,12 @@ module Crysterm
         # below it, so the preview and editor columns line up with the palette.
         info_w = Math.max(@colors.size * COLOR_W - INFO_X, COLOR_W)
 
-        # A solid swatch (no border, so the color fills it) that tracks the
-        # current color live — see `refresh_ui`.
+        # Live preview swatch: no border, so the color fills it.
         @preview = Box.new parent: self, top: PREVIEW_Y, left: INFO_X, width: info_w,
           height: PREVIEW_H, style: Style.new(bg: "black")
 
-        # Column headers, laid out by an `HBox` so they sit over the three editor
-        # columns below (same width/gap => same column fences).
+        # Column headers: same width/gap as the editor columns below, so an
+        # `HBox` lands them on the same column fences.
         headers = Box.new parent: self, top: HEAD_Y, left: INFO_X, width: info_w, height: 1,
           layout: Layout::HBox.new(gap: 1)
         {"RGB", "HSV", "HSL"}.each do |name|
@@ -222,15 +199,10 @@ module Crysterm
         end
 
         # Three side-by-side editor columns — RGB, HSV, HSL — each a small
-        # `Form` (label column + field) so the toolkit places the label/field
-        # rows. The `HBox` shares the width evenly between the columns.
+        # `Form` (label column + field), shared evenly by the `HBox`.
         cols = Box.new parent: self, top: COLS_Y, left: INFO_X, width: info_w, height: COLS_H,
           layout: Layout::HBox.new(gap: 1)
 
-        # Every field applies immediately like the Hex field, keeping all color
-        # spaces in sync (`refresh_ui`). R/G/B edits drive the state directly;
-        # H/S/V and H/S/L go through their color space. The apply path is wired
-        # per field inside `column_spin` (live on keystroke / Enter / wheel).
         rgbcol = column_box cols
         @rspin = column_spin(rgbcol, "R", 0, 255) { apply_rgb_spins }
         @gspin = column_spin(rgbcol, "G", 0, 255) { apply_rgb_spins }
@@ -246,25 +218,23 @@ module Crysterm
         @lsspin = column_spin(hslcol, "S", 0, 100) { apply_hsl_spins }
         @llspin = column_spin(hslcol, "L", 0, 100) { apply_hsl_spins }
 
-        # Hex field at the bottom, spanning the full width (a `Form` "Hex  […]").
-        # The editors are *chrome*: no hardcoded color, so they follow the
-        # terminal default/theme (only the swatches/preview/gradient below use
-        # functional color).
+        # Full-width Hex field at the bottom. The editors are *chrome*: no
+        # hardcoded color, so they follow the terminal default/theme (only the
+        # swatches/preview/gradient use functional color).
         hexrow = Box.new parent: self, top: HEX_Y, left: INFO_X, width: info_w, height: 1,
           layout: Layout::Form.new(label_width: 4, column_gap: 0)
         Box.new parent: hexrow, height: 1, content: "Hex"
         @hexbox = hb = LineEdit.new parent: hexrow, height: 1
-        # Apply live on every keystroke (`TextChanged`) and on Enter (`Submit`);
-        # strip the cosmetic leading space first. Invalid/half-typed specs are
-        # ignored by `current_color=`.
+        # Applies live on every keystroke and on Enter; the cosmetic leading
+        # space is stripped, and `current_color=` ignores half-typed specs.
         hb.on(Crysterm::Event::Submit) { |e| self.current_color = e.value.strip }
         hb.on(Crysterm::Event::TextChanged) do |e|
           next if @syncing
           self.current_color = e.value.strip
         end
 
-        # Basic palette: one click sets the color. A centered marker (drawn by
-        # `mark_palette_selection`) shows which entry, if any, is current.
+        # Basic palette: one click sets the color; a centered marker shows which
+        # entry, if any, is current.
         x = 0
         @colors.each do |name|
           sw = Box.new parent: self, top: PAL_Y, left: x, width: COLOR_W, height: 1,
@@ -275,18 +245,14 @@ module Crysterm
         end
 
         # Custom colors: "+" stores the current color; each slot recalls its own.
-        # Use an ASCII "+" (one cell), not the fullwidth "＋" (two cells) — the
-        # content layout treats it as a single cell, so a wide glyph would push
-        # everything after it one column right and overrun the row's right edge.
+        # The mark must be an ASCII "+", not the fullwidth "＋": the content
+        # layout counts it as one cell, so a wide glyph would shift the whole
+        # row one column right and overrun its right edge.
         add = Button.new parent: self, top: CUST_Y, left: 0, width: COLOR_W, height: 1,
           content: "+", align: :center, focus_on_click: false
         add.on(Crysterm::Event::Press) { store_custom }
-        # Slots sit flush against the "＋" button (no gap). Empty ones carry a "·"
-        # placeholder so they read as slots before anything is stored. Painted
-        # color is folded onto the slot's *inline* style (`#paint_swatch`) so it
-        # survives a re-cascade — otherwise a reopened picker shows
-        # occupied-but-blank slots (state agrees via `@custom_colors`, but the
-        # cascade wiped the computed `style.bg`).
+        # Slots sit flush against the "+" button. Empty ones carry a "·"
+        # placeholder so they read as slots before anything is stored.
         cx = COLOR_W
         @custom_colors.each_with_index do |stored, i|
           slot = Box.new parent: self, top: CUST_Y, left: cx, width: COLOR_W, height: 1,
@@ -308,23 +274,20 @@ module Crysterm
         bb.on(Crysterm::Event::Accepted) { accept }
         bb.on(Crysterm::Event::Rejected) { reject }
 
-        # Eyedropper: arm a window-wide color pick (see `begin_pick`).
         pick = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
           content: "Pick", align: :center, focus_on_click: false
         pick.tool_tip = "Pick a color from anywhere on the window"
         pick.on(Crysterm::Event::Press) { begin_pick }
       end
 
-      # A `Form`-based editor column (a 1-cell label column + its field), shared
-      # by the RGB/HSV/HSL columns.
+      # A `Form`-based editor column: a 1-cell label column plus its field.
       private def column_box(parent : Widget) : Box
         Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, column_gap: 1)
       end
 
-      # Appends a `"<label> [field]"` row to a `column_box`, returning the editable
-      # `LineEdit` field. Behaves like the Hex field: applies live on keystroke
-      # (`TextChanged`) and on Enter (`Submit`). The mouse wheel nudges this one
-      # component by ±1 (clamped to `min..max`) and re-applies the same way.
+      # Appends a `"<label> [field]"` row to a `column_box`, returning the
+      # editable `LineEdit` field. Applies live on keystroke and on Enter; the
+      # wheel nudges the component by ±1, clamped to `min..max`.
       private def column_spin(col : Widget, label : String, min : Int32, max : Int32, &apply : -> Nil) : LineEdit
         Box.new parent: col, height: 1, content: label
         le = LineEdit.new parent: col, height: 1
@@ -345,9 +308,9 @@ module Crysterm
         le
       end
 
-      # Folds a functional background color onto *box*'s inline style so it shows
-      # now and survives the next cascade (cf. `Widget#set_visible`). Mutating
-      # only the computed `style.bg` would be rebuilt away on the next restyle.
+      # Folds a functional background color onto *box*'s inline style, so it
+      # survives the next cascade; the computed `style.bg` alone would be
+      # rebuilt away on the next restyle, leaving the swatch blank.
       private def paint_swatch(box : Box, hex : String) : Nil
         box.style.bg = hex
         box.persist_inline_style(&.bg = hex)
@@ -356,8 +319,7 @@ module Crysterm
       # --------------------------------------------------------- state set
 
       # Reads an editable component field as an integer, clamped into `min..max`.
-      # The field is free text, so a blank/half-typed value reads as the minimum
-      # of the range (0 for every component here).
+      # The field is free text, so a blank/half-typed value reads as 0.
       private def field_int(le : LineEdit?, min : Int32, max : Int32) : Int32
         (le.try(&.value).try(&.strip).try(&.to_i?) || 0).clamp(min, max)
       end
@@ -413,8 +375,6 @@ module Crysterm
         @syncing = true
         hex = current_color
         r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @value_v))
-        # Fold onto the preview's inline style so the swatch survives a
-        # re-cascade (same reason `#paint_swatch` exists for the custom slots).
         if pv = @preview
           paint_swatch pv, hex
         end
@@ -435,16 +395,14 @@ module Crysterm
         request_render
       end
 
-      # Pushes *value* into editor field *le*, unless it is `nil` or currently
-      # focused — never clobbers a field the user is mid-typing into, since the
-      # live `TextChanged` handler already drove the change that got us here.
+      # Pushes *value* into editor field *le*, never clobbering a focused field
+      # the user is mid-typing into (its own live handler drove this change).
       private def sync_field(le : LineEdit?, value : String) : Nil
         le.value = value if le && !le.focused?
       end
 
-      # Shows a centered marker on the basic-palette swatch (if any) whose color
-      # equals the current one, so the selection is visible there too — like the
-      # "<" on the hue bar.
+      # Shows a centered marker on the basic-palette swatch, if any, whose color
+      # equals the current one.
       private def mark_palette_selection(r : Int32, g : Int32, b : Int32) : Nil
         cur = Colors.rgb(r, g, b)
         @palette_swatches.each_with_index do |sw, i|
@@ -465,11 +423,10 @@ module Crysterm
         end
       end
 
-      # Releases every window-level resource `#pick`/`#begin_pick` installed —
-      # the accelerator, the eyedropper `Event::Mouse` listener, the modal grab
-      # and the saved focus. Shared by `#finish` (the Ok/Cancel/Escape path) and
-      # `#destroy` (host tears the dialog down without either), so neither leaks
-      # a handler onto the window or leaves it modally grabbed to a dead widget.
+      # Releases every window-level resource the dialog installed: the
+      # accelerator, the eyedropper listener, the modal grab and the saved
+      # focus. Every close path must run this, or the window is left with a
+      # stale handler or a modal grab held by a dead widget.
       private def release_window_state : Nil
         if @picking
           @picking = false
@@ -480,11 +437,9 @@ module Crysterm
         window?.try &.restore_focus
       end
 
-      # Released outside the accept/cancel path: drop the listeners, grab and
-      # saved focus, and discard the callback so a stray later key can't fire it
-      # on the destroyed dialog.
+      # Teardown outside the accept/cancel path. Discards the callback too, so a
+      # stray later key can't fire it on the destroyed dialog.
       def destroy
-        # Drop any in-flight window move / eyedropper before releasing.
         end_move
         release_window_state
         @callback = nil
@@ -493,14 +448,11 @@ module Crysterm
 
       private def finish(color : String?) : Nil
         hide
-        # Drop any in-flight window move / eyedropper before closing.
         end_move
         release_window_state
         # The chosen value goes out before the outcome, so an `Action` handler
         # sees the color while `Accepted` is still pending.
         emit Crysterm::Event::Action, color if color
-        # `Dialog#done` records `#result` and emits `Accepted`/`Rejected` +
-        # `Finished` — the one funnel every dialog closes through.
         done(color ? Code::Accepted : Code::Rejected)
         cb = @callback
         @callback = nil
@@ -520,8 +472,8 @@ module Crysterm
           f == @lhspin || f == @lsspin || f == @llspin
       end
 
-      # The `Dialog` accelerator stands down while a spin/hex field is focused, so
-      # a field's own Enter/Escape isn't stolen to accept/cancel the dialog.
+      # The accelerator stands down while a spin/hex field is focused, so a
+      # field's own Enter/Escape isn't stolen to accept/cancel the dialog.
       protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
         !editing_focused?
       end
@@ -539,11 +491,9 @@ module Crysterm
         in_hue = e.x >= ox + HUE_X && e.x < ox + HUE_X + HUE_W &&
                  e.y >= oy + HUE_Y && e.y < oy + HUE_Y + HUE_H
 
-        # Gate the wheel like the press branch: it nudges the hue over the hue
-        # strip and the value over the 2-D field, but a wheel on the border, the
-        # blank separators, or the gaps around the palette/buttons must fall
-        # through unaccepted (so an ancestor scroll can act) instead of silently
-        # darkening/lightening the current color.
+        # The wheel is gated like the press branch: a notch outside the hue strip
+        # and 2-D field must fall through unaccepted, so an ancestor scroll can
+        # act instead of the color silently changing.
         if e.action.wheel_up?
           if in_hue
             set_hsv(@hue + 10, @saturation, @value_v)
@@ -582,8 +532,8 @@ module Crysterm
 
       # ----------------------------------------------------- window move
 
-      # Begins a window move: capture the grab offset and take over the pointer
-      # at the window level so the drag keeps tracking even off the dialog.
+      # Begins a window move: captures the grab offset and takes over the pointer
+      # at the window level, so the drag keeps tracking off the dialog.
       private def begin_move(x : Int32, y : Int32) : Nil
         @move_dx = x - aleft(with_margin: false)
         @move_dy = y - atop(with_margin: false)
@@ -591,10 +541,8 @@ module Crysterm
         w = window? || return
         @ev_move.on(w, Crysterm::Event::Mouse) do |e|
           if e.action.move?
-            # Reuse Widget's drag machinery: `drag_origin` maps the absolute
-            # pointer to this widget's parent-content-relative `left`/`top`, and
-            # `drag_max_left`/`drag_max_top` clamp it in-bounds (identical to the
-            # reposition handler in `widget_interaction.cr`).
+            # `drag_origin` maps the absolute pointer onto parent-content-relative
+            # `left`/`top`; `drag_max_left`/`drag_max_top` clamp it in-bounds.
             ox, oy = drag_origin
             self.left = (e.x - @move_dx - ox).clamp(0, drag_max_left)
             self.top = (e.y - @move_dy - oy).clamp(0, drag_max_top)
@@ -613,9 +561,9 @@ module Crysterm
       # ------------------------------------------------- window color pick
 
       # Arms the eyedropper: the next click anywhere reads the color under it.
-      # A modal grab keeps that click from also activating whatever is beneath
-      # it, while the window-level `Event::Mouse` (emitted before hit-testing)
-      # still delivers the coordinates here.
+      # The modal grab keeps that click from also activating whatever is beneath
+      # it; the window-level `Event::Mouse`, emitted before hit-testing, still
+      # delivers the coordinates here.
       private def begin_pick : Nil
         return if @picking
         scr = window? || return
@@ -661,22 +609,19 @@ module Crysterm
       def render
         ret = super
         return ret unless ret && window?
-        # Style flags are invariant across every cell of both the field and the
-        # hue bar (only fg/bg vary), so derive them once and fold them into the
-        # cached packed attrs (see `field_attrs`/`hue_attrs`).
+        # Style flags are invariant across every cell of the field and hue bar
+        # (only fg/bg vary), so they are derived once and folded into the cache.
         flags = Attr.flags sattr(style)
-        # Pass the clipped RenderedGeometry from `_render` down so the overlays stay inside
-        # the rendered (possibly clipped) area — the raw absolute coords they
-        # paint at would otherwise wrap (negative indices) or escape the clip.
+        # The overlays paint at raw absolute coords, so they take the clipped
+        # geometry: otherwise they wrap (negative indices) or escape the clip.
         draw_field flags, ret
         draw_hue flags, ret
         ret
       end
 
-      # The field's 240 packed cell attrs, keyed on `{@hue, flags}`. Cell
-      # backgrounds are `Colors.hsv_i(@hue, s, v)` — a pure function of the hue and
-      # the cell's grid position — so the whole array only changes when `@hue`
-      # (or the folded style flags) changes. Rebuilt lazily on a key mismatch.
+      # The field's packed cell attrs, keyed on `{@hue, flags}`: a cell's
+      # background is a pure function of the hue and its grid position, so the
+      # array only changes when the key does. Rebuilt lazily on a mismatch.
       private def field_attrs(flags : Int64) : Array(Int64)
         if @field_attrs_hue != @hue || @field_attrs_flags != flags
           @field_attrs_hue = @hue
@@ -688,7 +633,7 @@ module Crysterm
             (0...FIELD_W).each do |col|
               s = col / (FIELD_W - 1).to_f
               bg = Colors.hsv_i(@hue, s, v)
-              # Unmarked cell: fg == bg, matching `put_cell(..., marked: false)`.
+              # Unmarked cell: fg == bg.
               attrs << Attr.pack(flags, Attr.pack_color(bg), Attr.pack_color(bg))
             end
           end
@@ -696,9 +641,8 @@ module Crysterm
         @field_attrs
       end
 
-      # The hue bar's 20 packed cell attrs, keyed on `flags` alone — the bar's
-      # colors (`Colors.hsv_i(h, 1, 1)` per row) never change, so this is built
-      # once (and only rebuilt if the style flags ever change).
+      # The hue bar's packed cell attrs, keyed on `flags` alone: the bar's colors
+      # never change, so this is built once.
       private def hue_attrs(flags : Int64) : Array(Int64)
         if @hue_attrs_flags != flags
           @hue_attrs_flags = flags
@@ -760,17 +704,17 @@ module Crysterm
         end
       end
 
-      # Writes one cell directly into the window buffer (cf. `Slider#render`).
-      # When *marked*, the glyph is drawn in a contrasting fg over the swatch.
+      # Writes one cell directly into the window buffer. When *marked*, the glyph
+      # is drawn in a contrasting fg over the swatch.
       private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : RenderedGeometry) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
         put_cell_attr x, y, ch, sattr(style, fg, bg), clip
       end
 
-      # Writes one cell with an already-packed attr (the cached-swatch fast path,
-      # bypassing per-cell `Colors.hsv_i`/`sattr`). Cells outside the clipped RenderedGeometry
-      # (a partially offscreen / parent-clipped dialog) are dropped; a negative
-      # index would otherwise wrap to the far side of the screen buffer.
+      # Writes one cell with an already-packed attr, bypassing per-cell
+      # `Colors.hsv_i`/`sattr`. Cells outside the clip (a partially offscreen or
+      # parent-clipped dialog) must be dropped: a negative index would wrap to
+      # the far side of the screen buffer.
       private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry) : Nil
         return if x < clip.xi || x >= clip.xl || y < clip.yi || y >= clip.yl
         return if x < 0 || y < 0

@@ -3,9 +3,8 @@ module Crysterm
   # intrinsic state as HTML attributes in the CSS document so it can be targeted
   # by attribute selectors (e.g. `.w-checkbox[checked]`, `.w-button[checkable]`).
   #
-  # Names are kept CSS/HTML-conventional (`checked`, `indeterminate`, ...). A
-  # `nil` value emits a bare boolean attribute, present only while the state
-  # holds.
+  # Names are CSS/HTML-conventional (`checked`, `indeterminate`, ...). A `nil`
+  # value emits a bare boolean attribute, present only while the state holds.
   #
   # *disabled* is a `WidgetState`, not an attribute, so it's targeted with the
   # `:disabled` state pseudo-class rather than `[disabled]`.
@@ -14,7 +13,7 @@ module Crysterm
     # Defines a `css_attributes` override that surfaces the single boolean
     # attribute *name*, present only while `#{name}?` holds, on top of the
     # inherited attributes. `super` may hand back the shared empty hash, so its
-    # result is `dup`-ed before the attribute is added.
+    # result must be `dup`-ed before the attribute is added.
     macro bool_attr(name)
       def css_attributes : Hash(String, String?)
         return super unless {{ (name + "?").id }}
@@ -31,13 +30,11 @@ module Crysterm
         attrs = {} of String => String?
         attrs["checkable"] = nil if checkable?
         if checkable?
-          # Both checked and its complement surfaced: Qt's `:unchecked`/`:off`
-          # become `[unchecked]` since `:not()` doesn't compile in our selector
-          # engine.
+          # Qt's `:unchecked`/`:off` become `[unchecked]`: the complement is
+          # surfaced explicitly because `:not()` doesn't compile here.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
-        # Qt's `:flat`/`:default` (see `CSS::Qss`); the theme's `Button[flat]`
-        # strips the border.
+        # Qt's `:flat`/`:default`; the theme's `Button[flat]` strips the border.
         attrs["flat"] = nil if flat?
         attrs["default"] = nil if default?
         attrs
@@ -51,8 +48,7 @@ module Crysterm
     end
 
     # Widgets with an orientation surface it as a boolean attribute, so Qt's
-    # `:horizontal`/`:vertical` (→ `[horizontal]`/`[vertical]`, see `CSS::Qss`)
-    # can target them.
+    # `:horizontal`/`:vertical` map to `[horizontal]`/`[vertical]`.
     {% for w in %w[ScrollBar Slider ProgressBar Splitter] %}
       class {{w.id}}
         def css_attributes : Hash(String, String?)
@@ -64,7 +60,7 @@ module Crysterm
     {% end %}
 
     class ComboBox
-      # Qt's `:editable` → `[editable]` (see `CSS::Qss`).
+      # Qt's `:editable` → `[editable]`.
       bool_attr "editable"
     end
 
@@ -75,7 +71,7 @@ module Crysterm
           attrs["indeterminate"] = nil # Qt's PartiallyChecked / CSS :indeterminate
         else
           # Complementary `[checked]`/`[unchecked]` (Qt `:checked`/`:unchecked`,
-          # `:on`/`:off`); `:not([checked])` can't be used.
+          # `:on`/`:off`); `:not([checked])` isn't available.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
         attrs

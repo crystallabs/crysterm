@@ -12,8 +12,6 @@ module Crysterm
       # stale timer can't dismiss a later message early.
       include ::Crysterm::Mixin::TimedDismissal
 
-      # Kept here rather than in the `class Widget` body, where they would
-      # pollute every widget's defaults.
       @shrink_to_fit = true
       @parse_tags = true
 
@@ -54,8 +52,8 @@ module Crysterm
 
           return
         else
-          # Route through `end_it` (as the keypress path does) so a
-          # scrollable message restores focus instead of leaving it stranded.
+          # Route through `end_it` so a scrollable message restores focus
+          # instead of leaving it stranded.
           after time do
             end_it gen do
               callback.try &.call
@@ -64,9 +62,8 @@ module Crysterm
         end
       end
 
-      # blessed's `Message#log` — a plain alias of `#display`. `alias_previous`
-      # can't forward a block and `#display` requires one, so it's spelled out.
-      # A block-less overload is provided for the common fire-and-forget call.
+      # Alias of `#display`, with a block-less overload for the common
+      # fire-and-forget call.
       def log(text, time : Time::Span? = Crysterm::Config.message_display_time)
         display(text, time) { }
       end
@@ -75,23 +72,17 @@ module Crysterm
         display(text, time, &callback)
       end
 
-      # Remove the keypress-dismiss subscription (armed on the *window* by a
-      # timeout-less `#display`) before teardown. Otherwise, if the message is
-      # destroyed before any key is pressed, the next keypress runs `end_it`
-      # against the destroyed widget — hiding it, re-rendering, and possibly
-      # yanking focus in the rebuilt UI. `Subscription#off` is idempotent and
-      # captures the window, so it works even after detach.
+      # Removes the keypress-dismiss subscription (armed on the *window* by a
+      # timeout-less `#display`) before teardown: otherwise the next keypress
+      # runs `end_it` against the destroyed widget — hiding it, re-rendering,
+      # and possibly yanking focus in the rebuilt UI.
       def destroy
         @ev_keypress.off
-        # Invalidate any armed *timed* dismissal fiber too: it captured the
-        # generation live when it was spawned and will call `end_it` after its
-        # sleep. Bumping the generation makes that `end_it` no-op, so a message
-        # destroyed before its timeout can't hide/re-render/run its callback
-        # against the torn-down widget — the timed analogue of the keypress
-        # subscription teardown above.
+        # Invalidate any armed *timed* dismissal fiber too, so its `end_it`
+        # no-ops rather than firing against the torn-down widget.
         bump_dismiss_gen
-        # Drop the pending callback with it: nothing may dismiss the message any
-        # more, so holding it would only pin the closure to a dead widget.
+        # Nothing may dismiss the message any more, so holding the callback
+        # would only pin the closure to a dead widget.
         @dismiss_callback = nil
         super
       end
@@ -111,8 +102,7 @@ module Crysterm
         end
         @dismiss_callback = nil
         # A message has only an acknowledgement, so any dismissal — key, timeout
-        # or `#accept` — is the affirmative outcome. `Dialog#done` hides it and
-        # emits `Event::Accepted` + `Event::Finished`.
+        # or `#accept` — is the affirmative outcome.
         done Code::Accepted
         callback.try &.call
       end
@@ -135,7 +125,6 @@ module Crysterm
       end
 
       def error(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        # `display` takes its callback as a block, not a positional arg.
         display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end
 

@@ -46,9 +46,8 @@ module Crysterm
       alias Entry = Tuple(Int32, Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
 
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
-      # against the tree rooted at *window*. *document* is the prebuilt CSS
-      # document (`window.to_html`); pass it to avoid rebuilding when the caller
-      # already has it.
+      # against the tree rooted at *window*, matching against the prebuilt CSS
+      # document *doc*.
       def self.apply(stylesheet : Stylesheet, window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], window, doc, scope)
       end
@@ -73,7 +72,7 @@ module Crysterm
         # children with sub-element/extra pseudo-nodes. When such nodes exist,
         # match those rules against a *structural* document (built lazily, once)
         # that omits the pseudo-nodes; slot nodes still match against the full
-        # document. See `matched_nodes` below.
+        # document.
         has_slots = index.any? { |key, _| key.includes?("::") }
         structural_doc : HTML5::Node? = nil
         structural_cache = Hash(String, Array(HTML5::Node)).new
@@ -93,10 +92,9 @@ module Crysterm
         variables = {} of String => String
         sheets.each { |entry| variables.merge!(entry[0].variables) }
         # `variables` is fixed for the whole cascade, so each distinct property
-        # *value* resolves to the same string every time. Memoize `var(...)`
-        # resolution per value; the default theme uses `var(--surface)` etc. on
-        # nearly every widget, so the same handful of values would otherwise be
-        # re-resolved thousands of times.
+        # *value* resolves to the same string every time; memoizing keeps the
+        # theme's handful of `var(--surface)`-style values from being re-resolved
+        # thousands of times.
         resolved = {} of String => String
 
         # Match each rule against the document exactly once: state is carried on
@@ -125,9 +123,8 @@ module Crysterm
               # trailing scrollbar/track/label nodes. Only the *sub-element*
               # pseudo-nodes (`::scrollbar`/`::track`/`::label`, no `:` in the
               # slot) still come from the full document, where alone they exist.
-              # Cached on the `Window` across cascades (invalidated when the
-              # structural serialization changes); the `||=` still memoizes
-              # within this cascade so the string isn't re-serialized per rule.
+              # Cached on the `Window` across cascades; the `||=` memoizes within
+              # this cascade so the string isn't re-serialized per rule.
               sdoc = structural_doc ||= window.css_structural_document
               real = matched_nodes(sheet, sdoc, rule, structural_cache)
               slots = matched_nodes(sheet, doc, rule, selector_cache).select do |node|
@@ -157,12 +154,10 @@ module Crysterm
                   (acc[{key, state}] ||= [] of Entry).concat entries
                   (stated_keys[key] ||= Set(WidgetState).new) << state
                   # A state rule on a sub-element (`uid::slot:hover`) marks only
-                  # the slot key stated. But `touched` derives the *parent* uid
-                  # (via `key.partition("::")[0]`), so the parent's Hovered style
-                  # gets materialized — and unless the parent uid is also stated,
-                  # the base fold never folds the parent's base rules into that
-                  # state, so it renders as a pristine pre-CSS dup (widget flashes
-                  # unstyled while hovered/focused). Mark the parent stated too.
+                  # the slot key stated, yet `touched` derives the parent uid and
+                  # materializes the parent's Hovered style. Unless the parent is
+                  # also marked stated, the base fold never reaches that state and
+                  # the widget flashes unstyled while hovered/focused.
                   mark_parent_stated stated_keys, key, state
                 else
                   (base[key] ||= [] of Entry).concat entries
@@ -185,10 +180,9 @@ module Crysterm
         # no rules fall back to `normal` lazily at render time.
         base.each do |key, entries|
           own = stated_keys[key]?
-          # Fast path for the overwhelmingly common widget-key that has base
-          # rules but no state rules and no "::" (so no parent-state fold to
-          # consider either): fold straight into Normal without allocating a
-          # throwaway Set that would end up holding exactly that one element.
+          # Fast path for the common widget-key with base rules, no state rules
+          # and no "::" (so no parent-state fold either): fold straight into
+          # Normal without allocating a throwaway one-element Set.
           if own.nil? && !key.includes?("::")
             (acc[{key, WidgetState::Normal}] ||= [] of Entry).concat entries
             next
@@ -196,13 +190,12 @@ module Crysterm
           states = own.try(&.dup) || Set(WidgetState).new
           states << WidgetState::Normal
           # A sub-element key (`uid::slot`) lives inside the parent widget's
-          # per-state styles, so it must also fold into every state the parent
-          # is materialized in — otherwise a widget given an explicit state
-          # (e.g. a focused `Input` via `Input:focus`) materializes that state
-          # with a pristine sub-element, dropping a base sub-element rule like
-          # `ProgressBar::indicator { ... }` on the focused bar while unfocused
-          # siblings keep it. Extra (`:`-bearing) slots are state-independent
-          # (stored via `css_set_extra_style`), so skip them.
+          # per-state styles, so it must also fold into every state the parent is
+          # materialized in — otherwise a widget given an explicit state (a
+          # focused `Input` via `Input:focus`) materializes that state with a
+          # pristine sub-element, dropping a base `ProgressBar::indicator` rule
+          # on the focused bar alone. Extra (`:`-bearing) slots are
+          # state-independent, so skip them.
           if (sep = key.index("::")) && !key[(sep + 2)..].includes?(':')
             stated_keys[key[0, sep]]?.try { |ps| states.concat ps }
           end
@@ -211,8 +204,7 @@ module Crysterm
 
         # Fold the rewritten `selection-*` entries onto the selected state, after
         # the base fold so they sort after (and override) the base
-        # `color`/`background-color` on an equal-specificity tie — see
-        # `SELECTION_ORDER_BIAS`.
+        # `color`/`background-color` on an equal-specificity tie.
         sel_acc.each do |key, entries|
           (acc[{key, WidgetState::Selected}] ||= [] of Entry).concat entries
         end
@@ -230,28 +222,24 @@ module Crysterm
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
           widget.css_reset_extra
-          # The reset just wiped any sub-control style an ancestor pushed onto
-          # this widget (`Mixin::SubStyle#apply_substyle`), but the ancestor's
-          # own sub-`Style` object survives when it's outside the scope — so
-          # the push memo would keep reporting `same?` and skip re-pushing
-          # forever. Drop the memo so the next per-frame push re-dups.
+          # The reset wiped any sub-control style an ancestor pushed onto this
+          # widget, but the ancestor's own sub-`Style` object survives when it's
+          # outside the scope — so the push memo would keep reporting `same?` and
+          # skip re-pushing forever. Drop it so the next push re-dups.
           widget._substyle_src = nil
           # Geometry has the same non-staleness contract as styles, but lives on
-          # the widget itself: restore the pristine snapshot (captured by
-          # `apply_geometry` before CSS first wrote it; no-op otherwise), so a
-          # geometry rule that stopped matching reverts rather than sticking.
-          # The currently-matching declarations re-apply below.
+          # the widget itself: restore the pristine snapshot so a geometry rule
+          # that stopped matching reverts rather than sticking. The
+          # currently-matching declarations re-apply below.
           widget.restore_css_base_geometry
 
           # Fold the full inline `@style` onto `normal`, the fallback state every
           # unset state defers to. The per-state inline fold below only runs for
-          # states a rule actually touches; a widget themed only for, say,
-          # `:selected` would otherwise have its inline `border`/`bg`/visibility
-          # folded into that state alone while `normal` reverted to pristine
-          # (symptom: an inline `border: true` dialog renders borderless once CSS
-          # is active). Touched states are reset to pristine again at
-          # `set_state_style` below and re-fold inline at the correct tier in
-          # `apply_entries_with_inline`, so this never double-applies.
+          # states a rule actually touches, so a widget themed only for, say,
+          # `:selected` would otherwise have its inline `border`/`bg` folded into
+          # that state alone while `normal` reverted to pristine. Touched states
+          # are reset to pristine again below and re-fold inline at the correct
+          # tier, so this never double-applies.
           if inl = widget.css_inline_style
             fold_inline widget.styles.normal, inl
           end
@@ -290,11 +278,10 @@ module Crysterm
         # the widget's own per-slot storage instead of a `Style` sub-style.
         #
         # A whole-row extra slot (`::row:N`, `Row { ... }`) fans its computed
-        # style out onto the row's cells (see `TableCells#css_set_extra_style`),
-        # establishing the per-cell base a `Cell`/`Cell:nth-child(...)` rule then
-        # layers on top. So row slots must be applied *before* cell slots; `acc`
-        # is an unordered hash, so sort row slots first (order among cells, or
-        # among rows, is immaterial — each targets an independent cell).
+        # style out onto the row's cells, establishing the per-cell base a
+        # `Cell`/`Cell:nth-child(...)` rule then layers on top. So row slots must
+        # be applied *before* cell slots; `acc` is an unordered hash, hence the
+        # sort (order among cells, or among rows, is immaterial).
         subs = acc.to_a.select { |((key, _state), _entries)| key.includes?("::") }
         subs.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 } if subs.any? { |((key, _state), _entries)| key.includes?("::row:") }
         subs.each do |(key, state), entries|
@@ -303,14 +290,11 @@ module Crysterm
           next unless slot
           next unless scope.nil? || scope.includes?(widget)
           if slot.includes?(':')
-            # Extra slots (e.g. a table cell `cell:0:1`) have state-*independent*
-            # storage — one `Style` per cell via `css_set_extra_style` — but `acc`
-            # is keyed per-{key, state}. Processing every state in turn races
-            # last-write-wins (dropping e.g. `Cell:hover`, or letting a lone
-            # `Cell:hover` apply in every state). Resolve deterministically: apply
-            # only the Normal (base) state's entries and drop state-specific ones,
-            # since the state-independent slot can't represent them. (A base `Cell`
-            # rule always folds into Normal, so the cell's base look is honored.)
+            # Extra slots (a table cell `cell:0:1`) have state-*independent*
+            # storage — one `Style` per cell — but `acc` is keyed per-{key,
+            # state}, so processing every state would race last-write-wins. Only
+            # the Normal (base) entries apply; state-specific ones are dropped,
+            # since the slot can't represent them.
             next unless state.normal?
             base = widget.css_extra_base_style(slot).dup
             apply_entries base, entries, variables, resolved
@@ -319,11 +303,9 @@ module Crysterm
             state_style = get_state_style(widget, state)
             sub = state_style.sub_style(slot).dup
             # Inline sub-styles outrank default/author sub-element rules, the
-            # same inline-beats-stylesheet contract the main style honors via
-            # `apply_entries_with_inline`. Without this a default-tier
-            # `ProgressBar::indicator { color: ... }` would overwrite an explicit
-            # inline `Style.new(indicator: ...)`. Interleaved at `TIER_INLINE` so
-            # `!important` sub-element rules still win over it.
+            # same inline-beats-stylesheet contract the main style honors.
+            # Interleaved at `TIER_INLINE` so `!important` sub-element rules
+            # still win over it.
             inline_sub = widget.css_inline_style.try &.raw_sub_style(slot)
             apply_entries_with_inline sub, entries, variables, resolved, inline_sub
             state_style.set_sub_style slot, sub
@@ -351,7 +333,6 @@ module Crysterm
       # Runs *selector* (compiled by and cached on *sheet*, reused across
       # cascades) against this cascade's *doc*. An unparseable selector compiles
       # to `nil` and matches nothing; a raising select also yields nothing.
-      # Shared by the rule-selector and ancestor-`:has` qualifier scans.
       private def self.select_nodes(sheet : Stylesheet, doc : HTML5::Node, selector : String) : Array(HTML5::Node)
         if compiled = sheet.compiled_selector(selector)
           begin
@@ -379,8 +360,6 @@ module Crysterm
       # per-document cache so full- and structural-document results don't collide.
       private def self.matched_nodes(sheet : Stylesheet, doc : HTML5::Node, rule : Rule, cache : Hash(String, Array(HTML5::Node))) : Array(HTML5::Node)
         nodes = cache.fetch(rule.selector) do
-          # Reuse the sheet's compiled selector (cross-cascade); a selector the
-          # engine can't parse compiles to `nil` and matches nothing.
           cache[rule.selector] = select_nodes(sheet, doc, rule.selector)
         end
         # `:has(...)` — keep only nodes with a descendant matching the inner
@@ -464,8 +443,8 @@ module Crysterm
       end
 
       # Picks out the `selection-*` declarations from *decls*, keyed by the
-      # standard property they map to. Only called once presence is confirmed
-      # (see `#has_selection?`), so it never returns empty.
+      # standard property they map to. Only called once presence is confirmed,
+      # so it never returns empty.
       private def self.remap_selection(decls : Hash(String, String)) : Hash(String, String)
         out = {} of String => String
         SELECTION_PROPS.each { |from, to| decls[from]?.try { |v| out[to] = v } }
@@ -557,8 +536,7 @@ module Crysterm
           entry[4].each do |property, value|
             next unless Geometry.handles?(property)
             # Snapshot the pristine geometry before CSS first writes it, so the
-            # reset pass above can revert a rule that stops matching (memoized —
-            # free after the first geometry-bearing cascade).
+            # reset pass can revert a rule that stops matching. Memoized.
             widget.capture_css_base_geometry
             Geometry.apply(widget, property, resolve_var(value, variables, resolved))
           end
@@ -590,13 +568,13 @@ module Crysterm
         style.glyph_close = inline.glyph_close if inline.specified?(:glyph_close)
         style.glyphs = inline.glyphs if inline.specified?(:glyphs)
         # Mask-tracked properties (text attributes, border/padding/margin/shadow,
-        # fill chars, tabs, fill/draw_over_border) — single-sourced off Style's
-        # `tracked` list. Uses `specified?` (not `any?`), so inline can switch
-        # border/padding/margin/shadow off over a stylesheet, not only on.
+        # fill chars, tabs, fill/draw_over_border). Uses `specified?` (not
+        # `any?`), so inline can switch border/padding/margin/shadow off over a
+        # stylesheet, not only on.
         inline.fold_specified_onto style
-        # Nested sub-styles (header/cell/alternate/bar/…) copy wholesale; without
-        # this they'd be dropped by the reset-and-recompute, since no
-        # `Widget::slot` sub-element rule restores an inline-only sub-style.
+        # Nested sub-styles (header/cell/alternate/bar/…) copy wholesale;
+        # otherwise the reset-and-recompute drops them, since no `Widget::slot`
+        # sub-element rule restores an inline-only sub-style.
         style.fold_inline_sub_styles inline
       end
 
@@ -640,9 +618,9 @@ module Crysterm
       #
       # Visibility is deliberately *not* inherited: a hidden parent already keeps
       # children off-window via its own `_render`, so propagating `visible:
-      # false` is redundant and goes stale — when the parent is re-shown (e.g. a
-      # `TabWidget` page), nothing re-cascades the child, leaving it stuck
-      # invisible. Each widget owns its visibility outright.
+      # false` is redundant and goes stale — when the parent is re-shown, nothing
+      # re-cascades the child, leaving it stuck invisible. Each widget owns its
+      # visibility outright.
       private def self.inherit(window : Window) : Nil
         window.children.each { |child| inherit_into child, nil }
       end
@@ -651,17 +629,13 @@ module Crysterm
         normal = widget.styles.normal
         if parent
           inherit_props normal, parent
-          # An inherited value is stateless — it must reach every state the
-          # widget renders in, exactly as a stateless `color`/`font-*` rule does
-          # (the base fold above folds such rules into `normal` *and* every
-          # materialized state). Inheritance only seeded `normal`, so a widget
-          # whose color/weight/slant comes solely from its parent lost it upon
-          # entering a state with its own rule — e.g. a field with a bg-only
-          # `:focus` rule rendered focused text in the terminal default fg
-          # instead of the inherited color. Propagate into materialized
-          # non-normal states too, wherever unset. A lazily-falling-back state
-          # shares the `normal` object (`for_state` returns `normal` when
-          # unset), so `same?` skips it — already sees the value via `normal`.
+          # An inherited value is stateless: it must reach every materialized
+          # state, exactly as a stateless `color`/`font-*` rule does. Seeding
+          # only `normal` would lose it whenever the widget enters a state with
+          # its own rule — a field with a bg-only `:focus` rule would render
+          # focused text in the terminal default fg. A lazily-falling-back state
+          # shares the `normal` object, so `same?` skips it: it already sees the
+          # value via `normal`.
           NON_NORMAL_STATES.each do |state|
             st = widget.styles.for_state(state)
             inherit_props st, parent unless st.same?(normal)
@@ -693,10 +667,6 @@ module Crysterm
       private def self.set_state_style(widget : Widget, state : WidgetState, style : Style) : Nil
         widget.styles.set_for_state(state, style)
       end
-
-      # The slot → sub-`Style` mapping (getter `Style#sub_style`, setter
-      # `Style#set_sub_style`) lives on `Style` itself, generated from a single
-      # canonical slot table (see `fold_inline_sub_styles` in `style.cr`).
     end
   end
 end

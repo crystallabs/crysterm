@@ -15,17 +15,16 @@ module Crysterm
     end
 
     # Non-generic base carrying the event-emitter machinery, so `ObservableList(T)`
-    # inherits `on`/`emit` without re-instantiating it per element type — same
-    # pattern as `SignalBase`.
+    # inherits `on`/`emit` without re-instantiating it per element type.
     abstract class ObservableListBase
       include EventHandler
     end
 
-    # An observable, ordered collection. Mutating it emits a *granular*
+    # An observable, ordered collection. Mutating it emits a granular
     # `Event::ListChanged` describing exactly what changed, so a bound item view
-    # (`Reactive.bind_items`) patches the affected rows instead of rebuilding the
-    # whole list. `T` is the element type — arbitrary application data; a render
-    # block maps each element to display text at bind time.
+    # patches the affected rows instead of rebuilding the whole list. `T` is the
+    # element type — arbitrary application data; a render block maps each element
+    # to display text at bind time.
     #
     # ```
     # todos = Crysterm::Reactive::ObservableList(String).new %w[buy milk]
@@ -40,10 +39,8 @@ module Crysterm
       end
 
       def initialize(initial : Enumerable(T))
-        # Copy, don't alias: `Array#to_a` returns `self`, so a bare `.to_a`
-        # would share storage with the caller's array — external mutations
-        # would silently desync bound views, and list ops would mutate the
-        # caller's array.
+        # Copy, don't alias: `Array#to_a` returns `self`, so a bare `.to_a` would
+        # share storage with the caller's array and silently desync bound views.
         @array = initial.is_a?(Array) ? initial.dup : initial.to_a
       end
 
@@ -102,10 +99,9 @@ module Crysterm
         # last element, i.e. at `size` (not `size - 1`), hence the `+ 1`.
         i = index.to_i
         i = @array.size + i + 1 if i < 0
-        # A still-out-of-range index must raise *here* (like a plain `Array`),
-        # not fall through to `Array#insert`, which would re-normalize a
-        # still-negative `i` and mutate while the emitted `Insert` carries the
-        # wrong (negative) index — permanently desyncing any bound view.
+        # A still-out-of-range index must raise here, like a plain `Array`, not
+        # fall through to `Array#insert`, which would re-normalize a negative `i`
+        # and mutate while the emitted `Insert` carries the wrong index.
         raise IndexError.new if i < 0 || i > @array.size
         @array.insert i, item
         emit_change ListOp::Insert, i, 1
@@ -129,11 +125,11 @@ module Crysterm
 
       # Normalizes a negative *index* to a real, in-range slot before emitting,
       # so a bound view patches the right row instead of bailing on a raw
-      # negative. A still-out-of-range index must raise here (like a plain
-      # `Array`), not fall through to the underlying `Array` mutator, which
-      # would re-normalize a still-negative `i` a second time and silently touch
-      # a valid-but-wrong slot while emitting a negative index (see BUGS13-R2 /
-      # BUGS14-R1). (`#insert` is a deliberate variant — `+1`, `> size`.)
+      # negative. A still-out-of-range index must raise here, like a plain
+      # `Array`, not fall through to the underlying mutator, which would
+      # re-normalize a second time and touch a valid-but-wrong slot while
+      # emitting a negative index. (`#insert` is a deliberate variant: `+1`,
+      # `> size`.)
       private def resolve_existing_index(index : Int) : Int32
         i = index.to_i
         i += @array.size if i < 0

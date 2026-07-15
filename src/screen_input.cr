@@ -2,13 +2,8 @@ module Crysterm
   # Shared best-effort teardown-step guard for the two sides of a connection.
   # Runs one terminal-mode teardown step — *block* — only when *enabled*,
   # swallowing any error: a user-closed window leaves dead fds whose writes
-  # raise, and restore must press on regardless. Folds the repeated
-  # `if @_listened_… begin disable_… rescue end end` guard both `Window`
-  # (surface side, `restore_terminal`) and `Screen` (device side,
-  # `restore_input_modes`) apply to each optionally-enabled input mode.
-  # Included in both so the two copies stay in lockstep. Defined here (rather
-  # than in `window_connection.cr`) because `screen_input.cr` is required
-  # first, so the module exists before either `include RestoreGuard` resolves.
+  # raise, and restore must press on regardless. Must be defined before any
+  # `include RestoreGuard` resolves.
   module RestoreGuard
     private def restore_step(enabled : Bool, & : -> Nil) : Nil
       return unless enabled
@@ -20,59 +15,46 @@ module Crysterm
   end
 
   # Device-side input-mode toggles — optional terminal input enhancements
-  # negotiated over `tput`, with the bookkeeping flag each needs so teardown
-  # (`Window#restore_terminal`) knows what to turn back off. Pure device
-  # concerns (touch only `tput`/IO), so they live on `Screen`; the owning
-  # `Window` delegates the enable/disable methods and `_listened_*?` here.
-  #
-  # Raw mouse reporting (`enable_mouse` / `@_listened_mouse` / gpm / cursor shape)
-  # lives alongside this on the device in `screen_mouse_device.cr`.
+  # negotiated over `tput`, each with the bookkeeping flag teardown needs to
+  # know what to turn back off. Pure device concerns (they touch only
+  # `tput`/IO), so they live on `Screen`; the owning `Window` delegates here.
   class Screen
     include RestoreGuard
 
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?
 
-    # Cooperative-cancel generation for the input read fiber. Each `#listen_keys`
-    # spawn captures the then-current value; `#stop_keys` (and each respawn)
-    # bumps it, so every fiber whose captured value no longer matches drops its
-    # event and exits instead of routing it to a screen that may already be torn
-    # down. A per-spawn generation — not a shared boolean — so that a
-    # stop-then-listen cycle cannot "un-cancel" a previous fiber still blocked in
-    # `tput.listen` (unowned STDIN survives `Window#disconnect`, so that fiber
-    # only wakes on its next event) and leave two readers interleaving on one fd.
-    # The stale fiber still can't be interrupted mid-read without changing
-    # `tput`, so it may consume one more event before it sees the mismatch and
-    # exits — but it will not dispatch it.
+    # Cooperative-cancel generation for the input read fiber. Each spawn
+    # captures the then-current value; stopping (and each respawn) bumps it, so
+    # a fiber whose value no longer matches drops its event and exits rather
+    # than routing to a possibly torn-down screen. Must stay a generation, not a
+    # boolean: a stop-then-listen cycle would otherwise "un-cancel" a previous
+    # fiber still blocked in `tput.listen` (unowned STDIN survives a disconnect,
+    # so it only wakes on its next event), leaving two readers interleaving on
+    # one fd. A stale fiber may still consume one final event before it notices
+    # the mismatch — but it will not dispatch it.
     @_keys_gen = 0_u64
 
     # Spawns the device's input read fiber: `tput.listen` parses each byte
     # sequence into a `Tput::InputEvent` and routes it *up* to the `Application`
-    # dispatcher (`Application#route_input` → `Window#handle_input`), which picks
-    # the active `Window` on this device. The device itself knows nothing about
-    # focus or widgets.
+    # dispatcher, which picks the active `Window` on this device. The device
+    # itself knows nothing about focus or widgets.
     #
-    # `tput.listen` returns on EOF, so closing the input (`Window#disconnect`)
-    # ends this fiber; the rescue swallows the IO/raw-mode-restore errors that
-    # closing mid-read produces. Idempotent: a second call while a fiber exists
-    # is a no-op.
+    # `tput.listen` returns on EOF, so closing the input ends this fiber.
+    # Idempotent: a second call while a fiber exists is a no-op.
     def listen_keys : Nil
       return if @_keys_fiber
       gen = (@_keys_gen += 1)
       @_keys_fiber = spawn {
         begin
           tput.listen do |e|
-            # Cooperative cancel: after `#stop_keys` (device disconnect) — or a
-            # later respawn — this fiber's generation is stale, so drop the
-            # event instead of routing it to a possibly dead screen (the check
-            # must precede dispatch, or a zombie double-dispatches its last
-            # event), and exit the read loop.
+            # Cooperative cancel on a stale generation. MUST precede dispatch,
+            # or a zombie fiber double-dispatches its last event.
             break if @_keys_gen != gen
 
-            # Isolate user-handler exceptions per event. A single
-            # raising key/mouse/drag handler must not unwind `tput.listen` and
-            # kill the one input fiber, making the app permanently deaf. Report
-            # and keep looping so subsequent events still dispatch.
+            # Isolate user-handler exceptions per event: one raising handler
+            # must not unwind `tput.listen` and kill the only input fiber,
+            # leaving the app permanently deaf.
             begin
               (application || Application.global).route_input self, e
             rescue ex
@@ -80,30 +62,28 @@ module Crysterm
             end
           end
         rescue IO::Error
-          # Input fd closed mid-read (`Window#disconnect`); normal teardown.
+          # Input fd closed mid-read; normal teardown.
         end
       }
     end
 
-    # Whether the input read fiber has been started (and not yet dropped). Used
-    # by reattach to restore prior listening state.
+    # Whether the input read fiber has been started (and not yet dropped).
     def listening? : Bool
       !@_keys_fiber.nil?
     end
 
     # Drops the input-fiber handle so a later `#listen_keys` can start fresh,
-    # and bumps the cancel generation so the loop (if it is unowned STDIN and
-    # thus not ended by a closed fd) stops dispatching to this now-detached
-    # screen and exits on its next wake-up — staying cancelled even if
-    # `#listen_keys` re-arms in the meantime. The fiber blocked in `tput.listen`
-    # also ends when its input is closed (see `#listen_keys`).
+    # and bumps the cancel generation so a loop not already ended by a closed fd
+    # (i.e. on unowned STDIN) stops dispatching to this now-detached screen and
+    # exits on its next wake-up — staying cancelled even if `#listen_keys`
+    # re-arms meanwhile.
     def stop_keys : Nil
       @_keys_gen += 1
       @_keys_fiber = nil
     end
 
     # Whether an enhanced keyboard protocol was enabled for this device (so
-    # `#restore_terminal` knows to turn it back off).
+    # teardown knows to turn it back off).
     getter? _listened_keyboard = false
 
     # Turns on the best enhanced keyboard protocol (kitty / modifyOtherKeys) the
@@ -174,10 +154,10 @@ module Crysterm
     end
 
     # Best-effort turn-off of every input mode this device enabled, then restore
-    # the tty's line discipline (cooked mode). The *device* half of teardown;
-    # `Window#restore_terminal` calls it after its own surface-half (leave the
-    # alt buffer, disable the mouse). Every step is guarded: a user-closed
-    # window leaves dead fds that raise on write.
+    # the tty's line discipline (cooked mode). The *device* half of teardown,
+    # run after the surface half (leaving the alt buffer, disabling the mouse).
+    # Every step is guarded: a user-closed window leaves dead fds that raise on
+    # write.
     def restore_input_modes : Nil
       restore_step(_listened_keyboard?) { disable_keyboard_protocol }
       restore_step(_listened_paste?) { disable_bracketed_paste }

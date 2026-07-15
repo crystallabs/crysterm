@@ -4,10 +4,10 @@ require "w3m_image_display"
 
 module Crysterm
   class Widget
-    # Good example of w3mimgdisplay commands:
+    # Overlay (w3m-img) image element.
+    #
+    # Reference for the w3mimgdisplay commands:
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
-
-    # Overlay (w3m-img) image element
     #
     # <!-- widget-examples:capture v1 -->
     # ![Overlay screenshot](../../../tests/widget/media/overlay/overlay.5s.apng)
@@ -19,16 +19,13 @@ module Crysterm
       property center = false
       property image : W3MImageDisplay::Image?
 
-      # `@last_drawn` and the listener-wrapper ivars (`@listener_screen`,
-      # `@ev_prerender`, `@ev_rendered`) come from `Media::ScreenOverlay`.
-
       def initialize(
         @file = nil,
         @stretch = false,
         @center = true,
-        # The shared `Media::Base` contract knobs are accepted (so the `Media`
-        # factory can forward them uniformly) but advisory here: an external
-        # helper does its own scaling and can't animate. See `Media::External`.
+        # Accepted so the `Media` factory can forward them uniformly, but
+        # advisory here: an external helper does its own scaling and can't
+        # animate.
         @fit : Media::Fit = Media::Fit::Stretch,
         @animate : Bool = false,
         @speed : Float64 = 1.0,
@@ -39,30 +36,20 @@ module Crysterm
         @file.try { |f| load f }
 
         # Redraw after the *window* finishes each render, not after this widget
-        # renders: a w3m image is painted directly onto the terminal on top of
-        # whatever cells are there, so it must be drawn after `Window#draw` has
-        # flushed this frame's cells or they'd land on top and hide it.
-        #
-        # `Window#_render` flushes cells then emits `Event::Rendered`, so we
-        # hook that. `PreRender` runs before flush; used to clean up the overlay
-        # left at our previous position when we move (see
-        # `#invalidate_old_position`). Mirrors Blessed's `onScreenEvent('render')`.
-        # When built detached (compose-then-attach), this defers registration
-        # until the widget is attached to a window.
+        # renders: a w3m image is painted directly onto the terminal over
+        # whatever cells are there, so it must be drawn after this frame's cells
+        # are flushed or they'd land on top and hide it. Registration is deferred
+        # until the widget is attached, for detached compose-then-attach use.
         register_overlay_listeners_deferred
       end
 
       def load(file : String)
         @file = file
         @image = W3MImageDisplay::Image.new file
-        # New source: clear the failure latch so the helper is retried, mirroring
-        # `Media::Tek#load`'s `@decode_failed` reset. Without this, once the
-        # helper failed once (`redraw_image` sets `@helper_failed`), every later
-        # `load` of a good file stayed permanently un-drawn.
+        # New source: clear the failure latch, or one failed helper run would
+        # leave every later `load` of a good file permanently un-drawn.
         @helper_failed = false
       end
-
-      # `#set_image` (load + re-render) comes from `Media::External`.
 
       # Removes the currently displayed image, clearing its overlay from window.
       def clear_image
@@ -72,33 +59,31 @@ module Crysterm
         super # stop + clear file/source/frames
       end
 
-      # The overlay is only on window once an image is loaded. (Erase rect is the
-      # full box — `Media::ScreenOverlay#overlay_rect`'s default — since the
-      # external helper paints over the whole box, borders/padding included.)
+      # The overlay is only on window once an image is loaded. The erase rect
+      # stays the default full box, since the external helper paints over the
+      # whole box, borders and padding included.
       protected def overlay_visible? : Bool
         !@image.nil?
       end
 
       # Set once the external helper has failed (e.g. `w3mimgdisplay` not
-      # installed), so we stop retrying it every render. Cleared on `#load`
-      # (new source) and `#clear_image`. Exposed like `Media::Tek#decode_failed?`.
+      # installed), so it isn't retried on every render. Cleared by `#load` and
+      # `#clear_image`.
       getter? helper_failed : Bool = false
 
-      # (Re)paints the loaded image at this widget's current position. Called
-      # after every window render; skips while hidden or detached.
+      # (Re)paints the loaded image at this widget's current position; skips
+      # while hidden or detached.
       private def redraw_image
         return if @helper_failed
         @image.try do |image|
           # TODO - get coords of content only, without borders/padding
-          # style.border.try &.adjust(pos)
           rect = overlay_geometry || return
           begin
             image.draw(rect[0], rect[1], rect[2], rect[3], @stretch, @center).sync.sync_communication
             @last_drawn = rect
           rescue
             # w3mimgdisplay missing/failed: degrade instead of crashing the
-            # render fiber. Selection UIs should gate on `Media.available?`;
-            # this is a backstop.
+            # render fiber.
             @helper_failed = true
           end
         end

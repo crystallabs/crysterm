@@ -61,10 +61,9 @@ module Crysterm
       # The string currently shown (digits/letters/punctuation).
       getter text : String = ""
 
-      # The last integer passed to `#display`, retained so a later `#mode=`
-      # can re-format it in the new base (the shown `@text` is already
-      # base-formatted and can't be re-derived). `nil` after a Float/String
-      # display, where no base applies.
+      # The last integer passed to `#display`, retained so a later `#mode=` can
+      # re-format it in the new base — the shown `@text` is already
+      # base-formatted. `nil` after a Float/String display, where no base applies.
       @last_int : Int64?
 
       # The numeric value on display (Qt's `QLCDNumber#value`). Kept alongside
@@ -84,8 +83,8 @@ module Crysterm
         display v
       end
 
-      # Re-aligns the shown value in the new cell count immediately — a plain
-      # property setter was inert until the next `#display` call.
+      # Re-aligns the shown value in the new cell count immediately; a plain
+      # property setter would be inert until the next `#display`.
       def digit_count=(v : Int32) : Int32
         return v if v == @digit_count
         @digit_count = v
@@ -94,10 +93,9 @@ module Crysterm
         v
       end
 
-      # Re-formats the retained integer in the new base immediately — a plain
-      # property setter was inert (`display 255` then `mode = :hex` kept
-      # showing 255 forever). A Float/String display has no base to re-apply,
-      # so only the stored text alignment is refreshed.
+      # Re-formats the retained integer in the new base immediately; a plain
+      # property setter would leave `display 255` then `mode = :hex` showing 255.
+      # A Float/String display has no base to re-apply.
       def mode=(m : Mode) : Mode
         return m if m == @mode
         @mode = m

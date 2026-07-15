@@ -24,9 +24,9 @@ module Crysterm
     #       has no press-and-hold gesture.
     #
     # `#auto_raise?` mirrors Qt's flat-until-hovered appearance; stored and
-    # exposed for CSS/styling — default push/activation behavior is inherited
-    # from `AbstractButton` (as in Qt, `QToolButton` and `QPushButton` are
-    # both `QAbstractButton`s).
+    # exposed for CSS/styling. Push/activation behavior is inherited from
+    # `AbstractButton`, as in Qt where `QToolButton` and `QPushButton` are both
+    # `QAbstractButton`s.
     #
     # <!-- widget-examples:capture v1 -->
     # ![ToolButton screenshot](../../tests/widget/tool_button/tool_button.5s.apng)
@@ -59,8 +59,7 @@ module Crysterm
       )
         super **button
 
-        # Activate-key wiring is inherited from `AbstractButton`; like `Button`,
-        # a tool button also activates on a click anywhere on it.
+        # Like `Button`, a tool button activates on a click anywhere on it.
         handle Crysterm::Event::Click
 
         @auto_raise = auto_raise
@@ -71,7 +70,6 @@ module Crysterm
         action.try { |a| self.action = a }
 
         # Mouse wheel cycles through the menu's actions, triggering each in turn.
-        # (A click anywhere on the button toggles the menu — see `#on_click`.)
         on(Crysterm::Event::Mouse) do |e|
           next unless m = @menu
           if e.action.wheel_down?
@@ -124,14 +122,14 @@ module Crysterm
         # Idempotent: same menu → same indicator → no repaint needed.
         return m if m == @menu
         @menu = m
-        # Count the button itself as "inside" the open menu's modal grab (like a
-        # `MenuBar` title — see `Menu#grab_region`), so a click on the button while
-        # the menu is open is *not* treated as a click-away that auto-dismisses it.
-        # Instead the click reaches `#on_click`, which toggles it shut cleanly —
-        # otherwise the outside-dismiss would close it and the same click reopen it.
+        # Count the button itself as "inside" the open menu's modal grab, so a
+        # click on the button while the menu is open is *not* a click-away that
+        # auto-dismisses it. Instead the click reaches `#on_click` and toggles it
+        # shut — otherwise the outside-dismiss closes it and the same click
+        # reopens it.
         m.try { |mm| mm.treat_as_inside { |x, y| contains_point? x, y } }
-        # Re-stamp the current label (`#text` strips the old indicator, `#text=`
-        # re-adds it) so attaching/clearing a menu adds/removes the `▾`.
+        # Re-stamp the current label so attaching/clearing a menu adds/removes
+        # the `▾`.
         self.text = text
         m
       end
@@ -162,12 +160,10 @@ module Crysterm
         end
       end
 
-      # A click anywhere on the button toggles its popup menu: the whole surface is
-      # the drop-down affordance, so a click opens it and a second click (or a
-      # click-away) closes it. This is the only mouse route to the menu; when a
-      # default `action:` is bound it stays reachable from the keyboard (Space /
-      # Enter run the action; Down also opens the menu). A menu-less button just
-      # activates.
+      # A click anywhere on the button toggles its popup menu: the whole surface
+      # is the drop-down affordance. This is the only mouse route to the menu;
+      # a bound `action:` stays reachable from the keyboard (Space/Enter run the
+      # action, Down opens the menu). A menu-less button just activates.
       def on_click(e)
         if (m = @menu)
           if m.visible?
@@ -198,8 +194,8 @@ module Crysterm
       private def cycle_menu(m : Menu, delta : Int32) : Nil
         acts = m.actions.select { |a| !a.separator? && a.enabled? && !a.menu? }
         return if acts.empty?
-        # Crystal's `%` with a positive divisor already yields a non-negative
-        # result, so no negative-index correction is needed.
+        # Crystal's `%` with a positive divisor is always non-negative, so a
+        # negative delta wraps correctly with no extra guard.
         @menu_index = (@menu_index + delta) % acts.size
         acts[@menu_index].activate
       end

@@ -15,15 +15,13 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Button < AbstractButton
       # Whether the button is *flat* — drawn without a frame (Qt's
-      # `QPushButton#flat`). Surfaced as the `[flat]` attribute so theme CSS can
-      # target it (theme strips the border via `Button[flat]`); also the target
-      # of Qt's `:flat` pseudo-class (see `CSS::Qss`).
+      # `QPushButton#flat`). Surfaced as the `[flat]` attribute and the `:flat`
+      # pseudo-class for CSS.
       getter? flat : Bool = false
 
       # Whether this is the dialog's *default* button (Qt's
-      # `QPushButton#default`). This is a styling marker only: it is surfaced as
-      # `[default]` for the `:default` pseudo-class so theme CSS can highlight
-      # it, but nothing currently wires a bare Enter to activate it.
+      # `QPushButton#default`). A styling marker only — surfaced as `[default]`
+      # for the `:default` pseudo-class; nothing wires a bare Enter to activate it.
       getter? default : Bool = false
 
       def initialize(checkable : Bool = false, checked : Bool = false, flat : Bool = false, default : Bool = false, **input)
@@ -32,8 +30,7 @@ module Crysterm
         @flat = flat
         @default = default
 
-        # Activate-key wiring is inherited from `AbstractButton`; a push button
-        # additionally activates on a click anywhere on it.
+        # A push button additionally activates on a click anywhere on it.
         handle Crysterm::Event::Click
       end
 

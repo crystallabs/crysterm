@@ -27,8 +27,7 @@ module Crysterm
       @shrink_to_fit = false
 
       # An overlay: at the unstyled floor it carries a structural border so it
-      # separates from the content behind it (a theme can override or remove it;
-      # see `Mixin::Style#floor_border?`).
+      # separates from the content behind it; a theme can override or remove it.
       include Mixin::Overlay
       include Mixin::WindowLifecycle
 
@@ -44,10 +43,10 @@ module Crysterm
       getter content_widget : Widget?
       getter! message_box : Box
 
-      # The window-level key listener (key presses are not positional, so we
-      # watch the whole window rather than just the splash). A `Subscription`
-      # captures the window it installed on, so teardown reaches the right one
-      # even on `Detach`, where `window?` may already have moved on.
+      # The window-level key listener (key presses are not positional, so it
+      # watches the whole window). A `Subscription` captures the window it
+      # installed on, so teardown reaches the right one even on `Detach`, where
+      # `window?` may already have moved on.
       @ev_keys = Crysterm::Subscription.new
       @finished = false
 
@@ -77,17 +76,16 @@ module Crysterm
             finish
           end
         end
-        # Wire the key-dismiss accelerator with the splash's attach lifecycle so
-        # it works even when the splash is constructed detached (no `parent:`/
-        # `window:`) and appended later — at construction `window?` would be nil,
-        # so a one-shot install here would silently never fire for keys. Installs
-        # now too, in case it's already on a window (see `Mixin::WindowLifecycle`).
+        # Wire the key-dismiss accelerator to the attach lifecycle so it works
+        # even when the splash is constructed detached and appended later — at
+        # construction `window?` would be nil, so a one-shot install here would
+        # silently never fire for keys.
         wire_window_lifecycle
       end
 
       # Key-dismiss accelerator lives with the window: (re)install on attach,
-      # tear down on detach (see `Mixin::WindowLifecycle`). A direct `#destroy`
-      # is covered by the `#destroy` override below.
+      # tear down on detach. A direct `#destroy` is covered by the override
+      # below.
       private def on_attach_window : Nil
         install_key_dismiss
       end
@@ -107,9 +105,8 @@ module Crysterm
         end
       end
 
-      # Withdraws the key-press accelerator (from whichever window it was
-      # installed on — the `Subscription` captured it, so this works from
-      # `Detach` too, without being handed the leaving window).
+      # Withdraws the key-press accelerator from whichever window it was
+      # installed on.
       private def remove_key_dismiss : Nil
         @ev_keys.off
       end
@@ -156,8 +153,6 @@ module Crysterm
 
       # Torn down without a `#finish` (window/app teardown): drop the key-press
       # accelerator so it can't linger on the window referencing a dead splash.
-      # (A normal `#finish` already removed it, and the `Detach` handler covers a
-      # detach-then-destroy; this covers a direct destroy while still attached.)
       def destroy
         remove_key_dismiss
         super

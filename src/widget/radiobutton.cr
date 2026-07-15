@@ -7,11 +7,8 @@ module Crysterm
   class Widget
     # Radio button element, modeled after Qt's `QRadioButton`.
     #
-    # Derives `AbstractButton` directly — a sibling of `CheckBox`, as Qt makes
-    # `QRadioButton` a sibling of `QCheckBox` under `QAbstractButton` (rather
-    # than `QRadioButton < QCheckBox`). Marker rendering and input wiring shared
-    # with `CheckBox` come from `Mixin::CheckMarker`; this class adds group
-    # exclusivity (`#on_check`) and the check-only `#toggle`.
+    # Marker rendering and input wiring come from `Mixin::CheckMarker`; this
+    # class adds group exclusivity (`#on_check`) and the check-only `#toggle`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![RadioButton screenshot](../../tests/widget/radiobutton/radiobutton.5s.apng)
@@ -20,11 +17,9 @@ module Crysterm
       include Mixin::CheckMarker
       include Mixin::ExclusiveGroup
 
-      # TODO option for changing icons
-
-      # Add support for real toggling instead of unchecking
-      # other elements. So that one can even make a widget
-      # where only 1 is unchecked, the rest are all checked.
+      # TODO: option for changing icons.
+      # TODO: support real toggling, so a set can have exactly one *unchecked*
+      # member rather than exactly one checked.
 
       def initialize(checked : Bool = false, **input)
         super **input
@@ -34,16 +29,13 @@ module Crysterm
       end
 
       # A radio button only ever *checks* itself when toggled; the containing
-      # group unchecks the others (see `#on_check`). Without this override it
-      # inherits `AbstractButton#toggle` (flips checked/unchecked), so
-      # Space/Enter on the selected radio would uncheck it, leaving the group
-      # with nothing selected.
+      # group unchecks the others. Overrides `AbstractButton#toggle`, which would
+      # let Space/Enter uncheck the selection and leave the group empty.
       def toggle
         check
       end
 
       def render
-        # Composed, measured marker (see `Mixin::CheckMarker#marker_line`):
         # `(`/`)` and the state mark resolve CSS-first (`RadioButton::indicator`,
         # `:checked` addressing the checked mark), then the registry.
         set_content marker_line(Glyphs::Role::RadioOpen, Glyphs::Role::RadioClose,
@@ -61,9 +53,8 @@ module Crysterm
         end
         el = el || parent
 
-        # Uncheck the sibling radios (only radios — a `RadioSet` may hold other
-        # checkables that this exclusivity must not touch). The shared decision
-        # ("different, currently-checked → uncheck") lives in `ExclusiveGroup`.
+        # Uncheck the sibling radios — only radios, as a `RadioSet` may hold
+        # other checkables that this exclusivity must not touch.
         el.try &.each_descendant do |cel|
           exclude_peer cel, self if cel.is_a?(RadioButton)
         end

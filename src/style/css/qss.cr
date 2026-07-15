@@ -1,8 +1,8 @@
 module Crysterm
   module CSS
     # Translates Qt Style Sheet (`.qss`) source into Crysterm CSS, so Qt themes
-    # can be loaded directly. Used by `Window#load_stylesheet` /
-    # `Stylesheet.from_file` whenever the file name ends in `.qss`.
+    # can be loaded directly. Applied whenever a stylesheet file name ends in
+    # `.qss`.
     #
     # Two selector rewrites, in order:
     #
@@ -11,31 +11,19 @@ module Crysterm
     #   2. Rename names Crysterm spells differently via `RENAMES`
     #      (`PushButton` -> `Button`, `TextEdit` -> `PlainTextEdit`, ...).
     #
-    # The rewrites are plain text substitutions applied over the *whole* source
-    # (not just the selector portions), so in principle a property value that
-    # happens to spell a `Q`+CamelCase token, a Qt `:state` word, a `::name`, or
-    # `palette(...)` would be rewritten too. In practice this is harmless: the
-    # patterns (`Q` + upper-case letter, whole-token Qt state keywords, `::`
-    # pseudo-elements, `palette()`) don't occur in real Qt property values, and
-    # `palette()` in a value is exactly what we *do* want to rewrite. The
-    # rewritten text then goes to the ordinary CSS parser, which tolerates
+    # The rewrites are plain text substitutions over the *whole* source, not
+    # just the selector portions; the patterns don't occur in real Qt property
+    # values. The result goes to the ordinary CSS parser, which tolerates
     # unrecognized properties/pseudo-elements — an unmapped selector just
     # matches nothing.
     module Qss
       # Q-stripped Qt selector => Crysterm widget class name.
       #
-      # Identical names (`CheckBox`, `ComboBox`, `GroupBox`, `MenuBar`, `Slider`,
-      # `Widget`, `LineEdit`, `PlainTextEdit`, ...) need no entry: step 1's
-      # `Q`-strip already lands them.
-      #
-      # The Qt abstract bases (`QAbstractButton`, `QAbstractItemView`,
-      # `QAbstractScrollArea`, `QAbstractSpinBox`, `QDialog`) also need no entry:
-      # Crysterm has matching classes in the same place in the hierarchy, so the
-      # `Q`-stripped name matches the whole family natively.
-      #
-      # Qt selectors with no Crysterm analog (`ColumnView`, `ColumnViewGrip`,
-      # `PrevNextCalButton`, `TableCornerButton`) are intentionally absent —
-      # they pass through `Q`-stripped and just match nothing.
+      # Names Crysterm spells identically (`CheckBox`, `Slider`, `LineEdit`,
+      # ...) and the Qt abstract bases (`QAbstractButton`, `QAbstractItemView`,
+      # ...) need no entry — the `Q`-strip already lands them. Qt selectors with
+      # no Crysterm analog (`ColumnView`, `PrevNextCalButton`, ...) are
+      # intentionally absent and match nothing.
       RENAMES = {
         "AbstractView"      => "List", # QAbstractItemView's older alias; no Crysterm class
         "ScrollArea"        => "ScrollableBox",
@@ -47,8 +35,7 @@ module Crysterm
         "GraphicsView"      => "Canvas",
         "HeaderView"        => "Header",
         "ListView"          => "List",
-        # Qt's rich `TextEdit` folds onto our plain editor (no rich-text widget
-        # yet); `LineEdit`/`PlainTextEdit` are identical and need no entry.
+        # Qt's rich `TextEdit` folds onto the plain editor (no rich-text widget).
         "TextEdit"    => "PlainTextEdit",
         "TextBrowser" => "ScrollableText",
         "TabBar"      => "TabWidget",
@@ -62,10 +49,9 @@ module Crysterm
       # the next char must be upper-case.
       SELECTOR = /\bQ([A-Z][A-Za-z0-9_]*)/
 
-      # Qt `palette(role)` → Crysterm theme custom property `var(--role)`. Maps
-      # Qt's `QPalette` color roles onto the eight theme roles (and shades)
-      # published by `CSS::Theme` (see `theme.cr` `ROLES`/`emit_variables`). A
-      # role with no entry is left as-is.
+      # Qt `palette(role)` → Crysterm theme custom property `var(--role)`,
+      # mapping Qt's `QPalette` color roles onto the theme roles published by
+      # `CSS::Theme`. A role with no entry is left as-is.
       PALETTE_ROLES = {
         "window"           => "surface",
         "windowtext"       => "text",
@@ -103,18 +89,13 @@ module Crysterm
 
       # Qt-vocabulary sub-control pseudo-elements (`::name`) whose Crysterm slot
       # is spelled differently → the slot's capitalized descendant node (e.g.
-      # `::chunk` reuses the `Indicator` slot). The identity pseudos
-      # (`::indicator`, `::item`) are NOT here — `Stylesheet` lowers any
-      # `::slot` to its capitalized descendant node natively (see
-      # `lower_sub_elements`) for every stylesheet, so qss inherits them for
-      # free. Only non-identity Qt aliases need a rewrite here, before the
-      # native pass, so e.g. `::chunk` becomes `Indicator` rather than the
-      # non-existent `Chunk` node. Unmapped `::name` pass through to the native
-      # lowering (widget-exposed slots match; the rest match nothing).
+      # `::chunk` reuses the `Indicator` slot). Only non-identity Qt aliases
+      # belong here: `Stylesheet` natively lowers any `::slot` to its
+      # capitalized descendant node, so the identity pseudos (`::indicator`,
+      # `::item`) come free and unmapped names pass through to that lowering.
       #
-      # `::section` is intentionally absent: `QHeaderView` already renames to the
-      # `Header` node (see `RENAMES`), so `::section` would double it to
-      # `Header Header`; the header is reached via the type rename directly.
+      # `::section` is intentionally absent: `QHeaderView` already renames to
+      # the `Header` node, so `::section` would double it to `Header Header`.
       SUB_ELEMENTS = {
         "chunk"  => "Indicator", # QProgressBar::chunk → the filled indicator
         "handle" => "Indicator", # QSlider::handle    → the slider indicator
@@ -124,13 +105,12 @@ module Crysterm
       # Matches a Qt `::pseudo-element` token.
       SUB_ELEMENT = /::([a-z][a-z-]*)/
 
-      # Genuinely Qt-specific state pseudo-classes, mapped to Crysterm syntax.
-      # Standard-CSS states (`:checked`/`:indeterminate`/`:enabled`) are NOT
-      # here — `Stylesheet` lowers them natively (see `ATTR_PSEUDOS`) for every
-      # stylesheet. What remains is Qt vocabulary: `:on`/`:off`/`:unchecked`
-      # become the complementary boolean attributes; `:pressed` approximates to
-      # `:active`; the non-standard `:horizontal`/`:vertical`/`:editable` map
-      # to the orientation/editable attributes.
+      # Genuinely Qt-specific state pseudo-classes, mapped to Crysterm syntax:
+      # `:on`/`:off`/`:unchecked` become the complementary boolean attributes,
+      # `:pressed` approximates to `:active`, and the non-standard
+      # `:horizontal`/`:vertical`/`:editable` map to attributes. Standard-CSS
+      # states (`:checked`/`:indeterminate`/`:enabled`) are lowered natively by
+      # `Stylesheet` instead.
       STATE_PSEUDOS = {
         "on"         => "[checked]",
         "unchecked"  => "[unchecked]",

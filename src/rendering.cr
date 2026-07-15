@@ -12,26 +12,19 @@ module Crysterm
   # Also works on terminals that don't, but only on lines with the default
   # background color.
   #
-  # DamageTracking: Per-widget damage tracking — **on by default** (see
-  # `Config` `render.optimization`). With it off, `Window#_render` clears the
-  # whole cell buffer and re-composites every widget every frame. With it on, a
-  # frame where only a few top-level subtrees changed re-composites just those
-  # (clearing their old footprint first), leaving the rest of the buffer from
-  # the previous frame — making a 1-of-N update cost ~O(changed) instead of
-  # O(N). It engages for the tractable subset (changed subtrees and anything
-  # they overlap, including alpha/shadow/tint blends and a single z-index
-  # plane) and falls back to full re-composite otherwise (multi-plane, nested
-  # layers, border docking, out-of-cell-model writes), so it's always
-  # output-equivalent. See `window_damage.cr`.
+  # DamageTracking: Per-widget damage tracking — **on by default**. Re-composites
+  # only the changed subtrees (clearing their old footprint first) and keeps the
+  # rest of the previous frame's buffer, making a 1-of-N update cost ~O(changed)
+  # instead of O(N). Falls back to a full re-composite for cases it can't track
+  # (multi-plane, nested layers, border docking, out-of-cell-model writes), so
+  # it is always output-equivalent.
   #
-  # NOTE: damage tracking relies on widget mutations going through the tracked
+  # NOTE: damage tracking only observes mutations made through the tracked
   # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child
   # add/remove) or `Widget#mark_dirty`/`#request_render`. Mutating a `Style`
   # object in place (e.g. `widget.style.bg = ...`) is NOT observed; call
-  # `widget.mark_dirty` after such a change. Since this is on by default, that's
-  # the one rule to remember; a UI that can't guarantee it can opt out via
-  # `render.optimization = OptimizationFlag::None` (or any set without
-  # `DamageTracking`).
+  # `widget.mark_dirty` after such a change, or opt out via
+  # `render.optimization = OptimizationFlag::None`.
   @[Flags]
   enum OptimizationFlag
     FastCSR

@@ -9,15 +9,12 @@ module Crysterm
     # moved by dragging/clicking the trough, arrow keys, Page Up/Down, or the
     # wheel. Emits `Event::ValueChanged` on every change.
     #
-    # More usefully, it binds to a scrollable widget via `#attach`: the bar
-    # then reflects and drives that widget's scroll position through the
-    # existing scroll machinery (`Widget#scroll_to`/`#child_base`/`Event::Scroll`
-    # from `widget_scrolling.cr`). This is the scroll bar every scrollable
-    # widget uses — `Widget#ensure_scrollbar_widget` creates one as a `fixed`
-    # child, `#update_scrollbar_widget` shows/hides it per policy. The bar is
+    # More usefully, it binds to a scrollable widget via `#attach`: the bar then
+    # reflects and drives that widget's scroll position. This is the scroll bar
+    # every scrollable widget uses, and it can also be created directly and
+    # `#attach`ed for a standalone bar (e.g. beside a `Box`). The bar is
     # `#scrollbar_width` columns (vertical) / `#scrollbar_height` rows
-    # (horizontal) thick, never assumed to be `1`. Can also be created directly
-    # and `#attach`ed for a standalone bar (e.g. beside a `Box`).
+    # (horizontal) thick — never assume `1`.
     #
     # ```
     # box = Widget::ScrollableBox.new parent: window, top: 0, left: 0, width: 40, height: 10, content: long_text
@@ -66,10 +63,8 @@ module Crysterm
       # Minimum thumb (handle) length in cells, so the proportional handle never
       # collapses to an unusable single-cell nub over a very long list — Qt's
       # `QStyle::PM_ScrollBarSliderMin`. Defaults to `1` (pure proportional); the
-      # list-like item views bump it (see `Mixin::ItemView#ensure_scrollbar_widget`)
-      # so e.g. a `Completer` drop-down and a `Calendar`'s ±100-year menu draw the
-      # same handle regardless of item count. Always clamped down to the available
-      # track, so a tiny bar still fits.
+      # list-like item views bump it. Always clamped down to the available track,
+      # so a tiny bar still fits.
       property min_thumb : Int32 = 1
 
       # Whether the trough (track on either side of the thumb) is painted with
@@ -80,7 +75,7 @@ module Crysterm
 
       # Qt's `QScrollBar` stepper buttons (`::sub-line`/`::add-line`). Off by
       # default. When on, one cell at each end of the trough becomes a clickable
-      # step button drawing an arrow glyph (see `#up_arrow_char` …), styleable
+      # step button drawing an arrow glyph, styleable
       # via the `::up-arrow`/`::down-arrow`/`::left-arrow`/`::right-arrow` and
       # `::sub-line`/`::add-line` CSS slots; the trough shrinks by two cells.
       property? stepper_buttons : Bool = false
@@ -125,9 +120,9 @@ module Crysterm
       # re-assigning and requesting a render.
       @last_synced : Tuple(Int32, Int32, Int32, Int32)?
 
-      # Subscription to the target's `Scroll`, torn down in `#detach`. A
-      # `Subscription` captures the target it was installed on, so `#off` reaches
-      # that exact widget regardless of `@target`'s later state.
+      # Subscription to the target's `Scroll`, torn down in `#detach`. It captures
+      # the target it was installed on, so `#off` reaches that exact widget
+      # regardless of `@target`'s later state.
       @ev_target_scroll = ::Crysterm::Subscription.new
 
       def initialize(
@@ -145,16 +140,14 @@ module Crysterm
       )
         super **input
 
-        # Guarded range+value init (mirrors `Slider`/`Dial`): a directly-assigned
-        # `minimum`/`maximum` could otherwise store an inverted range and leave
-        # `#value` stuck after `clamp`.
+        # Never store an inverted range; it would leave `#value` stuck after `clamp`.
         init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
 
         on(Crysterm::Event::Mouse) do |e|
-          # Wheel steps the value (inverted: wheel-up scrolls toward the top =
-          # smaller value). Shared with the other ranged widgets.
+          # Wheel steps the value, inverted: wheel-up scrolls toward the top, i.e.
+          # a smaller value.
           next if ranged_wheel e, invert: true
 
           # Commit an untracked drag on release.
@@ -164,17 +157,13 @@ module Crysterm
           end
 
           next unless e.action.down? || (e.action.move? && !e.button.none?)
-          # Resolve the pointer against the *painted* track when rendered:
-          # mouse events are dispatched by painted geometry, which inside a
-          # scrolled container is shifted from the layout coords
-          # (`atop`/`aleft`) by the ancestor's scroll base, and an
-          # ancestor-clipped bar paints its whole track *compressed* into the
-          # clipped rect (`render` works from the border-adjusted `@lpos` via
-          # `with_inner_coords`). Both the origin and the span must come from
-          # that same rect or a seek lands on the wrong value — the defect
-          # class already fixed in `Mixin::TrackGeometry#pointer_offset` and
-          # `Mixin::CheckMarker`. Falls back to layout coords before the
-          # first render.
+          # Resolve the pointer against the *painted* track when rendered. Mouse
+          # events are dispatched by painted geometry, which inside a scrolled
+          # container is shifted from the layout coords by the ancestor's scroll
+          # base, and an ancestor-clipped bar paints its whole track compressed
+          # into the clipped rect. Both the origin and the span must come from
+          # that same rect or a seek lands on the wrong value. Falls back to
+          # layout coords before the first render.
           if lp = @lpos
             txi, txl, tyi, tyl = lp.xi, lp.xl, lp.yi, lp.yl
             if border = style.border
@@ -206,15 +195,13 @@ module Crysterm
           pos = raw - (steppers ? 1 : 0)
           span = (steppers ? inner - 2 : inner) - 1
           next if span <= 0
-          # Shared pointer→value mapping; ScrollBar clamps `pos` (it sizes a
-          # thumb and must not seek past the ends). See `AbstractSlider#value_at`.
+          # `pos` is clamped: a scroll bar sizes a thumb and must not seek past
+          # the ends.
           self.slider_position = value_at pos.clamp(0, span), span
           # Capture the mouse so a drag that leaves the bar's (often 1-column)
           # bounds keeps delivering motion/release here instead of freezing the
-          # thumb — for tracked drags (which update `#value` live) as well as
-          # untracked ones (whose pending `@slider_position` would otherwise
-          # strand uncommitted on a release off the bar). Idempotent; the
-          # release-on-button-up in `Window#dispatch_mouse` ends the capture.
+          # thumb, and so an untracked drag's pending `@slider_position` can't
+          # strand uncommitted on a release off the bar. Idempotent.
           window?.try &.capture_mouse(self)
           e.accept
           request_render
@@ -264,8 +251,7 @@ module Crysterm
         # `set_range` re-clamps and emits `Event::RangeChanged`; `@syncing` keeps
         # the value re-clamp from driving the target back.
         set_range 0, new_max
-        # Mirror the engine's scroll position along this bar's axis (vertical:
-        # `child_base + child_offset`; horizontal: `child_base_x`).
+        # Mirror the engine's scroll position along this bar's axis.
         self.value = pos.clamp(@minimum, @maximum)
         @syncing = false
         request_render
@@ -273,8 +259,7 @@ module Crysterm
         # Target not laid out yet.
       end
 
-      # Drives the bound target when the bar moves (mixin hook). Routes to the
-      # matching axis; `super` drops any pending untracked drag.
+      # Drives the bound target when the bar moves.
       protected def on_value_changed
         super
         return if @syncing
@@ -290,8 +275,7 @@ module Crysterm
       private def thumb_size(avail : Int32) : Int32
         return avail if value_span <= 0
         # `value_span` saturates at `Int32::MAX` for a full-span range, so
-        # `+ @page_step` (and `avail * @page_step`) must widen to Int64 or they
-        # overflow — same guard as `#thumb_offset`.
+        # `+ @page_step` and `avail * @page_step` must widen to Int64 or overflow.
         total = value_span.to_i64 + @page_step
         size = (avail.to_i64 * @page_step / total.to_f).round.to_i
         size.clamp(Math.min(@min_thumb, avail), avail)
@@ -305,9 +289,8 @@ module Crysterm
       end
 
       # Resolves a sub-style slot to *fallback* when not explicitly styled. The
-      # `Style` slot getters return the bar's own `base` style in that case, so
-      # object identity tells "unset" apart — letting e.g. `::sub-page` inherit
-      # `::groove` (`track`), and the arrows inherit their `::sub-line`/`::add-line` button.
+      # slot getters return the bar's own `base` style in that case, so object
+      # identity is what tells "unset" apart.
       private def resolve_slot(slot : Style, fallback : Style, base : Style) : Style
         slot.same?(base) ? fallback : slot
       end
@@ -357,10 +340,9 @@ module Crysterm
           add_page_attr = sattr resolve_slot(base.add_page, base.track, base)
           thumb_attr = sattr base.indicator
 
-          # With the trough hidden (blessed-style), only the thumb is drawn; a
-          # space keeps the reserved column empty rather than glyph-filled.
-          # Both glyphs hoisted out of the per-cell loop (registry resolution
-          # walks to the window).
+          # With the trough hidden, only the thumb is drawn; a space keeps the
+          # reserved column empty rather than glyph-filled. Both glyphs hoisted
+          # out of the per-cell loop: registry resolution walks to the window.
           trough_ch = show_trough? ? trough_char : ' '
           thumb_ch = thumb_char
 
@@ -384,10 +366,8 @@ module Crysterm
 
       # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*:
       # for a vertical bar *m* is a row (fill columns `xi...xl`); for a
-      # horizontal bar *m* is a column (fill rows `yi...yl`).
-      # A contiguous 1-cell-thick run across the cross axis, so it goes through
-      # the batched `fill_region` (skips unchanged cells, narrow dirty range)
-      # rather than a per-cell loop.
+      # horizontal bar *m* is a column (fill rows `yi...yl`). A contiguous run, so
+      # it goes through the batched `fill_region`, not a per-cell loop.
       private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
         if horizontal
           window.fill_region attr, ch, m, m + 1, yi, yl
@@ -398,9 +378,8 @@ module Crysterm
 
       # Up/Left (and `k`/`h`) step toward the top/start, Down/Right (and `j`/`l`)
       # toward the bottom/end, Page Up/Down by `#page_step`, Home/End to the
-      # bounds — the invert-aware stepping shared with `Slider`/`Dial` via
-      # `AbstractSlider#on_keypress`. (Inverted here because a scroll bar's
-      # Down/Right move toward the end, unlike a plain slider.)
+      # bounds. Inverted because a scroll bar's Down/Right move toward the end,
+      # unlike a plain slider.
       protected def step_key_inverted? : Bool
         true
       end

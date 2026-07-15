@@ -1,21 +1,16 @@
 module Crysterm
   module Mixin
-    # The "horizontal bar of selectable commands" concern, extracted from
-    # `Widget::ListBar` so the command model can be shared without inheritance.
+    # The "horizontal bar of selectable commands" concern: a command model,
+    # left-to-right layout, keyboard navigation, hotkeys, and rendering.
     #
     # Qt makes `QMenuBar` and `QToolBar` siblings under `QWidget`, not under a
-    # shared "bar" class. Crysterm mirrors that: `MenuBar`/`ToolBar` derive `Box`
-    # directly and `include` this module for the command model, left-to-right
-    # layout, keyboard navigation, hotkeys, and rendering. `Widget::ListBar`
-    # stays a usable concrete widget that also includes it (a peer of
-    # `MenuBar`/`ToolBar`, like `Input` including `Mixin::Interactive`).
-    #
-    # Call `setup_action_bar` from `initialize` (after `super`) to wire the
+    # shared "bar" class; Crysterm mirrors that by sharing the bar behavior as a
+    # module rather than a base class. An including widget derives `Box` and calls
+    # `setup_action_bar` from `initialize` (after `super`) to wire the
     # keyboard/focus handlers.
     module ActionBar
-      # For the `#<<`/`#>>` operator aliases below. `Widget` includes this too
-      # (`widget_rendering.cr`), but a standalone module doesn't inherit macros
-      # from its future includers.
+      # For the `#<<`/`#>>` operator aliases below. `Widget` includes this too, but
+      # a standalone module doesn't inherit macros from its future includers.
       include Crystallabs::Helpers::Alias_Methods
 
       # A single command/tab shown in an action bar.
@@ -29,8 +24,8 @@ module Crysterm
 
         # Whether `#prefix` was auto-generated (the `N:` position number) rather
         # than set explicitly or derived from a hotkey. Only auto prefixes are
-        # renumbered when a sibling is removed (see `#remove_item`), so the shown
-        # `N:` labels stay in step with the raw index number-key selection uses.
+        # renumbered when a sibling is removed, so the shown `N:` labels stay in
+        # step with the raw index number-key selection uses.
         property? auto_prefix = false
 
         # Invoked when the command is triggered (Enter / click / hotkey).
@@ -60,9 +55,6 @@ module Crysterm
         end
       end
 
-      # The element boxes, one per command (parallel to `#commands`/`#ritems`).
-      # `@items` itself is declared on `Widget`.
-
       # Tag-stripped command texts, parallel to `#items`.
       property ritems = [] of String
 
@@ -81,22 +73,19 @@ module Crysterm
       # Select commands with the number keys `1`..`9`/`0`?
       property? auto_command_keys = false
 
-      # Prefix each command with an auto-generated `N:` label (the Blessed
-      # default). Turn off for a plain bar of labels, e.g. a `Widget::MenuBar`.
+      # Prefix each command with an auto-generated `N:` label. Turn off for a plain
+      # bar of labels.
       property? auto_prefix = true
 
       # Inert cells between adjacent item boxes (no leading gap, so inert cells
-      # fall only after the last item). Defaults to 2; a
-      # `Widget::MenuBar`/`Widget::ToolBar` sets it to 0 so titles/buttons pack
-      # flush — each item box already carries its own side padding
-      # (`width = text + 2`), so 0 still leaves breathing room.
+      # fall only after the last item). Defaults to 2. Set 0 to pack items flush —
+      # each item box already carries its own side padding (`width = text + 2`), so
+      # that still leaves breathing room.
       property item_gap : Int32 = 2
 
-      # Wires the keyboard navigation and focus re-selection handlers, and sets
-      # the bar's interaction defaults. Call from `initialize` after `super`.
-      # `mouse`/`auto_prefix` default to the widget's existing values, so a plain
-      # `ListBar` calls it bare, while `MenuBar`/`ToolBar` pass
-      # `mouse: true, auto_prefix: false`.
+      # Wires the keyboard navigation and focus re-selection handlers, and sets the
+      # bar's interaction defaults. Call from `initialize` after `super`;
+      # `mouse`/`auto_prefix` default to the widget's existing values.
       private def setup_action_bar(mouse = @mouse, auto_prefix = @auto_prefix) : Nil
         @mouse = mouse
         @auto_prefix = auto_prefix
@@ -114,10 +103,9 @@ module Crysterm
         on(::Crysterm::Event::Focus) { select_index selected }
 
         # Command hotkeys are window-level accelerators, so they must be tied to
-        # the window lifecycle (mirroring `MenuBar`'s menu-shortcut handling):
-        # (re)install on attach, uninstall on detach. Without this, a bar that
-        # merely `remove`s (toolbar swap) leaves its hotkeys firing on a window
-        # it's no longer on, and one added while detached would never install.
+        # the window lifecycle: (re)install on attach, uninstall on detach.
+        # Otherwise a bar that merely `remove`s leaves its hotkeys firing on a
+        # window it's no longer on, and one added while detached never installs.
         on(::Crysterm::Event::Attach) { install_command_hotkeys }
         on(::Crysterm::Event::Detach) { uninstall_command_hotkeys }
       end
@@ -127,8 +115,7 @@ module Crysterm
         @left_base + @left_offset
       end
 
-      # Qt spelling of `#selected` / `#selected=`, matching `Mixin::ItemView`,
-      # `Widget::Toolbox` and `Widget::TabWidget`. Preferred in new code.
+      # Qt spelling of `#selected` / `#selected=`. Preferred in new code.
       def current_index : Int32
         selected
       end
@@ -139,8 +126,7 @@ module Crysterm
       end
 
       # Number of commands on the bar, separators included (Qt's
-      # `QListWidget#count`). Answered by the whole item-view family, so callers
-      # never have to reach into `#commands`/`#items` to count.
+      # `QListWidget#count`).
       def count : Int32
         @commands.size
       end
@@ -173,15 +159,12 @@ module Crysterm
         self.items = list
       end
 
-      # Removes every command (Qt's `QListWidget#clear`), spelled the same way
-      # across the family.
+      # Removes every command (Qt's `QListWidget#clear`).
       def clear
         self.items = [] of Command
       end
 
       # Appends a command given as plain text plus optional callback/hotkeys.
-      # Named `add_item` — not `add` — so the whole family spells appending one
-      # way (`Mixin::ItemView#add_item`, `Widget::GaugeList#add_item`).
       def add_item(text : String, callback : Proc(Nil)? = nil, *, keys : Array(String)? = nil)
         add_item Command.new text, callback, keys: keys
       end
@@ -193,8 +176,7 @@ module Crysterm
 
       # Appends a non-selectable separator and returns its `Command` (Qt's
       # `QToolBar#addSeparator`, which likewise hands back the `QAction` so the
-      # separator can be hidden/removed later — this used to return the item box,
-      # leaving the separator itself unreachable). Default char comes from the
+      # separator can be hidden/removed later). Default char comes from the
       # `Glyphs` registry at the effective tier.
       def add_separator(char : String? = nil) : Command
         cmd = Command.new(char || glyph(Glyphs::Role::LineVertical).to_s)
@@ -205,11 +187,10 @@ module Crysterm
 
       # Appends a `Command`.
       def add_item(cmd : Command)
-        # Pack each item flush after the ones already added: its left is the sum
-        # of their widths plus `item_gap` between each, no leading gap. Built
-        # from stored command widths (relative to the bar), so it's correct
-        # before the bar is parented/rendered — unlike reading the previous
-        # item's absolute `aleft`, which double-counted the bar's own offset.
+        # Pack each item flush after the ones already added: its left is the sum of
+        # their widths plus `item_gap` between each, no leading gap. Built from
+        # stored command widths (relative to the bar), so it's correct before the
+        # bar is parented/rendered.
         drawn = @commands.sum(&.width) + item_gap * @commands.size
 
         unless cmd.separator?
@@ -218,8 +199,8 @@ module Crysterm
             cmd.auto_prefix = true
           end
 
-          # A per-command hotkey doubles as the displayed prefix, matching Blessed
-          # (and is not an auto prefix — it must not be renumbered).
+          # A per-command hotkey doubles as the displayed prefix, and is not an
+          # auto prefix — it must not be renumbered.
           cmd.keys.try do |keys|
             if keys[0]?
               cmd.prefix = keys[0]
@@ -242,12 +223,12 @@ module Crysterm
           parse_tags: true,
         )
 
-        # Each item box renders per its own state: the selected item uses the
-        # bar's `selected` style, others the `item` style. `dup` both: `Style#item`
-        # falls back to `self`, so every item would otherwise share one `Style`
-        # instance — and `Widget#hide`/`#show` mutate `state_style.visible` in
-        # place, so the render scroll loop's hide/show would toggle a single shared
-        # flag and never actually hide scrolled-off items.
+        # Each item box renders per its own state: the selected item uses the bar's
+        # `selected` style, others the `item` style. Both MUST be `dup`ed:
+        # `Style#item` falls back to `self`, so every item would otherwise share
+        # one `Style` instance — and `Widget#hide`/`#show` mutate
+        # `state_style.visible` in place, so the render scroll loop would toggle a
+        # single shared flag and never hide scrolled-off items.
         item.styles.normal = style.item.dup
         item.styles.selected = styles.selected.dup
 
@@ -257,9 +238,9 @@ module Crysterm
         @commands.push cmd
         append item
 
-        # Per-command hotkeys are global accelerators (fire regardless of focus,
-        # like a toolbar shortcut). Installed only when the bar is attached; the
-        # `Event::Attach` handler re-covers commands added while detached.
+        # Per-command hotkeys are global accelerators (fire regardless of focus).
+        # Installed only when the bar is attached; the `Event::Attach` handler
+        # re-covers commands added while detached.
         install_command_hotkey cmd
 
         if @mouse && !cmd.separator?
@@ -268,15 +249,13 @@ module Crysterm
           end
         end
 
-        # Auto-select the first *selectable* command. Testing `@items.size == 1`
-        # would fire only for the very first item added, so a bar opening with a
-        # leading `add_separator` would never select its first real command —
-        # `selected` would stick on the non-selectable separator with a dead
-        # Enter. Fire on the first non-separator command instead. `@left_base`/
-        # `@left_offset` (selected == their sum) are set directly rather than via
-        # `#select_index`, since its window math is gated on a laid-out `@lpos` and
-        # can't move the index before the first render. `@left_base` stays 0 so
-        # every command, separators included, remains visible.
+        # Auto-select the first *selectable* command — testing `@items.size == 1`
+        # instead would leave a bar opening with a leading `add_separator` stuck on
+        # the non-selectable separator. `@left_base`/`@left_offset` (selected ==
+        # their sum) are set directly rather than via `#select_index`, whose window
+        # math is gated on a laid-out `@lpos` and can't move the index before the
+        # first render. `@left_base` stays 0 so every command, separators included,
+        # remains visible.
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
           @left_offset = @items.size - 1
@@ -294,20 +273,16 @@ module Crysterm
       # NOTE: every `Widget` also includes `Mixin::Children`, whose `#<<(Widget)`
       # appends a *child widget*, and this module sits closer in the ancestor
       # chain than `Widget`. The two coexist only because `alias_method` copies
-      # each overload's restrictions: none of `#add_item`'s takes a bare
-      # `Widget`, so `bar << some_widget` still resolves to the child-append.
-      # `spec/item_view_operators_spec.cr` pins that down.
+      # each overload's restrictions: none of `#add_item`'s takes a bare `Widget`,
+      # so `bar << some_widget` still resolves to the child-append.
       alias_method :<<, :add_item
 
       # Fires the command at *index*: emits `ActionItem` for it and runs its
-      # callback. Shared by keyboard-Enter activation and `#trigger` (each adds
-      # its own selection/render around this core). *item* defaults to the row at
-      # *index*; `#trigger` passes the command's element explicitly.
+      # callback. Callers add their own selection/render around this core. *item*
+      # defaults to the row at *index*.
       #
-      # Activation is not a selection change, so no `SelectItem` is emitted here:
-      # it used to be, and since the `#select_index` each caller runs around this
-      # emits it too, one Enter fired `SelectItem` twice while the selection had
-      # not moved. Mirrors `Mixin::ItemView#enter_selected`.
+      # Activation is not a selection change, so no `SelectItem` is emitted here —
+      # the `#select_index` each caller runs around this emits it already.
       private def fire(index : Int32, item = @items[index]?)
         return unless item
         emit ::Crysterm::Event::ActionItem, item, index
@@ -337,9 +312,8 @@ module Crysterm
       def render(with_children = true)
         # Item boxes use a *content-relative* `left` (0 == the bar's content
         # origin): `Widget#aleft` already adds the parent's `ileft`, so starting
-        # the cursor at `ileft` here would double-count the inset and shove
-        # items right (off the edge) whenever the bar had a border/padding.
-        # Start at 0, matching `#add_item` and `#select_index`'s visibility math.
+        # the cursor at `ileft` here would double-count the inset and shove items
+        # off the edge whenever the bar had a border/padding.
         drawn = 0
         @items.each_with_index do |el, i|
           if i < @left_base
@@ -357,8 +331,7 @@ module Crysterm
       # one, adjusting the horizontal scroll window so it is visible. Selection
       # only — it never runs the command (see `#select_tab`/`#trigger`).
       #
-      # Named `select_index` because bare `select` is a Crystal keyword; it used
-      # to carry the deliberate misspelling `selekt` on the public surface.
+      # Named `select_index` because bare `select` is a Crystal keyword.
       def select_index(offset : Int)
         if offset < 0
           offset = 0
@@ -368,27 +341,23 @@ module Crysterm
 
         el = @items[offset]?
 
-        # Keep every item box's state in sync with the new selection so it
-        # renders with `styles.selected`. Routed through `#highlight_item?` so a
-        # bar with its own highlight semantics (ToolBar: checked checkables;
-        # MenuBar: the open menu) inherits the re-highlight without re-overriding
+        # Keep every item box's state in sync with the new selection so it renders
+        # with `styles.selected`. Routed through `#highlight_item?` so a bar with
+        # its own highlight semantics inherits the re-highlight without overriding
         # `#select_index`.
         reapply_highlight offset
 
-        # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
-        # horizontal-scroll math below needs a real layout. A top-level widget
-        # appended to a `Window` has no `#parent`, so gating on `#parent`
-        # wrongly skips the scroll update for every
-        # window-level listbar, freezing `#selected` at 0. Gate on `@lpos`
-        # instead (set after the first render; the public
-        # `#last_rendered_position` raises when unrendered, so it can't be used
-        # as a predicate here).
+        # The horizontal-scroll math below needs a real layout. Gate on `@lpos`
+        # (set after the first render), NOT on `#parent`: a top-level widget
+        # appended to a `Window` has no parent, which would skip the scroll update
+        # for every window-level bar and freeze `#selected` at 0. The public
+        # `#last_rendered_position` raises when unrendered, so it can't be used as
+        # a predicate here.
         unless @lpos
           # Before the first render there's no layout for the horizontal-scroll
           # math, but `selected` (== `@left_base + @left_offset`) must still move
           # to *offset* — otherwise the highlight/`SelectItem` point at *offset*
-          # while Enter (`fire selected`) fires the old command. Record the index
-          # (exactly what `#add_item`'s auto-select does) before emitting.
+          # while Enter (`fire selected`) fires the old command.
           el.try do |e|
             @left_base = 0
             @left_offset = offset
@@ -440,18 +409,17 @@ module Crysterm
 
       # Whether the item box at *index* should render highlighted (`:selected`)
       # after a (re)selection targeting *offset*. The base bar highlights the
-      # just-selected item; subclasses with a different highlight model override
-      # this and inherit the `#reapply_highlight` scaffold. (`selected` is not
-      # yet updated to *offset* when `#select_index` calls this, so the target index is
+      # just-selected item; a bar with a different highlight model overrides this
+      # and inherits the `#reapply_highlight` scaffold. (`selected` is not yet
+      # updated to *offset* when `#select_index` calls this, so the target index is
       # passed explicitly.)
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
         index == offset
       end
 
       # Re-imposes each item box's `:selected`/`:normal` state via
-      # `#highlight_item?`. Shared by `#select_index` and by subclasses that must
-      # re-light after a state change outside a selection (a checkable toggling,
-      # a menu opening/closing, focus change) — so the walk lives once.
+      # `#highlight_item?`. Also call it after a state change outside a selection
+      # (a checkable toggling, a menu opening/closing, focus change).
       protected def reapply_highlight(offset : Int32 = selected) : Nil
         @items.each_with_index do |item, i|
           item.state = highlight_item?(item, i, offset) ? :selected : :normal
@@ -459,8 +427,7 @@ module Crysterm
       end
 
       # Removes the command at *child* — a row index or the item/element widget —
-      # and returns its box (`nil` when *child* resolves to no command). Matches
-      # `Mixin::ItemView#remove_item`, which now takes the same forms.
+      # and returns its box (`nil` when *child* resolves to no command).
       def remove_item(child : Int | Widget)
         i = child.is_a?(Int) ? child : @items.index(child)
         return unless i && @items[i]?
@@ -470,26 +437,23 @@ module Crysterm
         detach_command @commands.delete_at i
         remove item
 
-        # Auto prefixes were baked in at `#add_item` time as position numbers, but
-        # number-key selection routes by raw index (`activate_tab i`). After a
-        # removal the indices shifted, so renumber the auto-prefixed commands and
-        # rebuild their labels/positions — otherwise e.g. removing `1:open` from
-        # `1:open 2:save` would leave `2:save` while `2` now selects nothing.
+        # Auto prefixes are baked in at `#add_item` time as position numbers, but
+        # number-key selection routes by raw index (`activate_tab i`). A removal
+        # shifts the indices, so renumber — otherwise removing `1:open` from
+        # `1:open 2:save` leaves `2:save` while `2` now selects nothing.
         renumber_prefixes if auto_prefix?
 
         # Keep the selection cursor on the same logical command. `selected` is
         # `left_base + left_offset` (an index), so removing an item *before* it
         # shifts every later command down by one, and the cursor must follow.
-        # Mirrors `ItemView#remove_item`'s cursor realignment.
         if i < selected
           # The formerly-selected command is now one index lower.
           select_index selected - 1
         elsif i == selected
           # The selected command itself was removed: fall back to the prior
           # command, skipping separators so the highlight never settles on a
-          # non-selectable one (mirrors `#move`'s separator-stepping and `#add_item`'s
-          # leading-separator skip). Falls forward when everything before the
-          # gap is a separator.
+          # non-selectable one. Falls forward when everything before the gap is a
+          # separator.
           if sel = nearest_selectable(i - 1)
             select_index sel
           end
@@ -503,8 +467,7 @@ module Crysterm
       alias_method :>>, :remove_item
 
       # Builds a command's displayed title from its (optionally prefixed) text,
-      # and updates `cmd.width` to match. Shared by `#add_item` and
-      # `#renumber_prefixes` so both stay in sync.
+      # and updates `cmd.width` to match.
       private def command_title(cmd : Command) : String
         if cmd.separator?
           cmd.width = str_width(cmd.text) + 2
@@ -515,13 +478,10 @@ module Crysterm
           title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
           # Item boxes render with `parse_tags: true`, so measure the *rendered*
           # width with tags stripped — otherwise `{bold}File{/bold}` counts its
-          # markup and oversizes the box, leaving a dead gap after the item.
-          # `str_width` (not a raw `.size`/`Unicode.display_width`) is the right
-          # hook here: it dispatches display-column vs codepoint counting on
-          # `full_unicode?`, matching how the box's own content engine lays the
-          # text out (legacy mode lays one codepoint per cell, so `.size` is
-          # the correct measure there; only full-unicode mode needs display
-          # width).
+          # markup and oversizes the box. Must be `str_width`, not a raw
+          # `.size`/`Unicode.display_width`: it dispatches display-column vs
+          # codepoint counting on `full_unicode?`, matching how the box's own
+          # content engine lays the text out.
           len = str_width clean_tags((prefix ? "#{prefix}:" : "") + cmd.text)
           cmd.width = len + 2
           title
@@ -529,9 +489,9 @@ module Crysterm
       end
 
       # Reassigns each auto-prefixed command the position number matching its raw
-      # index, rebuilds its label + box width, and re-packs every item's `left`
-      # (mirroring `#add_item`'s packing) so the row stays flush even when a label
-      # width changes (e.g. `10:` shrinking to `9:`).
+      # index, rebuilds its label + box width, and re-packs every item's `left` so
+      # the row stays flush even when a label width changes (e.g. `10:` shrinking
+      # to `9:`).
       private def renumber_prefixes : Nil
         @commands.each_with_index do |cmd, i|
           next unless cmd.auto_prefix?
@@ -559,7 +519,7 @@ module Crysterm
         sub = (cmd.key_handler ||= ::Crysterm::Subscription.new)
         sub.on(w, ::Crysterm::Event::KeyPress) do |e|
           # Don't act on a character another widget already consumed (a focused
-          # editor typing the hotkey char) — mirrors `Action#install_shortcut`.
+          # editor typing the hotkey char).
           next if e.accepted?
           if keys.includes? e.char.to_s
             trigger cmd
@@ -599,11 +559,9 @@ module Crysterm
       # rescans the opposite way, so the result is never a separator. Returns
       # `nil` only when *size* is 0 or every index is a separator.
       #
-      # Shared, index-only navigation core: `#nearest_selectable(from)` and
-      # `#move` here, plus `Widget::Menu#skip_separators` (over `Array(Action)`),
-      # all route through it so the "never land the cursor on a separator" edge
-      # semantics live once. A class method because a `Widget::Menu` (an
-      # `ItemView`, not an `ActionBar`) reuses it without including this module.
+      # Index-only navigation core, so the "never land the cursor on a separator"
+      # edge semantics live once. A class method so a widget that doesn't include
+      # this module can reuse it.
       def self.nearest_selectable(size : Int32, from : Int32, dir : Int32, & : Int32 -> Bool) : Int32?
         return nil if size == 0
         i = from.clamp(0, size - 1)
@@ -627,8 +585,7 @@ module Crysterm
 
       # The nearest selectable (non-separator) command index at or before
       # *from*, else the nearest one after it, or `nil` when the bar holds no
-      # selectable command at all. Used to keep the selection cursor off
-      # separators after a removal (see `#remove_item`).
+      # selectable command at all.
       private def nearest_selectable(from : Int32) : Int32?
         ActionBar.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
       end
@@ -661,20 +618,17 @@ module Crysterm
       end
 
       # Selects the tab at `index` and emits `Event::SelectTab`. Selection only —
-      # it does NOT run the command's callback.
-      #
-      # It used to, so restoring UI state with `bar.select_tab 2` fired tab 2's
-      # command. Qt keeps the two apart: `setCurrentIndex` never triggers, while
-      # `activated` is a separate signal — here, `#activate_tab`.
+      # it does NOT run the command's callback, mirroring Qt, where
+      # `setCurrentIndex` never triggers and `activated` is a separate signal
+      # (here, `#activate_tab`).
       def select_tab(index : Int)
-        # An out-of-range index is a no-op (must not emit a `SelectTab`
-        # carrying a nil item).
+        # An out-of-range index is a no-op (must not emit a `SelectTab` carrying a
+        # nil item).
         cmd = @commands[index]?
         return if cmd.nil?
         # A separator is not a real tab: selecting one would settle the highlight
-        # on a non-selectable command, the same state `#add_item`/`#remove_item`/
-        # `#move` already avoid. `auto_command_keys` routes here by raw index, so
-        # a number landing on a separator must be a no-op too.
+        # on a non-selectable command. `auto_command_keys` routes here by raw
+        # index, so a number landing on a separator must be a no-op too.
         return if cmd.separator?
         select_index index
         request_render

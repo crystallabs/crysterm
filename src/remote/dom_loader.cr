@@ -1,10 +1,10 @@
 module Crysterm
-  # Loads a *layout DOM* (see `dom.cr`) back into a live widget tree.
+  # Loads a *layout DOM* back into a live widget tree.
   #
-  # The reverse of `Widget#to_layout_html`: parse the HTML with the same
-  # `html5` engine the cascade uses, resolve each element's tag to a widget
-  # class via `REGISTRY`, instantiate it, replay its attributes through
-  # `Widget#dom_apply`, and recurse into element children.
+  # The reverse of `Widget#to_layout_html`: parse the HTML with the same `html5`
+  # engine the cascade uses, resolve each element's tag to a widget class via
+  # `REGISTRY`, instantiate it, replay its attributes through `Widget#dom_apply`,
+  # and recurse into element children.
   #
   # Crystal has no runtime reflection, so the tag -> class map must be built at
   # compile time. Rather than a hand-maintained list, the registry is populated
@@ -30,11 +30,11 @@ module Crysterm
     #     double the subtree; and
     #   * widgets with no window-only constructor — the factory below calls
     #     `.new(window: window)`, so a widget whose only initializers demand a
-    #     mandatory positional (e.g. `LogFd`, which needs an `io:`/`command:`
-    #     live stream that isn't reconstructable from serialized markup) can't be
-    #     built that way and would fail to compile.
-    # The round-trip invariant spec (`spec/dom_registry_spec.cr`) fails loudly if
-    # a new self-populating widget slips through.
+    #     mandatory positional (e.g. `LogFd`, needing a live stream that isn't
+    #     reconstructable from markup) can't be built that way and fails to
+    #     compile.
+    # A round-trip invariant spec fails loudly if a new self-populating widget
+    # slips through.
     SKIP = %w[
       canvas colordialog compose dockwidget donut headerbar linechart
       listtable loading logfd map prompt question splashscreen statusbar
@@ -42,10 +42,7 @@ module Crysterm
     ]
 
     # Tag (leaf type name, lowercased) -> widget factory, built lazily on first
-    # use. The population sweep (`#fill_registry`, defined by a top-level
-    # `macro finished` at the bottom of this file) runs once all subclasses
-    # are known; building lazily (rather than at program-start) means
-    # top-level callers see a full registry too.
+    # use so that top-level callers also see a full registry.
     @@registry : Hash(String, Factory)?
 
     def self.registry : Hash(String, Factory)
@@ -96,10 +93,8 @@ module Crysterm
       built
     end
 
-    # Yields each direct child of `node` (of any kind — element, text, comment)
-    # in document order. The single sibling-walk primitive the traversals below
-    # (`#collect_style_css`, `#find_element`, `#each_element_child`) are all
-    # expressed over.
+    # Yields each direct child of `node` — element, text or comment — in document
+    # order.
     private def self.each_child(node : HTML5::Node, & : HTML5::Node ->) : Nil
       child = node.first_child
       while child
@@ -123,20 +118,15 @@ module Crysterm
       type = node.data.lchop("w-")
       return nil unless factory = registry[type]?
       widget = factory.call(window)
-      # Apply `content` *last*. A widget whose value/format setter refreshes its
-      # own displayed text (e.g. `DoubleSpinBox#decimals=` rebuilds content from
-      # the value) would otherwise clobber an explicitly serialized `content`
-      # when that setter's attribute is replayed after it — breaking the
-      # serialize -> load -> serialize round-trip invariant because generated
-      # `dom_apply` routes through real setters. Deferring content
-      # lets the serialized text win, matching the saved display state.
-      # `value` is deferred too (applied after all other attrs, before
-      # `content`): attrs replay in initializer-arg order, and the ranged
-      # widgets (Slider/SpinBox/Dial/ProgressBar/...) declare `value` before
-      # `minimum`/`maximum` — replaying it first would clamp it against the
-      # *default* range (0, 100), so a serialized `value=500 maximum=1000`
-      # would load back as 100. It goes before `content` so a value-driven
-      # content refresh (e.g. SpinBox) is still overridden by serialized text.
+      # Attribute replay order is load-bearing, since `dom_apply` routes through
+      # real setters:
+      #   * `content` applies *last*. A widget whose value/format setter refreshes
+      #     its own displayed text would otherwise clobber a serialized `content`,
+      #     breaking the serialize -> load -> serialize round-trip.
+      #   * `value` applies after all other attrs but before `content`. Attrs
+      #     replay in initializer-arg order, and the ranged widgets declare `value`
+      #     before `minimum`/`maximum`, so replaying it first would clamp it
+      #     against the *default* range: `value=500 maximum=1000` would load as 100.
       content_attr = nil
       value_attr = nil
       node.attr.each do |a|
@@ -151,11 +141,9 @@ module Crysterm
       end
       value_attr.try { |a| widget.dom_apply(a.key, a.val) }
       content_attr.try { |a| widget.dom_apply(a.key, a.val) }
-      # Item views rebuild their rows from replayed state (`List`'s `items=`
-      # applied just above), so their children are *not* reconstructable box
-      # nodes. Re-appending serialized `<w-box>` children would double the rows
-      # (mirror of the save-side skip in `to_layout_html`); also defends against
-      # stale layouts written before that skip existed.
+      # Item views rebuild their rows from replayed state, so their children are
+      # *not* reconstructable box nodes: re-appending serialized `<w-box>`
+      # children would double the rows. Mirrors the save-side skip.
       unless widget.is_a?(Mixin::ItemView)
         each_element_child(node) do |child|
           build(child, window).try { |c| widget.append c }
@@ -186,15 +174,14 @@ module Crysterm
     # Returns the top-level widgets created. See `DOM.load`.
     def load_layout(html : String) : Array(Widget)
       # Whole-layout load: this markup owns the page, so its inline `<style>`
-      # replaces any previously installed inline rules (see `DOM.load`).
+      # replaces any previously installed inline rules.
       DOM.load(html, self, replace_styles: true)
     end
 
     # Merges additional inline `<style>` CSS (from a top-level appended fragment)
     # into the page's existing inline rules, instead of replacing them. A no-op
     # for an empty fragment, so a selector-less `append` of `<style>`-less markup
-    # leaves the page's CSS intact. Lives here (not in `inline_css.cr`) alongside
-    # its sole caller `DOM.load`; both compile only under `-Dremote`.
+    # leaves the page's CSS intact.
     def merge_inline_stylesheet(css : String) : Nil
       return if css.empty?
       existing = @css_inline_source
@@ -224,11 +211,10 @@ macro finished
     # `Crysterm::Widget::ProgressBar` beats the nested `Pine` one, so a plain
     # `<w-progressbar>` always loads the standard widget.
     #
-    # A namespaced load key (e.g. `pine-progressbar`) isn't added: `#css_tag`
-    # emits only the leaf (`w-progressbar`) for the nested widget too, so a
-    # namespaced key could never be produced by serialization and would break the
-    # `to_layout_html -> load` round-trip invariant. Deterministic dedup is the
-    # correct fix while the tag remains leaf-derived.
+    # No namespaced load key (e.g. `pine-progressbar`) is added: `#css_tag` emits
+    # only the leaf for the nested widget too, so a namespaced key could never be
+    # produced by serialization and would break the `to_layout_html -> load`
+    # round-trip invariant.
     {% chosen = {} of Nil => Nil %}
     {% for t in Crysterm::Widget.all_subclasses %}
       {% parts = t.name.split("::") %}
