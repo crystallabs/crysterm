@@ -8,7 +8,7 @@ module Crysterm
     # `Slider`, `ScrollBar` and `Dial` derive this directly as siblings (like
     # Qt's `QSlider`/`QScrollBar`/`QDial`). Holds the shared bounded-integer
     # value/range behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#page_step`/
-    # `#wrap?`, `#increment`/`#decrement`, `Event::ValueChange`) via
+    # `#wrapping?`, `#increment`/`#decrement`, `Event::ValueChanged`) via
     # `Mixin::RangedValue`, included once here for all subclasses.
     #
     # `ProgressBar` does *not* derive this: Qt's `QProgressBar` is a plain
@@ -18,13 +18,60 @@ module Crysterm
 
       # A slider/dial/scrollbar draws a fixed-size track/knob/trough; it should
       # not shrink to its (empty) content the way an `Input` does by default.
-      @resizable = false
+      @shrink_to_fit = false
 
       # Amount Page Up/Down move the value by (Qt `pageStep`); required by
       # `Mixin::RangedValue#ranged_step_key`. `Slider`/`Dial` inherit this;
       # `ScrollBar` overrides it (default 1 + a change-guarded setter that
       # resyncs the thumb).
       property page_step : Int32 = 10
+
+      # Qt's `QAbstractSlider#tracking`: when `true` (the default), `#value`
+      # updates live as the handle is dragged. When `false`, dragging updates
+      # only `#slider_position` (and the rendered handle), committing to
+      # `#value` on release.
+      property? tracking : Bool = true
+
+      # Live handle position while an untracked drag is in progress; `nil`
+      # otherwise (in which case `#slider_position` falls back to `#value`).
+      @slider_position : Int32? = nil
+
+      # Qt's `sliderPosition`: the handle's current position. Equal to `#value`
+      # except mid-drag when `#tracking?` is `false`.
+      def slider_position : Int32
+        @slider_position || @value
+      end
+
+      # Moves the handle to *v*. With `#tracking?` this commits straight to
+      # `#value`; without it the handle moves but `#value` stays put until
+      # release (`#commit_slider_position`).
+      def slider_position=(v : Int32) : Int32
+        v = v.clamp(@minimum, @maximum)
+        if tracking?
+          self.value = v
+        else
+          @slider_position = v
+          request_render
+        end
+        v
+      end
+
+      # Commits a pending untracked drag (button release). Returns `true` when
+      # there was one, so a mouse handler can accept the event on that basis.
+      protected def commit_slider_position : Bool
+        p = @slider_position
+        return false unless p
+        @slider_position = nil
+        self.value = p
+        request_render
+        true
+      end
+
+      # A committed value supersedes any pending untracked drag (`RangedValue`
+      # hook). `ScrollBar` extends this to drive its bound target.
+      protected def on_value_changed
+        @slider_position = nil
+      end
 
       # `Slider`/`Dial` indicate focus via reverse-video at the unstyled floor
       # (see `Mixin::Style#floor_focus_reverse?`), same as the button family.

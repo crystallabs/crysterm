@@ -3,7 +3,7 @@ module Crysterm
     # Shared bounded-range value behavior for the numeric controls
     # `Widget::Slider`, `Widget::SpinBox`, `Widget::Dial` and
     # `Widget::DoubleSpinBox`: a `#value` kept within `[#minimum, #maximum]`
-    # (clamped, or wrapped when `#wrap?`), stepped by `#step`, emitting a
+    # (clamped, or wrapped when `#wrapping?`), stepped by `#step`, emitting a
     # value-change signal only on an actual change.
     #
     # The module is generic over the numeric type *T*, so the integer controls
@@ -11,8 +11,8 @@ module Crysterm
     # `RangedValue(Float64)` — collapsing the range machinery each had copied.
     # The two signals differ by type, so they route through the overridable
     # `#emit_value_change`/`#emit_range_change` hooks: the default emits the
-    # `Int32` `Event::ValueChange`/`Event::RangeChange`, and `DoubleSpinBox`
-    # overrides `#emit_value_change` to emit `Event::DoubleValueChange` (and
+    # `Int32` `Event::ValueChanged`/`Event::RangeChanged`, and `DoubleSpinBox`
+    # overrides `#emit_value_change` to emit `Event::DoubleValueChanged` (and
     # `#emit_range_change` to a no-op, since there is no `Float64` range event).
     #
     # `Widget::ProgressBar` is intentionally *not* built on this even though its
@@ -79,19 +79,20 @@ module Crysterm
         @step = v
       end
 
-      # Whether stepping past a bound wraps around to the other end.
-      property? wrap : Bool = false
+      # Whether stepping past a bound wraps around to the other end. Qt spells
+      # it `wrapping` on both `QAbstractSpinBox` and `QDial`.
+      property? wrapping : Bool = false
 
       # Current value, within `[#minimum, #maximum]`.
       def value : T
         @value
       end
 
-      # Sets the value — wrapping when `#wrap?`, otherwise clamping into range.
+      # Sets the value — wrapping when `#wrapping?`, otherwise clamping into range.
       # On an actual change it runs `#on_value_changed`, emits the value-change
       # signal (via `#emit_value_change`), and repaints.
       def value=(v : T) : T
-        if wrap? && @maximum > @minimum
+        if wrapping? && @maximum > @minimum
           if v > @maximum
             v = @minimum
           elsif v < @minimum
@@ -124,10 +125,40 @@ module Crysterm
         step_overflow_saturate(by < T.zero)
       end
 
+      # Steps the value by *steps* line-steps (Qt's `QAbstractSpinBox#stepBy`),
+      # saturating/wrapping exactly as `#increment`/`#decrement` do. Negative
+      # *steps* move down.
+      #
+      # These three Qt names are homed here, not on `Widget::AbstractSpinBox`:
+      # that base is shared with `Widget::DateTimeEdit`, which has no numeric
+      # `@step`/`#increment` at all (it steps a *section* via
+      # `Mixin::SectionedField`), so a `step_by` declared there could only be
+      # abstract — forcing an implementation into the sectioned editors. Here
+      # they land on exactly the types that have a steppable numeric value.
+      def step_by(steps : Int32) : Nil
+        return if steps == 0
+        steps > 0 ? increment(@step * steps) : decrement(@step * -steps)
+      rescue OverflowError
+        # `@step * steps` overflowed T before `#increment`/`#decrement` could
+        # saturate it; the direction is all that survives, which is enough.
+        step_overflow_saturate(steps > 0)
+      end
+
+      # Steps the value up/down by one `#single_step` (Qt's
+      # `QAbstractSpinBox#stepUp`/`#stepDown`). See `#step_by`.
+      def step_up : Nil
+        increment
+      end
+
+      # :ditto:
+      def step_down : Nil
+        decrement
+      end
+
       # Overflow fallback for `#increment`/`#decrement`: jump to the bound the
       # step was heading for (`upward`), or the opposite one when wrapping.
       private def step_overflow_saturate(upward : Bool) : T
-        if wrap? && @maximum > @minimum
+        if wrapping? && @maximum > @minimum
           self.value = upward ? @minimum : @maximum
         else
           self.value = upward ? @maximum : @minimum
@@ -147,7 +178,7 @@ module Crysterm
       end
 
       # Constructor-time range+value initialiser: stores a non-inverted range and
-      # a clamped value *directly* (no `Event::RangeChange`/`ValueChange` — nothing
+      # a clamped value *directly* (no `Event::RangeChanged`/`ValueChanged` — nothing
       # is listening during construction). Call from a subclass constructor so the
       # "never store an inverted range" guard (which `#value=`/`#value_span`/the
       # percent helpers all assume) can't be forgotten — e.g.
@@ -236,7 +267,7 @@ module Crysterm
         @maximum = max
         on_range_changed
         emit_range_change
-        # Pre-clamp (rather than let `#value=` handle it) so a `#wrap?` control
+        # Pre-clamp (rather than let `#value=` handle it) so a `#wrapping?` control
         # clamps on a range change instead of wrapping to the opposite bound:
         # an out-of-range `@value` would trip `#value=`'s wrap branch. A
         # pre-clamped value makes that check a no-op, behaving as a plain clamp.
@@ -266,20 +297,20 @@ module Crysterm
       end
 
       # Emits the value-change signal on an actual change. The default is the
-      # `Int32` `Event::ValueChange` used by the integer controls
+      # `Int32` `Event::ValueChanged` used by the integer controls
       # (`Slider`/`Dial`/`ScrollBar`/`SpinBox`); `DoubleSpinBox` overrides it to
-      # emit the `Float64` `Event::DoubleValueChange`. Kept as a hook because the
+      # emit the `Float64` `Event::DoubleValueChanged`. Kept as a hook because the
       # two events are distinct types — a single `emit` here would not type-check
       # across both `T` instantiations.
       protected def emit_value_change : Nil
-        emit Crysterm::Event::ValueChange, @value
+        emit Crysterm::Event::ValueChanged, @value
       end
 
       # Emits the range-change signal on an actual change. The default is the
-      # `Int32` `Event::RangeChange`; `DoubleSpinBox` overrides it to a no-op
+      # `Int32` `Event::RangeChanged`; `DoubleSpinBox` overrides it to a no-op
       # (there is no `Float64` range event).
       protected def emit_range_change : Nil
-        emit Crysterm::Event::RangeChange, @minimum, @maximum
+        emit Crysterm::Event::RangeChanged, @minimum, @maximum
       end
     end
 
@@ -303,7 +334,7 @@ module Crysterm
 
       # Shared `#value=` body for the read-only `Float64` meters `Widget::Gauge`
       # and `Widget::Graph::Donut`: clamps *v* into `[minimum, maximum]`, and on
-      # an actual change stores it, emits `Event::DoubleValueChange` (the
+      # an actual change stores it, emits `Event::DoubleValueChanged` (the
       # `Float64` value event), emits `Event::Complete` upon reaching `#maximum`
       # (only when the range is non-empty, so an empty `minimum == maximum` bar
       # never "completes"), then runs the widget's own post-change *action* — a
@@ -319,7 +350,7 @@ module Crysterm
         v = v.clamp(minimum, maximum)
         return v if v == @value
         @value = v
-        emit Crysterm::Event::DoubleValueChange, @value
+        emit Crysterm::Event::DoubleValueChanged, @value
         emit Crysterm::Event::Complete if @value == maximum && maximum > minimum
         yield
         @value

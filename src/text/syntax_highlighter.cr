@@ -26,8 +26,8 @@ module Crysterm
   abstract class SyntaxHighlighter
     getter document : TextDocument?
 
-    @ev_contents_change : Crysterm::Event::ContentsChange::Wrapper?
-    # Reentrancy guard: `#rehighlight` pokes the document's `ContentsChange`
+    @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
+    # Reentrancy guard: `#rehighlight` pokes the document's `ContentsChanged`
     # so views repaint — which must not re-enter the highlighter itself.
     @highlighting = false
 
@@ -49,7 +49,7 @@ module Crysterm
     # highlights it whole. `nil` detaches.
     def document=(doc : TextDocument?) : TextDocument?
       if old = @document
-        @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChange, w) }
+        @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChanged, w) }
         @ev_contents_change = nil
         # Detach cleanly: drop this highlighter's overlays and user states so
         # the old document renders plain again (and a later, different
@@ -61,11 +61,11 @@ module Crysterm
           b.additional_formats = nil
           b.user_state = -1
         end
-        old.emit Crysterm::Event::ContentsChange, 0, 0, 0 if changed
+        old.emit Crysterm::Event::ContentsChanged, 0, 0, 0 if changed
       end
       @document = doc
       if doc
-        @ev_contents_change = doc.on(Crysterm::Event::ContentsChange) do |e|
+        @ev_contents_change = doc.on(Crysterm::Event::ContentsChanged) do |e|
           on_contents_change(e.position, e.chars_removed, e.chars_added)
         end
         rehighlight
@@ -147,7 +147,7 @@ module Crysterm
 
     # Wraps a highlight batch: sets the reentrancy guard and — when any
     # block's overlay or state actually changed — pokes the document (a
-    # zero-length `ContentsChange`) so attached views repaint. The poke is
+    # zero-length `ContentsChanged`) so attached views repaint. The poke is
     # what makes a manual `#rehighlight` (or an edit cascade past the edited
     # blocks) visible without any widget knowing about highlighters; gating
     # it on real change keeps two highlighters on one document from
@@ -162,7 +162,7 @@ module Crysterm
       ensure
         @highlighting = false
       end
-      doc.emit Crysterm::Event::ContentsChange, 0, 0, 0 if @batch_changed
+      doc.emit Crysterm::Event::ContentsChanged, 0, 0, 0 if @batch_changed
     end
 
     @batch_changed = false

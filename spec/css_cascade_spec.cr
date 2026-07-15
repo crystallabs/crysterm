@@ -522,8 +522,7 @@ describe "CSS cascade" do
     screen = headless_screen
     list = Widget::List.new
     screen.append list
-    list.set_items(["a", "b", "c", "d"])
-
+    list.items = ["a", "b", "c", "d"]
     screen.stylesheet = <<-CSS
       List Box { color: white; }
       List Box:nth-child(even) { background-color: blue; }

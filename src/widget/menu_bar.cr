@@ -85,7 +85,7 @@ module Crysterm
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
         # Actions added *after* this call (`file.add action` on an attached bar)
         # must get their accelerators too: the menu emits `SetItems` on every
-        # structural change (`Menu#<<`/`#>>`/`#add…` → `sync_items`), so re-run
+        # structural change (`Menu#<<`/`#remove_action`/`#add…` → `sync_items`), so re-run
         # the idempotent install then. Without this, a shortcut added post
         # `add_menu` stayed silently dead until a detach/re-attach. Scope the
         # (re)install to the changed menu — `SetItems` fires per-add while a bar
@@ -101,7 +101,7 @@ module Crysterm
 
         index = @menus.size
         @menus << menu
-        add(title) { toggle index } # action-bar command: click / Enter toggles it
+        add_item(title) { toggle index } # action-bar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = items[index]?
@@ -165,8 +165,8 @@ module Crysterm
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
         @open_index = i = i.to_i
         # Move the bar's current item to match, so hover-switching also carries
-        # the keyboard cursor. `selekt` re-imposes the open-menu highlight below.
-        selekt i
+        # the keyboard cursor. `select_index` re-imposes the open-menu highlight below.
+        select_index i
         menu.popup title_x(i), menu_y
       end
 
@@ -238,7 +238,7 @@ module Crysterm
       end
 
       # Title highlight tracks the *open* menu, not the action bar's raw
-      # selection. `Mixin::ActionBar#trigger` re-`selekt`s the clicked item after
+      # selection. `Mixin::ActionBar#trigger` re-`select_index`s the clicked item after
       # our toggle callback runs, so a click that closed the menu would otherwise
       # leave its title lit — the shared `#reapply_highlight` scaffold re-imposes
       # the open-menu highlight through this predicate.

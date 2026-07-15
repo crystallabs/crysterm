@@ -7,7 +7,7 @@ private def headless_screen
 end
 
 # Locks `Mixin::PagedContainer#previous_index`'s handling of the `-1`
-# "no page selected" sentinel. `#current_page` already guards `-1` (see
+# "no page selected" sentinel. `#current_widget` already guards `-1` (see
 # `widget_tab_switch_spec.cr`); `#previous_index` must too: `(-1 - 1) % size`
 # maps to `size - 2`, skipping the last page instead of wrapping to it.
 describe Crysterm::Mixin::PagedContainer do
@@ -16,7 +16,7 @@ describe Crysterm::Mixin::PagedContainer do
     sw = Widget::StackedWidget.new parent: s, left: 0, top: 0, width: 20, height: 6
 
     # Populate pages without selecting one, reaching the `-1` sentinel with
-    # pages present (the state `#current_page`'s guard exists for).
+    # pages present (the state `#current_widget`'s guard exists for).
     3.times { sw.pages << Widget::Box.new(parent: sw) }
     sw.current_index.should eq -1
 

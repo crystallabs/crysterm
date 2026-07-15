@@ -23,7 +23,7 @@ end
 describe "BUGS7 LineEdit wide-character horizontal scroll" do
   it "keeps the tail (and caret) on-screen for full-width CJK content" do
     s = uni_window
-    # Inner text width ~= awidth - iwidth - 1; keep the box narrow.
+    # Inner text width ~= awidth - ihorizontal - 1; keep the box narrow.
     input = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 8, height: 1
     s._render
 
@@ -56,7 +56,7 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
     fired = [] of String
     bar = Widget::ListBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       auto_command_keys: true
-    bar.set_items({
+    bar.items = ({
       "open" => -> { fired << "open"; nil },
       "save" => -> { fired << "save"; nil },
       "quit" => -> { fired << "quit"; nil },

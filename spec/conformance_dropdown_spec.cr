@@ -162,7 +162,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         press_outside: -> { dd_press s, 78, 22; nil },
         outside_covered: -> { cb.popup_widget.not_nil!.contains_point? 78, 22 },
         # Non-editable combo hands focus to the popup, so Escape routes through it
-        # (ItemView cancel path -> `ComboBox#dismiss`).
+        # (ItemView cancel path -> `ComboBox#close`).
         escape: -> { cb.popup_widget.not_nil!.on_keypress dd_kp('\0', ::Tput::Key::Escape); nil },
       )
     }

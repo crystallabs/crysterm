@@ -28,9 +28,7 @@ describe Crysterm::Reactive::Signal do
     s.value.should eq 3
     s.value = 7
     s.value.should eq 7
-    s.get.should eq 7
-    s.set 9
-    s.value.should eq 9
+    s.peek.should eq 7
   end
 
   it "emits Changed only on an actual change (change-guarded)" do

@@ -46,7 +46,7 @@ describe "Menu render caches (ALLOCS Group J)" do
     # Four rows: Open, Save, ───, Quit.
     m.@items.size.should eq 4
 
-    inner = m.awidth - m.iwidth
+    inner = m.awidth - m.ihorizontal
     # The separator row is stretched to the full inner width with box-drawing.
     sep = m.@items[2]
     m.@separator_items.includes?(sep).should be_true

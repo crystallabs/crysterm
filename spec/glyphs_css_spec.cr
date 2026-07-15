@@ -295,7 +295,7 @@ describe "Menu glyphs and measured columns" do
   it "restyles the submenu arrow via Menu::indicator, including none" do
     s = gc_screen
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 14, height: 4
-    menu.add_menu "More", [Action.new("Child")]
+    menu.add_submenu "More", [Action.new("Child")]
     s.stylesheet = %(Menu::indicator { glyph: "»"; })
     s.apply_stylesheet
     s._render

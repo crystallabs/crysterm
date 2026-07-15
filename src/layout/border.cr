@@ -57,7 +57,7 @@ module Crysterm
       @consume_raw = {} of Widget => (Int32 | String | Nil)
       @consume_assigned = {} of Widget => Int32
 
-      def arrange(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : RenderedGeometry) : Nil
         # Prune bookkeeping for children that have left the container (O(1)
         # `child?` membership, as `Layout::Box#measure` does).
         prune_managed container, @consume_raw
@@ -79,15 +79,15 @@ module Crysterm
         # every region non-negative and non-overlapping, collapsing squeezed-out
         # ones to zero instead. No-op when the edges fit.
         # Reserve each edge child's margin box, not just its border box: the
-        # render pipeline (`_get_coords`) shifts a fixed-size child outward by its
+        # render pipeline (`coords`) shifts a fixed-size child outward by its
         # near margin without shrinking it, so a top child with `margin top: N` is
         # drawn N rows below its assigned `y0`. Advancing the working rect by the
         # child's height alone would let that shifted box overlap the neighboring
         # region; advancing by `size + margin` (mirroring `Layout::Box`) keeps
         # every region non-overlapping.
         # Each edge assigns the child its full working extent along the *span*
-        # axis minus that child's span-axis margins (`x1 - x0 - mwidth` for a
-        # Top/Bottom bar, `y1 - y0 - mheight` for a Left/Right rail), mirroring
+        # axis minus that child's span-axis margins (`x1 - x0 - mhorizontal` for a
+        # Top/Bottom bar, `y1 - y0 - mvertical` for a Left/Right rail), mirroring
         # `Layout::Box`'s cross-axis handling: the render pipeline shifts a
         # fixed-size box out by its near margin *without* shrinking it, so
         # assigning the full span would paint a margined child past the region's
@@ -99,9 +99,9 @@ module Crysterm
           # regions around it (and the center) take the space back.
           next if vacant? el
           restore_consume el, true
-          mh = el.mheight
+          mh = el.mvertical
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), ch
+          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), ch
           record_managed el, @consume_assigned, ch
           y0 += ch + mh
         end
@@ -111,9 +111,9 @@ module Crysterm
           # regions around it (and the center) take the space back.
           next if vacant? el
           restore_consume el, true
-          mh = el.mheight
+          mh = el.mvertical
           ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y1 - ch - mh, Math.max(0, x1 - x0 - el.mwidth), ch
+          place_and_render el, x0, y1 - ch - mh, Math.max(0, x1 - x0 - el.mhorizontal), ch
           record_managed el, @consume_assigned, ch
           y1 -= ch + mh
         end
@@ -123,9 +123,9 @@ module Crysterm
           # regions around it (and the center) take the space back.
           next if vacant? el
           restore_consume el, false
-          mw = el.mwidth
+          mw = el.mhorizontal
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x0, y0, cw, Math.max(0, y1 - y0 - el.mheight)
+          place_and_render el, x0, y0, cw, Math.max(0, y1 - y0 - el.mvertical)
           record_managed el, @consume_assigned, cw
           x0 += cw + mw
         end
@@ -135,9 +135,9 @@ module Crysterm
           # regions around it (and the center) take the space back.
           next if vacant? el
           restore_consume el, false
-          mw = el.mwidth
+          mw = el.mhorizontal
           cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x1 - cw - mw, y0, cw, Math.max(0, y1 - y0 - el.mheight)
+          place_and_render el, x1 - cw - mw, y0, cw, Math.max(0, y1 - y0 - el.mvertical)
           record_managed el, @consume_assigned, cw
           x1 -= cw + mw
         end
@@ -148,7 +148,7 @@ module Crysterm
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
           next if vacant? el
-          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mwidth), Math.max(0, y1 - y0 - el.mheight)
+          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), Math.max(0, y1 - y0 - el.mvertical)
         end
       end
 

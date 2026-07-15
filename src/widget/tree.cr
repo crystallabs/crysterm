@@ -62,7 +62,33 @@ module Crysterm
           @tree
         end
 
-        property? expanded : Bool = false
+        # Whether this node's children are currently shown.
+        getter? expanded : Bool = false
+
+        # Expands or collapses this node (Qt's `QTreeWidgetItem#setExpanded`).
+        # Routes through the owning tree, so the flattened view is rebuilt and
+        # `Event::Expand`/`Event::Collapse` is emitted; a no-op for a leaf or an
+        # unchanged state. Detached nodes (no `#tree` yet) just record the flag,
+        # which the first `Tree#add` then honors.
+        #
+        # It used to be a bare `property?`, whose setter did neither — so
+        # `node.expanded = true` left the rows stale and every listener unaware,
+        # while the equivalent `Tree#expand` did the right thing.
+        def expanded=(value : Bool) : Bool
+          if t = @tree
+            t.set_expanded self, value
+          else
+            @expanded = value
+          end
+          value
+        end
+
+        # Assigns the raw flag with no rebuild/notification. For the owning
+        # `Tree`, which batches the single rebuild and the per-node emit around a
+        # run of these (`#set_expanded`, `#expand_all`/`#collapse_all`).
+        protected def expanded_flag=(value : Bool) : Nil
+          @expanded = value
+        end
 
         def initialize(@text, @data = nil)
         end
@@ -80,6 +106,39 @@ module Crysterm
           @children << node
           @tree.try &.rebuild
           node
+        end
+
+        # Removes *node* from this node's children and refreshes the owning tree.
+        # Returns the detached node, or `nil` when it was not a child of this one
+        # (Qt's `QTreeWidgetItem#removeChild`).
+        def remove_child(node : Node) : Node?
+          return nil unless @children.delete node
+          node.parent = nil
+          node.tree = nil
+          @tree.try &.rebuild
+          node
+        end
+
+        # Removes every child of this node (Qt's `QTreeWidgetItem#takeChildren`).
+        def clear : Nil
+          return if @children.empty?
+          @children.each do |c|
+            c.parent = nil
+            c.tree = nil
+          end
+          @children.clear
+          @tree.try &.rebuild
+        end
+
+        # The child at *index*, or `nil` when out of range (Qt's
+        # `QTreeWidgetItem#child`).
+        def child(index : Int) : Node?
+          @children[index]?
+        end
+
+        # Number of direct children (Qt's `QTreeWidgetItem#childCount`).
+        def child_count : Int32
+          @children.size
         end
 
         # Whether this node has no children (rendered without an expand marker).
@@ -110,10 +169,14 @@ module Crysterm
       # Spaces of indentation added per depth level.
       getter indent : Int32 = 2
 
+      # Re-flattens the rows at the new width. Dropping the memoized indent
+      # strings alone left every already-built row at the old spacing until the
+      # next unrelated structural change.
       def indent=(v : Int32) : Int32
         return v if v == @indent
         @indent = v
         @indent_cache.clear
+        rebuild
         v
       end
 
@@ -188,7 +251,12 @@ module Crysterm
       end
 
       # Appends a top-level node (given as text, or an existing `Node`) and
-      # refreshes the view. Returns the node.
+      # refreshes the view. Returns the node — which is why the tree keeps `add`
+      # rather than the family's `#add_item` (that returns a row box, and it is
+      # the returned `Node` you go on to build the hierarchy with:
+      # `tree.add("src").add "widget"`). Everything else in the vocabulary —
+      # `#remove_node`/`#clear`/`#count`/`#current_index` — reads the same here
+      # as on every sibling.
       def add(text : String, data : String? = nil) : Node
         add Node.new(text, data)
       end
@@ -202,6 +270,45 @@ module Crysterm
         node
       end
 
+      # Removes *node* from the hierarchy — wherever it sits — and returns it, or
+      # `nil` when it is not in this tree (Qt's `QTreeWidget#takeTopLevelItem` /
+      # `QTreeWidgetItem#removeChild`, which the tree had no equivalent of at
+      # all). Named `remove_node`, not `remove`: `Widget#remove` already means
+      # "detach a child widget", and one name for two unrelated removals reads as
+      # a trap.
+      def remove_node(node : Node) : Node?
+        if p = node.parent
+          return p.remove_child node
+        end
+        return nil unless @roots.delete node
+        node.tree = nil
+        rebuild
+        node
+      end
+
+      # Removes every node (Qt's `QTreeWidget#clear`). Overrides
+      # `Mixin::ItemView#clear`, which would drop the rendered rows while leaving
+      # the hierarchy behind to be re-flattened by the next `#rebuild`.
+      def clear : Nil
+        return if @roots.empty?
+        @roots.each(&.tree=(nil))
+        @roots.clear
+        rebuild
+      end
+
+      # Number of top-level nodes (Qt's `QTreeWidget#topLevelItemCount`).
+      # `#count`, inherited from `Mixin::ItemView`, is the number of *visible
+      # rows* — the unit `#item`/`#current_index`/`#selected_node` all work in.
+      def top_level_count : Int32
+        @roots.size
+      end
+
+      # The top-level node at *index*, or `nil` when out of range (Qt's
+      # `QTreeWidget#topLevelItem`).
+      def top_level_node(index : Int) : Node?
+        @roots[index]?
+      end
+
       # The node under the cursor, or `nil` when the tree is empty.
       def selected_node : Node?
         @nodes[@selected]?
@@ -209,7 +316,11 @@ module Crysterm
 
       # Re-flattens the visible node hierarchy into the underlying list rows,
       # preserving the cursor on the same node when it is still visible.
-      def rebuild : Nil
+      #
+      # Protected: every mutator here (`#add`, `Node#add`/`#remove_child`,
+      # `#indent=`, the expand/collapse family) refreshes the view itself, so
+      # this is the tree's own plumbing rather than something a caller drives.
+      protected def rebuild : Nil
         # Inside a `begin_update` batch, defer the (potentially repeated) work to
         # the single flush in `end_update`.
         if @update_depth > 0
@@ -221,15 +332,15 @@ module Crysterm
         @nodes.clear
         rows = [] of String
         @roots.each { |n| flatten n, rows, 0 }
-        set_items rows
+        self.items = rows
         if prev
           if i = @nodes.index prev
-            selekt i
+            select_index i
           elsif (anc = nearest_visible_ancestor prev) && (j = @nodes.index anc)
             # Previously-selected node was hidden by a collapse; follow selection
             # up to its nearest still-visible ancestor, as Qt does, rather than
             # stranding it on row 0.
-            selekt j
+            select_index j
           end
         end
         request_render
@@ -263,22 +374,32 @@ module Crysterm
       # Expands *node* (a no-op for a leaf or an already-expanded node), refreshes
       # the view, and emits `Event::Expand`.
       def expand(node : Node) : Nil
-        return if node.leaf? || node.expanded?
-        set_expanded node, true, Crysterm::Event::Expand
+        set_expanded node, true
       end
 
       # Collapses *node*, refreshes the view, and emits `Event::Collapse`.
       def collapse(node : Node) : Nil
-        return if node.leaf? || !node.expanded?
-        set_expanded node, false, Crysterm::Event::Collapse
+        set_expanded node, false
       end
 
       # Sets *node*'s expanded state, rebuilds the flattened view, and emits
-      # *event* carrying the node's (pre-rebuild) row index. Shared body of
-      # `#expand`/`#collapse`, which differ only in the flag and the event.
-      private def set_expanded(node : Node, expanded : Bool, event) : Nil
+      # `Event::Expand`/`Event::Collapse`. A no-op for a leaf or an unchanged
+      # state. The single funnel every path goes through — `#expand`/`#collapse`,
+      # `#toggle`, and `Node#expanded=`.
+      def set_expanded(node : Node, expanded : Bool) : Nil
+        return if node.leaf? || node.expanded? == expanded
+        if expanded
+          apply_expanded node, true, Crysterm::Event::Expand
+        else
+          apply_expanded node, false, Crysterm::Event::Collapse
+        end
+      end
+
+      # Shared body of `#set_expanded`'s two branches, which differ only in the
+      # flag and the event. *event* carries the node's pre-rebuild row index.
+      private def apply_expanded(node : Node, expanded : Bool, event) : Nil
         i = @nodes.index node
-        node.expanded = expanded
+        node.expanded_flag = expanded
         rebuild
         emit event, (i || 0)
       end
@@ -290,14 +411,30 @@ module Crysterm
 
       # Expands every node in the whole hierarchy.
       def expand_all : Nil
-        each_node { |n| n.expanded = true unless n.leaf? }
-        rebuild
+        set_expanded_all true, Crysterm::Event::Expand
       end
 
       # Collapses every node in the whole hierarchy.
       def collapse_all : Nil
-        each_node(&.expanded=(false))
+        set_expanded_all false, Crysterm::Event::Collapse
+      end
+
+      # Expands or collapses every non-leaf node: one `#rebuild` for the whole
+      # batch (not one per node), then *event* per node that actually changed —
+      # Qt's `expandAll`/`collapseAll` still emit `expanded()`/`collapsed()` for
+      # each item. Both used to poke `node.expanded` directly and emit nothing at
+      # all. The row index carried is the node's *post*-rebuild row, since a
+      # subtree revealed by this very call has no pre-rebuild row to name.
+      private def set_expanded_all(expanded : Bool, event) : Nil
+        changed = [] of Node
+        each_node do |n|
+          next if n.leaf? || n.expanded? == expanded
+          n.expanded_flag = expanded
+          changed << n
+        end
+        return if changed.empty?
         rebuild
+        changed.each { |n| emit event, (@nodes.index(n) || 0) }
       end
 
       # Yields every node in the hierarchy (not just the visible ones),
@@ -336,7 +473,7 @@ module Crysterm
             if !node.leaf? && node.expanded?
               collapse node
             elsif (p = node.parent) && (i = @nodes.index p)
-              selekt i
+              select_index i
             end
             e.accept
             request_render

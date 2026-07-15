@@ -67,7 +67,7 @@ module Crysterm
           # width evenly (unlike a naive per-column `100 // columns` percentage).
           # Entries flow column-major, which row-major auto-flow can't express,
           # so `#build` gives each cell an explicit `Grid::Hint` at
-          # `{row: i % rows, col: i // rows}`.
+          # `{row: i % rows, column: i // rows}`.
           # Set the ivar directly (like `HeaderBar`) so no method runs before it.
           @layout = Crysterm::Layout::Grid.new(columns: @columns, rows: @rows, gap: 0)
           build
@@ -81,7 +81,7 @@ module Crysterm
         end
 
         # Re-tile into a new column count: sync the grid layout and rebuild the
-        # cells (their `Grid::Hint` column index and the `col >= columns` drop
+        # cells (their `Grid::Hint` column index and the `column >= columns` drop
         # both depend on `columns`).
         def columns=(value : Int32) : Int32
           @columns = value
@@ -121,22 +121,22 @@ module Crysterm
         end
 
         # (Re)creates the child boxes for the current entries. Each cell carries a
-        # `Grid::Hint` at its column-major slot (`{row: i % rows, col: i // rows}`);
+        # `Grid::Hint` at its column-major slot (`{row: i % rows, column: i // rows}`);
         # the `Layout::Grid` from `#initialize` tiles them gap-free every frame.
         private def build
           @cells.each &.remove_from_parent
           @cells.clear
 
           @entries.each_with_index do |entry, i|
-            col = i // @rows
+            column = i // @rows
             row = i % @rows
-            next if col >= @columns
+            next if column >= @columns
 
             box = Widget::Box.new(
               window: window,
               parse_tags: true,
               content: format_entry(entry),
-              layout_hint: Crysterm::Layout::Grid::Hint.new(row: row, col: col),
+              layout_hint: Crysterm::Layout::Grid::Hint.new(row: row, column: column),
             )
 
             # Clicking a hint acts like pressing its key: run the entry's callback

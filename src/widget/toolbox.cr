@@ -1,4 +1,5 @@
 require "./box"
+require "../mixin/paged_container"
 
 module Crysterm
   class Widget
@@ -7,9 +8,9 @@ module Crysterm
     # Each item is a one-row clickable header plus a content widget. Exactly one
     # item is expanded at a time (`#current_index`): its content fills the space
     # between its header and the next, while every other item shows only its
-    # header. Selecting a header — by click, or via `#current=` — expands that
-    # item and collapses the rest. Emits `Event::SelectItem` (the header box and
-    # its index) on a change.
+    # header. Selecting a header — by click, or via `#current_index=` — expands
+    # that item and collapses the rest. Emits `Event::CurrentChanged` (the new
+    # index) and `Event::SelectItem` (the header box and its index) on a change.
     #
     # ```
     # tb = Widget::ToolBox.new parent: window, width: 30, height: 16, style: Style.new(border: true)
@@ -21,6 +22,13 @@ module Crysterm
     # ![ToolBox screenshot](../../tests/widget/toolbox/toolbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolBox < Box
+      # `#pages` (each section's content widget), `#count`, `#current_index` /
+      # `#current_index=`, `#current_widget` / `#current_widget=` and the
+      # show/next/previous core all come from here — the same core
+      # `StackedWidget`/`TabWidget` run on. `#sections` carries the extra
+      # per-item data (title + header box), parallel to `#pages`.
+      include Mixin::PagedContainer
+
       # One section of a `ToolBox`.
       class Item
         property title : String
@@ -31,10 +39,8 @@ module Crysterm
         end
       end
 
+      # The sections, in insertion order. Read-only — add via `#add_item`.
       getter sections = [] of Item
-
-      # Index of the expanded item (`-1` until the first item is added).
-      getter current_index : Int32 = -1
 
       # Markers drawn before a header's title. Unset (`nil`) resolves from the
       # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
@@ -101,18 +107,18 @@ module Crysterm
         )
 
         index = @sections.size
-        header.on(::Crysterm::Event::Click) { self.current = index }
+        header.on(::Crysterm::Event::Click) { self.current_index = index }
 
         append widget
 
         @sections << Item.new(title, widget, header)
+        @pages << widget
 
-        if @current_index < 0
-          self.current = 0
-        else
-          widget.hide
-          relayout
-        end
+        # `#register_page` raises the first item added and hides every later one;
+        # `#relayout` then gives the expanded one its rows. (It also runs from
+        # `#after_show_index`, so this only matters for the hidden ones.)
+        register_page widget
+        relayout
 
         index
       end
@@ -121,26 +127,14 @@ module Crysterm
         "#{expanded ? expanded_char : collapsed_char} #{title}"
       end
 
-      # The currently expanded item's content widget, or `nil` when empty.
-      def current_widget : Widget?
-        # Guard the `-1` sentinel explicitly (same hazard `Mixin::PagedContainer#current_page`
-        # documents): Crystal's `[]?` treats a negative index as counting from the
-        # end, so `@sections[-1]?` would wrongly return the *last* section for an
-        # empty/unset toolbox instead of `nil`.
-        return nil if @current_index < 0
-        @sections[@current_index]?.try &.widget
-      end
-
-      # Expands the item at *index*, collapsing the others.
-      def current=(index : Int) : Nil
-        return unless 0 <= index < @sections.size
-        return if index == @current_index
-
-        @current_index = index.to_i
+      # Re-marks the headers, re-fits the expanded section, and reports the
+      # header that was picked. (`#show_index` owns the index bookkeeping, the
+      # page show/hide and `Event::CurrentChanged`; `Event::SelectItem` carries
+      # the header box, which `CurrentChanged` has no room for.)
+      protected def after_show_index(index : Int) : Nil
         refresh_headers
         relayout
-        emit ::Crysterm::Event::SelectItem, @sections[@current_index].header, @current_index
-        request_render
+        emit ::Crysterm::Event::SelectItem, @sections[index].header, index
       end
 
       # Refreshes each header's marker to match the current expansion.
@@ -157,7 +151,7 @@ module Crysterm
         n = @sections.size
         return if n == 0
 
-        inner = (aheight - iheight) rescue (height.as?(Int) || n)
+        inner = (aheight - ivertical) rescue (height.as?(Int) || n)
         page_height = Math.max(0, inner - n)
 
         y = 0

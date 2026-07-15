@@ -30,12 +30,12 @@ describe Crysterm::Widget::Graph::Donut do
     end
   end
 
-  it "emits DoubleValueChange on value change" do
+  it "emits DoubleValueChanged on value change" do
     s = hscreen
     d = Crysterm::Widget::Graph::Donut.new parent: s, width: 10, height: 6, value: 0,
       type: Crysterm::Widget::Media::Type::Glyph
     got = nil
-    d.on(Crysterm::Event::DoubleValueChange) { |e| got = e.value }
+    d.on(Crysterm::Event::DoubleValueChanged) { |e| got = e.value }
     d.value = 50
     got.should eq 50.0
   end
@@ -102,8 +102,8 @@ describe Crysterm::Widget::GaugeList do
     begin
       gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 24, height: 5,
         style: Crysterm::Style.new(border: true)
-      gl.add_gauge "cpu", 64
-      gl.add_gauge "mem", 88, 0xE05050
+      gl.add_item "cpu", 64
+      gl.add_item "mem", 88, 0xE05050
       s._render
       t = text_of s
       t.includes?("cpu").should be_true
@@ -119,7 +119,7 @@ describe Crysterm::Widget::GaugeList do
   it "updates a gauge value by label" do
     s = hscreen
     gl = Crysterm::Widget::GaugeList.new parent: s, width: 20, height: 4
-    gl.add_gauge "a", 10
+    gl.add_item "a", 10
     gl["a"] = 90
     gl.gauges[0].value.should eq 90.0
   end

@@ -21,10 +21,10 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
     s.full_unicode?.should be_true
 
     gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 20, height: 4
-    gl.add_gauge "日本", 50 # 2 codepoints, 4 display columns
+    gl.add_item "日本", 50 # 2 codepoints, 4 display columns
     s._render
 
-    cols = gl.awidth.not_nil! - gl.iwidth
+    cols = gl.awidth.not_nil! - gl.ihorizontal
     line = clean_tags(gl.content) # single gauge → single content line
     # The row must be exactly the interior width. Pre-fix the label counted as 2
     # columns instead of 4, so the row came out 2 columns too wide (→ wrap).
@@ -34,9 +34,9 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
   it "still fits an ascii label exactly (no regression)" do
     s = uni_screen
     gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 20, height: 4
-    gl.add_gauge "cpu", 64
+    gl.add_item "cpu", 64
     s._render
-    cols = gl.awidth.not_nil! - gl.iwidth
+    cols = gl.awidth.not_nil! - gl.ihorizontal
     Crysterm::Unicode.display_width(clean_tags(gl.content)).should eq cols
   end
 end

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `margin` shifts (and shrinks) where a widget is PAINTED — `_get_coords`/`lpos`
+# `margin` shifts (and shrinks) where a widget is PAINTED — `coords`/`lpos`
 # carries the inset (see margin_spec.cr). Hit-testing (`Window#widget_at`,
 # `Widget#contains_point?`) must resolve to the rectangle the widget is actually
 # DRAWN at; otherwise a margined widget, or a child of a margined container
@@ -13,7 +13,7 @@ include Crysterm
 #
 # Hit-testing tests against the painted rectangle (`lpos`) rather than recomputing
 # raw `aleft/atop/awidth/aheight`, because `lpos` also carries the enclosing-scroll
-# offset and clipping — and for a `resizable` (shrink-to-content) widget the raw
+# offset and clipping — and for a `shrink_to_fit` (shrink-to-content) widget the raw
 # `awidth`/`aheight` report the full parent slot, not the shrunk content box. The
 # specs below assert both the simple margin equality and those two harder cases.
 
@@ -97,14 +97,14 @@ describe "margin hit-testing" do
     s.widget_at(l.xi, l.yi).should eq box
   end
 
-  it "hit-tests a resizable margined widget by its painted content box, not its slot" do
+  it "hit-tests a shrink_to_fit margined widget by its painted content box, not its slot" do
     s = mht_screen
     # A shrink-to-content widget in a wide slot: `awidth`/`aheight` report the
     # full slot, but it PAINTS only the 5x1 content box (shifted by margin 1).
     # Hit-testing must follow the painted box.
     box = Widget::Box.new parent: s, top: 2, left: 3, content: "hello",
       style: Style.new(margin: 1)
-    box.resizable = true
+    box.shrink_to_fit = true
     box.on(Crysterm::Event::Click) { }
     s._render
     l = box.lpos.not_nil!

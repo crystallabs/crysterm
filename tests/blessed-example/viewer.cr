@@ -203,7 +203,7 @@ screen.on(Event::KeyPress) do |e|
 end
 
 chooser.focus
-chooser.selekt(start_idx)
+chooser.select_index(start_idx)
 
 # Paint one frame so the layout sizes the panes, then build the first image.
 screen._render

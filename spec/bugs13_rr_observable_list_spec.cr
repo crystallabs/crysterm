@@ -18,7 +18,7 @@ private record Change, op : Crysterm::Reactive::ListOp, index : Int32, count : I
 
 private def capture_changes(list)
   seen = [] of Change
-  list.on(Crysterm::Event::ListChange) { |e| seen << Change.new(e.op, e.index, e.count) }
+  list.on(Crysterm::Event::ListChanged) { |e| seen << Change.new(e.op, e.index, e.count) }
   seen
 end
 

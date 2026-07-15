@@ -12,7 +12,7 @@ private def abrs_screen
     default_quit_keys: false)
 end
 
-# Renders once so the bar gets an `@lpos` (`#selekt` scroll math, and thus
+# Renders once so the bar gets an `@lpos` (`#select_index` scroll math, and thus
 # `selected`, only updates once laid out).
 private def abrs_render(s)
   s._render
@@ -26,12 +26,12 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
   it "skips back over a separator when the selected command is removed" do
     s = abrs_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
-    bar.add "a"
+    bar.add_item "a"
     bar.add_separator
-    bar.add "b"
+    bar.add_item "b"
     abrs_render s
 
-    bar.selekt 2 # "b"
+    bar.select_index 2 # "b"
     bar.selected.should eq 2
     bar.ritems[bar.selected].should eq "b"
 
@@ -47,11 +47,11 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     s = abrs_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.add_separator
-    bar.add "a" # first selectable (auto-selected)
-    bar.add "b"
+    bar.add_item "a" # first selectable (auto-selected)
+    bar.add_item "b"
     abrs_render s
 
-    bar.selekt 1 # "a"
+    bar.select_index 1 # "a"
     bar.selected.should eq 1
 
     bar.remove_item bar.items[1] # remove the selected "a"

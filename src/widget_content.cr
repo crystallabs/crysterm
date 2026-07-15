@@ -75,9 +75,15 @@ module Crysterm
     # `#fold_content_tail`). Empty in the common (non-appended) case.
     @_content_tail = [] of String
 
-    # `@content` with pending appends folded in. O(total) on first read after
-    # appends, then cached until the next append. Most readers (`get_content`,
-    # list items, `content=`) go through here.
+    # The widget's content exactly as it was set: tags, inline SGR and all.
+    # This is the RAW half of the raw/rendered pair — for what actually ends up
+    # on screen (tags expanded, lines word-wrapped) read `#rendered_content` /
+    # `#rendered_text`. The two do NOT round-trip: `w.content = x` followed by
+    # `w.rendered_content` returns the *processed* form of *x*, not *x*.
+    #
+    # Implementation: `@content` with pending appends folded in. O(total) on
+    # first read after appends, then cached until the next append. Most readers
+    # (`rendered_content`, list items, `content=`) go through here.
     def content : String
       fold_content_tail
       @content
@@ -221,10 +227,20 @@ module Crysterm
     @_parse_attr_default : Int64? = nil
 
     # Sets widget content without extra options; use `#set_content` for those.
+    #
+    # This is the RAW property's setter: it stores *content* verbatim (tags,
+    # inline SGR and all). It is not the inverse of `#rendered_content`, which
+    # reports the parsed/wrapped result — see `#content`.
     def content=(content)
       set_content content
     end
 
+    # Replaces the raw content, with the extra knobs `#content=` doesn't expose.
+    #
+    # * *no_tags* — store the content with tag parsing disabled for this widget
+    #   (kept as `@_content_no_tags`, so later reparses stay literal too).
+    # * *no_clear* — vestigial (stale cells are cleared centrally by
+    #   `Window#_render`); accepted for call compatibility.
     def set_content(content = "", no_clear = false, no_tags = false)
       # Fold deferred appends so the comparison below sees current content, and
       # drop the tail since this call replaces content wholesale.
@@ -274,18 +290,30 @@ module Crysterm
       emit(Crysterm::Event::SetContent)
     end
 
-    def get_content
+    # The content as *rendered*: the original ("fake") lines after tag parsing,
+    # `"\n"`-joined. Tags are already expanded to inline SGR here, so this is
+    # what the widget draws, not what was set — the RENDERED half of the
+    # raw/rendered pair (see `#content` for the raw half). Use
+    # `#rendered_text` for the same view with the SGR stripped back out.
+    def rendered_content : String
       return "" if @_clines.empty?
       @_clines.fake.join "\n"
     end
 
+    # Replaces the content with *content*'s plain text: inline SGR is stripped
+    # out and tags are kept literal (`no_tags`), so nothing in *content* can
+    # style the widget. The setter counterpart to `#rendered_text`.
+    #
+    # *no_clear* is vestigial; see `#set_content`.
     def set_text(content = "", no_clear = false)
       content = content.gsub SGR_REGEX, ""
       set_content content, no_clear, true
     end
 
-    def get_text
-      get_content.gsub SGR_REGEX, ""
+    # `#rendered_content` with the inline SGR stripped back out: the plain text
+    # a user sees on screen, without the attributes it is drawn with.
+    def rendered_text : String
+      rendered_content.gsub SGR_REGEX, ""
     end
 
     # Word-wrapped, ready-to-render content lines plus the bookkeeping needed
@@ -417,7 +445,7 @@ module Crysterm
 
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
-      colwidth = (awidth_hint || awidth) - iwidth
+      colwidth = (awidth_hint || awidth) - ihorizontal
       # `@_clines.margin` is part of the wrap cache key too: an `AsNeeded` scroll
       # bar's presence (and thus `content_margin_x`) can flip from a height-only
       # change (resize, `widget.height=`) that leaves the other cache-key fields
@@ -1057,12 +1085,12 @@ module Crysterm
       # the regex scan `str_width line` would otherwise repeat.
       len = str_width cline
 
-      # A `Layout` sets all its children to `#resizable = true` (shrink in
-      # blessed), so a resizable widget with no usable width yet has free width
+      # A `Layout` sets all its children to `#shrink_to_fit = true` (shrink in
+      # blessed), so a shrink-to-content widget with no usable width yet has free width
       # `s == 0` and must skip alignment padding. `width` is an Int, so blessed's
       # `!width` was always false in Crystal (only `nil`/`false` are falsy), which
-      # made its `@resizable ? 0 : ...` branch dead; gate on `width == 0` instead.
-      s = (@resizable && width == 0) ? 0 : width - len
+      # made its `@shrink_to_fit ? 0 : ...` branch dead; gate on `width == 0` instead.
+      s = (@shrink_to_fit && width == 0) ? 0 : width - len
 
       # Nothing to pad: return `line` unchanged, but pass on its now-known width
       # (`0` when all-SGR; `len` otherwise) so the caller skips a re-measure.
@@ -1244,7 +1272,7 @@ module Crysterm
       # Bail if width changed since the cache was built — the slow path reparses
       # at the new width; the fast path can only splice when existing wrapped
       # lines are still valid for the current width.
-      return false if (awidth - iwidth) != colwidth
+      return false if (awidth - ihorizontal) != colwidth
       # Degenerate state: content cleaned to nothing leaves `_wrap_content` in
       # its empty-content shape (`fake` empty, one blank real line). Splicing
       # there would desync `fake` from `lines`; let the full path handle it.
@@ -1453,7 +1481,7 @@ module Crysterm
         # cleared to empty). `ftor[-1]` would then raise `IndexError`, crashing
         # `insert_line`/`unshift_line`/`insert_top`. Default the insert point to
         # the first real line, mirroring the empty-content guards in
-        # `#get_line`/`#rtof_index`.
+        # `#line`/`#rtof_index`.
         if last_row = @_clines.ftor.last?
           real = last_row[-1] + 1
         else
@@ -1489,10 +1517,10 @@ module Crysterm
     # the viewport.
     private def render_line_shift(diff, real, &)
       return unless diff > 0
-      pos = _get_coords
+      pos = coords
       return if !pos || pos == 0
 
-      height = pos.yl - pos.yi - iheight
+      height = pos.yl - pos.yi - ivertical
       base = @child_base
       visible = real >= base && real - base < height
 
@@ -1514,7 +1542,7 @@ module Crysterm
       # empty: freshly built widget, or content cleared to empty). Without this
       # guard, `delete_top`/`delete_bottom`/`shift_line`/`pop_line`/`delete_line`
       # would raise `IndexError` on such a widget. Mirrors the empty-content
-      # guard in `#insert_line`/`#get_line`; Blessed's `deleteLine` is a no-op here.
+      # guard in `#insert_line`/`#line`; Blessed's `deleteLine` is a no-op here.
       return if @_clines.fake.empty?
       if i.nil?
         i = @_clines.fake.size - 1
@@ -1576,7 +1604,7 @@ module Crysterm
 
     def insert_bottom(line)
       # Use the centralized viewport-height helper (which subtracts the horizontal
-      # scroll bar's reserved row) instead of the pre-hscrollbar `aheight - iheight`
+      # scroll bar's reserved row) instead of the pre-hscrollbar `aheight - ivertical`
       # so we don't insert after a line hidden under the bar.
       h = @child_base + visible_content_rows
       i = Math.min(h, @_clines.size)
@@ -1622,20 +1650,23 @@ module Crysterm
       set_line(fake + i, line)
     end
 
-    def get_line(i)
+    # Original ("fake") line *i*, as rendered (see `#rendered_content`).
+    def line(i)
       # Empty content leaves `@_clines.fake` empty. `i.clamp(0, fake.size - 1)`
       # then clamps to `-1` (Crystal's two-arg clamp yields `max` even when `min
       # > max`), so `fake[-1]` would raise on the empty array. Return a blank
       # line instead, matching Blessed's `getLine` for a missing line. Guards
-      # `get_baseline` too.
+      # `#baseline` too.
       return "" if @_clines.fake.empty?
       i = i.clamp(0, @_clines.fake.size - 1)
       @_clines.fake[i]
     end
 
-    def get_baseline(i)
+    # `#line`, but *i* counts from the current scroll base rather than from the
+    # top of the content.
+    def baseline(i)
       fake = rtof_index(@child_base)
-      get_line(fake + i)
+      line(fake + i)
     end
 
     def clear_line(i)
@@ -1678,11 +1709,15 @@ module Crysterm
       delete_line(@_clines.fake.size - 1, n)
     end
 
-    def get_lines
+    # All original ("fake") lines, as rendered. A copy; mutating it does not
+    # touch the widget.
+    def lines
       @_clines.fake.dup
     end
 
-    def get_screen_lines
+    # All *wrapped* ("real") lines — one entry per screen row rather than per
+    # original line. A copy; see `#lines` for the unwrapped view.
+    def screen_lines
       @_clines.dup
     end
 

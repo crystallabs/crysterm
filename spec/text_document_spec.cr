@@ -166,30 +166,30 @@ describe Crysterm::TextDocument do
   end
 
   describe "change events" do
-    it "emits ContentsChange with position and delta" do
+    it "emits ContentsChanged with position and delta" do
       doc = TextDocument.new("abc")
       changes = [] of {Int32, Int32, Int32}
-      doc.on(Event::ContentsChange) { |e| changes << {e.position, e.chars_removed, e.chars_added} }
+      doc.on(Event::ContentsChanged) { |e| changes << {e.position, e.chars_removed, e.chars_added} }
       doc.insert_text(1, "xy")
       doc.remove(0, 2)
       changes.should eq [{1, 0, 2}, {0, 2, 0}]
     end
 
-    it "emits BlockCountChange when paragraphs appear" do
+    it "emits BlockCountChanged when paragraphs appear" do
       doc = TextDocument.new("abc")
       counts = [] of Int32
-      doc.on(Event::BlockCountChange) { |e| counts << e.count }
+      doc.on(Event::BlockCountChanged) { |e| counts << e.count }
       doc.insert_text(1, "x")  # no block change
       doc.insert_text(1, "\n") # 2 blocks
       doc.remove(1, 1)         # back to 1
       counts.should eq [2, 1]
     end
 
-    it "emits ModificationChange on first edit" do
+    it "emits ModificationChanged on first edit" do
       doc = TextDocument.new("abc")
       doc.modified?.should be_false
       mods = [] of Bool
-      doc.on(Event::ModificationChange) { |e| mods << e.modified }
+      doc.on(Event::ModificationChanged) { |e| mods << e.modified }
       doc.insert_text(0, "x")
       doc.insert_text(1, "y")
       mods.should eq [true]

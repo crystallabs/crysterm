@@ -5,7 +5,7 @@ include Crysterm
 # `Widget#insert` (src/widget_children.cr) must refuse to make a widget a child
 # of itself or of one of its own descendants. Such a move splices a cycle into
 # the widget tree, after which every parent/descendant walk — `#screen?`,
-# `#has_descendant?`, `#invalidate_screen_cache`, the renderer's traversal —
+# `#ancestor_of?`, `#invalidate_screen_cache`, the renderer's traversal —
 # recurses forever and overflows the stack. The corruption happens
 # synchronously inside `append` (the `parent=` setter walks the now-cyclic
 # subtree to invalidate the screen cache), so without the guard these examples
@@ -26,7 +26,7 @@ describe "Widget#insert cycle guard" do
 
     a.children.includes?(a).should be_false
     a.parent.should_not eq a
-    a.has_descendant?(a).should be_false # tree walks still terminate
+    a.ancestor_of?(a).should be_false # tree walks still terminate
     a.window?.should eq s
   end
 

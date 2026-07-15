@@ -121,7 +121,7 @@ describe "drag-and-drop" do
     it "clamps a nested widget within the parent's content area, not past its border" do
       s = drag_screen
       # Bordered container: 1-cell border on every side, so its content area is
-      # the inner 28x10 (awidth 30 - iwidth 2, aheight 12 - iheight 2).
+      # the inner 28x10 (awidth 30 - ihorizontal 2, aheight 12 - ivertical 2).
       panel = Widget::Box.new parent: s, left: 20, top: 6, width: 30, height: 12,
         style: Style.new(border: true)
       box = Widget::Box.new parent: panel, left: 2, top: 2, width: 8, height: 4, draggable: true
@@ -131,8 +131,8 @@ describe "drag-and-drop" do
       move s, 999, 999                                 # yank far past the bottom-right
 
       # Clamped so the box stays fully inside the content area: max left/top is
-      # inner_extent - own_extent. With awidth-iwidth == 28 and box awidth 8 the
-      # furthest left is 20; with aheight-iheight == 10 and box aheight 4 it is 6.
+      # inner_extent - own_extent. With awidth-ihorizontal == 28 and box awidth 8 the
+      # furthest left is 20; with aheight-ivertical == 10 and box aheight 4 it is 6.
       # A clamp using raw awidth/aheight would have allowed 22/8, spilling the
       # box across the panel's right/bottom border.
       box.left.should eq(20)
@@ -186,7 +186,7 @@ describe "drag-and-drop" do
       move s, 4, 3     # promote
       move s, 999, 999 # yank far past the bottom-right
 
-      # Content area is 80 - iwidth(6) == 74 wide and 24 - iheight(4) == 20 tall;
+      # Content area is 80 - ihorizontal(6) == 74 wide and 24 - ivertical(4) == 20 tall;
       # the furthest left/top is inner_extent - own_extent (74 - 8, 20 - 4).
       box.left.should eq(66)
       box.top.should eq(16)

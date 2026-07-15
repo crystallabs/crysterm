@@ -12,9 +12,9 @@ module Crysterm
     # ```
     # gl = Widget::GaugeList.new parent: s, width: 30, height: 5,
     #   style: Style.new(border: true)
-    # gl.add_gauge "cpu", 64
-    # gl.add_gauge "mem", 88, 0xE05050
-    # gl.add_gauge "net", 22
+    # gl.add_item "cpu", 64
+    # gl.add_item "mem", 88, 0xE05050
+    # gl.add_item "net", 22
     # gl["mem"] = 91 # update by label
     # ```
     #
@@ -63,8 +63,16 @@ module Crysterm
         self.parse_tags = true
       end
 
-      # Appends a gauge. A `nil` color is auto-assigned from `DEFAULT_COLORS`.
-      def add_gauge(label : String, value : Number = 0, color : Int32? = nil) : Item
+      # Number of gauge rows (Qt's `QListWidget#count`), answered across the
+      # whole item-view family.
+      def count : Int32
+        @gauges.size
+      end
+
+      # Appends a gauge and returns it. A `nil` color is auto-assigned from
+      # `DEFAULT_COLORS`. Spelled `add_item` — not `add_gauge` — so appending has
+      # one name across the family (`Mixin::ItemView`, `Mixin::ActionBar`).
+      def add_item(label : String, value : Number = 0, color : Int32? = nil) : Item
         item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
         @gauges << item
         @version &+= 1
@@ -107,7 +115,7 @@ module Crysterm
       # Snapshot of every input `build_content` reads. Rebuilding the tagged
       # content allocates per-cell arrays + a `String.build` per gauge every
       # frame; skip it while nothing observable changed. The gauge set is
-      # represented by `@version` (bumped in `#add_gauge`/`#[]=`/`#clear`) rather
+      # represented by `@version` (bumped in `#add_item`/`#[]=`/`#clear`) rather
       # than mapping `@gauges` to a fresh tuple array, so the key stays
       # allocation-free per frame.
       # The trailing `glyph_key(style)` element covers every input `glyph_seq`
@@ -117,7 +125,7 @@ module Crysterm
       @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
-        key = {awidth, aheight, iwidth, iheight, @label_width, @minimum, @maximum, @version,
+        key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
                glyph_key(style)}
         if key != @content_key
           @content_key = key
@@ -127,8 +135,8 @@ module Crysterm
       end
 
       private def build_content : String
-        cols = awidth - iwidth
-        rows = aheight - iheight
+        cols = awidth - ihorizontal
+        rows = aheight - ivertical
         return "" if cols <= 0 || rows <= 0 || @gauges.empty?
 
         lw = @label_width

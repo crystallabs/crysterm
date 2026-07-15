@@ -8,7 +8,7 @@ module Crysterm
     # Lets the user pick an integer `#value` within `[#minimum, #maximum]` by
     # dragging/clicking a handle along a track, or with the keyboard (arrows step
     # by `#step`, Page Up/Down by `#page_step`, Home/End jump to the bounds). It
-    # emits `Event::ValueChange` whenever the value changes.
+    # emits `Event::ValueChanged` whenever the value changes.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Slider screenshot](../../tests/widget/slider/slider.5s.apng)
@@ -29,6 +29,13 @@ module Crysterm
       end
 
       property orientation : Tput::Orientation = :horizontal
+
+      # Whether the low end of the range is drawn at the far end of the track
+      # (Qt's `QSlider#invertedAppearance`). Unset, a horizontal slider runs
+      # left→right and a vertical one bottom→top (Qt's defaults); set, each is
+      # mirrored. Handle, ticks and click/drag mapping all follow it — see
+      # `#track_cell`.
+      property? inverted_appearance : Bool = false
 
       # Whether the current value is drawn centered over the track.
       property? show_value : Bool = false
@@ -73,6 +80,7 @@ module Crysterm
         @step = 1,
         @page_step = 10,
         @orientation = @orientation,
+        @inverted_appearance = false,
         @show_value = false,
         @handle_char = nil,
         @track_char = nil,
@@ -96,11 +104,22 @@ module Crysterm
           # Wheel nudges the value by one step (up = increase).
           next if ranged_wheel e
 
+          # Commit an untracked drag on release (no-op while `#tracking?`).
+          if e.action.up?
+            e.accept if commit_slider_position
+            next
+          end
+
           next unless e.action.down? || (e.action.move? && !e.button.none?)
-          # Vertical sliders run bottom (min) to top (max), hence `invert`.
-          pos, span_px = pointer_offset e, invert: true
+          # A vertical slider runs bottom (min) to top (max), hence `invert`;
+          # `#inverted_appearance?` flips that (and, below, the horizontal axis,
+          # which `#pointer_offset` never inverts).
+          pos, span_px = pointer_offset e, invert: !inverted_appearance?
           next if span_px <= 0
-          self.value = value_at pos, span_px
+          pos = span_px - pos if @orientation.horizontal? && inverted_appearance?
+          # Through `#slider_position=` (not `#value=`) so an untracked slider
+          # moves only its handle until release. See `AbstractSlider#tracking?`.
+          self.slider_position = value_at pos, span_px
           e.accept
         end
       end
@@ -117,9 +136,27 @@ module Crysterm
       end
 
       # Handle offset (in cells) from the low end of a track `avail` cells long.
+      # Follows `#slider_position`, not `#value`, so an untracked drag still
+      # moves the drawn handle before it commits.
       private def handle_offset(avail : Int32) : Int32
         return 0 if value_span == 0 || avail <= 0
-        value_to_cell(@value.to_i64, avail).clamp(0, avail)
+        value_to_cell(slider_position.to_i64, avail).clamp(0, avail)
+      end
+
+      # Maps a low-end cell offset *c* onto the main-axis cell in `lo...hi`.
+      # A horizontal slider runs low→high left→right, a vertical one bottom→top
+      # (Qt's defaults); `#inverted_appearance?` mirrors whichever it is.
+      private def track_cell(c : Int32, lo : Int32, hi : Int32) : Int32
+        if @orientation.horizontal? ^ inverted_appearance?
+          lo + c
+        else
+          (hi - 1) - c
+        end
+      end
+
+      # Main-axis cell of the handle on the track spanning `lo...hi`.
+      private def handle_cell(lo : Int32, hi : Int32) : Int32
+        track_cell handle_offset(hi - lo - 1), lo, hi
       end
 
       # Effective value-space spacing between ticks.
@@ -173,9 +210,9 @@ module Crysterm
           edges.clear
           edges << yi if @tick_position.above? || @tick_position.both?
           edges << (yl - 1) if @tick_position.below? || @tick_position.both?
-          hx = xi + handle_offset(avail)
+          hx = handle_cell(xi, xl)
           each_tick_cell(avail, interval) do |c|
-            tx = xi + c
+            tx = track_cell(c, xi, xl)
             next if tx == hx
             edges.each { |ty| window.fill_region attr, tick_ch, tx, tx + 1, ty, ty + 1 }
           end
@@ -185,9 +222,9 @@ module Crysterm
           edges.clear
           edges << xi if @tick_position.above? || @tick_position.both?
           edges << (xl - 1) if @tick_position.below? || @tick_position.both?
-          hy = (yl - 1) - handle_offset(avail)
+          hy = handle_cell(yi, yl)
           each_tick_cell(avail, interval) do |c|
-            ty = (yl - 1) - c
+            ty = track_cell(c, yi, yl)
             next if ty == hy
             edges.each { |cx| window.fill_region attr, tick_ch, cx, cx + 1, ty, ty + 1 }
           end
@@ -197,7 +234,7 @@ module Crysterm
       def render
         # Paint into the *content* region (border AND padding inset), not just
         # the border-only interior: the mouse handler maps clicks through
-        # `Mixin::TrackGeometry#pointer_offset`, whose `ileft`/`iwidth` insets
+        # `Mixin::TrackGeometry#pointer_offset`, whose `ileft`/`ihorizontal` insets
         # include padding. Using `with_inner_coords` here made the drawn handle
         # and the click-mapped value disagree on a padded slider.
         with_content_coords do |xi, xl, yi, yl|
@@ -209,10 +246,10 @@ module Crysterm
           # it goes through `fill_region` (batched, skips unchanged cells) like
           # the track above — not a per-cell loop.
           if @orientation.horizontal?
-            hx = xi + handle_offset(xl - xi - 1)
+            hx = handle_cell(xi, xl)
             window.fill_region handle_attr, handle_char, hx, hx + 1, yi, yl
           else
-            hy = (yl - 1) - handle_offset(yl - yi - 1)
+            hy = handle_cell(yi, yl)
             window.fill_region handle_attr, handle_char, xi, xl, hy, hy + 1
           end
 

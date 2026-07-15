@@ -124,10 +124,10 @@ describe "BUGS13 A18: set_data([]) clears the view along with the model" do
       rows: [["N", "V"], ["b", "2"], ["a", "1"]])
     lt.items.size.should eq 3 # header spacer + 2 body rows
 
-    lt.set_data([] of Array(String))
+    lt.rows = [] of Array(String)
     lt.rows.should be_empty
     lt.items.size.should eq 1 # just the header spacer
-    lt.header.get_content.strip.should eq ""
+    lt.header.rendered_content.strip.should eq ""
   ensure
     s.try &.destroy
   end
@@ -136,7 +136,7 @@ describe "BUGS13 A18: set_data([]) clears the view along with the model" do
     s = tbl_screen(30, 10)
     lt = Widget::ListTable.new(parent: s, top: 0, left: 0)
     lt.items.size.should eq 0
-    lt.set_data([] of Array(String))
+    lt.rows = [] of Array(String)
     lt.items.size.should eq 0
   ensure
     s.try &.destroy
@@ -146,9 +146,9 @@ describe "BUGS13 A18: set_data([]) clears the view along with the model" do
     s = tbl_screen(30, 10)
     t = Widget::Table.new(parent: s, top: 0, left: 0,
       rows: [["N", "V"], ["a", "1"]])
-    t.set_data([] of Array(String))
+    t.rows = [] of Array(String)
     t.rows.should be_empty
-    t.get_content.strip.should eq ""
+    t.rendered_content.strip.should eq ""
   ensure
     s.try &.destroy
   end

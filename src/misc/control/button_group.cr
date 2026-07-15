@@ -64,7 +64,11 @@ module Crysterm
     # button.
     def add(button : Widget, id : Int32 = -1) : Widget
       return button if @buttons.includes? button
-      button.checkable = true if button.is_a?(Widget::AbstractButton) && !button.checkable?
+      if button.is_a?(Widget::AbstractButton)
+        button.checkable = true unless button.checkable?
+        # Back-reference for Qt's `QAbstractButton#group`.
+        button.group = self
+      end
       @buttons << button
       @ids[button] = id
       subs = Subscriptions.new
@@ -78,6 +82,9 @@ module Crysterm
     def remove(button : Widget) : Nil
       return unless @buttons.includes? button
       @subs.delete(button).try &.off
+      # Only clear the back-reference if it still points here: a button moved
+      # to another group is `add`ed there first, and this must not orphan it.
+      button.group = nil if button.is_a?(Widget::AbstractButton) && (g = button.group) && g.same?(self)
       @ids.delete button
       @buttons.delete button
     end

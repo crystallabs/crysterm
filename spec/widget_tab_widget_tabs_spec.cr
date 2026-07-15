@@ -28,9 +28,97 @@ describe Crysterm::Widget::TabWidget do
       tabs.tab_titles.should eq ["First", "Second"]
       tabs.pages.should eq [p1, p2]
       tabs.current_index.should eq 0
-      tabs.current_page.should be(p1)
+      tabs.current_widget.should be(p1)
       p1.visible?.should be_true
       p2.visible?.should be_false # only the current page shows
+    end
+  end
+
+  describe "#insert_tab" do
+    it "inserts at an index (clamped) and keeps the current page current" do
+      s = tab_screen
+      tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
+      pa = Crysterm::Widget::Box.new
+      pc = Crysterm::Widget::Box.new
+      tabs.add_tab "A", pa
+      tabs.add_tab "C", pc
+      tabs.next_tab # current => C (index 1)
+
+      pb = Crysterm::Widget::Box.new
+      tabs.insert_tab(1, "B", pb).should eq 1
+      tabs.tab_titles.should eq ["A", "B", "C"]
+      tabs.count.should eq 3
+      # C is still the page on screen; it just moved along by one.
+      tabs.current_widget.should be(pc)
+      tabs.current_index.should eq 2
+      tabs.bar.selected.should eq 2 # and the bar's highlight followed it
+      pb.visible?.should be_false
+
+      tabs.insert_tab(99, "D", Crysterm::Widget::Box.new).should eq 3 # clamped
+      tabs.tab_titles.should eq ["A", "B", "C", "D"]
+    end
+
+    it "makes the first tab inserted current" do
+      s = tab_screen
+      tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
+      p0 = Crysterm::Widget::Box.new
+      tabs.insert_tab 0, "Only", p0
+      tabs.current_index.should eq 0
+      tabs.current_widget.should be(p0)
+      p0.visible?.should be_true
+    end
+  end
+
+  describe "#tab_text / #set_tab_text" do
+    it "reads and rewrites a tab's title, refreshing the bar" do
+      s = tab_screen
+      tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
+      tabs.add_tab "A", Crysterm::Widget::Box.new
+      tabs.add_tab "B", Crysterm::Widget::Box.new
+      tabs.next_tab
+
+      tabs.tab_text(1).should eq "B"
+      tabs.tab_text(9).should be_nil
+      tabs.tab_text(-1).should be_nil # never counts from the end
+
+      tabs.set_tab_text 1, "Bee"
+      tabs.tab_text(1).should eq "Bee"
+      tabs.bar.ritems.should eq ["A", "Bee"]
+      tabs.bar.selected.should eq 1 # rebuild kept the highlight on the current tab
+    end
+  end
+
+  describe "#current_widget=" do
+    it "raises the given page" do
+      s = tab_screen
+      tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
+      p1 = Crysterm::Widget::Box.new
+      p2 = Crysterm::Widget::Box.new
+      tabs.add_tab "A", p1
+      tabs.add_tab "B", p2
+
+      tabs.current_widget = p2
+      tabs.current_index.should eq 1
+      p2.visible?.should be_true
+
+      tabs.current_widget = Crysterm::Widget::Box.new # not ours: no-op
+      tabs.current_index.should eq 1
+    end
+  end
+
+  describe "Event::CurrentChanged" do
+    it "reports every switch, and -1 once the last tab is gone" do
+      s = tab_screen
+      tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
+      seen = [] of Int32
+      tabs.on(Crysterm::Event::CurrentChanged) { |e| seen << e.index }
+
+      tabs.add_tab "A", Crysterm::Widget::Box.new # first page becomes current
+      tabs.add_tab "B", Crysterm::Widget::Box.new
+      tabs.next_tab
+      tabs.remove_tab 1
+      tabs.remove_tab 0 # container now empty
+      seen.should eq [0, 1, 0, -1]
     end
   end
 
@@ -70,7 +158,7 @@ describe Crysterm::Widget::TabWidget do
       removed.should be_true
       tabs.tab_titles.should eq ["B"]
       tabs.pages.should eq [p1]
-      tabs.current_page.should be(p1)
+      tabs.current_widget.should be(p1)
     end
 
     it "returns nil for an out-of-range index" do
@@ -109,12 +197,12 @@ describe Crysterm::Widget::TabWidget do
       tabs.add_tab "B", p1
       tabs.add_tab "C", p2
       tabs.next_tab # current => B (index 1)
-      tabs.current_page.should be(p1)
+      tabs.current_widget.should be(p1)
 
       tabs.move_tab 1, 0 # move B to the front
       tabs.tab_titles.should eq ["B", "A", "C"]
       tabs.pages.should eq [p1, p0, p2]
-      tabs.current_page.should be(p1) # same page stays current, now at index 0
+      tabs.current_widget.should be(p1) # same page stays current, now at index 0
       tabs.current_index.should eq 0
     end
 

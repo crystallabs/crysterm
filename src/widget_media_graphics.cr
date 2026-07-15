@@ -112,13 +112,13 @@ module Crysterm
       # `@last_drawn` and the listener-wrapper ivars (`@listener_screen`,
       # `@ev_prerender`, `@ev_rendered`) come from `Media::ScreenOverlay`.
 
-      # Scratch `LPos` reused by `#content_rect` (called by `#redraw_image`
-      # every `Rendered`, and by `#capture_layer`) to avoid a heap `LPos`
-      # allocation per call (`_get_coords` with no `into:` allocates fresh —
+      # Scratch `RenderedGeometry` reused by `#content_rect` (called by `#redraw_image`
+      # every `Rendered`, and by `#capture_layer`) to avoid a heap `RenderedGeometry`
+      # allocation per call (`coords` with no `into:` allocates fresh —
       # see widget_position.cr:638-641). Each call fully unpacks the result
       # into a plain `Tuple` before returning, so reusing one buffer across
       # calls (even nested ones within the same render pass) is safe.
-      @content_lpos : LPos = LPos.new
+      @content_lpos : RenderedGeometry = RenderedGeometry.new
 
       def initialize(
         @file = nil,
@@ -286,7 +286,7 @@ module Crysterm
       # zero-sized. The shared geometry behind the paint path (`#redraw_image`)
       # and the capture path (`#capture_layer`).
       private def content_rect : Tuple(Int32, Int32, Int32, Int32)?
-        pos = _get_coords(true, into: @content_lpos) || return nil
+        pos = coords(true, into: @content_lpos) || return nil
         xi, yi, cols, rows = overlay_rect pos
         return nil if cols <= 0 || rows <= 0
         # A partially-offscreen widget (negative origin) is not drawable: the
@@ -438,7 +438,7 @@ module Crysterm
         # pass (which skips hidden subtrees naturally), this overlay runs as a
         # standalone `Rendered` listener, so it must also bail when an ANCESTOR
         # is hidden: the widget is then off-window, the hidden ancestor has no
-        # rendered position, and resolving coords against it (`_get_coords(true)`
+        # rendered position, and resolving coords against it (`coords(true)`
         # -> `last_rendered_position`) would raise instead of returning nil,
         # crashing the render-loop fiber. `#visible_in_tree?` walks the parent
         # chain, mirroring the tree-aware visibility `Capture` uses.

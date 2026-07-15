@@ -11,38 +11,83 @@ module Crysterm
     # `QRadioButton` off `QCheckBox`).
     #
     # Holds the shared `QAbstractButton`-level state — `#text`, `#checkable?`,
-    # `#checked?`, `#value` — and the canonical push/toggle behavior
-    # (`#press`/`#toggle`/`#check`/`#uncheck` plus activate-key/click handlers).
+    # `#checked?`, `#group` — and the canonical activate/toggle behavior
+    # (`#click`/`#toggle`/`#check`/`#uncheck` plus activate-key/click handlers).
     # Push-style buttons (`Button`, `ToolButton`) inherit this wholesale; marker
     # controls (`CheckBox`, `RadioButton`) override rendering/toggle and wire
     # their own input via `Mixin::CheckMarker`.
     abstract class AbstractButton < Input
-      # The button's text label (Qt's `QAbstractButton#text`). The marker controls
-      # render it after their `[x]`/`(*)` glyph; the push buttons use `#content`.
-      property text : String = ""
+      # The button's text label (Qt's `QAbstractButton#text`) — the one label
+      # API for the family. The push buttons store it as their `#content` (so
+      # `text:` and `content:` can never disagree); `ToolButton` adds/strips its
+      # `▾` indicator around it, and the marker controls (`Mixin::CheckMarker`)
+      # back it with their own ivar and draw it after the `[x]`/`(*)` glyph.
+      def text : String
+        content
+      end
 
-      # Last activation value: momentarily true during a push `#press`, and the
-      # mirror of `#checked?` for the checkable controls.
-      property value : Bool = false
+      # :ditto:
+      def text=(value : String) : String
+        set_content value
+        request_render
+        value
+      end
 
       # Whether the button keeps a sticky checked state rather than acting as a
       # momentary push button (Qt's `QAbstractButton#checkable`). The marker
       # controls set this true (they are inherently checkable).
-      property? checkable : Bool = false
+      getter? checkable : Bool = false
+
+      # Sets checkability (Qt's `setCheckable`), re-cascading (`:checked` only
+      # ever matches a checkable button) and repainting on a real change. A bare
+      # `property?` setter only assigned the ivar, so neither happened.
+      def checkable=(value : Bool) : Bool
+        return value if value == @checkable
+        # Uncheck *before* dropping checkability: `#uncheck` is gated on
+        # `#checkable?`, and a button left `checked?` while no longer checkable
+        # would keep matching `:checked` with no way to clear it.
+        uncheck unless value
+        @checkable = value
+        invalidate_css
+        request_render
+        value
+      end
 
       # Current toggle state; only meaningful when `#checkable?`
       # (Qt's `QAbstractButton#checked`).
-      property? checked : Bool = false
+      getter? checked : Bool = false
 
-      def initialize(checkable : Bool = false, checked : Bool = false, **input)
+      # Sets the checked state (Qt's `setChecked`), routing through
+      # `#check`/`#uncheck` so the re-cascade, the `Event::Check`/`UnCheck` emit
+      # and the repaint all happen. A bare `property?` setter only assigned the
+      # ivar, leaving `:checked` selectors and the painted marker stale. No-op
+      # unless `#checkable?`, hence the honest `#checked?` return.
+      def checked=(value : Bool) : Bool
+        value ? check : uncheck
+        @checked
+      end
+
+      # The `ButtonGroup` this button belongs to, or `nil` (Qt's
+      # `QAbstractButton#group`). A `RadioButton` grouped by containment under a
+      # `Widget::RadioSet` has no `ButtonGroup` and reports `nil` — see
+      # `RadioSet#checked_button` for that model's counterpart.
+      getter group : ::Crysterm::ButtonGroup?
+
+      # :nodoc:
+      # Assigned by `ButtonGroup#add` / cleared by `#remove`; not a user knob
+      # (membership is owned by the group, and assigning here would leave the
+      # group's own list out of sync).
+      setter group
+
+      def initialize(text : String? = nil, checkable : Bool = false, checked : Bool = false, **input)
         super **input
         @checkable = checkable
         @checked = checked
-        # `#value` mirrors `#checked?` for a checkable control, so a control
-        # constructed pre-checked must start with `value == true` (not the
-        # default `false`). `#toggle`/`#set_checked` keep them in sync after;
-        # the marker controls re-set it in `#setup_marker_control`.
-        @value = checked
+
+        # `text:` is the family-level spelling of `content:`; assigning it after
+        # `super` routes through the subclass's `#text=`, so each renders it the
+        # way it renders any other label.
+        text.try { |t| self.text = t }
 
         # Activate-key wiring is shared by the whole family (push buttons and the
         # marker controls both activate on Space/Enter), so it lives here rather
@@ -53,19 +98,17 @@ module Crysterm
         handle Crysterm::Event::KeyPress
       end
 
-      # Activates the button: focuses it (unless `#focus_on_click?` is off),
-      # emits `Event::Press`, and toggles the checked state when `#checkable?`.
+      # Activates the button (Qt's `QAbstractButton#click`): focuses it (unless
+      # `#focus_on_click?` is off), emits `Event::Press`, and toggles the checked
+      # state when `#checkable?`.
       #
-      # A keyboard press already has focus, so gating on `#focus_on_click?` only
-      # suppresses mouse-click focus theft — letting a dialog button opt out
+      # A keyboard activation already has focus, so gating on `#focus_on_click?`
+      # only suppresses mouse-click focus theft — letting a dialog button opt out
       # (`focus_on_click: false`) so a click doesn't pull focus off a live read
       # (e.g. a `Prompt`'s `LineEdit`), which would end the read as a cancel.
-      def press
+      def click
         focus if focus_on_click?
-        @value = true
         emit Crysterm::Event::Press
-        @value = false
-
         toggle if checkable?
       end
 
@@ -74,8 +117,7 @@ module Crysterm
       def toggle
         return unless checkable?
         @checked = !@checked
-        @value = @checked # `#value` mirrors `#checked?` for a checkable control
-        invalidate_css    # `checked` attribute selector may now match/unmatch
+        invalidate_css # `checked` attribute selector may now match/unmatch
         if @checked
           emit Crysterm::Event::Check, @checked
         else
@@ -98,14 +140,12 @@ module Crysterm
       private def clear_partial : Nil
       end
 
-      # Settles `#checked?` (and its `#value` mirror) to *to*, clearing any
-      # partial state and re-cascading. The identical body of `#check`/
-      # `#uncheck`, which differ only in the settle-guard and the emitted
-      # event around this.
+      # Settles `#checked?` to *to*, clearing any partial state and re-cascading.
+      # The identical body of `#check`/`#uncheck`, which differ only in the
+      # settle-guard and the emitted event around this.
       private def set_checked(to : Bool) : Nil
         @checked = to
         clear_partial
-        @value = to # `#value` mirrors `#checked?` for a checkable control
         invalidate_css
       end
 
@@ -139,11 +179,11 @@ module Crysterm
       end
 
       # The keyboard activation gesture, invoked by `#on_keypress` on Space/Enter.
-      # A push button `#press`es; the marker controls (`CheckBox`/`RadioButton`)
+      # A push button `#click`s; the marker controls (`CheckBox`/`RadioButton`)
       # override this via `Mixin::CheckMarker` to `#toggle` instead, so one
       # `#on_keypress` serves the whole family.
       protected def activate
-        press
+        click
       end
 
       def on_keypress(e)
@@ -154,7 +194,7 @@ module Crysterm
       end
 
       def on_click(e)
-        press
+        click
       end
     end
   end

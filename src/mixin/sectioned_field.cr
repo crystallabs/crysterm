@@ -152,12 +152,12 @@ module Crysterm
       end
 
       # Commits a changed value: repaints (highlighting the active section),
-      # emits `Event::DateChange` carrying *value*, and requests a render. Each
+      # emits `Event::DateChanged` carrying *value*, and requests a render. Each
       # editor's value setter calls this after storing the new value, replacing
       # the identical update/emit/render trio they otherwise repeat.
       protected def commit_value(value : Time) : Nil
         update_content
-        emit Crysterm::Event::DateChange, value
+        emit Crysterm::Event::DateChanged, value
         request_render
       end
 

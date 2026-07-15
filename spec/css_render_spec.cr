@@ -130,7 +130,7 @@ describe "CSS end-to-end rendering" do
     screen = render_screen
     list = Widget::List.new parent: screen, top: 0, left: 0, width: 20, height: 6,
       items: ["one", "two", "three"]
-    list.selekt(1)
+    list.select_index(1)
     screen.stylesheet = "List { selection-background-color: #ff00ff; }"
     screen._render
 

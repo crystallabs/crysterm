@@ -22,7 +22,7 @@ list = Widget::List.new \
 
 progress = Widget::ProgressBar.new \
   parent: s, top: 1, left: 23, width: 32, height: 3,
-  content: "{center}Download{/center}", parse_tags: true, filled: 0,
+  content: "{center}Download{/center}", parse_tags: true, percent: 0,
   style: Style.new(fg: "green", bg: "#303030", border: true)
 
 cb1 = Widget::Checkbox.new parent: s, top: 5, left: 24, content: "Enable feature A"
@@ -49,8 +49,8 @@ bigtext = Widget::BigText.new \
 typed = "release-1.0.tar.gz"
 i = 0
 s.every(0.12.seconds) do
-  progress.filled += 4
-  progress.filled = 0 if progress.filled > 100
+  progress.percent += 4
+  progress.percent = 0 if progress.percent > 100
   cb1.toggle if i % 7 == 0
   cb2.toggle if i % 11 == 0
   cb3.toggle if i % 5 == 0

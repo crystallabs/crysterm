@@ -87,7 +87,7 @@ describe Crysterm::SidedGeometry do
   describe "#adjust (in place)" do
     it "mutates the passed position by the per-side amounts" do
       m = Margin.new 1, 2, 3, 4
-      pos = LPos.new xi: 10, xl: 20, yi: 30, yl: 40
+      pos = RenderedGeometry.new xi: 10, xl: 20, yi: 30, yl: 40
       m.adjust(pos, 1)
       {pos.xi, pos.xl, pos.yi, pos.yl}.should eq({11, 17, 32, 36})
     end

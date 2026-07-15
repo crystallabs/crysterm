@@ -34,7 +34,7 @@ module Crysterm
       @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button(top: 5, left: 2, width: 6)
       @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button(top: 5, left: 10, width: 8)
 
-      def initialize(secret = nil, censor = nil, placeholder = nil, validator = nil, **box)
+      def initialize(echo_mode : LineEdit::EchoMode? = nil, placeholder_text = nil, validator = nil, **box)
         box["content"]?.try do |c|
           @text = c
         end
@@ -46,11 +46,11 @@ module Crysterm
         # frame and, with several dialogs sharing a window, they stack up.
         hide
 
-        # Echo mode (Qt `QLineEdit::EchoMode`): hide the text entirely (`secret`)
-        # or mask it with `*` (`censor`), plus an optional placeholder.
-        secret.try { |v| @textinput.secret = v }
-        censor.try { |v| @textinput.censor = v }
-        placeholder.try { |v| @textinput.placeholder = v }
+        # Echo mode (`LineEdit::EchoMode`, Qt's `QLineEdit::EchoMode`): hide the
+        # text entirely (`NoEcho`) or mask it (`Password`), plus an optional
+        # placeholder.
+        echo_mode.try { |v| @textinput.echo_mode = v }
+        placeholder_text.try { |v| @textinput.placeholder_text = v }
         @validator = validator
 
         append @textinput
@@ -58,9 +58,15 @@ module Crysterm
         append @cancel
       end
 
+      # Prompts with *text* (starting the field at *value*) and delivers the
+      # entered string — or `nil` when cancelled — to *callback*. Block-based
+      # sugar over the `Dialog` result protocol: a submitted value closes with
+      # `Code::Accepted` (`Event::Accepted`), a cancel with `Code::Rejected`
+      # (`Event::Rejected`); `Event::Finished` follows either way.
       def read_input(text = nil, value = "", &callback : Proc(String?, String?, Nil))
         set_content text || @text
         show
+        @result = Code::Rejected.to_i
 
         @textinput.value = value
 
@@ -72,9 +78,12 @@ module Crysterm
         #  done.call nil, e.key == Tput::Key::Enter
         # end
 
-        ev_ok = @ok.on ::Crysterm::Event::Press, ->on_press_ok(::Crysterm::Event::Press)
+        # The buttons are just the two dialog gestures (which drive the embedded
+        # field — see `#accept`/`#reject`), so they wire straight to them rather
+        # than to a pair of near-identical relay methods.
+        ev_ok = @ok.on(::Crysterm::Event::Press) { accept }
 
-        ev_cancel = @cancel.on ::Crysterm::Event::Press, ->on_press_cancel(::Crysterm::Event::Press)
+        ev_cancel = @cancel.on(::Crysterm::Event::Press) { reject }
 
         # Self-referential reader so a rejected (invalid) submit can re-arm the
         # input without closing the dialog.
@@ -89,6 +98,10 @@ module Crysterm
             end
 
             teardown_ok_cancel ev_ok, ev_cancel
+            # Record the outcome and signal it (`Accepted`/`Rejected` +
+            # `Finished`) before the callback runs, so both see the same
+            # `#result`.
+            done(data ? Code::Accepted : Code::Rejected)
 
             callback.try do |c|
               c.call err, data
@@ -100,11 +113,17 @@ module Crysterm
         request_render
       end
 
-      def on_press_ok(e)
+      # The affirmative gesture submits the embedded field rather than closing
+      # outright: the field's own read callback is what carries the entered
+      # value (and runs the `#validator`), and it closes the dialog through
+      # `Dialog#done` from there. Closing here directly would discard the text.
+      def accept : Nil
         @textinput.submit
       end
 
-      def on_press_cancel(e)
+      # :ditto: the negative gesture cancels the field, whose read callback then
+      # closes the dialog with `Code::Rejected`.
+      def reject : Nil
         @textinput.cancel
       end
     end

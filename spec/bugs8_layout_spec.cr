@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression specs for the BUGS8 Box-layout margin fixes. The render pipeline
-# shifts every laid child outward by its near margin (`_get_coords`), and a
+# shifts every laid child outward by its near margin (`coords`), and a
 # Box-assigned size is a fixed `Int32` that never folds its margin in (unlike an
 # auto fill). The `Box`/HBox/VBox engine referenced child margins nowhere, so a
 # margined child overflowed (Stretch cross axis) or overlapped its siblings

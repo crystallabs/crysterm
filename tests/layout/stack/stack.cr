@@ -10,7 +10,7 @@ Crysterm::WidgetExample.run "Stack" do |screen|
   # All three children occupy the full area; only `current` is shown.
   container = Crysterm::Widget::Box.new \
     parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-    layout: Crysterm::Layout::Stack.new(current: 1), overflow: :ignore
+    layout: Crysterm::Layout::Stack.new(current_index: 1), overflow: :ignore
   3.times do |i|
     Crysterm::Widget::Box.new parent: container,
       content: "{center}page #{i + 1} of 3\n\n(Stack shows current = 1){/center}", parse_tags: true

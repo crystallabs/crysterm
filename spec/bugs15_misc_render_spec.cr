@@ -51,7 +51,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
     bar = Widget::ListBar.new parent: s
     bar.auto_prefix = false # isolate the label's own width from the "N:" prefix
     label = "ファイル"          # 4 codepoints, 8 display columns (East-Asian wide)
-    bar.add label
+    bar.add_item label
 
     cmd = bar.commands.first
     cmd.width.should eq Crysterm::Unicode.display_width(label) + 2
@@ -66,7 +66,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
     bar = Widget::ListBar.new parent: s
     bar.auto_prefix = false
     label = "ファイル"
-    bar.add label
+    bar.add_item label
 
     cmd = bar.commands.first
     cmd.width.should eq label.size + 2
@@ -76,7 +76,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
     s = sized_screen(40, 3, force_unicode: true, full_unicode: true)
     bar = Widget::ListBar.new parent: s
     bar.auto_prefix = false
-    bar.add "a"
+    bar.add_item "a"
     bar.add_separator "日"
 
     sep = bar.commands.last

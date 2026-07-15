@@ -23,7 +23,7 @@ describe "Mixin::ActionBar#render content origin" do
     s = abp_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
-    bar.set_items ["a", "b", "c"]
+    bar.items = ["a", "b", "c"]
     s._render
 
     bar.ileft.should eq 4
@@ -37,7 +37,7 @@ describe "Mixin::ActionBar#render content origin" do
     s = abp_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
-    bar.set_items ["a", "b"]
+    bar.items = ["a", "b"]
     s._render
 
     a = bar.items[0]

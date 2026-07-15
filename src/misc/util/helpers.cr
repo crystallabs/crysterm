@@ -1,9 +1,9 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-    # Sorts array numerically by property 'index'
+    # Sorts array numerically by property 'render_index'
     def hsort(obj)
-      obj.sort_by! { |item| -item.index }
+      obj.sort_by! { |item| -item.render_index }
     end
 
     # Finds a file with name 'target' inside toplevel directory 'start'.
@@ -82,7 +82,7 @@ module Crysterm
     # Combined {...}-tag + SGR-sequence regex, built once.
     #
     # Held as a constant so it compiles once rather than on every `clean_tags`
-    # call (which runs per-item in e.g. `List#get_item_index`): an
+    # call (which runs per-item in e.g. `List#index_of`): an
     # interpolated `#{...}` regex, unlike a regex literal, recompiles on each
     # evaluation.
     CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/

@@ -79,7 +79,7 @@ filemenu.add("Open") { status.show_message " open file"; s.render }
 # Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
 bucket = Action.new "Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
-filemenu.add_menu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
+filemenu.add_submenu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
 filemenu.add("Quit") { s.destroy; exit }
 
@@ -94,7 +94,7 @@ menubar.add_menu("Help").add("About") { status.show_message " Crysterm — Qt-in
 # --- Tool bar (action buttons) -----------------------------------------------
 
 toolbar = Widget::ToolBar.new
-win.tool_bar = toolbar
+win.add_tool_bar toolbar
 toolbar.add_button("New") { status.show_message " new file"; s.render }
 toolbar.add_button("Open") { status.show_message " open file"; s.render }
 toolbar.add_separator
@@ -215,10 +215,10 @@ dspin = Widget::DoubleSpinBox.new \
   parent: datespage, top: 7, left: 9, width: 10, height: 1,
   minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25
 
-dateedit.on(Event::DateChange) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}"; s.render }
-timeedit.on(Event::DateChange) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}"; s.render }
-dtedit.on(Event::DateChange) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}"; s.render }
-dspin.on(Event::DoubleValueChange) { |e| status.show_message " ratio: #{e.value}"; s.render }
+dateedit.on(Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}"; s.render }
+timeedit.on(Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}"; s.render }
+dtedit.on(Event::DateChanged) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}"; s.render }
+dspin.on(Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value}"; s.render }
 
 # A standalone Calendar (QCalendarWidget): the nav bar pages months (‹/›),
 # pops up a month menu (click name) and year menu (click year), with ISO week
@@ -226,8 +226,8 @@ dspin.on(Event::DoubleValueChange) { |e| status.show_message " ratio: #{e.value}
 cal = Widget::Calendar.new \
   parent: datespage, top: 1, left: 30, width: 25, height: 10
 cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
-cal.on(Event::DateChange) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}"; s.render }
-cal.on(Event::CurrentPageChange) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}"; s.render }
+cal.on(Event::DateChanged) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}"; s.render }
+cal.on(Event::CurrentPageChanged) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}"; s.render }
 
 Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
   content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it."
@@ -359,9 +359,9 @@ update = -> do
 end
 
 combo.on(Event::Action) { update.call }
-slider.on(Event::ValueChange) { lcd.display slider.value; update.call }
-spin.on(Event::ValueChange) { update.call }
-dial.on(Event::ValueChange) { update.call }
+slider.on(Event::ValueChanged) { lcd.display slider.value; update.call }
+spin.on(Event::ValueChanged) { update.call }
+dial.on(Event::ValueChanged) { update.call }
 update.call
 
 stack.pages.each do |page|

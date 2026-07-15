@@ -1,6 +1,6 @@
 module Crysterm
   module Reactive
-    # A granular list mutation, carried by `Event::ListChange`.
+    # A granular list mutation, carried by `Event::ListChanged`.
     #
     # * `Insert` — `count` items were inserted starting at `index`.
     # * `Remove` — `count` items were removed starting at `index`.
@@ -22,7 +22,7 @@ module Crysterm
     end
 
     # An observable, ordered collection. Mutating it emits a *granular*
-    # `Event::ListChange` describing exactly what changed, so a bound item view
+    # `Event::ListChanged` describing exactly what changed, so a bound item view
     # (`Reactive.bind_items`) patches the affected rows instead of rebuilding the
     # whole list. `T` is the element type — arbitrary application data; a render
     # block maps each element to display text at bind time.
@@ -81,7 +81,7 @@ module Crysterm
         @array.last?
       end
 
-      # --- mutations (each emits one ListChange) ---
+      # --- mutations (each emits one ListChanged) ---
 
       # Appends *item* to the end.
       def push(item : T) : self
@@ -185,7 +185,7 @@ module Crysterm
       end
 
       private def emit_change(op : ListOp, index : Int32, count : Int32) : Nil
-        emit ::Crysterm::Event::ListChange, op, index, count
+        emit ::Crysterm::Event::ListChanged, op, index, count
       end
     end
   end

@@ -48,7 +48,7 @@ describe "BUGS13 T7 detaching a highlighter cleans the old document" do
     doc.blocks[0].user_state = 5 # a stored multi-line state
 
     pokes = 0
-    doc.on(Crysterm::Event::ContentsChange) { |_e| pokes += 1 }
+    doc.on(Crysterm::Event::ContentsChanged) { |_e| pokes += 1 }
     hl.document = nil
 
     hl.document.should be_nil
@@ -74,7 +74,7 @@ describe "BUGS13 T7 detaching a highlighter cleans the old document" do
     doc = Crysterm::TextDocument.new("plain")
     hl = T13DigitHighlighter.new(doc)
     pokes = 0
-    doc.on(Crysterm::Event::ContentsChange) { |_e| pokes += 1 }
+    doc.on(Crysterm::Event::ContentsChanged) { |_e| pokes += 1 }
     hl.document = nil
     pokes.should eq 0
   end

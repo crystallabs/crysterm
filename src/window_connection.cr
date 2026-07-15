@@ -251,8 +251,9 @@ module Crysterm
 
     # Spawns a fiber that watches the window's rendezvous socket: routes
     # `WINCH` notifications to a resize, and treats socket EOF as "window was
-    # closed". On close it emits `Event::WindowClosed` and disconnects, leaving
-    # the screen alive for the handler to reattach or destroy.
+    # closed". On close it emits `Event::WindowClosed` (carrying this `Window`,
+    # exactly as `#close` does) and disconnects, leaving the `Window` object
+    # alive for the handler to reattach or destroy.
     private def start_window_watcher : Nil
       win = @window
       return unless win

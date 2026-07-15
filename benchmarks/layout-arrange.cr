@@ -39,7 +39,7 @@ cases = {
   "hbox"   => make(Layout::HBox.new(gap: 1)) { |b| plain_children b },
   "vbox"   => make(Layout::VBox.new(gap: 1)) { |b| plain_children b },
   "grid"   => make(Layout::Grid.new(columns: 4)) { |b|
-    Widget::Box.new parent: b, layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)
+    Widget::Box.new parent: b, layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
     (N - 1).times { Widget::Box.new parent: b }
   },
   "masonry" => make(Layout::Masonry.new) { |b| plain_children b },

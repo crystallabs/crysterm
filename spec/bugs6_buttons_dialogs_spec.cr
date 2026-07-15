@@ -9,7 +9,7 @@ include Crysterm
 #     `focus_on_click: false` opt-out. On a mouse click of a dialog button (built
 #     with `focus_on_click: false`) this stole focus off a live `LineEdit` read,
 #     whose read-time Blur handler ended the read as a cancel — so clicking
-#     "Okay" on a `Prompt` discarded the typed text and behaved like Cancel.
+#     "OK" on a `Prompt` discarded the typed text and behaved like Cancel.
 #     `#press` now focuses only when `#focus_on_click?`.
 #
 #  BUG 2 (doc fix in src/widget/button.cr): `getter? default` was documented as
@@ -48,7 +48,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     a.focus
     a.focused?.should be_true
 
-    b.on_click nil # simulate a mouse click -> #press
+    b.on_click nil # simulate a mouse click -> #click
 
     # b opted out of click-to-focus, so pressing it must leave focus on a.
     a.focused?.should be_true
@@ -61,13 +61,13 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     c = Crysterm::Widget::Button.new parent: s, top: 1, content: "C" # default true
 
     a.focus
-    c.on_click nil # simulate a mouse click -> #press
+    c.on_click nil # simulate a mouse click -> #click
 
     c.focused?.should be_true
     a.focused?.should be_false
   end
 
-  it "clicking Okay on a Prompt submits the typed text instead of cancelling" do
+  it "clicking OK on a Prompt submits the typed text instead of cancelling" do
     s = bugs6_screen
     prompt = Crysterm::Widget::Prompt.new parent: s, content: "Name?"
 
@@ -82,10 +82,10 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     "hi".each_char { |ch| prompt.textinput.emit keypress(ch) }
 
     ok = prompt.children.find! do |c|
-      c.is_a?(Crysterm::Widget::Button) && c.content == "Okay"
+      c.is_a?(Crysterm::Widget::Button) && c.content == "OK"
     end.as(Crysterm::Widget::Button)
 
-    ok.on_click nil # mouse-click the Okay button
+    ok.on_click nil # mouse-click the OK button
 
     called.should be_true
     got_data.should eq "hi" # submitted value, NOT nil (cancel)

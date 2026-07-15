@@ -7,8 +7,8 @@ module Crysterm
     # Picks an integer `#value` within `[#minimum, #maximum]`; the value is shown
     # as a compass-style pointer that sweeps around as it changes (plus the number
     # itself when `#show_value?`). Arrow keys / the mouse wheel rotate it by
-    # `#step`, Page Up/Down by `#page_step`, and `#wrap?` rolls over at the ends.
-    # Emits `Event::ValueChange` on every change.
+    # `#step`, Page Up/Down by `#page_step`, and `#wrapping?` rolls over at the ends.
+    # Emits `Event::ValueChanged` on every change.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Dial screenshot](../../tests/widget/dial/dial.5s.apng)
@@ -29,13 +29,13 @@ module Crysterm
         @maximum = 100,
         @step = 1,
         @page_step = 10,
-        wrap = false,
+        wrapping = false,
         @show_value = true,
         **input,
       )
         super **input
 
-        @wrap = wrap
+        @wrapping = wrapping
         # Guarded range+value init: never store an inverted range (which would
         # leave `#value` stuck after `clamp`). Shared with `Slider`/`ScrollBar`.
         init_range @minimum, @maximum, value
@@ -76,7 +76,7 @@ module Crysterm
         # across the arc between the eight directions: `frac * (size - 1)` lands
         # the maximum on the last glyph (`↖`). An unconditional `* size` here
         # would show `↑` at both ends and could skip an in-between direction.
-        steps = wrap? ? ring.size : ring.size - 1
+        steps = wrapping? ? ring.size : ring.size - 1
         ring[(frac * steps).round.to_i % ring.size]
       end
 

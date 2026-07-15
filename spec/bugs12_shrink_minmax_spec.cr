@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # BUGS12 #16 — `min_width`/`max_width` (and height) constraints were ignored for
-# `resizable` (shrink-to-content) widgets: `clamp_awidth`/`clamp_aheight` run
-# only inside `awidth`/`aheight`, and `_get_coords`' `resizable?` branch
-# overwrote the rectangle from `_minimal_rectangle` without re-clamping, so the
+# `shrink_to_fit` (shrink-to-content) widgets: `clamp_awidth`/`clamp_aheight` run
+# only inside `awidth`/`aheight`, and `coords`' `shrink_to_fit?` branch
+# overwrote the rectangle from `minimal_rectangle` without re-clamping, so the
 # content-derived size bypassed the constraints entirely. The re-clamp must
 # respect the anchored edge: a right/bottom-anchored shrink keeps its far edge
 # and moves `xi`/`yi`; every other anchoring keeps the near edge.
@@ -23,9 +23,9 @@ private def rendered_rect(widget, s)
 end
 
 describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
-  it "caps a left-anchored resizable widget's content-derived width at max_width" do
+  it "caps a left-anchored shrink_to_fit widget's content-derived width at max_width" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "x" * 30
     b.max_width = 12
     xi, xl, _, _ = rendered_rect(b, s)
@@ -33,16 +33,16 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (xl - xi).should eq 12
   end
 
-  it "caps a right-anchored resizable widget's width by moving xi, keeping xl" do
+  it "caps a right-anchored shrink_to_fit widget's width by moving xi, keeping xl" do
     s = headless_screen
     # Unconstrained reference: shrink keeps the far (right) edge.
-    r0 = Widget::Box.new parent: s, top: 0, right: 0, resizable: true,
+    r0 = Widget::Box.new parent: s, top: 0, right: 0, shrink_to_fit: true,
       content: "x" * 30
     xi0, xl0, _, _ = rendered_rect(r0, s)
     (xl0 - xi0).should eq 30
 
     s2 = headless_screen
-    b = Widget::Box.new parent: s2, top: 0, right: 0, resizable: true,
+    b = Widget::Box.new parent: s2, top: 0, right: 0, shrink_to_fit: true,
       content: "x" * 30
     b.max_width = 12
     xi, xl, _, _ = rendered_rect(b, s2)
@@ -50,9 +50,9 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (xl - xi).should eq 12
   end
 
-  it "expands a resizable widget's content-derived width up to min_width" do
+  it "expands a shrink_to_fit widget's content-derived width up to min_width" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "hi"
     b.min_width = 15
     xi, xl, _, _ = rendered_rect(b, s)
@@ -60,9 +60,9 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (xl - xi).should eq 15
   end
 
-  it "caps a top-anchored resizable widget's content-derived height at max_height" do
+  it "caps a top-anchored shrink_to_fit widget's content-derived height at max_height" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
     _, _, yi, yl = rendered_rect(b, s)
@@ -70,15 +70,15 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (yl - yi).should eq 3
   end
 
-  it "caps a bottom-anchored resizable widget's height by moving yi, keeping yl" do
+  it "caps a bottom-anchored shrink_to_fit widget's height by moving yi, keeping yl" do
     s = headless_screen
-    r0 = Widget::Box.new parent: s, left: 0, bottom: 0, resizable: true,
+    r0 = Widget::Box.new parent: s, left: 0, bottom: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     _, _, yi0, yl0 = rendered_rect(r0, s)
     (yl0 - yi0).should eq 6
 
     s2 = headless_screen
-    b = Widget::Box.new parent: s2, left: 0, bottom: 0, resizable: true,
+    b = Widget::Box.new parent: s2, left: 0, bottom: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
     _, _, yi, yl = rendered_rect(b, s2)
@@ -86,9 +86,9 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (yl - yi).should eq 3
   end
 
-  it "expands a resizable widget's content-derived height up to min_height" do
+  it "expands a shrink_to_fit widget's content-derived height up to min_height" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "one line"
     b.min_height = 5
     _, _, yi, yl = rendered_rect(b, s)
@@ -98,7 +98,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
 
   it "clamps each axis independently (fixed width, shrunk height)" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
     xi, xl, yi, yl = rendered_rect(b, s)
@@ -106,16 +106,16 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
     (yl - yi).should eq 3
   end
 
-  it "leaves an unconstrained resizable widget's shrink result unchanged" do
+  it "leaves an unconstrained shrink_to_fit widget's shrink result unchanged" do
     s = headless_screen
-    b = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "x" * 30
     xi, xl, yi, yl = rendered_rect(b, s)
     (xl - xi).should eq 30
     (yl - yi).should eq 1
   end
 
-  it "leaves a non-resizable widget's clamped size unchanged" do
+  it "leaves a non-shrink_to_fit widget's clamped size unchanged" do
     s = headless_screen
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 30,
       content: "x" * 30

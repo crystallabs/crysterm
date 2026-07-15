@@ -63,14 +63,14 @@ module Crysterm
         v
       end
 
-      # Call-style read, for symmetry with `#set`.
-      def get : T
+      # Reads the current value *without* tracking, i.e. without registering the
+      # running `Effect`/`Computed` as a dependent — the deliberate counterpart
+      # to `#value`, and the reason both exist. Use it wherever a read must not
+      # create a dependency: notably a setter's own change guard (see
+      # `reactive_property` in `src/macros.cr`), which would otherwise make an
+      # effect that writes a property depend on that property and re-run itself.
+      def peek : T
         @value
-      end
-
-      # Call-style write. Returns *v*.
-      def set(v : T) : T
-        self.value = v
       end
 
       # Replaces the value with the result of applying *block* to it. Convenience

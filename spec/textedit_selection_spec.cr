@@ -114,7 +114,7 @@ describe Widget::TextEdit do
 
     te._listener ctl(::Tput::Key::Left) # collapse to selection start
     te.cursor_pos.should eq 0
-    te.has_selection?.should be_false
+    te.selection?.should be_false
   end
 
   it "applies a ranged ExtraSelection as a format overlay" do

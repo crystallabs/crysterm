@@ -17,7 +17,7 @@ module Crysterm
     #
     # Layout is a per-block wrap cache: each `TextBlock` wraps independently
     # into display rows (reusing `Widget#_wrap_content`), invalidated by the
-    # document's `ContentsChange` for only the touched blocks, so edits stay
+    # document's `ContentsChanged` for only the touched blocks, so edits stay
     # O(block), not O(document). The assembled rows fill `@_clines` — the same
     # structure the shared caret/selection geometry already reads — while
     # `@_pcontent` stays empty: the base `_render` paints only background/
@@ -118,7 +118,7 @@ module Crysterm
       # Per-block wrap cache, keyed by `TextBlock` identity: each entry is the
       # standalone `CLines` `#wrap_block` produced for that block under the
       # current `@layout_key`, wrapped at `colwidth - deco` (see
-      # `BlockLayout`). `ContentsChange` deletes the touched blocks' entries;
+      # `BlockLayout`). `ContentsChanged` deletes the touched blocks' entries;
       # `#rebuild_layout` rebuilds misses (and deco-width mismatches) and
       # drops entries whose blocks left the document (via the swap-hash
       # sweep).
@@ -134,7 +134,7 @@ module Crysterm
       # invalidates every block (a width change re-wraps everything).
       @layout_key : Tuple(Int32, Int32, Bool, Int32)? = nil
 
-      # Bumped on every document `ContentsChange`; `@layout_revision` is the
+      # Bumped on every document `ContentsChanged`; `@layout_revision` is the
       # revision `@_clines` was assembled at, `@rendered_revision` the one the
       # caret-following scroll last ran for.
       @doc_revision = 0
@@ -180,7 +180,7 @@ module Crysterm
       end
 
       private def wire_document : Nil
-        @ev_contents_change = document.on(Crysterm::Event::ContentsChange) do |e|
+        @ev_contents_change = document.on(Crysterm::Event::ContentsChanged) do |e|
           on_contents_change(e.position, e.chars_removed, e.chars_added, e.kind)
         end
       end
@@ -220,7 +220,7 @@ module Crysterm
       # relayout happened (base contract).
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
-        colwidth = (awidth_hint || awidth) - iwidth
+        colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
         if key == @layout_key && @layout_revision == @doc_revision && !@_clines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
@@ -860,7 +860,7 @@ module Crysterm
         full_fmt = nil
         @extra_selections.each do |xs|
           c = xs.cursor
-          if c.has_selection?
+          if c.selection?
             s = Math.max(c.selection_start, row_start)
             e = Math.min(c.selection_end, row_end)
             next if s >= e
@@ -962,7 +962,7 @@ module Crysterm
           # joining it into the previous block. Both are plain block-format
           # changes — one undo step, text untouched.
           empty_item_exit = k == Tput::Key::Enter && caret_block_empty_list_item?
-          if !has_selection? && (empty_item_exit ||
+          if !selection? && (empty_item_exit ||
              ((k == Tput::Key::Backspace || k == Tput::Key::CtrlH) && caret_at_list_item_start?))
             e.accept
             kill_ring.interrupt if Crysterm::Config.input_readline_keys
@@ -1028,7 +1028,7 @@ module Crysterm
         ensure
           document.end_edit_block
         end
-        emit Crysterm::Event::TextChange, buf_text
+        emit Crysterm::Event::TextChanged, buf_text
         request_render
         _update_cursor
       end
@@ -1067,7 +1067,7 @@ module Crysterm
 
         tbl = caret_table
         if tbl.nil?
-          if has_selection?
+          if selection?
             return false unless selection_touches_table?
             e.accept
             kill_ring.interrupt if Crysterm::Config.input_readline_keys
@@ -1092,7 +1092,7 @@ module Crysterm
         kill_ring.interrupt if Crysterm::Config.input_readline_keys
         # A selection inside/into a table: content edits are absorbed (copy
         # via C-c still passes — it is not an editing key).
-        return true if has_selection?
+        return true if selection?
 
         info = tbl.cell_at(@cursor_pos)
         before = buf_text
@@ -1112,7 +1112,7 @@ module Crysterm
           # Kill/yank/cut/paste inside a table: absorbed.
         end
         after = buf_text
-        emit Crysterm::Event::TextChange, after if after != before
+        emit Crysterm::Event::TextChanged, after if after != before
         request_render
         _update_cursor
         true
@@ -1221,7 +1221,7 @@ module Crysterm
       # `setTextCursor`).
       def text_cursor=(c : TextCursor)
         @cursor_pos = c.position.clamp(0, buf_size)
-        @selection_anchor = c.has_selection? ? c.anchor.clamp(0, buf_size) : nil
+        @selection_anchor = c.selection? ? c.anchor.clamp(0, buf_size) : nil
         @goal_col = nil
         mark_dirty
         request_render if window?
@@ -1246,7 +1246,7 @@ module Crysterm
 
       # Replaces the selection's char format (undoable), or the typing format
       # when nothing is selected (Qt `setCurrentCharFormat`).
-      def set_current_char_format(fmt : TextCharFormat) : Nil
+      def current_char_format=(fmt : TextCharFormat) : Nil
         if r = selection_range
           document.apply_char_format(r.begin, r.end, fmt)
           edit_cursor.set_position(r.end)
@@ -1259,7 +1259,7 @@ module Crysterm
       # Phase 3). Each set replaces the document content wholesale — not
       # undoable, caret to the start (Qt behavior; contrast `#value=`, whose
       # plain-text convention parks the caret at the end). The document's
-      # `ContentsChange` drives relayout, so no display work happens here. ===
+      # `ContentsChanged` drives relayout, so no display work happens here. ===
 
       {% for f in %w(tags markdown html) %}
         # Replaces the content from {{f.id}} markup (see `TextDocument#set_{{f.id}}`).

@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression spec for the BUGS4 menu fix: clicking a separator row must not
 # activate an adjacent action. A click lands on the *raw* row index and (for a
-# menu, which activates on click) called `enter_selected(i)`; `selekt` then
+# menu, which activates on click) called `enter_selected(i)`; `select_index` then
 # `#skip_separators` off the divider onto a neighbor, whose `ActionItem` fired
 # `activate_index`. `Menu#enter_selected(i)` now ignores separator rows.
 

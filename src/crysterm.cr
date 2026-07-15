@@ -51,6 +51,7 @@ require "pnggif"
 require "./mixin/*"
 
 require "./action"
+require "./action_group"
 
 require "./cursor"
 

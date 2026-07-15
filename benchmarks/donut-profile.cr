@@ -21,7 +21,7 @@ def run(label, opt)
     style: Style.new(fg: "white", bg: "#101820", border: true)
   gl = Widget::GaugeList.new parent: s, top: 0, left: 42, width: 34, height: 11,
     style: Style.new(fg: "white", bg: "#101820", border: true)
-  %w[disk net gpu pwr swap io].each { |n| gl.add_gauge n, 0 }
+  %w[disk net gpu pwr swap io].each { |n| gl.add_item n, 0 }
 
   Widget::Fps.new parent: s, top: "100%-1", left: 0,
     format: "FPS %5s  (R %5s / D %5s)", args: [:fps, :render, :draw],

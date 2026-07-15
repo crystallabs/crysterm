@@ -38,7 +38,26 @@ module Crysterm
       end
 
       getter title : String
-      property area : Area
+
+      # Where the dock sits in a `MainWindow`. A `MainWindow` re-lays-out on the
+      # next frame; `MainWindow#add_dock(area, dock)` assigns through here.
+      getter area : Area
+
+      # :ditto:
+      #
+      # Not a bare `property`: `#floor_border_value` depends on the area (which
+      # side faces the content), and the frame style memoizing it must be dropped
+      # with it — the same bookkeeping `#toggle_floating` does, and without it a
+      # re-docked pane kept the old area's border. The float button's glyph
+      # tracks `#floating?` too.
+      def area=(value : Area) : Area
+        return value if @area == value
+        @area = value
+        refresh_buttons
+        invalidate_frame_style
+        window?.try &.schedule_render
+        value
+      end
 
       # Updates the stored title and the rendered title-bar text at runtime. A
       # plain `property` left the title-bar content a construction-time snapshot,
@@ -136,7 +155,7 @@ module Crysterm
       # A floating dock is an overlay, so it gets a full frame. A docked pane
       # only needs a border on the side facing the content. `#ensure_floor_border`
       # re-syncs this as the dock floats/re-docks (and across `Area` changes).
-      def floor_border_value
+      def floor_border_value : Bool | Border
         return true if floating? # full frame for a detached pane
         case @area
         in .left?     then Border.new(0, 0, 1, 0) # content is to the right
@@ -407,7 +426,7 @@ module Crysterm
           # origin (`aleft + ileft`, matching `#current_float_rect`), else the
           # dock only tracks the pointer when its parent has no border/padding.
           # `drag_max_left`/`drag_max_top` clamp against the parent's *content*
-          # extent (`awidth - iwidth`), so a floating dock can't be dragged out
+          # extent (`awidth - ihorizontal`), so a floating dock can't be dragged out
           # over the parent's border/padding.
           ox, oy = drag_origin
           self.left = (e.x - @drag_dx - ox).clamp(0, drag_max_left)

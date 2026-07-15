@@ -23,7 +23,7 @@ describe "ItemView#insert_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is inserted" do
     s = iiss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c", "d"]
-    list.selekt 2 # "c"
+    list.select_index 2 # "c"
     list.value.should eq "c"
 
     list.insert_item 0, "x" # x,a,b,c,d : "c" moves to index 3
@@ -35,7 +35,7 @@ describe "ItemView#insert_item single-selection cursor alignment" do
   it "slides the cursor down when a row is inserted exactly at the cursor" do
     s = iiss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 1 # "b"
+    list.select_index 1 # "b"
 
     list.insert_item 1, "x" # a,x,b,c : "b" moves to index 2
     list.selected.should eq 2
@@ -45,7 +45,7 @@ describe "ItemView#insert_item single-selection cursor alignment" do
   it "leaves the cursor untouched when a later row is inserted" do
     s = iiss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 0 # "a"
+    list.select_index 0 # "a"
 
     list.insert_item 2, "x" # a,b,x,c : cursor stays on "a"
     list.selected.should eq 0

@@ -10,7 +10,9 @@ module Crysterm
     # **Back**, **Next**/**Finish** and **Cancel**. Back is disabled on the first
     # page; on the last page Next becomes Finish. Navigation emits `Event::Action`
     # (the new page's title) on each page change, `Event::Complete` when Finish is
-    # pressed on the last page, and `Event::Cancel` when Cancel is pressed.
+    # pressed on the last page, and `Event::Cancel` when Cancel is pressed. Finish
+    # and Cancel additionally close the wizard through the `Dialog` result
+    # protocol (`Event::Accepted`/`Rejected`, then `Event::Finished`).
     #
     # ```
     # wiz = Widget::Wizard.new parent: window, width: 50, height: 16, style: Style.new(border: true)
@@ -55,7 +57,7 @@ module Crysterm
 
         back_button.on(::Crysterm::Event::Press) { back }
         next_button.on(::Crysterm::Event::Press) { advance }
-        cancel_button.on(::Crysterm::Event::Press) { cancel }
+        cancel_button.on(::Crysterm::Event::Press) { reject }
 
         # Enter advances/finishes, Escape cancels — the modal-dialog convention
         # `ColorDialog`/`Question` follow. The `Dialog` base owns the window-level
@@ -77,10 +79,20 @@ module Crysterm
         uninstall_dialog_keys
       end
 
-      # For the wizard the affirmative gesture is "advance" (Enter → next page /
-      # Finish on the last), not a single close — see `#advance`.
-      def accept : Nil
-        advance
+      # Enter **advances** rather than accepting outright — a wizard's Enter means
+      # "next page", and only on the last page does it finish. Overriding
+      # `#accept` to mean "advance" (as this used to) broke the `Dialog#accept`
+      # contract, so the remap lives here in the accelerator instead: Enter →
+      # `#advance` (which calls `#accept` itself once there's nothing left to
+      # advance to), Escape → `#reject`.
+      protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
+        return if e.accepted?
+        return unless dialog_keys_active? e
+        case e.key
+        when Tput::Key::Enter  then advance; e.accept
+        when Tput::Key::Escape then reject; e.accept
+        end
+        request_render if e.accepted?
       end
 
       # The window's own key routing delivers to the focused widget *first* (see
@@ -132,7 +144,9 @@ module Crysterm
         after_change
       end
 
-      # Goes to the next page, or finishes when already on the last page.
+      # Goes to the next page, or finishes when already on the last page —
+      # emitting `Event::Complete` and then accepting the wizard (Qt's Finish
+      # button triggers `QDialog#accept`), so it closes with `Code::Accepted`.
       def advance : Nil
         # A page-less wizard sits at the `-1` `current_index` sentinel; treat it
         # as having nothing to advance or complete (pages are added after
@@ -140,15 +154,18 @@ module Crysterm
         return if page_count == 0
         if current_index >= page_count - 1
           emit ::Crysterm::Event::Complete
+          accept
         else
           stack.next_page
           after_change
         end
       end
 
-      # Cancels the wizard.
-      def cancel : Nil
+      # Cancels the wizard: emits `Event::Cancel` on top of the standard
+      # rejection (`Event::Rejected` + `Event::Finished`, via `Dialog#reject`).
+      def reject : Nil
         emit ::Crysterm::Event::Cancel, ""
+        super
       end
 
       private def after_change : Nil

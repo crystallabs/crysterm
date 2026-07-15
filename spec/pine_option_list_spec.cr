@@ -41,7 +41,7 @@ describe "Pine::OptionList" do
     opts[0].callback = ->(v : String) { fired << v; nil }
     ol = Crysterm::Widget::Pine::OptionList.new opts, parent: s
 
-    ol.selekt 0
+    ol.select_index 0
     ol.records[0].on?.should be_true
     ol.activate # Enter
     ol.records[0].on?.should be_false
@@ -57,7 +57,7 @@ describe "Pine::OptionList" do
     s = pol_screen
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
-    ol.selekt 3
+    ol.select_index 3
     ol.value("theme").should eq "dark"
     ol.activate
     ol.value("theme").should eq "light"
@@ -74,7 +74,7 @@ describe "Pine::OptionList" do
     opts[1].callback = ->(v : String) { fired << v; nil }
     ol = Crysterm::Widget::Pine::OptionList.new opts, parent: s
 
-    ol.selekt 1
+    ol.select_index 1
     ol.activate # begin editing ("hi")
     ol.editing?.should be_true
     press ol, 'X'
@@ -88,7 +88,7 @@ describe "Pine::OptionList" do
     s = pol_screen
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
-    ol.selekt 2
+    ol.select_index 2
     ol.activate                      # begin editing ("4")
     press ol, 'a'                    # rejected
     press ol, '2'                    # accepted
@@ -104,12 +104,12 @@ describe "Pine::OptionList" do
     s = pol_screen
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
-    ol.selekt 1
+    ol.select_index 1
     ol.activate   # begin editing row 1 ("hi")
     press ol, 'X' # buffer -> "hiX"
 
     # Simulate a click on row 3 (theme): selection moves first, then activates.
-    ol.selekt 3
+    ol.select_index 3
     ol.activate
 
     ol.editing?.should be_false

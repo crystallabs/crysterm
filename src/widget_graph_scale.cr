@@ -193,7 +193,7 @@ module Crysterm
         end
 
         def render
-          key = {awidth - iwidth, aheight - iheight, @data_version}
+          key = {awidth - ihorizontal, aheight - ivertical, @data_version}
           content =
             if @content_cache_key == key && (cached = @content_cache)
               cached

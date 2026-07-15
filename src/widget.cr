@@ -82,7 +82,7 @@ module Crysterm
 
     # Whether this widget *is* a label box (the child created by `#set_label` to
     # render a widget's title over its border). Distinct from `@_label`, which is
-    # non-nil when a widget *has* a label. `_get_coords`' scrollable-ancestor
+    # non-nil when a widget *has* a label. `coords`' scrollable-ancestor
     # clip uses this to exempt a label from border compensation (a label sits ON
     # its parent's border, so its clip must not be pushed inside by that border).
     protected property? _is_label : Bool = false
@@ -90,12 +90,35 @@ module Crysterm
     # (Defined here rather than in src/mixin/children.cr because classes with
     # children do not necessarily have a parent, e.g. `Window`.)
 
+    # Reparents this widget under *parent* (Qt's `QWidget::setParent`): detaches
+    # it from its current home and appends it to *parent*'s children, so it
+    # actually renders there. `nil` detaches without re-attaching.
+    #
+    # Delegates to `#append`/`#detach_from_tree`, which own the whole relink
+    # (unlink, `@parent`/`@window` write, registry re-registration,
+    # `Reparent`/`Adopt`/`Attach`/`Detach` events). Those set `@parent` through
+    # `#parent_ivar=`, so this never recurses.
+    def parent=(parent : Widget?) : Widget?
+      return parent if parent == @parent
+      if parent
+        parent.append self
+      else
+        detach_from_tree
+      end
+      parent
+    end
+
+    # Writes the `@parent` ivar with no relink — the raw primitive the tree
+    # surgery in `widget_children.cr` uses once it has already unlinked/relinked
+    # the children lists itself. Everything else must go through `#parent=`.
+    #
     # Reparenting invalidates the memoized window (`#window?`) on this node and
     # all descendants, since all reparenting goes through this setter (no direct
     # `@parent` writes). O(subtree), but reparenting is rare vs. per-frame `#window?` reads.
-    def parent=(parent : Widget?)
+    protected def parent_ivar=(parent : Widget?) : Widget?
       @parent = parent
       invalidate_window_cache
+      parent
     end
 
     # Owning `Window` (the surface) ↔ `QWidget::window()`.
@@ -153,9 +176,10 @@ module Crysterm
     # Sets the owning `Window`.
     #
     # Only meaningful on a top-level widget; ignored on a nested widget (whose
-    # `#window` derives from `#parent`). Normally set only by `Window`/`Widget`
-    # (re)parenting code, not user code.
-    def window=(@window : ::Crysterm::Window?)
+    # `#window` derives from `#parent`). Internal to the (re)parenting code in
+    # `widget_children.cr`/`window_children.cr`, which writes it as part of a
+    # relink it fully owns; user code reparents via `#parent=`/`#append`.
+    protected def window=(@window : ::Crysterm::Window?)
       invalidate_window_cache
     end
 
@@ -179,7 +203,7 @@ module Crysterm
     # top-level ancestor in `@damage_dirty_roots`), not this flag — it's an
     # informational hint, not the gate. Starts `true` so an unpainted widget is
     # treated as needing paint.
-    property render_dirty : Bool = true
+    property? render_dirty : Bool = true
 
     # Bounding rectangle (`{xi, xl, yi, yl}`, half-open) of this widget's whole
     # subtree as of its last paint — union of its own and all descendants'
@@ -201,7 +225,8 @@ module Crysterm
     # top-level ancestor) with the owning window's damage set, and requests the
     # frame that paints it. Safe to call from any state-changing setter. Call
     # after an in-place change the tracked setters don't see (e.g. mutating a
-    # `Style` directly).
+    # `Style` directly). This is Qt's `QWidget::update()` — schedule a repaint,
+    # don't force one; `#request_render` is `QWidget::repaint()`.
     #
     # The frame request goes through `Window#request_frame`, so it is skipped
     # while a frame is already being built — layout assigns child geometry
@@ -217,10 +242,10 @@ module Crysterm
       # A dirtying change (content, geometry, visibility) can change the
       # shrink-to-content size of this widget AND of any shrink ancestor within
       # the same frame, so drop the whole chain's frame-memoized rectangles.
-      invalidate_minrect
+      invalidate_minimal_rectangle
       p = @parent
       while p
-        p.invalidate_minrect
+        p.invalidate_minimal_rectangle
         p = p.parent
       end
       window?.try do |w|
@@ -264,7 +289,8 @@ module Crysterm
       emit ::Crysterm::Event::Resize if resized
     end
 
-    # Requests a re-render of the owning `Window`, if attached. Safe form of
+    # Requests a re-render of the owning `Window`, if attached — Qt's
+    # `QWidget::repaint()` to `#mark_dirty`'s `QWidget::update()`. Safe form of
     # `window.render` for use after a state change (no-op when detached). Also
     # flags this widget for damage tracking.
     #
@@ -287,15 +313,30 @@ module Crysterm
       window?.try &.damage_force_full
     end
 
-    # Marks a widget as an item view (list/tree/table/menu — anything including
-    # `Mixin::ItemView`). Duck-typed: the renderer keys off this flag plus
-    # `#item_selected?` instead of an `is_a?(List)` check.
-    property _is_list = false
+    # Whether this widget is an item view (list/tree/table/menu — anything
+    # including `Mixin::ItemView`, which sets it). Duck-typed: the renderer keys
+    # off this flag plus `#item_selected?` instead of an `is_a?(List)` check.
+    #
+    # Backed by `@_is_list` rather than `@item_view`: the flag's readers
+    # (`widget_size.cr`, `widget_scrolling.cr`) and its lone writer
+    # (`Mixin::ItemView`) all touch the ivar directly, so the name is kept while
+    # the public spelling moves to `#item_view?`.
+    @_is_list = false
+
+    protected def item_view? : Bool
+      @_is_list
+    end
+
+    # :ditto:
+    protected def item_view=(value : Bool) : Bool
+      @_is_list = value
+    end
 
     # Whether *item* (a child) renders in the selected style. Base answer is
-    # `false`; `Mixin::ItemView` overrides it. Lets the render path ask any
-    # parent without an `is_a?(List)` special-case.
-    def item_selected?(item : Widget) : Bool
+    # `false`; `Mixin::ItemView` overrides it (publicly — item views expose the
+    # query). Lets the render path ask any parent without an `is_a?(List)`
+    # special-case.
+    protected def item_selected?(item : Widget) : Bool
       false
     end
 
@@ -312,7 +353,7 @@ module Crysterm
       @bottom = @bottom,
       @width = @width,
       @height = @height,
-      @resizable = @resizable,
+      @shrink_to_fit = @shrink_to_fit,
 
       visible = nil,
       @fixed = @fixed,
@@ -350,7 +391,7 @@ module Crysterm
       @styles = @styles,
 
       # Final, misc settings
-      @index = -1,
+      @render_index = -1,
       children = [] of Widget,
     )
       # $ = _ = JSON/YAML::Any
@@ -399,7 +440,7 @@ module Crysterm
         set_label t, "left"
       end
       hover_text.try do |t|
-        set_hover t
+        self.tool_tip = t
       end
 
       # on(AddHandlerEvent) { |wrapper| }
@@ -460,7 +501,7 @@ module Crysterm
     # the global window, created on demand if none exists (lets short scripts
     # skip explicit `Window` setup). Widgets with a parent derive `#window`
     # from the parent chain instead (see `#window?`).
-    def determine_window : ::Crysterm::Window
+    protected def determine_window : ::Crysterm::Window
       Window.global
     end
 

@@ -190,8 +190,10 @@ class Minesweeper
     @screen.on(Event::KeyPress) do |e|
       case
       when e.key == Tput::Key::CtrlQ, e.char == 'q'
-        @screen.destroy
-        exit
+        # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+        # every window down before exiting, rather than hard-exiting behind the
+        # toolkit's back.
+        (@screen.application || Application.global).quit
       when e.char == 'n'
         new_game @difficulty
       when e.char == '1'
@@ -238,8 +240,10 @@ class Minesweeper
     game.add("Cycle theme") { cycle_theme }
     game.add_separator
     game.add("Quit") do
-      @screen.destroy
-      exit
+      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+      # every window down before exiting, rather than hard-exiting behind the
+      # toolkit's back.
+      (@screen.application || Application.global).quit
     end
 
     help = menubar.add_menu "Help"
@@ -353,9 +357,9 @@ class Minesweeper
   private def handle_click(e)
     return unless @state.ready? || @state.playing?
 
-    # Map absolute event coordinates to a grid cell. `content_rect` is the
+    # Map absolute event coordinates to a grid cell. `contents_rect` is the
     # board's rectangle as painted, already inset past the border.
-    return unless (r = @board.content_rect) && r.contains?(e.x, e.y)
+    return unless (r = @board.contents_rect) && r.contains?(e.x, e.y)
 
     col = (e.x - r.xi) // CELL_W
     row = e.y - r.yi

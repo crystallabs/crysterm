@@ -183,7 +183,7 @@ describe Crysterm::Layout::Grid do
     s = headless_screen
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::Grid.new(columns: 3)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
     4.times { Widget::Box.new parent: g }
 
     coords = render_children s, g
@@ -215,14 +215,14 @@ describe Crysterm::Layout::Grid do
     ]
   end
 
-  it "clamps an off-grid span (e.g. col_span to the end) to the interior edge" do
+  it "clamps an off-grid span (e.g. column_span to the end) to the interior edge" do
     s = headless_screen
     # 3 cols, gap 2 over a 34-wide interior: inner_w = 30, carved 10/10/10. A
-    # cell with an oversized col_span ("span to the end") must reach exactly the
+    # cell with an oversized column_span ("span to the end") must reach exactly the
     # interior's right edge (x1 == 34), not overshoot via phantom off-grid gaps.
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 34, height: 6,
       layout: Layout::Grid.new(columns: 3, rows: 1, gap: 2)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 99)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 99)
 
     coords = render_children s, g
     # Spans cols 0..2: x0=0, x1=30 + 2 internal gaps = width 34; right edge 34.
@@ -263,11 +263,11 @@ describe Crysterm::Layout::Wrap do
     wp = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::Wrap.new, overflow: :ignore
     # A background-image layer is layout_excluded but carries a real
-    # (out-of-band-rendered) lpos. `get_last` must skip it: otherwise the next
+    # (out-of-band-rendered) lpos. `last_rendered_before` must skip it: otherwise the next
     # flow child chains off the layer's rect (xl=10) instead of the row's left edge.
     bg = Widget::Box.new parent: wp, width: 10, height: 2
     bg.layout_excluded = true
-    bg.lpos = Crysterm::LPos.new(xi: 0, xl: 10, yi: 0, yl: 2)
+    bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 10, yi: 0, yl: 2)
     item = Widget::Box.new parent: wp, width: 8, height: 2
 
     s._render
@@ -284,7 +284,7 @@ describe Crysterm::Layout::Wrap do
     # shoves the wrapped child to top=12 (off-screen) instead of top=3.
     bg = Widget::Box.new parent: wp, width: 20, height: 12
     bg.layout_excluded = true
-    bg.lpos = Crysterm::LPos.new(xi: 0, xl: 20, yi: 0, yl: 12)
+    bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 20, yi: 0, yl: 12)
     Widget::Box.new parent: wp, width: 12, height: 3
     second = Widget::Box.new parent: wp, width: 12, height: 3 # wraps to row 2
 

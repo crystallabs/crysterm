@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Invalidation contract of the frame-memoized style resolution
-# (`Mixin::Style#style` + `Widget#frame_insets` + the `_minimal_rectangle`
+# (`Mixin::Style#style` + `Widget#frame_insets` + the `minimal_rectangle`
 # frame memo — see PERF.md 1.1/1.2/2.4). The caches are stamped by
 # `Window#renders` and invalidated eagerly by `#state=`, `#style=`, `#styles=`,
 # `#css_styled=` (the cascade) and `#mark_dirty`, so every externally-visible
@@ -121,8 +121,8 @@ describe "frame-cached insets" do
       w.style = Style.new(border: true, padding: 1)
       w.ileft.should eq 2
       w.itop.should eq 2
-      w.iwidth.should eq 4
-      w.iheight.should eq 4
+      w.ihorizontal.should eq 4
+      w.ivertical.should eq 4
     end
   end
 
@@ -143,7 +143,7 @@ end
 describe "frame-memoized minimal rectangle" do
   it "shrink box resizes when its content changes between frames" do
     s = headless_screen
-    w = Widget::Box.new parent: s, top: 0, left: 0, resizable: true,
+    w = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "ab"
     s._render
     small = (w.lpos.not_nil!.xl - w.lpos.not_nil!.xi)
@@ -154,7 +154,7 @@ describe "frame-memoized minimal rectangle" do
 
   it "shrink parent resizes when a child grows between frames" do
     s = headless_screen
-    parent = Widget::Box.new parent: s, top: 0, left: 0, resizable: true
+    parent = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true
     child = Widget::Box.new parent: parent, top: 0, left: 0, width: 4, height: 1
     s._render
     w0 = parent.lpos.not_nil!.xl - parent.lpos.not_nil!.xi

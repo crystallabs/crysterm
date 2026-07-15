@@ -400,7 +400,7 @@ module Crysterm
           # after it — so a widget can be destroyed in between (a popup `Menu`
           # closed from a handler that a later sibling's render fired), leaving a
           # stale entry pointing at a now-detached widget. Painting it would
-          # raise out of `_get_coords`'s `parent_or_window` (no parent, no
+          # raise out of `coords`'s `parent_or_window` (no parent, no
           # window) and, since this runs on the render fiber, take rendering down
           # for good rather than surfacing anywhere. A detached widget has
           # nothing to paint anyway, so skip it.
@@ -638,10 +638,43 @@ module Crysterm
       @last_frame_start = t1
     end
 
-    # TODO Instead of self, return an object reporting the position like LPos.
-    # Not necessary until screen is always from (0,0) to (height,width).
-    def last_rendered_position
-      self
+    # Backing instance for `#last_rendered_position`, refreshed in place on every
+    # call. This sits on the geometry hot path — every `awidth`/`aleft`
+    # resolution of a top-level widget lands here, many times per widget per
+    # frame — so a fresh `RenderedGeometry` per call would put an allocation
+    # right in the middle of it.
+    @last_rendered_geometry = RenderedGeometry.new
+
+    # The window's rendered rectangle, reported exactly like a widget's, so that
+    # `Widget#aleft` and friends can resolve against `parent_or_window` without
+    # caring whether the parent is a `Widget` or the `Window` itself.
+    #
+    # The window always spans the full device from (0, 0), so these values are
+    # derived rather than recorded — it is never "unrendered", and there is no
+    # nilable counterpart to `Widget#last_rendered_position?`.
+    #
+    # Returns a **shared instance that is mutated on the next call** (the same
+    # contract as `Widget#last_rendered_position`, which hands back its live
+    # `@lpos`): read the values, never retain the object.
+    def last_rendered_position : RenderedGeometry
+      g = @last_rendered_geometry
+      w = awidth
+      h = aheight
+      g.xi = 0
+      g.xl = w
+      g.yi = 0
+      g.yl = h
+      g.aleft = 0
+      g.atop = 0
+      g.aright = 0
+      g.abottom = 0
+      g.awidth = w
+      g.aheight = h
+      g.ileft = ileft
+      g.itop = itop
+      g.iright = iright
+      g.ibottom = ibottom
+      g
     end
   end
 end

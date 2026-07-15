@@ -50,11 +50,27 @@ module Crysterm
       # Optional title, shown as the widget's label.
       property title : String = ""
 
-      # The actions in this menu, in display order.
-      property actions = [] of Action
+      # The actions in this menu, in display order. Read-only: mutate through
+      # `#<<`/`#add`/`#add_submenu`/`#add_separator`/`#remove_action`/`#clear`, or
+      # assign a whole new set with `#actions=`.
+      #
+      # It used to be a bare `property`, so reassigning it skipped `#sync_items`
+      # and `#watch_action` — the rows kept showing the old actions, and the menu
+      # stopped tracking every action's `Event::Changed` (external
+      # `action.checked =`/`text=`/`enabled=`/`visible=` silently stopped
+      # redrawing).
+      getter actions = [] of Action
+
+      # Replaces the whole action set, rewiring the `Changed` watchers and
+      # rebuilding the rows.
+      def actions=(actions : Array(Action)) : Array(Action)
+        clear
+        actions.each { |a| self << a }
+        @actions
+      end
 
       # Caps the auto-sized (popup/submenu) height to at most this many item rows,
-      # scrolling the remainder — mirrors `ComboBox#max_visible`. `nil` (default)
+      # scrolling the remainder — mirrors `ComboBox#max_visible_items`. `nil` (default)
       # fits every row. A long dropdown (e.g. a `Calendar`'s ±100 year list)
       # sets this so the popup stays on-window and scrolls to its selection.
       property max_visible_rows : Int32? = nil
@@ -202,18 +218,21 @@ module Crysterm
       def <<(action : Action)
         unless @actions.includes? action
           @actions << action
-          watch_action(action) do |_e|
-            # Preserve the highlighted row across the rebuild (item count can
-            # shift when visibility toggles).
-            sel = selected
-            sync_items
-            selekt sel
-            request_render
-            nil
-          end
+          watch_action(action) { |_e| refresh_rows; nil }
           sync_items
         end
         self
+      end
+
+      # Rebuilds the rows after one action's display state changed, preserving the
+      # highlighted row across it (the item count can shift when visibility
+      # toggles). The body every `#watch_action` handler runs — shared by `#<<`
+      # and `#insert_action`.
+      private def refresh_rows : Nil
+        sel = selected
+        sync_items
+        select_index sel
+        request_render
       end
 
       # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
@@ -231,32 +250,76 @@ module Crysterm
         action
       end
 
-      # Creates a submenu action labeled *text* holding *actions*, appends it, and
-      # returns it (Qt's `QMenu#addMenu`).
-      def add_menu(text : String, actions : Array(Action)) : Action
+      # Creates a submenu action labeled *text* holding *actions* (empty by
+      # default — fill it later through the returned action's `#menu`), appends
+      # it, and returns it.
+      #
+      # NOT named `add_menu`, though Qt's `QMenu#addMenu` is the counterpart:
+      # `Widget::MenuBar#add_menu` builds and returns a real, persistent `Menu`
+      # widget, whereas a submenu here is just an `Array(Action)` on an `Action`
+      # (`#open_submenu` materializes a throwaway `Menu` for it on each open).
+      # One name for two different contracts and two different return types is
+      # exactly the trap the old pair set; the names now say which you get.
+      def add_submenu(text : String, actions : Array(Action) = [] of Action) : Action
         action = Action.new text
         action.menu = actions
         self << action
         action
       end
 
-      # Appends a non-selectable separator rule (Qt's `QMenu#addSeparator`).
-      def add_separator
+      # Appends a non-selectable separator rule and returns it (Qt's
+      # `QMenu#addSeparator`, which likewise hands back the `QAction`). It used to
+      # return `self`, leaving a separator unreachable once added — no way to
+      # hide or remove one by reference.
+      def add_separator : Action
         sep = Action.separator
         @actions << sep
         sep.associate self
         sync_items
+        sep
+      end
+
+      # Inserts *action* at *index* in the action list (Qt's
+      # `QMenu#insertAction`). Out-of-range indices clamp to the ends; a duplicate
+      # is a no-op, as with `#<<`.
+      def insert_action(index : Int, action : Action) : self
+        return self if @actions.includes? action
+        @actions.insert index.to_i.clamp(0, @actions.size), action
+        watch_action(action) { |_e| refresh_rows; nil }
+        sync_items
         self
       end
 
-      # Removes *action* from the menu. `#unwatch_action` (from
-      # `Mixin::ActionWatcher`) removes its `Changed` handler and dissociates it.
-      def >>(action : Action)
+      # Removes *action* from the menu (Qt's `QMenu#removeAction`).
+      # `#unwatch_action` (from `Mixin::ActionWatcher`) removes its `Changed`
+      # handler and dissociates it.
+      def remove_action(action : Action) : self
         if @actions.delete action
           unwatch_action action
           sync_items
         end
         self
+      end
+
+      # `#>>` is an operator alias mirroring `#<<`; `#remove_action` remains the
+      # primary, Qt-faithful spelling.
+      alias_method :>>, :remove_action
+
+      # Removes every action (Qt's `QMenu#clear`). Overrides
+      # `Mixin::ItemView#clear`, which would drop the rendered rows and leave the
+      # actions behind for the next `#sync_items` to bring straight back.
+      def clear : Nil
+        return if @actions.empty?
+        @actions.each { |a| unwatch_action a }
+        @actions.clear
+        sync_items
+      end
+
+      # Number of actions in the menu, separators and hidden ones included (Qt's
+      # `QMenu#actions.size`). `Mixin::ItemView#count` would report only the
+      # *visible* rows, which is not what the menu's own model holds.
+      def count : Int32
+        @actions.size
       end
 
       # Shows this menu as a floating context menu at absolute (*x*, *y*), sized
@@ -272,12 +335,17 @@ module Crysterm
       # menu.popup e.x, e.y # e.g. from a right-click handler
       # ```
       def popup(x : Int32, y : Int32) : self
+        # Qt's `QMenu#aboutToShow`: fires before anything is laid out or shown, so
+        # a handler can still populate/update the menu and have this very `popup`
+        # size itself to the new rows.
+        emit ::Crysterm::Event::AboutToShow
+
         @popup_mode = true
         # A (re)opened menu starts with no row highlighted — it's transient
         # interaction state, not carried across opens.
         @show_highlight = false
         # A menu created with only `window:` (not `parent:`) sets `@window` but is
-        # not in the window's `children`, so `front!`/`set_index` find no index and
+        # not in the window's `children`, so `front!`/`stack_index=` find no index and
         # the menu never renders — while `popup` still opens a modal grab. Attach it
         # to the window's children when it isn't in the tree so it actually paints.
         window.append self unless @parent || window.children.includes?(self)
@@ -311,16 +379,21 @@ module Crysterm
         self
       end
 
-      # :ditto: (Qt names the blocking form `exec`; here it is non-blocking, like
-      # `#popup`, and you react via the actions' `Event::Triggered`).
-      def exec(x : Int32, y : Int32) : self
-        popup x, y
-      end
+      # NOTE: there is deliberately no `#exec`. Qt's `QMenu#exec` *blocks* and
+      # returns the chosen `QAction` — that is its whole reason to exist next to
+      # `popup()`. The `exec` here did neither: it was a non-blocking alias of
+      # `#popup` returning `self`, i.e. the same name as Qt's for the opposite
+      # contract. Blocking has no place in an async terminal toolkit's event loop,
+      # so `#popup` (plus the actions' `Event::Triggered`) is the whole story.
 
       # Hides a menu shown via `#popup`, tearing down its submenu chain and the
       # outside-click watcher. No-op unless in popup mode.
       def hide_popup : Nil
         return unless @popup_mode
+        # Qt's `QMenu#aboutToHide`: fires while the menu is still up, and only on
+        # a real dismissal (the guard above already returned for a menu that
+        # isn't popped up).
+        emit ::Crysterm::Event::AboutToHide
         @popup_mode = false
         close_submenu
         hide
@@ -342,7 +415,7 @@ module Crysterm
       @autosize = false
 
       # The width that fits the rows: the widest row text plus the menu's own
-      # `iwidth` (border + padding) and any reserved scroll-bar column. The
+      # `ihorizontal` (border + padding) and any reserved scroll-bar column. The
       # padding (`Menu { padding: 0 1 }`) is the gap between text and side
       # borders; reserving it here (rather than insetting the text) lets
       # `#size_rows` lay rows across the content box with padding falling
@@ -357,19 +430,19 @@ module Crysterm
         # scroll bar. Without accounting for it here the widest row is one column
         # too wide for the drawable area, and `#size_rows` word-wraps it onto a
         # clipped second line — the row renders blank (only the gutter shows).
-        w + iwidth + content_margin_x
+        w + ihorizontal + content_margin_x
       end
 
       # The height that fits the rows: one row per visible action plus the menu's
-      # own `iheight` (top/bottom border + vertical padding). Derived from
-      # `iheight` rather than a hardcoded `+ 2` so a borderless theme (e.g.
+      # own `ivertical` (top/bottom border + vertical padding). Derived from
+      # `ivertical` rather than a hardcoded `+ 2` so a borderless theme (e.g.
       # qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows.
       private def fit_height : Int32
         rows = visible_actions.size
         if mv = @max_visible_rows
           rows = Math.min(rows, mv)
         end
-        rows + iheight
+        rows + ivertical
       end
 
       # Sizes a popup/submenu to fit its content. Marks the menu auto-sizing so
@@ -383,7 +456,7 @@ module Crysterm
       end
 
       # Re-fits an auto-sized menu's box at render, once the cascade has set the
-      # real box model (row padding, border/padding in `iwidth`/`iheight`).
+      # real box model (row padding, border/padding in `ihorizontal`/`ivertical`).
       # `#fit_to_content` runs before that for a submenu, so it can miss the
       # resolved box model; this corrects both dimensions, growing rightward/down
       # from a fixed top-left anchor. No-op for an explicitly-sized embedded menu.
@@ -400,7 +473,7 @@ module Crysterm
       # the theme's breathing reserved by `#fit_to_content` falling between them.
       # Done at render because that is the first point the final width is known.
       private def size_rows : Nil
-        # `content_width`, not `awidth - iwidth`: a scrolling menu reserves a
+        # `content_width`, not `awidth - ihorizontal`: a scrolling menu reserves a
         # right-edge scroll-bar column (`content_margin_x`), so laying rows to the
         # full inner width would size them one column too wide, wrapping the text
         # onto a clipped second line (the year-dropdown "invisible rows" bug).
@@ -479,7 +552,7 @@ module Crysterm
       # Guarded so content is only rewritten when width actually changed.
       private def size_separators : Nil
         return if @separator_items.empty?
-        inner = awidth - iwidth
+        inner = awidth - ihorizontal
         return if inner < 1
         ch = separator_char
         @separator_items.each do |it|
@@ -634,8 +707,8 @@ module Crysterm
         return if act.separator?
 
         @show_highlight = true # hovering a row reveals (and moves) the highlight
-        selekt i
-        if act.enabled && act.menu?
+        select_index i
+        if act.enabled? && act.menu?
           open_submenu act unless @submenu_open && @submenu_action == act
         end
       end
@@ -718,9 +791,9 @@ module Crysterm
           end
         end
 
-        set_items rows
+        self.items = rows
 
-        # Rebuild the separator-row lookup from the just-built rows. `set_items`
+        # Rebuild the separator-row lookup from the just-built rows. `#items=`
         # leaves `@items[i]` corresponding to `acts[i]`, so a separator action's
         # row is the same-index item. Non-separator rows are tagged with the
         # `Item` CSS class so they're styled as the menu's `::item` sub-control
@@ -741,8 +814,8 @@ module Crysterm
       # Skips over separator rows so the highlight never rests on one. The
       # direction is inferred from whether the requested index is above or below
       # the current selection.
-      def selekt(index : Int)
-        # `selekt` does *not* enable `@show_highlight` — that's driven only by
+      def select_index(index : Int)
+        # `select_index` does *not* enable `@show_highlight` — that's driven only by
         # user interaction (`#hover_item` / a selection key in `#on_keypress`),
         # so a programmatic selection never lights up a row on its own.
         acts = visible_actions
@@ -760,7 +833,7 @@ module Crysterm
       end
 
       # A click lands on a *raw* row index (`Mixin::ItemView#create_item`), so a
-      # click on a separator row would call `enter_selected(i)` → `selekt` (which
+      # click on a separator row would call `enter_selected(i)` → `select_index` (which
       # `#skip_separators` off the divider onto a neighbor) → `ActionItem` for
       # that neighbor → `activate_index`, silently firing the adjacent command.
       # Ignore activation when the clicked row is itself a separator; keyboard
@@ -778,7 +851,7 @@ module Crysterm
         # highlight never rests on a separator (`activate_index` refuses to fire
         # one). `nil` means an all-separator list — a degenerate menu with no real
         # rows — so fall back to the clamped index (still a separator, still
-        # unfireable, but a valid in-range index for `#selekt`'s `super`).
+        # unfireable, but a valid in-range index for `#select_index`'s `super`).
         Mixin::ActionBar.nearest_selectable(n, index.to_i, dir) { |i| acts[i].separator? } || index.clamp(0, n - 1).to_i
       end
 
@@ -786,7 +859,7 @@ module Crysterm
         action = visible_actions[index]?
         return unless action
         return if action.separator?
-        return unless action.enabled
+        return unless action.enabled?
 
         # A submenu item opens its child menu instead of firing — or, if already
         # open, toggles it closed (a second click/Enter closes it).
@@ -925,7 +998,7 @@ module Crysterm
         # or focusing. A submenu is created fresh on open, so its border/padding
         # come only from the cascade, which otherwise wouldn't run until the next
         # render. Without this, `#fit_to_content` would size against a borderless
-        # `iheight == 0` box, scrolling the first rows out of view — the
+        # `ivertical == 0` box, scrolling the first rows out of view — the
         # deep-submenu "last entry invisible until you hover" bug.
         window.append child
         window.restyle_structural child
@@ -942,7 +1015,7 @@ module Crysterm
         # offset uses `itop` (0 when borderless). Both `Right` and `Left` share
         # the same row `y`, so the flip decision is purely horizontal and any
         # vertical overflow is clamped on-window. Further gap comes from the
-        # submenu's `style.margin` (`_get_coords` adds it), not a hardcoded offset.
+        # submenu's `style.margin` (`coords` adds it), not a hardcoded offset.
         child.fit_to_content
         begin
           lp = last_rendered_position
@@ -1035,7 +1108,7 @@ module Crysterm
         close_submenu
         # Drop every per-action `Changed` handler and association, so destroying
         # this menu (including submenus rebuilt on each open/close) doesn't leave
-        # stale handlers running `sync_items`/`selekt`/`request_render` against a
+        # stale handlers running `sync_items`/`select_index`/`request_render` against a
         # destroyed widget, nor a dead `Menu` pinned in `action.associated_widgets`.
         # `#unwatch_action` (Mixin::ActionWatcher) offs the handler when watched
         # and dissociates every action — covering separators, which are

@@ -17,6 +17,6 @@ Crysterm::WidgetExample.run("Form",
   u = Crysterm::Widget::LineEdit.new parent: form, top: 1, left: 9, width: 26, height: 1
   u.value = "ada"
   Crysterm::Widget::Box.new parent: form, top: 3, left: 2, content: "Pass:"
-  p = Crysterm::Widget::LineEdit.new parent: form, top: 3, left: 9, width: 26, height: 1, secret: true
+  p = Crysterm::Widget::LineEdit.new parent: form, top: 3, left: 9, width: 26, height: 1, echo_mode: :no_echo
   p.value = "secret"
 end

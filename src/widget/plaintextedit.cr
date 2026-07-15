@@ -72,6 +72,31 @@ module Crysterm
         wire_document
       end
 
+      # The document's plain text (Qt's `toPlainText`). A synonym for `#value` /
+      # `Mixin::TextEditing#text`, spelled the way a `QPlainTextEdit` user
+      # reaches for it.
+      def to_plain_text : String
+        value
+      end
+
+      # Replaces the whole text (Qt's `setPlainText`): the caret parks at the
+      # end and the undo stack clears — this is a *reset*, not an undoable edit
+      # (see `DocumentBuffer#value=`). Use `#insert_text` / `#append_plain_text`
+      # for edits the user can undo.
+      def plain_text=(text : String)
+        self.value = text
+      end
+
+      # Appends *text* as new content at the end of the document (Qt's
+      # `appendPlainText`), on its own paragraph when there is already text.
+      # Unlike `#plain_text=` this is an ordinary, undoable document edit; the
+      # caret is left at the end of the appended text.
+      def append_plain_text(text : String) : Nil
+        self.cursor_pos = buf_size
+        clear_selection
+        insert_text(buf_size.zero? ? text : "\n" + text)
+      end
+
       # Replaces the edited document (Qt `setDocument`), e.g. to share one
       # document between several views. The caret rewinds to the start.
       def document=(doc : TextDocument)
@@ -84,7 +109,7 @@ module Crysterm
       end
 
       private def wire_document : Nil
-        @ev_contents_change = document.on(Crysterm::Event::ContentsChange) do |e|
+        @ev_contents_change = document.on(Crysterm::Event::ContentsChanged) do |e|
           # Mirror an edit made by another actor on a shared document onto this
           # view's caret (own edits are skipped — the mixin moves the caret
           # itself); the display re-syncs on the next render via `#value=`.
@@ -101,7 +126,7 @@ module Crysterm
       end
 
       # Re-adds the flat display half that `DocumentBuffer#value=` omits (it
-      # relies on `ContentsChange` for a document paint, but `PlainTextEdit`
+      # relies on `ContentsChanged` for a document paint, but `PlainTextEdit`
       # renders through the base `@_pcontent` content pipeline): push the
       # document's plain text into `set_content` whenever it changed. Mirrors
       # `FlatBuffer#value=`'s contract; the mixin's `#render` calls this with

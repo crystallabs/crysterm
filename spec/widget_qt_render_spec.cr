@@ -192,7 +192,7 @@ describe "TabWidget with layout" do
     tabs.add_tab "B", Crysterm::Widget::Box.new(content: "two")
     s._render
 
-    tabs.show_tab 1
+    tabs.current_index = 1
     s._render
     tabs.current_index.should eq 1
     tabs.bar.selected.should eq 1
@@ -230,9 +230,9 @@ describe "List multi-select rendering" do
   it "underlines checked (non-cursor) items" do
     s = render_screen
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 6,
-      multi_select: true, items: ["a", "b", "c"]
-    list.selekt 0      # cursor on row 0
-    list.select_item 2 # check row 2
+      selection_mode: :multi_selection, items: ["a", "b", "c"]
+    list.select_index 0     # cursor on row 0
+    list.add_to_selection 2 # check row 2
     s._render
 
     cursor = list.render_style_for(list.items[0])
@@ -258,9 +258,9 @@ describe "List scroll-bar column reservation" do
 
     # Grow past the viewport: bar now shows, #render must re-sync every item's
     # reservation to the real bar width, or the shown bar overpaints them.
-    list.append_item "CCCCCCCCCC"
-    list.append_item "DDDDDDDDDD"
-    list.append_item "EEEEEEEEEE" # 5 items > height 4 -> overflow
+    list.add_item "CCCCCCCCCC"
+    list.add_item "DDDDDDDDDD"
+    list.add_item "EEEEEEEEEE" # 5 items > height 4 -> overflow
     s._render
     list.show_scrollbar?.should be_true
     list.items.all? { |i| i.right == list.scrollbar_width }.should be_true
@@ -279,7 +279,7 @@ describe "Question#ask_choices" do
     # buttons); the standard OK/Cancel pair stays direct children (hidden here).
     bb = q.children.find(&.is_a?(Crysterm::Widget::DialogButtonBox)).as(Crysterm::Widget::DialogButtonBox)
     bb.buttons.size.should eq 3
-    bb.buttons[1].press
+    bb.buttons[1].click
 
     chosen.should eq 1
     # Choice buttons gone; the standard OK/Cancel pair is shown again.
@@ -356,7 +356,7 @@ describe "Menu submenus" do
 
     m.ritems[0].includes?("▶").should be_true
 
-    m.selekt 0
+    m.select_index 0
     m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
     s._render
 
@@ -688,7 +688,7 @@ describe "ListTable column-level horizontal scrolling" do
     lt.header.right.should eq lt.scrollbar_width
     lt.items.all? { |i| i.right == lt.scrollbar_width }.should be_true
     # A content-sized table widens by that column so the bar gets its own cell.
-    lt.awidth.should eq lt.row_width + lt.iwidth + lt.scrollbar_width
+    lt.awidth.should eq lt.row_width + lt.ihorizontal + lt.scrollbar_width
   end
 end
 

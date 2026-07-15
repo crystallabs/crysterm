@@ -224,7 +224,7 @@ describe Crysterm::Action do
       a.icon_text.should eq "B"
       a.checkable?.should be_true
       a.checked?.should be_true
-      a.enabled.should be_false
+      a.enabled?.should be_false
       a.visible?.should be_false
       a.auto_repeat?.should be_false
       a.priority.should eq Action::Priority::High
@@ -368,7 +368,17 @@ describe "Action#associated_widgets" do
     a.associated_widgets.size.should eq 1
   end
 
-  it "drops the host when the action is removed (Menu#>>)" do
+  it "drops the host when the action is removed (Menu#remove_action)" do
+    s = headless_window
+    menu = Crysterm::Widget::Menu.new parent: s
+    a = Action.new "Bold"
+    menu << a
+    a.associated_widgets.should contain menu
+    menu.remove_action a
+    a.associated_widgets.empty?.should be_true
+  end
+
+  it "removes via the #>> operator alias, like #remove_action" do
     s = headless_window
     menu = Crysterm::Widget::Menu.new parent: s
     a = Action.new "Bold"
@@ -376,5 +386,6 @@ describe "Action#associated_widgets" do
     a.associated_widgets.should contain menu
     menu >> a
     a.associated_widgets.empty?.should be_true
+    menu.count.should eq 0
   end
 end

@@ -207,10 +207,10 @@ Benchmark.ips do |x|
       p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v
     end
   end
-  x.report("NEW  Widget.dimension") { exprs.each { |e| Widget.dimension(e, 80) } }
+  x.report("NEW  Widget.resolve_percentage") { exprs.each { |e| Widget.resolve_percentage(e, 80) } }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { exprs.each { |e| p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v } }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Widget.dimension(e, 80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
+     "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Widget.resolve_percentage(e, 80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
 
 # ---------------------------------------------------------------------------
 # #docking  per-frame dock-stop iteration (only when dock_borders is on).

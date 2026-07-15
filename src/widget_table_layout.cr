@@ -17,7 +17,7 @@ module Crysterm
 
     # Whether `@maxes` needs recomputing. `#calculate_maxes` runs on every
     # `render` but only depends on `@rows`, `@width` and `@pad`, which change
-    # exclusively through `#set_data` and `#pad=` (both set this). Skips the
+    # exclusively through `#rows=` and `#pad=` (both set this). Skips the
     # per-frame re-scan of every cell when nothing relevant changed.
     @maxes_dirty : Bool = true
 
@@ -33,7 +33,7 @@ module Crysterm
 
     # Marks the cached column widths (`@maxes`) stale so the next
     # `#calculate_maxes` recomputes them. Called by the table widgets from
-    # `#set_data`.
+    # `#rows=`.
     def invalidate_maxes
       @maxes_dirty = true
     end
@@ -82,10 +82,10 @@ module Crysterm
       min_row = maxes.sum + maxes.size
 
       # Columns fill the box interior (inside border/padding), so slack is
-      # distributed against `@width - iwidth`, not the full outer `@width`.
+      # distributed against `@width - ihorizontal`, not the full outer `@width`.
       # Targeting the full width would leave `row_width` one short, causing
-      # `Table#set_data`'s `@width = row_width + iwidth` to grow the table by
-      # `iwidth - 1` columns per call — a feedback loop widening the table
+      # `Table#rows=`'s `@width = row_width + ihorizontal` to grow the table by
+      # `ihorizontal - 1` columns per call — a feedback loop widening the table
       # beyond what was requested.
       if (inner = numeric_inner_width) && inner >= min_row
         missing = inner - min_row
@@ -104,7 +104,7 @@ module Crysterm
     # The interior content width when a fixed numeric `width` is set, i.e. the
     # box width minus the border/padding insets the columns render inside of.
     private def numeric_inner_width : Int32?
-      (w = @width).is_a?(Int32) ? w - iwidth : nil
+      (w = @width).is_a?(Int32) ? w - ihorizontal : nil
     end
 
     # Visible display width of a cell in terminal columns, with `{...}` tags
@@ -218,7 +218,7 @@ module Crysterm
     # horizontal alignment, straight to *io* — no per-cell `String` (and, on the
     # clip path, no `graphemes` array / per-grapheme `String`) intermediates.
     # This is the hot path: `#render_row` calls it per cell per row rebuild, i.e.
-    # N×M times per `set_data` and per `ListTable` horizontal-scroll tick.
+    # N×M times per `#rows=` and per `ListTable` horizontal-scroll tick.
     def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
       clen = cell_width cell
       align = cell_align
@@ -278,7 +278,7 @@ module Crysterm
     # Applies the optional cell-border/padding constructor options, each only
     # when explicitly given (`nil` leaves the default). Shared by the table
     # widgets' `#initialize`. Ivars assigned directly (not via `pad=`) since
-    # the cache is rebuilt by the following `#set_data` anyway.
+    # the cache is rebuilt by the following `#rows=` anyway.
     def init_cell_options(pad, no_cell_borders, fill_cell_borders) : Nil
       pad.try { |v| @pad = v }
       no_cell_borders.try { |v| @no_cell_borders = v }
@@ -286,7 +286,7 @@ module Crysterm
     end
 
     # Normalizes *rows* into `@rows` and recomputes the cached column widths.
-    # Returns `false` when the table ends up with no columns, so a `#set_data`
+    # Returns `false` when the table ends up with no columns, so a `#rows=`
     # caller can early-return on an empty table via
     # `return unless reload_rows(rows)`.
     def reload_rows(rows) : Bool

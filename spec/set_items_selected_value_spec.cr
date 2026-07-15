@@ -13,7 +13,7 @@ private def sisv2_screen
 end
 
 # `ItemView#set_items` reuses existing item widgets in place (`set_content`) and
-# relies on `#selekt` to refresh the cached selection `#value`. But `selekt`
+# relies on `#select_index` to refresh the cached selection `#value`. But `select_index`
 # early-returns on an unchanged index, so replacing rows while the selected
 # index stays the same left `@value` pointing at pre-replacement text — stale
 # for `Form` value collection and other consumers. (Distinct from the
@@ -22,10 +22,10 @@ describe "ItemView#set_items selected value sync" do
   it "refreshes #value when rows are replaced and the index is unchanged" do
     s = sisv2_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 0
+    list.select_index 0
     list.value.should eq "a"
 
-    list.set_items ["X", "Y", "Z"]
+    list.items = ["X", "Y", "Z"]
     list.selected.should eq 0
     list.value.should eq "X"
   end
@@ -33,20 +33,20 @@ describe "ItemView#set_items selected value sync" do
   it "refreshes #value when the selection re-lands on the same non-zero index" do
     s = sisv2_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 1
+    list.select_index 1
     list.value.should eq "b"
 
     # "b" is gone, but same length, so cursor re-lands on index 1.
-    list.set_items ["p", "q", "r"]
+    list.items = ["p", "q", "r"]
     list.selected.should eq 1
     list.value.should eq "q"
   end
 
-  it "strips tags from the refreshed value, like #selekt" do
+  it "strips tags from the refreshed value, like #select_index" do
     s = sisv2_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"], parse_tags: true
-    list.selekt 0
-    list.set_items ["{bold}hi{/bold}", "z"]
+    list.select_index 0
+    list.items = ["{bold}hi{/bold}", "z"]
     list.value.should eq "hi"
   end
 end

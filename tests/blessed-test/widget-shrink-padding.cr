@@ -8,7 +8,7 @@ module Crysterm
     parent: s,
     left: "center",
     top: "center",
-    resizable: true,
+    shrink_to_fit: true,
     style: Style.new(
       bg: "green",
       padding: 1
@@ -19,7 +19,7 @@ module Crysterm
     parent: outer,
     left: 0,
     top: 0,
-    resizable: true,
+    shrink_to_fit: true,
     content: "foobar",
     style: Style.new(
       bg: "magenta"

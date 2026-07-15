@@ -21,8 +21,11 @@ module Crysterm
     #
     # Buttons with an accepting role (Ok/Save/Yes/…) emit `Event::Accepted` on
     # the box; rejecting ones (Cancel/No/Close/Discard) emit `Event::Rejected`.
-    # Every button additionally emits its own `Event::Press`, and `#button`
-    # gives access to a specific one for custom handling.
+    # *Every* button — whatever its role — also emits box-level
+    # `Event::ButtonClick` carrying the button (Qt's `QDialogButtonBox#clicked`),
+    # which `#standard_button` maps back to its `StandardButton`. Each button
+    # additionally emits its own `Event::Press`, and `#button` gives access to a
+    # specific one for custom handling.
     #
     # <!-- widget-examples:capture v1 -->
     # ![DialogButtonBox screenshot](../../tests/widget/dialog_button_box/dialog_button_box.5s.apng)
@@ -68,7 +71,7 @@ module Crysterm
       # The label/role of each standard button.
       def self.descriptor_for(b : StandardButton) : {String, Role}
         case b
-        when .ok?      then {"Okay", Role::Accept}
+        when .ok?      then {"OK", Role::Accept}
         when .save?    then {"Save", Role::Accept}
         when .yes?     then {"Yes", Role::Accept}
         when .retry?   then {"Retry", Role::Accept}
@@ -90,16 +93,41 @@ module Crysterm
       # added via `#add_button`). Indexed in lockstep with `#buttons`.
       @standard = {} of Button => StandardButton
 
+      # The standard buttons currently in the box (Qt's `standardButtons`).
+      getter standard_buttons : StandardButton = StandardButton::None
+
       def initialize(buttons : StandardButton = StandardButton::None, **box)
         super **box
+        build_standard buttons
+      end
 
+      # Replaces the set of standard buttons (Qt's `setStandardButtons`), so the
+      # box isn't frozen at construction. Only the standard buttons are rebuilt;
+      # any added via `#add_button` are kept, and — since the rebuilt standard
+      # ones are appended after them — end up at the head of the row.
+      def standard_buttons=(buttons : StandardButton) : StandardButton
+        return buttons if @standard_buttons == buttons
+        @standard.each_key do |b|
+          @buttons.delete b
+          b.destroy
+        end
+        @standard.clear
+        build_standard buttons
+        request_render
+        buttons
+      end
+
+      # Creates, labels and orders the standard buttons in *buttons*, then
+      # re-runs the row layout. Shared by the constructor and
+      # `#standard_buttons=`.
+      private def build_standard(buttons : StandardButton) : Nil
+        @standard_buttons = buttons
         DISPLAY_ORDER.each do |sb|
           next unless buttons.includes? sb
           text, role = self.class.descriptor_for sb
           b = make_button text, role
           @standard[b] = sb
         end
-
         relayout
       end
 
@@ -107,6 +135,12 @@ module Crysterm
       def button(which : StandardButton) : Button?
         @standard.each { |btn, sb| return btn if sb == which }
         nil
+      end
+
+      # The reverse of `#button`: the `StandardButton` *btn* stands for, or `nil`
+      # for one added via `#add_button` (Qt's `standardButton`).
+      def standard_button(btn : Button) : StandardButton?
+        @standard[btn]?
       end
 
       # Adds a custom button with *text* and *role*, returning it. Re-runs the
@@ -123,15 +157,21 @@ module Crysterm
         b = ::Crysterm::Mixin::OkCancelDialog.dialog_button(
           text, text.size + 2,
           parent: self, top: 0,
-          focus_on_click: true, resizable: true,
+          focus_on_click: true, shrink_to_fit: true,
         )
         b.on(Crysterm::Event::Press) do
+          # Box-level "some button was clicked" (Qt's `clicked(QAbstractButton*)`),
+          # emitted for every role — including the ones with no accept/reject
+          # meaning — so a caller can handle the whole row from one handler and
+          # resolve `#standard_button` on it, instead of wiring each button.
+          emit Crysterm::Event::ButtonClick, b
           case role
           when .accept?                then emit Crysterm::Event::Accepted
           when .reject?, .destructive? then emit Crysterm::Event::Rejected
           else
-            # Apply/Reset/Help carry no box-level meaning; the caller listens on
-            # the button itself (via `#button`).
+            # Apply/Reset/Help carry no accept/reject meaning; a caller wanting
+            # those listens on `ButtonClick` above (or the button itself, via
+            # `#button`).
           end
         end
         @buttons << b

@@ -455,7 +455,7 @@ module Crysterm
       # follow it (an inline window pins height, tracks width — see
       # `Screen#explicit_height?` / `#explicit_width?`).
       e.size.try { |size|
-        @screen.set_size(size.width, size.height)
+        @screen.resize(size.width, size.height)
       }
 
       # Keep an inline region on-screen if the terminal shrank: clamp the anchor
@@ -515,7 +515,7 @@ module Crysterm
     # headlessly.
     #
     # :nodoc: (public so `Application#exec` can consult it)
-    def capture_from_env : Bool
+    def capture_from_env? : Bool
       shot = Config.window_shot.presence
       dump_dest = Config.window_dump.presence
       anim = Config.window_anim.presence
@@ -935,6 +935,26 @@ module Crysterm
       # }
     end
 
+    # Politely closes the window (Qt's `QWindow#close`): emits
+    # `Event::WindowClosed` and then tears it down with `#destroy`. Returns
+    # whether the window was open (`false` if already destroyed).
+    #
+    # The counterpart to a hard `#destroy`: handlers get the signal *first*, so
+    # they can save state, reattach the surface elsewhere (`Application.open
+    # into: self`), or count it out of a multi-window run. Emitting the signal is
+    # exactly what the terminal-emulator-close watcher does
+    # (`#on_window_closed`), so both close paths look identical to a handler.
+    #
+    # Re-entrancy is safe: a handler that destroys the window itself — as
+    # `Application.exec_all` does — just makes the `#destroy` below a no-op, so
+    # there is no double teardown.
+    def close : Bool
+      return false if @destroyed
+      emit Crysterm::Event::WindowClosed, self
+      destroy unless @destroyed
+      true
+    end
+
     # Destroys self and removes it from the global list of `Screen`s. Also
     # removes all global events relevant to the object. If no screens remain,
     # the app is reset to its initial state.
@@ -1004,7 +1024,7 @@ module Crysterm
         title: @title,
         # Carry the pin STATE, not the current size as unconditional pins:
         # passing plain Int32s set `explicit_width/height` on the new device,
-        # so `adopt_terminal_size`/`set_size` no-op'd forever and the
+        # so `adopt_terminal_size`/`resize` no-op'd forever and the
         # replacement window stopped tracking terminal resizes, frozen at the
         # moment-of-switch size. Only an axis that was pinned stays pinned.
         width: (@screen.explicit_width? ? width : nil),
@@ -1013,7 +1033,7 @@ module Crysterm
         always_propagate: @always_propagate, propagate_keys: @propagate_keys,
         default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,
         optimization: @optimization,
-        force_unicode: force_unicode?, full_unicode: @screen.full_unicode_requested,
+        force_unicode: force_unicode?, full_unicode: @screen.full_unicode_requested?,
         resize_interval: @resize_interval,
       )
     end
@@ -1065,14 +1085,16 @@ module Crysterm
       @padding.bottom
     end
 
-    # Returns current screen width.
-    def iwidth
+    # Total horizontal inset: `ileft + iright`. **Not** a width — the content
+    # width is `awidth - ihorizontal`. Mirrors `Widget#ihorizontal`.
+    def ihorizontal : Int32
       p = @padding
       p.left + p.right
     end
 
-    # Returns current screen height.
-    def iheight
+    # Total vertical inset: `itop + ibottom`. **Not** a height — the content
+    # height is `aheight - ivertical`. Mirrors `Widget#ivertical`.
+    def ivertical : Int32
       p = @padding
       p.top + p.bottom
     end

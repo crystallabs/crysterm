@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for the BUGS5 lifecycle fixes:
 #
-#  1. `Widget#set_index` (used by `#front!`/`#back!`) reordered the parent's
+#  1. `Widget#stack_index=` (used by `#front!`/`#back!`) reordered the parent's
 #     children list directly (`insert index, delete_at i`), bypassing the
 #     `Mixin::Children#insert`/`#remove` path and therefore
 #     `mark_structure_changed`. Under `OptimizationFlag::DamageTracking` a lone
@@ -47,7 +47,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     a.front!
 
     parent.children.last.should eq a
-    a.render_dirty.should be_true
+    a.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
@@ -64,7 +64,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     b.back!
 
     parent.children.first.should eq b
-    b.render_dirty.should be_true
+    b.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
@@ -80,7 +80,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     a.front!
 
     s.children.last.should eq a
-    a.render_dirty.should be_true
+    a.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
@@ -98,7 +98,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     b.front!
 
     parent.children.last.should eq b
-    b.render_dirty.should be_false
+    b.render_dirty?.should be_false
   end
 end
 

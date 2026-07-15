@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Widget.dimension` (the extracted percentage position/size
+# Behavior lock for `Widget.resolve_percentage` (the extracted percentage position/size
 # resolver): must match the previous inline `expr.split(/(?=\+|-)/)` formula
 # from widget_position/widget_size, reproduced below as the reference oracle.
-describe "Widget.dimension" do
+describe "Widget.resolve_percentage" do
   # Pre-extraction computation (the six inline blocks).
   old = ->(expr : String, dim : Int32) {
     e = expr.split(/(?=\+|-)/)
@@ -25,17 +25,17 @@ describe "Widget.dimension" do
   it "matches the old split-based formula for all expr/dim combinations" do
     exprs.each do |expr|
       dims.each do |dim|
-        Widget.dimension(expr, dim).should eq old.call(expr, dim)
+        Widget.resolve_percentage(expr, dim).should eq old.call(expr, dim)
       end
     end
   end
 
   it "computes representative values directly" do
-    Widget.dimension("50%", 80).should eq 40
-    Widget.dimension("50%+5", 80).should eq 45
-    Widget.dimension("50%-5", 80).should eq 35
-    Widget.dimension("100%", 24).should eq 24
-    Widget.dimension("0%", 24).should eq 0
-    Widget.dimension("25%+1", 100).should eq 26
+    Widget.resolve_percentage("50%", 80).should eq 40
+    Widget.resolve_percentage("50%+5", 80).should eq 45
+    Widget.resolve_percentage("50%-5", 80).should eq 35
+    Widget.resolve_percentage("100%", 24).should eq 24
+    Widget.resolve_percentage("0%", 24).should eq 0
+    Widget.resolve_percentage("25%+1", 100).should eq 26
   end
 end

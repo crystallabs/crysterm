@@ -81,7 +81,7 @@ describe "BUGS4 _focus scrolls a deep descendant into view (fix #2)" do
     # below the viewport.
     content_row = (target.atop || 0) - (box.atop || 0) - box.itop
     content_row.should eq 18
-    visible = box.aheight - box.iheight
+    visible = box.aheight - box.ivertical
     (box.child_base <= content_row).should be_true
     (content_row <= box.child_base + visible - 1).should be_true
   end

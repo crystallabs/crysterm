@@ -1,5 +1,5 @@
 module Crysterm
-  # `Event::ListChange` (the granular list-mutation event these bindings consume)
+  # `Event::ListChanged` (the granular list-mutation event these bindings consume)
   # is declared with the other events in `src/event.cr`.
   module Reactive
     # Binds an item view (`Widget::List`/`Tree`/`Menu`/… — anything including
@@ -7,7 +7,7 @@ module Crysterm
     # sync with the collection. *render* maps each element to display text.
     #
     # The view is filled once immediately, then **patched incrementally** on each
-    # `Event::ListChange`: an insert adds just those rows, a remove drops just
+    # `Event::ListChanged`: an insert adds just those rows, a remove drops just
     # those, an update rewrites one row's content, and only a reset rebuilds — so
     # a thousand-row list appending one item touches one row, not a thousand. A
     # repaint is scheduled after each change. The binding is torn down when the
@@ -23,13 +23,13 @@ module Crysterm
       fill = -> {
         rendered = [] of String
         list.each { |e| rendered << render.call(e) }
-        view.set_items rendered
+        view.items = rendered
         nil
       }
       fill.call
 
       sub = ::Crysterm::Subscription.new
-      sub.on(list, ::Crysterm::Event::ListChange) do |ev|
+      sub.on(list, ::Crysterm::Event::ListChanged) do |ev|
         case ev.op
         when .insert?
           # Ascending order: each insert shifts later rows down, so inserting the

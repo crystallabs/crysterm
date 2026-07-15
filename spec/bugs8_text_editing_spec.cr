@@ -38,7 +38,7 @@ describe "BUGS8 double-click on non-word text leaves no stale selection anchor" 
     press s, 3, 0 # first press
     press s, 3, 0 # double-click at a non-word (past-end) position
 
-    le.has_selection?.should be_false
+    le.selection?.should be_false
     le.selection_anchor.should be_nil # would be 3 (== caret) before the fix
   end
 

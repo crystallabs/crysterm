@@ -62,8 +62,8 @@ describe "BUGS8 ToolTip position accounts for window insets" do
     tip.show_at 999, 999, "hi"
     w = tip.width.as(Int32)
     h = tip.height.as(Int32)
-    # Inner content extent = awidth - iwidth (iwidth is the total inset).
-    (tip.left.as(Int32) + w).should be <= s.awidth.not_nil! - s.iwidth
-    (tip.top.as(Int32) + h).should be <= s.aheight.not_nil! - s.iheight
+    # Inner content extent = awidth - ihorizontal (ihorizontal is the total inset).
+    (tip.left.as(Int32) + w).should be <= s.awidth.not_nil! - s.ihorizontal
+    (tip.top.as(Int32) + h).should be <= s.aheight.not_nil! - s.ivertical
   end
 end

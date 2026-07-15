@@ -60,7 +60,7 @@ module Crysterm
       property? show_label : Bool
 
       # Template for the single-mode label. Placeholders, as in
-      # `ProgressBar#text_format`: `%p` percentage, `%v` value, `%m` maximum,
+      # `ProgressBar#format`: `%p` percentage, `%v` value, `%m` maximum,
       # `%M` minimum.
       property format : String
 
@@ -118,7 +118,7 @@ module Crysterm
         @value
       end
 
-      # Sets the value, clamping into range. Emits `Event::DoubleValueChange`
+      # Sets the value, clamping into range. Emits `Event::DoubleValueChanged`
       # (the `Float64` value event, as in `DoubleSpinBox`) on an actual change,
       # and `Event::Complete` upon reaching `#maximum` (shared `#value=` body
       # from `Mixin::PercentRange`, with a repaint as its post-change action).
@@ -129,6 +129,14 @@ module Crysterm
       # Current fill as a `0..100` percentage of the range.
       def percent : Float64
         percent_of @value
+      end
+
+      # Sets the fill from a `0..100` percentage by mapping it back onto the
+      # range (the inverse of `#percent`), so a gauge can be driven in plain
+      # percentages like `ProgressBar#percent=`. Routes through `#value=`, which
+      # clamps, sanitizes a non-finite result, emits and repaints.
+      def percent=(pct : Number) : Float64
+        self.value = @minimum + pct.to_f.clamp(0.0, 100.0) * span / 100.0
       end
 
       # Snapshot of every input `build_content` reads. Rebuilding the tagged
@@ -144,7 +152,7 @@ module Crysterm
       @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
-        key = {@value, awidth, aheight, iwidth, iheight, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
+        key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
                glyph_key(style)}
         if key != @content_key
           @content_key = key
@@ -158,8 +166,8 @@ module Crysterm
       end
 
       private def build_content : String
-        cols = awidth - iwidth
-        rows = aheight - iheight
+        cols = awidth - ihorizontal
+        rows = aheight - ivertical
         return "" if cols <= 0 || rows <= 0
 
         cells = Array(Char).new(cols, ' ')

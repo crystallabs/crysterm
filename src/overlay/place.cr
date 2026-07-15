@@ -114,7 +114,7 @@ module Crysterm
                          prefer : Array(Side),
                          point : Tuple(Int32, Int32)? = nil) : Nil
       win = child.window
-      bounds = {win.ileft, win.itop, win.awidth - win.iwidth, win.aheight - win.iheight}
+      bounds = {win.ileft, win.itop, win.awidth - win.ihorizontal, win.aheight - win.ivertical}
       x, y = place(anchor, size, bounds, prefer, point)
       child.left = x - win.ileft
       child.top = y - win.itop

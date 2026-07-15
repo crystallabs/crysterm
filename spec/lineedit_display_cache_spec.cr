@@ -28,7 +28,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
 
   it "masks the value in censor mode" do
     s = mem_screen
-    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "secret", censor: true
+    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "secret", echo_mode: :password
     s._render
     box.@_value.should eq "******"
     box.value.should eq "secret" # underlying value unchanged
@@ -36,7 +36,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
 
   it "honors a custom password_character" do
     s = mem_screen
-    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "abcd", censor: true
+    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "abcd", echo_mode: :password
     box.password_character = '•'
     s._render
     box.@_value.should eq "••••"
@@ -44,7 +44,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
 
   it "shows the placeholder while empty and clears it once typed" do
     s = mem_screen
-    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, placeholder: "type here"
+    box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, placeholder_text: "type here"
     s._render
     box.@_value.should eq "type here"
     box.value = "x"
@@ -56,7 +56,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
     s = mem_screen
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "abcdefghij"
     s._render
-    # cols = awidth(6) - iwidth(0) - 1 = 5; caret at end (10) -> window is the tail.
+    # cols = awidth(6) - ihorizontal(0) - 1 = 5; caret at end (10) -> window is the tail.
     box.@view_start.should be > 0
     box.@_value.size.should be <= 5
     box.@_value.should eq "fghij"

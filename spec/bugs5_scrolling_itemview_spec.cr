@@ -8,7 +8,7 @@ include Crysterm
 #     while `#get_scroll_perc` divides by the scrollable *range*, so the two
 #     were not inverses and `Log#scroll_percentage = Log#scroll_percentage`
 #     jumped the view. (`src/widget_scrolling.cr`)
-#   * BUG 2 — `ListTable#selekt` guarded only the exact index `0`, so a negative
+#   * BUG 2 — `ListTable#select_index` guarded only the exact index `0`, so a negative
 #     index (PageUp / Ctrl-B / Ctrl-U near the top) clamped to `0` in the parent
 #     and landed on the unselectable header spacer. (`src/widget/listtable.cr`)
 #   * BUG 3 — `Mixin::ItemView` scroll/selection math used the bare item index as
@@ -47,9 +47,9 @@ describe "BUGS5 scrolling & item-view fixes" do
     end
   end
 
-  # BUG 2: a negative selekt index must clamp to the first data row, never the
+  # BUG 2: a negative select_index index must clamp to the first data row, never the
   # header spacer at index 0.
-  describe "ListTable#selekt clamps a negative index to the first data row" do
+  describe "ListTable#select_index clamps a negative index to the first data row" do
     it "does not select the header spacer on page-up near the top" do
       s = bugs5_screen 40, 24
       rows = [["Name", "Age"]]
@@ -57,12 +57,12 @@ describe "BUGS5 scrolling & item-view fixes" do
       lt = Widget::ListTable.new parent: s, top: 0, left: 0, width: 24, height: 6, rows: rows
       s.render
 
-      lt.selekt 3
+      lt.select_index 3
       lt.selected.should eq(3)
 
-      # PageUp / Ctrl-B near the top does `selekt(selected - visible)`, which is
+      # PageUp / Ctrl-B near the top does `select_index(selected - visible)`, which is
       # negative. Pre-fix that clamped to 0 (the header spacer), making @value "".
-      lt.selekt(3 - 10)
+      lt.select_index(3 - 10)
       lt.selected.should be >= 1
       lt.value.should_not eq("")
     end
@@ -77,11 +77,11 @@ describe "BUGS5 scrolling & item-view fixes" do
       list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5, items: items
       list.item_spacing = 1
       # `_render` (not `render`) actually lays the list out and sets `@lpos`;
-      # `selekt`'s scroll path is gated on `@lpos`, so a bare `render` would skip it.
+      # `select_index`'s scroll path is gated on `@lpos`, so a bare `render` would skip it.
       s._render
 
       # Select the last item. With spacing 1 it sits at content row 19*2 == 38.
-      list.selekt 19
+      list.select_index 19
       list.selected.should eq(19)
 
       visible = 5                                   # borderless height

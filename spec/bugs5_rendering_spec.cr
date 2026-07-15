@@ -9,7 +9,7 @@ include Crysterm
 # continuation would fall at/after the content-region right edge (`!(x + 1 <
 # xl)`). But screen rows are exactly `awidth` cells wide, so `line[x + 1]?` is
 # nil whenever `x + 1 >= awidth`. Under the default `Overflow::Ignore`, a widget
-# placed partly off the right edge keeps `xl > awidth` (`_get_coords` only clamps
+# placed partly off the right edge keeps `xl > awidth` (`coords` only clamps
 # `xl` for `ShrinkWidget`/`MoveWidget`). A wide glyph at the LAST screen column
 # (`x == awidth - 1`, so `x + 1 == awidth`) then satisfied `x + 1 < xl` — so it
 # was NOT blanked — while the continuation-claim block (`window_drawing.cr:604`)

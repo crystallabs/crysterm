@@ -21,12 +21,12 @@ end
 describe "BUGS3 scrolling & scrollbar fixes" do
   # Fix #1 / #2: `scroll` and `clamp_child_base_to_content` must not advance
   # `@child_base` past content when the viewport has no visible content rows
-  # (iheight >= aheight, so `visible_content_rows == 0`).
+  # (ivertical >= aheight, so `visible_content_rows == 0`).
   describe "collapsed viewport (visible_content_rows == 0)" do
     it "does not advance child_base when scrolling a fully-collapsed box" do
       s = bugs3_screen
       # A bordered box only 2 rows tall: border eats both rows, so
-      # iheight (2) >= aheight (2) and there are 0 visible content rows.
+      # ivertical (2) >= aheight (2) and there are 0 visible content rows.
       st = Widget::ScrollableText.new(
         parent: s, top: 0, left: 0, width: 20, height: 2,
         style: Style.new(border: true))

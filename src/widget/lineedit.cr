@@ -17,16 +17,42 @@ module Crysterm
       include Mixin::TextEditing
       include Mixin::TextEditing::FlatBuffer
 
-      property secret : Bool = false
-      property censor : Bool = false
+      # How the value is displayed, mirroring Qt's `QLineEdit::EchoMode`. The
+      # four modes are mutually exclusive by construction — the two independent
+      # `secret`/`censor` `Bool`s this replaces could be set to contradict each
+      # other, and one silently won.
+      enum EchoMode
+        # Show the value as it is (the default).
+        Normal
+        # Show nothing at all, not even the value's length.
+        NoEcho
+        # Show one `#password_character` per user-perceived character.
+        Password
+        # `Normal` while the field is focused (i.e. while the user is editing),
+        # `Password` the rest of the time.
+        PasswordEchoOnEdit
+      end
 
-      # Mask character shown for each hidden character when `censor` is on
-      # (Qt's `lineedit-password-character`). Defaults to `*`.
+      # See `EchoMode`. Qt's `QLineEdit#echoMode`.
+      property echo_mode : EchoMode = EchoMode::Normal
+
+      # `#echo_mode` with `PasswordEchoOnEdit` resolved against the current focus
+      # to the mode actually in force, so the display path only ever has to
+      # handle the three concrete modes. Part of `#display_snapshot_key`, so
+      # losing focus re-masks the field on the next frame.
+      private def effective_echo_mode : EchoMode
+        return EchoMode::Normal if @echo_mode.password_echo_on_edit? && focused?
+        return EchoMode::Password if @echo_mode.password_echo_on_edit?
+        @echo_mode
+      end
+
+      # Mask character shown for each hidden character in the `Password` echo
+      # modes (Qt's `lineedit-password-character`). Defaults to `*`.
       property password_character : Char = '*'
 
       # Greyed-out prompt shown while the box is empty, like Qt's
       # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
-      property placeholder : String = ""
+      property placeholder_text : String = ""
 
       # Whether Up/Down walk the input history. On by default (shell-prompt
       # style); a form field that wants Up/Down to move between fields sets this
@@ -49,9 +75,8 @@ module Crysterm
       @history_draft = ""
 
       def initialize(
-        secret = nil,
-        censor = nil,
-        placeholder = nil,
+        echo_mode : EchoMode? = nil,
+        placeholder_text = nil,
         parse_tags = false,
         input_on_focus = true,
         max_length = nil,
@@ -65,9 +90,8 @@ module Crysterm
 
         setup_text_editing input_on_focus: input_on_focus, install_enter: !!input["keys"]?
 
-        secret.try { |v| @secret = v }
-        censor.try { |v| @censor = v }
-        placeholder.try { |v| @placeholder = v }
+        echo_mode.try { |v| @echo_mode = v }
+        placeholder_text.try { |v| @placeholder_text = v }
       end
 
       def _listener(e : Crysterm::Event::KeyPress)
@@ -151,20 +175,20 @@ module Crysterm
       @view_start : Int32 = 0
 
       # Snapshot of every input `#compute_display` reads, plus the resulting
-      # `@view_start`. The build slices 3-5 intermediate strings (and, in censor
-      # mode, a fresh mask string + grapheme array) every call; `#value=`'s
+      # `@view_start`. The build slices 3-5 intermediate strings (and, in the
+      # `Password` modes, a fresh mask string) every call; `#value=`'s
       # `@_value` guard dedups `set_content`, but not the build itself. `#value=`
       # runs once per frame via `Mixin::TextEditing#render`, so at steady state
       # (nothing typed/resized) this key is unchanged and the cached string is
       # returned untouched. `@value` is keyed by object identity + size — the L1
       # fix keeps the same String object across redisplay frames, so identity is
       # a valid (allocation-free) change signal; a genuine edit swaps the object.
-      @display_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, Bool, Bool, UInt64, Char, Bool)? = nil
+      @display_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, EchoMode, UInt64, Char, Bool)? = nil
       @display_cache : String = ""
 
-      private def display_snapshot_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, Bool, Bool, UInt64, Char, Bool)
-        {@value.object_id, @value.size, @cursor_pos, awidth, iwidth, @view_start,
-         @secret, @censor, @placeholder.object_id, @password_character, full_unicode?}
+      private def display_snapshot_key : Tuple(UInt64, Int32, Int32, Int32, Int32, Int32, EchoMode, UInt64, Char, Bool)
+        {@value.object_id, @value.size, @cursor_pos, awidth, ihorizontal, @view_start,
+         effective_echo_mode, @placeholder_text.object_id, @password_character, full_unicode?}
       end
 
       def value=(value = nil)
@@ -196,15 +220,16 @@ module Crysterm
         key = display_snapshot_key
         return @display_cache if key == @display_key
 
+        mode = effective_echo_mode
         disp =
-          if @value.empty? && !@placeholder.empty?
+          if @value.empty? && !@placeholder_text.empty?
             # Show the placeholder while empty; the real value stays "".
             @view_start = 0
-            @placeholder
-          elsif @secret
+            @placeholder_text
+          elsif mode.no_echo?
             @view_start = 0
             ""
-          elsif @censor
+          elsif mode.password?
             # One mask char per user-perceived character (grapheme) under
             # full_unicode; per codepoint otherwise. Count graphemes without
             # materializing the array, and build the mask without a `.to_s`
@@ -214,9 +239,9 @@ module Crysterm
             String.build(n) { |io| n.times { io << @password_character } }
           else
             val = expanded_value
-            # Visible width (`awidth - iwidth - 1`; -1 leaves room for the caret).
+            # Visible width (`awidth - ihorizontal - 1`; -1 leaves room for the caret).
             # `cols` is a *display*-column budget.
-            cols = Math.max 0, awidth - iwidth - 1
+            cols = Math.max 0, awidth - ihorizontal - 1
             # `@view_start` is a codepoint index into `val`; measure the slide in
             # *display* columns so wide (CJK/emoji) glyphs count as 2. Mixing the
             # codepoint index against a display-column budget would leave the caret
@@ -276,11 +301,11 @@ module Crysterm
       # *tail* of `@value` (`@_value`), so selection columns must be measured
       # from the first visible `@value` index, not from the logical line start
       # the generic (`@child_base_x`-based) version assumes. Highlight is
-      # suppressed in `secret`/`censor` modes (nothing meaningful to mark, and
-      # a masked field's selection shouldn't be visually revealed anyway).
+      # suppressed in every non-`Normal` echo mode (nothing meaningful to mark,
+      # and a masked field's selection shouldn't be visually revealed anyway).
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
         return nil unless rl == 0
-        return nil if @secret || @censor
+        return nil unless effective_echo_mode.normal?
         return nil unless range = selection_range
 
         # First and last `@value` indices actually shown. `@_value` is a window
@@ -308,17 +333,18 @@ module Crysterm
       # content overflows the box).
       def position_at(x : Int32, y : Int32) : Int32
         return 0 if @value.empty?
-        # Secret mode shows nothing to click onto; park at the end, matching
-        # how the field is fully obscured.
-        return @value.size if @secret
+        mode = effective_echo_mode
+        # `NoEcho` shows nothing to click onto; park at the end, matching how the
+        # field is fully obscured.
+        return @value.size if mode.no_echo?
 
-        lpos = _get_coords
+        lpos = coords
         return cursor_pos unless lpos
 
         left = lpos.xi + ileft
         disp_idx = column_index(@_value, (x - left).clamp(0, content_width))
 
-        if @censor
+        if mode.password?
           # `@_value` is one mask char per grapheme of `@value` (see
           # `#value=`) — `disp_idx` is already a grapheme count; convert to a
           # codepoint offset by walking that many graphemes.
@@ -353,13 +379,14 @@ module Crysterm
       end
 
       # Caret's *display* column within the shown window (see `#compute_display`),
-      # used by `#_update_cursor`. `0` in secret mode (nothing shown);
-      # grapheme/codepoint count before the caret in censor mode (the mask isn't
-      # windowed). Measured with `str_width` so a wide glyph before the caret
-      # advances the column by 2, keeping the caret off-by drift-free.
+      # used by `#_update_cursor`. `0` under `NoEcho` (nothing shown);
+      # grapheme/codepoint count before the caret under `Password` (the mask
+      # isn't windowed). Measured with `str_width` so a wide glyph before the
+      # caret advances the column by 2, keeping the caret off-by drift-free.
       private def caret_view_col : Int32
-        return 0 if @secret
-        if @censor
+        mode = effective_echo_mode
+        return 0 if mode.no_echo?
+        if mode.password?
           cp = @cursor_pos.clamp(0, @value.size)
           # Legacy (codepoint) path is just the clamped caret index — no slice.
           return cp unless full_unicode?
@@ -380,7 +407,7 @@ module Crysterm
       def _update_cursor(get = false, to_scroll_pos = false)
         return unless focused?
 
-        lpos = get ? @lpos : _get_coords
+        lpos = get ? @lpos : coords
         return unless lpos
 
         display = window
@@ -398,10 +425,11 @@ module Crysterm
       # and triggers a render; the actual window shift is done by
       # `#compute_display` on that render.
       private def ensure_cursor_visible_x : Bool
-        return false if @secret || @censor
+        # Only `Normal` windows the value; the masked modes render unwindowed.
+        return false unless effective_echo_mode.normal?
         # Compare in display columns (matching `#compute_display`), so a wide
         # glyph pushing the caret past the visible width still flags a scroll.
-        cols = Math.max 0, awidth - iwidth - 1
+        cols = Math.max 0, awidth - ihorizontal - 1
         val = expanded_value
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
         caret_col = str_width val, 0, caret_cp

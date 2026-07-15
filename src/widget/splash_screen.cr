@@ -24,7 +24,7 @@ module Crysterm
     class SplashScreen < Box
       # A splash is a fixed-size overlay: honor the given `width`/`height` rather
       # than shrinking to content (which would also break the centering math).
-      @resizable = false
+      @shrink_to_fit = false
 
       # An overlay: at the unstyled floor it carries a structural border so it
       # separates from the content behind it (a theme can override or remove it;

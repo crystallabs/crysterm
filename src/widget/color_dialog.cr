@@ -33,9 +33,10 @@ module Crysterm
     # click/drag behavior.
     #
     # On Ok it emits `Event::Action` (carrying the chosen `"#rrggbb"` hex) and
-    # `Event::Accepted`; on Cancel/Escape it emits `Event::Rejected`. The
-    # convenience `#pick` form also delivers the hex (or `nil` when cancelled) to
-    # a block, restoring the previously-focused widget.
+    # `Event::Accepted`; on Cancel/Escape it emits `Event::Rejected`. Either way
+    # it closes through `Dialog#done`, so `Event::Finished` and `Dialog#result`
+    # follow. The convenience `#pick` form also delivers the hex (or `nil` when
+    # cancelled) to a block, restoring the previously-focused widget.
     #
     # ```
     # dialog = Widget::ColorDialog.new parent: window, top: "center", left: "center",
@@ -163,20 +164,25 @@ module Crysterm
       end
 
       # Sets the current color from a name or `"#rrggbb"` spec, updating every
-      # editor. Invalid specs are ignored.
-      def set_color(spec : String) : Nil
-        rgb = Colors.convert(spec).to_i32
-        set_rgb (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff
-      rescue
-        # Ignore unparseable color specs (e.g. half-typed hex).
+      # editor. Invalid specs are ignored (Qt's `setCurrentColor`).
+      def current_color=(spec : String) : String
+        begin
+          rgb = Colors.convert(spec).to_i32
+          set_rgb (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff
+        rescue
+          # Ignore unparseable color specs (e.g. half-typed hex).
+        end
+        spec
       end
 
       # Shows the dialog and runs *block* with the chosen hex (or `nil` on
-      # cancel). Saves and later restores focus, and installs the modal Enter
-      # (accept) / Escape (cancel) handler.
+      # cancel) — the block-based sugar over `Event::Accepted`/`Rejected`. Saves
+      # and later restores focus, and installs the modal Enter (accept) / Escape
+      # (reject) handler.
       def pick(&block : String? -> Nil) : Nil
         @callback = block
         window.save_focus
+        @result = Code::Rejected.to_i
         show
         front!
         focus
@@ -191,7 +197,7 @@ module Crysterm
       end
 
       # Dismisses without choosing (Cancel / Escape).
-      def cancel : Nil
+      def reject : Nil
         finish nil
       end
 
@@ -245,16 +251,16 @@ module Crysterm
         # terminal default/theme (only the swatches/preview/gradient below use
         # functional color).
         hexrow = Box.new parent: self, top: HEX_Y, left: INFO_X, width: info_w, height: 1,
-          layout: Layout::Form.new(label_width: 4, gap: 0)
+          layout: Layout::Form.new(label_width: 4, column_gap: 0)
         Box.new parent: hexrow, height: 1, content: "Hex"
         @hexbox = hb = LineEdit.new parent: hexrow, height: 1
-        # Apply live on every keystroke (`TextChange`) and on Enter (`Submit`);
+        # Apply live on every keystroke (`TextChanged`) and on Enter (`Submit`);
         # strip the cosmetic leading space first. Invalid/half-typed specs are
-        # ignored by `set_color`.
-        hb.on(Crysterm::Event::Submit) { |e| set_color e.value.strip }
-        hb.on(Crysterm::Event::TextChange) do |e|
+        # ignored by `current_color=`.
+        hb.on(Crysterm::Event::Submit) { |e| self.current_color = e.value.strip }
+        hb.on(Crysterm::Event::TextChanged) do |e|
           next if @syncing
-          set_color e.value.strip
+          self.current_color = e.value.strip
         end
 
         # Basic palette: one click sets the color. A centered marker (drawn by
@@ -263,7 +269,7 @@ module Crysterm
         @colors.each do |name|
           sw = Box.new parent: self, top: PAL_Y, left: x, width: COLOR_W, height: 1,
             align: :center, style: Style.new(bg: name)
-          sw.on(Crysterm::Event::Click) { set_color name; request_render }
+          sw.on(Crysterm::Event::Click) { self.current_color = name; request_render }
           @palette_swatches << sw
           x += COLOR_W
         end
@@ -291,7 +297,7 @@ module Crysterm
             paint_swatch slot, c
           end
           slot.on(Crysterm::Event::Click) do
-            @custom_colors[i]?.try { |col| set_color col; request_render }
+            @custom_colors[i]?.try { |col| self.current_color = col; request_render }
           end
           @custom_slots << slot
           cx += COLOR_W
@@ -300,7 +306,7 @@ module Crysterm
         bb = DialogButtonBox.new parent: self, top: BTN_Y, left: 0,
           buttons: DialogButtonBox::StandardButton::Ok | DialogButtonBox::StandardButton::Cancel
         bb.on(Crysterm::Event::Accepted) { accept }
-        bb.on(Crysterm::Event::Rejected) { cancel }
+        bb.on(Crysterm::Event::Rejected) { reject }
 
         # Eyedropper: arm a window-wide color pick (see `begin_pick`).
         pick = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
@@ -312,18 +318,18 @@ module Crysterm
       # A `Form`-based editor column (a 1-cell label column + its field), shared
       # by the RGB/HSV/HSL columns.
       private def column_box(parent : Widget) : Box
-        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, gap: 1)
+        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, column_gap: 1)
       end
 
       # Appends a `"<label> [field]"` row to a `column_box`, returning the editable
       # `LineEdit` field. Behaves like the Hex field: applies live on keystroke
-      # (`TextChange`) and on Enter (`Submit`). The mouse wheel nudges this one
+      # (`TextChanged`) and on Enter (`Submit`). The mouse wheel nudges this one
       # component by ±1 (clamped to `min..max`) and re-applies the same way.
       private def column_spin(col : Widget, label : String, min : Int32, max : Int32, &apply : -> Nil) : LineEdit
         Box.new parent: col, height: 1, content: label
         le = LineEdit.new parent: col, height: 1
         le.on(Crysterm::Event::Submit) { apply.call }
-        le.on(Crysterm::Event::TextChange) do
+        le.on(Crysterm::Event::TextChanged) do
           next if @syncing
           apply.call
         end
@@ -431,7 +437,7 @@ module Crysterm
 
       # Pushes *value* into editor field *le*, unless it is `nil` or currently
       # focused — never clobbers a field the user is mid-typing into, since the
-      # live `TextChange` handler already drove the change that got us here.
+      # live `TextChanged` handler already drove the change that got us here.
       private def sync_field(le : LineEdit?, value : String) : Nil
         le.value = value if le && !le.focused?
       end
@@ -490,12 +496,12 @@ module Crysterm
         # Drop any in-flight window move / eyedropper before closing.
         end_move
         release_window_state
-        if color
-          emit Crysterm::Event::Action, color
-          emit Crysterm::Event::Accepted
-        else
-          emit Crysterm::Event::Rejected
-        end
+        # The chosen value goes out before the outcome, so an `Action` handler
+        # sees the color while `Accepted` is still pending.
+        emit Crysterm::Event::Action, color if color
+        # `Dialog#done` records `#result` and emits `Accepted`/`Rejected` +
+        # `Finished` — the one funnel every dialog closes through.
+        done(color ? Code::Accepted : Code::Rejected)
         cb = @callback
         @callback = nil
         cb.try &.call color
@@ -629,7 +635,7 @@ module Crysterm
         @ev_pick.off
         window?.try &.ungrab self
         if hex = screen_color_at x, y
-          set_color hex
+          self.current_color = hex
           store_custom
         end
         request_render
@@ -659,7 +665,7 @@ module Crysterm
         # hue bar (only fg/bg vary), so derive them once and fold them into the
         # cached packed attrs (see `field_attrs`/`hue_attrs`).
         flags = Attr.flags sattr(style)
-        # Pass the clipped LPos from `_render` down so the overlays stay inside
+        # Pass the clipped RenderedGeometry from `_render` down so the overlays stay inside
         # the rendered (possibly clipped) area — the raw absolute coords they
         # paint at would otherwise wrap (negative indices) or escape the clip.
         draw_field flags, ret
@@ -709,7 +715,7 @@ module Crysterm
         @hue_attrs
       end
 
-      private def draw_field(flags : Int64, clip : LPos) : Nil
+      private def draw_field(flags : Int64, clip : RenderedGeometry) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_sx = ox + FIELD_X + (@saturation * (FIELD_W - 1)).round.to_i
@@ -733,7 +739,7 @@ module Crysterm
         end
       end
 
-      private def draw_hue(flags : Int64, clip : LPos) : Nil
+      private def draw_hue(flags : Int64, clip : RenderedGeometry) : Nil
         ox = aleft + ileft
         oy = atop + itop
         cur_hy = oy + HUE_Y + (@hue / 360.0 * (HUE_H - 1)).round.to_i
@@ -756,16 +762,16 @@ module Crysterm
 
       # Writes one cell directly into the window buffer (cf. `Slider#render`).
       # When *marked*, the glyph is drawn in a contrasting fg over the swatch.
-      private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : LPos) : Nil
+      private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : RenderedGeometry) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
         put_cell_attr x, y, ch, sattr(style, fg, bg), clip
       end
 
       # Writes one cell with an already-packed attr (the cached-swatch fast path,
-      # bypassing per-cell `Colors.hsv_i`/`sattr`). Cells outside the clipped LPos
+      # bypassing per-cell `Colors.hsv_i`/`sattr`). Cells outside the clipped RenderedGeometry
       # (a partially offscreen / parent-clipped dialog) are dropped; a negative
       # index would otherwise wrap to the far side of the screen buffer.
-      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : LPos) : Nil
+      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry) : Nil
         return if x < clip.xi || x >= clip.xl || y < clip.yi || y >= clip.yl
         return if x < 0 || y < 0
         window.lines[y]?.try do |line|

@@ -139,7 +139,7 @@ module Crysterm
       end
       # Item views reconstruct their rows from serialized state (e.g. `List`'s
       # `items=` attribute), not from child nodes: their `children` *are* the
-      # backing item boxes (`Mixin::ItemView#append_item` pushes each into the
+      # backing item boxes (`Mixin::ItemView#add_item` pushes each into the
       # real children). Emitting them as `<w-box>` children would duplicate the
       # rows on load — once via the attribute, once as re-appended boxes — so an
       # item view serializes as childless.

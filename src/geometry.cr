@@ -1,17 +1,27 @@
 module Crysterm
-  # Minimal widget position, returned from position-calculating methods. *i
-  # fields are start positions, *l end positions. Internal only.
+  # An axis-aligned rectangle of terminal cells (Qt's `QRect`), returned from
+  # position-calculating methods — most visibly `Widget#contents_rect`.
+  #
+  # Both axes are **half-open**: the rectangle covers columns `xi...xl` and rows
+  # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`
+  # with no off-by-one. `#right`/`#bottom` are defined the same way (exclusive),
+  # *unlike* Qt's `QRect#right`, which returns the inclusive `x + width - 1` and
+  # is a long-standing source of off-by-one bugs. Every accessor here agrees
+  # with the half-open reading; there is no inclusive variant.
   struct Rectangle
+    # Start column (inclusive).
     getter xi : Int32
-    getter xl : Int32
-    getter yi : Int32
-    getter yl : Int32
-    getter get : Bool
 
-    # NOTE Don't remember the exact function of `get`. IIRC it goes to
-    # recalculate from parent. Check what the function is and document
-    # it here.
-    def initialize(@xi, @xl, @yi, @yl, @get = false)
+    # End column (**exclusive**).
+    getter xl : Int32
+
+    # Start row (inclusive).
+    getter yi : Int32
+
+    # End row (**exclusive**).
+    getter yl : Int32
+
+    def initialize(@xi, @xl, @yi, @yl)
     end
 
     # Width in cells. The x range is half-open (`xi...xl`).
@@ -24,15 +34,96 @@ module Crysterm
       @yl - @yi
     end
 
+    # :ditto: — `#xi` under its QRect name.
+    def x : Int32
+      @xi
+    end
+
+    # :ditto: — `#yi` under its QRect name.
+    def y : Int32
+      @yi
+    end
+
+    # Left edge (inclusive) — alias of `#xi`.
+    def left : Int32
+      @xi
+    end
+
+    # Top edge (inclusive) — alias of `#yi`.
+    def top : Int32
+      @yi
+    end
+
+    # Right edge, **exclusive** — alias of `#xl`. One past the last covered
+    # column, *not* Qt's inclusive `x + width - 1`; see the type docs.
+    def right : Int32
+      @xl
+    end
+
+    # Bottom edge, **exclusive** — alias of `#yl`. One past the last covered
+    # row; see `#right`.
+    def bottom : Int32
+      @yl
+    end
+
+    # Whether the rectangle covers no cells (either axis collapsed or inverted).
+    def empty? : Bool
+      @xl <= @xi || @yl <= @yi
+    end
+
+    # Center cell, rounded down (the exact center of an even-sized side falls
+    # between two cells; the lower one is taken).
+    def center : Tuple(Int32, Int32)
+      {@xi + width // 2, @yi + height // 2}
+    end
+
     # Whether the absolute cell (*x*, *y*) falls inside this rectangle.
     def contains?(x : Int32, y : Int32) : Bool
       x >= @xi && x < @xl && y >= @yi && y < @yl
     end
+
+    # Whether *other* shares at least one cell with this rectangle. An empty
+    # rectangle intersects nothing.
+    def intersects?(other : Rectangle) : Bool
+      @xi < other.xl && other.xi < @xl && @yi < other.yl && other.yi < @yl
+    end
+
+    # This rectangle shifted by (*dx*, *dy*), keeping its size.
+    def translated(dx : Int32, dy : Int32) : Rectangle
+      Rectangle.new @xi + dx, @xl + dx, @yi + dy, @yl + dy
+    end
+
+    # Intersection with *other* — the cells in both. `#empty?` when they don't
+    # overlap (the result is normalized rather than inverted).
+    def &(other : Rectangle) : Rectangle
+      xi = Math.max @xi, other.xi
+      xl = Math.min @xl, other.xl
+      yi = Math.max @yi, other.yi
+      yl = Math.min @yl, other.yl
+      Rectangle.new xi, Math.max(xi, xl), yi, Math.max(yi, yl)
+    end
+
+    # Bounding rectangle of `self` and *other* — the smallest rectangle covering
+    # both. Not a set union: cells in neither operand may be covered. An empty
+    # operand is ignored, so `empty | r == r` rather than a rectangle stretched
+    # to some stale origin.
+    def |(other : Rectangle) : Rectangle
+      return other if empty?
+      return self if other.empty?
+      Rectangle.new Math.min(@xi, other.xi), Math.max(@xl, other.xl),
+        Math.min(@yi, other.yi), Math.max(@yl, other.yl)
+    end
   end
 
-  # Minimal position interface holding a widget's last rendered position.
-  # XXX Could be renamed to LastRenderedPos[ition] for clarity.
-  class LPos
+  # A widget's last rendered position: the rectangle it painted into, plus the
+  # absolute offsets and insets resolved from it (see
+  # `Widget#last_rendered_position`, which fills the `a*`/`i*` fields lazily).
+  #
+  # Instances are **reused across frames** and mutated in place by
+  # `Widget#coords` — the render path resolves one of these per widget per
+  # frame, so allocating a fresh one would put a heap allocation on the hot
+  # path. Read the values; never retain the object past the current frame.
+  class RenderedGeometry
     # TODO Can almost be replaced with a struct; see tech-demo example.
 
     None = new
@@ -73,8 +164,8 @@ module Crysterm
     property itop : Int32 = 0
     property iright : Int32 = 0
     property ibottom : Int32 = 0
-    property iwidth : Int32 = 0
-    property iheight : Int32 = 0
+    property ihorizontal : Int32 = 0
+    property ivertical : Int32 = 0
 
     property _scroll_bottom : Int32 = 0
     property _clean_sides : Bool? = nil
@@ -104,14 +195,14 @@ module Crysterm
       @itop = @itop,
       @iright = @iright,
       @ibottom = @ibottom,
-      @iwidth = @iwidth,
-      @iheight = @iheight,
+      @ihorizontal = @ihorizontal,
+      @ivertical = @ivertical,
     )
     end
 
     # Re-initializes this instance in place to a freshly-constructed state. Used
-    # by `Widget#_get_coords` on the render hot path to reuse the widget's
-    # `@lpos` instead of allocating a new `LPos` per widget per frame.
+    # by `Widget#coords` on the render hot path to reuse the widget's
+    # `@lpos` instead of allocating a new `RenderedGeometry` per widget per frame.
     #
     # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`):
     # they're keyed to the previous frame's geometry and would otherwise return
@@ -138,8 +229,8 @@ module Crysterm
       @itop = 0
       @iright = 0
       @ibottom = 0
-      @iwidth = 0
-      @iheight = 0
+      @ihorizontal = 0
+      @ivertical = 0
       @_scroll_bottom = 0
       @_clean_sides = nil
       self

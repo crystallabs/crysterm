@@ -44,10 +44,41 @@ module Crysterm
     # Does it accept keyboard input?
     property? input = false
 
+    # Whether the widget reacts to keyboard input (Qt's `QWidget#isEnabled`).
+    # Derived from `#state`, which is single-valued: a widget is disabled exactly
+    # while it is in `WidgetState::Disabled`.
+    def enabled? : Bool
+      !state.disabled?
+    end
+
     # Is the widget disabled? While disabled it does not react to keyboard
-    # input (see `Window#_listen_keys`). Toggle via `state = WidgetState::Disabled`.
-    def disabled?
+    # input (see `Window#_listen_keys`) and Tab/Shift+Tab step over it (see
+    # `Window#focus_offset`).
+    def disabled? : Bool
       state.disabled?
+    end
+
+    # Enables/disables the widget (Qt's `QWidget#setEnabled`), emitting
+    # `Event::EnabledChanged` on a real change.
+    #
+    # Backed by `#state` rather than a flag of its own, so `Disabled` can't drift
+    # out of sync with the state the renderer and `Window#_listen_keys` read.
+    # Since `WidgetState` is single-valued, enabling resolves to `Normal` —
+    # re-disabling a widget that was `Focused`/`Hovered`/`Selected` and then
+    # re-enabling it lands on `Normal`, not the prior state. `#state=` already
+    # handles `mark_dirty` and the CSS re-cascade (`state-disabled` rules).
+    def enabled=(value : Bool) : Bool
+      return value if value == enabled?
+      self.state = value ? WidgetState::Normal : WidgetState::Disabled
+      emit ::Crysterm::Event::EnabledChanged, value
+      value
+    end
+
+    # :ditto: — inverted (Qt has no `setDisabled` counterpart on the getter side,
+    # but the setter exists).
+    def disabled=(value : Bool) : Bool
+      self.enabled = !value
+      value
     end
 
     # Should widget react to some pre-defined keys in it?
@@ -63,6 +94,19 @@ module Crysterm
       # calls should always re-fire instead.
       return if focused?
       window.focus self
+    end
+
+    # Drops keyboard focus from this widget (Qt's `QWidget#clearFocus`), handing
+    # it to the most recent still-valid entry in the window's focus history — or
+    # blurring outright when none remains. No-op unless this widget currently
+    # holds focus, so it can't disturb an unrelated focused widget.
+    #
+    # `Window#rewind_focus` (not `focus_pop`) is what pops-and-revalidates: it
+    # prunes history entries that have since been detached or hidden, which is
+    # exactly the state a widget being un-focused tends to be left in.
+    def clear_focus : Nil
+      return unless focused?
+      window?.try &.rewind_focus
     end
 
     # Returns whether widget is currently in focus.
@@ -95,12 +139,6 @@ module Crysterm
       text
     end
 
-    # Qt's `QWidget#setToolTip`. Kept (and de-stubbed) under the original Blessed
-    # name; both route to `#tool_tip=`.
-    def set_hover(hover_text : String?)
-      self.tool_tip = hover_text
-    end
-
     # Whether the absolute point (*x*, *y*) lies within this widget's last-laid-out
     # rectangle. Returns false before layout (coordinates raise). Shared hit-test
     # used by pop-ups for outside-click dismissal and grab containment.
@@ -131,8 +169,9 @@ module Crysterm
       contains_point? x, y
     end
 
-    # Hides the tooltip (if shown). Qt's `QToolTip::hideText`.
-    def remove_hover
+    # Hides the shown tooltip. Qt's `QToolTip::hideText`. Does not clear
+    # `#tool_tip`; the text stays and pops up again on the next hover.
+    def hide_tool_tip
       @_tooltip.try &.hide
       # Render the tooltip's OWN window, not the widget's: after a cross-window
       # reparent the tooltip may still live on the window it was created on, and
@@ -144,9 +183,9 @@ module Crysterm
     private def wire_tooltip : Nil
       @_tooltip_wired = true
       on(Crysterm::Event::MouseOver) { |e| show_tooltip e.x, e.y }
-      on(Crysterm::Event::MouseOut) { remove_hover }
+      on(Crysterm::Event::MouseOut) { hide_tool_tip }
       # A hidden widget must not leave its tooltip lingering.
-      on(Crysterm::Event::Hide) { remove_hover }
+      on(Crysterm::Event::Hide) { hide_tool_tip }
     end
 
     # The GUI mouse-pointer shape requested while the pointer is over this widget
@@ -244,7 +283,7 @@ module Crysterm
 
         on(Crysterm::Event::DragStart) do |e|
           # Grab against the margin-LESS origin: `aleft`/`atop` default to
-          # `with_margin: true`, but `_get_coords` shifts the drawn box outward by
+          # `with_margin: true`, but `coords` shifts the drawn box outward by
           # the margin again — capturing the margin-inclusive origin here would
           # double-count `margin.left`/`margin.top`, jumping the widget right/down
           # by its own margin on the first motion. This also keeps the keyboard
@@ -290,18 +329,18 @@ module Crysterm
     #
     # `left`/`top` are measured from the parent's content origin (`drag_origin`
     # = `parent.aleft + parent.ileft`), so the clamp must use the parent's inner
-    # content extent — `awidth - iwidth` (`iwidth` = summed left+right inset, see
+    # content extent — `awidth - ihorizontal` (`ihorizontal` = summed left+right inset, see
     # `widget_decoration`) — not the full `awidth`, or a nested widget could be
     # dragged past the parent's border by the inset amount. Same logic applies
     # when the parent is the window (mirrors `drag_origin`).
     protected def drag_max_left : Int32
       c = parent_or_window
-      {c.awidth - c.iwidth - awidth, 0}.max
+      {c.awidth - c.ihorizontal - awidth, 0}.max
     end
 
     protected def drag_max_top : Int32
       c = parent_or_window
-      {c.aheight - c.iheight - aheight, 0}.max
+      {c.aheight - c.ivertical - aheight, 0}.max
     end
 
     # Whether this widget self-moves while dragged (reposition behavior
@@ -317,8 +356,9 @@ module Crysterm
     end
 
     # :nodoc:
-    # no-op in this place
-    def _update_cursor(arg)
+    # no-op in this place. `Mixin::TextEditing` (and `LineEdit`) override it
+    # publicly — placing the caret is part of an editable widget's API.
+    protected def _update_cursor(arg)
     end
   end
 end

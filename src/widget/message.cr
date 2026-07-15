@@ -14,13 +14,25 @@ module Crysterm
 
       # Kept here rather than in the `class Widget` body, where they would
       # pollute every widget's defaults.
-      @resizable = true
+      @shrink_to_fit = true
       @parse_tags = true
 
       @ev_keypress = Crysterm::Subscription.new
 
+      # The in-flight `#display`'s callback, so a programmatic `#accept` runs the
+      # same dismissal the key/timeout paths do instead of closing behind
+      # `#display`'s back (leaving its callback unfired).
+      @dismiss_callback : Proc(Nil)? = nil
+
+      # Shows *text* until *time* elapses (or, without a timeout, until the next
+      # keypress), then dismisses it and runs *callback* — the block-based sugar
+      # over the `Dialog` result protocol. A message carries only an
+      # acknowledgement, so every dismissal closes with `Code::Accepted`
+      # (`Event::Accepted`, then `Event::Finished`).
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
         gen = bump_dismiss_gen
+        @dismiss_callback = callback
+        @result = Code::Rejected.to_i
         if scrollable?
           window.save_focus
           focus
@@ -78,10 +90,16 @@ module Crysterm
         # against the torn-down widget — the timed analogue of the keypress
         # subscription teardown above.
         bump_dismiss_gen
+        # Drop the pending callback with it: nothing may dismiss the message any
+        # more, so holding it would only pin the closure to a dead widget.
+        @dismiss_callback = nil
         super
       end
 
-      def end_it(gen : Int32? = nil, &callback : Proc(Nil))
+      # Dismisses the message and runs *callback*. Internal: the generation
+      # counter *gen* is `#display`'s stale-fiber guard, not something a caller
+      # can meaningfully supply — dismiss from outside with `#accept`.
+      protected def end_it(gen : Int32? = nil, &callback : Proc(Nil))
         # A stale timer/keypress fiber from a superseded `#display` captured an
         # older generation; ignore it so it can't dismiss a newer message early.
         return if gen && !dismiss_current?(gen)
@@ -91,9 +109,29 @@ module Crysterm
           rescue
           end
         end
-        hide
-        request_render
+        @dismiss_callback = nil
+        # A message has only an acknowledgement, so any dismissal — key, timeout
+        # or `#accept` — is the affirmative outcome. `Dialog#done` hides it and
+        # emits `Event::Accepted` + `Event::Finished`.
+        done Code::Accepted
         callback.try &.call
+      end
+
+      # Dismisses the message programmatically, exactly as a keypress/timeout
+      # would: restores focus, runs the pending `#display` callback, and closes
+      # with `Code::Accepted`. Also invalidates any armed dismissal fiber, so it
+      # can't fire the callback a second time.
+      def accept : Nil
+        @ev_keypress.off
+        cb = @dismiss_callback
+        bump_dismiss_gen
+        end_it { cb.try &.call }
+      end
+
+      # :ditto: a message has no negative outcome to report — dismissing it *is*
+      # acknowledging it — so Escape/Cancel resolves the same way as `#accept`.
+      def reject : Nil
+        accept
       end
 
       def error(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))

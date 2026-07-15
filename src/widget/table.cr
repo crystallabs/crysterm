@@ -27,8 +27,9 @@ module Crysterm
     class Table < AbstractItemView
       include TableLayout
 
-      # The table data, as rows of string cells.
-      property rows : Array(Array(String))
+      # The table data, as rows of string cells. Read-only; assign through
+      # `#rows=`, which rebuilds the view.
+      getter rows : Array(Array(String))
 
       # Whether every other body row is painted with `style.alternate_row` instead
       # of `style.cell`. No visible effect until `style.alternate_row` gets a
@@ -36,7 +37,7 @@ module Crysterm
       property? alternate_rows : Bool = false
 
       # A table is sized to its content by default.
-      @resizable = true
+      @shrink_to_fit = true
 
       # Content is pre-formatted into fixed-width columns; must never be
       # line-wrapped (would push following rows down and desync cell borders,
@@ -48,9 +49,14 @@ module Crysterm
       # scrolling entirely (`child_base_x` stays 0) — a wide table is just clipped
       # by its parent. For a scrollable wide table use `Widget::ListTable` instead.
 
+      # NOTE: there is deliberately no `data:` parameter. It used to be a second
+      # spelling of `rows:`, on a widget that *also* inherits an unrelated
+      # `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot) — so `Table.new(data:
+      # rows)` set the rows while `table.data = x` set the YAML. Pass `rows:`.
+      # (`Widget::Pine::SelectableList` documents dodging the same collision by
+      # naming its array `records`.)
       def initialize(
         rows = nil,
-        data = nil,
         pad = nil,
         no_cell_borders = nil,
         fill_cell_borders = nil,
@@ -59,29 +65,32 @@ module Crysterm
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
         **box,
       )
-        @rows = normalize_rows(rows || data)
+        @rows = normalize_rows(rows)
         @alternate_rows = alternate_rows
         self.cell_align = align
         init_cell_options pad, no_cell_borders, fill_cell_borders
 
         super **box
 
-        set_data @rows
+        self.rows = @rows
 
-        on(Crysterm::Event::Attach) { set_data @rows }
+        on(Crysterm::Event::Attach) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
-          set_data @rows
+          self.rows = @rows
           request_render
         end
       end
 
-      # :ditto:
-      def set_rows(rows)
-        set_data rows
-      end
-
       # Replaces the table data and rebuilds the rendered content.
-      def set_data(rows)
+      #
+      # A real setter, not the one `property rows` used to generate: that one
+      # assigned `@rows` and stopped, bypassing `#reload_rows` — so `@maxes_dirty`
+      # was never set and the column widths, the pinned `@width` and the rendered
+      # content all kept describing the OLD data, while `#render` went on sizing
+      # the box's height from the NEW `@rows.size`. The working path was
+      # `set_data`/`set_rows`; both are folded in here, since one argument is one
+      # argument and `rows=` is how Crystal spells it.
+      def rows=(rows)
         unless reload_rows rows
           # Empty/column-less data must empty the view too: `reload_rows` has
           # already replaced `@rows`, so returning with the old content rendered
@@ -96,7 +105,7 @@ module Crysterm
         # measured content width disagree with `@maxes`, leaving the right border
         # ragged. Assigned directly to avoid the `Resize`-before-store recursion
         # `width=` would trigger via our own `Resize` handler.
-        @width = row_width + iwidth
+        @width = row_width + ihorizontal
 
         text = String.build do |str|
           @rows.each_with_index do |row, ri|
@@ -110,9 +119,9 @@ module Crysterm
       end
 
       def render(with_children = true)
-        # Re-pin the size now that the CSS cascade has run. `set_data` pins width
+        # Re-pin the size now that the CSS cascade has run. `#rows=` pins width
         # at construction/Attach time, but a border arriving via CSS isn't folded
-        # into `style` yet then, so `iwidth` would omit the border columns and
+        # into `style` yet then, so `ihorizontal` would omit the border columns and
         # leave internal separators overshooting the right edge.
         #
         # Height is pinned too: cell-border junctions are placed relative to the
@@ -124,8 +133,8 @@ module Crysterm
         # own `Resize` handler would trigger.
         calculate_maxes
         unless @maxes.empty?
-          @width = row_width + iwidth
-          @height = Math.max(0, 2 * @rows.size - 1) + iheight
+          @width = row_width + ihorizontal
+          @height = Math.max(0, 2 * @rows.size - 1) + ivertical
         end
 
         coords = super

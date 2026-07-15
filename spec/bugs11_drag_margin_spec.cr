@@ -6,12 +6,12 @@ include Crysterm
 #
 # The default reposition drag captured its grab offset against the
 # margin-INCLUSIVE origin (`aleft`/`atop` default to `with_margin: true`), but
-# `_get_coords` shifts the drawn box outward by the margin a second time. The
+# `coords` shifts the drawn box outward by the margin a second time. The
 # net effect: dragging a widget that has a CSS/`style.margin` made it jump
 # right/down by its own margin on the first motion instead of tracking the
 # pointer. The fix grabs against the margin-LESS origin
 # (`aleft(with_margin: false)` / `atop(with_margin: false)`) so the round-trip
-# through `left=`/`top=` + `_get_coords` is exact.
+# through `left=`/`top=` + `coords` is exact.
 
 private def bugs11_screen
   Crysterm::Window.new(
@@ -36,7 +36,7 @@ describe "BUGS11 #8 dragging a margined widget tracks the pointer" do
     start_top.should eq 4
 
     # Grab exactly at the widget's painted top-left corner. `aleft`/`atop`
-    # (default `with_margin: true`) is where `_get_coords` actually paints the
+    # (default `with_margin: true`) is where `coords` actually paints the
     # box, i.e. where the pointer would land when grabbing it.
     x0 = box.aleft
     y0 = box.atop

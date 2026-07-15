@@ -13,7 +13,7 @@ module Crysterm
     # pointer* (so the year and month are adjustable too, not just the day).
     # When `#calendar_popup?`, clicking the field — or Enter/Space — toggles a
     # `Widget::Calendar` to pick a day (clicking again, or Escape, closes it).
-    # Emits `Event::DateChange` whenever the date changes.
+    # Emits `Event::DateChanged` whenever the date changes.
     #
     # The shared section machinery (selection, navigation, wheel/press handling)
     # lives in `Mixin::SectionedField`.

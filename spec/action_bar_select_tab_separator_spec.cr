@@ -27,10 +27,10 @@ describe "Mixin::ActionBar#select_tab separator guard" do
   it "is a no-op when the target tab is a separator" do
     s = abst_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
-    bar.set_items [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
-                   Crysterm::Mixin::ActionBar::Command.new("b")]
+    bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
+                 Crysterm::Mixin::ActionBar::Command.new("b")]
 
-    # Lay out so `#selekt`'s scroll math (gated on a real `@lpos`) is live;
+    # Lay out so `#select_index`'s scroll math (gated on a real `@lpos`) is live;
     # otherwise selecting an index can't move `selected` at all.
     s._render
     bar.selected.should eq 0 # the first real command

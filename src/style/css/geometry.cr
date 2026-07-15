@@ -11,8 +11,8 @@ module Crysterm
       height : Int32 | String | Nil,
       top : Int32 | String | Nil,
       left : Int32 | String | Nil,
-      right : Int32?,
-      bottom : Int32?,
+      right : Int32 | String | Nil,
+      bottom : Int32 | String | Nil,
       min_width : Int32?,
       max_width : Int32?,
       min_height : Int32?,
@@ -100,13 +100,15 @@ module Crysterm
       #
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
+        # All four edges resolve identically — `Widget#right`/`#bottom` accept
+        # the same `Int32 | String | Nil` as `#left`/`#top`, so `right: 50%`
+        # and `bottom: 50%` work like their near-side counterparts.
         when "width"  then resolve_dim(value).try { |d| widget.width = d }
         when "height" then resolve_dim(value, vertical: true).try { |d| widget.height = d }
         when "top"    then resolve_dim(value, vertical: true).try { |d| widget.top = d }
         when "left"   then resolve_dim(value).try { |d| widget.left = d }
-          # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
-        when "right"  then value.to_i?.try { |cells| widget.right = cells }
-        when "bottom" then value.to_i?.try { |cells| widget.bottom = cells }
+        when "right"  then resolve_dim(value).try { |d| widget.right = d }
+        when "bottom" then resolve_dim(value, vertical: true).try { |d| widget.bottom = d }
           # Size constraints are cells only; `%`/unmapped units yield `nil`
           # and are ignored (no per-frame hook to re-resolve a percentage).
         when "min-width"  then size_cells(widget, value).try { |c| widget.min_width = c }

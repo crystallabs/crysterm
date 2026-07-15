@@ -126,8 +126,8 @@ module Crysterm
 
         ordered = dirs + files
         @entry_names = ordered.map &.[:name]
-        set_items ordered.map(&.[:text])
-        selekt 0
+        self.items = ordered.map(&.[:text])
+        select_index 0
         request_render
 
         emit Crysterm::Event::Refresh

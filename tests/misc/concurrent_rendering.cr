@@ -21,20 +21,20 @@ Widget::Box.new \
 # Five progress bars, each advancing at its own pace from its own fiber.
 colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
 5.times do |i|
-  # The filled portion is the bar's `indicator` sub-style. Set it explicitly
+  # The percent portion is the bar's `indicator` sub-style. Set it explicitly
   # (an inline sub-style outranks the theme) to give each bar its own color
   # instead of the theme's uniform accent.
   pb = Widget::ProgressBar.new \
     parent: s,
     top: 2 + i, left: 2, width: 46, height: 1,
-    filled: 0,
+    percent: 0,
     style: Style.new(fg: colors[i], bg: 0x303030,
       indicator: Style.new(fg: colors[i]))
   step = i + 1
   s.every((0.05 + i * 0.02).seconds) do
-    # `filled` clamps at 100, so `+= step; = 0 if > 100` could never wrap.
+    # `percent` clamps at 100, so `+= step; = 0 if > 100` could never wrap.
     # Restart from empty once full.
-    pb.filled = pb.filled >= 100 ? 0 : pb.filled + step
+    pb.percent = pb.percent >= 100 ? 0 : pb.percent + step
   end
 end
 

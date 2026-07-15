@@ -87,7 +87,7 @@ module Crysterm
     notifying_setter text, String
 
     # Action enabled?
-    getter enabled = true
+    getter? enabled = true
 
     # Sets `#enabled`, emitting the granular `Event::EnabledChanged` (Qt's
     # `enabledChanged`) plus the umbrella `Event::Changed`, only on a real change.
@@ -333,7 +333,7 @@ module Crysterm
     # NOT pre-toggle.
     def activate(event : OneOfEvents = Crysterm::Event::Triggered)
       if event == Crysterm::Event::Triggered
-        return unless enabled
+        return unless enabled?
         self.checked = !checked? if checkable?
         emit Crysterm::Event::Triggered, checked?
       else
@@ -376,7 +376,7 @@ module Crysterm
     # shortcuts (and the action is enabled). Multi-keystroke chords go through
     # `#feed_shortcut`'s state machine instead.
     def shortcut_matches?(e : ::Crysterm::Event::KeyPress) : Bool
-      return false unless enabled
+      return false unless enabled?
       k = e.key
       return false unless k
       @shortcuts.any? { |seq| seq.size == 1 && seq.first == k }
@@ -422,7 +422,7 @@ module Crysterm
       # clears any half-entered chord prefix (matching the doc above). Without
       # this a stale prefix could complete a chord spuriously after intervening
       # keys or a focus change.
-      if (e.repeat? && !auto_repeat?) || !enabled
+      if (e.repeat? && !auto_repeat?) || !enabled?
         @shortcut_pending.delete window
         return
       end

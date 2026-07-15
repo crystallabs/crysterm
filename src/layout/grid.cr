@@ -14,7 +14,7 @@ module Crysterm
     # g = Widget::Box.new parent: window, width: "100%", height: "100%",
     #   layout: Layout::Grid.new(columns: 3, gap: 1)
     # Widget::Box.new parent: g,
-    #   layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)
+    #   layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
     # Widget::Box.new parent: g # auto-flows into the next free cell
     # ```
     #
@@ -24,11 +24,11 @@ module Crysterm
     class Grid < Layout
       class Hint < Layout::Hint
         getter row : Int32
-        getter col : Int32
+        getter column : Int32
         getter row_span : Int32
-        getter col_span : Int32
+        getter column_span : Int32
 
-        def initialize(@row : Int32, @col : Int32, @row_span : Int32 = 1, @col_span : Int32 = 1)
+        def initialize(@row : Int32, @column : Int32, @row_span : Int32 = 1, @column_span : Int32 = 1)
         end
       end
 
@@ -58,14 +58,14 @@ module Crysterm
       ROW_ORIGIN_CAP    = 1_000_000
       OCCUPANCY_ROW_CAP =      4096
 
-      def arrange(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : RenderedGeometry) : Nil
         w = interior.xl - interior.xi
         h = interior.yl - interior.yi
         cols = Math.max(@columns, 1)
 
         occupied = @occupied
         occupied.clear
-        # {widget, row, col, row_span, col_span}
+        # {widget, row, column, row_span, column_span}
         placements = @placements
         placements.clear
 
@@ -86,13 +86,13 @@ module Crysterm
           # Clamp the origin to the *last* valid column (`cols - 1`), not `cols`
           # (one past the grid): an origin of `cols` gives `c0 == c1 == cols`, so
           # the cell collapses to zero width and lands past the interior's right
-          # edge, silently vanishing — asymmetric with a negative `col`, which
+          # edge, silently vanishing — asymmetric with a negative `column`, which
           # clamps to column 0 and stays visible. `cols = Math.max(@columns, 1)`
           # guarantees `cols - 1 >= 0`.
-          col = hint.col.clamp(0, cols - 1)
+          column = hint.column.clamp(0, cols - 1)
           rs = Math.max(hint.row_span, 1)
-          cs = hint.col_span.clamp(1, Math.max(cols - col, 1))
-          placements << {el, row, col, rs, cs}
+          cs = hint.column_span.clamp(1, Math.max(cols - column, 1))
+          placements << {el, row, column, rs, cs}
           max_origin = Math.max(max_origin, row)
         end
 
@@ -105,10 +105,10 @@ module Crysterm
         row_bound = Math.min(@rows || (max_origin + 1 + total), OCCUPANCY_ROW_CAP)
         row_bound = 1 if row_bound < 1
         placements.map! do |placement|
-          el, row, col, rs, cs = placement
+          el, row, column, rs, cs = placement
           rs = Math.min(rs, Math.max(row_bound - row, 1))
-          occupy occupied, row, col, rs, cs
-          {el, row, col, rs, cs}
+          occupy occupied, row, column, rs, cs
+          {el, row, column, rs, cs}
         end
 
         # Auto-flow the rest (children with no Hint) into free cells, row-major.
@@ -126,7 +126,7 @@ module Crysterm
 
         # Row count. When `rows` is given, use it. Otherwise infer from the
         # placements — but unlike the column axis (whose count is the fixed
-        # `columns`, so an over-large `col_span: 99` "span to the end" is simply
+        # `columns`, so an over-large `column_span: 99` "span to the end" is simply
         # clamped to the last column by `#fence`), the row axis has no fixed
         # bound to clamp an over-large `row_span` against. Taken literally,
         # `p[1] + p[3]` would let a single `row_span: 99` inflate the grid to 99
@@ -137,7 +137,7 @@ module Crysterm
         # deeper of the rows reached by child *origins* (`p[1] + 1`) and the
         # child count (an upper bound on distinct rows). An over-large span then
         # spans to the last real row via `#fence`'s clamp, making `row_span: 99`
-        # behave symmetrically to `col_span: 99` as "span to the last row".
+        # behave symmetrically to `column_span: 99` as "span to the last row".
         if r = @rows
           nrows = r
         else
@@ -164,16 +164,16 @@ module Crysterm
         inner_w = 0 if inner_w < 0
         inner_h = 0 if inner_h < 0
 
-        placements.each do |(el, row, col, rs, cs)|
+        placements.each do |(el, row, column, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
           # terms. `Layout.fence` already clamps the pixel fences, but gap
           # multipliers using the raw span/start would add phantom inter-cell
-          # gaps for an off-grid span (e.g. `col_span: 99` "span to the end"),
+          # gaps for an off-grid span (e.g. `column_span: 99` "span to the end"),
           # pushing the cell's edge past the interior. Counting gaps from the
           # on-grid extent keeps in-grid cells unaffected while making
           # off-grid spans truly stop at the edge.
-          c0 = col.clamp(0, cols)
-          c1 = (col + cs).clamp(0, cols)
+          c0 = column.clamp(0, cols)
+          c1 = (column + cs).clamp(0, cols)
           r0 = row.clamp(0, nrows)
           r1 = (row + rs).clamp(0, nrows)
           x0 = Layout.fence inner_w, cols, c0
@@ -202,10 +202,10 @@ module Crysterm
         {r, c}
       end
 
-      private def occupy(occupied, row, col, rs, cs)
+      private def occupy(occupied, row, column, rs, cs)
         rs.times do |dr|
           cs.times do |dc|
-            occupied << {row + dr, col + dc}
+            occupied << {row + dr, column + dc}
           end
         end
       end

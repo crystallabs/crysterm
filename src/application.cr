@@ -101,9 +101,32 @@ module Crysterm
       ev = win.handle_input e
 
       if ev && win.default_quit_keys? && !win.grab_keys? && !ev.accepted? && quit_key?(ev.char, ev.key)
-        win.destroy
-        exit
+        # Through `#quit`, not a bare `exit`: handlers get `Event::AboutToQuit`
+        # (their only chance to save state), and *every* window this app drives
+        # is torn down, not just the one the key arrived on.
+        quit
       end
+    end
+
+    # Shuts the application down (Qt's `QCoreApplication::quit`): emits
+    # `Event::AboutToQuit` so handlers can save state, tears every window down,
+    # then exits the process with *status*.
+    #
+    # This is the app-level quit — the one `Window#application` advertises, and
+    # what the default quit keys route through. It is the polite counterpart to
+    # a bare `exit`: that skips `AboutToQuit` entirely and leaves teardown to the
+    # `at_exit` net (which restores the terminals but runs no application code).
+    #
+    # NOTE `Application.exec_all` deliberately does *not* use this — it owns quit
+    # for its windows and returns normally instead of exiting the process (see
+    # that method).
+    def quit(status : Int32 = 0) : NoReturn
+      emit ::Crysterm::Event::AboutToQuit
+      # Iterate a copy: `Window#destroy` calls `#remove`, which mutates
+      # `@windows` under an in-place iterator (cf. the `at_exit` net in
+      # `crysterm.cr`, same hazard).
+      @windows.dup.each { |w| w.destroy unless w.destroyed? }
+      exit status
     end
 
     # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).
@@ -167,7 +190,7 @@ module Crysterm
       # Headless capture mode: if capture env vars are set, this process is
       # driven by test/example tooling — render one frame, write the requested
       # artifact(s), and return instead of entering the interactive loop.
-      return if window.capture_from_env
+      return if window.capture_from_env?
 
       window.render
       window.listen

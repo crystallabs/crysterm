@@ -44,10 +44,10 @@ describe "BUGS13 A3: NaN/Infinity sanitized in Gauge/GaugeList/Donut" do
   it "coerces a NaN GaugeList value at ingestion and renders" do
     s = nf_screen
     gl = Widget::GaugeList.new parent: s, top: 6, left: 0, width: 30, height: 4
-    gl.add_gauge "cpu", 64
+    gl.add_item "cpu", 64
     gl["cpu"] = Float64::NAN
     gl.gauges[0].value.should eq gl.minimum
-    gl.add_gauge "mem", Float64::INFINITY
+    gl.add_item "mem", Float64::INFINITY
     gl.gauges[1].value.should eq gl.minimum
     gl[0] = Float64::NAN
     gl.gauges[0].value.should eq gl.minimum

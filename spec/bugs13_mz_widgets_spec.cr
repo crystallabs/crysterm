@@ -55,13 +55,13 @@ describe "BUGS13 M5: TabWidget#remove_tab keeps the current page" do
     tw.add_tab "B", pb
     tw.add_tab "C", pc
 
-    tw.show_tab 2
-    tw.current_page.should eq pc
+    tw.current_index = 2
+    tw.current_widget.should eq pc
 
     tw.remove_tab 0
     # Qt's removeTab keeps the current page; the bug jumped the view to the
     # removed tab's neighbor (B).
-    tw.current_page.should eq pc
+    tw.current_widget.should eq pc
     tw.current_index.should eq 1
   ensure
     s.try &.destroy
@@ -77,9 +77,9 @@ describe "BUGS13 M5: TabWidget#remove_tab keeps the current page" do
     tw.add_tab "B", pb
     tw.add_tab "C", pc
 
-    tw.show_tab 1
+    tw.current_index = 1
     tw.remove_tab 1
-    tw.current_page.should eq pc # the neighbor at the same index
+    tw.current_widget.should eq pc # the neighbor at the same index
     tw.current_index.should eq 1
   ensure
     s.try &.destroy
@@ -95,7 +95,7 @@ describe "BUGS13 M7: ToolTip sizes by display width" do
     tt.show_at 0, 0, "日本語"
     # 6 display cells + 1 leading/trailing pad cell each side + insets;
     # codepoint counting (3) clipped the text inside the box.
-    tt.width.should eq 6 + 2 + tt.iwidth
+    tt.width.should eq 6 + 2 + tt.ihorizontal
   ensure
     s.try &.destroy
   end
@@ -181,7 +181,7 @@ describe "BUGS13 M15: search box re-homed after a window move" do
     s1 = wdg_screen
     s2 = wdg_screen
     list = SearchSpyList.new parent: s1, top: 0, left: 0, width: 10, height: 5
-    list.set_items ["alpha", "beta"]
+    list.items = ["alpha", "beta"]
 
     box1 = list.spy_search_box
     box1.window?.should eq s1

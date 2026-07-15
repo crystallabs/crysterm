@@ -38,7 +38,7 @@ describe "TabWidget switching (regression check)" do
     (t0.includes?("AAAcc")).should be_true  # tab 0 content renders
     (t0.includes?("BBBcc")).should be_false # tab 1 hidden
 
-    tw.show_tab 1
+    tw.current_index = 1
     s._render
     t1 = screen_text s
     (t1.includes?("BBBcc")).should be_true # <-- switched-to page must render
@@ -62,7 +62,7 @@ describe "TabWidget switching (regression check)" do
     Widget::Box.new parent: p1, top: 1, left: 1, width: 7, height: 1, content: "BBBcc"
 
     s._render
-    tw.show_tab 1
+    tw.current_index = 1
     s._render
     # No intervening toggle: the very first render after the switch must show it.
     screen_text(s).includes?("BBBcc").should be_true
@@ -72,19 +72,19 @@ end
 
 # Minimal includer to lock the `Mixin::PagedContainer` contract directly: real
 # widgets never expose `current_index == -1` with pages present, but the mixin
-# promises `current_page == nil` when no page is selected.
+# promises `current_widget == nil` when no page is selected.
 private class FakePaged
   include Crysterm::Mixin::PagedContainer
 end
 
 describe Crysterm::Mixin::PagedContainer do
-  it "current_page is nil while no page is selected, even with pages present" do
+  it "current_widget is nil while no page is selected, even with pages present" do
     f = FakePaged.new
-    f.current_page.should be_nil # empty
+    f.current_widget.should be_nil # empty
     f.pages << Widget::Box.new
     f.pages << Widget::Box.new
     # -1 sentinel; must not negative-index to the last page.
     f.current_index.should eq -1
-    f.current_page.should be_nil
+    f.current_widget.should be_nil
   end
 end

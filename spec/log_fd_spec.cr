@@ -75,7 +75,7 @@ describe "Widget::LogFd#feed" do
     win = headless_window
     fd = plane win
     fd.feed "one\ntwo\n"
-    fd.get_content.should eq "one\ntwo"
+    fd.rendered_content.should eq "one\ntwo"
   ensure
     fd.try &.close
     win.try &.destroy
@@ -85,9 +85,9 @@ describe "Widget::LogFd#feed" do
     win = headless_window
     fd = plane win
     fd.feed "par"
-    fd.get_content.should eq "" # nothing complete yet
+    fd.rendered_content.should eq "" # nothing complete yet
     fd.feed "tial\n"
-    fd.get_content.should eq "partial"
+    fd.rendered_content.should eq "partial"
   ensure
     fd.try &.close
     win.try &.destroy
@@ -98,7 +98,7 @@ describe "Widget::LogFd#feed" do
     fd = plane win
     fd.feed Bytes[0xE4]
     fd.feed Bytes[0xB8, 0xAD, 0x0A]
-    fd.get_content.should eq "中"
+    fd.rendered_content.should eq "中"
   ensure
     fd.try &.close
     win.try &.destroy
@@ -108,11 +108,11 @@ describe "Widget::LogFd#feed" do
     win = headless_window
     fd = plane win
     fd.feed "no newline here"
-    fd.get_content.should eq ""
+    fd.rendered_content.should eq ""
     fd.flush_carry
-    fd.get_content.should eq "no newline here"
+    fd.rendered_content.should eq "no newline here"
     fd.flush_carry # idempotent when empty
-    fd.get_content.should eq "no newline here"
+    fd.rendered_content.should eq "no newline here"
   ensure
     fd.try &.close
     win.try &.destroy

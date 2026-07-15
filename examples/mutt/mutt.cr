@@ -171,7 +171,7 @@ module Crysterm
   Widget::VLine.new(parent: frame, width: 1, layout_hint: :left)
 
   # Center: the switchable main area, arranged by a `Stack` layout (Qt's
-  # `QStackedLayout`) — all views fill the center; only `stack.current` renders,
+  # `QStackedLayout`) — all views fill the center; only `stack.current_index` renders,
   # the rest are suppressed. This is what lets the `editor` (a `PlainTextEdit`,
   # Mutt's `$editor` message pane) paint: unlike a StackedWidget, the Stack
   # layout lays a view out freshly when it becomes current, and it suppresses
@@ -180,12 +180,12 @@ module Crysterm
   center = Widget::Box.new(parent: frame, layout: stack, layout_hint: :center)
   index = MessageIndex.new(parent: center, messages: messages)
   pager = Widget::ScrollableText.new(parent: center, parse_tags: true, keys: true)
-  # `resizable: false` so the editor fills the whole center area instead of
+  # `shrink_to_fit: false` so the editor fills the whole center area instead of
   # shrinking to the width/height of what's typed (a `PlainTextEdit` includes
-  # `Mixin::Interactive`, which defaults `resizable = true` — shrink-to-content).
+  # `Mixin::Interactive`, which defaults `shrink_to_fit = true` — shrink-to-content).
   # Mutt's message editor occupies the entire body pane.
   editor = Widget::PlainTextEdit.new(parent: center, input_on_focus: true,
-    resizable: false, width: "100%", height: "100%")
+    shrink_to_fit: false, width: "100%", height: "100%")
   compose = Compose.new(parent: center)
   help = Widget::ScrollableText.new(parent: center, parse_tags: true, keys: true, content: HELP_TEXT)
   PAGE = {index: 0, pager: 1, editor: 2, compose: 3, help: 4}
@@ -252,7 +252,7 @@ module Crysterm
   # (notably the editor) is laid out visible before it takes the keyboard.
   show_page = ->(name : Symbol, view : Widget) do
     current = name
-    stack.current = PAGE[name]
+    stack.current_index = PAGE[name]
     s._render
     view.focus
     nil
@@ -344,9 +344,9 @@ module Crysterm
     sidebar.open = idx
     current_folder = mb.name
     if mb.name == "INBOX"
-      index.set_messages messages
+      index.messages = messages
     else
-      index.set_messages [] of Message
+      index.messages = [] of Message
     end
     active_pane = :index
     index.focus
@@ -493,8 +493,10 @@ module Crysterm
     key = e.key
 
     if key == Tput::Key::CtrlQ
-      s.destroy
-      exit
+      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+      # every window down before exiting, rather than hard-exiting behind the
+      # toolkit's back.
+      (s.application || ::Crysterm::Application.global).quit
     end
 
     # A pending yes/no confirmation (e.g. quit) is a single-keypress prompt, the
@@ -504,8 +506,10 @@ module Crysterm
     if quit_pending
       quit_pending = false
       if ch == 'y' || ch == 'Y' || key == Tput::Key::Enter
-        s.destroy
-        exit
+        # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+        # every window down before exiting, rather than hard-exiting behind the
+        # toolkit's back.
+        (s.application || ::Crysterm::Application.global).quit
       end
       goto_index.call
       show_message.call "Quit aborted"
@@ -558,14 +562,14 @@ module Crysterm
       when '$'
         before = messages.size
         messages.reject! { |m| is_deleted.call m }
-        index.set_messages messages
+        index.messages = messages
         index_status.call
         show_message.call "Expunged #{before - messages.size} message(s)"
       when 'd', 'D'
         if active_pane == :index
           index.selected_message.try do |m|
             m.status = "D" + m.status.gsub('D', "")
-            index.set_messages messages
+            index.messages = messages
             index_status.call
             show_message.call "Message marked for deletion"
           end
@@ -574,7 +578,7 @@ module Crysterm
         if active_pane == :index
           index.selected_message.try do |m|
             m.status = m.status.gsub('D', "")
-            index.set_messages messages
+            index.messages = messages
             index_status.call
             show_message.call "Message undeleted"
           end

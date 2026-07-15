@@ -17,11 +17,6 @@ module Crysterm
         append widget
       end
 
-      # Removes `element` from list of children. Convenience method identical to `remove`
-      def >>(widget : Widget)
-        remove widget
-      end
-
       # O(1) direct-child membership test, backed by `@children_set`. Use in
       # place of `children.includes? element` (a linear `@children` scan) on hot
       # paths that repeatedly probe membership.
@@ -68,7 +63,7 @@ module Crysterm
       # hit that path for a re-insert: `Widget#insert`/`Window#insert` override
       # this to first detach `element` from its current parent and then call
       # `super`, which is how `append`/`prepend`/`insert_before`/`insert_after`
-      # *do* reposition an existing child (remove-then-add). `set_index`
+      # *do* reposition an existing child (remove-then-add). `#stack_index=`
       # (`widget_children.cr`) is the other reorder path.
       def insert(element, i = -1)
         return unless @children_set.add? element
@@ -108,31 +103,33 @@ module Crysterm
       protected def _damage_invalidate_structure : Nil
       end
 
-      # Returns true if `obj` is found in the list of parents, recursively
-      def has_ancestor?(obj)
+      # Returns true if `other` is found in the list of parents, recursively.
+      def descendant_of?(other : Widget?) : Bool
         el = self
         while el = el.parent
-          return true if el.same? obj
+          return true if el.same? other
         end
         false
       end
 
-      # Returns true if `obj` is found in the list of children, recursively
-      def has_descendant?(obj)
+      # Returns true if `other` is found in the list of children, recursively
+      # (Qt's `QWidget#isAncestorOf`). Strict: `self` is not its own ancestor —
+      # see `#covers?` for the self-inclusive form.
+      def ancestor_of?(other : Widget?) : Bool
         @children.each do |el|
-          return true if el.same? obj
-          return true if el.has_descendant? obj
+          return true if el.same? other
+          return true if el.ancestor_of? other
         end
         false
       end
 
-      # Returns true if `other` *is* `self` or sits somewhere in `self`'s
-      # subtree — i.e. whether `self` "covers" `other`. Nil-safe: `other` may
-      # be a possibly-absent widget reference (a captured focus/hover/drag/grab
-      # pointer), and `same?`/`has_descendant?` already treat `nil` as "not
-      # found" (`Reference#same?(other : Nil)` is `false`).
-      def covers?(other)
-        same?(other) || has_descendant?(other)
+      # Self-inclusive `#ancestor_of?`: true if `other` *is* `self` or sits
+      # somewhere in `self`'s subtree — i.e. whether `self` "covers" `other`.
+      # Nil-safe: `other` may be a possibly-absent widget reference (a captured
+      # focus/hover/drag/grab pointer), and `same?`/`#ancestor_of?` already treat
+      # `nil` as "not found" (`Reference#same?(other : Nil)` is `false`).
+      def covers?(other : Widget?) : Bool
+        same?(other) || ancestor_of?(other)
       end
 
       # Runs a particular block for self and all descendants, recursively
@@ -197,6 +194,27 @@ module Crysterm
           root = p
         end
         root
+      end
+
+      # The first descendant named *name*, searched depth-first, or `nil` when
+      # none matches (Qt's `QObject#findChild`). Searches the whole subtree, not
+      # just direct children.
+      def find_child(name : String) : Widget?
+        @children.each do |el|
+          return el if el.name == name
+          if found = el.find_child name
+            return found
+          end
+        end
+        nil
+      end
+
+      # Every descendant named *name*, in depth-first order (Qt's
+      # `QObject#findChildren`). Empty when none matches.
+      def find_children(name : String) : Array(Widget)
+        found = [] of Widget
+        each_descendant { |el| found << el if el.name == name }
+        found
       end
 
       # Returns a flat list of all children widgets, recursively

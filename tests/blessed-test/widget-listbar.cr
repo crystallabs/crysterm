@@ -13,12 +13,12 @@ class X
     s = Window.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     # Blessed: borderless `width:'shrink', height:'shrink'` box pinned top-right.
-    # `resizable: true` is Crysterm's shrink.
+    # `shrink_to_fit: true` is Crysterm's shrink.
     box = Widget::Box.new \
       parent: s,
       top: 0,
       right: 0,
-      resizable: true,
+      shrink_to_fit: true,
       content: "..."
 
     bar = Widget::ListBar.new \
@@ -42,7 +42,7 @@ class X
     # Each command updates the corner box and re-renders.
     names = %w[one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen]
     names.each do |name|
-      bar.add(name) do
+      bar.add_item(name) do
         box.set_content "Pressed #{name}."
         s.render
       end

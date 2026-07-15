@@ -40,22 +40,26 @@ module Crysterm
   abstract class Layout
     # Per-child placement hint. Engines requiring data beyond a child's own
     # `left`/`top`/`width`/`height` define a concrete subclass (e.g. a Border
-    # region, a Grid `{row, col, row_span, col_span}`, a flex `grow` factor) and
+    # region, a Grid `{row, column, row_span, column_span}`, a flex `grow` factor) and
     # read it off `Widget#layout_hint`. Open extension point for new engines.
     abstract class Hint
     end
 
-    # Spacing between adjacent children, in cells (Qt's layout `spacing`, CSS
-    # `spacing`). Lives on the base so it can be set uniformly (e.g. from CSS via
-    # `Geometry.apply`) regardless of engine. Honored by box/grid/form engines;
-    # flow engines (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it.
+    # Spacing between adjacent children, in cells. This is **Qt's layout
+    # `spacing`** under its CSS name (`gap`); the CSS-flavoured spelling is kept
+    # since the toolkit is styled with CSS, and `Style::CSS::Geometry` maps the
+    # `spacing` property onto it. Lives on the base so it can be set uniformly
+    # regardless of engine. Honored by the box/grid engines; flow engines
+    # (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it, and `Form` uses its
+    # own `#column_gap`/`#row_gap` (this one has no meaning there).
     property gap : Int32 = 0
 
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
-    # frame instead of allocating a fresh `LPos` per render. `#arrange` reads
-    # only its four coordinates and never retains it past the call, and a layout
-    # instance serves a single container, so one cached rectangle is safe.
-    @interior_lpos = LPos.new
+    # frame instead of allocating a fresh `RenderedGeometry` per render.
+    # `#arrange` reads only its four coordinates and never retains it past the
+    # call, and a layout instance serves a single container, so one cached
+    # rectangle is safe.
+    @interior_geometry = RenderedGeometry.new
 
     # Entry point invoked by `Widget#_render`. Computes the container's interior
     # content rectangle and, if non-empty, delegates to `#arrange`.
@@ -79,7 +83,7 @@ module Crysterm
     # Arranges (and renders) the container's children within `interior` (the
     # absolute interior rectangle from `#interior_coords`). Implementations set
     # each child's geometry and render it via `#render_child`, or `#skip` it.
-    abstract def arrange(container : Widget, interior : LPos) : Nil
+    abstract def arrange(container : Widget, interior : RenderedGeometry) : Nil
 
     # Renders the container's *chrome* children — a border label or a bound
     # scroll bar (`Widget#layout_chrome?`) — after `#arrange`. Unlike
@@ -129,9 +133,9 @@ module Crysterm
     # (every child consumes an index, even one later `#skip`ped) while still
     # controlling whether the child renders.
     protected def bump_index(el : Widget) : Nil
-      if el.window._ci != -1
-        el.index = el.window._ci
-        el.window._ci += 1
+      if el.window.render_index_cursor != -1
+        el.render_index = el.window.render_index_cursor
+        el.window.render_index_cursor += 1
       end
     end
 
@@ -286,7 +290,7 @@ module Crysterm
     # absolute window coordinates, or nil if collapsed to nothing.
     # `container.lpos` is already up to date by the time children render, so
     # this reads it directly rather than re-deriving coordinates.
-    protected def interior_coords(container : Widget) : LPos?
+    protected def interior_coords(container : Widget) : RenderedGeometry?
       lpos = container.lpos
       return unless lpos
       xi = lpos.xi + container.ileft
@@ -294,7 +298,7 @@ module Crysterm
       yi = lpos.yi + container.itop
       yl = lpos.yl - container.ibottom
       return if (xl - xi <= 0) || (yl - yi <= 0)
-      i = @interior_lpos
+      i = @interior_geometry
       i.xi = xi
       i.xl = xl
       i.yi = yi
@@ -302,18 +306,24 @@ module Crysterm
       i
     end
 
-    # `el`'s rendered rectangle from the last frame if non-empty, else nil. Lets
-    # layout callers bind `lpos` directly instead of re-reading it through a
-    # `not_nil!` after a separate `rendered?` check.
+    # `el`'s rendered rectangle from the last frame if **non-empty**, else nil.
+    # Lets layout callers bind the rectangle directly instead of re-reading it
+    # through a `not_nil!` after a separate `#rendered?` check.
+    #
+    # Deliberately *not* `Widget#last_rendered_position?`: that reports a
+    # rectangle whenever one exists, whereas an engine chaining one child off
+    # the previous one must treat a collapsed (zero-width/height) rectangle as
+    # "nothing rendered" — otherwise a placed-but-empty child anchors its
+    # neighbour. `#rendered?` is defined in terms of this, so the two agree.
     @[AlwaysInline]
-    protected def rendered_lpos(el : Widget) : LPos?
+    protected def rendered_geometry(el : Widget) : RenderedGeometry?
       return nil unless l = el.lpos
       ((l.xl - l.xi) > 0) && ((l.yl - l.yi) > 0) ? l : nil
     end
 
     # Whether `el` produced a non-empty rendered rectangle on the last frame.
     protected def rendered?(el : Widget) : Bool
-      !rendered_lpos(el).nil?
+      !rendered_geometry(el).nil?
     end
 
     # The most recently *rendered* child before index `i` (skipping children
@@ -325,7 +335,7 @@ module Crysterm
     # or pinned `lpos`) yet still lives in `children`. Without this guard a flow
     # child appended after such chrome would chain its left edge off the chrome's
     # rect instead of off the previous flow child.
-    protected def get_last(container : Widget, i : Int32) : Widget?
+    protected def last_rendered_before(container : Widget, i : Int32) : Widget?
       while i > 0
         i -= 1
         el = container.children[i]

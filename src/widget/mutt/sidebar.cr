@@ -86,7 +86,7 @@ module Crysterm
         # indicator moves. Pass a negative value for "no open mailbox".
         def open=(index : Int32)
           @open_index = index
-          set_records records
+          self.records = records
         end
 
         # Formats one mailbox: an open-indicator, the (indented) name, and the

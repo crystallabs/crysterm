@@ -26,7 +26,7 @@ describe "DoubleSpinBox range clamping" do
     s = dsr_screen
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 10.0
     changes = [] of Float64
-    d.on(Crysterm::Event::DoubleValueChange) { |e| changes << e.value }
+    d.on(Crysterm::Event::DoubleValueChanged) { |e| changes << e.value }
 
     d.minimum = 50.0
     d.minimum.should eq 50.0

@@ -37,14 +37,14 @@ module Crysterm
     # * `#highlight_today?` — underline today's date.
     # * `#minimum_date` / `#maximum_date` (`#set_date_range`) — selectable range.
     #
-    # Emits `Event::DateChange` when the selected date changes,
-    # `Event::CurrentPageChange` when the shown month/year changes, and
+    # Emits `Event::DateChanged` when the selected date changes,
+    # `Event::CurrentPageChanged` when the shown month/year changes, and
     # `Event::Action` when a day is activated (Enter or click).
     #
     # ```
     # cal = Widget::Calendar.new parent: window, top: 0, left: 0, width: 22, height: 10,
     #   style: Style.new(border: true)
-    # cal.on(Event::DateChange) { |e| status.content = e.date.to_s("%Y-%m-%d") }
+    # cal.on(Event::DateChanged) { |e| status.content = e.date.to_s("%Y-%m-%d") }
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -227,14 +227,14 @@ module Crysterm
       end
 
       # Sets the selected date, clamped to `[minimum_date, maximum_date]`, paging
-      # the view to show it and emitting `Event::DateChange` on an actual change.
+      # the view to show it and emitting `Event::DateChanged` on an actual change.
       def selected_date=(value : Time) : Time
         v = clamp_date value
         return @date if v == @date
         @date = v
         show_selected_date
         update_content
-        emit Crysterm::Event::DateChange, @date
+        emit Crysterm::Event::DateChanged, @date
         request_render
         @date
       end
@@ -262,7 +262,7 @@ module Crysterm
       end
 
       # Shows the page for *year*/*month* (clamped to the date range) without
-      # changing the selection, emitting `Event::CurrentPageChange` on a change.
+      # changing the selection, emitting `Event::CurrentPageChanged` on a change.
       def set_current_page(year : Int32, month : Int32) : Nil
         idx = clamp_page(year * 12 + (month - 1))
         y = idx // 12
@@ -271,7 +271,7 @@ module Crysterm
         @shown_year = y
         @shown_month = m
         update_content
-        emit Crysterm::Event::CurrentPageChange, y, m
+        emit Crysterm::Event::CurrentPageChanged, y, m
         request_render
       end
 
@@ -630,7 +630,7 @@ module Crysterm
         # whose height assignment fires the item view's `on_resize`, scrolling
         # the selected row into view — so the long year list opens already
         # scrolled to the current year instead of at its top.
-        menu.selekt index
+        menu.select_index index
         lpos = @lpos
         if lpos
           menu.popup lpos.xi + ileft + col, lpos.yi + itop + 1
@@ -668,7 +668,7 @@ module Crysterm
 
       def on_keypress(e)
         # A display-only calendar (`SelectionMode::NoSelection`) must not move a
-        # selection or emit `Event::Action`/`DateChange` from the keyboard —
+        # selection or emit `Event::Action`/`DateChanged` from the keyboard —
         # matching `activate_day` (mouse) and `render_day` (marker), which already
         # suppress selection. Leave the keys unaccepted so they can propagate.
         return if selection_mode.no_selection?

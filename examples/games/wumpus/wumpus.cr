@@ -212,8 +212,10 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
     @screen.on(Event::KeyPress) do |e|
       if e.key == Tput::Key::CtrlQ
-        @screen.destroy
-        exit
+        # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+        # every window down before exiting, rather than hard-exiting behind the
+        # toolkit's back.
+        (@screen.application || Application.global).quit
       end
 
       # Keep typing effortless: a keystroke while focus has drifted off the
@@ -295,7 +297,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
   private def say(line : String = "")
     @transcript.push_line line
-    @transcript.scroll_to @transcript.get_content.lines.size
+    @transcript.scroll_to @transcript.rendered_content.lines.size
   end
 
   # A blank separator line — kept when the "gap" flag is on (teletype spacing),
@@ -480,8 +482,10 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
     # Quit works in any state.
     if verb == "q" || verb == "quit"
-      @screen.destroy
-      exit
+      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+      # every window down before exiting, rather than hard-exiting behind the
+      # toolkit's back.
+      (@screen.application || Application.global).quit
     end
 
     # "SAME SET-UP (Y-N)?" prompt: the next y/n answer picks the cave.

@@ -325,7 +325,7 @@ module Crysterm
         private def margins : Tuple(Int32, Int32, Int32, Int32)
           lm = @y_labels.max_of?(&.size) || 0
           lm += 1 if axis_y.title.empty? # a hair of breathing room
-          lm = lm.clamp(0, Math.max(0, (awidth - iwidth) // 2))
+          lm = lm.clamp(0, Math.max(0, (awidth - ihorizontal) // 2))
 
           tm = (@title.empty? ? 0 : 1) + (show_legend? && !@series.empty? ? 1 : 0)
 

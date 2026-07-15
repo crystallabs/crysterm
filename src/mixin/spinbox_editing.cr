@@ -52,8 +52,8 @@ module Crysterm
       # `RangedValue#init_range` does the `maximum >= minimum` fix-up an inverted
       # range would otherwise leave `#value` stuck under), wires key handling and
       # the wheel/blur handlers, and paints the initial content.
-      protected def setup_spinbox_editing(value, wrap) : Nil
-        @wrap = wrap
+      protected def setup_spinbox_editing(value, wrapping) : Nil
+        @wrapping = wrapping
         init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
@@ -112,11 +112,11 @@ module Crysterm
         return unless buf
         @editing = nil
         if v = parse_buffer(buf)
-          # Clamp here rather than leaning on `#value=`: on a `#wrap?` box,
+          # Clamp here rather than leaning on `#value=`: on a `#wrapping?` box,
           # `#value=` treats an out-of-range value as a single-step overshoot
           # and snaps to the *opposite* bound (typing 150 on a 0..100 wrap box
           # would commit 0). A typed entry is an absolute value, not a step, so
-          # it must clamp into range regardless of `#wrap?`.
+          # it must clamp into range regardless of `#wrapping?`.
           self.value = v.clamp(@minimum, @maximum) # emits a value-change event if changed
         end
         update_content # revert the display even when value did not change

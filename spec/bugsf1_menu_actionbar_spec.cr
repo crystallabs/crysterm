@@ -65,11 +65,11 @@ describe "BUGS-F1 #9 ActionBar items don't share one mutable Style" do
   it "keeps scrolled-off items hidden when the bar overflows" do
     s = f1_screen
     bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 20
-    bar.set_items ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
+    bar.items = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
     s._render
 
     # Scroll the selection to the far right so the left edge scrolls off.
-    bar.selekt bar.items.size - 1
+    bar.select_index bar.items.size - 1
     s._render
 
     bar.left_base.should be > 0
@@ -88,8 +88,8 @@ describe "BUGS-F1 #51 ActionBar command width ignores tag markup" do
     s = f1_screen
     bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 40
     bar.auto_prefix = false
-    plain = bar.add "File"
-    tagged = bar.add "{bold}File{/bold}"
+    plain = bar.add_item "File"
+    tagged = bar.add_item "{bold}File{/bold}"
 
     # Both render 'File' (4 cols) + 2 for the box padding => equal width.
     plain.width.should eq tagged.width

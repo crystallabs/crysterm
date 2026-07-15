@@ -5,9 +5,15 @@ module Crysterm
     # A small floating label shown on hover, modeled after Qt's `QToolTip`.
     #
     # You normally don't create one directly: set any widget's `#tool_tip=` and a
-    # shared tooltip appears near the pointer while the widget is hovered (and
-    # hides when the pointer leaves). It can also be driven manually with
-    # `#show_at` / `#hide`, mirroring `QToolTip::showText`.
+    # tooltip appears near the pointer while the widget is hovered (and hides
+    # when the pointer leaves). It can also be driven manually with `#show_at` /
+    # `#hide`, the instance-level counterpart of `QToolTip::showText`.
+    #
+    # NOTE Unlike Qt's `QToolTip`, this is *not* a single shared, static tip:
+    # `Widget#tool_tip=` lazily creates one `ToolTip` per widget (see
+    # `Widget#show_tooltip`). Only one is ever visible at a time — the hover
+    # handlers hide it on `MouseOut` — so the behavior matches; the difference is
+    # in how many objects exist behind it.
     #
     # ```
     # button.tool_tip = "Save the document"
@@ -51,15 +57,15 @@ module Crysterm
         s.apply_stylesheet
 
         # Reserve space for the frame (border + padding) so a bordered tooltip
-        # isn't squished into a single collapsed row. Reading `iwidth`/`iheight`
+        # isn't squished into a single collapsed row. Reading `ihorizontal`/`ivertical`
         # resolves `#style` (installing the floor border per `#floor_border?`),
         # so insets reflect the border this render will draw; under a theme with
         # a background instead of a border these insets are 0.
         # Measure in display cells (`str_width`), not codepoints: a CJK/emoji
         # tooltip measured by `.size` under-sizes the box, wrapping and
         # clipping the text inside it.
-        w = (lines.max_of? { |l| str_width l } || 0) + 2 + iwidth # one cell of padding each side
-        h = lines.size + iheight
+        w = (lines.max_of? { |l| str_width l } || 0) + 2 + ihorizontal # one cell of padding each side
+        h = lines.size + ivertical
 
         self.width = w
         self.height = h
@@ -68,10 +74,10 @@ module Crysterm
         # top-level child whose `left`/`top` are relative to the window's content
         # origin (`aleft == window.ileft + left`). Subtract the window insets so
         # it lands under the pointer, and clamp to the *inner content* size
-        # (`awidth - iwidth`, where `iwidth` is the total inset) so it can't
+        # (`awidth - ihorizontal`, where `ihorizontal` is the total inset) so it can't
         # overshoot into the border/padding on a bordered/padded window.
-        inner_w = s.awidth - s.iwidth
-        inner_h = s.aheight - s.iheight
+        inner_w = s.awidth - s.ihorizontal
+        inner_h = s.aheight - s.ivertical
         self.left = (x - s.ileft).clamp(0, Math.max(0, inner_w - w))
         self.top = (y - s.itop).clamp(0, Math.max(0, inner_h - h))
 

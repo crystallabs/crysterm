@@ -58,8 +58,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
     screen = headless_screen
     list = Widget::List.new
     screen.append list
-    list.set_items(["a", "b", "c"])
-
+    list.items = ["a", "b", "c"]
     without_default_theme do
       # `List` always emits a trailing `<w-item>` sub-element node, which used to
       # steal the last-child slot from the real items.
@@ -79,8 +78,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
     screen = headless_screen
     list = Widget::List.new
     screen.append list
-    list.set_items(["a", "b", "c"])
-
+    list.items = ["a", "b", "c"]
     without_default_theme do
       screen.stylesheet = <<-CSS
         List Box:nth-last-child(1) { color: red; }

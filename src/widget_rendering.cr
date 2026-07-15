@@ -156,14 +156,14 @@ module Crysterm
       sync_label_position
 
       # `awidth(true)` is an O(1) read of the parent's already-rendered cached
-      # `lpos`. Resolve once and pass to both `process_content` and `_get_coords`
+      # `lpos`. Resolve once and pass to both `process_content` and `coords`
       # instead of each walking the ancestor chain (O(depth)) separately.
       aw = awidth(true)
       process_content awidth_hint: aw
 
-      # Pass `@lpos` so `_get_coords` updates it in place rather than allocating a
-      # fresh `LPos` every frame. Nil on first render, then it allocates.
-      coords = _get_coords(true, into: @lpos, width_hint: aw)
+      # Pass `@lpos` so `coords` updates it in place rather than allocating a
+      # fresh `RenderedGeometry` every frame. Nil on first render, then it allocates.
+      coords = coords(true, into: @lpos, width_hint: aw)
       unless coords
         # No on-screen rect this frame (scrolled/clipped out of a scrollable
         # ancestor's viewport, or the ancestor has no `lpos`): this widget and
@@ -380,7 +380,7 @@ module Crysterm
       # content keeps the default foreground (only bg/flags follow inline SGR).
       # Resolved once here instead of re-walking the parent chain per SGR escape.
       keep_selected_fg = parent.try do |parent2|
-        parent2._is_list && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
+        parent2.item_view? && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
       end || false
 
       # Whether a row whose content is exhausted may be painted as one
@@ -978,14 +978,14 @@ module Crysterm
     # Runs the base `_render`, insets the resulting coordinates by this widget's
     # border, and yields the interior rectangle `(xi, xl, yi, yl)` for a widget
     # that paints its own interior on top of the standard render (e.g.
-    # `ProgressBar`, `Gradient`). Returns the render's `LPos` (or `nil` when
+    # `ProgressBar`, `Gradient`). Returns the render's `RenderedGeometry` (or `nil` when
     # nothing was rendered). Use `next` inside the block to bail out early while
     # still returning the coords.
     # Shared body of `with_inner_coords`/`with_content_coords`: runs the base
     # `_render` (forwarding *with_children*), bails when nothing rendered, then
     # insets the resulting coordinates by this widget's border — and, when *pad*
     # is true, additionally by the padding — before yielding the interior
-    # rectangle `(xi, xl, yi, yl)`. Returns the render's `LPos` (or `nil`).
+    # rectangle `(xi, xl, yi, yl)`. Returns the render's `RenderedGeometry` (or `nil`).
     #
     # The inset is strictly by-value: `ret` is this widget's cached `@lpos`, and
     # `Border#adjust(pos)`/`Padding#adjust(pos)` would shrink it in place, so
@@ -993,7 +993,7 @@ module Crysterm
     # under-reporting mouse hit-testing, damage-tracking bounds, and
     # `clear_last_rendered_position` until the next frame. The allocation-free
     # by-value overloads used here leave `@lpos`/`ret` describing the full rect.
-    private def with_inset_coords(with_children, pad : Bool, & : (Int32, Int32, Int32, Int32) -> _) : LPos?
+    private def with_inset_coords(with_children, pad : Bool, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
       ret = _render with_children
       return unless ret
       xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
@@ -1007,7 +1007,7 @@ module Crysterm
       ret
     end
 
-    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : LPos?
+    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
       with_inset_coords(true, false) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
@@ -1016,10 +1016,10 @@ module Crysterm
     # inset `_render` itself applies (border first, then padding) before laying
     # out content. Yields `(xi, xl, yi, yl)` for a widget that paints its own
     # content straight into the cell buffer on top of the standard render (e.g.
-    # `Effect::Direct`). Returns the render's `LPos` (or `nil` when nothing was
+    # `Effect::Direct`). Returns the render's `RenderedGeometry` (or `nil` when nothing was
     # rendered). `with_children` is forwarded to `_render` so an interior-painting
     # widget can still opt out of rendering its children.
-    def with_content_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : LPos?
+    def with_content_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
       with_inset_coords(with_children, true) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
@@ -1064,41 +1064,58 @@ module Crysterm
       self.class.sattr style, fg, bg
     end
 
-    def last_rendered_position
-      @lpos.try do |pos|
-        # Return cached value if already computed.
-        return pos if pos.aleft
+    # Where this widget last painted, with the absolute offsets (`aleft`/`atop`/
+    # `aright`/`abottom`/`awidth`/`aheight`) and insets resolved from the raw
+    # rectangle, or `nil` if it has no rendered position — never rendered, or
+    # last frame it resolved to nothing (fully clipped/off-window). `#lpos` is
+    # the same object *without* the resolved fields.
+    #
+    # The `a*` fields are filled lazily and cached in the `RenderedGeometry`
+    # itself; `RenderedGeometry#reset` clears them, so a widget that moves
+    # re-resolves rather than reporting the previous frame's absolutes.
+    #
+    # Returns the widget's **live `@lpos`**, which the next render mutates in
+    # place: read the values, do not retain the object across frames.
+    def last_rendered_position? : RenderedGeometry?
+      pos = @lpos || return nil
 
-        pos.aleft = pos.xi
-        pos.atop = pos.yi
-        pos.aright = window.awidth - pos.xl
-        pos.abottom = window.aheight - pos.yl
-        pos.awidth = pos.xl - pos.xi
-        pos.aheight = pos.yl - pos.yi
+      # Already resolved for this rectangle.
+      return pos if pos.aleft
 
-        # Carry these over too:
-        pos.ileft = ileft
-        pos.itop = itop
-        pos.iright = iright
-        pos.ibottom = ibottom
+      pos.aleft = pos.xi
+      pos.atop = pos.yi
+      pos.aright = window.awidth - pos.xl
+      pos.abottom = window.aheight - pos.yl
+      pos.awidth = pos.xl - pos.xi
+      pos.aheight = pos.yl - pos.yi
 
-        return pos
-      end
+      # Carry these over too:
+      pos.ileft = ileft
+      pos.itop = itop
+      pos.iright = iright
+      pos.ibottom = ibottom
 
-      raise "Shouldn't happen"
-      # Just to satisfy the return type. If this can realistically happen,
-      # return something like `LPos.new` instead (carrying over the i* values).
+      pos
+    end
+
+    # :ditto:, raising when the widget has no rendered position. Use this when a
+    # rendered position is a precondition (the geometry resolution path, which
+    # only reaches here for an already-rendered ancestor); use
+    # `#last_rendered_position?` when it is merely likely.
+    def last_rendered_position : RenderedGeometry
+      last_rendered_position? ||
+        raise "Widget has no rendered position (never rendered, or fully clipped last frame); use #last_rendered_position? instead"
     end
 
     # Clears area/position of widget's last render
-    def clear_last_rendered_position(get = false, override = false)
+    def clear_last_rendered_position(rendered = false, override = false)
       return unless window?
       # Reuse the cached `@lpos` from the previous `_render` instead of
       # recomputing geometry from scratch — it's still correct even after the
       # caller moved the widget, since `@lpos` holds where it actually painted.
-      # Falls back to `_get_coords` only when never rendered. Same
-      # `@lpos || _get_coords` idiom as `widget_scrolling.cr`.
-      lpos = @lpos || _get_coords(get)
+      # Falls back to `coords` only when never rendered. Same
+      # `@lpos || coords` idiom as `widget_scrolling.cr`.
+      lpos = @lpos || coords(rendered)
       return unless lpos
       window.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
     end

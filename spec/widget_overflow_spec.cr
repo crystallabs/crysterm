@@ -75,7 +75,7 @@ describe "Overflow::MoveWidget" do
     s_right = s.awidth - s.iright
     s_bottom = s.aheight - s.ibottom
 
-    coords = box._get_coords.not_nil!
+    coords = box.coords.not_nil!
     coords.xl.should eq s_right         # right edge pulled onto screen
     (coords.xl - coords.xi).should eq 6 # width preserved
     coords.yl.should eq s_bottom        # bottom edge pulled onto screen
@@ -88,7 +88,7 @@ describe "Overflow::MoveWidget" do
       top: 2, left: 2, width: 6, height: 5,
       overflow: Crysterm::Overflow::MoveWidget
 
-    coords = box._get_coords.not_nil!
+    coords = box.coords.not_nil!
     coords.xi.should eq 2
     coords.yi.should eq 2
   end
@@ -97,7 +97,7 @@ describe "Overflow::MoveWidget" do
     s = headless_screen
     box = Widget::Box.new parent: s, top: 22, left: 2, width: 6, height: 5
 
-    coords = box._get_coords.not_nil!
+    coords = box.coords.not_nil!
     coords.yi.should eq 22 # overflows the bottom, left in place (Ignore)
   end
 end

@@ -67,6 +67,23 @@ module Crysterm
       # display, where no base applies.
       @last_int : Int64?
 
+      # The numeric value on display (Qt's `QLCDNumber#value`). Kept alongside
+      # `#text` because the shown string is base-formatted and padded, so it
+      # can't be parsed back reliably. A `#display(String)` resets it to `0.0`,
+      # as in Qt — an arbitrary string has no value.
+      getter value : Float64 = 0.0
+
+      # The value rounded to an integer (Qt's `QLCDNumber#intValue`).
+      def int_value : Int64
+        @value.round.to_i64
+      end
+
+      # Shows *v* (Qt has no `setValue`; this is `#display`'s setter spelling,
+      # so `lcd.value = 42` reads like every other numeric widget).
+      def value=(v : Int | Float) : Nil
+        display v
+      end
+
       # Re-aligns the shown value in the new cell count immediately — a plain
       # property setter was inert until the next `#display` call.
       def digit_count=(v : Int32) : Int32
@@ -107,6 +124,7 @@ module Crysterm
       # Shows *value* formatted per `#mode`.
       def display(value : Int) : Nil
         @last_int = value.to_i64
+        @value = value.to_f
         s = case @mode
             when .hex? then value.to_s(16).upcase
             when .oct? then value.to_s(8)
@@ -119,12 +137,14 @@ module Crysterm
       # Shows *value* (its default string form).
       def display(value : Float) : Nil
         @last_int = nil
+        @value = value.to_f
         show_text value.to_s
       end
 
       # Shows the literal *value* (unknown characters render blank).
       def display(value : String) : Nil
         @last_int = nil
+        @value = 0.0
         show_text value
       end
 

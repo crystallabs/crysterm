@@ -62,7 +62,7 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
 end
 
 # BUGS15 #31 — Border reserved edge-child margins only on the consume axis, so a
-# margined edge child was assigned the full span and, after _get_coords' near
+# margined edge child was assigned the full span and, after coords' near
 # shift, painted past the container. The fix subtracts the span-axis margins.
 describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
   it "keeps a left-margined top bar inside the container's right edge" do
@@ -94,9 +94,9 @@ describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::Grid.new(columns: 3, gap: 0)
     Widget::Box.new parent: box,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0)
     off = Widget::Box.new parent: box,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 5) # col >= columns
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 5) # column >= columns
 
     s._render
 

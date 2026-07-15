@@ -18,8 +18,8 @@ module Crysterm
     # blessed's keys:true is implicit here.
     vi: true,
     width: "50%",
-    # blessed height:'shrink' -> resizable
-    resizable: true,
+    # blessed height:'shrink' -> shrink_to_fit
+    shrink_to_fit: true,
     top: 5,
     left: 0,
     items: ["one", "two", "three"],
@@ -29,7 +29,7 @@ module Crysterm
     ),
   )
 
-  list.select_item 0
+  list.add_to_selection 0
 
   list.on(Crysterm::Event::SelectItem) do |e|
     s.destroy

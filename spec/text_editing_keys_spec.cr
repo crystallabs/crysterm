@@ -76,7 +76,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le.value.should eq "X world"
       le.cursor_pos.should eq 1
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "PlainTextEdit: typing a character over a selection replaces the selected range" do
@@ -90,7 +90,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       pte.value.should eq "Z world"
       pte.cursor_pos.should eq 1
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
     end
 
     it "LineEdit: Backspace with a selection deletes the whole selection, cursor at its start" do
@@ -104,7 +104,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le.value.should eq "hello "
       le.cursor_pos.should eq 6
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "LineEdit: Delete with a selection deletes the whole selection, cursor at its start" do
@@ -118,7 +118,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le.value.should eq "world"
       le.cursor_pos.should eq 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "PlainTextEdit: Backspace with a selection deletes the whole selection" do
@@ -129,14 +129,14 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       pte._listener ctl(Tput::Key::Backspace)
       pte.value.should eq " world"
       pte.cursor_pos.should eq 0
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
     end
 
     it "Backspace with NO selection still removes one grapheme before the cursor" do
       s = sel_screen
       le = new_lineedit s, "abc"
       le.cursor_pos.should eq 3 # value= parks at end
-      le.has_selection?.should be_false
+      le.selection?.should be_false
 
       le._listener ctl(Tput::Key::Backspace)
       le.value.should eq "ab"
@@ -147,7 +147,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       s = sel_screen
       le = new_lineedit s, "abc"
       le.cursor_pos = 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
 
       le._listener ctl(Tput::Key::Delete)
       le.value.should eq "bc"
@@ -237,10 +237,10 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le._listener ctl(Tput::Key::ShiftRight)
       le._listener ctl(Tput::Key::ShiftRight)
-      le.has_selection?.should be_true
+      le.selection?.should be_true
 
       le._listener ctl(Tput::Key::Right)
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "PlainTextEdit: ShiftDown extends the selection across a visual row" do
@@ -269,7 +269,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
         le._listener ctl(Tput::Key::CtrlA)
         le.selection_range.should eq(0...11)
         le.selected_text.should eq "hello world"
-        le.has_selection?.should be_true
+        le.selection?.should be_true
       ensure
         Crysterm::Config.input_readline_keys = old
       end
@@ -283,7 +283,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le._listener ctl(Tput::Key::CtrlA)
       le.cursor_pos.should eq 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
   end
 
@@ -299,7 +299,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       Crysterm::Application.global.clipboard.text.should eq "world"
       le.value.should eq "hello world" # unchanged
-      le.has_selection?.should be_true # selection still present
+      le.selection?.should be_true     # selection still present
     end
 
     it "Ctrl-X cuts: copies to the clipboard AND deletes the selection" do
@@ -314,7 +314,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       Crysterm::Application.global.clipboard.text.should eq "hello "
       le.value.should eq "world"
       le.cursor_pos.should eq 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "Ctrl-V pastes the clipboard text at the cursor" do
@@ -341,7 +341,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
       le.value.should eq "QQ world"
       le.cursor_pos.should eq 2
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
   end
 
@@ -384,7 +384,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       s.click_count.should eq 1
 
       # A single click leaves no selection (just cursor positioning).
-      le.has_selection?.should be_false
+      le.selection?.should be_false
       le.cursor_pos.should eq 8
     end
 
@@ -408,10 +408,10 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       le = new_lineedit s, "hello"
       press s, 1, 0
       drag_move s, 3, 0
-      le.has_selection?.should be_true
+      le.selection?.should be_true
 
       le.value = "goodbye"
-      le.has_selection?.should be_false
+      le.selection?.should be_false
       le.value.should eq "goodbye"
     end
   end

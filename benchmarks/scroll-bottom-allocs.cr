@@ -4,18 +4,18 @@ require "../src/crysterm"
 # (src/widget_scrolling.cr).
 #
 # `_scroll_bottom` reduces over the scrollable widget's non-fixed children and,
-# for each `window?` child, calls `_get_coords false, true` to get the child's
-# unscrolled extent. Without an `into:` argument that call hits the `LPos.new`
-# fallback (src/widget_position.cr:637) and allocates one `LPos` per non-fixed
-# child. The `@lpos._scroll_bottom` memo is reset every frame by `LPos#reset`
+# for each `window?` child, calls `coords false, true` to get the child's
+# unscrolled extent. Without an `into:` argument that call hits the `RenderedGeometry.new`
+# fallback (src/widget_position.cr:637) and allocates one `RenderedGeometry` per non-fixed
+# child. The `@lpos._scroll_bottom` memo is reset every frame by `RenderedGeometry#reset`
 # (the render path reuses `@lpos`), so this reduce — and its per-child garbage —
 # re-runs every frame via update_scrollbar_widget -> get_scroll_height ->
 # _scroll_bottom (called twice per frame, incl. sync_from_target).
 #
-# FIX: route the per-child `_get_coords` through a reused scratch ivar
-# (`@_scrollb_lpos ||= LPos.new`), mirroring `@_shrink_child_lpos` in
+# FIX: route the per-child `coords` through a reused scratch ivar
+# (`@_scrollb_lpos ||= RenderedGeometry.new`), mirroring `@_shrink_child_lpos` in
 # src/widget_size.cr:212. The result is consumed immediately within the reduce,
-# so a single reused LPos is safe.
+# so a single reused RenderedGeometry is safe.
 #
 # Metric is bytes allocated (deterministic), not ips (noise-dominated). The
 # inline OLD/NEW reconstructs the exact reduce both ways; the end-to-end section
@@ -53,11 +53,11 @@ s.render
 
 children = box.@children
 
-# OLD: per-child _get_coords without `into:` -> LPos.new fallback per child.
+# OLD: per-child coords without `into:` -> RenderedGeometry.new fallback per child.
 old_scratch_free = alloc_bytes(ROUNDS) do
   children.reduce(0) do |current, el|
     next current if el.fixed?
-    el_bottom = if el.window? && (lpos = el._get_coords false, true)
+    el_bottom = if el.window? && (lpos = el.coords false, true)
                   el.rtop + (lpos.yl - lpos.yi)
                 else
                   el.rtop + el.aheight
@@ -66,12 +66,12 @@ old_scratch_free = alloc_bytes(ROUNDS) do
   end
 end
 
-# NEW: per-child _get_coords through a single reused scratch LPos.
-scratch = Crysterm::LPos.new
+# NEW: per-child coords through a single reused scratch RenderedGeometry.
+scratch = Crysterm::RenderedGeometry.new
 new_scratch = alloc_bytes(ROUNDS) do
   children.reduce(0) do |current, el|
     next current if el.fixed?
-    el_bottom = if el.window? && (lpos = el._get_coords(false, true, into: scratch))
+    el_bottom = if el.window? && (lpos = el.coords(false, true, into: scratch))
                   el.rtop + (lpos.yl - lpos.yi)
                 else
                   el.rtop + el.aheight
@@ -91,7 +91,7 @@ puts "   saved #{saved} bytes  (#{(saved / ROUNDS.to_f).round(1)} B/op, ~#{(old_
 # the per-frame render path pays.
 E2E = 2_000
 e2e = alloc_bytes(E2E) do
-  s.render              # resets @lpos memo (LPos#reset zeroes _scroll_bottom)
+  s.render              # resets @lpos memo (RenderedGeometry#reset zeroes _scroll_bottom)
   box.get_scroll_height # -> _scroll_bottom reduce over children
 end
 puts "\n#2 end-to-end get_scroll_height across re-renders (#{E2E} frames)"

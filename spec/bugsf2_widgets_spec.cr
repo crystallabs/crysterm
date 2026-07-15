@@ -20,7 +20,7 @@ include Crysterm
 #  29 (item_view.cr)      content rows vs item indices were conflated when
 #                         `item_spacing > 0` (half/page navigation moved 2x too far).
 #  31 (calendar.cr)       `NoSelection` disabled only mouse selection; the keyboard
-#                         still moved the selection and emitted `DateChange`.
+#                         still moved the selection and emitted `DateChanged`.
 #  32 (calendar.cr)       opening one nav dropdown while the other was open left both
 #                         open (two stacked modal grabs).
 #  36 (filemanager.cr)    entering an unreadable dir left `@cwd`/label at the new dir
@@ -211,8 +211,8 @@ describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spac
     spaced.item_spacing = 1
     s.render
 
-    plain.selekt 0
-    spaced.selekt 0
+    plain.select_index 0
+    spaced.select_index 0
     plain.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
     spaced.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
 
@@ -224,7 +224,7 @@ end
 
 # ── 31 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
-  it "does not move the date or emit DateChange on an arrow key" do
+  it "does not move the date or emit DateChanged on an arrow key" do
     s = f2_screen
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
@@ -232,7 +232,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
     s.render
 
     changed = false
-    cal.on(Crysterm::Event::DateChange) { changed = true }
+    cal.on(Crysterm::Event::DateChanged) { changed = true }
     before = cal.date
 
     cal.on_keypress(f2_key('\0', ::Tput::Key::Down))
@@ -263,7 +263,7 @@ describe "BUGS-F2 32: Calendar closes one nav dropdown before opening the other"
     cal.focus
     # Synchronous: the clicks below are mapped through layout-assigned geometry,
     # which only exists once a frame has actually run. `render` merely schedules
-    # one, leaving `handle_mouse`'s `_get_coords` nil — and its blanket `rescue`
+    # one, leaving `handle_mouse`'s `coords` nil — and its blanket `rescue`
     # then swallows the click, so no menu ever opens.
     s._render
 
@@ -389,14 +389,14 @@ describe "BUGS-F2 40: Form submits and resets every item view, not just List" do
     s = f2_screen
     form = Crysterm::Widget::Form.new parent: s, width: 40, height: 12
     lt = Crysterm::Widget::ListTable.new parent: form, name: "grid", width: 20, height: 8
-    lt.set_rows([["H"], ["r1"], ["r2"], ["r3"]]) # row 0 is the header
-    lt.selekt 3
+    lt.rows = ([["H"], ["r1"], ["r2"], ["r3"]]) # row 0 is the header
+    lt.select_index 3
 
     data = form.submit
     data.has_key?("grid").should be_true # contributed a value (was dropped by `when List`)
 
     form.reset
-    # Reset selects the first row (`selekt 0`, clamped past the header spacer);
+    # Reset selects the first row (`select_index 0`, clamped past the header spacer);
     # before the fix a `ListTable` was never reset and stayed on row 3.
     lt.selected.should eq 1
   end
@@ -445,7 +445,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
 
     gb.title = "New"
     gb.title.should eq "New"
-    gb._label.not_nil!.get_content.should contain "New"
+    gb._label.not_nil!.rendered_content.should contain "New"
   end
 
   it "GroupBox#checkable= adds the marker and click handling post-construction" do
@@ -455,7 +455,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
     s.render
 
     gb.checkable = true
-    gb._label.not_nil!.get_content.should contain "[x]" # marker now shown
+    gb._label.not_nil!.rendered_content.should contain "[x]" # marker now shown
 
     # A click on the title row now toggles it.
     gb.emit Crysterm::Event::Mouse, f2_mouse(::Tput::Mouse::Action::Down, gb.aleft + 1, gb.atop).mouse
@@ -469,6 +469,6 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
 
     dock.title = "Files"
     dock.title.should eq "Files"
-    dock.titlebar.get_content.should contain "Files"
+    dock.titlebar.rendered_content.should contain "Files"
   end
 end

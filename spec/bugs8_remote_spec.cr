@@ -15,7 +15,7 @@ require "./spec_helper"
       s = headless_screen
       list = Widget::List.new parent: s, width: 10, height: 5
       list.css_id = "l"
-      %w[a b c].each { |i| list.append_item i }
+      %w[a b c].each { |i| list.add_item i }
       list.children.size.should eq 3 # the backing item boxes
 
       html = list.to_layout_html
@@ -38,7 +38,7 @@ require "./spec_helper"
       s = headless_screen
       list = Widget::List.new parent: s, width: 10, height: 5
       list.css_id = "l"
-      %w[x y].each { |i| list.append_item i }
+      %w[x y].each { |i| list.add_item i }
 
       once = s.to_layout_html
       s2 = headless_screen

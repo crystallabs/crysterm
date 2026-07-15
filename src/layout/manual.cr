@@ -27,7 +27,7 @@ module Crysterm
         container.children.each { |el| render_child el }
       end
 
-      def arrange(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : RenderedGeometry) : Nil
         container.children.each { |el| render_child el }
       end
     end

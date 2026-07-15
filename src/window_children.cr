@@ -118,7 +118,7 @@ module Crysterm
       # Whether keyboard focus currently lives inside the subtree being removed.
       # Must be sampled *before* the unlink below: once `element.window = nil`
       # severs the tree, a focused *descendant* can no longer be related back to
-      # `element` via `has_descendant?`, silently stranding focus on a
+      # `element` via `#covers?`, silently stranding focus on a
       # now-detached widget.
       refocus = (f = focused) && element.covers?(f)
 
@@ -155,11 +155,6 @@ module Crysterm
         detach element, previous
         rewind_focus if refocus
       end
-    end
-
-    # :ditto:
-    def >>(element)
-      remove element
     end
 
     # Re-registers `element` and its descendants in the keyboard/mouse

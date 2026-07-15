@@ -212,7 +212,7 @@ module Superconf
   # -- Headless capture (Crysterm's own CRYSTERM_* knobs) -------------------
   # Read once at registration as the option default (config/CLI still win).
   # When set, each names a file the screen captures itself into on first
-  # render, then exits — see `Screen#capture_from_env`. Presence paths
+  # render, then exits — see `Window#capture_from_env?`. Presence paths
   # (empty/unset = off), read via `#presence` at the call site.
   option "window.shot", ENV["CRYSTERM_SHOT"]?, parse: ENV_STRING,
     description: "When set, path to write a single still PNG of the first rendered frame to, then exit (headless self-capture)"

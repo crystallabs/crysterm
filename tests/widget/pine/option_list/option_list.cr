@@ -8,7 +8,7 @@ require "../../example"
 Crysterm::WidgetExample.run "OptionList" do |screen|
   screen.stylesheet = "Pine::OptionList { border: solid; color: #c0caf5; }"
   ol = Crysterm::Widget::Pine::OptionList.new parent: screen, top: "center", left: "center", width: 64, height: 12, label: " Options "
-  ol.set_options([
+  ol.options = ([
     Crysterm::Widget::Pine::OptionList::Option.new("line-wrap",
       Crysterm::Widget::Pine::OptionKind::Toggle,
       "Wrap long lines", value: "true"),

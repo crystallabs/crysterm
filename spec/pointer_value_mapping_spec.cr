@@ -68,8 +68,8 @@ describe "pointer→value mapping (FORMAL-WIDGETS B1.3)" do
     pb = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 12, height: 1,
       minimum: 0, maximum: 100, value: 0, mouse: true
     press s, 11, 0
-    pb.filled.should eq 100
+    pb.percent.should eq 100
     press s, 0, 0
-    pb.filled.should eq 0
+    pb.percent.should eq 0
   end
 end

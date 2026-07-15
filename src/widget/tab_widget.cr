@@ -27,8 +27,9 @@ module Crysterm
     # ![TabWidget screenshot](../../tests/widget/tab_widget/tab_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class TabWidget < Box
-      # `#pages`, `#current_index`, `#current_page` and the show/next/previous
-      # core (raise one page, hide the rest) come from here.
+      # `#pages`, `#count`, `#current_index` / `#current_index=`,
+      # `#current_widget` / `#current_widget=` and the show/next/previous core
+      # (raise one page, hide the rest) come from here.
       include Mixin::PagedContainer
       # `#apply_substyle`, used by `#sync_tab_style`.
       include Mixin::SubStyle
@@ -36,7 +37,9 @@ module Crysterm
       include Mixin::WindowLifecycle
 
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /
-      # `South`).
+      # `South`). Qt's `West`/`East` have no counterpart here: `#layout_page`
+      # splits the widget along the horizontal only, so a side bar would be a
+      # layout change, not just another enum member.
       enum Position
         Top
         Bottom
@@ -45,8 +48,14 @@ module Crysterm
       # The tab bar. (Built in `initialize` after `super`, hence `getter!`.)
       getter! bar : ListBar
 
-      # The tab titles, parallel to `#pages`.
-      getter tab_titles = [] of String
+      # The tab titles, parallel to `#pages`. A copy: the live array backs the
+      # bar's items, so mutating it directly would leave the two out of sync
+      # (retitle via `#set_tab_text`, add/remove via `#add_tab`/`#remove_tab`).
+      def tab_titles : Array(String)
+        @tab_titles.dup
+      end
+
+      @tab_titles = [] of String
 
       # Height (in rows) reserved for the tab bar.
       property tab_height : Int32 = 1
@@ -68,7 +77,7 @@ module Crysterm
       # The running auto-advance timer, if any.
       @carousel_timer : FrameClock?
 
-      # Guards against the bar↔page selection feedback loop (see `#show_tab`).
+      # Guards against the bar↔page selection feedback loop (see `#rebuild_bar`).
       @switching = false
 
       def initialize(tab_height = 1, tab_position : Position = :top, tabs_closable = false, movable = false,
@@ -93,7 +102,7 @@ module Crysterm
 
         # Selecting a tab in the bar (arrow keys / click) raises its page.
         bar.on(::Crysterm::Event::SelectItem) do |e|
-          show_tab e.index unless @switching
+          self.current_index = e.index unless @switching
         end
 
         # Wheel over the bar's free cells cycles tabs (a wheel over a tab *item*
@@ -153,7 +162,7 @@ module Crysterm
         bar.items.each { |it| apply_substyle it, style.tab }
 
         # `::pane` styles the current page itself, since it fills the pane region.
-        apply_substyle current_page, style.pane
+        apply_substyle current_widget, style.pane
       end
 
       # Sets the carousel interval, (re)starting or stopping the timer. `nil`
@@ -216,13 +225,25 @@ module Crysterm
       end
 
       # Re-points every tab command's callback at its current index: commands
-      # capture an absolute index when added (`bar.add … { show_tab index }`),
+      # capture an absolute index when added (`bar.add … { self.current_index = index }`),
       # which goes stale after a tab is removed/reordered. Callers wrap it in
       # `@switching`.
       private def repoint_tab_callbacks : Nil
         @tab_titles.each_with_index do |_, i|
-          bar.commands[i].callback = -> { show_tab i }
+          bar.commands[i].callback = -> { self.current_index = i }
         end
+      end
+
+      # Rebuilds the bar's items from `@tab_titles` after an insert or a reorder,
+      # re-pointing the (index-capturing) commands and re-wiring the `✕` cells on
+      # the freshly created item boxes. Suppresses the bar's own `SelectItem`
+      # while it churns, so it can't drive a page switch mid-rebuild.
+      private def rebuild_bar : Nil
+        @switching = true
+        bar.items = @tab_titles.map { |t| display_title t }
+        repoint_tab_callbacks
+        @switching = false
+        bar.items.each { |it| wire_close it }
       end
 
       # Appends a tab titled *title* whose body is *page*, sized to fill the
@@ -237,15 +258,67 @@ module Crysterm
         index = @pages.size - 1
 
         # Suppress the bar's `SelectItem` (emitted by its own first-item
-        # `selekt 0`) while adding, so it can't drive `show_tab` before the
+        # `selected = 0`) while adding, so it can't drive a page switch before the
         # visibility bookkeeping below runs.
         @switching = true
-        bar.add(display_title title) { show_tab index }
+        bar.add_item(display_title title) { self.current_index = index }
         @switching = false
         bar.items.last?.try { |it| wire_close it }
 
         register_page page
         self
+      end
+
+      # Inserts a tab titled *title* whose body is *page* at *index* (clamped to
+      # the end), like Qt's `insertTab`; returns the index it landed at. The page
+      # that was current stays current, following its shift.
+      def insert_tab(index : Int, title : String, page : Widget) : Int32
+        i = index.clamp(0, @pages.size)
+        cur = current_widget
+
+        @tab_titles.insert i, title
+        @pages.insert i, page
+        layout_page page
+        append page
+
+        # An insert renumbers every tab at/after *i*, so the bar's items and
+        # their index-capturing commands must be rebuilt wholesale — there is no
+        # "insert one item" on the bar that keeps the rest pointing right.
+        rebuild_bar
+
+        if cur
+          page.hide
+          # `-1` first: the previously-current page may still sit at the same
+          # index (an insert after it), and `#show_index` no-ops on the current
+          # one — which would leave the bar highlighting the wrong tab.
+          @current_index = -1
+          self.current_index = @pages.index(cur) || i
+        else
+          register_page page
+        end
+        i
+      end
+
+      # The title of the tab at *index*, or `nil` when out of range (Qt's `tabText`).
+      def tab_text(index : Int) : String?
+        return nil if index < 0
+        @tab_titles[index]?
+      end
+
+      # Retitles the tab at *index* (Qt's `setTabText`); out of range is a no-op.
+      def set_tab_text(index : Int, title : String) : Nil
+        return unless 0 <= index < @tab_titles.size
+        return if @tab_titles[index] == title
+        @tab_titles[index] = title
+        # A title sets its bar item's width, and hence every later item's offset,
+        # so the bar is rebuilt wholesale rather than poking one box's content.
+        rebuild_bar
+        # `#rebuild_bar`'s `items=` resets the bar's own selection, so put the
+        # highlight back on the current tab.
+        @switching = true
+        bar.current_index = @current_index if @current_index >= 0
+        @switching = false
+        request_render
       end
 
       # Positions *page* to fill the widget beside the tab bar.
@@ -257,17 +330,12 @@ module Crysterm
         end
       end
 
-      # Raises the page (and selects the tab) at *index*, hiding the others.
-      def show_tab(index : Int) : Nil
-        show_index index
-      end
-
       # Mirrors the new selection in the bar without re-triggering its
       # `SelectItem` handler (see `#initialize`). Runs after `#show_index`.
       protected def after_show_index(index : Int) : Nil
         unless bar.selected == index
           @switching = true
-          bar.selekt index
+          bar.current_index = index
           @switching = false
         end
       end
@@ -281,7 +349,7 @@ module Crysterm
         # Removing a *non-current* tab must not switch the visible page (Qt's
         # `removeTab` keeps the current page current) — remember it so it can be
         # re-shown at its new index below.
-        cur = current_page
+        cur = current_widget
         page = @pages.delete_at index
         @tab_titles.delete_at index
 
@@ -297,12 +365,18 @@ module Crysterm
         # Re-point current_index at a still-existing tab and show it: the page
         # that was current stays current when it survived the removal; only
         # removing the current tab itself falls back to its neighbor.
-        @current_index = -1
-        unless @pages.empty?
+        if @pages.empty?
+          # Nothing left to show, so `#show_index` can't report the change —
+          # `#clear_current_index` emits `CurrentChanged(-1)` instead.
+          clear_current_index
+        else
+          # `-1` first: the surviving current page may sit at the same index it
+          # did before, and `#show_index` no-ops on the current one.
+          @current_index = -1
           if cur && (ci = @pages.index(cur))
-            show_tab ci
+            self.current_index = ci
           else
-            show_tab index.clamp(0, @pages.size - 1)
+            self.current_index = index.clamp(0, @pages.size - 1)
           end
         end
 
@@ -323,25 +397,22 @@ module Crysterm
         to = to.clamp(0, @pages.size - 1)
         return if from == to || !(0 <= from < @pages.size)
 
-        current = current_page
+        current = current_widget
 
         @pages.insert to, @pages.delete_at(from)
         @tab_titles.insert to, @tab_titles.delete_at(from)
 
         # Rebuild the bar from the reordered titles.
-        @switching = true
-        bar.set_items @tab_titles.map { |t| display_title t }
-        repoint_tab_callbacks
-        @switching = false
-        # `set_items` recreated the item boxes, so re-wire their `✕` close cells.
-        bar.items.each { |it| wire_close it }
+        rebuild_bar
 
-        # Restore the previously-current page as current.
+        # Restore the previously-current page as current. `-1` first: it usually
+        # lands on a *different* index, but not always, and `#show_index` no-ops
+        # on the current one — which would leave the bar's highlight behind.
         @current_index = -1
         if current && (i = @pages.index current)
-          show_tab i
+          self.current_index = i
         else
-          show_tab to
+          self.current_index = to
         end
       end
 

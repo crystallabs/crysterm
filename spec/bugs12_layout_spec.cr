@@ -28,13 +28,13 @@ describe "BUGS12 stack layout clears hidden pages' descendants (fix #36)" do
     child1 = Widget::Box.new parent: page1, top: 1, left: 1, width: 5, height: 3
 
     # Show page 0: its descendant paints and gets a live rect.
-    stack.current = 0
+    stack.current_index = 0
     s._render
     child0.lpos.should_not be_nil
 
     # Switch to page 1: page 0 is now hidden. Its descendant must be cleared,
     # not left with the stale rect from the previous frame.
-    stack.current = 1
+    stack.current_index = 1
     s._render
 
     child0.lpos.should be_nil     # hidden page's descendant no longer hittable
@@ -44,7 +44,7 @@ end
 
 # BUGS12 #37 — Border/dock layout reserved each edge child's margin box when
 # advancing the working rect, but placed bottom/right children with `top = y1 - ch`
-# / `left = x1 - cw`. `_get_coords`' near-anchor `shift_margin` then drew the box
+# / `left = x1 - cw`. `coords`' near-anchor `shift_margin` then drew the box
 # past the region's far edge by the child's near margin. The fix subtracts the
 # child's margin total in the placement, mirroring the advance.
 describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)" do

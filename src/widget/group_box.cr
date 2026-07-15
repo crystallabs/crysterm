@@ -203,6 +203,20 @@ module Crysterm
         self.checked = !checked?
       end
 
+      # Checks / unchecks the group. The `AbstractButton` trio (`#check`,
+      # `#uncheck`, `#toggle`) spelled for a `GroupBox` too, so the two
+      # checkable families are driven the same way — a `GroupBox` is not a
+      # `Widget::AbstractButton` (Qt makes `QGroupBox` a `QWidget`), so it
+      # cannot inherit them.
+      def check : Nil
+        self.checked = true
+      end
+
+      # :ditto:
+      def uncheck : Nil
+        self.checked = false
+      end
+
       # Toggles the flat (frameless) look, re-cascading so `GroupBox[flat]`
       # matches/unmatches (the shared CSS-toggle setter, `Box`).
       css_toggle_setter flat

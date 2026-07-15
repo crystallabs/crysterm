@@ -97,7 +97,7 @@ module Crysterm
       )
       end
 
-      def arrange(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : RenderedGeometry) : Nil
         measure container, interior
         each_arrangeable container do |el|
           place el, interior
@@ -107,7 +107,7 @@ module Crysterm
 
       # Measures the main axis: total fixed size, total grow weight, the leftover
       # to distribute, and (when nothing grows) the `justify` lead/extra-gap.
-      private def measure(container : Widget, interior : LPos) : Nil
+      private def measure(container : Widget, interior : RenderedGeometry) : Nil
         # O(1) `child?` (backed by `@children_set`) instead of `children.includes?`
         # (a linear scan): pruning four sets by a linear membership test was
         # O(tracked × children) per arrange, pure steady-state overhead.
@@ -121,7 +121,7 @@ module Crysterm
         fixed = 0
         grow = 0
         # The render pipeline shifts every laid child outward by its near margin
-        # (`_get_coords`), and a Box-assigned size is a fixed `Int32` that (unlike
+        # (`coords`), and a Box-assigned size is a fixed `Int32` that (unlike
         # an auto fill) never folds its margin in. So each child's main-axis
         # margins consume space the packing must reserve — exactly as the `Flow`
         # engine does — or children overlap and flex over-allocates.
@@ -180,12 +180,12 @@ module Crysterm
         @cursor = lead
       end
 
-      private def place(el : Widget, interior : LPos) : Nil
+      private def place(el : Widget, interior : RenderedGeometry) : Nil
         # Counterpart to `#measure`'s skip: a vacant child was never measured,
         # so it gets no position and — crucially — does not advance `@cursor`
         # or consume a justify slot. Returning before `set_main_pos` leaves its
         # stale geometry alone, which is harmless: it paints nothing while
-        # hidden (`Widget#_get_coords` bails on an invisible widget), and
+        # hidden (`Widget#coords` bails on an invisible widget), and
         # showing it again re-measures it on that frame.
         return if vacant? el
 
@@ -303,13 +303,13 @@ module Crysterm
       # shifts a laid child out by its near margin without shrinking a fixed size,
       # so the packing must reserve both.
       private def main_margin(el : Widget) : Int32
-        orientation.horizontal? ? el.mwidth : el.mheight
+        orientation.horizontal? ? el.mhorizontal : el.mvertical
       end
 
       # The child's total margin along the cross axis (top+bottom for a
       # horizontal box, left+right for a vertical one).
       private def cross_margin(el : Widget) : Int32
-        orientation.horizontal? ? el.mheight : el.mwidth
+        orientation.horizontal? ? el.mvertical : el.mhorizontal
       end
 
       # Whether the child's main-axis size is decided by this layout: either its
@@ -326,11 +326,11 @@ module Crysterm
         cross_size(el).nil? || (@filled.includes?(el) && cross_size(el) == @filled_size[el]?)
       end
 
-      private def main_extent(interior : LPos) : Int32
+      private def main_extent(interior : RenderedGeometry) : Int32
         orientation.horizontal? ? interior.xl - interior.xi : interior.yl - interior.yi
       end
 
-      private def cross_extent(interior : LPos) : Int32
+      private def cross_extent(interior : RenderedGeometry) : Int32
         orientation.horizontal? ? interior.yl - interior.yi : interior.xl - interior.xi
       end
 

@@ -38,7 +38,7 @@ module Crysterm
 
         setup_action_bar
 
-        commands.try { |c| set_items c }
+        commands.try { |c| self.items = c }
       end
     end
   end

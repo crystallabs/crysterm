@@ -82,15 +82,15 @@ module Crysterm
     def insert(element, i = -1)
       # A widget can never become a child of itself or of one of its own
       # descendants: that would splice a cycle into the tree, making every
-      # parent/descendant walk (`#window?`, `#has_descendant?`,
+      # parent/descendant walk (`#window?`, `#ancestor_of?`,
       # `#invalidate_screen_cache`, the renderer's traversal) recurse forever.
-      # The damage happens the moment `element.parent = self` runs (its
+      # The damage happens the moment `element.parent_ivar = self` runs (its
       # `#invalidate_screen_cache` walks the now-cyclic subtree), so reject as a
       # no-op here before any unlink/relink, matching Qt's `QWidget::setParent`.
-      # `has_ancestor?(element)` covers `element` being an ancestor of `self`;
+      # `descendant_of?(element)` covers `element` being an ancestor of `self`;
       # the identity check covers re-inserting `self` into itself. A genuine
       # reorder (existing child at a new index) is unaffected.
-      return if element.same?(self) || has_ancestor?(element)
+      return if element.same?(self) || descendant_of?(element)
 
       # A nested move that keeps the widget on this same window must not churn
       # the window-level `Detach`/`Attach` events (see
@@ -142,7 +142,7 @@ module Crysterm
       # A nested widget derives its window from `#parent`, so must not keep its
       # own stored reference.
       element.window = nil
-      element.parent = self
+      element.parent_ivar = self
 
       window?.try &.attach(element, previous)
 
@@ -200,7 +200,7 @@ module Crysterm
       # Capture the window the element is leaving *before* unlinking, so its
       # subtree can be told it has been detached.
       previous = element.window?
-      element.parent = nil
+      element.parent_ivar = nil
       element.window = nil
 
       # Drop this element (and its subtree) from the window's keyboard/mouse
@@ -238,21 +238,26 @@ module Crysterm
       end
     end
 
-    # Widget's position in the stack (front, back). Render index / order.
-
-    property index = -1
+    # Order this widget was reached in during the current render walk, assigned
+    # by `Layout`/`Window`'s damage pass and read back by `Helpers#hsort`.
+    # Transient bookkeeping — NOT the widget's stacking position; for that see
+    # `#stack_index=`, `#front!` and `#back!`.
+    property render_index = -1
 
     # Sends widget to front
     def front!
-      set_index -1
+      self.stack_index = -1
     end
 
     # Sends widget to back
     def back!
-      set_index 0
+      self.stack_index = 0
     end
 
-    def set_index(index : Int)
+    # Moves this widget to slot *index* in its parent's children list — i.e. its
+    # z-order among siblings (later siblings paint on top). Negative indexes
+    # count from the end, so `-1` is frontmost. Out-of-range values clamp.
+    def stack_index=(index : Int)
       # A top-level widget has no `@parent` (a `Window` is not a `Widget`), so
       # fall back to the window, otherwise `front!`/`back!` would no-op for it.
       return unless parent = (@parent || window?)

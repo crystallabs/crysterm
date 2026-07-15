@@ -3,7 +3,7 @@ require "../../src/crysterm"
 # Port of Blessed's test/widget-shrink-fail.js
 #
 # Outer scrollable `tab` box containing a `form` with computed height (blessed
-# 'shrink' -> resizable). Form holds three label/textbox pairs (Foo/Bar/Baz)
+# 'shrink' -> shrink_to_fit). Form holds three label/textbox pairs (Foo/Bar/Baz)
 # and a submit button; submit collects the textbox values and emits Event::SubmitData.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
@@ -25,7 +25,7 @@ module Crysterm
     top: 0,
     left: 1,
     right: 1,
-    resizable: true, # blessed height:'shrink' -> resizable: true
+    shrink_to_fit: true, # blessed height:'shrink' -> shrink_to_fit: true
     keys: true,
     label: " {blue-fg}Form{/blue-fg} ", # blessed's `mouse: true` isn't a Crysterm kwarg; dropped
     parse_tags: true,

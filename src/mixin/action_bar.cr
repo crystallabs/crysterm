@@ -13,6 +13,11 @@ module Crysterm
     # Call `setup_action_bar` from `initialize` (after `super`) to wire the
     # keyboard/focus handlers.
     module ActionBar
+      # For the `#<<`/`#>>` operator aliases below. `Widget` includes this too
+      # (`widget_rendering.cr`), but a standalone module doesn't inherit macros
+      # from its future includers.
+      include Crystallabs::Helpers::Alias_Methods
+
       # A single command/tab shown in an action bar.
       class Command
         # Text shown after the (optional) prefix.
@@ -35,7 +40,7 @@ module Crysterm
         # When set, the first entry also becomes the displayed `prefix`.
         property keys : Array(String)?
 
-        # The `Box` rendering this command, assigned by `#add`.
+        # The `Box` rendering this command, assigned by `#add_item`.
         property element : Widget::Box?
 
         # Computed display width of this command's box.
@@ -106,7 +111,7 @@ module Crysterm
         # input elsewhere), and a widget-local handler is torn down with the
         # widget instead of leaking on the window.
 
-        on(::Crysterm::Event::Focus) { selekt selected }
+        on(::Crysterm::Event::Focus) { select_index selected }
 
         # Command hotkeys are window-level accelerators, so they must be tied to
         # the window lifecycle (mirroring `MenuBar`'s menu-shortcut handling):
@@ -122,54 +127,84 @@ module Crysterm
         @left_base + @left_offset
       end
 
+      # Qt spelling of `#selected` / `#selected=`, matching `Mixin::ItemView`,
+      # `Widget::Toolbox` and `Widget::TabWidget`. Preferred in new code.
+      def current_index : Int32
+        selected
+      end
+
+      # :ditto:
+      def current_index=(index : Int) : Nil
+        select_index index
+      end
+
+      # Number of commands on the bar, separators included (Qt's
+      # `QListWidget#count`). Answered by the whole item-view family, so callers
+      # never have to reach into `#commands`/`#items` to count.
+      def count : Int32
+        @commands.size
+      end
+
       # (Re)defines the full set of commands from an array of `Command`s,
       # plain strings, or `name => callback` pairs.
-      def set_items(commands : Array(Command))
+      def items=(commands : Array(Command))
         @items.each &.remove_from_parent
         @commands.each { |cmd| detach_command cmd }
         @items.clear
         @ritems.clear
         @commands.clear
 
-        commands.each { |cmd| add cmd }
+        commands.each { |cmd| add_item cmd }
 
         emit ::Crysterm::Event::SetItems
       end
 
       # :ditto:
-      def set_items(commands : Array(String))
-        set_items commands.map { |text| Command.new text }
+      def items=(commands : Array(String))
+        self.items = commands.map { |text| Command.new text }
       end
 
       # :ditto:
-      def set_items(commands : Hash(String, Proc(Nil)))
+      def items=(commands : Hash(String, Proc(Nil)))
         list = [] of Command
         commands.each do |name, cb|
           list << Command.new name, cb
         end
-        set_items list
+        self.items = list
+      end
+
+      # Removes every command (Qt's `QListWidget#clear`), spelled the same way
+      # across the family.
+      def clear
+        self.items = [] of Command
       end
 
       # Appends a command given as plain text plus optional callback/hotkeys.
-      def add(text : String, callback : Proc(Nil)? = nil, *, keys : Array(String)? = nil)
-        add Command.new text, callback, keys: keys
+      # Named `add_item` — not `add` — so the whole family spells appending one
+      # way (`Mixin::ItemView#add_item`, `Widget::GaugeList#add_item`).
+      def add_item(text : String, callback : Proc(Nil)? = nil, *, keys : Array(String)? = nil)
+        add_item Command.new text, callback, keys: keys
       end
 
       # :ditto:
-      def add(text : String, *, keys : Array(String)? = nil, &callback : -> Nil)
-        add Command.new text, callback, keys: keys
+      def add_item(text : String, *, keys : Array(String)? = nil, &callback : -> Nil)
+        add_item Command.new text, callback, keys: keys
       end
 
-      # Appends a non-selectable separator (Qt's `QToolBar#addSeparator`).
-      # Default char comes from the `Glyphs` registry at the effective tier.
-      def add_separator(char : String? = nil)
+      # Appends a non-selectable separator and returns its `Command` (Qt's
+      # `QToolBar#addSeparator`, which likewise hands back the `QAction` so the
+      # separator can be hidden/removed later — this used to return the item box,
+      # leaving the separator itself unreachable). Default char comes from the
+      # `Glyphs` registry at the effective tier.
+      def add_separator(char : String? = nil) : Command
         cmd = Command.new(char || glyph(Glyphs::Role::LineVertical).to_s)
         cmd.separator = true
-        add cmd
+        add_item cmd
+        cmd
       end
 
       # Appends a `Command`.
-      def add(cmd : Command)
+      def add_item(cmd : Command)
         # Pack each item flush after the ones already added: its left is the sum
         # of their widths plus `item_gap` between each, no leading gap. Built
         # from stored command widths (relative to the bar), so it's correct
@@ -239,13 +274,13 @@ module Crysterm
         # `selected` would stick on the non-selectable separator with a dead
         # Enter. Fire on the first non-separator command instead. `@left_base`/
         # `@left_offset` (selected == their sum) are set directly rather than via
-        # `#selekt`, since its window math is gated on a laid-out `@lpos` and
+        # `#select_index`, since its window math is gated on a laid-out `@lpos` and
         # can't move the index before the first render. `@left_base` stays 0 so
         # every command, separators included, remains visible.
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
           @left_offset = @items.size - 1
-          selekt selected
+          select_index selected
         end
 
         emit ::Crysterm::Event::AddItem
@@ -253,25 +288,40 @@ module Crysterm
         item
       end
 
-      # Fires the command at *index*: emits `ActionItem`/`SelectItem` for it and
-      # runs its callback. Shared by keyboard-Enter activation and `#trigger`
-      # (each adds its own selection/render around this core). *item* defaults to
-      # the row at *index*; `#trigger` passes the command's element explicitly.
+      # `#<<` is an operator alias for `#add_item`, e.g. `bar << "Quit"`, defined
+      # once per `#add_item` overload.
+      #
+      # NOTE: every `Widget` also includes `Mixin::Children`, whose `#<<(Widget)`
+      # appends a *child widget*, and this module sits closer in the ancestor
+      # chain than `Widget`. The two coexist only because `alias_method` copies
+      # each overload's restrictions: none of `#add_item`'s takes a bare
+      # `Widget`, so `bar << some_widget` still resolves to the child-append.
+      # `spec/item_view_operators_spec.cr` pins that down.
+      alias_method :<<, :add_item
+
+      # Fires the command at *index*: emits `ActionItem` for it and runs its
+      # callback. Shared by keyboard-Enter activation and `#trigger` (each adds
+      # its own selection/render around this core). *item* defaults to the row at
+      # *index*; `#trigger` passes the command's element explicitly.
+      #
+      # Activation is not a selection change, so no `SelectItem` is emitted here:
+      # it used to be, and since the `#select_index` each caller runs around this
+      # emits it too, one Enter fired `SelectItem` twice while the selection had
+      # not moved. Mirrors `Mixin::ItemView#enter_selected`.
       private def fire(index : Int32, item = @items[index]?)
         return unless item
         emit ::Crysterm::Event::ActionItem, item, index
-        emit ::Crysterm::Event::SelectItem, item, index
         @commands[index]?.try &.callback.try &.call
       end
 
-      # Triggers a command: fires its action/select events + callback, selects
-      # it, and re-renders.
+      # Triggers a command: fires its action event + callback, selects it, and
+      # re-renders.
       private def trigger(cmd : Command)
         el = cmd.element
         return unless el
         idx = @items.index(el) || selected
         fire idx, el
-        selekt el
+        select_index el
         request_render
       end
 
@@ -289,7 +339,7 @@ module Crysterm
         # origin): `Widget#aleft` already adds the parent's `ileft`, so starting
         # the cursor at `ileft` here would double-count the inset and shove
         # items right (off the edge) whenever the bar had a border/padding.
-        # Start at 0, matching `#add` and `#selekt`'s visibility math.
+        # Start at 0, matching `#add_item` and `#select_index`'s visibility math.
         drawn = 0
         @items.each_with_index do |el, i|
           if i < @left_base
@@ -303,9 +353,13 @@ module Crysterm
         super
       end
 
-      # Selects the item at `offset` (an index or an item/element widget),
-      # adjusting the horizontal scroll window so it is visible.
-      def selekt(offset : Int)
+      # Makes the item at `offset` (an index or an item/element widget) the current
+      # one, adjusting the horizontal scroll window so it is visible. Selection
+      # only — it never runs the command (see `#select_tab`/`#trigger`).
+      #
+      # Named `select_index` because bare `select` is a Crystal keyword; it used
+      # to carry the deliberate misspelling `selekt` on the public surface.
+      def select_index(offset : Int)
         if offset < 0
           offset = 0
         elsif offset >= @items.size
@@ -318,7 +372,7 @@ module Crysterm
         # renders with `styles.selected`. Routed through `#highlight_item?` so a
         # bar with its own highlight semantics (ToolBar: checked checkables;
         # MenuBar: the open menu) inherits the re-highlight without re-overriding
-        # `#selekt`.
+        # `#select_index`.
         reapply_highlight offset
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
@@ -334,7 +388,7 @@ module Crysterm
           # math, but `selected` (== `@left_base + @left_offset`) must still move
           # to *offset* — otherwise the highlight/`SelectItem` point at *offset*
           # while Enter (`fire selected`) fires the old command. Record the index
-          # (exactly what `#add`'s auto-select does) before emitting.
+          # (exactly what `#add_item`'s auto-select does) before emitting.
           el.try do |e|
             @left_base = 0
             @left_offset = offset
@@ -345,7 +399,7 @@ module Crysterm
 
         return unless el
 
-        width = (awidth || 0) - iwidth
+        width = (awidth || 0) - ihorizontal
         drawn = 0
         visible = 0
         @items.each_with_index do |item, i|
@@ -378,9 +432,9 @@ module Crysterm
       end
 
       # :ditto:
-      def selekt(widget : Widget)
+      def select_index(widget : Widget)
         if i = @items.index widget
-          selekt i
+          select_index i
         end
       end
 
@@ -388,14 +442,14 @@ module Crysterm
       # after a (re)selection targeting *offset*. The base bar highlights the
       # just-selected item; subclasses with a different highlight model override
       # this and inherit the `#reapply_highlight` scaffold. (`selected` is not
-      # yet updated to *offset* when `#selekt` calls this, so the target index is
+      # yet updated to *offset* when `#select_index` calls this, so the target index is
       # passed explicitly.)
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
         index == offset
       end
 
       # Re-imposes each item box's `:selected`/`:normal` state via
-      # `#highlight_item?`. Shared by `#selekt` and by subclasses that must
+      # `#highlight_item?`. Shared by `#select_index` and by subclasses that must
       # re-light after a state change outside a selection (a checkable toggling,
       # a menu opening/closing, focus change) — so the walk lives once.
       protected def reapply_highlight(offset : Int32 = selected) : Nil
@@ -404,7 +458,9 @@ module Crysterm
         end
       end
 
-      # Removes the command at the given index or item/element widget.
+      # Removes the command at *child* — a row index or the item/element widget —
+      # and returns its box (`nil` when *child* resolves to no command). Matches
+      # `Mixin::ItemView#remove_item`, which now takes the same forms.
       def remove_item(child : Int | Widget)
         i = child.is_a?(Int) ? child : @items.index(child)
         return unless i && @items[i]?
@@ -414,8 +470,8 @@ module Crysterm
         detach_command @commands.delete_at i
         remove item
 
-        # Auto prefixes were baked in at `#add` time as position numbers, but
-        # number-key selection routes by raw index (`select_tab i`). After a
+        # Auto prefixes were baked in at `#add_item` time as position numbers, but
+        # number-key selection routes by raw index (`activate_tab i`). After a
         # removal the indices shifted, so renumber the auto-prefixed commands and
         # rebuild their labels/positions — otherwise e.g. removing `1:open` from
         # `1:open 2:save` would leave `2:save` while `2` now selects nothing.
@@ -427,15 +483,15 @@ module Crysterm
         # Mirrors `ItemView#remove_item`'s cursor realignment.
         if i < selected
           # The formerly-selected command is now one index lower.
-          selekt selected - 1
+          select_index selected - 1
         elsif i == selected
           # The selected command itself was removed: fall back to the prior
           # command, skipping separators so the highlight never settles on a
-          # non-selectable one (mirrors `#move`'s separator-stepping and `#add`'s
+          # non-selectable one (mirrors `#move`'s separator-stepping and `#add_item`'s
           # leading-separator skip). Falls forward when everything before the
           # gap is a separator.
           if sel = nearest_selectable(i - 1)
-            selekt sel
+            select_index sel
           end
         end
 
@@ -443,8 +499,11 @@ module Crysterm
         item
       end
 
+      # `#>>` is an operator alias for `#remove_item`, mirroring `#<<`.
+      alias_method :>>, :remove_item
+
       # Builds a command's displayed title from its (optionally prefixed) text,
-      # and updates `cmd.width` to match. Shared by `#add` and
+      # and updates `cmd.width` to match. Shared by `#add_item` and
       # `#renumber_prefixes` so both stay in sync.
       private def command_title(cmd : Command) : String
         if cmd.separator?
@@ -471,7 +530,7 @@ module Crysterm
 
       # Reassigns each auto-prefixed command the position number matching its raw
       # index, rebuilds its label + box width, and re-packs every item's `left`
-      # (mirroring `#add`'s packing) so the row stays flush even when a label
+      # (mirroring `#add_item`'s packing) so the row stays flush even when a label
       # width changes (e.g. `10:` shrinking to `9:`).
       private def renumber_prefixes : Nil
         @commands.each_with_index do |cmd, i|
@@ -588,7 +647,7 @@ module Crysterm
           idx = ni
         end
 
-        selekt idx
+        select_index idx
       end
 
       # Moves the selection `offset` items to the left.
@@ -601,21 +660,35 @@ module Crysterm
         move offset
       end
 
-      # Selects (and triggers the callback of) the tab at `index`.
+      # Selects the tab at `index` and emits `Event::SelectTab`. Selection only —
+      # it does NOT run the command's callback.
+      #
+      # It used to, so restoring UI state with `bar.select_tab 2` fired tab 2's
+      # command. Qt keeps the two apart: `setCurrentIndex` never triggers, while
+      # `activated` is a separate signal — here, `#activate_tab`.
       def select_tab(index : Int)
         # An out-of-range index is a no-op (must not emit a `SelectTab`
         # carrying a nil item).
         cmd = @commands[index]?
         return if cmd.nil?
         # A separator is not a real tab: selecting one would settle the highlight
-        # on a non-selectable command, the same state `#add`/`#remove_item`/
+        # on a non-selectable command, the same state `#add_item`/`#remove_item`/
         # `#move` already avoid. `auto_command_keys` routes here by raw index, so
         # a number landing on a separator must be a no-op too.
         return if cmd.separator?
-        cmd.callback.try &.call
-        selekt index
+        select_index index
         request_render
         emit ::Crysterm::Event::SelectTab, @items[index]?, index
+      end
+
+      # Selects the tab at `index` *and* runs its command — what a number key
+      # (`auto_command_keys`) means. Applies the same range/separator guards as
+      # `#select_tab`, so a rejected index runs no callback either.
+      def activate_tab(index : Int)
+        cmd = @commands[index]?
+        return if cmd.nil? || cmd.separator?
+        select_tab index
+        cmd.callback.try &.call
       end
 
       def on_keypress(e)
@@ -625,7 +698,7 @@ module Crysterm
         if auto_command_keys? && (c = e.char) && ('0'..'9').includes?(c)
           i = c.to_i - 1
           i = 9 if i < 0
-          select_tab i
+          activate_tab i
           e.accept
           return
         end

@@ -7,7 +7,7 @@ module Crysterm
     # On its own it is a draggable position control: an integer `#value` in
     # `[#minimum, #maximum]` with a proportional thumb sized from `#page_step`,
     # moved by dragging/clicking the trough, arrow keys, Page Up/Down, or the
-    # wheel. Emits `Event::ValueChange` on every change.
+    # wheel. Emits `Event::ValueChanged` on every change.
     #
     # More usefully, it binds to a scrollable widget via `#attach`: the bar
     # then reflects and drives that widget's scroll position through the
@@ -33,45 +33,15 @@ module Crysterm
 
       # Size of one "page" (Qt's `pageStep`): the visible span, which also sizes
       # the thumb. Page Up/Down move by this much. Changing it emits
-      # `Event::RangeChange` so a bound area can react to the thumb resize.
+      # `Event::RangeChanged` so a bound area can react to the thumb resize.
       getter page_step : Int32 = 1
 
       # :ditto:
       def page_step=(v : Int32) : Int32
         return v if v == @page_step
         @page_step = v
-        emit Crysterm::Event::RangeChange, @minimum, @maximum
+        emit Crysterm::Event::RangeChanged, @minimum, @maximum
         request_render
-        v
-      end
-
-      # Qt's `QAbstractSlider#tracking`: when `true` (the default), `#value`
-      # updates live as the thumb is dragged. When `false`, dragging updates
-      # only `#slider_position` (and the rendered thumb), committing to `#value`
-      # on release.
-      property? tracking : Bool = true
-
-      # Live thumb position while an untracked drag is in progress; `nil`
-      # otherwise (in which case `#slider_position` falls back to `#value`).
-      @slider_position : Int32? = nil
-
-      # Qt's `sliderPosition`: the thumb's current position. Equal to `#value`
-      # except mid-drag when `tracking?` is `false`.
-      def slider_position : Int32
-        @slider_position || @value
-      end
-
-      # Moves the thumb to *v*. With `tracking?` this commits straight to
-      # `#value`; without it the thumb moves but `#value` stays put until
-      # release.
-      def slider_position=(v : Int32) : Int32
-        v = v.clamp(@minimum, @maximum)
-        if tracking?
-          self.value = v
-        else
-          @slider_position = v
-          request_render
-        end
         v
       end
 
@@ -189,12 +159,7 @@ module Crysterm
 
           # Commit an untracked drag on release.
           if e.action.up?
-            if (p = @slider_position)
-              @slider_position = nil
-              self.value = p
-              e.accept
-              request_render
-            end
+            e.accept if commit_slider_position
             next
           end
 
@@ -224,10 +189,10 @@ module Crysterm
             end
           elsif @orientation.horizontal?
             raw = e.x - aleft - ileft
-            inner = awidth - iwidth
+            inner = awidth - ihorizontal
           else
             raw = e.y - atop - itop
-            inner = aheight - iheight
+            inner = aheight - ivertical
           end
           steppers = stepper_buttons? && inner >= 3
           # A click on a stepper-button cell steps by `#step` instead of seeking.
@@ -296,7 +261,7 @@ module Crysterm
 
         @syncing = true
         @page_step = new_page
-        # `set_range` re-clamps and emits `Event::RangeChange`; `@syncing` keeps
+        # `set_range` re-clamps and emits `Event::RangeChanged`; `@syncing` keeps
         # the value re-clamp from driving the target back.
         set_range 0, new_max
         # Mirror the engine's scroll position along this bar's axis (vertical:
@@ -308,10 +273,10 @@ module Crysterm
         # Target not laid out yet.
       end
 
-      # Drives the bound target when the bar moves (mixin hook). A committed
-      # value supersedes any pending untracked drag. Routes to the matching axis.
+      # Drives the bound target when the bar moves (mixin hook). Routes to the
+      # matching axis; `super` drops any pending untracked drag.
       protected def on_value_changed
-        @slider_position = nil
+        super
         return if @syncing
         if @orientation.horizontal?
           @target.try &.scroll_x_to(@value)

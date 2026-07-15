@@ -46,7 +46,7 @@ describe "Pine::MainMenu spaced navigation" do
     s = pmm_screen
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s
 
-    menu.selekt 0
+    menu.select_index 0
     menu.selected_record.try(&.title).should eq "HELP"
     press menu, Tput::Key::Down
     menu.selected.should eq 1

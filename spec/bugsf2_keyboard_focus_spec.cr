@@ -126,12 +126,12 @@ describe "BUGS-F2 #4 text-edit teardown does not yank focus when focus moved on"
 
     win.focus a
     le.read_input # saves `a` (le was unfocused), focuses le
-    win._saved_focus.should be(a)
+    win.saved_focus.should be(a)
 
     win.focus b # blur le -> teardown with @_skip_rewind = true
 
     win.focused.should be(b) # was `a` before the fix (restore_focus yanked it)
-    win._saved_focus.should be_nil
+    win.saved_focus.should be_nil
   end
 end
 

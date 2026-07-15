@@ -288,10 +288,10 @@ module Crysterm
       clear_region 0, awidth, 0, aheight
 
       @layer_widgets.clear
-      @_ci = 0
+      @render_index_cursor = 0
       @children.each do |el|
-        el.index = @_ci
-        @_ci += 1
+        el.render_index = @render_index_cursor
+        @render_index_cursor += 1
         # Base layer: paint straight into `@lines`. A child declaring a
         # `z_index` is deferred to its own plane (composited below).
         if el.style.z_index
@@ -300,7 +300,7 @@ module Crysterm
           el.render
         end
       end
-      @_ci = -1
+      @render_index_cursor = -1
 
       composite_planes
 

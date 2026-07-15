@@ -11,7 +11,7 @@ module Crysterm
       # all share:
       #
       # * the selected row highlighted in reverse video,
-      # * a backing `#records` array, replaced wholesale via `#set_records`
+      # * a backing `#records` array, replaced wholesale via `#records=`
       #   (which rebuilds the rows through `#format_row`),
       # * `#selected_record`, the record under the cursor, and
       # * activation on `Event::ActionItem` (Enter / click), which by default
@@ -35,7 +35,7 @@ module Crysterm
 
         def initialize(data : Array(T) = [] of T, **list)
           # Assigned before `super` so the generic ivar is always initialized
-          # (the compiler can't see the assignment through `#set_records`).
+          # (the compiler can't see the assignment through `#records=`).
           @records = data
 
           super **list
@@ -43,7 +43,7 @@ module Crysterm
           # Pine highlights the whole selected row in reverse video.
           styles.selected = Style.new reverse: true
 
-          set_records data
+          self.records = data
 
           # Enter / click activates the current record.
           on ::Crysterm::Event::ActionItem do |_e|
@@ -52,11 +52,11 @@ module Crysterm
         end
 
         # Defines the typed accessor trio a concrete subclass exposes over the
-        # generic `records`/`set_records`/`selected_record`, named for its record
-        # type: a `<plural>` reader, a `set_<plural>(<plural>)` replacer, and a
+        # generic `records`/`records=`/`selected_record`, named for its record
+        # type: a `<plural>` reader, a `<plural>=` replacer, and a
         # `selected_<singular>` reader. *type* is the record class (`T`). E.g.
         # `record_accessors folders, folder, Folder` generates `#folders`,
-        # `#set_folders` and `#selected_folder`.
+        # `#folders=` and `#selected_folder`.
         macro record_accessors(plural, singular, type)
           # The {{plural.id}} currently displayed, parallel to the list rows.
           def {{plural.id}} : Array({{type}})
@@ -64,8 +64,8 @@ module Crysterm
           end
 
           # Replaces the displayed {{plural.id}}.
-          def set_{{plural.id}}({{plural.id}} : Array({{type}}))
-            set_records {{plural.id}}
+          def {{plural.id}}=({{plural.id}} : Array({{type}}))
+            self.records = {{plural.id}}
           end
 
           # The currently-selected {{singular.id}}, if any.
@@ -75,9 +75,9 @@ module Crysterm
         end
 
         # Replaces the displayed records and rebuilds the visible rows.
-        def set_records(data : Array(T))
+        def records=(data : Array(T))
           @records = data
-          set_items rows(data)
+          self.items = rows(data)
         end
 
         # The record under the selection, if any.

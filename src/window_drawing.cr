@@ -24,7 +24,7 @@ module Crysterm
     # From rendering:
     # @lines - Grid of desired cell contents in memory, the "framebuffer"
 
-    property _ci = -1
+    protected property render_index_cursor = -1
 
     # Position where an artificial cursor was painted on the previous `draw`, or
     # `-1` when none. When the cursor moves rows (or stops), the vacated cell

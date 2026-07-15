@@ -162,7 +162,7 @@ module Crysterm
        "effective depth; policy #{Config.screen_color_force} / #{Config.colors_depth}, tput detected #{f.number_of_colors}"},
       {"truecolor", screen.truecolor?.to_s, "effective (colors >= 16M)"},
       {"force_unicode", screen.force_unicode?.to_s, "Crysterm option (screen.force_unicode)"},
-      {"full_unicode (requested)", screen.full_unicode_requested.to_s, "Crysterm option (screen.full_unicode)"},
+      {"full_unicode (requested)", screen.full_unicode_requested?.to_s, "Crysterm option (screen.full_unicode)"},
       {"full_unicode (effective)", screen.full_unicode?.to_s, "option AND terminal unicode (#{f.unicode?})"},
       {"hardware_cursor_styling", screen.hardware_cursor_styling?.to_s, "from Tput cursor_style (DECSCUSR / OSC 50)"},
       {"hardware_cursor_color", screen.hardware_cursor_color?.to_s, "from Tput cursor_color (OSC 12)"},

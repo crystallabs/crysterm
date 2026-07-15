@@ -67,7 +67,7 @@ describe "BUGS-F1 #4 triple-click on an empty line plants no dangling anchor" do
     s.click_count.should eq 3
 
     le.selection_anchor.should be_nil # was 0 (== caret) before the fix
-    le.has_selection?.should be_false
+    le.selection?.should be_false
   end
 
   it "keeps every typed character after triple-clicking an empty line" do
@@ -95,7 +95,7 @@ describe "BUGS-F1 #5 collapsed selection anchor is cleared so it can't swallow a
 
     le._listener f1_ctl(::Tput::Key::ShiftRight)
     le._listener f1_ctl(::Tput::Key::ShiftLeft)
-    le.has_selection?.should be_false
+    le.selection?.should be_false
 
     le._listener f1_key('a')
     le._listener f1_key('b')

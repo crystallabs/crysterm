@@ -3,8 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # Regression for `Widget#_scroll_bottom` (and thus `get_scroll_height`) after the
-# allocation fix that routes the per-child `_get_coords` through a reused scratch
-# `LPos` (`@_scrollb_lpos`) instead of allocating a fresh `LPos` per non-fixed
+# allocation fix that routes the per-child `coords` through a reused scratch
+# `RenderedGeometry` (`@_scrollb_lpos`) instead of allocating a fresh `RenderedGeometry` per non-fixed
 # child per frame. The scratch is consumed immediately within the reduce, so the
 # computed scroll height must be identical to the pre-fix behavior: it reflects
 # the bottom-most extent of the (non-fixed) children.

@@ -129,7 +129,7 @@ describe Crysterm::Widget::ToolButton do
 
     tb = Crysterm::Widget::ToolButton.new parent: s, action: act
     tb.content.should eq "Save"
-    tb.press
+    tb.click
     triggered.should be_true
   end
 
@@ -141,7 +141,7 @@ describe Crysterm::Widget::ToolButton do
     act.on(Crysterm::Event::Triggered) { triggered = true }
 
     tb = Crysterm::Widget::ToolButton.new parent: s, action: act
-    tb.press
+    tb.click
     triggered.should be_false
   end
 end
@@ -171,11 +171,11 @@ describe Crysterm::Widget::DialogButtonBox do
     bb.on(Crysterm::Event::Accepted) { accepted = true }
     bb.on(Crysterm::Event::Rejected) { rejected = true }
 
-    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Ok).not_nil!.press
+    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Ok).not_nil!.click
     accepted.should be_true
     rejected.should be_false
 
-    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Cancel).not_nil!.press
+    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Cancel).not_nil!.click
     rejected.should be_true
   end
 
@@ -191,18 +191,18 @@ describe Crysterm::Widget::ColorDialog do
   it "converts hex colors to an HSV state and back to hex (round-trips)" do
     s = add_mem_screen
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
-    cd.set_color "#ff0000"
+    cd.current_color = "#ff0000"
     cd.current_color.should eq "#ff0000"
-    cd.set_color "#00ff00"
+    cd.current_color = "#00ff00"
     cd.current_color.should eq "#00ff00"
-    cd.set_color "#336699"
+    cd.current_color = "#336699"
     cd.current_color.should eq "#336699"
   end
 
   it "emits Action+Accepted on accept and Rejected on cancel" do
     s = add_mem_screen
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
-    cd.set_color "#0000ff"
+    cd.current_color = "#0000ff"
     chosen = nil
     accepted = rejected = false
     cd.on(Crysterm::Event::Action) { |e| chosen = e.value }
@@ -213,7 +213,7 @@ describe Crysterm::Widget::ColorDialog do
     chosen.should eq "#0000ff"
     accepted.should be_true
 
-    cd.cancel
+    cd.reject
     rejected.should be_true
   end
 end
@@ -247,13 +247,13 @@ describe Crysterm::Completer do
   end
 
   # The drop-down opens with its first row already highlighted (via
-  # `reset_cursor`/`selekt`). Movement single-steps from there — arrow keys or
+  # `reset_cursor`/`select_index`). Movement single-steps from there — arrow keys or
   # mouse wheel. `List`'s per-item wheel handler calls `move ±2`, so
   # `Popup#move` funnels the raw ±2 into a single-row step.
   it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do
     s = add_mem_screen
     pop = Crysterm::Completer::Popup.new(window: s, width: 16, height: 6)
-    pop.set_items %w[apple apricot banana blueberry]
+    pop.items = %w[apple apricot banana blueberry]
 
     # Opens with the first row already highlighted.
     pop.reset_cursor
@@ -315,7 +315,7 @@ describe Crysterm::Completer do
     s.render
 
     pop = c.@popup.not_nil!
-    visible = pop.aheight - pop.iheight - pop.hscrollbar_rows
+    visible = pop.aheight - pop.ivertical - pop.hscrollbar_rows
     visible.should be > 1
     content_top = pop.atop + pop.itop
     x = pop.aleft + 2

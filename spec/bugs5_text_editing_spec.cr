@@ -49,12 +49,12 @@ describe "BUGS5 stale selection anchor after kill/yank (BUG 1)" do
   it "Ctrl-K clears the selection anchor and a follow-up keystroke does not crash" do
     le = editor "abcdefghij", 2
     le.selection_anchor = 8 # backward drag-selection: anchor after the cursor
-    le.has_selection?.should be_true
+    le.selection?.should be_true
 
     press le, Tput::Key::CtrlK # kill to line end
     le.value.should eq "ab"
     le.selection_anchor.should be_nil
-    le.has_selection?.should be_false
+    le.selection?.should be_false
 
     # Before the fix this ran delete_selection with a stale anchor (8) past the
     # end of the now-2-char value and raised IndexError.

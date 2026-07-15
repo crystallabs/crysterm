@@ -5,7 +5,7 @@ include Crysterm
 # Regression: `Media::Graphics#redraw_image` (a standalone `Rendered` screen
 # listener) guarded with `return unless visible?`, which only checks the
 # widget's own visibility. When an ancestor was hidden, the widget stayed
-# own-visible but had no rendered position, so `_get_coords(true) ->
+# own-visible but had no rendered position, so `coords(true) ->
 # last_rendered_position` raised "Shouldn't happen" instead of returning nil,
 # crashing the render-loop fiber. Fix walks the parent chain and skips the
 # overlay paint if any ancestor is hidden, mirroring `Capture`'s tree-aware

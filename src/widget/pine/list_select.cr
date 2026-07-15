@@ -71,7 +71,7 @@ module Crysterm
           **list,
         )
           # Assigned before `super` because the base's `super` runs
-          # `set_records`, which calls `#format_row` (which needs both).
+          # `#records=`, which calls `#format_row` (which needs both).
           @label = label
           @multi = multi
           @checked_indices = Set(Int32).new
@@ -94,7 +94,7 @@ module Crysterm
         # the rows.
         def set_options(options : Array(T))
           @checked_indices.clear
-          set_records options
+          self.records = options
         end
 
         # The items the user has checked, in list order (multi mode). In single

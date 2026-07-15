@@ -8,7 +8,7 @@ require "../../example"
 Crysterm::WidgetExample.run "MainMenu" do |screen|
   screen.stylesheet = "Pine::MainMenu { border: solid; color: #c0caf5; }"
   mm = Crysterm::Widget::Pine::MainMenu.new parent: screen, top: "center", left: "center", width: 52, height: 12, label: " Main Menu "
-  mm.set_options([
+  mm.options = ([
     Crysterm::Widget::Pine::MainMenu::Option.new("C", "Compose", "Compose and send a message"),
     Crysterm::Widget::Pine::MainMenu::Option.new("I", "Message Index", "View messages in the current folder"),
     Crysterm::Widget::Pine::MainMenu::Option.new("L", "Folder List", "Select a folder to view"),

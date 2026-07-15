@@ -11,7 +11,7 @@ module Crysterm
     # ![Masonry screenshot](../../tests/layout/masonry/masonry.5s.apng)
     # <!-- /widget-examples:capture -->
     class Masonry < Flow
-      protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
+      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
         flow_place container, el, i, interior, 0
         gravitate_up container, el, interior
         overflow_action container, el, interior
@@ -19,7 +19,7 @@ module Crysterm
 
       # Pulls `el` up to rest below the child on the previous row whose left
       # edge is nearest its own, avoiding ragged vertical gaps.
-      private def gravitate_up(container : Widget, el : Widget, interior : LPos) : Nil
+      private def gravitate_up(container : Widget, el : Widget, interior : RenderedGeometry) : Nil
         xi = interior.xi
         yi = interior.yi
 
@@ -33,7 +33,7 @@ module Crysterm
           end
         end
 
-        if (ab = above) && (alp = rendered_lpos(ab))
+        if (ab = above) && (alp = rendered_geometry(ab))
           el.top = alp.yl - yi
         end
       end

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Editable `ComboBox` sizes its drop-down to the match count (`#position_popup`:
-# height = min(matches, max_visible) + border). The first typed character opens
+# height = min(matches, max_visible_items) + border). The first typed character opens
 # and sizes the popup, but subsequent keystrokes routed through `#refresh_popup`,
 # which refreshed rows without re-sizing — stale height once the filter
 # narrowed or widened. `#refresh_popup` must re-run `#position_popup`.
@@ -25,11 +25,11 @@ end
 describe "ComboBox editable popup resize" do
   it "resizes the drop-down as the filter narrows and widens" do
     s = combo_mem_screen
-    # Six options match 'a' (== default max_visible); only two also match 'l'.
+    # Six options match 'a' (== default max_visible_items); only two also match 'l'.
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, width: 12,
       options: ["alpha", "alabama", "beta", "gamma", "delta", "zeta"]
 
-    # First char opens and sizes popup: 6 matches, capped at max_visible (6),
+    # First char opens and sizes popup: 6 matches, capped at max_visible_items (6),
     # plus 2 border rows.
     cb.on_keypress cb_key('a')
     cb.open?.should be_true

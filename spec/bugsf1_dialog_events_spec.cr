@@ -72,7 +72,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
     s._render
 
     # Start from a known corner color so a mid-field click must move it.
-    cd.set_color "#ffffff"
+    cd.current_color = "#ffffff"
     cd.saturation.should eq 0.0 # white == fully desaturated
     cd.value_v.should eq 1.0
 

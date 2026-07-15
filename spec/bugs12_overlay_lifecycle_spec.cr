@@ -5,7 +5,7 @@ include Crysterm
 # BUGS12 #9 + #26 — `Media::ScreenOverlay` lifecycle (widget_media_screen_overlay.cr).
 #
 # #9: a terminal-owned graphic (sixel/Kitty/w3m) scrolled or clipped out of a
-# scrollable ancestor's viewport made `_get_coords` return nil, so
+# scrollable ancestor's viewport made `coords` return nil, so
 # `invalidate_old_position` early-returned and the graphic was never erased —
 # it floated over the scrolled content forever (a Kitty image is a separate
 # layer re-emitted cells can't cover). Unresolvable/degenerate coords must run

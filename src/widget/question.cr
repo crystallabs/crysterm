@@ -42,6 +42,11 @@ module Crysterm
         append @cancel
       end
 
+      # Asks *text* and delivers the yes/no answer to *block* — the block-based
+      # sugar over the `Dialog` result protocol: an affirmative answer closes
+      # with `Code::Accepted` (`Event::Accepted`), a negative one with
+      # `Code::Rejected` (`Event::Rejected`), and `Event::Finished` follows
+      # either way.
       def ask(text = nil, &block : String?, Bool -> Nil)
         # D O:
         # Keep above:
@@ -52,27 +57,32 @@ module Crysterm
 
         set_content text || @text
         show
+        @result = Code::Rejected.to_i
 
-        # Declare the listener handles up front so `done` can close over them;
+        # Declare the listener handles up front so `finish` can close over them;
         # assigned below, before any of these events can fire.
         ev_keys = nil
         ev_ok = nil
         ev_cancel = nil
 
         # Idempotence latch: `event_handler` emits to a copy-on-write snapshot,
-        # so `window.off` inside `done` can't remove the *in-flight* `ev_keys`.
+        # so `window.off` inside `finish` can't remove the *in-flight* `ev_keys`.
         # Without this flag, Enter on a focused button fires both the button's
         # Press handler and `ev_keys`, invoking the user callback twice.
         done_called = false
 
-        # `done` must be defined *before* the handlers that call it are
+        # `finish` must be defined *before* the handlers that call it are
         # registered: otherwise a key/press arriving before assignment would
         # invoke an uninitialized Proc (crash).
-        done = ->(err : String?, data : Bool) do
+        finish = ->(err : String?, data : Bool) do
           unless done_called
             done_called = true
             teardown_ok_cancel ev_ok, ev_cancel
             ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
+            # Record the outcome and signal it (`Accepted`/`Rejected` +
+            # `Finished`) before the block runs, so a `Finished` handler and the
+            # block see the same `#result`.
+            done(data ? Code::Accepted : Code::Rejected)
             block.call err, data
             request_render
           end
@@ -80,7 +90,7 @@ module Crysterm
 
         ev_keys = window.on(Crysterm::Event::KeyPress) do |e|
           # A focused button already handled (and accepted) this Enter — don't
-          # also run the window-level accelerator, or `done` double-fires.
+          # also run the window-level accelerator, or `finish` double-fires.
           next if e.accepted?
           c = e.char
           k = e.key
@@ -89,15 +99,15 @@ module Crysterm
             next
           end
 
-          done.call nil, k == Tput::Key::Enter || e.char == 'y'
+          finish.call nil, k == Tput::Key::Enter || e.char == 'y'
         end
 
         ev_ok = @ok.on(Crysterm::Event::Press) do
-          done.call nil, true
+          finish.call nil, true
         end
 
         ev_cancel = @cancel.on(Crysterm::Event::Press) do
-          done.call nil, false
+          finish.call nil, false
         end
 
         window.save_focus
@@ -111,9 +121,15 @@ module Crysterm
       # chosen 0-based index, or `-1` if dismissed with Escape. Buttons are laid
       # out in a row; Left/Right move focus, Enter/Space or a click activates
       # the focused one.
-      def ask_choices(text = nil, choices : Array(String) = ["Okay", "Cancel"], default = 0, &block : Int32 -> Nil)
+      #
+      # The index is the answer, so it rides the block, not `Dialog#result`:
+      # picking any choice closes with `Code::Accepted`,
+      # Escape with `Code::Rejected`. Feeding the index into `#result` would
+      # collide with Qt's codes (choice `1` would read as `Accepted`).
+      def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32 -> Nil)
         set_content text || @text
         show
+        @result = Code::Rejected.to_i
 
         # The fixed OK/Cancel pair is not used in this mode.
         @ok.hide
@@ -141,8 +157,10 @@ module Crysterm
           @cancel.show
           @ok.focus
           bb.destroy
-          hide
           window.restore_focus
+          # Hides, records `#result` and emits `Accepted`/`Rejected` +
+          # `Finished` — the same funnel `#ask` closes through.
+          done(idx >= 0 ? Code::Accepted : Code::Rejected)
           block.call idx
           request_render
         end

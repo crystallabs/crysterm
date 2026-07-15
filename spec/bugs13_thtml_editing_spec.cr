@@ -68,7 +68,7 @@ describe "BUGS13 T20 Ctrl-Y yank honors max_length and selections" do
     t13_press le, Tput::Key::CtrlY
     le.value.should eq "bye world"
     le.cursor_pos.should eq 3
-    le.has_selection?.should be_false
+    le.selection?.should be_false
   end
 
   it "measures the room after the selection is freed" do

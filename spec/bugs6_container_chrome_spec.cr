@@ -16,7 +16,7 @@ include Crysterm
 #  BUG 2 (src/widget/dock_widget.cr, #wire_drag Drag): the drag clamp bounded
 #     `left`/`top` against the parent's *outer* size, letting a floating dock be
 #     dragged out over the parent's border/padding. Now it clamps against the
-#     parent's content extent (`awidth - iwidth`, `aheight - iheight`).
+#     parent's content extent (`awidth - ihorizontal`, `aheight - ivertical`).
 #
 #  BUG 3 (src/widget/status_bar.cr, #draw_permanent): on overflow the right-aligned
 #     permanent text was truncated on the *right*, cutting the most recently added
@@ -34,7 +34,7 @@ private def chrome_win
 end
 
 # A parent Box with a 1-cell border all around, giving it an inner inset
-# (`ileft == itop == 1`, `iwidth == iheight == 2`) so the content-origin math matters.
+# (`ileft == itop == 1`, `ihorizontal == ivertical == 2`) so the content-origin math matters.
 private def bordered_parent(s)
   p = Crysterm::Widget::Box.new parent: s, left: 3, top: 2, width: 40, height: 20
   p.style.border = Crysterm::Border.new # defaults to 1 on every side
@@ -119,8 +119,8 @@ describe "BUGS6 DockWidget drag clamp bounds (bug 2)" do
 
     # Content extent = outer size minus the inset; max left/top leaves room for
     # the dock. The looser (buggy) bound would be parent.awidth - dock.awidth.
-    dock.left.should eq(parent.awidth - parent.iwidth - dock.awidth)
-    dock.top.should eq(parent.aheight - parent.iheight - dock.aheight)
+    dock.left.should eq(parent.awidth - parent.ihorizontal - dock.awidth)
+    dock.top.should eq(parent.aheight - parent.ivertical - dock.aheight)
   end
 end
 

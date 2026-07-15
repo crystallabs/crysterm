@@ -32,7 +32,9 @@ module Crysterm
       include TableLayout
 
       # The table data (including the header row at index 0).
-      property rows : Array(Array(String)) = [] of Array(String)
+      # The table data (including the header row at index 0). Read-only; assign
+      # through `#rows=`, which rebuilds items + header.
+      getter rows : Array(Array(String)) = [] of Array(String)
 
       # Whether every other body row is painted with `style.alternate_row`, like
       # Qt's `QAbstractItemView#alternatingRowColors`. No visible effect until
@@ -70,7 +72,7 @@ module Crysterm
       @first_col = 0
 
       # Whether the box is sized to its content width (no explicit `width:`). When
-      # true, `#render`/`#set_data` keep pinning `@width = row_width + iwidth`, so
+      # true, `#render`/`#rows=` keep pinning `@width = row_width + ihorizontal`, so
       # the table grows to fit every column and never overflows horizontally. When
       # false (a fixed `width:` was given), the width is left alone and the table
       # scrolls horizontally by column. Captured once, after `super`.
@@ -107,9 +109,11 @@ module Crysterm
       @_row_overlay = Cache::Bounded(Style, Style).new(Cache::LISTTABLE_ROW_CAPACITY, by_identity: true) # overlay_colors(base, alternate_row)
       @_row_overlay_src : Style? = nil                                                                   # alternate_row source guarding @_row_overlay
 
+      # NOTE: there is deliberately no `data:` parameter — see `Widget::Table`,
+      # which dropped the same second spelling of `rows:` (it collided with the
+      # unrelated `Widget#data`, `Mixin::Data`'s `YAML::Any?` slot).
       def initialize(
         rows = nil,
-        data = nil,
         pad = nil,
         no_cell_borders = nil,
         fill_cell_borders = nil,
@@ -179,9 +183,9 @@ module Crysterm
           end
         end
 
-        on(Crysterm::Event::Attach) { set_data @rows }
+        on(Crysterm::Event::Attach) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
-          # `set_data` rebuilds `@maxes`/width and every item — only needed when
+          # `#rows=` rebuilds `@maxes`/width and every item — only needed when
           # the column layout depends on the widget's own width, i.e. a
           # fixed- or percent-width table (`@content_sized == false`, since a
           # given `width:` — int or `"50%"` — leaves `@width` non-nil). A
@@ -191,13 +195,13 @@ module Crysterm
           # tables keep rebuilding here, as their columns do track the parent.
           unless @content_sized
             sel = selected
-            set_data @rows
-            selekt sel
+            self.rows = @rows
+            select_index sel
           end
           request_render
         end
 
-        set_data(rows || data)
+        self.rows = rows
       end
 
       # Body rows draw with `style.cell`; selected rows with `styles.selected`;
@@ -298,14 +302,14 @@ module Crysterm
       def sort_by_column(col : Int32, descending = false)
         @sort_column = col
         @sort_descending = descending
-        # `set_data` re-applies the active sort (via `apply_sort`) over `@rows`.
-        set_data @rows
+        # `#rows=` re-applies the active sort (via `apply_sort`) over `@rows`.
+        self.rows = @rows
       end
 
       # Reorders the body rows of `@rows` in place according to the current
       # `@sort_column`/`@sort_descending`, leaving the header (index 0) pinned.
-      # Does NOT call `set_data` — both `sort_by_column` and the tail of
-      # `set_data` call it, so calling `set_data` here would recurse forever.
+      # Does NOT call `#rows=` — both `sort_by_column` and the tail of
+      # `#rows=` call it, so calling `#rows=` here would recurse forever.
       # A no-op when no sort is active or the table has at most one body row.
       private def apply_sort : Nil
         col = @sort_column
@@ -364,11 +368,6 @@ module Crysterm
         without_border(selected ? styles.selected : style.cell)
       end
 
-      # :ditto:
-      def set_rows(rows)
-        set_data rows
-      end
-
       # --- column-level horizontal scrolling ---------------------------------
       # A fixed-width `ListTable` (one given an explicit `width:`) can be narrower
       # than its columns; it then scrolls horizontally by whole columns. The
@@ -385,7 +384,7 @@ module Crysterm
       # A content-sized table grows to fit its columns and so never overflows;
       # a fixed-width one overflows once its columns exceed the viewport.
       #
-      # Compared against the full interior (`awidth - iwidth`) — the width the
+      # Compared against the full interior (`awidth - ihorizontal`) — the width the
       # columns are laid out to fill (`calculate_maxes`) — *not* `content_width`.
       # `content_width` also subtracts the *vertical* scroll bar's reserved
       # column (`content_margin_x`); when a fixed-width table scrolls vertically,
@@ -394,7 +393,7 @@ module Crysterm
       # spurious horizontal scroll bar across the bottom row.
       def really_scrollable_x?
         return false if @content_sized
-        get_scroll_width > awidth - iwidth
+        get_scroll_width > awidth - ihorizontal
       end
 
       # Scrolls horizontally by *offset* columns' worth of display columns,
@@ -464,7 +463,13 @@ module Crysterm
       end
 
       # Replaces the table data and rebuilds items + header.
-      def set_data(rows)
+      #
+      # A real setter, not the one `property rows` used to generate: that one
+      # assigned `@rows` and stopped, bypassing `#reload_rows`, so the column
+      # widths and rendered rows kept describing the OLD data (see
+      # `Widget::Table#rows=`). `set_data`/`set_rows` — the two names the working
+      # path used to carry — are folded in here.
+      def rows=(rows)
         sel = @ritems[selected]?
         prev_selected = selected
         prev_count = @ritems.size
@@ -479,14 +484,14 @@ module Crysterm
           @child_base_x = 0
           unless @items.empty?
             header.set_content ""
-            set_items [""] # index 0 is the header-spacer row
+            self.items = [""] # index 0 is the header-spacer row
           end
           return
         end
 
         # Re-apply the active sort over the fresh body rows so the ordering is
         # preserved across every data change, not just an explicit
-        # `sort_by_column` call. Reorders `@rows` in place (no `set_data`, to
+        # `sort_by_column` call. Reorders `@rows` in place (no `#rows=`, to
         # avoid recursion).
         apply_sort
 
@@ -503,8 +508,8 @@ module Crysterm
         #
         # Assigned directly rather than via `width=`: that setter emits
         # `Resize` before storing the new value, and our `Resize` handler calls
-        # `set_data` again, which would see the old width and recurse forever.
-        @width = row_width + iwidth if @content_sized
+        # `#rows=` again, which would see the old width and recurse forever.
+        @width = row_width + ihorizontal if @content_sized
 
         # Index 0 is a spacer that the pinned header overlays.
         items = [""]
@@ -517,7 +522,7 @@ module Crysterm
           end
         end
 
-        set_items items
+        self.items = items
         header.front!
 
         # Try to keep the previous selection. When the row count is unchanged
@@ -526,16 +531,16 @@ module Crysterm
         # row — including item 0, the header spacer `""`. Fall back to the
         # value-based lookup only when the row count changed.
         if @ritems.size == prev_count && prev_selected < @ritems.size
-          selekt prev_selected
+          select_index prev_selected
         elsif sel && (i = @ritems.index(sel))
-          selekt i
+          select_index i
         else
-          selekt Math.min(selected, @items.size - 1)
+          select_index Math.min(selected, @items.size - 1)
         end
       end
 
       # The header spacer (item 0) is never selectable.
-      def selekt(index : Int)
+      def select_index(index : Int)
         # Clamp to the first *data* row: index 0 is the header spacer
         # (`@ritems[0] == ""`, overlaid by the pinned header) and is not
         # selectable. Guarding only `== 0` let a negative index (e.g. PageUp /
@@ -556,12 +561,12 @@ module Crysterm
 
       def render(with_children = true)
         # Re-pin the width now that the CSS cascade has run (runs at the top of
-        # the window's `_render`, before any widget renders). `set_data` pins
+        # the window's `_render`, before any widget renders). `#rows=` pins
         # the width at construction/Attach time, but a border arriving via CSS
-        # isn't folded into `style` yet then, so `iwidth` would omit the border
+        # isn't folded into `style` yet then, so `ihorizontal` would omit the border
         # columns, leaving the box too narrow. Recomputing here converges header
         # and box edge on the first rendered frame. Assigned directly (not via
-        # `width=`) to avoid the `Resize`-before-store recursion (see `set_data`).
+        # `width=`) to avoid the `Resize`-before-store recursion (see `#rows=`).
         calculate_maxes
 
         # Reserve the vertical scroll bar's column (when shown) for the pinned
@@ -575,7 +580,7 @@ module Crysterm
         # A content-sized table widens by that column so the bar gets its own
         # cell instead of clipping the last data column; a fixed-width table
         # keeps its width and scrolls horizontally instead.
-        @width = row_width + iwidth + reserve if @content_sized && !@maxes.empty?
+        @width = row_width + ihorizontal + reserve if @content_sized && !@maxes.empty?
 
         coords = super
         return coords unless coords

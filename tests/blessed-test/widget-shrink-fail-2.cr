@@ -2,7 +2,7 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-shrink-fail-2.js
 #
-# An outer scrollable `tab` box containing a single resizable (blessed 'shrink')
+# An outer scrollable `tab` box containing a single shrink_to_fit (blessed 'shrink')
 # Text whose content is a pretty-printed sample object.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
@@ -27,8 +27,8 @@ module Crysterm
     parent: tab,
     top: 0,
     left: 3,
-    # NOTE: blessed height:'shrink' / width:'shrink' -> resizable: true
-    resizable: true,
+    # NOTE: blessed height:'shrink' / width:'shrink' -> shrink_to_fit: true
+    shrink_to_fit: true,
     content: "",
     parse_tags: true
 

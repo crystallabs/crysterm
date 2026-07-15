@@ -10,17 +10,39 @@ module Crysterm
     # marker, and the `<open><glyph><close> text` line builder. Differing
     # pieces (glyph set, tri-state, radio group exclusivity) stay per-widget.
     module CheckMarker
-      # Sets the checkable base state (`#checkable?`, `#checked?`, `#value`),
-      # the initial `#text` from an explicit `content:` (normally
-      # `input["content"]?`), and wires marker input via `#setup_check_marker`.
-      # Call from `initialize`, after `super`. Shared by `CheckBox` and
-      # `RadioButton`; each still handles its own extra constructor args
-      # (`tristate`, the radio's `Event::Check` subscription) around this call.
+      # The label drawn after the marker glyph. A marker control renders the
+      # composed `<open><mark><close> text` line as its `#content`, so it cannot
+      # let `AbstractButton#text` read/write `#content` the way the push buttons
+      # do — it keeps the label in its own ivar and `#marker_line` re-composes.
+      @text : String = ""
+
+      # :ditto:
+      def text : String
+        @text
+      end
+
+      # :ditto:
+      def text=(value : String) : String
+        return value if value == @text
+        @text = value
+        request_render # `#render` re-composes the marker line from `@text`
+        value
+      end
+
+      # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
+      # `#text` from an explicit `content:` (normally `input["content"]?`), and
+      # wires marker input via `#setup_check_marker`. Call from `initialize`,
+      # after `super`. Shared by `CheckBox` and `RadioButton`; each still handles
+      # its own extra constructor args (`tristate`, the radio's `Event::Check`
+      # subscription) around this call.
       private def setup_marker_control(checked, content) : Nil
         @checkable = true # a marker control is inherently checkable
         @checked = checked
-        @value = checked
 
+        # An explicit `content:` is the label for a marker control. `text:`
+        # (already applied by `AbstractButton#initialize`) is the preferred
+        # spelling; the two are mutually exclusive at any one call site, so
+        # this only fires when `content:` was the one given.
         content.try do |c|
           @text = c
         end

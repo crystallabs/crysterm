@@ -124,7 +124,7 @@ describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords"
     # every click must be resolved against the painted `@lpos`.
     lp = sl.lpos.not_nil!
     lp.yi.should_not eq sl.atop
-    span = sl.aheight - sl.iheight - 1 # == 7
+    span = sl.aheight - sl.ivertical - 1 # == 7
 
     # Painted TOP row: a vertical slider fills bottom->top, so the top is max.
     f2_down s, lp.xi + 1, lp.yi

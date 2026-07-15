@@ -13,6 +13,6 @@ Crysterm::WidgetExample.run("ListBar",
   }) do |screen|
   screen.stylesheet = "ListBar { color: #c0caf5; }"
   lb = Crysterm::Widget::ListBar.new parent: screen, top: "center", left: 0, width: "100%", height: 1, keys: true, mouse: true
-  lb.set_items(["File", "Edit", "View", "Tools", "Help"])
+  lb.items = ["File", "Edit", "View", "Tools", "Help"]
   lb.focus
 end

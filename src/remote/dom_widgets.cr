@@ -10,7 +10,7 @@ module Crysterm
     class List
       # Rows are loadable state but don't fit the generic scan (no scalar
       # `items=`): serialized as a newline-joined `items` attribute, restored
-      # via `#append_item`.
+      # via `#add_item`.
       def dom_attributes : Hash(String, String?)
         attrs = super
         attrs["items"] = ritems.join('\n') unless ritems.empty?
@@ -26,12 +26,12 @@ module Crysterm
           # `setAttribute("items", …)` (or a re-applied attribute) would grow the
           # list on every call — the same accumulation bug the `class` handler
           # avoids.
-          clear_items
+          clear
           # Skip the append for an empty value: `"".split('\n') == [""]`, so an
           # empty string (the natural way a bridge client clears the rows via
           # `setAttribute("items", "")`) would otherwise add one empty item
           # instead of leaving the list cleared.
-          value.try { |v| v.split('\n').each { |item| append_item item } unless v.empty? }
+          value.try { |v| v.split('\n').each { |item| add_item item } unless v.empty? }
         else return super
         end
         true

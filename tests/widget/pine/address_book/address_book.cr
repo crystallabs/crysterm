@@ -8,7 +8,7 @@ require "../../example"
 Crysterm::WidgetExample.run "AddressBook" do |screen|
   screen.stylesheet = "Pine::AddressBook { border: solid; color: #c0caf5; }"
   ab = Crysterm::Widget::Pine::AddressBook.new parent: screen, top: "center", left: "center", width: 50, height: 12, label: " Address Book "
-  ab.set_contacts([
+  ab.contacts = ([
     Crysterm::Widget::Pine::AddressBook::Contact.new("ada", "Ada Lovelace", "ada@example.com"),
     Crysterm::Widget::Pine::AddressBook::Contact.new("linus", "Linus Torvalds", "linus@example.org"),
     Crysterm::Widget::Pine::AddressBook::Contact.new("grace", "Grace Hopper", "grace@example.net"),

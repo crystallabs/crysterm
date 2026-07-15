@@ -19,27 +19,27 @@ describe "Widget#delete_line over-count" do
     box = Widget::Box.new parent: headless_screen
     box.set_content "one\ntwo\nthree"
     box.pop_line 2
-    box.get_lines.should eq ["one", "two"]
+    box.lines.should eq ["one", "two"]
   end
 
   it "shift_line n past the end clears all lines without raising" do
     box = Widget::Box.new parent: headless_screen
     box.set_content "one\ntwo\nthree"
     box.shift_line 10
-    box.get_lines.should eq [] of String
+    box.lines.should eq [] of String
   end
 
   it "delete_line(i, n) with i + n beyond the end deletes only what remains" do
     box = Widget::Box.new parent: headless_screen
     box.set_content "a\nb\nc\nd"
     box.delete_line 2, 9
-    box.get_lines.should eq ["a", "b"]
+    box.lines.should eq ["a", "b"]
   end
 
   it "an exact-count delete still removes precisely n lines" do
     box = Widget::Box.new parent: headless_screen
     box.set_content "a\nb\nc\nd"
     box.delete_line 1, 2
-    box.get_lines.should eq ["a", "d"]
+    box.lines.should eq ["a", "d"]
   end
 end

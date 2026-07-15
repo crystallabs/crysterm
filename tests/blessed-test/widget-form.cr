@@ -76,7 +76,7 @@ class X
       width: 8,
       left: 29,
       top: 3,
-      resizable: true,
+      shrink_to_fit: true,
       name: "submit",
       content: " submit ",
       align: ::Tput::AlignFlag::Center,

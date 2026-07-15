@@ -91,7 +91,7 @@ describe Widget::TextBrowser do
     tb.loader = ->(url : String) { pages[url]?.try { |md| TextDocument.from_markdown(md) } }
 
     sources = [] of String
-    tb.on(Crysterm::Event::SourceChange) { |e| sources << e.url }
+    tb.on(Crysterm::Event::SourceChanged) { |e| sources << e.url }
 
     tb.source = "a"
     tb.source.should eq "a"

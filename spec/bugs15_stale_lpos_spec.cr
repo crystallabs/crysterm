@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS15 #25: `Widget#_render`'s early-return paths (nil `_get_coords`, or a
+# BUGS15 #25: `Widget#_render`'s early-return paths (nil `coords`, or a
 # degenerate zero-width/height rect) cleared only the widget's OWN `lpos`,
 # leaving every descendant's last-rendered rect intact. Because `Window#widget_at`
 # hit-tests each widget independently against its own `lpos`, a scrolled-away
@@ -32,7 +32,7 @@ describe "BUGS15 25: early-return _render clears descendants' hit rects" do
     # Frame 1: G paints and is hit-testable at its on-screen rect.
     s.widget_at(gl.xi, gl.yi).should eq g
 
-    # Scroll so W (rows 0..4) moves entirely above the viewport: `_get_coords`
+    # Scroll so W (rows 0..4) moves entirely above the viewport: `coords`
     # returns nil for W, which early-returns from `_render` before rendering G.
     outer.scroll_to 20
     s._render

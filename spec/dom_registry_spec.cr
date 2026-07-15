@@ -4,7 +4,7 @@ require "./spec_helper"
   include Crysterm
 
   # Invariant: every widget auto-discovered into `DOM::REGISTRY` must survive a
-  # serialize -> load -> serialize round-trip unchanged. The registry is filled
+  # serialize -> load -> serialize round-trip unchanged. The registry is percent
   # by a `macro finished` sweep at program start (after spec collection), so
   # any new `Crysterm::Widget::` is automatically checked — any asymmetry
   # between `#dom_attributes` and `#dom_apply` fails here.
@@ -51,7 +51,7 @@ require "./spec_helper"
     end
 
     # A string option with a non-empty constructor default (e.g.
-    # `ProgressBar#text_format = "%p%"`) must round-trip when cleared to "".
+    # `ProgressBar#format = "%p%"`) must round-trip when cleared to "".
     # The auto-serializer previously skipped empty strings, so a cleared value
     # silently reverted to the default on reload.
     it "round-trips a non-empty-default string option cleared to empty" do
@@ -59,13 +59,13 @@ require "./spec_helper"
       pb = Crysterm::Widget::ProgressBar.new window: s
       s.append pb
       pb.css_id = "p"
-      pb.text_format.should eq "%p%" # sanity: non-empty default
-      pb.text_format = ""            # user clears it
+      pb.format.should eq "%p%" # sanity: non-empty default
+      pb.format = ""            # user clears it
 
       reload = headless_screen
       reload.load_layout s.to_layout_html
       loaded = reload.find_by_id("p").as(Crysterm::Widget::ProgressBar)
-      loaded.text_format.should eq ""
+      loaded.format.should eq ""
     end
   end
 {% end %}

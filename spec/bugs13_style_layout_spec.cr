@@ -8,7 +8,7 @@ include Crysterm
 #   last-rendered rects (mirroring `Layout#skip_subtree`), so the invisible
 #   widget stops taking clicks/hovers at its stale rect.
 # * S16 — `Layout::Grid` clamps degenerate hints before bookkeeping: a
-#   `row_span/col_span: Int32::MAX` must not insert 2^31 occupancy tuples per
+#   `row_span/column_span: Int32::MAX` must not insert 2^31 occupancy tuples per
 #   frame (multi-second stall/hang), and `row: Int32::MAX` must not raise
 #   `OverflowError` in the row inference.
 
@@ -70,12 +70,12 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
 end
 
 describe "BUGS13 S16 Grid clamps extreme spans and rows" do
-  it "arranges promptly with row_span/col_span Int32::MAX (no per-frame stall)" do
+  it "arranges promptly with row_span/column_span Int32::MAX (no per-frame stall)" do
     screen = headless_screen
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20,
       layout: Layout::Grid.new(columns: 3)
     a = Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: Int32::MAX, col_span: Int32::MAX)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: Int32::MAX, column_span: Int32::MAX)
     b = Widget::Box.new parent: g # auto-flow
 
     started = Time.instant
@@ -94,7 +94,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20,
       layout: Layout::Grid.new(columns: 2)
     Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: Int32::MAX, col: 0)
+      layout_hint: Layout::Grid::Hint.new(row: Int32::MAX, column: 0)
     Widget::Box.new parent: g # auto-flow
     screen._render            # pre-fix: OverflowError in the checked `p[1] + p[3]`/`p[1] + 1`
   end
@@ -104,7 +104,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 20,
       layout: Layout::Grid.new(columns: 3)
     a = Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: 2, col_span: 2)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 2, column_span: 2)
     b = Widget::Box.new parent: g # auto-flow: must skip a's 2x2 block -> (0, 2)
     screen._render
 
@@ -123,9 +123,9 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2, gap: 1)
     a = Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: 99, col_span: 1)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 1)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, col: 1)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99, column_span: 1)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, column: 1)
     screen._render
 
     al = a.lpos.not_nil!

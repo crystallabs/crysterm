@@ -129,13 +129,13 @@ describe Widget::TextEdit do
     te.document.char_format_at(3).bold?.should be_true
   end
 
-  it "emits TextChange on edits and on undo" do
+  it "emits TextChanged on edits and on undo" do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6, content: ""
     s._render
 
     changes = [] of String
-    te.on(Crysterm::Event::TextChange) { |e| changes << e.value }
+    te.on(Crysterm::Event::TextChanged) { |e| changes << e.value }
 
     te._listener key('a')
     te._listener ctl(::Tput::Key::CtrlZ)

@@ -516,7 +516,7 @@ module Crysterm
 
     # Element's outer spacing. Unlike `padding`/`border` (inner insets), margin
     # offsets and shrinks the element itself within its allotted slot; see
-    # `Margin` and `Widget#_get_coords`.
+    # `Margin` and `Widget#coords`.
     def margin=(value)
       @specified_mask |= SPEC_MARGIN
       @margin = Margin.from value

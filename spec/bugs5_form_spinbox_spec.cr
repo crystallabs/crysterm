@@ -68,28 +68,28 @@ end
 describe "BUGS5 SpinBox typed entry on a wrap box (bug 2)" do
   it "clamps a typed over-maximum entry instead of wrapping to the minimum" do
     s = bugs5_screen
-    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10, wrap: true
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10, wrapping: true
     type_and_commit sb, "150"
     sb.value.should eq 100 # clamped to maximum, NOT wrapped to 0
   end
 
   it "clamps a typed under-minimum entry instead of wrapping to the maximum" do
     s = bugs5_screen
-    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: -50, maximum: 100, value: 10, wrap: true
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: -50, maximum: 100, value: 10, wrapping: true
     type_and_commit sb, "-80"
     sb.value.should eq -50 # clamped to minimum, NOT wrapped to 100
   end
 
   it "still commits an in-range typed entry unchanged on a wrap box" do
     s = bugs5_screen
-    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10, wrap: true
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10, wrapping: true
     type_and_commit sb, "42"
     sb.value.should eq 42
   end
 
   it "still wraps on single-step overshoot (stepping past a bound)" do
     s = bugs5_screen
-    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, step: 1, value: 100, wrap: true
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, step: 1, value: 100, wrapping: true
     sb.increment
     sb.value.should eq 0 # stepping (not typing) past the top still wraps
   end
@@ -98,14 +98,14 @@ end
 describe "BUGS5 DoubleSpinBox typed entry on a wrap box (bug 2)" do
   it "clamps a typed over-maximum entry instead of wrapping to the minimum" do
     s = bugs5_screen
-    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 10.0, wrap: true
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 10.0, wrapping: true
     type_and_commit d, "150"
     d.value.should eq 100.0 # clamped to maximum, NOT wrapped to 0.0
   end
 
   it "clamps a typed under-minimum entry instead of wrapping to the maximum" do
     s = bugs5_screen
-    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: -50.0, maximum: 100.0, value: 10.0, wrap: true
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: -50.0, maximum: 100.0, value: 10.0, wrapping: true
     type_and_commit d, "-80"
     d.value.should eq -50.0 # clamped to minimum, NOT wrapped to 100.0
   end

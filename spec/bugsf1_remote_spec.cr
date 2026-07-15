@@ -165,11 +165,11 @@ require "http/client"
 
     it "auto-generated bool branch also treats a bare attribute as true" do
       pb = Widget::ProgressBar.new window: headless_screen, width: 20, height: 1
-      pb.show_text?.should be_false
+      pb.show_value?.should be_false
       pb.dom_apply "show-text", nil # generated branch (dom_autoserialize.cr)
-      pb.show_text?.should be_true
+      pb.show_value?.should be_true
       pb.dom_apply "show-text", "false"
-      pb.show_text?.should be_false
+      pb.show_value?.should be_false
     end
   end
 

@@ -6,7 +6,7 @@ include Crysterm
 # Pine files:
 #   8  — ActionBar per-command hotkeys: `accepted?` guard + detach/attach lifecycle
 #   9  — Pine::MessageView/TextView registered their key handler twice
-#   15 — ActionBar#selekt before first render never moved `selected`
+#   15 — ActionBar#select_index before first render never moved `selected`
 #   30 — Mixin::Interactive scroll handler never `accept`ed handled keys
 #   43 — Pine::OptionList inline editing neither accepted nor stopped its keys
 
@@ -45,7 +45,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     s = f2_screen
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
     s._render
 
     # A pre-accepted 'q' (e.g. typed into a LineEdit that consumed it) must not
@@ -60,7 +60,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     s = f2_screen
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
     s._render
 
     emit_kp(s, 'q')
@@ -71,7 +71,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     s = f2_screen
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
     s._render
 
     emit_kp(s, 'q')
@@ -89,17 +89,17 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   end
 end
 
-describe "BUGS-F2 #15 ActionBar#selekt before first render moves `selected`" do
+describe "BUGS-F2 #15 ActionBar#select_index before first render moves `selected`" do
   it "sets `selected` to the target index so Enter fires the right command" do
     s = f2_screen
     fired = [] of Int32
     bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add("zero", -> { fired << 0; nil })
-    bar.add("one", -> { fired << 1; nil })
-    bar.add("two", -> { fired << 2; nil })
+    bar.add_item("zero", -> { fired << 0; nil })
+    bar.add_item("one", -> { fired << 1; nil })
+    bar.add_item("two", -> { fired << 2; nil })
 
     # No render yet: `@lpos` is nil.
-    bar.selekt 2
+    bar.select_index 2
     bar.selected.should eq 2
 
     # Enter activates `selected`; it must run command 2, not the stale 0.
@@ -191,7 +191,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   it "OptionList accepts typed characters and Enter/Escape while editing" do
     s = f2_screen
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
-    ol.selekt 1
+    ol.select_index 1
     ol.activate # begin editing the Text option
     ol.editing?.should be_true
 
@@ -203,7 +203,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   it "OptionList accepts Escape while editing" do
     s = f2_screen
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
-    ol.selekt 1
+    ol.select_index 1
     ol.activate
     press(ol, key: Tput::Key::Escape).accepted?.should be_true
     ol.editing?.should be_false
@@ -212,7 +212,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   it "OptionList accepts Space toggling a Toggle option" do
     s = f2_screen
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
-    ol.selekt 0
+    ol.select_index 0
     press(ol, ' ').accepted?.should be_true
   end
 
@@ -221,7 +221,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
     setup = Crysterm::Widget::Pine::Setup.new(
       [Crysterm::Widget::Pine::Setup::Option.new("enable-x", "desc")],
       parent: s)
-    setup.selekt 0
+    setup.select_index 0
     press(setup, ' ').accepted?.should be_true
   end
 
@@ -232,7 +232,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
       label: ->(x : String) { x },
       multi: true,
       parent: s)
-    picker.selekt 0
+    picker.select_index 0
     press(picker, ' ').accepted?.should be_true
   end
 end

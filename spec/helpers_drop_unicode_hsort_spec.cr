@@ -2,12 +2,12 @@ require "./spec_helper"
 
 # Behavior lock for the two remaining pure `Crysterm::Helpers` methods without
 # coverage: `drop_unicode` (astral-plane scrubber) and `hsort` (sort by
-# descending `.index`). Both are instance methods, so mix the module into a host.
+# descending `.render_index`). Both are instance methods, so mix the module into a host.
 private class HelpersHost
   include Crysterm::Helpers
 end
 
-private record Indexed, index : Int32
+private record Indexed, render_index : Int32
 
 describe Crysterm::Helpers do
   host = HelpersHost.new
@@ -31,16 +31,16 @@ describe Crysterm::Helpers do
   end
 
   describe "#hsort" do
-    it "sorts by descending index in place" do
+    it "sorts by descending render_index in place" do
       arr = [Indexed.new(1), Indexed.new(3), Indexed.new(2)]
       host.hsort(arr)
-      arr.map(&.index).should eq [3, 2, 1]
+      arr.map(&.render_index).should eq [3, 2, 1]
     end
 
     it "returns the same (mutated) array" do
       arr = [Indexed.new(5), Indexed.new(9)]
       host.hsort(arr).should be arr
-      arr.map(&.index).should eq [9, 5]
+      arr.map(&.render_index).should eq [9, 5]
     end
   end
 end

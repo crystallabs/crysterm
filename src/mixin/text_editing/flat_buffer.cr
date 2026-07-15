@@ -118,6 +118,7 @@ module Crysterm
         # never lost when the last-displayed cache is stale.
         protected def assign_value(value : String?, & : String -> String) : Bool
           external = !value.nil?
+          before = @value
           @value = yield(value || @value)
           @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
           clear_selection if external
@@ -127,6 +128,18 @@ module Crysterm
           # leave `@goal_col` intact so an in-progress Up/Down sequence survives a
           # `render`.
           @goal_col = nil if external
+
+          # A programmatic set notifies too, like Qt's `QLineEdit::textChanged`
+          # (which fires on `setText`, not only on typing) and like the
+          # document-backed editors, whose `TextDocument` signals every change.
+          # Only the external branch emits: interactive edits mutate `@value`
+          # through `buf_insert`/`buf_delete` and emit from `#_listener`, and the
+          # `nil` redisplay path (once per frame, per field) isn't a change at
+          # all — so the guard short-circuits before the `String` compare on that
+          # hot path. Emitted last, so handlers observe the settled caret and
+          # selection.
+          emit ::Crysterm::Event::TextChanged, @value if external && @value != before
+
           external
         end
 

@@ -56,32 +56,32 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
     sl.value_at_pub(110, 10).should eq 300_000_000
   end
 
-  # M1 — ProgressBar#filled= evaluated `percent * span` as Int32 × Int32 before
+  # M1 — ProgressBar#percent= evaluated `percent * span` as Int32 × Int32 before
   # the `/ 100.0`, overflowing for a span above ~21M.
-  it "sets ProgressBar#filled on a large-range bar without raising (M1)" do
+  it "sets ProgressBar#percent on a large-range bar without raising (M1)" do
     s = range_screen
-    # `bar.filled = 50` runs during construction here; `50 * 50_000_000` (Int32)
+    # `bar.percent = 50` runs during construction here; `50 * 50_000_000` (Int32)
     # overflowed. The fix coerces to Float64 before multiplying.
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
-      minimum: 0, maximum: 50_000_000, filled: 50
-    bar.filled.should eq 50
+      minimum: 0, maximum: 50_000_000, percent: 50
+    bar.percent.should eq 50
     bar.value.should eq 25_000_000
-    bar.filled = 100 # must not raise OverflowError
+    bar.percent = 100 # must not raise OverflowError
     bar.value.should eq 50_000_000
   end
 
   # M1 (span) — ProgressBar#span subtracted `@maximum - @minimum` in Int32,
-  # overflowing for a range wider than Int32::MAX. #filled derives from #span.
-  it "derives ProgressBar#filled across an Int32-wide range without raising (M1 span)" do
+  # overflowing for a range wider than Int32::MAX. #percent derives from #span.
+  it "derives ProgressBar#percent across an Int32-wide range without raising (M1 span)" do
     s = range_screen
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       minimum: -1_500_000_000, maximum: 1_500_000_000, value: 0
     # `@maximum - @minimum` (== 3e9) overflowed Int32 in #span; the fix widens the
     # subtraction and clamps to Int32::MAX, so a range wider than Int32::MAX yields
     # a valid (approximate) percentage instead of crashing.
-    bar.filled.should be >= 0
-    bar.filled.should be <= 100
-    bar.filled = 25 # must not raise OverflowError
+    bar.percent.should be >= 0
+    bar.percent.should be <= 100
+    bar.percent = 25 # must not raise OverflowError
     bar.value.should be < 0
   end
 

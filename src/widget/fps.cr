@@ -44,7 +44,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Fps < Box
       # Auto-size to its single line of text, like `Label`.
-      @resizable = true
+      @shrink_to_fit = true
 
       # Default layout: the classic `R/D/FPS: cur/cur/cur (avg/avg/avg)` line,
       # plus terminal write throughput and the cumulative byte total.

@@ -18,13 +18,13 @@ describe "BUGS12 text framework" do
     end
   end
 
-  # Finding #3 — `replace_content` must emit ContentsChange with the correct
+  # Finding #3 — `replace_content` must emit ContentsChanged with the correct
   # `chars_added` (the new size), not a stale cached value.
-  describe "TextDocument#set_plain_text ContentsChange" do
+  describe "TextDocument#set_plain_text ContentsChanged" do
     it "reports chars_added as the new size" do
       doc = TextDocument.new("a\nb\nc") # old size 5
       changes = [] of {Int32, Int32, Int32}
-      doc.on(Event::ContentsChange) { |e| changes << {e.position, e.chars_removed, e.chars_added} }
+      doc.on(Event::ContentsChanged) { |e| changes << {e.position, e.chars_removed, e.chars_added} }
       doc.set_plain_text("hello") # new size 5
       changes.should eq [{0, 5, 5}]
     end

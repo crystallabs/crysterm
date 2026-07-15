@@ -9,17 +9,24 @@ module Crysterm
     #
     # Closed, it shows the current value followed by a `▾` marker. Opening it
     # (Enter / Space / Down / click) drops a `List` popup below the box;
-    # choosing an item closes the popup, updates the value, and emits
-    # `Event::Action` with the chosen text. While closed, Up/Down cycle the
-    # value in place.
+    # choosing an item closes the popup and updates the value. While closed,
+    # Up/Down cycle the value in place.
     #
     # With `#editable?` the box also accepts free text: typing filters the popup
     # to the matching options (case-insensitive substring), Up/Down move the
     # highlight, and Enter commits the highlighted option — or the typed text
     # itself when nothing matches.
     #
+    # Two signals, split the way Qt splits them: `Event::CurrentChanged` (the new
+    # `#current_index`) whenever the value changes, however it changed — Qt's
+    # `currentIndexChanged`; and `Event::Action` (the chosen text) only when the
+    # *user* picks or cycles a value — Qt's `activated`. A programmatic
+    # `#current_index=` or `#reset` therefore reports the change without
+    # impersonating a user action.
+    #
     # The collection is called `#options` (not `items`, which `Widget` already
-    # uses for child widgets).
+    # uses for child widgets), but the per-item verbs are Qt's `QComboBox` ones:
+    # `#add_item`/`#insert_item`/`#remove_item`/`#clear`/`#count`/`#item_text`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![ComboBox screenshot](../../tests/widget/combo_box/combo_box.5s.apng)
@@ -33,7 +40,7 @@ module Crysterm
       # A combo is fixed-size: it honors its given `width` rather than shrinking
       # to the `"value ▾"` content like an `Input` would — else its clickable
       # area collapses to a few cells.
-      @resizable = false
+      @shrink_to_fit = false
 
       # The popup drop-down list. An `AbstractItemView` (sibling of `List`,
       # reusing row machinery via `Mixin::ItemView`). Overrides commit/cancel
@@ -59,7 +66,7 @@ module Crysterm
         @wheel_mode = Mixin::ItemView::WheelMode::ScrollViewUnderPointer
 
         # How many option rows the owning combo wants visible. The popup's outer
-        # height is this plus its own border/padding (`#iheight`), set by
+        # height is this plus its own border/padding (`#ivertical`), set by
         # `ComboBox#position_popup` and re-applied at render (see `#render`).
         property visible_rows : Int32 = 1
 
@@ -70,11 +77,11 @@ module Crysterm
         end
 
         def cancel_selected
-          combo.try &.dismiss
+          combo.try &.close
         end
 
         # Re-fits the popup's outer height to `#visible_rows` plus its own
-        # border/padding (`#iheight`) at render, after the CSS cascade has
+        # border/padding (`#ivertical`) at render, after the CSS cascade has
         # resolved the border (mirrors `Widget::Menu#autosize`). No assumption
         # of a 1-cell border. `height=` is a no-op when unchanged.
         def render(with_children = true)
@@ -86,7 +93,7 @@ module Crysterm
           if c = combo
             c.place_popup self
           else
-            h = @visible_rows + iheight
+            h = @visible_rows + ivertical
             self.height = h unless height == h
           end
           super
@@ -94,18 +101,62 @@ module Crysterm
       end
 
       getter options : Array(String)
-      property selected : Int32 = 0
+
+      # Index of the current option. Assigning clamps to the option list and
+      # routes through the same path a user's choice takes, so `#value`, the edit
+      # buffer, the filtered popup and the rendered content all follow and
+      # `Event::CurrentChanged` fires. It used to be a bare `property`, whose
+      # generated setter — the obvious `setCurrentIndex` — did none of that and
+      # left the box internally inconsistent, disagreeing with its own
+      # `ComboBox::Popup` (which gets the real thing from `Mixin::ItemView`).
+      getter selected : Int32 = 0
+
+      # :ditto:
+      def selected=(index : Int) : Nil
+        return if @options.empty?
+        i = index.clamp(0, @options.size - 1)
+        set_value @options[i], i
+      end
+
+      # Qt spelling of `#selected` / `#selected=` (`QComboBox#currentIndex`),
+      # matching `Mixin::ItemView`. Preferred in new code.
+      def current_index : Int32
+        @selected
+      end
+
+      # :ditto:
+      def current_index=(index : Int) : Nil
+        self.selected = index
+      end
 
       # Tag-stripped text of the current selection (or the typed text, when
       # `#editable?` and it doesn't match an option).
       getter value : String = ""
 
+      # Qt spelling of `#value` (`QComboBox#currentText`).
+      def current_text : String
+        @value
+      end
+
+      # Selects the option whose text is *text* (Qt's `setCurrentText`). With no
+      # such option, an `#editable?` box takes *text* as its free-text value —
+      # exactly as if it had been typed and committed — and a non-editable one is
+      # left alone, since it has no way to show a value that isn't an option.
+      def current_text=(text : String) : Nil
+        if i = @options.index text
+          set_value text, i
+        elsif editable?
+          set_value text
+        end
+      end
+
       # Whether the box accepts free-text entry that filters the options
       # (Qt's `QComboBox#editable`).
       property? editable : Bool = false
 
-      # Maximum number of rows shown in the popup before it scrolls.
-      property max_visible : Int32 = 6
+      # Maximum number of rows shown in the popup before it scrolls (Qt's
+      # `QComboBox#maxVisibleItems`).
+      property max_visible_items : Int32 = 6
 
       # Editable-mode text buffer.
       @text : String = ""
@@ -157,7 +208,7 @@ module Crysterm
         on(Crysterm::Event::Blur) do |e|
           next unless editable? && @open
           nf = e.el
-          next if nf && (p = @popup) && (nf == p || nf.has_ancestor?(p))
+          next if nf && (p = @popup) && (nf == p || nf.descendant_of?(p))
           # `refocus: false`: this runs mid-`_focus` (focus is on its way to
           # `e.el`); a `focus` here would re-enter the focus machinery, land
           # focus back on the combo (Tab needed twice) and corrupt the focus
@@ -222,19 +273,104 @@ module Crysterm
 
       # Replaces the list of choices, keeping the selection in range.
       def options=(opts : Enumerable(String))
+        was = current_state
         @options = opts.to_a
         @selected = @selected.clamp(0, Math.max(0, @options.size - 1))
         @value = @options[@selected]? || ""
+        refresh_options was
+      end
+
+      # Number of options (Qt's `QComboBox#count`).
+      def count : Int32
+        @options.size
+      end
+
+      # The text of the option at *index*, or `nil` when out of range (Qt's
+      # `itemText`).
+      def item_text(index : Int) : String?
+        # Guard the negative index explicitly: Crystal's `[]?` counts a negative
+        # from the end, so `item_text(-1)` would answer with the *last* option.
+        return nil if index < 0
+        @options[index]?
+      end
+
+      # Appends an option (Qt's `addItem`). Returns its index.
+      def add_item(text : String) : Int32
+        insert_item @options.size, text
+      end
+
+      # Inserts an option at *index* (clamped to the end), like Qt's
+      # `insertItem`; returns the index it landed at. The current option stays
+      # current, following its shift.
+      def insert_item(index : Int, text : String) : Int32
+        was = current_state
+        i = index.clamp(0, @options.size)
+        @options.insert i, text
+        if @options.size == 1
+          # First option to arrive: nothing was selectable before, so it becomes
+          # the value (matching `#initialize`, which starts an empty combo at 0).
+          @selected = 0
+          @value = text
+        elsif i <= @selected
+          # Inserted at or before the current option, which therefore shifted
+          # right — follow it, rather than leave the index on its new neighbor.
+          @selected += 1
+        end
+        refresh_options was
+        i
+      end
+
+      # Removes the option at *index* (Qt's `removeItem`); out of range is a
+      # no-op. Returns the removed text.
+      def remove_item(index : Int) : String?
+        return nil unless 0 <= index < @options.size
+        was = current_state
+        i = index.to_i
+        text = @options.delete_at i
+        # Mirror of `#insert_item`: removing *before* the current option shifts
+        # it left. Removing the current one itself leaves the index on its
+        # successor (Qt's behavior), and the clamp catches removing the last.
+        @selected -= 1 if i < @selected
+        @selected = @selected.clamp(0, Math.max(0, @options.size - 1))
+        # An editable box may be showing free text that was never an option;
+        # emptying the list must not silently blank it.
+        @value = @options[@selected]? || (editable? ? @value : "")
+        refresh_options was
+        text
+      end
+
+      # Drops every option (Qt's `clear`).
+      def clear : Nil
+        was = current_state
+        @options.clear
+        @selected = 0
+        @value = ""
+        refresh_options was
+      end
+
+      # The `{index, value}` pair a list mutation might move, sampled before it
+      # runs so `#refresh_options` can tell whether to report a change.
+      private def current_state : Tuple(Int32, String)
+        {@selected, @value}
+      end
+
+      # Shared tail of every option-list mutation: re-filters, re-fits an open
+      # drop-down, refreshes the rendered value, and reports
+      # `Event::CurrentChanged` if the mutation moved the selection off *was*
+      # (inserting ahead of it, removing it, truncating the list, …).
+      #
+      # An open drop-down must be re-fitted to the new options, or a click on a
+      # visible row resolves against the new `@filtered` and commits a value the
+      # user never saw (or silently no-ops when there are fewer options than
+      # rows). `#refresh_popup` guards on `@open` and re-runs `position_popup`.
+      private def refresh_options(was : Tuple(Int32, String)) : Nil
         # Keep edit buffer empty so the box shows the committed value (matches `#set_value`).
         @text = ""
         refilter
-        # An open drop-down must be re-fitted to the new options, or a click on a
-        # visible row resolves against the new `@filtered` and commits a value the
-        # user never saw (or silently no-ops when there are fewer options than
-        # rows). `#refresh_popup` guards on `@open` and re-runs `position_popup`.
         refresh_popup
         update_content
         request_render
+        emit Crysterm::Event::CurrentChanged, @selected if was != current_state
       end
 
       # Drops the popup open. In editable mode the combo keeps focus (so typing
@@ -251,10 +387,10 @@ module Crysterm
         # combo navigates the popup directly, so it keeps it focusable.
         pop.focus_on_click = !editable?
         refilter
-        pop.set_items @filtered
+        pop.items = @filtered
         # Highlight lands on current selection; editable mode starts at top
         # since the popup is a freshly filtered list.
-        pop.selekt(editable? ? 0 : @selected.clamp(0, Math.max(0, @filtered.size - 1)))
+        pop.selected = editable? ? 0 : @selected.clamp(0, Math.max(0, @filtered.size - 1))
         position_popup pop
         show_popup pop, focus_popup: !editable?
       end
@@ -276,65 +412,74 @@ module Crysterm
       # `#toggle` (open/close) comes from `Mixin::Popup`.
 
       # Commits the choice at *index* into the currently-shown (`@filtered`) list:
-      # updates the value, closes the popup, and emits `Event::Action`.
+      # updates the value, closes the popup, and emits `Event::Action` — the
+      # *activation* signal (Qt's `activated`), which fires for the user's pick
+      # even when it re-picks the value already current. A real value change also
+      # emits `Event::CurrentChanged` from `#set_value`.
       def commit(index : Int)
-        if v = @filtered[index]?
-          # Non-editable: `@filtered` is `@options` itself, so the index maps
-          # directly — pass it through so a repeated option label commits the
-          # row actually picked (see `#set_value`). Editable: popup is a
-          # filtered subset whose index doesn't map to `@options`; fall back to
-          # value lookup.
-          set_value v, editable? ? nil : index.to_i
-        end
+        # An out-of-range row commits nothing, so it activates nothing either —
+        # it only dismisses the drop-down.
+        return close unless v = @filtered[index]?
+        # Non-editable: `@filtered` is `@options` itself, so the index maps
+        # directly — pass it through so a repeated option label commits the
+        # row actually picked (see `#set_value`). Editable: popup is a
+        # filtered subset whose index doesn't map to `@options`; fall back to
+        # value lookup.
+        set_value v, editable? ? nil : index.to_i
         close
+        emit Crysterm::Event::Action, @value
       end
 
       # Commits the free-text buffer (editable mode, no matching option).
       def commit_text
         set_value @text
         close
-      end
-
-      # Sets the displayed value, recording which option index it corresponds to.
-      # When the caller knows the authoritative index (cycling, or a click on a
-      # specific row), pass it as *index* so selection lands on the row actually
-      # chosen. Otherwise looked up by value, which with duplicate labels would
-      # resolve to the first match. Falls back to the current selection if no
-      # index given.
-      private def set_value(v : String, index : Int32? = nil)
-        @value = v
-        # Clear edit buffer so display reverts to the committed value.
-        @text = ""
-        @selected = index || @options.index(v) || @selected
-        update_content
         emit Crysterm::Event::Action, @value
       end
 
-      # Closes the popup leaving the value unchanged.
-      def dismiss
-        close
+      # Sets the displayed value, recording which option index it corresponds to,
+      # and emits `Event::CurrentChanged` when either actually moved. When the
+      # caller knows the authoritative index (cycling, or a click on a specific
+      # row), pass it as *index* so selection lands on the row actually chosen.
+      # Otherwise looked up by value, which with duplicate labels would resolve to
+      # the first match. Falls back to the current selection if no index given.
+      #
+      # Every write to `@value`/`@selected` goes through here, so nothing can
+      # leave the two — or the rendered content — out of step.
+      private def set_value(v : String, index : Int32? = nil)
+        i = index || @options.index(v) || @selected
+        changed = @value != v || @selected != i
+        @value = v
+        # Clear edit buffer so display reverts to the committed value.
+        @text = ""
+        @selected = i
+        update_content
+        emit Crysterm::Event::CurrentChanged, @selected if changed
       end
 
       # Restores the initial state: selects the first option (empty when there
       # are none) and clears any typed edit buffer. Used by `Form#reset`.
+      # Programmatic, so it reports `Event::CurrentChanged` but not the
+      # user-activation `Event::Action`.
       def reset
-        @selected = 0
-        set_value @options.first? || ""
+        set_value @options.first? || "", 0
         request_render
       end
 
       # Cycles the selection by *delta* without opening the popup (Qt changes the
-      # current item with the arrow keys on a closed, non-editable combo).
+      # current item with the arrow keys on a closed, non-editable combo, and
+      # counts that as an activation).
       def cycle(delta : Int)
         return if @options.empty?
         n = @options.size
         # Crystal's `%` with a positive divisor is always non-negative, so this
         # wraps a negative delta correctly with no extra guard.
-        @selected = (@selected + delta) % n
+        i = (@selected + delta) % n
         # Pass the computed index as authoritative: `#set_value`'s value-based
         # lookup would resolve a repeated label to its first occurrence,
         # preventing cycling onto a later duplicate.
-        set_value @options[@selected], @selected
+        set_value @options[i], i
+        emit Crysterm::Event::Action, @value
         request_render
       end
 
@@ -362,7 +507,7 @@ module Crysterm
           pop.on(Crysterm::Event::Blur) do |e|
             next unless @open
             nf = e.el
-            next if nf && (nf == self || nf == pop || nf.has_ancestor?(pop) || nf.has_ancestor?(self))
+            next if nf && (nf == self || nf == pop || nf.descendant_of?(pop) || nf.descendant_of?(self))
             close refocus: false
           end
           window.append pop
@@ -376,14 +521,14 @@ module Crysterm
       # instead of keeping its original size.
       private def refresh_popup
         if @open && (pop = @popup)
-          pop.set_items @filtered
-          pop.selekt 0
+          pop.items = @filtered
+          pop.selected = 0
           position_popup pop
         end
       end
 
       private def position_popup(pop : Popup)
-        rows = Math.min(Math.max(@filtered.size, 1), @max_visible)
+        rows = Math.min(Math.max(@filtered.size, 1), @max_visible_items)
         pop.visible_rows = rows
         # Full placement (size + below/above flip + clamp); re-run each render
         # once the cascade resolves the border (see `#place_popup` /
@@ -397,14 +542,14 @@ module Crysterm
       # row and looked like it never opened.
       #
       # Outer height = visible rows plus the popup's own border/padding
-      # (`#iheight`), so themed borders size correctly; width tracks the combo.
+      # (`#ivertical`), so themed borders size correctly; width tracks the combo.
       # `Overlay.place_child` owns the below/above fit choice, the on-window
       # clamp, and the single absolute→window-local inset conversion (a
       # window-appended popup's `left`/`top` are relative to the window content
       # origin). Called at open and from `Popup#render`; guarded assignments make
       # it a steady-state no-op.
       def place_popup(pop : Popup) : Nil
-        want = pop.visible_rows + pop.iheight
+        want = pop.visible_rows + pop.ivertical
         pop.height = want unless pop.height == want
         w = Math.max(awidth, 4)
         pop.width = w unless pop.width == w

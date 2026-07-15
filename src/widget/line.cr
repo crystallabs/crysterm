@@ -6,7 +6,7 @@ module Crysterm
     # ![Line screenshot](../../tests/widget/line/line.5s.apng)
     # <!-- /widget-examples:capture -->
     class Line < Box
-      @resizable = true
+      @shrink_to_fit = true
 
       property orientation : Tput::Orientation = :horizontal
 
@@ -50,6 +50,14 @@ module Crysterm
             stops[y] = true if y >= 0
           end
         end
+      end
+
+      # The line's *length* along its `#orientation` — i.e. `#width` when
+      # horizontal, `#height` when vertical — in the user-set form (`Int32`,
+      # a `"50%"`-style String, or `nil` when unset). `#awidth`/`#aheight` give
+      # the resolved cell count. The counterpart of `#line_size=`.
+      def line_size : Int32 | String | Nil
+        @orientation.vertical? ? @height : @width
       end
 
       def line_size=(size)

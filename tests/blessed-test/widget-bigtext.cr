@@ -8,7 +8,7 @@ module Crysterm
   b = Widget::BigText.new \
     content: "Hello",
     # parse_tags: true,
-    resizable: true,
+    shrink_to_fit: true,
     width: "80%",
 
     style: Style.new(

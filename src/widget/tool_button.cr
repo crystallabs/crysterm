@@ -84,6 +84,21 @@ module Crysterm
         end
       end
 
+      # The button's label, without the `▾` indicator (which `#content` carries
+      # but is chrome, not label — `AbstractButton#text`).
+      def text : String
+        c = content
+        s = indicator_suffix
+        (!s.empty? && c.ends_with?(s)) ? c[0...-s.size] : c
+      end
+
+      # :ditto:
+      def text=(value : String) : String
+        set_content with_indicator(value)
+        request_render
+        value
+      end
+
       # The default action, or `nil`.
       def action : Action?
         @action
@@ -95,10 +110,7 @@ module Crysterm
         # content and request a needless repaint.
         return a if a == @action
         @action = a
-        if a && !a.text.empty?
-          set_content with_indicator(a.text)
-          request_render
-        end
+        self.text = a.text if a && !a.text.empty?
         a
       end
 
@@ -118,9 +130,9 @@ module Crysterm
         # Instead the click reaches `#on_click`, which toggles it shut cleanly —
         # otherwise the outside-dismiss would close it and the same click reopen it.
         m.try { |mm| mm.treat_as_inside { |x, y| contains_point? x, y } }
-        # Re-stamp the current label so the indicator is added/removed.
-        set_content with_indicator(base_label)
-        request_render
+        # Re-stamp the current label (`#text` strips the old indicator, `#text=`
+        # re-adds it) so attaching/clearing a menu adds/removes the `▾`.
+        self.text = text
         m
       end
 
@@ -133,7 +145,7 @@ module Crysterm
         m.popup aleft, atop + aheight
       end
 
-      def press
+      def click
         # InstantPopup: the whole button is the menu drop-down — open it
         # instead of emitting a press / triggering the action.
         if @menu && @popup_mode.instant_popup?
@@ -146,7 +158,7 @@ module Crysterm
 
         # Fire the bound action too (Qt's default-action behaviour).
         @action.try do |a|
-          a.activate if a.enabled
+          a.activate if a.enabled?
         end
       end
 
@@ -155,7 +167,7 @@ module Crysterm
       # click-away) closes it. This is the only mouse route to the menu; when a
       # default `action:` is bound it stays reachable from the keyboard (Space /
       # Enter run the action; Down also opens the menu). A menu-less button just
-      # presses.
+      # activates.
       def on_click(e)
         if (m = @menu)
           if m.visible?
@@ -165,7 +177,7 @@ module Crysterm
             show_menu
           end
         else
-          press
+          click
         end
       end
 
@@ -184,7 +196,7 @@ module Crysterm
       # Cycles the wheel position over the menu's activatable (non-separator,
       # enabled, non-submenu) actions and triggers the one landed on.
       private def cycle_menu(m : Menu, delta : Int32) : Nil
-        acts = m.actions.select { |a| !a.separator? && a.enabled && !a.menu? }
+        acts = m.actions.select { |a| !a.separator? && a.enabled? && !a.menu? }
         return if acts.empty?
         # Crystal's `%` with a positive divisor already yields a non-negative
         # result, so no negative-index correction is needed.
@@ -199,13 +211,6 @@ module Crysterm
       private def indicator_suffix : String
         arrow = glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
         arrow ? " #{arrow}" : ""
-      end
-
-      # The label without the trailing indicator.
-      private def base_label : String
-        c = content
-        s = indicator_suffix
-        (!s.empty? && c.ends_with?(s)) ? c[0...-s.size] : c
       end
 
       # Appends the popup indicator to *label* when a menu is attached.

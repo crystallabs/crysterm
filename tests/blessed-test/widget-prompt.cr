@@ -6,7 +6,7 @@ module Crysterm
 
   prompt = Prompt.new(
     style: Style.new(border: true),
-    resizable: true,
+    shrink_to_fit: true,
     width: "half",
     top: "center",
     left: "center",
@@ -18,7 +18,7 @@ module Crysterm
 
   question = Question.new(
     style: Style.new(border: true),
-    resizable: true,
+    shrink_to_fit: true,
     width: "half",
     top: "center",
     left: "center",
@@ -30,7 +30,7 @@ module Crysterm
 
   msg = Message.new(
     style: Style.new(border: true),
-    resizable: true,
+    shrink_to_fit: true,
     width: "half",
     top: "center",
     left: "center",
@@ -43,7 +43,7 @@ module Crysterm
 
   loader = Loading.new(
     style: Style.new(border: true),
-    resizable: true,
+    shrink_to_fit: true,
     width: "half",
     top: "center",
     left: "center",

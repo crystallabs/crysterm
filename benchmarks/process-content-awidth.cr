@@ -1,7 +1,7 @@
 require "benchmark"
 require "../src/crysterm"
 
-# `Widget#process_content` computes `colwidth = awidth - iwidth` on every
+# `Widget#process_content` computes `colwidth = awidth - ihorizontal` on every
 # frame (before its parse-cache guard), using `awidth` with default
 # `get: false`. For a `width: nil` (stretch) widget, `awidth(false)` climbs
 # the whole ancestor chain — O(depth) — every frame, per widget. This

@@ -39,7 +39,7 @@ describe "Widget#ensure_widget_visible with a bordered scroll area" do
     # The child's top must be within the visible content rows, not stranded one
     # row above by the missing-inset over-scroll.
     (box.child_base <= content_row).should be_true
-    visible = box.aheight - box.iheight
+    visible = box.aheight - box.ivertical
     (content_row + child.aheight - 1 <= box.child_base + visible - 1).should be_true
   end
 end

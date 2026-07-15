@@ -27,8 +27,8 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
   it "selects the first real command when the bar opens with a separator" do
     s = abls_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
-    bar.set_items [separator, Crysterm::Mixin::ActionBar::Command.new("a"),
-                   Crysterm::Mixin::ActionBar::Command.new("b")]
+    bar.items = [separator, Crysterm::Mixin::ActionBar::Command.new("a"),
+                 Crysterm::Mixin::ActionBar::Command.new("b")]
 
     # Lands on the first selectable command (index 1), not the separator.
     bar.selected.should eq 1
@@ -45,7 +45,7 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
   it "still selects index 0 for an ordinary leading command" do
     s = abls_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
-    bar.set_items ["a", "b", "c"]
+    bar.items = ["a", "b", "c"]
 
     bar.selected.should eq 0
     bar.ritems[bar.selected].should eq "a"
@@ -54,8 +54,8 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
   it "does not re-select on a separator added after the first command" do
     s = abls_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
-    bar.set_items [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
-                   Crysterm::Mixin::ActionBar::Command.new("b")]
+    bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
+                 Crysterm::Mixin::ActionBar::Command.new("b")]
 
     bar.selected.should eq 0
     bar.ritems[bar.selected].should eq "a"

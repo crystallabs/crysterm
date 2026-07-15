@@ -48,7 +48,11 @@ module Crysterm
         @value
       end
 
-      def get : T
+      # Reads the current derived value *without* tracking (same non-tracking
+      # read as `Signal#peek`): the running `Effect`/`Computed` does not become
+      # a dependent. Does not force a recompute — the internal eager effect
+      # keeps `@value` settled.
+      def peek : T
         @value
       end
 

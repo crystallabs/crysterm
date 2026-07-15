@@ -16,8 +16,16 @@ module Crysterm
     class Form < Layout
       # Width of the (left) label column.
       property label_width : Int32
-      # Horizontal gap between label and field (`#gap` is inherited from `Layout`).
-      # Vertical gap between rows.
+
+      # Horizontal gap between a row's label and its field, in cells.
+      #
+      # Named for symmetry with `#row_gap` rather than reusing the inherited
+      # `Layout#gap`: on every other engine that means "space between adjacent
+      # children", while here it would silently mean only the label-to-field
+      # gap. `Layout#gap` is therefore unused by this engine.
+      property column_gap : Int32
+
+      # Vertical gap between rows, in cells.
       property row_gap : Int32
 
       # Reused list of arranged children, refilled each frame instead of
@@ -35,13 +43,13 @@ module Crysterm
       @raw_height = {} of Widget => (Int32 | String | Nil)
       @assigned = {} of Widget => Int32
 
-      def initialize(@label_width : Int32 = 12, @gap : Int32 = 1, @row_gap : Int32 = 0)
+      def initialize(@label_width : Int32 = 12, @column_gap : Int32 = 1, @row_gap : Int32 = 0)
       end
 
-      def arrange(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : RenderedGeometry) : Nil
         w = interior.xl - interior.xi
         lw = Math.min(@label_width, w)
-        fw = w - lw - @gap
+        fw = w - lw - @column_gap
         fw = 0 if fw < 0
 
         # Prune bookkeeping for children no longer in the container.
@@ -62,7 +70,7 @@ module Crysterm
             restore_height field
             rh = Math.max(row_height(label), row_height(field))
             place_child label, 0, y, lw, rh
-            place_child field, lw + @gap, y, fw, rh
+            place_child field, lw + @column_gap, y, fw, rh
             record_managed label, @assigned, rh
             record_managed field, @assigned, rh
             render_child label

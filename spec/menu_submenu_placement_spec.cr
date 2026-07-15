@@ -17,14 +17,14 @@ end
 private def msp_menu(s)
   m = Crysterm::Widget::Menu.new(parent: s)
   m.add("New") { }
-  m.add_menu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2"), Crysterm::Action.new("old-3")]
+  m.add_submenu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2"), Crysterm::Action.new("old-3")]
   m
 end
 
 private def msp_open_sub(s, m, x, y)
   m.popup x, y
   s._render
-  m.selekt 1
+  m.select_index 1
   m.hover_item 1 # opens the "Recent" submenu
   s._render
   m.@submenu_open.not_nil!

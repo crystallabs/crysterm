@@ -12,7 +12,7 @@ include Crysterm
 # followed by `Window#dispatch_mouse` with synthesized `::Tput::Mouse::Event`s.
 #
 # `#position_at` reads the widget's on-screen geometry/painted line cache
-# (`_get_coords`/`@_clines`/`@_value`), so a widget must be rendered at least
+# (`coords`/`@_clines`/`@_value`), so a widget must be rendered at least
 # once before its coordinates mean anything; `#_render` is called right after
 # construction (and after any `.value =` that changes wrapping) in every test
 # below.
@@ -89,12 +89,12 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       # Down with no subsequent move.
       press s, 2, 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
 
       # Down then up at the same position.
       press s, 3, 0
       release s, 3, 0
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "press then drag-move extends the selection to the new position" do
@@ -109,7 +109,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       le.selection_anchor.should eq 2
       le.selection_range.should eq(2...4)
       le.selected_text.should eq "ll"
-      le.has_selection?.should be_true
+      le.selection?.should be_true
     end
 
     it "dragging backward (right-to-left) still produces a normalized [lo, hi) range" do
@@ -133,10 +133,10 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       press s, 1, 0
       drag_move s, 3, 0
-      le.has_selection?.should be_true
+      le.selection?.should be_true
 
       le._listener Crysterm::Event::KeyPress.new 'X'
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "any keyboard interaction (e.g. arrow key) clears an active selection" do
@@ -146,10 +146,10 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       press s, 1, 0
       drag_move s, 3, 0
-      le.has_selection?.should be_true
+      le.selection?.should be_true
 
       le._listener Crysterm::Event::KeyPress.new '\0', Tput::Key::Right
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
 
     it "setting .value= externally clears an active selection" do
@@ -159,10 +159,10 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       press s, 1, 0
       drag_move s, 3, 0
-      le.has_selection?.should be_true
+      le.selection?.should be_true
 
       le.value = "goodbye"
-      le.has_selection?.should be_false
+      le.selection?.should be_false
     end
   end
 
@@ -211,11 +211,11 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s._render
 
       press s, 4, 0
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
 
       press s, 6, 0
       release s, 6, 0
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
     end
 
     it "press then drag-move extends the selection to the new position" do
@@ -240,10 +240,10 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       press s, 0, 0
       drag_move s, 5, 0
-      pte.has_selection?.should be_true
+      pte.selection?.should be_true
 
       pte._listener Crysterm::Event::KeyPress.new 'X'
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
     end
 
     it "setting .value= externally clears an active selection" do
@@ -254,10 +254,10 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
       press s, 0, 0
       drag_move s, 5, 0
-      pte.has_selection?.should be_true
+      pte.selection?.should be_true
 
       pte.value = "replaced"
-      pte.has_selection?.should be_false
+      pte.selection?.should be_false
     end
 
     it "a selection spanning two logical (newline-separated) lines includes the embedded \\n" do

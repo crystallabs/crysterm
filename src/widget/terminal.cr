@@ -108,11 +108,11 @@ module Crysterm
 
       # Inner content width/height in cells (box minus border+padding).
       private def term_cols : Int32
-        Math.max(0, awidth - iwidth)
+        Math.max(0, awidth - ihorizontal)
       end
 
       private def term_rows : Int32
-        Math.max(0, aheight - iheight)
+        Math.max(0, aheight - ivertical)
       end
 
       private def bootstrap(cols : Int32, rows : Int32) : Nil
@@ -352,7 +352,7 @@ module Crysterm
         yi = coords.yi + itop
         yl = coords.yl - ibottom
 
-        # When an ancestor clips this widget, `_get_coords` moves `coords.xi`/
+        # When an ancestor clips this widget, `coords` moves `coords.xi`/
         # `coords.yi` inward to the clip edge and folds the clipped-top row count
         # into `coords.base` (widget_position.cr). Map rows through `coords.base`
         # and columns through the unclipped content origin (`aleft + ileft`, the

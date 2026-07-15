@@ -8,7 +8,7 @@ require "../../example"
 Crysterm::WidgetExample.run "FolderList" do |screen|
   screen.stylesheet = "Pine::FolderList { border: solid; color: #c0caf5; }"
   fl = Crysterm::Widget::Pine::FolderList.new parent: screen, top: "center", left: "center", width: 34, height: 12, label: " Folders "
-  fl.set_folders([
+  fl.folders = ([
     Crysterm::Widget::Pine::FolderList::Folder.new("INBOX", 12), Crysterm::Widget::Pine::FolderList::Folder.new("Sent", 48),
     Crysterm::Widget::Pine::FolderList::Folder.new("Drafts", 2), Crysterm::Widget::Pine::FolderList::Folder.new("Trash", 7),
   ])

@@ -5,33 +5,75 @@ module Crysterm
   class Widget
     # Application main window, modeled after Qt's `QMainWindow`.
     #
-    # Arranges, in the conventional layout: a `#menu_bar` and `#tool_bar` across
-    # the top, a `#status_bar` across the bottom, dockable panels (`DockWidget`s,
-    # added with `#add_dock`) in the left/right/top/bottom dock areas, and the
-    # `#central_widget` filling whatever space is left. Everything re-flows to the
-    # window's size each frame, so it adapts to terminal resizes.
+    # Arranges, in the conventional layout: a `#menu_bar` and any `#tool_bars`
+    # across the top, a `#status_bar` across the bottom, dockable panels
+    # (`DockWidget`s, added with `#add_dock`) in the left/right/top/bottom dock
+    # areas, and the `#central_widget` filling whatever space is left. Everything
+    # re-flows to the window's size each frame, so it adapts to terminal resizes.
+    #
+    # `#menu_bar` and `#status_bar` construct themselves on first use, so Qt's
+    # canonical idiom works on a bare main window with no setup:
     #
     # ```
     # win = Widget::MainWindow.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
-    # win.menu_bar = Widget::ListBar.new keys: true, mouse: true
-    # win.status_bar = Widget::StatusBar.new
+    # win.menu_bar.add_menu "File"
+    # win.status_bar.show_message "Ready"
     # win.central_widget = Widget::PlainTextEdit.new
-    # win.add_dock Widget::DockWidget.new(title: "Files", area: :left)
+    # win.add_tool_bar Widget::ToolBar.new
+    # win.add_dock Widget::DockWidget::Area::Left, Widget::DockWidget.new(title: "Files")
     # ```
+    #
+    # Use `#menu_bar?`/`#status_bar?` to ask whether a bar exists without
+    # creating one, and assign `nil` to drop a slot.
     #
     # <!-- widget-examples:capture v1 -->
     # ![MainWindow screenshot](../../tests/widget/main_window/main_window.5s.apng)
     # <!-- /widget-examples:capture -->
     class MainWindow < Box
-      getter menu_bar : Widget?
-      getter tool_bar : Widget?
+      # The menu bar, constructed (and parented) on first access — Qt's
+      # `menuBar()` never returns null, which is what makes `win.menu_bar.add_menu "File"`
+      # the one-liner it is. The declared type is the concrete `MenuBar`, not a
+      # bare `Widget`: a `Widget?` slot meant even a correctly-assigned bar
+      # needed a cast before any of its own methods would compile.
+      getter menu_bar : MenuBar { MenuBar.new(parent: self) }
+
+      # :ditto:
+      getter status_bar : StatusBar { StatusBar.new(parent: self) }
+
+      # The menu bar, or `nil` if none has been created — the non-constructing
+      # question `#menu_bar` can't ask.
+      def menu_bar? : MenuBar?
+        @menu_bar
+      end
+
+      # :ditto:
+      def status_bar? : StatusBar?
+        @status_bar
+      end
+
+      # The widget filling the space left by the bars and docks. Unlike the bars,
+      # this is not auto-created (nor is it in Qt): there is no sensible default
+      # central widget.
       getter central_widget : Widget?
-      getter status_bar : Widget?
 
-      # The docked panels (in all areas, including floating).
-      getter docks = [] of DockWidget
+      @tool_bars = [] of ToolBar
 
-      # Rows reserved for the respective bars when present.
+      # The tool bars, top to bottom in the order added. A copy — mutate via
+      # `#add_tool_bar`/`#remove_tool_bar`, which also do the parenting a bare
+      # `push` here would skip, leaving the bar unrendered.
+      def tool_bars : Array(ToolBar)
+        @tool_bars.dup
+      end
+
+      @docks = [] of DockWidget
+
+      # The docked panels (in all areas, including floating), in the order added.
+      # A copy, for the same reason as `#tool_bars`.
+      def docks : Array(DockWidget)
+        @docks.dup
+      end
+
+      # Rows reserved for the menu/status bar when present, and for each tool bar.
       property menu_height : Int32 = 1
       property tool_height : Int32 = 1
       property status_height : Int32 = 1
@@ -39,29 +81,58 @@ module Crysterm
       # `initialize` is inherited from `Box` unchanged.
 
       # Defines a `<name>=` setter for one of the singular top-level slots
-      # (menu/tool/status bar, central widget): it detaches the slot's previous
+      # (menu/status bar, central widget): it detaches the slot's previous
       # occupant, stores and appends the new widget, and returns it — the
-      # identical body shared by each of these setters.
-      private macro def_slot_setter(name)
-        def {{name.id}}=(w : Widget) : Widget
+      # identical body shared by each of these setters. `nil` just clears the
+      # slot, so a bar can be taken away again.
+      private macro def_slot_setter(name, type)
+        def {{name.id}}=(w : {{type.id}}?) : {{type.id}}?
           @{{name.id}}.try &.remove_from_parent
           @{{name.id}} = w
-          append w
+          append w if w
           w
         end
       end
 
-      def_slot_setter menu_bar
-      def_slot_setter tool_bar
-      def_slot_setter status_bar
-      def_slot_setter central_widget
+      def_slot_setter menu_bar, MenuBar
+      def_slot_setter status_bar, StatusBar
+      def_slot_setter central_widget, Widget
 
-      # Adds *dock* (optionally overriding its `#area`) and returns it.
-      def add_dock(dock : DockWidget, area : DockWidget::Area? = nil) : DockWidget
-        dock.area = area if area
+      # Adds *bar* below any tool bars already present (Qt's `addToolBar`), and
+      # returns it. Adding the same bar twice is a no-op.
+      def add_tool_bar(bar : ToolBar) : ToolBar
+        return bar if @tool_bars.includes? bar
+        @tool_bars << bar
+        append bar
+        bar
+      end
+
+      # Removes *bar*, detaching (not destroying) it (Qt's `removeToolBar`).
+      def remove_tool_bar(bar : ToolBar) : Nil
+        return unless @tool_bars.delete bar
+        remove bar
+      end
+
+      # Adds *dock* to the *area* (overriding the dock's own `#area`) and returns
+      # it. Argument order is Qt's `addDockWidget(area, dockwidget)`.
+      def add_dock(area : DockWidget::Area, dock : DockWidget) : DockWidget
+        dock.area = area
+        add_dock dock
+      end
+
+      # :ditto: — keeping the dock's own `#area`. Adding the same dock twice is a
+      # no-op.
+      def add_dock(dock : DockWidget) : DockWidget
+        return dock if @docks.includes? dock
         @docks << dock
         append dock
         dock
+      end
+
+      # Removes *dock*, detaching (not destroying) it (Qt's `removeDockWidget`).
+      def remove_dock(dock : DockWidget) : Nil
+        return unless @docks.delete dock
+        remove dock
       end
 
       def render(with_children = true)
@@ -69,22 +140,31 @@ module Crysterm
         super
       end
 
-      # Positions every managed slot for the current size. Bars take full-width
-      # strips top/bottom; left/right docks span the height between them; top/
-      # bottom docks sit within the remaining central column; the central widget
-      # fills the rest. Floating docks and hidden widgets are left untouched.
+      # Positions every managed slot for the current size. The menu bar and the
+      # tool bars stack in full-width strips down from the top, the status bar
+      # takes one across the bottom; left/right docks span the height between
+      # them; top/bottom docks sit within the remaining central column; the
+      # central widget fills the rest. Floating docks and hidden widgets are left
+      # untouched.
+      #
+      # Reads `@menu_bar`/`@status_bar` (not `#menu_bar`/`#status_bar`) so laying
+      # out never *constructs* the bars it is asking about.
       private def relayout : Nil
-        top = (@menu_bar ? @menu_height : 0) + (@tool_bar ? @tool_height : 0)
+        top = 0
         bottom = @status_bar ? @status_height : 0
         left = 0
         right = 0
 
         if mb = @menu_bar
-          set_geo mb, top: 0, left: 0, right: 0, height: @menu_height
+          set_geo mb, top: top, left: 0, right: 0, height: @menu_height
+          top += @menu_height
         end
-        if tb = @tool_bar
-          # Sits directly below the menu bar, or at the very top if there is none.
-          set_geo tb, top: (@menu_bar ? @menu_height : 0), left: 0, right: 0, height: @tool_height
+        # Each tool bar sits below the previous one, the first directly below the
+        # menu bar — or at the very top if there is none.
+        @tool_bars.each do |tb|
+          next unless tb.visible?
+          set_geo tb, top: top, left: 0, right: 0, height: @tool_height
+          top += @tool_height
         end
         if sb = @status_bar
           set_geo sb, bottom: 0, left: 0, right: 0, height: @status_height

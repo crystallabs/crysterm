@@ -58,7 +58,7 @@ module Crysterm
     )
   )
 
-  table.set_data [
+  table.rows = [
     ["Animals", "Foods", "Times", "Numbers"],
     ["Elephant", "Apple", "1:00am", "One"],
     ["Bird", "Orange", "2:15pm", "Two"],

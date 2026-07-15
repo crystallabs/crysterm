@@ -46,14 +46,14 @@ class X
       ["Mouse", "Cheese", "9:05am", "Four"],
     ]
 
-    table.set_data data2
+    table.rows = data2
     s.append table
     table.focus
     s.render
 
     spawn do
       sleep 3.seconds
-      table.set_data data1
+      table.rows = data1
       s.render
     end
 

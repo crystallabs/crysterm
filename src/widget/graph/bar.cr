@@ -104,8 +104,8 @@ module Crysterm
 
         # Builds the (tagged) glyph grid for the current size and values.
         private def build_content : String
-          cols = awidth - iwidth
-          rows = aheight - iheight
+          cols = awidth - ihorizontal
+          rows = aheight - ivertical
           return "" if cols <= 0 || rows <= 0 || @values.empty?
 
           lbls = @labels

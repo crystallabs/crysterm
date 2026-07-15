@@ -152,7 +152,7 @@ module Crysterm
           FIELDS.each { |f| rows << "{bold}#{"#{f}:".rjust(9)}{/bold} #{@headers[f]}" }
           rows << separator
           @attachments.each_with_index { |a, i| rows << format_attachment(a, i) }
-          @menu.set_items rows
+          @menu.items = rows
           @menu.nonselectable = [separator_index]
         end
 

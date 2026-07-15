@@ -853,9 +853,9 @@ class Commando
   private def draw_scene(f : Field)
     win = f.window
     # The field's rectangle as painted, already inset past its border. (The old
-    # `aleft(true) + ileft` / `awidth - iwidth` pair mixed the rendered and live
+    # `aleft(true) + ileft` / `awidth - ihorizontal` pair mixed the rendered and live
     # geometry bases, which disagree mid-resize.)
-    r = f.content_rect || return
+    r = f.contents_rect || return
     ox, oy = r.xi, r.yi
     ih = r.height
     @view_h = ih

@@ -146,7 +146,7 @@ describe "lineedit-password-character" do
 
   it "masks the displayed value with the custom char when censored" do
     screen = headless_screen
-    input = Widget::LineEdit.new parent: screen, censor: true
+    input = Widget::LineEdit.new parent: screen, echo_mode: :password
     input.password_character = '#'
     input.value = "abc"
 
@@ -154,7 +154,7 @@ describe "lineedit-password-character" do
   end
 
   it "defaults the mask char to *" do
-    input = Widget::LineEdit.new censor: true
+    input = Widget::LineEdit.new echo_mode: :password
     input.password_character.should eq '*'
   end
 

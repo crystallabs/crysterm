@@ -6,7 +6,7 @@ module Crysterm
     # (selection movement) both answer the same question — *which physical key
     # means "one back", "a page forward", "jump to the end"?* — and then map that
     # intent onto a different action (`scroll`/`page_scroll`/`scroll_to` vs
-    # `up`/`down`/`move`/`selekt`). The *classification* is identical; only the
+    # `up`/`down`/`move`/`select_index`). The *classification* is identical; only the
     # *action* differs. Keeping the key table in one place is exactly the
     # anti-drift point of the formalization work: a key added or rebound here
     # reaches both families at once, instead of one silently keeping the old map.

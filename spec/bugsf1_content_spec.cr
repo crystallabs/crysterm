@@ -26,7 +26,7 @@ describe "Widget#delete_line on content seeded before attach (finding 32)" do
     # Before the fix this raised `IndexError` reading `@_clines.ftor[i][0]`.
     w.delete_line
 
-    w.get_content.should eq ""
+    w.rendered_content.should eq ""
   end
 end
 
@@ -73,10 +73,10 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
 
     box.insert_bottom "NEW"
 
-    lines = box.get_lines
+    lines = box.lines
     lines.size.should eq 7
-    # visible_content_rows = aheight(5) - iheight(0) - hscrollbar(1) = 4, so the
-    # insert lands at fake index 4, not 5 (the pre-fix `aheight - iheight`).
+    # visible_content_rows = aheight(5) - ivertical(0) - hscrollbar(1) = 4, so the
+    # insert lands at fake index 4, not 5 (the pre-fix `aheight - ivertical`).
     lines[4].should eq "NEW"
   end
 
@@ -94,7 +94,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
 
     # Deletes fake index 3 ("L3"), the visible bottom given the reserved row —
     # not "L4" as the pre-fix formula did.
-    box.get_lines.should eq ["L0", "L1", "L2", "L4", "L5"]
+    box.lines.should eq ["L0", "L1", "L2", "L4", "L5"]
   end
 end
 

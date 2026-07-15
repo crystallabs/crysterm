@@ -2,11 +2,33 @@ require "event_handler"
 require "tput"
 
 module Crysterm
-  # Collection of all events used by Crysterm
+  # Collection of all events used by Crysterm.
+  #
+  # ## Naming
+  #
+  # Event names follow the stage of the action they report, which also keeps
+  # them aligned with Qt (Qt names event *classes* as nouns — `QResizeEvent` —
+  # and *signals* in the past tense — `valueChanged`):
+  #
+  # * **`Pre`-prefixed / `AboutTo`-prefixed** — emitted *before* the action, so a
+  #   handler can still act on the old state (`PreRender`, `AboutToQuit`).
+  #   Use `AboutTo` where Qt has an established signal of that exact name
+  #   (`aboutToQuit`, `aboutToShow`, `aboutToHide`); `Pre` otherwise. Qt has no
+  #   `Pre`-prefixed signals — for pipeline stages it uses `beforeX`/`afterX`
+  #   (`beforeRendering`/`afterRendering`), which `PreRender`/`Rendered` mirrors.
+  # * **Noun** — a discrete occurrence, emitted as it happens (`Click`, `Move`,
+  #   `Resize`, `Paste`). These are Crysterm's analogue of Qt's event classes.
+  # * **Past tense** — a notification that state has *already* changed, emitted
+  #   after the mutation, and carrying the new value where one applies
+  #   (`Rendered`, `ValueChanged`, `TextChanged`, `Toggled`). This is the form to
+  #   use for any property-change signal; it matches Qt's `xChanged` contract.
+  #
+  # A property-change event must therefore be past tense and emitted *after* the
+  # assignment, guarded so it only fires on an actual change.
+  #
+  # Events currently unused have been commented. Uncomment on first use.
   module Event
     include EventHandler
-
-    # Events currently unused have been commented. Uncomment on first use.
 
     # Emitted when widget is attached to a screen directly or somewhere in its ancestry
     event Attach, object : EventHandler
@@ -31,14 +53,14 @@ module Crysterm
     event Exit, code : Int32? = nil
 
     # Emitted when a `Window` is bound to a freshly spawned terminal emulator
-    # window (see `Window.open`). `screen` is the screen now driving the window.
-    event WindowOpened, screen : Crysterm::Window
+    # window (see `Window.open`). `window` is the window now bound to a terminal.
+    event WindowOpened, window : Crysterm::Window
 
     # Emitted when the terminal emulator window backing a `Window` goes away —
     # typically because the user closed it. The `Window` is only disconnected
     # (not destroyed); re-attach via `Window.open(into: screen)` or tear it down
-    # with `screen.destroy`. `screen` is the affected screen.
-    event WindowClosed, screen : Crysterm::Window
+    # with `screen.destroy`. `window` is the affected window.
+    event WindowClosed, window : Crysterm::Window
 
     # Emitted by an `Application` when a new physical device (`Screen`) is added —
     # i.e. the first window on a tty is registered ↔ `QGuiApplication::screenAdded`.
@@ -128,7 +150,7 @@ module Crysterm
     # A granular change to a `Reactive::ObservableList`. `op` says what happened
     # (`Reactive::ListOp`); `index`/`count` locate it (`0` for `Reset`). Consumed
     # by `Reactive.bind_items` to patch a bound item view row-by-row.
-    event ListChange, op : ::Crysterm::Reactive::ListOp, index : Int32 = 0, count : Int32 = 0
+    event ListChanged, op : ::Crysterm::Reactive::ListOp, index : Int32 = 0, count : Int32 = 0
 
     # Emitted on checkbox checked
     event Check, value : Bool
@@ -143,7 +165,7 @@ module Crysterm
     # Emitted on every keystroke as an editable text widget's (e.g.
     # `Widget::LineEdit`) text changes, not just on submit. Mirrors Qt's
     # `QLineEdit#textChanged(QString)`.
-    event TextChange, value : String
+    event TextChanged, value : String
 
     # Emitted by a `TextDocument` after every edit: `chars_removed` then
     # `chars_added` characters at `position`. Format-only changes report
@@ -152,16 +174,16 @@ module Crysterm
     # how positions were affected (see `TextDocument::ChangeKind`), which
     # views need to keep their own `Int32` carets adjusted like registered
     # `TextCursor`s.
-    event ContentsChange, position : Int32, chars_removed : Int32, chars_added : Int32, kind : Crysterm::TextDocument::ChangeKind = :edit
+    event ContentsChanged, position : Int32, chars_removed : Int32, chars_added : Int32, kind : Crysterm::TextDocument::ChangeKind = :edit
 
     # Emitted by a `TextDocument` when its number of blocks (paragraphs)
     # changes. Mirrors Qt's `QTextDocument#blockCountChanged(int)`.
-    event BlockCountChange, count : Int32
+    event BlockCountChanged, count : Int32
 
     # Emitted by a `TextDocument` when its modified state flips (edits away
     # from / undo back to the last clean point; see `TextDocument#modified=`).
     # Mirrors Qt's `QTextDocument#modificationChanged(bool)`.
-    event ModificationChange, modified : Bool
+    event ModificationChanged, modified : Bool
 
     # Emitted by a `TextDocument` when undo becomes possible/impossible.
     # Mirrors Qt's `QTextDocument#undoAvailable(bool)`.
@@ -173,16 +195,16 @@ module Crysterm
 
     # Emitted when a numeric widget's value changes (e.g. `Widget::ProgressBar`).
     # Mirrors Qt's `valueChanged(int)` signal.
-    event ValueChange, value : Int32
+    event ValueChanged, value : Int32
 
     # Emitted when a ranged widget's `[minimum, maximum]` bounds change (e.g.
     # `Widget::ScrollBar` resyncing to a scrollable target's content size).
     # Mirrors Qt's `QAbstractSlider#rangeChanged(int, int)` signal.
-    event RangeChange, minimum : Int32, maximum : Int32
+    event RangeChanged, minimum : Int32, maximum : Int32
 
     # Emitted when a floating-point numeric widget's value changes (e.g.
     # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
-    event DoubleValueChange, value : Float64
+    event DoubleValueChanged, value : Float64
 
     # Emitted by `Widget::Graph::HeatMap` when the pointer hovers a different
     # grid cell, carrying that cell's zero-based `row`/`col` and its `value`.
@@ -192,12 +214,12 @@ module Crysterm
     # Emitted when a date/time widget's value changes (e.g. `Widget::Calendar`,
     # `Widget::DateEdit`, `Widget::TimeEdit`). Mirrors Qt's
     # `dateChanged`/`timeChanged` signals.
-    event DateChange, date : Time
+    event DateChanged, date : Time
 
     # Emitted when a `Widget::Calendar`'s displayed month/year page changes
     # (without necessarily changing the selected date). Mirrors Qt's
     # `QCalendarWidget#currentPageChanged(year, month)` signal.
-    event CurrentPageChange, year : Int32, month : Int32
+    event CurrentPageChanged, year : Int32, month : Int32
 
     # Emitted when Widget's position is changed
     event Move
@@ -223,7 +245,7 @@ module Crysterm
 
     # Emitted when `Widget::TextBrowser` navigates to a new source (the
     # analog of Qt's `QTextBrowser::sourceChanged`).
-    event SourceChange, url : String
+    event SourceChanged, url : String
 
     # Emitted on value canceled (e.g. in text forms)
     event Cancel, value : String
@@ -327,6 +349,28 @@ module Crysterm
     # `button` is the button that was clicked/toggled (Qt's
     # `QButtonGroup#buttonClicked`).
     event ButtonClick, button : Widget
+
+    # Emitted by a dialog when it is done, whatever the outcome — after
+    # `Accepted`/`Rejected`. `result` is the dialog's `Widget::Dialog#result`
+    # (Qt's `QDialog#finished(int)`).
+    event Finished, result : Int32
+
+    # Emitted when a multi-page container's current page changes. `index` is the
+    # new current index, or `-1` when there is no current page. Mirrors Qt's
+    # `QTabWidget`/`QStackedWidget`/`QToolBox#currentChanged(int)`.
+    event CurrentChanged, index : Int32
+
+    # Emitted by an `Application` immediately before it quits, giving handlers a
+    # last chance to save state. Mirrors Qt's `QCoreApplication#aboutToQuit`.
+    event AboutToQuit
+
+    # Emitted by a popup (e.g. `Widget::Menu`) just before it is shown, so a
+    # handler can populate or update it first. Mirrors Qt's `QMenu#aboutToShow`.
+    event AboutToShow
+
+    # Emitted by a popup (e.g. `Widget::Menu`) just before it is hidden.
+    # Mirrors Qt's `QMenu#aboutToHide`.
+    event AboutToHide
 
     # Shared "accept/ignore" propagation-control behavior for events that can be
     # accepted to stop them from propagating further (`Key`, `Mouse`, `DragEvent`).

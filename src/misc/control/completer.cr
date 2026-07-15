@@ -54,8 +54,9 @@ module Crysterm
     # The matching strategy (Qt's `QCompleter#filterMode`).
     property mode : Mode = Mode::PrefixMatch
 
-    # Maximum rows shown before the popup scrolls.
-    property max_visible : Int32 = 6
+    # Maximum rows shown before the popup scrolls (Qt's
+    # `QCompleter#maxVisibleItems`).
+    property max_visible_items : Int32 = 6
 
     # The drop-down list. A single click on a row commits it (rather than the
     # list's default two-click select-then-activate), and selection routes back
@@ -90,7 +91,7 @@ module Crysterm
       # (re)shown, so the next Down advances to the *second* row rather than
       # merely revealing a cursor on the first.
       def reset_cursor : Nil
-        selekt 0
+        self.selected = 0
       end
 
       # Down/Up single-step the highlight from the currently selected row. The
@@ -106,15 +107,15 @@ module Crysterm
 
       # Arrow-key movement (via `cursor_down`/`cursor_up`) funnels through here so
       # each keypress steps exactly one row: the base `move` would step by the raw
-      # offset, skipping rows; `selekt` avoids recursing back into `move`. The
+      # offset, skipping rows; `selected=` avoids recursing back into `move`. The
       # wheel does *not* come through here — it has its own `#wheel_scroll`.
       def move(offset) : Nil
         return if offset == 0
-        selekt @selected + (offset > 0 ? 1 : -1)
+        self.selected = @selected + (offset > 0 ? 1 : -1)
       end
 
       # The drop-down's auto-created scrollbar (appears once the match set
-      # overflows `max_visible`) must not steal focus either — same reason as
+      # overflows `max_visible_items`) must not steal focus either — same reason as
       # `@focus_on_click = false` above.
       private def bind_scrollbar(sb : Widget::ScrollBar) : Widget::ScrollBar
         sb.focus_on_click = false
@@ -252,7 +253,7 @@ module Crysterm
       end
     end
 
-    # Moves the popup's highlight (Up/Down) and re-renders — `List#selekt`
+    # Moves the popup's highlight (Up/Down) and re-renders — `List#selected=`
     # updates the cursor but doesn't itself repaint.
     private def move_popup(&block : Popup ->) : Nil
       return unless pop = @popup
@@ -302,7 +303,7 @@ module Crysterm
     # first row, and repositions the drop-down under *widget*. Shared by `#open`
     # and `#refresh`.
     private def populate(pop : Popup, widget : Widget::LineEdit) : Nil
-      pop.set_items @matches
+      pop.items = @matches
       pop.reset_cursor
       position pop, widget
     end
@@ -408,7 +409,7 @@ module Crysterm
     end
 
     private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
-      rows = Math.min(Math.max(@matches.size, 1), @max_visible)
+      rows = Math.min(Math.max(@matches.size, 1), @max_visible_items)
       h = rows + 2 # border
       pop.height = h
       w = Math.max(widget.awidth, 8)

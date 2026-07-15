@@ -44,6 +44,41 @@ module Crysterm
 
       property __update_cursor : Proc(Nil)?
 
+      # The buffer's text — Qt's `QLineEdit#text` / `QPlainTextEdit#toPlainText`,
+      # and the name to reach for on a text widget.
+      #
+      # A synonym for `#value`, which stays as the *generic* widget-value name:
+      # it is the cross-widget contract `Widget::Form` collects fields through,
+      # and the one the non-text value widgets (spin boxes, sliders, progress
+      # bars) already answer to. So `#value` is what "this widget's value" means
+      # toolkit-wide, and `#text` is what it means *for a text widget*.
+      def text : String
+        value
+      end
+
+      # :ditto:
+      def text=(text : String)
+        self.value = text
+      end
+
+      # Inserts *str* at the cursor, replacing the selection if there is one —
+      # exactly what typing the characters would do (Qt's `QLineEdit#insert`).
+      #
+      # Named `insert_text`, not `insert`: `Widget#insert` already means "insert
+      # a child widget" (`Mixin::Children#insert`), the same collision that keeps
+      # `Widget#<<` off the content API (see `#push_line`).
+      def insert_text(str : String) : Nil
+        # Nothing to insert and nothing to replace ⇒ no change, so no event and
+        # no repaint (inserting `""` over a selection still deletes it).
+        return if str.empty? && !selection?
+        edit_replacing_selection { insert_at_cursor str }
+        ensure_cursor_visible
+        ensure_cursor_visible_x
+        emit Crysterm::Event::TextChanged, buf_text
+        request_render
+        _update_cursor
+      end
+
       # Insertion-point position, as a codepoint index into the buffer
       # (`0..buf_size`). Setting `value=` externally moves it to the end.
       # Movement and deletion step over whole grapheme clusters under
@@ -68,7 +103,8 @@ module Crysterm
         lo...hi
       end
 
-      def has_selection? : Bool
+      # Whether anything is selected (Qt's `hasSelectedText`).
+      def selection? : Bool
         !!selection_range
       end
 
@@ -76,6 +112,17 @@ module Crysterm
       # selected.
       def selected_text : String
         (r = selection_range) ? buf_slice(r.begin, r.end) : ""
+      end
+
+      # Selects the whole buffer, parking the cursor at the end (Qt's
+      # `selectAll`). Anchoring at `0` and moving the cursor to the end is
+      # exactly the state a drag from the start would leave behind, so the
+      # existing `#selection_range` / rendering path needs no special case.
+      def select_all : Nil
+        @selection_anchor = 0
+        @cursor_pos = buf_size
+        @goal_col = nil
+        request_render
       end
 
       # Drops the in-progress/completed mouse selection without moving the
@@ -241,16 +288,16 @@ module Crysterm
       # (e.g. a fitting `PlainTextEdit`, or `LineEdit`, whose `#scroll` guards on
       # `@scrollable`). Uses the same row geometry as `#position_at`.
       # The maximum visible content-row index for the viewport described by
-      # *lpos* — the `- iheight - 1` is the subtle part. Shared by the row
+      # *lpos* — the `- ivertical - 1` is the subtle part. Shared by the row
       # mapping in `#autoscroll_for_drag`, `#_update_cursor` and `#position_at`
       # (each caller applies its own `.clamp` tail, whose first operand differs).
       private def max_content_row(lpos) : Int32
-        (lpos.yl - lpos.yi) - iheight - 1
+        (lpos.yl - lpos.yi) - ivertical - 1
       end
 
       private def autoscroll_for_drag(y : Int32) : Bool
         return false unless @scrollable
-        lpos = @lpos || _get_coords
+        lpos = @lpos || coords
         return false unless lpos
         max_line = max_content_row(lpos)
         raw = y - lpos.yi - itop
@@ -264,7 +311,7 @@ module Crysterm
       end
 
       # A text editor's "scrollable right now" is a real content-vs-height
-      # overflow test, not the `@resizable` always-scrollable short-circuit it'd
+      # overflow test, not the `@shrink_to_fit` always-scrollable short-circuit it'd
       # otherwise inherit from `Input` (which made an `AsNeeded` vertical bar
       # show even when content fits, on every editor including one-line ones).
       def really_scrollable?
@@ -280,8 +327,8 @@ module Crysterm
       def _update_cursor(get = false, to_scroll_pos = false)
         return unless focused? # if window.focused != self
 
-        lpos = get ? @lpos : _get_coords
-        # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
+        lpos = get ? @lpos : coords
+        # XXX is above a bug and should be vice-versa? `get ? coords : @lpos`
         return unless lpos
 
         display = window
@@ -297,7 +344,7 @@ module Crysterm
         # keeps the row in range already; the clamp is just a guard.
         max_line = max_content_row(lpos)
         # Use the clip-aware row origin the base renderer uses (`lpos.base`),
-        # not `@child_base`: when an ancestor clips the top, `_get_coords`
+        # not `@child_base`: when an ancestor clips the top, `coords`
         # accumulates the clipped row count into `coords.base`, so
         # `lpos.base == @child_base + clipped`. Mapping through `@child_base`
         # alone would place the caret `clipped` rows off (BUGS15 #36).
@@ -603,7 +650,7 @@ module Crysterm
       # own undo step. The selection-less path still drops a stale collapsed
       # anchor, exactly as `delete_selection` does.
       private def edit_replacing_selection(&) : Nil
-        if has_selection?
+        if selection?
           buf_edit_group do
             delete_selection
             yield
@@ -782,7 +829,7 @@ module Crysterm
       # assumes. Returns the current `#cursor_pos` unchanged if the widget has
       # no on-window geometry yet (not rendered, or off-window).
       def position_at(x : Int32, y : Int32) : Int32
-        lpos = _get_coords
+        lpos = coords
         return cursor_pos unless lpos
 
         # Mirrors the row math in `#_update_cursor`: clamp to the visible
@@ -1047,7 +1094,7 @@ module Crysterm
         # size snapshot suffices. A size-preserving change is only possible by
         # replacing a selection, so capture the pre-edit text just in that case.
         before_size = buf_size
-        before = has_selection? ? buf_text : nil
+        before = selection? ? buf_text : nil
         also_check_char = false
         # Emacs/readline editing keys (gated by config). `killed` records whether
         # this keystroke was a kill, so consecutive kills accumulate in the ring
@@ -1152,7 +1199,7 @@ module Crysterm
           # A non-selecting movement collapses any selection; a selecting one
           # keeps its anchor so the range grows/shrinks with the cursor. Editing
           # keys (`moved == false`) manage the selection themselves below.
-          had_sel = has_selection?
+          had_sel = selection?
           clear_selection if moved && !extend_sel
 
           if moved
@@ -1267,13 +1314,13 @@ module Crysterm
           # A selection was present: a same-size replacement is possible, so
           # compare the full text (both endpoints already needed the serialize).
           if (after = buf_text) != before
-            emit Crysterm::Event::TextChange, after
+            emit Crysterm::Event::TextChanged, after
             request_render
           end
         elsif buf_size != before_size
           # No starting selection: a size change is the only way the text changed,
           # so an unchanged size means unchanged text — no serialization at all.
-          emit Crysterm::Event::TextChange, buf_text
+          emit Crysterm::Event::TextChanged, buf_text
           request_render
         end
 
@@ -1316,7 +1363,9 @@ module Crysterm
         @_done.try &.call nil
       end
 
-      def clear_value
+      # Empties the buffer (Qt's `clear`). An external set, so the caret parks at
+      # the start, the selection drops, and `Event::TextChanged` fires.
+      def clear
         self.value = ""
       end
 

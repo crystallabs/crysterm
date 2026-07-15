@@ -56,7 +56,7 @@ require "./spec_helper"
       list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 6,
         items: %w[Alpha Beta Gamma Delta]
       list.focus
-      list.selekt 2
+      list.select_index 2
       s.apply_stylesheet
       s._render
 
@@ -71,7 +71,7 @@ require "./spec_helper"
       s = floor_screen
       lb = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
         keys: true, mouse: true
-      lb.set_items(%w[File Edit View])
+      lb.items = %w[File Edit View]
       lb.focus
       s.apply_stylesheet
       s._render

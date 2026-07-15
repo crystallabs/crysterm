@@ -20,7 +20,7 @@ mem = Widget::Graph::Donut.new parent: s, top: 0, left: 21, width: 20, height: 1
 
 gl = Widget::GaugeList.new parent: s, top: 0, left: 42, width: 34, height: 11,
   style: Style.new(fg: "white", bg: "#101820", border: true)
-%w[disk net gpu pwr swap io].each { |n| gl.add_gauge n, 0 }
+%w[disk net gpu pwr swap io].each { |n| gl.add_item n, 0 }
 
 # FPS overlay (bottom-left): with the 60 fps cap, driving updates at ~60 Hz
 # shows the counter climbing toward 60.

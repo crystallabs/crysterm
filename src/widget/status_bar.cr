@@ -29,9 +29,16 @@ module Crysterm
 
       # Permanent (right-aligned) sections, in insertion order; the first added
       # sits left-most of the right group (Qt's `addPermanentWidget` order).
-      # Mutate via `#add_permanent`/`#clear_permanent` so the cached render
-      # string (`@permanent_text`) stays in sync.
-      getter permanent = [] of String
+      @permanent = [] of String
+
+      # A **snapshot** of the permanent sections (see `@permanent`). A copy, not
+      # the live array: the render string is cached against the sections
+      # (`@permanent_text`), so mutating them behind the bar's back would leave
+      # the two out of sync and paint stale text. Add and remove through
+      # `#add_permanent`/`#clear_permanent`, which keep the cache honest.
+      def permanent : Array(String)
+        @permanent.dup
+      end
 
       # Cached joined render string for `#permanent`, rebuilt only when the
       # sections change (rather than re-joining a reversed copy every frame).

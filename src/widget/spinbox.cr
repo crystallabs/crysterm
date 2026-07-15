@@ -8,8 +8,8 @@ module Crysterm
     #
     # Shows a single integer `#value` (optionally framed by a `#prefix`/`#suffix`,
     # e.g. `"$"` / `" %"`) that the user steps with the Up/Down keys (or the mouse
-    # wheel) by `#step`, within `[#minimum, #maximum]`. With `#wrap?` the value
-    # rolls over at the bounds. Emits `Event::ValueChange` on every change.
+    # wheel) by `#step`, within `[#minimum, #maximum]`. With `#wrapping?` the value
+    # rolls over at the bounds. Emits `Event::ValueChanged` on every change.
     #
     # The number can also be typed directly (Qt's `QAbstractSpinBox` is editable
     # by default): typing a digit (or a leading `-`) starts an edit buffer,
@@ -20,8 +20,8 @@ module Crysterm
     # ![SpinBox screenshot](../../tests/widget/spinbox/spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class SpinBox < AbstractSpinBox
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
-      # `#increment`/`#decrement`, `Event::ValueChange`).
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
+      # `#increment`/`#decrement`, `Event::ValueChanged`).
       include Mixin::RangedValue(Int32)
 
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
@@ -35,12 +35,26 @@ module Crysterm
         @prefix = "",
         @suffix = "",
         @editable = true,
-        wrap = false,
+        wrapping = false,
         **input,
       )
         super **input
 
-        setup_spinbox_editing value, wrap
+        setup_spinbox_editing value, wrapping
+      end
+
+      # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
+      # Spelled here so the spin boxes and the text editors
+      # (`Mixin::TextEditing#read_only?`) name the same concept the same way;
+      # they had it at opposite polarity under different names.
+      def read_only? : Bool
+        !editable?
+      end
+
+      # :ditto:
+      def read_only=(value : Bool) : Bool
+        self.editable = !value
+        value
       end
 
       # The committed value as shown in the box (`Mixin::SpinBoxEditing` hook).

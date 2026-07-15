@@ -73,6 +73,26 @@ through which all app events and input are routed.
 
 In-depth introductory doc is in [USAGE.md](https://github.com/crystallabs/crysterm/blob/master/USAGE.md).
 
+## Hello world
+
+```cr
+require "crysterm"
+
+alias C = Crysterm
+
+# A `Window` is the surface your widgets live on.
+window = C::Window.new title: "hello"
+
+C::Widget::Box.new \
+  parent: window,
+  top: "center", left: "center", width: 20, height: 5,
+  content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
+  style: C::Style.new(fg: "yellow", bg: "blue", border: true)
+
+# `q` / Ctrl-Q quit by default. Run the main loop:
+window.exec
+```
+
 ## Examples
 
 ```
@@ -80,12 +100,25 @@ git clone https://github.com/crystallabs/crysterm
 cd crysterm
 shards
 
-crystal examples/hello.cr
-crystal examples/hello2.cr
-crystal examples/tech-demo.cr
+crystal examples/hello.cr          # the program above
+crystal examples/hello2.cr         # the Qt shape: MainWindow + a layout
+crystal tests/misc/qt_widgets.cr   # tour of the Qt-inspired widget set
+crystal tests/misc/widgets.cr      # tour of the general widget set
 ```
 
-(And other examples from directories `examples/` and `tests/`.)
+Larger, complete applications:
+
+```
+crystal examples/mutt/mutt.cr               # a Mutt-style mail client
+crystal examples/pine/pine.cr               # a Pine/Alpine-style mail client
+crystal examples/terminal/tid/tid.cr        # a terminal multiplexer
+crystal examples/games/minesweeper/minesweeper.cr
+crystal examples/games/pong/pong.cr
+crystal examples/games/commando/commando.cr
+crystal examples/games/wumpus/wumpus.cr
+```
+
+(And many more under `examples/` and `tests/`.)
 
 ## Testing
 

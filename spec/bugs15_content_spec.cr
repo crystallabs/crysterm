@@ -19,54 +19,54 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}"
     # `{open}`/`{close}` emit literal braces: content renders "brace: {literal}".
-    w.get_content.should eq "brace: {literal}"
+    w.rendered_content.should eq "brace: {literal}"
 
     w.insert_line 0, "header"
     # Before the fix the second reparse saw "brace: {literal}", matched
     # `{literal}` as an unknown tag and dropped the whole token -> "brace: ".
-    w.get_content.should eq "header\nbrace: {literal}"
+    w.rendered_content.should eq "header\nbrace: {literal}"
   end
 
   it "keeps {escape}-protected literal tag text after insert_line" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "{escape}{bold}{/escape}"
     # `{escape}…{/escape}` emits its body verbatim: renders literal "{bold}".
-    w.get_content.should eq "{bold}"
+    w.rendered_content.should eq "{bold}"
 
     w.insert_line 0, "x"
     # Before the fix the reparse turned the literal "{bold}" into a live SGR
     # bold escape and the visible text vanished.
-    w.get_content.should eq "x\n{bold}"
-    w.get_content.should_not contain "\e["
+    w.rendered_content.should eq "x\n{bold}"
+    w.rendered_content.should_not contain "\e["
   end
 
   it "does not corrupt an unrelated escaped-brace row when set_line edits another row" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\nsecond"
-    w.get_content.should eq "brace: {literal}\nsecond"
+    w.rendered_content.should eq "brace: {literal}\nsecond"
 
     w.set_line 1, "changed"
     # Editing row 1 must leave row 0's escaped braces intact.
-    w.get_content.should eq "brace: {literal}\nchanged"
+    w.rendered_content.should eq "brace: {literal}\nchanged"
   end
 
   it "keeps escaped literal braces after delete_line of another row" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\ndrop me"
     w.delete_line 1
-    w.get_content.should eq "brace: {literal}"
+    w.rendered_content.should eq "brace: {literal}"
   end
 
   it "still expands a tag in a freshly inserted line (round-trip idempotence)" do
     # A tag in newly inserted text must work exactly as a full set_content would.
     ref = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     ref.set_content "{bold}z{/bold}"
-    reference_line = ref.get_content
+    reference_line = ref.rendered_content
 
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "plain"
     w.insert_line 0, "{bold}z{/bold}"
-    lines = w.get_content.split('\n')
+    lines = w.rendered_content.split('\n')
     lines[0].should eq reference_line
     lines[0].should contain "\e[" # became a real SGR sequence
     lines[0].should_not contain "{bold}"
@@ -79,7 +79,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
     w.set_text "{bold}a{/bold}\nplain"
     # set_text stores literally; a line edit must not start parsing it.
     w.insert_line 0, "top"
-    w.get_content.should eq "top\n{bold}a{/bold}\nplain"
+    w.rendered_content.should eq "top\n{bold}a{/bold}\nplain"
   end
 end
 

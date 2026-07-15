@@ -17,7 +17,9 @@ module Crysterm
     # widgets that do their own `Tab` navigation.
     property? tab_navigation : Bool = Config.window_tab_navigation
 
-    property _saved_focus : Widget?
+    # The widget stashed by `#save_focus`, or `nil` when nothing is stashed.
+    # Read-only: `#save_focus`/`#restore_focus`/`#clear_saved_focus` own the slot.
+    getter saved_focus : Widget?
 
     @history = [] of Widget
     @clickable = [] of Widget
@@ -45,7 +47,7 @@ module Crysterm
 
     # Saves/remembers the currently focused element.
     def save_focus
-      @_saved_focus = focused
+      @saved_focus = focused
     end
 
     # Whether `el` is a valid focus target on this screen right now: attached
@@ -60,8 +62,8 @@ module Crysterm
 
     # Restores focus to the previously saved focused element.
     def restore_focus
-      return unless sf = @_saved_focus
-      @_saved_focus = nil
+      return unless sf = @saved_focus
+      @saved_focus = nil
       # The saved widget may have been detached/removed (or moved to another
       # screen) while focus was held elsewhere — e.g. a dialog that saved the
       # previously-focused widget (see `Widget::Message`/`Question`/`Prompt`/
@@ -92,7 +94,7 @@ module Crysterm
     # while still focused, or after focus deliberately moved elsewhere) so the
     # stale save can't be replayed by an unrelated later `#restore_focus`.
     def clear_saved_focus
-      @_saved_focus = nil
+      @saved_focus = nil
     end
 
     # "Rewinds" focus to the most recent visible and attached element.
@@ -275,7 +277,7 @@ module Crysterm
       true
     end
 
-    def _focus(cur : Widget, old : Widget? = nil)
+    protected def _focus(cur : Widget, old : Widget? = nil)
       # Re-focusing the already-focused widget has no "previous" to blur or
       # un-highlight: treating `cur` as its own `old` would set its state to
       # `:focused` (no-op) then immediately back to `:normal` (clobbering the

@@ -137,7 +137,7 @@ describe "BUGS14 R1: ObservableList#delete_at/#[]= reject out-of-range indices" 
   it "delete_at(-8) on a size-5 list raises IndexError (matching Array)" do
     l = Crysterm::Reactive::ObservableList(Int32).new [1, 2, 3, 4, 5]
     seen = [] of Int32
-    l.on(Crysterm::Event::ListChange) { |e| seen << e.index }
+    l.on(Crysterm::Event::ListChanged) { |e| seen << e.index }
     expect_raises(IndexError) { l.delete_at(-8) }
     seen.should be_empty
     l.to_a.should eq [1, 2, 3, 4, 5]
@@ -146,7 +146,7 @@ describe "BUGS14 R1: ObservableList#delete_at/#[]= reject out-of-range indices" 
   it "[]=(-8) on a size-5 list raises IndexError (matching Array)" do
     l = Crysterm::Reactive::ObservableList(Int32).new [1, 2, 3, 4, 5]
     seen = [] of Int32
-    l.on(Crysterm::Event::ListChange) { |e| seen << e.index }
+    l.on(Crysterm::Event::ListChanged) { |e| seen << e.index }
     expect_raises(IndexError) { l[-8] = 99 }
     seen.should be_empty
     l.to_a.should eq [1, 2, 3, 4, 5]

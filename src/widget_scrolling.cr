@@ -123,7 +123,7 @@ module Crysterm
     # the viewport-height invariant shared by `#scroll`, `#ensure_visible`,
     # `#clamp_child_base_to_content`, and the `ItemView`/`TextEditing` mixins.
     protected def visible_content_rows : Int32
-      aheight - iheight - hscrollbar_rows
+      aheight - ivertical - hscrollbar_rows
     end
 
     # Rows the horizontal bar reserves, computed *without* consulting the
@@ -133,10 +133,10 @@ module Crysterm
     # `#really_scrollable?`. The vertical-overflow predicates below need the
     # reserved-row count, so they must use *this* variant to avoid the cycle
     # `really_scrollable? → hscrollbar_rows → … → really_scrollable?`. The
-    # horizontal test here uses the full interior width (`awidth - iwidth`).
+    # horizontal test here uses the full interior width (`awidth - ihorizontal`).
     private def hscrollbar_rows_indep : Int32
       reserve = policy_shows?(horizontal_scrollbar_policy) do
-        !wrap_content? && (get_scroll_width > Math.max(0, awidth - iwidth))
+        !wrap_content? && (get_scroll_width > Math.max(0, awidth - ihorizontal))
       end
       reserve ? scrollbar_height : 0
     end
@@ -145,7 +145,7 @@ module Crysterm
     # `#hscrollbar_rows_indep` so it doesn't recurse back through the vertical
     # scrollbar. See `#hscrollbar_rows_indep`.
     private def visible_content_rows_indep : Int32
-      aheight - iheight - hscrollbar_rows_indep
+      aheight - ivertical - hscrollbar_rows_indep
     end
 
     # Whether a bar with *policy* should show: never when non-scrollable or
@@ -181,7 +181,7 @@ module Crysterm
       # neither box claims the corner cell. Without this both `"100%"` extents
       # overlap there — the second-created bar overpaints the other's last cell,
       # truncating its thumb and stealing corner clicks. The `"100%-N"` form is
-      # resolved by `Widget.dimension`, and the size setters are change-guarded,
+      # resolved by `Widget.resolve_percentage`, and the size setters are change-guarded,
       # so re-asserting this every frame is cheap. The corner is left to the
       # parent's background fill (blank corner, absent a corner widget).
       if show_scrollbar?
@@ -367,15 +367,15 @@ module Crysterm
 
     # Potentially use this wherever .scrollable? is used
     def really_scrollable?
-      return @scrollable if @resizable
+      return @scrollable if @shrink_to_fit
       get_scroll_height > visible_content_rows_indep
     end
 
     # Whether laid-out content exceeds the visible content height (viewport minus
-    # `iheight`). Overflow test for fixed-viewport widgets (`PlainTextEdit`,
+    # `ivertical`). Overflow test for fixed-viewport widgets (`PlainTextEdit`,
     # `List`) that scroll rather than grow — they override `#really_scrollable?`
     # with this so an `AsNeeded` bar tracks real overflow instead of the
-    # `@resizable` always-scrollable short-circuit.
+    # `@shrink_to_fit` always-scrollable short-circuit.
     def content_overflows_height?
       get_scroll_height > visible_content_rows_indep
     end
@@ -428,12 +428,12 @@ module Crysterm
     end
 
     # Width in columns actually available to content: the viewport minus
-    # border/padding (`iwidth`) and the reserved right-edge columns
+    # border/padding (`ihorizontal`) and the reserved right-edge columns
     # (`content_margin_x`). The horizontal analogue of the visible content
     # height, used for the horizontal scroll extent and bar range so the last
     # columns are reachable rather than hidden behind the reserved margin.
     def content_width : Int32
-      Math.max 0, awidth - iwidth - content_margin_x
+      Math.max 0, awidth - ihorizontal - content_margin_x
     end
 
     # Whether content overflows the viewport horizontally (so an `AsNeeded`
@@ -497,13 +497,13 @@ module Crysterm
     end
 
     def get_scroll_perc(s)
-      # `_get_coords` (method call), not `@_get_coords` (a nonexistent ivar).
-      pos = @lpos || _get_coords
+      # `coords` (method call), not `@coords` (a nonexistent ivar).
+      pos = @lpos || coords
       if !pos
         return s ? -1 : 0
       end
 
-      height = (pos.yl - pos.yi) - iheight - hscrollbar_rows
+      height = (pos.yl - pos.yi) - ivertical - hscrollbar_rows
       i = get_scroll_height
       # p
 
@@ -547,7 +547,7 @@ module Crysterm
         # inside a scrollable element won't grow past the scrollable element's
         # context regardless of its content, unless we call get_coords without
         # the scrollable calculation. See: test/widget-shrink-fail-2
-        el_bottom = if el.window? && (lpos = el._get_coords(false, true, into: (@_scrollb_lpos ||= LPos.new)))
+        el_bottom = if el.window? && (lpos = el.coords(false, true, into: (@_scrollb_lpos ||= RenderedGeometry.new)))
                       el.rtop + (lpos.yl - lpos.yi)
                     else
                       el.rtop + el.aheight

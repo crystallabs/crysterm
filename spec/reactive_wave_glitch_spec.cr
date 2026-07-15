@@ -54,7 +54,7 @@ describe "Reactive glitch-free propagation" do
     b = Crysterm::Reactive::Computed(Int32).new { n.value }
 
     log = [] of Tuple(Int32, Int32)
-    Crysterm::Reactive.bind(w, a, b) { log << {a.get, b.get} }
+    Crysterm::Reactive.bind(w, a, b) { log << {a.peek, b.peek} }
     log.should eq [{1, 1}] # binding runs once at bind time
 
     n.value = 2

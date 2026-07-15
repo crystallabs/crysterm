@@ -8,7 +8,7 @@ module Crysterm
     class Box < Widget
       # XXX Why must this be here, even though it's set in src/widget_size.cr?
       # See tests/blessed-test/widget-shadow.cr with and without this option.
-      @resizable = false
+      @shrink_to_fit = false
 
       # `Box` is the first subclass of `Widget`, so the `Mixin::Css`-installed
       # `macro inherited` that generates `#css_type_classes` doesn't fire for it

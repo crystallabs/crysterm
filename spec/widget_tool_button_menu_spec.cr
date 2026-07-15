@@ -56,7 +56,7 @@ describe Crysterm::Widget::ToolButton do
       s._render
       pressed = false
       tb.on(Crysterm::Event::Press) { pressed = true }
-      tb.press
+      tb.click
       pressed.should be_false   # InstantPopup: whole button is the drop-down
       m.visible?.should be_true # the menu was popped up (shown)
     end
@@ -72,7 +72,7 @@ describe Crysterm::Widget::ToolButton do
 
       pressed = false
       tb.on(Crysterm::Event::Press) { pressed = true }
-      tb.press
+      tb.click
       pressed.should be_true # default mode still presses
 
       ev = Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)

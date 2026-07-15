@@ -104,9 +104,9 @@ module Crysterm
         @fit : Media::Fit = Media::Fit::Stretch,
         **box,
       )
-        # Blessed's `options.shrink = true` equivalent: `resizable` sizes the
+        # Blessed's `options.shrink = true` equivalent: `shrink_to_fit` sizes the
         # widget to the image when no explicit width/height is given.
-        super(**box.merge(resizable: true))
+        super(**box.merge(shrink_to_fit: true))
         setup_animate animate # before set_image, so a shared clock is known when play subscribes
 
         @file.try { |f| set_image f }

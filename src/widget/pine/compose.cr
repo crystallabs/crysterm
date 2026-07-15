@@ -49,7 +49,7 @@ module Crysterm
           header = Widget::Box.new(
             window: window,
             height: FIELD_NAMES.size,
-            layout: Crysterm::Layout::Form.new(label_width: 10, gap: 0),
+            layout: Crysterm::Layout::Form.new(label_width: 10, column_gap: 0),
           )
 
           FIELD_NAMES.each do |name|
@@ -175,7 +175,7 @@ module Crysterm
         def values : Hash(String, String)
           h = {} of String => String
           @fields.each { |k, v| h[k] = v.value }
-          h["body"] = body.get_text
+          h["body"] = body.rendered_text
           h
         end
       end

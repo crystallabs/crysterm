@@ -10,18 +10,18 @@ module Crysterm
     # are `Float64`, and the displayed number is rounded to `#decimals` places.
     # The value steps with Up/Down (or the wheel) and can be typed directly
     # (digits, one `.`, and a leading `-` when negatives are in range); Enter
-    # commits, Escape/blur discards. Emits `Event::DoubleValueChange` on change.
+    # commits, Escape/blur discards. Emits `Event::DoubleValueChanged` on change.
     #
     # Its value/range logic is `Mixin::RangedValue(Float64)` — the same generic
     # bounded-range machinery the integer controls use as `RangedValue(Int32)`;
-    # it overrides only the value-change signal (`Event::DoubleValueChange`
-    # instead of the `Int32` `Event::ValueChange`).
+    # it overrides only the value-change signal (`Event::DoubleValueChanged`
+    # instead of the `Int32` `Event::ValueChanged`).
     #
     # <!-- widget-examples:capture v1 -->
     # ![DoubleSpinBox screenshot](../../tests/widget/double_spinbox/double_spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class DoubleSpinBox < AbstractSpinBox
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
       # `#increment`/`#decrement`, `#set_range`), in `Float64`.
       include Mixin::RangedValue(Float64)
 
@@ -53,25 +53,39 @@ module Crysterm
         @prefix = "",
         @suffix = "",
         @editable = true,
-        wrap = false,
+        wrapping = false,
         **input,
       )
         super **input
 
         @decimals = Math.max(decimals, 0)
         @fmt = "%.#{@decimals}f"
-        setup_spinbox_editing value, wrap
+        setup_spinbox_editing value, wrapping
       end
 
       # Emit the `Float64` value-change signal (`RangedValue` hook); the integer
-      # controls emit `Event::ValueChange` here instead.
+      # controls emit `Event::ValueChanged` here instead.
       protected def emit_value_change : Nil
-        emit Crysterm::Event::DoubleValueChange, @value
+        emit Crysterm::Event::DoubleValueChanged, @value
       end
 
       # No `Float64` range-change event exists, so range changes emit nothing;
       # `RangedValue#set_range` still re-clamps and repaints.
       protected def emit_range_change : Nil
+      end
+
+      # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
+      # Spelled here so the spin boxes and the text editors
+      # (`Mixin::TextEditing#read_only?`) name the same concept the same way;
+      # they had it at opposite polarity under different names.
+      def read_only? : Bool
+        !editable?
+      end
+
+      # :ditto:
+      def read_only=(value : Bool) : Bool
+        self.editable = !value
+        value
       end
 
       # The value formatted to `#decimals` places.

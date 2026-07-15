@@ -22,7 +22,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is removed" do
     s = riss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c", "d"]
-    list.selekt 2 # "c"
+    list.select_index 2 # "c"
     list.value.should eq "c"
 
     list.remove_item list.items[0] # remove "a"; b,c,d shift to 0,1,2
@@ -34,7 +34,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   it "keeps the last selected row valid after removing an earlier one" do
     s = riss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 2 # "c" (the last row)
+    list.select_index 2 # "c" (the last row)
 
     list.remove_item list.items[0] # remove "a"; c shifts to index 1
     list.selected.should eq 1
@@ -46,7 +46,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   it "leaves the cursor untouched when a later row is removed" do
     s = riss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 0 # "a"
+    list.select_index 0 # "a"
 
     list.remove_item list.items[2] # remove "c" (below the cursor)
     list.selected.should eq 0
@@ -56,7 +56,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   it "still selects the prior row when the selected row itself is removed" do
     s = riss_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 2 # "c"
+    list.select_index 2 # "c"
 
     list.remove_item list.items[2] # remove the selected row
     list.selected.should eq 1

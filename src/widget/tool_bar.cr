@@ -54,7 +54,7 @@ module Crysterm
       # Adds a button for *action*, returns its box. Clicking triggers the action
       # (toggling first when checkable); the action's tooltip is carried over.
       def add_action(action : Action) : Widget::Box
-        item = add(action.display_label) { activate_action action }
+        item = add_item(action.display_label) { activate_action action }
         @item_actions[item] = action
         # Associate this bar with the action and reflect external state changes
         # (Qt's `QAction::changed()`): toggling a checkable action's `checked`
@@ -75,7 +75,7 @@ module Crysterm
 
       # Adds a plain button running *block* when clicked.
       def add_button(text : String, &block : ->) : Widget::Box
-        add(text) { block.call }
+        add_item(text) { block.call }
       end
 
       private def activate_action(action : Action) : Nil
@@ -100,7 +100,7 @@ module Crysterm
 
       # A tool bar has no persistent cursor: only checkable buttons stay lit, so
       # the highlight tracks each action's checked state rather than the raw
-      # selection. `Mixin::ActionBar#selekt` re-applies this via the shared
+      # selection. `Mixin::ActionBar#select_index` re-applies this via the shared
       # `#reapply_highlight` scaffold, so a click/move no longer leaves the last
       # button highlighted.
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool

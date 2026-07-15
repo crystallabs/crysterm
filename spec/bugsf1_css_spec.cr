@@ -217,7 +217,7 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
         screen._render
         box.styles.normal.fg.should eq rgb("white")
 
-        # Mirror the resize path (set_size; realloc; render) — nothing marks CSS
+        # Mirror the resize path (resize; realloc; render) — nothing marks CSS
         # dirty, so this exercises the media-size-change trigger in `_render`.
         screen.width = 40
         screen.realloc

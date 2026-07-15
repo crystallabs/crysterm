@@ -128,8 +128,8 @@ module Crysterm
         # resolution. Runs from our `PreRender`, so the device child renders
         # the fresh frame.
         private def paint_frame : Nil
-          cols = awidth - iwidth
-          rows = aheight - iheight
+          cols = awidth - ihorizontal
+          rows = aheight - ivertical
           return if cols <= 0 || rows <= 0
 
           dev = device

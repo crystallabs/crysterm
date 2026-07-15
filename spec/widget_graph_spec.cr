@@ -113,11 +113,11 @@ describe "Gauge rendering" do
     row_chars(s, 0, 0, 4).should eq "    "
   end
 
-  it "emits DoubleValueChange when the value changes" do
+  it "emits DoubleValueChanged when the value changes" do
     s = render_screen
     g = Crysterm::Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1, value: 0
     got = nil
-    g.on(Crysterm::Event::DoubleValueChange) { |e| got = e.value }
+    g.on(Crysterm::Event::DoubleValueChanged) { |e| got = e.value }
     g.value = 42
     got.should eq 42.0
   end

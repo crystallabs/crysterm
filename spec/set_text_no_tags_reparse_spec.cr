@@ -20,7 +20,7 @@ describe "Widget#set_text keeps tags literal across reparse" do
     # Initially literal: no SGR emitted, braces intact.
     box.pcontent.should contain "{bold}"
     box.pcontent.should_not contain "\e["
-    box.get_content.should contain "{bold}"
+    box.rendered_content.should contain "{bold}"
 
     # Force a reparse by changing the widget's width.
     box.width = 10
@@ -29,7 +29,7 @@ describe "Widget#set_text keeps tags literal across reparse" do
     # Still literal — the tags must not have been expanded into SGR.
     box.pcontent.should contain "{bold}"
     box.pcontent.should_not contain "\e["
-    box.get_content.should contain "{bold}"
+    box.rendered_content.should contain "{bold}"
   end
 
   it "still parses tags for content set via set_content across reparse" do

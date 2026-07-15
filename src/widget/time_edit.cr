@@ -7,7 +7,7 @@ module Crysterm
     # Shows an `HH:MM:SS` time with one *section* highlighted. Click a section
     # to select it; Left/Right also move between hour/minute/second sections;
     # Up/Down or the mouse wheel step the active one (wraps within its range,
-    # without carrying into the next). Emits `Event::DateChange` (carrying a
+    # without carrying into the next). Emits `Event::DateChanged` (carrying a
     # `Time`) whenever the time changes.
     #
     # Like Qt's `QTimeEdit`, it's edited in place (no drop-down) — a click

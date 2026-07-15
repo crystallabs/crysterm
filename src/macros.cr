@@ -90,9 +90,9 @@ module Crysterm
 
       def {{decl.var}}=(val : {{decl.type}}) : {{decl.type}}
         sig = {{decl.var}}_signal
-        # Untracked guard read (`#get`, not `#value`) so a setter called from
+        # Untracked guard read (`#peek`, not `#value`) so a setter called from
         # inside an effect doesn't spuriously depend on the property.
-        return val if sig.get == val
+        return val if sig.peek == val
         sig.value = val
         mark_dirty
         window?.try &.schedule_render

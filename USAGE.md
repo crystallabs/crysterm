@@ -19,14 +19,15 @@ This is a more in-depth developer guide. It is organized as follows:
 ## 1. Introduction
 
 A Crysterm program is built from a small number of key pieces; 
-one or more `Screen`s, hierarchical tree of `Widget`s placed on them,
+one or more `Window`s (each backed by a `Screen`, the terminal device),
+a hierarchical tree of `Widget`s placed on them,
 and `Style` objects for visual look.
 
 Widgets are placed in various types of auto-arranging layouts or positioned
 with a flexible scheme (absolute integers, percentages,
 or keywords such as `"center"`), decorated with borders/padding/shadow/frame, and
 filled with content that may contain inline markup ("tags") for colors and
-attributes. The screen renders the whole tree into an off-screen cell buffer
+attributes. The window renders the whole tree into an off-screen cell buffer
 and then emits only the minimal set of terminal escape sequences needed to make
 the changes, using the differential ("damage") renderer.
 
@@ -156,21 +157,30 @@ To tear a window down, call `Window#destroy`.
 
 ### 3.1 Class hierarchy
 
-- **`Screen`** is the top-level object. It represents the terminal it draws to,
-  holding `input` (default `STDIN`), `output` (default `STDOUT`), and `error`
-  (default `STDERR`) as properties. A screen owns the cell grid, the cursor,
-  and the render loop.
-- **`Widget`** is the base class for everything placed on a screen.
+- **`Screen`** is the physical terminal *device* — the `QScreen` analogue. It
+  owns everything tying Crysterm to one concrete tty: `input` (default `STDIN`),
+  `output` (default `STDOUT`) and `error` (default `STDERR`), the `Tput`
+  control-sequence generator, the device's cell size, and the output color
+  depth. You rarely construct one yourself.
+- **`Window`** is the *surface* your program draws on — the `QWindow` /
+  top-level `QWidget` analogue, and the object you actually create. It owns the
+  cell buffer, the widget-tree root, focus, damage tracking, the cursor, and the
+  render loop. A `Window` *has-a* `Screen` and delegates device concerns to it;
+  the split is what lets one application drive several ttys, and what lets a
+  surface survive its device being rebuilt (detach/reattach).
+- **`Application`** is optional: it groups the `Window`s one app drives. A
+  single-window program can just call `Window#exec` (see [§2.3](#23-what-exec-does)).
+- **`Widget`** is the base class for everything placed on a window.
   `Widget::Box` is the generic rectangular widget; most other widgets
   (`List`, `Table`, `Form`, `TextArea`, `Log`, `ProgressBar`, `Image`, …)
   derive from it. Widgets can contain child widgets, forming a tree rooted at
-  the screen.
+  the window.
 - **Layout engines** (`Crysterm::Layout`) automatically arrange a container's
   children once installed via `widget.layout = ...` (see [§4.11](#411-layouts)).
 
 ### 3.2 The event model
 
-`Screen` and `Widget` both `include EventHandler`, so they can emit events and
+`Window` and `Widget` both `include EventHandler`, so they can emit events and
 register listeners. Events are typed classes under `Crysterm::Event`, for
 example `Event::KeyPress`, `Event::Mouse`, `Event::Resize`, `Event::Focus`,
 `Event::PreRender`, and `Event::Rendered`.
@@ -178,7 +188,7 @@ example `Event::KeyPress`, `Event::Mouse`, `Event::Resize`, `Event::Focus`,
 Subscribe with `on`:
 
 ```cr
-screen.on(C::Event::KeyPress) do |e|
+window.on(C::Event::KeyPress) do |e|
   # e.char : Char?   — the character, if any
   # e.key  : Tput::Key? — a named key (e.g. Tput::Key::CtrlQ)
 end
@@ -430,7 +440,7 @@ widget (cf. Qt's `QLayout`). The container owns its rectangle, border and
 padding; the layout only positions the children inside it:
 
 ```crystal
-box = Widget::Box.new parent: screen, width: 40, height: 10,
+box = Widget::Box.new parent: window, width: 40, height: 10,
   layout: Layout::HBox.new(gap: 1)
 Widget::Box.new parent: box, width: 8   # fixed
 Widget::Box.new parent: box             # flexes to fill the rest
@@ -755,7 +765,7 @@ from **drawing** (emitting the minimal terminal output to realize it).
 
 ### 8.1 The pipeline
 
-`Screen#render` (usually invoked indirectly) schedules a frame. When the frame
+`Window#render` (usually invoked indirectly) schedules a frame. When the frame
 runs, `_render`:
 
 1. Emits `Event::PreRender`.
@@ -764,7 +774,7 @@ runs, `_render`:
    This also makes alpha/transparency blending correct (each frame blends over
    the base, not over the previous frame's already-blended result) and removes
    the need to manually clear spots a widget has vacated.
-3. Walks the screen's direct children in order and calls `render` on each, which
+3. Walks the window's direct children in order and calls `render` on each, which
    recursively renders their children. Each widget paints itself into `@lines`.
 4. Optionally docks borders (when `dock_borders` is on).
 5. Calls **`draw`**, which compares the new buffer to what is on the terminal and
@@ -776,7 +786,7 @@ this is effectively a [painter's algorithm](https://en.wikipedia.org/wiki/Painte
 
 ### 8.2 Damage tracking
 
-`draw` is the differential part. The screen keeps two grids: `@lines` (the new,
+`draw` is the differential part. The window keeps two grids: `@lines` (the new,
 desired state) and `@olines` (what is currently on the terminal). For each row,
 if nothing changed (the row is not "dirty") it is skipped entirely. Within a
 changed row, each cell is compared against `@olines`; unchanged cells emit
@@ -814,10 +824,19 @@ painted together in one pass, and isolated updates are not delayed.
 
 ## 9. The cursor
 
-The cursor belongs to the `Screen` and is available as `Screen#cursor`. It is a
-small object (`Screen::Cursor`, extending `Tput::Namespace::Cursor`) holding the
-cursor's shape, blink state, and a `style` (a `Style` used for the cursor's
+The cursor belongs to the `Window` and is available as `Window#cursor`. It is a
+small object (`Crysterm::Cursor`, extending `Tput::Namespace::Cursor`) holding
+the cursor's shape, blink state, and a `style` (a `Style` used for the cursor's
 color and glyph; its default `char` is `▮`).
+
+`Window#cursor` is the surface *default*. A `Widget` may own a cursor too, and
+the one actually in effect is `Window#active_cursor` — the focused widget's own
+cursor, else the window default. Everything that draws or applies the cursor
+goes through it.
+
+The hardware primitives (the capability probes and the raw shape/color/show/hide
+`tput` calls) live on the device, `Screen`; the `Window` delegates to them and
+decides hardware-vs-artificial (see below).
 
 Crysterm supports two kinds of cursor:
 
@@ -832,7 +851,7 @@ The shape is a `Tput::CursorShape` and can be `Block` (alias `Box`),
 `Underline` (aliases `Underscore`, `HLine`, `HBar`), or `Line` (aliases
 `VLine`, `VBar`). The shape names/aliases are defined in the `Tput` library.
 
-The main operations, all on `Screen`:
+The main operations, all on `Window`:
 
 - `cursor_shape(shape = Tput::CursorShape::Block, blink = false)` — set the shape
   and whether it blinks.
@@ -846,13 +865,14 @@ The main operations, all on `Screen`:
   cursor to a steady, non-blinking block.
 
 When the artificial cursor is active, its appearance is computed in
-`_artificial_cursor_attr` and drawn during `Screen#draw` at the terminal's
+`_artificial_cursor_attr` and drawn during `Window#draw` at the terminal's
 current cursor position: a `Line` shape renders as a `│` glyph, `Underline` adds
 the underline attribute, `Block` inverts the cell, and `None` falls back to the
 cursor's own `style` (including a custom `char` and colors).
 
-> The cursor currently lives on the `Screen`; moving it onto `Widget` is planned
-> so that cursor can vary per-widget.
+> A per-widget cursor is already supported (`Widget#cursor`, resolved through
+> `Window#active_cursor`); `Window#cursor` remains the fallback for widgets that
+> define none.
 
 ---
 
@@ -906,25 +926,25 @@ to external sources explicitly.
 
 ### Surfaces
 
-For an option with key `screen.resize_interval`:
+For an option with key `window.resize_interval`:
 
 | Surface | Form |
 |---|---|
-| Config key | `screen.resize_interval` (YAML: `screen: { resize_interval: 0.5 }`) |
-| Environment variable | `CRYSTERM_SCREEN_RESIZE_INTERVAL` |
-| Command-line option | `--screen-resize-interval=0.5` |
-| Runtime | `Crysterm::Config.screen_resize_interval` (typed accessor) |
+| Config key | `window.resize_interval` (YAML: `window: { resize_interval: 0.5 }`) |
+| Environment variable | `CRYSTERM_WINDOW_RESIZE_INTERVAL` |
+| Command-line option | `--window-resize-interval=0.5` |
+| Runtime | `Crysterm::Config.window_resize_interval` (typed accessor) |
 
 Reading and writing at runtime use the typed accessor — the option key with
 dots turned into underscores — so there's no string key or type argument, and
 it's a cached read (no registry lookup):
 
 ```crystal
-Crysterm::Config.screen_resize_interval        # => Time::Span
-Crysterm::Config.screen_resize_interval = 0.5.seconds
+Crysterm::Config.window_resize_interval        # => Time::Span
+Crysterm::Config.window_resize_interval = 0.5.seconds
 ```
 
-(`Crysterm::Config.get("screen.resize_interval", Time::Span)` and `.set` also
+(`Crysterm::Config.get("window.resize_interval", Time::Span)` and `.set` also
 exist for fully dynamic, string-keyed access — that's what the loaders use.)
 
 ### Opting in
@@ -1004,15 +1024,15 @@ unparseable value, or failed validation) in one place.
   description) for every option, analogous to `tput`'s `--json` detections.
 
 ```
-$ CRYSTERM_SCREEN_RESIZE_INTERVAL=0.5 myapp --render-optimization=smart_csr,bce --dump-config=pretty
+$ CRYSTERM_WINDOW_RESIZE_INTERVAL=0.5 myapp --render-optimization=smart_csr,bce --dump-config=pretty
 OPTION                  VALUE           SOURCE
 ----------------------  --------------  ------
 render.optimization     SmartCSR | BCE  command line (--render-optimization)
-screen.resize_interval  0.5             env CRYSTERM_SCREEN_RESIZE_INTERVAL="0.5"
+window.resize_interval  0.5             env CRYSTERM_WINDOW_RESIZE_INTERVAL="0.5"
 ...
 ```
 
-See `examples/config-dump.cr` for a runnable example.
+Any Crysterm app accepts these out of the box: `crystal examples/hello.cr -- --dump-config=pretty`.
 
 ## 12. Differences from Blessed
 

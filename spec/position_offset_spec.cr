@@ -22,12 +22,12 @@ describe "center±N / half±N position & size offsets" do
 
   it "keeps the trailing offset when a centered widget shrinks to content" do
     s = headless_screen
-    base = Widget::Box.new parent: s, top: "center", left: "center", content: "hi", resizable: true
-    plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", resizable: true
+    base = Widget::Box.new parent: s, top: "center", left: "center", content: "hi", shrink_to_fit: true
+    plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", shrink_to_fit: true
     s.render
 
-    bp = base._get_coords(true).not_nil!
-    pp = plus._get_coords(true).not_nil!
+    bp = base.coords(true).not_nil!
+    pp = plus.coords(true).not_nil!
     # Same shrunk size; offset shifts the box right by exactly 4 cells (it used
     # to land far off because recenter only matched bare "center").
     (pp.xl - pp.xi).should eq(bp.xl - bp.xi)

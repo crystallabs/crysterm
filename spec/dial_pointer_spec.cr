@@ -28,8 +28,8 @@ end
 # border/padding too.
 private def center_glyph(s, dial) : Char
   s._render
-  cx = dial.aleft + dial.ileft + ((dial.awidth - dial.iwidth) // 2)
-  cy = dial.atop + dial.itop + ((dial.aheight - dial.iheight) // 2)
+  cx = dial.aleft + dial.ileft + ((dial.awidth - dial.ihorizontal) // 2)
+  cy = dial.atop + dial.itop + ((dial.aheight - dial.ivertical) // 2)
   s.lines[cy][cx].char
 end
 
@@ -37,7 +37,7 @@ describe "Widget::Dial#pointer" do
   it "points the maximum of a non-wrapping dial in a different direction than the minimum" do
     s = dp_screen
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
-      minimum: 0, maximum: 7, value: 0, show_value: false, wrap: false
+      minimum: 0, maximum: 7, value: 0, show_value: false, wrapping: false
 
     at_min = center_glyph(s, dial)
     at_min.should eq '↑' # north at the minimum
@@ -51,7 +51,7 @@ describe "Widget::Dial#pointer" do
   it "shows every direction across a non-wrapping 8-value range (no skipped glyph)" do
     s = dp_screen
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
-      minimum: 0, maximum: 7, value: 0, show_value: false, wrap: false
+      minimum: 0, maximum: 7, value: 0, show_value: false, wrapping: false
 
     seen = (0..7).map do |v|
       dial.value = v
@@ -65,7 +65,7 @@ describe "Widget::Dial#pointer" do
   it "still rolls a wrapping dial's maximum back onto the minimum's north (full circle preserved)" do
     s = dp_screen
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
-      minimum: 0, maximum: 7, value: 0, show_value: false, wrap: true
+      minimum: 0, maximum: 7, value: 0, show_value: false, wrapping: true
 
     dial.value = 7
     center_glyph(s, dial).should eq '↑'

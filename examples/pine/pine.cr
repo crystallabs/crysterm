@@ -295,7 +295,7 @@ module Crysterm
   index = MessageIndex.new(**body_opts, messages: messages, visible: false)
   # Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
   index.status_width = FLAG_CHARS.size + 1
-  index.set_messages messages
+  index.messages = messages
   view = Widget::Pine::MessageView.new(**body_opts, visible: false)
   compose = Widget::Pine::Compose.new(**body_opts, visible: false)
   help = TextView.new(**body_opts, visible: false, content: HELP_TEXT)
@@ -685,7 +685,7 @@ module Crysterm
       when "Subject" then messages.sort_by! { |m| m.subject.downcase.sub(/^re:\s*/, "") }
       when "Size"    then messages.sort_by!(&.size)
       end
-      index.set_messages messages
+      index.messages = messages
     end
     show_status.call "[Index sorted by #{current_sort}]"
     goto_index.call
@@ -698,7 +698,7 @@ module Crysterm
     flag_target.try do |m|
       flags_of[m] = sel.to_set
       apply_flags.call m
-      index.set_messages messages
+      index.messages = messages
     end
     show_status.call(sel.empty? ? "[Flags cleared]" : "[Flags set: #{sel.join(", ")}]")
     goto_index.call
@@ -731,7 +731,7 @@ module Crysterm
     else
       ask_yes_no.call("Expunge the #{deleted} deleted message#{deleted == 1 ? "" : "s"}? ", -> do
         messages.reject! { |m| flags_of[m].includes?("Deleted") }
-        index.set_messages messages
+        index.messages = messages
         header.info.content = "Folder: INBOX  #{messages.size} Messages  (by #{current_sort})"
         show_status.call "[Expunged #{deleted} message#{deleted == 1 ? "" : "s"}]"
         nil
@@ -751,8 +751,10 @@ module Crysterm
     key = e.key
 
     if key == Tput::Key::CtrlQ
-      s.destroy
-      exit
+      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
+      # every window down before exiting, rather than hard-exiting behind the
+      # toolkit's back.
+      (s.application || ::Crysterm::Application.global).quit
     end
 
     # While a yes/no prompt is up it owns the keyboard: its own handler
@@ -810,14 +812,14 @@ module Crysterm
         index.selected_message.try do |m|
           flags_of[m] << "Deleted"
           apply_flags.call m
-          index.set_messages messages
+          index.messages = messages
           show_status.call "[Message marked for deletion]"
         end
       when 'u', 'U'
         index.selected_message.try do |m|
           flags_of[m].delete "Deleted"
           apply_flags.call m
-          index.set_messages messages
+          index.messages = messages
           show_status.call "[Message undeleted]"
         end
       when 'q', 'Q' then ask_yes_no.call("Really quit ALPINE? ", -> { s.destroy; exit })
@@ -837,7 +839,7 @@ module Crysterm
         messages[index.selected]?.try do |m|
           flags_of[m] << "Deleted"
           apply_flags.call m
-          index.set_messages messages
+          index.messages = messages
           show_status.call "[Message marked for deletion]"
         end
       when '?' then goto_help.call

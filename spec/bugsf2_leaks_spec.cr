@@ -48,7 +48,7 @@ describe "Menu per-action handler/association cleanup (F2 #10)" do
 
     menu.destroy
 
-    # No stale handler left to run sync_items/selekt/request_render on the dead
+    # No stale handler left to run sync_items/select_index/request_render on the dead
     # menu, and no dead menu pinned in the action's associated set.
     a.handlers(Crysterm::Event::Changed).size.should eq 0
     b.handlers(Crysterm::Event::Changed).size.should eq 0

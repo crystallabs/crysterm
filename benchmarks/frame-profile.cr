@@ -35,7 +35,7 @@ panels = [] of Widget::Box
 end
 
 list = Widget::List.new(parent: screen, top: 1, left: 1, width: 20, height: 16)
-list.set_items (0...12).map { |i| "item #{i}" }
+list.items = (0...12).map { |i| "item #{i}" }
 
 FRAMES = 3000
 

@@ -12,7 +12,7 @@ module Crysterm
       #
       # `Widget::TextEdit` includes this alongside `Mixin::TextEditing`. The
       # includer owns reacting to document changes (layout invalidation,
-      # re-render) by listening to `Event::ContentsChange` — see
+      # re-render) by listening to `Event::ContentsChanged` — see
       # `TextEdit#document=`.
       module DocumentBuffer
         # The document this view edits. Lazy default so a standalone widget
@@ -41,11 +41,11 @@ module Crysterm
         # shared document (whose caret shift this view must mirror).
         @self_edit = false
 
-        # `ContentsChange` handler wrapper on the current document, so
+        # `ContentsChanged` handler wrapper on the current document, so
         # `#unwire_document`/`#swap_document` can detach it. The includer's
         # `#wire_document` (which differs per widget — follow vs relayout)
         # installs it.
-        @ev_contents_change : Crysterm::Event::ContentsChange::Wrapper?
+        @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
 
         def buf_text : String
           document.to_plain_text
@@ -184,7 +184,7 @@ module Crysterm
         # External set replaces the whole document content (plain text, not
         # undoable — Qt `setPlainText` semantics: the undo stack clears) and
         # parks the caret at the end; `nil` is a redisplay that just clamps
-        # the caret. The document's `ContentsChange` signal drives the
+        # the caret. The document's `ContentsChanged` signal drives the
         # widget's relayout/render, so no display work happens here.
         def value=(value = nil)
           if value
@@ -226,7 +226,7 @@ module Crysterm
         # `C-y` stays yank). The shared `Mixin::TextEditing` has no undo
         # awareness — it lives here — so each widget's `_listener` calls this
         # first (before its widget-specific handling) and returns when it
-        # consumed the key. `TextChange` is emitted only when the buffer text
+        # consumed the key. `TextChanged` is emitted only when the buffer text
         # actually changed (before/after diff).
         protected def handle_undo_redo_key(e) : Bool
           if !read_only? && (k = e.key)
@@ -240,7 +240,7 @@ module Crysterm
                 ensure_cursor_visible
                 ensure_cursor_visible_x
                 after = buf_text
-                emit Crysterm::Event::TextChange, after if after != before
+                emit Crysterm::Event::TextChanged, after if after != before
                 request_render
                 _update_cursor
               end
@@ -251,7 +251,7 @@ module Crysterm
         end
 
         # Shared `document=` body (Qt `setDocument`): unwires the old
-        # document's `ContentsChange` handler, swaps in *doc*, resets the
+        # document's `ContentsChanged` handler, swaps in *doc*, resets the
         # shared caret/selection/typing state, runs the widget's
         # `#reset_document_caches` hook for its own display caches (in the same
         # position the per-widget resets occupied), re-wires, and requests a
@@ -282,7 +282,7 @@ module Crysterm
 
         private def unwire_document : Nil
           @ev_contents_change.try do |w|
-            @document.try &.off(Crysterm::Event::ContentsChange, w)
+            @document.try &.off(Crysterm::Event::ContentsChanged, w)
           end
           @ev_contents_change = nil
         end
@@ -303,7 +303,7 @@ module Crysterm
         # onto this view's caret/selection — the same adjustment the document
         # applies to registered cursors, keyed by the change's
         # `TextDocument::ChangeKind`. The including widget calls this from its
-        # `Event::ContentsChange` handler. Own edits (`#as_self_edit`) are
+        # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
         # skipped: the shared mixin logic moves the caret itself, exactly as
         # it does over a flat buffer.
         def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil

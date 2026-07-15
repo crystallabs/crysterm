@@ -39,7 +39,7 @@ describe "ItemView#selected_values on an empty list" do
   it "still reports the selected value for a non-empty list" do
     s = sve_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selekt 1
+    list.select_index 1
     list.selected_values.should eq ["b"]
   end
 end

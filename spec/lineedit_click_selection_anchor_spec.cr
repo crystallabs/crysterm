@@ -70,7 +70,7 @@ describe "LineEdit selection anchor after a plain click" do
     s._render
 
     langbox.value.should eq "Cryst"
-    langbox.has_selection?.should be_false
+    langbox.selection?.should be_false
   end
 
   it "does not select the just-typed character after a plain click" do
@@ -85,7 +85,7 @@ describe "LineEdit selection anchor after a plain click" do
     click s, box.aleft + 5, box.atop
     box.selection_anchor.should be_nil
     box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('x')
-    box.has_selection?.should be_false
+    box.selection?.should be_false
     box.value.should eq "hellox"
   end
 end

@@ -22,7 +22,7 @@ end
 private def box_with_empty_ftor
   box = Widget::Box.new parent: headless_screen, width: 20, height: 5
   box.set_content "one\ntwo\nthree"
-  box.get_lines.should eq ["one", "two", "three"] # precondition
+  box.lines.should eq ["one", "two", "three"] # precondition
   box.@_clines.ftor.clear
   box
 end
@@ -31,13 +31,13 @@ describe "Widget#delete_line with ftor empty (content seeded before attach)" do
   it "deletes the requested line, not the last one" do
     box = box_with_empty_ftor
     box.delete_line 0
-    box.get_lines.should eq ["two", "three"]
+    box.lines.should eq ["two", "three"]
   end
 
   it "defaults delete_line(nil) to the last fake line" do
     box = box_with_empty_ftor
     box.delete_line
-    box.get_lines.should eq ["one", "two"]
+    box.lines.should eq ["one", "two"]
   end
 
   it "does not overrun (IndexError) when n exceeds the lines available from i" do
@@ -45,7 +45,7 @@ describe "Widget#delete_line with ftor empty (content seeded before attach)" do
     # With i clamped to -1 and `n = min(n, fake.size - i)`, this ran delete_at
     # off the end of `fake`.
     box.delete_line 0, 5
-    box.get_lines.should eq [] of String
+    box.lines.should eq [] of String
   end
 end
 

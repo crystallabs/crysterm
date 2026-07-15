@@ -31,10 +31,10 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
     spin.value.should eq Int32::MIN
   end
 
-  it "wraps to the opposite bound on overflow when wrap: true" do
+  it "wraps to the opposite bound on overflow when wrapping: true" do
     s = ro_screen
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
-      minimum: 5, maximum: Int32::MAX, value: Int32::MAX, wrap: true
+      minimum: 5, maximum: Int32::MAX, value: Int32::MAX, wrapping: true
     spin.increment
     spin.value.should eq 5
   end

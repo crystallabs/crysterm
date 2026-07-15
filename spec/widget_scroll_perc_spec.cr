@@ -16,7 +16,7 @@ end
 describe "Widget#get_scroll_perc" do
   it "returns a finite, sane percentage in the degenerate single-line case" do
     s = sp_screen
-    # height 1 + border ⇒ iheight 2 ⇒ visible height -1; single content line
+    # height 1 + border ⇒ ivertical 2 ⇒ visible height -1; single content line
     # ⇒ get_scroll_height == 1 ⇒ the `i - 1 == 0` span.
     w = Widget.new parent: s, top: 0, left: 0, width: 20, height: 1,
       style: Crysterm::Style.new(border: true), scrollable: true, content: "only line"

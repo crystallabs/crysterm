@@ -81,7 +81,7 @@ describe "BUGS10 16 follow-up: clipped ScrollBar seeks over the painted track" d
   # `ScrollBar#render` paints the whole track compressed into the clipped rect
   # (`with_inner_coords` works from the border-adjusted `@lpos`), so the seek
   # math must use that same painted span — the layout-size span (`aheight -
-  # iheight`) made clicks on a clipped bar land proportionally short.
+  # ivertical`) made clicks on a clipped bar land proportionally short.
   it "seeking the last painted track cell reaches the maximum" do
     s = b10_screen
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true

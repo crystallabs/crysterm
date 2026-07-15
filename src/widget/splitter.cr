@@ -28,8 +28,16 @@ module Crysterm
 
       # The panes, in order.
       getter panes = [] of Widget
-      # The dividers (one fewer than `#panes`).
-      getter dividers = [] of Box
+
+      @dividers = [] of Box
+
+      # The dividers (one fewer than `#panes`), in order. A copy: these boxes are
+      # the splitter's own machinery, placed by `#relayout` from `#positions` —
+      # adding or dropping one here would leave the two out of step. Move one with
+      # `#set_divider_position`; add panes with `#add_pane`.
+      def dividers : Array(Box)
+        @dividers.dup
+      end
 
       # Divider offsets along the split axis, in content cells (sorted
       # ascending); `#positions[i]` separates pane `i` from pane `i+1`.
@@ -126,9 +134,11 @@ module Crysterm
         @panes[1]?
       end
 
-      # The first divider (raises if there isn't one yet).
-      def divider : Box
-        @dividers.first
+      # The first divider, or `nil` when there are fewer than two panes — mirroring
+      # `#pane1`/`#pane2`, which are `Widget?` for exactly the same reason. (It
+      # used to raise on an empty splitter while its two siblings answered `nil`.)
+      def divider : Box?
+        @dividers.first?
       end
 
       # Offset of the first divider.
@@ -140,6 +150,47 @@ module Crysterm
       def position=(value : Int32) : Int32
         set_divider_position 0, value
         value
+      end
+
+      # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------
+
+      # Extent of each pane along the split axis, in content cells — one entry per
+      # pane, the dividers' own cells excluded. The pane-side view of the divider
+      # offsets `#divider_position` reports.
+      def sizes : Array(Int32)
+        n = @panes.size
+        return [] of Int32 if n == 0
+        total = total_span
+        Array(Int32).new(n) do |i|
+          start = i == 0 ? 0 : @positions[i - 1] + 1
+          stop = i == n - 1 ? total : @positions[i]
+          Math.max(1, stop - start)
+        end
+      end
+
+      # Resizes the panes to *values* (Qt's `setSizes`): the divider offsets are
+      # the running sum of the wanted extents (plus one cell for each divider
+      # passed), then clamped so no pane collapses. Extra entries are ignored;
+      # missing ones leave that pane at its current extent. Like a drag, this
+      # counts as positioning the splitter by hand, so it stops re-evening its
+      # panes on every layout.
+      def sizes=(values : Enumerable(Int32)) : Nil
+        return if @panes.size < 2
+        want = values.to_a
+        # Snapshot before mutating: the fallback for a missing entry is the
+        # pane's extent *now*.
+        cur = sizes
+        @user_positioned = true
+        pos = 0
+        @positions.each_index do |i|
+          pos += (want[i]? || cur[i]? || 1)
+          @positions[i] = pos
+          pos += 1 # the divider's own cell
+        end
+        # Left-to-right, so each clamp sees the already-settled divider behind it.
+        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
+        relayout
+        request_render
       end
 
       # --- General divider control ---------------------------------------------
@@ -190,10 +241,10 @@ module Crysterm
       # Span (in content cells) along the split axis, falling back to the
       # configured size minus insets when not laid out yet.
       private def total_span : Int32
-        span = horizontal? ? (awidth - iwidth) : (aheight - iheight)
+        span = horizontal? ? (awidth - ihorizontal) : (aheight - ivertical)
         if span <= 0
           configured = (horizontal? ? @width : @height).as?(Int32) || 0
-          span = configured - (horizontal? ? iwidth : iheight)
+          span = configured - (horizontal? ? ihorizontal : ivertical)
         end
         Math.max(0, span)
       end

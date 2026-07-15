@@ -8,7 +8,7 @@ private def clip_screen
     width: 80, height: 24, default_quit_keys: false)
 end
 
-# BUGS5 #1 — `Widget#_get_coords` bottom scroll/overflow clip must trigger at the
+# BUGS5 #1 — `Widget#coords` bottom scroll/overflow clip must trigger at the
 # clipping parent's BOTTOM border width, not its TOP border width.
 #
 # The clip section binds `b = sp_border.top` and (pre-fix) reused it for the
@@ -18,7 +18,7 @@ end
 # bottom) was compared against `parent.yl - 1` instead of `parent.yl`, so it was
 # spuriously treated as fully below the viewport and dropped entirely (its `lpos`
 # went nil). The fix uses a separate `bb = sp_border.bottom`.
-describe "BUGS5 _get_coords bottom clip uses the parent's bottom border (fix #1)" do
+describe "BUGS5 coords bottom clip uses the parent's bottom border (fix #1)" do
   it "renders a child on the last visible row of a bottom-border-0 parent" do
     s = clip_screen
     # Asymmetric border: top 1, bottom 0. `overflow: Hidden` makes the parent a
@@ -57,7 +57,7 @@ end
 # the trigger stayed false, and the child painted over the parent's left border
 # (whereas the symmetric `top: -1` WAS clipped). The fix adds `bl`/`br` to the
 # horizontal triggers so they clip at the inner border edge like the vertical.
-describe "BUGS5 _get_coords horizontal clip uses the parent's left/right border (fix #2)" do
+describe "BUGS5 coords horizontal clip uses the parent's left/right border (fix #2)" do
   it "clips a child at left:-1 to the inner edge of a left-bordered parent" do
     s = clip_screen
     parent = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
@@ -81,7 +81,7 @@ end
 
 # BUGS5 #3 — nil-height flow children and `overflow_action`.
 #
-# `Flow#flow_place` forces every child `resizable`, so a child with `height ==
+# `Flow#flow_place` forces every child `shrink_to_fit`, so a child with `height ==
 # nil` is legal. The BUGS5 report suspected such children are measured at their
 # stretched size and thus always reported as overflowing. Verified: the auto
 # branch of `aheight` fills the interior *below* `el.top`, so `el.top + aheight`
@@ -96,7 +96,7 @@ describe "BUGS5 nil-height flow children are not spuriously overflow-skipped (fi
     s = clip_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 12,
       layout: Layout::Wrap.new, overflow: Overflow::SkipWidget
-    # Explicit width, no (nil) height -> resizable/auto height. Two 8-wide
+    # Explicit width, no (nil) height -> shrink_to_fit/auto height. Two 8-wide
     # children share the single 20-wide row (no wrap), so both auto-fill the
     # interior height instead of collapsing on a below-interior wrapped row.
     children = Array.new(2) { Widget::Box.new parent: box, width: 8 }

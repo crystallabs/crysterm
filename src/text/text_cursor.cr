@@ -91,7 +91,7 @@ module Crysterm
 
     # === Selection ===
 
-    def has_selection? : Bool
+    def selection? : Bool
       @position != @anchor
     end
 
@@ -177,7 +177,7 @@ module Crysterm
     # explicit argument, then pending typing format, then inherited.
     def insert_text(text : String, format : TextCharFormat? = nil) : Nil
       format ||= @pending_format
-      if has_selection?
+      if selection?
         @document.begin_edit_block
         remove_selected_text
         @document.insert_text(@position, text, format)
@@ -191,7 +191,7 @@ module Crysterm
     # one undo step (Qt `insertFragment`). The cursor ends after the inserted
     # content via the document's cursor adjustment.
     def insert_fragment(frag : TextDocumentFragment) : Nil
-      if has_selection?
+      if selection?
         @document.begin_edit_block
         remove_selected_text
         @document.insert_fragment(@position, frag)
@@ -215,13 +215,13 @@ module Crysterm
     end
 
     def remove_selected_text : Nil
-      return unless has_selection?
+      return unless selection?
       @document.remove(selection_start, selection_end - selection_start)
     end
 
     # Delete forward (the Del key); removes the selection instead when one exists.
     def delete_char : Nil
-      if has_selection?
+      if selection?
         remove_selected_text
       elsif @position < @document.size
         @document.remove(@position, 1)
@@ -230,7 +230,7 @@ module Crysterm
 
     # Delete backward (Backspace); removes the selection instead when one exists.
     def delete_previous_char : Nil
-      if has_selection?
+      if selection?
         remove_selected_text
       elsif @position > 0
         @document.remove(@position - 1, 1)
@@ -252,7 +252,7 @@ module Crysterm
     # Replaces the char format of the selection; without a selection, sets
     # the typing format for the next insert (Qt semantics).
     def set_char_format(format : TextCharFormat) : Nil
-      if has_selection?
+      if selection?
         @document.apply_char_format(selection_start, selection_end, format)
       else
         @pending_format = format
@@ -262,7 +262,7 @@ module Crysterm
     # Merges into the selection's char formats (see `TextCharFormat#merge`);
     # without a selection, merges into the typing format.
     def merge_char_format(format : TextCharFormat) : Nil
-      if has_selection?
+      if selection?
         @document.apply_char_format(selection_start, selection_end, format, merge: true)
       else
         @pending_format = char_format.merge(format)

@@ -46,11 +46,11 @@ describe "Widget::Media::Base#anim_index= damage tracking" do
 
     # No-op write: same index, no dirty mark.
     img.anim_index = 0
-    img.render_dirty.should be_false
+    img.render_dirty?.should be_false
 
     # Real change: marks dirty so the damage composite repaints it.
     img.anim_index = 3
-    img.render_dirty.should be_true
+    img.render_dirty?.should be_true
     img.anim_index.should eq 3
   ensure
     img.try &.stop

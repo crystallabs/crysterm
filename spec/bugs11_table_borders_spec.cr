@@ -82,7 +82,7 @@ describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
     lp = t.lpos.not_nil!
     lp.no_bottom?.should be_true # actually clipped by the ancestor
 
-    natural_bottom = t.height.as(Int32)    # pinned to 2*rows-1 + iheight (== 21)
+    natural_bottom = t.height.as(Int32)    # pinned to 2*rows-1 + ivertical (== 21)
     clip_bottom = lp.yl                    # visible bottom (exclusive)
     clip_bottom.should be < natural_bottom # the clip really cut the table
 

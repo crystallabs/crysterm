@@ -57,7 +57,7 @@ describe "TableLayout @maxes cache" do
     t = Crysterm::Widget::Table.new parent: s, rows: [["a", "b"]]
     narrow = t.row_width
 
-    t.set_rows [["aaaaaaaa", "bbbbbbbb"]]
+    t.rows = [["aaaaaaaa", "bbbbbbbb"]]
     wide = t.row_width
 
     wide.should be > narrow

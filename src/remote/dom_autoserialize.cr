@@ -6,7 +6,7 @@ module Crysterm
     BASE_KEYS = %w[
       left top right bottom width height name content parse_tags wrap_content
       align overflow style styles visible scrollable input focused children
-      index resizable fixed draggable keys vi mouse layout layout_hint
+      index shrink_to_fit fixed draggable keys vi mouse layout layout_hint
       scrollbar track always_scroll focus_on_click hover_text label parent window
     ]
   end
@@ -86,7 +86,7 @@ macro dom_autoserialize_body(mode)
         {% elsif kind == "str" %}
           {% sdef = defaults[n] %}
           {% if !supported[n][1] && sdef.is_a?(StringLiteral) && sdef != "" %}
-            # Non-empty default (e.g. `ProgressBar#text_format = "%p%"`): emit
+            # Non-empty default (e.g. `ProgressBar#format = "%p%"`): emit
             # whenever the value differs, including when cleared to "" — same
             # round-trip trap the default-`true` Bool handling above avoids.
             attrs[{{ key }}] = @{{ n.id }} unless @{{ n.id }} == {{ sdef }}
@@ -104,7 +104,7 @@ macro dom_autoserialize_body(mode)
       {% for n in names %}
         {% kind = supported[n][0] %}{% nilable = supported[n][1] %}{% key = n.split("_").join("-") %}
         # Prefer the public setter over a raw ivar write when one exists: a
-        # custom setter (e.g. `ProgressBar#value=` clamps + emits `ValueChange`,
+        # custom setter (e.g. `ProgressBar#value=` clamps + emits `ValueChanged`,
         # `#maximum=` re-clamps) carries side effects the bridge's runtime
         # `setAttribute` must not skip. A plain `property` setter is
         # equivalent to the ivar write, so this is safe as a blanket rule; only

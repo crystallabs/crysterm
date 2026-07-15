@@ -9,7 +9,7 @@ module Crysterm
     # behavior of `DateEdit` and `TimeEdit`: Left/Right move between the six
     # sections, Up/Down (or the mouse wheel over a section) step it — wrapping
     # within the section's own range without carrying — and a click selects the
-    # section under the pointer. Emits `Event::DateChange` (carrying the `Time`)
+    # section under the pointer. Emits `Event::DateChanged` (carrying the `Time`)
     # on every change.
     #
     # Like Qt's default `QDateTimeEdit` (`calendarPopup == false`), it is edited

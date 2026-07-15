@@ -55,11 +55,11 @@ private def it_behaves_like_a_ranged_widget(c : RangedCase)
       (c.minimum.call(w) <= c.maximum.call(w)).should be_true
     end
 
-    it "emits Event::ValueChange once on a real change and not on a no-op" do
+    it "emits Event::ValueChanged once on a real change and not on a no-op" do
       s = mem_screen
       w = c.build.call s, 0, 100, 50
       changes = 0
-      w.on(Crysterm::Event::ValueChange) { changes += 1 }
+      w.on(Crysterm::Event::ValueChanged) { changes += 1 }
       c.set_value.call w, 40
       changes.should eq 1
       c.set_value.call w, 40 # no-op — must not re-emit

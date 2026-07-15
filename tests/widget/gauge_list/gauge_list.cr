@@ -15,7 +15,7 @@ Crysterm::WidgetExample.run("GaugeList",
   }) do |screen|
   screen.stylesheet = "GaugeList { border: solid; }"
   gl = Crysterm::Widget::GaugeList.new parent: screen, top: "center", left: "center", width: 46, height: 9
-  gl.add_gauge "CPU", 72
-  gl.add_gauge "Memory", 48
-  gl.add_gauge "Disk", 91
+  gl.add_item "CPU", 72
+  gl.add_item "Memory", 48
+  gl.add_item "Disk", 91
 end

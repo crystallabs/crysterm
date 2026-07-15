@@ -137,11 +137,11 @@ describe "BUGS13 C6: switch_terminal carries pin state" do
     w2 = w.switch_terminal "xterm"
     begin
       # Pre-fix, the current size was passed as plain Int32s, pinning both
-      # axes: `set_size`/`adopt_terminal_size` then no-op'd forever and the
+      # axes: `resize`/`adopt_terminal_size` then no-op'd forever and the
       # replacement window froze at the moment-of-switch size.
       w2.screen.explicit_width?.should be_false
       w2.screen.explicit_height?.should be_false
-      w2.screen.set_size 55, 13
+      w2.screen.resize 55, 13
       w2.awidth.should eq 55
       w2.aheight.should eq 13
     ensure

@@ -62,7 +62,7 @@ describe "BUGS13 A10: Gauge/GaugeList rebuild content when glyph inputs change" 
   it "re-resolves the GaugeList fill ramp after a glyph tier switch" do
     s = sc_screen
     gl = Widget::GaugeList.new parent: s, top: 4, left: 0, width: 20, height: 2
-    gl.add_gauge "x", 100
+    gl.add_item "x", 100
     s._render
     # Row layout: label (1 col) + gap + bar; the bar's first cell is col 2.
     s.lines[4][2].char.should eq '█'

@@ -90,7 +90,7 @@ end
 # `max(row + row_span)`, so `row_span: 99` inflated the grid to 99 rows, squeezing
 # every cell to ~0 and driving `inner_h` negative with any gap. The fix caps the
 # inferred row count so a giant span instead spans to the last real row,
-# symmetric with how `col_span: 99` spans to the last column.
+# symmetric with how `column_span: 99` spans to the last column.
 describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix #2)" do
   it "keeps sane row heights when a child spans to the end (rows nil)" do
     s = headless_screen
@@ -98,9 +98,9 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
       layout: Layout::Grid.new(columns: 2, gap: 1)
     # Spanning child in column 0, plus two ordinary children in column 1.
     Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: 99, col_span: 1)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 1)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, col: 1)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99, column_span: 1)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, column: 1)
 
     coords = render_children s, g
     sp = coords[0]
@@ -116,9 +116,9 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2, gap: 1)
     Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: 99)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 1)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, col: 1)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, column: 1)
 
     coords = render_children s, g
     (coords[1][3] - coords[1][2]).should be > 0 # b has height
@@ -130,8 +130,8 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2)
     Widget::Box.new parent: g,
-      layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, row_span: 2)
-    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 1)
+      layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 2)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
 
     coords = render_children s, g
     # Two children imply a 2-row grid; `a` spans both rows -> full height 20.

@@ -29,7 +29,7 @@ module Crysterm
         end
       end
 
-      protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
+      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
         flow_place container, el, i, interior, @high_width
         overflow_action container, el, interior
       end

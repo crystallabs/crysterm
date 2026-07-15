@@ -83,7 +83,7 @@ module Crysterm
       end
 
       # Navigates to *url*: loads it through `#loader`, replaces the
-      # document, records history and emits `Event::SourceChange`. A URL the
+      # document, records history and emits `Event::SourceChanged`. A URL the
       # loader declines (nil) leaves everything unchanged.
       def source=(url : String?) : String?
         return @source = nil if url.nil?
@@ -179,7 +179,7 @@ module Crysterm
       # margin row, left of the text, or at/past the row's text end is a
       # miss. Used to gate pointer link activation.
       private def text_hit?(x : Int32, y : Int32) : Bool
-        lpos = _get_coords
+        lpos = coords
         return false unless lpos
 
         max_line = max_content_row(lpos)
@@ -218,7 +218,7 @@ module Crysterm
         drop_link_focus
         self.document = doc
         @source = url
-        emit Crysterm::Event::SourceChange, url
+        emit Crysterm::Event::SourceChanged, url
       end
 
       private def drop_link_focus : Nil

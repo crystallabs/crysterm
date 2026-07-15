@@ -102,7 +102,7 @@ describe "Pine::ListSelect" do
       on_confirm: ->(sel : Array(String)) { confirmed = sel; nil }
 
     ls.activate_on_click?.should be_true
-    ls.selekt 1
+    ls.select_index 1
     ls.activate
     ls.checked.should eq ["Banana"]
     confirmed.should be_nil # toggling did not confirm

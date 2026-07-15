@@ -7,7 +7,7 @@ include Crysterm
 #  BUG A (src/widget/menu.cr `#fit_width`/`#size_rows`): a scrolling `Menu`
 #     reserves a right-edge column for its vertical scroll bar
 #     (`content_margin_x`), but `fit_width` didn't add it and `size_rows` laid
-#     rows across the full `awidth - iwidth`. The widest row was then one column
+#     rows across the full `awidth - ihorizontal`. The widest row was then one column
 #     too wide for the drawable area and word-wrapped onto a clipped second line,
 #     so every row rendered blank (only the gutter showed) — the Calendar's
 #     ±100-year drop-down opened "invisible" even though scrolling/clicking still

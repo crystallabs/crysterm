@@ -109,7 +109,7 @@ module Crysterm
           @value
         end
 
-        # Sets the value (clamped). Emits `Event::DoubleValueChange` on change and
+        # Sets the value (clamped). Emits `Event::DoubleValueChanged` on change and
         # `Event::Complete` at the maximum (shared `#value=` body from
         # `Mixin::PercentRange`, with Canvas invalidation as its post-change
         # action).

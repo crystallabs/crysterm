@@ -27,27 +27,27 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class ProgressBar < ::Crysterm::Widget::ProgressBar
         def initialize(
-          filled : Int32? = nil,
+          percent : Int32? = nil,
           value : Int32? = nil,
           minimum = 0,
           maximum = 100,
-          step = 5,
+          single_step = 5,
           # Pine defaults: percentage wrapped in a `[..%]` label, single-row bar.
           # Callers can override any of these.
-          show_text = true,
-          text_format = "[%p%]",
+          show_value = true,
+          format = "[%p%]",
           height h = 1,
           **input,
         )
           super(
             **input,
-            filled: filled,
+            percent: percent,
             value: value,
             minimum: minimum,
             maximum: maximum,
-            step: step,
-            show_text: show_text,
-            text_format: text_format,
+            single_step: single_step,
+            show_value: show_value,
+            format: format,
             height: h)
         end
       end

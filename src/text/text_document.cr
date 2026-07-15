@@ -15,8 +15,8 @@ module Crysterm
   # Live `TextCursor`s register here (weakly) and are position-adjusted on
   # every edit, Qt's guarantee that makes multiple cursors and views safe.
   #
-  # Emits `Event::ContentsChange`, `Event::BlockCountChange`,
-  # `Event::ModificationChange`, `Event::UndoAvailable`, `Event::RedoAvailable`.
+  # Emits `Event::ContentsChanged`, `Event::BlockCountChanged`,
+  # `Event::ModificationChanged`, `Event::UndoAvailable`, `Event::RedoAvailable`.
   class TextDocument
     include EventHandler
 
@@ -30,7 +30,7 @@ module Crysterm
       WholeWords
     end
 
-    # How an `Event::ContentsChange` affected document positions — what a
+    # How an `Event::ContentsChanged` affected document positions — what a
     # view needs to keep its own flat `Int32` caret adjusted the way
     # registered `TextCursor`s are (they get this same treatment internally):
     #
@@ -564,7 +564,7 @@ module Crysterm
       end
       if mod != @modified
         @modified = mod
-        emit Crysterm::Event::ModificationChange, mod
+        emit Crysterm::Event::ModificationChanged, mod
       end
     end
 
@@ -606,7 +606,7 @@ module Crysterm
     # cursors, emit change signals. `kind` says how positions were affected
     # (`ChangeKind`) — only `Edit` shifts cursors; `Format` reports a changed
     # range but must not move cursors within it, and `Replace` already rewound
-    # them. The kind rides on `ContentsChange` so views can mirror the same
+    # them. The kind rides on `ContentsChanged` so views can mirror the same
     # adjustment on their own carets.
     private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
       @block_offsets = nil
@@ -616,9 +616,9 @@ module Crysterm
       end
       if block_count != @last_block_count
         @last_block_count = block_count
-        emit Crysterm::Event::BlockCountChange, block_count
+        emit Crysterm::Event::BlockCountChanged, block_count
       end
-      emit Crysterm::Event::ContentsChange, pos, removed, added, kind
+      emit Crysterm::Event::ContentsChanged, pos, removed, added, kind
     end
 
     private def word_boundaries_ok?(text : String, i : Int32, len : Int32, flags : FindFlag) : Bool

@@ -11,7 +11,7 @@ module Crysterm
     # ancestor is `QAbstractScrollArea` — can't also be an `Input`, so it includes
     # `Mixin::Interactive` directly instead.
     #
-    # Sets the widget interactive (`@input`) and freely-resizable (`@resizable`),
+    # Sets the widget interactive (`@input`) and shrink-to-content (`@shrink_to_fit`),
     # and wires the viewport scroll keys (when `keys:` is on and `ignore_keys` is
     # off): Up/Down (and, with `vi:`, `k`/`j`) by a line, `Ctrl-U`/`Ctrl-D` by a
     # half page, `PageUp`/`PageDown` (and `Ctrl-B`/`Ctrl-F`) by a full page,
@@ -23,7 +23,7 @@ module Crysterm
 
       macro included
         @input = true
-        @resizable = true
+        @shrink_to_fit = true
       end
 
       def initialize(*arg, **kwarg)

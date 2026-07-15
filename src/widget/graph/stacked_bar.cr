@@ -102,8 +102,8 @@ module Crysterm
         end
 
         private def build_content : String
-          cols = awidth - iwidth
-          rows = aheight - iheight
+          cols = awidth - ihorizontal
+          rows = aheight - ivertical
           return "" if cols <= 0 || rows <= 0 || @values.empty?
 
           seg_lbls = @segment_labels

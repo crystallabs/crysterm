@@ -30,7 +30,7 @@ module Crysterm
         # Rewind focus out of this subtree when it (or a descendant) holds
         # focus: a hidden container must not leave a focused child still
         # receiving keyboard input.
-        if (f = s.focused) && (f == self || has_descendant? f)
+        if (f = s.focused) && (f == self || ancestor_of? f)
           s.rewind_focus
         end
       end
@@ -51,7 +51,7 @@ module Crysterm
       # and `state_style` only touches the current one. Without also writing the
       # others, hiding/showing a widget that then changes state (e.g. gains
       # focus) has no effect in the new state — the stale per-state visibility
-      # wins, leaving the widget invisible (and coordinate-less: `_get_coords`
+      # wins, leaving the widget invisible (and coordinate-less: `coords`
       # bails on `style.visible?`). Apply across every materialized state so the
       # toggle survives the transition.
       @styles.visible = value
@@ -79,6 +79,13 @@ module Crysterm
       end
     end
 
+    # Shows or hides the widget (Qt's `QWidget#setVisible`). Routes through
+    # `#show`/`#hide` so their events and focus rewind run.
+    def visible=(value : Bool) : Bool
+      value ? show : hide
+      value
+    end
+
     # Toggles widget visibility
     def toggle_visibility
       self.state_style.visible? ? hide : show
@@ -93,13 +100,19 @@ module Crysterm
       # visible
     end
 
+    # Inverse of `#visible?` (Qt's `QWidget#isHidden`). Consults only this
+    # widget's own flag; see `#visible_in_tree?` for the ancestor-aware answer.
+    def hidden? : Bool
+      !visible?
+    end
+
     # Returns whether this widget *and every ancestor* is visible. Unlike
     # `#visible?` (which consults only this node's own flag), this walks the
     # whole parent chain, so it is false when a container above us is hidden.
     # Standalone `Rendered` listeners (the media overlays) must use this before
     # resolving rendered coordinates: hiding an ancestor only clears that node's
     # flag, leaving a descendant `visible?`, but the hidden ancestor has no
-    # rendered position and `_get_coords(true)` would raise against it.
+    # rendered position and `coords(true)` would raise against it.
     def visible_in_tree? : Bool
       anc = self
       while anc

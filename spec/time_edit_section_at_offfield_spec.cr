@@ -7,7 +7,7 @@ include Crysterm
 # then leaves the active section untouched). `TimeEdit`'s `section_at` only
 # bounded the left edge (`col < 0`), so a click past the `HH:MM:SS` text fell
 # through `(col // 3).clamp` to the last section, wrongly selecting seconds —
-# easily hit since fixed-width controls (`@resizable = false`) have trailing
+# easily hit since fixed-width controls (`@shrink_to_fit = false`) have trailing
 # space. Fix: bound the right edge to the text width.
 private def te_screen
   Crysterm::Window.new(

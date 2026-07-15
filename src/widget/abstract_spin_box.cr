@@ -17,7 +17,7 @@ module Crysterm
     abstract class AbstractSpinBox < Input
       # A spin box honors its given `width` rather than shrinking to its
       # content (shared by `SpinBox`/`DoubleSpinBox`/`DateTimeEdit`).
-      @resizable = false
+      @shrink_to_fit = false
 
       # Indicates focus via reverse-video at the unstyled floor (see
       # `Mixin::Style#floor_focus_reverse?`): a small, single-line control like

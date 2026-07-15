@@ -2,25 +2,45 @@ module Crysterm
   module Mixin
     # Shared paged-container machinery: a list of `#pages` of which exactly one is
     # visible at a time, identified by `#current_index`. Factored out of
-    # `Widget::StackedWidget` (Qt's `QStackedWidget`) and `Widget::TabWidget`
-    # (Qt's `QTabWidget`), which both keep parallel pages, raise one and hide the
-    # rest, and step through them with wrap-around.
+    # `Widget::StackedWidget` (Qt's `QStackedWidget`), `Widget::TabWidget` (Qt's
+    # `QTabWidget`) and `Widget::ToolBox` (Qt's `QToolBox`), which all keep
+    # parallel pages, raise one and hide the rest, and step through them with
+    # wrap-around.
+    #
+    # It also fixes the vocabulary for the whole family, so a caller who knows one
+    # of these widgets knows all of them: `#count`, `#current_index` /
+    # `#current_index=`, `#current_widget` / `#current_widget=`, and
+    # `Event::CurrentChanged` (Qt's `currentChanged(int)`) on every change. Each
+    # widget keeps only the *adding* verb its domain wants (`#add_page`/`#add_tab`/
+    # `#add_item`); nothing else is per-widget spelling.
     #
     # The including widget appends its own pages to `#pages` (with whatever sizing
     # it needs), then drives selection through the protected `#show_index`,
-    # `#next_index` and `#previous_index` core — usually behind its own
-    # domain-named public methods (`show_page`/`show_tab`, …). Per-widget work
-    # after a switch (e.g. `TabWidget` mirroring the selection in its tab bar) goes
-    # in `#after_show_index`, the default being a no-op.
+    # `#next_index` and `#previous_index` core. Per-widget work after a switch
+    # (e.g. `TabWidget` mirroring the selection in its tab bar) goes in
+    # `#after_show_index`, the default being a no-op.
     module PagedContainer
       # The pages, in insertion order.
       getter pages = [] of Widget
 
-      # Index of the visible page (`-1` until the first page is added).
+      # Index of the visible page (`-1` until the first page is added). Assigning
+      # raises that page and hides the others; out-of-range is a no-op (Qt's
+      # `setCurrentIndex`).
       getter current_index : Int32 = -1
 
-      # The currently visible page, or `nil` when there are none.
-      def current_page : Widget?
+      # :ditto:
+      def current_index=(index : Int) : Nil
+        show_index index
+      end
+
+      # Number of pages (Qt's `count`).
+      def count : Int32
+        @pages.size
+      end
+
+      # The currently visible page, or `nil` when there are none (Qt's
+      # `currentWidget`).
+      def current_widget : Widget?
         # Guard the `-1` sentinel explicitly: Crystal's `[]?` treats a negative
         # index as counting from the end, so `@pages[-1]?` would wrongly return
         # the last page instead of `nil`.
@@ -28,8 +48,15 @@ module Crysterm
         @pages[@current_index]?
       end
 
-      # Raises the page at *index*, hiding the others. No-op for an out-of-range
-      # index or the already-current page.
+      # Raises *page*, hiding the others (Qt's `setCurrentWidget`). A page this
+      # container doesn't hold is a no-op.
+      def current_widget=(page : Widget) : Nil
+        (i = @pages.index page) && show_index(i)
+      end
+
+      # Raises the page at *index*, hiding the others, and emits
+      # `Event::CurrentChanged`. No-op for an out-of-range index or the
+      # already-current page.
       protected def show_index(index : Int) : Nil
         return unless 0 <= index < @pages.size
         return if index == @current_index
@@ -38,7 +65,17 @@ module Crysterm
           i == index ? page.show : page.hide
         end
         after_show_index index
+        emit ::Crysterm::Event::CurrentChanged, @current_index
         request_render
+      end
+
+      # Drops the selection back to the `-1` sentinel and announces it. For a
+      # container that just lost its last page: there is nothing left to
+      # `#show_index`, so nothing else would report the change.
+      protected def clear_current_index : Nil
+        return if @current_index < 0
+        @current_index = -1
+        emit ::Crysterm::Event::CurrentChanged, -1
       end
 
       # Hook for per-widget work after the visible page changes (e.g. mirroring
@@ -69,7 +106,7 @@ module Crysterm
       # Selects the previous page, wrapping at the start.
       protected def previous_index : Nil
         return if @pages.empty?
-        # Guard the `-1` sentinel explicitly, mirroring `#current_page`: a raw
+        # Guard the `-1` sentinel explicitly, mirroring `#current_widget`: a raw
         # `(@current_index - 1) % size` maps `-1` to `size - 2`, silently
         # skipping the last page. From unselected, "previous" should wrap to the
         # last page, symmetric with `#next_index` landing on the first.

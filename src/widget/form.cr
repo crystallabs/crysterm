@@ -283,10 +283,10 @@ module Crysterm
         when FileManager then el.refresh
           # Reset every item view (`List`/`ListTable`/`Tree`), not just `List`
           # (siblings, see `#field_value`). `FileManager` is handled above.
-        when Mixin::ItemView then el.selekt 0
+        when Mixin::ItemView then el.select_index 0
           # As in `#field_value`: clear via `Mixin::TextEditing` so `LineEdit`
           # (an `Input`, not a `PlainTextEdit`) is reset too.
-        when Mixin::TextEditing then el.clear_value
+        when Mixin::TextEditing then el.clear
           # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.
         when RadioButton then el.uncheck
         when CheckBox    then el.uncheck

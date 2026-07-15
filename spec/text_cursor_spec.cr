@@ -67,7 +67,7 @@ describe Crysterm::TextCursor do
       _, c = doc_and_cursor("hello world")
       c.set_position(6)
       c.set_position(11, :keep_anchor)
-      c.has_selection?.should be_true
+      c.selection?.should be_true
       c.selection_start.should eq 6
       c.selected_text.should eq "world"
     end
@@ -105,7 +105,7 @@ describe Crysterm::TextCursor do
       c.set_position(11, :keep_anchor)
       c.insert_text("kind!")
       doc.to_plain_text.should eq "hello kind! world"
-      c.has_selection?.should be_false
+      c.selection?.should be_false
       doc.undo
       doc.to_plain_text.should eq "hello cruel world"
     end

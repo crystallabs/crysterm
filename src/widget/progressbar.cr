@@ -3,10 +3,10 @@ module Crysterm
     # Progress bar element, modeled after Qt's `QProgressBar`.
     #
     # The authoritative state is `#value`, an integer within the inclusive range
-    # `[#minimum, #maximum]`. The visually filled portion (`#filled`, a 0..100
+    # `[#minimum, #maximum]`. The visually filled portion (`#percent`, a 0..100
     # percentage) is derived from where `value` sits in that range, so callers may
     # drive the bar either in domain units (`bar.value = 42`, range 0..200) or in
-    # plain percentages (`bar.filled = 50`) — both stay consistent.
+    # plain percentages (`bar.percent = 50`) — both stay consistent.
     #
     # <!-- widget-examples:capture v1 -->
     # ![ProgressBar screenshot](../../tests/widget/progressbar/progressbar.5s.apng)
@@ -42,7 +42,7 @@ module Crysterm
         @maximum
       end
 
-      # Sets both bounds at once (Qt's `setRange`). `#filled` and the
+      # Sets both bounds at once (Qt's `setRange`). `#percent` and the
       # `%p`/`%m`/`%M` text derive from the range, so this re-clamps the current
       # value into the new range and schedules a repaint. Never stores an
       # inverted range.
@@ -61,20 +61,35 @@ module Crysterm
         request_render
       end
 
+      # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
+      # `setRange`), so a bar takes one the same way a `Slider`/`Dial` does. An
+      # exclusive range (`begin...end`) covers `begin..end - 1`, matching
+      # Crystal's own `Range` semantics; a degenerate empty exclusive range
+      # (`n...n`) collapses to the single value `n` instead of inverting.
+      #
+      # Byte-identical to `Mixin::RangedValue#range=`, hand-copied for the same
+      # reason `#span` is (ProgressBar can't include that mixin — see `#span`).
+      def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
+        max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
+        set_range r.begin, max
+        r
+      end
+
       # Amount a single key press (or default `#progress`) moves the value by,
-      # in domain units. Mirrors Qt's `QAbstractSlider#singleStep`.
-      property step : Int32 = 5
+      # in domain units. Qt's `QAbstractSlider#singleStep`, spelled as in
+      # `Mixin::RangedValue#single_step`.
+      property single_step : Int32 = 5
 
       property orientation : Tput::Orientation = :horizontal
 
-      # Whether to draw the textual indicator (see `#text_format`) over the bar,
+      # Whether to draw the textual indicator (see `#format`) over the bar,
       # like Qt's `QProgressBar#textVisible`.
-      property? show_text : Bool = false
+      property? show_value : Bool = false
 
-      # Template for the text drawn when `#show_text?`. Recognized placeholders,
+      # Template for the text drawn when `#show_value?`. Recognized placeholders,
       # matching Qt's `QProgressBar#format`: `%p` percentage, `%v` current value,
       # `%m` maximum, `%M` minimum.
-      property text_format : String = "%p%"
+      property format : String = "%p%"
 
       # XXX Change this to enabled? later.
       property? keys : Bool = true
@@ -83,13 +98,13 @@ module Crysterm
       @value : Int32 = 0
 
       def initialize(
-        filled : Int32? = nil,
+        percent : Int32? = nil,
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @step = 5,
-        @show_text = false,
-        @text_format = "%p%",
+        @single_step = 5,
+        @show_value = false,
+        @format = "%p%",
         @keys = true,
         @mouse = false,
         @orientation = @orientation,
@@ -97,19 +112,19 @@ module Crysterm
       )
         super **input
 
-        # Never start with an inverted range: `#filled`/`#span`/the `%p` text all
+        # Never start with an inverted range: `#percent`/`#span`/the `%p` text all
         # assume `minimum <= maximum`, and `#set_range` already refuses to store
         # one — guard the direct-`@ivar` constructor path too (mirrors the
         # `#init_range` guard `Slider`/`Dial`/`ScrollBar` run). A `maximum` below
         # `minimum` collapses the range to `minimum`, matching Qt's `setRange`.
         @maximum = @minimum if @maximum < @minimum
 
-        # `value` (domain units) takes precedence; otherwise honor `filled`
+        # `value` (domain units) takes precedence; otherwise honor `percent`
         # (percentage). Default to the minimum (empty bar).
         if value
           self.value = value
-        elsif filled
-          self.filled = filled
+        elsif percent
+          self.percent = percent
         else
           @value = @minimum
         end
@@ -130,7 +145,7 @@ module Crysterm
             pos, span = pointer_offset e, invert: true
             next if span <= 0
 
-            self.filled = (pos * 100 // span).clamp(0, 100)
+            self.percent = (pos * 100 // span).clamp(0, 100)
             e.accept
           end
         end
@@ -154,16 +169,16 @@ module Crysterm
       #
       # The Int32 analogue of `Mixin::PercentRange#percent_of` (with avail=100):
       # same position-in-range mapping, adapted to ProgressBar's integer range and
-      # 0-for-empty convention. `#filled=` is its inverse.
-      def filled : Int32
+      # 0-for-empty convention. `#percent=` is its inverse.
+      def percent : Int32
         s = span
         return 0 if s == 0
         ((@value - @minimum) * 100.0 / s).round.to_i.clamp(0, 100)
       end
 
       # Sets the fill from a 0..100 percentage by mapping it back onto the range
-      # (the inverse of `#filled`).
-      def filled=(percent : Int32) : Int32
+      # (the inverse of `#percent`).
+      def percent=(percent : Int32) : Int32
         # Coerce to float before multiplying: `percent * span` as Int32 × Int32
         # overflows for a range whose `span` exceeds ~21M (at percent=100).
         self.value = @minimum + (percent.clamp(0, 100).to_f * span / 100.0).round.to_i
@@ -175,13 +190,13 @@ module Crysterm
         @value
       end
 
-      # Sets the value, clamping it into range. Emits `Event::ValueChange` when it
+      # Sets the value, clamping it into range. Emits `Event::ValueChanged` when it
       # actually changes, and `Event::Complete` upon reaching `#maximum`.
       def value=(v : Int32) : Int32
         set_value v, complete: true
       end
 
-      # Assigns the value (clamped), emitting `Event::ValueChange` on a real
+      # Assigns the value (clamped), emitting `Event::ValueChanged` on a real
       # change and — when *complete* — `Event::Complete` upon reaching
       # `#maximum`. `#set_range`'s re-clamp passes `complete: false` so shrinking
       # the range onto the value doesn't fire a spurious completion.
@@ -189,7 +204,7 @@ module Crysterm
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
         @value = v
-        emit Crysterm::Event::ValueChange, @value
+        emit Crysterm::Event::ValueChanged, @value
         emit Crysterm::Event::Complete if complete && @value == @maximum && span > 0
         request_render
         @value
@@ -197,25 +212,25 @@ module Crysterm
 
       # Cached indicator text and the `{value, minimum, maximum, format}` it was
       # built for. `#render` calls `#formatted_text` every frame when
-      # `#show_text?`; the four chained `gsub`s + four `to_s` only need to rerun
-      # when one of those inputs changes (`#filled` derives from the range, so
+      # `#show_value?`; the four chained `gsub`s + four `to_s` only need to rerun
+      # when one of those inputs changes (`#percent` derives from the range, so
       # it's covered by the key).
       @text_cache : String?
       @text_cache_key : Tuple(Int32, Int32, Int32, String)?
 
-      # Builds the textual indicator from `#text_format` (memoized).
+      # Builds the textual indicator from `#format` (memoized).
       private def formatted_text : String
-        key = {@value, @minimum, @maximum, text_format}
+        key = {@value, @minimum, @maximum, format}
         if @text_cache_key != key || (cached = @text_cache).nil?
           @text_cache_key = key
-          @text_cache = cached = format_range_text text_format, filled.to_s, @value.to_s, @maximum.to_s, @minimum.to_s
+          @text_cache = cached = format_range_text format, percent.to_s, @value.to_s, @maximum.to_s, @minimum.to_s
         end
         cached
       end
 
       def render
         with_inner_coords do |xi, xl, yi, yl|
-          pct = filled
+          pct = percent
           # Filled sub-region (rest of interior stays unfilled). Kept separate so
           # `xi`/`xl`/`yi`/`yl` remain the full interior for the overlay below.
           fill_xl = xl
@@ -237,7 +252,7 @@ module Crysterm
 
           # Text to overlay: the Qt-style indicator when enabled, otherwise any
           # pre-parsed content (via `#pcontent`).
-          if show_text?
+          if show_value?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
             # Overlay on the stable top interior row (`yi`), not `fill_yi`, which
@@ -248,7 +263,7 @@ module Crysterm
         end
       end
 
-      # Draws `text` centered over the whole inner region (used for `show_text?`)
+      # Draws `text` centered over the whole inner region (used for `show_value?`)
       # so the indicator stays readable regardless of fill amount.
       private def draw_overlay_text(text : String) : Nil
         return if text.empty?
@@ -270,7 +285,7 @@ module Crysterm
       def reset
         emit Crysterm::Event::Reset
         @value = @minimum
-        emit Crysterm::Event::ValueChange, @value
+        emit Crysterm::Event::ValueChanged, @value
         request_render
       end
 
@@ -280,9 +295,9 @@ module Crysterm
         # Keys don't conflict, so support both regardless of orientation.
         # `#progress` routes through `#value=`, which repaints on actual change.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
-          progress -@step
+          progress -@single_step
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
-          progress @step
+          progress @single_step
         end
       end
     end

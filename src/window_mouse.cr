@@ -595,7 +595,7 @@ module Crysterm
       # what `_render` laid down: it folds in the margin shift AND the
       # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
       # viewport, so a scrolled list item is matched where it actually appears
-      # (and a `resizable` widget by its shrunk content box, not the full slot
+      # (and a `shrink_to_fit` widget by its shrunk content box, not the full slot
       # `awidth` reports). Raw geometry would ignore all of that and hit-test
       # scrolled/shrunk children by their unscrolled, unclipped rectangle.
       # `render_children` refreshes every descendant's `lpos` each frame, so it
@@ -659,10 +659,16 @@ module Crysterm
 
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not
     # merely flagged visible while sitting in a hidden container.
+    #
+    # Forwards to `Widget#visible_in_tree?`, the one true predicate. The former
+    # hand-rolled walk read `style.visible?` rather than `#visible?`'s
+    # `state_style.visible?`; the two can never disagree on `visible` (the only
+    # divergence is `#style`'s reverse-video `#dup` for a floor-highlighted
+    # `:focused`/`:selected` widget, and a `dup` carries `visible` through
+    # unchanged), so the answer is identical — and `state_style` skips the
+    # resolution `#style` runs, which this per-event hit-test/focus path is on.
     private def displayed_in_tree?(el : Widget) : Bool
-      # No self-or-ancestor may be hidden — i.e. no widget in the chain fails
-      # the visibility test.
-      el.first_self_or_ancestor { |a| !a.style.visible? }.nil?
+      el.visible_in_tree?
     end
 
     # Registers *el* as a widget that wants mouse input. Mirrors

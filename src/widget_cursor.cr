@@ -15,7 +15,15 @@ module Crysterm
       @cursor ||= Cursor.new
     end
 
-    # Sets this widget's cursor shape (and blink), overriding the window default
+    # Sets this widget's cursor shape, overriding the window default while the
+    # widget is focused. Leaves blink at its default (off); see the two-argument
+    # `#cursor_shape` to set both.
+    def cursor_shape=(shape : Tput::CursorShape) : Tput::CursorShape
+      cursor_shape shape
+      shape
+    end
+
+    # Sets this widget's cursor shape *and* blink, overriding the window default
     # while the widget is focused. Routes through the window so the hardware vs.
     # artificial decision and (re)rendering are identical to the window cursor.
     #
@@ -33,6 +41,12 @@ module Crysterm
         c.blink = blink
         c._set = false
       end
+    end
+
+    # :ditto:
+    def cursor_color=(color : String?) : String?
+      cursor_color color
+      color
     end
 
     # Sets this widget's cursor color, overriding the window default while the

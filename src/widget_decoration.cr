@@ -29,33 +29,35 @@ module Crysterm
     end
 
     # Returns computed content offset from left
-    def ileft
+    def ileft : Int32
       frame_insets[0]
     end
 
     # Returns computed content offset from top
-    def itop
+    def itop : Int32
       frame_insets[1]
     end
 
     # Returns computed content offset from right
-    def iright
+    def iright : Int32
       frame_insets[2]
     end
 
     # Returns computed content offset from bottom
-    def ibottom
+    def ibottom : Int32
       frame_insets[3]
     end
 
-    # Returns summed amount of content offset from left and right
-    def iwidth
+    # Total horizontal inset: `ileft + iright`. **Not** an inner width — the
+    # content width is `awidth - ihorizontal`.
+    def ihorizontal : Int32
       fi = frame_insets
       fi[0] + fi[2]
     end
 
-    # Returns summed amount of content offset from top and bottom
-    def iheight
+    # Total vertical inset: `itop + ibottom`. **Not** an inner height — the
+    # content height is `aheight - ivertical`.
+    def ivertical : Int32
       fi = frame_insets
       fi[1] + fi[3]
     end
@@ -76,16 +78,16 @@ module Crysterm
     # ```
     # # Map a click to a cell of a fixed-width grid.
     # box.on(Event::Mouse) do |e|
-    #   next unless (r = box.content_rect) && r.contains?(e.x, e.y)
-    #   col = (e.x - r.xi) // CELL_W
-    #   row = e.y - r.yi
+    #   next unless (r = box.contents_rect) && r.contains?(e.x, e.y)
+    #   col = (e.x - r.left) // CELL_W
+    #   row = e.y - r.top
     # end
     # ```
     #
-    # Prefer this over hand-rolling `aleft(true) + ileft` / `awidth - iwidth`:
+    # Prefer this over hand-rolling `aleft(true) + ileft` / `awidth - ihorizontal`:
     # those mix the *rendered* and *live* geometry bases (`aleft(true)` reads the
     # last frame, bare `awidth` recomputes now), which disagree mid-resize.
-    def content_rect : Rectangle?
+    def contents_rect : Rectangle?
       lp = @lpos || return nil
       xi = lp.xi + ileft
       xl = lp.xl - iright
@@ -96,25 +98,27 @@ module Crysterm
     end
 
     # Outer (margin) offsets. Counterpart to the inner `i*` offsets above,
-    # applied to the resolved rectangle in `#_get_coords`. Used by
+    # applied to the resolved rectangle in `#coords`. Used by
     # shrink-to-content sizing (`widget_size.cr`) so margin doesn't eat into a
     # shrunk widget's content.
 
     {% for side in %w[left top right bottom] %}
       # Margin offset on the {{side.id}} side
-      def m{{side.id}}
+      def m{{side.id}} : Int32
         style.margin.{{side.id}}
       end
     {% end %}
 
-    # Summed margin offset from left and right
-    def mwidth
+    # Total horizontal margin: `mleft + mright`. **Not** a width; see
+    # `#ihorizontal`.
+    def mhorizontal : Int32
       m = style.margin
       m.left + m.right
     end
 
-    # Summed margin offset from top and bottom
-    def mheight
+    # Total vertical margin: `mtop + mbottom`. **Not** a height; see
+    # `#ivertical`.
+    def mvertical : Int32
       m = style.margin
       m.top + m.bottom
     end

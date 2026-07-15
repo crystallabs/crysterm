@@ -147,7 +147,7 @@ module Crysterm
 
     # The raw `full_unicode` *option* as requested, before the `#full_unicode?`
     # terminal-capability gate applies. Used when copying options to a new device.
-    def full_unicode_requested : Bool
+    def full_unicode_requested? : Bool
       @full_unicode
     end
 
@@ -348,7 +348,7 @@ module Crysterm
     end
 
     # Applies a new size from a resize event, honoring the explicit-size pin.
-    def set_size(width : Int32, height : Int32) : Nil
+    def resize(width : Int32, height : Int32) : Nil
       @width = width unless @explicit_width
       @height = height unless @explicit_height
     end

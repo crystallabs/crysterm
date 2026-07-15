@@ -6,7 +6,7 @@ include Crysterm
 # (inner insets), and outward like CSS: a fixed-size element keeps its size and
 # is pushed away from its anchored edge, reserving empty space around it,
 # without touching inner content offsets (`ileft` & co.). Specs assert the
-# resolved rectangle (`_get_coords`/`lpos`), content preservation, CSS parsing,
+# resolved rectangle (`coords`/`lpos`), content preservation, CSS parsing,
 # and sibling spacing.
 
 private def render_screen
@@ -60,15 +60,15 @@ describe "margin" do
 
   describe "geometry" do
     # Pre-cascade: `style` short-circuits to the inline `@style`, exercising the
-    # inline constructor + `_get_coords` inset directly, without CSS in between.
+    # inline constructor + `coords` inset directly, without CSS in between.
     it "shifts a fixed-size widget by its margin, keeping its size (inline)" do
       screen = render_screen
       plain = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
       boxed = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5,
         style: Style.new(margin: 1)
 
-      pl = plain._get_coords.not_nil!
-      bx = boxed._get_coords.not_nil!
+      pl = plain.coords.not_nil!
+      bx = boxed.coords.not_nil!
 
       # Plain box occupies its full slot.
       {pl.xi, pl.xl, pl.yi, pl.yl}.should eq({2, 12, 1, 6})
@@ -82,7 +82,7 @@ describe "margin" do
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 20, height: 10,
         style: Style.new(margin: Margin.new(left: 1, top: 2, right: 3, bottom: 4))
 
-      l = box._get_coords.not_nil!
+      l = box.coords.not_nil!
       # Left/top-anchored: only the near (left/top) margins shift the box; the
       # far (right/bottom) margins reserve space outside, keeping the 20x10 size.
       {l.xi, l.xl, l.yi, l.yl}.should eq({0 + 1, 20 + 1, 0 + 2, 10 + 2})
@@ -110,9 +110,9 @@ describe "margin" do
       # i* are inner offsets: border(1) + padding(1) = 2 per side, regardless of
       # margin. m* are the separate outer offsets.
       box.ileft.should eq 2
-      box.iwidth.should eq 4
+      box.ihorizontal.should eq 4
       box.mleft.should eq 2
-      box.mwidth.should eq 4
+      box.mhorizontal.should eq 4
     end
   end
 
@@ -120,9 +120,9 @@ describe "margin" do
     it "reserves room so a margin never clips a content-sized widget" do
       screen = render_screen
       plain = Widget::Box.new parent: screen, top: 0, left: 0, content: "hello"
-      plain.resizable = true
+      plain.shrink_to_fit = true
       boxed = Widget::Box.new parent: screen, top: 0, left: 0, content: "hello"
-      boxed.resizable = true
+      boxed.shrink_to_fit = true
       boxed.add_css_class "m"
       screen.stylesheet = ".m { margin: 1; }"
       screen._render

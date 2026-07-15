@@ -77,7 +77,6 @@ describe "ALLOCS Group P/I behaviour preservation" do
       # Change the indent width; a rebuild must reflect the new spacing
       # (the memoized indent strings are invalidated on the setter).
       tree.indent = 4
-      tree.rebuild
       rows = tree.ritems
       rows[1].should eq "    \u{25BE} child"   # depth 1: now 4 spaces
       rows[2].should eq "          grandchild" # depth 2: now 8 spaces + leaf ' ' + ' '

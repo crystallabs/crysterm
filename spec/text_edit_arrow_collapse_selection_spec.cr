@@ -41,7 +41,7 @@ describe "Mixin::TextEditing plain arrow collapses an active selection" do
 
     le._listener ctl(Tput::Key::Right)
 
-    le.has_selection?.should be_false
+    le.selection?.should be_false
     le.cursor_pos.should eq 2 # collapsed to the selection end, NOT 3
   end
 
@@ -54,7 +54,7 @@ describe "Mixin::TextEditing plain arrow collapses an active selection" do
 
     le._listener ctl(Tput::Key::Left)
 
-    le.has_selection?.should be_false
+    le.selection?.should be_false
     le.cursor_pos.should eq 0 # collapsed to the selection start, NOT 1
   end
 

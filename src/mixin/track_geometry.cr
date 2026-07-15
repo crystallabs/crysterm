@@ -28,9 +28,9 @@ module Crysterm
         lp = @lpos
         if @orientation.horizontal?
           origin_x = lp ? lp.xi : aleft
-          {e.x - origin_x - ileft, awidth - iwidth - 1}
+          {e.x - origin_x - ileft, awidth - ihorizontal - 1}
         else
-          span = aheight - iheight - 1
+          span = aheight - ivertical - 1
           origin_y = lp ? lp.yi : atop
           pos = e.y - origin_y - itop
           {invert ? span - pos : pos, span}
