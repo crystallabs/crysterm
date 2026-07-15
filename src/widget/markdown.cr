@@ -119,9 +119,13 @@ module Crysterm
         # Prepend a sacrificial one directly to the buffer (not via `#literal`,
         # so it doesn't touch `@emitted`/`@last_output`) so the real first
         # line break survives.
+        #
+        # `markd`'s `#render` takes a syntax-highlighting *formatter* for code
+        # blocks (a `Tartrazine::Formatter`); we style code blocks ourselves, so
+        # pass `nil`.
         def render(document : Markd::Node) : String
           @output_io << "\n"
-          super
+          super document, nil
         end
 
         # Track whether anything has been written yet (for `#blank_line`).
@@ -132,7 +136,7 @@ module Crysterm
 
         # --- block elements ----------------------------------------------------
 
-        def heading(node : Markd::Node, entering : Bool)
+        def heading(node : Markd::Node, entering : Bool) : Nil
           if entering
             blank_line
             level = node.data["level"].as(Int32)
@@ -144,7 +148,7 @@ module Crysterm
           end
         end
 
-        def paragraph(node : Markd::Node, entering : Bool)
+        def paragraph(node : Markd::Node, entering : Bool) : Nil
           if entering
             # GFM tables aren't parsed by markd — they arrive as a paragraph of
             # `| … |` rows. Detect and render as a box-drawing table, suppressing
@@ -165,7 +169,7 @@ module Crysterm
           end
         end
 
-        def block_quote(node : Markd::Node, entering : Bool)
+        def block_quote(node : Markd::Node, entering : Bool) : Nil
           if entering
             blank_line
             @quote += 1
@@ -177,14 +181,35 @@ module Crysterm
           end
         end
 
-        def thematic_break(node : Markd::Node, entering : Bool)
+        # A GFM alert (`> [!NOTE] …`) — a blockquote with a title. Requires
+        # `Markd::Options#gfm?`, which we don't enable, so this is currently
+        # unreachable; rendered as a titled quote for when it is.
+        def alert(node : Markd::Node, entering : Bool) : Nil
+          if entering
+            blank_line
+            @quote += 1
+            literal "{#{Colors.hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} {bold}"
+            text_out node.data["title"].as(String)
+            literal "{/bold}"
+            newline
+            literal "{#{Colors.hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} "
+          else
+            @quote -= 1
+            literal "{/#{Colors.hex @md.quote_color}-fg}"
+            newline
+          end
+        end
+
+        def thematic_break(node : Markd::Node, entering : Bool) : Nil
           return unless entering
           blank_line
           literal "{#404a57-fg}" + (@md.glyph(Glyphs::Role::LineHorizontal).to_s * 24) + "{/#404a57-fg}"
           newline
         end
 
-        def code_block(node : Markd::Node, entering : Bool)
+        # *formatter* is `markd`'s optional syntax highlighter; unused (see
+        # `#render`), but it's part of the abstract signature.
+        def code_block(node : Markd::Node, entering : Bool, formatter : T?) : Nil forall T
           return unless entering
           blank_line
           node.text.chomp.each_line do |line|
@@ -195,7 +220,7 @@ module Crysterm
           end
         end
 
-        def list(node : Markd::Node, entering : Bool)
+        def list(node : Markd::Node, entering : Bool) : Nil
           if entering
             blank_line if @lists.empty? # space a top-level list from prior block
             ordered = node.data["type"]? != "bullet"
@@ -207,7 +232,7 @@ module Crysterm
           end
         end
 
-        def item(node : Markd::Node, entering : Bool)
+        def item(node : Markd::Node, entering : Bool) : Nil
           return unless entering
           return if @lists.empty?
           depth = @lists.size - 1
@@ -234,29 +259,37 @@ module Crysterm
 
         # --- inline elements ---------------------------------------------------
 
-        def text(node : Markd::Node, entering : Bool)
+        def text(node : Markd::Node, entering : Bool) : Nil
           return if !entering || @in_table
           text_out node.text
         end
 
-        def strong(node : Markd::Node, entering : Bool)
+        def strong(node : Markd::Node, entering : Bool) : Nil
           return if @in_table
           literal(entering ? "{bold}" : "{/bold}")
         end
 
-        def emphasis(node : Markd::Node, entering : Bool)
+        def emphasis(node : Markd::Node, entering : Bool) : Nil
           return if @in_table
           literal(entering ? "{italic}" : "{/italic}")
         end
 
-        def code(node : Markd::Node, entering : Bool)
+        # Only reachable with `Markd::Options#gfm?` on, which we don't enable —
+        # `~~…~~` arrives as literal text and `#text_out` styles it instead.
+        # Implemented so the two paths agree if GFM is ever turned on.
+        def strikethrough(node : Markd::Node, entering : Bool) : Nil
+          return if @in_table
+          literal(entering ? "{strike}" : "{/strike}")
+        end
+
+        def code(node : Markd::Node, entering : Bool) : Nil
           return if !entering || @in_table
           literal "{#{Colors.hex @md.code_bg}-bg}{#{Colors.hex @md.code_color}-fg}"
           text_out node.text
           literal "{/#{Colors.hex @md.code_color}-fg}{/#{Colors.hex @md.code_bg}-bg}"
         end
 
-        def link(node : Markd::Node, entering : Bool)
+        def link(node : Markd::Node, entering : Bool) : Nil
           return if @in_table
           if entering
             @link_url = node.data["destination"]?.try &.as(String)
@@ -271,29 +304,29 @@ module Crysterm
           end
         end
 
-        def image(node : Markd::Node, entering : Bool)
+        def image(node : Markd::Node, entering : Bool) : Nil
           # Prefix the alt text since the image itself can't render inline.
           literal(entering ? "{#808a96-fg}🖼 " : "{/#808a96-fg}")
         end
 
-        def soft_break(node : Markd::Node, entering : Bool)
+        def soft_break(node : Markd::Node, entering : Bool) : Nil
           # Soft wrap becomes a space; the widget re-wraps to its width.
           literal " " if entering && !@in_table
         end
 
-        def line_break(node : Markd::Node, entering : Bool)
+        def line_break(node : Markd::Node, entering : Bool) : Nil
           # Table rows suppress inline children (drawn atomically by
           # `render_table`); swallow hard breaks too or they leak a stray newline.
           newline if entering && !@in_table
         end
 
-        def html_block(node : Markd::Node, entering : Bool)
+        def html_block(node : Markd::Node, entering : Bool) : Nil
           return unless entering
           text_out node.text
           newline
         end
 
-        def html_inline(node : Markd::Node, entering : Bool)
+        def html_inline(node : Markd::Node, entering : Bool) : Nil
           text_out node.text if entering
         end
 
@@ -352,6 +385,22 @@ module Crysterm
         end
 
         # --- GFM tables (rendered as box-drawing text) -------------------------
+
+        # `markd` only emits `Table`/`TableRow`/`TableCell` nodes with
+        # `Markd::Options#gfm?` on. We leave it off, so tables reach us as a
+        # paragraph of `| … |` rows and `#paragraph` hands them to
+        # `#render_table` below, which knows the column widths and can draw a
+        # bordered box — something the streaming per-cell callbacks can't do.
+        # These exist only to satisfy the abstract interface.
+
+        def table(node : Markd::Node, entering : Bool) : Nil
+        end
+
+        def table_row(node : Markd::Node, entering : Bool) : Nil
+        end
+
+        def table_cell(node : Markd::Node, entering : Bool) : Nil
+        end
 
         # Whether *text* is a GFM table: a header row, then a delimiter row of
         # `-`/`:`/`|`/spaces containing at least one `-`.
