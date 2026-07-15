@@ -4,13 +4,15 @@ require "./scrollable_text"
 module Crysterm
   class Widget
     # A read-only Markdown viewer, modeled after Qt's `QTextBrowser` fed by
-    # `QTextDocument#setMarkdown`. CommonMark is parsed by the `markd` shard and
-    # rendered to styled, scrollable terminal text (crysterm style tags) rather
-    # than raw ANSI. As a `ScrollableText` it scrolls and wraps for free.
+    # `QTextDocument#setMarkdown`. GitHub Flavored Markdown is parsed by the
+    # `markd` shard and rendered to styled, scrollable terminal text (crysterm
+    # style tags) rather than raw ANSI. As a `ScrollableText` it scrolls and
+    # wraps for free.
     #
-    # Supported: headings, **bold**/*italic*, `inline code`, fenced code blocks,
-    # blockquotes, ordered/unordered (nestable) lists, thematic breaks, links and
-    # images (shown as text). Set the document with `#markdown=` / `#set_markdown`.
+    # Supported: headings, **bold**/*italic*/~~strikethrough~~, `inline code`,
+    # fenced code blocks, blockquotes and alerts (`> [!NOTE]`), ordered/unordered
+    # /task (nestable) lists, tables, thematic breaks, links and images (shown as
+    # text). Set the document with `#markdown=` / `#set_markdown`.
     #
     # Links: anchors are collected into `#links` and a link can be activated
     # programmatically with `#activate_link`, which emits `Event::AnchorClick`
@@ -30,6 +32,13 @@ module Crysterm
     # ![Markdown screenshot](../../tests/widget/markdown/markdown.5s.apng)
     # <!-- /widget-examples:capture -->
     class Markdown < ScrollableText
+      # Parser and renderer options; both must agree, so they share one instance.
+      # GFM buys tables, task lists, strikethrough and alerts natively.
+      # `Markd::Options` is a mutable class — sharing is safe only because
+      # nothing mutates it (the renderer reads `@options` for `Utils.timer`
+      # alone), so don't hand it out to callers.
+      OPTIONS = Markd::Options.new(gfm: true)
+
       # A link found in the document (Qt's anchor). `text` is the visible label,
       # `url` the destination.
       struct Link
@@ -71,7 +80,7 @@ module Crysterm
       def set_markdown(str : String) : Nil
         @markdown = str
         renderer = Renderer.new self
-        document = Markd::Parser.parse str
+        document = Markd::Parser.parse str, OPTIONS
         self.content = renderer.render document
         @links = renderer.links
         request_render
@@ -99,20 +108,27 @@ module Crysterm
         # While inside a link, its destination + accumulated visible text.
         @link_url : String? = nil
         @link_text = ""
-        # Blockquote nesting depth.
+        # Blockquote/alert nesting depth.
         @quote = 0
-        # Leading characters still to strip from upcoming text (a task-list item's
-        # `[ ] ` / `[x] ` marker, which markd tokenizes as plain text).
-        @strip_task = 0
-        # While rendering a GFM table (which markd parses as a plain paragraph),
-        # the paragraph's text/inline children are suppressed.
-        @in_table = false
         # Whether any non-empty output has been emitted (so the first block gets
         # no leading blank line).
         @emitted = false
+        # While inside a table cell, output is diverted here rather than emitted,
+        # and the cell's visible width accumulated alongside it. The width is
+        # counted as we go because a rendered cell is a mix of visible text and
+        # style tags, and afterwards the two can't be told apart: `{open}` and
+        # `{close}` are how `#text_out` escapes a literal brace, and they look
+        # exactly like tags while occupying one column each.
+        @capture : String::Builder? = nil
+        @capture_width = 0
+        # The table being built: finished rows of `{rendered, visible width}`
+        # cells, plus the per-column alignment taken from the header row.
+        @rows = [] of {cells: Array({String, Int32}), heading: Bool}
+        @row = [] of {String, Int32}
+        @aligns = [] of String
 
         def initialize(@md : Markdown)
-          super(Markd::Options.new)
+          super(OPTIONS)
         end
 
         # `Markd::Renderer#render` strips the first newline of the output.
@@ -128,10 +144,32 @@ module Crysterm
           super document, nil
         end
 
-        # Track whether anything has been written yet (for `#blank_line`).
+        # Diverts into the cell capture, or tracks whether anything has been
+        # written yet (for `#blank_line`). A capture deliberately touches neither
+        # `@emitted` nor `@last_output`: nothing has been emitted until the
+        # finished cell is painted as part of its row.
         def literal(string : String)
+          if cap = @capture
+            cap << string
+            return
+          end
           @emitted = true unless string.empty?
           super
+        end
+
+        # A cell is a single line by construction (`rules/table.cr` splits rows
+        # on newlines), so a newline reaching a capture — from a hard break in
+        # cell markup, say — could only corrupt the row it lands in.
+        def newline
+          return if @capture
+          super
+        end
+
+        # Emits *str* as-is, counting it toward the cell width if capturing.
+        # For text that is visible but isn't markup content (`#image`'s prefix).
+        private def visible(str : String) : Nil
+          @capture_width += ::Crysterm::Unicode.display_width(str) if @capture
+          literal str
         end
 
         # --- block elements ----------------------------------------------------
@@ -150,20 +188,9 @@ module Crysterm
 
         def paragraph(node : Markd::Node, entering : Bool) : Nil
           if entering
-            # GFM tables aren't parsed by markd — they arrive as a paragraph of
-            # `| … |` rows. Detect and render as a box-drawing table, suppressing
-            # the paragraph's own children.
-            txt = node_text node
-            if table? txt
-              @in_table = true
-              render_table txt
-              return
-            end
             # Separate top-level paragraphs with a blank line; inside a list item
             # stays tight (just a trailing break).
             blank_line if @lists.empty? && @quote == 0
-          elsif @in_table
-            @in_table = false
           else
             newline unless @quote > 0
           end
@@ -181,21 +208,22 @@ module Crysterm
           end
         end
 
-        # A GFM alert (`> [!NOTE] …`) — a blockquote with a title. Requires
-        # `Markd::Options#gfm?`, which we don't enable, so this is currently
-        # unreachable; rendered as a titled quote for when it is.
+        # A GFM alert (`> [!NOTE] …`) — a blockquote whose first line is a title
+        # (the alert name itself when none is given).
         def alert(node : Markd::Node, entering : Bool) : Nil
+          color = Colors.hex @md.quote_color
+          bar = @md.glyph(Glyphs::Role::LineVertical)
           if entering
             blank_line
             @quote += 1
-            literal "{#{Colors.hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} {bold}"
+            literal "{#{color}-fg}#{bar} {bold}"
             text_out node.data["title"].as(String)
-            literal "{/bold}"
+            literal "{/bold}{/#{color}-fg}"
             newline
-            literal "{#{Colors.hex @md.quote_color}-fg}#{@md.glyph(Glyphs::Role::LineVertical)} "
+            literal "{#{color}-fg}#{bar} "
           else
             @quote -= 1
-            literal "{/#{Colors.hex @md.quote_color}-fg}"
+            literal "{/#{color}-fg}"
             newline
           end
         end
@@ -222,8 +250,14 @@ module Crysterm
 
         def list(node : Markd::Node, entering : Bool) : Nil
           if entering
-            blank_line if @lists.empty? # space a top-level list from prior block
-            ordered = node.data["type"]? != "bullet"
+            # Space a top-level list from the prior block — but not from another
+            # list: markd splits task items and plain bullets into separate
+            # `List`s (`list_match?` compares `type`), and adjacent lists should
+            # still read as one.
+            blank_line if @lists.empty? && !node.prev?.try(&.type.list?)
+            # Explicitly `== "ordered"`, not `!= "bullet"`: a checkbox list is
+            # neither, and would otherwise number itself.
+            ordered = node.data["type"]? == "ordered"
             start = (node.data["start"]?.try &.as(Int32)) || 1
             @lists << {ordered: ordered, counter: start}
           else
@@ -237,15 +271,14 @@ module Crysterm
           return if @lists.empty?
           depth = @lists.size - 1
           literal "  " * depth
-          # Task-list marker (`- [ ] …` / `- [x] …`) renders as plain text in
-          # markd; swap it for a checkbox glyph and strip the `[ ] `.
-          case task_marker node
-          when :done
-            literal "{#{Colors.hex @md.quote_color}-fg}☑{/#{Colors.hex @md.quote_color}-fg} "
-            @strip_task = 4
-          when :todo
-            literal "{#808a96-fg}☐{/#808a96-fg} "
-            @strip_task = 4
+          # A task item (`- [ ] …` / `- [x] …`) gets a checkbox instead of a
+          # bullet; markd has consumed the `[ ]`/`[x]` marker itself.
+          if node.data["type"]? == "checkbox"
+            if node.data["checked"]? == true
+              literal "{#{Colors.hex @md.quote_color}-fg}☑{/#{Colors.hex @md.quote_color}-fg} "
+            else
+              literal "{#808a96-fg}☐{/#808a96-fg} "
+            end
           else
             cur = @lists[-1]
             if cur[:ordered]
@@ -260,37 +293,30 @@ module Crysterm
         # --- inline elements ---------------------------------------------------
 
         def text(node : Markd::Node, entering : Bool) : Nil
-          return if !entering || @in_table
+          return unless entering
           text_out node.text
         end
 
         def strong(node : Markd::Node, entering : Bool) : Nil
-          return if @in_table
           literal(entering ? "{bold}" : "{/bold}")
         end
 
         def emphasis(node : Markd::Node, entering : Bool) : Nil
-          return if @in_table
           literal(entering ? "{italic}" : "{/italic}")
         end
 
-        # Only reachable with `Markd::Options#gfm?` on, which we don't enable —
-        # `~~…~~` arrives as literal text and `#text_out` styles it instead.
-        # Implemented so the two paths agree if GFM is ever turned on.
         def strikethrough(node : Markd::Node, entering : Bool) : Nil
-          return if @in_table
           literal(entering ? "{strike}" : "{/strike}")
         end
 
         def code(node : Markd::Node, entering : Bool) : Nil
-          return if !entering || @in_table
+          return unless entering
           literal "{#{Colors.hex @md.code_bg}-bg}{#{Colors.hex @md.code_color}-fg}"
           text_out node.text
           literal "{/#{Colors.hex @md.code_color}-fg}{/#{Colors.hex @md.code_bg}-bg}"
         end
 
         def link(node : Markd::Node, entering : Bool) : Nil
-          return if @in_table
           if entering
             @link_url = node.data["destination"]?.try &.as(String)
             @link_text = ""
@@ -305,19 +331,23 @@ module Crysterm
         end
 
         def image(node : Markd::Node, entering : Bool) : Nil
-          # Prefix the alt text since the image itself can't render inline.
-          literal(entering ? "{#808a96-fg}🖼 " : "{/#808a96-fg}")
+          # Prefix the alt text since the image itself can't render inline. The
+          # prefix is visible, so it counts toward a cell's width.
+          if entering
+            literal "{#808a96-fg}"
+            visible "🖼 "
+          else
+            literal "{/#808a96-fg}"
+          end
         end
 
         def soft_break(node : Markd::Node, entering : Bool) : Nil
           # Soft wrap becomes a space; the widget re-wraps to its width.
-          literal " " if entering && !@in_table
+          visible " " if entering
         end
 
         def line_break(node : Markd::Node, entering : Bool) : Nil
-          # Table rows suppress inline children (drawn atomically by
-          # `render_table`); swallow hard breaks too or they leak a stray newline.
-          newline if entering && !@in_table
+          newline if entering
         end
 
         def html_block(node : Markd::Node, entering : Bool) : Nil
@@ -332,48 +362,14 @@ module Crysterm
 
         # --- helpers -----------------------------------------------------------
 
-        # Emits literal text: drops any pending task-marker prefix, escapes
-        # crysterm's `{`/`}` tags, converts `~~…~~` to a `{strike}` span (markd
-        # leaves `~` literal), and captures the link label while inside a link.
+        # Emits document text: escapes crysterm's `{`/`}` tags, captures the link
+        # label while inside a link, and counts the text toward the cell width
+        # while inside a table cell (*str* is still unescaped here, so its width
+        # is the visible one — `{open}`/`{close}` are one column each).
         private def text_out(str : String) : Nil
-          if @strip_task > 0
-            drop = Math.min(@strip_task, str.size)
-            @strip_task -= drop
-            str = str[drop..]
-          end
           @link_text += str unless @link_url.nil?
-          # Escape braces first, then add `{strike}` tags after (so they aren't
-          # themselves escaped; `Attr::STRIKE` renders it). Single pass — a
-          # second gsub would re-escape the `}` inside `{open}` itself.
-          escaped = str.gsub(/[{}]/) { |s| s == "{" ? "{open}" : "{close}" }
-          escaped = escaped.gsub(/~~(.+?)~~/) { "{strike}#{$1}{/strike}" }
-          literal escaped
-        end
-
-        # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker.
-        private def task_marker(item : Markd::Node) : Symbol?
-          s = node_text item
-          if md = s.match(/\A\[([ xX])\]\s/)
-            md[1].downcase == "x" ? :done : :todo
-          end
-        end
-
-        # Concatenated descendant text of *node* (soft/line breaks → newlines),
-        # used for task detection and table parsing.
-        private def node_text(node : Markd::Node) : String
-          String.build { |io| collect_text node, io }
-        end
-
-        private def collect_text(node : Markd::Node, io : IO) : Nil
-          child = node.first_child?
-          while child
-            case child.type
-            when .text?, .code?             then io << child.text
-            when .soft_break?, .line_break? then io << '\n'
-            else                                 collect_text child, io
-            end
-            child = child.next?
-          end
+          @capture_width += ::Crysterm::Unicode.display_width(str) if @capture
+          literal str.gsub(/[{}]/) { |s| s == "{" ? "{open}" : "{close}" }
         end
 
         # Ensures a blank line precedes the next block, except before the very
@@ -386,70 +382,68 @@ module Crysterm
 
         # --- GFM tables (rendered as box-drawing text) -------------------------
 
-        # `markd` only emits `Table`/`TableRow`/`TableCell` nodes with
-        # `Markd::Options#gfm?` on. We leave it off, so tables reach us as a
-        # paragraph of `| … |` rows and `#paragraph` hands them to
-        # `#render_table` below, which knows the column widths and can draw a
-        # bordered box — something the streaming per-cell callbacks can't do.
-        # These exist only to satisfy the abstract interface.
+        # A table can't be drawn as it is walked: the column widths aren't known
+        # until every row has been seen. So the cells are rendered into a buffer
+        # (see `#literal`) and the whole table painted on the way out.
 
         def table(node : Markd::Node, entering : Bool) : Nil
+          if entering
+            @rows.clear
+            @aligns.clear
+          else
+            paint_table
+            @rows.clear
+            @aligns.clear
+          end
         end
 
         def table_row(node : Markd::Node, entering : Bool) : Nil
+          if entering
+            @row = [] of {String, Int32}
+          else
+            @rows << {cells: @row, heading: node.data["heading"]? == true}
+          end
         end
 
         def table_cell(node : Markd::Node, entering : Bool) : Nil
+          if entering
+            # Alignment is a property of the column, and markd puts it on every
+            # cell; read it off the header row once.
+            @aligns << (node.data["align"]?.try(&.as(String)) || "") if node.data["heading"]? == true
+            @capture = String::Builder.new
+            @capture_width = 0
+          else
+            cap, @capture = @capture, nil
+            @row << {cap.try(&.to_s) || "", @capture_width}
+          end
         end
 
-        # Whether *text* is a GFM table: a header row, then a delimiter row of
-        # `-`/`:`/`|`/spaces containing at least one `-`.
-        private def table?(text : String) : Bool
-          lines = text.lines
-          return false if lines.size < 2
-          lines[0].includes?('|') &&
-            lines[1].matches?(/\A\s*\|?[\s:|-]*-[\s:|-]*\|?\s*\z/) &&
-            lines[1].includes?('-')
-        end
-
-        # Renders a GFM table to a bordered, column-aligned box-drawing table.
-        private def render_table(text : String) : Nil
-          rows = text.lines.map(&.strip).reject(&.empty?)
-          return if rows.size < 2
-          header = split_row rows[0]
-          aligns = split_row(rows[1]).map { |c| column_align c }
-          body = rows[2..]?.try(&.map { |r| split_row r }) || [] of Array(String)
-          cols = header.size
+        # Draws the collected rows as a bordered, column-aligned table.
+        private def paint_table : Nil
+          cols = @rows.first?.try(&.[:cells].size) || 0
           return if cols == 0
 
           widths = Array.new(cols, 0)
-          ([header] + body).each do |row|
-            row.each_with_index { |cell, i| widths[i] = Math.max(widths[i], ::Crysterm::Unicode.display_width(cell)) if i < cols }
+          @rows.each do |row|
+            row[:cells].each_with_index do |(_, vis), i|
+              widths[i] = Math.max(widths[i], vis) if i < cols
+            end
           end
+
+          heading, body = @rows.partition &.[:heading]
 
           blank_line
           tier = @md.glyph_tier
           table_border widths, Glyphs[Glyphs::Role::BorderLineTL, tier],
             Glyphs[Glyphs::Role::JunctionTeeTop, tier], Glyphs[Glyphs::Role::BorderLineTR, tier]
-          table_data_row header, widths, aligns, bold: true
-          table_border widths, Glyphs[Glyphs::Role::JunctionTeeLeft, tier],
-            Glyphs[Glyphs::Role::JunctionCross, tier], Glyphs[Glyphs::Role::JunctionTeeRight, tier]
-          body.each { |row| table_data_row row, widths, aligns, bold: false }
+          heading.each { |row| table_data_row row, widths }
+          unless body.empty?
+            table_border widths, Glyphs[Glyphs::Role::JunctionTeeLeft, tier],
+              Glyphs[Glyphs::Role::JunctionCross, tier], Glyphs[Glyphs::Role::JunctionTeeRight, tier]
+            body.each { |row| table_data_row row, widths }
+          end
           table_border widths, Glyphs[Glyphs::Role::BorderLineBL, tier],
             Glyphs[Glyphs::Role::JunctionTeeBottom, tier], Glyphs[Glyphs::Role::BorderLineBR, tier]
-        end
-
-        # Splits a `| a | b |` row into trimmed cells (outer pipes optional).
-        private def split_row(row : String) : Array(String)
-          row.strip.sub(/\A\|/, "").sub(/\|\z/, "").split('|').map(&.strip)
-        end
-
-        private def column_align(spec : String) : Symbol
-          left = spec.starts_with? ':'
-          right = spec.ends_with? ':'
-          return :center if left && right
-          return :right if right
-          :left
         end
 
         private def table_border(widths : Array(Int32), l : Char, mid : Char, r : Char) : Nil
@@ -464,29 +458,35 @@ module Crysterm
           newline
         end
 
-        private def table_data_row(cells : Array(String), widths : Array(Int32),
-                                   aligns : Array(Symbol), bold : Bool) : Nil
+        private def table_data_row(row : {cells: Array({String, Int32}), heading: Bool},
+                                   widths : Array(Int32)) : Nil
           v = @md.glyph(Glyphs::Role::LineVertical)
+          bold = row[:heading]
           literal "{#404a57-fg}#{v}{/#404a57-fg}"
           widths.each_with_index do |w, i|
-            cell = cells[i]? || ""
-            align = aligns[i]? || :left
+            rendered, vis = row[:cells][i]? || {"", 0}
             literal " "
             literal "{bold}" if bold
-            text_out pad_cell(cell, w, align)
+            emit_cell rendered, w, vis, @aligns[i]? || ""
             literal "{/bold}" if bold
             literal " {#404a57-fg}#{v}{/#404a57-fg}"
           end
           newline
         end
 
-        private def pad_cell(cell : String, width : Int32, align : Symbol) : String
-          af = case align
-               when :right  then Tput::AlignFlag::Right
-               when :center then Tput::AlignFlag::HCenter
-               else              Tput::AlignFlag::Left
-               end
-          ::Crysterm::Unicode.pad(cell, width, af)
+        # Emits an already-rendered cell padded to *width*. The padding goes
+        # outside the cell's tags — the string is styled markup, so it can't be
+        # measured or padded as text (that's what *vis* is for).
+        private def emit_cell(rendered : String, width : Int32, vis : Int32, align : String) : Nil
+          pad = Math.max(0, width - vis)
+          left, right = case align
+                        when "right"  then {pad, 0}
+                        when "center" then {pad // 2, pad - pad // 2}
+                        else               {0, pad}
+                        end
+          literal " " * left
+          literal rendered
+          literal " " * right
         end
       end
     end

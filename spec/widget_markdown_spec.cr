@@ -81,6 +81,27 @@ private def md_render(doc, w = 46, h = 18)
   text
 end
 
+private def struck?(s, ch : Char) : Bool
+  found = false
+  (0...s.aheight).each do |y|
+    (0...s.awidth).each do |x|
+      c = s.lines[y][x]
+      found = (Crysterm::Attr.flags(c.attr) & Crysterm::Attr::STRIKE) != 0 if c.char == ch
+    end
+  end
+  found
+end
+
+private def md_attr_screen(doc, w = 40, h = 6)
+  s = md_screen w, h
+  saved = Crysterm::CSS.default_stylesheet
+  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
+  Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: w, height: h, markdown: doc
+  s._render
+  Crysterm::CSS.default_stylesheet = saved
+  s
+end
+
 describe "Markdown GFM extensions" do
   it "renders strikethrough with the STRIKE attribute" do
     s = md_screen 30, 4
@@ -137,5 +158,76 @@ describe "Markdown GFM extensions" do
     clean = md_render "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n"
     hard = md_render "| A | B |\n|---|---|\n| 1 | 2 |  \n| 3 | 4 |\n"
     hard.should eq clean
+  end
+
+  it "leaves tildes inside inline code alone" do
+    s = md_attr_screen "`~~not struck~~`\n"
+    text_of(s).includes?("~~not struck~~").should be_true
+    struck?(s, 'k').should be_false
+  end
+
+  it "strikes across inline markup" do
+    s = md_attr_screen "~~a **b** c~~\n"
+    text_of(s).includes?("~~").should be_false
+    # The bold run sits in the middle of the strikethrough, and is struck too.
+    struck?(s, 'b').should be_true
+  end
+
+  it "keeps a pipe inside a cell's inline code out of the column split" do
+    t = md_render "| `x\\|y` | z |\n|---|---|\n| a | b |\n"
+    t.includes?("│ x|y │ z │").should be_true
+  end
+
+  it "styles markup inside cells without disturbing the borders" do
+    t = md_render "| A | B |\n|---|---|\n| **bold** | [lnk](http://e.co) |\n"
+    t.includes?("┌──────┬─────┐").should be_true
+    t.includes?("│ bold │ lnk │").should be_true
+  end
+
+  it "measures a cell containing braces by its visible width" do
+    # `{`/`}` are escaped to `{open}`/`{close}` — tag-shaped, but one column
+    # each. Measuring the escaped text would over-count and skew the border.
+    t = md_render "| A | B |\n|---|---|\n| a{b}c | x |\n"
+    t.includes?("┌───────┬───┐").should be_true
+    t.includes?("│ a{b}c │ x │").should be_true
+  end
+
+  it "pads ragged rows and truncates overlong ones to the header" do
+    t = md_render "| A | B |\n|---|---|\n| ragged |\n| 1 | 2 | 3 |\n"
+    t.includes?("│ ragged │   │").should be_true
+    t.includes?("│ 1      │ 2 │").should be_true
+  end
+
+  it "renders a broken table as literal text, not a box" do
+    t = md_render "| A | B |\n| broken |\n"
+    t.includes?("| A | B |").should be_true
+    t.includes?("┌").should be_false
+  end
+
+  it "omits the body separator from a header-only table" do
+    t = md_render "| Only | Header |\n|---|---|\n"
+    t.includes?("│ Only │ Header │").should be_true
+    t.includes?("├").should be_false
+  end
+
+  it "renders an alert as a titled quote" do
+    t = md_render "> [!NOTE] Heads up\n> body text\n"
+    t.includes?("│ Heads up").should be_true
+    t.includes?("│ body text").should be_true
+    t.includes?("[!NOTE]").should be_false
+  end
+
+  it "titles a bare alert with its kind" do
+    t = md_render "> [!WARNING]\n> careful\n"
+    t.includes?("│ WARNING").should be_true
+    t.includes?("│ careful").should be_true
+  end
+
+  it "does not gap a task list from the plain bullets following it" do
+    # markd splits checkbox and bullet items into separate Lists; they should
+    # still read as one list.
+    t = md_render "- [ ] todo\n- [x] done\n- normal\n"
+    lines = t.lines.map(&.strip).reject(&.empty?)
+    lines[0..2].should eq ["☐ todo", "☑ done", "• normal"]
   end
 end
