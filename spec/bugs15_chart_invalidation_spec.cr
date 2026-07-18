@@ -114,7 +114,7 @@ describe "Widget::Graph::StackedBar decoration setters schedule a render (#70)" 
     s._render
     drain_frames s
 
-    sb.max = 20.0
+    sb.maximum = 20.0
     frame_scheduled?(s).should be_true
   end
 end
