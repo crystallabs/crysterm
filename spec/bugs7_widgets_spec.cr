@@ -97,11 +97,11 @@ describe "BUGS7 Menu row width uses display width" do
   it "sizes a CJK label wider than an equal-codepoint-count ASCII label" do
     s = uni_window
     cjk = Widget::Menu.new parent: s
-    cjk.add "漢字" # 2 codepoints, 4 display columns
+    cjk.add_action "漢字" # 2 codepoints, 4 display columns
     cjk.popup 1, 1
 
     ascii = Widget::Menu.new parent: s
-    ascii.add "ab" # 2 codepoints, 2 display columns
+    ascii.add_action "ab" # 2 codepoints, 2 display columns
     ascii.popup 1, 1
 
     # Same codepoint count, so the pre-fix (codepoint) width would be identical;
