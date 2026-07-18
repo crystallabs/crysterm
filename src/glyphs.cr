@@ -188,7 +188,7 @@ module Crysterm
       # -- Icon palette -----------------------------------------------------------
       # A curated vocabulary of common UI icons (toolbar actions, status marks,
       # media transport, navigation), pre-picked per tier so applications don't
-      # browse Unicode tables themselves: `tool_bar.add "#{glyph(Glyphs::Role::IconSave)} Save"`.
+      # browse Unicode tables themselves: `tool_bar.add_item "#{glyph(Glyphs::Role::IconSave)} Save"`.
       # Not consumed by any widget — pure palette. These are *run* roles
       # (inline text, measured), so the `extended` column may hold
       # double-width emoji; `ascii`/`unicode` stay single-width.

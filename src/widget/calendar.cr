@@ -573,7 +573,7 @@ module Crysterm
                           mo = i + 1
                           # Zero-padded month number ("01: January"), so the
                           # dropdown carries the same numbering the fields do.
-                          m.add("#{mo.to_s.rjust(2, '0')}: #{name}") { set_current_page @shown_year, mo; focus }
+                          m.add_action("#{mo.to_s.rjust(2, '0')}: #{name}") { set_current_page @shown_year, mo; focus }
                         end
                       end
         @month_menu = menu
@@ -588,7 +588,7 @@ module Crysterm
         return unless menu = new_nav_menu do |m|
                         base = @shown_year
                         (base - YEAR_MENU_RADIUS..base + YEAR_MENU_RADIUS).each do |yr|
-                          m.add(yr.to_s) { set_current_page yr, @shown_month; focus }
+                          m.add_action(yr.to_s) { set_current_page yr, @shown_month; focus }
                         end
                       end
         @year_menu = menu
