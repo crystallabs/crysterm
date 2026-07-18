@@ -39,7 +39,7 @@ describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds
     Crysterm::Widget::BigText.new parent: s, top: 0, left: left, width: width,
       height: 16, align: :right,
       content: "漢字テスト",
-      style: Crysterm::Style.new(foreground_char: '#')
+      foreground_char: '#'
 
     s._render
 
