@@ -85,7 +85,7 @@ require "./spec_helper"
       s2.load_layout(list.to_layout_html)
       s2.find_by_id(list.css_id || "").try(&.as(Widget::List))
       rebuilt = s2.children.first.as(Widget::List)
-      rebuilt.ritems.should eq ["a", "b", "c"]
+      rebuilt.item_texts.should eq ["a", "b", "c"]
     end
 
     it "skips unknown tags instead of failing" do

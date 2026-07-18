@@ -123,7 +123,7 @@ describe "Dialog subclasses report their outcome" do
     log = [] of String
     q.on(Crysterm::Event::Accepted) { log << "accepted" }
     q.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
-    q.ask("Sure?") { |_err, data| answer = data }
+    q.ask("Sure?") { |data| answer = data }
 
     w.emit Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
 
@@ -152,11 +152,11 @@ describe "Dialog subclasses report their outcome" do
     value = nil.as(String?)
     finished = nil.as(Int32?)
     p.on(Crysterm::Event::Finished) { |e| finished = e.result }
-    p.read_input("Name?") { |_err, data| value = data }
+    p.read_input("Name?") { |data| value = data }
 
     # `#accept` submits the embedded field rather than closing behind its back,
     # so the typed text still reaches the callback.
-    p.textinput.value = "crystal"
+    p.line_edit.value = "crystal"
     p.accept
 
     value.should eq "crystal"
@@ -170,7 +170,7 @@ describe "Dialog subclasses report their outcome" do
     called = false
     value = "unset".as(String?)
     p.on(Crysterm::Event::Rejected) { called = true }
-    p.read_input("Name?") { |_err, data| value = data }
+    p.read_input("Name?") { |data| value = data }
 
     p.reject
 
@@ -202,10 +202,10 @@ describe "Dialog subclasses report their outcome" do
     cd = Crysterm::Widget::ColorDialog.new parent: w, top: 0, left: 0, width: 56, height: 20
     cd.current_color = "#0000ff"
     log = [] of String
-    cd.on(Crysterm::Event::Action) { |e| log << "action=#{e.value}" }
+    cd.on(Crysterm::Event::Activated) { |e| log << "action=#{e.value}" }
     cd.on(Crysterm::Event::Accepted) { log << "accepted" }
     cd.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
-    cd.pick { }
+    cd.get_color { }
 
     cd.accept
 
@@ -220,7 +220,7 @@ describe "Dialog subclasses report their outcome" do
     wiz.add_page Crysterm::Widget::Box.new, title: "One"
     wiz.add_page Crysterm::Widget::Box.new, title: "Two"
     log = [] of String
-    wiz.on(Crysterm::Event::Complete) { log << "complete" }
+    wiz.on(Crysterm::Event::Completed) { log << "complete" }
     wiz.on(Crysterm::Event::Accepted) { log << "accepted" }
     wiz.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
 
@@ -241,7 +241,7 @@ describe "Dialog subclasses report their outcome" do
     wiz = Crysterm::Widget::Wizard.new parent: w, width: 50, height: 16
     wiz.add_page Crysterm::Widget::Box.new, title: "One"
     log = [] of String
-    wiz.on(Crysterm::Event::Cancel) { log << "cancel" }
+    wiz.on(Crysterm::Event::Cancelled) { log << "cancel" }
     wiz.on(Crysterm::Event::Rejected) { log << "rejected" }
     wiz.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
 
@@ -268,9 +268,9 @@ describe Crysterm::Widget::DialogButtonBox do
     clicked = [] of Crysterm::Widget::DialogButtonBox::StandardButton?
     bb.on(Crysterm::Event::ButtonClick) { |e| clicked << bb.standard_button(e.button.as(Crysterm::Widget::Button)) }
 
-    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Ok).not_nil!.emit Crysterm::Event::Press
+    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Ok).not_nil!.emit Crysterm::Event::Pressed
     # Help carries no accept/reject meaning, but still reports the click.
-    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Help).not_nil!.emit Crysterm::Event::Press
+    bb.button(Crysterm::Widget::DialogButtonBox::StandardButton::Help).not_nil!.emit Crysterm::Event::Pressed
 
     clicked.should eq [
       Crysterm::Widget::DialogButtonBox::StandardButton::Ok,

@@ -558,7 +558,7 @@ A few behaviors to keep in mind:
   are joined at the points where they meet — straight runs and the appropriate
   junction glyphs (`┬ ┴ ├ ┤ ┼`) are chosen automatically for a more elegant look.
   The screen's
-  `dock_contrast` setting (`DontDock` / `Blend` / `Ignore`) governs what happens
+  `dock_contrast` setting (`Skip` / `Blend` / `Ignore`) governs what happens
   when the borders being joined have different colors or attributes. Option `blend`
   is particularly interesting as it smoothens the color difference.
 

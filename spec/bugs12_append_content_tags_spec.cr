@@ -33,7 +33,7 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.set_content "{red-fg}{blue-fg}a"
     box.process_content
 
-    box.push_line "{/blue-fg}b"
+    box.append_line "{/blue-fg}b"
     lines_after_push = box._clines.lines.map(&.to_s)
 
     force_full_reparse(box)
@@ -49,7 +49,7 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.set_content "{bold}a"
     box.process_content
 
-    box.push_line "{bold}x{/bold}"
+    box.append_line "{bold}x{/bold}"
     lines_after_push = box._clines.lines.map(&.to_s)
 
     force_full_reparse(box)
@@ -65,7 +65,7 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.set_content "{red-fg}a{/red-fg}"
     box.process_content
 
-    box.push_line "x { y"
+    box.append_line "x { y"
     lines_after_push = box._clines.lines.map(&.to_s)
     lines_after_push[1].should eq "x  y"
 
@@ -81,7 +81,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     box.parse_tags?.should be_false
     box.set_content "hello"
     box.process_content
-    box.push_line "{bold}world"
+    box.append_line "{bold}world"
 
     # Literal while parsing is off, like a set_content of the same string.
     force_full_reparse(box)
@@ -106,7 +106,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     box = make_box(s)
     box.set_content "hello"
     box.process_content
-    box.push_line "{center}mid{/center}"
+    box.append_line "{center}mid{/center}"
 
     box.parse_tags = true
     box.process_content
@@ -119,7 +119,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
 
     # And the align flag must now be live for the *next* append's bail decision:
     # an unclosed-alignment carry across a later push must match set_content.
-    box.push_line "tail"
+    box.append_line "tail"
     ref2 = make_box(s, parse_tags: true, top: 16)
     ref2.set_content "hello\n{center}mid{/center}\ntail"
     ref2.process_content
@@ -131,8 +131,8 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     box = make_box(s, parse_tags: true)
     box.set_content "hello"
     box.process_content
-    box.push_line "{center}mid"
-    box.push_line "still centered"
+    box.append_line "{center}mid"
+    box.append_line "still centered"
 
     ref = make_box(s, parse_tags: true, top: 8)
     ref.set_content "hello\n{center}mid\nstill centered"
@@ -215,7 +215,7 @@ describe "Widget#append_content fast path retention" do
     # rewrite an already-rendered line. The slow path keeps the whole content on
     # one consistent parse instead.
     box.append_content("{bold}first{/bold}").should be_false
-    box.push_line "{bold}first{/bold}"
+    box.append_line "{bold}first{/bold}"
 
     lines_after_push = box._clines.lines.map(&.to_s)
     lines_after_push[0].should eq "a { b" # the stray brace survived

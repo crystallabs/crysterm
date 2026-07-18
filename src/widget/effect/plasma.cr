@@ -98,13 +98,13 @@ module Crysterm
 
         # Advance the clock. The per-frame sine tables are refilled lazily on the
         # first `#cell` of the new frame, so an unpainted frame does no table work.
-        def advance(w, h)
+        def advance(w : Int32, h : Int32)
           @frame += 1
         end
 
         # (Re)builds the distance table and (re)sizes the sine tables for a
         # *w*×*h* interior. The sine values are (re)filled on next use.
-        def resize(w, h)
+        def resize(w : Int32, h : Int32)
           build_tables w, h
         end
 
@@ -112,7 +112,7 @@ module Crysterm
         # position-separable wave terms are table lookups; only the radial term
         # (which folds in the per-frame phase `f`) is still a `Math.sin`, over the
         # precomputed distance.
-        def cell(x, y, w, h) : {Char, Int32}
+        def cell(x : Int32, y : Int32, w : Int32, h : Int32) : {Char, Int32}
           ensure_tables w, h
           f = @frame * @speed
           v = @sin_x[x] + @sin_y[y] + @sin_d[x + y] +

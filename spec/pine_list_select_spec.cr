@@ -83,12 +83,12 @@ describe "Pine::ListSelect" do
     ls.checked.should be_empty
   end
 
-  it "preselects items via #set_checked (multi mode), ignoring unknown items" do
+  it "preselects items via #checked= (multi mode), ignoring unknown items" do
     s = pls_screen
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s
 
-    ls.set_checked ["Banana", "Cherry", "Durian"] # Durian is not in the list
+    ls.checked = ["Banana", "Cherry", "Durian"] # Durian is not in the list
     ls.checked.should eq ["Banana", "Cherry"]
   end
 
@@ -109,7 +109,7 @@ describe "Pine::ListSelect" do
     ls.activate
     ls.checked.should be_empty
 
-    ls.set_checked ["Apricot", "Cherry"]
+    ls.checked = ["Apricot", "Cherry"]
     ls.confirm
     confirmed.should eq ["Apricot", "Cherry"]
   end

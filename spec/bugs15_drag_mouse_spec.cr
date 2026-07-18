@@ -76,7 +76,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
 
     bm_wheel s, 2, 1, up: false
     scrolled.should eq(0) # the disabled widget did not scroll itself
-    child.get_scroll.should eq(0)
+    child.scroll_position.should eq(0)
   end
 
   it "still lets a scrollable ancestor take the wheel over a disabled child" do
@@ -115,7 +115,7 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     a.on(Event::DragLeave) { a_left += 1 }
 
     s._drag_key_handled(bm_key(' ')).should be_true
-    s.dragging.not_nil!.source.should eq a
+    s.drag_session.not_nil!.source.should eq a
 
     # Mouse-drag `b`: arm on press, promote on motion -> start_drag cancels a.
     bm_press s, 21, 1
@@ -124,8 +124,8 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     a_ended.should be_true    # the replaced source got its DragEnd
     a_dropped.should be_false # reported as not dropped (cancelled)
     a_left.should be >= 1     # its DragEnter'd target got a DragLeave
-    s.dragging.not_nil!.source.should eq b
-    s.dragging.not_nil!.sensor.mouse?.should be_true
+    s.drag_session.not_nil!.source.should eq b
+    s.drag_session.not_nil!.sensor.mouse?.should be_true
   end
 
   it "preserves the new mouse drag's arming button across the old-session cancel (#61 verifier)" do
@@ -140,15 +140,15 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     s._drag_key_handled(bm_key(' ')).should be_true # keyboard drag on a
     bm_press s, 21, 1                               # arm mouse (Left) on b
     bm_move s, 23, 2                                # promote -> b drag (armed Left)
-    s.dragging.not_nil!.source.should eq b
+    s.drag_session.not_nil!.source.should eq b
 
     # A stray Right-button press must NOT commit the (continuous) mouse drag.
     bm_press s, 24, 2, ::Tput::Mouse::Button::Right
-    s.dragging.should_not be_nil # still dragging b
+    s.drag_session.should_not be_nil # still dragging b
 
     # The arming (Left) button's release commits it.
     s.dispatch_mouse bm_mouse(::Tput::Mouse::Action::Up, 24, 2, ::Tput::Mouse::Button::None)
-    s.dragging.should be_nil
+    s.drag_session.should be_nil
   end
 end
 
@@ -160,7 +160,7 @@ describe "BUGS15 #62: keyboard drag sensor refuses a disabled widget" do
     box.state = Crysterm::WidgetState::Disabled # disabled while focused (stays focused)
 
     s._drag_key_handled(bm_key(' ')).should be_false
-    s.dragging.should be_nil
+    s.drag_session.should be_nil
   end
 end
 
@@ -170,7 +170,7 @@ describe "BUGS15 #65: discrete drag commits only on the arming button" do
     s.drag_two_click = true
 
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-    source.enable_drag reposition: false
+    source.drag_mode = :transfer; source.draggable = true
     source.on(Event::DragStart) { |e| e.data["text/plain"] = "p" }
     target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
     target.on(Event::DragOver, &.accept)
@@ -178,16 +178,16 @@ describe "BUGS15 #65: discrete drag commits only on the arming button" do
     target.on(Event::Drop) { |e| dropped = e.data["text/plain"] }
 
     bm_press s, 1, 1 # Left press lifts (arming button = Left)
-    s.dragging.should_not be_nil
+    s.drag_session.should_not be_nil
 
     # A stray Right-button press over the target must be swallowed, not commit.
     bm_press s, 44, 1, ::Tput::Mouse::Button::Right
     dropped.should be_nil
-    s.dragging.should_not be_nil
+    s.drag_session.should_not be_nil
 
     # The arming (Left) button's press commits the discrete drop.
     bm_press s, 44, 1
     dropped.should eq("p")
-    s.dragging.should be_nil
+    s.drag_session.should be_nil
   end
 end

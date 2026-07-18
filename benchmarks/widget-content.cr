@@ -4,7 +4,7 @@ require "../src/crysterm"
 # Micro-benchmarks for `widget_content.cr` hot paths.
 #
 #   * cache_hit   — `process_content` on an unchanged single-line widget (the
-#                   per-frame common case: cache-key check + `sattr`).
+#                   per-frame common case: cache-key check + `style_to_attr`).
 #   * reparse     — `set_content` of changing plain text (full reparse: clean
 #                   gsub + wrap + parse_attr + ci + pcontent).
 #   * reparse_tag — same, with `{bold}`-tagged content (adds `_parse_tags`).

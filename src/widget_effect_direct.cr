@@ -148,7 +148,7 @@ module Crysterm
 
           # Default attr carries the widget's bg/flags; only the fg varies per
           # cell, so `Attr.with_fg` reuses `da`'s flags/bg/Opaque alpha.
-          da = sattr style
+          da = style_to_attr style
           deff = Attr.fg da
 
           # Absolute coords (`yi`/`xi`) can be negative when the widget is

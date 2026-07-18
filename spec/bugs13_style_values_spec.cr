@@ -61,7 +61,7 @@ describe "BUGS13 S7 alternate-background-color seeds from the cell fallback" do
     Crysterm::CSS::Properties.apply(s, "alternate-background-color", "blue")
     alt = s.alternate_row
     alt.bg.should eq rgb("blue")
-    alt.fg.should eq rgb("yellow") # was nil (sattr maps nil fg -> -1)
+    alt.fg.should eq rgb("yellow") # was nil (style_to_attr maps nil fg -> -1)
     alt.bold?.should be_true       # was false
   end
 

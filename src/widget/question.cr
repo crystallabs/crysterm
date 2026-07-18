@@ -44,7 +44,7 @@ module Crysterm
       # with `Code::Accepted` (`Event::Accepted`), a negative one with
       # `Code::Rejected` (`Event::Rejected`), and `Event::Finished` follows
       # either way.
-      def ask(text = nil, &block : String?, Bool -> Nil)
+      def ask(text = nil, &block : Bool ->)
         set_content text || @text
         show
         @result = Code::Rejected.to_i
@@ -64,7 +64,7 @@ module Crysterm
         # `finish` must be defined *before* the handlers that call it are
         # registered: a key/press arriving before assignment would invoke an
         # uninitialized Proc.
-        finish = ->(err : String?, data : Bool) do
+        finish = ->(data : Bool) do
           unless done_called
             done_called = true
             teardown_ok_cancel ev_ok, ev_cancel
@@ -72,7 +72,7 @@ module Crysterm
             # Record the outcome and signal it before the block runs, so a
             # `Finished` handler and the block see the same `#result`.
             done(data ? Code::Accepted : Code::Rejected)
-            block.call err, data
+            block.call data
             request_render
           end
         end
@@ -88,15 +88,15 @@ module Crysterm
             next
           end
 
-          finish.call nil, k == Tput::Key::Enter || e.char == 'y'
+          finish.call(k == Tput::Key::Enter || e.char == 'y')
         end
 
-        ev_ok = @ok.on(Crysterm::Event::Press) do
-          finish.call nil, true
+        ev_ok = @ok.on(Crysterm::Event::Pressed) do
+          finish.call true
         end
 
-        ev_cancel = @cancel.on(Crysterm::Event::Press) do
-          finish.call nil, false
+        ev_cancel = @cancel.on(Crysterm::Event::Pressed) do
+          finish.call false
         end
 
         window.save_focus
@@ -106,7 +106,7 @@ module Crysterm
       end
 
       # Asks the user to pick one of an arbitrary list of *choices*. The block
-      # receives the chosen 0-based index, or `-1` if dismissed with Escape.
+      # receives the chosen 0-based index, or `nil` if dismissed with Escape.
       # Buttons are laid out in a row; Left/Right move focus, Enter/Space or a
       # click activates the focused one.
       #
@@ -114,7 +114,7 @@ module Crysterm
       # with `Code::Accepted`, Escape with `Code::Rejected`. Feeding the index
       # into `#result` would collide with Qt's codes (choice `1` would read as
       # `Accepted`).
-      def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32 -> Nil)
+      def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32? ->)
         set_content text || @text
         show
         @result = Code::Rejected.to_i
@@ -125,7 +125,7 @@ module Crysterm
 
         # The choice buttons carry `Role::Apply`, so the box emits no
         # accept/reject signal — each choice's meaning is its index, wired on its
-        # own `Press` below.
+        # own `Pressed` below.
         bb = DialogButtonBox.new parent: self, top: 4, left: 1
         choices.each { |label| bb.add_button label, DialogButtonBox::Role::Apply }
         buttons = bb.buttons
@@ -146,12 +146,15 @@ module Crysterm
           bb.destroy
           window.restore_focus
           done(idx >= 0 ? Code::Accepted : Code::Rejected)
-          block.call idx
+          # -1 is the internal "dismissed" sentinel (drives the reject code
+          # above); the public block sees `nil` for a dismissal, a real index
+          # otherwise.
+          block.call(idx >= 0 ? idx : nil)
           request_render
         end
 
         buttons.each_with_index do |b, i|
-          b.on(Crysterm::Event::Press) { finish.call i }
+          b.on(Crysterm::Event::Pressed) { finish.call i }
         end
 
         ev_keys = window.on(Crysterm::Event::KeyPress) do |e|

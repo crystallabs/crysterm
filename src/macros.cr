@@ -112,13 +112,13 @@ module Crysterm
     #
     # E.g.:
     # ```
-    # handle Event::Attach
+    # handle Event::Attached
     # ```
     #
     # Expands into:
     #
     # ```
-    # on(Event::Attach, ->on_attach(Event::Attach)
+    # on(Event::Attached, ->on_attached(Event::Attached)
     # ```
     macro handle(event, handler = nil)
       on({{event}}, ->on_{{ handler || (event.stringify.split("::")[-1].downcase.id) }}({{event}}))

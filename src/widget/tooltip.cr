@@ -11,8 +11,8 @@ module Crysterm
     #
     # NOTE Unlike Qt's `QToolTip`, this is *not* a single shared, static tip:
     # `Widget#tool_tip=` lazily creates one `ToolTip` per widget (see
-    # `Widget#show_tooltip`). Only one is ever visible at a time — the hover
-    # handlers hide it on `MouseOut` — so the behavior matches; the difference is
+    # `Widget#show_tool_tip`). Only one is ever visible at a time — the hover
+    # handlers hide it on `MouseLeave` — so the behavior matches; the difference is
     # in how many objects exist behind it.
     #
     # ```
@@ -76,7 +76,7 @@ module Crysterm
         self.left = (x - s.ileft).clamp(0, Math.max(0, inner_w - w))
         self.top = (y - s.itop).clamp(0, Math.max(0, inner_h - h))
 
-        front!
+        to_front
         show
         s.schedule_render
       end

@@ -29,7 +29,7 @@ class X
   end
 
   def initialize
-    s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
     # Default to a bundled sample image: ../../data/image (running from
     # tests/blessed-test/), falling back to ./data/image (running from repo root).

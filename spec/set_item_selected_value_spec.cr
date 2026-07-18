@@ -23,10 +23,10 @@ describe "ItemView#set_item selected value sync" do
     s = sisv_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.select_index 1 # "b"
-    list.value.should eq "b"
+    list.current_text.should eq "b"
 
     list.set_item 1, "B!"
-    list.value.should eq "B!"
+    list.current_text.should eq "B!"
   end
 
   it "strips tags from the refreshed value, like #select_index" do
@@ -34,7 +34,7 @@ describe "ItemView#set_item selected value sync" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"], parse_tags: true
     list.select_index 0
     list.set_item 0, "{bold}hi{/bold}"
-    list.value.should eq "hi"
+    list.current_text.should eq "hi"
   end
 
   it "leaves #value untouched when a non-selected row changes" do
@@ -42,6 +42,6 @@ describe "ItemView#set_item selected value sync" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.select_index 0 # "a"
     list.set_item 2, "C!"
-    list.value.should eq "a"
+    list.current_text.should eq "a"
   end
 end

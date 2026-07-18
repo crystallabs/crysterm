@@ -132,7 +132,7 @@ module Crysterm
             text = @_trunc
             tw = str_width text
           end
-          draw_text_run yi, xl - tw, text, xl, sattr(style)
+          draw_text_run yi, xl - tw, text, xl, style_to_attr(style)
         end
       end
 

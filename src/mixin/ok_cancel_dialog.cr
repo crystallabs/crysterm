@@ -46,13 +46,13 @@ module Crysterm
       end
 
       # Standard modal teardown: hide, restore the focus saved when opened, and
-      # unregister the OK/Cancel `Press` handlers (*ev_ok*/*ev_cancel* may each
+      # unregister the OK/Cancel `Pressed` handlers (*ev_ok*/*ev_cancel* may each
       # be nil if never registered).
       protected def teardown_ok_cancel(ev_ok, ev_cancel) : Nil
         hide
         window.restore_focus
-        ev_ok.try { |h| @ok.off ::Crysterm::Event::Press, h }
-        ev_cancel.try { |h| @cancel.off ::Crysterm::Event::Press, h }
+        ev_ok.try { |h| @ok.off ::Crysterm::Event::Pressed, h }
+        ev_cancel.try { |h| @cancel.off ::Crysterm::Event::Pressed, h }
       end
     end
   end

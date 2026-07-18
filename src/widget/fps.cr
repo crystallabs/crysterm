@@ -13,9 +13,10 @@ module Crysterm
     #
     #     Crysterm::Widget::Fps.new(parent: window)            # everything, bottom-left
     #     Crysterm::Widget::Fps.new(parent: window,
-    #       format: "%s fps", args: [:fps])                    # just the frame rate
+    #       format: "%s fps", args: [Fps::Metric::Fps])        # just the frame rate
     #     Crysterm::Widget::Fps.new(parent: window,
-    #       format: "R %s  D %s  TX %s/s", args: [:render, :draw, :throughput_h])
+    #       format: "R %s  D %s  TX %s/s",
+    #       args: [Fps::Metric::Render, Fps::Metric::Draw, Fps::Metric::ThroughputH])
     #
     # Available `args`:
     #   :render  :draw  :flush  :fps      current per-frame rates (Int). `:draw`
@@ -43,6 +44,29 @@ module Crysterm
     # ![Fps screenshot](../../tests/widget/fps/fps.5s.apng)
     # <!-- /widget-examples:capture -->
     class Fps < Box
+      # Metrics that `#args` may name, one per `%` slot `#format` fills. See
+      # the class docs above for what each one reports.
+      enum Metric
+        Render
+        Draw
+        Flush
+        Fps
+        RenderAvg
+        DrawAvg
+        FlushAvg
+        FpsAvg
+        Throughput
+        ThroughputAvg
+        ThroughputH
+        ThroughputAvgH
+        ThroughputActual
+        ThroughputActualAvg
+        ThroughputActualH
+        ThroughputActualAvgH
+        Total
+        TotalH
+      end
+
       # Auto-size to its single line of text.
       @shrink_to_fit = true
 
@@ -55,21 +79,21 @@ module Crysterm
       # human-readable metrics. (`5` fits any realistic frame rate; `9` fits
       # "1023.9MiB".)
       DEFAULT_FORMAT = "R/D/FPS: %5s/%5s/%5s (%5s/%5s/%5s)  TX: %9s/s (%9s/s)  ~TX: %9s/s (%9s/s)  Σ: %9s"
-      DEFAULT_ARGS   = %i[
-        render draw fps
-        render_avg draw_avg fps_avg
-        throughput_h throughput_avg_h
-        throughput_actual_h throughput_actual_avg_h
-        total_h
+      DEFAULT_ARGS   = [
+        Metric::Render, Metric::Draw, Metric::Fps,
+        Metric::RenderAvg, Metric::DrawAvg, Metric::FpsAvg,
+        Metric::ThroughputH, Metric::ThroughputAvgH,
+        Metric::ThroughputActualH, Metric::ThroughputActualAvgH,
+        Metric::TotalH,
       ]
 
       # printf-style template (see `String#%`); its `%` slots are filled, in
       # order, from `#args`.
       property format : String = DEFAULT_FORMAT
 
-      # Metric names supplying the `#format` arguments, in order. See the class
-      # docs for the recognized symbols.
-      property args : Array(Symbol) = DEFAULT_ARGS
+      # Metrics supplying the `#format` arguments, in order. See the class
+      # docs for the recognized values.
+      property args : Array(Metric) = DEFAULT_ARGS
 
       @render_avg : Window::Average
       @draw_avg : Window::Average
@@ -92,9 +116,9 @@ module Crysterm
       # `Indexable`, so this feeds it directly.
       @fmt_args = [] of Int64 | String
 
-      def initialize(parent = nil, *, format : String? = nil, args : Array(Symbol)? = nil, **opts)
-        format.try { |f| @format = f }
-        args.try { |a| @args = a }
+      def initialize(*, format : String = DEFAULT_FORMAT, args : Array(Metric) = DEFAULT_ARGS, **opts)
+        @format = format
+        @args = args
 
         window = Config.render_fps_window
         @render_avg = Window::Average.new window
@@ -104,7 +128,7 @@ module Crysterm
         @throughput_avg = Window::Average.new window
         @throughput_actual_avg = Window::Average.new window
 
-        super(parent, **opts)
+        super(**opts)
 
         # Default to the bottom-left corner unless the caller anchored it explicitly.
         if @left.nil? && @right.nil? && @top.nil? && @bottom.nil?
@@ -125,7 +149,7 @@ module Crysterm
           text =
             begin
               @fmt_args.clear
-              @args.each { |sym| @fmt_args << value_for sym, s }
+              @args.each { |metric| @fmt_args << value_for metric, s }
               @format % @fmt_args
             rescue ex
               # Bad format/args combo shouldn't take down the render loop.
@@ -137,30 +161,28 @@ module Crysterm
         super
       end
 
-      # Resolves a metric symbol to a printf-ready value (`Int64` for numbers,
-      # `String` for the human-readable variants). Unknown symbols render as
-      # `?name` rather than raising.
-      private def value_for(sym : Symbol, s : Window) : Int64 | String
-        case sym
-        when :render                  then s.render_rate.to_i64
-        when :draw                    then s.draw_rate.to_i64
-        when :flush                   then s.flush_rate.to_i64
-        when :fps                     then s.frame_rate.to_i64
-        when :render_avg              then @render_avg_val
-        when :draw_avg                then @draw_avg_val
-        when :flush_avg               then @flush_avg_val
-        when :fps_avg                 then @fps_avg_val
-        when :throughput              then s.throughput.to_i64
-        when :throughput_avg          then @throughput_avg_val
-        when :throughput_h            then humanize s.throughput
-        when :throughput_avg_h        then humanize @throughput_avg_val
-        when :throughput_actual       then s.throughput_actual.to_i64
-        when :throughput_actual_avg   then @throughput_actual_avg_val
-        when :throughput_actual_h     then humanize s.throughput_actual
-        when :throughput_actual_avg_h then humanize @throughput_actual_avg_val
-        when :total                   then s.bytes_written.to_i64
-        when :total_h                 then humanize s.bytes_written
-        else                               "?#{sym}"
+      # Resolves a metric to a printf-ready value (`Int64` for numbers,
+      # `String` for the human-readable variants).
+      private def value_for(metric : Metric, s : Window) : Int64 | String
+        case metric
+        in .render?                  then s.render_rate.to_i64
+        in .draw?                    then s.draw_rate.to_i64
+        in .flush?                   then s.flush_rate.to_i64
+        in .fps?                     then s.frame_rate.to_i64
+        in .render_avg?              then @render_avg_val
+        in .draw_avg?                then @draw_avg_val
+        in .flush_avg?               then @flush_avg_val
+        in .fps_avg?                 then @fps_avg_val
+        in .throughput?              then s.throughput.to_i64
+        in .throughput_avg?          then @throughput_avg_val
+        in .throughput_h?            then humanize s.throughput
+        in .throughput_avg_h?        then humanize @throughput_avg_val
+        in .throughput_actual?       then s.throughput_actual.to_i64
+        in .throughput_actual_avg?   then @throughput_actual_avg_val
+        in .throughput_actual_h?     then humanize s.throughput_actual
+        in .throughput_actual_avg_h? then humanize @throughput_actual_avg_val
+        in .total?                   then s.bytes_written.to_i64
+        in .total_h?                 then humanize s.bytes_written
         end
       end
 

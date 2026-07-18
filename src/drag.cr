@@ -1,12 +1,14 @@
 module Crysterm
   # Action negotiated between a drag source and a drop target, mirroring the
   # desktop (XDND / Wayland data-device / HTML5) copy/move/link vocabulary.
+  # `@[Flags]` since a source can advertise (`DragData#supported`) more than
+  # one action at once (e.g. `Move | Copy`); `None` is provided by `Flags`.
   #
   # Crysterm reuses the desktop *data model* (this enum plus the MIME-typed
   # payload in `DragData`) without the window-to-window wire protocol — a TUI
   # owns no window and can't be an XDND peer.
+  @[Flags]
   enum DragAction
-    None
     Move
     Copy
     Link
@@ -30,8 +32,9 @@ module Crysterm
   # at `DragStart` and a different target consumes it on `Drop`.
   class DragData
     getter source : Widget
-    # Actions the source is willing to perform (advertised at `DragStart`).
-    property supported : Array(DragAction)
+    # Actions the source is willing to perform (advertised at `DragStart`),
+    # e.g. `DragAction::Move | DragAction::Copy` to advertise both.
+    property supported : DragAction
     # The currently negotiated action (set by the target and/or modifier keys).
     property action : DragAction
     # Whether the current target has accepted the drag (re-asked each `DragOver`).
@@ -39,7 +42,7 @@ module Crysterm
 
     @items = {} of String => String
 
-    def initialize(@source, @supported = [DragAction::Move], @action = DragAction::Move)
+    def initialize(@source, @supported = DragAction::Move, @action = DragAction::Move)
     end
 
     def []=(type : String, data : String)

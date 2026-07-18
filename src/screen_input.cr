@@ -21,7 +21,7 @@ module Crysterm
   class Screen
     include RestoreGuard
 
-    # The input read fiber. There is at most one; `#listen_keys` is idempotent.
+    # The input read fiber. There is at most one; `#start_input` is idempotent.
     @_keys_fiber : Fiber?
 
     # Cooperative-cancel generation for the input read fiber. Each spawn
@@ -42,7 +42,7 @@ module Crysterm
     #
     # `tput.listen` returns on EOF, so closing the input ends this fiber.
     # Idempotent: a second call while a fiber exists is a no-op.
-    def listen_keys : Nil
+    def start_input : Nil
       return if @_keys_fiber
       gen = (@_keys_gen += 1)
       @_keys_fiber = spawn {
@@ -72,85 +72,93 @@ module Crysterm
       !@_keys_fiber.nil?
     end
 
-    # Drops the input-fiber handle so a later `#listen_keys` can start fresh,
+    # Drops the input-fiber handle so a later `#start_input` can start fresh,
     # and bumps the cancel generation so a loop not already ended by a closed fd
     # (i.e. on unowned STDIN) stops dispatching to this now-detached screen and
-    # exits on its next wake-up — staying cancelled even if `#listen_keys`
+    # exits on its next wake-up — staying cancelled even if `#start_input`
     # re-arms meanwhile.
-    def stop_keys : Nil
+    def stop_input : Nil
       @_keys_gen += 1
       @_keys_fiber = nil
     end
 
     # Whether an enhanced keyboard protocol was enabled for this device (so
     # teardown knows to turn it back off).
-    getter? _listened_keyboard = false
+    getter? keyboard_protocol_enabled = false
+
+    # Level of enhanced keyboard reporting `#enable_keyboard_protocol` requests.
+    # `Disambiguate` is escape-code disambiguation only; `Events` additionally
+    # requests key releases and lone-modifier presses (e.g. "tap Alt").
+    enum KeyboardReporting
+      Disambiguate
+      Events
+    end
 
     # Turns on the best enhanced keyboard protocol (kitty / modifyOtherKeys) the
     # terminal supports — honoring `keyboard.exclude`/`keyboard.protocol` config
-    # — so `Event::KeyPress#key_event` is populated. With *events* `true`, also
+    # — so `Event::KeyPress#key_event` is populated. With *level* `Events`, also
     # requests key releases and lone-modifier presses (e.g. "tap Alt"); with
-    # `false`, only escape-code disambiguation. No-op fallback on terminals
-    # supporting neither protocol.
-    def enable_keyboard_protocol(events : Bool = false) : ::Tput::KeyboardProtocol
-      @_listened_keyboard = true
-      tput.enable_keyboard_protocol events
+    # `Disambiguate`, only escape-code disambiguation. No-op fallback on
+    # terminals supporting neither protocol.
+    def enable_keyboard_protocol(level : KeyboardReporting = :disambiguate) : ::Tput::KeyboardProtocol
+      @keyboard_protocol_enabled = true
+      tput.enable_keyboard_protocol level.events?
     end
 
     # Turns the enhanced keyboard protocol back off, restoring the terminal's
     # default keyboard reporting.
     def disable_keyboard_protocol : Nil
       tput.disable_keyboard_protocol
-      @_listened_keyboard = false
+      @keyboard_protocol_enabled = false
     end
 
     # Whether bracketed paste was enabled for this device.
-    getter? _listened_paste = false
+    getter? bracketed_paste_enabled = false
 
     # Enables bracketed paste (DEC 2004): pasted text arrives as
     # `Event::Paste` instead of as individual key presses.
     def enable_bracketed_paste : Nil
-      @_listened_paste = true
+      @bracketed_paste_enabled = true
       tput.enable_bracketed_paste
     end
 
     # Disables bracketed paste.
     def disable_bracketed_paste : Nil
       tput.disable_bracketed_paste
-      @_listened_paste = false
+      @bracketed_paste_enabled = false
     end
 
     # Whether in-band resize notifications were enabled for this device.
-    getter? _listened_in_band_resize = false
+    getter? in_band_resize_enabled = false
 
     # Enables in-band resize notifications (DEC 2048): reports size changes
     # through the input stream, feeding the same debounced redraw path as
     # `SIGWINCH` (useful where SIGWINCH is unavailable, e.g. over some PTYs).
     def enable_in_band_resize : Nil
-      @_listened_in_band_resize = true
+      @in_band_resize_enabled = true
       tput.enable_in_band_resize
     end
 
     # Disables in-band resize notifications.
     def disable_in_band_resize : Nil
       tput.disable_in_band_resize
-      @_listened_in_band_resize = false
+      @in_band_resize_enabled = false
     end
 
     # Whether color-scheme notifications were enabled for this device.
-    getter? _listened_color_scheme = false
+    getter? color_scheme_notifications_enabled = false
 
     # Enables light/dark color-scheme change notifications (DEC 2031): theme
-    # changes arrive as `Event::ColorScheme`. No-op on unsupported terminals.
+    # changes arrive as `Event::ColorSchemeChanged`. No-op on unsupported terminals.
     def enable_color_scheme_notifications : Nil
-      @_listened_color_scheme = true
+      @color_scheme_notifications_enabled = true
       tput.enable_color_scheme_notifications
     end
 
     # Disables color-scheme change notifications.
     def disable_color_scheme_notifications : Nil
       tput.disable_color_scheme_notifications
-      @_listened_color_scheme = false
+      @color_scheme_notifications_enabled = false
     end
 
     # Best-effort turn-off of every input mode this device enabled, then restore
@@ -159,10 +167,10 @@ module Crysterm
     # Every step is guarded: a user-closed window leaves dead fds that raise on
     # write.
     def restore_input_modes : Nil
-      restore_step(_listened_keyboard?) { disable_keyboard_protocol }
-      restore_step(_listened_paste?) { disable_bracketed_paste }
-      restore_step(_listened_in_band_resize?) { disable_in_band_resize }
-      restore_step(_listened_color_scheme?) { disable_color_scheme_notifications }
+      restore_step(keyboard_protocol_enabled?) { disable_keyboard_protocol }
+      restore_step(bracketed_paste_enabled?) { disable_bracketed_paste }
+      restore_step(in_band_resize_enabled?) { disable_in_band_resize }
+      restore_step(color_scheme_notifications_enabled?) { disable_color_scheme_notifications }
 
       # Restore line discipline on a real, still-open tty.
       i = input

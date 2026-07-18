@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression: wheeling over an open completer drop-down used to let the
 # hover-select highlight fight the wheel. Once the pointer drifted across a row
-# boundary mid-scroll, the per-row `MouseOver` re-pinned the selection to the
+# boundary mid-scroll, the per-row `MouseEnter` re-pinned the selection to the
 # entry under the cursor, so the list could never scroll past the first page —
 # the selection "jumped back under the cursor".
 #
@@ -53,9 +53,9 @@ describe "Completer drop-down wheel scrolling" do
 
     x = pop.aleft + 2
     base = pop.atop + pop.itop
-    12.times { cws_wheel s, 1, x, base + 2 }   # wheel down, cursor held on row 2
-    pop.@child_base.should be > 0              # the view scrolled past page one
-    pop.selected.should eq pop.@items.size - 1 # every entry is reachable by the wheel
+    12.times { cws_wheel s, 1, x, base + 2 }        # wheel down, cursor held on row 2
+    pop.@child_base.should be > 0                   # the view scrolled past page one
+    pop.current_index.should eq pop.@items.size - 1 # every entry is reachable by the wheel
     completer.open?.should be_true
   end
 
@@ -73,8 +73,8 @@ describe "Completer drop-down wheel scrolling" do
       cws_move s, x, base + row
       cws_wheel s, 1, x, base + row
     end
-    pop.@child_base.should be > 0                              # NOT stuck on page one
-    pop.selected.should eq pop.@child_base + pop.@child_offset # selection == entry under cursor
+    pop.@child_base.should be > 0                                   # NOT stuck on page one
+    pop.current_index.should eq pop.@child_base + pop.@child_offset # selection == entry under cursor
   end
 
   it "tracks the entry under the pointer as the mouse moves (hover-select)" do
@@ -87,7 +87,7 @@ describe "Completer drop-down wheel scrolling" do
 
     [0, 1, 2, 3, 2, 1].each do |row|
       cws_move s, x, base + row
-      pop.selected.should eq row # unscrolled: selection == the row under the pointer
+      pop.current_index.should eq row # unscrolled: selection == the row under the pointer
     end
 
     # Scroll to the very bottom, then hover each visible row: the highlight must
@@ -101,7 +101,7 @@ describe "Completer drop-down wheel scrolling" do
     vis = pop.visible_content_rows
     (0...vis).each do |row|
       cws_move s, x, base + row
-      pop.selected.should eq cb + row
+      pop.current_index.should eq cb + row
     end
   end
 
@@ -111,9 +111,9 @@ describe "Completer drop-down wheel scrolling" do
     x = pop.aleft + 2
     base = pop.atop + pop.itop
     20.times { cws_wheel s, 1, x, base + 2 } # go to the bottom
-    pop.selected.should eq pop.@items.size - 1
+    pop.current_index.should eq pop.@items.size - 1
     20.times { cws_wheel s, -1, x, base + 2 } # and all the way back
-    pop.selected.should eq 0
+    pop.current_index.should eq 0
     pop.@child_base.should eq 0
     completer.open?.should be_true # scrolling never dismisses the popup
   end

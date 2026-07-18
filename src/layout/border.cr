@@ -35,7 +35,7 @@ module Crysterm
       end
 
       class Hint < Layout::Hint
-        getter region : Region
+        property region : Region
 
         def initialize(@region : Region)
         end
@@ -58,8 +58,8 @@ module Crysterm
         # Working rect in interior-local coordinates.
         x0 = 0
         y0 = 0
-        x1 = interior.xl - interior.xi
-        y1 = interior.yl - interior.yi
+        x1 = interior.width
+        y1 = interior.height
 
         # Five passes filter the live child array by `region_of` rather than
         # bucketing into five `Array(Widget)` per frame; children keep their

@@ -357,26 +357,70 @@ module Crysterm
     # `Widget::ListTable` has `alternate_rows` enabled — equivalent to Qt's
     # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus the
     # main style), so it has no visible effect until styled.
-    sub_style_accessor alternate_row, "cell"
+    #
+    # An explicitly-assigned sub-style is the base; the CSS
+    # `alternate-background-color` override (`@alternate_bg`) is composed over it
+    # (or over `cell`/`self`) *lazily* at read time, so the foreground and
+    # attributes always track the current cell/self style — a `color` declaration
+    # applied after `alternate-background-color`, or one inherited from a parent
+    # rule, still reaches alternate rows (per Qt, only the background changes).
+    @alternate_row : Style?
 
-    # Whether a distinct alternate-row sub-style has been set, as opposed to the
+    # Only the background override is frozen; fg/attributes compose live.
+    @alternate_bg : Int32?
+
+    # Memoized composed sub-style, guarded by the base style's identity so the
+    # per-frame read stays cheap; invalidated whenever the base object or the bg
+    # override changes.
+    @alternate_row_composed : Style?
+    @alternate_row_composed_src : Style?
+
+    def alternate_row=(value : Style?) : Style?
+      @alternate_row_composed = nil
+      @alternate_row = value
+    end
+
+    def alternate_row : Style
+      base = @alternate_row || cell
+      bg = @alternate_bg
+      return base if bg.nil?
+      # Reuse the memoized composition while the base object is unchanged.
+      if (c = @alternate_row_composed) && (s = @alternate_row_composed_src) && s.same?(base)
+        return c
+      end
+      composed = base.dup
+      composed.bg = bg
+      @alternate_row_composed = composed
+      @alternate_row_composed_src = base
+      composed
+    end
+
+    # Whether a distinct alternate-row sub-style has been set (an explicit
+    # sub-style or a CSS `alternate-background-color` override), as opposed to the
     # getter falling back to `cell`/`self`.
     def alternate_row?
-      !@alternate_row.nil?
+      !@alternate_row.nil? || !@alternate_bg.nil?
     end
 
     # Sets the background of the alternating-row sub-style (CSS
-    # `alternate-background-color`). Only the background is touched, per Qt; the
-    # foreground falls through. Must work on a dup and reassign rather than
-    # mutate `#alternate_row` in place: an unset slot's getter falls back to
-    # `cell`/`self`, and a `dup`'d `Style` shares its sub-styles, so an in-place
-    # edit would leak into the shared fallback.
-    def alternate_background=(color) : Nil
-      # Seed from the `cell` → `self` fallback, not a blank `Style.new`, which
-      # would drop the table's text color and bold/italic on alternate rows.
-      alt = (@alternate_row || cell).dup
-      alt.bg = color
-      @alternate_row = alt
+    # `alternate-background-color`). Only the background is stored, per Qt; the
+    # foreground and attributes are composed live from the current `cell`/`self`
+    # style at read time (see `#alternate_row`), so a later `color` declaration or
+    # inherited color still reaches alternate rows.
+    def alternate_background_color=(color) : Nil
+      @alternate_bg =
+        case color
+        when Int    then color.to_i32
+        when String then Colors.convert_cached(color)
+        else             nil
+        end
+      @alternate_row_composed = nil
+    end
+
+    # The alternate-row background color, or `nil` when no distinct alternate-row
+    # background has been set (the row then follows `cell`/`self`).
+    def alternate_background_color
+      @alternate_bg || @alternate_row.try &.bg
     end
 
     # Color of a table's internal gridlines (Qt's `gridline-color`). `nil` (the
@@ -387,7 +431,7 @@ module Crysterm
 
     Colorizable.color_setter gridline_color
 
-    def border=(value)
+    def border=(value : Bool | BorderType | Border | Side | Symbol | Int32 | Nil)
       @specified_mask |= SPEC_BORDER
       @border = Border.from value
     end
@@ -439,14 +483,14 @@ module Crysterm
     sub_style_accessor drop_down
 
     # Style used when internally instantiating labels on widgets. Since labels
-    # are widgets, everything below it is looked up via `@_label.style...`.
+    # are widgets, everything below it is looked up via `@label_widget.style...`.
     #
     # TODO An unstyled label gets a fresh `Style`, so users must style the label
     # separately. Defaulting to `self` would carry more automatically, but also
     # unwanted properties (e.g. `border: true`). Applies to all sub-features here.
     property label : Style { Style.new }
 
-    def padding=(value)
+    def padding=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32) | Nil)
       @specified_mask |= SPEC_PADDING
       @padding = Padding.from value
     end
@@ -459,7 +503,7 @@ module Crysterm
 
     # Element's outer spacing. Unlike `padding`/`border`, which are inner insets,
     # margin offsets and shrinks the element itself within its allotted slot.
-    def margin=(value)
+    def margin=(value : Bool | Margin | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32) | Nil)
       @specified_mask |= SPEC_MARGIN
       @margin = Margin.from value
     end
@@ -470,7 +514,7 @@ module Crysterm
     sub_style_accessor scrollbar
 
     # Should element drop shadow?
-    def shadow=(value)
+    def shadow=(value : Bool | Shadow | Side | Symbol | Float64 | Int32 | Nil)
       @specified_mask |= SPEC_SHADOW
       @shadow = Shadow.from value
     end
@@ -541,6 +585,12 @@ module Crysterm
         {% for css_name, accessor in slots %}
         @{{accessor.id}} = inline.@{{accessor.id}} if inline.@{{accessor.id}}
         {% end %}
+        # `alternate-background-color` is stored as a scalar override, not a
+        # sub-style, so the slot loop above misses it.
+        if b = inline.@alternate_bg
+          @alternate_bg = b
+          @alternate_row_composed = nil
+        end
       end
 
       # The explicitly-set sub-`Style` for the cascade *slot* name, or `nil` when

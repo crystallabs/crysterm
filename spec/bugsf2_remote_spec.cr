@@ -59,7 +59,7 @@ require "http/client"
       fired = [] of String
 
       DOM.each_binding(s, wired) { |_w, _type, action, _val| fired << action }
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       fired.should eq ["save"]
 
       # Change the action and re-wire. The stale "save" binding must be detached,
@@ -67,7 +67,7 @@ require "http/client"
       btn.dom_events["click"] = "delete"
       DOM.each_binding(s, wired) { |_w, _type, action, _val| fired << action }
       fired.clear
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       fired.should eq ["delete"]
     end
 
@@ -81,14 +81,14 @@ require "http/client"
 
       # No binding yet: nothing wires, nothing fires.
       DOM.each_binding(s, wired) { |_w, _type, action, _val| fired << action }
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       fired.should be_empty
 
       # Set it (as `setAttribute("onclick", ...)` would via dom_apply), re-run:
       # now it wires and fires.
       btn.dom_apply "onclick", "go"
       DOM.each_binding(s, wired) { |_w, _type, action, _val| fired << action }
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       fired.should eq ["go"]
     end
 
@@ -117,7 +117,7 @@ require "http/client"
         end
         sleep 100.milliseconds
 
-        s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+        s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
         select
         when msg = events.receive
           params = JSON.parse(msg)["params"]
@@ -198,7 +198,7 @@ require "http/client"
         end
         sleep 100.milliseconds
 
-        s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+        s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
         select
         when msg = events.receive
           fail "forwarder was not detached: still delivered #{msg}"

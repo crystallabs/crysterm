@@ -219,7 +219,7 @@ module Crysterm
         if key == @layout_key && @layout_revision == @doc_revision && !@_clines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
           # recolors the background) — mirrors the base `process_content`.
-          da = sattr(style)
+          da = style_to_attr(style)
           @_parse_attr_default = da if da != @_parse_attr_default
           return false
         end
@@ -373,7 +373,7 @@ module Crysterm
         # `#paint_document` draws the actual text over it.
         @_pcontent = ""
         # The base attr cache normally refreshes in base `process_content`.
-        @_parse_attr_default = sattr(style)
+        @_parse_attr_default = style_to_attr(style)
       end
 
       # One block's display rows under the current layout inputs, via the same
@@ -463,7 +463,7 @@ module Crysterm
       private def paint_document(coords) : Nil
         scr = window
         lines_buf = scr.lines
-        fu = scr.full_unicode?
+        fu = scr.full_unicode_effective?
 
         xi = coords.xi
         xl = coords.xl
@@ -481,7 +481,7 @@ module Crysterm
         # below guards rows the same way (`next if y < 0`).
         min_col = Math.max(0, -xi)
 
-        base_attr = @_parse_attr_default || sattr(style)
+        base_attr = @_parse_attr_default || style_to_attr(style)
         # One raw TAB paints as this whole string (`tab_char` may be several
         # codepoints) — the same expansion the layout/caret math uses.
         tab_expansion = style.tab_char * style.tab_size

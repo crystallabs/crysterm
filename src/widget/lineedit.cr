@@ -94,13 +94,7 @@ module Crysterm
       def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
           e.accept
-          # A non-kill action breaks the consecutive-kill run (emacs semantics);
-          # the mixin's `super` normally does this, but these keys return early.
-          kill_ring.interrupt if Crysterm::Config.input_readline_keys
-          record_history @value
-          @_done.try do |done2|
-            done2.call @value
-          end
+          submit
           return
         end
         # Single-line, so Up/Down can't move between rows — repurposed to walk
@@ -185,13 +179,25 @@ module Crysterm
          effective_echo_mode, @placeholder_text.object_id, @password_character, full_unicode?}
       end
 
-      def value=(value = nil)
-        # Shared prologue (authoritative value + caret + selection); a non-nil
-        # argument is an external set (cursor to the end), `nil` a redisplay that
-        # preserves the cursor. The block strips newlines — this is single-line —
-        # on both paths. `assign_value` must record the value *before* the display
-        # dedup guard, or a stale `@_value` cache would no-op an external set like
-        # `input.value = ""` and leave stale text across submits.
+      # External set: records *value* as the authoritative content and parks the
+      # caret at the end. The block strips newlines — this is single-line.
+      def value=(value : String) : String
+        apply_value value
+        value
+      end
+
+      # Once-per-frame redisplay (called from `#render`): recomputes the shown
+      # text with the caret preserved, without treating it as an external set.
+      def refresh_value : Nil
+        apply_value nil
+      end
+
+      # Shared body for `#value=`/`#refresh_value`. A non-nil *value* is an
+      # external set (cursor to the end), `nil` a redisplay that preserves the
+      # cursor. `assign_value` must record the value *before* the display dedup
+      # guard, or a stale `@_value` cache would no-op an external set like
+      # `input.value = ""` and leave stale text across submits.
+      private def apply_value(value : String?) : Nil
         assign_value(value) { |v| v.includes?('\n') ? v.delete('\n') : v }
 
         # `@_value` caches the *displayed* text so the dedup guard also fires
@@ -283,8 +289,18 @@ module Crysterm
         n
       end
 
+      # Finishes the current read, submitting the entered line: records it in the
+      # history and fires the done-callback (`Submitted`/`read_input`). No-op when
+      # not reading. This is the real Enter-key behavior — the key handler calls
+      # it directly rather than forging a synthetic keypress.
       def submit
-        @__listener.try &.call Crysterm::Event::KeyPress.new '\r', Tput::Key::Enter
+        # A non-kill action breaks the consecutive-kill run (emacs semantics);
+        # the mixin's `super` normally does this, but Enter returns early.
+        # Runs even outside an active read: history must record the line
+        # whether or not a `read_input` is waiting on `@_done`.
+        kill_ring.interrupt if Crysterm::Config.input_readline_keys
+        record_history @value
+        @_done.try &.call @value
       end
 
       # The visible line is a re-sliced *tail* of `@value` (`@_value`), so
@@ -386,7 +402,7 @@ module Crysterm
       # reserved for an end-of-line caret). The inherited version maps
       # `@cursor_pos` onto `@_clines` — here only the re-sliced window — so it
       # would clamp the caret to the window's end instead of the real edit point.
-      def _update_cursor(get = false, to_scroll_pos = false)
+      def _update_cursor(get = false)
         return unless focused?
 
         lpos = get ? @lpos : coords

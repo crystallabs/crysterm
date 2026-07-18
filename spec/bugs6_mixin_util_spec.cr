@@ -68,59 +68,59 @@ private class BugsInstanceThing
   include Crysterm::Mixin::Instances
 
   def initialize
-    bind
+    register_instance
   end
 end
 
 describe "BUGS6 Interactive mixin scroll keys (bug 1)" do
   it "PageDown / PageUp scroll a full page even with vi: false" do
     _, w = bugs6_widget vi: false
-    w.get_scroll.should eq 0
+    w.scroll_position.should eq 0
 
     press w, key: Tput::Key::PageDown
-    down = w.get_scroll
+    down = w.scroll_position
     down.should be > 0
 
     press w, key: Tput::Key::PageUp
-    w.get_scroll.should be < down
+    w.scroll_position.should be < down
   end
 
   it "Home / End jump to top / bottom even with vi: false" do
     _, w = bugs6_widget vi: false
 
     press w, key: Tput::Key::End
-    w.get_scroll.should be > 0
+    w.scroll_position.should be > 0
 
     press w, key: Tput::Key::Home
-    w.get_scroll.should eq 0
+    w.scroll_position.should eq 0
   end
 
   it "Ctrl-D (half page) and Ctrl-F (full page) scroll with vi: false" do
     _, w = bugs6_widget vi: false
 
     press w, key: Tput::Key::CtrlD
-    half = w.get_scroll
+    half = w.scroll_position
     half.should be > 0
 
     press w, key: Tput::Key::Home
     press w, key: Tput::Key::CtrlF
-    w.get_scroll.should be >= half # a full page is at least as far as a half page
+    w.scroll_position.should be >= half # a full page is at least as far as a half page
   end
 
   it "vi single-char j/k and g/G work only with vi: true" do
     _, off = bugs6_widget vi: false
     press off, ch: 'j'
-    off.get_scroll.should eq 0 # 'j' is inert without vi
+    off.scroll_position.should eq 0 # 'j' is inert without vi
 
     _, on = bugs6_widget vi: true
     press on, ch: 'j'
-    on.get_scroll.should be > 0
+    on.scroll_position.should be > 0
 
     press on, ch: 'G'
-    bottom = on.get_scroll
+    bottom = on.scroll_position
     bottom.should be > 0
     press on, ch: 'g'
-    on.get_scroll.should eq 0
+    on.scroll_position.should eq 0
   end
 end
 
@@ -141,17 +141,17 @@ describe "BUGS6 Unicode.display_width control-char fast path (bug 2)" do
   end
 end
 
-describe "BUGS6 Instances.global(create: false) (bug 3)" do
+describe "BUGS6 Instances.global? (bug 3)" do
   it "returns nil on an empty list instead of raising" do
     BugsInstanceThing.instances.clear
-    BugsInstanceThing.global(create: false).should be_nil
+    BugsInstanceThing.global?.should be_nil
   end
 
   it "returns the most recent existing instance when present" do
     BugsInstanceThing.instances.clear
     BugsInstanceThing.new # an earlier instance; `global` must return the LATER one
     b = BugsInstanceThing.new
-    BugsInstanceThing.global(create: false).should be b
+    BugsInstanceThing.global?.should be b
   end
 
   it "still creates a non-nil instance on the default create path" do

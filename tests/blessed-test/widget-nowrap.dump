@@ -7,7 +7,7 @@ w=80 h=24
 |# file's own source; lines longer than the box are clipped i                    |
 |# Blessed's `wrap: false` maps to crysterm's `wrap_content:                     |
 |module Crysterm                                                                 |
-|  s = Window.new always_propagate: [::Tput::Key::CtrlQ]                         |
+|  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ                    |
 |                                                                                |
 |  box = Widget::Box.new(                                                        |
 |    parent: s,                                                                  |

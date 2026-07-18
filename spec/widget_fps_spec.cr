@@ -50,7 +50,7 @@ describe Crysterm::Widget::Fps do
 
   it "lets the user pick the format and which metrics to print" do
     s = fps_screen
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [:fps]
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [Crysterm::Widget::Fps::Metric::Fps]
     s._render
     fps.content.should eq "0 fps"
   end
@@ -58,14 +58,14 @@ describe Crysterm::Widget::Fps do
   it "surfaces a bad format/args combination instead of crashing the render" do
     s = fps_screen
     # %d on a String arg raises inside String#%; the widget must catch it.
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [:total_h]
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [Crysterm::Widget::Fps::Metric::TotalH]
     s._render
     fps.content.should start_with "FPS format error"
   end
 
   it "accumulates the cumulative byte total across frames" do
     s = fps_screen
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [:total]
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [Crysterm::Widget::Fps::Metric::Total]
 
     # Frame 1 draws the overlay text, so the running total grows above 0.
     s._render

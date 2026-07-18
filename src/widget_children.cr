@@ -5,16 +5,18 @@ module Crysterm
     include Mixin::Children
 
     # Transient guard set while re-homing a widget that stays on the *same*
-    # window: the unlink skips the window-level `Detach` and the focus rewind,
-    # and the relink skips the matching `Attach`. The widget never actually
+    # window: the unlink skips the window-level `Detached` and the focus rewind,
+    # and the relink skips the matching `Attached`. The widget never actually
     # leaves the window, so firing those would wrongly run handlers for what is
     # just a tree-position change (a `Media` overlay clearing its image, a
     # `TabWidget` carousel restarting). Reset right after the unlink.
     protected property? reparenting_same_screen : Bool = false
 
     # Removes node from its parent.
-    # This is identical to calling `parent.remove(self)`.
-    def remove_from_parent
+    # This is identical to calling `parent.remove(self)`. Internal: a top-level
+    # widget has no widget `@parent` for this to touch, so external callers want
+    # `#detach_from_tree` (or `parent = nil`), which handles both cases.
+    protected def remove_from_parent
       @parent.try(&.remove(self))
     end
 
@@ -46,7 +48,7 @@ module Crysterm
 
     # Stretches *child* to fill this widget, `top`/`left`/`right`/`bottom` giving
     # the inset on each side (all `0` — flush — by default). Returns *child*.
-    def fill_parent(child : Widget, *, top = 0, left = 0, right = 0, bottom = 0) : Widget
+    def stretch_child(child : Widget, *, top = 0, left = 0, right = 0, bottom = 0) : Widget
       child.top = top
       child.left = left
       child.right = right
@@ -60,7 +62,7 @@ module Crysterm
     def replace_content_child(old : Widget?, new_child : Widget, *,
                               top = 0, left = 0, right = 0, bottom = 0) : Widget
       old.try &.remove_from_parent
-      fill_parent new_child, top: top, left: left, right: right, bottom: bottom
+      stretch_child new_child, top: top, left: left, right: right, bottom: bottom
       append new_child
       request_render
       new_child
@@ -103,7 +105,7 @@ module Crysterm
       # no-ops. Otherwise `window?` is non-nil only for an unattached element
       # holding the auto-assigned global window without being in any `children` —
       # the window it is moving away from, so `attach` emits the right
-      # cross-window `Detach`/`Attach`.
+      # cross-window `Detached`/`Attached`.
       previous = same_screen_move ? dest_screen : element.window?
 
       # Same-parent reorder: adjust the now-stale insertion index.
@@ -127,8 +129,8 @@ module Crysterm
       # keyable/clickable descendants.
       window?.try &.register_subtree(element)
 
-      element.emit Crysterm::Event::Reparent, self
-      emit Crysterm::Event::Adopt, element
+      element.emit Crysterm::Event::Reparented, self
+      emit Crysterm::Event::ChildAdded, element
     end
 
     # Runs the unlink in *block* with `element.reparenting_same_screen` set to
@@ -170,13 +172,13 @@ module Crysterm
       # own the lists. No-op when it was never on a window.
       previous.try &.unregister element
 
-      element.emit(Crysterm::Event::Reparent, nil)
-      emit(Crysterm::Event::Remove, element)
+      element.emit(Crysterm::Event::Reparented, nil)
+      emit(Crysterm::Event::ChildRemoved, element)
 
       # Tear down the window's transient mouse-state pointing into the detached
       # subtree — hover, press-arm, mouse captor, in-flight drag and modal grabs.
       # Without this a hovered/capturing/dragging nested widget that is removed
-      # leaves the window pointing at a dead widget: stale `MouseOut`, mouse stuck
+      # leaves the window pointing at a dead widget: stale `MouseLeave`, mouse stuck
       # in capture, or modal-forever. Skipped for a same-window reparent, which
       # re-links immediately and keeps the pointers valid. The teardown brackets
       # the `detach`/rewind so stale pointers drop only after the subtree is
@@ -188,7 +190,7 @@ module Crysterm
         end
       else
         # Same-window reparent, or the element was never on a window: only the
-        # (guarded) `Detach`/rewind, no mouse-state teardown.
+        # (guarded) `Detached`/rewind, no mouse-state teardown.
         previous.try do |pv|
           pv.detach element, pv unless element.reparenting_same_screen?
         end
@@ -198,26 +200,33 @@ module Crysterm
 
     # Order this widget was reached in during the current render walk. Transient
     # bookkeeping — NOT the widget's stacking position; for that see
-    # `#stack_index=`, `#front!` and `#back!`.
+    # `#stack_index=`, `#to_front` and `#to_back`.
     property render_index = -1
 
     # Sends widget to front
-    def front!
+    def to_front
       self.stack_index = -1
     end
 
     # Sends widget to back
-    def back!
+    def to_back
       self.stack_index = 0
+    end
+
+    # This widget's current z-order slot in its parent's (or, for a top-level
+    # widget, its window's) children list — i.e. `parent.children.index(self)`.
+    # `nil` when the widget isn't attached anywhere.
+    def stack_index : Int32?
+      (@parent || window?).try &.children.index(self)
     end
 
     # Moves this widget to slot *index* in its parent's children list — i.e. its
     # z-order among siblings (later siblings paint on top). Negative indexes
     # count from the end, so `-1` is frontmost. Out-of-range values clamp.
-    def stack_index=(index : Int)
+    def stack_index=(index : Int) : Int
       # A top-level widget has no `@parent` (a `Window` is not a `Widget`), so
-      # fall back to the window, otherwise `front!`/`back!` would no-op for it.
-      return unless parent = (@parent || window?)
+      # fall back to the window, otherwise `to_front`/`to_back` would no-op for it.
+      return index unless parent = (@parent || window?)
 
       if index < 0
         index = parent.children.size + index
@@ -228,17 +237,17 @@ module Crysterm
 
       i = parent.children.index self
 
-      return unless i
+      return index unless i
 
       # No-op when the widget is already at the target slot: avoid churning
       # damage/CSS for a stacking change that isn't one.
-      return true if i == index
+      return index if i == index
 
       parent.children.insert index, parent.children.delete_at i
 
       # A pure z-order reorder mutates the children list directly, bypassing the
       # insert/remove path and thus `mark_structure_changed`. Without this, a lone
-      # `front!`/`back!` under damage tracking leaves the dirty set empty, so the
+      # `to_front`/`to_back` under damage tracking leaves the dirty set empty, so the
       # new stacking order isn't painted until an unrelated full-frame trigger
       # fires, and order-dependent selectors (`:nth-child`, `:first`/`:last-child`,
       # sibling combinators) never re-evaluate.
@@ -246,7 +255,7 @@ module Crysterm
       window?.try &.damage_force_full
       invalidate_css_tree
 
-      true
+      index
     end
   end
 end

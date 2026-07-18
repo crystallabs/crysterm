@@ -183,7 +183,7 @@ describe "margin" do
     it "separates HBox children by their adjacent margins" do
       screen = render_screen
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 40, height: 6,
-        layout: Layout::Box.new(orientation: Layout::Box::Orientation::Horizontal)
+        layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
       a = Widget::Box.new parent: box, width: 8, height: 4
       b = Widget::Box.new parent: box, width: 8, height: 4
       b.add_css_class "ml"

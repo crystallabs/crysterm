@@ -22,7 +22,7 @@ module Crysterm
     # ... }` must still tween on entry, which needs a `prev` snapshot the old
     # style never asked for. `TransitionFrom` is a struct, so this stays
     # allocation-free.
-    def transition_from : TransitionFrom?
+    protected def transition_from : TransitionFrom?
       s = style
       TransitionFrom.new s.fg, s.bg, s.alpha, s.tint_alpha
     end

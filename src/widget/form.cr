@@ -11,20 +11,19 @@ module Crysterm
     #   with `keys: true`, `Tab`/`Shift+Tab` move focus to the next/previous
     #   focusable child (and, with `vi: true`, `j`/`k` do the same).
     # * **Submission** — `#submit` walks the subtree, collects each input's
-    #   value into a `name => value` `Hash` and emits `Event::SubmitData`.
+    #   value into a `name => value` `Hash` and emits `Event::FormSubmitted`.
     # * **Reset** — `#reset` returns every input child to its initial state and
     #   emits `Event::Reset`.
     #
-    # Qt-like aliases are provided alongside the Blessed-style names:
-    # `#focus_next`/`#next_field`, `#focus_previous`/`#previous_field`,
-    # `#focus_first`, `#focus_last`.
+    # Keyboard navigation uses `#focus_next`/`#focus_previous`/`#focus_first`/
+    # `#focus_last`.
     #
     # ```
     # form = Widget::Form.new keys: true
     # name = Widget::LineEdit.new parent: form, name: "name", top: 0, height: 1
     # ok = Widget::Button.new parent: form, name: "ok", top: 2, content: "OK"
     #
-    # form.on(Crysterm::Event::SubmitData) do |e|
+    # form.on(Crysterm::Event::FormSubmitted) do |e|
     #   # e.data["name"] holds the entered text
     # end
     # ```
@@ -39,7 +38,9 @@ module Crysterm
 
       # The currently selected (focused) child, as tracked by the navigation
       # methods. May differ from `Window#focused` if focus was changed directly.
-      property selected : Widget?
+      # Assignment is internal; use `#reset_selected` to clear it.
+      getter current_field : Widget?
+      protected setter current_field
 
       # Result of the most recent `#submit`, i.e. the collected `name => value`
       # pairs. `nil` until the form has been submitted at least once.
@@ -49,14 +50,14 @@ module Crysterm
       # handler is installed at most once per field.
       @auto_next_wired = Set(UInt64).new
 
-      def initialize(auto_next = nil, **box)
+      def initialize(auto_next : Bool = false, **box)
         super **box
 
         # A form doesn't consume keys itself; it only reacts to keys bubbling
         # up from focused descendants.
         @ignore_keys = true
 
-        auto_next.try { |v| @auto_next = v }
+        @auto_next = auto_next
 
         if @keys
           # Become keyable so bubbled key events are delivered here.
@@ -66,9 +67,9 @@ module Crysterm
 
         # Wire `auto_next` handlers eagerly as fields are adopted, not lazily on
         # the first `#focusable` call: else submitting a field reached by a
-        # direct click never advances, its `Submit` handler never installed.
+        # direct click never advances, its `Submitted` handler never installed.
         if @auto_next
-          on(Crysterm::Event::Adopt) { focusable }
+          on(Crysterm::Event::ChildAdded) { focusable }
         end
       end
 
@@ -97,11 +98,11 @@ module Crysterm
         return unless @auto_next
         return unless el.is_a? LineEdit
         return unless @auto_next_wired.add? el.object_id
-        el.on(Crysterm::Event::Submit) do
+        el.on(Crysterm::Event::Submitted) do
           # Anchor the advance on the field that submitted, so focus moves to
           # *its* successor even when it was focused directly (a click) and
-          # `@selected` still points at the last Tab-navigated field (or nil).
-          @selected = el
+          # `@current_field` still points at the last Tab-navigated field (or nil).
+          @current_field = el
           focus_next
           request_render
         end
@@ -143,10 +144,10 @@ module Crysterm
         size = list.size
         sentinel = direction > 0 ? -1 : 0
         # Anchor on the child that *actually* holds focus when it differs from
-        # the last-navigated `@selected` — e.g. a field focused by a click.
-        # Only when `@selected` is already set, so `#focus_first`/`#focus_last`
+        # the last-navigated `@current_field` — e.g. a field focused by a click.
+        # Only when `@current_field` is already set, so `#focus_first`/`#focus_last`
         # still enter from the sentinel.
-        anchor = @selected
+        anchor = @current_field
         if anchor && (foc = window?.try(&.focused)) && list.includes?(foc)
           anchor = foc
         end
@@ -155,7 +156,7 @@ module Crysterm
           i = (i + direction) % size
           candidate = list[i]
           if candidate.style.visible? && !candidate.disabled?
-            @selected = candidate
+            @current_field = candidate
             return candidate
           end
         end
@@ -173,20 +174,10 @@ module Crysterm
         previous_focusable.try &.focus
       end
 
-      # Qt-like alias for `#focus_next`.
-      def next_field
-        focus_next
-      end
-
-      # Qt-like alias for `#focus_previous`.
-      def previous_field
-        focus_previous
-      end
-
       # Forgets the currently selected child, so the next `#focus_next` starts
       # from the first child (and `#focus_previous` from the last).
       def reset_selected
-        @selected = nil
+        @current_field = nil
       end
 
       # Focuses the first focusable child.
@@ -202,7 +193,7 @@ module Crysterm
       end
 
       # Collects the value of every input child into a `name => value` `Hash`,
-      # stores it in `#submission`, emits `Event::SubmitData`, and returns it.
+      # stores it in `#submission`, emits `Event::FormSubmitted`, and returns it.
       #
       # A child contributes a value only if it is a recognized input type. The
       # key is the child's `#name`, falling back to its widget type. Inputs
@@ -211,7 +202,7 @@ module Crysterm
       def submit
         data = {} of String => String
         collect_values self, data
-        emit Crysterm::Event::SubmitData, data
+        emit Crysterm::Event::FormSubmitted, data
         @submission = data
       end
 
@@ -242,11 +233,11 @@ module Crysterm
           # `List`. A `FileManager` is a picker, not a form field, so it is
           # excluded before the mixin arm.
         when FileManager     then nil
-        when Mixin::ItemView then el.value
+        when Mixin::ItemView then el.current_text
           # `DoubleSpinBox` renders to `#decimals` places.
         when SpinBox       then el.value.to_s
         when DoubleSpinBox then el.formatted_value
-        when ComboBox      then el.value
+        when ComboBox      then el.current_text
           # `DateEdit`/`TimeEdit` are subclasses of `DateTimeEdit`, so they must
           # be matched *before* it. Format to the layout each widget displays.
         when DateEdit     then el.date.to_s("%Y-%m-%d")
@@ -256,10 +247,10 @@ module Crysterm
         end
       end
 
-      # Emits `Event::Cancel` to signal the form was dismissed without
+      # Emits `Event::Cancelled` to signal the form was dismissed without
       # submitting.
       def cancel
-        emit Crysterm::Event::Cancel, ""
+        emit Crysterm::Event::Cancelled
       end
 
       # Resets every input child to its initial state and emits `Event::Reset`.

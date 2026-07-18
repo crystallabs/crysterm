@@ -4,9 +4,9 @@ include Crysterm
 
 # Regression spec for the BUGS4 menu fix: clicking a separator row must not
 # activate an adjacent action. A click lands on the *raw* row index and (for a
-# menu, which activates on click) called `enter_selected(i)`; `select_index` then
-# `#skip_separators` off the divider onto a neighbor, whose `ActionItem` fired
-# `activate_index`. `Menu#enter_selected(i)` now ignores separator rows.
+# menu, which activates on click) called `activate_item(index)`; `select_index` then
+# `#skip_separators` off the divider onto a neighbor, whose `ItemActivated` fired
+# `activate_index`. `Menu#activate_item(index)` now ignores separator rows.
 
 private def menu_screen
   Crysterm::Window.new(
@@ -28,9 +28,9 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     m.add("B") { fired << "B" }
     s.render
 
-    # Rows: [A, ───, B]. `enter_selected(1)` is exactly what the separator row's
+    # Rows: [A, ───, B]. `activate_item(1)` is exactly what the separator row's
     # Click handler invokes.
-    m.enter_selected 1
+    m.activate_item 1
     fired.should be_empty
   end
 
@@ -43,10 +43,10 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     m.add("B") { fired << "B" }
     s.render
 
-    m.enter_selected 0
+    m.activate_item 0
     fired.should eq ["A"]
 
-    m.enter_selected 2
+    m.activate_item 2
     fired.should eq ["A", "B"]
   end
 end

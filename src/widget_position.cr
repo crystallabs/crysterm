@@ -134,6 +134,23 @@ module Crysterm
       end
     {% end %}
 
+    # `#rleft` under Qt's `QWidget::x()` name.
+    def x : Int32
+      rleft
+    end
+
+    # `#rtop` under Qt's `QWidget::y()` name.
+    def y : Int32
+      rtop
+    end
+
+    # `#lpos` (from `Mixin::Pos`) under Qt's `QWidget::geometry()`-adjacent
+    # vocabulary — the widget's last rendered box. Same object every frame (see
+    # `RenderedGeometry`); read it, don't retain it past the current frame.
+    def rendered_geometry : RenderedGeometry?
+      lpos
+    end
+
     #
     # Computed absolute position on window
     #
@@ -527,7 +544,7 @@ module Crysterm
         br = sp_border.right
 
         # Exempt a widget that *is* a label (it sits ON the parent's border) from
-        # border compensation. Testing `@_label` instead ("widget HAS a label") is
+        # border compensation. Testing `@label_widget` instead ("widget HAS a label") is
         # the wrong direction: it would clip labels out of scrollable widgets and
         # zero all four compensations for any labeled child in a scrolled
         # container.

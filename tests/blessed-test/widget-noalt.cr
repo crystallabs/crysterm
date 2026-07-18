@@ -7,7 +7,7 @@ require "../../src/crysterm"
 module Crysterm
   # Blessed's `noAlt: true` (don't switch to the alternate screen buffer)
   # has no Crysterm equivalent, so it is dropped.
-  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
   list = Widget::List.new(
     parent: s,
@@ -31,7 +31,7 @@ module Crysterm
 
   list.add_to_selection 0
 
-  list.on(Crysterm::Event::SelectItem) do |e|
+  list.on(Crysterm::Event::ItemSelected) do |e|
     s.destroy
     exit
   end

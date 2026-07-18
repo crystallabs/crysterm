@@ -55,7 +55,7 @@ describe Crysterm::Widget::ToolButton do
         popup_mode: Crysterm::Widget::ToolButton::PopupMode::InstantPopup
       s._render
       pressed = false
-      tb.on(Crysterm::Event::Press) { pressed = true }
+      tb.on(Crysterm::Event::Pressed) { pressed = true }
       tb.click
       pressed.should be_false   # InstantPopup: whole button is the drop-down
       m.visible?.should be_true # the menu was popped up (shown)
@@ -71,7 +71,7 @@ describe Crysterm::Widget::ToolButton do
       s._render
 
       pressed = false
-      tb.on(Crysterm::Event::Press) { pressed = true }
+      tb.on(Crysterm::Event::Pressed) { pressed = true }
       tb.click
       pressed.should be_true # default mode still presses
 
@@ -92,7 +92,7 @@ describe Crysterm::Widget::ToolButton do
       s._render
 
       pressed = false
-      tb.on(Crysterm::Event::Press) { pressed = true }
+      tb.on(Crysterm::Event::Pressed) { pressed = true }
       tb.on_click nil
       m.visible?.should be_true # a mouse click opens the drop-down...
       pressed.should be_false   # ...instead of emitting a bare Press
@@ -106,7 +106,7 @@ describe Crysterm::Widget::ToolButton do
       act = Crysterm::Action.new "Apply"
       triggered = false
       act.on(Crysterm::Event::Triggered) { triggered = true }
-      tb = Crysterm::Widget::ToolButton.new parent: s, action: act, menu: m
+      tb = Crysterm::Widget::ToolButton.new parent: s, default_action: act, menu: m
       s._render
 
       tb.on_click nil
@@ -129,7 +129,7 @@ describe Crysterm::Widget::ToolButton do
       m.hide
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
-        width: 12, height: 1, action: act, menu: m, align: :center
+        width: 12, height: 1, default_action: act, menu: m, align: :center
       s._render
 
       sb_click s, tb.aleft + 1, tb.atop # body, left of the ▾
@@ -145,7 +145,7 @@ describe Crysterm::Widget::ToolButton do
       m.hide
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
-        width: 12, height: 1, action: act, menu: m, align: :center
+        width: 12, height: 1, default_action: act, menu: m, align: :center
       s._render
 
       sb_click s, tb.aleft + tb.awidth - 1, tb.atop # the arrow cell

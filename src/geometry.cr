@@ -1,6 +1,17 @@
 module Crysterm
+  # A single cell position — Qt's `QPoint`.
+  record Point, x : Int32, y : Int32
+
+  # A cell extent — Qt's `QSize`.
+  record Size, width : Int32, height : Int32
+
   # An axis-aligned rectangle of terminal cells (Qt's `QRect`), returned from
   # position-calculating methods — most visibly `Widget#contents_rect`.
+  #
+  # The primary constructor takes Qt's `x, y, width, height` order, matching
+  # `QRect(int x, int y, int width, int height)`. For the half-open edge form
+  # (`left, top, right, bottom`) — handy when the caller already has edges in
+  # hand, e.g. intersection/union math — use `.of_edges`.
   #
   # Both axes are **half-open**: the rectangle covers columns `xi...xl` and rows
   # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`.
@@ -19,7 +30,17 @@ module Crysterm
     # End row (**exclusive**).
     getter yl : Int32
 
-    def initialize(@xi, @xl, @yi, @yl)
+    def initialize(x : Int32, y : Int32, width : Int32, height : Int32)
+      @xi = x
+      @yi = y
+      @xl = x + width
+      @yl = y + height
+    end
+
+    # Alternate constructor taking half-open edges directly (`left...right`,
+    # `top...bottom`) rather than an origin + size.
+    def self.of_edges(left : Int32, top : Int32, right : Int32, bottom : Int32) : Rectangle
+      new left, top, right - left, bottom - top
     end
 
     # Width in cells. The x range is half-open (`xi...xl`).
@@ -71,13 +92,55 @@ module Crysterm
 
     # Center cell, rounded down (the exact center of an even-sized side falls
     # between two cells; the lower one is taken).
-    def center : Tuple(Int32, Int32)
-      {@xi + width // 2, @yi + height // 2}
+    def center : Point
+      Point.new @xi + width // 2, @yi + height // 2
+    end
+
+    # Top-left corner, i.e. `(x, y)` — Qt's `QRect::topLeft()`.
+    def top_left : Point
+      Point.new @xi, @yi
+    end
+
+    # :ditto: — alias of `#top_left`, Qt's `QRect::topLeft()` seen as the
+    # rectangle's own position.
+    def position : Point
+      top_left
+    end
+
+    # Top-right corner. Exclusive on the x axis, like `#right`.
+    def top_right : Point
+      Point.new @xl, @yi
+    end
+
+    # Bottom-left corner. Exclusive on the y axis, like `#bottom`.
+    def bottom_left : Point
+      Point.new @xi, @yl
+    end
+
+    # Bottom-right corner. Exclusive on both axes, like `#right`/`#bottom`.
+    def bottom_right : Point
+      Point.new @xl, @yl
+    end
+
+    # This rectangle's extent — Qt's `QRect::size()`.
+    def size : Size
+      Size.new width, height
     end
 
     # Whether the absolute cell (*x*, *y*) falls inside this rectangle.
     def contains?(x : Int32, y : Int32) : Bool
       x >= @xi && x < @xl && y >= @yi && y < @yl
+    end
+
+    # :ditto: — *point* form.
+    def contains?(point : Point) : Bool
+      contains? point.x, point.y
+    end
+
+    # Whether *other* falls entirely inside this rectangle (every cell of
+    # *other* is also a cell of `self`) — Qt's `QRect::contains(QRect)`.
+    def contains?(other : Rectangle) : Bool
+      other.xi >= @xi && other.xl <= @xl && other.yi >= @yi && other.yl <= @yl
     end
 
     # Whether *other* shares at least one cell with this rectangle. An empty
@@ -88,7 +151,7 @@ module Crysterm
 
     # This rectangle shifted by (*dx*, *dy*), keeping its size.
     def translated(dx : Int32, dy : Int32) : Rectangle
-      Rectangle.new @xi + dx, @xl + dx, @yi + dy, @yl + dy
+      Rectangle.of_edges @xi + dx, @yi + dy, @xl + dx, @yl + dy
     end
 
     # Intersection with *other* — the cells in both. `#empty?` when they don't
@@ -98,7 +161,7 @@ module Crysterm
       xl = Math.min @xl, other.xl
       yi = Math.max @yi, other.yi
       yl = Math.min @yl, other.yl
-      Rectangle.new xi, Math.max(xi, xl), yi, Math.max(yi, yl)
+      Rectangle.of_edges xi, yi, Math.max(xi, xl), Math.max(yi, yl)
     end
 
     # Bounding rectangle of `self` and *other* — the smallest rectangle covering
@@ -108,8 +171,8 @@ module Crysterm
     def |(other : Rectangle) : Rectangle
       return other if empty?
       return self if other.empty?
-      Rectangle.new Math.min(@xi, other.xi), Math.max(@xl, other.xl),
-        Math.min(@yi, other.yi), Math.max(@yl, other.yl)
+      Rectangle.of_edges Math.min(@xi, other.xi), Math.min(@yi, other.yi),
+        Math.max(@xl, other.xl), Math.max(@yl, other.yl)
     end
   end
 
@@ -138,6 +201,38 @@ module Crysterm
     property yl : Int32 = 0
 
     property base : Int32 = 0
+
+    # Width in cells (`xl - xi`); the x range is half-open (`xi...xl`), matching
+    # `Rectangle#width`.
+    def width : Int32
+      @xl - @xi
+    end
+
+    # Height in cells (`yl - yi`); the y range is half-open (`yi...yl`), matching
+    # `Rectangle#height`.
+    def height : Int32
+      @yl - @yi
+    end
+
+    # Left/start column (`#xi`), under `Rectangle`'s vocabulary.
+    def x : Int32
+      @xi
+    end
+
+    # :ditto: — alias of `#x`.
+    def left : Int32
+      @xi
+    end
+
+    # Top/start row (`#yi`), under `Rectangle`'s vocabulary.
+    def y : Int32
+      @yi
+    end
+
+    # :ditto: — alias of `#y`.
+    def top : Int32
+      @yi
+    end
 
     # Which side is partly hidden by an enclosing (scrollable) parent.
     property? no_left : Bool = false

@@ -5,7 +5,7 @@ include Crysterm
 # Removing a hovered widget that owns a GUI mouse-pointer shape (OSC 22 — see
 # `Widget#mouse_cursor_shape=`) must restore the terminal-default pointer, same
 # as the widget's own `Hide` handler does when it vanishes under the pointer.
-# A removal emits no `MouseOut`, so without `Window#remove` restoring it the
+# A removal emits no `MouseLeave`, so without `Window#remove` restoring it the
 # pointer stays stuck in the detached widget's shape. Driven headlessly via the
 # public `#dispatch_mouse`/`#remove` entry points.
 
@@ -32,7 +32,7 @@ describe "Window#remove (GUI mouse-pointer shape)" do
   it "restores the default pointer when a hovered shape-owning widget is removed" do
     buf = IO::Memory.new
     s = rmcs_screen buf
-    s.mouse_cursor_shape = true
+    s.mouse_cursor_shaping = true
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3,
       mouse_cursor_shape: ::Tput::MouseCursorShape::PointingHandCursor
     rmcs_drained s, buf # discard construction output
@@ -41,7 +41,7 @@ describe "Window#remove (GUI mouse-pointer shape)" do
     rmcs_drained(s, buf).should contain "\e]22;hand2\a"
     s.hovered.should eq box
 
-    s.remove box                                   # removal emits no MouseOut
+    s.remove box                                   # removal emits no MouseLeave
     rmcs_drained(s, buf).should contain "\e]22;\a" # default pointer restored
     s.hovered.should be_nil
   end

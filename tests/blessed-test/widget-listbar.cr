@@ -10,7 +10,7 @@ class X
   include Crysterm
 
   def initialize
-    s = Window.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
+    s = Window.new always_propagated_keys: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     # Blessed: borderless `width:'shrink', height:'shrink'` box pinned top-right.
     # `shrink_to_fit: true` is Crysterm's shrink.

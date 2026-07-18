@@ -43,7 +43,7 @@ root = Widget::Box.new parent: s, width: "100%", height: "100%",
 Widget::Box.new parent: root, height: 1, parse_tags: true,
   content: "{center}p:+5  m:mode  t:theme  b:batch  a:add  c:clear  q:quit{/center}"
 
-body = Widget::Box.new parent: root, layout: Layout::HBox.new(gap: 1), overflow: :ignore
+body = Widget::Box.new parent: root, layout: Layout::HBox.new(spacing: 1), overflow: :ignore
 
 left = Widget::Box.new parent: body, width: 30, layout: Layout::VBox.new, overflow: :ignore
 count_box = Widget::Box.new parent: left, height: 3, parse_tags: true

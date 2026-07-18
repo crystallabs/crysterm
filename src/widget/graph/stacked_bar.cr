@@ -66,6 +66,8 @@ module Crysterm
         def show_legend=(value : Bool)
           @show_legend = value
           bump_data_version
+          # Rebuilds the content and schedules a frame (mirrors `values=`).
+          mark_dirty
           value
         end
 

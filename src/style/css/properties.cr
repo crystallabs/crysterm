@@ -26,7 +26,7 @@ module Crysterm
         when "alternate-background-color"
           # Background of every other row in a `Table`/`ListTable` with
           # `alternate_rows` on (Qt's property).
-          with_color(value, style.fg) { |c| style.alternate_background = c }
+          with_color(value, style.fg) { |c| style.alternate_background_color = c }
         when "gridline-color"
           # Color of a table's internal gridlines (Qt's `gridline-color`).
           with_color(value, style.fg) { |c| style.gridline_color = c }
@@ -195,14 +195,16 @@ module Crysterm
           style.padding = parse_padding(value) unless value.blank?
         when "padding-left"
           # An unparseable/blank value is dropped rather than hard-resetting the
-          # side to 0. Applies to all eight per-side longhands.
-          Length.to_cells(value).try { |c| style.padding.left = c }
+          # side to 0. Applies to all eight per-side longhands. A negative
+          # padding value is an invalid declaration per CSS and is dropped too
+          # (unlike margin, where negatives are legitimate).
+          Length.to_cells(value).try { |c| style.padding.left = c if c >= 0 }
         when "padding-top"
-          Length.to_cells(value, vertical: true).try { |c| style.padding.top = c }
+          Length.to_cells(value, vertical: true).try { |c| style.padding.top = c if c >= 0 }
         when "padding-right"
-          Length.to_cells(value).try { |c| style.padding.right = c }
+          Length.to_cells(value).try { |c| style.padding.right = c if c >= 0 }
         when "padding-bottom"
-          Length.to_cells(value, vertical: true).try { |c| style.padding.bottom = c }
+          Length.to_cells(value, vertical: true).try { |c| style.padding.bottom = c if c >= 0 }
         when "margin"
           # A blank value is dropped rather than resetting margin to default.
           style.margin = parse_margin(value) unless value.blank?
@@ -575,33 +577,33 @@ module Crysterm
           apply_border_width border, value
         when "border-color"
           apply_border_color border, value, el_color
-        when "border-top-color"    then apply_side_color border, :top, value, el_color
-        when "border-right-color"  then apply_side_color border, :right, value, el_color
-        when "border-bottom-color" then apply_side_color border, :bottom, value, el_color
-        when "border-left-color"   then apply_side_color border, :left, value, el_color
+        when "border-top-color"    then apply_side_color border, Side::Top, value, el_color
+        when "border-right-color"  then apply_side_color border, Side::Right, value, el_color
+        when "border-bottom-color" then apply_side_color border, Side::Bottom, value, el_color
+        when "border-left-color"   then apply_side_color border, Side::Left, value, el_color
         when "border-style"
-          apply_border_style border, value, {:left, :top, :right, :bottom}
-        when "border-top"               then apply_border_side border, :top, value, el_color
-        when "border-right"             then apply_border_side border, :right, value, el_color
-        when "border-bottom"            then apply_border_side border, :bottom, value, el_color
-        when "border-left"              then apply_border_side border, :left, value, el_color
+          apply_border_style border, value, {Side::Left, Side::Top, Side::Right, Side::Bottom}
+        when "border-top"               then apply_border_side border, Side::Top, value, el_color
+        when "border-right"             then apply_border_side border, Side::Right, value, el_color
+        when "border-bottom"            then apply_border_side border, Side::Bottom, value, el_color
+        when "border-left"              then apply_border_side border, Side::Left, value, el_color
         when "border-top-width"         then border_cells?(value, vertical: true).try { |c| border.top = c }
         when "border-right-width"       then border_cells?(value).try { |c| border.right = c }
         when "border-bottom-width"      then border_cells?(value, vertical: true).try { |c| border.bottom = c }
         when "border-left-width"        then border_cells?(value).try { |c| border.left = c }
-        when "border-top-style"         then apply_border_style border, value, {:top}
-        when "border-right-style"       then apply_border_style border, value, {:right}
-        when "border-bottom-style"      then apply_border_style border, value, {:bottom}
-        when "border-left-style"        then apply_border_style border, value, {:left}
+        when "border-top-style"         then apply_border_style border, value, {Side::Top}
+        when "border-right-style"       then apply_border_style border, value, {Side::Right}
+        when "border-bottom-style"      then apply_border_style border, value, {Side::Bottom}
+        when "border-left-style"        then apply_border_style border, value, {Side::Left}
         when "border-radius"            then apply_border_radius border, value
         when "border-chars"             then apply_border_chars border, value
-        when "border-top-left-char"     then apply_border_char border, :top_left, value
-        when "border-top-right-char"    then apply_border_char border, :top_right, value
-        when "border-bottom-left-char"  then apply_border_char border, :bottom_left, value
-        when "border-bottom-right-char" then apply_border_char border, :bottom_right, value
-        when "border-horizontal-char"   then apply_border_char border, :horizontal, value
-        when "border-vertical-char"     then apply_border_char border, :vertical, value
-        when "border-corner-char"       then apply_border_char border, :corner, value
+        when "border-top-left-char"     then apply_border_char border, Border::CharPosition::TopLeft, value
+        when "border-top-right-char"    then apply_border_char border, Border::CharPosition::TopRight, value
+        when "border-bottom-left-char"  then apply_border_char border, Border::CharPosition::BottomLeft, value
+        when "border-bottom-right-char" then apply_border_char border, Border::CharPosition::BottomRight, value
+        when "border-horizontal-char"   then apply_border_char border, Border::CharPosition::Horizontal, value
+        when "border-vertical-char"     then apply_border_char border, Border::CharPosition::Vertical, value
+        when "border-corner-char"       then apply_border_char border, Border::CharPosition::Corner, value
         else
           # Unknown border-* property: ignore.
         end
@@ -637,7 +639,7 @@ module Crysterm
       # glyph source (registry family / `fill_char`); an unparseable value —
       # or one that isn't exactly one column (a border cell must be) — is
       # dropped, per CSS's invalid-declaration rule.
-      private def self.apply_border_char(border : Border, position : Symbol, value : String) : Nil
+      private def self.apply_border_char(border : Border, position : Border::CharPosition, value : String) : Nil
         with_cell_char(value) { |c| border.set_char position, c }
       end
 
@@ -656,20 +658,20 @@ module Crysterm
         return if resolved.any? { |c| c && Unicode.width(c) != 1 }
         case resolved.size
         when 6
-          border.set_char :top_left, resolved[0]
-          border.set_char :top_right, resolved[1]
-          border.set_char :bottom_left, resolved[2]
-          border.set_char :bottom_right, resolved[3]
-          border.set_char :horizontal, resolved[4]
-          border.set_char :vertical, resolved[5]
+          border.set_char Border::CharPosition::TopLeft, resolved[0]
+          border.set_char Border::CharPosition::TopRight, resolved[1]
+          border.set_char Border::CharPosition::BottomLeft, resolved[2]
+          border.set_char Border::CharPosition::BottomRight, resolved[3]
+          border.set_char Border::CharPosition::Horizontal, resolved[4]
+          border.set_char Border::CharPosition::Vertical, resolved[5]
         when 3 # corner group, horizontal runs, vertical runs
-          border.set_char :corner, resolved[0]
-          border.set_char :horizontal, resolved[1]
-          border.set_char :vertical, resolved[2]
+          border.set_char Border::CharPosition::Corner, resolved[0]
+          border.set_char Border::CharPosition::Horizontal, resolved[1]
+          border.set_char Border::CharPosition::Vertical, resolved[2]
         when 1 # one char everywhere
-          border.set_char :corner, resolved[0]
-          border.set_char :horizontal, resolved[0]
-          border.set_char :vertical, resolved[0]
+          border.set_char Border::CharPosition::Corner, resolved[0]
+          border.set_char Border::CharPosition::Horizontal, resolved[0]
+          border.set_char Border::CharPosition::Vertical, resolved[0]
         end
       end
 
@@ -796,8 +798,8 @@ module Crysterm
       # `fg`. So `border-left: solid red` colors only the left edge, matching CSS.
       # *el_color* is the element's text color, the basis for `currentColor`
       # (see `apply_border`).
-      private def self.apply_border_side(border : Border, side : Symbol, value : String, el_color : Int32?) : Nil
-        vertical = side == :top || side == :bottom
+      private def self.apply_border_side(border : Border, side : Side, value : String, el_color : Int32?) : Nil
+        vertical = side.top? || side.bottom?
         # A width token (if any) is authoritative for the side; a bare style
         # keyword only ensures visibility when no width was given. A width is
         # honored at its rounded cell count (`0.04em`/`1px` → 0, `1.5em` → 2), so
@@ -838,7 +840,7 @@ module Crysterm
       # malformed color, per `with_color`) and routes it to that side's per-side
       # color slot via `set_side_color` — the same per-side dispatch the
       # `border-<side>` shorthand uses, rather than four inline copies.
-      private def self.apply_side_color(border : Border, side : Symbol, value : String, el_color : Int32?) : Nil
+      private def self.apply_side_color(border : Border, side : Side, value : String, el_color : Int32?) : Nil
         with_color(value, el_color) { |c| set_side_color border, side, c }
       end
 
@@ -846,7 +848,7 @@ module Crysterm
       # for the `border-<side>` shorthand and the `border-<side>-color` longhand
       # (via `apply_side_color`), coercing the resolved color to the native int
       # form those slots store.
-      private def self.set_side_color(border : Border, side : Symbol, resolved : Int32 | String | Nil) : Nil
+      private def self.set_side_color(border : Border, side : Side, resolved : Int32 | String | Nil) : Nil
         border.set_color side, coerce_color_int(resolved)
       end
 
@@ -897,12 +899,12 @@ module Crysterm
         end
       end
 
-      private def self.set_side(border : Border, side : Symbol, width : Int32) : Nil
+      private def self.set_side(border : Border, side : Side, width : Int32) : Nil
         border.set_width side, width
       end
 
       # Ensures a side has at least width 1 (so a `solid` style makes it visible).
-      private def self.ensure_side(border : Border, side : Symbol) : Nil
+      private def self.ensure_side(border : Border, side : Side) : Nil
         set_side border, side, 1 if border.width_of(side) == 0
       end
 
@@ -1059,7 +1061,10 @@ module Crysterm
       # into a `Padding`.
       private def self.parse_padding(value : String) : Padding
         if sides = parse_sides(value)
-          Padding.new(*sides)
+          # Negative padding is an invalid CSS declaration; clamp each resolved
+          # side to >= 0 (margin, which shares parse_sides, keeps negatives).
+          l, t, r, b = sides
+          Padding.new(Math.max(0, l), Math.max(0, t), Math.max(0, r), Math.max(0, b))
         else
           Padding.default
         end

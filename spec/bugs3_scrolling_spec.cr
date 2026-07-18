@@ -63,7 +63,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
 
       # Content is still visible from the top: the base was never pushed off.
       st.child_base.should eq(0)
-      st.get_scroll_perc(false).should eq(0)
+      st.scroll_percent.should eq(0)
     end
   end
 
@@ -85,7 +85,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
       # Grow content until it sticks to the tail.
       20.times { |i| log.add "line #{i}" }
       s.render
-      log.get_scroll_perc(false).should be >= 100
+      log.scroll_percent.should be >= 1.0
 
       # Programmatic reset to the top.
       log.reset_scroll
@@ -98,7 +98,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
       s.render
 
       log.child_base.should eq(0)
-      log.get_scroll_perc(false).should be < 100
+      log.scroll_percent.should be < 1.0
     end
   end
 

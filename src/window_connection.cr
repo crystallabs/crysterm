@@ -9,7 +9,7 @@ module Crysterm
   # It powers two capabilities:
   #   * `Window.open` — spawn a real emulator window and drive it with a `Window`.
   #   * detach/reattach — `#disconnect` a `Window` (closing its window but keeping
-  #     the object and its widgets in memory), then `Window.open(into: screen)`
+  #     the object and its widgets in memory), then `Window.open(into: window)`
   #     to display the same `Window` in a fresh window.
   class Window
     include RestoreGuard
@@ -53,7 +53,6 @@ module Crysterm
       # Tear down any existing connection first, so reattaching never leaks
       # the previous window, its fibers, or its watcher.
       disconnect if @connected
-      @owns_io = true
       # Rebinding a `#destroy`ed window needs more than clearing the flag:
       # `destroy` also killed one-shot machinery the connection swap below does
       # not re-establish.
@@ -72,13 +71,17 @@ module Crysterm
       # the previous input fiber from ever touching the new tty.
       self.screen = @screen.reconnected(input, output)
 
+      # After the swap: `#screen=` clears IO ownership together with the old
+      # device's spawned window, but this window owns the fresh IO it was just
+      # bound to (and any newly spawned window below).
+      @owns_io = true
       @window = window
 
       # Re-apply the window title (sets it on the new terminal via tput).
       @title.try { |t| self.title = t }
 
       # Restore input listening only if it was active before disconnecting.
-      listen if @was_listening
+      start_input if @was_listening
       start_window_watcher
       render
     end
@@ -114,12 +117,12 @@ module Crysterm
       restore_terminal
 
       # Closing the input unblocks and ends the key fiber; drop its handle on
-      # the device so a later `listen` can start a fresh one.
+      # the device so a later `start_input` can start a fresh one.
       if @owns_io
         input.close rescue nil
         output.close rescue nil
       end
-      @screen.stop_keys
+      @screen.stop_input
 
       @window.try &.close
       @window = nil
@@ -146,7 +149,7 @@ module Crysterm
       @_render_loop_fiber = spawn render_loop(generation)
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop(generation) }
       # Re-register in the global teardown/liveness registry (idempotent).
-      bind
+      register_instance
       # Re-register with the driving `Application`, if any, so input is routed
       # to this window again. `destroy`'s `remove` keeps the `application`
       # back-link, so the app is still reachable here.
@@ -224,7 +227,7 @@ module Crysterm
       # A no-op on the alt-screen path (`leave` above already disabled the
       # mouse). Matters on the non-alt path, where `leave` early-returns
       # without touching the mouse.
-      restore_step(@screen._listened_mouse?) { disable_mouse }
+      restore_step(@screen.mouse_enabled?) { disable_mouse }
 
       # Device half: input-mode toggle-offs (keyboard-protocol / bracketed-paste
       # / in-band-resize / color-scheme) plus line-discipline restore.

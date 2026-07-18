@@ -11,7 +11,7 @@ class X
   JUAN = "鹃"
 
   def initialize
-    s = Window.new always_propagate: [::Tput::Key::CtrlQ], full_unicode: true
+    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
     table = Widget::Table.new \
       top: "center",

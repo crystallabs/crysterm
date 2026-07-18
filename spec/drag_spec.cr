@@ -38,7 +38,7 @@ end
 private def transfer_setup
   s = drag_screen
   source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-  source.enable_drag reposition: false
+  source.drag_mode = :transfer; source.draggable = true
   source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
   target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
   target.on(Crysterm::Event::DragOver, &.accept)
@@ -63,7 +63,7 @@ describe "drag-and-drop" do
       box.top.should eq(11)
 
       release s, 20, 12
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
 
     it "treats a press+release without motion as a click, not a drag" do
@@ -77,7 +77,7 @@ describe "drag-and-drop" do
 
       clicked.should be_true
       box.left.should eq(10) # unmoved
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
 
     it "does not start a drag when the widget accepts the press itself" do
@@ -91,8 +91,8 @@ describe "drag-and-drop" do
       press s, 12, 6 # press over the draggable box; the widget accepts it
       move s, 14, 8  # a motion that would otherwise promote the arm into a drag
 
-      s.dragging.should be_nil # no drag was started
-      box.left.should eq(10)   # the widget did not move
+      s.drag_session.should be_nil # no drag was started
+      box.left.should eq(10)       # the widget did not move
       box.top.should eq(5)
     end
 
@@ -200,7 +200,7 @@ describe "drag-and-drop" do
     it "negotiates a drop: source advertises payload, target accepts, Drop fires" do
       s = drag_screen
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       source.on(Event::DragStart) { |e| e.data["text/plain"] = "parcel" }
 
       target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
@@ -222,13 +222,13 @@ describe "drag-and-drop" do
       received.should eq("parcel")
       ended.should be_true
       dropped.should be_true
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
 
     it "does not Drop on a target that refuses the payload" do
       s = drag_screen
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       source.on(Event::DragStart) { |e| e.data["application/x-thing"] = "x" }
 
       target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
@@ -251,7 +251,7 @@ describe "drag-and-drop" do
     it "emits DragEnter/DragLeave as the pointer crosses a target" do
       s = drag_screen
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
 
       target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
       entered = 0
@@ -280,7 +280,7 @@ describe "drag-and-drop" do
       # A real Space press is printable: char == ' ', key == nil (the input
       # layer only sets `key` for control sequences); must still lift.
       s._drag_key_handled(keypress(' ')).should be_true
-      s.dragging.should_not be_nil
+      s.drag_session.should_not be_nil
 
       s._drag_key_handled(keypress('\0', ::Tput::Key::Right)).should be_true
       s._drag_key_handled(keypress('\0', ::Tput::Key::Down)).should be_true
@@ -289,7 +289,7 @@ describe "drag-and-drop" do
 
       # Drop with Space (char-only, as it really arrives).
       s._drag_key_handled(keypress(' ')).should be_true
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
 
     it "drops with Enter (a control key, delivered with a key)" do
@@ -298,7 +298,7 @@ describe "drag-and-drop" do
       box.focus
       s._drag_key_handled(keypress(' ')).should be_true
       s._drag_key_handled(keypress('\r', ::Tput::Key::Enter)).should be_true
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
 
     it "cancels a keyboard drag with Escape" do
@@ -313,7 +313,7 @@ describe "drag-and-drop" do
       s._drag_key_handled(keypress(' '))
       s._drag_key_handled(keypress('\0', ::Tput::Key::Escape)).should be_true
 
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
       ended.should be_true
       dropped.should be_false
     end
@@ -323,7 +323,7 @@ describe "drag-and-drop" do
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 4, height: 2, keys: true
       box.focus
       s._drag_key_handled(keypress(' ')).should be_false
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
   end
 
@@ -357,10 +357,10 @@ describe "drag-and-drop" do
     it "reports lift / over / drop to the announce sink" do
       s = drag_screen
       msgs = [] of String
-      s.drag_announce = ->(m : String) { msgs << m; nil }
+      s.on(Crysterm::Event::DragAnnounced) { |e| msgs << e.text }
 
       source = Widget::Box.new parent: s, name: "src", left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       target = Widget::Box.new parent: s, name: "dst", left: 40, top: 0, width: 10, height: 4
       target.on(Event::DragOver, &.accept)
 
@@ -379,7 +379,7 @@ describe "drag-and-drop" do
     it "floats a ghost during a transfer drag, removed on drop, never a target" do
       s = drag_screen
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       source.on(Event::DragStart) { |e| e.data["text/plain"] = "cargo" }
 
       press s, 1, 1
@@ -408,7 +408,7 @@ describe "drag-and-drop" do
       s.drag_two_click = true
 
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       source.on(Event::DragStart) { |e| e.data["text/plain"] = "p" }
       target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
       target.on(Event::DragOver, &.accept)
@@ -416,10 +416,10 @@ describe "drag-and-drop" do
       target.on(Event::Drop) { |e| received = e.data["text/plain"] }
 
       press s, 1, 1 # first click: lift
-      s.dragging.should_not be_nil
+      s.drag_session.should_not be_nil
       press s, 44, 1 # second click over target: drop
       received.should eq("p")
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
     end
   end
 

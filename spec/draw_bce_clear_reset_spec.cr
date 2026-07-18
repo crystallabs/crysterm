@@ -8,7 +8,7 @@ include Crysterm
 # When a line is "colored/styled content followed by a default-attribute space
 # tail", the draw loop emits the leading content (leaving the terminal's SGR set
 # to that content's attribute) and then clears the tail with `el`. Setting up
-# the clear used `Screen.code2attr_to`, which writes an attribute from a
+# the clear used `Screen.write_sgr`, which writes an attribute from a
 # *blank* SGR state and emits nothing for the default attribute — so the
 # transition from the non-default leading attribute to the default clear
 # attribute emitted no bytes, the `el` erased the tail under the stale
@@ -16,7 +16,7 @@ include Crysterm
 # emits an explicit reset (`\e[m`) first, like the per-cell emission path does.
 #
 # Observable headlessly: with BCE enabled, draw a row of bold leading cells plus
-# a bold-space tail (so the tail is bold in `@olines`), then redraw with the
+# a bold-space tail (so the tail is bold in `@flushed_lines`), then redraw with the
 # tail turned back to plain default spaces while the leading cells change (so
 # they're re-emitted, leaving the terminal in the bold SGR state when the clear
 # begins). Bold emits `\e[1m` regardless of color depth, so the scenario is
@@ -40,11 +40,11 @@ describe "Window#draw BCE clear-to-EOL" do
     bold = Attr.pack(Attr::BOLD.to_i64, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
     default = s.default_attr
 
-    # Prime: @olines mirrors the (all-default) buffer.
+    # Prime: @flushed_lines mirrors the (all-default) buffer.
     s.draw
 
     # Frame A: leading bold 'X' cells, and a bold-space tail. After this the
-    # tail in @olines is bold spaces (differs from screen default), which is
+    # tail in @flushed_lines is bold spaces (differs from screen default), which is
     # what makes the next frame's clear actually need to fire.
     (0...5).each do |x|
       c = s.lines[y][x]; c.attr = bold; c.char = 'X'

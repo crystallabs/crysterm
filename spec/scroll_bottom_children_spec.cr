@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression for `Widget#_scroll_bottom` (and thus `get_scroll_height`) after the
+# Regression for `Widget#_scroll_bottom` (and thus `scroll_height`) after the
 # allocation fix that routes the per-child `coords` through a reused scratch
 # `RenderedGeometry` (`@_scrollb_lpos`) instead of allocating a fresh `RenderedGeometry` per non-fixed
 # child per frame. The scratch is consumed immediately within the reduce, so the
@@ -27,11 +27,11 @@ describe "Widget#_scroll_bottom with children" do
 
     # Bottom-most child ends at row 8 + 3 = 11 (relative to the box interior),
     # so scroll height must be at least that far.
-    box.get_scroll_height.should eq 11
+    box.scroll_height.should eq 11
 
     # Stable across repeated renders (memo + scratch reuse must not corrupt it).
     s.render
-    box.get_scroll_height.should eq 11
+    box.scroll_height.should eq 11
   end
 
   it "grows scroll height when a deeper child is added" do
@@ -40,10 +40,10 @@ describe "Widget#_scroll_bottom with children" do
       scrollable: true
     Widget.new parent: box, top: 2, left: 0, width: 10, height: 2
     s.render
-    box.get_scroll_height.should eq 4
+    box.scroll_height.should eq 4
 
     Widget.new parent: box, top: 20, left: 0, width: 10, height: 1
     s.render
-    box.get_scroll_height.should eq 21
+    box.scroll_height.should eq 21
   end
 end

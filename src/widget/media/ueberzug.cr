@@ -29,9 +29,31 @@ module Crysterm
     class Media::Ueberzug < Media::External
       include Media::RenderHook
 
-      # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
-      # `crop`, `distort`. `forced_cover` fills the box exactly.
-      property scaler : String
+      # Überzug scaler: how the image is fit into its placement rectangle.
+      # `ForcedCover` fills the box exactly.
+      enum Scaler
+        FitContain
+        Contain
+        ForcedCover
+        Cover
+        Crop
+        Distort
+
+        # Wire string this member is serialized to in the JSON protocol sent
+        # to the `ueberzug`/`ueberzugpp` helper process.
+        def to_wire : String
+          case self
+          in .fit_contain?  then "fit_contain"
+          in .contain?      then "contain"
+          in .forced_cover? then "forced_cover"
+          in .cover?        then "cover"
+          in .crop?         then "crop"
+          in .distort?      then "distort"
+          end
+        end
+      end
+
+      property scaler : Scaler
 
       # One shared helper process drives every placement (keyed by identifier).
       @@proc : Process? = nil
@@ -47,20 +69,24 @@ module Crysterm
       # `fit`/`animate`/`speed` are accepted so the `Media` factory can forward
       # them uniformly, but are advisory here: überzug does its own scaling
       # (`scaler`) and can't animate.
-      def initialize(@file = nil, @scaler : String = "forced_cover",
+      def initialize(@file = nil, @scaler : Scaler = Scaler::ForcedCover,
                      @fit : Media::Fit = Media::Fit::Stretch,
                      @animate : Bool = false,
-                     @speed : Float64 = 1.0, **box)
+                     speed : Float64 = 1.0, **box)
         super **box
         @@counter += 1
         @id = "crysterm_#{@@counter}"
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped
+        # to 1.0. Must follow the @id assignment: calling a method on `self` before
+        # every non-nilable ivar is set would make @id nilable.
+        self.speed = speed
 
         @file.try { |f| load f }
 
         register_render_hook_deferred { redraw_image }
 
         on(::Crysterm::Event::Hide) { remove }
-        on(::Crysterm::Event::Detach) { remove }
+        on(::Crysterm::Event::Detached) { remove }
         on(::Crysterm::Event::Show) { @last = nil; request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
@@ -68,7 +94,15 @@ module Crysterm
       def load(file : String)
         @file = file
         @path = local_path file
-        @last = nil
+        if @path
+          # Usable path: force a re-add of the new image on the next redraw.
+          @last = nil
+        else
+          # Unusable path (failed URL fetch, tempfile, or write): there is nothing
+          # to show, so take the stale placement down instead of orphaning it.
+          # `remove` clears @last itself.
+          remove
+        end
       end
 
       def clear_image
@@ -126,7 +160,7 @@ module Crysterm
           y:          rect[1],
           width:      rect[2],
           height:     rect[3],
-          scaler:     @scaler,
+          scaler:     @scaler.to_wire,
           path:       path,
         })
         @last = rect

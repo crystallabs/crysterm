@@ -45,10 +45,37 @@ module Crysterm
     abstract class Hint
     end
 
+    # Back-pointer to the container `Widget` this layout is installed on, set by
+    # `Widget#layout=` (and cleared when the layout is replaced). Lets a
+    # shape-changing setter schedule a repaint of the container it arranges, and
+    # backs the container-addressing API (`Stack#current_widget`, `Form#add_row`).
+    property container : Widget? = nil
+
+    # Schedules a repaint of the container, when installed. Called by the
+    # shape-changing setters (`#spacing`, and the per-engine `justify`/`columns`/
+    # ... below) so mutating a layout after the first frame re-arranges its
+    # children — the layout analogue of `Widget#mark_dirty`.
+    protected def invalidate : Nil
+      container.try &.mark_dirty
+    end
+
     # Spacing between adjacent children, in cells — Qt's layout `spacing` under
     # its CSS name. Honored by the box/grid engines; the flow engines ignore it,
-    # and `Form` uses its own `#column_gap`/`#row_gap` instead.
-    property gap : Int32 = 0
+    # and `Form` uses its own `#horizontal_spacing`/`#vertical_spacing` instead.
+    @spacing : Int32 = 0
+
+    # :ditto:
+    def spacing : Int32
+      @spacing
+    end
+
+    # :ditto: — change-guarded; a real change repaints the container.
+    def spacing=(value : Int32) : Int32
+      return value if value == @spacing
+      @spacing = value
+      invalidate
+      value
+    end
 
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
     # frame rather than allocating a `RenderedGeometry` per render. Safe only

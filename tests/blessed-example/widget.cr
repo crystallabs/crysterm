@@ -33,7 +33,7 @@ end
 box.on(Event::KeyPress) do |e|
   if e.key == Tput::Key::Enter
     box.set_content "{right}Even different {black-fg}content{/black-fg}.{/right}\n"
-    box.set_line 1, "bar"
+    box.replace_line 1, "bar"
     box.insert_line 1, "foo"
     screen.render
   end

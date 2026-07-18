@@ -24,9 +24,9 @@ describe Crysterm::ButtonGroup do
     c = Crysterm::Widget::CheckBox.new parent: s
 
     g = Crysterm::ButtonGroup.new
-    g.add a, 1
-    g.add b, 2
-    g.add c, 3
+    g.add_button a, 1
+    g.add_button b, 2
+    g.add_button c, 3
 
     a.check
     a.checked?.should be_true
@@ -43,8 +43,8 @@ describe Crysterm::ButtonGroup do
     b = Crysterm::Widget::CheckBox.new parent: s
 
     g = Crysterm::ButtonGroup.new
-    g.add a
-    g.add b
+    g.add_button a
+    g.add_button b
 
     a.check
     a.checked?.should be_true
@@ -64,7 +64,7 @@ describe Crysterm::ButtonGroup do
     s = add_mem_screen
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new
-    g.add a
+    g.add_button a
     a.check
 
     clicks = 0
@@ -78,7 +78,7 @@ describe Crysterm::ButtonGroup do
     s = add_mem_screen
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new exclusive: false
-    g.add a
+    g.add_button a
     a.check
     a.toggle
     a.checked?.should be_false
@@ -90,8 +90,8 @@ describe Crysterm::ButtonGroup do
     b = Crysterm::Widget::CheckBox.new parent: s
 
     g = Crysterm::ButtonGroup.new exclusive: false
-    g.add a
-    g.add b
+    g.add_button a
+    g.add_button b
     a.check
     b.check
     a.checked?.should be_true
@@ -102,7 +102,7 @@ describe Crysterm::ButtonGroup do
     s = add_mem_screen
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new
-    g.add a, 7
+    g.add_button a, 7
     clicked = nil
     g.on(Crysterm::Event::ButtonClick) { |e| clicked = e.button }
     a.check
@@ -113,7 +113,7 @@ describe Crysterm::ButtonGroup do
     s = add_mem_screen
     btn = Crysterm::Widget::Button.new parent: s
     g = Crysterm::ButtonGroup.new
-    g.add btn, 42
+    g.add_button btn, 42
     btn.checkable?.should be_true
     g.button(42).should eq btn
     g.id(btn).should eq 42
@@ -127,7 +127,7 @@ describe Crysterm::Widget::ToolButton do
     triggered = false
     act.on(Crysterm::Event::Triggered) { triggered = true }
 
-    tb = Crysterm::Widget::ToolButton.new parent: s, action: act
+    tb = Crysterm::Widget::ToolButton.new parent: s, default_action: act
     tb.content.should eq "Save"
     tb.click
     triggered.should be_true
@@ -140,7 +140,7 @@ describe Crysterm::Widget::ToolButton do
     triggered = false
     act.on(Crysterm::Event::Triggered) { triggered = true }
 
-    tb = Crysterm::Widget::ToolButton.new parent: s, action: act
+    tb = Crysterm::Widget::ToolButton.new parent: s, default_action: act
     tb.click
     triggered.should be_false
   end
@@ -205,7 +205,7 @@ describe Crysterm::Widget::ColorDialog do
     cd.current_color = "#0000ff"
     chosen = nil
     accepted = rejected = false
-    cd.on(Crysterm::Event::Action) { |e| chosen = e.value }
+    cd.on(Crysterm::Event::Activated) { |e| chosen = e.value }
     cd.on(Crysterm::Event::Accepted) { accepted = true }
     cd.on(Crysterm::Event::Rejected) { rejected = true }
 
@@ -257,21 +257,21 @@ describe Crysterm::Completer do
 
     # Opens with the first row already highlighted.
     pop.reset_cursor
-    pop.selected.should eq 0
+    pop.current_index.should eq 0
 
     # Arrow keys single-step from the first row.
     pop.cursor_down
-    pop.selected.should eq 1
+    pop.current_index.should eq 1
     pop.cursor_up
-    pop.selected.should eq 0
+    pop.current_index.should eq 0
 
     # The wheel funnels through `move` (±2) and also single-steps.
     pop.reset_cursor
-    pop.selected.should eq 0
-    pop.move 2
-    pop.selected.should eq 1
-    pop.move(-2)
-    pop.selected.should eq 0
+    pop.current_index.should eq 0
+    pop.move_selection 2
+    pop.current_index.should eq 1
+    pop.move_selection(-2)
+    pop.current_index.should eq 0
   end
 
   # End-to-end through the real open path: the first row is highlighted on
@@ -332,7 +332,7 @@ describe Crysterm::Completer do
       # stays parked on the last shown row.
       expected = (pop.child_base + row).clamp(0, pop.child_base + visible - 1)
       expected = expected.clamp(0, 19)
-      pop.selected.should eq expected
+      pop.current_index.should eq expected
     end
 
     c.detach

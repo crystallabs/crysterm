@@ -27,7 +27,7 @@ module Crysterm
     #
     # Process-wide caches:
 
-    # `Font.load` — loaded bitmap faces, keyed by path+weight. A handful at most.
+    # `BitmapFont.load` — loaded bitmap faces, keyed by path+weight. A handful at most.
     FONT_CAPACITY = 64
 
     # `Colors.convert_cached` — color spec string → packed `Int32`. The set of
@@ -72,7 +72,7 @@ module Crysterm
     # The introspectable interface a registered cache exposes: it can be
     # enumerated, sized and cleared through `Cache`.
     module Registered
-      abstract def cache_name : String
+      abstract def name : String
       abstract def size : Int32
       abstract def capacity : Int32
       abstract def clear : Nil
@@ -100,7 +100,7 @@ module Crysterm
     # A `{name, size, capacity}` snapshot of every registered cache.
     def self.stats : Array(NamedTuple(name: String, size: Int32, capacity: Int32))
       @@registry.map do |c|
-        {name: c.cache_name, size: c.size, capacity: c.capacity}
+        {name: c.name, size: c.size, capacity: c.capacity}
       end
     end
 
@@ -128,7 +128,7 @@ module Crysterm
 
       # A human-readable name (shown by `Cache.stats`); `"(anonymous)"` when
       # constructed without one.
-      getter cache_name : String
+      getter name : String
 
       # Maximum entries kept; `<= 0` means unbounded.
       property capacity : Int32
@@ -145,7 +145,7 @@ module Crysterm
       def initialize(@capacity : Int32, name : String? = nil, *, register : Bool = false, @lru : Bool = false, by_identity : Bool = false)
         @store = {} of K => V
         @store.compare_by_identity if by_identity
-        @cache_name = name || "(anonymous)"
+        @name = name || "(anonymous)"
         Cache.register(self) if register
       end
 

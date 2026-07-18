@@ -4,7 +4,9 @@ module Crysterm
     # (as text or a parsed `CSS::Stylesheet`) marks styling dirty; the cascade
     # runs on the next render. With no stylesheet set, nothing changes and
     # widgets keep their programmatic styles.
-    getter css_stylesheet : CSS::Stylesheet?
+    def stylesheet : CSS::Stylesheet?
+      @css_stylesheet
+    end
 
     # Whether styling needs recomputing on the next render.
     getter? css_dirty = false
@@ -33,7 +35,9 @@ module Crysterm
 
     # Path the active stylesheet was loaded from, for `#reload_stylesheet` /
     # `#watch_stylesheet`.
-    getter css_stylesheet_path : String?
+    def stylesheet_path : String?
+      @css_stylesheet_path
+    end
 
     # Caches the last CSS document the cascade ran against, so an
     # `#apply_stylesheet` whose document is byte-identical is skipped. Reset
@@ -106,8 +110,8 @@ module Crysterm
     end
 
     # Whether `#load_stylesheet` automatically starts hot-reloading the loaded
-    # file. On by default; set to `false` *before* loading to opt out.
-    property? auto_reload_stylesheet = true
+    # file. Off by default; set to `true` *before* loading to enable.
+    property? auto_reload_stylesheet = false
 
     # Path being watched for hot-reload. No live watcher is held while
     # file-watching is disabled.
@@ -163,8 +167,9 @@ module Crysterm
       self.stylesheet = CSS::Stylesheet.parse(css, base_path: path)
     end
 
-    # Starts stylesheet hot-reload for *path*. Currently disabled: this only
-    # records the path, so call `#reload_stylesheet` manually.
+    # Starts stylesheet hot-reload for *path*. Currently disabled: hot-reload
+    # is not yet implemented. This method records the path for future use, but
+    # call `#reload_stylesheet` manually to update the stylesheet.
     def watch_stylesheet(path : String? = @css_stylesheet_path) : Nil
       @css_watched_path = path || raise "no stylesheet path to watch (call load_stylesheet first)"
       nil
@@ -241,7 +246,7 @@ module Crysterm
     # (the same metrics `Cascade.apply_sheets` feeds rule-level `@media`).
     def css_keyframes(name : String) : Array(Tuple(Float64, Hash(String, String)))?
       media_colors = begin
-        colors.to_i32
+        color_count.to_i32
       rescue
         0x1000000
       end

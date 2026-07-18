@@ -1,18 +1,13 @@
 require "./spec_helper"
 require "file_utils"
 
-# Minimal host mixing in `Crysterm::Helpers` so `find_file` (an instance method)
-# is instantiated and type-checked. It carried a latent nil-deref: `File.info` is
-# wrapped in a `rescue` returning nil, so `stat : File::Info?`, and
-# `stat.directory?` is a `Nil`-method compile error. This never surfaced since
-# nothing else calls `find_file` (only its own recursion), so Crystal never
-# compiled its body.
-private class HelpersHost
-  include Crysterm::Helpers
-end
-
+# `Crysterm::Helpers.find_file` is a class method (no instance mixin needed).
+# It carried a latent nil-deref: `File.info` is wrapped in a `rescue`
+# returning nil, so `stat : File::Info?`, and `stat.directory?` is a
+# `Nil`-method compile error. This never surfaced since nothing else calls
+# `find_file` (only its own recursion), so Crystal never compiled its body.
 describe Crysterm::Helpers do
-  describe "#find_file" do
+  describe ".find_file" do
     it "locates a file nested in a subdirectory" do
       root = File.join(Dir.tempdir, "crysterm_find_#{Random.rand(1_000_000)}")
       begin
@@ -20,7 +15,7 @@ describe Crysterm::Helpers do
         target = File.join(root, "a", "b", "needle.txt")
         File.write target, "x"
 
-        HelpersHost.new.find_file(root, "needle.txt").should eq target
+        Crysterm::Helpers.find_file(root, "needle.txt").should eq target
       ensure
         FileUtils.rm_rf root
       end
@@ -33,7 +28,7 @@ describe Crysterm::Helpers do
         # The rescue path yielding a nil `stat` must not crash the directory walk.
         File.write File.join(root, "plain.txt"), "y"
 
-        HelpersHost.new.find_file(root, "missing.txt").should be_nil
+        Crysterm::Helpers.find_file(root, "missing.txt").should be_nil
       ensure
         FileUtils.rm_rf root
       end

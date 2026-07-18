@@ -2,7 +2,7 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-shrink-padding.js
 module Crysterm
-  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
   outer = Widget::Box.new(
     parent: s,

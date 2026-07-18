@@ -20,7 +20,7 @@ module Crysterm
     # tabs = Widget::TabWidget.new parent: window, width: 60, height: 20, tabs_closable: true
     # tabs.add_tab "Files", Widget::Box.new(content: "...")
     # tabs.add_tab "Edit", Widget::Box.new(content: "...")
-    # tabs.bar.focus # so the arrow keys switch tabs
+    # tabs.tab_bar.focus # so the arrow keys switch tabs
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -40,7 +40,7 @@ module Crysterm
       end
 
       # The tab bar. (Built in `initialize` after `super`, hence `getter!`.)
-      getter! bar : ListBar
+      getter! tab_bar : ListBar
 
       # The tab titles, parallel to `#pages`. A copy: the live array backs the
       # bar's items, so mutating it directly would leave the two out of sync
@@ -82,7 +82,7 @@ module Crysterm
 
         super **box
 
-        @bar = ListBar.new(
+        @tab_bar = ListBar.new(
           parent: self,
           top: @tab_position.top? ? 0 : nil,
           bottom: @tab_position.bottom? ? 0 : nil,
@@ -94,16 +94,16 @@ module Crysterm
         )
 
         # Selecting a tab in the bar (arrow keys / click) raises its page.
-        bar.on(::Crysterm::Event::SelectItem) do |e|
+        tab_bar.on(::Crysterm::Event::ItemSelected) do |e|
           self.current_index = e.index unless @switching
         end
 
         # Wheel over the bar's free cells cycles tabs; a wheel over a tab *item*
         # is handled per item, since mouse events don't bubble.
-        bar.on(::Crysterm::Event::Mouse) { |e| wheel_cycle e }
+        tab_bar.on(::Crysterm::Event::Mouse) { |e| wheel_cycle e }
 
         # Close (Delete) and reorder (`<`/`>`) the current tab from the bar.
-        bar.on(::Crysterm::Event::KeyPress) do |e|
+        tab_bar.on(::Crysterm::Event::KeyPress) do |e|
           if tabs_closable? && e.key == ::Tput::Key::Delete
             close_tab @current_index
             e.accept
@@ -125,7 +125,7 @@ module Crysterm
         # one), and stop on destroy so it doesn't poke a dead widget. Also stop on
         # a plain detach (`remove` without `destroy`): otherwise the `FrameClock`
         # timer keeps firing `next_tab` on the now-windowless widget forever,
-        # pinning it alive via the closure. A later re-attach re-arms via `Attach`.
+        # pinning it alive via the closure. A later re-attach re-arms via `Attached`.
         wire_window_lifecycle destroy: true
       end
 
@@ -144,7 +144,7 @@ module Crysterm
       # (`QTabWidget::pane`) sub-styles onto the bar's tabs and the current page.
       # With no matching rule each push is a no-op, keeping the default look.
       private def sync_tab_style : Nil
-        bar.items.each { |it| apply_substyle it, style.tab }
+        tab_bar.items.each { |it| apply_substyle it, style.tab }
 
         # `::pane` styles the current page itself, since it fills the pane region.
         apply_substyle current_widget, style.pane
@@ -185,7 +185,7 @@ module Crysterm
           # No close mark drawn (`::close-button { glyph: none }`) — nothing to
           # click; without this guard the last two cells would still close.
           next unless close_glyph
-          next unless i = bar.items.index(item)
+          next unless i = tab_bar.items.index(item)
           if e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
             close_tab i
             e.accept
@@ -214,20 +214,20 @@ module Crysterm
       # removed or reordered. Callers wrap it in `@switching`.
       private def repoint_tab_callbacks : Nil
         @tab_titles.each_with_index do |_, i|
-          bar.commands[i].callback = -> { self.current_index = i }
+          tab_bar.commands[i].callback = -> { self.current_index = i }
         end
       end
 
       # Rebuilds the bar's items from `@tab_titles` after an insert or a reorder,
       # re-pointing the (index-capturing) commands and re-wiring the `✕` cells on
-      # the freshly created item boxes. Suppresses the bar's own `SelectItem`
+      # the freshly created item boxes. Suppresses the bar's own `ItemSelected`
       # while it churns, so it can't drive a page switch mid-rebuild.
       private def rebuild_bar : Nil
         @switching = true
-        bar.items = @tab_titles.map { |t| display_title t }
+        tab_bar.items = @tab_titles.map { |t| display_title t }
         repoint_tab_callbacks
         @switching = false
-        bar.items.each { |it| wire_close it }
+        tab_bar.items.each { |it| wire_close it }
       end
 
       # Appends a tab titled *title* whose body is *page*, sized to fill the
@@ -241,13 +241,13 @@ module Crysterm
 
         index = @pages.size - 1
 
-        # Suppress the bar's `SelectItem` (emitted by its own first-item
+        # Suppress the bar's `ItemSelected` (emitted by its own first-item
         # `selected = 0`) while adding, so it can't drive a page switch before the
         # visibility bookkeeping below runs.
         @switching = true
-        bar.add_item(display_title title) { self.current_index = index }
+        tab_bar.add_item(display_title title) { self.current_index = index }
         @switching = false
-        bar.items.last?.try { |it| wire_close it }
+        tab_bar.items.last?.try { |it| wire_close it }
 
         register_page page
         self
@@ -300,7 +300,7 @@ module Crysterm
         # Rebuilding resets the bar's own selection, so put the highlight back
         # on the current tab.
         @switching = true
-        bar.current_index = @current_index if @current_index >= 0
+        tab_bar.current_index = @current_index if @current_index >= 0
         @switching = false
         request_render
       end
@@ -308,25 +308,25 @@ module Crysterm
       # Positions *page* to fill the widget beside the tab bar.
       private def layout_page(page : Widget) : Nil
         if @tab_position.top?
-          fill_parent page, top: @tab_height, bottom: 0
+          stretch_child page, top: @tab_height, bottom: 0
         else
-          fill_parent page, top: 0, bottom: @tab_height
+          stretch_child page, top: 0, bottom: @tab_height
         end
       end
 
       # Mirrors the new selection in the bar without re-triggering its
-      # `SelectItem` handler.
+      # `ItemSelected` handler.
       protected def after_show_index(index : Int) : Nil
-        unless bar.selected == index
+        unless tab_bar.current_index == index
           @switching = true
-          bar.current_index = index
+          tab_bar.current_index = index
           @switching = false
         end
       end
 
       # Removes the tab at *index*, detaching (not destroying) its page and
       # returning it — like Qt's `removeTab`. Keeps a valid current tab and
-      # emits `Event::RemoveItem`.
+      # emits `Event::ItemRemoved`.
       def remove_tab(index : Int) : Widget?
         return nil unless 0 <= index < @pages.size
 
@@ -338,7 +338,7 @@ module Crysterm
         @tab_titles.delete_at index
 
         @switching = true
-        bar.remove_item index
+        tab_bar.remove_item index
         # Remaining commands' captured indices go stale after removal; re-point
         # them or Enter on a tab past the removed one jumps to the wrong page.
         repoint_tab_callbacks
@@ -364,7 +364,7 @@ module Crysterm
           end
         end
 
-        emit ::Crysterm::Event::RemoveItem
+        emit ::Crysterm::Event::ItemRemoved
         request_render
         page
       end

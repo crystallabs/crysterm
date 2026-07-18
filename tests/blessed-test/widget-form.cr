@@ -8,7 +8,7 @@ class X
   include Crysterm
 
   def initialize
-    s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
     form = Widget::Form.new \
       parent: s,
@@ -92,11 +92,11 @@ class X
       content: "Press Tab/Shift+Tab to move, Enter to edit/toggle, then Submit.",
       style: Style.new(bg: "red")
 
-    submit.on(Crysterm::Event::Press) do
+    submit.on(Crysterm::Event::Pressed) do
       form.submit
     end
 
-    form.on(Crysterm::Event::SubmitData) do |e|
+    form.on(Crysterm::Event::FormSubmitted) do |e|
       lines = e.data.map { |k, v| "#{k}: #{v}" }
       output.set_content "Submitted:\n" + lines.join("\n")
       s.render

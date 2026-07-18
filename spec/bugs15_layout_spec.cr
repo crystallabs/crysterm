@@ -92,7 +92,7 @@ describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
   it "renders a col-beyond-grid child in the last column, not vanished" do
     s = headless_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
-      layout: Layout::Grid.new(columns: 3, gap: 0)
+      layout: Layout::Grid.new(columns: 3, spacing: 0)
     Widget::Box.new parent: box,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0)
     off = Widget::Box.new parent: box,

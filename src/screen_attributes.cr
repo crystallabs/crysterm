@@ -5,7 +5,7 @@ module Crysterm
     # The attribute word is packed/unpacked via `Crysterm::Attr` (24-bit RGB
     # fg/bg + flags, in an `Int64`). Colors are kept at full TrueColor precision
     # internally and only reduced (to 256/16/8) when emitted, based on
-    # `#colors`.
+    # `#color_count`.
 
     # Number of colors the output terminal supports (1 for monochrome, 8, 16,
     # 256, or 16_777_216 for TrueColor). Drives color reduction at output time.
@@ -14,8 +14,13 @@ module Crysterm
     #
     # Computed fresh on each call — cheap enough at once per frame, and it must
     # not freeze a value at first paint, since an override can land at any time.
-    def colors : Int32
+    def color_count : Int32
       self.class.resolve_color_depth(tput.features.number_of_colors)
+    end
+
+    # :ditto: (alias; call sites are wide, so kept for compatibility).
+    def colors : Int32
+      color_count
     end
 
     # Resolves the effective output color count from the `colors.depth` config
@@ -40,43 +45,43 @@ module Crysterm
     # Whether the output terminal can render the full 24-bit (TrueColor) space,
     # i.e. colors are emitted as `38;2;r;g;b` rather than reduced to a palette.
     def truecolor?
-      colors >= 0x1000000
+      color_count >= 0x1000000
     end
 
     # Converts an SGR string to our own attribute format (an `Int64`).
     #
     # Delegates to the pure class method: the conversion depends only on its
     # arguments, no screen/tput state.
-    def attr2code(code, cur : Int64, dfl : Int64) : Int64
-      self.class.attr2code code, cur, dfl
+    def sgr_to_attr(code, cur : Int64, dfl : Int64) : Int64
+      self.class.sgr_to_attr code, cur, dfl
     end
 
     # :ditto: (allocation-free `StringIndex` form, see the class method).
-    def attr2code(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
-      self.class.attr2code content, esc, finish, cur, dfl
+    def sgr_to_attr(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
+      self.class.sgr_to_attr content, esc, finish, cur, dfl
     end
 
     # :ditto:
-    def self.attr2code(code, cur : Int64, dfl : Int64) : Int64
+    def self.sgr_to_attr(code, cur : Int64, dfl : Int64) : Int64
       # `code` is a whole SGR string ("\e[...m"); its bytes are the parameter
       # source. `to_slice` is allocation-free (it views the string's buffer).
       bytes = code.to_slice
-      attr2code_impl bytes, 2, bytes.size - 1, cur, dfl
+      sgr_to_attr_impl bytes, 2, bytes.size - 1, cur, dfl
     end
 
     # Converts a bare SGR parameter list — `;`-separated numbers, no `\e[`
     # framing, no trailing `m` — into our `Int64` attribute. Equivalent to
-    # `attr2code("\e[" + params + "m", cur, dfl)` without building that bridging
+    # `sgr_to_attr("\e[" + params + "m", cur, dfl)` without building that bridging
     # `String` per SGR sequence.
-    def self.attr2code_params(params : String, cur : Int64, dfl : Int64) : Int64
+    def self.sgr_params_to_attr(params : String, cur : Int64, dfl : Int64) : Int64
       bytes = params.to_slice
-      attr2code_impl bytes, 0, bytes.size, cur, dfl
+      sgr_to_attr_impl bytes, 0, bytes.size, cur, dfl
     end
 
     # :ditto: reading the parameter bytes straight out of a `Bytes` view,
     # avoiding a `String` per SGR sequence.
-    def self.attr2code_params(params : Bytes, cur : Int64, dfl : Int64) : Int64
-      attr2code_impl params, 0, params.size, cur, dfl
+    def self.sgr_params_to_attr(params : Bytes, cur : Int64, dfl : Int64) : Int64
+      sgr_to_attr_impl params, 0, params.size, cur, dfl
     end
 
     # Parses an SGR sequence straight out of a `StringIndex` between the
@@ -85,8 +90,8 @@ module Crysterm
     # locates the sequence's bounds while scanning codepoint-by-codepoint, so
     # feeding them here avoids a regex match + substring per color change. SGR is
     # pure ASCII, so codepoints and bytes coincide within the sequence.
-    def self.attr2code(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
-      attr2code_impl content, esc + 2, finish, cur, dfl
+    def self.sgr_to_attr(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
+      sgr_to_attr_impl content, esc + 2, finish, cur, dfl
     end
 
     # Shared SGR state machine. `src` is any parameter source understood by an
@@ -96,7 +101,7 @@ module Crysterm
     # parameter (e.g. `\e[m`, `\e[;1m`) counts as 0, matching `split(';')`
     # semantics; truecolor/256-color forms read and consume extra params via `term`.
     # ameba:disable Metrics/CyclomaticComplexity
-    private def self.attr2code_impl(src, pos0 : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
+    private def self.sgr_to_attr_impl(src, pos0 : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
       flags = Attr.flags(cur)
       fg = Attr.fg(cur) # packed color field (RGB or COLOR_DEFAULT)
       bg = Attr.bg(cur)
@@ -251,22 +256,22 @@ module Crysterm
     end
 
     # Converts our own attribute format to an SGR string.
-    def code2attr(code : Int64) : String
-      String.build { |outbuf| Screen.code2attr_to(outbuf, code, colors) }
+    def attr_to_sgr(code : Int64) : String
+      String.build { |outbuf| Screen.write_sgr(outbuf, code, color_count) }
     end
 
-    # Allocation-free counterpart of `code2attr`: writes the SGR sequence for
+    # Allocation-free counterpart of `attr_to_sgr`: writes the SGR sequence for
     # `code` straight into `io` instead of returning a fresh `String`. `n` is
-    # the terminal's color count (`#colors`). Emits nothing when `code` carries
+    # the terminal's color count (`#color_count`). Emits nothing when `code` carries
     # no flags and only default colors.
     #
     # `io` must support seeking backwards (an `IO::Memory`).
-    def self.code2attr_to(io : IO::Memory, code : Int64, n : Int) : Nil
+    def self.write_sgr(io : IO::Memory, code : Int64, n : Int) : Nil
       flags = Attr.flags(code)
       fg = Attr.unpack_color(Attr.fg(code)) # -1 (default) or 0xRRGGBB
       bg = Attr.unpack_color(Attr.bg(code))
 
-      # Decide up front whether the sequence is non-empty (matching `code2attr`'s
+      # Decide up front whether the sequence is non-empty (matching `attr_to_sgr`'s
       # "" return for the default attr), rather than writing "\e[" and having to
       # truncate it back out of the IO when nothing follows.
       style_flags = flags & (Attr::BOLD | Attr::ITALIC | Attr::UNDERLINE | Attr::BLINK | Attr::REVERSE | Attr::INVISIBLE | Attr::STRIKE)
@@ -283,8 +288,8 @@ module Crysterm
     # Writes the SGR style-flag and color parameters of `code` (between the
     # leading `"\e["` and terminating `"m"`) into `io`, each followed by `';'`.
     # Returns whether anything was written. `n` is the terminal's color count
-    # (`#colors`). Only the middle portion: framing is the caller's, since the
-    # draw hot path and `code2attr_to` frame it differently.
+    # (`#color_count`). Only the middle portion: framing is the caller's, since the
+    # draw hot path and `write_sgr` frame it differently.
     def self.sgr_params_to(io : IO::Memory, code : Int64, n : Int) : Bool
       start = io.size
       flags = Attr.flags(code)

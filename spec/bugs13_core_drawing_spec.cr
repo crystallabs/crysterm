@@ -7,7 +7,7 @@ include Crysterm
 #
 # C3  — the BCE clear-to-EOL gate compared only REVERSE parity, so a run of
 #       UNDERLINE/STRIKE blanks was erased with `el` (background fill only) —
-#       visibly undecorated, and permanently so (`@olines` mirrored as-drawn).
+#       visibly undecorated, and permanently so (`@flushed_lines` mirrored as-drawn).
 # C7  — `with_scroll_region` restored DECSTBM to the *inline band* on a
 #       non-alt surface, breaking the next `scroll_terminal_up` (newlines are
 #       emitted at the terminal's LAST row, below the band's bottom).
@@ -106,7 +106,7 @@ end
 describe "BUGS13 C9: invalidate_region repaints a wide glyph straddling its left edge" do
   it "re-emits the lead cell when the rect's left edge lands on a continuation cell" do
     w = b13dr_window(20, 3, force_unicode: true, full_unicode: true)
-    w.full_unicode?.should be_true
+    w.full_unicode_effective?.should be_true
     out = w.output.as(IO::Memory)
 
     # A wide glyph occupying columns 4 (lead) and 5 (continuation) on row 1.

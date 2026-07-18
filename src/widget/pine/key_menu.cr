@@ -58,17 +58,17 @@ module Crysterm
           # At least one row: the cell math divides by `@rows`.
           @rows = Math.max(1, @rows)
           super **layout, width: w, height: (h || rows)
-          # `gap: 0` grid: columns abut on integer fences, so the last one reaches
+          # `spacing: 0` grid: columns abut on integer fences, so the last one reaches
           # the edge even when `columns` doesn't divide the width evenly. Entries
           # flow column-major, which auto-flow can't express, so every cell gets an
           # explicit `Grid::Hint`. Assigned to the ivar so no method runs before it.
-          @layout = Crysterm::Layout::Grid.new(columns: @columns, rows: @rows, gap: 0)
+          @layout = Crysterm::Layout::Grid.new(columns: @columns, rows: @rows, spacing: 0)
           build
         end
 
         # Replaces all entries and rebuilds the display. Use this when switching
         # between Pine screens, each of which has its own command set.
-        def set_entries(entries : Array(Entry))
+        def entries=(entries : Array(Entry))
           @entries = entries
           build
         end
@@ -132,7 +132,7 @@ module Crysterm
             box.focus_on_click = false
             box.on(::Crysterm::Event::Click) do
               entry.callback.try &.call
-              emit ::Crysterm::Event::Action, entry.key
+              emit ::Crysterm::Event::Activated, entry.key
             end
 
             @cells << box

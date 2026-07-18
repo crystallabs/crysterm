@@ -42,7 +42,21 @@ module Crysterm
       include Mixin::Overlay
 
       # Optional title, shown as the widget's label.
-      property title : String = ""
+      @title : String = ""
+
+      def title : String
+        @title
+      end
+
+      # Sets the title, updating (or clearing) the rendered label on an actual
+      # change.
+      def title=(v : String) : String
+        return v if v == @title
+        @title = v
+        v.empty? ? remove_label : set_label(v)
+        request_render
+        v
+      end
 
       # The actions in this menu, in display order. Read-only: mutate through
       # `#<<`/`#add`/`#add_submenu`/`#add_separator`/`#remove_action`/`#clear`, or
@@ -70,14 +84,25 @@ module Crysterm
       # Optional hook for a top-level menu (no `#parent_menu`) to hand horizontal
       # navigation to its owner: called with `-1` on Left and `+1` on Right when
       # there's no submenu to move into. A `Widget::MenuBar` sets this to switch
-      # between its menus with the arrow keys.
-      property on_navigate : Proc(Int32, Nil)?
+      # between its menus with the arrow keys. The public spelling is the block
+      # form `#on_navigate(&block)`; the raw setter is protected.
+      getter on_navigate : Proc(Int32, Nil)?
+      protected setter on_navigate
+
+      # Sets the horizontal-navigation overflow hook via a block, e.g.
+      # `menu.on_navigate { |dir| switch_relative dir }`. The documented public
+      # API (`#on_navigate=` is protected).
+      def on_navigate(&block : Int32 ->) : Nil
+        @on_navigate = block
+      end
 
       # Extra region counted as "inside" for the modal input-grab (see
       # `Widget#grab_contains?`), on top of this menu's own submenu chain. A
       # `Widget::MenuBar` sets it to its own strip so hovering the bar's titles
-      # still switches menus while one is open.
-      property grab_region : Proc(Int32, Int32, Bool)?
+      # still switches menus while one is open. Assigned through the public block
+      # form `#treat_as_inside`; the raw setter is protected.
+      getter grab_region : Proc(Int32, Int32, Bool)?
+      protected setter grab_region
 
       # Marks *block* as an extra region counted as "inside" this menu's modal
       # grab, on top of its own submenu chain — so a press there (e.g. the owning
@@ -166,8 +191,7 @@ module Crysterm
       # Same `Overlay::DismissSession` object `Mixin::Popup`/`Completer` use.
       @popup_session : Crysterm::Overlay::DismissSession?
 
-      def initialize(title = "", keys = nil, **widget)
-        # `keys` is absorbed: an item view always enables key handling.
+      def initialize(title = "", **widget)
         @title = title
 
         super **widget
@@ -187,9 +211,9 @@ module Crysterm
         set_label @title unless @title.empty?
         sync_items
 
-        # Enter (or a click on the already-selected row) emits `ActionItem`;
+        # Enter (or a click on the already-selected row) emits `ItemActivated`;
         # activate the corresponding action.
-        on(::Crysterm::Event::ActionItem) { |e| activate_index e.index }
+        on(::Crysterm::Event::ItemActivated) { |e| activate_index e.index }
       end
 
       # Whether this menu is being shown as a floating context menu (see
@@ -213,7 +237,7 @@ module Crysterm
       # highlighted row across it (the item count can shift when visibility
       # toggles). The body every `#watch_action` handler runs.
       private def refresh_rows : Nil
-        sel = selected
+        sel = current_index
         sync_items
         select_index sel
         request_render
@@ -326,7 +350,7 @@ module Crysterm
         # interaction state, not carried across opens.
         @show_highlight = false
         # A menu created with only `window:` (not `parent:`) sets `@window` but is
-        # not in the window's `children`, so `front!`/`stack_index=` find no index
+        # not in the window's `children`, so `to_front`/`stack_index=` find no index
         # and it never renders, even though `popup` opens a modal grab.
         window.append self unless @parent || window.children.includes?(self)
         fit_to_content
@@ -337,7 +361,7 @@ module Crysterm
         Overlay.place_child(self, {x, y, 0, 0}, {awidth_hint, height.as?(Int) || 1},
           [Overlay::Side::At], point: {x, y})
         show
-        front!
+        to_front
         focus
 
         # Modal grab (suppress hover/clicks outside the menu chain) + dismiss on a
@@ -400,7 +424,7 @@ module Crysterm
         # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
         # emoji label is wider than its `.size`, and undersizing here would clip
         # the label.
-        w = ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
+        w = @ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
         # A scrolling menu reserves a right-edge column for the vertical scroll
         # bar; unaccounted for, the widest row is one column too wide for the
         # drawable area and `#size_rows` wraps it onto a clipped second line.
@@ -563,12 +587,12 @@ module Crysterm
 
       # The currently highlighted action, or `nil` when the menu is empty.
       def selected_action : Action?
-        visible_actions[selected]?
+        visible_actions[current_index]?
       end
 
       # Activates the highlighted action (as if Enter were pressed on it).
       def activate_selected
-        activate_index selected
+        activate_index current_index
       end
 
       # While the menu is "inactive" (dismissed by an outside click) no row is
@@ -780,7 +804,7 @@ module Crysterm
         # so a programmatic selection never lights up a row on its own.
         acts = visible_actions
         unless acts.empty?
-          dir = index >= selected ? 1 : -1
+          dir = index >= current_index ? 1 : -1
           index = skip_separators index, dir, acts
         end
         super index
@@ -793,12 +817,12 @@ module Crysterm
       end
 
       # A click lands on a *raw* row index, so a click on a separator row would
-      # chain `enter_selected(i)` → `select_index` (which `#skip_separators` onto
-      # a neighbor) → `ActionItem` → `activate_index`, silently firing the
-      # adjacent command. Keyboard activation is unaffected: its `selected` never
+      # chain `activate_item(index)` → `select_index` (which `#skip_separators` onto
+      # a neighbor) → `ItemActivated` → `activate_index`, silently firing the
+      # adjacent command. Keyboard activation is unaffected: its `current_index` never
       # rests on a separator.
-      def enter_selected(i)
-        return if @items[i]?.try { |it| @separator_items.includes? it }
+      def activate_item(index : Int32)
+        return if @items[index]?.try { |it| @separator_items.includes? it }
         super
       end
 
@@ -847,7 +871,7 @@ module Crysterm
         # A menu opens with no row highlighted; the first selection-moving key —
         # or Enter — *reveals* the highlight on the current item rather than
         # moving/activating it. Enter must be gated here too, or it falls through
-        # to `super` (`enter_selected` -> `activate_index 0`) and fires the first
+        # to `super` (`activate_current` -> `activate_index 0`) and fires the first
         # action though no row was ever shown highlighted.
         if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter)
           @show_highlight = true
@@ -887,7 +911,7 @@ module Crysterm
             return
           end
           # A non-popup top-level menu with nothing revealed yet: swallow Escape
-          # rather than letting `super` fire a `CancelItem` on the unhighlighted
+          # rather than letting `super` fire a `ItemCancelled` on the unhighlighted
           # item 0.
           if !@show_highlight
             e.accept
@@ -902,17 +926,17 @@ module Crysterm
       end
 
       # Escape (and any cancel gesture) must not fire the highlighted action.
-      # `Mixin::ItemView#cancel_selected` emits BOTH `ActionItem` and `CancelItem`,
-      # and this menu treats `ActionItem` as activation, so the inherited cancel
+      # `Mixin::ItemView#cancel_current` emits BOTH `ItemActivated` and `ItemCancelled`,
+      # and this menu treats `ItemActivated` as activation, so the inherited cancel
       # path would run the highlighted — possibly destructive — action. Emit only
-      # `CancelItem`, and reset the revealed highlight / open submenu here since
+      # `ItemCancelled`, and reset the revealed highlight / open submenu here since
       # `#hide_popup` no-ops for an embedded menu.
-      def cancel_selected
+      def cancel_current
         # Guard against `IndexError` on an empty list.
         return if @items.empty?
         close_submenu if @submenu_open
         @show_highlight = false
-        emit ::Crysterm::Event::CancelItem, items[selected], selected
+        emit ::Crysterm::Event::ItemCancelled, items[current_index], current_index
         request_render
       end
 
@@ -941,7 +965,7 @@ module Crysterm
         # freshly-created child unstyled until the next cascade, flashing a
         # borderless copy during rapid reopening. Falls back to the theme when
         # this menu has no inline style.
-        child = Menu.new(window: window, style: css_inline_style.try(&.dup))
+        child = Menu.new(window: window, style: inline_style.try(&.dup))
         subs.each { |a| child << a }
         child.parent_menu = self
 
@@ -968,7 +992,7 @@ module Crysterm
         begin
           lp = last_rendered_position
           border = style.border.any? ? 1 : 0
-          row_top = lp.yi + itop + (selected - @child_base)
+          row_top = lp.yi + itop + (current_index - @child_base)
           Overlay.place_child(child,
             {lp.xi, row_top, (lp.xl - lp.xi) - border, 1},
             {child.width.as?(Int) || 1, child.height.as?(Int) || 1},
@@ -978,11 +1002,11 @@ module Crysterm
           child.top = 0
         end
 
-        child.front!
+        child.to_front
         child.focus
         @submenu_open = child
         @submenu_action = action
-        @submenu_anchor = @items[selected]?
+        @submenu_anchor = @items[current_index]?
 
         # The top-level menu watches for a click anywhere outside the open chain
         # and dismisses the submenus. In popup mode the `#popup` watcher already

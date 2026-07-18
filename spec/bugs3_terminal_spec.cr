@@ -148,7 +148,7 @@ end
 describe "Widget::Terminal wide glyph under cursor (fix #1)" do
   it "keeps the continuation cell and advances 2 columns when the cursor sits on the lead half" do
     s = unicode_screen
-    s.full_unicode?.should be_true # precondition: the gate the draw path checks
+    s.full_unicode_effective?.should be_true # precondition: the gate the draw path checks
 
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,

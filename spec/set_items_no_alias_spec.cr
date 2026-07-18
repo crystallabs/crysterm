@@ -27,7 +27,7 @@ describe "ItemView#set_items array ownership" do
     list.add_item "d"
 
     # List grew, but the caller's array must be untouched.
-    list.ritems.should eq ["a", "b", "c", "d"]
+    list.item_texts.should eq ["a", "b", "c", "d"]
     data.should eq ["a", "b", "c"]
   end
 
@@ -40,7 +40,7 @@ describe "ItemView#set_items array ownership" do
     data << "z" # mutate the caller's array
 
     # List's own model must stay in sync with its item widgets (size 2).
-    list.ritems.should eq ["x", "y"]
+    list.item_texts.should eq ["x", "y"]
     list.items.size.should eq 2
   end
 end

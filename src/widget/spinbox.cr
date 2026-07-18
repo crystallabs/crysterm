@@ -21,7 +21,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class SpinBox < AbstractSpinBox
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
-      # `#increment`/`#decrement`, `Event::ValueChanged`).
+      # `#step_up`/`#step_down`, `Event::ValueChanged`).
       include Mixin::RangedValue(Int32)
 
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…

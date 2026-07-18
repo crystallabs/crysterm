@@ -5,7 +5,7 @@ require "../../src/crysterm"
 # file's own source; lines longer than the box are clipped instead of wrapped.
 # Blessed's `wrap: false` maps to crysterm's `wrap_content: false`.
 module Crysterm
-  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
   box = Widget::Box.new(
     parent: s,

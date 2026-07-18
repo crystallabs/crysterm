@@ -31,7 +31,7 @@ describe "ComboBox popup vertical placement" do
     cb = cbf_combo s, top: 11
     cb.focus
     s.render
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
@@ -45,7 +45,7 @@ describe "ComboBox popup vertical placement" do
     cb = cbf_combo s, top: 5
     cb.focus
     s.render
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 

@@ -143,12 +143,12 @@ module Crysterm
 
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     #
-    # Diffs `@lines` against `@olines` and encodes the needed escapes into the
+    # Diffs `@lines` against `@flushed_lines` and encodes the needed escapes into the
     # frame buffers (`@pre`/`@main`/`@post`), then — unless *flush* is false —
     # writes them to the terminal via `#flush_frame`. `#_render` passes
     # `flush: false` so it can time the diff/encode and the (blocking) terminal
     # write separately.
-    def draw(start = 0, stop = @lines.size - 1, flush = true)
+    protected def draw(start = 0, stop = @lines.size - 1, flush = true)
       @main.clear
       @last_draw_bytes = 0
       lx = -1
@@ -178,11 +178,11 @@ module Crysterm
       # is constant for the whole call.
       default_bg = Attr.bg(@default_attr)
       default_deco = Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)
-      fu = full_unicode?
+      fu = full_unicode_effective?
       # Output color depth used to reduce SGR colors. NOT the frozen
-      # `caps.ncolors`: `#colors` re-resolves the `colors.depth` config/env
+      # `caps.ncolors`: `#color_count` re-resolves the `colors.depth` config/env
       # override, so a depth changed at runtime reaches the wire.
-      ncolors = colors
+      ncolors = color_count
       # Whether non-ASCII glyphs must be reduced to a 1-column ASCII fallback.
       ascii_reduce = !term_unicode && (u8 != 1)
       # Whether the per-row scan may be bounded to the dirty-column range. BCE's
@@ -211,7 +211,7 @@ module Crysterm
 
       # Repair the cell a previously-painted artificial cursor left behind: `draw`
       # only scans dirty rows or the cursor's row, so a cursor moving to another
-      # row (or stopping) would leave its glyph in `@olines` never diffed away.
+      # row (or stopping) would leave its glyph in `@flushed_lines` never diffed away.
       draw_acur = c_artificial && !c._hidden && (c._state != 0) && cursor_y >= start && cursor_y <= stop
       new_acur_x = draw_acur ? cursor_x : -1
       new_acur_y = draw_acur ? cursor_y : -1
@@ -229,7 +229,7 @@ module Crysterm
         line = @lines[y]
 
         # Original line, as it was in the previous render
-        o = @olines[y]
+        o = @flushed_lines[y]
 
         # Skip if no change in line. Checked BEFORE the row hoists below, so a
         # skipped row does none of that work.
@@ -339,7 +339,7 @@ module Crysterm
           # The flag-parity gate must cover every attribute that visibly decorates
           # a printed *space*: `el` fills with the background only, so a run of
           # UNDERLINE/STRIKE (not just REVERSE) blanks would come out undecorated
-          # and — `@olines` being mirrored as-drawn — stay missing forever.
+          # and — `@flushed_lines` being mirrored as-drawn — stay missing forever.
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
              (has_bce || (Attr.bg(desired_attr) == default_bg)) &&
              ((Attr.flags(desired_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) == default_deco)
@@ -393,21 +393,21 @@ module Crysterm
               end
               if attr != desired_attr
                 # Reset first when any non-default attribute is active:
-                # `Screen.code2attr_to` writes the target attr from a *blank* SGR
+                # `Screen.write_sgr` writes the target attr from a *blank* SGR
                 # state and emits nothing for the default attr, so without this the
                 # `el` below would erase the line with a stale background (BCE) and
                 # the leftover SGR would bleed into later cells/rows.
                 @outbuf.print "\e[m" if attr != @default_attr
                 attr = desired_attr
                 # Allocation-free SGR emission straight into the line buffer.
-                Screen.code2attr_to(@outbuf, attr, ncolors)
+                Screen.write_sgr(@outbuf, attr, ncolors)
               end
 
               # Clear to end of line at (x, y).
               emit_cursor_position(@outbuf, ansi_cursor, y, x)
               @outbuf.write el
 
-              # Mirror the cleared run into `@olines` through the hoisted backing
+              # Mirror the cleared run into `@flushed_lines` through the hoisted backing
               # arrays. Overlay cleanup is needed only when the old row carries one;
               # writes never install one at >= x mid-row, so `o_has_g` still decides.
               o_stop = line_size < o_size ? line_size : o_size
@@ -427,7 +427,7 @@ module Crysterm
           end
 
           # Optimize by comparing the desired cell against what was last sent to
-          # the terminal (`@olines`). An unchanged cell is skipped entirely;
+          # the terminal (`@flushed_lines`). An unchanged cell is skipped entirely;
           # `lx`/`ly` remember the start of the skipped run so the next changed
           # cell repositions over it with a single cursor move (cuf or cup)
           # instead of redrawing it.
@@ -480,7 +480,7 @@ module Crysterm
             end
             # Changed cell: build the old-side handle now — not for every unchanged
             # cell, the common case — and write back what is being emitted, so
-            # `@olines` mirrors the terminal. `x < o_size` was already checked.
+            # `@flushed_lines` mirrors the terminal. `x < o_size` was already checked.
             ox = o.unsafe_fetch(x)
             ox.attr = desired_attr
             if fu && l_has_g && !acur_glyph && (g = line.grapheme_at?(x))
@@ -505,7 +505,7 @@ module Crysterm
               # `sgr_params_to` ends in a ';' if it wrote anything; back over it and
               # replace it with the terminating 'm'. The "\e[" + "m" is emitted
               # unconditionally (a bare reset when nothing was written) — unlike
-              # `code2attr_to`, this branch is only reached for a non-default attr.
+              # `write_sgr`, this branch is only reached for a non-default attr.
               if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
                 @outbuf.seek -1, IO::Seek::Current
               end
@@ -577,7 +577,7 @@ module Crysterm
               # unchanged and skipped, or clipped off the left edge). Nothing is
               # printed for it, so the terminal cursor did NOT advance: force the
               # next changed cell to reposition absolutely, or it prints one column
-              # too far left and persists the error into `@olines`.
+              # too far left and persists the error into `@flushed_lines`.
               lx = x
               ly = -1
             else
@@ -722,7 +722,7 @@ module Crysterm
       end
     end
 
-    def blank_line(ch = ' ', dirty = false)
+    private def blank_line(ch = ' ', dirty = false)
       # `Row.new awidth` only reserves capacity (size 0), so the row must be
       # populated: a zero-width row renders as nothing and puts later
       # `lines[y][x]` writes out of range.
@@ -732,14 +732,14 @@ module Crysterm
       o
     end
 
-    # Shifts the cell buffer (`@lines`/`@olines`) *down* by `n` rows: a blank line
+    # Shifts the cell buffer (`@lines`/`@flushed_lines`) *down* by `n` rows: a blank line
     # appears at `y` and the line that was at `bottom` falls off — the buffer-side
     # counterpart of the terminal `il`/scroll-down.
     private def shift_lines_down(n, y, bottom)
       shift_lines n, insert_at: y, delete_at: bottom + 1
     end
 
-    # Shifts the cell buffer (`@lines`/`@olines`) *up* by `n` rows: the line at `y`
+    # Shifts the cell buffer (`@lines`/`@flushed_lines`) *up* by `n` rows: the line at `y`
     # is removed and a blank line appears at `bottom` — the buffer-side counterpart
     # of the terminal `dl`/scroll-up.
     private def shift_lines_up(n, y, bottom)
@@ -761,7 +761,7 @@ module Crysterm
       final_insert = removed < insert_at ? insert_at - 1 : insert_at
       n.times do
         recycle_shifted_row @lines, removed, final_insert
-        recycle_shifted_row @olines, removed, final_insert
+        recycle_shifted_row @flushed_lines, removed, final_insert
       end
     end
 
@@ -829,7 +829,7 @@ module Crysterm
     # This is how ncurses does it.
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
-    def insert_line_nc(n, y, top, bottom)
+    protected def insert_line_nc(n, y, top, bottom)
       return unless with_scroll_region(top, bottom) do
                       tput.cup(top + render_row_offset, 0)
                       tput.dl(n)
@@ -856,7 +856,7 @@ module Crysterm
     # This is how ncurses does it.
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
-    def delete_line_nc(n, y, top, bottom)
+    protected def delete_line_nc(n, y, top, bottom)
       return unless with_scroll_region(top, bottom) do |ret|
                       tput.cup(bottom + render_row_offset, 0)
                       # Emit `n` newlines without materializing a `"\n" * n` String.
@@ -866,16 +866,6 @@ module Crysterm
       shift_lines_up n, y, bottom
     end
 
-    # Inserts line at bottom of screen.
-    def insert_bottom(top, bottom)
-      delete_line(1, top, top, bottom)
-    end
-
-    # Inserts line at top of screen.
-    def insert_top(top, bottom)
-      insert_line(1, top, top, bottom)
-    end
-
     # Deletes line at bottom of screen.
     def delete_bottom(top, bottom)
       # `clear_region` is half-open in `y`, so the far edge must be ONE PAST the
@@ -883,16 +873,11 @@ module Crysterm
       clear_region(0, awidth, bottom, bottom + 1)
     end
 
-    # Deletes line at top of screen.
-    def delete_top(top, bottom)
-      delete_line(1, top, top, bottom)
-    end
-
     # Checks whether an element has uniform cells on both sides; if so, CSR can be
     # used to optimize scrolling on a scrollable element. Not exactly sure how
     # worthwhile this is — it costs CPU, but maybe less than slow-rendering
     # scrollable boxes with clean sides would.
-    def clean_sides(el)
+    protected def sides_uniform?(el)
       pos = el.lpos
 
       return false unless pos
@@ -930,14 +915,14 @@ module Crysterm
       pos._clean_sides = true
     end
 
-    # Whether column *x* of `@olines` holds the same cell on every row of
+    # Whether column *x* of `@flushed_lines` holds the same cell on every row of
     # `yi...yl`, comparing against the top row's cell. A row missing the column
     # stops the scan early; a missing top row leaves the reference nil, so the scan
     # breaks before any comparison.
     private def column_uniform?(x, yi, yl) : Bool
-      first = @olines[yi]?.try &.[x]?
+      first = @flushed_lines[yi]?.try &.[x]?
       yi.upto(yl - 1) do |y|
-        row = @olines[y]?
+        row = @flushed_lines[y]?
         break unless row && (ch = row[x]?)
         return false if ch != first
       end
@@ -945,17 +930,20 @@ module Crysterm
     end
 
     # Clears any chosen region on the screen.
-    def clear_region(xi, xl, yi, yl, override = false)
-      fill_region @default_attr, ' ', xi, xl, yi, yl, override
+    #
+    # The region is half-open: `[xi, xl) × [yi, yl)` — `xl`/`yl` are one PAST
+    # the last column/row cleared.
+    def clear_region(xi, xl, yi, yl, *, force : Bool = false)
+      fill_region @default_attr, ' ', xi, xl, yi, yl, force: force
     end
 
     # Forces the cells in the given region to be re-emitted to the terminal on the
     # next `#draw`, even if their content is unchanged from the previous frame.
     #
-    # `#draw` skips cells that match `@olines` (what's on the terminal), but a
+    # `#draw` skips cells that match `@flushed_lines` (what's on the terminal), but a
     # widget drawing *outside* the cell model — a w3m image painted on top of the
     # terminal — needs the cells underneath a stale overlay physically re-emitted
-    # so text redraws over it. Poisoning `@olines` makes the diff treat those cells
+    # so text redraws over it. Poisoning `@flushed_lines` makes the diff treat those cells
     # as changed.
     def invalidate_region(xi, xl, yi, yl)
       # The selective damage path can't reason about writes outside the cell model.
@@ -965,7 +953,7 @@ module Crysterm
       yi = 0 if yi < 0
 
       yi.upto(yl - 1) do |y|
-        oline = @olines[y]?
+        oline = @flushed_lines[y]?
         break unless oline
 
         line = @lines[y]?
@@ -1034,7 +1022,10 @@ module Crysterm
     # contiguous run to batch, pass a 1x1 region
     # (`fill_region attr, ch, x, x + 1, y, y + 1`): it change-guards the write and
     # narrows the dirty range to that one column.
-    def fill_region(attr, ch, xi, xl, yi, yl, override = false)
+    #
+    # The region is half-open: `[xi, xl) × [yi, yl)` — `xl`/`yl` are one PAST
+    # the last column/row filled.
+    def fill_region(attr, ch, xi, xl, yi, yl, *, force : Bool = false)
       xi = 0 if xi < 0
       yi = 0 if yi < 0
 
@@ -1062,7 +1053,7 @@ module Crysterm
           # is never equal to a single-char tuple, so it must be rewritten, and so
           # must a linked cell — an already-blank one would otherwise be skipped
           # with its link intact.
-          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch ||
+          if force || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch ||
              (has_g && !line.grapheme_at?(x).nil?) || (has_l && line.link_at(x) != 0_u16)
             attrs.unsafe_put(x, attr)
             chars.unsafe_put(x, ch)

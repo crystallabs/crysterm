@@ -7,7 +7,7 @@ module Crysterm
     #
     # Holds the shared bounded-integer value/range behavior
     # (`#minimum`/`#maximum`/`#value`/`#step`/`#page_step`/`#wrapping?`,
-    # `#increment`/`#decrement`, `Event::ValueChanged`) via `Mixin::RangedValue`.
+    # `#step_up`/`#step_down`, `Event::ValueChanged`) via `Mixin::RangedValue`.
     abstract class AbstractSlider < Input
       include Mixin::RangedValue(Int32)
 

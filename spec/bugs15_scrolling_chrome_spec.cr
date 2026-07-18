@@ -24,7 +24,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       layout: Layout::VBox.new, style: Style.new(border: true)
     box.set_label "Settings"
-    lbl = box._label.not_nil!
+    lbl = box.label_widget.not_nil!
 
     # Two real content children.
     c1 = Widget::Box.new parent: box
@@ -77,7 +77,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
 end
 
 # BUGS15 #54 — `scrollable` was a bare `property?`. The content-clamp handler
-# (`Event::ParsedContent → _recalculate_index`) is wired only in the constructor
+# (`Event::ContentParsed → _recalculate_index`) is wired only in the constructor
 # and only for a widget built `scrollable: true`. A widget flipped scrollable at
 # runtime never got it, so a later content shrink left `@child_base` past the
 # content and the viewport rendered blank. The custom setter now wires it once.
@@ -111,9 +111,9 @@ describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
     s = headless_screen
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.scrollable = true
-    n = box.handlers(Crysterm::Event::ParsedContent).size
+    n = box.handlers(Crysterm::Event::ContentParsed).size
     box.scrollable = true # redundant: must not add another handler
-    box.handlers(Crysterm::Event::ParsedContent).size.should eq n
+    box.handlers(Crysterm::Event::ContentParsed).size.should eq n
   end
 end
 

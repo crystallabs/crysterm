@@ -11,7 +11,7 @@ module Crysterm
     #
     # The including widget must provide:
     #
-    #   * `#value` / `#value=` / `#increment` / `#decrement` and `@minimum` /
+    #   * `#value` / `#value=` / `#step_up` / `#step_down` and `@minimum` /
     #     `@maximum` / `@step` — its numeric value/range logic (e.g. from
     #     `Mixin::RangedValue`);
     #   * `#parse_buffer(buf : String)` — parse the edit buffer to the widget's
@@ -29,8 +29,32 @@ module Crysterm
       @editing : String? = nil
 
       # Text shown before/after the number (Qt `QSpinBox#prefix`/`#suffix`).
-      property prefix : String = ""
-      property suffix : String = ""
+      @prefix : String = ""
+      @suffix : String = ""
+
+      def prefix : String
+        @prefix
+      end
+
+      # Sets the prefix, refreshing the displayed text on an actual change.
+      def prefix=(v : String) : String
+        return v if v == @prefix
+        @prefix = v
+        update_content
+        v
+      end
+
+      def suffix : String
+        @suffix
+      end
+
+      # Sets the suffix, refreshing the displayed text on an actual change.
+      def suffix=(v : String) : String
+        return v if v == @suffix
+        @suffix = v
+        update_content
+        v
+      end
 
       # Whether the value can be typed directly (Qt's `QAbstractSpinBox#readOnly`
       # inverted). When false the box only responds to stepping.
@@ -64,7 +88,7 @@ module Crysterm
       protected def install_spinbox_editing : Nil
         # Losing focus mid-edit discards the buffer (Qt restores the last valid
         # value rather than committing a half-typed one).
-        on(Crysterm::Event::Blur) { cancel_edit if editing? }
+        on(Crysterm::Event::FocusOut) { cancel_edit if editing? }
 
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
@@ -72,12 +96,12 @@ module Crysterm
             # would change the committed value invisibly. Discard the edit first,
             # matching `#stepping_key`.
             cancel_edit
-            increment
+            step_value_up
             e.accept
             request_render
           elsif e.action.wheel_down?
             cancel_edit
-            decrement
+            step_value_down
             e.accept
             request_render
           end
@@ -152,13 +176,13 @@ module Crysterm
         elsif (k == ::Tput::Key::Backspace || k == ::Tput::Key::CtrlH) && editing?
           apply_edit(e) { @editing = @editing.to_s[0...-1] }
         elsif k == ::Tput::Key::Up || ch == 'k' || ch == '+'
-          stepping_key(e) { increment }
+          stepping_key(e) { step_value_up }
         elsif k == ::Tput::Key::Down || ch == 'j'
-          stepping_key(e) { decrement }
+          stepping_key(e) { step_value_down }
         elsif k == ::Tput::Key::PageUp
-          stepping_key(e) { increment page_step_delta(@step) }
+          stepping_key(e) { step_value_up page_step_delta(@step) }
         elsif k == ::Tput::Key::PageDown
-          stepping_key(e) { decrement page_step_delta(@step) }
+          stepping_key(e) { step_value_down page_step_delta(@step) }
         elsif k == ::Tput::Key::Home
           stepping_key(e) { self.value = @minimum }
         elsif k == ::Tput::Key::End
@@ -168,7 +192,7 @@ module Crysterm
 
       # The PageUp/PageDown delta: 10 line-steps, saturating to the numeric type's
       # own bound instead of raising when `step * 10` overflows.
-      # `#increment`/`#decrement` then saturate to the range bound as usual.
+      # `#step_up`/`#step_down` then saturate to the range bound as usual.
       private def page_step_delta(step : T) : T forall T
         step * 10
       rescue OverflowError

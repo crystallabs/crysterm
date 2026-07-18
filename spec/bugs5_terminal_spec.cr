@@ -41,7 +41,7 @@ end
 describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
   it "applies cursor styling to the continuation cell instead of swallowing the cursor column" do
     s = unicode_screen
-    s.full_unicode?.should be_true
+    s.full_unicode_effective?.should be_true
 
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,

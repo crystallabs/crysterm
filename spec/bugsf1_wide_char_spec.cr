@@ -13,7 +13,7 @@ private def fu_screen(width, height)
     input: IO::Memory.new, output: outio, error: IO::Memory.new,
     width: width, height: height)
   s.full_unicode = true
-  pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+  pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
   {s, outio}
 end
 
@@ -117,7 +117,7 @@ describe "BUGS-F1 #10: changed continuation cell in the draw diff" do
     line[2].char = 'Y'
     line[0].width.should eq 2 # sanity
     line.dirty = true
-    s.draw # sync @olines to @lines
+    s.draw # sync @flushed_lines to @lines
 
     # Now change ONLY the continuation cell's attr (lead stays byte-identical)
     # and the letter cell's char. The continuation is reached WITHOUT skip_next

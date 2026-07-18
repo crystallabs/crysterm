@@ -17,14 +17,14 @@ module Crysterm
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
     # whether keys are propagate.
-    property always_propagate = Array(Tput::Key).new
+    property always_propagated_keys = Array(Tput::Key).new
 
     # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
 
     # Sets up IO listeners for keyboard and mouse input.
-    def listen
+    def start_input
       # Ensure this surface is registered with an `Application`, the dispatcher
       # input is routed through. `#add` is idempotent — usually `Application#exec`
       # already registered us; standalone/reattach paths self-register here.
@@ -32,9 +32,9 @@ module Crysterm
 
       # Listen for keys/mouse on input. The read fiber lives on the device: it
       # parses bytes and routes each event up to the `Application` dispatcher.
-      @screen.listen_keys
+      @screen.start_input
 
-      # `listen_keys` only spawns the input fiber; that fiber puts the terminal
+      # `start_input` only spawns the input fiber; that fiber puts the terminal
       # into raw (echo-off) mode as its first action, before its first blocking
       # read. Until then the tty is still in cooked mode and echoes everything.
       # Enabling mouse reporting now would make pointer movement during startup
@@ -42,7 +42,7 @@ module Crysterm
       # its first read (raw mode established), then enable mouse reporting.
       Fiber.yield
 
-      @screen.listen_mouse
+      @screen.enable_mouse
 
       # Enable, by default, the input enhancements that are safe and universally
       # expected — after raw mode, like mouse, so enable sequences aren't echoed:
@@ -54,7 +54,7 @@ module Crysterm
       #     interpreted as keystrokes.
       #
       # Both are no-ops on unsupported terminals. Modifier/release reporting
-      # (`enable_keyboard_protocol(events: true)`) stays opt-in, since it changes
+      # (`enable_keyboard_protocol(level: :events)`) stays opt-in, since it changes
       # the event stream.
       #
       # Only negotiate with a real terminal — writing enable sequences to a
@@ -76,7 +76,7 @@ module Crysterm
     end
 
     # The input-mode toggles (keyboard-protocol / bracketed-paste /
-    # in-band-resize / color-scheme) and their `_listened_*?` flags live on the
+    # in-band-resize / color-scheme) and their `*_enabled?` flags live on the
     # device (`Screen`), as does the OSC escape-sequence transport (`copy` /
     # `request_clipboard`, `report_cwd`, `progress`); this surface delegates them.
 
@@ -99,17 +99,17 @@ module Crysterm
         # the app-wide clipboard mirror before notifying listeners, so a handler
         # reading `application.clipboard.text` sees the fresh value.
         application.try &.clipboard.refresh_from_terminal(clip)
-        emit Crysterm::Event::Clipboard.new clip
+        emit Crysterm::Event::ClipboardChanged.new clip
       elsif scheme = e.color_scheme
-        emit Crysterm::Event::ColorScheme.new scheme
+        emit Crysterm::Event::ColorSchemeChanged.new scheme
       elsif r = e.resize
         if r.cols > 0 && r.rows > 0
           # Report carries new size in pixels (0 when unknown); refresh cell
           # geometry directly from it, no ioctl/escape round-trip.
           @screen.apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows)
-          # Hand the authoritative cell size to the debounced `#resize` path
-          # instead of re-probing via the `TIOCGWINSZ` ioctl that in-band resize
-          # (DEC 2048) exists to bypass.
+          # Hand the authoritative cell size to the debounced `#refresh_size`
+          # path instead of re-probing via the `TIOCGWINSZ` ioctl that in-band
+          # resize (DEC 2048) exists to bypass.
           @pending_inband_size = {r.cols, r.rows}
         end
         schedule_resize
@@ -168,7 +168,7 @@ module Crysterm
     # Sets up the general, screen-level key listener. It receives every
     # `Event::KeyPress` and dispatches it to the focused widget and up its
     # parent tree (until one `#accept`s it). Installed once per screen.
-    def _listen_keys
+    private def _listen_keys
       return if @_listening_keys
       @_listening_keys = true
 
@@ -180,7 +180,7 @@ module Crysterm
 
         # Whether this key is on the always-propagate list — scanned once and
         # reused across the three checks below.
-        always_propagate = @always_propagate.includes?(e.key)
+        always_propagate = @always_propagated_keys.includes?(e.key)
 
         # Not propagating and key isn't on the always-propagate list: done.
         if !@propagate_keys && !always_propagate

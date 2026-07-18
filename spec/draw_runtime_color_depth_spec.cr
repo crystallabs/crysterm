@@ -35,9 +35,9 @@ describe "Window#draw runtime color depth" do
       Config.colors_depth = Crysterm::ColorDepth::Ansi
       s.colors.should eq 16
 
-      # Re-emit the same cell (poison @olines so it differs) and confirm the
+      # Re-emit the same cell (poison @flushed_lines so it differs) and confirm the
       # color is now reduced — no 24-bit sequence survives.
-      s.olines[0][0].char = '?'
+      s.flushed_lines[0][0].char = '?'
       s.lines[0].dirty = true
       buf.clear
       s.draw

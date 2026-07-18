@@ -59,6 +59,14 @@ module Crysterm
       fi[1] + fi[3]
     end
 
+    # `#ileft`/`#itop`/`#iright`/`#ibottom` bundled into one value — Qt's
+    # `QWidget::contentsMargins()`. A fresh `Padding` (never a shared
+    # singleton), safe for the caller to hold onto past the current frame.
+    def contents_margins : Padding
+      fi = frame_insets
+      Padding.new fi[0], fi[1], fi[2], fi[3]
+    end
+
     # This widget's **content rectangle** in absolute window coordinates: where
     # it last painted, inset by its border and padding (Qt's
     # `QWidget::contentsRect`). `nil` before the widget has a rendered position,
@@ -91,7 +99,7 @@ module Crysterm
       yi = lp.yi + itop
       yl = lp.yl - ibottom
       return nil if xl <= xi || yl <= yi
-      Rectangle.new xi, xl, yi, yl
+      Rectangle.of_edges xi, yi, xl, yl
     end
 
     # Outer (margin) offsets — counterpart to the inner `i*` offsets above,
@@ -116,6 +124,12 @@ module Crysterm
     def mvertical : Int32
       m = style.margin
       m.top + m.bottom
+    end
+
+    # `#mleft`/`#mtop`/`#mright`/`#mbottom` bundled into one value — the
+    # resolved `Style#margin` itself, already the sided box these read from.
+    def margins : Margin
+      style.margin
     end
   end
 end

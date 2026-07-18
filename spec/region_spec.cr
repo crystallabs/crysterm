@@ -12,7 +12,7 @@ end
 describe "Window#fill_region / #blend_region" do
   it "fills the half-open region and marks the line dirty" do
     s = headless_screen
-    s.fill_region 7_i64, 'X', 1, 4, 0, 1, override: true
+    s.fill_region 7_i64, 'X', 1, 4, 0, 1, force: true
 
     s.lines[0][0].char.should eq ' ' # left of region, untouched
     s.lines[0][1].char.should eq 'X'
@@ -24,7 +24,7 @@ describe "Window#fill_region / #blend_region" do
 
   it "clamps a negative origin to 0 (fill_region)" do
     s = headless_screen
-    s.fill_region 5_i64, 'Y', -3, 2, 0, 1, override: true
+    s.fill_region 5_i64, 'Y', -3, 2, 0, 1, force: true
     # Clamped: only columns 0 and 1 are written, with no wrap to the far edge.
     s.lines[0][0].char.should eq 'Y'
     s.lines[0][1].char.should eq 'Y'
@@ -34,7 +34,7 @@ describe "Window#fill_region / #blend_region" do
 
   it "blends existing cell attributes toward black" do
     s = headless_screen
-    s.fill_region 0x00FF00_i64, 'a', 0, 2, 0, 1, override: true
+    s.fill_region 0x00FF00_i64, 'a', 0, 2, 0, 1, force: true
     before = s.lines[0][0].attr
 
     s.blend_region 0.5, 0, 2, 0, 1

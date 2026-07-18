@@ -4,15 +4,11 @@ module Crysterm
       macro included
         # List of existing instances.
         #
-        # For automatic management, `#bind` must be called at creation and
-        # `#destroy` at termination. `#bind` doesn't need to be called
-        # explicitly (it happens during `#initialize`); `#destroy` does.
+        # For automatic management, `#register_instance` must be called at
+        # creation and `#destroy` at termination. `#register_instance` doesn't
+        # need to be called explicitly (it happens during `#initialize`);
+        # `#destroy` does.
         class_getter instances = [] of self
-
-        # Returns number of created instances
-        def self.total
-          @@instances.size
-        end
 
         # Creates and/or returns the "global" instance — the most recently
         # created one. If none exist yet, a new one is created, so the result is
@@ -21,18 +17,15 @@ module Crysterm
           instances[-1]? || new
         end
 
-        # Returns the "global" instance (most recently created), optionally
-        # creating one if none exist. With *create* false this is a pure query
-        # that returns nil when the list is empty (rather than raising).
-        def self.global(create : Bool) : self?
-          existing = instances[-1]?
-          return existing if existing
-          create ? new : nil
+        # Returns the "global" instance (most recently created), or `nil` when
+        # none exist yet. A pure query — unlike `#global`, it never creates one.
+        def self.global? : self?
+          instances[-1]?
         end
       end
 
       # Accounts for itself in `@@instances` and does other related work.
-      def bind
+      protected def register_instance
         if @@instances.includes? self
           return
         end

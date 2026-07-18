@@ -29,19 +29,19 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
       top: 0, left: 0, width: 12, height: 1
     w1._render
 
-    combo.open
+    combo.show_popup
     pop1 = combo.@popup.not_nil!
     pop1.window?.should eq w1
-    combo.close
+    combo.hide_popup
 
     w2.append combo
     w2._render
 
-    combo.open
+    combo.show_popup
     pop2 = combo.@popup.not_nil!
     pop2.same?(pop1).should be_false # stale popup dropped, not reused
     pop2.window?.should eq w2        # rendered on the combo's current window
-    combo.close
+    combo.hide_popup
   end
 
   it "rebuilds the DateEdit calendar on the new window" do
@@ -50,19 +50,19 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     de = Widget::DateEdit.new parent: w1, top: 0, left: 0, width: 12, height: 1
     w1._render
 
-    de.open
+    de.show_popup
     pop1 = de.@popup.not_nil!
     pop1.window?.should eq w1
-    de.close
+    de.hide_popup
 
     w2.append de
     w2._render
 
-    de.open
+    de.show_popup
     pop2 = de.@popup.not_nil!
     pop2.same?(pop1).should be_false
     pop2.window?.should eq w2
-    de.close
+    de.hide_popup
   end
 
   it "rebuilds the Completer popup on the box's new window" do
@@ -99,7 +99,7 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
     s._render
 
     combo.focus
-    combo.open
+    combo.show_popup
     combo.open?.should be_true
 
     other.focus
@@ -118,7 +118,7 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
     s._render
 
     combo.focus
-    combo.open # focuses the popup
+    combo.show_popup # focuses the popup
     combo.open?.should be_true
 
     other.focus

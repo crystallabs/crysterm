@@ -80,7 +80,22 @@ module Crysterm
     # Called after each `#feed` so the owner can request a window render.
     property on_refresh : Proc(Nil)? = nil
 
-    @default_attr : Int64
+    # Block forms of the notification setters, e.g. `em.on_title { |t| ... }`.
+    def on_bell(&block : ->) : Nil
+      @on_bell = block
+    end
+
+    # :ditto:
+    def on_title(&block : String ->) : Nil
+      @on_title = block
+    end
+
+    # :ditto:
+    def on_refresh(&block : ->) : Nil
+      @on_refresh = block
+    end
+
+    getter default_attr : Int64
     @cur_attr : Int64
 
     @scroll_top : Int32 = 0
@@ -172,11 +187,21 @@ module Crysterm
     # `ESC 7` and a later `ESC 8` sees the 1049-saved cursor — as in xterm.
     @main_saved : SavedCursor
 
+    # How mouse reports are framed on the wire, selected by the child via
+    # DECSET 1005 (`Utf8`), 1006 (`Sgr`) or 1015 (`Urxvt`); `Normal` is the
+    # legacy X10 byte framing.
+    enum MouseEncoding
+      Normal
+      Sgr
+      Utf8
+      Urxvt
+    end
+
     # Mouse tracking requested by the child. `@mouse_tracking` is the active
     # DECSET tracking mode (0 = off, else 9/1000/1002/1003); `@mouse_encoding`
-    # is how reports are framed (`:normal`, `:sgr`, `:utf8`, `:urxvt`).
+    # is how reports are framed (see `MouseEncoding`).
     getter mouse_tracking : Int32 = 0
-    getter mouse_encoding : Symbol = :normal
+    getter mouse_encoding : MouseEncoding = MouseEncoding::Normal
 
     # Origin mode (DECOM, DECSET ?6): when on, row addressing (CUP/VPA) is
     # relative to the scroll region's top and the cursor cannot leave it.
@@ -543,10 +568,30 @@ module Crysterm
         # restore it before handling the current byte so an OSC containing a
         # literal ESC + non-`\` isn't silently corrupted — but only for a real
         # OSC; a discarded DCS/SOS/PM/APC payload is never materialized.
+        #
+        # NOTE: per the strict VT500 state machine a lone ESC also aborts a
+        # DCS/SOS/PM/APC string outright. That refinement was deliberately
+        # NOT applied here: real-world DCS passthrough (e.g. tmux's
+        # `DCS tmux; <doubled-ESC payload> ST` wrapper) relies on exactly
+        # this "ESC not forming ST stays in the string" behavior — aborting
+        # on the inner ESC would end the DCS early and leak the remainder of
+        # the wrapped payload to the grid, regressing bug #94's own repro.
         @osc_buf << '\e' if !@osc_string && @osc_buf.bytesize < OSC_MAX
       end
       case c.ord
-      when 0x07 then finish_osc; @state = :ground # BEL terminator
+      when 0x07
+        # BEL only terminates a *real* OSC (the xterm extension). Inside a
+        # DCS/SOS/PM/APC string (`@osc_string`) it is inert payload — only
+        # ST (or CAN/SUB) ends the string — so keep scanning.
+        unless @osc_string
+          finish_osc
+          @state = :ground
+        end
+      when 0x18, 0x1a
+        # CAN/SUB abort the string sequence from any state (VT500 "anywhere"
+        # transition) and produce no output. `@osc_buf` is cleared on the
+        # next OSC/DCS entry, so abandoning it here leaks nothing.
+        @state = :ground
       when 0x1b then @osc_esc = true
         # A DCS/SOS/PM/APC string (`@osc_string`) is swallowed only to find its
         # ST/BEL terminator — its payload is discarded, never parsed as a title.
@@ -875,9 +920,9 @@ module Crysterm
       # protocol. Without the check, a child enabling SGR (1006) and then
       # defensively resetting 1005 would drop the widget back to X10 framing
       # while the child still parses SGR (garbage keys, coords > 223 corrupt).
-      when 1005 then on ? (@mouse_encoding = :utf8) : (@mouse_encoding = :normal if @mouse_encoding == :utf8)
-      when 1006 then on ? (@mouse_encoding = :sgr) : (@mouse_encoding = :normal if @mouse_encoding == :sgr)
-      when 1015 then on ? (@mouse_encoding = :urxvt) : (@mouse_encoding = :normal if @mouse_encoding == :urxvt)
+      when 1005 then on ? (@mouse_encoding = MouseEncoding::Utf8) : (@mouse_encoding = MouseEncoding::Normal if @mouse_encoding.utf8?)
+      when 1006 then on ? (@mouse_encoding = MouseEncoding::Sgr) : (@mouse_encoding = MouseEncoding::Normal if @mouse_encoding.sgr?)
+      when 1015 then on ? (@mouse_encoding = MouseEncoding::Urxvt) : (@mouse_encoding = MouseEncoding::Normal if @mouse_encoding.urxvt?)
       else           return false
       end
       true
@@ -981,9 +1026,9 @@ module Crysterm
 
     private def apply_sgr : Nil
       # Parse the bare parameter list (`@csi_buf`) directly instead of rebuilding
-      # a framed `"\e[" + @csi_buf + "m"` string for `attr2code` to re-scan — one
+      # a framed `"\e[" + @csi_buf + "m"` string for `sgr_to_attr` to re-scan — one
       # fewer `String` allocation per SGR sequence.
-      @cur_attr = Crysterm::Screen.attr2code_params(@csi_buf.to_slice, @cur_attr, @default_attr)
+      @cur_attr = Crysterm::Screen.sgr_params_to_attr(@csi_buf.to_slice, @cur_attr, @default_attr)
     end
 
     # ───────────────────────── editing primitives ─────────────────────────
@@ -1398,7 +1443,7 @@ module Crysterm
       @alt_active = false
       @main_lines = nil
       @mouse_tracking = 0
-      @mouse_encoding = :normal
+      @mouse_encoding = MouseEncoding::Normal
       @origin_mode = false
       @bracketed_paste = false
       @focus_reporting = false
@@ -1512,8 +1557,9 @@ module Crysterm
       @ydisp = @ybase
     end
 
-    def scroll_perc : Float64
-      @ybase == 0 ? 0.0 : (@ydisp.to_f / @ybase) * 100
+    # 0.0 (top of scrollback) .. 1.0 (bottom), matching `Widget#scroll_percent`.
+    def scroll_percent : Float64
+      @ybase == 0 ? 0.0 : @ydisp.to_f / @ybase
     end
 
     private def clamp(v : Int32, lo : Int32, hi : Int32) : Int32

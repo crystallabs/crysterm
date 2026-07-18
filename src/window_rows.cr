@@ -169,7 +169,7 @@ module Crysterm
       end
 
       # Cell-vs-cell equality compares *values* (attr + grapheme), not handle
-      # identity, so cells from different rows (e.g. `@lines` vs `@olines`) can
+      # identity, so cells from different rows (e.g. `@lines` vs `@flushed_lines`) can
       # be diffed during drawing.
       #
       # Fast path: compares `attr` and the base `char` first, then the overlay

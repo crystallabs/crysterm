@@ -23,6 +23,12 @@ module Crysterm
     # (opened by every write), a batch explicit. Both defer leaf `Effect`s.
     @@wave_depth = 0
 
+    # Whether a `flush` drain is in progress. A drained item's `run` may write a
+    # signal, whose wave-close calls `flush` re-entrantly; that nested call must
+    # no-op — the active outer drain picks up any newly enqueued work — or items
+    # still awaiting their turn would run twice.
+    @@flushing = false
+
     # Whether a `batch` is currently open on this fiber.
     def self.batching? : Bool
       @@batch_depth > 0
@@ -83,20 +89,31 @@ module Crysterm
 
     # Runs every enqueued binding once and clears the queue. Called automatically
     # when the outermost `batch` closes.
+    #
+    # Re-entrancy-safe: the drain works on the live queue, removing each item
+    # from the dedup set only as it is taken. An item still awaiting its turn
+    # thus stays in the set, so a signal write performed by a drained item's
+    # `run` cannot re-enqueue it (`enqueue`'s `add?` dedups) — it runs exactly
+    # once, in its original position. Genuinely new work woken by such a write
+    # is appended to the live queue and drained by this same call; the nested
+    # wave-close `flush` no-ops on `@@flushing`.
     def self.flush : Nil
-      return if @@pending.empty?
-      pending = @@pending
-      @@pending = [] of Deferrable
-      @@pending_set.clear
+      return if @@flushing
+      @@flushing = true
       # Each item runs isolated: if one raises, the rest must still run. The
       # first exception is re-raised once the queue has drained.
       first_ex = nil
-      pending.each do |item|
-        begin
-          item.run
-        rescue ex
-          first_ex ||= ex
+      begin
+        while item = @@pending.shift?
+          @@pending_set.delete item
+          begin
+            item.run
+          rescue ex
+            first_ex ||= ex
+          end
         end
+      ensure
+        @@flushing = false
       end
       raise first_ex if first_ex
     end

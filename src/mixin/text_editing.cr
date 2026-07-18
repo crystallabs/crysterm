@@ -36,8 +36,6 @@ module Crysterm
       # this false so finishing leaves focus put.
       property? rewind_on_done : Bool = true
 
-      property __update_cursor : Proc(Nil)?
-
       # The buffer's text — Qt's `QLineEdit#text` / `QPlainTextEdit#toPlainText`,
       # and the name to reach for on a text widget.
       #
@@ -73,7 +71,28 @@ module Crysterm
       # (`0..buf_size`). Setting `value=` externally moves it to the end.
       # Movement and deletion step over whole grapheme clusters under
       # `full_unicode?`, a single codepoint otherwise.
-      property cursor_pos = 0
+      @cursor_pos = 0
+
+      def cursor_position : Int32
+        @cursor_pos
+      end
+
+      # Sets the cursor position, clamped to the valid buffer range
+      # (`0..buf_size`).
+      def cursor_position=(value : Int32) : Int32
+        @cursor_pos = value.clamp(0, buf_size)
+      end
+
+      # Alias for `#cursor_position`. 327 call sites across the codebase use
+      # this spelling; new code should prefer `#cursor_position`.
+      def cursor_pos : Int32
+        cursor_position
+      end
+
+      # Alias for `#cursor_position=`.
+      def cursor_pos=(value : Int32) : Int32
+        self.cursor_position = value
+      end
 
       # The fixed end of an in-progress mouse selection (a codepoint index into the
       # buffer), or `nil` when nothing is selected. `#cursor_pos` is the other,
@@ -149,27 +168,27 @@ module Crysterm
       # duration of that paired call, so no stale mapping leaks across keystrokes.
       @_pending_rowcol : Tuple(Int32, Int32)? = nil
 
-      property _done : Proc(String?, Nil)?
-      property __done : Proc(String?, Nil)?
-      property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
+      # Read-completion callbacks and the active key listener — internal read
+      # machinery, no public accessors.
+      @_done : Proc(String?, Nil)?
+      @__done : Proc(String?, Nil)?
+      @__listener : Proc(Crysterm::Event::KeyPress, Nil)?
 
-      @ev_read_input_on_focus : Crysterm::Event::Focus::Wrapper?
+      @ev_read_input_on_focus : Crysterm::Event::FocusIn::Wrapper?
       @ev_enter : Crysterm::Event::KeyPress::Wrapper?
       @ev_reading : Crysterm::Event::KeyPress::Wrapper?
-      @ev_done_blur : Crysterm::Event::Blur::Wrapper?
+      @ev_done_blur : Crysterm::Event::FocusOut::Wrapper?
 
       # Wires the cursor-following handlers and the optional Enter-to-read
       # accelerator. Call from `initialize` after `super`. `install_enter` installs
       # the Enter-to-read accelerator only when the caller explicitly asked for
       # `keys:`.
       private def setup_text_editing(input_on_focus = false, install_enter = false) : Nil
-        @__update_cursor = ->_update_cursor
-
         on(Crysterm::Event::Resize) do
-          @__update_cursor.try &.call
+          _update_cursor
         end
         on(Crysterm::Event::Move) do
-          @__update_cursor.try &.call
+          _update_cursor
         end
 
         self.input_on_focus = input_on_focus
@@ -284,7 +303,7 @@ module Crysterm
       # test, not the `@shrink_to_fit` always-scrollable short-circuit inherited
       # from `Input`, which would show an `AsNeeded` vertical bar even when the
       # content fits.
-      def really_scrollable?
+      def overflows_y?
         content_overflows_height?
       end
 
@@ -294,7 +313,7 @@ module Crysterm
         super + 1
       end
 
-      def _update_cursor(get = false, to_scroll_pos = false)
+      def _update_cursor(get = false)
         return unless focused? # if window.focused != self
 
         lpos = get ? @lpos : coords
@@ -967,7 +986,7 @@ module Crysterm
       end
 
       # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows, keeping
-      # `@child_offset` at 0 so `get_scroll == child_base` and the bound
+      # `@child_offset` at 0 so `scroll_position == child_base` and the bound
       # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`,
       # whose `@child_offset` book-keeping models a moving cursor/selection —
       # tracked here as `@cursor_pos` instead. The caret is untouched and may
@@ -983,7 +1002,7 @@ module Crysterm
         mark_dirty
         base = @child_base
         @child_offset = 0
-        @child_base = (base + offset).clamp(0, Math.max(0, get_scroll_height - visible))
+        @child_base = (base + offset).clamp(0, Math.max(0, scroll_height - visible))
         return emit Crysterm::Event::Scroll, 0 if @child_base == base
 
         process_content
@@ -991,22 +1010,28 @@ module Crysterm
         emit Crysterm::Event::Scroll, @child_base - base
       end
 
-      def input_on_focus=(yes)
-        @input_on_focus = yes
+      # Whether focusing this widget starts a read automatically (Qt has no
+      # direct equivalent; closest to a one-shot `QLineEdit` prompt).
+      getter? input_on_focus : Bool
+
+      def input_on_focus=(value : Bool) : Bool
+        @input_on_focus = value
 
         # Always remove any current handler
-        @ev_read_input_on_focus.try { |w| off Crysterm::Event::Focus, w }
+        @ev_read_input_on_focus.try { |w| off Crysterm::Event::FocusIn, w }
 
         # Then add the new one if asked
-        if yes
-          @ev_read_input_on_focus = on(Crysterm::Event::Focus) do # |e|
+        if value
+          @ev_read_input_on_focus = on(Crysterm::Event::FocusIn) do # |e|
             read_input
           end
         end
+
+        value
       end
 
       # ameba:disable Metrics/CyclomaticComplexity
-      def _listener(e)
+      def _listener(e : ::Crysterm::Event::KeyPress)
         done = @_done
         # Change detection without serializing the whole document twice per key
         # (`buf_text` is O(document) for the rich adapter). With no selection at
@@ -1249,7 +1274,7 @@ module Crysterm
         e.accept if handled
       end
 
-      def _type_scroll
+      protected def _type_scroll
         # Follow the cursor after an edit (or external `value=`), rather than
         # always jumping to the bottom — typing mid-document in a taller-than-box
         # buffer would otherwise push the just-typed character off-window.
@@ -1260,13 +1285,13 @@ module Crysterm
       end
 
       def render
-        self.value = nil
+        refresh_value
         super # OR _render
       end
 
       # Finishes the current read, submitting the entered text. Calls the
       # done-callback directly (rather than routing Enter through `@__listener`,
-      # which treats Enter as inserting a newline) so `Submit`/`read_input` fires.
+      # which treats Enter as inserting a newline) so `Submitted`/`read_input` fires.
       def submit
         return unless @__listener
         @_done.try &.call value
@@ -1285,7 +1310,7 @@ module Crysterm
         self.value = ""
       end
 
-      def _read_input
+      protected def _read_input
         if !focused?
           window.save_focus
           focus
@@ -1314,19 +1339,19 @@ module Crysterm
         # Blur handler accumulates on every focus; worse, `rewind_focus` emits
         # Blur during teardown, so a stale handler would re-enter
         # `__done_default` and double-pop the focus history.
-        @ev_done_blur = on(Crysterm::Event::Blur) { |e|
+        @ev_done_blur = on(Crysterm::Event::FocusOut) { |e|
           # When focus moves to ANOTHER widget (Tab between form fields, click on
           # a sibling input), the user deliberately chose the new target: tear
           # down read state but do NOT `rewind_focus` (would yank focus back and
           # make Tab a no-op). Only rewind when focus is cleared entirely
-          # (`e.el.nil?`) or finishing via Enter/Escape. See `#__done_default`.
-          @_skip_rewind = !e.el.nil?
+          # (`e.next_focused.nil?`) or finishing via Enter/Escape. See `#__done_default`.
+          @_skip_rewind = !e.next_focused.nil?
           @__done.try &.call nil
           @_skip_rewind = false
         }
       end
 
-      def read_input(&callback : Proc(String?, String?, Nil))
+      def read_input(&callback : String? ->)
         return if @_reading
         @_reading = true
         @_callback = callback
@@ -1340,7 +1365,7 @@ module Crysterm
         _read_input
       end
 
-      def __done_default(data = nil)
+      protected def __done_default(data : String? = nil)
         return unless @_reading
 
         # return if self(block).done?
@@ -1358,7 +1383,7 @@ module Crysterm
         @_done = nil
         # XXX off Crysterm::Event::KeyPress, @__listener.wrapper
         @__listener = nil
-        @ev_done_blur.try { |w| off Crysterm::Event::Blur, w }
+        @ev_done_blur.try { |w| off Crysterm::Event::FocusOut, w }
         @ev_done_blur = nil
         @__done = nil
 
@@ -1386,22 +1411,22 @@ module Crysterm
         if data
           # `data` distinguishes submit (Enter, text) from cancel (Escape/blur,
           # nil) — `value` is always non-nil so it can't tell them apart.
-          emit Crysterm::Event::Submit, value
+          emit Crysterm::Event::Submitted, value
         else
-          emit Crysterm::Event::Cancel, value
+          emit Crysterm::Event::Cancelled, value
         end
 
-        emit Crysterm::Event::Action, value
+        emit Crysterm::Event::Activated, value
 
-        # Invoke the `read_input(&callback)` block. The block keeps blessed's
-        # `(err, data)` arity for API compatibility, but this event-driven read
-        # path has no error source, so `err` is always nil.
-        callback.try &.call(nil, data)
+        # Invoke the `read_input(&callback)` block with the entered string
+        # (`nil` = cancelled). blessed's dead `(err, data)` arity is gone: this
+        # event-driven read path has no error source.
+        callback.try &.call(data)
 
         nil
       end
 
-      def _done_default(data = nil)
+      protected def _done_default(data : String? = nil)
         __done_default data
       end
     end

@@ -108,7 +108,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
     s = b13m_window
     begin
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       target = Widget::Box.new parent: s, left: 30, top: 0, width: 10, height: 4
       target.on(Crysterm::Event::DragOver, &.accept)
       drops = 0
@@ -118,20 +118,20 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
 
       b13m_down s, 2, 1, ::Tput::Mouse::Button::Left # arm
       b13m_move s, 32, 1                             # promote to drag, over the target
-      s.dragging.should_not be_nil
+      s.drag_session.should_not be_nil
 
       # Stray right-button tap mid-gesture: both reports are swallowed by the
       # in-flight drag — no Drop, drag still active (pre-fix the up committed
       # the Drop at the pointer).
       b13m_down s, 32, 1, ::Tput::Mouse::Button::Right
       b13m_up s, 32, 1, ::Tput::Mouse::Button::Right
-      s.dragging.should_not be_nil
+      s.drag_session.should_not be_nil
       drops.should eq 0
       ends.empty?.should be_true
 
       # The ARMING button's release commits.
       b13m_up s, 32, 1, ::Tput::Mouse::Button::Left
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
       drops.should eq 1
       ends.should eq [true]
     ensure
@@ -143,7 +143,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
     s = b13m_window
     begin
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       target = Widget::Box.new parent: s, left: 30, top: 0, width: 10, height: 4
       target.on(Crysterm::Event::DragOver, &.accept)
       drops = 0
@@ -153,12 +153,12 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
 
       b13m_down s, 2, 1, ::Tput::Mouse::Button::Left
       b13m_move s, 32, 1
-      s.dragging.should_not be_nil
+      s.drag_session.should_not be_nil
 
       # Pre-fix, `_drag_key_handled` early-returned for non-keyboard sensors,
       # so a mouse drag had no cancel path at all.
       s._drag_key_handled(b13m_key('\0', ::Tput::Key::Escape)).should be_true
-      s.dragging.should be_nil
+      s.drag_session.should be_nil
       drops.should eq 0
       ends.should eq [false]
     ensure
@@ -205,7 +205,7 @@ describe "BUGS13 C21: drag ghost sized by terminal columns, not codepoints" do
     begin
       label = "日本語.txt" # 7 codepoints, 10 columns
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-      source.enable_drag reposition: false
+      source.drag_mode = :transfer; source.draggable = true
       source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = label }
 
       b13m_down s, 2, 1, ::Tput::Mouse::Button::Left

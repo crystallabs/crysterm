@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. Pure (depends
-# only on `Attr` and `Screen.attr2code`), so exercised directly with no `Window`/PTY.
+# only on `Attr` and `Screen.sgr_to_attr`), so exercised directly with no `Window`/PTY.
 
 private DFL = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
 
@@ -139,7 +139,7 @@ describe Crysterm::TerminalEmulator do
   end
 
   describe "SGR" do
-    it "applies a foreground colour via the shared attr2code path" do
+    it "applies a foreground colour via the shared sgr_to_attr path" do
       em = emu
       em.feed "\e[31mR\e[0m"
       cell = em.lines[0][0]
@@ -384,7 +384,7 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[?1000h\e[?1006h"
       em.mouse_enabled?.should be_true
       em.mouse_tracking.should eq 1000
-      em.mouse_encoding.should eq :sgr
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Sgr
       em.feed "\e[?1000l"
       em.mouse_enabled?.should be_false
     end

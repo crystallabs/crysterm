@@ -19,7 +19,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
     s = ro_screen
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: Int32::MAX, value: Int32::MAX
-    spin.increment # raised OverflowError before the fix
+    spin.step_up # raised OverflowError before the fix
     spin.value.should eq Int32::MAX
   end
 
@@ -27,7 +27,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
     s = ro_screen
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: Int32::MIN, maximum: 0, value: Int32::MIN
-    spin.decrement
+    spin.step_down
     spin.value.should eq Int32::MIN
   end
 
@@ -35,7 +35,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
     s = ro_screen
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 5, maximum: Int32::MAX, value: Int32::MAX, wrapping: true
-    spin.increment
+    spin.step_up
     spin.value.should eq 5
   end
 

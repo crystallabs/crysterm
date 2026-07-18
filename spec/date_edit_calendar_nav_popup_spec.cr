@@ -35,7 +35,7 @@ private def denp_open(s)
     date: Time.utc(2026, 7, 4)
   de.focus
   s._render
-  de.open
+  de.show_popup
   s._render
   {de, de.@popup.not_nil!}
 end

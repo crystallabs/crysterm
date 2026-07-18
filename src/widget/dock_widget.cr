@@ -57,6 +57,7 @@ module Crysterm
 
       # Updates the stored title and the rendered title-bar text.
       def title=(value : String) : String
+        return value if value == @title
         @title = value
         @titlebar.try &.set_content(value)
         request_render
@@ -143,6 +144,14 @@ module Crysterm
         @area.floating?
       end
 
+      # Floats or re-docks the dock (Qt's `QDockWidget#setFloating`), delegating
+      # to `#toggle_floating`. A no-op when already in the requested state or
+      # when `#floatable?` is false.
+      def floating=(value : Bool) : Bool
+        toggle_floating if value != floating?
+        value
+      end
+
       # A floating dock is an overlay, so it gets a full frame. A docked pane
       # only needs a border on the side facing the content. Re-synced as the
       # dock floats/re-docks and across `Area` changes.
@@ -163,17 +172,24 @@ module Crysterm
       end
 
       # Sets (replacing any previous) the dock's content widget, laid out to fill
-      # the area below the title bar (Qt's `QDockWidget#setWidget`).
-      def widget=(w : Widget) : Widget
-        @dock_content = replace_content_child @dock_content, w, top: 1
-        # Content is appended after the grip, so it would render over the grip's
-        # corner cell without this.
-        @size_grip.try(&.front!)
+      # the area below the title bar (Qt's `QDockWidget#setWidget`). `nil`
+      # detaches the current content child, leaving the dock empty.
+      def widget=(w : Widget?) : Widget?
+        if w
+          @dock_content = replace_content_child @dock_content, w, top: 1
+          # Content is appended after the grip, so it would render over the
+          # grip's corner cell without this.
+          @size_grip.try(&.to_front)
+        else
+          @dock_content.try &.remove_from_parent
+          @dock_content = nil
+          request_render
+        end
         w
       end
 
       # Closes the dock: hides it and emits `Event::Close`.
-      def close_dock : Nil
+      def close : Nil
         hide
         emit ::Crysterm::Event::Close
         window?.try &.schedule_render
@@ -190,7 +206,7 @@ module Crysterm
       # Un-docking pins explicit `left`/`top`/`width`/`height` (clearing
       # `right`/`bottom`) so leftover docked constraints don't fight the drag
       # handler's `left`/`top` writes.
-      def toggle_floating(restore : Bool = true) : Nil
+      def toggle_floating(*, restore : Bool = true) : Nil
         return unless floatable?
         if floating?
           save_float_geom # remember where/what size we were, to restore later
@@ -311,7 +327,7 @@ module Crysterm
       end
 
       private def build_buttons
-        @close_button = titlebutton(0, close_glyph) { close_dock } if closable?
+        @close_button = titlebutton(0, close_glyph) { close } if closable?
         # The float button sits one cell left of the close button (when present),
         # so its offset reserves the close glyph's measured width plus the gap.
         float_offset = closable? ? Unicode.width(close_glyph) + 1 : 0
@@ -368,7 +384,7 @@ module Crysterm
         @size_grip.try do |g|
           if floating?
             g.show
-            g.front!
+            g.to_front
           else
             g.hide
           end
@@ -393,7 +409,8 @@ module Crysterm
       # title bar undocks it in place first (drag-to-float), so the same gesture
       # both detaches and moves it.
       private def wire_drag
-        titlebar.enable_drag reposition: false
+        titlebar.drag_mode = :transfer
+        titlebar.draggable = true
         titlebar.on(::Crysterm::Event::DragStart) do |e|
           # `with_margin: false`: the offsets are replayed into `left`/`top` on
           # Drag, which layout re-adds the CSS margin to — a margin-inclusive

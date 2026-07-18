@@ -67,9 +67,9 @@ describe "TableLayout @maxes cache" do
     s = headless_screen
     t = Crysterm::Widget::Table.new parent: s, rows: [["a", "bb"], ["ccc", "d"]]
 
-    t.calculate_maxes
+    t.compute_column_widths
     first = t.row_width
-    t.calculate_maxes # cache hit: must not change widths
+    t.compute_column_widths # cache hit: must not change widths
     t.row_width.should eq first
   end
 end
@@ -82,7 +82,7 @@ describe "TableLayout#col_for_x" do
   it "maps each column to its rendered start position" do
     s = headless_screen
     t = Crysterm::Widget::Table.new parent: s, rows: [["aa", "bbbb", "cc"], ["dd", "ee", "ff"]]
-    t.calculate_maxes
+    t.compute_column_widths
 
     starts = t.column_start_offsets
     map = t.col_for_x(0, 0)

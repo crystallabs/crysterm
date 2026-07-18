@@ -17,7 +17,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class DoubleSpinBox < AbstractSpinBox
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
-      # `#increment`/`#decrement`, `#set_range`), in `Float64`.
+      # `#step_up`/`#step_down`, `#set_range`), in `Float64`.
       include Mixin::RangedValue(Float64)
 
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…

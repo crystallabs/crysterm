@@ -53,7 +53,7 @@ describe "Window cell geometry" do
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
     s.handle_input ev
-    s.resize
+    s.refresh_size
     s.awidth.should eq 120
     s.aheight.should eq 40
     # `tput`'s cached size is kept consistent too (e.g. for cursor clamping).
@@ -66,7 +66,7 @@ describe "Window cell geometry" do
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
     s.handle_input ev
-    s.resize
+    s.refresh_size
     s.awidth.should eq 80
     s.aheight.should eq 24
   end

@@ -82,7 +82,7 @@ module Crysterm
         end
       end
 
-      def css_set_extra_style(slot : String, computed : Style) : Nil
+      protected def css_set_extra_style(slot : String, computed : Style) : Nil
         if slot.starts_with?("row:")
           # Fan the computed row style out onto every cell of the row, giving
           # each its own copy (a `Cell` rule dups-and-overrides it afterwards).

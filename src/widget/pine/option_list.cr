@@ -55,6 +55,19 @@ module Crysterm
         )
         end
 
+        # Block form: `Option.new(name, kind, description, ...) { |value| ... }`.
+        def initialize(
+          name,
+          kind : OptionKind = OptionKind::Text,
+          description = "",
+          *,
+          value = "",
+          allowed = [] of String,
+          &callback : String ->
+        )
+          initialize(name, kind, description, value: value, allowed: allowed, callback: callback)
+        end
+
         # `true` when a `Toggle` option is on (its `value` is `"true"`).
         def on? : Bool
           @value == "true"
@@ -125,9 +138,9 @@ module Crysterm
         @edit_buffer : String? = nil
 
         # The record index currently being edited, captured when editing begins.
-        # Must be used instead of the live `selected`: a click moves the selection
-        # before emitting the activating `ActionItem`, so `selected` would write
-        # the edit into whatever row was just clicked.
+        # Must be used instead of the live `current_index`: a click moves the
+        # selection before emitting the activating `ItemActivated`, so
+        # `current_index` would write the edit into whatever row was just clicked.
         @edit_index : Int32? = nil
 
         def initialize(
@@ -139,8 +152,8 @@ module Crysterm
           # A click on another row moves the selection before activating it, so an
           # edit in progress elsewhere must be committed here — otherwise it
           # lingers until a second click.
-          on ::Crysterm::Event::SelectItem do
-            commit_edit if @editing && @edit_index != selected
+          on ::Crysterm::Event::ItemSelected do
+            commit_edit if @editing && @edit_index != current_index
           end
         end
 
@@ -152,7 +165,7 @@ module Crysterm
           records.find { |o| o.name == name }.try &.value
         end
 
-        # Enter (via `Event::ActionItem`) edits the selected option according to
+        # Enter (via `Event::ItemActivated`) edits the selected option according to
         # its `kind` rather than running a one-shot callback.
         def activate
           # While editing, any activation commits the in-progress edit to its own
@@ -161,7 +174,7 @@ module Crysterm
             commit_edit
             return
           end
-          o = records[selected]?
+          o = records[current_index]?
           return unless o
           case o.kind
           in OptionKind::Toggle
@@ -175,10 +188,10 @@ module Crysterm
 
         # Toggles the currently-selected `Toggle` option and refreshes its row.
         def toggle_selected
-          o = records[selected]?
+          o = records[current_index]?
           return unless o && o.kind.toggle?
           o.value = o.on? ? "false" : "true"
-          commit_change o, selected
+          commit_change o, current_index
         end
 
         # Advances a `Choice` option to its next `allowed` value (wrapping).
@@ -186,7 +199,7 @@ module Crysterm
           return if o.allowed.empty?
           i = o.allowed.index(o.value) || -1
           o.value = o.allowed[(i + 1) % o.allowed.size]
-          commit_change o, selected
+          commit_change o, current_index
         end
 
         # Refreshes option *o*'s row at *index*, fires its callback, re-renders.
@@ -198,10 +211,10 @@ module Crysterm
 
         # Begins inline editing of the selected `Text`/`Number` option.
         def begin_edit
-          o = records[selected]?
+          o = records[current_index]?
           return unless o && (o.kind.text? || o.kind.number?)
           @editing = true
-          @edit_index = selected
+          @edit_index = current_index
           @edit_buffer = o.value
           refresh_editing_row
         end
@@ -264,7 +277,7 @@ module Crysterm
 
         # Space toggles only when the selected option is a `Toggle`.
         protected def space_toggles? : Bool
-          !!records[selected]?.try(&.kind.toggle?)
+          !!records[current_index]?.try(&.kind.toggle?)
         end
 
         # Adds inline-editing keys on top of the inherited arrow/Enter/Space

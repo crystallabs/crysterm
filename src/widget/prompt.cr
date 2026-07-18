@@ -21,7 +21,7 @@ module Crysterm
 
       # The text entry field (Qt's `QInputDialog` line edit). Exposed so callers
       # can configure echo mode / placeholder directly, and for testing.
-      getter textinput = LineEdit.new(
+      getter line_edit = LineEdit.new(
         top: 3,
         height: 1,
         left: 2,
@@ -45,11 +45,11 @@ module Crysterm
         # renders on the first frame, and dialogs sharing a window stack up.
         hide
 
-        echo_mode.try { |v| @textinput.echo_mode = v }
-        placeholder_text.try { |v| @textinput.placeholder_text = v }
+        echo_mode.try { |v| @line_edit.echo_mode = v }
+        placeholder_text.try { |v| @line_edit.placeholder_text = v }
         @validator = validator
 
-        append @textinput
+        append @line_edit
         append @ok
         append @cancel
       end
@@ -59,24 +59,24 @@ module Crysterm
       # sugar over the `Dialog` result protocol: a submitted value closes with
       # `Code::Accepted` (`Event::Accepted`), a cancel with `Code::Rejected`
       # (`Event::Rejected`); `Event::Finished` follows either way.
-      def read_input(text = nil, value = "", &callback : Proc(String?, String?, Nil))
+      def read_input(text = nil, value = "", &callback : String? ->)
         set_content text || @text
         show
         @result = Code::Rejected.to_i
 
-        @textinput.value = value
+        @line_edit.value = value
 
         window.save_focus
 
-        ev_ok = @ok.on(::Crysterm::Event::Press) { accept }
+        ev_ok = @ok.on(::Crysterm::Event::Pressed) { accept }
 
-        ev_cancel = @cancel.on(::Crysterm::Event::Press) { reject }
+        ev_cancel = @cancel.on(::Crysterm::Event::Pressed) { reject }
 
         # Self-referential reader so a rejected (invalid) submit can re-arm the
         # input without closing the dialog.
         reader = uninitialized -> Nil
         reader = -> do
-          @textinput.read_input do |err, data|
+          @line_edit.read_input do |data|
             # Non-nil `data` is a submit (Enter); validate and re-read on
             # rejection. Cancel (`data == nil`) and accepted values fall through.
             if !data.nil? && (v = @validator) && !v.call(data)
@@ -90,7 +90,7 @@ module Crysterm
             done(data ? Code::Accepted : Code::Rejected)
 
             callback.try do |c|
-              c.call err, data
+              c.call data
             end
           end
         end
@@ -104,13 +104,13 @@ module Crysterm
       # the `#validator`, and closes the dialog from there. Closing here
       # directly would discard the text.
       def accept : Nil
-        @textinput.submit
+        @line_edit.submit
       end
 
       # :ditto: the negative gesture cancels the field, whose read callback then
       # closes the dialog with `Code::Rejected`.
       def reject : Nil
-        @textinput.cancel
+        @line_edit.cancel
       end
     end
   end

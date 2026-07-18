@@ -35,7 +35,7 @@ describe "Widget re-parenting" do
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
 
     seen = [] of Widget?
-    child.on(Event::Reparent) { |e| seen << e.widget }
+    child.on(Event::Reparented) { |e| seen << e.widget }
 
     a.append child # adopt by a
     b.append child # detach from a (nil), then adopt by b

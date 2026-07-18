@@ -9,7 +9,7 @@ require "../../src/crysterm"
 # dropped; we keep the visual demo and show Crysterm's computed-position
 # accessors (aleft/atop/aright/abottom/awidth/aheight, rleft/rtop/...) on `inner`.
 module Crysterm
-  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
   main = Widget::Box.new \
     parent: s,

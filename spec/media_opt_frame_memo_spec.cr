@@ -136,7 +136,7 @@ describe "Media::Cells::FrameMemo (M7)" do
     begin
       s = mk_window
       img = Crysterm::Widget::Media::Ansi.new parent: s, top: 0, left: 0, width: 12, height: 8,
-        file: path, colors: Crysterm::Widget::Media::Ansi::ColorMode::C256
+        file: path, color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256
       drive_ready img
 
       n = 4
@@ -149,7 +149,7 @@ describe "Media::Cells::FrameMemo (M7)" do
       (0...n).each do |i|
         rs = mk_window
         rimg = Crysterm::Widget::Media::Ansi.new parent: rs, top: 0, left: 0, width: 12, height: 8,
-          file: path, colors: Crysterm::Widget::Media::Ansi::ColorMode::C256
+          file: path, color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256
         drive_ready rimg
         rimg.anim_index = i
         rs._render

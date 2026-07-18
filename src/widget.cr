@@ -78,7 +78,7 @@ module Crysterm
     # Widget's parent `Widget`, if any.
     getter parent : Widget?
 
-    # Whether this widget *is* a label box, as opposed to `@_label`, which is
+    # Whether this widget *is* a label box, as opposed to `@label_widget`, which is
     # non-nil when a widget *has* a label. A label sits ON its parent's border,
     # so the scrollable-ancestor clip must exempt it from border compensation.
     protected property? _is_label : Bool = false
@@ -178,16 +178,16 @@ module Crysterm
     # Bounding rectangle (`{xi, xl, yi, yl}`, half-open) of this widget's whole
     # subtree as of its last paint. Maintained only for top-level widgets while
     # damage tracking is on. `nil` when the subtree rendered to nothing.
-    property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
+    protected property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
 
     # Stamp for the damage overlap-grow: O(1) cluster membership test, true iff
     # equal to the window's current grow stamp. Transient scratch, meaningful
     # only mid-grow. `Int64` so it never wraps.
-    property damage_seen : Int64 = 0
+    protected property damage_seen : Int64 = 0
 
     # Index of this widget within the window's base-child list for the current
     # damage frame, addressing the overlap union-find. Transient scratch.
-    property damage_idx : Int32 = -1
+    protected property damage_idx : Int32 = -1
 
     # Schedules a repaint of this widget ↔ `QWidget::update()`; `#request_render`
     # is `QWidget::repaint()`. Safe to call from any state-changing setter, and
@@ -237,6 +237,47 @@ module Crysterm
       mark_dirty
       emit ::Crysterm::Event::Move if moved
       emit ::Crysterm::Event::Resize if resized
+    end
+
+    # `Rectangle` overload of `#set_geometry` — Qt's `QWidget::setGeometry(QRect)`.
+    def set_geometry(r : Rectangle) : Nil
+      set_geometry r.x, r.y, r.width, r.height
+    end
+
+    # Assigns `left`/`top` in one shot — the move-only counterpart to
+    # `#set_geometry`: a single `mark_dirty` and only a `Move` emit, and a full
+    # no-op when the position doesn't change ↔ Qt's `QWidget::move()`.
+    def move(left : Int32, top : Int32) : Nil
+      moved = (@left != left) || (@top != top)
+      return unless moved
+
+      @left = left
+      @top = top
+
+      mark_dirty
+      emit ::Crysterm::Event::Move
+    end
+
+    # Assigns `width`/`height` in one shot — the resize-only counterpart to
+    # `#set_geometry`: a single `mark_dirty` and only a `Resize` emit, and a full
+    # no-op when the size doesn't change ↔ Qt's `QWidget::resize()`.
+    def resize(width : Int32, height : Int32) : Nil
+      resized = (@width != width) || (@height != height)
+      return unless resized
+
+      @width = width
+      @height = height
+
+      mark_dirty
+      emit ::Crysterm::Event::Resize
+    end
+
+    # This widget's last-rendered box in absolute window coordinates ↔ Qt's
+    # `QWidget::geometry()`. `nil` before the widget has a rendered position
+    # (see `#lpos`).
+    def geometry : Rectangle?
+      lp = @lpos || return nil
+      Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
     end
 
     # Re-renders the owning `Window` ↔ `QWidget::repaint()`, to `#mark_dirty`'s
@@ -316,9 +357,8 @@ module Crysterm
       @wrap_content = @wrap_content,
 
       label = nil,
-      hover_text = nil,
+      tool_tip = nil,
       mouse_cursor_shape = nil,
-      # TODO Unify naming label[_text]/hover[_text]
 
       scrollable = nil,
       @always_scroll = @always_scroll,
@@ -333,7 +373,6 @@ module Crysterm
       @styles = @styles,
 
       # Final, misc settings
-      @render_index = -1,
       children = [] of Widget,
     )
       # $ = _ = JSON/YAML::Any
@@ -343,6 +382,9 @@ module Crysterm
       # Through the setter, so a bare `Border::Region` (`layout_hint: :top`) is
       # wrapped into a `Border::Hint`.
       self.layout_hint = layout_hint
+      # The `@layout = @layout` splat above bypasses `#layout=`, so wire the
+      # engine's back-pointer here (all other install paths go through the setter).
+      @layout.try(&.container=(self))
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }
@@ -378,16 +420,16 @@ module Crysterm
 
       set_content content, true
       label.try do |t|
-        set_label t, "left"
+        set_label t, :left
       end
-      hover_text.try do |t|
+      tool_tip.try do |t|
         self.tool_tip = t
       end
 
       # on(AddHandlerEvent) { |wrapper| }
       on(Crysterm::Event::Resize) { process_content }
-      on(Crysterm::Event::Attach) { process_content }
-      # on(Crysterm::Event::Detach) { @lpos = nil } # XXX D O or E O?
+      on(Crysterm::Event::Attached) { process_content }
+      # on(Crysterm::Event::Detached) { @lpos = nil } # XXX D O or E O?
 
       # `scrollbar: true/false` sugar maps onto `#scrollbar_policy` (`true` ⇒
       # `AsNeeded`, `false` ⇒ `AlwaysOff`); `nil` leaves the default.
@@ -401,11 +443,11 @@ module Crysterm
 
       if @scrollable
         # XXX also remove handler when scrollable is turned off?
-        on(Crysterm::Event::ParsedContent) do
-          _recalculate_index
+        on(Crysterm::Event::ContentParsed) do
+          reclamp_scroll_index
         end
 
-        _recalculate_index
+        reclamp_scroll_index
       end
 
       focus if focused
@@ -426,8 +468,8 @@ module Crysterm
         c.destroy
       end
       # A hover tooltip is a window-level satellite, not a child; drop it here.
-      Widget.destroy_satellite @_tooltip
-      @_tooltip = nil
+      Widget.destroy_satellite @_tool_tip
+      @_tool_tip = nil
       # Else it would remain in `window.children`: still painted, keyable,
       # possibly holding focus/hover/grab.
       detach_from_tree
@@ -443,7 +485,7 @@ module Crysterm
 
     # Returns parent `Widget` (if any) or `Window` to which the widget may be attached.
     # If the widget already is `Window`, returns `nil`.
-    def parent_or_window
+    protected def parent_or_window
       return self if Window === self
       # `window` raises rather than returning nil when unattached, so this is
       # non-nil without a `not_nil!`.

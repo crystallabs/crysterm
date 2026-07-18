@@ -29,7 +29,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
     s.screen.cell_pixel_height = 16
     drained s, buf
 
-    s.enable_mouse(pixels: true)
+    s.enable_mouse(pixels: :on)
     out = drained s, buf
     out.should contain "\e[?1016h"
     s.tput.mouse_cell_pixels.should eq({8, 16})
@@ -55,7 +55,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
     s.screen.cell_pixel_height = 0
     drained s, buf
 
-    s.enable_mouse(pixels: true)
+    s.enable_mouse(pixels: :on)
     out = drained s, buf
     out.should_not contain "1016"
     s.tput.mouse_cell_pixels.should be_nil
@@ -75,7 +75,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
       drained(s, buf).should contain "\e[?1016h"
 
       Crysterm::Config.mouse_pixel_coordinates = Crysterm::PixelMouse::Off
-      s.enable_mouse(pixels: true) # explicit request; Off vetoes it
+      s.enable_mouse(pixels: :on) # explicit request; Off vetoes it
       drained(s, buf).should_not contain "1016"
     ensure
       Crysterm::Config.mouse_pixel_coordinates = prev
@@ -87,7 +87,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
     s = pixel_screen buf
     s.screen.cell_pixel_width = 8
     s.screen.cell_pixel_height = 16
-    s.enable_mouse(pixels: true)
+    s.enable_mouse(pixels: :on)
     s.tput.mouse_cell_pixels.should eq({8, 16})
 
     # A font/zoom change arrives as a new cell size.

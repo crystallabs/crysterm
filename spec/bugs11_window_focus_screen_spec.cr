@@ -6,8 +6,8 @@ include Crysterm
 #
 #  #4 (src/window_focus.cr) `focus_pop` never blurred the popped widget when
 #     the history emptied: the widget stayed in `WidgetState::Focused` and no
-#     `Event::Blur` fired. It now mirrors `rewind_focus`'s empty-history branch
-#     (`blur_state_reset` + `Blur` with a nil payload).
+#     `Event::FocusOut` fired. It now mirrors `rewind_focus`'s empty-history branch
+#     (`blur_state_reset` + `FocusOut` with a nil payload).
 #
 #  #5 (src/window.cr) `Window#screen=` tore down the old device but never
 #     started input listening on a genuinely new device, so a moved window went
@@ -42,9 +42,9 @@ describe "BUGS11 #4: focus_pop blurs the popped widget when the history empties"
 
     blur_payload = nil.as(Widget?)
     blurred = false
-    a.on(Crysterm::Event::Blur) do |e|
+    a.on(Crysterm::Event::FocusOut) do |e|
       blurred = true
-      blur_payload = e.el
+      blur_payload = e.next_focused
     end
 
     popped = win.focus_pop # only entry -> empty-history branch
@@ -65,7 +65,7 @@ describe "BUGS11 #5: Window#screen= starts input listening on a genuinely new de
     w = Crysterm::Window.new(screen: dev_a, default_quit_keys: false)
     app.add w
 
-    w.listen                        # window is listening on its old device
+    w.start_input                   # window is listening on its old device
     dev_a.listening?.should be_true # precondition
 
     w.screen = dev_b # move onto a fresh device (no sibling backs it)

@@ -9,7 +9,7 @@ require "../src/crysterm"
 # fallback (src/widget_position.cr:637) and allocates one `RenderedGeometry` per non-fixed
 # child. The `@lpos._scroll_bottom` memo is reset every frame by `RenderedGeometry#reset`
 # (the render path reuses `@lpos`), so this reduce — and its per-child garbage —
-# re-runs every frame via update_scrollbar_widget -> get_scroll_height ->
+# re-runs every frame via update_scrollbar_widget -> scroll_height ->
 # _scroll_bottom (called twice per frame, incl. sync_from_target).
 #
 # FIX: route the per-child `coords` through a reused scratch ivar
@@ -19,12 +19,12 @@ require "../src/crysterm"
 #
 # Metric is bytes allocated (deterministic), not ips (noise-dominated). The
 # inline OLD/NEW reconstructs the exact reduce both ways; the end-to-end section
-# drives the real `get_scroll_height` across re-renders (which reset the memo,
+# drives the real `scroll_height` across re-renders (which reset the memo,
 # so the reduce genuinely re-runs each frame).
 #
 # Measured (12 non-fixed children):
 #   inline reduce   OLD 2304 B/op (~192 B/child)   NEW 0 B/op
-#   end-to-end get_scroll_height contributes 0 B; only the render itself remains.
+#   end-to-end scroll_height contributes 0 B; only the render itself remains.
 #
 # Run:  crystal run --release benchmarks/scroll-bottom-allocs.cr
 
@@ -91,9 +91,9 @@ puts "   saved #{saved} bytes  (#{(saved / ROUNDS.to_f).round(1)} B/op, ~#{(old_
 # the per-frame render path pays.
 E2E = 2_000
 e2e = alloc_bytes(E2E) do
-  s.render              # resets @lpos memo (RenderedGeometry#reset zeroes _scroll_bottom)
-  box.get_scroll_height # -> _scroll_bottom reduce over children
+  s.render          # resets @lpos memo (RenderedGeometry#reset zeroes _scroll_bottom)
+  box.scroll_height # -> _scroll_bottom reduce over children
 end
-puts "\n#2 end-to-end get_scroll_height across re-renders (#{E2E} frames)"
+puts "\n#2 end-to-end scroll_height across re-renders (#{E2E} frames)"
 puts "   #{e2e} bytes total incl. full render (#{(e2e / E2E.to_f).round(1)} B/frame)"
 puts "   (with the fix, _scroll_bottom contributes 0 B; remainder is render itself)"

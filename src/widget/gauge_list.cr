@@ -27,11 +27,24 @@ module Crysterm
       # One gauge row.
       class Item
         property label : String
-        property value : Float64
+        getter value : Float64
         property color : Int32
+
+        # Set by the owning `GaugeList` when the item is added, so a direct
+        # `item.value = …` registers with the list's content cache exactly as
+        # `list[i] = …` would.
+        protected property owner : GaugeList? = nil
 
         def initialize(@label, value : Number, @color : Int32)
           @value = value.to_f
+        end
+
+        # Assigns the value and, when the item belongs to a list, bumps that
+        # list's version counter and repaints.
+        def value=(v : Number) : Float64
+          @value = v.to_f
+          @owner.try &.item_changed
+          @value
         end
       end
 
@@ -39,13 +52,44 @@ module Crysterm
       DEFAULT_COLORS = [0x40E0D0, 0xE0A040, 0x60C040, 0xD060C0, 0x4090E0, 0xE05050]
 
       # Shared value range for every gauge.
-      property minimum : Float64
-      property maximum : Float64
+      getter minimum : Float64
+      getter maximum : Float64
 
-      # Columns reserved for the label column (`0` = auto from the labels).
-      property label_width : Int32
+      # Sets the lower bound, re-clamping every row's value and the upper
+      # bound (carried up rather than inverted) into range. See `#set_range`.
+      def minimum=(v : Float64) : Float64
+        set_range v, Math.max(v, @maximum)
+        @minimum
+      end
 
-      getter gauges : Array(Item) = [] of Item
+      # Sets the upper bound, re-clamping every row's value and the lower
+      # bound (carried down rather than inverted) into range. See `#set_range`.
+      def maximum=(v : Float64) : Float64
+        set_range Math.min(v, @minimum), v
+        @maximum
+      end
+
+      # Sets both bounds at once (Qt's `setRange`). Never stores an inverted
+      # range (a max below min collapses to min), re-clamps every gauge row's
+      # value into the new range, and repaints on an actual change.
+      def set_range(min : Float64, max : Float64) : Nil
+        max = min if max < min
+        return if min == @minimum && max == @maximum
+        @minimum = min
+        @maximum = max
+        @gauge_items.each { |g| g.value = g.value.clamp(@minimum, @maximum) }
+        @version &+= 1
+        request_render
+      end
+
+      # Columns reserved for the label column (`nil` = auto from the labels).
+      property label_width : Int32?
+
+      @gauge_items : Array(Item) = [] of Item
+
+      def items : Array(Item)
+        @gauge_items
+      end
 
       # Bumped whenever the gauge set changes, so the content cache can detect a
       # data change with a cheap integer compare. Mutating an `Item` directly
@@ -53,7 +97,7 @@ module Crysterm
       @version = 0
 
       def initialize(@minimum : Number = 0.0, @maximum : Number = 100.0,
-                     @label_width : Int32 = 0, **box)
+                     @label_width : Int32? = nil, **box)
         @minimum = @minimum.to_f
         @maximum = @maximum.to_f
         super **box
@@ -62,35 +106,65 @@ module Crysterm
 
       # Number of gauge rows (Qt's `QListWidget#count`).
       def count : Int32
-        @gauges.size
+        @gauge_items.size
       end
 
       # Appends a gauge and returns it. A `nil` color is auto-assigned from
       # `DEFAULT_COLORS`.
       def add_item(label : String, value : Number = 0, color : Int32? = nil) : Item
-        item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauges.size % DEFAULT_COLORS.size]
-        @gauges << item
+        item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauge_items.size % DEFAULT_COLORS.size]
+        item.owner = self
+        @gauge_items << item
         @version &+= 1
         request_render
         item
       end
 
+      # Gauge row at *index*, or `nil` when out of range.
+      def [](index : Int32) : Item?
+        @gauge_items[index]?
+      end
+
+      # First gauge row labeled *label*, or `nil` when none matches.
+      def [](label : String) : Item?
+        @gauge_items.find { |i| i.label == label }
+      end
+
       # Sets a gauge's value by row index.
       def []=(index : Int, value : Number) : Nil
-        if item = @gauges[index]?
+        if item = @gauge_items[index]?
           item.value = sanitize_value(value)
-          @version &+= 1
-          request_render
         end
       end
 
       # Sets a gauge's value by label (first match).
       def []=(label : String, value : Number) : Nil
-        if item = @gauges.find { |i| i.label == label }
+        if item = @gauge_items.find { |i| i.label == label }
           item.value = sanitize_value(value)
+        end
+      end
+
+      # Removes the gauge row at *index* (no-op when out of range).
+      def remove_item(index : Int32) : Nil
+        return unless 0 <= index < @gauge_items.size
+        @gauge_items.delete_at index
+        @version &+= 1
+        request_render
+      end
+
+      # Removes the first gauge row labeled *label* (no-op when none matches).
+      def remove_item(label : String) : Nil
+        if item = @gauge_items.find { |i| i.label == label }
+          @gauge_items.delete item
           @version &+= 1
           request_render
         end
+      end
+
+      # Registers a direct `Item#value=` mutation with the content cache.
+      protected def item_changed : Nil
+        @version &+= 1
+        request_render
       end
 
       # Coerces non-finite input to `@minimum` at ingestion: NaN survives every
@@ -102,7 +176,7 @@ module Crysterm
       end
 
       def clear : Nil
-        @gauges.clear
+        @gauge_items.clear
         @version &+= 1
         request_render
       end
@@ -112,7 +186,7 @@ module Crysterm
       # Must stay allocation-free per frame. The trailing `glyph_key(style)`
       # covers every input the fill ramp resolves from, so a tier upgrade or CSS
       # `glyphs:` hot-reload rebuilds instead of keeping a stale ramp.
-      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
+      @content_key : Tuple(Int32, Int32, Int32, Int32, Int32?, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
         key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
@@ -127,20 +201,19 @@ module Crysterm
       private def build_content : String
         cols = awidth - ihorizontal
         rows = aheight - ivertical
-        return "" if cols <= 0 || rows <= 0 || @gauges.empty?
+        return "" if cols <= 0 || rows <= 0 || @gauge_items.empty?
 
-        lw = @label_width
         # Size the label column by *display width*, not codepoint count: a wide
         # (CJK/emoji) grapheme is one codepoint but two terminal columns, so
         # `.size` under-measures and the label overflows into the bar.
-        lw = (@gauges.max_of? { |g| str_width(g.label) } || 0) if lw <= 0
+        lw = @label_width || (@gauge_items.max_of? { |g| str_width(g.label) } || 0)
         lw = lw.clamp(0, Math.max(0, cols - 8)) # leave room for bar + " nn%"
 
         pct_w = 5 # " 100%"
         bar_cols = cols - lw - 1 - pct_w
         return "" if bar_cols <= 0
 
-        shown = @gauges.first(rows)
+        shown = @gauge_items.first(rows)
         shown.map { |item| gauge_line item, lw, bar_cols, pct_w }.join('\n')
       end
 

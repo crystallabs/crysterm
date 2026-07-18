@@ -32,14 +32,14 @@ module Crysterm
       end
 
       # Color depth used to render pixels (see `ColorMode`).
-      getter colors : ColorMode
+      getter color_mode : ColorMode
 
       # Switches the render palette at runtime. Neither the dithered-plane memo
-      # nor the quantization cache is keyed on `@colors`, so a genuine change
+      # nor the quantization cache is keyed on `@color_mode`, so a genuine change
       # must drop both and repaint.
-      def colors=(mode : ColorMode) : ColorMode
-        unless mode == @colors
-          @colors = mode
+      def color_mode=(mode : ColorMode) : ColorMode
+        unless mode == @color_mode
+          @color_mode = mode
           clear_frame_derived # dithered planes were computed for the old palette
           @quant_cache = nil  # ascii-foreground nearest-palette cache
           request_render
@@ -79,10 +79,10 @@ module Crysterm
         @scale : Float64 = 1.0,
         animate : Bool | Timer = true,
         @ascii : Bool = false,
-        @speed : Float64 = 1.0,
+        speed : Float64 = 1.0,
         # Cell height÷width; defaults to the terminal's measured ratio.
         @cell_aspect : Float64 = Crysterm::CSS::Length.cell_aspect_ratio,
-        @colors : ColorMode = ColorMode::TrueColor,
+        @color_mode : ColorMode = ColorMode::TrueColor,
         @dither : Media::Dither = Media::Dither::Auto,
         @fit : Media::Fit = Media::Fit::Stretch,
         **box,
@@ -90,16 +90,13 @@ module Crysterm
         # `shrink_to_fit` sizes the widget to the image when no explicit
         # width/height is given.
         super(**box.merge(shrink_to_fit: true))
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
+        self.speed = speed
         setup_animate animate # before set_image, so a shared clock is known when play subscribes
 
         @file.try { |f| set_image f }
 
         on(::Crysterm::Event::Destroy) { stop }
-      end
-
-      # The decoded image (alias for the shared `#source`), or `nil` if none.
-      def img : PNGGIF::PNG?
-        source
       end
 
       # Size the widget to a native-scaled render when no explicit size was given;
@@ -123,7 +120,7 @@ module Crysterm
         lines = window.lines
         # In a reduced-color mode, dither the whole sample to the palette up
         # front: error diffusion needs neighbours, so it can't be done per cell.
-        plane = @colors.true_color? ? nil : @dither_plane_memo.get(anim_index, bmp) { dither_plane bmp }
+        plane = @color_mode.true_color? ? nil : @dither_plane_memo.get(anim_index, bmp) { dither_plane bmp }
         # Clamp the walks to the screen: `Indexable#[]?` wraps negative indices,
         # so a widget partially off the top/left edge would paint rows/columns
         # at the far end of the buffer.
@@ -214,7 +211,7 @@ module Crysterm
       # it unchanged in `TrueColor`. Used for the `ascii` foreground; the cell
       # background is dithered through `dither_plane` instead.
       private def quantize(rgb : Int32) : Int32
-        return rgb if @colors.true_color?
+        return rgb if @color_mode.true_color?
         cache = (@quant_cache ||= Cache::Bounded(Int32, Int32).new(Cache::MEDIA_QUANT_CAPACITY))
         cache.fetch(rgb) { nearest_palette_rgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff) }
       end
@@ -230,7 +227,7 @@ module Crysterm
 
       # Packed RGB of the nearest xterm-256 (or 16/8) palette color to *r*,*g*,*b*.
       private def nearest_palette_rgb(r : Int32, g : Int32, b : Int32) : Int32
-        pal = @colors.c8? ? C8_PALETTE : (@colors.c16? ? C16_PALETTE : C256_PALETTE)
+        pal = @color_mode.c8? ? C8_PALETTE : (@color_mode.c16? ? C16_PALETTE : C256_PALETTE)
         pal[Media.nearest_index(pal, r, g, b)]
       end
 
@@ -265,7 +262,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class TrueColor < Ansi
         def initialize(**box)
-          super **box.merge(colors: Ansi::ColorMode::TrueColor)
+          super **box.merge(color_mode: Ansi::ColorMode::TrueColor)
         end
       end
 
@@ -277,7 +274,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class C256 < Ansi
         def initialize(**box)
-          super **box.merge(colors: Ansi::ColorMode::C256)
+          super **box.merge(color_mode: Ansi::ColorMode::C256)
         end
       end
 
@@ -289,7 +286,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class C16 < Ansi
         def initialize(**box)
-          super **box.merge(colors: Ansi::ColorMode::C16)
+          super **box.merge(color_mode: Ansi::ColorMode::C16)
         end
       end
 
@@ -301,7 +298,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class C8 < Ansi
         def initialize(**box)
-          super **box.merge(colors: Ansi::ColorMode::C8)
+          super **box.merge(color_mode: Ansi::ColorMode::C8)
         end
       end
 
@@ -315,7 +312,7 @@ module Crysterm
         # <!-- /widget-examples:capture -->
         class TrueColor < Ansi
           def initialize(**box)
-            super **box.merge(colors: Ansi::ColorMode::TrueColor, ascii: true)
+            super **box.merge(color_mode: Ansi::ColorMode::TrueColor, ascii: true)
           end
         end
 
@@ -327,7 +324,7 @@ module Crysterm
         # <!-- /widget-examples:capture -->
         class C256 < Ansi
           def initialize(**box)
-            super **box.merge(colors: Ansi::ColorMode::C256, ascii: true)
+            super **box.merge(color_mode: Ansi::ColorMode::C256, ascii: true)
           end
         end
 
@@ -339,7 +336,7 @@ module Crysterm
         # <!-- /widget-examples:capture -->
         class C16 < Ansi
           def initialize(**box)
-            super **box.merge(colors: Ansi::ColorMode::C16, ascii: true)
+            super **box.merge(color_mode: Ansi::ColorMode::C16, ascii: true)
           end
         end
 
@@ -351,7 +348,7 @@ module Crysterm
         # <!-- /widget-examples:capture -->
         class C8 < Ansi
           def initialize(**box)
-            super **box.merge(colors: Ansi::ColorMode::C8, ascii: true)
+            super **box.merge(color_mode: Ansi::ColorMode::C8, ascii: true)
           end
         end
       end

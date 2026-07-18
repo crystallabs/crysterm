@@ -43,34 +43,48 @@ module Crysterm
       # push following rows down and desync the cell borders.
       @wrap_content = false
 
+      # Whether the box is sized to its content width (no explicit `width:`).
+      # When true, `#rows=`/`#render` keep pinning `@width = row_width +
+      # ihorizontal` so the box fits every column, but clear it before each
+      # remeasure so the pin stays one-way (columns size from content and can
+      # shrink again). When false (a fixed `width:` was given), the width is left
+      # alone and `compute_column_widths` distributes its slack. Captured once,
+      # after `super`.
+      @content_sized = true
+
       # A `Table` is content-sized: `#render` pins `@width` so the box always fits
       # every column and never overflows horizontally. It opts out of horizontal
       # scrolling entirely — a wide table is just clipped by its parent. For a
       # scrollable wide table use `Widget::ListTable` instead.
 
       # NOTE: there is deliberately no `data:` parameter — it would collide with
-      # the inherited `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot). Pass
+      # the inherited `Widget#data` (`Mixin::Data`'s `UserData?` slot). Pass
       # `rows:`.
       def initialize(
-        rows = nil,
-        pad = nil,
-        no_cell_borders = nil,
-        fill_cell_borders = nil,
-        alternate_rows = false,
+        rows : Array(Array(String))? = nil,
+        column_spacing : Int32? = nil,
+        alternate_rows : Bool = false,
         *,
+        cell_borders : Bool = true,
+        fill_cell_borders : Bool = false,
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
         **box,
       )
         @rows = normalize_rows(rows)
         @alternate_rows = alternate_rows
         self.cell_align = align
-        init_cell_options pad, no_cell_borders, fill_cell_borders
+        init_cell_options column_spacing, cell_borders, fill_cell_borders
 
         super **box
 
+        # Remember whether the caller fixed a width. If so, leave it alone and
+        # let `compute_column_widths` distribute its slack; otherwise size to
+        # content. Captured before the first `self.rows =`, which pins `@width`.
+        @content_sized = @width.nil?
+
         self.rows = @rows
 
-        on(Crysterm::Event::Attach) { self.rows = @rows }
+        on(Crysterm::Event::Attached) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
           self.rows = @rows
           request_render
@@ -82,6 +96,14 @@ module Crysterm
       # leaving the column widths, the pinned `@width` and the content describing
       # the old data while `#render` sized the box from the new row count.
       def rows=(rows)
+        # One-way width pin: for a content-sized table, clear the self-pinned
+        # width before remeasuring so `compute_column_widths` sizes columns from
+        # content again (its slack branch keys off a non-nil `@width`). Without
+        # this the previously pinned width feeds back into the column widths and
+        # the table can never shrink when its data gets narrower. A fixed-width
+        # table keeps its `@width` and its slack-distribution behaviour.
+        @width = nil if @content_sized
+
         unless reload_rows rows
           # Empty/column-less data must empty the view too: `reload_rows` has
           # already replaced `@rows`, so keeping the old content would show rows
@@ -121,7 +143,12 @@ module Crysterm
         #
         # Both assigned directly to avoid the `Resize`-before-store recursion our
         # own `Resize` handler would trigger.
-        calculate_maxes
+        #
+        # Clear the self-pinned width first (content-sized only) so this remeasure
+        # sizes columns from content rather than folding the previously pinned
+        # width back into the columns. See `#rows=`.
+        @width = nil if @content_sized
+        compute_column_widths
         unless @maxes.empty?
           @width = row_width + ihorizontal
           @height = Math.max(0, 2 * @rows.size - 1) + ivertical
@@ -142,17 +169,17 @@ module Crysterm
         lines = window.lines
         xi, yi, width, height = border_extent coords
 
-        dattr = sattr style
-        hattr = sattr style.header
-        cattr = sattr style.cell
-        aattr = sattr style.alternate_row
+        dattr = style_to_attr style
+        hattr = style_to_attr style.header
+        cattr = style_to_attr style.cell
+        aattr = style_to_attr style.alternate_row
         # `gridline-color`, when set, overrides just the gridlines' foreground
         # while keeping the border's background/text attributes.
         battr =
           if gc = style.gridline_color
-            sattr style.border, fg: gc, bg: style.border.bg
+            style_to_attr style.border, fg: gc, bg: style.border.bg
           else
-            sattr style.border
+            style_to_attr style.border
           end
 
         # Maps each relative text-column x to its table column index, so CSS
@@ -196,7 +223,7 @@ module Crysterm
                   cell_style = if rm = row_map
                                  (col = rm[x]?) ? css_cell_style(row_index, col) : nil
                                end
-                  cell.attr = cell_style ? sattr(cell_style) : default_attr
+                  cell.attr = cell_style ? style_to_attr(cell_style) : default_attr
                   line.dirty = true
                 end
               else
@@ -211,7 +238,7 @@ module Crysterm
         end
 
         border = style.border
-        return if !border.any? || no_cell_borders?
+        return if !border.any? || !cell_borders?
 
         rows_n = @rows.size
         last = @maxes.size - 1

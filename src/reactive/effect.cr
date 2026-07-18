@@ -81,13 +81,18 @@ module Crysterm
       # even mid-wave/mid-batch, instead of deferring to the flush — the basis of
       # glitch-free propagation for `Computed`. Ordinary effects are leaf
       # (non-eager).
-      def initialize(@owner : ::Crysterm::Widget? = nil, @eager : Bool = false, &@block : ->)
+      def initialize(@owner : ::Crysterm::Widget? = nil, *, @eager : Bool = false, &@block : ->)
         @on_change = ->(_e : ::Crysterm::Event::Changed) { schedule }
         run
       end
 
       # Registers *signal* as a dependency of this run (idempotent per run).
+      # No-op once disposed: `dispose` can fire mid-run (e.g. the body tears
+      # down the owner widget, whose `Event::Destroy` handler disposes this
+      # effect), and reads after that point must not re-subscribe — `dispose`
+      # already ran, so such a subscription could never be cancelled.
       def track(signal : SignalBase) : Nil
+        return if disposed?
         id = signal.object_id
         return unless @tracked.add? id
         return if @subs_by_id.has_key? id # stable dep — keep its existing subscription
@@ -135,6 +140,17 @@ module Crysterm
           @added.each { |id| @subs_by_id.delete(id).try &.off }
           @added.clear
           raise ex
+        end
+        # A dispose that raced in mid-body (directly or via a nested run)
+        # cleared the sub map at its point in time; cancel anything that
+        # survived — subs added earlier in this same run before re-clearing, or
+        # re-adds from a nested run — instead of re-tracking a dead effect.
+        if disposed?
+          @subs_by_id.each_value &.off
+          @subs_by_id.clear
+          @tracked.clear
+          @added.clear
+          return
         end
         # Drop subscriptions for deps not read this run. Fast path: matching
         # sizes mean @tracked (⊆ @subs_by_id) equals the live set, so a

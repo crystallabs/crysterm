@@ -111,7 +111,7 @@ module Crysterm
         # `TextDocumentFragment` alongside its plain text (which is all the
         # OSC-52 system clipboard can take).
         def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32, window : Crysterm::Window? = nil) : Nil
-          clipboard.set_rich(document.copy_fragment(from, to), document.plain_text(from, to), window)
+          clipboard.copy(document.copy_fragment(from, to), document.plain_text(from, to), window)
         end
 
         # Rich paste: inserts the clipboard's fragment (formats intact,
@@ -176,20 +176,21 @@ module Crysterm
           document.to_plain_text
         end
 
-        # External set replaces the whole document content (plain text, not
+        # External set: replaces the whole document content (plain text, not
         # undoable — Qt `setPlainText` semantics: the undo stack clears) and
-        # parks the caret at the end; `nil` is a redisplay that just clamps
-        # the caret. The document's `ContentsChanged` signal drives the
-        # widget's relayout/render, so no display work happens here.
-        def value=(value = nil)
-          if value
-            as_self_edit { document.set_plain_text(value) }
-            @cursor_pos = buf_size
-            clear_selection
-            @goal_col = nil
-          else
-            @cursor_pos = @cursor_pos.clamp(0, buf_size)
-          end
+        # parks the caret at the end. The document's `ContentsChanged` signal
+        # drives the widget's relayout/render, so no display work happens here.
+        def value=(value : String)
+          as_self_edit { document.set_plain_text(value) }
+          @cursor_pos = buf_size
+          clear_selection
+          @goal_col = nil
+        end
+
+        # Once-per-frame redisplay (from `#render`): just clamps the caret,
+        # leaving the content (and the vertical goal column) untouched.
+        def refresh_value : Nil
+          @cursor_pos = @cursor_pos.clamp(0, buf_size)
         end
 
         # Undoes the last document edit step. The caret follows the tracker
@@ -221,7 +222,7 @@ module Crysterm
         # including widget's `_listener` must call this first — before its own
         # handling — and return when it consumed the key. `TextChanged` is emitted
         # only when the buffer text actually changed.
-        protected def handle_undo_redo_key(e) : Bool
+        protected def handle_undo_redo_key(e : ::Crysterm::Event::KeyPress) : Bool
           if !read_only? && (k = e.key)
             if k == Tput::Key::CtrlZ || k == Tput::Key::AltZ
               e.accept

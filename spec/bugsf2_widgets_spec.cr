@@ -33,7 +33,7 @@ include Crysterm
 #                         CJK/emoji.
 #  40 (form.cr)           submit/reset matched `List` but not the other item views.
 #  41 (checkbox.cr)       `#partial` on a checked box dropped `checked?` with no
-#                         `Event::UnCheck`.
+#                         `Event::StateChanged`.
 #  42 (group_box.cr / dock_widget.cr) runtime `title=` never updated the rendered
 #                         title.
 
@@ -62,7 +62,7 @@ describe "BUGS-F2 16: ComboBox options= refreshes the open drop-down" do
       options: ["Apple", "Banana"]
     cb.focus
     s.render
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
@@ -71,7 +71,7 @@ describe "BUGS-F2 16: ComboBox options= refreshes the open drop-down" do
     # The open popup must now display the NEW rows, not the stale ones — otherwise
     # `commit(index)` resolves the clicked row against the new `@filtered` and picks
     # a value that was never on screen.
-    pop.ritems.should eq ["Cherry", "Date", "Elder"]
+    pop.item_texts.should eq ["Cherry", "Date", "Elder"]
   end
 end
 
@@ -83,7 +83,7 @@ describe "BUGS-F2 17: DateEdit calendar popup placement" do
       date: Time.utc(2024, 6, 15)
     de.focus
     s.render
-    de.open
+    de.show_popup
     pop = de.popup_widget.not_nil!
     s.render
 
@@ -98,7 +98,7 @@ describe "BUGS-F2 17: DateEdit calendar popup placement" do
       date: Time.utc(2024, 6, 15)
     de.focus
     s.render
-    de.open
+    de.show_popup
     pop = de.popup_widget.not_nil!
     s.render
 
@@ -217,8 +217,8 @@ describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spac
     spaced.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
 
     # A page of rows holds only half as many items when every item has a 1-row gap.
-    spaced.selected.should be > 0
-    spaced.selected.should be < plain.selected
+    spaced.current_index.should be > 0
+    spaced.current_index.should be < plain.current_index
   end
 end
 
@@ -283,7 +283,7 @@ end
 
 # ── 36 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 36: FileManager rolls back entering an unreadable directory" do
-  it "keeps @cwd on the last good dir and emits no ChangeDir" do
+  it "keeps @cwd on the last good dir and emits no DirectoryChanged" do
     base = File.tempname("crysterm-fm2")
     locked = File.join(base, "locked")
     Dir.mkdir_p locked
@@ -300,24 +300,24 @@ describe "BUGS-F2 36: FileManager rolls back entering an unreadable directory" d
 
     begin
       s = f2_screen
-      fm = Crysterm::Widget::FileManager.new parent: s, cwd: base, keys: true
+      fm = Crysterm::Widget::FileManager.new parent: s, cwd: base
       fm.refresh
       fm.cwd.should eq base
 
-      idx = fm.ritems.index(&.includes?("locked"))
+      idx = fm.item_texts.index(&.includes?("locked"))
       idx.should_not be_nil
-      fm.selected = idx.not_nil!
+      fm.current_index = idx.not_nil!
 
       changed = false
-      fm.on(Crysterm::Event::ChangeDir) { changed = true }
-      fm.enter_selected
+      fm.on(Crysterm::Event::DirectoryChanged) { changed = true }
+      fm.activate_current
 
       if readable
         # Can't reproduce the failure as root; just ensure no crash.
         fm.cwd.chomp('/').should eq locked
       else
         fm.cwd.should eq base   # rolled back
-        changed.should be_false # no spurious ChangeDir for a move that didn't happen
+        changed.should be_false # no spurious DirectoryChanged for a move that didn't happen
       end
     ensure
       File.chmod(locked, 0o755) rescue nil
@@ -357,15 +357,15 @@ describe "BUGS-F2 38: ColorDialog wheel only acts over the field/hue" do
 
     ox = cd.aleft + cd.ileft
     oy = cd.atop + cd.itop
-    before = cd.value_v
+    before = cd.hsv_value
 
     # The 1-column gap between the 2-D field and the hue strip is dialog chrome.
     cd.emit Crysterm::Event::Mouse, f2_mouse(::Tput::Mouse::Action::WheelDown, ox + Widget::ColorDialog::FIELD_W, oy + 2, ::Tput::Mouse::Button::None).mouse
-    cd.value_v.should eq before # unchanged
+    cd.hsv_value.should eq before # unchanged
 
     # A wheel over the 2-D field does nudge the value component.
     cd.emit Crysterm::Event::Mouse, f2_mouse(::Tput::Mouse::Action::WheelDown, ox + 5, oy + 5, ::Tput::Mouse::Button::None).mouse
-    cd.value_v.should be < before
+    cd.hsv_value.should be < before
   end
 end
 
@@ -398,21 +398,21 @@ describe "BUGS-F2 40: Form submits and resets every item view, not just List" do
     form.reset
     # Reset selects the first row (`select_index 0`, clamped past the header spacer);
     # before the fix a `ListTable` was never reset and stayed on row 3.
-    lt.selected.should eq 1
+    lt.current_index.should eq 1
   end
 end
 
 # ── 41 ──────────────────────────────────────────────────────────────────────
-describe "BUGS-F2 41: CheckBox#partial emits UnCheck when leaving a checked box" do
+describe "BUGS-F2 41: CheckBox#partial emits StateChanged(Unchecked) when leaving a checked box" do
   it "announces the dropped checked state" do
     s = f2_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, tristate: true, checked: true
     cb.checked?.should be_true
 
     unchecked = false
-    cb.on(Crysterm::Event::UnCheck) { unchecked = true }
+    cb.on(Crysterm::Event::StateChanged) { |e| unchecked = true if e.state.unchecked? }
     partial = false
-    cb.on(Crysterm::Event::PartialCheck) { partial = true }
+    cb.on(Crysterm::Event::StateChanged) { |e| partial = true if e.state.partially_checked? }
 
     cb.partial
 
@@ -422,12 +422,12 @@ describe "BUGS-F2 41: CheckBox#partial emits UnCheck when leaving a checked box"
     partial.should be_true
   end
 
-  it "does not emit UnCheck when partial is called on an unchecked box" do
+  it "does not emit StateChanged(Unchecked) when partial is called on an unchecked box" do
     s = f2_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, tristate: true, checked: false
 
     unchecked = false
-    cb.on(Crysterm::Event::UnCheck) { unchecked = true }
+    cb.on(Crysterm::Event::StateChanged) { |e| unchecked = true if e.state.unchecked? }
 
     cb.partial
 
@@ -445,7 +445,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
 
     gb.title = "New"
     gb.title.should eq "New"
-    gb._label.not_nil!.rendered_content.should contain "New"
+    gb.label_widget.not_nil!.rendered_content.should contain "New"
   end
 
   it "GroupBox#checkable= adds the marker and click handling post-construction" do
@@ -455,7 +455,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
     s.render
 
     gb.checkable = true
-    gb._label.not_nil!.rendered_content.should contain "[x]" # marker now shown
+    gb.label_widget.not_nil!.rendered_content.should contain "[x]" # marker now shown
 
     # A click on the title row now toggles it.
     gb.emit Crysterm::Event::Mouse, f2_mouse(::Tput::Mouse::Action::Down, gb.aleft + 1, gb.atop).mouse

@@ -62,7 +62,7 @@ dsum = 0_i64
 wall_b = Time.measure do
   FRAMES.times do |f|
     panels.each_with_index { |pn, i| pn.content = "Panel #{i} @ #{f}" }
-    list.selected = (f % 12)
+    list.current_index = (f % 12)
     screen._render
     rsum += screen.render_rate
     dsum += screen.draw_rate

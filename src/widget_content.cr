@@ -94,7 +94,11 @@ module Crysterm
 
     # Printable, word-wrapped content, ready for rendering. `nil` means "stale";
     # `#pcontent` rebuilds it on demand.
-    property _pcontent : String?
+    #
+    # Public getter (specs/benchmarks assert it stays `nil` while an append is
+    # deferred); the setter is `protected` — writers go through the pipeline.
+    getter _pcontent : String?
+    protected setter _pcontent
 
     # Printable content string, rebuilt from wrapped lines if stale. Consumers
     # must go through this (not `@_pcontent` directly) so a deferred append is
@@ -118,7 +122,10 @@ module Crysterm
     # when `@_pcontent` becomes a different `String`.
     @_content_index : StringIndex? = nil
 
-    property _clines = CLines.new
+    # Public getter (read widely by specs and subclass render code); the setter
+    # is `protected` so external writes can't bypass the wrap/version pipeline.
+    getter _clines = CLines.new
+    protected setter _clines
 
     # Bumped on every `@content` change. `process_content` compares this against
     # the version baked into `@_clines` to decide whether a reparse is needed.
@@ -137,7 +144,7 @@ module Crysterm
     # Honored by `process_content` like a one-shot `no_tags = true` WITHOUT
     # flipping the persistent `@_content_no_tags`. Fresh line contents are
     # pre-parsed by the line editors before splicing into `fake`, so tags in newly
-    # inserted/set lines still work — see `#insert_line`/`#set_line`.
+    # inserted/set lines still work — see `#insert_line`/`#replace_line`.
     @_rebuilding_from_fake = false
 
     # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
@@ -176,7 +183,7 @@ module Crysterm
     # the segment contains a brace.
     @_content_open_tags_at_end = false
 
-    # The `sattr(style)` value the cached `@_clines.attr` was computed against.
+    # The `style_to_attr(style)` value the cached `@_clines.attr` was computed against.
     # `_parse_attr` depends only on content and this base attribute, so it's
     # skipped when both are unchanged. `nil` forces the first computation.
     @_parse_attr_default : Int64? = nil
@@ -218,7 +225,7 @@ module Crysterm
 
       process_content(no_tags)
       mark_dirty
-      emit(Crysterm::Event::SetContent)
+      emit(Crysterm::Event::ContentChanged)
     end
 
     # The content as *rendered*: the original ("fake") lines after tag parsing,
@@ -268,7 +275,7 @@ module Crysterm
       property base_x = 0
 
       # Widest unclipped line in display columns (before horizontal viewport
-      # slice). Drives `Widget#get_scroll_width` and the horizontal scroll bar's
+      # slice). Drives `Widget#scroll_width` and the horizontal scroll bar's
       # range. `0` for wrapped content.
       property full_width = 0
 
@@ -422,7 +429,7 @@ module Crysterm
         @_clines.base_x = @child_base_x
         @_clines.content = @content
         @_clines.content_version = @_content_version
-        # `_parse_attr` also records `sattr(style)` in `@_parse_attr_default`, so
+        # `_parse_attr` also records `style_to_attr(style)` in `@_parse_attr_default`, so
         # no separate recompute is needed here.
         @_clines.attr = _parse_attr @_clines
         # Reuse the `CLines`' own `ci` array (clear + refill) instead of
@@ -435,7 +442,7 @@ module Crysterm
         end
 
         @_pcontent = clines_joined
-        emit Crysterm::Event::ParsedContent
+        emit Crysterm::Event::ContentParsed
 
         return true
       end
@@ -445,7 +452,7 @@ module Crysterm
       # is read unconditionally as the widget's fill/background attr, so freezing
       # it freezes the background of any widget that only changes `style.bg`
       # (e.g. an empty single-line `Effect::CopperBar` stops animating).
-      da = sattr(style)
+      da = style_to_attr(style)
       if da != @_parse_attr_default
         @_parse_attr_default = da
         # Recompute whenever a packed attr array already exists — never gate this
@@ -651,23 +658,23 @@ module Crysterm
 
     # Base attribute after scanning `line`'s inline SGR sequences starting from
     # `attr` — how SGR state carries line-to-line, so a `{red-fg}` left open on an
-    # earlier line colors later ones too. `default_attr` is `sattr(style)`, passed
+    # earlier line colors later ones too. `default_attr` is `style_to_attr(style)`, passed
     # in so callers compute it once.
     private def _attr_after(line : String, attr : Int64, default_attr : Int64) : Int64
       line.each_char_with_index do |char, i|
         if char == '\e'
           if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
-            attr = window.attr2code(c[0], attr, default_attr)
+            attr = window.sgr_to_attr(c[0], attr, default_attr)
           end
         end
       end
       attr
     end
 
-    def _parse_attr(lines : CLines)
-      default_attr = sattr(style)
+    protected def _parse_attr(lines : CLines)
+      default_attr = style_to_attr(style)
       # Record the base attribute this parse was built against, so callers don't
-      # recompute `sattr(style)` separately.
+      # recompute `style_to_attr(style)` separately.
       @_parse_attr_default = default_attr
       attr = default_attr
       # Reuse the `CLines`' own `attr` array (clear + refill) instead of
@@ -1081,7 +1088,7 @@ module Crysterm
     # O(total) per-append cost into O(appended).
     #
     # Returns `true` if the fast path handled it, `false` if it bailed and the
-    # caller must fall back to `set_content`/`push_line`.
+    # caller must fall back to `set_content`/`append_line`.
     #
     # Byte-identical to a full reparse because:
     # * `_wrap_content` wraps each `\n`-split segment independently, so appending
@@ -1196,7 +1203,7 @@ module Crysterm
       # on, each subsequent line continues from the previous — matching
       # `_parse_attr`'s line-to-line carry.
       if attrs = cl.attr
-        da = sattr(style)
+        da = style_to_attr(style)
         # `base_real >= 1` (content non-blank); degrade to default if `attrs` is
         # somehow short.
         carry = base_real <= attrs.size ? _attr_after(cl.lines[base_real - 1], attrs[base_real - 1], da) : da
@@ -1247,21 +1254,21 @@ module Crysterm
 
       # Mirror the full path: mark for repaint and emit the same events.
       mark_dirty
-      emit Crysterm::Event::ParsedContent
-      emit Crysterm::Event::SetContent
+      emit Crysterm::Event::ContentParsed
+      emit Crysterm::Event::ContentChanged
       true
     end
 
-    def insert_line(i = nil, line = "")
-      if line.is_a? String
-        line = line.split("\n")
-      end
+    # Appends *line* after the last logical line. Splits on `\n` for multi-line
+    # input.
+    def insert_line(line : String) : Nil
+      insert_line(@_clines.fake.size, line)
+    end
 
-      if i.nil?
-        i = @_clines.ftor.size
-      end
+    def insert_line(index : Int32, line : String) : Nil
+      lines = line.split("\n")
 
-      i = Math.max(i, 0)
+      i = Math.max(index, 0)
 
       while @_clines.fake.size < i
         @_clines.fake.push("")
@@ -1290,11 +1297,11 @@ module Crysterm
         real = @_clines.ftor[i][0]
       end
 
-      line.size.times do |j|
+      lines.size.times do |j|
         # Pre-parse each incoming line into the POST-parse form `fake` holds, so
         # the reparse-suppressed rebuild below still expands this line's tags
         # without re-running (and corrupting) the other lines.
-        @_clines.fake.insert(i + j, parse_fake_line(line[j]))
+        @_clines.fake.insert(i + j, parse_fake_line(lines[j]))
       end
 
       rebuild_content_from_fake
@@ -1323,31 +1330,36 @@ module Crysterm
 
       top = pos.yi
       bottom = pos.yl - ibottom - 1
-      # The vertical bounds check is load-bearing: `clean_sides`'s full-width
+      # The vertical bounds check is load-bearing: `sides_uniform?`'s full-width
       # shortcut skips vertical bounds, but the window line ops mutate buffer rows
       # `top..bottom` directly, so out-of-buffer bounds raise mid-mutation (or wrap
       # negative indices), corrupting the line buffers. A widget extending past the
       # screen edge falls back to the normal repaint.
-      if visible && top >= 0 && bottom <= window.aheight - 1 && window.clean_sides(self)
+      if visible && top >= 0 && bottom <= window.aheight - 1 && window.sides_uniform?(self)
         yield diff, pos.yi + itop + real - base, top, bottom
       end
     end
 
-    def delete_line(i = nil, n = 1)
+    # Deletes the last logical line (Blessed's `deleteLine()` no-argument
+    # behavior). A zero-arg def, not `(n : Int32 = 1)`: that signature would be
+    # merged with the `(index, n)` overload below and replace it.
+    def delete_line : Nil
+      return if @_clines.fake.empty?
+      delete_line(@_clines.fake.size - 1, 1)
+    end
+
+    def delete_line(index : Int32, n : Int32 = 1) : Nil
       # Nothing to delete when there are no logical lines yet (freshly built
       # widget, or content cleared to empty); without this guard the deletes below
       # raise on such a widget. Blessed's `deleteLine` is a no-op here.
       return if @_clines.fake.empty?
-      if i.nil?
-        i = @_clines.fake.size - 1
-      end
 
       # Clamp against the array actually spliced below (`fake`), NOT `ftor`: with
       # content seeded before attach, `fake` is non-empty while `ftor` is still
       # empty, so `ftor.size - 1 == -1` and Crystal's two-arg `clamp` (which
       # returns `max` when `min > max`) would make `i` be `-1`, deleting the LAST
       # line.
-      i = i.clamp(0, @_clines.fake.size - 1)
+      i = index.clamp(0, @_clines.fake.size - 1)
 
       # Clamp count to lines actually available from `i`, or deleting more than
       # remain runs `delete_at` off the end of `fake`. JS `splice(i, n)` clamps,
@@ -1406,19 +1418,17 @@ module Crysterm
       delete_line(fake, n)
     end
 
-    def delete_bottom(n)
+    def delete_bottom(n : Int32 = 1)
       # `visible_content_rows` accounts for the horizontal scroll bar's reserved
       # row, so we delete the visible bottom row, not one hidden below the bar.
       h = @child_base + visible_content_rows - 1
       i = Math.min(h, @_clines.size - 1)
       fake = rtof_index(i)
 
-      n = 1 if !n || n == 0
-
       delete_line(fake - (n - 1), n)
     end
 
-    def set_line(i, line)
+    def replace_line(i, line)
       i = Math.max(i, 0)
       # Pad up to and including index `i` (`<=`, not `<`). Blessed relies on JS
       # auto-extending arrays; Crystal's `fake[i] = line` raises when `i ==
@@ -1432,9 +1442,9 @@ module Crysterm
       rebuild_content_from_fake
     end
 
-    def set_baseline(i, line)
+    def replace_base_line(i, line)
       fake = rtof_index(@child_base)
-      set_line(fake + i, line)
+      replace_line(fake + i, line)
     end
 
     # Original ("fake") line *i*, as rendered (see `#rendered_content`).
@@ -1450,14 +1460,14 @@ module Crysterm
 
     # `#line`, but *i* counts from the current scroll base rather than from the
     # top of the content.
-    def baseline(i)
+    def base_line(i)
       fake = rtof_index(@child_base)
       line(fake + i)
     end
 
     def clear_line(i)
       i = Math.min(i, @_clines.fake.size - 1)
-      set_line(i, "")
+      replace_line(i, "")
     end
 
     def clear_base_line(i)
@@ -1465,19 +1475,19 @@ module Crysterm
       clear_line(fake + i)
     end
 
-    def unshift_line(line)
+    def prepend_line(line)
       insert_line(0, line)
     end
 
-    def shift_line(n)
+    def remove_first_line(n)
       delete_line(0, n)
     end
 
-    def push_line(line)
+    def append_line(line)
       # Seed line 0 when there is no content yet (counting deferred appends
       # without materializing them).
       if content_blank?
-        return set_line(0, line)
+        return replace_line(0, line)
       end
       # Appending at the end is the common case (logs, transcripts, streaming
       # output), so try the O(appended) splice first; it returns false and falls
@@ -1489,7 +1499,7 @@ module Crysterm
       insert_line(@_clines.fake.size, line)
     end
 
-    def pop_line(n)
+    def remove_last_line(n)
       delete_line(@_clines.fake.size - 1, n)
     end
 
@@ -1509,7 +1519,7 @@ module Crysterm
     # the owning window's effective gate (option AND terminal capability). False
     # when unattached.
     def full_unicode?
-      window?.try(&.full_unicode?) || false
+      window?.try(&.full_unicode_effective?) || false
     end
 
     # The glyph tier in effect for this widget (the owning window's screen
@@ -1850,7 +1860,7 @@ module Crysterm
     # grapheme/East-Asian-aware via `#wrap_cut_index`. With `from_col == 0` this
     # reduces to the original no-wrap truncation. Used for horizontal scrolling
     # of non-wrapped content.
-    def _hslice(line : String, from_col : Int32, width : Int32) : String
+    protected def _hslice(line : String, from_col : Int32, width : Int32) : String
       # Fast path for the common SGR-free line: plain column-window substring,
       # no escape scanning.
       unless line.includes? '\e'

@@ -33,6 +33,11 @@ module Crysterm
 
         def initialize(@from, @subject, *, @date = "", @size = 0, @status = "", @depth = 0, @unread = false, @callback = nil)
         end
+
+        # Block form: `Message.new(from, subject, ...) { ... }`.
+        def initialize(from, subject, *, date = "", size = 0, status = "", depth = 0, unread = false, &callback : ->)
+          initialize(from, subject, date: date, size: size, status: status, depth: depth, unread: unread, callback: callback)
+        end
       end
 
       # Mutt's **message index**, the threaded counterpart to Pine's flat
@@ -48,7 +53,7 @@ module Crysterm
       # ```
       #
       # The selected row is drawn reverse. Navigate with the arrow keys; Enter
-      # activates the message (runs its `callback` and emits `Event::ActionItem`).
+      # activates the message (runs its `callback` and emits `Event::ItemActivated`).
       class MessageIndex < ::Crysterm::Widget::Pine::SelectableList(Message)
         # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Mutt::Message

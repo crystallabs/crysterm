@@ -32,7 +32,7 @@ describe "per-widget cursor" do
     w = Crysterm::Widget::Box.new parent: s, keys: true
     w.focus
 
-    w.cursor_shape Tput::Namespace::CursorShape::Line
+    w.set_cursor Tput::Namespace::CursorShape::Line
     w.cursor.should_not be_nil
     s.active_cursor.should be(w.cursor.not_nil!)
     s.active_cursor.shape.line?.should be_true

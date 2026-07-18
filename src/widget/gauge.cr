@@ -50,8 +50,34 @@ module Crysterm
 
       # Lower/upper bounds of the value range (inclusive). With the defaults
       # (0..100) a value equals its percentage.
-      property minimum : Float64
-      property maximum : Float64
+      getter minimum : Float64
+      getter maximum : Float64
+
+      # Sets the lower bound, re-clamping the value and the upper bound (which
+      # is carried up rather than inverted) into range. See `#set_range`.
+      def minimum=(v : Float64) : Float64
+        set_range v, Math.max(v, @maximum)
+        @minimum
+      end
+
+      # Sets the upper bound, re-clamping the value and the lower bound (which
+      # is carried down rather than inverted) into range. See `#set_range`.
+      def maximum=(v : Float64) : Float64
+        set_range Math.min(v, @minimum), v
+        @maximum
+      end
+
+      # Sets both bounds at once (Qt's `setRange`). Never stores an inverted
+      # range (a max below min collapses to min), re-clamps `#value` into the
+      # new range, and repaints on an actual change.
+      def set_range(min : Float64, max : Float64) : Nil
+        max = min if max < min
+        return if min == @minimum && max == @maximum
+        @minimum = min
+        @maximum = max
+        @value = @value.clamp(@minimum, @maximum)
+        request_render
+      end
 
       # Whether to draw the inline percentage label (single mode) / segment
       # captions (stacked mode).
@@ -112,7 +138,7 @@ module Crysterm
       end
 
       # Sets the value, clamping into range. Emits `Event::DoubleValueChanged` on
-      # an actual change, and `Event::Complete` upon reaching `#maximum`.
+      # an actual change, and `Event::Completed` upon reaching `#maximum`.
       def value=(v : Number) : Float64
         assign_completable(v) { request_render }
       end

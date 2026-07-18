@@ -153,7 +153,7 @@ describe "Window#focus (re-focus of the already-focused widget)" do
   # Regression: `Window#focus` (and `focus_offset`, e.g. Tab wrapping back onto
   # the sole focusable widget) routes to `_focus el, el`. The state assignment
   # used to set `:focused` then `:normal`, clobbering the highlight and
-  # emitting a spurious `Blur` on the widget being focused.
+  # emitting a spurious `FocusOut` on the widget being focused.
   it "keeps the widget focused and emits no Blur on itself" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -162,7 +162,7 @@ describe "Window#focus (re-focus of the already-focused widget)" do
     a.state.should eq Crysterm::WidgetState::Focused
 
     blurs = 0
-    a.on(Crysterm::Event::Blur) { blurs += 1 }
+    a.on(Crysterm::Event::FocusOut) { blurs += 1 }
 
     s.focus a # re-focus the already-focused widget (screen-level entry point)
 
@@ -184,7 +184,7 @@ describe "Window#focus (re-focus of the already-focused widget)" do
 end
 
 describe "Window#rewind_focus" do
-  # Regression: `_focus` already emits `Event::Blur` on the previously-focused
+  # Regression: `_focus` already emits `Event::FocusOut` on the previously-focused
   # widget, so `rewind_focus` must not emit it a second time (it used to).
   it "emits Blur on the old widget exactly once" do
     s = focus_screen
@@ -196,7 +196,7 @@ describe "Window#rewind_focus" do
     s.focused.should eq b
 
     blurs = 0
-    b.on(Crysterm::Event::Blur) { blurs += 1 }
+    b.on(Crysterm::Event::FocusOut) { blurs += 1 }
 
     s.rewind_focus
 
@@ -205,7 +205,7 @@ describe "Window#rewind_focus" do
 
   # Regression (deferred): when no valid prior target remains, `rewind_focus`
   # must fully clear focus: `focused` becomes nil and the previously-focused
-  # widget is blurred (state dropped, `Event::Blur` emitted), instead of
+  # widget is blurred (state dropped, `Event::FocusOut` emitted), instead of
   # lingering in `WidgetState::Focused` with no Blur fired.
   it "blurs and clears focus when no valid prior target remains" do
     s = focus_screen
@@ -216,7 +216,7 @@ describe "Window#rewind_focus" do
     a.state.should eq Crysterm::WidgetState::Focused
 
     blurs = 0
-    a.on(Crysterm::Event::Blur) { blurs += 1 }
+    a.on(Crysterm::Event::FocusOut) { blurs += 1 }
 
     a.hide # the sole focusable widget; nothing valid to rewind to
 

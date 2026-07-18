@@ -84,7 +84,7 @@ describe "Crysterm::Reactive.bind_items" do
     view = Crysterm::Widget::List.new parent: scr, top: 0, left: 0, width: 20, height: 6
     names = Crysterm::Reactive::ObservableList(String).new %w[Ada Alan Grace]
     Crysterm::Reactive.bind_items(view, names, &.itself)
-    view.ritems.should eq %w[Ada Alan Grace]
+    view.item_texts.should eq %w[Ada Alan Grace]
     view.items.size.should eq 3
   end
 
@@ -94,7 +94,7 @@ describe "Crysterm::Reactive.bind_items" do
     names = Crysterm::Reactive::ObservableList(String).new %w[Ada]
     Crysterm::Reactive.bind_items(view, names, &.itself)
     names << "Grace"
-    view.ritems.should eq %w[Ada Grace]
+    view.item_texts.should eq %w[Ada Grace]
   end
 
   it "inserts at the right position" do
@@ -103,7 +103,7 @@ describe "Crysterm::Reactive.bind_items" do
     names = Crysterm::Reactive::ObservableList(String).new %w[a c]
     Crysterm::Reactive.bind_items(view, names, &.itself)
     names.insert 1, "b"
-    view.ritems.should eq %w[a b c]
+    view.item_texts.should eq %w[a b c]
   end
 
   it "removes just the deleted row" do
@@ -112,7 +112,7 @@ describe "Crysterm::Reactive.bind_items" do
     names = Crysterm::Reactive::ObservableList(String).new %w[a b c]
     Crysterm::Reactive.bind_items(view, names, &.itself)
     names.delete_at 1
-    view.ritems.should eq %w[a c]
+    view.item_texts.should eq %w[a c]
   end
 
   it "updates one row's content in place" do
@@ -121,7 +121,7 @@ describe "Crysterm::Reactive.bind_items" do
     names = Crysterm::Reactive::ObservableList(String).new %w[a b c]
     Crysterm::Reactive.bind_items(view, names, &.itself)
     names[1] = "B"
-    view.ritems.should eq %w[a B c]
+    view.item_texts.should eq %w[a B c]
   end
 
   it "rebuilds on reset (replace)" do
@@ -130,7 +130,7 @@ describe "Crysterm::Reactive.bind_items" do
     names = Crysterm::Reactive::ObservableList(String).new %w[a b c]
     Crysterm::Reactive.bind_items(view, names, &.itself)
     names.replace %w[x y]
-    view.ritems.should eq %w[x y]
+    view.item_texts.should eq %w[x y]
   end
 
   it "renders arbitrary element types via the block" do
@@ -138,9 +138,9 @@ describe "Crysterm::Reactive.bind_items" do
     view = Crysterm::Widget::List.new parent: scr, width: 20, height: 6
     nums = Crysterm::Reactive::ObservableList(Int32).new [1, 2, 3]
     Crysterm::Reactive.bind_items(view, nums) { |n| "##{n}" }
-    view.ritems.should eq ["#1", "#2", "#3"]
+    view.item_texts.should eq ["#1", "#2", "#3"]
     nums << 4
-    view.ritems.should eq ["#1", "#2", "#3", "#4"]
+    view.item_texts.should eq ["#1", "#2", "#3", "#4"]
   end
 
   it "schedules a repaint on change" do
@@ -161,6 +161,6 @@ describe "Crysterm::Reactive.bind_items" do
     Crysterm::Reactive.bind_items(view, names, &.itself)
     view.destroy
     names << "c" # must not raise or touch the destroyed view
-    view.ritems.should eq %w[a b]
+    view.item_texts.should eq %w[a b]
   end
 end

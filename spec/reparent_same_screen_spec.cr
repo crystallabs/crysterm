@@ -3,10 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # Reparenting a widget between containers on the same screen must not churn
-# `Event::Attach`/`Event::Detach`: the widget never leaves the screen, so those
+# `Event::Attached`/`Event::Detached`: the widget never leaves the screen, so those
 # events are spurious. Real handlers key off them — e.g. a `Media`/überzug
-# overlay clears its image on `Detach`, a carousel/`Table` re-runs setup on
-# `Attach` — so firing them on a pure tree-position change is a visible defect
+# overlay clears its image on `Detached`, a carousel/`Table` re-runs setup on
+# `Attached` — so firing them on a pure tree-position change is a visible defect
 # (`Widget#insert`/`#remove`, src/widget_children.cr). A genuine cross-screen
 # move must still fire both.
 
@@ -25,8 +25,8 @@ describe "Widget reparenting within the same screen" do
     a.append child
 
     transitions = [] of String
-    child.on(Event::Attach) { transitions << "attach" }
-    child.on(Event::Detach) { transitions << "detach" }
+    child.on(Event::Attached) { transitions << "attach" }
+    child.on(Event::Detached) { transitions << "detach" }
 
     b.append child # same-screen move
 
@@ -44,7 +44,7 @@ describe "Widget reparenting within the same screen" do
     child = Widget::Box.new width: 4, height: 2
 
     seen = [] of Widget?
-    child.on(Event::Reparent) { |e| seen << e.widget }
+    child.on(Event::Reparented) { |e| seen << e.widget }
 
     a.append child # adopt by a
     b.append child # detach from a (nil), then adopt by b
@@ -63,8 +63,8 @@ describe "Widget reparenting within the same screen" do
     a.append child
 
     transitions = [] of String
-    child.on(Event::Attach) { transitions << "attach" }
-    child.on(Event::Detach) { transitions << "detach" }
+    child.on(Event::Attached) { transitions << "attach" }
+    child.on(Event::Detached) { transitions << "detach" }
 
     b.append child # move s1 -> s2
 

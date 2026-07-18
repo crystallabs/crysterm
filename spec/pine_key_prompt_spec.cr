@@ -56,11 +56,11 @@ describe "Pine::KeyPrompt" do
     prompt.answer.should be_nil
   end
 
-  it "emits Event::Action with the chosen key" do
+  it "emits Event::Activated with the chosen key" do
     s = pkp_screen
     prompt = Crysterm::Widget::Pine::KeyPrompt.yes_no("Quit?", parent: s)
     got = nil.as(String?)
-    prompt.on(Crysterm::Event::Action) { |e| got = e.value }
+    prompt.on(Crysterm::Event::Activated) { |e| got = e.value }
 
     press prompt, 'n'
     got.should eq "N"

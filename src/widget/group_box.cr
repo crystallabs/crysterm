@@ -122,7 +122,7 @@ module Crysterm
               @_title_style_copy = c
             end
             if c = @_title_style_copy
-              @_label.try(&.styles.normal = c)
+              @label_widget.try(&.styles.normal = c)
             end
           end
         end
@@ -151,7 +151,7 @@ module Crysterm
         # A child added to an unchecked group must come up disabled. Children
         # are appended after construction, so reflect state on each as it's
         # adopted, not just on toggle.
-        on(Crysterm::Event::Adopt) { apply_enabled if checkable? }
+        on(Crysterm::Event::ChildAdded) { apply_enabled if checkable? }
       end
 
       private def label_text : String
@@ -215,7 +215,7 @@ module Crysterm
       private def apply_enabled
         return restore_disabled_children if checked?
         @children.each do |c|
-          next if c.same? @_label
+          next if c.same? @label_widget
           c.state = :disabled
         end
       end
@@ -225,7 +225,7 @@ module Crysterm
       # state (focus, hover, selection) alone.
       private def restore_disabled_children
         @children.each do |c|
-          next if c.same? @_label
+          next if c.same? @label_widget
           c.state = :normal if c.state.disabled?
         end
       end

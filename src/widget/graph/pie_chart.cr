@@ -142,7 +142,7 @@ module Crysterm
           # so it never overwrites the top of the chart on a short widget.
           shown = @slices.size
           top = Math.max(yi, yl - shown)
-          text_attr = sattr(style, style.fg, style.bg)
+          text_attr = style_to_attr(style, style.fg, style.bg)
 
           @slices.each_with_index do |slice, i|
             y = top + i

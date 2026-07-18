@@ -68,13 +68,13 @@ module Crysterm
     end
   end
 
-  prompt.read_input("Question?", "") do |_, _|
+  prompt.read_input("Question?", "") do |_|
     STDERR.puts :q1
-    question.ask("Question?") do |_, _|
+    question.ask("Question?") do |_|
       STDERR.puts :q2
       msg.display("Hello world!", 3.seconds) do          # |err|
         msg.display("Hello world again!", -1.seconds) do # |err|
-          loader.load("Loading...")
+          loader.start("Loading...")
           spawn do
             sleep 3.seconds
             loader.stop

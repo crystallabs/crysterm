@@ -46,8 +46,8 @@ describe Crysterm::KillRing do
     kr.yank.should eq "two"
   end
 
-  it "caps the ring at #max" do
-    kr = Crysterm::KillRing.new max: 2
+  it "caps the ring at #capacity" do
+    kr = Crysterm::KillRing.new capacity: 2
     kr.kill "a"; kr.interrupt
     kr.kill "b"; kr.interrupt
     kr.kill "c"; kr.interrupt

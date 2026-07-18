@@ -9,9 +9,10 @@ include Crysterm
 #   8  (src/crysterm.cr)          — `at_exit` must destroy every window even
 #                                    though `destroy` mutates `Window.instances`.
 #   12 (src/window_resize.cr,     — `destroy` must stop the resize fiber instead
-#       src/window.cr)              of leaking it (and never `#resize` a dead window).
+#       src/window.cr)              of leaking it (and never `#refresh_size` a
+#                                    dead window).
 #   13 (src/window_connection.cr, — a stale input fiber must stop dispatching to
-#       src/screen_input.cr)        a detached screen after `stop_keys`.
+#       src/screen_input.cr)        a detached screen after `stop_input`.
 
 private def f1_window
   Crysterm::Window.new(
@@ -33,7 +34,7 @@ private def wait_until(timeout = 2.seconds, &)
   end
 end
 
-# Drives the *real* device input fiber (`Screen#listen_keys` -> `tput.listen`)
+# Drives the *real* device input fiber (`Screen#start_input` -> `tput.listen`)
 # over an in-process pipe, so the per-event/stop-flag behavior is exercised end
 # to end instead of asserted structurally. Yields {reader, writer, window, seen}.
 private def with_live_input(&)
@@ -62,7 +63,7 @@ describe "BUGS-F1 #1 input fiber survives a raising handler" do
         raise "boom in user handler" if e.char == 'a'
       end
 
-      screen.listen_keys
+      screen.start_input
 
       # First key's handler raises; second key must still be dispatched.
       writer.write "ab".to_slice
@@ -75,11 +76,11 @@ describe "BUGS-F1 #1 input fiber survives a raising handler" do
 end
 
 describe "BUGS-F1 #13 detached input fiber stops dispatching" do
-  it "drops events routed after stop_keys" do
+  it "drops events routed after stop_input" do
     with_live_input do |_reader, writer, win, seen, screen|
       win.on(Crysterm::Event::KeyPress) { |e| seen << e.char }
 
-      screen.listen_keys
+      screen.start_input
 
       writer.write "a".to_slice
       writer.flush
@@ -88,7 +89,7 @@ describe "BUGS-F1 #13 detached input fiber stops dispatching" do
 
       # Detach the device (as Window#disconnect does for unowned STDIN): the
       # fiber must stop routing to this now-detached screen.
-      screen.stop_keys
+      screen.stop_input
 
       writer.write "b".to_slice
       writer.flush
@@ -130,7 +131,7 @@ describe "BUGS-F1 #8 at_exit destroys every window despite registry mutation" do
 end
 
 describe "BUGS-F1 #12 destroy stops the resize fiber" do
-  it "does not run #resize on a destroyed window for a resize pending at destroy" do
+  it "does not run #refresh_size on a destroyed window for a resize pending at destroy" do
     w = f1_window
     # Large debounce so the resize fiber is parked in its drain wait when we
     # destroy, exercising the pending-notification path.
@@ -147,7 +148,7 @@ describe "BUGS-F1 #12 destroy stops the resize fiber" do
     w.destroy
 
     # With the fix the fiber breaks out on the @resize_stop flag; without it the
-    # debounce elapses and #resize runs on the dead window, emitting Resize.
+    # debounce elapses and #refresh_size runs on the dead window, emitting Resize.
     sleep 450.milliseconds
     resizes.should eq 0
   end

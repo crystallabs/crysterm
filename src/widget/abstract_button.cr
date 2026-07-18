@@ -49,7 +49,7 @@ module Crysterm
       getter? checked : Bool = false
 
       # Sets the checked state (Qt's `setChecked`), routing through
-      # `#check`/`#uncheck` so the re-cascade, the `Event::Check`/`UnCheck` emit
+      # `#check`/`#uncheck` so the re-cascade, the `Event::StateChanged` emit
       # and the repaint all happen. No-op unless `#checkable?`, hence the honest
       # `#checked?` return.
       def checked=(value : Bool) : Bool
@@ -83,7 +83,7 @@ module Crysterm
       end
 
       # Activates the button (Qt's `QAbstractButton#click`): focuses it (unless
-      # `#focus_on_click?` is off), emits `Event::Press`, and toggles the checked
+      # `#focus_on_click?` is off), emits `Event::Pressed`, and toggles the checked
       # state when `#checkable?`.
       #
       # A keyboard activation already has focus, so `#focus_on_click?` only gates
@@ -91,21 +91,17 @@ module Crysterm
       # false`) so a click doesn't pull focus off a live read and cancel it.
       def click
         focus if focus_on_click?
-        emit Crysterm::Event::Press
+        emit Crysterm::Event::Pressed
         toggle if checkable?
       end
 
-      # Flips the checked state (only when `#checkable?`) and emits the matching
-      # `Event::Check`/`Event::UnCheck`.
+      # Flips the checked state (only when `#checkable?`) and emits
+      # `Event::StateChanged` with the new state.
       def toggle
         return unless checkable?
         @checked = !@checked
         invalidate_css # `checked` attribute selector may now match/unmatch
-        if @checked
-          emit Crysterm::Event::Check, @checked
-        else
-          emit Crysterm::Event::UnCheck, @checked
-        end
+        emit Crysterm::Event::StateChanged, (@checked ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked)
         request_render
       end
 
@@ -128,23 +124,23 @@ module Crysterm
         invalidate_css
       end
 
-      # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
-      # if it changed.
+      # Sets the checked state (only when `#checkable?`), emitting
+      # `Event::StateChanged` if it changed.
       def check
         return unless checkable?
         return if checked? && !partial? # already settled on checked
         set_checked true
-        emit Crysterm::Event::Check, @checked
+        emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Checked
         request_render
       end
 
       # Clears the checked state (only when `#checkable?`), emitting
-      # `Event::UnCheck` if it changed. Counterpart to `#check`.
+      # `Event::StateChanged` if it changed. Counterpart to `#check`.
       def uncheck
         return unless checkable?
         return if !checked? && !partial? # already settled on unchecked
         set_checked false
-        emit Crysterm::Event::UnCheck, @checked
+        emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Unchecked
         request_render
       end
 
@@ -168,6 +164,21 @@ module Crysterm
 
       def on_click(e)
         click
+      end
+
+      # Subscribes *block* to this button's activation (`Event::Pressed`) — the
+      # block-based spelling of `on(Event::Pressed) { ... }`. Fires on every
+      # click/keyboard-activation, checkable or not.
+      def on_click(&block) : Nil
+        on(::Crysterm::Event::Pressed) { block.call }
+      end
+
+      # Subscribes *block* to this button's checked-state changes, handing it the
+      # new checked flag. A checkable button emits `Event::StateChanged`
+      # (`CheckState`) on toggle; this adapts it to a plain `Bool` (Qt's
+      # `toggled(bool)`). Never fires for a non-checkable button.
+      def on_toggle(&block : Bool ->) : Nil
+        on(::Crysterm::Event::StateChanged) { |e| block.call e.state.checked? }
       end
     end
   end

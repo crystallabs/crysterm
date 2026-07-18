@@ -67,7 +67,8 @@ module Crysterm
 
         # A drag source that stays put (no self-reposition); its motion resizes
         # the target instead.
-        enable_drag reposition: false
+        self.drag_mode = :transfer
+        self.draggable = true
         on(::Crysterm::Event::Drag) do |e|
           if t = (@target || parent)
             begin

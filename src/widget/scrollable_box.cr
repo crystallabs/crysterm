@@ -52,21 +52,21 @@ module Crysterm
         when .page_backward? then scroll -visible
         when .page_forward?  then scroll visible
         when .first?         then scroll_to 0
-        when .last?          then scroll_to get_scroll_height
+        when .last?          then scroll_to scroll_height
         else
           case
           when e.key == ::Tput::Key::Left, (@vi && e.char == 'h')
-            scroll_x -1
+            scroll_by_x -1
           when e.key == ::Tput::Key::Right, (@vi && e.char == 'l')
-            scroll_x 1
+            scroll_by_x 1
           when e.key == ::Tput::Key::CtrlLeft
-            scroll_x -hpage
+            scroll_by_x -hpage
           when e.key == ::Tput::Key::CtrlRight
-            scroll_x hpage
+            scroll_by_x hpage
           when e.key == ::Tput::Key::ShiftHome, (@vi && e.char == '0')
-            scroll_x_to 0
+            scroll_to_x 0
           when e.key == ::Tput::Key::ShiftEnd, (@vi && e.char == '$')
-            scroll_x_to get_scroll_width
+            scroll_to_x scroll_width
           else
             return
           end

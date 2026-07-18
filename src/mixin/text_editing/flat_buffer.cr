@@ -130,7 +130,19 @@ module Crysterm
           external
         end
 
-        def value=(value = nil)
+        # External set: records *value* and parks the caret at the end.
+        def value=(value : String)
+          apply_value value
+        end
+
+        # Once-per-frame redisplay (from `#render`): re-syncs the display with the
+        # caret preserved, without treating it as an external set.
+        def refresh_value : Nil
+          apply_value nil
+        end
+
+        # Shared body for `#value=`/`#refresh_value`.
+        private def apply_value(value : String?) : Nil
           external = assign_value(value) { |v| v }
           if @_value == @value
             # A same-string external set still moved the caret (`assign_value`

@@ -67,8 +67,8 @@ describe "Docking.angle_at" do
       Docking.angle_at(contrasting.call, 1, 1, DockContrast::Ignore).should eq '┼'
     end
 
-    it "DontDock leaves the original character untouched" do
-      Docking.angle_at(contrasting.call, 1, 1, DockContrast::DontDock).should eq '│'
+    it "Skip leaves the original character untouched" do
+      Docking.angle_at(contrasting.call, 1, 1, DockContrast::Skip).should eq '│'
     end
 
     it "Blend docks and blends the cell's attribute toward the neighbor's" do

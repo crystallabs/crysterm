@@ -18,7 +18,7 @@ end
 describe "BUGS8 GaugeList sizes the label column by display width" do
   it "keeps a wide-glyph label row within the interior width (no overflow)" do
     s = uni_screen
-    s.full_unicode?.should be_true
+    s.full_unicode_effective?.should be_true
 
     gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 20, height: 4
     gl.add_item "日本", 50 # 2 codepoints, 4 display columns

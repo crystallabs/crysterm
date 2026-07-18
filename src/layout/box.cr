@@ -5,12 +5,12 @@ module Crysterm
     # Single-axis box layout — the shared engine behind `HBox` and `VBox`
     # (cf. Qt's `QHBoxLayout`/`QVBoxLayout`), with CSS-flexbox-style sizing.
     # Children are laid end-to-end along the main axis (horizontal for `HBox`,
-    # vertical for `VBox`), separated by `gap` cells.
+    # vertical for `VBox`), separated by `spacing` cells.
     #
     # * **Main axis:** a child with an explicit main-axis size keeps it; the rest
-    #   share the leftover space in proportion to their `grow` factor (default
+    #   share the leftover space in proportion to their `stretch` factor (default
     #   1, i.e. equal shares). Set a per-child factor with
-    #   `layout_hint: Layout::Box::Hint.new(grow: 2)`.
+    #   `layout_hint: Layout::Box::Hint.new(stretch: 2)`.
     # * **`justify`** distributes leftover space along the main axis when no
     #   children grow (Start/Center/End/SpaceBetween/SpaceAround).
     # * **`align`** sets cross-axis placement: `Stretch` (default) fills the
@@ -23,11 +23,6 @@ module Crysterm
     # recognised as managed, and reassigned through the normal setters (no-op
     # when unchanged) so a stable layout emits no events after the first frame.
     class Box < Layout
-      enum Orientation
-        Horizontal
-        Vertical
-      end
-
       enum Justify
         Start
         Center
@@ -43,18 +38,54 @@ module Crysterm
         End
       end
 
-      # Per-child main-axis grow factor (proportional share of leftover space).
+      # Per-child main-axis stretch factor (proportional share of leftover space),
+      # plus an optional per-child cross-axis `alignment` that overrides the box's
+      # own `#align`.
       class Hint < Layout::Hint
-        getter grow : Int32
+        property stretch : Int32
+        # Cross-axis alignment for *this* child; `nil` defers to the box `#align`.
+        property alignment : Align? = nil
 
-        def initialize(@grow : Int32 = 1)
+        def initialize(@stretch : Int32 = 1, @alignment : Align? = nil)
         end
       end
 
-      getter orientation : Orientation
-      # `#gap` (inter-child spacing) is inherited from `Layout`.
-      property justify : Justify
-      property align : Align
+      getter orientation : Tput::Orientation
+      # `#spacing` (inter-child spacing) is inherited from `Layout`.
+
+      # Leftover-space distribution along the main axis when nothing stretches;
+      # change-guarded so a real change repaints the container.
+      @justify : Justify
+
+      # :ditto:
+      def justify : Justify
+        @justify
+      end
+
+      # :ditto:
+      def justify=(value : Justify) : Justify
+        return value if value == @justify
+        @justify = value
+        invalidate
+        value
+      end
+
+      # Cross-axis placement of children without an explicit cross size;
+      # change-guarded so a real change repaints the container.
+      @align : Align
+
+      # :ditto:
+      def align : Align
+        @align
+      end
+
+      # :ditto:
+      def align=(value : Align) : Align
+        return value if value == @align
+        @align = value
+        invalidate
+        value
+      end
 
       @cursor = 0
       @avail = 0
@@ -84,8 +115,8 @@ module Crysterm
       @measured = {} of Widget => Int32
 
       def initialize(
-        @orientation : Orientation = Orientation::Horizontal,
-        @gap : Int32 = 0,
+        @orientation : Tput::Orientation = Tput::Orientation::Horizontal,
+        @spacing : Int32 = 0,
         @justify : Justify = Justify::Start,
         @align : Align = Align::Stretch,
       )
@@ -129,14 +160,14 @@ module Crysterm
           n += 1
           margins += main_margin el
           if main_flex? el
-            grow += grow_of el
+            grow += stretch_of el
           else
             ms = a_main_size el
             @measured[el] = ms
             fixed += ms
           end
         end
-        gaps = n > 1 ? @gap * (n - 1) : 0
+        gaps = n > 1 ? @spacing * (n - 1) : 0
 
         @total_grow = grow
         @grow_seen = 0
@@ -174,9 +205,10 @@ module Crysterm
         # harmless: it paints nothing while hidden, and showing it re-measures it.
         return if vacant? el
 
-        # Cross axis.
+        # Cross axis. A per-child `Hint#alignment` overrides the box's `#align`.
         cross = cross_extent interior
-        if @align.stretch?
+        align = align_of el
+        if align.stretch?
           if cross_flex? el
             # Fill the interior *minus* the child's cross-axis margins: the
             # assigned size is fixed and the render shift pushes it out by the
@@ -195,7 +227,7 @@ module Crysterm
           # the far edge and mis-center.
           cs = a_cross_size el
           cm = cross_margin el
-          off = case @align
+          off = case align
                 when .center? then (cross - cs - cm) // 2
                 when .end?    then cross - cs - cm
                 else               0
@@ -203,7 +235,7 @@ module Crysterm
           set_cross_pos el, (off < 0 ? 0 : off)
         end
 
-        # Main axis: explicit size wins; otherwise a grow-weighted share.
+        # Main axis: explicit size wins; otherwise a stretch-weighted share.
         size =
           if !@measured.has_key?(el)
             # Cumulative rounding: each child's size is the difference of
@@ -213,7 +245,7 @@ module Crysterm
             s =
               if @total_grow > 0
                 before = (@avail * @grow_seen) // @total_grow
-                @grow_seen += grow_of el
+                @grow_seen += stretch_of el
                 (@avail * @grow_seen) // @total_grow - before
               else
                 0
@@ -236,7 +268,7 @@ module Crysterm
         # Advance past this child's whole *margin* box, plus the base gap and its
         # justify share. Without the margin term the next child's `@cursor` would
         # land inside this one.
-        @cursor += size + main_margin(el) + @gap + gap_after
+        @cursor += size + main_margin(el) + @spacing + gap_after
       end
 
       # Cumulative justify offset laid down *before* the `j`-th placed child, so a
@@ -261,8 +293,14 @@ module Crysterm
         end
       end
 
-      private def grow_of(el : Widget) : Int32
-        (el.layout_hint.as?(Hint)).try(&.grow) || 1
+      private def stretch_of(el : Widget) : Int32
+        (el.layout_hint.as?(Hint)).try(&.stretch) || 1
+      end
+
+      # This child's cross-axis alignment: its `Hint#alignment` when set, else the
+      # box's own `#align`.
+      private def align_of(el : Widget) : Align
+        (el.layout_hint.as?(Hint)).try(&.alignment) || @align
       end
 
       # The child's total margin along the main axis (near + far).
@@ -290,11 +328,11 @@ module Crysterm
       end
 
       private def main_extent(interior : RenderedGeometry) : Int32
-        orientation.horizontal? ? interior.xl - interior.xi : interior.yl - interior.yi
+        orientation.horizontal? ? interior.width : interior.height
       end
 
       private def cross_extent(interior : RenderedGeometry) : Int32
-        orientation.horizontal? ? interior.yl - interior.yi : interior.xl - interior.xi
+        orientation.horizontal? ? interior.height : interior.width
       end
 
       private def main_size(el : Widget)

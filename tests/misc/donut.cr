@@ -25,7 +25,7 @@ gl = Widget::GaugeList.new parent: s, top: 0, left: 42, width: 34, height: 11,
 # FPS overlay (bottom-left): with the 60 fps cap, driving updates at ~60 Hz
 # shows the counter climbing toward 60.
 Widget::Fps.new parent: s, top: "100%-1", left: 0,
-  format: "FPS %5s  (R %5s / D %5s)", args: [:fps, :render, :draw],
+  format: "FPS %5s  (R %5s / D %5s)", args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw],
   style: Style.new(fg: "black", bg: 0x40e0c0)
 
 # Drive at ~60 Hz with a small per-frame step, so the animation stays smooth and
@@ -34,7 +34,7 @@ phase = 0.0
 s.every((1/60).seconds) do
   cpu.value = (Math.sin(phase) * 0.5 + 0.5) * 100
   mem.value = (Math.cos(phase * 0.7) * 0.5 + 0.5) * 100
-  gl.gauges.each_with_index { |g, i| gl[i] = (Math.sin(phase + i) * 0.5 + 0.5) * 100 }
+  gl.items.each_with_index { |g, i| gl[i] = (Math.sin(phase + i) * 0.5 + 0.5) * 100 }
   phase += 0.025
 end
 

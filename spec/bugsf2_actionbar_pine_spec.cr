@@ -100,7 +100,7 @@ describe "BUGS-F2 #15 ActionBar#select_index before first render moves `selected
 
     # No render yet: `@lpos` is nil.
     bar.select_index 2
-    bar.selected.should eq 2
+    bar.current_index.should eq 2
 
     # Enter activates `selected`; it must run command 2, not the stale 0.
     press bar, key: Tput::Key::Enter
@@ -118,15 +118,15 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
 
     # One direct invocation of the override = the intended per-key delta.
     view.on_keypress kp(key: Tput::Key::Down)
-    single = view.get_scroll
+    single = view.scroll_position
     single.should be > 0
 
     # Emitting through the registered handler(s) must move the SAME amount — the
     # old duplicate registration ran `on_keypress` twice, moving twice as far.
     view.reset_scroll
-    view.get_scroll.should eq 0
+    view.scroll_position.should eq 0
     e = emit_kp(view, key: Tput::Key::Down)
-    view.get_scroll.should eq single
+    view.scroll_position.should eq single
     e.accepted?.should be_true
   end
 
@@ -138,13 +138,13 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
     s._render
 
     view.on_keypress kp(key: Tput::Key::Down)
-    single = view.get_scroll
+    single = view.scroll_position
     single.should be > 0
 
     view.reset_scroll
-    view.get_scroll.should eq 0
+    view.scroll_position.should eq 0
     e = emit_kp(view, key: Tput::Key::Down)
-    view.get_scroll.should eq single
+    view.scroll_position.should eq single
     e.accepted?.should be_true
   end
 end
@@ -159,7 +159,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
     s._render
 
     e = emit_kp(input, key: Tput::Key::Down)
-    input.get_scroll.should be > 0
+    input.scroll_position.should be > 0
     e.accepted?.should be_true
   end
 

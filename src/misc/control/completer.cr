@@ -77,11 +77,11 @@ module Crysterm
 
       property completer : Completer?
 
-      def enter_selected
-        completer.try &.commit_index(selected)
+      def activate_current
+        completer.try &.commit_index(current_index)
       end
 
-      def cancel_selected
+      def cancel_current
         completer.try &.close
       end
 
@@ -89,7 +89,7 @@ module Crysterm
       # (re)shown, so the next Down advances to the *second* row rather than
       # merely revealing a cursor on the first.
       def reset_cursor : Nil
-        self.selected = 0
+        self.current_index = 0
       end
 
       # Down/Up single-step the highlight from the currently selected row. The
@@ -104,12 +104,12 @@ module Crysterm
       end
 
       # Arrow-key movement funnels through here so each keypress steps exactly one
-      # row: the base `move` would step by the raw offset, skipping rows, and
-      # `selected=` avoids recursing back into `move`. The wheel does *not* come
-      # through here — it has its own `#wheel_scroll`.
-      def move(offset) : Nil
-        return if offset == 0
-        self.selected = @selected + (offset > 0 ? 1 : -1)
+      # row: the base `move_selection` would step by the raw delta, skipping rows,
+      # and `current_index=` avoids recursing back into `move_selection`. The wheel
+      # does *not* come through here — it has its own `#wheel_scroll`.
+      def move_selection(delta : Int32) : Nil
+        return if delta == 0
+        self.current_index = @selected + (delta > 0 ? 1 : -1)
       end
 
       # The drop-down's auto-created scrollbar must not steal focus either — same
@@ -129,7 +129,9 @@ module Crysterm
       end
     end
 
-    @widget : Widget::LineEdit?
+    # The `Widget::LineEdit` this completer is attached to, or `nil` when
+    # detached (Qt's `QCompleter#widget`).
+    getter widget : Widget::LineEdit?
     @popup : Popup?
     @open = false
     @matches = [] of String
@@ -170,7 +172,7 @@ module Crysterm
       # re-enters read mode, appending it after ours, so a once-installed filter
       # would from the second focus on run before the box updates `#value` and
       # miss the keystroke.
-      @subs.on(widget, Crysterm::Event::Focus) { install_filter widget }
+      @subs.on(widget, Crysterm::Event::FocusIn) { install_filter widget }
       install_filter widget if widget.focused?
 
       # A press on the box while already focused toggles the popup. `Event::Mouse`
@@ -181,7 +183,7 @@ module Crysterm
       end
 
       # Don't leave an orphaned popup behind when focus leaves the box.
-      @subs.on(widget, Crysterm::Event::Blur) { close }
+      @subs.on(widget, Crysterm::Event::FocusOut) { close }
 
       # Tear down with the box: the popup is a *window* child, so destroying the
       # box alone would leave it in the window's children forever, with the
@@ -246,7 +248,7 @@ module Crysterm
       end
     end
 
-    # Moves the popup's highlight (Up/Down) and re-renders — `List#selected=`
+    # Moves the popup's highlight (Up/Down) and re-renders — `List#current_index=`
     # updates the cursor but doesn't itself repaint.
     private def move_popup(&block : Popup ->) : Nil
       return unless pop = @popup
@@ -307,7 +309,7 @@ module Crysterm
       pop = ensure_popup widget
       populate pop, widget
       pop.show
-      pop.front!
+      pop.to_front
       @open = true
       # Dismiss on a press outside both the drop-down and its box (a press on
       # the box itself is "inside" — its own handler toggles the list). No modal
@@ -342,7 +344,7 @@ module Crysterm
     end
 
     # Hides the popup (no change to the box). Public so the popup's
-    # `cancel_selected` can route an Escape/outside dismissal back here.
+    # `cancel_current` can route an Escape/outside dismissal back here.
     def close : Nil
       return unless @open
       @open = false
@@ -362,7 +364,7 @@ module Crysterm
     end
 
     private def accept_current : Nil
-      commit_index(@popup.try(&.selected) || 0)
+      commit_index(@popup.try(&.current_index) || 0)
     end
 
     private def ensure_popup(widget : Widget::LineEdit) : Popup

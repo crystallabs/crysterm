@@ -105,17 +105,17 @@ module Crysterm
         m
       end
 
-      def initialize(value : Int32 | Float64 | String | Nil = nil, digit_count = 5, mode : Mode = :dec, **box)
+      def initialize(value : Int | Float | String | Nil = nil, digit_count = 5, mode : Mode = :dec, **box)
         @digit_count = digit_count
         @mode = mode
 
         super **box
 
         case value
-        in Int32   then display value
-        in Float64 then display value
-        in String  then display value
-        in Nil     then update_content
+        in Int    then display value
+        in Float  then display value
+        in String then display value
+        in Nil    then update_content
         end
       end
 

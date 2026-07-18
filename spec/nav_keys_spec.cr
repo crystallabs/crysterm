@@ -41,54 +41,54 @@ describe Crysterm::Mixin::NavKeys do
   describe "ItemView selection maps the shared nav key-map" do
     it "Down / Up move the selection one item" do
       _, list = nk_list
-      list.selected.should eq 0
+      list.current_index.should eq 0
       nk_press list, key: Tput::Key::Down
-      list.selected.should eq 1
+      list.current_index.should eq 1
       nk_press list, key: Tput::Key::Up
-      list.selected.should eq 0
+      list.current_index.should eq 0
     end
 
     it "Home / End jump to the first / last item" do
       _, list = nk_list
       nk_press list, key: Tput::Key::End
-      list.selected.should eq 29
+      list.current_index.should eq 29
       nk_press list, key: Tput::Key::Home
-      list.selected.should eq 0
+      list.current_index.should eq 0
     end
 
     it "PageDown / PageUp move by a page (further than one item)" do
       _, list = nk_list
       nk_press list, key: Tput::Key::PageDown
-      paged = list.selected
+      paged = list.current_index
       paged.should be > 1
       nk_press list, key: Tput::Key::PageUp
-      list.selected.should be < paged
+      list.current_index.should be < paged
     end
 
     it "Ctrl-D / Ctrl-U move by a half page (bounded by the full page)" do
       _, list = nk_list
       nk_press list, key: Tput::Key::CtrlD
-      half = list.selected
+      half = list.current_index
       half.should be > 0
       nk_press list, key: Tput::Key::Home
       nk_press list, key: Tput::Key::PageDown
-      list.selected.should be >= half
+      list.current_index.should be >= half
     end
 
     it "binds vi j/k and g/G only when vi is enabled" do
       _, off = nk_list vi: false
       nk_press off, ch: 'j'
-      off.selected.should eq 0 # inert without vi
+      off.current_index.should eq 0 # inert without vi
 
       _, on = nk_list vi: true
       nk_press on, ch: 'j'
-      on.selected.should eq 1
+      on.current_index.should eq 1
       nk_press on, ch: 'k'
-      on.selected.should eq 0
+      on.current_index.should eq 0
       nk_press on, ch: 'G'
-      on.selected.should eq 29
+      on.current_index.should eq 29
       nk_press on, ch: 'g'
-      on.selected.should eq 0
+      on.current_index.should eq 0
     end
   end
 

@@ -18,7 +18,7 @@ module Crysterm
   end
 
   # --- Initial screen, on the default terminal. ---
-  s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
 
   btext = Widget::Box.new(
     parent: s,

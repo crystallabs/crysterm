@@ -27,9 +27,9 @@ describe "Pine::FileBrowser" do
     fb.refresh
     # Repo root (Dir.current) contains `src`; the rendered row decorates it
     # with color tags and a trailing slash.
-    fb.ritems.any?(&.includes?("src")).should be_true
+    fb.item_texts.any?(&.includes?("src")).should be_true
     # `..` is always prepended as the first entry.
-    fb.ritems.any?(&.includes?("..")).should be_true
+    fb.item_texts.any?(&.includes?("..")).should be_true
   end
 
   it "tracks the current directory" do

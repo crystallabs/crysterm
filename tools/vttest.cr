@@ -250,7 +250,7 @@ module VtDriver
       parent: window, top: 0, left: 0, width: "100%", height: "100%",
       shell: spawn_shell, args: spawn_args, env: {"TERM" => "vt100"})
     eof = false
-    term.on(::Crysterm::Event::Exit) { eof = true }
+    term.on(::Crysterm::Event::ProcessExited) { eof = true }
     window._render # first render bootstraps the widget: spawns vttest, starts its reader fiber
     emu = term.emulator
     unless emu

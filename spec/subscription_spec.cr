@@ -22,15 +22,15 @@ describe Crysterm::Subscription do
     fired = 0
     sub = Crysterm::Subscription.new
     sub.active?.should be_false
-    sub.on(w, Crysterm::Event::Focus) { fired += 1 }
+    sub.on(w, Crysterm::Event::FocusIn) { fired += 1 }
     sub.active?.should be_true
 
-    w.emit Crysterm::Event::Focus
+    w.emit Crysterm::Event::FocusIn
     fired.should eq 1
 
     sub.off
     sub.active?.should be_false
-    w.emit Crysterm::Event::Focus
+    w.emit Crysterm::Event::FocusIn
     fired.should eq 1 # no longer listening
   end
 
@@ -38,7 +38,7 @@ describe Crysterm::Subscription do
     s = sub_screen
     w = Widget::Box.new parent: s
     sub = Crysterm::Subscription.new
-    sub.on(w, Crysterm::Event::Blur) { }
+    sub.on(w, Crysterm::Event::FocusOut) { }
     sub.off
     sub.off # no crash, no double-remove
     sub.active?.should be_false
@@ -87,20 +87,20 @@ describe Crysterm::Subscriptions do
     subs = Crysterm::Subscriptions.new
     subs.empty?.should be_true
 
-    subs.on(w, Crysterm::Event::Focus) { focus += 1 }
-    subs.on(w, Crysterm::Event::Blur) { blur += 1 }
+    subs.on(w, Crysterm::Event::FocusIn) { focus += 1 }
+    subs.on(w, Crysterm::Event::FocusOut) { blur += 1 }
     subs.on(s, Crysterm::Event::Resize) { resize += 1 } # different target + event class
     subs.empty?.should be_false
 
-    w.emit Crysterm::Event::Focus
-    w.emit Crysterm::Event::Blur
+    w.emit Crysterm::Event::FocusIn
+    w.emit Crysterm::Event::FocusOut
     s.emit Crysterm::Event::Resize
     {focus, blur, resize}.should eq({1, 1, 1})
 
     subs.off
     subs.empty?.should be_true
-    w.emit Crysterm::Event::Focus
-    w.emit Crysterm::Event::Blur
+    w.emit Crysterm::Event::FocusIn
+    w.emit Crysterm::Event::FocusOut
     s.emit Crysterm::Event::Resize
     {focus, blur, resize}.should eq({1, 1, 1}) # nothing fired after bulk off
 
@@ -114,17 +114,17 @@ describe Crysterm::Subscriptions do
     a = 0
     b = 0
     subs = Crysterm::Subscriptions.new
-    one = subs.on(w, Crysterm::Event::Focus) { a += 1 }
-    subs.on(w, Crysterm::Event::Blur) { b += 1 }
+    one = subs.on(w, Crysterm::Event::FocusIn) { a += 1 }
+    subs.on(w, Crysterm::Event::FocusOut) { b += 1 }
 
     one.off # cancel just the first
-    w.emit Crysterm::Event::Focus
-    w.emit Crysterm::Event::Blur
+    w.emit Crysterm::Event::FocusIn
+    w.emit Crysterm::Event::FocusOut
     a.should eq 0
     b.should eq 1
 
     subs.off # the bulk off still cleanly handles the already-cancelled one
-    w.emit Crysterm::Event::Blur
+    w.emit Crysterm::Event::FocusOut
     b.should eq 1
   end
 end

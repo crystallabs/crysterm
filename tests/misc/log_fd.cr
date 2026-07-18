@@ -23,7 +23,7 @@ left = Widget::LogFd.new(
   "sh", ["-c", "i=0; while [ $i -lt 100 ]; do echo \"tick $i $(date +%H:%M:%S)\"; i=$((i+1)); sleep 0.4; done"],
   parent: win,
   top: 0, left: 0, width: "50%", height: "100%-1",
-  scrollback: 500, label: " ncsubproc: sh loop ",
+  max_lines: 500, label: " ncsubproc: sh loop ",
   style: Style.new(border: true))
 
 # Right: tail a plain in-process pipe (the `ncfdplane` case). We own the write
@@ -33,7 +33,7 @@ right = Widget::LogFd.new(
   io: reader,
   parent: win,
   top: 0, left: "50%", width: "50%", height: "100%-1",
-  scrollback: 500, label: " ncfdplane: IO pipe ",
+  max_lines: 500, label: " ncfdplane: IO pipe ",
   style: Style.new(border: true))
 
 Widget::Box.new(

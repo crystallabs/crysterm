@@ -24,8 +24,8 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate Event::Triggered
-      a.activate Event::Hovered
+      a.activate :trigger
+      a.activate :hover
 
       fired.should eq ["triggered", "hovered"]
     end
@@ -36,7 +36,7 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { order << 1 }
       a.on(Event::Triggered) { order << 2 }
 
-      a.activate Event::Triggered
+      a.activate :trigger
 
       order.should eq [1, 2]
     end
@@ -46,7 +46,7 @@ describe Crysterm::Action do
       triggered = 0
       a.on(Event::Triggered) { triggered += 1 }
 
-      a.activate Event::Hovered
+      a.activate :hover
 
       triggered.should eq 0
     end
@@ -58,8 +58,8 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate                # Triggered by default -> suppressed
-      a.activate Event::Hovered # hover still notifies
+      a.activate        # Triggered by default -> suppressed
+      a.activate :hover # hover still notifies
 
       fired.should eq ["hovered"]
 

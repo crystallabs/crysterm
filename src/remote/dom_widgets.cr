@@ -13,7 +13,7 @@ module Crysterm
       # via `#add_item`.
       def dom_attributes : Hash(String, String?)
         attrs = super
-        attrs["items"] = ritems.join('\n') unless ritems.empty?
+        attrs["items"] = item_texts.join('\n') unless item_texts.empty?
         attrs
       end
 

@@ -25,15 +25,15 @@ module Crysterm
     #
     # Drag the border, or any empty interior area, to move the dialog.
     #
-    # On Ok it emits `Event::Action` (the chosen `"#rrggbb"` hex) and
+    # On Ok it emits `Event::Activated` (the chosen `"#rrggbb"` hex) and
     # `Event::Accepted`; on Cancel/Escape it emits `Event::Rejected`. Either way
-    # it closes through `Dialog#done`. `#pick` delivers the hex (or `nil` when
+    # it closes through `Dialog#done`. `#get_color` delivers the hex (or `nil` when
     # cancelled) to a block, restoring the previously-focused widget.
     #
     # ```
     # dialog = Widget::ColorDialog.new parent: window, top: "center", left: "center",
     #   width: 56, height: 20, style: Style.new(border: true)
-    # dialog.pick { |hex| theme.accent = hex if hex }
+    # dialog.get_color { |hex| theme.accent = hex if hex }
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -70,12 +70,12 @@ module Crysterm
       ]
 
       # The basic palette, in display order.
-      getter colors : Array(String)
+      getter standard_colors : Array(String)
 
       # Current color as HSV: hue 0..360, saturation/value 0..1.
       getter hue : Float64 = 0.0
       getter saturation : Float64 = 1.0
-      getter value_v : Float64 = 1.0
+      getter hsv_value : Float64 = 1.0
 
       @preview : Box?
       @hexbox : LineEdit?
@@ -122,11 +122,11 @@ module Crysterm
       @hue_attrs = [] of Int64
       @hue_attrs_flags : Int64? = nil # style flags folded into the hue cache
 
-      def initialize(colors : Array(String)? = nil, **box)
-        @colors = colors || DEFAULT_COLORS
+      def initialize(standard_colors : Array(String)? = nil, **box)
+        @standard_colors = standard_colors || DEFAULT_COLORS
         # One custom slot per basic color, minus the cell taken by the "+"
         # button, so the custom row lines up with the palette above.
-        @custom_colors = Array(String?).new(Math.max(@colors.size - 1, 1), nil)
+        @custom_colors = Array(String?).new(Math.max(@standard_colors.size - 1, 1), nil)
 
         super **box
 
@@ -139,7 +139,7 @@ module Crysterm
 
       # The current color as a `"#rrggbb"` hex string.
       def current_color : String
-        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @value_v))
+        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @hsv_value))
         "#%02x%02x%02x" % {r, g, b}
       end
 
@@ -158,12 +158,12 @@ module Crysterm
       # Shows the dialog and runs *block* with the chosen hex (or `nil` on
       # cancel). Saves and later restores focus, and installs the modal Enter
       # (accept) / Escape (reject) accelerator.
-      def pick(&block : String? -> Nil) : Nil
+      def get_color(&block : String? -> Nil) : Nil
         @callback = block
         window.save_focus
         @result = Code::Rejected.to_i
         show
-        front!
+        to_front
         focus
         install_dialog_keys
         request_render
@@ -184,7 +184,7 @@ module Crysterm
       private def build_children
         # The right-hand editor area's width matches the row of basic colors
         # below it, so the preview and editor columns line up with the palette.
-        info_w = Math.max(@colors.size * COLOR_W - INFO_X, COLOR_W)
+        info_w = Math.max(@standard_colors.size * COLOR_W - INFO_X, COLOR_W)
 
         # Live preview swatch: no border, so the color fills it.
         @preview = Box.new parent: self, top: PREVIEW_Y, left: INFO_X, width: info_w,
@@ -193,7 +193,7 @@ module Crysterm
         # Column headers: same width/gap as the editor columns below, so an
         # `HBox` lands them on the same column fences.
         headers = Box.new parent: self, top: HEAD_Y, left: INFO_X, width: info_w, height: 1,
-          layout: Layout::HBox.new(gap: 1)
+          layout: Layout::HBox.new(spacing: 1)
         {"RGB", "HSV", "HSL"}.each do |name|
           Box.new parent: headers, height: 1, align: :left, content: name
         end
@@ -201,7 +201,7 @@ module Crysterm
         # Three side-by-side editor columns — RGB, HSV, HSL — each a small
         # `Form` (label column + field), shared evenly by the `HBox`.
         cols = Box.new parent: self, top: COLS_Y, left: INFO_X, width: info_w, height: COLS_H,
-          layout: Layout::HBox.new(gap: 1)
+          layout: Layout::HBox.new(spacing: 1)
 
         rgbcol = column_box cols
         @rspin = column_spin(rgbcol, "R", 0, 255) { apply_rgb_spins }
@@ -222,12 +222,12 @@ module Crysterm
         # hardcoded color, so they follow the terminal default/theme (only the
         # swatches/preview/gradient use functional color).
         hexrow = Box.new parent: self, top: HEX_Y, left: INFO_X, width: info_w, height: 1,
-          layout: Layout::Form.new(label_width: 4, column_gap: 0)
+          layout: Layout::Form.new(label_width: 4, horizontal_spacing: 0)
         Box.new parent: hexrow, height: 1, content: "Hex"
         @hexbox = hb = LineEdit.new parent: hexrow, height: 1
         # Applies live on every keystroke and on Enter; the cosmetic leading
         # space is stripped, and `current_color=` ignores half-typed specs.
-        hb.on(Crysterm::Event::Submit) { |e| self.current_color = e.value.strip }
+        hb.on(Crysterm::Event::Submitted) { |e| self.current_color = e.value.strip }
         hb.on(Crysterm::Event::TextChanged) do |e|
           next if @syncing
           self.current_color = e.value.strip
@@ -236,7 +236,7 @@ module Crysterm
         # Basic palette: one click sets the color; a centered marker shows which
         # entry, if any, is current.
         x = 0
-        @colors.each do |name|
+        @standard_colors.each do |name|
           sw = Box.new parent: self, top: PAL_Y, left: x, width: COLOR_W, height: 1,
             align: :center, style: Style.new(bg: name)
           sw.on(Crysterm::Event::Click) { self.current_color = name; request_render }
@@ -250,7 +250,7 @@ module Crysterm
         # row one column right and overrun its right edge.
         add = Button.new parent: self, top: CUST_Y, left: 0, width: COLOR_W, height: 1,
           content: "+", align: :center, focus_on_click: false
-        add.on(Crysterm::Event::Press) { store_custom }
+        add.on(Crysterm::Event::Pressed) { store_custom }
         # Slots sit flush against the "+" button. Empty ones carry a "·"
         # placeholder so they read as slots before anything is stored.
         cx = COLOR_W
@@ -274,15 +274,15 @@ module Crysterm
         bb.on(Crysterm::Event::Accepted) { accept }
         bb.on(Crysterm::Event::Rejected) { reject }
 
-        pick = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
+        eyedropper = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
           content: "Pick", align: :center, focus_on_click: false
-        pick.tool_tip = "Pick a color from anywhere on the window"
-        pick.on(Crysterm::Event::Press) { begin_pick }
+        eyedropper.tool_tip = "Pick a color from anywhere on the window"
+        eyedropper.on(Crysterm::Event::Pressed) { begin_eyedropper }
       end
 
       # A `Form`-based editor column: a 1-cell label column plus its field.
       private def column_box(parent : Widget) : Box
-        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, column_gap: 1)
+        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, horizontal_spacing: 1)
       end
 
       # Appends a `"<label> [field]"` row to a `column_box`, returning the
@@ -291,7 +291,7 @@ module Crysterm
       private def column_spin(col : Widget, label : String, min : Int32, max : Int32, &apply : -> Nil) : LineEdit
         Box.new parent: col, height: 1, content: label
         le = LineEdit.new parent: col, height: 1
-        le.on(Crysterm::Event::Submit) { apply.call }
+        le.on(Crysterm::Event::Submitted) { apply.call }
         le.on(Crysterm::Event::TextChanged) do
           next if @syncing
           apply.call
@@ -347,14 +347,14 @@ module Crysterm
       end
 
       private def set_rgb(r : Int32, g : Int32, b : Int32) : Nil
-        @hue, @saturation, @value_v = Colors.rgb_to_hsv(Colors.rgb(r, g, b))
+        @hue, @saturation, @hsv_value = Colors.rgb_to_hsv(Colors.rgb(r, g, b))
         refresh_ui
       end
 
       private def set_hsv(h : Float64, s : Float64, v : Float64) : Nil
         @hue = h.clamp(0.0, 360.0)
         @saturation = s.clamp(0.0, 1.0)
-        @value_v = v.clamp(0.0, 1.0)
+        @hsv_value = v.clamp(0.0, 1.0)
         refresh_ui
       end
 
@@ -374,7 +374,7 @@ module Crysterm
       private def refresh_ui : Nil
         @syncing = true
         hex = current_color
-        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @value_v))
+        r, g, b = Colors.rgb_channels(Colors.hsv_i(@hue, @saturation, @hsv_value))
         if pv = @preview
           paint_swatch pv, hex
         end
@@ -383,7 +383,7 @@ module Crysterm
         sync_field @bspin, b.to_s
         sync_field @hspin, @hue.round.to_i.to_s
         sync_field @sspin, (@saturation * 100).round.to_i.to_s
-        sync_field @vspin, (@value_v * 100).round.to_i.to_s
+        sync_field @vspin, (@hsv_value * 100).round.to_i.to_s
         lh, ls, ll = Colors.rgb_to_hsl(Colors.rgb(r, g, b))
         sync_field @lhspin, lh.round.to_i.to_s
         sync_field @lsspin, (ls * 100).round.to_i.to_s
@@ -406,7 +406,7 @@ module Crysterm
       private def mark_palette_selection(r : Int32, g : Int32, b : Int32) : Nil
         cur = Colors.rgb(r, g, b)
         @palette_swatches.each_with_index do |sw, i|
-          name = @colors[i]?
+          name = @standard_colors[i]?
           next unless name
           selected =
             begin
@@ -450,9 +450,9 @@ module Crysterm
         hide
         end_move
         release_window_state
-        # The chosen value goes out before the outcome, so an `Action` handler
+        # The chosen value goes out before the outcome, so an `Activated` handler
         # sees the color while `Accepted` is still pending.
-        emit Crysterm::Event::Action, color if color
+        emit Crysterm::Event::Activated, color if color
         done(color ? Code::Accepted : Code::Rejected)
         cb = @callback
         @callback = nil
@@ -496,18 +496,18 @@ module Crysterm
         # act instead of the color silently changing.
         if e.action.wheel_up?
           if in_hue
-            set_hsv(@hue + 10, @saturation, @value_v)
+            set_hsv(@hue + 10, @saturation, @hsv_value)
             e.accept
           elsif in_field
-            set_hsv(@hue, @saturation, @value_v + 0.05)
+            set_hsv(@hue, @saturation, @hsv_value + 0.05)
             e.accept
           end
         elsif e.action.wheel_down?
           if in_hue
-            set_hsv(@hue - 10, @saturation, @value_v)
+            set_hsv(@hue - 10, @saturation, @hsv_value)
             e.accept
           elsif in_field
-            set_hsv(@hue, @saturation, @value_v - 0.05)
+            set_hsv(@hue, @saturation, @hsv_value - 0.05)
             e.accept
           end
         elsif e.action.down? || (e.action.move? && !e.button.none?)
@@ -518,7 +518,7 @@ module Crysterm
             e.accept
           elsif in_hue
             h = (e.y - (oy + HUE_Y)) / (HUE_H - 1).to_f * 360.0
-            set_hsv h, @saturation, @value_v
+            set_hsv h, @saturation, @hsv_value
             e.accept
           elsif e.action.down?
             # A press on the border or any empty interior area starts moving the
@@ -564,7 +564,7 @@ module Crysterm
       # The modal grab keeps that click from also activating whatever is beneath
       # it; the window-level `Event::Mouse`, emitted before hit-testing, still
       # delivers the coordinates here.
-      private def begin_pick : Nil
+      private def begin_eyedropper : Nil
         return if @picking
         scr = window? || return
         @picking = true
@@ -572,12 +572,12 @@ module Crysterm
         @ev_pick.on(scr, Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           e.accept
-          end_pick e.x, e.y
+          end_eyedropper e.x, e.y
         end
         request_render
       end
 
-      private def end_pick(x : Int32, y : Int32) : Nil
+      private def end_eyedropper(x : Int32, y : Int32) : Nil
         return unless @picking
         @picking = false
         @ev_pick.off
@@ -611,7 +611,7 @@ module Crysterm
         return ret unless ret && window?
         # Style flags are invariant across every cell of the field and hue bar
         # (only fg/bg vary), so they are derived once and folded into the cache.
-        flags = Attr.flags sattr(style)
+        flags = Attr.flags style_to_attr(style)
         # The overlays paint at raw absolute coords, so they take the clipped
         # geometry: otherwise they wrap (negative indices) or escape the clip.
         draw_field flags, ret
@@ -663,7 +663,7 @@ module Crysterm
         ox = aleft + ileft
         oy = atop + itop
         cur_sx = ox + FIELD_X + (@saturation * (FIELD_W - 1)).round.to_i
-        cur_sy = oy + FIELD_Y + ((1.0 - @value_v) * (FIELD_H - 1)).round.to_i
+        cur_sy = oy + FIELD_Y + ((1.0 - @hsv_value) * (FIELD_H - 1)).round.to_i
         attrs = field_attrs flags
 
         (0...FIELD_H).each do |row|
@@ -708,11 +708,11 @@ module Crysterm
       # is drawn in a contrasting fg over the swatch.
       private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : RenderedGeometry) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
-        put_cell_attr x, y, ch, sattr(style, fg, bg), clip
+        put_cell_attr x, y, ch, style_to_attr(style, fg, bg), clip
       end
 
       # Writes one cell with an already-packed attr, bypassing per-cell
-      # `Colors.hsv_i`/`sattr`. Cells outside the clip (a partially offscreen or
+      # `Colors.hsv_i`/`style_to_attr`. Cells outside the clip (a partially offscreen or
       # parent-clipped dialog) must be dropped: a negative index would wrap to
       # the far side of the screen buffer.
       private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry) : Nil

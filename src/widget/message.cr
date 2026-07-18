@@ -62,14 +62,9 @@ module Crysterm
         end
       end
 
-      # Alias of `#display`, with a block-less overload for the common
-      # fire-and-forget call.
-      def log(text, time : Time::Span? = Crysterm::Config.message_display_time)
+      # Block-less overload for the common fire-and-forget call.
+      def display(text, time : Time::Span? = Crysterm::Config.message_display_time)
         display(text, time) { }
-      end
-
-      def log(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        display(text, time, &callback)
       end
 
       # Removes the keypress-dismiss subscription (armed on the *window* by a
@@ -122,10 +117,6 @@ module Crysterm
       # acknowledging it — so Escape/Cancel resolves the same way as `#accept`.
       def reject : Nil
         accept
-      end
-
-      def error(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end
 
       # Severity of a message, mirroring Qt's `QMessageBox` icons. Each maps

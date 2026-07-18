@@ -26,7 +26,7 @@ describe "Widget#render_style_for" do
     # A visibly-styled selection (real selection color) resolves verbatim — no
     # reverse-video fallback is synthesized (see the floor case below).
     list.styles.selected = Style.new bg: "red"
-    list.selected = 1
+    list.current_index = 1
 
     list.render_style_for(list.items[1]).should be(list.styles.selected)
     list.render_style_for(list.items[0]).should be(list.style.item)
@@ -38,7 +38,7 @@ describe "Widget#render_style_for" do
     # color that reads on any terminal background.
     s = headless_screen
     list = Widget::List.new parent: s, items: ["a", "b", "c"]
-    list.selected = 1
+    list.current_index = 1
 
     selected = list.render_style_for(list.items[1])
     selected.reverse?.should be_true

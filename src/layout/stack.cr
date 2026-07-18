@@ -16,9 +16,52 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Stack < Layout
       # Index of the child to show. Clamped to the available children at render.
-      property current_index : Int32
+      # Change-guarded so switching pages repaints the container.
+      @current_index : Int32
+
+      # :ditto:
+      def current_index : Int32
+        @current_index
+      end
+
+      # :ditto:
+      def current_index=(value : Int32) : Int32
+        return value if value == @current_index
+        @current_index = value
+        invalidate
+        value
+      end
 
       def initialize(@current_index : Int32 = 0)
+      end
+
+      # Number of pages — the arrangeable children `#arrange` addresses by
+      # `#current_index` (layout-excluded chrome doesn't count). Zero when the
+      # layout isn't installed on a container.
+      def count : Int32
+        c = container
+        c ? arrangeable_count(c) : 0
+      end
+
+      # The page currently shown — the child at `#current_index`, clamped exactly
+      # as `#arrange` clamps it. Nil when there are no pages / no container.
+      def current_widget : Widget?
+        n = count
+        return nil if n == 0
+        widget current_index.clamp(0, n - 1)
+      end
+
+      # The page (arrangeable child) at *index* in page order, or nil when out of
+      # range or not installed on a container.
+      def widget(index : Int32) : Widget?
+        c = container
+        return nil if c.nil? || index < 0
+        i = 0
+        each_arrangeable(c) do |el|
+          return el if i == index
+          i += 1
+        end
+        nil
       end
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil

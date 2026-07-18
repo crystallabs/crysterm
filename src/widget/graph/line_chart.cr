@@ -87,9 +87,28 @@ module Crysterm
         getter series : Array(Series) = [] of Series
         getter axis_x : Axis = Axis.new
         getter axis_y : Axis = Axis.new
-        property title : String
-        property? show_legend : Bool
+        getter title : String
+        getter? show_legend : Bool
         property? show_grid : Bool
+
+        # Title/legend affect only the chrome (title also shifts the margins), not
+        # the Canvas raster, so no `invalidate_paint`; but a plain `property`
+        # setter schedules nothing, leaving the change invisible on an idle
+        # screen. `mark_dirty` registers damage, schedules a frame and invalidates
+        # the frame-memoized minimal-rectangle chain the title's margin feeds.
+        def title=(v : String) : String
+          return v if v == @title
+          @title = v
+          mark_dirty
+          v
+        end
+
+        def show_legend=(v : Bool) : Bool
+          return v if v == @show_legend
+          @show_legend = v
+          mark_dirty
+          v
+        end
 
         # Toggling the grid changes what `#paint_plot` draws, so the setter must
         # invalidate the Canvas raster — which otherwise skips its repaint — and
@@ -261,6 +280,11 @@ module Crysterm
           @ticks_key = key
           fill_axis @x_ticks, @x_labels, axis_x, @xmin, @xmax
           fill_axis @y_ticks, @y_labels, axis_y, @ymin, @ymax
+          # The key covers every input `paint_plot` reads (resolved ranges, tick
+          # counts, formats), so any of those changing means the plotted window
+          # and grid are stale — invalidate the Canvas so it re-rasters this
+          # frame instead of leaving the raster at the old scale under new labels.
+          plot?.try &.invalidate_paint
         end
 
         private def fill_axis(ticks : Array(Float64), labels : Array(String),

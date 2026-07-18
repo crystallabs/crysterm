@@ -9,7 +9,7 @@ include Crysterm
 #   #2 `Window#draw` must translate the tracked physical cursor row
 #      (`tput.cursor.y`) back into surface space before using it as a `@lines`
 #      index for the artificial cursor.
-#   #3 A dirty (re)alloc resets `@olines` to blanks, so the inline region must
+#   #3 A dirty (re)alloc resets `@flushed_lines` to blanks, so the inline region must
 #      be physically erased too — otherwise blank cells diff as unchanged and
 #      stale terminal content persists.
 private def inline_window(width : Int32? = 40, height : Int32? = 6)
@@ -66,7 +66,7 @@ describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
     s.render_row_offset = 10
     s.alloc
 
-    # Stable content; primes @olines to mirror @lines.
+    # Stable content; primes @flushed_lines to mirror @lines.
     s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
     s.lines.each &.dirty=(true)
     s.draw
@@ -82,14 +82,14 @@ describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
     s.tput.cursor.y = 12
     s.draw
 
-    # The cursor must composite into surface row 2 (REVERSE attr in @olines) —
+    # The cursor must composite into surface row 2 (REVERSE attr in @flushed_lines) —
     # untranslated it would either land on row 12 (out of range here) or not
     # be drawn at all.
-    (Attr.flags(s.olines[2][3].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.flushed_lines[2][3].attr) & Attr::REVERSE).should_not eq 0
     # No other row got the cursor.
-    s.olines.size.times do |y|
+    s.flushed_lines.size.times do |y|
       next if y == 2
-      (Attr.flags(s.olines[y][3].attr) & Attr::REVERSE).should eq 0
+      (Attr.flags(s.flushed_lines[y][3].attr) & Attr::REVERSE).should eq 0
     end
   end
 

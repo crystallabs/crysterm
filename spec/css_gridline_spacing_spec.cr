@@ -77,17 +77,17 @@ describe "spacing" do
   it "sets the layout gap from CSS" do
     screen = headless_screen
     box = Widget::Box.new parent: screen,
-      layout: Layout::Box.new(orientation: Layout::Box::Orientation::Horizontal)
+      layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
     screen.stylesheet = "Box { spacing: 3; }"
     screen.apply_stylesheet
 
-    box.layout.not_nil!.gap.should eq 3
+    box.layout.not_nil!.spacing.should eq 3
   end
 
   it "separates HBox children by the CSS spacing" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 40, height: 6,
-      layout: Layout::Box.new(orientation: Layout::Box::Orientation::Horizontal)
+      layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
     Widget::Box.new parent: box, width: 6, height: 4
     b = Widget::Box.new parent: box, width: 6, height: 4
     box.add_css_class "spaced"
@@ -102,9 +102,9 @@ describe "spacing" do
   end
 
   it "is inherited on the Layout base so flow layouts accept it too" do
-    # gap lives on Layout, so a flow layout exposes the setter even though it
+    # spacing lives on Layout, so a flow layout exposes the setter even though it
     # doesn't act on it. Guards the lifted-to-base refactor.
-    Layout::Wrap.new.gap.should eq 0
-    Layout::Box.new.responds_to?(:gap=).should be_true
+    Layout::Wrap.new.spacing.should eq 0
+    Layout::Box.new.responds_to?(:spacing=).should be_true
   end
 end

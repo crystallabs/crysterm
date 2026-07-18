@@ -648,7 +648,7 @@ module Crysterm
 
       # One-shot guard for the self lifecycle hooks, so re-registering the
       # window listener after a move doesn't stack duplicate
-      # `Attach`/`Reparent`/`Detach` handlers on this widget.
+      # `Attached`/`Reparented`/`Detached` handlers on this widget.
       @render_hook_wired = false
 
       # Registers *block* to run after every window render on *s*, remembering
@@ -661,7 +661,7 @@ module Crysterm
       end
 
       # Registers *block* now when a window is resolvable, else defers to the
-      # `Attach`/`Reparent` hooks. A backend built detached (compose-then-attach,
+      # `Attached`/`Reparented` hooks. A backend built detached (compose-then-attach,
       # or a parent not yet on a `Window`) has no window at construction, so
       # calling the raising `window` accessor here would crash.
       protected def register_render_hook_deferred(&block : ::Crysterm::Event::Rendered ->)
@@ -675,20 +675,20 @@ module Crysterm
 
       # Wires this widget's own lifecycle hooks, exactly once per widget:
       #
-      # * `Attach`/`Reparent` — wired unconditionally, not only for a detached
+      # * `Attached`/`Reparented` — wired unconditionally, not only for a detached
       #   construction, so a widget built already-attached still migrates its
       #   listener when later moved to a different window. The
-      #   `@listener_screen` guard makes a same-window `Reparent` a no-op.
-      # * `Detach` — a cross-window reparent emits `Detach(previous)` then
+      #   `@listener_screen` guard makes a same-window `Reparented` a no-op.
+      # * `Detached` — a cross-window reparent emits `Detach(previous)` then
       #   `Attach(new)`: drop the old window's `Rendered` listener so the paint
       #   block stops firing off a window the widget no longer lives on, and the
       #   old window stops referencing `self`.
       private def wire_render_hook_lifecycle
         return if @render_hook_wired
         @render_hook_wired = true
-        on(::Crysterm::Event::Attach) { try_register_render_hook_deferred }
-        on(::Crysterm::Event::Reparent) { try_register_render_hook_deferred }
-        on(::Crysterm::Event::Detach) { teardown_render_hook }
+        on(::Crysterm::Event::Attached) { try_register_render_hook_deferred }
+        on(::Crysterm::Event::Reparented) { try_register_render_hook_deferred }
+        on(::Crysterm::Event::Detached) { teardown_render_hook }
       end
 
       # Registers the retained block on the current window, guarded on
@@ -703,7 +703,7 @@ module Crysterm
       end
 
       # Removes the listener and forgets the window. The paint block is retained
-      # so an `Attach` to another window can re-register it.
+      # so an `Attached` to another window can re-register it.
       protected def teardown_render_hook
         s = @listener_screen || return
         @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }

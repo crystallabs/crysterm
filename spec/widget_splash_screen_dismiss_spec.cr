@@ -24,7 +24,7 @@ describe Crysterm::Widget::SplashScreen do
     s = splash_screen_win
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8
     count = 0
-    sp.on(Crysterm::Event::Complete) { count += 1 }
+    sp.on(Crysterm::Event::Completed) { count += 1 }
     sp.finish
     sp.finish # racing click + finish_after must not double-fire
     count.should eq 1
@@ -35,7 +35,7 @@ describe Crysterm::Widget::SplashScreen do
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8
     sp.dismiss_on_event?.should be_true
     done = false
-    sp.on(Crysterm::Event::Complete) { done = true }
+    sp.on(Crysterm::Event::Completed) { done = true }
     sp.emit Crysterm::Event::Mouse, splash_mouse_down.mouse
     done.should be_true
     s.children.includes?(sp).should be_false
@@ -45,7 +45,7 @@ describe Crysterm::Widget::SplashScreen do
     s = splash_screen_win
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8, dismiss_on_event: false
     done = false
-    sp.on(Crysterm::Event::Complete) { done = true }
+    sp.on(Crysterm::Event::Completed) { done = true }
     sp.emit Crysterm::Event::Mouse, splash_mouse_down.mouse
     done.should be_false
     s.children.includes?(sp).should be_true

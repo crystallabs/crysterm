@@ -34,11 +34,42 @@ module Crysterm
     # Layout engine arranging this widget's children, or `nil` for manual
     # placement, in which case `#_render` uses `Layout::Manual`. Mirrors Qt's
     # null `QWidget::layout()`.
-    property layout : Crysterm::Layout? = nil
+    @layout : Crysterm::Layout? = nil
+
+    # :ditto:
+    def layout : Crysterm::Layout?
+      @layout
+    end
+
+    # :ditto: — change-guarded. Installs the layout's `#container` back-pointer
+    # (and clears the outgoing one), then schedules a repaint so the newly
+    # installed engine arranges the children.
+    def layout=(value : Crysterm::Layout?) : Crysterm::Layout?
+      return value if value == @layout
+      @layout.try(&.container=(nil))
+      @layout = value
+      value.try(&.container=(self))
+      mark_dirty
+      value
+    end
 
     # Optional per-child hint read by this widget's *parent's* layout engine
-    # (Border region, Grid cell+span, flex grow factor).
-    property layout_hint : Crysterm::Layout::Hint? = nil
+    # (Border region, Grid cell+span, flex stretch factor).
+    @layout_hint : Crysterm::Layout::Hint? = nil
+
+    # :ditto:
+    def layout_hint : Crysterm::Layout::Hint?
+      @layout_hint
+    end
+
+    # :ditto: — change-guarded; a real change repaints (so the parent's engine
+    # re-places this child).
+    def layout_hint=(value : Crysterm::Layout::Hint?) : Crysterm::Layout::Hint?
+      return value if value == @layout_hint
+      @layout_hint = value
+      mark_dirty
+      value
+    end
 
     # Whether this widget keeps its layout slot while hidden (Qt's
     # `QSizePolicy#retainSizeWhenHidden`). Off by default, so hiding a child of
@@ -122,7 +153,7 @@ module Crysterm
       # Let the parent dictate this widget's render style (a list highlights its
       # selected row); an ordinary parent just hands back our own style.
       # `own_style` lets `default_attr` below detect when the render style IS our
-      # own and reuse the `sattr` from `process_content`.
+      # own and reuse the `style_to_attr` from `process_content`.
       own_style = self.style
       style = parent.try(&.render_style_for(self)) || own_style
 
@@ -173,7 +204,7 @@ module Crysterm
       ensure_css_animation
 
       lines = scr.lines
-      fu = scr.full_unicode?
+      fu = scr.full_unicode_effective?
       # A layer root's alpha is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while painting into the plane.
       style_alpha = @compositing ? nil : style.alpha?
@@ -204,10 +235,10 @@ module Crysterm
 
       register_dock_stops coords
 
-      # `process_content` already cached `sattr(self.style)` in `@_parse_attr_default`;
-      # reuse it unless a parent substituted a style. `|| sattr(style)` is a
+      # `process_content` already cached `style_to_attr(self.style)` in `@_parse_attr_default`;
+      # reuse it unless a parent substituted a style. `|| style_to_attr(style)` is a
       # defensive fallback.
-      default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || sattr(style)
+      default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || style_to_attr(style)
       attr = default_attr
 
       # If we're in a scrollable text box, check to
@@ -235,7 +266,7 @@ module Crysterm
       # fill). A background-image widget keeps the whole-box fill; a
       # `fill: false` widget must not be filled at all.
       if padding.any? || !@align.top?
-        if alpha = style_alpha
+        if (alpha = style_alpha) && fill
           # Pre-blend only the bands the content loop won't reach: it blends the
           # content region itself, and blending twice makes a padded translucent
           # widget's interior more opaque than its padding. A background-image
@@ -388,7 +419,7 @@ module Crysterm
             if content[ci]? == '[' && (m = sgr_terminator(content, ci + 1))
               # `m` is the index of the trailing 'm'. Parse params straight out of
               # `content` (no substring), then advance past the 'm'.
-              attr = scr.attr2code(content, ci - 1, m, attr, default_attr)
+              attr = scr.sgr_to_attr(content, ci - 1, m, attr, default_attr)
               ci = m + 1
               # Selected items keep the default fg; the rest of the attr changes.
               if keep_selected_fg
@@ -590,11 +621,11 @@ module Crysterm
         border_bg = border.bg || style.bg
         # All four sides share `border` as the style object, so the SGR flag word
         # is identical across them — computed once, with only the fg per side.
-        border_flags = self.class.sattr_flags(border)
-        top_attr = self.class.sattr_pack border_flags, border, border.top_fg, border_bg
-        bottom_attr = self.class.sattr_pack border_flags, border, border.bottom_fg, border_bg
-        left_attr = self.class.sattr_pack border_flags, border, border.left_fg, border_bg
-        right_attr = self.class.sattr_pack border_flags, border, border.right_fg, border_bg
+        border_flags = self.class.style_to_attr_flags(border)
+        top_attr = self.class.pack_attr border_flags, border, border.top_fg, border_bg
+        bottom_attr = self.class.pack_attr border_flags, border, border.bottom_fg, border_bg
+        left_attr = self.class.pack_attr border_flags, border, border.left_fg, border_bg
+        right_attr = self.class.pack_attr border_flags, border, border.right_fg, border_bg
 
         # The glyph family with any per-position char overrides (CSS
         # `border-chars`/`border-top-left-char` …) merged over it, resolved once
@@ -723,7 +754,15 @@ module Crysterm
       if with_children
         # The installed layout engine positions/renders children; with none, the
         # shared `Layout::Manual` renders each at its own coordinates.
-        (@layout || Crysterm::Layout::Manual::DEFAULT).render_children self
+        if l = @layout
+          # Back-pointer, set here too so engines installed by direct `@layout =`
+          # (bypassing `#layout=`) still resolve their container. Never set on the
+          # shared `Manual::DEFAULT`, which serves every layout-less widget.
+          l.container = self
+          l.render_children self
+        else
+          Crysterm::Layout::Manual::DEFAULT.render_children self
+        end
       end
 
       emit Crysterm::Event::Rendered
@@ -757,7 +796,7 @@ module Crysterm
     # neighbors. Only rows with horizontal segments need registering (verticals
     # dock when a horizontal stop crosses them). Base registers top/bottom rows
     # of a line-type border; widgets drawing lines otherwise override this.
-    def register_dock_stops(coords)
+    protected def register_dock_stops(coords : RenderedGeometry)
       style.border.try do |border|
         if border.any? && border.type.line?
           # A widget rendering into a compositing plane registers on the *plane*
@@ -793,7 +832,7 @@ module Crysterm
       stops.clear
       rows.each { |y| stops[y] = true }
       return if stops.empty?
-      Docking.dock scr.lines, stops, scr.awidth, contrast, scr.glyph_tier.ascii?
+      Docking.dock scr.lines, stops, scr.awidth, contrast, ascii: scr.glyph_tier.ascii?
     end
 
     @[AlwaysInline]
@@ -805,7 +844,7 @@ module Crysterm
     # the corner block with the corner glyph. A side with 0 thickness never sets
     # its flag (`in_top` is `y < yi + 0`, always false at the edge), so a
     # corner degrades to the crossing run glyph.
-    def border_char(border, g, in_top, in_bot, in_left, in_right)
+    protected def border_char(border, g, in_top, in_bot, in_left, in_right)
       h_band = in_top || in_bot
       v_band = in_left || in_right
 
@@ -912,12 +951,12 @@ module Crysterm
 
     # The 7-predicate SGR flag word for *style* (visible?/reverse?/blink?/
     # underline?/italic?/strike?/bold?), independent of any fg/bg. Factored out
-    # of `#sattr` so a caller that needs the packed attr for several fg/bg
+    # of `#style_to_attr` so a caller that needs the packed attr for several fg/bg
     # combinations of the *same* style (e.g. a widget's four border sides,
     # which all share `border` as the style object) can compute this once and
-    # reuse it via `#sattr_pack`, instead of paying for the predicate calls
+    # reuse it via `#pack_attr`, instead of paying for the predicate calls
     # again on every combination.
-    def self.sattr_flags(style) : Int32
+    def self.style_to_attr_flags(style) : Int32
       # TODO support style.* being Procs ?
       (style.visible? ? 0 : Attr::INVISIBLE) |
         (style.reverse? ? Attr::REVERSE : 0) |
@@ -928,10 +967,10 @@ module Crysterm
         (style.bold? ? Attr::BOLD : 0)
     end
 
-    # Packs a precomputed flag word (see `#sattr_flags`) together with *fg*/
-    # *bg* into a full attr, applying the same "both unset falls back to the
-    # style's own fg/bg" rule as `#sattr`.
-    def self.sattr_pack(flags : Int32, style, fg = nil, bg = nil) : Int64
+    # Packs a precomputed flag word (see `#style_to_attr_flags`) together with
+    # *fg*/*bg* into a full attr, applying the same "both unset falls back to
+    # the style's own fg/bg" rule as `#style_to_attr`.
+    def self.pack_attr(flags : Int32, style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
@@ -943,12 +982,12 @@ module Crysterm
       Attr.pack(flags, Attr.pack_color(fg || -1), Attr.pack_color(bg || -1))
     end
 
-    def self.sattr(style, fg = nil, bg = nil) : Int64
-      sattr_pack sattr_flags(style), style, fg, bg
+    def self.style_to_attr(style, fg = nil, bg = nil) : Int64
+      pack_attr style_to_attr_flags(style), style, fg, bg
     end
 
-    def sattr(style, fg = nil, bg = nil)
-      self.class.sattr style, fg, bg
+    def style_to_attr(style, fg = nil, bg = nil)
+      self.class.style_to_attr style, fg, bg
     end
 
     # Where this widget last painted, with the absolute offsets (`aleft`/`atop`/
@@ -995,7 +1034,7 @@ module Crysterm
     end
 
     # Clears area/position of widget's last render
-    def clear_last_rendered_position(rendered = false, override = false)
+    def clear_last_rendered_position(*, rendered : Bool = false, force : Bool = false)
       return unless window?
       # Reuse the cached `@lpos` from the previous `_render` instead of
       # recomputing geometry from scratch — it's still correct even after the
@@ -1004,7 +1043,7 @@ module Crysterm
       # `@lpos || coords` idiom as `widget_scrolling.cr`.
       lpos = @lpos || coords(rendered)
       return unless lpos
-      window.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
+      window.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, force: force)
     end
   end
 end

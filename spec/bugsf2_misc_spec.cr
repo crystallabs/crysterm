@@ -49,7 +49,7 @@ describe "BUGS-F2 finding 18: Window#reset_cursor resets shape/blink" do
   it "restores shape==Block and blink==false (was aliased to cursor_color)" do
     s = f2_window
 
-    s.cursor_shape Tput::CursorShape::Underline, blink: true
+    s.set_cursor_shape Tput::CursorShape::Underline, blink: true
     s.cursor.shape.underline?.should be_true
     s.cursor.blink.should be_true
 

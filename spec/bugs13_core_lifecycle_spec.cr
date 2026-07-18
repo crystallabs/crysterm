@@ -13,7 +13,7 @@ include Crysterm
 #       are already pinned by spec/bugs5_lifecycle_spec.cr.)
 # C20 — SIGTSTP/SIGCONT suspend-resume is wired: TSTP hands the terminal(s)
 #       back and STOPs the process; CONT resumes, then reallocs (invalidating
-#       `@olines`) and repaints so shell output can't persist as corruption.
+#       `@flushed_lines`) and repaints so shell output can't persist as corruption.
 
 private def b13l_window(w = 20, h = 4)
   Crysterm::Window.new(
@@ -87,7 +87,7 @@ describe "BUGS13 C20: SIGTSTP/SIGCONT suspend-resume" do
       Crysterm.suspend_terminals
       out.clear
 
-      # The draw diff runs against `@olines`, which still claims the terminal
+      # The draw diff runs against `@flushed_lines`, which still claims the terminal
       # shows the pre-suspend frame; without the realloc a resume would emit
       # nothing and any shell output would persist as corruption.
       Crysterm.resume_terminals

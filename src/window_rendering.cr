@@ -46,8 +46,8 @@ module Crysterm
     # connection / `postEvent`).
     @ui_queue = Channel(Proc(Nil)).new 1024
 
-    # Minimum delay between frames (also the FPS cap, ~60 fps). Kept in seconds.
-    property interval : Float64 = Config.render_frame_interval
+    # Minimum delay between frames (also the FPS cap, ~60 fps).
+    property frame_interval : Time::Span = Config.render_frame_interval.seconds
 
     # Monotonic time of the last completed render; nil until the first render
     # so the very first request paints immediately.
@@ -206,7 +206,7 @@ module Crysterm
       rate >= Int32::MAX ? Int32::MAX : rate.to_i
     end
 
-    def render_loop(generation : Int32 = 0)
+    protected def render_loop(generation : Int32 = 0)
       loop do
         # Park until a render is requested. Consuming the doorbell *here*,
         # before rendering, closes the lost-update window: a `schedule_render`
@@ -225,11 +225,12 @@ module Crysterm
         next unless @connected
 
         # Trailing throttle: the first request after an idle period renders
-        # immediately; back-to-back requests are spaced out to honor `interval`
-        # (the FPS cap) without adding latency to an isolated update.
+        # immediately; back-to-back requests are spaced out to honor
+        # `frame_interval` (the FPS cap) without adding latency to an isolated
+        # update.
         @last_render_at.try do |last|
           elapsed = Time.instant - last
-          frame = interval.seconds
+          frame = frame_interval
           sleep(frame - elapsed) if elapsed < frame
         end
 
@@ -286,8 +287,12 @@ module Crysterm
     # so a widget docking its own line art honors the same contrast policy.
     getter dock_contrast : DockContrast = Config.render_dock_contrast
 
-    property lines = Array(Row).new
-    property olines = Array(Row).new
+    # Grid of desired cell contents (the "framebuffer"). Written only through the
+    # ivar by the render/alloc path, so the accessor is getter-only.
+    getter lines = Array(Row).new
+    # Cells as last flushed to the terminal, diffed against `#lines` each draw.
+    # Getter-only for the same reason as `#lines`.
+    getter flushed_lines = Array(Row).new
 
     # Compositing planes, keyed by z-index — one per distinct `z_index` among
     # the layered widgets (see `Plane`). Empty unless something declares a
@@ -422,7 +427,7 @@ module Crysterm
           # reach into the base content the overlay floats over and produce
           # stray junctions where a popup overlaps a widget below it.
           if @dock_borders && !@_plane_dock_stops.empty?
-            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
+            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
           end
           pl.composite_onto @lines
         end
@@ -434,7 +439,7 @@ module Crysterm
     # Docks (joins) all line-drawing characters that cross or meet on the rows
     # collected in `@_dock_stops` this frame.
     def _dock
-      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, glyph_tier.ascii?
+      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
     end
 
     # Delayed render (user render)
@@ -467,6 +472,29 @@ module Crysterm
       FrameClock.new(interval) do
         block.call
         render
+      end.start
+    end
+
+    # One-shot timer (`QTimer::singleShot` analog): invokes *block* once, after
+    # *span* has elapsed, then stops itself. Returns the `FrameClock` driving
+    # it, so the caller can `#stop` it to cancel before it fires.
+    #
+    # Built on the same ticker `FrameClock` shape `#every` uses, which invokes
+    # its block immediately on `#start` and then every *interval* thereafter
+    # (see `FrameClock`). A bare ticker with `interval: span` would therefore
+    # fire at t≈0, not after the delay — so the first (immediate) tick is
+    # swallowed and only the second, at t≈span, calls *block*, stops the
+    # clock, and renders.
+    def after(span : Time::Span, &block : ->) : FrameClock
+      fired = false
+      FrameClock.new(span) do |clock|
+        if fired
+          clock.stop
+          block.call
+          render
+        else
+          fired = true
+        end
       end.start
     end
 
@@ -522,7 +550,7 @@ module Crysterm
       # avoids needing `clear_region` calls wherever an element was last frame.
       # It's cheap on the wire: `clear_region`/`fill_region` only mark a line
       # dirty when a cell actually changes, and `draw` still diffs every cell
-      # against `@olines`. The damage path replaces the whole-buffer clear with
+      # against `@flushed_lines`. The damage path replaces the whole-buffer clear with
       # region-aware clears of just the changed subtrees, but only when it can
       # prove output-equivalence.
       if @optimization.damage_tracking?
@@ -550,7 +578,7 @@ module Crysterm
       # is stale. Only some elements implement this; others are a noop.
       #
       # Only the cursor is repositioned here. A focus *event* is NOT emitted:
-      # `Event::Focus` denotes a focus *change*, fired once when focus actually
+      # `Event::FocusIn` denotes a focus *change*, fired once when focus actually
       # moves. Re-emitting it every frame would fire all its side effects per
       # render — a `Terminal` reporting focus-in (`\e[I`) to its child PTY, an
       # `input_on_focus` widget re-entering `read_input`, menu/completer

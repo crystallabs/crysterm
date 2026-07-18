@@ -152,30 +152,30 @@ describe Crysterm::TerminalEmulator do
     it "keeps SGR encoding when the child defensively resets 1005" do
       em = emu
       em.feed "\e[?1006h" # SGR on
-      em.mouse_encoding.should eq :sgr
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Sgr
       em.feed "\e[?1005l" # reset UTF-8 encoding — NOT the active one
-      em.mouse_encoding.should eq :sgr
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Sgr
       em.feed "\e[?1015l" # reset urxvt — also not active
-      em.mouse_encoding.should eq :sgr
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Sgr
     end
 
     it "still downgrades when the active encoding itself is disabled" do
       em = emu
       em.feed "\e[?1006h"
       em.feed "\e[?1006l"
-      em.mouse_encoding.should eq :normal
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Normal
     end
 
     it "enable still switches between encodings" do
       em = emu
       em.feed "\e[?1005h"
-      em.mouse_encoding.should eq :utf8
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Utf8
       em.feed "\e[?1015h"
-      em.mouse_encoding.should eq :urxvt
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Urxvt
       em.feed "\e[?1005l" # utf8 not active anymore — no-op
-      em.mouse_encoding.should eq :urxvt
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Urxvt
       em.feed "\e[?1015l"
-      em.mouse_encoding.should eq :normal
+      em.mouse_encoding.should eq TerminalEmulator::MouseEncoding::Normal
     end
   end
 end

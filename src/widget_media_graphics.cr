@@ -112,11 +112,14 @@ module Crysterm
         @cell_pixel_height = 0,
         @fit : Media::Fit = Media::Fit::Stretch,
         animate : Bool | Timer = true,
-        @speed : Float64 = 1.0,
+        speed : Float64 = 1.0,
         @double_buffer : Bool = Crysterm::Config.media_double_buffer,
         **box,
       )
         super **box
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped
+        # to 1.0 — the pacers divide by @speed and would otherwise crash.
+        self.speed = speed
         setup_animate animate
 
         # Remember which dimensions the caller left to auto-detect (0), before

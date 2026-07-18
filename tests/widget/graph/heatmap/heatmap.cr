@@ -9,13 +9,13 @@ Crysterm::WidgetExample.run("HeatMap",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.5
     # Roll the matrix values each frame (read-only widget, no keys — reach it
-    # via the screen and reset #data, guarded by the concrete type), so the
+    # via the screen and reset #values, guarded by the concrete type), so the
     # colors sweep across the colormap and settle back.
     [0.0, 2.0, 4.0, 0.0].each do |phase|
       d.act(dwell: 0.6) do |s|
         s.children.each do |c|
           next unless c.is_a?(Crysterm::Widget::Graph::HeatMap)
-          c.data = (0...5).map do |r|
+          c.values = (0...5).map do |r|
             (0...8).map { |col| Math.sin((r + col + phase) * 0.5) }
           end
         end
@@ -27,5 +27,5 @@ Crysterm::WidgetExample.run("HeatMap",
     colormap: :viridis,
     col_labels: %w[a b c d e f g h],
     row_labels: %w[r0 r1 r2 r3 r4],
-    data: (0...5).map { |r| (0...8).map { |c| Math.sin((r + c) * 0.5) } }
+    values: (0...5).map { |r| (0...8).map { |c| Math.sin((r + c) * 0.5) } }
 end

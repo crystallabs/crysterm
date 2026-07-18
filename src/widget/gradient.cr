@@ -5,7 +5,7 @@ module Crysterm
     # A smooth color gradient painted across the widget's area — useful as a
     # backdrop, header, or a strip of color swatches.
     #
-    # Colors come from `colors:` (gradient *stops*, interpolated in RGB across
+    # Colors come from `stops:` (gradient stops, interpolated in RGB across
     # the axis). With **no** stops it renders a full **HSV rainbow** sweep.
     #
     # `phase` offsets the gradient along its axis and wraps, so advancing it
@@ -53,7 +53,8 @@ module Crysterm
 
       # Setters that change the rendered appearance schedule a repaint, so e.g.
       # `gradient.phase = …` from an external clock scrolls the colors.
-      def stops=(@stops : Array(Int32))
+      def stops=(stops : Array(Int32 | String))
+        @stops = stops.map { |c| c.is_a?(String) ? Colors.convert(c).as(Int32) : c }
         mark_dirty
       end
 
@@ -80,8 +81,8 @@ module Crysterm
       @tick_sub = ::Crysterm::Subscription.new
 
       def initialize(
-        colors : Array = [] of String,
-        direction : Direction | Symbol = :horizontal,
+        stops : Array(Int32 | String) = [] of Int32 | String,
+        @direction : Direction = Direction::Horizontal,
         @phase : Float64 = 0.0,
         @cycles : Float64 = 1.0,
         @speed : Float64 = 0.02,
@@ -89,8 +90,7 @@ module Crysterm
         interval : Time::Span = 0.1.seconds,
         **box,
       )
-        @stops = colors.map { |c| Colors.convert(c).as(Int32) }
-        @direction = direction.is_a?(Symbol) ? Direction.parse(direction.to_s) : direction
+        @stops = stops.map { |c| c.is_a?(String) ? Colors.convert(c).as(Int32) : c }
 
         super **box
 
@@ -144,8 +144,8 @@ module Crysterm
 
           # Only the bg varies from cell to cell, so compute the base word
           # (flags + fg) once and repack just the bg per cell via `Attr.with_bg`
-          # rather than running `sattr`'s full flag derivation every time.
-          base = sattr style, style.fg, style.bg
+          # rather than running `style_to_attr`'s full flag derivation every time.
+          base = style_to_attr style, style.fg, style.bg
 
           if @direction.horizontal?
             # Inclusive endpoints: with W columns the divisor is W-1, so the last

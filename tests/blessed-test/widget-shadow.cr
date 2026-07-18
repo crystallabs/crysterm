@@ -8,7 +8,7 @@ require "../../src/crysterm"
 module Crysterm
   s = Window.new optimization: OptimizationFlag::SmartCSR,
     dock_borders: true,
-    always_propagate: [::Tput::Key::CtrlQ]
+    always_propagated_keys: [::Tput::Key::CtrlQ]
 
   # Blessed uses a long Cicero passage; a short filler suffices here.
   lorem = ([

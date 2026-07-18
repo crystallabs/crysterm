@@ -8,16 +8,16 @@ module Crysterm
     class Line < Box
       @shrink_to_fit = true
 
-      property orientation : Tput::Orientation = :horizontal
+      @orientation : Tput::Orientation = :horizontal
 
-      def initialize(@orientation = @orientation, char = nil, size = nil, **box)
+      def initialize(@orientation = @orientation, char : Char? = nil, line_size : Int32 | String | Nil = nil, **box)
         super **box
 
-        # `size` is the line's *length* (`width` when horizontal, `height` when
-        # vertical), defaulting to `100%`. Only apply the default when unset, so
-        # a `width:`/`height:` passed through `**box` isn't clobbered.
-        if size
-          self.line_size = size
+        # `line_size` is the line's *length* (`width` when horizontal, `height`
+        # when vertical), defaulting to `100%`. Only apply the default when
+        # unset, so a `width:`/`height:` passed through `**box` isn't clobbered.
+        if line_size
+          self.line_size = line_size
         elsif (@orientation.horizontal? ? @width : @height).nil?
           self.line_size = "100%"
         end
@@ -25,6 +25,23 @@ module Crysterm
         char ||= glyph(@orientation == Tput::Orientation::Vertical ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
 
         style.fill_char = char
+      end
+
+      def orientation : Tput::Orientation
+        @orientation
+      end
+
+      # Changing orientation re-resolves the fill glyph (horizontal/vertical
+      # line-drawing character) and swaps which axis (`width`/`height`) carries
+      # the line's length, then repaints.
+      def orientation=(v : Tput::Orientation) : Tput::Orientation
+        return v if v == @orientation
+        old_size = line_size
+        @orientation = v
+        style.fill_char = glyph(v.vertical? ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
+        self.line_size = old_size if old_size
+        request_render
+        @orientation
       end
 
       # Beyond any border (handled by `super`), a *horizontal* line emits a run
@@ -55,7 +72,7 @@ module Crysterm
         @orientation.vertical? ? @height : @width
       end
 
-      def line_size=(size)
+      def line_size=(size : Int32 | String) : Int32 | String
         case @orientation
         when Tput::Orientation::Horizontal
           self.width = size
@@ -66,6 +83,7 @@ module Crysterm
           self.width = size
           self.height = size
         end
+        size
       end
     end
   end

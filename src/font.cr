@@ -16,13 +16,16 @@ module Crysterm
   #   `Widget::BigText` uses.
   #
   # Each glyph resolves to a `height`×`width` grid of `0`/`1` (`1` = lit pixel).
-  class Font
+  #
+  # Named `BitmapFont`, not `Font`: this is a capture-rasterizer bitmap face,
+  # not a text/terminal font — `Font` would squat the more general name.
+  class BitmapFont
     # GNU Unifont (all planes) — the default capture face.
     DEFAULT_NORMAL_PATH = "#{__DIR__}/../data/font/unifont.hex"
     DEFAULT_BOLD_PATH   = "#{__DIR__}/../data/font/unifont.hex"
 
     # Loaded faces, keyed by `path` + weight.
-    @@cache = Cache::Bounded(String, Font).new(Cache::FONT_CAPACITY, "font", register: true)
+    @@cache = Cache::Bounded(String, BitmapFont).new(Cache::FONT_CAPACITY, "font", register: true)
 
     # Glyph cell size in pixels (8×16 for Unifont half-width; 8×14 for Terminus).
     getter width : Int32
@@ -39,16 +42,16 @@ module Crysterm
 
     # Loads (and memoizes) the font at *path*. *bold* synthesizes a bold variant
     # for `.hex` faces (which ship only one weight).
-    def self.load(path : String, bold : Bool = false) : Font
+    def self.load(path : String, bold : Bool = false) : BitmapFont
       @@cache.fetch("#{path}#{bold ? "#b" : ""}") { new(path, bold) }
     end
 
     # The default normal/bold faces (GNU Unifont; bold is synthesized).
-    def self.default_normal : Font
+    def self.default_normal : BitmapFont
       load DEFAULT_NORMAL_PATH
     end
 
-    def self.default_bold : Font
+    def self.default_bold : BitmapFont
       load DEFAULT_BOLD_PATH, bold: true
     end
 

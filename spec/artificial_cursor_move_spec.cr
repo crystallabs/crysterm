@@ -7,7 +7,7 @@ include Crysterm
 #
 # `draw` only scans a row when it is dirty or currently holds the cursor. The
 # artificial cursor is composited into the cell at `(tput.cursor.x, cursor.y)`
-# and written into `@olines` (mirroring the terminal). When the cursor moves to
+# and written into `@flushed_lines` (mirroring the terminal). When the cursor moves to
 # another row with no buffer change, that old row isn't otherwise dirty — so
 # without explicit repair, the stranded cursor glyph never diffs away and
 # leaves a ghost cursor.
@@ -22,7 +22,7 @@ describe "Window#draw artificial cursor movement" do
     s = cursor_screen
     s.alloc
 
-    # Stable content; primes @olines to mirror @lines (default cursor is
+    # Stable content; primes @flushed_lines to mirror @lines (default cursor is
     # hardware, so nothing artificial painted yet).
     s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
     s.lines.each &.dirty=(true)
@@ -39,8 +39,8 @@ describe "Window#draw artificial cursor movement" do
     s.tput.cursor.y = y1
     s.draw
 
-    # Cursor cell now carries REVERSE in @olines; content cell does not.
-    (Attr.flags(s.olines[y1][x1].attr) & Attr::REVERSE).should_not eq 0
+    # Cursor cell now carries REVERSE in @flushed_lines; content cell does not.
+    (Attr.flags(s.flushed_lines[y1][x1].attr) & Attr::REVERSE).should_not eq 0
     (Attr.flags(s.lines[y1][x1].attr) & Attr::REVERSE).should eq 0
 
     # Move to a different row: no content change, no row marked dirty. The
@@ -50,11 +50,11 @@ describe "Window#draw artificial cursor movement" do
     s.tput.cursor.y = y2
     s.draw
 
-    # Old position: erased, @olines mirrors content again.
-    (Attr.flags(s.olines[y1][x1].attr) & Attr::REVERSE).should eq 0
-    s.olines[y1][x1].char.should eq '.'
+    # Old position: erased, @flushed_lines mirrors content again.
+    (Attr.flags(s.flushed_lines[y1][x1].attr) & Attr::REVERSE).should eq 0
+    s.flushed_lines[y1][x1].char.should eq '.'
     # New position: cursor painted there.
-    (Attr.flags(s.olines[y2][x2].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.flushed_lines[y2][x2].attr) & Attr::REVERSE).should_not eq 0
   end
 
   it "erases the artificial cursor when it stops being drawn" do
@@ -73,13 +73,13 @@ describe "Window#draw artificial cursor movement" do
     s.tput.cursor.x = x
     s.tput.cursor.y = y
     s.draw
-    (Attr.flags(s.olines[y][x].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.flushed_lines[y][x].attr) & Attr::REVERSE).should_not eq 0
 
     # Turning artificial off means the row is no longer force-scanned; without
     # repair the glyph would linger. No content change, so the cell must revert.
     s.cursor.artificial = false
     s.draw
-    (Attr.flags(s.olines[y][x].attr) & Attr::REVERSE).should eq 0
-    s.olines[y][x].char.should eq '.'
+    (Attr.flags(s.flushed_lines[y][x].attr) & Attr::REVERSE).should eq 0
+    s.flushed_lines[y][x].char.should eq '.'
   end
 end

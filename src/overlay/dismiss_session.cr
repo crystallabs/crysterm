@@ -9,7 +9,7 @@ module Crysterm
     # the dismiss path and the destroy path call the same idempotent `#close`.
     #
     # The window is captured at construction and used for both grab and detach,
-    # so teardown works even from `Detach`/`Destroy`, where the owner's `window?`
+    # so teardown works even from `Detached`/`Destroy`, where the owner's `window?`
     # has already been nilled.
     class DismissSession
       # The live outside-press watcher. Captures the window, so `#close` detaches

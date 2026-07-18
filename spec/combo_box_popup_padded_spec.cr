@@ -31,7 +31,7 @@ describe "ComboBox popup placement on a padded window" do
     cb = cbp_combo s, top: 5
     cb.focus
     s.render
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
@@ -48,7 +48,7 @@ describe "ComboBox popup placement on a padded window" do
     cb = cbp_combo s, top: 17
     cb.focus
     s.render
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 

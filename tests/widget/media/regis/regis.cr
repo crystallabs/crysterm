@@ -25,7 +25,7 @@ ih = s.aheight - 1
 # the matching `XTerm*regisScreenSize` resource so it fills the window.
 Widget::Media::Regis.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
-  dither: (ENV["REGIS_DITHER"]? == "1"),
+  dither: (ENV["REGIS_DITHER"]? == "1" ? Widget::Media::Dither::Ordered : Widget::Media::Dither::None),
   regis_width: (ENV["REGIS_W"]? || "0").to_i, # 0 = auto (match the window via TIOCGWINSZ)
   regis_height: (ENV["REGIS_H"]? || "0").to_i,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"

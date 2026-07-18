@@ -7,10 +7,10 @@ module Crysterm
     #
     # The including widget:
     #   * defines `#popup_widget : Widget?` — its current pop-up (or `nil`);
-    #   * defines `#close` — the dismiss path; the outside-click watcher calls it,
-    #     and it should call `#teardown_popup` then do any widget-specific cleanup
-    #     (e.g. refocusing itself);
-    #   * builds and positions the pop-up, then calls `#show_popup`;
+    #   * defines `#hide_popup` — the dismiss path; the outside-click watcher
+    #     calls it, and it should call `#teardown_popup` then do any
+    #     widget-specific cleanup (e.g. refocusing itself);
+    #   * builds and positions the pop-up, then calls `#present_popup`;
     #   * calls `#teardown_popup_on_destroy` from its own `#destroy`.
     module Popup
       @open = false
@@ -27,34 +27,34 @@ module Crysterm
       end
 
       # Toggles the pop-up: closes it when open, opens it otherwise. Dispatches to
-      # the including widget's own `#open`/`#close` (duck-typed, like
+      # the including widget's own `#show_popup`/`#hide_popup` (duck-typed, like
       # `#popup_widget`).
-      def toggle
-        @open ? close : open
+      def toggle_popup
+        @open ? hide_popup : show_popup
       end
 
       # Shows *pop* as the modal pop-up: raises it, optionally focuses it, grabs
       # input (so other widgets stop reacting to the pointer), and installs the
-      # outside-click watcher that calls `#close`. The caller positions *pop*
+      # outside-click watcher that calls `#hide_popup`. The caller positions *pop*
       # first. Pass `focus_popup: false` to keep focus on the owner (e.g. an
       # editable combo that keeps filtering as you type).
-      protected def show_popup(pop : ::Crysterm::Widget, focus_popup : Bool = true) : Nil
+      protected def present_popup(pop : ::Crysterm::Widget, focus_popup : Bool = true) : Nil
         @open = true
         pop.show
-        pop.front!
+        pop.to_front
         pop.focus if focus_popup
         # Modal grab + "click-away to dismiss". Recreated on each open so the
         # session stays bound to the current window across a re-attach.
         s = ::Crysterm::Overlay::DismissSession.new(
           window, grab_owner: self,
-          inside: ->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
+          inside: ->(x : Int32, y : Int32) { grab_contains?(x, y) }) { hide_popup }
         s.open
         @dismiss = s
         request_render
       end
 
       # Hides the pop-up and releases the grab and outside-click watcher. Returns
-      # whether it had been open, so `#close` can early-return when it wasn't.
+      # whether it had been open, so `#hide_popup` can early-return when it wasn't.
       protected def teardown_popup : Bool
         return false unless @open
         @open = false
@@ -73,7 +73,7 @@ module Crysterm
       # Detaches + destroys the pop-up and removes the watcher. Call from the
       # including widget's `#destroy` (before `super`).
       protected def teardown_popup_on_destroy : Nil
-        # Destroy can run without a prior `#close`, which would leave the dead
+        # Destroy can run without a prior `#hide_popup`, which would leave the dead
         # widget in `@grabs` — keeping `Window#grabbing?` true and routing presses
         # to it. The session's `#close` is idempotent and holds its own window
         # reference, so releasing here is always safe.

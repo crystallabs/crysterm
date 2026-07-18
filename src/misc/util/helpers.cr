@@ -1,14 +1,12 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-    # Sorts array numerically by property 'render_index'
-    def hsort(obj)
-      obj.sort_by! { |item| -item.render_index }
-    end
-
     # Finds a file with name 'target' inside toplevel directory 'start'.
     # XXX Possibly replace with github: mlobl/finder
-    def find_file(start, target)
+    #
+    # Class method only — this is a generic filesystem lookup, not per-instance
+    # state, so it needn't pollute every `Helpers`-including instance's surface.
+    def self.find_file(start : String, target : String) : String?
       return nil if %w(/dev /sys /proc /net).includes?(start)
 
       files = begin
@@ -44,9 +42,12 @@ module Crysterm
     # NOTE The content-related functions below belong here rather than on Widget:
     # they are generic functions, not instance methods.
 
-    # Drops any >U+FFFF characters in the text.
-    def drop_unicode(text)
-      return "" if text.nil? || text.size == 0
+    # Replaces any >U+FFFF (astral-plane) characters in the text with "??".
+    #
+    # Class method only, like `.find_file` — a generic string transform, not
+    # per-instance state. Typed non-nilable: a nilable caller must `.try` it.
+    def self.replace_astral(text : String) : String
+      return "" if text.size == 0
       text.gsub(::Crysterm::Unicode::AllRegex, "??")
     end
 
@@ -65,11 +66,6 @@ module Crysterm
       end
     end
 
-    # :ditto:
-    def escape(text)
-      Crysterm::Helpers.escape(text)
-    end
-
     # Strips text of "{...}" tags and SGR sequences and removes leading/trailing whitespaces
     def strip_tags(text : String)
       clean_tags(text).strip
@@ -81,7 +77,7 @@ module Crysterm
     CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
 
     # Strips text of {...} tags and SGR sequences
-    def clean_tags(text)
+    def clean_tags(text : String)
       text.gsub(CLEAN_TAGS_REGEX) do |_, _|
         # No replacement needed, just removing matches
       end

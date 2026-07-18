@@ -9,7 +9,7 @@ module Crysterm
     # `Marquee`, `Media`, or `Loading` spinner — they animate themselves off the
     # usual `Timer`/`animate:` machinery) and a bottom status line updated with
     # `#show_message`. Dismiss it with `#finish` (or `#finish_after`), revealing
-    # the UI behind it; `#finish` emits `Event::Complete`.
+    # the UI behind it; `#finish` emits `Event::Completed`.
     #
     # ```
     # splash = Widget::SplashScreen.new parent: s, width: 50, height: 14,
@@ -45,7 +45,7 @@ module Crysterm
 
       # The window-level key listener (key presses are not positional, so it
       # watches the whole window). A `Subscription` captures the window it
-      # installed on, so teardown reaches the right one even on `Detach`, where
+      # installed on, so teardown reaches the right one even on `Detached`, where
       # `window?` may already have moved on.
       @ev_keys = Crysterm::Subscription.new
       @finished = false
@@ -65,7 +65,7 @@ module Crysterm
         )
 
         content.try { |c| self.content_widget = c }
-        front!
+        to_front
 
         # A click/wheel over the splash, or any key press, dismisses it when
         # `dismiss_on_event?`. The flag is re-checked at event time, so it can be
@@ -124,7 +124,7 @@ module Crysterm
         request_render
       end
 
-      # Dismisses the splash: emits `Event::Complete`, detaches and destroys it.
+      # Dismisses the splash: emits `Event::Completed`, detaches and destroys it.
       # Idempotent — safe to call more than once (e.g. a click and `finish_after`
       # racing).
       def finish : Nil
@@ -133,7 +133,7 @@ module Crysterm
         # Capture the window before detaching — `window?` goes nil once removed.
         scr = window?
         remove_key_dismiss
-        emit ::Crysterm::Event::Complete
+        emit ::Crysterm::Event::Completed
         scr.try &.remove self
         destroy
         # Repaint so the splash clears immediately; `request_render` is a no-op

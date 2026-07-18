@@ -10,7 +10,7 @@ module Crysterm
     # between its header and the next, while every other item shows only its
     # header. Selecting a header — by click, or via `#current_index=` — expands
     # that item and collapses the rest. Emits `Event::CurrentChanged` (the new
-    # index) and `Event::SelectItem` (the header box and its index) on a change.
+    # index) and `Event::ItemSelected` (the header box and its index) on a change.
     #
     # ```
     # tb = Widget::ToolBox.new parent: window, width: 30, height: 16, style: Style.new(border: true)
@@ -120,12 +120,12 @@ module Crysterm
       end
 
       # Re-marks the headers, re-fits the expanded section, and reports the
-      # header that was picked via `Event::SelectItem`, which carries the header
+      # header that was picked via `Event::ItemSelected`, which carries the header
       # box that `Event::CurrentChanged` has no room for.
       protected def after_show_index(index : Int) : Nil
         refresh_headers
         relayout
-        emit ::Crysterm::Event::SelectItem, @sections[index].header, index
+        emit ::Crysterm::Event::ItemSelected, @sections[index].header, index
       end
 
       # Refreshes each header's marker to match the current expansion.

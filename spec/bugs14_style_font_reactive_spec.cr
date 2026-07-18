@@ -9,7 +9,7 @@ include Crysterm
 #        numeric literal past Float64 range (309+ digits). One such token in a
 #        generated/hot-reloaded stylesheet raised out of the cascade. `to_f?`
 #        now drops the bad token (clamp to 0 / fall back to nil) — never raises.
-#   R2 — `Font.decode_hex` parsed a `.hex` bitmap payload with strict
+#   R2 — `BitmapFont.decode_hex` parsed a `.hex` bitmap payload with strict
 #        `String#to_u32(16)`, raising `ArgumentError` on any non-hex char in a
 #        corrupt/hand-made font. `to_u32?` now treats a bad row as all-off.
 #   R4 — propagation was depth-first and un-ordered: an `Effect` reading two
@@ -50,7 +50,7 @@ describe "BUGS14 R2 — malformed .hex bitmap must fall back, not raise" do
     # all-bad-character bitmap: 16 rows x 2 hex digits, "ZZ" per row.
     File.write path, "0041:#{"ZZ" * 16}\n"
     begin
-      font = Crysterm::Font.load path
+      font = Crysterm::BitmapFont.load path
       # Must not raise ArgumentError from decode_hex.
       grid = font.glyph("A")
       grid.size.should eq font.height

@@ -36,10 +36,20 @@ module Crysterm
         # which cells `{x, y}` are visited (one landed glyph per cell).
         alias FillProc = (Int32, Int32) -> Array(Tuple(Int32, Int32))
 
-        # Cell-visit order. Either a built-in `Symbol` (`:spiral` (default),
-        # `:rows`, `:columns`, `:diagonal`, `:radial`, `:random`) or a `FillProc`
-        # returning a custom ordering.
-        property fill : Symbol | FillProc
+        # Built-in cell-visit orders (see `FillProc` for a custom ordering).
+        enum Fill
+          Spiral
+          Rows
+          Columns
+          Diagonal
+          Radial
+          Random
+        end
+
+        # Cell-visit order. Either a built-in `Fill` (`Fill::Spiral` (default),
+        # `Fill::Rows`, `Fill::Columns`, `Fill::Diagonal`, `Fill::Radial`,
+        # `Fill::Random`) or a `FillProc` returning a custom ordering.
+        property fill : Fill | FillProc
 
         # Text the cells settle on once landed: non-space chars are cycled across
         # the visit order. Defaults to the DOS dithered block `▒` for a solid
@@ -77,7 +87,7 @@ module Crysterm
 
         # Whether to restart the whole spray once the area is full and held. When
         # `false`, the effect stops after one fill and runs `#on_complete`.
-        property? loop : Bool
+        property? repeat : Bool
 
         # Default spark colors; also the fallback if an empty list is assigned.
         DEFAULT_SPARK_COLORS = [0xff8080, 0x80c0ff]
@@ -98,13 +108,25 @@ module Crysterm
           self.spark_colors = colors.map { |c| Colors.convert(c).to_i32 }
         end
 
+        # A slot's lifecycle phase, passed to a custom `#color` proc.
+        enum Phase
+          Pending
+          Flight
+          Landed
+        end
+
         # Optional color override: `(slot_index, frame, phase) -> 0xRRGGBB`, where
-        # *phase* is `:pending`, `:flight`, or `:landed`. `nil` uses the built-in
-        # rainbow.
-        property color : Proc(Int32, Int32, Symbol, Int32)?
+        # *phase* is `Phase::Pending`, `Phase::Flight`, or `Phase::Landed`. `nil`
+        # uses the built-in rainbow.
+        property color : Proc(Int32, Int32, Phase, Int32)?
 
         # Run once, after a non-looping spray has filled the area.
         property on_complete : Proc(Nil)?
+
+        # Block form of `#on_complete=`: `spray.on_complete { ... }`.
+        def on_complete(&block : ->) : Nil
+          @on_complete = block
+        end
 
         # Per-area state, (re)built lazily whenever the area's size changes.
         @slots = [] of Tuple(Int32, Int32, Char)
@@ -123,14 +145,14 @@ module Crysterm
 
         def initialize(
           @pattern = "▒",
-          @fill = :spiral,
+          @fill : Fill | FillProc = Fill::Spiral,
           grow = DEFAULT_GROW,
           @origin = nil,
           @interval = 0.07.seconds,
           @spacing = 1,
           @travel = 12,
           @hold = 28,
-          @loop = true,
+          @repeat = true,
           spark_colors = DEFAULT_SPARK_COLORS,
           @color = nil,
           @on_complete = nil,
@@ -144,27 +166,33 @@ module Crysterm
         # The visit order for the built-in (or custom) fill strategy.
         private def fill_cells(w, h) : Array(Tuple(Int32, Int32))
           case f = @fill
-          when FillProc then f.call(w, h)
-          when :rows    then all_cells(w, h)
-          when :columns then (0...w).flat_map { |x| (0...h).map { |y| {x, y} } }
-          when :diagonal
-            cells = all_cells(w, h)
-            cells.sort_by! { |(x, y)| {x + y, x} }
-          when :random
-            cells = all_cells(w, h)
-            cells.shuffle!
-          when :radial
-            ox, oy = emitter(w, h)
-            cells = all_cells(w, h)
-            cells.sort_by! { |(x, y)| ((x - ox) ** 2 + (y - oy) ** 2) }
-          else
-            spiral_cells(w, h)
+          in FillProc
+            f.call(w, h)
+          in Fill
+            case f
+            in .spiral?
+              spiral_cells(w, h)
+            in .rows?
+              all_cells(w, h)
+            in .columns?
+              (0...w).flat_map { |x| (0...h).map { |y| {x, y} } }
+            in .diagonal?
+              cells = all_cells(w, h)
+              cells.sort_by! { |(x, y)| {x + y, x} }
+            in .random?
+              cells = all_cells(w, h)
+              cells.shuffle!
+            in .radial?
+              ox, oy = emitter(w, h)
+              cells = all_cells(w, h)
+              cells.sort_by! { |(x, y)| ((x - ox) ** 2 + (y - oy) ** 2) }
+            end
           end
         end
 
         # Every `{x, y}` cell of a *w*×*h* area in row-major order (top row
         # L→R, then down). The unsorted base several fill strategies then sort
-        # or shuffle; `:columns` needs column-major so it builds its own.
+        # or shuffle; `Fill::Columns` needs column-major so it builds its own.
         private def all_cells(w, h) : Array(Tuple(Int32, Int32))
           (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
         end
@@ -214,7 +242,7 @@ module Crysterm
         # (Re)allocates per-area state when the interior size changes: the landing
         # slots and the two flat `w*h` cell buffers, both cleared to blank glyph /
         # default fg.
-        def resize(w, h)
+        def resize(w : Int32, h : Int32)
           reset_slots w, h
           @cell_glyph = Array(Char).new(w * h, ' ')
           @cell_color = Array(Int32).new(w * h, -1)
@@ -223,11 +251,11 @@ module Crysterm
         # Resolves one frame of the spray simulation into the flat cell buffers,
         # then advances time. Sets `@done` once a non-looping spray has finished
         # filling.
-        def advance(w, h)
+        def advance(w : Int32, h : Int32)
           return @done = false if w <= 0 || h <= 0 || @slots.empty?
           recompute w, h
           @frame += 1
-          @done = !loop? && @frame > fill_frame
+          @done = !repeat? && @frame > fill_frame
         end
 
         # Projects every slot to its position/glyph/color for the current frame and
@@ -237,7 +265,7 @@ module Crysterm
         private def recompute(w, h)
           ox, oy = emitter(w, h)
           cycle = fill_frame + @hold
-          f = loop? ? @frame % cycle : @frame
+          f = repeat? ? @frame % cycle : @frame
 
           @cell_glyph.fill(' ')
           @cell_color.fill(-1)
@@ -252,7 +280,7 @@ module Crysterm
               if 0 <= ox < w && 0 <= oy < h
                 idx = oy * w + ox
                 @cell_glyph[idx] = '·'
-                @cell_color[idx] = colorize @slots.size - 1, :pending
+                @cell_color[idx] = colorize @slots.size - 1, Phase::Pending
               end
               break
             elsif f < launch + @travel
@@ -260,9 +288,9 @@ module Crysterm
               gx = (ox + (dx - ox) * p).round.to_i
               gy = (oy + (dy - oy) * p).round.to_i
               gch = @grow[(p * @grow.size).to_i.clamp(0, @grow.size - 1)][0]
-              phase = :flight
+              phase = Phase::Flight
             else
-              gx, gy, gch, phase = dx, dy, ch, :landed
+              gx, gy, gch, phase = dx, dy, ch, Phase::Landed
             end
             next unless 0 <= gx < w && 0 <= gy < h
             idx = gy * w + gx
@@ -273,22 +301,22 @@ module Crysterm
 
         # Glyph and packed `0xRRGGBB` fg (or `-1` for widget default) for interior
         # cell `{x, y}`, read from the buffers `#advance` filled.
-        def cell(x, y, w, h) : {Char, Int32}
+        def cell(x : Int32, y : Int32, w : Int32, h : Int32) : {Char, Int32}
           idx = y * w + x
           {@cell_glyph[idx], @cell_color[idx]}
         end
 
         # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
-        private def colorize(i, phase) : Int32
+        private def colorize(i : Int32, phase : Phase) : Int32
           if c = @color
             # The public color proc's frame param is `Int32`; wrap rather than
             # raise if the Int64 counter exceeds it.
             return c.call(i, @frame.to_i32!, phase)
           end
           case phase
-          when :pending then @spark_colors[(@frame // 3) % @spark_colors.size]
-          when :flight  then Colors::HSV_LUT[(i * 9 + @frame * 9) % 360]
-          else               Colors::HSV_LUT[(i * 9 + @frame * 6) % 360]
+          in .pending? then @spark_colors[(@frame // 3) % @spark_colors.size]
+          in .flight?  then Colors::HSV_LUT[(i * 9 + @frame * 9) % 360]
+          in .landed?  then Colors::HSV_LUT[(i * 9 + @frame * 6) % 360]
           end
         end
 

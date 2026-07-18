@@ -71,6 +71,12 @@ module Crysterm
       @anchor = @position if mode.move?
     end
 
+    # `=`-setter spelling of the plain (non-anchored) `#set_position`; use
+    # `#set_position(pos, mode)` for the anchored form.
+    def position=(pos : Int32) : Nil
+      set_position(pos)
+    end
+
     # Performs `op` `n` times (Qt `movePosition`). Returns true when all `n`
     # movements were possible; the cursor still moves as far as it can.
     def move_position(op : MoveOperation, mode : MoveMode = :move, n : Int32 = 1) : Bool
@@ -106,7 +112,9 @@ module Crysterm
       @anchor = @position
     end
 
-    def select(type : SelectionType) : Nil
+    # Named `select_span`, not `select`: that's a Crystal keyword (channel
+    # `select`), which would force `self.select` at every call site.
+    def select_span(type : SelectionType) : Nil
       case type
       when .document?
         set_position(0)
@@ -124,7 +132,7 @@ module Crysterm
     end
 
     def select_all : Nil
-      self.select :document
+      select_span :document
     end
 
     # Selected plain text, block separators as `'\n'` (Qt uses U+2029 and
@@ -257,6 +265,11 @@ module Crysterm
       end
     end
 
+    # `=`-setter spelling of `#set_char_format`.
+    def char_format=(format : TextCharFormat) : Nil
+      set_char_format(format)
+    end
+
     # Merges into the selection's char formats; without a selection, merges
     # into the typing format.
     def merge_char_format(format : TextCharFormat) : Nil
@@ -269,6 +282,11 @@ module Crysterm
 
     def set_block_format(format : TextBlockFormat) : Nil
       @document.apply_block_format(selection_start, selection_end, format)
+    end
+
+    # `=`-setter spelling of `#set_block_format`.
+    def block_format=(format : TextBlockFormat) : Nil
+      set_block_format(format)
     end
 
     def merge_block_format(format : TextBlockFormat) : Nil

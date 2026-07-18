@@ -1,9 +1,9 @@
 module Crysterm
   # Docking behavior when borders don't have the same color
   enum DockContrast
-    Ignore   # Just render, colors on adjacent cells will be different
-    DontDock # Do not perform docking (leave default look)
-    Blend    # Blend/mix colors for as smooth a transition as possible
+    Ignore # Just render, colors on adjacent cells will be different
+    Skip   # Do not perform docking (leave default look)
+    Blend  # Blend/mix colors for as smooth a transition as possible
   end
 
   # Reusable "docking" component.
@@ -169,7 +169,7 @@ module Crysterm
     # `dock_contrast` controls how cells with differing colors/attributes are
     # treated (see `DockContrast`). With *ascii* the ASCII line chars `+`/`-`/`|`
     # are merged too, and every junction resolves to its ASCII rendition.
-    def dock(lines, stops, width, dock_contrast : DockContrast, ascii : Bool = false)
+    def dock(lines, stops, width, dock_contrast : DockContrast, *, ascii : Bool = false)
       sorted = @@sorted_stops
       sorted.clear
       # Skip negative stop rows: `lines[y]?` treats a negative index as counting
@@ -188,7 +188,7 @@ module Crysterm
         x = 0
         while x < n
           if angle? chars.unsafe_fetch(x), ascii
-            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast, ascii))
+            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast, ascii: ascii))
             # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
             row.delete_grapheme x
             row.mark_dirty x
@@ -202,12 +202,12 @@ module Crysterm
     # in `lines`, based on which of its four neighbors also hold line-drawing
     # characters. `dock_contrast` decides what happens when a neighbor's
     # attribute differs from this cell's.
-    def angle_at(lines, x, y, dock_contrast : DockContrast, ascii : Bool = false)
-      angle_at lines, lines[y], x, y, dock_contrast, ascii
+    def angle_at(lines, x, y, dock_contrast : DockContrast, *, ascii : Bool = false)
+      angle_at lines, lines[y], x, y, dock_contrast, ascii: ascii
     end
 
     # :ditto: — *row* is the already-resolved `lines[y]`.
-    def angle_at(lines, row, x, y, dock_contrast : DockContrast, ascii : Bool = false)
+    def angle_at(lines, row, x, y, dock_contrast : DockContrast, *, ascii : Bool = false)
       # Two separate accumulators: `recip` is the arms contributed by neighbors
       # that *reciprocate* (point back at this cell — a real connection), and
       # `preserve` is the cell's own arms that merely sit beside a present line
@@ -221,7 +221,7 @@ module Crysterm
       self_bits = glyph_bits ch, ascii
 
       # Evaluate each of the four neighbors (left, up, right, down); `each`
-      # over a tuple unrolls at compile time. A `nil` result means `DontDock`
+      # over a tuple unrolls at compile time. A `nil` result means `Skip`
       # hit a contrasting neighbor, in which case we keep the original character.
       # `opp_bit` is the arm a neighbor must draw to point back at this cell.
       { {-1, 0, BITWISE_R_ANGLE, BITWISE_L_ANGLE},
@@ -307,7 +307,7 @@ module Crysterm
     # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
     # character pointing back at this cell (drawing the `opp_bit` arm), `0` if
     # it does not participate, or `nil` to signal the caller to abort docking
-    # (`DontDock` with a contrasting neighbor). For `Blend`, the cell's
+    # (`Skip` with a contrasting neighbor). For `Blend`, the cell's
     # attribute is blended with the neighbor's as a side effect.
     private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast, ascii : Bool = false)
       return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
@@ -318,7 +318,7 @@ module Crysterm
       nattr = nrow.attrs.unsafe_fetch(nx)
       if nattr != attr
         case dock_contrast
-        when DockContrast::DontDock
+        when DockContrast::Skip
           return nil
         when DockContrast::Blend
           # Blend into the cell's *current* attr, not the captured original: a

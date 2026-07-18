@@ -73,13 +73,13 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
 
     got_data : String? = nil
     called = false
-    prompt.read_input do |_err, data|
+    prompt.read_input do |data|
       called = true
       got_data = data
     end
 
     # Type into the live LineEdit read (feeds the read's KeyPress listener).
-    "hi".each_char { |ch| prompt.textinput.emit keypress(ch) }
+    "hi".each_char { |ch| prompt.line_edit.emit keypress(ch) }
 
     ok = prompt.children.find! do |c|
       c.is_a?(Crysterm::Widget::Button) && c.content == "OK"

@@ -5,7 +5,7 @@ module Crysterm
     # corresponding event fires.
     #
     # The handler receives `(widget, event_name, action, value)`, where `value`
-    # is the event's payload when meaningful (a `Submit`'s text, a `SelectItem`'s
+    # is the event's payload when meaningful (a `Submitted`'s text, a `ItemSelected`'s
     # index) and `nil` otherwise.
     #
     # `wired`, when given, tracks each `(widget, event)` binding's *current
@@ -65,31 +65,31 @@ module Crysterm
     def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Proc(Nil)?
       case event_name
       when "click", "press"
-        # `Event::Press` is emitted only by `AbstractButton`, for both mouse click
+        # `Event::Pressed` is emitted only by `AbstractButton`, for both mouse click
         # and keyboard activation, so a button's `onclick` reacts to either, like
-        # a browser button. Other widgets never emit `Press` and aren't even
+        # a browser button. Other widgets never emit `Pressed` and aren't even
         # hit-tested for it, so they bind `Event::Click` instead, which the window
         # emits on a mouse press over any hit-tested widget; registering it also
         # makes the widget mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
-          h = widget.on(::Crysterm::Event::Press) { block.call "press", nil }
-          -> { widget.off(::Crysterm::Event::Press, h); nil }
+          h = widget.on(::Crysterm::Event::Pressed) { block.call "press", nil }
+          -> { widget.off(::Crysterm::Event::Pressed, h); nil }
         else
           h = widget.on(::Crysterm::Event::Click) { block.call "click", nil }
           -> { widget.off(::Crysterm::Event::Click, h); nil }
         end
       when "submit"
-        h = widget.on(::Crysterm::Event::Submit) { |e| block.call "submit", e.value }
-        -> { widget.off(::Crysterm::Event::Submit, h); nil }
+        h = widget.on(::Crysterm::Event::Submitted) { |e| block.call "submit", e.value }
+        -> { widget.off(::Crysterm::Event::Submitted, h); nil }
       when "focus"
-        h = widget.on(::Crysterm::Event::Focus) { block.call "focus", nil }
-        -> { widget.off(::Crysterm::Event::Focus, h); nil }
+        h = widget.on(::Crysterm::Event::FocusIn) { block.call "focus", nil }
+        -> { widget.off(::Crysterm::Event::FocusIn, h); nil }
       when "blur"
-        h = widget.on(::Crysterm::Event::Blur) { block.call "blur", nil }
-        -> { widget.off(::Crysterm::Event::Blur, h); nil }
+        h = widget.on(::Crysterm::Event::FocusOut) { block.call "blur", nil }
+        -> { widget.off(::Crysterm::Event::FocusOut, h); nil }
       when "select", "change"
-        h = widget.on(::Crysterm::Event::SelectItem) { |e| block.call event_name, e.index.to_s }
-        -> { widget.off(::Crysterm::Event::SelectItem, h); nil }
+        h = widget.on(::Crysterm::Event::ItemSelected) { |e| block.call event_name, e.index.to_s }
+        -> { widget.off(::Crysterm::Event::ItemSelected, h); nil }
       else
         nil
       end

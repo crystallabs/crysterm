@@ -15,34 +15,34 @@ alias HeatMap = Crysterm::Widget::Graph::HeatMap
 describe Crysterm::Widget::Graph::HeatMap do
   it "constructs with data and defaults" do
     hm = HeatMap.new width: 20, height: 10,
-      data: [[1.0, 2.0], [3.0, 4.0]]
-    hm.data.size.should eq 2
-    hm.colormap.should eq :viridis
+      values: [[1.0, 2.0], [3.0, 4.0]]
+    hm.values.size.should eq 2
+    hm.colormap.should eq HeatMap::Colormap::Viridis
     hm.show_legend?.should be_true
     hm.show_labels?.should be_true
     hm.symmetric?.should be_false
   end
 
-  it "auto-computes vmin/vmax from the finite data" do
+  it "auto-computes minimum/maximum from the finite data" do
     hm = HeatMap.new width: 20, height: 10
-    hm.vmin.should be_nil # unset (auto)
-    hm.vmax.should be_nil
-    hm.data = [[10.0, 20.0], [30.0, 40.0]]
+    hm.minimum.should be_nil # unset (auto)
+    hm.maximum.should be_nil
+    hm.values = [[10.0, 20.0], [30.0, 40.0]]
     lo, hi = hm.value_range
     lo.should eq 10.0
     hi.should eq 40.0
   end
 
-  it "honors explicit vmin/vmax" do
+  it "honors explicit minimum/maximum" do
     hm = HeatMap.new width: 20, height: 10,
-      data: [[10.0, 20.0]], vmin: 0.0, vmax: 100.0
+      values: [[10.0, 20.0]], minimum: 0.0, maximum: 100.0
     hm.value_range.should eq({0.0, 100.0})
   end
 
   it "maps color_for endpoints to the colormap's first/last stop" do
-    stops = HeatMap::COLORMAPS[:viridis]
+    stops = HeatMap::COLORMAPS[HeatMap::Colormap::Viridis]
     hm = HeatMap.new width: 20, height: 10,
-      colormap: :viridis, data: [[0.0, 100.0]], vmin: 0.0, vmax: 100.0
+      colormap: :viridis, values: [[0.0, 100.0]], minimum: 0.0, maximum: 100.0
     hm.color_for(0.0).should eq stops.first.rgb
     hm.color_for(100.0).should eq stops.last.rgb
     # A mid value lands somewhere strictly between (interpolated).
@@ -52,9 +52,9 @@ describe Crysterm::Widget::Graph::HeatMap do
   end
 
   it "clamps out-of-range values to the endpoints" do
-    stops = HeatMap::COLORMAPS[:grayscale]
+    stops = HeatMap::COLORMAPS[HeatMap::Colormap::Grayscale]
     hm = HeatMap.new width: 10, height: 6,
-      colormap: :grayscale, data: [[0.0, 1.0]], vmin: 0.0, vmax: 1.0
+      colormap: :grayscale, values: [[0.0, 1.0]], minimum: 0.0, maximum: 1.0
     hm.color_for(-5.0).should eq stops.first.rgb
     hm.color_for(5.0).should eq stops.last.rgb
   end
@@ -62,21 +62,21 @@ describe Crysterm::Widget::Graph::HeatMap do
   it "centers a diverging map at 0 when symmetric" do
     hm = HeatMap.new width: 20, height: 10,
       colormap: :coolwarm, symmetric: true,
-      data: [[-2.0, 4.0]]
+      values: [[-2.0, 4.0]]
     hm.value_range.should eq({-4.0, 4.0})
     # 0 is the midpoint -> the middle stop's (near-)white. LUT quantization
     # (index 128 samples t≈0.502) shifts it by a step or two, so compare
     # channel-wise within tolerance rather than exact-equal.
-    wr, wg, wb = Crysterm::Widget::Media.rgb24 HeatMap::COLORMAPS[:coolwarm][1].rgb
+    wr, wg, wb = Crysterm::Widget::Media.rgb24 HeatMap::COLORMAPS[HeatMap::Colormap::Coolwarm][1].rgb
     r, g, b = Crysterm::Widget::Media.rgb24 hm.color_for(0.0)
     (r - wr).abs.should be <= 8
     (g - wg).abs.should be <= 8
     (b - wb).abs.should be <= 8
   end
 
-  it "guards vmax == vmin (all-equal values)" do
+  it "guards maximum == minimum (all-equal values)" do
     hm = HeatMap.new width: 10, height: 6,
-      data: [[5.0, 5.0], [5.0, 5.0]]
+      values: [[5.0, 5.0], [5.0, 5.0]]
     lo, hi = hm.value_range
     (hi > lo).should be_true # widened so normalization stays finite
     # Doesn't raise / produces a valid color.
@@ -85,26 +85,26 @@ describe Crysterm::Widget::Graph::HeatMap do
 
   it "handles an all-NaN matrix without raising" do
     hm = HeatMap.new width: 10, height: 6,
-      data: [[Float64::NAN, Float64::NAN]]
+      values: [[Float64::NAN, Float64::NAN]]
     lo, hi = hm.value_range
     (hi > lo).should be_true # falls back to 0..1
     hm.color_for(0.0).should be_a(Int32)
   end
 
   it "handles single-row and single-column data" do
-    row = HeatMap.new width: 20, height: 8, data: [[1.0, 2.0, 3.0]]
+    row = HeatMap.new width: 20, height: 8, values: [[1.0, 2.0, 3.0]]
     row.value_range.should eq({1.0, 3.0})
-    col = HeatMap.new width: 8, height: 20, data: [[1.0], [2.0], [3.0]]
+    col = HeatMap.new width: 8, height: 20, values: [[1.0], [2.0], [3.0]]
     col.value_range.should eq({1.0, 3.0})
   end
 
   it "rebuilds the color scale when the colormap changes" do
     hm = HeatMap.new width: 10, height: 6,
-      colormap: :grayscale, data: [[0.0, 1.0]], vmin: 0.0, vmax: 1.0
-    hm.color_for(0.0).should eq HeatMap::COLORMAPS[:grayscale].first.rgb
+      colormap: :grayscale, values: [[0.0, 1.0]], minimum: 0.0, maximum: 1.0
+    hm.color_for(0.0).should eq HeatMap::COLORMAPS[HeatMap::Colormap::Grayscale].first.rgb
     hm.colormap = :magma
-    hm.colormap.should eq :magma
-    hm.color_for(0.0).should eq HeatMap::COLORMAPS[:magma].first.rgb
+    hm.colormap.should eq HeatMap::Colormap::Magma
+    hm.color_for(0.0).should eq HeatMap::COLORMAPS[HeatMap::Colormap::Magma].first.rgb
   end
 
   it "renders a grid of colored cells without raising" do
@@ -113,7 +113,7 @@ describe Crysterm::Widget::Graph::HeatMap do
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
       HeatMap.new parent: s, top: 0, left: 0, width: 30, height: 12,
-        colormap: :viridis, data: [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]],
+        colormap: :viridis, values: [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]],
         type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
       s._render
@@ -138,12 +138,12 @@ describe Crysterm::Widget::Graph::HeatMap do
     begin
       hm = HeatMap.new parent: s, top: 0, left: 0, width: 30, height: 12,
         show_legend: false, show_labels: false,
-        data: [[Float64::NAN, Float64::NAN], [Float64::NAN, Float64::NAN]],
+        values: [[Float64::NAN, Float64::NAN], [Float64::NAN, Float64::NAN]],
         type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
       # All cells NaN -> paint_grid fills nothing; render must not raise.
       s._render
-      hm.data.size.should eq 2
+      hm.values.size.should eq 2
     ensure
       Crysterm::CSS.default_stylesheet = saved
     end
@@ -156,7 +156,7 @@ describe Crysterm::Widget::Graph::HeatMap do
     begin
       hm = HeatMap.new parent: s, top: 0, left: 0, width: 32, height: 12,
         show_legend: false, show_labels: false,
-        data: [[10.0, 20.0], [30.0, 40.0]],
+        values: [[10.0, 20.0], [30.0, 40.0]],
         type: Crysterm::Widget::Media::Type::Glyph
       s._render
 
@@ -182,7 +182,7 @@ describe Crysterm::Widget::Graph::HeatMap do
     begin
       hm = HeatMap.new parent: s, top: 0, left: 0, width: 32, height: 12,
         show_legend: false, show_labels: false,
-        data: [[1.0, 2.0], [3.0, 4.0]],
+        values: [[1.0, 2.0], [3.0, 4.0]],
         type: Crysterm::Widget::Media::Type::Glyph
       s._render
 

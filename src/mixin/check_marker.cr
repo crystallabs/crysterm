@@ -50,8 +50,8 @@ module Crysterm
       private def setup_check_marker : Nil
         # `KeyPress` is already wired by the base `initialize`; only the
         # marker-specific handlers are added here.
-        handle Crysterm::Event::Focus
-        handle Crysterm::Event::Blur
+        handle Crysterm::Event::FocusIn
+        handle Crysterm::Event::FocusOut
 
         # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
         # label. Uses `Mouse` (not `Click`) since only it carries coordinates;
@@ -162,7 +162,7 @@ module Crysterm
         request_render
       end
 
-      def on_focus(e)
+      protected def on_focusin(e : ::Crysterm::Event::FocusIn)
         return unless lpos = @lpos
         window?.try do |s|
           s.tput.lsave_cursor self.hash
@@ -173,7 +173,7 @@ module Crysterm
         end
       end
 
-      def on_blur(e)
+      protected def on_focusout(e : ::Crysterm::Event::FocusOut)
         window?.try do |s|
           s.tput.lrestore_cursor self.hash, true
         end

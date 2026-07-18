@@ -23,23 +23,23 @@ describe "ItemView#set_items selected value sync" do
     s = sisv2_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.select_index 0
-    list.value.should eq "a"
+    list.current_text.should eq "a"
 
     list.items = ["X", "Y", "Z"]
-    list.selected.should eq 0
-    list.value.should eq "X"
+    list.current_index.should eq 0
+    list.current_text.should eq "X"
   end
 
   it "refreshes #value when the selection re-lands on the same non-zero index" do
     s = sisv2_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.select_index 1
-    list.value.should eq "b"
+    list.current_text.should eq "b"
 
     # "b" is gone, but same length, so cursor re-lands on index 1.
     list.items = ["p", "q", "r"]
-    list.selected.should eq 1
-    list.value.should eq "q"
+    list.current_index.should eq 1
+    list.current_text.should eq "q"
   end
 
   it "strips tags from the refreshed value, like #select_index" do
@@ -47,6 +47,6 @@ describe "ItemView#set_items selected value sync" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"], parse_tags: true
     list.select_index 0
     list.items = ["{bold}hi{/bold}", "z"]
-    list.value.should eq "hi"
+    list.current_text.should eq "hi"
   end
 end

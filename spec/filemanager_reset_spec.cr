@@ -22,15 +22,15 @@ describe Crysterm::Widget::FileManager do
 
     begin
       s = fm_screen
-      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base, keys: true)
+      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
       fm.cwd.should eq base
 
       # Navigate into "sub" by selecting its row and activating it.
-      idx = fm.ritems.index(&.includes?("sub"))
+      idx = fm.item_texts.index(&.includes?("sub"))
       idx.should_not be_nil
-      fm.selected = idx.not_nil!
-      fm.enter_selected
+      fm.current_index = idx.not_nil!
+      fm.activate_current
 
       # Now inside the subdirectory; `@cwd` may carry a trailing slash, normalize to compare.
       fm.cwd.chomp('/').should eq File.join(base, "sub")

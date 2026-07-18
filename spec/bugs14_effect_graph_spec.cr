@@ -12,7 +12,7 @@ include Crysterm
 # * A4 — `Spray#@frame` was an `Int32` frame counter; `@frame * 9`/`* 6` in
 #   `#colorize` raise `OverflowError` past `Int32::MAX / 9 ≈ 2.4e8` frames.
 #   Widened to `Int64` (matching `CopperBar`/`TextScroll`) so it never wraps.
-# * A5 — an explicit non-finite `#vmin`/`#vmax` poisoned `HeatMap`'s color
+# * A5 — an explicit non-finite `#minimum`/`#maximum` poisoned `HeatMap`'s color
 #   scale, so `color_for`/`draw_legend` computed `NaN.round.to_i` →
 #   `OverflowError`. Explicit bounds are now sanitized in `resolved_bounds`
 #   (non-finite falls back to the finite data range) with a belt-and-braces
@@ -70,7 +70,7 @@ describe "BUGS14 A4: Spray frame counter is Int64 (no overflow on long loops)" d
   it "runs the custom color proc (Int32 frame param) without raising" do
     seen = [] of Int32
     spray = Widget::Effect::Spray.new width: 8, height: 4,
-      color: ->(_i : Int32, frame : Int32, _phase : Symbol) { seen << frame; 0x00ff00 }
+      color: ->(_i : Int32, frame : Int32, _phase : Widget::Effect::Spray::Phase) { seen << frame; 0x00ff00 }
     spray.resize 8, 4
     50.times { spray.advance 8, 4 }
     # The proc received the (wrapped-to-Int32) frame and produced a color.
@@ -89,11 +89,11 @@ describe "BUGS14 A4: Spray frame counter is Int64 (no overflow on long loops)" d
 end
 
 describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" do
-  it "does not raise on render when vmin is Infinity" do
+  it "does not raise on render when minimum is Infinity" do
     s = bugs14_screen
     hm = Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
-      data: [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
-    hm.vmin = Float64::INFINITY
+      values: [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    hm.minimum = Float64::INFINITY
     # resolved_bounds must fall back to the finite data range.
     lo, hi = hm.value_range
     lo.finite?.should be_true
@@ -104,11 +104,11 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
     s.try &.destroy
   end
 
-  it "does not raise when vmax is NaN" do
+  it "does not raise when maximum is NaN" do
     s = bugs14_screen
     hm = Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
-      data: [[10.0, 20.0], [30.0, 40.0]]
-    hm.vmax = Float64::NAN
+      values: [[10.0, 20.0], [30.0, 40.0]]
+    hm.maximum = Float64::NAN
     lo, hi = hm.value_range
     lo.finite?.should be_true
     hi.finite?.should be_true
@@ -119,9 +119,9 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
 
   it "color_for returns a valid LUT color even with a poisoned bound" do
     hm = Widget::Graph::HeatMap.new width: 24, height: 10,
-      data: [[1.0, 2.0], [3.0, 4.0]]
-    hm.vmin = Float64::INFINITY
-    hm.vmax = Float64::INFINITY
+      values: [[1.0, 2.0], [3.0, 4.0]]
+    hm.minimum = Float64::INFINITY
+    hm.maximum = Float64::INFINITY
     # Both bounds non-finite: color_for must not raise and must return a color.
     c = hm.color_for 2.5
     c.should be >= 0
@@ -129,9 +129,9 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
 
   it "still honors a finite explicit bound (no regression)" do
     hm = Widget::Graph::HeatMap.new width: 24, height: 10,
-      data: [[1.0, 2.0], [3.0, 4.0]]
-    hm.vmin = 0.0
-    hm.vmax = 10.0
+      values: [[1.0, 2.0], [3.0, 4.0]]
+    hm.minimum = 0.0
+    hm.maximum = 10.0
     lo, hi = hm.value_range
     lo.should eq 0.0
     hi.should eq 10.0

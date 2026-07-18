@@ -26,7 +26,7 @@ describe "Window#draw artificial cursor + BCE" do
     s = bce_cursor_screen
     s.alloc
 
-    # Sync @olines to @lines (an all-blank buffer).
+    # Sync @flushed_lines to @lines (an all-blank buffer).
     s.lines.each &.dirty=(true)
     s.draw
 
@@ -36,7 +36,7 @@ describe "Window#draw artificial cursor + BCE" do
     # Force a difference in the (otherwise all-blank) row so the BCE look-ahead's
     # `neq` test fires the clear-to-EOL path. The buffer cell stays blank, so the
     # whole row from column 0 is a clearable run that spans the cursor.
-    s.olines[y][8].char = '.'
+    s.flushed_lines[y][8].char = '.'
 
     # Paint a visible artificial block cursor at (cx, y).
     s.cursor.artificial = true
@@ -48,9 +48,9 @@ describe "Window#draw artificial cursor + BCE" do
 
     s.draw
 
-    # The cursor must have been painted: its cell carries REVERSE in @olines.
+    # The cursor must have been painted: its cell carries REVERSE in @flushed_lines.
     # Before the fix, BCE clear-to-EOL erased over column `cx` and broke out of
     # the row scan, so this flag was 0.
-    (Attr.flags(s.olines[y][cx].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.flushed_lines[y][cx].attr) & Attr::REVERSE).should_not eq 0
   end
 end

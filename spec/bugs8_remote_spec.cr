@@ -30,7 +30,7 @@ require "./spec_helper"
       s.load_layout html
 
       list = s.find_by_id("l").not_nil!.as(Widget::List)
-      list.ritems.should eq %w[a b c]
+      list.item_texts.should eq %w[a b c]
       list.children.size.should eq 3 # rebuilt from items=, no re-appended phantoms
     end
 
@@ -48,7 +48,7 @@ require "./spec_helper"
       twice.should eq once
 
       relisted = s2.find_by_id("l").not_nil!.as(Widget::List)
-      relisted.ritems.should eq %w[x y]
+      relisted.item_texts.should eq %w[x y]
       relisted.children.size.should eq 2
     end
 
@@ -60,7 +60,7 @@ require "./spec_helper"
              %(<w-box content="a"></w-box><w-box content="b"></w-box></w-list></w-window>)
       s.load_layout html
       list = s.find_by_id("l").not_nil!.as(Widget::List)
-      list.ritems.should eq %w[a b]
+      list.item_texts.should eq %w[a b]
       list.children.size.should eq 2
     end
   end
@@ -70,12 +70,12 @@ require "./spec_helper"
       s = headless_screen
       list = Widget::List.new parent: s, width: 10, height: 5
       list.dom_apply "items", "a\nb\nc"
-      list.ritems.should eq %w[a b c]
+      list.item_texts.should eq %w[a b c]
 
       # A browser's setAttribute replaces; without the clear this would grow to
       # a\nb\nc\nx\ny (the accumulation bug fixed for `class` earlier).
       list.dom_apply "items", "x\ny"
-      list.ritems.should eq %w[x y]
+      list.item_texts.should eq %w[x y]
       list.children.size.should eq 2
     end
   end
@@ -89,11 +89,11 @@ require "./spec_helper"
       detach = Crysterm::DOM.on_widget_event(btn, "press") { |type, _| seen << type }
       detach.should_not be_nil
 
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       seen.size.should eq 1
 
       detach.not_nil!.call
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       seen.size.should eq 1 # no longer delivered — the handler was removed via #off
     end
 

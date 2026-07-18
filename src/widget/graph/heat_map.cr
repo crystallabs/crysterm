@@ -15,20 +15,21 @@ module Crysterm
       # grid of flat colors, so a block cell reads cleanly with no mid-cell color
       # bleed on the glyph fallback. A `NaN` cell is left transparent.
       #
-      # A value `v` maps to a color by normalizing it to `t = (v - #vmin) /
-      # (#vmax - #vmin)` (clamped to `0..1`) and indexing a 256-entry color LUT
-      # precomputed from the `#colormap`. `#vmin`/`#vmax` auto-compute from the
-      # finite data when left `nil`; `#symmetric` centers a diverging map at `0`.
+      # A value `v` maps to a color by normalizing it to `t = (v - #minimum) /
+      # (#maximum - #minimum)` (clamped to `0..1`) and indexing a 256-entry
+      # color LUT precomputed from the `#colormap`. `#minimum`/`#maximum`
+      # auto-compute from the finite data when left `nil`; `#symmetric` centers
+      # a diverging map at `0`.
       #
       # With `#show_labels?` on (the default) `#col_labels`/`#row_labels` are
       # stamped across the top / down the left as terminal text; with
-      # `#show_legend?` on a colorbar (a strip of the colormap with `vmin`/`vmax`
-      # end labels) is stamped down the right. On hover the cell under the
-      # pointer is emitted as `Event::CellHover` (row, col, value).
+      # `#show_legend?` on a colorbar (a strip of the colormap with
+      # `minimum`/`maximum` end labels) is stamped down the right. On hover the
+      # cell under the pointer is emitted as `Event::CellHover` (row, col, value).
       #
       # ```
       # hm = Widget::Graph::HeatMap.new parent: s, width: 30, height: 14,
-      #   data: [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], colormap: :viridis
+      #   values: [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], colormap: :viridis
       # hm.on(Crysterm::Event::CellHover) { |e| puts "#{e.row},#{e.col} = #{e.value}" }
       # ```
       #
@@ -45,25 +46,32 @@ module Crysterm
         # interpolated in RGB.
         record ColorStop, stop : Float64, rgb : Int32
 
-        # Named colormaps as ordered stops (first at `0.0`, last at `1.0`).
-        # `:grayscale` and the perceptual `:viridis`/`:magma` are sequential;
-        # `:coolwarm` is diverging (blue→white→red), best paired with
-        # `#symmetric`.
+        # Named colormaps, keyed by `Colormap`. `Grayscale` and the perceptual
+        # `Viridis`/`Magma` are sequential; `Coolwarm` is diverging
+        # (blue→white→red), best paired with `#symmetric`.
+        enum Colormap
+          Grayscale
+          Viridis
+          Magma
+          Coolwarm
+        end
+
+        # Ordered color stops (first at `0.0`, last at `1.0`) per `Colormap`.
         COLORMAPS = {
-          :grayscale => [
+          Colormap::Grayscale => [
             ColorStop.new(0.0, 0x000000), ColorStop.new(1.0, 0xFFFFFF),
           ],
-          :viridis => [
+          Colormap::Viridis => [
             ColorStop.new(0.0, 0x440154), ColorStop.new(0.25, 0x3B528B),
             ColorStop.new(0.5, 0x21908C), ColorStop.new(0.75, 0x5DC863),
             ColorStop.new(1.0, 0xFDE725),
           ],
-          :magma => [
+          Colormap::Magma => [
             ColorStop.new(0.0, 0x000004), ColorStop.new(0.25, 0x3B0F70),
             ColorStop.new(0.5, 0x8C2981), ColorStop.new(0.75, 0xDE4968),
             ColorStop.new(1.0, 0xFCFDBF),
           ],
-          :coolwarm => [
+          Colormap::Coolwarm => [
             ColorStop.new(0.0, 0x3B4CC0), ColorStop.new(0.5, 0xF7F7F7),
             ColorStop.new(1.0, 0xB40426),
           ],
@@ -73,7 +81,7 @@ module Crysterm
         # Stored as `@matrix` (`Widget` already owns an unrelated `@data`).
         @matrix : Array(Array(Float64))
 
-        def data : Array(Array(Float64))
+        def values : Array(Array(Float64))
           @matrix
         end
 
@@ -84,28 +92,47 @@ module Crysterm
 
         # Explicit color-scale bounds. `nil` (the default) auto-computes each
         # from the finite data.
-        getter vmin : Float64?
-        getter vmax : Float64?
+        getter minimum : Float64?
+        getter maximum : Float64?
 
         # Whether to center a diverging map at `0`: the resolved bounds become
         # `±max(|lo|, |hi|)`, so `0` lands on the colormap's midpoint.
         getter? symmetric : Bool
 
         # The active colormap (a key of `COLORMAPS`).
-        getter colormap : Symbol
+        getter colormap : Colormap
 
         # Whether to draw the colorbar legend down the right edge.
-        property? show_legend : Bool
+        getter? show_legend : Bool
 
         # Whether to stamp the row/column axis labels.
-        property? show_labels : Bool
+        getter? show_labels : Bool
+
+        # Overlay toggles: `#draw_legend`/`#draw_labels` stamp these over the
+        # rendered widget (not the Canvas raster), so no `invalidate_canvas`; but
+        # a plain `property?` setter schedules nothing and the toggle stays
+        # invisible on an idle screen. `mark_dirty` registers damage and schedules
+        # a frame.
+        def show_legend=(v : Bool) : Bool
+          return v if v == @show_legend
+          @show_legend = v
+          mark_dirty
+          v
+        end
+
+        def show_labels=(v : Bool) : Bool
+          return v if v == @show_labels
+          @show_labels = v
+          mark_dirty
+          v
+        end
 
         # 256-entry color LUT for the current `#colormap` (`t*255 -> 0xRRGGBB`),
         # so the paint loop never does per-cell float interpolation. Must be
         # dropped when `#colormap` changes.
         @lut : Array(Int32)?
 
-        # Resolved `{vmin, vmax}` for the current data/bounds/`#symmetric`, so
+        # Resolved `{minimum, maximum}` for the current data/bounds/`#symmetric`, so
         # repeated `#color_for` calls don't re-scan the matrix. Must be dropped
         # when the data or any bound-affecting property changes.
         @bounds : Tuple(Float64, Float64)?
@@ -114,10 +141,10 @@ module Crysterm
         @hover_cell : Tuple(Int32, Int32)?
 
         def initialize(
-          data : Array(Array(Float64)) = [] of Array(Float64),
-          vmin : Float64? = nil,
-          vmax : Float64? = nil,
-          colormap : Symbol = :viridis,
+          values : Array(Array(Float64)) = [] of Array(Float64),
+          minimum : Float64? = nil,
+          maximum : Float64? = nil,
+          colormap : Colormap = Colormap::Viridis,
           col_labels : Array(String) = [] of String,
           row_labels : Array(String) = [] of String,
           @symmetric : Bool = false,
@@ -127,11 +154,11 @@ module Crysterm
           glyph_mode : Media::Glyph::Mode = Media::Glyph::Mode::Block,
           **box,
         )
-          @matrix = data.dup
+          @matrix = values.dup
           @col_labels = col_labels.dup
           @row_labels = row_labels.dup
-          @vmin = vmin
-          @vmax = vmax
+          @minimum = minimum
+          @maximum = maximum
           @colormap = colormap
           super **box
 
@@ -139,14 +166,14 @@ module Crysterm
 
           # Map hovering onto the grid and re-emit as `Event::CellHover`.
           # Subscribing also makes this widget mouse-hit-testable.
-          on(Crysterm::Event::MouseOver) { |e| handle_hover e }
+          on(Crysterm::Event::MouseEnter) { |e| handle_hover e }
           on(Crysterm::Event::MouseMove) { |e| handle_hover e }
-          on(Crysterm::Event::MouseOut) { @hover_cell = nil }
+          on(Crysterm::Event::MouseLeave) { @hover_cell = nil }
         end
 
         # Replaces the whole matrix. Repaints and re-resolves the auto bounds.
-        def data=(data : Array(Array(Float64))) : Array(Array(Float64))
-          @matrix = data.dup
+        def values=(values : Array(Array(Float64))) : Array(Array(Float64))
+          @matrix = values.dup
           @bounds = nil
           invalidate_canvas
           @matrix
@@ -166,18 +193,18 @@ module Crysterm
 
         # Sets the lower scale bound (`nil` re-enables auto). Rebuilds the
         # resolved bounds and repaints.
-        def vmin=(v : Float64?) : Float64?
-          @vmin = v
+        def minimum=(v : Float64?) : Float64?
+          @minimum = v
           @bounds = nil
           invalidate_canvas
-          @vmin
+          @minimum
         end
 
-        def vmax=(v : Float64?) : Float64?
-          @vmax = v
+        def maximum=(v : Float64?) : Float64?
+          @maximum = v
           @bounds = nil
           invalidate_canvas
-          @vmax
+          @maximum
         end
 
         def symmetric=(v : Bool) : Bool
@@ -187,9 +214,9 @@ module Crysterm
           @symmetric
         end
 
-        # Switches the colormap (a `COLORMAPS` key). Drops the LUT so the next
-        # paint rebuilds it, then repaints.
-        def colormap=(name : Symbol) : Symbol
+        # Switches the colormap. Drops the LUT so the next paint rebuilds it,
+        # then repaints.
+        def colormap=(name : Colormap) : Colormap
           @colormap = name
           @lut = nil
           invalidate_canvas
@@ -202,9 +229,10 @@ module Crysterm
           draw_legend
         end
 
-        # The resolved `{vmin, vmax}` color-scale bounds for the current data —
-        # explicit `#vmin`/`#vmax` where set, else the finite-data range, with
-        # `#symmetric` centering and a `vmax == vmin` guard applied.
+        # The resolved `{minimum, maximum}` color-scale bounds for the current
+        # data — explicit `#minimum`/`#maximum` where set, else the finite-data
+        # range, with `#symmetric` centering and a `maximum == minimum` guard
+        # applied.
         def value_range : Tuple(Float64, Float64)
           resolved_bounds
         end
@@ -227,9 +255,9 @@ module Crysterm
 
         # Precomputes a 256-entry `t*255 -> color` table by sampling the colormap
         # stops at `t = i/255`. `t = 0`/`1` land exactly on the first/last stop's
-        # color, so `#color_for(vmin)`/`#color_for(vmax)` reproduce the endpoints.
+        # color, so `#color_for(minimum)`/`#color_for(maximum)` reproduce the endpoints.
         private def build_lut : Array(Int32)
-          stops = COLORMAPS[@colormap]? || COLORMAPS[:grayscale]
+          stops = COLORMAPS[@colormap]
           Array(Int32).new(256) { |i| sample_stops stops, i / 255.0 }
         end
 
@@ -251,19 +279,20 @@ module Crysterm
           Colors.mix a.rgb, b.rgb, 1.0 - frac
         end
 
-        # Resolves (and caches) the `{vmin, vmax}` bounds. `nil` bounds fall back
-        # to the finite-data range; `#symmetric` recenters on `0`; a degenerate
-        # `vmax <= vmin` (all-equal or single value) is widened by `1` so
-        # normalization stays finite.
+        # Resolves (and caches) the `{minimum, maximum}` bounds. `nil` bounds
+        # fall back to the finite-data range; `#symmetric` recenters on `0`; a
+        # degenerate `maximum <= minimum` (all-equal or single value) is
+        # widened by `1` so normalization stays finite.
         private def resolved_bounds : Tuple(Float64, Float64)
           if b = @bounds
             return b
           end
-          lo = @vmin
-          hi = @vmax
-          # A non-finite *explicit* bound (e.g. `vmax = data.max` where the data
-          # contains an Infinity) would poison the scale and crash the render
-          # fiber; drop it so it falls back to the finite data range like `nil`.
+          lo = @minimum
+          hi = @maximum
+          # A non-finite *explicit* bound (e.g. `maximum = data.max` where the
+          # data contains an Infinity) would poison the scale and crash the
+          # render fiber; drop it so it falls back to the finite data range
+          # like `nil`.
           lo = nil unless lo.nil? || lo.finite?
           hi = nil unless hi.nil? || hi.finite?
           if lo.nil? || hi.nil?
@@ -321,7 +350,7 @@ module Crysterm
           return if cols == 0
           xi, xl, yi, yl = interior_coords || return
           return if xl - xi <= 0 || yl - yi <= 0
-          text_attr = sattr(style, style.fg, style.bg)
+          text_attr = style_to_attr(style, style.fg, style.bg)
 
           # Column labels across the top row, each centered in its cell column.
           unless @col_labels.empty?
@@ -346,9 +375,10 @@ module Crysterm
           end
         end
 
-        # Stamps the colorbar down the right edge: one cell per row from `vmax`
-        # (top) to `vmin` (bottom) in the colormap's colors, with numeric end
-        # labels to its left. Uses colored cells, not a second paint pass.
+        # Stamps the colorbar down the right edge: one cell per row from
+        # `maximum` (top) to `minimum` (bottom) in the colormap's colors, with
+        # numeric end labels to its left. Uses colored cells, not a second
+        # paint pass.
         private def draw_legend : Nil
           return unless show_legend?
           xi, xl, yi, yl = interior_coords || return
@@ -358,13 +388,13 @@ module Crysterm
           bar_x = xl - 1
           span = (yl - 1 - yi).to_f
           (yi...yl).each do |y|
-            # Top row is `t = 1` (vmax), bottom is `t = 0` (vmin).
+            # Top row is `t = 1` (maximum), bottom is `t = 0` (minimum).
             t = span <= 0 ? 1.0 : 1.0 - (y - yi) / span
             put_cell bar_x, y, Scale::FULL, overlay_attr(lut[(t * 255).round.to_i]), xi, xl
           end
 
           # Numeric end labels, right-aligned just left of the bar.
-          text_attr = sattr(style, style.fg, style.bg)
+          text_attr = style_to_attr(style, style.fg, style.bg)
           hi_s = Scale.fmt hi
           lo_s = Scale.fmt lo
           put_text Math.max(xi, bar_x - hi_s.size), yi, hi_s, text_attr, xi, bar_x

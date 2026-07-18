@@ -26,7 +26,7 @@ end
 
 Widget::Media::Ueberzug.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
-  scaler: "forced_cover",
+  scaler: :forced_cover,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 
 if secs = ENV["DEMO_SECONDS"]?

@@ -10,13 +10,12 @@ class X
   include Crysterm
 
   def initialize
-    s = Window.new always_propagate: [::Tput::Key::CtrlQ], full_unicode: true
+    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
     fm = Widget::FileManager.new \
       parent: s,
-      keys: true,
       vi: true,
-      label: " %path ",
+      label: " Files ",
       cwd: ENV["HOME"]? || Dir.current,
       height: "half",
       width: "half",
@@ -34,12 +33,12 @@ class X
       style: Style.new(bg: "green", border: true)
     box.hide
 
-    fm.on(Crysterm::Event::ChangeDir) do |e|
+    fm.on(Crysterm::Event::DirectoryChanged) do |e|
       fm.set_label " #{e.path} "
       s.render
     end
 
-    fm.on(Crysterm::Event::OpenFile) do |e|
+    fm.on(Crysterm::Event::FileSelected) do |e|
       box.set_content "Selected: #{e.path}"
       box.show
       s.render

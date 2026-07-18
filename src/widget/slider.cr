@@ -37,7 +37,7 @@ module Crysterm
       property? inverted_appearance : Bool = false
 
       # Whether the current value is drawn centered over the track.
-      property? show_value : Bool = false
+      property? text_visible : Bool = false
 
       # Glyph used for the draggable handle and the track. Unset (`nil`)
       # resolves the CSS `glyph` on the matching sub-control (`Slider::handle`
@@ -80,7 +80,7 @@ module Crysterm
         @page_step = 10,
         @orientation = @orientation,
         @inverted_appearance = false,
-        @show_value = false,
+        @text_visible = false,
         @handle_char = nil,
         @track_char = nil,
         @tick_position = TickPosition::None,
@@ -122,7 +122,7 @@ module Crysterm
         end
       end
 
-      # Cached value string; `#render` draws it every frame when `#show_value?`.
+      # Cached value string; `#render` draws it every frame when `#text_visible?`.
       @value_text : String = ""
 
       # Returns `@value.to_s`, rebuilding only when the value changed.
@@ -191,7 +191,7 @@ module Crysterm
       private def draw_ticks(xi, xl, yi, yl)
         return if value_span == 0
         interval = effective_tick_interval
-        attr = sattr style
+        attr = style_to_attr style
         edges = @tick_edges
         # Hoisted out of the per-tick loops: registry resolution walks to the window.
         tick_ch = tick_char
@@ -229,10 +229,10 @@ module Crysterm
         # include padding, so anything else makes the drawn handle and the
         # click-mapped value disagree on a padded slider.
         with_content_coords do |xi, xl, yi, yl|
-          track_attr = sattr style
+          track_attr = style_to_attr style
           window.fill_region track_attr, track_char, xi, xl, yi, yl
 
-          handle_attr = sattr style.indicator
+          handle_attr = style_to_attr style.indicator
           # The handle is a contiguous run across the cross axis, so it goes
           # through the batched `fill_region`, not a per-cell loop.
           if @orientation.horizontal?
@@ -245,7 +245,7 @@ module Crysterm
 
           draw_ticks(xi, xl, yi, yl) unless @tick_position.none?
 
-          if show_value?
+          if text_visible?
             txt = value_text
             cy = yi + (yl - yi - 1) // 2
             # Stamp the track attr too, not just the glyph: the center row also

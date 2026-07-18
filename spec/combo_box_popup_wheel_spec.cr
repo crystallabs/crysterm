@@ -39,17 +39,17 @@ describe "ComboBox popup wheel scrolling" do
     s = cbw_screen
     cb = cbw_combo s, editable: true
     cb.focus
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
     cb.open?.should be_true
-    before = pop.selected
+    before = pop.current_index
 
     # Wheel down: must scroll entries (selection moves forward) and stay open.
     cbw_wheel_over s, pop, 1
     cb.open?.should be_true
-    pop.selected.should be > before
+    pop.current_index.should be > before
 
     # Focus must remain on the editable combo, not get stolen by the list.
     s.focused.should eq cb
@@ -59,15 +59,15 @@ describe "ComboBox popup wheel scrolling" do
     s = cbw_screen
     cb = cbw_combo s, editable: false
     cb.focus
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
     cb.open?.should be_true
-    before = pop.selected
+    before = pop.current_index
 
     cbw_wheel_over s, pop, 1
     cb.open?.should be_true
-    pop.selected.should be > before
+    pop.current_index.should be > before
   end
 end

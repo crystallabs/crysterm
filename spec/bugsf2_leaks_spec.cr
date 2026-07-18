@@ -280,7 +280,7 @@ describe "Terminal child-exit teardown (F2 #45)" do
   it "posts a real destroy on child exit and drops the bare Destroy emit" do
     src = read_src "widget/terminal.cr"
 
-    src.should contain("emit ::Crysterm::Event::Exit, code")
+    src.should contain("emit ::Crysterm::Event::ProcessExited, code")
     src.should contain("window?.try &.post { destroy }")
     # The bare emit must be gone from the exit path.
     src.should_not contain("emit ::Crysterm::Event::Destroy")

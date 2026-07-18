@@ -16,36 +16,36 @@ module Crysterm
 
       # O(1) direct-child membership test. Prefer over `children.includes?` (a
       # linear scan) on hot paths that repeatedly probe membership.
-      def child?(element) : Bool
+      def child?(element : Widget) : Bool
         @children_set.includes? element
       end
 
       # Appends `element` to list of children
-      def append(element)
+      def append(element : Widget)
         insert element
       end
 
       # Appends `element`s to list of children in the order given (first listed is first added)
-      def append(*elements)
+      def append(*elements : Widget)
         elements.each do |el|
           insert el
         end
       end
 
       # Prepends node to the list of children
-      def prepend(element)
+      def prepend(element : Widget)
         insert element, 0
       end
 
       # Adds node to the list of children before the specified `other` element
-      def insert_before(element, other)
+      def insert_before(element : Widget, other)
         if i = @children.index other
           insert element, i
         end
       end
 
       # Adds node to the list of children after the specified `other` element
-      def insert_after(element, other)
+      def insert_after(element : Widget, other)
         if i = @children.index other
           insert element, i + 1
         end
@@ -57,7 +57,7 @@ module Crysterm
       # so on its own it cannot reposition an existing child. Overriders detach
       # `element` from its current parent before calling `super`, which is what
       # makes `append`/`prepend`/`insert_before`/`insert_after` reposition.
-      def insert(element, i = -1)
+      def insert(element : Widget, i = -1)
         return unless @children_set.add? element
         @children.insert i, element
         mark_structure_changed
@@ -65,7 +65,7 @@ module Crysterm
       end
 
       # Removes `element` from list of children widgets
-      def remove(element)
+      def remove(element : Widget)
         return unless @children_set.delete element
         return unless i = @children.index(element)
         # No need to erase the removed element's old footprint: the cell buffer
@@ -204,14 +204,14 @@ module Crysterm
       end
 
       # Returns a flat list of all children widgets, recursively
-      def collect_descendants : Array(Widget)
+      def descendants : Array(Widget)
         children = [] of Widget
         each_descendant { |e| children << e }
         children
       end
 
       # Returns a flat list of all parent widgets, recursively
-      def collect_ancestors : Array(Widget)
+      def ancestors : Array(Widget)
         parents = [] of Widget
         each_ancestor { |e| parents << e }
         parents

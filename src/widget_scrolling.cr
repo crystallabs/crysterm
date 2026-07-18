@@ -3,14 +3,14 @@ module Crysterm
     # Is element scrollable?
     getter? scrollable = false
 
-    # Once-flag: has the `Event::ParsedContent → _recalculate_index` clamp handler
+    # Once-flag: has the `Event::ContentParsed → reclamp_scroll_index` clamp handler
     # been wired for this widget? Set by `Widget#initialize` (for a widget
     # constructed `scrollable: true`) or by `#scrollable=` below, so the handler is
     # installed exactly once regardless of which path enables scrolling.
     @_scroll_index_wired = false
 
     # Enables/disables scrolling at runtime, wiring the content-clamp handler
-    # (`Event::ParsedContent → _recalculate_index`) a widget constructed
+    # (`Event::ContentParsed → reclamp_scroll_index`) a widget constructed
     # `scrollable: true` gets in `Widget#initialize`, and clamping immediately.
     # Without the handler, a content shrink would leave `@child_base` past the
     # content and the viewport blank until a manual scroll repaired it.
@@ -19,8 +19,8 @@ module Crysterm
       @scrollable = value
       if value && !@_scroll_index_wired
         @_scroll_index_wired = true
-        on(Crysterm::Event::ParsedContent) { _recalculate_index }
-        _recalculate_index
+        on(Crysterm::Event::ContentParsed) { reclamp_scroll_index }
+        reclamp_scroll_index
       end
       value
     end
@@ -95,13 +95,13 @@ module Crysterm
     # Whether the scroll bar chrome should be shown now: never when non-scrollable
     # or `AlwaysOff`, always under `AlwaysOn`, on overflow under `AsNeeded`.
     def show_scrollbar? : Bool
-      policy_shows?(scrollbar_policy) { really_scrollable? }
+      policy_shows?(scrollbar_policy) { overflows_y? }
     end
 
     # Horizontal counterpart of `#show_scrollbar?`, keyed off
     # `#horizontal_scrollbar_policy` and horizontal overflow.
     def show_horizontal_scrollbar? : Bool
-      policy_shows?(horizontal_scrollbar_policy) { really_scrollable_x? }
+      policy_shows?(horizontal_scrollbar_policy) { overflows_x? }
     end
 
     # Rows reserved at the bottom for a shown horizontal scroll bar, so content
@@ -122,11 +122,11 @@ module Crysterm
     # scrollbar: the horizontal test here uses the full interior width (`awidth -
     # ihorizontal`). The vertical-overflow predicates below MUST use this variant
     # rather than `#hscrollbar_rows`, whose overflow test runs against
-    # `#content_width` and would close the cycle `really_scrollable? →
-    # hscrollbar_rows → … → really_scrollable?`.
+    # `#content_width` and would close the cycle `overflows_y? →
+    # hscrollbar_rows → … → overflows_y?`.
     private def hscrollbar_rows_indep : Int32
       reserve = policy_shows?(horizontal_scrollbar_policy) do
-        !wrap_content? && (get_scroll_width > Math.max(0, awidth - ihorizontal))
+        !wrap_content? && (scroll_width > Math.max(0, awidth - ihorizontal))
       end
       reserve ? scrollbar_height : 0
     end
@@ -173,6 +173,7 @@ module Crysterm
       # left to the parent's background fill.
       if show_scrollbar?
         sb = ensure_scrollbar_widget
+        sb.width = scrollbar_width
         sb.height = show_horizontal_scrollbar? ? "100%-#{scrollbar_height}" : "100%"
         sb.show
       else
@@ -181,6 +182,7 @@ module Crysterm
 
       if show_horizontal_scrollbar?
         hb = ensure_horizontal_scrollbar_widget
+        hb.height = scrollbar_height
         hb.width = show_scrollbar? ? "100%-#{scrollbar_width}" : "100%"
         hb.show
       else
@@ -240,7 +242,7 @@ module Crysterm
     # (vertical) and *dx* columns (horizontal).
     def scroll_contents_by(dx : Int32, dy : Int32) : Nil
       scroll dy unless dy == 0
-      scroll_x dx unless dx == 0
+      scroll_by_x dx unless dx == 0
     end
 
     # Smallest scroll base that brings *pos* inside a *visible*-cell window
@@ -266,7 +268,7 @@ module Crysterm
       return false if visible <= 0
 
       base = @child_base
-      @child_base = windowed_base(y, @child_base, margin, visible, get_scroll_height)
+      @child_base = windowed_base(y, @child_base, margin, visible, scroll_height)
 
       return false if @child_base == base
       mark_dirty
@@ -297,7 +299,7 @@ module Crysterm
       return false if visible <= 0
 
       base = @child_base_x
-      @child_base_x = windowed_base(x, @child_base_x, margin, visible, get_scroll_width)
+      @child_base_x = windowed_base(x, @child_base_x, margin, visible, scroll_width)
 
       return false if @child_base_x == base
       mark_dirty
@@ -321,7 +323,7 @@ module Crysterm
     # Horizontal counterparts of `child_base`/`child_offset`, in display columns.
     # `child_base_x` is the first visible column of (non-wrapped) content;
     # `child_offset_x` mirrors `child_offset` but the generic path keeps it 0, so
-    # `get_scroll_x == child_base_x`. Only meaningful when `wrap_content?` is off.
+    # `scroll_position_x == child_base_x`. Only meaningful when `wrap_content?` is off.
     property child_base_x = 0
 
     # :ditto:
@@ -353,24 +355,24 @@ module Crysterm
     @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
 
     # Potentially use this wherever .scrollable? is used
-    def really_scrollable?
+    def overflows_y?
       return @scrollable if @shrink_to_fit
-      get_scroll_height > visible_content_rows_indep
+      scroll_height > visible_content_rows_indep
     end
 
     # Whether laid-out content exceeds the visible content height (viewport minus
     # `ivertical`). Overflow test for fixed-viewport widgets (`PlainTextEdit`,
-    # `List`) that scroll rather than grow — they override `#really_scrollable?`
+    # `List`) that scroll rather than grow — they override `#overflows_y?`
     # with this so an `AsNeeded` bar tracks real overflow instead of the
     # `@shrink_to_fit` always-scrollable short-circuit.
     def content_overflows_height?
-      get_scroll_height > visible_content_rows_indep
+      scroll_height > visible_content_rows_indep
     end
 
     # Total lines by which widget is scrolled, combining invisible and visible
     # parts. E.g. 6 lines scrolled out of window + cursor at 5th visible line
     # returns 11.
-    def get_scroll
+    def scroll_position : Int32
       @child_base + @child_offset
     end
 
@@ -379,20 +381,20 @@ module Crysterm
       scroll offset - (@child_base + @child_offset), always
     end
 
-    def get_scroll_height
-      Math.max @_clines.size, _scroll_bottom
+    def scroll_height : Int32
+      Math.max @_clines.size, scroll_extent_bottom
     end
 
     # --- horizontal axis ----------------------------------------------------
 
-    # Combined horizontal scroll position, in columns (mirrors `#get_scroll`).
-    def get_scroll_x
+    # Combined horizontal scroll position, in columns (mirrors `#scroll_position`).
+    def scroll_position_x : Int32
       @child_base_x + @child_offset_x
     end
 
     # Widest content row, in display columns — horizontal analogue of
-    # `#get_scroll_height`. Computed by `_wrap_content`; `0` for wrapped content.
-    def get_scroll_width
+    # `#scroll_height`. Computed by `_wrap_content`; `0` for wrapped content.
+    def scroll_width : Int32
       @_clines.full_width
     end
 
@@ -426,22 +428,22 @@ module Crysterm
     # Whether content overflows the viewport horizontally (so an `AsNeeded`
     # horizontal bar should show). Always false while wrapping, since wrapped
     # content is reflowed to fit the width.
-    def really_scrollable_x?
+    def overflows_x?
       return false if wrap_content?
-      get_scroll_width > content_width
+      scroll_width > content_width
     end
 
     # Horizontal counterpart of `#scroll`: shift the visible column window by
     # *offset* columns, clamped to the content width, and repaint. Emits
     # `Event::Scroll` carrying the signed column delta and `:horizontal`.
-    def scroll_x(offset = 1)
+    def scroll_by_x(offset = 1)
       return unless @scrollable && window?
       visible = content_width
       return if visible <= 0
 
       base = @child_base_x
       @child_offset_x = 0
-      @child_base_x = (base + offset).clamp(0, Math.max(0, get_scroll_width - visible))
+      @child_base_x = (base + offset).clamp(0, Math.max(0, scroll_width - visible))
       return if @child_base_x == base
 
       mark_dirty
@@ -450,19 +452,20 @@ module Crysterm
 
     # Horizontal counterpart of `#scroll_to`: move the column window so its left
     # edge sits at *offset*.
-    def scroll_x_to(offset)
-      scroll_x offset - get_scroll_x
+    def scroll_to_x(offset)
+      scroll_by_x offset - scroll_position_x
     end
 
-    def set_scroll_perc(i)
-      # Map against the same scrollable span `#get_scroll_perc` divides by, so
-      # the two are true inverses (`w.scroll_percentage = w.scroll_percentage`
-      # is idempotent). `get_scroll_perc` uses `child_base / (height_total -
-      # viewport)` under `@always_scroll` and `get_scroll / (height_total - 1)`
-      # otherwise; mapping set against `get_scroll_height` (the full content
+    def scroll_percent=(value : Float64) : Float64
+      # Map against the same scrollable span `#scroll_percent` divides by, so
+      # the two are true inverses (`w.scroll_percent = w.scroll_percent`
+      # is idempotent). `scroll_percent` uses `child_base / (height_total -
+      # viewport)` under `@always_scroll` and `scroll_position / (height_total - 1)`
+      # otherwise; mapping set against `scroll_height` (the full content
       # height) instead over-scrolled every round-trip.
-      m = @always_scroll ? get_scroll_height - visible_content_rows : get_scroll_height - 1
-      scroll_to ((i / 100) * Math.max(0, m)).to_i
+      m = @always_scroll ? scroll_height - visible_content_rows : scroll_height - 1
+      scroll_to (value * Math.max(0, m)).to_i
+      value
     end
 
     def reset_scroll
@@ -483,33 +486,30 @@ module Crysterm
       emit Crysterm::Event::Scroll, -prev
     end
 
-    def get_scroll_perc(s)
+    def scroll_percent : Float64
       # `coords` (method call), not `@coords` (a nonexistent ivar).
       pos = @lpos || coords
-      if !pos
-        return s ? -1 : 0
-      end
+      return 0.0 unless pos
 
       height = (pos.yl - pos.yi) - ivertical - hscrollbar_rows
-      i = get_scroll_height
+      i = scroll_height
       # p
 
       if height < i
         if @always_scroll
-          p = @child_base / (i - height)
+          @child_base / (i - height)
         else
           # `i - 1` is the scrollable span; 0 when `i <= 1` (nothing to scroll).
           # Guarded because the bare division would yield Infinity/NaN and
-          # `* 100` would propagate garbage — 0% is correct there instead.
-          p = i > 1 ? (@child_base + @child_offset) / (i - 1) : 0.0
+          # propagate garbage — 0.0 is correct there instead.
+          i > 1 ? (@child_base + @child_offset) / (i - 1) : 0.0
         end
-        return p * 100
+      else
+        0.0
       end
-
-      s ? -1 : 0
     end
 
-    def _scroll_bottom
+    protected def scroll_extent_bottom
       return 0 unless @scrollable
 
       # Optimization for lists: just return items.size instead of computing children.
@@ -542,7 +542,7 @@ module Crysterm
         Math.max current, el_bottom
       end
 
-      # XXX Use this? Makes .get_scroll_height useless
+      # XXX Use this? Makes .scroll_height useless
       # if bottom < @_clines.size
       #   bottom = @_clines.size
       # end
@@ -570,7 +570,7 @@ module Crysterm
       # shows from its 3rd line onward).
       base = @child_base
       # Combined position before the move, so `Event::Scroll` can report the
-      # signed delta (`get_scroll` shifts by both base and offset changes).
+      # signed delta (`scroll_position` shifts by both base and offset changes).
       before = @child_base + @child_offset
 
       if @always_scroll || always
@@ -603,20 +603,20 @@ module Crysterm
 
       # Optimize scrolling with CSR + IL/DL.
       p = @lpos
-      if p && (@child_base != base) && window.clean_sides(self)
+      if p && (@child_base != base) && window.sides_uniform?(self)
         t = p.yi + itop
         b = p.yl - ibottom - 1
         d = @child_base - base
 
         # The CSR path mutates window buffer rows `t..b` directly
         # (`shift_lines` delete_at/insert), so both bounds must lie inside the
-        # buffer. `clean_sides`'s full-width shortcut returns true WITHOUT the
+        # buffer. `sides_uniform?`'s full-width shortcut returns true WITHOUT the
         # vertical bounds check its fast-csr branch does, so a full-width
         # scrollable extending past the screen edge (top: 3, height: "100%" →
         # b > aheight-1; top: -3 → t < 0) reached here unclamped: a too-large
         # `b` raised IndexError mid-mutation leaving `@lines` short, and a
         # negative `t` wrapped `delete_at` around to evict BOTTOM rows,
-        # desyncing `@lines`/`@olines` from the terminal. Off-screen rows can't
+        # desyncing `@lines`/`@flushed_lines` from the terminal. Off-screen rows can't
         # be CSR-scrolled anyway; fall through to a normal repaint instead.
         if t >= 0 && b <= window.aheight - 1
           if d > 0 && d < visible
@@ -646,14 +646,14 @@ module Crysterm
 
     # Pulls `@child_base` down to the largest valid scroll offset for the current
     # content — the greater of the wrapped-content height (`@_clines.size`) and
-    # the descendant extent (`_scroll_bottom`), each measured against the visible
+    # the descendant extent (`scroll_extent_bottom`), each measured against the visible
     # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
-    # and `#_recalculate_index`.
+    # and `#reclamp_scroll_index`.
     private def clamp_child_base_to_content
       visible = visible_content_rows
 
       # With no visible content rows there is nothing to scroll to, so the base
-      # must clamp to 0; `size - visible`/`_scroll_bottom - visible` would
+      # must clamp to 0; `size - visible`/`scroll_extent_bottom - visible` would
       # otherwise degrade to the full content height and fail to rein in a bad
       # base.
       if visible <= 0
@@ -661,7 +661,7 @@ module Crysterm
       else
         max = @_clines.size - visible
         max = 0 if max < 0
-        emax = _scroll_bottom - visible
+        emax = scroll_extent_bottom - visible
         emax = 0 if emax < 0
         content_max = Math.max emax, max
       end
@@ -681,7 +681,7 @@ module Crysterm
       clamp_child_base
     end
 
-    def _recalculate_index
+    protected def reclamp_scroll_index
       return 0 if !window? || !@scrollable
 
       clamp_child_base_to_content

@@ -14,7 +14,7 @@ module Crysterm
     # Stack of widgets with an *input grab* — an open pop-up (menu, combo
     # drop-down, …) behaving modally: while any grab is active, only points
     # inside a grab's own region deliver hover/click. Other widgets get no
-    # `MouseOver`/`Click`, so a tooltip never appears under an open menu; the
+    # `MouseEnter`/`Click`, so a tooltip never appears under an open menu; the
     # grab's outside-click dismissal still runs via the screen-level
     # `Event::Mouse`. Stacked so nested pop-ups compose.
     @grabs = [] of Widget
@@ -148,7 +148,7 @@ module Crysterm
     # dropped after, so a removed subtree can never leave this window hovering,
     # capturing, dragging, or modally grabbing a widget no longer on it:
     #
-    #   * `@_hover` → next `MouseMove` fires `MouseOut` on a dead widget, an
+    #   * `@_hover` → next `MouseMove` fires `MouseLeave` on a dead widget, an
     #     OSC-22 pointer shape it set is never reverted (restored here too), and
     #     the subtree is pinned in memory.
     #   * `@_arm` → a later motion calls `start_drag` on a detached widget.
@@ -168,7 +168,7 @@ module Crysterm
       yield
 
       @_hover = nil if drop_hover
-      set_mouse_cursor_shape nil if drop_hover
+      self.mouse_cursor_shape = nil if drop_hover
       @_arm = nil if drop_arm
       @_mouse_captor = nil if drop_captor
       stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
@@ -182,13 +182,13 @@ module Crysterm
     # listener is routine (every pop-up/menu/combo installs one), and mouse
     # motion is high-frequency. See `Event::Mouse#reset` for the retention caveat.
     pooled_mouse_event mouse, Mouse
-    pooled_mouse_event mouse_over, MouseOver
+    pooled_mouse_event mouse_over, MouseEnter
     pooled_mouse_event mouse_move, MouseMove
-    pooled_mouse_event mouse_out, MouseOut
+    pooled_mouse_event mouse_out, MouseLeave
 
     # Turns off mouse reporting on the device and drops this surface's hover
     # state — `Screen#disable_mouse` handles terminal/gpm/cursor teardown; the
-    # `@_hover` reset is the surface's half (no further `MouseOut` fires once
+    # `@_hover` reset is the surface's half (no further `MouseLeave` fires once
     # reporting is off).
     def disable_mouse : Nil
       @screen.disable_mouse
@@ -272,10 +272,7 @@ module Crysterm
             discrete: true
           return
         end
-        @_arm = w
-        @_arm_x = ev.x
-        @_arm_y = ev.y
-        @_arm_button = ev.button
+        arm_potential_drag w, ev
       end
 
       if armed = @_arm
@@ -289,16 +286,22 @@ module Crysterm
           # otherwise a later real click on the same spot within the
           # double-click interval would read an inflated `#click_count`.
           reset_click_count
-          # The drag commits only on the ARMING press's button.
+          # The drag commits only on the ARMING press's button; hand it off to
+          # `@_drag_button` before clearing the (now resolved) arm.
           @_drag_button = @_arm_button
+          @_arm_button = ::Tput::Mouse::Button::None
           sess = start_drag armed, ax, ay, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move)
           drag_motion sess, ev.x, ev.y, ev.shift?, ev.ctrl?
           return
-        elsif ev.action.up?
+        elsif ev.action.up? && gesture_end_button?(ev.button, @_arm_button)
           # No motion: it was a click after all. Draggable widgets emit their
-          # click on release since the press was ambiguous.
+          # click on release since the press was ambiguous. Only the ARMING
+          # button's release resolves the arm — a stray other-button up falls
+          # through to normal dispatch and leaves the arm intact (mirrors the
+          # drag/captor button gating).
           @_arm = nil
+          @_arm_button = ::Tput::Mouse::Button::None
           armed.emit ::Crysterm::Event::Click if w == armed && !armed.disabled?
           return
         end
@@ -345,6 +348,19 @@ module Crysterm
       elsif ev.action.wheel_down?
         scroll_under w, 1, horizontal: ev.shift?
       end
+    end
+
+    # Arm a potential press-and-hold drag on *w*, recording the arming button so
+    # only its release/motion resolves the gesture. A different button's press
+    # must NOT clobber an arm already pending on another button — the original
+    # arming gesture survives until it resolves (mirrors the drag/captor button
+    # gating). A same-button (or buttonless) re-press may retarget the arm.
+    private def arm_potential_drag(w : Widget, ev : ::Tput::Mouse::Event) : Nil
+      return unless @_arm.nil? || gesture_end_button?(ev.button, @_arm_button)
+      @_arm = w
+      @_arm_x = ev.x
+      @_arm_y = ev.y
+      @_arm_button = ev.button
     end
 
     # A wheel acting on a widget implicitly focuses it (matching GUI toolkits),
@@ -458,7 +474,7 @@ module Crysterm
     private def scroll_under(w : Widget, offset : Int32, horizontal = false)
       el = w.first_self_or_ancestor &.scrollable?
       return unless el
-      horizontal ? el.scroll_x(offset) : el.scroll(offset)
+      horizontal ? el.scroll_by_x(offset) : el.scroll(offset)
       render
     end
 
@@ -468,17 +484,17 @@ module Crysterm
     # notion, so an occluded widget shouldn't appear hovered. A widget wanting
     # background activity can subscribe to the screen-level `Event::Mouse`.
     #
-    #   * Entering a widget        -> `Event::MouseOver` on it.
-    #   * Leaving the prior one    -> `Event::MouseOut`  on it.
+    #   * Entering a widget        -> `Event::MouseEnter` on it.
+    #   * Leaving the prior one    -> `Event::MouseLeave`  on it.
     #   * Moving while staying on  -> `Event::MouseMove` (hovering) on it.
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
       if w != @_hover
         if old = @_hover
-          old.emit ::Crysterm::Event::MouseOut, mouse_out_event(ev)
+          old.emit ::Crysterm::Event::MouseLeave, mouse_out_event(ev)
         end
         @_hover = w
         if w
-          w.emit ::Crysterm::Event::MouseOver, mouse_over_event(ev)
+          w.emit ::Crysterm::Event::MouseEnter, mouse_over_event(ev)
         end
       elsif w && ev.action.move?
         w.emit ::Crysterm::Event::MouseMove, mouse_move_event(ev)
@@ -490,8 +506,8 @@ module Crysterm
     #
     # Hit-testing follows render/z order rather than registration order: the
     # tree is walked depth-first in paint order (`@children` array order), and
-    # the last match wins (topmost). This is what makes `Widget#front!`/
-    # `Widget#back!` affect hit-testing: reordering a widget in its parent's
+    # the last match wins (topmost). This is what makes `Widget#to_front`/
+    # `Widget#to_back` affect hit-testing: reordering a widget in its parent's
     # `children` both raises it visually and makes it the hit target, with no
     # separate bookkeeping.
     #
@@ -641,7 +657,7 @@ module Crysterm
     def register_clickable(el : Widget)
       return unless register_in el, @clickable
       el.clickable = true
-      @screen.enable_mouse if @screen._listened_mouse?
+      @screen.enable_mouse if @screen.mouse_enabled?
     end
   end
 end

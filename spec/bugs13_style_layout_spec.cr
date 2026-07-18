@@ -121,7 +121,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
   it "still lets an over-large span mean 'span to the end' (BUGS6 semantics)" do
     screen = headless_screen
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 20, height: 20,
-      layout: Layout::Grid.new(columns: 2, gap: 1)
+      layout: Layout::Grid.new(columns: 2, spacing: 1)
     a = Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99, column_span: 1)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)

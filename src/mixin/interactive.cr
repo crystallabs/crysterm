@@ -46,7 +46,7 @@ module Crysterm
             when .page_backward? then page_scroll(-page, -1)
             when .page_forward?  then page_scroll(page, 1)
             when .first?         then scroll_to 0; request_render
-            when .last?          then scroll_to get_scroll_height; request_render
+            when .last?          then scroll_to scroll_height; request_render
             end
             # Consume the handled key — don't also drive an ancestor.
             e.accept

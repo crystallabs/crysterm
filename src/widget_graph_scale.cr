@@ -155,7 +155,7 @@ module Crysterm
         # it was built for. When nothing affecting the plot changed since the last
         # frame, `#render` reuses the string instead of rebuilding it.
         @content_cache : String?
-        @content_cache_key : Tuple(Int32, Int32, Int32)?
+        @content_cache_key : Tuple(Int32, Int32, Int32, {String?, Glyphs::Tier, UInt64})?
 
         # Invalidate the built-content cache.
         protected def bump_data_version : Nil
@@ -170,6 +170,10 @@ module Crysterm
           def {{name.id}}=(value : {{type}})
             @{{name.id}} = value
             bump_data_version
+            # A decoration change alters the built content; `mark_dirty` both
+            # registers damage and schedules a frame, so the chart actually
+            # repaints instead of waiting for an unrelated render.
+            mark_dirty
             value
           end
         end
@@ -183,7 +187,10 @@ module Crysterm
         end
 
         def render
-          key = {awidth - ihorizontal, aheight - ivertical, @data_version}
+          # `glyph_key(style)` covers the fill-ramp inputs `build_content`
+          # resolves (CSS `glyphs:`, effective tier, `Glyphs.generation`), so a
+          # ramp change rebuilds instead of serving the stale cached content.
+          key = {awidth - ihorizontal, aheight - ivertical, @data_version, glyph_key(style)}
           content =
             if @content_cache_key == key && (cached = @content_cache)
               cached

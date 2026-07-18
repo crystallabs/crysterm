@@ -60,7 +60,7 @@ require "http/client"
           body: %({"jsonrpc":"2.0","id":3,"method":"unsubscribe","params":{"selector":"#save","event":"press"}}))
 
         msg = next_event(7404, 600.milliseconds) do
-          s.find_by_id("save").not_nil!.emit Crysterm::Event::Press
+          s.find_by_id("save").not_nil!.emit Crysterm::Event::Pressed
         end
         msg.should_not be_nil # the .btn subscription is still live
       ensure
@@ -86,7 +86,7 @@ require "http/client"
           body: %({"jsonrpc":"2.0","id":4,"method":"unsubscribe","params":{"selector":".btn","event":"press"}}))
 
         msg = next_event(7405, 600.milliseconds) do
-          s.find_by_id("save").not_nil!.emit Crysterm::Event::Press
+          s.find_by_id("save").not_nil!.emit Crysterm::Event::Pressed
         end
         msg.should be_nil # no subscription left; forwarder must be detached
       ensure

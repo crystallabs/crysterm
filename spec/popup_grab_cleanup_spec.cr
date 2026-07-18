@@ -20,7 +20,7 @@ describe Crysterm::Mixin::Popup do
   it "releases the modal grab when destroyed while open" do
     s = popup_mem_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
-    cb.open
+    cb.show_popup
     cb.open?.should be_true
     s.grabbing?.should be_true
 

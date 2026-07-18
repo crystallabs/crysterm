@@ -60,22 +60,22 @@ describe "Loading spinner frames" do
     s.stylesheet = %(Loading { glyphs: "◐◓◑◒"; })
     s.apply_stylesheet
     s._render
-    l.icons.should eq ["◐", "◓", "◑", "◒"]
+    l.frames.should eq ["◐", "◓", "◑", "◒"]
     l.step
     l.icon.content.should eq "◓"
   end
 
-  it "keeps the classic default and pins explicit icons/spinner" do
+  it "keeps the classic default and pins explicit frames/spinner" do
     s = gs_screen
     l = Widget::Loading.new parent: s, top: 0, left: 0, width: 20, height: 5
-    l.icons.should eq ["|", "/", "-", "\\"]
+    l.frames.should eq ["|", "/", "-", "\\"]
 
     pinned = Widget::Loading.new parent: s, top: 5, left: 0, width: 20, height: 5, spinner: :circle
     s.stylesheet = %(Loading { glyphs: "xy"; })
     s.apply_stylesheet
     s._render
-    pinned.icons.should eq ["◐", "◓", "◑", "◒"] # spinner: pins over CSS
-    l.icons.should eq ["x", "y"]                # unpinned follows CSS
+    pinned.frames.should eq ["◐", "◓", "◑", "◒"] # spinner: pins over CSS
+    l.frames.should eq ["x", "y"]                # unpinned follows CSS
   end
 end
 
@@ -199,11 +199,11 @@ describe "Glyphs.detected_tier(tput) and Screen auto glyph tier" do
     end
   end
 
-  it "keeps an explicitly assigned tier pinned across probe!" do
+  it "keeps an explicitly assigned tier pinned across probe" do
     s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
       width: 40, height: 12)
     s.glyph_tier = Glyphs::Tier::Ascii
-    s.probe! # no-op round-trip on a non-tty; must not touch the pinned tier
+    s.probe # no-op round-trip on a non-tty; must not touch the pinned tier
     s.glyph_tier.should eq Glyphs::Tier::Ascii
   end
 end

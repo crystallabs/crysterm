@@ -26,7 +26,7 @@ module Crysterm
     # columns and over time — the classic demoscene color scroller.
     #
     # Glyphs are painted straight into the window cells in `#render`, each cell's
-    # color set as a native `0xRRGGBB` attribute via `sattr`. Building a
+    # color set as a native `0xRRGGBB` attribute via `style_to_attr`. Building a
     # `{#rrggbb-fg}`-tagged content string instead would re-tokenize every frame.
     #
     # <!-- widget-examples:capture v1 -->
@@ -70,7 +70,7 @@ module Crysterm
           next if w <= 0 || h <= 0
 
           # The field the glyphs ride over, and the inter-glyph gaps.
-          window.fill_region(sattr(style), ' ', xi, xl, yi, yl)
+          window.fill_region(style_to_attr(style), ' ', xi, xl, yi, yl)
 
           n = text.size
           next if n == 0
@@ -80,7 +80,7 @@ module Crysterm
           # Hoisted out of the column loop: in rainbow mode only the foreground
           # varies, so flags and bg are reused and just the fg is repacked per
           # column via `Attr.with_fg`.
-          base = sattr style, style.fg, style.bg
+          base = style_to_attr style, style.fg, style.bg
 
           (0...w).each do |x|
             ch = scroll_glyph(f, x, n)

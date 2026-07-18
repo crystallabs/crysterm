@@ -25,22 +25,22 @@ describe "ComboBox with duplicate option labels" do
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["A", "B", "A"]
 
-    cb.selected.should eq 0
-    cb.value.should eq "A"
+    cb.current_index.should eq 0
+    cb.current_text.should eq "A"
 
     cb.cycle 1
-    cb.selected.should eq 1 # B
-    cb.value.should eq "B"
+    cb.current_index.should eq 1 # B
+    cb.current_text.should eq "B"
 
     # Must reach the third entry (index 2), another "A" — not collapse to index 0.
     cb.cycle 1
-    cb.selected.should eq 2
-    cb.value.should eq "A"
+    cb.current_index.should eq 2
+    cb.current_text.should eq "A"
 
     # And one more wraps cleanly back to the first entry.
     cb.cycle 1
-    cb.selected.should eq 0
-    cb.value.should eq "A"
+    cb.current_index.should eq 0
+    cb.current_text.should eq "A"
   end
 
   it "commits the duplicate row actually picked from the drop-down" do
@@ -50,7 +50,7 @@ describe "ComboBox with duplicate option labels" do
 
     # Picking the third row (second "A") must land the selection on index 2.
     cb.commit 2
-    cb.selected.should eq 2
-    cb.value.should eq "A"
+    cb.current_index.should eq 2
+    cb.current_text.should eq "A"
   end
 end

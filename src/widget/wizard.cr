@@ -8,9 +8,9 @@ module Crysterm
     #
     # Holds an ordered set of pages (a `StackedWidget`) above a button row with
     # **Back**, **Next**/**Finish** and **Cancel**. Back is disabled on the first
-    # page; on the last page Next becomes Finish. Navigation emits `Event::Action`
-    # (the new page's title) on each page change, `Event::Complete` when Finish is
-    # pressed on the last page, and `Event::Cancel` when Cancel is pressed. Finish
+    # page; on the last page Next becomes Finish. Navigation emits `Event::Activated`
+    # (the new page's title) on each page change, `Event::Completed` when Finish is
+    # pressed on the last page, and `Event::Cancelled` when Cancel is pressed. Finish
     # and Cancel additionally close the wizard through the `Dialog` result
     # protocol (`Event::Accepted`/`Rejected`, then `Event::Finished`).
     #
@@ -18,7 +18,7 @@ module Crysterm
     # wiz = Widget::Wizard.new parent: window, width: 50, height: 16, style: Style.new(border: true)
     # wiz.add_page Widget::Box.new(content: "Welcome"), title: "Intro"
     # wiz.add_page Widget::Form.new, title: "Details"
-    # wiz.on(Event::Complete) { finish! }
+    # wiz.on(Event::Completed) { finish! }
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -55,9 +55,9 @@ module Crysterm
         @cancel_button = wizard_button "Cancel", right: 10
         @next_button = wizard_button "Next", right: 0
 
-        back_button.on(::Crysterm::Event::Press) { back }
-        next_button.on(::Crysterm::Event::Press) { advance }
-        cancel_button.on(::Crysterm::Event::Press) { reject }
+        back_button.on(::Crysterm::Event::Pressed) { back }
+        next_button.on(::Crysterm::Event::Pressed) { advance }
+        cancel_button.on(::Crysterm::Event::Pressed) { reject }
 
         # Enter advances/finishes, Escape cancels. The accelerator stays
         # installed while attached and is torn down on detach/destroy so it
@@ -138,7 +138,7 @@ module Crysterm
       end
 
       # Goes to the next page, or finishes when already on the last page —
-      # emitting `Event::Complete` and then accepting the wizard (Qt's Finish
+      # emitting `Event::Completed` and then accepting the wizard (Qt's Finish
       # button triggers `QDialog#accept`), so it closes with `Code::Accepted`.
       def advance : Nil
         # A page-less wizard sits at the `-1` `current_index` sentinel; treat it
@@ -146,7 +146,7 @@ module Crysterm
         # construction), so it can't "finish" with zero pages.
         return if page_count == 0
         if current_index >= page_count - 1
-          emit ::Crysterm::Event::Complete
+          emit ::Crysterm::Event::Completed
           accept
         else
           stack.next_page
@@ -154,16 +154,16 @@ module Crysterm
         end
       end
 
-      # Cancels the wizard: emits `Event::Cancel` on top of the standard
+      # Cancels the wizard: emits `Event::Cancelled` on top of the standard
       # rejection (`Event::Rejected` + `Event::Finished`, via `Dialog#reject`).
       def reject : Nil
-        emit ::Crysterm::Event::Cancel, ""
+        emit ::Crysterm::Event::Cancelled
         super
       end
 
       private def after_change : Nil
         refresh_buttons
-        emit ::Crysterm::Event::Action, @titles[current_index]? || ""
+        emit ::Crysterm::Event::Activated, @titles[current_index]? || ""
         request_render
       end
 

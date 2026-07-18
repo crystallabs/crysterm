@@ -12,14 +12,14 @@ end
 
 describe "Widget#delete_line on content seeded before attach (finding 32)" do
   it "does not raise IndexError when `ftor` is still empty" do
-    # Detached widget (no window): `push_line` fills `@_clines.fake` directly, but
+    # Detached widget (no window): `append_line` fills `@_clines.fake` directly, but
     # `process_content` bails (`return false unless window?`), so `ftor` stays
     # empty even though `fake` is not.
     w = Widget::Box.new
     w.window = nil
     w.window?.should be_nil
 
-    w.push_line "x"
+    w.append_line "x"
     w._clines.fake.should eq ["x"]
     w._clines.ftor.empty?.should be_true
 
@@ -39,7 +39,7 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
     box.set_content "{center}Title"
     s._render
 
-    box.push_line "subtitle"
+    box.append_line "subtitle"
 
     # Ground truth: a full reparse of the identical total content centers the
     # appended line because the unclosed `{center}` carries its alignment.

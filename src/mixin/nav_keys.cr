@@ -25,7 +25,7 @@ module Crysterm
       # single-char bindings. Returns `NavIntent::None` for any other key, so the
       # caller can fall through to its own handling. Only `k`/`j`/`g`/`G` are
       # vi-gated; the paging/jump keys are always live.
-      def nav_intent(e) : NavIntent
+      def nav_intent(e : ::Crysterm::Event::KeyPress) : NavIntent
         key = e.key
         ch = e.char
         case

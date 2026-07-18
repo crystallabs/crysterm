@@ -10,7 +10,7 @@ module Crysterm
     keys: false,
     # vi: true,
     # mouse: true,
-    scrollback: 100,
+    max_lines: 100,
     style: Style.new(
       border: true,
       scrollbar: Style.new(

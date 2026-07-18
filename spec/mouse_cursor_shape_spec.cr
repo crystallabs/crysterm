@@ -28,7 +28,7 @@ describe "Widget#mouse_cursor_shape (OSC 22 on hover)" do
   it "sets the pointer on hover-in and restores the default on hover-out when gated on" do
     buf = IO::Memory.new
     s = shape_screen buf
-    s.mouse_cursor_shape = true
+    s.mouse_cursor_shaping = true
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3,
       mouse_cursor_shape: ::Tput::MouseCursorShape::PointingHandCursor
     drained s, buf # discard any construction output
@@ -43,7 +43,7 @@ describe "Widget#mouse_cursor_shape (OSC 22 on hover)" do
   it "does nothing when the gate (mouse.cursor_shape) is off" do
     buf = IO::Memory.new
     s = shape_screen buf
-    s.mouse_cursor_shape = false
+    s.mouse_cursor_shaping = false
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3,
       mouse_cursor_shape: ::Tput::MouseCursorShape::PointingHandCursor
     drained s, buf
@@ -62,7 +62,7 @@ describe "Widget#mouse_cursor_shape (OSC 22 on hover)" do
   it "emits only on an actual change (no redundant sequences while staying on a widget)" do
     buf = IO::Memory.new
     s = shape_screen buf
-    s.mouse_cursor_shape = true
+    s.mouse_cursor_shaping = true
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3,
       mouse_cursor_shape: ::Tput::MouseCursorShape::PointingHandCursor
     drained s, buf

@@ -865,7 +865,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
     tabs.style.tab.fg.should eq rgb("red") # cascade computed the slot
     screen._render                         # PreRender pushes it onto each tab
-    tabs.bar.items.each(&.styles.normal.fg.should(eq(rgb("red"))))
+    tabs.tab_bar.items.each(&.styles.normal.fg.should(eq(rgb("red"))))
   end
 
   it "leaves tabs at their default style when no TabWidget::tab rule matches" do
@@ -888,7 +888,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
     gb.style.title.fg.should eq rgb("red")
     screen._render
-    gb.@_label.not_nil!.styles.normal.fg.should eq rgb("red")
+    gb.@label_widget.not_nil!.styles.normal.fg.should eq rgb("red")
   end
 
   it "routes DockWidget::title onto the title bar" do
@@ -1144,7 +1144,7 @@ describe "CSS cascade" do
     c.styles.normal.fg.should eq rgb("green")
 
     # Remove the last child: c becomes the last child, b the 2nd from last.
-    d.remove_from_parent
+    d.parent = nil
     screen.apply_stylesheet
 
     c.styles.normal.fg.should eq rgb("blue")

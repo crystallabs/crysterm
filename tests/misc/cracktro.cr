@@ -134,7 +134,9 @@ end
 Widget::Fps.new \
   parent: s, top: 0, left: 0,
   format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
-  args: %i[fps fps_avg render draw flush],
+  args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,
+         Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw,
+         Widget::Fps::Metric::Flush],
   style: Style.new(fg: "white", bg: "black")
 
 frame = 0

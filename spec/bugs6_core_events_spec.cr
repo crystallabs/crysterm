@@ -5,9 +5,9 @@ include Crysterm
 # Regression specs for the BUGS6 "Core Infrastructure & Events" fixes:
 #
 #  1. `ToolBar#uninstall_action_shortcuts` / `MenuBar#uninstall_menu_shortcuts`
-#     guarded on `window?`, which is already nil inside the `Event::Detach`
+#     guarded on `window?`, which is already nil inside the `Event::Detached`
 #     handler (`Widget#remove` nulls `parent`/`window` before `Window#detach`
-#     emits `Detach`). So detaching a bar never withdrew its window-level
+#     emits `Detached`). So detaching a bar never withdrew its window-level
 #     accelerators — stale handlers kept firing and the `Window` leaked as a hash
 #     key. Fixed to take the previous window from the event payload.
 #
@@ -45,7 +45,7 @@ describe "BUGS6 #1 ToolBar/MenuBar uninstall shortcuts on detach" do
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::CtrlR)
     fired.should eq 1
 
-    # Detaching the bar must withdraw its accelerator via the `Detach` handler.
+    # Detaching the bar must withdraw its accelerator via the `Detached` handler.
     s.remove tb
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::CtrlR)
     fired.should eq 1 # no further dispatch
@@ -88,7 +88,7 @@ describe "BUGS6 #2 hide/show propagate to descendants" do
   it "restores the GUI pointer shape of a hovered child when its ancestor is hidden" do
     buf = IO::Memory.new
     s = Crysterm::Window.new(input: IO::Memory.new, output: buf, error: IO::Memory.new)
-    s.mouse_cursor_shape = true
+    s.mouse_cursor_shaping = true
     parent = Crysterm::Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
     child = Crysterm::Widget::Box.new parent: parent, left: 0, top: 0, width: 10, height: 3,
       mouse_cursor_shape: ::Tput::MouseCursorShape::PointingHandCursor

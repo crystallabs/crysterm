@@ -7,7 +7,7 @@ include Crysterm
 # `Widget#insert`'s same-window detection used to require `!element.parent.nil?`,
 # so pulling a top-level widget into a container on the SAME window took the
 # `Window#remove` unlink with no `reparenting_same_screen` suppression:
-# window-level `Detach` fired on the whole subtree and `rewind_focus` blurred a
+# window-level `Detached` fired on the whole subtree and `rewind_focus` blurred a
 # focused widget — spurious for a pure tree-position change (BUGS12 #17). A
 # genuine cross-window move, and a plain `Window#remove`, must keep the full
 # detach/rewind behavior.
@@ -25,8 +25,8 @@ describe "Reparenting a top-level widget within the same window" do
     child = Widget::Box.new parent: s, width: 4, height: 2
 
     transitions = [] of String
-    child.on(Event::Attach) { transitions << "attach" }
-    child.on(Event::Detach) { transitions << "detach" }
+    child.on(Event::Attached) { transitions << "attach" }
+    child.on(Event::Detached) { transitions << "detach" }
 
     container.append child # same-window move, top-level -> nested
 
@@ -77,8 +77,8 @@ describe "Reparenting a top-level widget within the same window" do
     child = Widget::Box.new parent: s1, width: 4, height: 2
 
     transitions = [] of String
-    child.on(Event::Attach) { transitions << "attach" }
-    child.on(Event::Detach) { transitions << "detach" }
+    child.on(Event::Attached) { transitions << "attach" }
+    child.on(Event::Detached) { transitions << "detach" }
 
     container.append child # cross-window move
 
@@ -113,7 +113,7 @@ describe "Reparenting a top-level widget within the same window" do
     s.focused.should eq child
 
     detaches = 0
-    child.on(Event::Detach) { detaches += 1 }
+    child.on(Event::Detached) { detaches += 1 }
 
     s.remove child
 

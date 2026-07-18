@@ -29,8 +29,8 @@ describe Crysterm::Widget::Form do
     # No Tab: focus le2 directly (as a click would), then submit it. Focus must
     # advance to le3 — not stay put and not jump to the first field.
     le2.focus
-    le2.emit Crysterm::Event::Submit, le2.value
+    le2.emit Crysterm::Event::Submitted, le2.value
 
-    form.selected.should eq le3
+    form.current_field.should eq le3
   end
 end

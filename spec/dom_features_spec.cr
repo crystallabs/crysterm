@@ -34,9 +34,9 @@ require "./spec_helper"
       s.wire_dom_actions
 
       btn = s.find_by_id("b").not_nil!
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       s.find_by_id("panel").not_nil!.css_classes.includes?("open").should be_true
-      btn.emit Crysterm::Event::Press
+      btn.emit Crysterm::Event::Pressed
       s.find_by_id("panel").not_nil!.css_classes.includes?("open").should be_false
     end
 
@@ -65,7 +65,7 @@ require "./spec_helper"
                     %(</w-window>)
       s.wire_dom_actions
 
-      s.find_by_id("b").not_nil!.emit Crysterm::Event::Press
+      s.find_by_id("b").not_nil!.emit Crysterm::Event::Pressed
       s.find_by_id("out").not_nil!.content.should eq "after"
     end
 
@@ -75,7 +75,7 @@ require "./spec_helper"
       quit_called = false
       s.wire_dom_actions(-> { quit_called = true; nil })
 
-      s.find_by_id("b").not_nil!.emit Crysterm::Event::Press
+      s.find_by_id("b").not_nil!.emit Crysterm::Event::Pressed
       quit_called.should be_true
     end
 

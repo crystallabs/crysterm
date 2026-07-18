@@ -164,7 +164,7 @@ describe "BUGS-F2 #27 rewind_focus empty-history branch guards on focused?" do
     a.state = :disabled # disabled while focused
 
     blurred = false
-    a.on(Crysterm::Event::Blur) { blurred = true }
+    a.on(Crysterm::Event::FocusOut) { blurred = true }
 
     win.rewind_focus # only entry -> empty-history branch
 
@@ -185,7 +185,7 @@ describe "BUGS-F2 #35 external value= clears the vertical goal column" do
 
     # The redisplay path (nil value, e.g. from #render) must NOT clear it.
     pte.goal_col = 42
-    pte.value = nil
+    pte.refresh_value
     pte.goal_col.should eq 42
   end
 end

@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Loading#step` used to paint `icons[@pos]` before advancing `@pos`. Since the
-# icon already shows `icons[0]` (set in `initialize`), the first animation tick
+# `Loading#step` used to paint `frames[@pos]` before advancing `@pos`. Since the
+# icon already shows `frames[0]` (set in `initialize`), the first animation tick
 # re-painted that same frame, freezing the spinner on frame 0 for two intervals.
 # Stepping `@pos` first makes every tick, including the first, advance a frame.
 describe Crysterm::Widget::Loading do
@@ -12,7 +12,7 @@ describe Crysterm::Widget::Loading do
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 20, height: 10,
     )
-    loading = Crysterm::Widget::Loading.new(parent: screen, icons: ["a", "b", "c", "d"])
+    loading = Crysterm::Widget::Loading.new(parent: screen, frames: ["a", "b", "c", "d"])
 
     # Starts on the first frame.
     loading.icon.content.should eq "a"

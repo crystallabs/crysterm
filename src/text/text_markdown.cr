@@ -718,6 +718,12 @@ module Crysterm
       replace_content(TextMarkdown.parse(text, theme))
     end
 
+    # `=`-setter spelling of `#set_markdown` (default theme; use `#set_markdown`
+    # for an explicit one).
+    def markdown=(text : String) : Nil
+      set_markdown(text)
+    end
+
     # The content as markdown (Qt `toMarkdown`).
     def to_markdown : String
       TextMarkdown.generate(blocks)

@@ -10,7 +10,7 @@ include Crysterm
 #      `fps` to at least 1 before building the clock/ffmpeg args.
 # C2 — removing/destroying a NESTED widget skipped the window's transient
 #      mouse-state teardown, so `@_hover`/`@_mouse_captor`/`@grabs` kept
-#      pointing at the detached widget (stale MouseOut, mouse-dead-in-capture,
+#      pointing at the detached widget (stale MouseLeave, mouse-dead-in-capture,
 #      modal-forever). `Widget#remove` must tear it down like `Window#remove`.
 # R1 — `ObservableList#delete_at`/`#[]=` double-normalized an out-of-range
 #      negative index, silently mutating a valid-but-wrong slot instead of

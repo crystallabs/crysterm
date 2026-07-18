@@ -121,7 +121,7 @@ describe Crysterm::Widget::GaugeList do
     gl = Crysterm::Widget::GaugeList.new parent: s, width: 20, height: 4
     gl.add_item "a", 10
     gl["a"] = 90
-    gl.gauges[0].value.should eq 90.0
+    gl.items[0].value.should eq 90.0
   end
 end
 

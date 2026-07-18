@@ -29,7 +29,7 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     # Append a full-width (12-char) line. Total becomes 6 wrapped-if-no-bar
     # lines, which overflows and flips the bar on; with the bar the 12-char line
     # itself wraps to two, so a full reparse yields 7 wrapped lines.
-    box.push_line "bbbbbbbbbbbb"
+    box.append_line "bbbbbbbbbbbb"
 
     # A freshly built widget with the identical total content, fully parsed, is
     # the ground truth.
@@ -62,7 +62,7 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     box.content_margin_x.should eq 0
 
     # Two more short lines: still 4 wrapped lines, no overflow, bar stays off.
-    box.push_line "cccccccccccc"
+    box.append_line "cccccccccccc"
     box.content_margin_x.should eq 0
 
     ref = Widget::Box.new(
@@ -88,7 +88,7 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     lines = ["a"]
     6.times do
       line = "wwwwwwwwwwww" # 12 columns: two wrapped lines once the bar shows
-      box.push_line line
+      box.append_line line
       lines << line
     end
 

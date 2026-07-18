@@ -17,9 +17,6 @@ module Crysterm
     # sp.add_pane Widget::Box.new(content: "c")
     # ```
     #
-    # The original two-pane API (`#split`, `#pane1`/`#pane2`, `#divider`,
-    # `#position`) is retained as a convenience over the general one.
-    #
     # <!-- widget-examples:capture v1 -->
     # ![Splitter screenshot](../../tests/widget/splitter/splitter.5s.apng)
     # <!-- /widget-examples:capture -->
@@ -42,25 +39,22 @@ module Crysterm
       # Divider offsets along the split axis, in content cells (sorted
       # ascending); `#positions[i]` separates pane `i` from pane `i+1`.
       @positions = [] of Int32
-      @init_position : Int32?
 
       # Whether the user has set a divider explicitly (drag, keys, or an explicit
-      # `position`). Until then, panes re-even to the current span on every
+      # `set_divider_position`). Until then, panes re-even to the current span on every
       # layout, so a splitter sized by a layout engine settles at its final size
       # rather than an early, wrong distribution. Once adjusted, only clamps.
       @user_positioned = false
 
-      def initialize(@orientation = @orientation, position = nil, **box)
-        @init_position = position
-
+      def initialize(@orientation = @orientation, **box)
         super **box
 
-        on(Crysterm::Event::Attach) { relayout }
+        on(Crysterm::Event::Attached) { relayout }
         on(Crysterm::Event::Resize) { relayout; request_render }
       end
 
       # Relayout on every paint: pane sizes depend on the splitter's resolved
-      # span, only known once coordinates are computed. The `Resize`/`Attach`
+      # span, only known once coordinates are computed. The `Resize`/`Attached`
       # hooks cover the headless/no-render paths.
       def render(with_children = true)
         relayout
@@ -84,16 +78,6 @@ module Crysterm
         @orientation.horizontal?
       end
 
-      # Two-pane convenience: assigns both panes (and the single divider) at once.
-      def split(first : Widget, second : Widget) : self
-        add_pane first
-        add_pane second
-        if p = @init_position
-          set_divider_position 0, p if p > 0
-        end
-        self
-      end
-
       # Appends a pane to the right/bottom, inserting a draggable divider before
       # it (except for the first pane). Existing dividers are re-evened.
       def add_pane(widget : Widget) : self
@@ -113,37 +97,11 @@ module Crysterm
 
         @panes << widget
         append widget
-        @dividers.each &.front!
+        @dividers.each &.to_front
 
         even_positions
         relayout
         self
-      end
-
-      # --- Two-pane compatibility accessors ------------------------------------
-
-      def pane1 : Widget?
-        @panes[0]?
-      end
-
-      def pane2 : Widget?
-        @panes[1]?
-      end
-
-      # The first divider, or `nil` when there are fewer than two panes.
-      def divider : Box?
-        @dividers.first?
-      end
-
-      # Offset of the first divider.
-      def position : Int32
-        @positions[0]? || 0
-      end
-
-      # Sets the first divider's offset.
-      def position=(value : Int32) : Int32
-        set_divider_position 0, value
-        value
       end
 
       # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------

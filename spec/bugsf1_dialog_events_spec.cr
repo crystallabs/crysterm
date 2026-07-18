@@ -74,7 +74,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
     # Start from a known corner color so a mid-field click must move it.
     cd.current_color = "#ffffff"
     cd.saturation.should eq 0.0 # white == fully desaturated
-    cd.value_v.should eq 1.0
+    cd.hsv_value.should eq 1.0
 
     # Field origin, computed the same way `on_mouse` does.
     ox = cd.aleft + cd.ileft
@@ -87,7 +87,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
 
     # With the `@ev_move.active?` fix the handler runs and sets S from X, V from Y.
     cd.saturation.should be > 0.0
-    cd.value_v.should be < 1.0
+    cd.hsv_value.should be < 1.0
   end
 end
 
@@ -102,7 +102,7 @@ describe "BUGS-F1 finding 17: ColorDialog Enter with a focused button fires once
     cd.on(Crysterm::Event::Accepted) { accepted += 1 }
     cd.on(Crysterm::Event::Rejected) { rejected += 1 }
 
-    cd.pick { }
+    cd.get_color { }
     s._render
 
     # Focus the Cancel button so it consumes/accepts the Enter itself.
@@ -125,7 +125,7 @@ describe "BUGS-F1 finding 16: Question callback fires once on Enter over a focus
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
 
     count = 0
-    q.ask("Sure?") { |_err, _data| count += 1 }
+    q.ask("Sure?") { |_data| count += 1 }
     s._render
 
     # Focus the Ok button; its Enter → Press → done, and the window-level key

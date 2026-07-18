@@ -14,7 +14,7 @@ module Crysterm
       # * a backing `#records` array, replaced wholesale via `#records=`
       #   (which rebuilds the rows through `#format_row`),
       # * `#selected_record`, the record under the cursor, and
-      # * activation on `Event::ActionItem` (Enter / click), which by default
+      # * activation on `Event::ItemActivated` (Enter / click), which by default
       #   runs the selected record's `callback`.
       #
       # A concrete subclass:
@@ -30,7 +30,7 @@ module Crysterm
       abstract class SelectableList(T) < Widget::List
         # The records currently displayed, parallel to the visible rows.
         # Named `records`, not `data`, to avoid colliding with `Widget#data`
-        # (the unrelated `YAML::Any?` slot from `Mixin::Data`).
+        # (the unrelated `UserData?` slot from `Mixin::Data`).
         getter records : Array(T)
 
         def initialize(data : Array(T) = [] of T, **list)
@@ -46,7 +46,7 @@ module Crysterm
           self.records = data
 
           # Enter / click activates the current record.
-          on ::Crysterm::Event::ActionItem do |_e|
+          on ::Crysterm::Event::ItemActivated do |_e|
             activate
           end
         end
@@ -89,7 +89,7 @@ module Crysterm
         # default is 1:1; override when rows and records don't line up (e.g.
         # `MainMenu`, which interleaves blank spacer rows).
         protected def selected_index : Int32
-          selected
+          current_index
         end
 
         # Builds the visible row strings from *data*. The default renders one row
@@ -102,16 +102,11 @@ module Crysterm
         # position in `#records` (used e.g. for message numbering).
         abstract def format_row(item : T, index : Int32) : String
 
-        # Invoked on `Event::ActionItem` (Enter / click). By default it runs the
+        # Invoked on `Event::ItemActivated` (Enter / click). By default it runs the
         # selected record's `callback`; override for different behavior (e.g.
         # `Setup`, which toggles instead).
         def activate
           selected_record.try &.callback.try &.call
-        end
-
-        # Activates the currently-selected record.
-        def run_selected
-          activate
         end
 
         # Whether pressing the space bar toggles the current row. When `true`,

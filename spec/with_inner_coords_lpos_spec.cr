@@ -25,7 +25,7 @@ describe "Widget#with_inner_coords cached position" do
   it "leaves the widget's @lpos describing the full outer rect, not the border interior" do
     screen = render_screen
     g = Widget::Gradient.new(
-      colors: ["#ff0000", "#00ff00"],
+      stops: ["#ff0000", "#00ff00"],
       parent: screen, top: 0, left: 0, width: 10, height: 5)
     # All-sides line border (1 cell per side).
     g.style.border = true

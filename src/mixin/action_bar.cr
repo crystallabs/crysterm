@@ -36,7 +36,7 @@ module Crysterm
         property keys : Array(String)?
 
         # The `Box` rendering this command, assigned by `#add_item`.
-        property element : Widget::Box?
+        property box : Widget::Box?
 
         # Computed display width of this command's box.
         property width : Int32 = 0
@@ -55,17 +55,24 @@ module Crysterm
         end
       end
 
-      # Tag-stripped command texts, parallel to `#items`.
-      property ritems = [] of String
+      @ritems = [] of String
+
+      # Tag-stripped command texts, parallel to `#items`. Read-only view; the bar
+      # rebuilds it internally as commands are added/removed.
+      def item_texts : Array(String)
+        @ritems
+      end
 
       # The commands, parallel to `#items`.
-      property commands = [] of Command
+      getter commands = [] of Command
 
       # Index of the left-most fully-visible item (for horizontal scrolling).
-      property left_base = 0
+      getter left_base = 0
+      protected setter left_base
 
       # Offset of the selected item relative to `#left_base`.
-      property left_offset = 0
+      getter left_offset = 0
+      protected setter left_offset
 
       # React to mouse clicks on items?
       property? mouse = false
@@ -100,24 +107,19 @@ module Crysterm
         # input elsewhere), and a widget-local handler is torn down with the
         # widget instead of leaking on the window.
 
-        on(::Crysterm::Event::Focus) { select_index selected }
+        on(::Crysterm::Event::FocusIn) { select_index current_index }
 
         # Command hotkeys are window-level accelerators, so they must be tied to
         # the window lifecycle: (re)install on attach, uninstall on detach.
         # Otherwise a bar that merely `remove`s leaves its hotkeys firing on a
         # window it's no longer on, and one added while detached never installs.
-        on(::Crysterm::Event::Attach) { install_command_hotkeys }
-        on(::Crysterm::Event::Detach) { uninstall_command_hotkeys }
+        on(::Crysterm::Event::Attached) { install_command_hotkeys }
+        on(::Crysterm::Event::Detached) { uninstall_command_hotkeys }
       end
 
-      # Currently-selected absolute index.
-      def selected
-        @left_base + @left_offset
-      end
-
-      # Qt spelling of `#selected` / `#selected=`. Preferred in new code.
+      # Currently-selected absolute index (Qt's `currentIndex`).
       def current_index : Int32
-        selected
+        @left_base + @left_offset
       end
 
       # :ditto:
@@ -142,21 +144,12 @@ module Crysterm
 
         commands.each { |cmd| add_item cmd }
 
-        emit ::Crysterm::Event::SetItems
+        emit ::Crysterm::Event::ItemsChanged
       end
 
       # :ditto:
       def items=(commands : Array(String))
         self.items = commands.map { |text| Command.new text }
-      end
-
-      # :ditto:
-      def items=(commands : Hash(String, Proc(Nil)))
-        list = [] of Command
-        commands.each do |name, cb|
-          list << Command.new name, cb
-        end
-        self.items = list
       end
 
       # Removes every command (Qt's `QListWidget#clear`).
@@ -232,14 +225,14 @@ module Crysterm
         item.styles.normal = style.item.dup
         item.styles.selected = styles.selected.dup
 
-        cmd.element = item
+        cmd.box = item
         @ritems.push clean_tags cmd.text
         @items.push item
         @commands.push cmd
         append item
 
         # Per-command hotkeys are global accelerators (fire regardless of focus).
-        # Installed only when the bar is attached; the `Event::Attach` handler
+        # Installed only when the bar is attached; the `Event::Attached` handler
         # re-covers commands added while detached.
         install_command_hotkey cmd
 
@@ -259,10 +252,10 @@ module Crysterm
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
           @left_offset = @items.size - 1
-          select_index selected
+          select_index current_index
         end
 
-        emit ::Crysterm::Event::AddItem
+        emit ::Crysterm::Event::ItemAdded
 
         item
       end
@@ -277,24 +270,24 @@ module Crysterm
       # so `bar << some_widget` still resolves to the child-append.
       alias_method :<<, :add_item
 
-      # Fires the command at *index*: emits `ActionItem` for it and runs its
+      # Fires the command at *index*: emits `ItemActivated` for it and runs its
       # callback. Callers add their own selection/render around this core. *item*
       # defaults to the row at *index*.
       #
-      # Activation is not a selection change, so no `SelectItem` is emitted here —
+      # Activation is not a selection change, so no `ItemSelected` is emitted here —
       # the `#select_index` each caller runs around this emits it already.
       private def fire(index : Int32, item = @items[index]?)
         return unless item
-        emit ::Crysterm::Event::ActionItem, item, index
+        emit ::Crysterm::Event::ItemActivated, item, index
         @commands[index]?.try &.callback.try &.call
       end
 
       # Triggers a command: fires its action event + callback, selects it, and
       # re-renders.
       private def trigger(cmd : Command)
-        el = cmd.element
+        el = cmd.box
         return unless el
-        idx = @items.index(el) || selected
+        idx = @items.index(el) || current_index
         fire idx, el
         select_index el
         request_render
@@ -329,7 +322,7 @@ module Crysterm
 
       # Makes the item at `offset` (an index or an item/element widget) the current
       # one, adjusting the horizontal scroll window so it is visible. Selection
-      # only — it never runs the command (see `#select_tab`/`#trigger`).
+      # only — it never runs the command (see `#select_item`/`#trigger`).
       #
       # Named `select_index` because bare `select` is a Crystal keyword.
       def select_index(offset : Int)
@@ -356,12 +349,12 @@ module Crysterm
         unless @lpos
           # Before the first render there's no layout for the horizontal-scroll
           # math, but `selected` (== `@left_base + @left_offset`) must still move
-          # to *offset* — otherwise the highlight/`SelectItem` point at *offset*
+          # to *offset* — otherwise the highlight/`ItemSelected` point at *offset*
           # while Enter (`fire selected`) fires the old command.
           el.try do |e|
             @left_base = 0
             @left_offset = offset
-            emit ::Crysterm::Event::SelectItem, e, offset
+            emit ::Crysterm::Event::ItemSelected, e, offset
           end
           return
         end
@@ -397,7 +390,7 @@ module Crysterm
           end
         end
 
-        emit ::Crysterm::Event::SelectItem, el, offset
+        emit ::Crysterm::Event::ItemSelected, el, offset
       end
 
       # :ditto:
@@ -420,7 +413,7 @@ module Crysterm
       # Re-imposes each item box's `:selected`/`:normal` state via
       # `#highlight_item?`. Also call it after a state change outside a selection
       # (a checkable toggling, a menu opening/closing, focus change).
-      protected def reapply_highlight(offset : Int32 = selected) : Nil
+      protected def reapply_highlight(offset : Int32 = current_index) : Nil
         @items.each_with_index do |item, i|
           item.state = highlight_item?(item, i, offset) ? :selected : :normal
         end
@@ -438,7 +431,7 @@ module Crysterm
         remove item
 
         # Auto prefixes are baked in at `#add_item` time as position numbers, but
-        # number-key selection routes by raw index (`activate_tab i`). A removal
+        # number-key selection routes by raw index (`activate_item i`). A removal
         # shifts the indices, so renumber — otherwise removing `1:open` from
         # `1:open 2:save` leaves `2:save` while `2` now selects nothing.
         renumber_prefixes if auto_prefix?
@@ -446,10 +439,10 @@ module Crysterm
         # Keep the selection cursor on the same logical command. `selected` is
         # `left_base + left_offset` (an index), so removing an item *before* it
         # shifts every later command down by one, and the cursor must follow.
-        if i < selected
+        if i < current_index
           # The formerly-selected command is now one index lower.
-          select_index selected - 1
-        elsif i == selected
+          select_index current_index - 1
+        elsif i == current_index
           # The selected command itself was removed: fall back to the prior
           # command, skipping separators so the highlight never settles on a
           # non-selectable one. Falls forward when everything before the gap is a
@@ -459,7 +452,7 @@ module Crysterm
           end
         end
 
-        emit ::Crysterm::Event::RemoveItem
+        emit ::Crysterm::Event::ItemRemoved
         item
       end
 
@@ -496,11 +489,11 @@ module Crysterm
         @commands.each_with_index do |cmd, i|
           next unless cmd.auto_prefix?
           cmd.prefix = (i + 1).to_s
-          cmd.element.try &.set_content command_title(cmd)
+          cmd.box.try &.set_content command_title(cmd)
         end
         drawn = 0
         @commands.each do |cmd|
-          cmd.element.try do |el|
+          cmd.box.try do |el|
             el.left = drawn
             el.width = cmd.width
           end
@@ -590,15 +583,15 @@ module Crysterm
         ActionBar.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
       end
 
-      # Moves the selection by `offset` (negative = left), stepping over any
+      # Moves the selection by *delta* (negative = left), stepping over any
       # separator commands so the highlight never lands on one.
-      def move(offset)
+      def move_selection(delta : Int32)
         n = @commands.size
         return if n == 0
 
-        dir = offset >= 0 ? 1 : -1
-        idx = selected
-        offset.abs.times do
+        dir = delta >= 0 ? 1 : -1
+        idx = current_index
+        delta.abs.times do
           ni = ActionBar.nearest_selectable(n, idx + dir, dir) { |i| @commands[i].separator? }
           break unless ni
           idx = ni
@@ -609,39 +602,38 @@ module Crysterm
 
       # Moves the selection `offset` items to the left.
       def move_left(offset = 1)
-        move -offset
+        move_selection -offset
       end
 
       # Moves the selection `offset` items to the right.
       def move_right(offset = 1)
-        move offset
+        move_selection offset
       end
 
-      # Selects the tab at `index` and emits `Event::SelectTab`. Selection only —
-      # it does NOT run the command's callback, mirroring Qt, where
-      # `setCurrentIndex` never triggers and `activated` is a separate signal
-      # (here, `#activate_tab`).
-      def select_tab(index : Int)
-        # An out-of-range index is a no-op (must not emit a `SelectTab` carrying a
-        # nil item).
+      # Selects the item at `index` and emits `Event::CurrentChanged`. Selection
+      # only — it does NOT run the command's callback, mirroring Qt, where
+      # `setCurrentIndex` emits `currentChanged` while `activated` is a separate
+      # signal (here, `#activate_item`).
+      def select_item(index : Int)
+        # An out-of-range index is a no-op.
         cmd = @commands[index]?
         return if cmd.nil?
-        # A separator is not a real tab: selecting one would settle the highlight
+        # A separator is not a real item: selecting one would settle the highlight
         # on a non-selectable command. `auto_command_keys` routes here by raw
         # index, so a number landing on a separator must be a no-op too.
         return if cmd.separator?
         select_index index
         request_render
-        emit ::Crysterm::Event::SelectTab, @items[index]?, index
+        emit ::Crysterm::Event::CurrentChanged, index
       end
 
-      # Selects the tab at `index` *and* runs its command — what a number key
+      # Selects the item at `index` *and* runs its command — what a number key
       # (`auto_command_keys`) means. Applies the same range/separator guards as
-      # `#select_tab`, so a rejected index runs no callback either.
-      def activate_tab(index : Int)
+      # `#select_item`, so a rejected index runs no callback either.
+      def activate_item(index : Int)
         cmd = @commands[index]?
         return if cmd.nil? || cmd.separator?
-        select_tab index
+        select_item index
         cmd.callback.try &.call
       end
 
@@ -652,7 +644,7 @@ module Crysterm
         if auto_command_keys? && (c = e.char) && ('0'..'9').includes?(c)
           i = c.to_i - 1
           i = 9 if i < 0
-          activate_tab i
+          activate_item i
           e.accept
           return
         end
@@ -669,12 +661,12 @@ module Crysterm
           request_render
           e.accept if e.key == ::Tput::Key::Tab
         when e.key == ::Tput::Key::Enter, (@vi && e.char == 'k')
-          fire selected
+          fire current_index
           request_render
         when e.key == ::Tput::Key::Escape, (@vi && e.char == 'q')
-          if item = @items[selected]?
-            emit ::Crysterm::Event::ActionItem, item, selected
-            emit ::Crysterm::Event::CancelItem, item, selected
+          if item = @items[current_index]?
+            emit ::Crysterm::Event::ItemActivated, item, current_index
+            emit ::Crysterm::Event::ItemCancelled, item, current_index
           end
         end
       end

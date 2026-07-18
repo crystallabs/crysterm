@@ -8,10 +8,10 @@ module Crysterm
     # Like `Button` it activates on Space/Enter or a click, but adds two
     # features that set a tool button apart from a plain push button:
     #
-    # * **A default `Action`** (`#action=`, Qt's `setDefaultAction`). When set,
+    # * **A default `Action`** (`#default_action=`, Qt's `setDefaultAction`). When set,
     #   the button shows the action's text and, on activation, triggers the
     #   action (emitting its `Event::Triggered`) in addition to its own
-    #   `Event::Press`. The same `Action` can drive a menu entry and a toolbar
+    #   `Event::Pressed`. The same `Action` can drive a menu entry and a toolbar
     #   button at once, keeping them in sync. A disabled action is not triggered.
     #
     # * **A popup `Menu`** (`#menu=`, Qt's `setMenu`). How it opens depends on
@@ -45,13 +45,13 @@ module Crysterm
       # Flat appearance until focused/hovered (Qt's `QToolButton#autoRaise`).
       property? auto_raise : Bool = false
 
-      @action : Action?
+      @default_action : Action?
       @menu : Menu?
       # Wheel-cycling position over the menu's activatable actions.
       @menu_index : Int32 = 0
 
       def initialize(
-        action : Action? = nil,
+        default_action : Action? = nil,
         menu : Menu? = nil,
         auto_raise : Bool = false,
         popup_mode : PopupMode = PopupMode::MenuButtonPopup,
@@ -67,7 +67,7 @@ module Crysterm
         # Assign through the setters (after `super`, so `set_content` works) to
         # pick up the label mirroring and the `▾` indicator.
         menu.try { |m| self.menu = m }
-        action.try { |a| self.action = a }
+        default_action.try { |a| self.default_action = a }
 
         # Mouse wheel cycles through the menu's actions, triggering each in turn.
         on(Crysterm::Event::Mouse) do |e|
@@ -98,16 +98,16 @@ module Crysterm
       end
 
       # The default action, or `nil`.
-      def action : Action?
-        @action
+      def default_action : Action?
+        @default_action
       end
 
       # Sets (or clears) the default action, mirroring its text onto the button.
-      def action=(a : Action?) : Action?
+      def default_action=(a : Action?) : Action?
         # Idempotent: re-assigning the same action would re-stamp identical
         # content and request a needless repaint.
-        return a if a == @action
-        @action = a
+        return a if a == @default_action
+        @default_action = a
         self.text = a.text if a && !a.text.empty?
         a
       end
@@ -155,14 +155,14 @@ module Crysterm
         super # focus, emit Press, toggle if checkable
 
         # Fire the bound action too (Qt's default-action behaviour).
-        @action.try do |a|
+        @default_action.try do |a|
           a.activate if a.enabled?
         end
       end
 
       # A click anywhere on the button toggles its popup menu: the whole surface
       # is the drop-down affordance. This is the only mouse route to the menu;
-      # a bound `action:` stays reachable from the keyboard (Space/Enter run the
+      # a bound `default_action:` stays reachable from the keyboard (Space/Enter run the
       # action, Down opens the menu). A menu-less button just activates.
       def on_click(e)
         if (m = @menu)

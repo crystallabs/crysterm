@@ -10,7 +10,7 @@ require "../../src/crysterm"
 module Crysterm
   s = Window.new full_unicode: true
 
-  active = s.full_unicode? ? "ON" : "OFF (terminal lacks Unicode capability)"
+  active = s.full_unicode_effective? ? "ON" : "OFF (terminal lacks Unicode capability)"
 
   Widget::Box.new(
     parent: s, top: 0, left: 0, width: "100%", height: 1,

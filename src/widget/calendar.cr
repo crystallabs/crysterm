@@ -39,7 +39,7 @@ module Crysterm
     #
     # Emits `Event::DateChanged` when the selected date changes,
     # `Event::CurrentPageChanged` when the shown month/year changes, and
-    # `Event::Action` when a day is activated (Enter or click).
+    # `Event::DateActivated` when a day is activated (Enter or click).
     #
     # ```
     # cal = Widget::Calendar.new parent: window, top: 0, left: 0, width: 22, height: 10,
@@ -200,7 +200,7 @@ module Crysterm
         request_render
       end
 
-      def initialize(date : Time? = nil, mouse = true, **box)
+      def initialize(date : Time? = nil, **box)
         @date = clamp_date(date || Mixin::SectionedField.default_today)
         @shown_year = @date.year
         @shown_month = @date.month
@@ -209,7 +209,7 @@ module Crysterm
         @parse_tags = true
 
         handle Crysterm::Event::KeyPress
-        setup_mouse if mouse
+        setup_mouse
 
         update_content
       end
@@ -544,7 +544,7 @@ module Crysterm
       private def activate_day(d : Int32) : Nil
         t = local_date(@shown_year, @shown_month, d)
         self.selected_date = t unless selection_mode.no_selection?
-        emit Crysterm::Event::Action, clamp_date(t).to_s("%Y-%m-%d")
+        emit Crysterm::Event::DateActivated, clamp_date(t)
       end
 
       # ── Month / year pop-up menus ─────────────────────────────────────────
@@ -648,7 +648,7 @@ module Crysterm
 
       def on_keypress(e)
         # A display-only calendar (`SelectionMode::NoSelection`) must not move a
-        # selection or emit `Event::Action`/`DateChanged` from the keyboard —
+        # selection or emit `Event::DateActivated`/`DateChanged` from the keyboard —
         # matching `activate_day` (mouse) and `render_day` (marker), which already
         # suppress selection. Leave the keys unaccepted so they can propagate.
         return if selection_mode.no_selection?
@@ -670,7 +670,7 @@ module Crysterm
         when Tput::Key::End
           self.selected_date = local_date(@shown_year, @shown_month, Time.days_in_month(@shown_year, @shown_month))
         when Tput::Key::Enter
-          emit Crysterm::Event::Action, @date.to_s("%Y-%m-%d")
+          emit Crysterm::Event::DateActivated, @date
         else
           return
         end

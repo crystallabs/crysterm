@@ -14,7 +14,7 @@ module Crysterm
     #
     # On top of that the tree adds: Right to expand (or descend into an already-
     # expanded node), Left to collapse (or jump to the parent), and Space/Enter to
-    # toggle a node. It emits `Event::Expand`/`Event::Collapse` (carrying the
+    # toggle a node. It emits `Event::Expanded`/`Event::Collapsed` (carrying the
     # node's row) alongside the usual item events.
     #
     # ```
@@ -63,7 +63,7 @@ module Crysterm
 
         # Expands or collapses this node (Qt's `QTreeWidgetItem#setExpanded`).
         # Routes through the owning tree, so the flattened view is rebuilt and
-        # `Event::Expand`/`Event::Collapse` is emitted; a no-op for a leaf or an
+        # `Event::Expanded`/`Event::Collapsed` is emitted; a no-op for a leaf or an
         # unchanged state. Detached nodes (no `#tree` yet) just record the flag,
         # which the first `Tree#add` then honors.
         def expanded=(value : Bool) : Bool
@@ -111,15 +111,18 @@ module Crysterm
           node
         end
 
-        # Removes every child of this node (Qt's `QTreeWidgetItem#takeChildren`).
-        def clear : Nil
-          return if @children.empty?
+        # Removes every child of this node (Qt's `QTreeWidgetItem#takeChildren`),
+        # returning the detached children.
+        def clear : Array(Node)
+          children = @children.dup
+          return children if @children.empty?
           @children.each do |c|
             c.parent = nil
             c.tree = nil
           end
           @children.clear
           @tree.try &.rebuild
+          children
         end
 
         # The child at *index*, or `nil` when out of range (Qt's
@@ -352,25 +355,25 @@ module Crysterm
       end
 
       # Expands *node* (a no-op for a leaf or an already-expanded node), refreshes
-      # the view, and emits `Event::Expand`.
+      # the view, and emits `Event::Expanded`.
       def expand(node : Node) : Nil
         set_expanded node, true
       end
 
-      # Collapses *node*, refreshes the view, and emits `Event::Collapse`.
+      # Collapses *node*, refreshes the view, and emits `Event::Collapsed`.
       def collapse(node : Node) : Nil
         set_expanded node, false
       end
 
       # Sets *node*'s expanded state, rebuilds the flattened view, and emits
-      # `Event::Expand`/`Event::Collapse`. A no-op for a leaf or an unchanged
+      # `Event::Expanded`/`Event::Collapsed`. A no-op for a leaf or an unchanged
       # state. The single funnel every expand/collapse path goes through.
       def set_expanded(node : Node, expanded : Bool) : Nil
         return if node.leaf? || node.expanded? == expanded
         if expanded
-          apply_expanded node, true, Crysterm::Event::Expand
+          apply_expanded node, true, Crysterm::Event::Expanded
         else
-          apply_expanded node, false, Crysterm::Event::Collapse
+          apply_expanded node, false, Crysterm::Event::Collapsed
         end
       end
 
@@ -389,12 +392,12 @@ module Crysterm
 
       # Expands every node in the whole hierarchy.
       def expand_all : Nil
-        set_expanded_all true, Crysterm::Event::Expand
+        set_expanded_all true, Crysterm::Event::Expanded
       end
 
       # Collapses every node in the whole hierarchy.
       def collapse_all : Nil
-        set_expanded_all false, Crysterm::Event::Collapse
+        set_expanded_all false, Crysterm::Event::Collapsed
       end
 
       # Expands or collapses every non-leaf node: one `#rebuild` for the whole
@@ -427,7 +430,7 @@ module Crysterm
 
       # Toggling a node (Enter, or a click on the already-selected row) expands or
       # collapses it; leaves fall through to the normal item activation.
-      def enter_selected : Nil
+      def activate_current : Nil
         if (node = selected_node) && !node.leaf?
           toggle node
         end

@@ -5,7 +5,8 @@ module Crysterm
   #
   # As in emacs, consecutive kills accumulate into one entry (so `Ctrl-K Ctrl-K`
   # yanks both lines, and a backward kill prepends) until a non-kill action calls
-  # `#interrupt`. Older entries are retained up to `#max` for a future yank-pop.
+  # `#interrupt`. Older entries are retained up to `#capacity` for a future
+  # yank-pop.
   #
   # A process-wide `default` instance is shared by every text-editable widget, so
   # text killed in one field can be yanked into another. An application may swap
@@ -19,26 +20,26 @@ module Crysterm
     getter entries = [] of String
 
     # Maximum number of entries kept (older ones are dropped).
-    property max : Int32
+    property capacity : Int32
 
     # Whether the previous editing action was a kill, so the next consecutive
     # kill merges into the same entry rather than starting a new one.
     @last_was_kill = false
 
-    def initialize(@max : Int32 = 60)
+    def initialize(@capacity : Int32 = 60)
     end
 
     # Records *text* as a kill. A backward kill (*prepend* true — `Ctrl-W` /
     # `Ctrl-U`) joins the front of the current entry; a forward kill (*prepend*
     # false — `Ctrl-K` / `Alt-D`) joins the back. Consecutive kills merge; an
     # intervening `#interrupt` starts a fresh entry. Empty text is ignored.
-    def kill(text : String, prepend : Bool = false) : Nil
+    def kill(text : String, *, prepend : Bool = false) : Nil
       return if text.empty?
       if @last_was_kill && (last = @entries.last?)
         @entries[-1] = prepend ? text + last : last + text
       else
         @entries << text
-        while @entries.size > @max
+        while @entries.size > @capacity
           @entries.shift
         end
       end

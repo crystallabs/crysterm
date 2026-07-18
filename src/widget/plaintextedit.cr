@@ -32,11 +32,11 @@ module Crysterm
       # Scroll source of truth is `@child_base` (top visible wrapped row); the
       # text caret (`@cursor_pos`) is tracked separately. Unlike `List`, where
       # `@child_offset` is the selected row, this widget keeps `@child_offset` at
-      # 0, so `get_scroll == child_base` and the attached `ScrollBar` drives the
+      # 0, so `scroll_position == child_base` and the attached `ScrollBar` drives the
       # viewport top, matching Qt (dragging the bar moves the view, not the caret).
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
       # Only engages with `wrap_content: false` (long lines run off the right
-      # edge); `really_scrollable_x?` is false while wrapping.
+      # edge); `overflows_x?` is false while wrapping.
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       # Last plain text pushed to the base content pipeline (`set_content`);
@@ -118,13 +118,23 @@ module Crysterm
         super
       end
 
-      # Pushes the document's plain text into `set_content` whenever it changed:
-      # `DocumentBuffer#value=` relies on `ContentsChanged` for a document paint,
-      # but this widget renders through the base `@_pcontent` pipeline. The
-      # mixin's `#render` calls this with `nil` every frame (a redisplay);
-      # external sets pass the new text.
-      def value=(value = nil)
+      # External set: delegates to `DocumentBuffer#value=`, then pushes the
+      # document's plain text into `set_content` (this widget renders through the
+      # base `@_pcontent` pipeline rather than the `ContentsChanged` paint).
+      def value=(value : String)
         super
+        sync_display
+      end
+
+      # Once-per-frame redisplay (from `#render`): clamps the caret via
+      # `DocumentBuffer#refresh_value`, then re-syncs `set_content` if it changed.
+      def refresh_value : Nil
+        super
+        sync_display
+      end
+
+      # Pushes the document's plain text into `set_content` whenever it changed.
+      private def sync_display : Nil
         v = buf_text
         return if v == @_display_value
         @_display_value = v

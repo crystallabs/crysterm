@@ -30,6 +30,11 @@ module Crysterm
         def initialize(@nickname, @name, @email, *, @callback = nil)
         end
 
+        # Block form: `Contact.new(nickname, name, email) { ... }`.
+        def initialize(nickname, name, email, &callback : ->)
+          initialize(nickname, name, email, callback: callback)
+        end
+
         # The contact formatted as a mail recipient: `Name <email>`.
         def recipient : String
           "#{name} <#{email}>"

@@ -32,7 +32,7 @@ module Crysterm
   alias Attachment = Widget::Mutt::Attachment
 
   s = Window.new(
-    always_propagate: [Tput::Key::CtrlQ],
+    always_propagated_keys: [Tput::Key::CtrlQ],
     title: "Crysterm — Mutt-style demo",
     # Opt out of the app-global "q / Ctrl-Q hard-exits" default so `q` is ours
     # alone: on the index it opens the quit confirmation, on the pager/compose
@@ -167,7 +167,7 @@ module Crysterm
   # Left: the sidebar, then a one-column divider (Mutt's sidebar_divider_char).
   sidebar = Sidebar.new(parent: frame, width: 24, mailboxes: mailboxes,
     layout_hint: :left)
-  sidebar.open = 0
+  sidebar.open_index = 0
   Widget::VLine.new(parent: frame, width: 1, layout_hint: :left)
 
   # Center: the switchable main area, arranged by a `Stack` layout (Qt's
@@ -243,7 +243,7 @@ module Crysterm
     left += " New:#{newc}" if newc > 0
     left += " Del:#{delc}" if delc > 0
     left += "]"
-    status.set left, "-(threads/date)-(all)-"
+    status.set_text left, "-(threads/date)-(all)-"
   end
 
   set_help = ->(text : String) { helpline.content = text; nil }
@@ -296,7 +296,7 @@ module Crysterm
     nil
   end
 
-  cmd_input.on(::Crysterm::Event::Submit) do
+  cmd_input.on(::Crysterm::Event::Submitted) do
     if prompt_active
       value = cmd_input.value
       done = prompt_done
@@ -334,14 +334,14 @@ module Crysterm
     show_page.call :pager, pager
     set_help.call "{bold}i{/bold}:Back {bold}Up/Dn{/bold}:Scroll {bold}n{/bold}:Next " \
                   "{bold}p{/bold}:Prev {bold}r{/bold}:Reply {bold}d{/bold}:Del {bold}q{/bold}:Quit"
-    status.set "-*-Mutt: #{m.subject}", "-(#{i + 1}/#{messages.size})-"
+    status.set_text "-*-Mutt: #{m.subject}", "-(#{i + 1}/#{messages.size})-"
     show_message.call %(Reading message #{i + 1} of #{messages.size})
     nil
   end
 
   open_folder = ->(mb : Mailbox) do
     idx = sidebar.mailboxes.index(mb) || 0
-    sidebar.open = idx
+    sidebar.open_index = idx
     current_folder = mb.name
     if mb.name == "INBOX"
       index.messages = messages
@@ -364,7 +364,7 @@ module Crysterm
     editor.value = initial
     show_page.call :editor, editor
     set_help.call "{bold}^X{/bold}:Done (to compose menu)   write your message below"
-    status.set "-*-Mutt: Editing message", "-(body)-"
+    status.set_text "-*-Mutt: Editing message", "-(body)-"
     show_message.call "Type your message. Press Ctrl-X when you're done."
     nil
   end
@@ -384,7 +384,7 @@ module Crysterm
     set_help.call "{bold}y{/bold}:Send {bold}q{/bold}:Abort {bold}t{/bold}:To " \
                   "{bold}c{/bold}:Cc {bold}s{/bold}:Subj {bold}b{/bold}:Bcc " \
                   "{bold}a{/bold}:Attach"
-    status.set "-*-Mutt: Compose", "-(#{compose.attachments.size} att)-"
+    status.set_text "-*-Mutt: Compose", "-(#{compose.attachments.size} att)-"
     show_message.call "y send, t/c/s/b edit headers, a attach, q abort"
     nil
   end
@@ -414,7 +414,7 @@ module Crysterm
   # current draft. Arrow keys already move the highlight through every row
   # (`Compose` is one `List` whose `-- Attachments --` divider is non-selectable),
   # so this makes the menu fully usable by cursor as well as by command key.
-  compose.menu.on(::Crysterm::Event::ActionItem) do
+  compose.menu.on(::Crysterm::Event::ItemActivated) do
     kind, sub = compose.selected_row
     case kind
     when Compose::RowKind::Header
@@ -467,7 +467,7 @@ module Crysterm
     show_page.call :help, help
     set_help.call "{bold}i{/bold}:Back {bold}q{/bold}:Back {bold}Up/Dn{/bold}:Scroll " \
                   "{bold}PgUp/PgDn{/bold}:Page"
-    status.set "-*-Mutt: Help", "-(help)-"
+    status.set_text "-*-Mutt: Help", "-(help)-"
     show_message.call "Help — press i or q to return to the index"
     nil
   end
@@ -478,7 +478,7 @@ module Crysterm
   sidebar.mailboxes.each { |mb| mb.callback = -> { open_folder.call mb; nil } }
 
   # Mailbox click / Enter in the sidebar hands focus back to the index.
-  sidebar.on(::Crysterm::Event::ActionItem) { active_pane = :index }
+  sidebar.on(::Crysterm::Event::ItemActivated) { active_pane = :index }
 
   # ----------------------------------------------------- Mutt key shortcuts
   #
@@ -588,15 +588,15 @@ module Crysterm
       case ch
       when 'i', 'q', 'Q' then goto_index.call
       when 'n'
-        ni = index.selected + 1
+        ni = index.current_index + 1
         messages[ni]?.try { |m| open_message.call m } if ni < messages.size
       when 'p'
-        pi = index.selected - 1
+        pi = index.current_index - 1
         messages[pi]?.try { |m| open_message.call m } if pi >= 0
-      when 'r', 'R' then messages[index.selected]?.try { |m| reply_to.call m }
+      when 'r', 'R' then messages[index.current_index]?.try { |m| reply_to.call m }
       when '?'      then goto_help.call
       when 'd', 'D'
-        messages[index.selected]?.try do |m|
+        messages[index.current_index]?.try do |m|
           m.status = "D" + m.status.gsub('D', "")
           show_message.call "Message marked for deletion"
         end

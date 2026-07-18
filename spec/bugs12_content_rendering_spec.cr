@@ -30,7 +30,7 @@ end
 describe "Widget#delete_line with ftor empty (content seeded before attach)" do
   it "deletes the requested line, not the last one" do
     box = box_with_empty_ftor
-    box.delete_line 0
+    box.delete_line index: 0
     box.lines.should eq ["two", "three"]
   end
 
@@ -62,19 +62,19 @@ describe "Widget#rebuild_content_from_fake preserves no_tags mode" do
     box.pcontent.should_not contain "\e["
 
     # delete_line rebuilds content from the fake array.
-    box.delete_line 1
+    box.delete_line index: 1
     box.process_content
 
     box.pcontent.should contain "{bold}"
     box.pcontent.should_not contain "\e["
   end
 
-  it "keeps tags literal after set_line" do
+  it "keeps tags literal after replace_line" do
     box = Widget::Box.new parent: headless_screen, width: 20, height: 5
     box.parse_tags = true
     box.set_text("{bold}a{/bold}")
 
-    box.set_line 0, "{red-fg}z{/red-fg}"
+    box.replace_line 0, "{red-fg}z{/red-fg}"
     box.process_content
 
     box.pcontent.should contain "{red-fg}"

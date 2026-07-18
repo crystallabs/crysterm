@@ -4,7 +4,7 @@ include Crysterm
 
 # BUGS15 findings #39, #50, #51.
 #
-#   #39 — `Screen.attr2code` must parse colon-form (ISO 8613-6 / ITU T.416) SGR
+#   #39 — `Screen.sgr_to_attr` must parse colon-form (ISO 8613-6 / ITU T.416) SGR
 #         sub-parameters (`38:5:n`, `38:2:r:g:b`, and the full `38:2::r:g:b`
 #         colon form with an empty colorspace-id) identically to the `;` form,
 #         and degrade an unknown colon param (`4:3`) to its base code rather than
@@ -15,7 +15,7 @@ include Crysterm
 #         to bright white (15), not leave it light gray (7).
 describe "BUGS15 colon-form SGR (#39/#50)" do
   dfl = Crysterm::Window::DEFAULT_ATTR
-  apply = ->(code : String) { Crysterm::Screen.attr2code(code, dfl, dfl) }
+  apply = ->(code : String) { Crysterm::Screen.sgr_to_attr(code, dfl, dfl) }
 
   it "#39 parses colon-form 256-color (38:5:n) like the semicolon form" do
     fg = apply.call("\e[38:5:196m")

@@ -8,38 +8,47 @@ module Crysterm
   # than installed as a `Widget#layout`.
   #
   # The including widget must provide an `@rows` instance variable
-  # (`Array(Array(String))`); everything else used here (`@maxes`, `pad`,
+  # (`Array(Array(String))`); everything else used here (`@maxes`, `column_spacing`,
   # `cell_align`, the cell-border flags) is defined by the module itself, and
   # `@width`/`#str_width`/`#clean_tags` are inherited from `Widget`.
   module TableLayout
-    # Computed per-column widths, filled in by `#calculate_maxes`.
+    # Sort direction for `Widget::ListTable#sort_by_column`. Declared on the
+    # shared `TableLayout` mixin (rather than on `ListTable` alone) so a future
+    # sortable `Widget::Table` could reuse it too.
+    enum SortOrder
+      Ascending
+      Descending
+    end
+
+    # Computed per-column widths, filled in by `#compute_column_widths`.
     @maxes = [] of Int32
 
-    # Whether `@maxes` needs recomputing. `#calculate_maxes` runs every `render`
-    # but depends only on `@rows`, `@width` and `@pad`, which change exclusively
-    # through `#rows=` and `#pad=` — both of which set this. Skips the per-frame
-    # re-scan of every cell when nothing relevant changed.
+    # Whether `@maxes` needs recomputing. `#compute_column_widths` runs every
+    # `render` but depends only on `@rows`, `@width` and `@column_spacing`,
+    # which change exclusively through `#rows=` and `#column_spacing=` — both
+    # of which set this. Skips the per-frame re-scan of every cell when
+    # nothing relevant changed.
     @maxes_dirty : Bool = true
 
     # Extra padding added to each column when the table is sized to its
     # content (i.e. when no fixed `width` is set).
-    getter pad : Int32 = 2
+    getter column_spacing : Int32 = 2
 
-    # Setting `pad` invalidates the cached column widths.
-    def pad=(value : Int32)
-      @pad = value
+    # Setting `column_spacing` invalidates the cached column widths.
+    def column_spacing=(value : Int32)
+      @column_spacing = value
       @maxes_dirty = true
     end
 
     # Marks the cached column widths (`@maxes`) stale so the next
-    # `#calculate_maxes` recomputes them.
-    def invalidate_maxes
+    # `#compute_column_widths` recomputes them.
+    def invalidate_column_widths
       @maxes_dirty = true
     end
 
-    # When true, no internal cell borders are drawn (only the outer border,
-    # if any).
-    property? no_cell_borders : Bool = false
+    # When true (default), internal cell borders are drawn between cells. When
+    # false, only the outer border (if any) is drawn.
+    property? cell_borders : Bool = true
 
     # When true, internal cell-border junctions take the background color of
     # the cell they sit in, rather than the border background.
@@ -55,8 +64,9 @@ module Crysterm
 
     # Computes per-column widths from the current `@rows`. When a fixed numeric
     # `width` is set and large enough, the slack is distributed evenly across
-    # columns; otherwise each column is sized to its widest cell plus `@pad`.
-    def calculate_maxes
+    # columns; otherwise each column is sized to its widest cell plus
+    # `@column_spacing`.
+    def compute_column_widths
       return @maxes unless @maxes_dirty
       @maxes_dirty = false
 
@@ -93,7 +103,7 @@ module Crysterm
           i == maxes.size - 1 ? max + per + rem : max + per
         end
       else
-        maxes = maxes.map { |max| max + @pad }
+        maxes = maxes.map { |max| max + @column_spacing }
       end
 
       @maxes = maxes
@@ -125,7 +135,7 @@ module Crysterm
     # paints the final content column, so without this spare column a last
     # cell filled to its full width would lose its last character.
     # `#row_width` accounts for this extra column.
-    def render_row(row : Array(String), first_col : Int32 = 0) : String
+    protected def render_row(row : Array(String), first_col : Int32 = 0) : String
       String.build do |str|
         ci = first_col
         while ci < row.size
@@ -185,7 +195,7 @@ module Crysterm
     @col_for_x_cache_ileft : Int32 = -1
     @col_for_x_cache_first_col : Int32 = -1
 
-    def cached_col_for_x(first_col : Int32 = 0) : Hash(Int32, Int32)
+    protected def cached_col_for_x(first_col : Int32 = 0) : Hash(Int32, Int32)
       cached = @col_for_x_cache
       if cached.nil? || !@maxes.same?(@col_for_x_cache_maxes) ||
          ileft != @col_for_x_cache_ileft || first_col != @col_for_x_cache_first_col
@@ -209,7 +219,7 @@ module Crysterm
     # alignment, straight to *io* — no per-cell `String` (and, on the clip path,
     # no `graphemes` array / per-grapheme `String`) intermediates. The hot path:
     # called per cell per row rebuild, i.e. N×M times per `#rows=`.
-    def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
+    protected def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
       clen = cell_width cell
       align = cell_align
 
@@ -259,42 +269,43 @@ module Crysterm
     end
 
     # Normalizes arbitrary row data into rows of string cells.
-    def normalize_rows(rows) : Array(Array(String))
+    protected def normalize_rows(rows) : Array(Array(String))
       return [] of Array(String) unless rows
       rows.map { |row| row.map(&.to_s) }
     end
 
     # Applies the optional cell-border/padding constructor options, each only when
     # explicitly given (`nil` leaves the default). Ivars are assigned directly
-    # (not via `pad=`) since the following `#rows=` rebuilds the cache anyway.
-    def init_cell_options(pad, no_cell_borders, fill_cell_borders) : Nil
-      pad.try { |v| @pad = v }
-      no_cell_borders.try { |v| @no_cell_borders = v }
-      fill_cell_borders.try { |v| @fill_cell_borders = v }
+    # (not via `column_spacing=`) since the following `#rows=` rebuilds the cache
+    # anyway.
+    protected def init_cell_options(column_spacing : Int32?, cell_borders : Bool, fill_cell_borders : Bool) : Nil
+      column_spacing.try { |v| @column_spacing = v }
+      @cell_borders = cell_borders
+      @fill_cell_borders = fill_cell_borders
     end
 
     # Normalizes *rows* into `@rows` and recomputes the cached column widths.
     # Returns `false` when the table ends up with no columns, so a `#rows=`
     # caller can early-return on an empty table via
     # `return unless reload_rows(rows)`.
-    def reload_rows(rows) : Bool
+    protected def reload_rows(rows) : Bool
       @rows = normalize_rows rows
-      invalidate_maxes
-      calculate_maxes
+      invalidate_column_widths
+      compute_column_widths
       !@maxes.empty?
     end
 
     # Interior extent of the rendered table for *coords*: the content origin
     # (`xi`, `yi`) plus the content `width`/`height` reaching the right/bottom
     # insets. Destructure as `xi, yi, width, height = border_extent(coords)`.
-    def border_extent(coords) : Tuple(Int32, Int32, Int32, Int32)
+    protected def border_extent(coords) : Tuple(Int32, Int32, Int32, Int32)
       {coords.xi, coords.yi, coords.xl - coords.xi - iright, coords.yl - coords.yi - ibottom}
     end
 
     # The attribute for an internal cell-border junction: either the plain
     # border attribute, or (with `fill_cell_borders`) the border
     # flags/foreground laid over the existing cell's background.
-    def junction_attr(battr : Int64, over : Int64) : Int64
+    protected def junction_attr(battr : Int64, over : Int64) : Int64
       return battr unless fill_cell_borders?
       Attr.pack Attr.flags(battr), Attr.fg(battr), Attr.bg(over)
     end
@@ -307,8 +318,8 @@ module Crysterm
     # every internal column (`Table` never clips). Each separator uses
     # `junction_attr` so `fill_cell_borders` shows through. *xi* is the line's
     # left content origin (`coords.xi`).
-    def draw_vertical_separators(line, xi : Int32, battr : Int64,
-                                 start_col : Int32 = 0, width : Int32? = nil) : Nil
+    protected def draw_vertical_separators(line, xi : Int32, battr : Int64,
+                                           start_col : Int32 = 0, width : Int32? = nil) : Nil
       # `rx` is the pure within-content column offset (0 == first content column);
       # the separator after column `mi` sits at content offset `sum(maxes[..mi])`.
       # Paint it at `xi + ileft + rx` — content begins at the left inset, so an

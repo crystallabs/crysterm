@@ -8,7 +8,7 @@ module Crysterm
   # diff. The cell buffer is fully deterministic, so identical behavior
   # reproduces byte-for-byte identical text.
   module Dump
-    # Serializes cells in the region `[xi,xl) x [yi,yl)` of *screen*'s composited
+    # Serializes cells in the region `[xi,xl) x [yi,yl)` of *window*'s composited
     # buffer. Two sections:
     #
     #   * **text** — one line per row, each wrapped in `|...|` so trailing spaces
@@ -16,9 +16,9 @@ module Crysterm
     #     their cluster once; their continuation cell is skipped.
     #   * **attrs** — for each row that has any non-default cell, a run-length
     #     list `col0-colN:fg/bg+flags` (columns relative to `xi`). Rows that are
-    #     entirely the screen default attribute are omitted, so a plain
+    #     entirely the window default attribute are omitted, so a plain
     #     monochrome widget has an empty attrs section.
-    def self.text(screen : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
+    def self.text(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
       w = xl - xi
       h = yl - yi
       String.build do |io|
@@ -26,17 +26,17 @@ module Crysterm
         io << '+' << ("-" * w) << "+\n"
 
         rows = Array(String::Builder).new(h) { String::Builder.new }
-        screen.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
+        window.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
           g = cell.grapheme
           rows[ry] << (g.empty? ? " " : g)
         end
         rows.each { |rb| io << '|' << rb.to_s << "|\n" }
         io << '+' << ("-" * w) << "+\n"
 
-        dfl = screen.default_attr
+        dfl = window.default_attr
         attr_lines = String.build do |a|
           (yi...yl).each do |y|
-            line = screen.lines[y]
+            line = window.lines[y]
             runs = String.build do |r|
               x = xi
               while x < xl
@@ -136,8 +136,8 @@ module Crysterm
                 duration : Time::Span? = nil,
                 fps : Int32 = 10,
                 loops : Int32 = 0,
-                font : Font = Font.default_normal,
-                bold_font : Font = Font.default_bold,
+                font : BitmapFont = BitmapFont.default_normal,
+                bold_font : BitmapFont = BitmapFont.default_bold,
                 default_fg : Int32 = Capture::DEFAULT_FG,
                 default_bg : Int32 = Capture::DEFAULT_BG,
                 ffmpeg_args : Array(String)? = nil) : Bytes?
@@ -205,8 +205,8 @@ module Crysterm
     # before the clock fiber starts. Public (`:nodoc:`) so the sampling cadence
     # is testable without ffmpeg.
     def feed_animation_frames(input : IO, xi, xl, yi, yl, duration : Time::Span, fps : Int32,
-                              font : Font = Font.default_normal,
-                              bold_font : Font = Font.default_bold,
+                              font : BitmapFont = BitmapFont.default_normal,
+                              bold_font : BitmapFont = BitmapFont.default_bold,
                               default_fg : Int32 = Capture::DEFAULT_FG,
                               default_bg : Int32 = Capture::DEFAULT_BG) : Nil
       # Floor the rate here too: a directly-reached public entry point must not

@@ -6,7 +6,7 @@ include Crysterm
 #
 #  A11 (src/widget/dock_widget.cr): float/drag geometry used margin-inclusive
 #     `aleft`/`atop`, drifting by the CSS margin per float toggle.
-#  A12 (src/widget/filemanager.cr): `%path` label and `Event::ChangeDir`
+#  A12 (src/widget/filemanager.cr): path label and `Event::DirectoryChanged`
 #     desynced on `reset`/`refresh("/dir")` — only `open_selected` kept them
 #     in sync.
 #  A13 (src/widget/form.cr): keyboard traversal focused disabled widgets,
@@ -43,8 +43,8 @@ describe "BUGS13 A11: DockWidget float geometry excludes the CSS margin" do
   end
 end
 
-describe "BUGS13 A12: FileManager label and ChangeDir stay in sync" do
-  it "updates the %path label and emits ChangeDir on refresh(dir) and reset" do
+describe "BUGS13 A12: FileManager label and DirectoryChanged stay in sync" do
+  it "updates the path label and emits DirectoryChanged on refresh(dir) and reset" do
     dir_a = File.join(Dir.tempdir, "crysterm_bugs13_a_#{Process.pid}")
     dir_b = File.join(Dir.tempdir, "crysterm_bugs13_b_#{Process.pid}")
     Dir.mkdir_p dir_a
@@ -52,22 +52,22 @@ describe "BUGS13 A12: FileManager label and ChangeDir stay in sync" do
     begin
       s = wb_screen
       fm = Widget::FileManager.new parent: s, top: 0, left: 0, width: 40, height: 15,
-        cwd: dir_a, label: "%path"
+        cwd: dir_a, label: "dir"
 
       changes = [] of {String, String}
-      fm.on(Crysterm::Event::ChangeDir) { |e| changes << {e.path, e.cwd} }
+      fm.on(Crysterm::Event::DirectoryChanged) { |e| changes << {e.path, e.previous} }
 
       fm.refresh dir_b
       fm.cwd.should eq dir_b
       changes.should eq [{dir_b, dir_a}]
-      fm.@_label.not_nil!.content.should eq dir_b
+      fm.@label_widget.not_nil!.content.should eq dir_b
 
       # `reset` returns to the construction-time cwd — before the fix it left
-      # the label stale and emitted no ChangeDir.
+      # the label stale and emitted no DirectoryChanged.
       fm.reset
       fm.cwd.should eq dir_a
       changes.last.should eq({dir_a, dir_b})
-      fm.@_label.not_nil!.content.should eq dir_a
+      fm.@label_widget.not_nil!.content.should eq dir_a
 
       # A no-move refresh emits nothing extra.
       n = changes.size

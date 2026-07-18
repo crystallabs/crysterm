@@ -160,10 +160,12 @@ module Crysterm
     UniformGridLayout = Crysterm::Layout::UniformGrid
     MasonryLayout     = Crysterm::Layout::Masonry
     WrapLayout        = Crysterm::Layout::Wrap
+    BoxLayout         = Crysterm::Layout::Box
     HBoxLayout        = Crysterm::Layout::HBox
     VBoxLayout        = Crysterm::Layout::VBox
     BorderLayout      = Crysterm::Layout::Border
     StackLayout       = Crysterm::Layout::Stack
+    StackedLayout     = Crysterm::Layout::Stack
     FormLayout        = Crysterm::Layout::Form
 
     # Pine-like

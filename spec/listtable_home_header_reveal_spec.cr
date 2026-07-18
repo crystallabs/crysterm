@@ -22,7 +22,7 @@ describe Crysterm::Widget::ListTable do
     s = lth_window
     rows = [["Name"]] of Array(String)
     (1..20).each { |i| rows << ["Row#{i}"] }
-    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, keys: true, rows: rows
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, rows: rows
     s._render
 
     # Scroll far down, then jump back to the first data row (as Home does).
@@ -31,10 +31,10 @@ describe Crysterm::Widget::ListTable do
     lt.select_index 1
     s._render
 
-    lt.selected.should eq 1
+    lt.current_index.should eq 1
     # child_base must be 0 so item 1 sits at screen row 1 (below the header at
     # screen row 0), i.e. the selected row is not hidden under the header.
     lt.child_base.should eq 0
-    (lt.selected > lt.child_base).should be_true
+    (lt.current_index > lt.child_base).should be_true
   end
 end

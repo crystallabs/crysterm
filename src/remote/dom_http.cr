@@ -93,7 +93,7 @@ module Crysterm
     def run : Nil
       start
       @window.render
-      @window.listen
+      @window.start_input
       # `receive?` returns nil when `quit` closes the channel — either way we fall
       # through and unwind cleanly.
       @shutdown.receive?

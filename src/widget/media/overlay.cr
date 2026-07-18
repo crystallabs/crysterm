@@ -15,8 +15,8 @@ module Crysterm
     class Media::Overlay < Media::External
       include Media::ScreenOverlay
 
-      property stretch = false
-      property center = false
+      property? stretch = false
+      property? center = false
       property image : W3MImageDisplay::Image?
 
       def initialize(
@@ -28,10 +28,12 @@ module Crysterm
         # animate.
         @fit : Media::Fit = Media::Fit::Stretch,
         @animate : Bool = false,
-        @speed : Float64 = 1.0,
+        speed : Float64 = 1.0,
         **box,
       )
         super **box
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
+        self.speed = speed
 
         @file.try { |f| load f }
 

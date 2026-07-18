@@ -64,7 +64,7 @@ describe "Modal dialog conformance (B8)" do
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
     accepted = false
     cancelled = false
-    cd.pick { |color| color ? (accepted = true) : (cancelled = true) }
+    cd.get_color { |color| color ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
       accept: -> { s.emit enter_key; nil },
       cancel: -> { s.emit escape_key; nil },
@@ -81,7 +81,7 @@ describe "Modal dialog conformance (B8)" do
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     accepted = false
     cancelled = false
-    q.ask("Sure?") { |_err, data| data ? (accepted = true) : (cancelled = true) }
+    q.ask("Sure?") { |data| data ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
       accept: -> { s.emit enter_key; nil },
       cancel: -> { s.emit escape_key; nil },
@@ -98,12 +98,12 @@ describe "Modal dialog conformance (B8)" do
     pr = Crysterm::Widget::Prompt.new parent: s, top: 0, left: 0, width: 40, height: 8
     accepted = false
     cancelled = false
-    pr.read_input("Name?") { |_err, data| data ? (accepted = true) : (cancelled = true) }
+    pr.read_input("Name?") { |data| data ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
       # Prompt has no window-level accelerator: Enter/Escape are the embedded
       # LineEdit's submit/cancel (which is what accept/cancel resolve to).
-      accept: -> { pr.textinput.value = "x"; pr.textinput.submit; nil },
-      cancel: -> { pr.textinput.cancel; nil },
+      accept: -> { pr.line_edit.value = "x"; pr.line_edit.submit; nil },
+      cancel: -> { pr.line_edit.cancel; nil },
       accepted: -> { accepted },
       cancelled: -> { cancelled },
       focus_restored: -> { s.focused == victim },
@@ -116,8 +116,8 @@ describe "Modal dialog conformance (B8)" do
     wiz.add_page Crysterm::Widget::Box.new, title: "One"
     accepted = false
     cancelled = false
-    wiz.on(Crysterm::Event::Complete) { accepted = true }
-    wiz.on(Crysterm::Event::Cancel) { cancelled = true }
+    wiz.on(Crysterm::Event::Completed) { accepted = true }
+    wiz.on(Crysterm::Event::Cancelled) { cancelled = true }
     DialogHandle.new(
       # Single page → Enter finishes (Complete); Escape cancels.
       accept: -> { s.emit enter_key; nil },

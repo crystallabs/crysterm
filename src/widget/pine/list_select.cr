@@ -61,6 +61,11 @@ module Crysterm
         # (see `#selection`).
         property on_confirm : Proc(Array(T), Nil)?
 
+        # Block form of `#on_confirm=`, e.g. `picker.on_confirm { |chosen| ... }`.
+        def on_confirm(&block : Array(T) ->) : Nil
+          @on_confirm = block
+        end
+
         def initialize(
           items : Array(T) = [] of T,
           *,
@@ -90,7 +95,7 @@ module Crysterm
 
         # Replaces the displayed items, clearing any checked state and rebuilding
         # the rows.
-        def set_options(options : Array(T))
+        def options=(options : Array(T))
           @checked_indices.clear
           self.records = options
         end
@@ -129,7 +134,7 @@ module Crysterm
 
         # Replaces the checked set with *items* (multi mode). Items not present in
         # the list are ignored.
-        def set_checked(items : Enumerable(T))
+        def checked=(items : Enumerable(T))
           return unless @multi
           @checked_indices.clear
           items.each do |item|
@@ -151,11 +156,11 @@ module Crysterm
           else
             @checked_indices.add i
           end
-          set_item selected, format_row(records[i], i)
+          set_item current_index, format_row(records[i], i)
           request_render
         end
 
-        # Invoked on `Event::ActionItem` (Enter / click). In multi mode toggles
+        # Invoked on `Event::ItemActivated` (Enter / click). In multi mode toggles
         # the current row's checkbox without dismissing the list; in single mode
         # confirms the highlighted item via `on_confirm`.
         def activate

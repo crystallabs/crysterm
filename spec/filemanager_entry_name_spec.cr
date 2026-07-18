@@ -26,13 +26,13 @@ describe Crysterm::Widget::FileManager do
 
     begin
       s = fm_screen
-      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base, keys: true)
+      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
 
-      idx = fm.ritems.index(&.includes?("mail"))
+      idx = fm.item_texts.index(&.includes?("mail"))
       idx.should_not be_nil
-      fm.selected = idx.not_nil!
-      fm.enter_selected
+      fm.current_index = idx.not_nil!
+      fm.activate_current
 
       # clean_tags would strip `{x}`, landing on a non-existent path.
       fm.cwd.chomp('/').should eq dir
@@ -49,16 +49,16 @@ describe Crysterm::Widget::FileManager do
 
     begin
       s = fm_screen
-      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base, keys: true)
+      fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
 
-      idx = fm.ritems.index(&.includes?("data"))
+      idx = fm.item_texts.index(&.includes?("data"))
       idx.should_not be_nil
-      fm.selected = idx.not_nil!
+      fm.current_index = idx.not_nil!
 
       opened = nil.as(String?)
-      fm.on(Crysterm::Event::OpenFile) { |e| opened = e.path }
-      fm.enter_selected
+      fm.on(Crysterm::Event::FileSelected) { |e| opened = e.path }
+      fm.activate_current
 
       # The `@\z` strip would produce base/"data" (missing); real path must
       # come through intact.

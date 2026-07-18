@@ -67,7 +67,7 @@ module Crysterm
         # write to the copying widget's own terminal rather than the app-active
         # window's.
         def buf_copy_to_clipboard(clipboard : Application::Clipboard, from : Int32, to : Int32, window : Window? = nil) : Nil
-          clipboard.set_text buf_slice(from, to), window
+          clipboard.copy buf_slice(from, to), window
         end
 
         # Attempts to paste *clipboard*'s rich payload at the cursor,

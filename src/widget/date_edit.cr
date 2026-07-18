@@ -41,11 +41,11 @@ module Crysterm
       # A press toggles the calendar popup; a wheel dismisses an open one before
       # stepping.
       protected def on_section_press : Nil
-        toggle if calendar_popup?
+        toggle_popup if calendar_popup?
       end
 
       protected def on_section_wheel : Nil
-        close if @open
+        hide_popup if @open
       end
 
       section_value date, @date, at_beginning_of_day
@@ -91,16 +91,17 @@ module Crysterm
         super || (@popup.try(&.nav_popup_contains?(x, y)) || false)
       end
 
-      # Drops the calendar.
-      def open : Nil
+      # Drops the calendar (Qt's `showPopup`).
+      def show_popup : Nil
         return if @open || !calendar_popup?
         pop = ensure_popup
         pop.date = @date
         position_popup pop
-        show_popup pop
+        present_popup pop
       end
 
-      def close : Nil
+      # Dismisses the calendar (Qt's `hidePopup`).
+      def hide_popup : Nil
         return unless teardown_popup
         focus
       end
@@ -118,15 +119,15 @@ module Crysterm
             date: @date,
           )
           cal.add_css_class "popup" # themed via `.popup { border: solid; ... }`
-          cal.on(Crysterm::Event::Action) do
+          cal.on(Crysterm::Event::DateActivated) do
             self.date = cal.date
-            close
+            hide_popup
           end
           # The popup holds focus while open, so Escape must be handled here to
           # dismiss it (the field's own key handler isn't focused meanwhile).
           cal.on(Crysterm::Event::KeyPress) do |e|
             if e.key == Tput::Key::Escape
-              close
+              hide_popup
               e.accept
             end
           end
@@ -147,7 +148,7 @@ module Crysterm
 
       def on_keypress(e)
         if calendar_popup? && (e.key == Tput::Key::Enter || e.key == Tput::Key::Space || e.char == ' ')
-          toggle
+          toggle_popup
           e.accept
           request_render
           return
@@ -156,7 +157,7 @@ module Crysterm
         return if handle_section_key e
 
         if e.key == Tput::Key::Escape && @open
-          close
+          hide_popup
           e.accept
           request_render
         end

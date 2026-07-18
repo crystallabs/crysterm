@@ -144,7 +144,7 @@ describe "BUGS6 bug 4: Gradient paints its final stop at the last column" do
     # Two hard stops; with inclusive endpoints the first column is the start
     # color and the last column is the end color exactly.
     g = Crysterm::Widget::Gradient.new parent: s, top: 0, left: 0, width: 8, height: 1,
-      colors: [0xff0000, 0x00ff00]
+      stops: [0xff0000, 0x00ff00]
     s._render
     w = g.awidth
     xi = 0
@@ -155,7 +155,7 @@ describe "BUGS6 bug 4: Gradient paints its final stop at the last column" do
   it "shows the exact end color in the last row (vertical)" do
     s = bugs6_screen 20, 8
     g = Crysterm::Widget::Gradient.new parent: s, top: 0, left: 0, width: 4, height: 6,
-      colors: [0xff0000, 0x00ff00], direction: :vertical
+      stops: [0xff0000, 0x00ff00], direction: :vertical
     s._render
     h = g.aheight
     cell_bg(s, 0, 0).should eq 0xff0000

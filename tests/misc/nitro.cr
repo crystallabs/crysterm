@@ -15,14 +15,14 @@
 #
 #   nitro.cr     NO widgets and NO compositor at all. Its own `FrameClock`
 #                paints cells directly with `window.fill_region`, then pushes the
-#                frame with `window.draw` (diff `@lines` vs `@olines`, encode,
+#                frame with `window.draw` (diff `@lines` vs `@flushed_lines`, encode,
 #                write) — nothing else runs. This is the shortest path: no
 #                buffer clear, no widget tree walk, no per-frame `_render`
 #                bookkeeping. The full-screen scene overwrites every cell each
 #                frame anyway, so the compositor's clear was pure waste here.
 #
 # The cost of "bar none": the standard headless capture is driven by the
-# window's `_render` → `Event::Rendered` cycle (see `Window#capture_from_env`),
+# window's `_render` → `Event::Rendered` cycle (see `Window#run_env_capture`),
 # which nitro never runs — so `Application#exec`'s capture path would snapshot a
 # blank screen. nitro therefore drives its OWN capture too (paint a frame → read
 # the buffer), below, guarded by the same env vars. In the interactive path it

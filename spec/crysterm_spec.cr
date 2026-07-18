@@ -9,9 +9,9 @@ x = X.new
 describe Crysterm do
   describe "escape" do
     it "wraps/escapes { and }" do
-      x.escape("my").should eq "my"
-      x.escape("my {").should eq "my {open}"
-      x.escape("{ { term }").should eq "{open} {open} term {close}"
+      Crysterm::Helpers.escape("my").should eq "my"
+      Crysterm::Helpers.escape("my {").should eq "my {open}"
+      Crysterm::Helpers.escape("{ { term }").should eq "{open} {open} term {close}"
     end
   end
 

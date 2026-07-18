@@ -26,7 +26,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
     s = mem_screen
     wiz = three_page_wizard s
     cancelled = false
-    wiz.on(Crysterm::Event::Cancel) { cancelled = true }
+    wiz.on(Crysterm::Event::Cancelled) { cancelled = true }
 
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Escape)
     cancelled.should be_true
@@ -36,7 +36,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
     s = mem_screen
     wiz = three_page_wizard s
     completed = false
-    wiz.on(Crysterm::Event::Complete) { completed = true }
+    wiz.on(Crysterm::Event::Completed) { completed = true }
 
     wiz.current_index.should eq 0
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Enter)
@@ -67,7 +67,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
     s = mem_screen
     wiz = three_page_wizard s
     cancelled = 0
-    wiz.on(Crysterm::Event::Cancel) { cancelled += 1 }
+    wiz.on(Crysterm::Event::Cancelled) { cancelled += 1 }
 
     wiz.destroy
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Escape)

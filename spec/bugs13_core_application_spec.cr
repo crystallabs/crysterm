@@ -9,7 +9,7 @@ include Crysterm
 #       `grab_keys?` (like `#route_input` does), so `q` typed into a widget
 #       that consumed it doesn't close every window.
 # C5  — `Application#activate` must re-emit the raised window's whole frame:
-#       the draw diff runs against the window's PRIVATE `@olines`, while the
+#       the draw diff runs against the window's PRIVATE `@flushed_lines`, while the
 #       terminal may be showing a sibling, so an "unchanged" frame emitted
 #       zero bytes and the raise was invisible.
 # C10 — `exec_all` must return when the managed windows are destroyed
@@ -136,7 +136,7 @@ describe "BUGS13 C5: activate re-emits the raised window's frame" do
     out.to_s.includes?("HELLO13").should be_false
 
     # activate must invalidate + repaint, so the content is re-emitted even
-    # though this window's private @olines already matches it.
+    # though this window's private @flushed_lines already matches it.
     app.activate w
     wait_until { out.to_s.includes? "HELLO13" }
 
@@ -205,7 +205,7 @@ describe "BUGS13 C19/C24: per-window cursor/title re-asserted on a shared device
 end
 
 describe "BUGS13 C23: clipboard routes to the requesting window's device" do
-  it "set_text writes OSC-52 to the given window, not the app-active one" do
+  it "copy writes OSC-52 to the given window, not the app-active one" do
     app = Application.new
     w1 = b13_window
     w2 = b13_window
@@ -217,7 +217,7 @@ describe "BUGS13 C23: clipboard routes to the requesting window's device" do
     o1.clear
     o2.clear
 
-    app.clipboard.set_text "SECRET", window: w1
+    app.clipboard.copy "SECRET", window: w1
     o1.size.should be > 0
     o2.size.should eq 0
     app.clipboard.text.should eq "SECRET"
@@ -273,7 +273,7 @@ describe "BUGS13 C23: clipboard routes to the requesting window's device" do
       o2.clear
 
       # Ctrl-C → copy_selection → buf_copy_to_clipboard(..., window?) →
-      # Clipboard#set_text(value, window): the OSC-52 write lands on the
+      # Clipboard#copy(text, window): the OSC-52 write lands on the
       # widget's OWN terminal, not the app-active window's.
       te._listener Crysterm::Event::KeyPress.new('\0', ::Tput::Key::CtrlC)
 

@@ -29,16 +29,16 @@ describe "Mixin::Interactive page scroll with non-Int height" do
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
     s._render
 
-    input.get_scroll.should eq 0
-    # Half-page down: ~aheight/2 ≈ 12 lines on a 24-row screen. `get_scroll` is
+    input.scroll_position.should eq 0
+    # Half-page down: ~aheight/2 ≈ 12 lines on a 24-row screen. `scroll_position` is
     # the combined `child_base + child_offset`; assert on the combined value.
     input.emit Crysterm::Event::KeyPress, '\0', Tput::Key::CtrlD
-    input.get_scroll.should be > 0
-    paged = input.get_scroll
+    input.scroll_position.should be > 0
+    paged = input.scroll_position
 
     # Full page down moves strictly further than the half page did.
     input.emit Crysterm::Event::KeyPress, '\0', Tput::Key::CtrlF
-    input.get_scroll.should be > paged
+    input.scroll_position.should be > paged
   end
 
   it "pages back up with Ctrl-U / Ctrl-B" do
@@ -55,10 +55,10 @@ describe "Mixin::Interactive page scroll with non-Int height" do
 
     # Jump well down first, then page back up.
     input.scroll_to 40
-    down = input.get_scroll
+    down = input.scroll_position
     down.should be > 0
 
     input.emit Crysterm::Event::KeyPress, '\0', Tput::Key::CtrlU
-    input.get_scroll.should be < down
+    input.scroll_position.should be < down
   end
 end

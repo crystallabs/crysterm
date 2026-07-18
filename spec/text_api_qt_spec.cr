@@ -133,7 +133,7 @@ describe "Qt-shaped text API" do
       le.value.should eq "abcd"
 
       le.echo_mode = Crysterm::Widget::LineEdit::EchoMode::NoEcho
-      le.value = nil
+      le.refresh_value
       le.@_value.should eq ""
       le.value.should eq "abcd"
     end
@@ -147,13 +147,13 @@ describe "Qt-shaped text API" do
       other = Crysterm::Widget::LineEdit.new parent: s, top: 1, left: 0, width: 18, height: 1
 
       le.focus
-      le.value = nil
+      le.refresh_value
       le.@_value.should eq "abcd"
 
       # Focus elsewhere ⇒ resolves to Password and re-masks.
       other.focus
       le.focused?.should be_false
-      le.value = nil
+      le.refresh_value
       le.@_value.should eq "****"
     end
   end

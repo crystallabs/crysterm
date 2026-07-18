@@ -6,7 +6,7 @@ module Crysterm
     # by keys (Tab/Shift+Tab etc.) and operate without mouse.
 
     # Send focus events after mouse is enabled?
-    property send_focus : Bool = Config.window_send_focus
+    property? send_focus : Bool = Config.window_send_focus
 
     # Whether `Tab`/`Shift+Tab` move keyboard focus between focusable widgets by
     # default (the GUI-toolkit convention). Enabled out of the box; set to false
@@ -110,21 +110,21 @@ module Crysterm
         # on `#show`) with no listener ever seeing focus leave it. `nil` payload:
         # no widget is taking over focus.
         old.try do |o|
-          o.emit Crysterm::Event::Blur, nil if blur_state_reset o
+          o.emit Crysterm::Event::FocusOut, nil if blur_state_reset o
         end
         return
       end
 
       # `el` is already on top of `@history` (the surviving entry after the
       # trailing tail was pruned), so it must NOT be pushed again. `_focus`
-      # already emits `Event::Blur` on `old`; emitting it here too would
-      # double-Blur.
+      # already emits `Event::FocusOut` on `old`; emitting it here too would
+      # double-fire FocusOut.
       _focus el, old
       el
     end
 
     # Focuses element `el`. Equivalent to `@display.focused = el`.
-    def focus_push(el)
+    protected def focus_push(el)
       old = @history.last?
       # Re-focusing the already-current element is not a history change. Pushing
       # it again would stack a duplicate top entry and, once `@history` reaches
@@ -145,13 +145,24 @@ module Crysterm
     def focus_pop
       # Non-raising pop: `focus_pop` is public API and the history may be empty.
       old = @history.pop?
+
+      # Prune invalid *trailing* entries before restoring focus. `@history` is
+      # never pruned on widget removal, so the new top may be a detached/hidden
+      # widget: `_focus`ing it would set `state = :focused` on an off-window
+      # widget, route keys off-screen, and — if it has a scrollable ancestor —
+      # crash in the scroll-into-view guard (`el.window` = `window?.not_nil!`).
+      # Same predicate as `rewind_focus` so a valid older entry still survives.
+      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e) && !e.layout_suppressed?)
+        @history.pop
+      end
+
       if el = @history.last?
         _focus el, old
       elsif old
         # No prior target remains, but the just-popped widget must still be
         # blurred, or it lingers in `WidgetState::Focused` with no listener
         # seeing focus leave it.
-        old.emit Crysterm::Event::Blur, nil if blur_state_reset old
+        old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
       end
       old
     end
@@ -163,7 +174,7 @@ module Crysterm
     #
     # If the end of list of focusable elements is reached before the
     # item to focus is found, the search continues from the beginning.
-    def focus_offset(offset)
+    protected def focus_offset(offset)
       return if offset.zero?
 
       # The skip loop below only terminates because this proves an acceptable
@@ -208,8 +219,8 @@ module Crysterm
       # Re-focusing the already-focused widget has no "previous" to blur or
       # un-highlight: treating `cur` as its own `old` would set its state to
       # `:focused` then immediately back to `:normal` (clobbering the
-      # highlight), plus emit a spurious `Blur`. It's also not a focus *change*,
-      # so the terminating `Event::Focus` is suppressed too — emitting it would
+      # highlight), plus emit a spurious `FocusOut`. It's also not a focus *change*,
+      # so the terminating `Event::FocusIn` is suppressed too — emitting it would
       # re-run focus side effects on an already-focused widget (a `Terminal`
       # re-reporting focus-in to its PTY, `input_on_focus` re-entering
       # `read_input`, menu/completer handlers re-firing).
@@ -228,12 +239,12 @@ module Crysterm
       # into `el`'s content space via absolute tops; hand-rolled `cur.rtop` math
       # would be relative to `cur`'s *immediate* parent, so it omits the
       # intervening offsets for anything deeper than a direct child.
-      if el && el.window
-        cur.window.render if el.ensure_widget_visible cur
+      if el && (elw = el.window?)
+        elw.render if el.ensure_widget_visible cur
       end
 
       if old
-        old.emit Crysterm::Event::Blur, cur
+        old.emit Crysterm::Event::FocusOut, cur
       end
 
       # Per-widget cursor: if the newly-focused or blurred widget carries its own
@@ -246,7 +257,7 @@ module Crysterm
         render_if_active if old.try(&.cursor).try(&.artificial?)
       end
 
-      cur.emit Crysterm::Event::Focus, old unless refocus
+      cur.emit Crysterm::Event::FocusIn, old unless refocus
     end
   end
 end

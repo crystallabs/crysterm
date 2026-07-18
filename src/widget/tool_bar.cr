@@ -41,11 +41,11 @@ module Crysterm
         @item_gap = 0
         # Install/withdraw keyboard accelerators with the bar's attach lifecycle,
         # so e.g. `Ctrl+B` fires whenever the bar is on a window, not only on click.
-        on(::Crysterm::Event::Attach) { install_action_shortcuts }
+        on(::Crysterm::Event::Attached) { install_action_shortcuts }
         # Uninstall from the window carried on the event: `parent`/`window` are
-        # nulled before `Event::Detach` is emitted, so `window?` is already nil
+        # nulled before `Event::Detached` is emitted, so `window?` is already nil
         # here — the previous window comes via the payload.
-        on(::Crysterm::Event::Detach) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
+        on(::Crysterm::Event::Detached) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action
@@ -88,7 +88,7 @@ module Crysterm
       end
 
       # Withdraws every backing action's accelerator from *w* (the window the bar
-      # is leaving, supplied via the `Detach` event payload).
+      # is leaving, supplied via the `Detached` event payload).
       private def uninstall_action_shortcuts(w : ::Crysterm::Window?) : Nil
         return unless w
         @item_actions.each_value(&.uninstall_shortcut(w))
@@ -113,7 +113,7 @@ module Crysterm
       # in `action.associated_widgets`.
       def destroy
         # Withdraw the accelerators NOW, while `@item_actions` is still
-        # populated: the `Detach` emitted during `super`'s teardown would run the
+        # populated: the `Detached` emitted during `super`'s teardown would run the
         # uninstall handler over an already-cleared collection, leaving every
         # action's shortcut registered on the window forever.
         uninstall_action_shortcuts window?

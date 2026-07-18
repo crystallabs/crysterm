@@ -74,19 +74,19 @@ describe Crysterm::TextCursor do
 
     it "selects across blocks with newline separators" do
       _, c = doc_and_cursor("ab\ncd")
-      c.select :document
+      c.select_span :document
       c.selected_text.should eq "ab\ncd"
     end
 
     it "selects the word under the cursor" do
       _, c = doc_and_cursor("foo bar baz", 5) # inside "bar"
-      c.select :word_under_cursor
+      c.select_span :word_under_cursor
       c.selected_text.should eq "bar"
     end
 
     it "selects the block under the cursor" do
       _, c = doc_and_cursor("one\ntwo\nthree", 5)
-      c.select :block_under_cursor
+      c.select_span :block_under_cursor
       c.selected_text.should eq "two"
     end
   end
@@ -204,7 +204,7 @@ describe Crysterm::TextCursor do
     it "merge preserves existing properties on the selection" do
       doc, c = doc_and_cursor
       c.insert_text("abc", TextCharFormat.new(fg: 0x00aaff))
-      c.select :document
+      c.select_span :document
       c.merge_char_format(TextCharFormat.new(bold: true))
       f = doc.char_format_at(2)
       f.bold?.should be_true

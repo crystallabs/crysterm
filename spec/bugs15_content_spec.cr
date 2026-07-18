@@ -12,7 +12,7 @@ end
 # lines) through `set_content`, running `_parse_tags` a SECOND time. Under the
 # drop-malformed policy that silently destroyed escaped literal braces
 # (`{open}`/`{close}`) and re-interpreted literal tag-looking text as live SGR,
-# on ANY line edit (`insert_line`/`delete_line`/`set_line`/…). Fixed by a
+# on ANY line edit (`insert_line`/`delete_line`/`replace_line`/…). Fixed by a
 # transient no-reparse flag plus pre-parsing freshly edited lines.
 describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   it "keeps escaped literal braces after insert_line" do
@@ -40,12 +40,12 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
     w.rendered_content.should_not contain "\e["
   end
 
-  it "does not corrupt an unrelated escaped-brace row when set_line edits another row" do
+  it "does not corrupt an unrelated escaped-brace row when replace_line edits another row" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\nsecond"
     w.rendered_content.should eq "brace: {literal}\nsecond"
 
-    w.set_line 1, "changed"
+    w.replace_line 1, "changed"
     # Editing row 1 must leave row 0's escaped braces intact.
     w.rendered_content.should eq "brace: {literal}\nchanged"
   end
@@ -53,7 +53,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   it "keeps escaped literal braces after delete_line of another row" do
     w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\ndrop me"
-    w.delete_line 1
+    w.delete_line index: 1
     w.rendered_content.should eq "brace: {literal}"
   end
 
@@ -92,7 +92,7 @@ private def hover(widget)
   ev = ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None,
     widget.aleft, widget.atop, source: :test)
-  widget.emit Crysterm::Event::MouseOver, ev
+  widget.emit Crysterm::Event::MouseEnter, ev
 end
 
 describe "Widget hover tooltip re-homes after a cross-window reparent (BUGS15 #49)" do
@@ -104,7 +104,7 @@ describe "Widget hover tooltip re-homes after a cross-window reparent (BUGS15 #4
     box.tool_tip = "help"
 
     hover box
-    tip_a = box.@_tooltip
+    tip_a = box.@_tool_tip
     tip_a.should_not be_nil
     tip_a.not_nil!.window?.should eq a
 
@@ -113,7 +113,7 @@ describe "Widget hover tooltip re-homes after a cross-window reparent (BUGS15 #4
     box.window?.should eq b
 
     hover box
-    tip_b = box.@_tooltip
+    tip_b = box.@_tool_tip
     tip_b.should_not be_nil
     tip_b.not_nil!.window?.should eq b # re-homed to the new window
     # The stale tooltip was destroyed and removed from the old window.

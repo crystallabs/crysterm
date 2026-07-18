@@ -7,7 +7,7 @@ module Crysterm
       left top right bottom width height name content parse_tags wrap_content
       align overflow style styles visible scrollable input focused children
       index shrink_to_fit fixed draggable keys vi mouse layout layout_hint
-      scrollbar track always_scroll focus_on_click hover_text label parent window
+      scrollbar track always_scroll focus_on_click tool_tip label parent window
     ]
   end
 end

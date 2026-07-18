@@ -4,9 +4,9 @@ require "../../src/crysterm"
 #
 # Outer scrollable `tab` box containing a `form` with computed height (blessed
 # 'shrink' -> shrink_to_fit). Form holds three label/textbox pairs (Foo/Bar/Baz)
-# and a submit button; submit collects the textbox values and emits Event::SubmitData.
+# and a submit button; submit collects the textbox values and emits Event::FormSubmitted.
 module Crysterm
-  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
   tab = Widget::ScrollableBox.new \
     parent: s,
@@ -99,12 +99,12 @@ module Crysterm
     parse_tags: true,
     style: Style.new(bg: "black")
 
-  submit.on(Crysterm::Event::Press) do
+  submit.on(Crysterm::Event::Pressed) do
     # blessed had a buggy `tabs.send._.form.submit()` here; intent is to submit the enclosing form.
     form.submit
   end
 
-  form.on(Crysterm::Event::SubmitData) do |e|
+  form.on(Crysterm::Event::FormSubmitted) do |e|
     # blessed logged the data here; no-op instead.
     _ = e.data
     s.destroy

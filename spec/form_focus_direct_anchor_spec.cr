@@ -26,7 +26,7 @@ describe Crysterm::Widget::Form do
     s._render
 
     form.focus_next
-    form.selected.should eq f0
+    form.current_field.should eq f0
 
     # Focus f2 directly, bypassing the form's navigation.
     f2.focus
@@ -35,7 +35,7 @@ describe Crysterm::Widget::Form do
     # The next step must land on f3 (after the *focused* f2), not f1 (after the
     # stale @selected f0).
     form.focus_next
-    form.selected.should eq f3
+    form.current_field.should eq f3
   end
 
   it "still enters from the first/last field via focus_first/focus_last" do
@@ -49,8 +49,8 @@ describe Crysterm::Widget::Form do
     # Even with a field already focused, focus_first/last enter from the ends.
     c.focus
     form.focus_first
-    form.selected.should eq a
+    form.current_field.should eq a
     form.focus_last
-    form.selected.should eq c
+    form.current_field.should eq c
   end
 end

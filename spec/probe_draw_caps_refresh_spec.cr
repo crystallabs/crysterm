@@ -14,7 +14,7 @@ include Crysterm
 # (256 or fewer). Only reproduced on terminals whose truecolor support is found
 # by the *probe* rather than by `COLORTERM`/terminfo (e.g. xterm on Linux).
 #
-# Fix: `Screen#probe!` recomputes `@draw_caps` after `@tput.probe!` runs.
+# Fix: `Screen#probe` recomputes `@draw_caps` after `@tput.probe!` runs.
 #
 # `Tput#probe!` no-ops on the non-tty IO used in specs, and the CI terminal may
 # itself already detect truecolor at construction — so instead of driving a real
@@ -22,7 +22,7 @@ include Crysterm
 # `Screen#colors` (and thus `compute_draw_caps`) funnels through the effective
 # color depth, so widening `colors.depth` after construction stands in for the
 # post-construction capability upgrade a live probe performs. The point under
-# test is that `Screen#probe!` re-snapshots `DrawCaps` from the now-current
+# test is that `Screen#probe` re-snapshots `DrawCaps` from the now-current
 # depth, which is what the truecolor probe relies on.
 private def probe_screen(width = 8, height = 2)
   Crysterm::Window.new(
@@ -30,7 +30,7 @@ private def probe_screen(width = 8, height = 2)
     width: width, height: height)
 end
 
-describe "Screen#probe! draw_caps refresh" do
+describe "Screen#probe draw_caps refresh" do
   saved_force = Crysterm::ColorForce::None
   prev_depth = Crysterm::ColorDepth::Auto
 
@@ -62,7 +62,7 @@ describe "Screen#probe! draw_caps refresh" do
     screen.colors.should eq 0x1000000      # live per-frame value tracks it...
     screen.draw_caps.ncolors.should eq 256 # ...but the snapshot is stale
 
-    screen.probe! # must refresh the snapshot
+    screen.probe # must refresh the snapshot
     screen.draw_caps.ncolors.should eq 0x1000000
   end
 
@@ -72,7 +72,7 @@ describe "Screen#probe! draw_caps refresh" do
     s.alloc
 
     Crysterm::Config.colors_depth = Crysterm::ColorDepth::TrueColor
-    screen.probe!
+    screen.probe
 
     obuf = screen.output.as(IO::Memory)
     rgb = Attr.pack(0i64, Attr.pack_color(0xff8800), Attr::COLOR_DEFAULT)

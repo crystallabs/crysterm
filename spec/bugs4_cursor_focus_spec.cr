@@ -4,11 +4,12 @@ include Crysterm
 
 # Regression specs for the BUGS4 cursor / focus fixes:
 #
-#  1. `Window#cursor_reset` cleared `style.bg` but not `style.fg`. Since
-#     `style.fg` is the single source of truth `#apply_cursor` reads, a "reset"
-#     cursor kept its old color: the next `#apply_cursor` (a focus change, a
-#     `#cursor_shape` call, …) re-issued the stale hardware-cursor color. The
-#     OSC-112 reset done inside `#cursor_reset` was thus only transient.
+#  1. `Window#reset_cursor` (formerly `#cursor_reset`) cleared `style.bg` but
+#     not `style.fg`. Since `style.fg` is the single source of truth
+#     `#apply_cursor` reads, a "reset" cursor kept its old color: the next
+#     `#apply_cursor` (a focus change, a `#cursor_shape` call, …) re-issued the
+#     stale hardware-cursor color. The OSC-112 reset done inside `#reset_cursor`
+#     was thus only transient.
 #  2. `_focus`'s scroll-into-view hand-rolled its math with `cur.rtop`, which is
 #     relative to `cur`'s *immediate* parent — correct only for a direct child of
 #     the scrollable ancestor. For a deeper descendant it omitted the intervening
@@ -26,14 +27,14 @@ private def cursor_screen
   {screen, io}
 end
 
-describe "BUGS4 Window#cursor_reset clears the cursor color (fix #1)" do
+describe "BUGS4 Window#reset_cursor clears the cursor color (fix #1)" do
   it "nils style.fg so a later apply_cursor does not re-issue the old color" do
     screen, io = cursor_screen
 
-    screen.cursor_color "red"
+    screen.cursor_color = "red"
     screen.cursor.style.fg.should eq Crysterm::Colors.convert("red")
 
-    screen.cursor_reset
+    screen.reset_cursor
     screen.cursor.style.fg.should be_nil # the fix: fg is cleared, not just bg
 
     # A subsequent re-apply must restore the terminal default (OSC 112), not

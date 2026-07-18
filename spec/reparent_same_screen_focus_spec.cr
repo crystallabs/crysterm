@@ -5,7 +5,7 @@ include Crysterm
 # Reparenting a focused widget between two containers *on the same screen* must
 # preserve its keyboard focus. `Widget#remove` (src/widget_children.cr) used to
 # `rewind_focus` unconditionally on unlink, popping the still-on-screen widget
-# out of the focus history and blurring it. Screen-level `Attach`/`Detach`
+# out of the focus history and blurring it. Screen-level `Attached`/`Detached`
 # suppression for a same-screen move must likewise leave focus untouched; a
 # genuine *cross-screen* move must still rewind.
 

@@ -37,14 +37,14 @@ module Crysterm
     # for the keyboard sensor (no pointer to follow).
     property? drag_ghost : Bool = true
 
-    # Optional sink for human-readable drag status (e.g. a status-line "live
-    # region" for keyboard users: "Picked up …", "Over …", "Dropped on …",
-    # "Cancelled"). No-op when unset.
-    property drag_announce : Proc(String, Nil)? = nil
-
     # The in-flight drag session on this screen, if any.
-    def dragging : DragSession?
+    def drag_session : DragSession?
       @_drag
+    end
+
+    # Whether a drag is currently in flight on this screen.
+    def dragging? : Bool
+      !@_drag.nil?
     end
 
     # Begins a drag with *source* as the dragged widget. *x*/*y* are absolute
@@ -67,7 +67,7 @@ module Crysterm
         drag_cancel old
         @_drag_button = saved_button
       end
-      data = DragData.new source, [action], action
+      data = DragData.new source, action, action
       sess = DragSession.new source, data, x, y, sensor
       sess.discrete = discrete || sensor.keyboard?
       sess.offset_x = x - source.aleft
@@ -98,7 +98,7 @@ module Crysterm
     # modifier keys, move the anchor, let the source react (`Drag` → e.g.
     # reposition), float the ghost, then re-evaluate and re-ask the drop target.
     def drag_motion(sess : DragSession, x : Int32, y : Int32, shift = false, ctrl = false) : Nil
-      sess.data.action = drag_action_for shift, ctrl, sess.data.supported.first? || DragAction::Move
+      sess.data.action = drag_action_for shift, ctrl, default_supported_action(sess.data.supported)
       sess.x = x
       sess.y = y
       sess.source.emit ::Crysterm::Event::Drag, sess
@@ -224,8 +224,19 @@ module Crysterm
       default
     end
 
+    # A single default action to propose absent modifier keys, from a
+    # (possibly multi-flag) `DragData#supported` set: `Move` if advertised,
+    # else `Copy`, else `Link`, else `Move` as the final fallback (`None`
+    # advertises nothing, which shouldn't happen in practice).
+    private def default_supported_action(supported : DragAction) : DragAction
+      return DragAction::Move if supported.move? || supported.none?
+      return DragAction::Copy if supported.copy?
+      return DragAction::Link if supported.link?
+      DragAction::Move
+    end
+
     private def announce(msg : String) : Nil
-      @drag_announce.try &.call msg
+      emit ::Crysterm::Event::DragAnnounced, msg
     end
 
     private def describe(w : Widget) : String
@@ -291,7 +302,7 @@ module Crysterm
     def drop_external(uris : Array(String), target : Widget? = focused) : Bool
       return false unless t = target
       src = t
-      data = DragData.new src, [DragAction::Copy], DragAction::Copy
+      data = DragData.new src, DragAction::Copy, DragAction::Copy
       data["text/uri-list"] = uris.join '\n'
       data["text/plain"] = uris.join '\n'
       sess = DragSession.new src, data, t.aleft, t.atop, DragSensor::Mouse

@@ -30,8 +30,8 @@ describe "Pine::MainMenu spaced navigation" do
   it "has one item per option (no blank spacer rows)" do
     s = pmm_screen
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s
-    menu.ritems.size.should eq 3
-    menu.ritems.none?(&.strip.empty?).should be_true
+    menu.item_texts.size.should eq 3
+    menu.item_texts.none?(&.strip.empty?).should be_true
   end
 
   it "renders the options spaced apart via item_spacing" do
@@ -49,14 +49,14 @@ describe "Pine::MainMenu spaced navigation" do
     menu.select_index 0
     menu.selected_record.try(&.title).should eq "HELP"
     press menu, Tput::Key::Down
-    menu.selected.should eq 1
+    menu.current_index.should eq 1
     menu.selected_record.try(&.title).should eq "COMPOSE"
     press menu, Tput::Key::Down
-    menu.selected.should eq 2
+    menu.current_index.should eq 2
     menu.selected_record.try(&.title).should eq "INDEX"
     press menu, Tput::Key::Down
-    menu.selected.should eq 2 # clamped at the last option
+    menu.current_index.should eq 2 # clamped at the last option
     press menu, Tput::Key::Up
-    menu.selected.should eq 1
+    menu.current_index.should eq 1
   end
 end

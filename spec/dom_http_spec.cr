@@ -50,7 +50,7 @@ require "http/client"
 
       # Activating the button (here: emit its Press directly) must surface as a
       # JSON-RPC `event` notification carrying the declared action + target.
-      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
 
       select
       when msg = events.receive
@@ -187,7 +187,7 @@ require "http/client"
         end
       end
       sleep 100.milliseconds
-      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
 
       select
       when msg = events.receive
@@ -220,7 +220,7 @@ require "http/client"
         end
       end
       sleep 100.milliseconds
-      s.find_by_id("go").not_nil!.emit Crysterm::Event::Press
+      s.find_by_id("go").not_nil!.emit Crysterm::Event::Pressed
 
       select
       when msg = events.receive

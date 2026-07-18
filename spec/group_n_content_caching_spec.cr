@@ -69,7 +69,7 @@ describe "Group N per-frame content caching" do
     it "caches the compact line and refreshes it on a spinner step" do
       s = n_screen
       l = Crysterm::Widget::Loading.new parent: s, compact: true,
-        icons: ["a", "b", "c"], content: "Working"
+        frames: ["a", "b", "c"], content: "Working"
       l.render
       l.content.should eq "a Working"
       # Redundant render: identical.

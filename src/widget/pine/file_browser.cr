@@ -5,7 +5,7 @@ module Crysterm
     module Pine
       # The Pine/Alpine FILE BROWSER: a `Widget::FileManager` pre-dressed in the
       # Pine look. Browse a directory with the arrow keys; Enter navigates into a
-      # directory or opens (emits `Event::OpenFile` for) a file.
+      # directory or opens (emits `Event::FileSelected` for) a file.
       #
       # Thin subclass: it only flips defaults to the Pine look, and adds no email
       # semantics of its own — `FileManager` does all the work.
@@ -13,7 +13,7 @@ module Crysterm
       # ```
       # fb = Crysterm::Widget::Pine::FileBrowser.new parent: screen, cwd: Dir.current
       # fb.refresh
-      # fb.on(Crysterm::Event::OpenFile) { |e| puts e.path }
+      # fb.on(Crysterm::Event::FileSelected) { |e| puts e.path }
       # fb.focus
       # ```
       #

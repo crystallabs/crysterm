@@ -46,20 +46,20 @@ module Crysterm
 
         # Keep the highlight on the open menu regardless of bar focus; the action
         # bar would otherwise re-light its own selected item.
-        on(::Crysterm::Event::Focus) { sync_highlight }
-        on(::Crysterm::Event::Blur) { sync_highlight }
+        on(::Crysterm::Event::FocusIn) { sync_highlight }
+        on(::Crysterm::Event::FocusOut) { sync_highlight }
 
         # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
         # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action
         # shortcuts). Menus must be rehomed first, so they open on the bar's window.
-        on(::Crysterm::Event::Attach) do
+        on(::Crysterm::Event::Attached) do
           rehome_menus
           install_menu_shortcuts
         end
         # Uninstall from the window carried on the event: `Widget#remove` nulls
-        # `parent`/`window` before `Window#detach` emits `Event::Detach`, so
+        # `parent`/`window` before `Window#detach` emits `Event::Detached`, so
         # `window?` is already nil here — the previous window comes via the payload.
-        on(::Crysterm::Event::Detach) { |e| uninstall_menu_shortcuts e.object.as?(::Crysterm::Window) }
+        on(::Crysterm::Event::Detached) { |e| uninstall_menu_shortcuts e.object.as?(::Crysterm::Window) }
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with
@@ -73,7 +73,7 @@ module Crysterm
         # re-attach re-covers them.
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
-        menu.on_navigate = ->(dir : Int32) { switch_relative dir }
+        menu.on_navigate { |dir| switch_relative dir }
         # The bar's own strip counts as "inside" the open menu's modal grab, so
         # hovering another title still switches menus while one is open.
         menu.treat_as_inside { |x, y| grab_contains? x, y }
@@ -84,12 +84,12 @@ module Crysterm
         # the changed menu — `SetItems` fires per-add while a bar is built, so
         # re-walking *every* menu's actions each time is ~O((M·A)²) for an
         # identical final state.
-        menu.on(::Crysterm::Event::SetItems) { install_menu_shortcuts menu }
+        menu.on(::Crysterm::Event::ItemsChanged) { install_menu_shortcuts menu }
         # Close the menu when it loses focus to something outside the bar's world
         # (mouse-click dismissal is handled separately by `Menu#popup`'s
         # `on_press_outside`). Diving into a submenu or moving to the bar/another
         # menu is an internal move and is ignored.
-        menu.on(::Crysterm::Event::Blur) { |e| on_menu_blur menu, e }
+        menu.on(::Crysterm::Event::FocusOut) { |e| on_menu_blur menu, e }
 
         index = @menus.size
         @menus << menu
@@ -97,7 +97,7 @@ module Crysterm
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = items[index]?
-          item.on(::Crysterm::Event::MouseOver) do
+          item.on(::Crysterm::Event::MouseEnter) do
             open index if @open_index && @open_index != index
           end
         end
@@ -120,7 +120,7 @@ module Crysterm
       end
 
       # Withdraws every menu action's accelerator from *w* (the window the bar
-      # is leaving, supplied via the `Detach` event payload).
+      # is leaving, supplied via the `Detached` event payload).
       private def uninstall_menu_shortcuts(w : ::Crysterm::Window?) : Nil
         return unless w
         @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
@@ -179,7 +179,7 @@ module Crysterm
       def on_keypress(e)
         # Down/Space open the highlighted menu (Enter and Left/Right come from `Mixin::ActionBar`).
         if (e.key == ::Tput::Key::Down || e.char == ' ') && !@menus.empty?
-          open selected
+          open current_index
           e.accept
           return
         end
@@ -206,7 +206,7 @@ module Crysterm
       # another of the bar's menus (hand-off while switching).
       private def on_menu_blur(menu : Menu, e) : Nil
         return unless (oi = @open_index) && @menus[oi]? == menu
-        nf = e.el
+        nf = e.next_focused
         # Focus moved into this menu's own (sub)menu chain — still active.
         return if nf.is_a?(Menu) && (nf.parent_menu == menu || @menus.includes?(nf))
         # Focus returned to the bar itself — keep the menu open.
@@ -244,7 +244,7 @@ module Crysterm
 
       # The pop-up menus are window children, so tear them down with the bar.
       def destroy
-        # Must happen while `@menus` is still populated: the `Detach` emitted
+        # Must happen while `@menus` is still populated: the `Detached` emitted
         # during `super`'s teardown runs the uninstall handler over an
         # already-cleared collection, leaving every action's shortcut registered
         # on the window forever.

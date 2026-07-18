@@ -24,9 +24,9 @@ module Crysterm
         has_handlers?(Crysterm::Event::Mouse) ||
         # Hover events subclass `Mouse` but are emitted/registered separately;
         # check explicitly or a widget with only hover handlers is never hit-tested.
-        has_handlers?(Crysterm::Event::MouseOver) ||
+        has_handlers?(Crysterm::Event::MouseEnter) ||
         has_handlers?(Crysterm::Event::MouseMove) ||
-        has_handlers?(Crysterm::Event::MouseOut)
+        has_handlers?(Crysterm::Event::MouseLeave)
     end
 
     # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)
@@ -85,7 +85,7 @@ module Crysterm
 
     # Puts current widget in focus
     def focus
-      # XXX Prevents multiple `Event::Focus`es. TBD whether repeated `#focus`
+      # XXX Prevents multiple `Event::FocusIn`es. TBD whether repeated `#focus`
       # calls should always re-fire instead.
       return if focused?
       window.focus self
@@ -107,22 +107,30 @@ module Crysterm
       window?.try(&.focused) == self
     end
 
+    # Whether the pointer currently hovers this widget (its window's
+    # `#hovered` is this widget). `false` for a detached widget, which is
+    # never the window's hovered widget.
+    @[AlwaysInline]
+    def under_mouse? : Bool
+      window?.try(&.hovered) == self
+    end
+
     # Hover help text shown in a floating `Widget::ToolTip` while the pointer is
     # over this widget (Qt's `QWidget#toolTip`). `nil` means none.
     getter tool_tip : String?
 
     # The shared per-widget tooltip overlay, created lazily on first hover.
-    @_tooltip : Widget::ToolTip?
+    @_tool_tip : Widget::ToolTip?
     # Whether the hover handlers have been installed (so re-setting the text
     # doesn't stack duplicate handlers).
-    @_tooltip_wired = false
+    @_tool_tip_wired = false
 
     # Sets the hover help text. Setting a non-nil value makes the widget
-    # mouse-hover-tracked (it begins receiving `Event::MouseOver`/`MouseOut`) and
+    # mouse-hover-tracked (it begins receiving `Event::MouseEnter`/`MouseLeave`) and
     # shows/hides the tooltip automatically. Set `nil` to disable.
     def tool_tip=(text : String?)
       @tool_tip = text
-      wire_tooltip if text && !@_tooltip_wired
+      wire_tool_tip if text && !@_tool_tip_wired
       text
     end
 
@@ -155,18 +163,18 @@ module Crysterm
     # Hides the shown tooltip. Qt's `QToolTip::hideText`. Does not clear
     # `#tool_tip`; the text stays and pops up again on the next hover.
     def hide_tool_tip
-      @_tooltip.try &.hide
+      @_tool_tip.try &.hide
       # Render the tooltip's OWN window, not the widget's: after a cross-window
       # reparent the tooltip may still live on the window it was created on, and
       # `Widget#hide` schedules no render itself — so the old surface would keep
       # showing the tooltip frame if we only re-rendered the widget's window.
-      @_tooltip.try &.window?.try &.schedule_render
+      @_tool_tip.try &.window?.try &.schedule_render
     end
 
-    private def wire_tooltip : Nil
-      @_tooltip_wired = true
-      on(Crysterm::Event::MouseOver) { |e| show_tooltip e.x, e.y }
-      on(Crysterm::Event::MouseOut) { hide_tool_tip }
+    private def wire_tool_tip : Nil
+      @_tool_tip_wired = true
+      on(Crysterm::Event::MouseEnter) { |e| show_tool_tip e.x, e.y }
+      on(Crysterm::Event::MouseLeave) { hide_tool_tip }
       # A hidden widget must not leave its tooltip lingering.
       on(Crysterm::Event::Hide) { hide_tool_tip }
     end
@@ -175,7 +183,7 @@ module Crysterm
     # — e.g. `::Tput::MouseCursorShape::PointingHandCursor` for a clickable
     # widget. `nil` leaves the pointer unchanged.
     #
-    # Honored only when `Window#mouse_cursor_shape?` (the `mouse.cursor_shape`
+    # Honored only when `Window#mouse_cursor_shaping?` (the `mouse.cursor_shape`
     # config option, off by default) is on, and only on terminals supporting
     # OSC 22 (xterm-class); otherwise silently ignored. See
     # `::Tput::Output#mouse_cursor_shape`.
@@ -197,19 +205,21 @@ module Crysterm
 
     private def wire_mouse_cursor_shape : Nil
       @_mouse_cursor_shape_wired = true
-      on(Crysterm::Event::MouseOver) do
-        @mouse_cursor_shape.try { |shape| window?.try &.set_mouse_cursor_shape shape }
+      on(Crysterm::Event::MouseEnter) do
+        @mouse_cursor_shape.try { |shape| window?.try(&.mouse_cursor_shape=(shape)) }
       end
-      on(Crysterm::Event::MouseOut) { window?.try &.set_mouse_cursor_shape nil }
+      on(Crysterm::Event::MouseLeave) { window?.try(&.mouse_cursor_shape=(nil)) }
       # If hidden while it owns the pointer shape, restore the default: no
-      # `MouseOut` fires for a widget that vanishes under the pointer.
+      # `MouseLeave` fires for a widget that vanishes under the pointer.
       on(Crysterm::Event::Hide) do
         s = window?
-        s.set_mouse_cursor_shape nil if s && s.hovered == self
+        s.mouse_cursor_shape = nil if s && s.hovered == self
       end
     end
 
-    private def show_tooltip(x : Int32, y : Int32) : Nil
+    # Shows the tooltip (Qt's `QToolTip::showText`), creating it lazily on
+    # first hover. Public for symmetry with `#hide_tool_tip`.
+    def show_tool_tip(x : Int32, y : Int32) : Nil
       text = @tool_tip
       return unless text && !text.empty?
       return unless s = window?
@@ -217,11 +227,11 @@ module Crysterm
       # is a *satellite* window child, not ours), so reusing it would pop the
       # tip up on the wrong surface at this window's coordinates. Drop the stale
       # tooltip and let the lazy-create below rebuild it on the current window.
-      if (stale = @_tooltip) && stale.window? != s
+      if (stale = @_tool_tip) && stale.window? != s
         ::Crysterm::Widget.destroy_satellite stale
-        @_tooltip = nil
+        @_tool_tip = nil
       end
-      tip = (@_tooltip ||= begin
+      tip = (@_tool_tip ||= begin
         t = Widget::ToolTip.new window: s
         s.append t
         t
@@ -238,9 +248,24 @@ module Crysterm
       @draggable
     end
 
-    def draggable=(draggable : Bool)
+    def draggable=(draggable : Bool) : Bool
       draggable ? enable_drag : disable_drag
     end
+
+    # Whether a `#draggable?` source self-moves ("reposition", the default) or
+    # stays put and hands a payload to a drop target instead ("transfer").
+    # Qt has no direct analogue; consulted the first time `#draggable=` (via
+    # the private `#enable_drag`) installs the drag handlers.
+    enum DragMode
+      Reposition
+      Transfer
+    end
+
+    # Set this *before* `self.draggable = true` for a **data-transfer** source
+    # — one that stays put and hands a payload to a drop target instead of
+    # self-moving; fill `data` in your own `Event::DragStart` handler and react
+    # in `Event::DragEnd`/`Event::Drop`.
+    property drag_mode : DragMode = DragMode::Reposition
 
     # Grab offset captured at `DragStart`, so a reposition keeps the grabbed
     # point under the pointer rather than snapping the corner to it.
@@ -251,17 +276,18 @@ module Crysterm
     # `draggable` repeatedly doesn't stack duplicate handlers).
     @_drag_reposition_installed = false
 
-    # Marks the widget as a drag source. By default also installs **reposition**
-    # behavior: while dragged (mouse or keyboard) the widget follows the anchor
-    # by editing its own `left`/`top` ("self-move", matching Blessed's `enableDrag`).
+    # Marks the widget as a drag source (Qt has no direct analogue). By
+    # default also installs **reposition** behavior: while dragged (mouse or
+    # keyboard) the widget follows the anchor by editing its own `left`/`top`
+    # ("self-move", matching Blessed's `enableDrag`).
     #
-    # Pass `reposition: false` for a **data-transfer** source that stays put and
-    # hands a payload to a drop target instead — fill `data` in your own
-    # `Event::DragStart` handler and react in `Event::DragEnd`/`Event::Drop`.
-    def enable_drag(reposition = true) : Bool
+    # With `#drag_mode` set to `Transfer` it instead stays put and hands a
+    # payload to a drop target — fill `data` in your own `Event::DragStart`
+    # handler and react in `Event::DragEnd`/`Event::Drop`.
+    private def enable_drag : Bool
       @draggable = true
 
-      if reposition && !@_drag_reposition_installed
+      if drag_mode.reposition? && !@_drag_reposition_installed
         @_drag_reposition_installed = true
 
         on(Crysterm::Event::DragStart) do |e|
@@ -327,14 +353,14 @@ module Crysterm
     end
 
     # Whether this widget self-moves while dragged (reposition behavior
-    # installed). A transfer-only source (`enable_drag reposition: false`)
-    # returns false, which the engine uses to decide whether to float a drag
-    # "ghost".
+    # installed). A transfer-only source (`#drag_mode` set to `Transfer`
+    # before `#draggable=` was set) returns false, which the engine uses to
+    # decide whether to float a drag "ghost".
     def drag_repositions? : Bool
       @_drag_reposition_installed
     end
 
-    def disable_drag : Bool
+    private def disable_drag : Bool
       @draggable = false
     end
 

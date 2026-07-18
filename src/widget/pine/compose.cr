@@ -44,7 +44,7 @@ module Crysterm
           header = Widget::Box.new(
             window: window,
             height: FIELD_NAMES.size,
-            layout: Crysterm::Layout::Form.new(label_width: 10, column_gap: 0),
+            layout: Crysterm::Layout::Form.new(label_width: 10, horizontal_spacing: 0),
           )
 
           FIELD_NAMES.each do |name|
@@ -63,7 +63,7 @@ module Crysterm
             # In a header field, Enter advances to the next field (Pine), not
             # "submit-and-return". The body keeps Enter as a newline.
             input.rewind_on_done = false
-            input.on(::Crysterm::Event::Submit) do
+            input.on(::Crysterm::Event::Submitted) do
               window.emit ::Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Tab)
             end
             # Up/Down move between fields rather than through input history.

@@ -6,7 +6,7 @@ include Crysterm
 # painted coordinate" bugs plus the scroll-clip label exemption.
 #
 #   2  (widget_position/widget_label/widget) scroll-clip exemption tested "HAS a
-#      label" (`@_label`) instead of "IS a label" (`_is_label?`), so labels
+#      label" (`@label_widget`) instead of "IS a label" (`_is_label?`), so labels
 #      vanished on scrollable widgets.
 #  14  (mixin/check_marker) marker-click hit-test used layout coords, so a
 #      checkbox/radio inside a scrolled container never toggled by mouse.
@@ -49,8 +49,8 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     s._render
 
     # The label child must be positioned (not clipped away) and painted.
-    box._label.should_not be_nil
-    box._label.not_nil!.lpos.should_not be_nil
+    box.label_widget.should_not be_nil
+    box.label_widget.not_nil!.lpos.should_not be_nil
     f2_screen_text(s).includes?("TITLE").should be_true
   end
 
@@ -59,7 +59,7 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true, label: "HDR", style: Style.new(border: true)
     box._is_label?.should be_false
-    box._label.not_nil!._is_label?.should be_true
+    box.label_widget.not_nil!._is_label?.should be_true
   end
 
   it "does not let a labeled child overdraw a scrolled container's border" do
@@ -109,7 +109,7 @@ end
 describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords" do
   it "seeks a vertical slider correctly inside a scrolled container" do
     s = f2_screen(30, 24)
-    # Text content gives a reliable vertical scroll extent (`get_scroll_height`
+    # Text content gives a reliable vertical scroll extent (`scroll_height`
     # uses `@_clines.size`); the slider is a child that moves with the scroll.
     content = (0...30).map { |i| "line#{i}" }.join("\n")
     box = Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20,

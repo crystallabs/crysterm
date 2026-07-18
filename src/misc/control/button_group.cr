@@ -24,8 +24,8 @@ module Crysterm
   #
   # ```
   # group = ButtonGroup.new
-  # group.add bold, 1
-  # group.add italic, 2
+  # group.add_button bold, 1
+  # group.add_button italic, 2
   # group.on(Crysterm::Event::ButtonClick) do |e|
   #   puts "now checked: id #{group.checked_id}"
   # end
@@ -40,7 +40,7 @@ module Crysterm
 
     @buttons = [] of Widget
     @ids = {} of Widget => Int32
-    # Per-button `Event::Check`/`Event::UnCheck` subscriptions, bagged together so
+    # Per-button `Event::StateChanged` subscriptions, bagged together so
     # `#remove` tears down both. Each `Subscriptions` captures the button it was
     # installed on, so teardown reaches the right one regardless of later state.
     @subs = {} of Widget => Subscriptions
@@ -60,7 +60,7 @@ module Crysterm
     # Adds *button* with an optional *id* (`-1` means "no id", like Qt). A plain
     # `Widget::Button` is made `checkable` so it can participate. Returns the
     # button.
-    def add(button : Widget, id : Int32 = -1) : Widget
+    def add_button(button : Widget, id : Int32 = -1) : Widget
       return button if @buttons.includes? button
       if button.is_a?(Widget::AbstractButton)
         button.checkable = true unless button.checkable?
@@ -70,14 +70,18 @@ module Crysterm
       @buttons << button
       @ids[button] = id
       subs = Subscriptions.new
-      subs.on(button, Crysterm::Event::Check) { |_| on_member_checked button }
-      subs.on(button, Crysterm::Event::UnCheck) { |_| on_member_unchecked button }
+      subs.on(button, Crysterm::Event::StateChanged) do |e|
+        case e.state
+        when .checked?   then on_member_checked button
+        when .unchecked? then on_member_unchecked button
+        end
+      end
       @subs[button] = subs
       button
     end
 
     # Removes *button* from the group and detaches its listeners.
-    def remove(button : Widget) : Nil
+    def remove_button(button : Widget) : Nil
       return unless @buttons.includes? button
       @subs.delete(button).try &.off
       # Only clear the back-reference if it still points here: a button moved
@@ -144,7 +148,7 @@ module Crysterm
       begin
         yield
       ensure
-        # Must reset even if a user Check/UnCheck handler raises, or `@suppress`
+        # Must reset even if a user StateChanged handler raises, or `@suppress`
         # stays set and silently disables exclusivity from then on.
         @suppress = false
       end

@@ -29,6 +29,11 @@ module Crysterm
 
         def initialize(@name, @unread = 0, @total = 0, *, @flagged = 0, @new = false, @depth = 0, @callback = nil)
         end
+
+        # Block form: `Mailbox.new(name, unread, total, ...) { ... }`.
+        def initialize(name, unread = 0, total = 0, *, flagged = 0, new = false, depth = 0, &callback : ->)
+          initialize(name, unread, total, flagged: flagged, new: new, depth: depth, callback: callback)
+        end
       end
 
       # Mutt's signature **sidebar**: a narrow, always-visible pane listing the
@@ -47,7 +52,7 @@ module Crysterm
       # Two independent markers, mirroring Mutt: the **highlighted** row (the
       # cursor, drawn reverse) moves with the arrow keys, while the **open**
       # mailbox — the folder actually shown in the index — is flagged with a `>`
-      # indicator and set via `#open=`. Enter/click on a row runs its `callback`.
+      # indicator and set via `#open_index=`. Enter/click on a row runs its `callback`.
       #
       # The divider Mutt draws between the sidebar and the main area is left to
       # the surrounding layout, so the widget stays purely a list.
@@ -55,9 +60,9 @@ module Crysterm
         # Nested-name alias for the record type.
         alias Mailbox = ::Crysterm::Widget::Mutt::Mailbox
 
-        # Index of the currently-open mailbox (the one shown in the index), or a
-        # negative value for none. Rendered with a `>` indicator.
-        getter open_index : Int32 = -1
+        # Index of the currently-open mailbox (the one shown in the index), or
+        # `nil` for none. Rendered with a `>` indicator.
+        getter open_index : Int32? = nil
 
         # Visible column width used to right-align the counts. Defaults to the
         # widget's own `width` when that is a fixed integer.
@@ -78,8 +83,8 @@ module Crysterm
         record_accessors mailboxes, mailbox, Mailbox
 
         # Sets the open mailbox by index and rebuilds the rows so the `>`
-        # indicator moves. Pass a negative value for "no open mailbox".
-        def open=(index : Int32)
+        # indicator moves. Pass `nil` for "no open mailbox".
+        def open_index=(index : Int32?)
           @open_index = index
           self.records = records
         end

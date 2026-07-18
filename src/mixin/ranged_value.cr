@@ -2,7 +2,7 @@ module Crysterm
   module Mixin
     # Shared bounded-range value behavior for numeric controls: a `#value` kept
     # within `[#minimum, #maximum]` (clamped, or wrapped when `#wrapping?`),
-    # stepped by `#step`, emitting a value-change signal only on an actual change.
+    # stepped by `#single_step`, emitting a value-change signal only on an actual change.
     #
     # Generic over the numeric type *T*: integer controls include
     # `RangedValue(Int32)`, float ones `RangedValue(Float64)`. Because the two
@@ -47,18 +47,8 @@ module Crysterm
         @maximum
       end
 
-      # Amount the arrow keys / `#increment` / `#decrement` move the value by.
-      def step : T
-        @step
-      end
-
-      # :ditto:
-      def step=(v : T) : T
-        @step = v
-      end
-
-      # Qt's `singleStep`: an alias for `#step`, the amount a single line-step
-      # (arrow key, wheel notch) moves the value by.
+      # Qt's `singleStep`: the amount a single line-step (arrow key, wheel notch)
+      # moves the value by.
       def single_step : T
         @step
       end
@@ -97,7 +87,9 @@ module Crysterm
         @value
       end
 
-      def increment(by : T = @step)
+      # Steps the value up by *by* (defaults to one `#single_step`), saturating
+      # to the bound on overflow. Internal engine behind `#step_up`/`#step_by`.
+      protected def step_value_up(by : T = @step)
         self.value = @value + by
       rescue OverflowError
         # `@value + by` exceeded T's representable range (e.g. Up at
@@ -107,36 +99,38 @@ module Crysterm
         step_overflow_saturate(by >= T.zero)
       end
 
-      def decrement(by : T = @step)
+      # Steps the value down by *by* (defaults to one `#single_step`), saturating
+      # to the bound on overflow. Internal engine behind `#step_down`/`#step_by`.
+      protected def step_value_down(by : T = @step)
         self.value = @value - by
       rescue OverflowError
         step_overflow_saturate(by < T.zero)
       end
 
       # Steps the value by *steps* line-steps (Qt's `QAbstractSpinBox#stepBy`),
-      # saturating/wrapping exactly as `#increment`/`#decrement` do. Negative
+      # saturating/wrapping exactly as `#step_up`/`#step_down` do. Negative
       # *steps* move down.
       def step_by(steps : Int32) : Nil
         return if steps == 0
-        steps > 0 ? increment(@step * steps) : decrement(@step * -steps)
+        steps > 0 ? step_value_up(@step * steps) : step_value_down(@step * -steps)
       rescue OverflowError
-        # `@step * steps` overflowed T before `#increment`/`#decrement` could
-        # saturate it; the direction is all that survives, which is enough.
+        # `@step * steps` overflowed T before the step could saturate it; the
+        # direction is all that survives, which is enough.
         step_overflow_saturate(steps > 0)
       end
 
       # Steps the value up/down by one `#single_step` (Qt's
       # `QAbstractSpinBox#stepUp`/`#stepDown`). See `#step_by`.
       def step_up : Nil
-        increment
+        step_value_up
       end
 
       # :ditto:
       def step_down : Nil
-        decrement
+        step_value_down
       end
 
-      # Overflow fallback for `#increment`/`#decrement`: jump to the bound the
+      # Overflow fallback for the steppers: jump to the bound the
       # step was heading for (`upward`), or the opposite one when wrapping.
       private def step_overflow_saturate(upward : Bool) : T
         if wrapping? && @maximum > @minimum
@@ -175,13 +169,13 @@ module Crysterm
       #
       # `invert: true` swaps the two (wheel-up decrements) — a vertical
       # `ScrollBar`, whose value grows downward, wants that.
-      def ranged_wheel(e, invert : Bool = false) : Bool
+      def ranged_wheel(e : ::Crysterm::Event::Mouse, *, invert : Bool = false) : Bool
         if e.action.wheel_up?
-          invert ? decrement : increment
+          invert ? step_value_down : step_value_up
           e.accept
           true
         elsif e.action.wheel_down?
-          invert ? increment : decrement
+          invert ? step_value_up : step_value_down
           e.accept
           true
         else
@@ -198,30 +192,30 @@ module Crysterm
       # `invert: true` flips only the *vertical* keys (Up/Down, PageUp/PageDown,
       # `k`/`j`) so a scroll bar's up-arrow decreases the value while its
       # left/right stay conventional.
-      def ranged_step_key(e, invert : Bool = false) : Bool
+      protected def ranged_step_key(e : ::Crysterm::Event::KeyPress, *, invert : Bool = false) : Bool
         case e.key
         when Tput::Key::Right
-          increment
+          step_value_up
         when Tput::Key::Left
-          decrement
+          step_value_down
         when Tput::Key::Up
-          invert ? decrement : increment
+          invert ? step_value_down : step_value_up
         when Tput::Key::Down
-          invert ? increment : decrement
+          invert ? step_value_up : step_value_down
         when Tput::Key::PageUp
-          invert ? decrement(page_step) : increment(page_step)
+          invert ? step_value_down(page_step) : step_value_up(page_step)
         when Tput::Key::PageDown
-          invert ? increment(page_step) : decrement(page_step)
+          invert ? step_value_up(page_step) : step_value_down(page_step)
         when Tput::Key::Home
           self.value = @minimum
         when Tput::Key::End
           self.value = @maximum
         else
           case e.char
-          when 'l' then increment
-          when 'h' then decrement
-          when 'k' then invert ? decrement : increment
-          when 'j' then invert ? increment : decrement
+          when 'l' then step_value_up
+          when 'h' then step_value_down
+          when 'k' then invert ? step_value_down : step_value_up
+          when 'j' then invert ? step_value_up : step_value_down
           else
             return false
           end
@@ -308,7 +302,7 @@ module Crysterm
 
       # Shared `#value=` body for a read-only `Float64` meter: clamps *v* into
       # `[minimum, maximum]`, and on an actual change stores it, emits
-      # `Event::DoubleValueChanged`, emits `Event::Complete` upon reaching
+      # `Event::DoubleValueChanged`, emits `Event::Completed` upon reaching
       # `#maximum` (only when the range is non-empty, so an empty
       # `minimum == maximum` bar never "completes"), then runs the widget's own
       # post-change block. Block-yielding, so it allocates no `Proc`. Returns the
@@ -323,7 +317,7 @@ module Crysterm
         return v if v == @value
         @value = v
         emit Crysterm::Event::DoubleValueChanged, @value
-        emit Crysterm::Event::Complete if @value == maximum && maximum > minimum
+        emit Crysterm::Event::Completed if @value == maximum && maximum > minimum
         yield
         @value
       end

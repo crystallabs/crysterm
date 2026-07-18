@@ -59,16 +59,16 @@ describe Crysterm::Direct do
 
   it "moves the cursor to an absolute position" do
     d, mem = direct_io
-    d.move_yx 4, 9
+    d.move_to 4, 9
     # CUP is 1-based on the wire.
     mem.to_s.should contain "\e[5;10H"
   end
 
-  it "set_style / reset_styles bracket persistent output" do
+  it "apply_style / reset_style bracket persistent output" do
     d, mem = direct_io
-    d.set_style(bold: true)
+    d.apply_style(bold: true)
     d.output << "raw"
-    d.reset_styles
+    d.reset_style
     s = mem.to_s
     s.should contain "raw"
     s.should end_with "\e[0m"
@@ -85,7 +85,7 @@ describe Crysterm::Direct do
   it "reports device dimensions" do
     mem = IO::Memory.new
     d = Crysterm::Direct.new(input: IO::Memory.new, output: mem, error: IO::Memory.new)
-    d.dim_x.should be > 0
-    d.dim_y.should be > 0
+    d.width.should be > 0
+    d.height.should be > 0
   end
 end

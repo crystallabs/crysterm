@@ -21,14 +21,15 @@ module Crysterm
     end
 
     # Pushes *shape* (and *blink*) to the terminal's hardware cursor (DECSCUSR).
-    def set_hardware_cursor_shape(shape : ::Tput::CursorShape, blink : Bool) : Nil
+    def apply_hardware_cursor_shape(shape : ::Tput::CursorShape, *, blink : Bool = false) : Nil
       tput.cursor_shape shape, blink
     end
 
     # Recolors the hardware cursor (OSC 12). *color* is a native `0xRRGGBB` int;
     # `Tput#cursor_color` wants a `String`, so format it back to `#rrggbb`.
-    def set_hardware_cursor_color(color : Int32) : Nil
+    def hardware_cursor_color=(color : Int32) : Int32
       tput.cursor_color "#%06x" % color
+      color
     end
 
     # Restores the terminal's own hardware cursor color (OSC 112).

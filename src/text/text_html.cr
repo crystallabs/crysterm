@@ -882,6 +882,12 @@ module Crysterm
       replace_content(TextHtml.parse(html, theme))
     end
 
+    # `=`-setter spelling of `#set_html` (default theme; use `#set_html` for an
+    # explicit one).
+    def html=(html : String) : Nil
+      set_html(html)
+    end
+
     # The content as HTML (Qt `toHtml`).
     def to_html : String
       TextHtml.generate(blocks)

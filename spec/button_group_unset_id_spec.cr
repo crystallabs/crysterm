@@ -23,8 +23,8 @@ describe Crysterm::ButtonGroup do
     b = Crysterm::Widget::CheckBox.new parent: s
 
     g = Crysterm::ButtonGroup.new
-    g.add a # no explicit id -> id is -1
-    g.add b # no explicit id -> id is -1
+    g.add_button a # no explicit id -> id is -1
+    g.add_button b # no explicit id -> id is -1
 
     # Members carry the unset-id sentinel...
     g.id(a).should eq -1
@@ -39,7 +39,7 @@ describe Crysterm::ButtonGroup do
 
     # A real, explicit id still resolves normally.
     c = Crysterm::Widget::CheckBox.new parent: s
-    g.add c, 5
+    g.add_button c, 5
     g.button(5).should eq c
   end
 end

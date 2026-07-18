@@ -57,7 +57,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
           ["Charlie", "3"],
         ])
 
-      lt.sort_by_column 0, descending: true
+      lt.sort_by_column 0, order: :descending
       body_column(lt, 0).should eq ["Charlie", "Bob", "Alice"]
 
       lt.rows = ([
@@ -130,8 +130,8 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
 
       # Select the second body row (item index 2 = "Bob").
       lt.select_index 2
-      lt.selected.should eq 2
-      lt.value.should contain("Bob")
+      lt.current_index.should eq 2
+      lt.current_text.should contain("Bob")
 
       # Re-ingest with the same row count. The empty "Note" cells make a
       # value-lookup ambiguous, but an index restore keeps us on the same row.
@@ -143,9 +143,9 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
       ])
 
       # Must not fall back to the header spacer at index 0.
-      lt.selected.should_not eq 0
-      lt.selected.should eq 2
-      lt.value.should contain("Bob")
+      lt.current_index.should_not eq 0
+      lt.current_index.should eq 2
+      lt.current_text.should contain("Bob")
     end
 
     it "does not land on a wrong duplicate row on same-count re-ingest" do
@@ -162,7 +162,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
       # Select the *second* "Dup" (item index 3). A value-based restore keys on
       # the row text and could resolve to the first "Dup" instead.
       lt.select_index 3
-      lt.selected.should eq 3
+      lt.current_index.should eq 3
 
       lt.rows = ([
         ["Name", "Tag"],
@@ -171,7 +171,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
         ["Dup", "z"],
       ])
 
-      lt.selected.should eq 3
+      lt.current_index.should eq 3
     end
   end
 
@@ -236,7 +236,7 @@ describe "ListTable alternate_rows parity after scroll (OPT W2)" do
         ["r1", "1"], ["r2", "2"], ["r3", "3"], ["r4", "4"],
         ["r5", "5"], ["r6", "6"], ["r7", "7"], ["r8", "8"],
       ])
-    lt.style.alternate_background = "#0000ff"
+    lt.style.alternate_background_color = "#0000ff"
     alt_bg = lt.style.alternate_row.bg
     alt_bg.should_not be_nil
 

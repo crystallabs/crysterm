@@ -150,20 +150,20 @@ describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edg
 
     # maxes = [12, 12]; row_width 26; offsets [0, 13]; viewport 16; max_left 10.
     lt.column_start_offsets.should eq [0, 13]
-    lt.really_scrollable_x?.should be_true
+    lt.overflows_x?.should be_true
     lt.child_base_x.should eq 0
 
     # Old floor-snap clamped the reachable column to 0 (offset 0 <= 10), so any
     # scroll no-op'd and the "City" column tail was unreachable. The ceil bump
     # lets the scroll snap to column 1 (offset 13).
-    lt.scroll_x 1
+    lt.scroll_by_x 1
     s._render
     lt.child_base_x.should eq 13
     # The right-edge column (data row 1) is now on screen — previously dead.
     i15_row(s, 1, 0, 12).should contain "bbbbbbbbbb"
 
     # And it can scroll back to the origin.
-    lt.scroll_x -1
+    lt.scroll_by_x -1
     s._render
     lt.child_base_x.should eq 0
   end

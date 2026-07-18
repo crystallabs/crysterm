@@ -84,13 +84,13 @@ module Crysterm
         end
 
         # (Re)allocate the heat field for a *w*×*h* interior.
-        def resize(w, h)
+        def resize(w : Int32, h : Int32)
           @heat = Array.new(w * h, 0.0)
         end
 
         # Reseed the bottom row and cool each cell toward the (hotter) cells just
         # below it, working upward.
-        def advance(w, h)
+        def advance(w : Int32, h : Int32)
           return if w <= 0 || h <= 0 || @heat.size != w * h
 
           base = (h - 1) * w
@@ -126,7 +126,7 @@ module Crysterm
 
         # Glyph + packed `0xRRGGBB` colour for interior cell `{x, y}` (blank, with
         # the default fg, for cold cells).
-        def cell(x, y, w, h) : {Char, Int32}
+        def cell(x : Int32, y : Int32, w : Int32, h : Int32) : {Char, Int32}
           heat = @heat[y * w + x]? || 0.0
           if heat < @ignition * 0.15
             {@ramp[0], -1}

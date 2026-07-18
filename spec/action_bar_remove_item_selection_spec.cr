@@ -32,13 +32,13 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar.items = ["a", "b", "c", "d"]
     abr_render s
     bar.select_index 2 # "c"
-    bar.selected.should eq 2
-    bar.ritems[bar.selected].should eq "c"
+    bar.current_index.should eq 2
+    bar.item_texts[bar.current_index].should eq "c"
 
     bar.remove_item bar.items[0] # remove "a"; b,c,d shift to 0,1,2
     bar.items.size.should eq 3
-    bar.selected.should eq 1 # "c" is now at index 1
-    bar.ritems[bar.selected].should eq "c"
+    bar.current_index.should eq 1 # "c" is now at index 1
+    bar.item_texts[bar.current_index].should eq "c"
   end
 
   it "keeps the last selected command valid after removing an earlier one" do
@@ -47,12 +47,12 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.select_index 2 # "c" (the last command)
-    bar.selected.should eq 2
+    bar.current_index.should eq 2
 
     bar.remove_item bar.items[0] # remove "a"; c shifts to index 1
-    bar.selected.should eq 1
-    bar.ritems[bar.selected].should eq "c"
-    bar.items[bar.selected]?.should_not be_nil
+    bar.current_index.should eq 1
+    bar.item_texts[bar.current_index].should eq "c"
+    bar.items[bar.current_index]?.should_not be_nil
   end
 
   it "leaves the cursor untouched when a later command is removed" do
@@ -61,11 +61,11 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.select_index 0 # "a"
-    bar.selected.should eq 0
+    bar.current_index.should eq 0
 
     bar.remove_item bar.items[2] # remove "c" (below the cursor)
-    bar.selected.should eq 0
-    bar.ritems[bar.selected].should eq "a"
+    bar.current_index.should eq 0
+    bar.item_texts[bar.current_index].should eq "a"
   end
 
   it "still selects the prior command when the selected one itself is removed" do
@@ -74,10 +74,10 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.select_index 2 # "c"
-    bar.selected.should eq 2
+    bar.current_index.should eq 2
 
     bar.remove_item bar.items[2] # remove the selected command
-    bar.selected.should eq 1
-    bar.ritems[bar.selected].should eq "b"
+    bar.current_index.should eq 1
+    bar.item_texts[bar.current_index].should eq "b"
   end
 end

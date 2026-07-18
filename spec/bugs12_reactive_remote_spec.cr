@@ -68,16 +68,16 @@ describe "BUGS12 #39 — ObservableList normalizes negative indices" do
     view = Crysterm::Widget::List.new parent: scr, width: 20, height: 6
     list = Crysterm::Reactive::ObservableList(String).new %w[a b c]
     Crysterm::Reactive.bind_items(view, list, &.itself)
-    view.ritems.should eq %w[a b c]
+    view.item_texts.should eq %w[a b c]
 
     list.insert(-1, "z") # append
-    view.ritems.should eq %w[a b c z]
+    view.item_texts.should eq %w[a b c z]
 
     list[-1] = "Z!" # update last
-    view.ritems.should eq %w[a b c Z!]
+    view.item_texts.should eq %w[a b c Z!]
 
     list.delete_at(-2) # remove "c"
-    view.ritems.should eq %w[a b Z!]
+    view.item_texts.should eq %w[a b Z!]
   end
 end
 

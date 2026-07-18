@@ -165,11 +165,11 @@ require "http/client"
 
     it "auto-generated bool branch also treats a bare attribute as true" do
       pb = Widget::ProgressBar.new window: headless_screen, width: 20, height: 1
-      pb.show_value?.should be_false
-      pb.dom_apply "show-text", nil # generated branch (dom_autoserialize.cr)
-      pb.show_value?.should be_true
-      pb.dom_apply "show-text", "false"
-      pb.show_value?.should be_false
+      pb.text_visible?.should be_false
+      pb.dom_apply "text-visible", nil # generated branch (dom_autoserialize.cr)
+      pb.text_visible?.should be_true
+      pb.dom_apply "text-visible", "false"
+      pb.text_visible?.should be_false
     end
   end
 
@@ -179,10 +179,10 @@ require "http/client"
     it "leaves the list empty for an empty-string value (no phantom empty row)" do
       list = Widget::List.new parent: headless_screen, width: 10, height: 5
       list.dom_apply "items", "a\nb\nc"
-      list.ritems.should eq %w[a b c]
+      list.item_texts.should eq %w[a b c]
 
       list.dom_apply "items", "" # bridge client clearing the rows
-      list.ritems.should be_empty
+      list.item_texts.should be_empty
       list.children.size.should eq 0
     end
   end

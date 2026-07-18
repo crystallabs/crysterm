@@ -8,7 +8,7 @@ module Crysterm
     # Radio button element, modeled after Qt's `QRadioButton`.
     #
     # Marker rendering and input wiring come from `Mixin::CheckMarker`; this
-    # class adds group exclusivity (`#on_check`) and the check-only `#toggle`.
+    # class adds group exclusivity (`#on_statechanged`) and the check-only `#toggle`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![RadioButton screenshot](../../tests/widget/radiobutton/radiobutton.5s.apng)
@@ -25,7 +25,7 @@ module Crysterm
         super **input
 
         setup_marker_control checked, input["content"]?
-        handle Crysterm::Event::Check
+        handle Crysterm::Event::StateChanged
       end
 
       # A radio button only ever *checks* itself when toggled; the containing
@@ -44,7 +44,10 @@ module Crysterm
         super false
       end
 
-      def on_check(e)
+      def on_statechanged(e)
+        # Only a transition *into* checked drives exclusivity; ignore uncheck and
+        # partial transitions the merged `StateChanged` now also reports.
+        return unless e.state.checked?
         el = self
         while el && (el = el.parent)
           if el.is_a?(RadioSet) # || el.is_a?(Form)

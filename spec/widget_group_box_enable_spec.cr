@@ -18,7 +18,7 @@ private def gb_mouse_down(x : Int32, y : Int32)
 end
 
 # Complements the existing GroupBox toggle spec: a child adopted into an
-# *already unchecked* group must come up disabled (the `Adopt` handler), and a
+# *already unchecked* group must come up disabled (the `ChildAdded` handler), and a
 # click on the title row toggles the group.
 describe Crysterm::Widget::GroupBox do
   it "disables a child added after the group is unchecked" do

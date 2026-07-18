@@ -5,7 +5,7 @@ require "../src/crysterm"
 #     line insert/delete op.
 #   * screenshot() reuses one IO::Memory across rows instead of a
 #     String::Builder per row.
-#   * Table#calculate_maxes caches @maxes, so a render with unchanged data no
+#   * Table#compute_column_widths caches @maxes, so a render with unchanged data no
 #     longer re-scans every cell.
 #
 # Metric is bytes allocated (deterministic), not ips (noise-dominated). OLD vs
@@ -66,18 +66,18 @@ end
 puts "\n#2 screenshot per-row buffer (#{height}x#{width})"
 puts "   OLD #{old_ss.round(3)} MB   NEW #{new_ss.round(3)} MB"
 
-# 3. table calculate_maxes: cache hit vs forced recompute -------------------
+# 3. table compute_column_widths: cache hit vs forced recompute -------------
 s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 rows = Array.new(20) { |r| Array.new(6) { |c| "cell-#{r}-#{c}" } }
 t = Crysterm::Widget::Table.new parent: s, rows: rows
 
 recompute = alloc_mb(ROUNDS) do
-  t.invalidate_maxes # what set_data/resize does
-  t.calculate_maxes  # full re-scan of every cell
+  t.invalidate_column_widths # what set_data/resize does
+  t.compute_column_widths    # full re-scan of every cell
 end
 cache_hit = alloc_mb(ROUNDS) do
-  t.calculate_maxes # unchanged data: cache hit, no work
+  t.compute_column_widths # unchanged data: cache hit, no work
 end
-puts "\n#3 Table#calculate_maxes per render (20x6 cells)"
+puts "\n#3 Table#compute_column_widths per render (20x6 cells)"
 puts "   recompute #{recompute.round(3)} MB   cache-hit #{cache_hit.round(3)} MB"
 puts "   (cache-hit is what every render-with-unchanged-data now costs)"

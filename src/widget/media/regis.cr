@@ -50,10 +50,9 @@ module Crysterm
       property regis_width : Int32 = 800
       property regis_height : Int32 = 480
 
-      def initialize(*args, dither : Media::Dither | Bool = Media::Dither::None,
+      def initialize(*args, dither : Media::Dither = Media::Dither::None,
                      regis_width : Int32 = 0, regis_height : Int32 = 0, **opts)
-        # Accept a legacy Bool: true ⇒ ordered, false ⇒ none.
-        @dither = Media::Dither.from_arg(dither, Media::Dither::Ordered)
+        @dither = dither
         @regis_width = regis_width
         @regis_height = regis_height
         super *args, **opts

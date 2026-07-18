@@ -34,7 +34,7 @@ describe "ComboBox popup border sizing" do
 
     cb = Crysterm::Widget::ComboBox.new parent: s, width: 12,
       options: ["red", "green", "blue"]
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.apply_stylesheet # cascade the freshly-created popup -> `.popup` (borderless)
     pop.render         # per-frame refit (`Popup#render` re-fits height to resolved border)
@@ -53,7 +53,7 @@ describe "ComboBox popup border sizing" do
     s = cbph_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, width: 12,
       options: ["red", "green", "blue"]
-    cb.open
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     # Floor border = 1 cell each side -> ivertical 2 -> height 3 + 2, unchanged.
     pop.ivertical.should eq 2
@@ -65,13 +65,13 @@ describe "ComboBox popup hover-select" do
   it "highlights the entry under the pointer on mouse-move" do
     s = cbph_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 1, left: 1, width: 12,
-      options: ["red", "green", "blue"], selected: 0
-    cb.open
+      options: ["red", "green", "blue"], current_index: 0
+    cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.render
 
     pop.hover_select?.should be_true
-    pop.selected.should eq 0
+    pop.current_index.should eq 0
 
     # Move the pointer onto the third row ("blue"): it must become selected with
     # no click, matching keyboard nav and the Completer's hover behavior.
@@ -80,7 +80,7 @@ describe "ComboBox popup hover-select" do
     s.dispatch_mouse ::Tput::Mouse::Event.new(
       ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, content_top + 2)
 
-    pop.selected.should eq 2
-    pop.value.should eq "blue"
+    pop.current_index.should eq 2
+    pop.current_text.should eq "blue"
   end
 end

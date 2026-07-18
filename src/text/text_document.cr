@@ -199,6 +199,11 @@ module Crysterm
       @plain_cache ||= blocks.join('\n', &.text)
     end
 
+    # Alias for `#to_plain_text`. Overloads `#plain_text(from, to)`.
+    def plain_text : String
+      to_plain_text
+    end
+
     # Plain text of `[from, to)`, separators as `'\n'`.
     def plain_text(from : Int32, to : Int32) : String
       from = from.clamp(0, size)
@@ -244,6 +249,11 @@ module Crysterm
     # cursors rewind to the start.
     def set_plain_text(text : String) : Nil
       replace_content(text.split('\n').map { |l| TextBlock.new(l) })
+    end
+
+    # `=`-setter spelling of `#set_plain_text`.
+    def plain_text=(text : String) : Nil
+      set_plain_text(text)
     end
 
     # Swaps in *new_blocks* wholesale with `set_plain_text`'s reset semantics:

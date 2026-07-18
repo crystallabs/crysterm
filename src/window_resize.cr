@@ -25,8 +25,8 @@ module Crysterm
 
     # Authoritative new terminal size in cells (`{cols, rows}`) carried by the
     # most recent in-band resize report (DEC 2048), awaiting the debounced
-    # `#resize`. `nil` for a SIGWINCH-driven resize, which has no report and must
-    # fall back to the `TIOCGWINSZ` ioctl.
+    # `#refresh_size`. `nil` for a SIGWINCH-driven resize, which has no report
+    # and must fall back to the `TIOCGWINSZ` ioctl.
     @pending_inband_size : {Int32, Int32}? = nil
 
     # Signals the resize loop that a terminal resize was observed. Repeated
@@ -42,16 +42,16 @@ module Crysterm
     # to avoid double handling.
     private def subscribe_global_resize : ::Crysterm::Event::Resize::Wrapper
       GlobalEvents.on(::Crysterm::Event::Resize) do |_|
-        schedule_resize unless _listened_in_band_resize?
+        schedule_resize unless in_band_resize_enabled?
       end
     end
 
-    # Re-reads current size of all `Display`s and triggers redraw of all `Window`s.
+    # Re-reads current size and triggers redraw.
     #
-    # NOTE There is currently no detection for which `Display` the resize has
-    # happened on, so a resize in any one managed display causes an update and
-    # redraw of all displays.
-    def resize
+    # NOTE There is currently no detection for which terminal window the resize
+    # has happened on, so a resize on any managed window causes an update and
+    # redraw.
+    def refresh_size
       if size = @pending_inband_size
         @pending_inband_size = nil
         cols, rows = size
@@ -79,7 +79,7 @@ module Crysterm
     # Waits for resize notifications, and once the terminal has been quiet for
     # `resize_interval`, re-reads the size and triggers a redraw. The
     # (potentially expensive) redraw runs once per burst, not once per event.
-    def resize_loop(generation : Int32 = 0)
+    protected def resize_loop(generation : Int32 = 0)
       loop do
         # Block until at least one resize is requested.
         @_resize_channel.receive
@@ -98,7 +98,7 @@ module Crysterm
           end
         end
         break if @resize_stop || generation != @loop_generation
-        resize
+        refresh_size
       end
     end
   end

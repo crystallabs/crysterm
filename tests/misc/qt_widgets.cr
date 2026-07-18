@@ -130,7 +130,7 @@ gb = Widget::GroupBox.new \
 Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
 slider = Widget::Slider.new \
   parent: gb, top: 1, left: 9, width: 16, height: 2,
-  minimum: 0, maximum: 100, value: 40, show_value: true,
+  minimum: 0, maximum: 100, value: 40, text_visible: true,
   tick_position: Widget::Slider::TickPosition::Below, tick_interval: 20
 slider.tool_tip = "Master volume (0–100)"
 
@@ -190,9 +190,9 @@ docs.add "README.md"
 tree.add "shard.yml"
 tree.expand src
 
-tree.on(Event::SelectItem) { status.show_message " tree: #{tree.selected_node.try(&.text)}"; s.render }
-tree.on(Event::Expand) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}"; s.render }
-tree.on(Event::Collapse) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::ItemSelected) { status.show_message " tree: #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::Expanded) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::Collapsed) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}"; s.render }
 
 Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right/Left or Space expand/collapse nodes."
@@ -251,7 +251,7 @@ mode_labels.each_with_index do |label, i|
   b = Widget::Button.new \
     parent: extraspage, top: 1, left: 10 + i * 8, width: 7, height: 1,
     content: label, align: :center, checkable: true, focus_on_click: true
-  bgroup.add b, i
+  bgroup.add_button b, i
 end
 bgroup.on(Event::ButtonClick) do
   # Mark the checked button by bracketing its label: a plain Button has no
@@ -278,7 +278,7 @@ tool_action.on(Event::Triggered) { status.show_message " tool: apply"; s.render 
 Widget::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
 toolbtn = Widget::ToolButton.new \
   parent: extraspage, top: 3, left: 10, width: 12, height: 1,
-  action: tool_action, menu: tb_menu, align: :center
+  default_action: tool_action, menu: tb_menu, align: :center
 toolbtn.tool_tip = "Enter/Space applies; Down opens the menu"
 
 # Completer: type into the LineEdit to autocomplete from a fixed word list.
@@ -301,7 +301,7 @@ pickbtn = Widget::Button.new \
   parent: extraspage, top: 7, left: 10, width: 6, height: 1,
   content: "Pick", align: :center, focus_on_click: true
 open_picker = -> do
-  colordlg.pick do |color|
+  colordlg.get_color do |color|
     if color
       swatch.style.bg = color
       status.show_message " color = #{color}"
@@ -313,7 +313,7 @@ open_picker = -> do
   s.render
 end
 # Both the "Pick" button and a click on the color swatch itself open the picker.
-pickbtn.on(Event::Press) { open_picker.call }
+pickbtn.on(Event::Pressed) { open_picker.call }
 swatch.on(Event::Click) { open_picker.call }
 
 # DialogButtonBox: standard buttons with the right roles wired to accept/reject.
@@ -324,7 +324,7 @@ dbb = Widget::DialogButtonBox.new \
            Widget::DialogButtonBox::StandardButton::Cancel
 dbb.on(Event::Accepted) { status.show_message " dialog: accepted"; s.render }
 dbb.on(Event::Rejected) { status.show_message " dialog: rejected"; s.render }
-dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Press) do
+dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Pressed) do
   status.show_message " dialog: apply"; s.render
 end
 
@@ -354,11 +354,11 @@ Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min
 
 update = -> do
   status.show_message \
-    " color=#{combo.value}   volume=#{slider.value}   count=#{spin.value}   angle=#{dial.value}"
+    " color=#{combo.current_text}   volume=#{slider.value}   count=#{spin.value}   angle=#{dial.value}"
   s.render
 end
 
-combo.on(Event::Action) { update.call }
+combo.on(Event::Activated) { update.call }
 slider.on(Event::ValueChanged) { lcd.display slider.value; update.call }
 spin.on(Event::ValueChanged) { update.call }
 dial.on(Event::ValueChanged) { update.call }
@@ -368,7 +368,7 @@ stack.pages.each do |page|
   page.on(Event::Click) { stack.next_page }
 end
 
-tabs.bar.focus
+tabs.tab_bar.focus
 
 # --- Splash screen (animated, auto-dismisses) --------------------------------
 
@@ -380,7 +380,7 @@ splash = Widget::SplashScreen.new \
   content: splash_banner
 splash.show_message "Loading…"
 splash_banner.start
-splash.on(Event::Complete) { splash_banner.stop }
+splash.on(Event::Completed) { splash_banner.stop }
 splash.finish_after 2.seconds
 
 s.exec

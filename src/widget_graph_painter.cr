@@ -107,11 +107,21 @@ module Crysterm
           @wh = h.to_f.zero? ? 1.0 : h.to_f
         end
 
+        # `Rectangle` overload of `#set_window` (`QPainter#setWindow(QRect)`).
+        def window=(r : Rectangle) : Nil
+          set_window r.x, r.y, r.width, r.height
+        end
+
         # Sets the device viewport in pixels (`QPainter#setViewport`). Defaults to
         # the whole bitmap.
         def set_viewport(x : Number, y : Number, w : Number, h : Number) : Nil
           @vx, @vy = x.to_f, y.to_f
           @vw, @vh = w.to_f, h.to_f
+        end
+
+        # `Rectangle` overload of `#set_viewport` (`QPainter#setViewport(QRect)`).
+        def viewport=(r : Rectangle) : Nil
+          set_viewport r.x, r.y, r.width, r.height
         end
 
         # Fills the whole bitmap with *color* (default fully transparent, since
@@ -365,7 +375,7 @@ module Crysterm
       # `window.lines` on top. This module does that stamping, plus a small
       # per-color attr memoizer.
       #
-      # Including types must be `Widget` subclasses, for `window`/`style`/`sattr`.
+      # Including types must be `Widget` subclasses, for `window`/`style`/`style_to_attr`.
       module TextOverlay
         # Memoized cell attrs, keyed on *both* the requested color and the current
         # `style.bg`, so a background change doesn't keep serving a stale attr
@@ -376,7 +386,7 @@ module Crysterm
         # current background.
         private def overlay_attr(color : Int32) : Int64
           bg = style.bg
-          @attr_cache.fetch({color, bg}) { sattr(style, color, bg) }
+          @attr_cache.fetch({color, bg}) { style_to_attr(style, color, bg) }
         end
 
         # Writes *text* starting at absolute cell (x, y), clipped to the

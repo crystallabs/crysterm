@@ -27,7 +27,7 @@ describe Crysterm::Widget::ListTable do
     s._render
 
     # Columns fit the interior; only vertical scrolling is needed.
-    lt.really_scrollable_x?.should be_false
+    lt.overflows_x?.should be_false
 
     # And the bottom viewport row shows data, not a solid horizontal-bar block.
     yi = lt.atop
@@ -44,6 +44,6 @@ describe Crysterm::Widget::ListTable do
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 5, rows: wide
     s._render
 
-    lt.really_scrollable_x?.should be_true
+    lt.overflows_x?.should be_true
   end
 end

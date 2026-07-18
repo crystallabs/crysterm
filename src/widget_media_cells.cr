@@ -215,7 +215,11 @@ module Crysterm
               clear_frame_derived
               @sample = nil unless @animated
             end
-            if @animated
+            # `@animated` is the load-time auto-play latch; also take the animation
+            # path when playback was started manually (`#play` on an `animate: false`
+            # image), or the frame loop would spin forever repainting the still.
+            # When stopped/paused (`@playing` false) this falls back to the still path.
+            if @animated || (@playing && @src_frames)
               if (src = @src_frames) && (sf = src[@anim_index]?)
                 frame = @frame_cache[@anim_index]?
                 if frame.nil?

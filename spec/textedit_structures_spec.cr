@@ -34,7 +34,7 @@ end
 
 private def select_all_list(te, style : TextListFormat::Style)
   c = te.text_cursor
-  c.select :document
+  c.select_span :document
   c.create_list(style)
 end
 

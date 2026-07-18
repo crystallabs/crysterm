@@ -180,20 +180,20 @@ puts "attr is unchanged — that is a per-frame O(content) scan avoided outright
 puts "not measured above (it is a cache hit, i.e. zero work)."
 
 # ---------------------------------------------------------------------------
-# #9  attr2code — converts an SGR sequence to a packed attr, per SGR every
+# #9  sgr_to_attr — converts an SGR sequence to a packed attr, per SGR every
 #     frame for colored content. OLD did `code[2...-1].split(';')` (substring +
 #     Array(String)); NEW parses the bytes in place.
-section "#9  attr2code  (per SGR sequence, every frame)"
+section "#9  sgr_to_attr  (per SGR sequence, every frame)"
 dfl = Crysterm::Window::DEFAULT_ATTR
 codes = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
 Benchmark.ips do |x|
-  # OLD allocation source: the split that NEW removes (rest of attr2code is
+  # OLD allocation source: the split that NEW removes (rest of sgr_to_attr is
   # int/Attr math that allocates nothing in either version).
   x.report("OLD  code[2...-1].split(';')") { codes.each { |c| c[2...-1].split(';') } }
-  x.report("NEW  Screen.attr2code (full)") { codes.each { |c| Crysterm::Screen.attr2code(c, dfl, dfl) } }
+  x.report("NEW  Screen.sgr_to_attr (full)") { codes.each { |c| Crysterm::Screen.sgr_to_attr(c, dfl, dfl) } }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { codes.each { |c| c[2...-1].split(';') } }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { codes.each { |c| Crysterm::Screen.attr2code(c, dfl, dfl) } }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { codes.each { |c| Crysterm::Screen.sgr_to_attr(c, dfl, dfl) } }.round(2)} MB" \
      "  (#{ROUNDS} x #{codes.size} codes)  [NEW does the FULL conversion]"
 
 # ---------------------------------------------------------------------------
@@ -225,14 +225,14 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { stops.keys.map(&.to_i).sort! }.round(2)}
      "  vs  NEW #{alloc_mb(ROUNDS) { stops.keys.sort! }.round(2)} MB  (#{ROUNDS} frames)"
 
 # ---------------------------------------------------------------------------
-# #11  code2attr — SGR emission on the draw BCE line-clear (per cleared line,
+# #11  write_sgr — SGR emission on the draw BCE line-clear (per cleared line,
 #      every frame). OLD built and returned a fresh `String`; NEW writes the
-#      same sequence straight into the line buffer (`Screen.code2attr_to`), so
+#      same sequence straight into the line buffer (`Screen.write_sgr`), so
 #      clearing N lines no longer produces N throwaway strings.
-section "#11  code2attr  (BCE line-clear, per cleared line)"
+section "#11  write_sgr  (BCE line-clear, per cleared line)"
 attr_code = Crysterm::Attr.pack(Crysterm::Attr::BOLD, Crysterm::Attr.pack_color(0xff8800), Crysterm::Attr.pack_color(0x102030))
 cio = IO::Memory.new 64
-old_code2attr = -> do
+old_attr_to_sgr = -> do
   String.build do |o|
     o << "\e["
     o << "1;38;2;255;136;0;48;2;16;32;48"
@@ -241,18 +241,18 @@ old_code2attr = -> do
   end
 end
 Benchmark.ips do |x|
-  x.report("OLD  String.build code2attr") { old_code2attr.call }
-  x.report("NEW  code2attr_to(io, ...)") { cio.clear; Crysterm::Screen.code2attr_to(cio, attr_code, 0x1000000) }
+  x.report("OLD  String.build attr_to_sgr") { old_attr_to_sgr.call }
+  x.report("NEW  write_sgr(io, ...)") { cio.clear; Crysterm::Screen.write_sgr(cio, attr_code, 0x1000000) }
 end
-puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_code2attr.call }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { cio.clear; Crysterm::Screen.code2attr_to(cio, attr_code, 0x1000000) }.round(2)} MB  (#{ROUNDS} cleared lines)"
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_attr_to_sgr.call }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { cio.clear; Crysterm::Screen.write_sgr(cio, attr_code, 0x1000000) }.round(2)} MB  (#{ROUNDS} cleared lines)"
 
 # ---------------------------------------------------------------------------
-# #convert  Colors.convert(String) — color-string parsing in `sattr`, run per
+# #convert  Colors.convert(String) — color-string parsing in `style_to_attr`, run per
 #      widget every frame. OLD reparsed the string each call; NEW memoizes the
 #      parse (the app's set of color strings is small and bounded), so
 #      steady-state frames are allocation-free.
-section "#convert  Colors.convert(String)  (per sattr, per widget, every frame)"
+section "#convert  Colors.convert(String)  (per style_to_attr, per widget, every frame)"
 Colors.convert_cached("red"); Colors.convert_cached("#ff8800") # warm the cache
 Benchmark.ips do |x|
   x.report("OLD  Colors.convert(str)") { Colors.convert("red"); Colors.convert("#ff8800") }

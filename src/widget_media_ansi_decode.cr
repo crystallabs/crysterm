@@ -169,6 +169,26 @@ module Crysterm
           (fg.b * cov + bg.b * inv).round.to_i)
       end
 
+      # ANSI.SYS autowrap column count for *data*: the character width recorded in
+      # a trailing SAUCE record (a 128-byte metadata footer, id `"SAUCE00"`, whose
+      # `TInfo1` field holds the column count for Character-type files), or 80 when
+      # no valid SAUCE record is present. Guarded so a bogus/zero width can't shrink
+      # the canvas below the classic default.
+      protected def self.sauce_ansi_width(data : Bytes) : Int32
+        default = 80
+        return default if data.size < 128
+        rec = data.size - 128
+        # id "SAUCE" + version "00"
+        return default unless data[rec] == 0x53 && data[rec + 1] == 0x41 &&
+                              data[rec + 2] == 0x55 && data[rec + 3] == 0x43 &&
+                              data[rec + 4] == 0x45
+        # DataType (offset 94) must be 1 (Character) for TInfo1 to mean width.
+        return default unless data[rec + 94] == 1
+        # TInfo1 (offset 96): little-endian UInt16 = character width.
+        width = data[rec + 96].to_i | (data[rec + 97].to_i << 8)
+        width > 0 ? width : default
+      end
+
       # Decodes BBS / "textmode" ANSI art (*data*: CP437 bytes + ANSI escapes)
       # into a pixel bitmap, wrapped as a still `PNGGIF::PNG` so the ordinary
       # Media output backends (Ansi/Glyph/Sixel/Kitty/…) render it like any other
@@ -177,14 +197,20 @@ module Crysterm
       #
       # Runs a small self-contained ANSI interpreter (no terminal/emulator): a 2D
       # cell grid honoring SGR colour/bold and cursor motion (CUP/CUU/CUD/CUF/CUB,
-      # CR/LF, ED), then each cell is rasterized with the bitmap `Font`.
+      # CR/LF, ED), then each cell is rasterized with the bitmap `BitmapFont`.
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.decode_ansi(data : Bytes, font : Font = Font.default_normal) : PNGGIF::PNG
+      def self.decode_ansi(data : Bytes, font : BitmapFont = BitmapFont.default_normal) : PNGGIF::PNG
         # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright, reverse}
         cells = {} of Tuple(Int32, Int32) => Tuple(Char, Int32?, Bool, Int32?, Bool, Bool)
         x = 0; y = 0; maxx = 0; maxy = 0
         fg = nil.as(Int32?); fgb = false; bg = nil.as(Int32?); bgb = false; rev = false
         sx = 0; sy = 0
+        # ANSI.SYS-style autowrap width: classic BBS art omits CR/LF on full-width
+        # rows and relies entirely on the terminal wrapping at the right margin.
+        # Honour a trailing SAUCE record's character width (TInfo1) when present,
+        # else the ANSI.SYS default of 80. Only sequential printing wraps —
+        # explicit cursor positioning (CUP/CUF) is left unwrapped.
+        wrap_width = sauce_ansi_width data
         clampx = ->(v : Int32) { v.clamp(0, 1000) }
         clampy = ->(v : Int32) { v.clamp(0, 4000) }
         # Relative-motion count (CUU/CUD/CUF/CUB): an omitted *or* zero parameter
@@ -291,6 +317,13 @@ module Crysterm
             maxx = x if x > maxx
             maxy = y if y > maxy
             x = clampx.call(x + 1)
+            # ANSI.SYS autowrap: once printing advances past the right margin,
+            # return to column 0 on the next row. (CUP/CUF motion above does not
+            # pass through here, so explicit positioning stays unwrapped.)
+            if x >= wrap_width
+              x = 0
+              y = clampy.call(y + 1)
+            end
           end
           i += 1
         end

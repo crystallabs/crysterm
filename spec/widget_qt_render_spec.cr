@@ -68,7 +68,7 @@ describe "Slider rendering" do
       # cell, that digit would differ from the rest.
       st.indicator = Crysterm::Style.new(fg: "red", bg: "blue")
       Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
-        minimum: 0, maximum: 100, value: 50, show_value: true, style: st
+        minimum: 0, maximum: 100, value: 50, text_visible: true, style: st
       s._render
       # "50" is centered at columns 4-5; the handle sits at column 5, so the '0'
       # digit lands directly on it.
@@ -142,7 +142,7 @@ describe "ComboBox interaction" do
     s._render
     row_chars(s, 0, 0, 6).should eq "Red ▾ "
 
-    cb.open
+    cb.show_popup
     s._render
     cb.open?.should be_true
     # Popup sits directly under the combo (row 1+).
@@ -154,7 +154,7 @@ describe "ComboBox interaction" do
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
     s._render
-    cb.open
+    cb.show_popup
     s._render
 
     pop = cb.@popup.not_nil!
@@ -164,7 +164,7 @@ describe "ComboBox interaction" do
     press s, col, row
     release s, col, row
 
-    cb.value.should eq "Red"
+    cb.current_text.should eq "Red"
     cb.open?.should be_false
   end
 
@@ -173,14 +173,14 @@ describe "ComboBox interaction" do
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
     s._render
-    cb.open
+    cb.show_popup
     s._render
     cb.open?.should be_true
 
     press s, 70, 20 # far away
     release s, 70, 20
     cb.open?.should be_false
-    cb.value.should eq "Red" # unchanged
+    cb.current_text.should eq "Red" # unchanged
   end
 end
 
@@ -195,11 +195,11 @@ describe "TabWidget with layout" do
     tabs.current_index = 1
     s._render
     tabs.current_index.should eq 1
-    tabs.bar.selected.should eq 1
+    tabs.tab_bar.current_index.should eq 1
 
     # Focusing the bar must not switch the page back (the Focus re-emit lands on
     # the already-current tab).
-    tabs.bar.focus
+    tabs.tab_bar.focus
     s._render
     tabs.current_index.should eq 1
   end
@@ -208,18 +208,19 @@ end
 describe "Splitter mouse drag" do
   it "resizes the panes when the divider is dragged" do
     s = render_screen
-    sp = Crysterm::Widget::Splitter.new parent: s, top: 0, left: 0, width: 40, height: 10,
-      position: 20
+    sp = Crysterm::Widget::Splitter.new parent: s, top: 0, left: 0, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
-    sp.split a, b
+    sp.add_pane a
+    sp.add_pane b
+    sp.set_divider_position 0, 20
     s._render
 
-    sp.position.should eq 20
+    sp.divider_position(0).should eq 20
     # Grab the divider (a vertical bar at column 20) and drag it left to 12.
     press s, 20, 3
     move s, 12, 3
-    sp.position.should eq 12
+    sp.divider_position(0).should eq 12
     a.width.should eq 12
     b.left.should eq 13
     release s, 12, 3
@@ -298,9 +299,9 @@ describe "Question#ask_choices" do
     s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Right
     chosen.should be_nil
 
-    # Escape still dismisses, yielding -1.
+    # Escape still dismisses, yielding nil.
     s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Escape
-    chosen.should eq -1
+    chosen.should be_nil
   end
 end
 
@@ -312,16 +313,16 @@ describe "Prompt validation" do
 
     result = nil.as(String?)
     calls = 0
-    pr.read_input("Enter:") { |_err, data| calls += 1; result = data }
+    pr.read_input("Enter:") { |data| calls += 1; result = data }
 
     # Invalid submit -> stays open, outer callback not run.
-    pr.textinput.value = "bad"
-    pr.textinput.submit
+    pr.line_edit.value = "bad"
+    pr.line_edit.submit
     calls.should eq 0
 
     # Valid submit -> commits.
-    pr.textinput.value = "good"
-    pr.textinput.submit
+    pr.line_edit.value = "good"
+    pr.line_edit.submit
     calls.should eq 1
     result.should eq "good"
   end
@@ -354,7 +355,7 @@ describe "Menu submenus" do
     m << file
     s._render
 
-    m.ritems[0].includes?("▶").should be_true
+    m.item_texts[0].includes?("▶").should be_true
 
     m.select_index 0
     m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
@@ -507,12 +508,12 @@ describe "Horizontal scrolling" do
       content: "ABCDEFGHIJKLMNOPQRST\n0123456789abcdefghij"
     s._render
 
-    box.get_scroll_width.should eq 20 # widest unclipped line
-    box.really_scrollable_x?.should be_true
+    box.scroll_width.should eq 20 # widest unclipped line
+    box.overflows_x?.should be_true
     box.show_horizontal_scrollbar?.should be_true
     row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ" # columns [0,10)
 
-    box.scroll_x 5
+    box.scroll_by_x 5
     s._render
     box.child_base_x.should eq 5
     row_chars(s, 0, 0, 10).should eq "FGHIJKLMNO" # columns [5,15)
@@ -548,7 +549,7 @@ describe "Horizontal scrolling" do
     row_chars(s, 0, 0, 4).should eq "L1-A" # content sits in the rows above it
 
     # The last line stays reachable above the bar (not permanently hidden under it).
-    box.scroll_to box.get_scroll_height
+    box.scroll_to box.scroll_height
     s._render
     row_chars(s, 3, 0, 4).should eq "L8-A"
     bar_glyphs.call(4).should be_true
@@ -579,8 +580,8 @@ describe "Horizontal scrolling" do
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,
       content: "ABCDEFGHIJKLMNOPQRST" # wraps by default
     s._render
-    box.really_scrollable_x?.should be_false # wrapped → never horizontally scrollable
-    box.scroll_x 5                           # no-op
+    box.overflows_x?.should be_false # wrapped → never horizontally scrollable
+    box.scroll_by_x 5                # no-op
     box.child_base_x.should eq 0
     row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ"
     row_chars(s, 1, 0, 10).should eq "KLMNOPQRST" # wrapped onto the next row
@@ -613,22 +614,22 @@ describe "ListTable column-level horizontal scrolling" do
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"], ["Bob", "Rome", "25"]]
     s._render
-    lt.get_scroll_width.should eq 22
-    lt.really_scrollable_x?.should be_true
+    lt.scroll_width.should eq 22
+    lt.overflows_x?.should be_true
     lt.show_horizontal_scrollbar?.should be_true
     lt.column_start_offsets.should eq [0, 8, 16]
     row_chars(s, 0, 0, 14).should eq " Name    City " # header: col0 + col1 partial
 
-    lt.scroll_x 1 # advance one whole column
+    lt.scroll_by_x 1 # advance one whole column
     s._render
     lt.child_base_x.should eq 8 # snapped to column 1's offset
     row_chars(s, 0, 0, 14).should eq " City    Age  "
 
-    lt.scroll_x 1 # already at the last column — clamps
+    lt.scroll_by_x 1 # already at the last column — clamps
     s._render
     lt.child_base_x.should eq 8
 
-    lt.scroll_x -1
+    lt.scroll_by_x -1
     s._render
     lt.child_base_x.should eq 0
     row_chars(s, 0, 0, 14).should eq " Name    City "
@@ -658,7 +659,7 @@ describe "ListTable column-level horizontal scrolling" do
     s._render
     # Header is row 1 (inside the top border); the `│` separator tracks the columns.
     row_chars(s, 1, 0, 16).should eq "│ Name  │ City │"
-    lt.scroll_x 1
+    lt.scroll_by_x 1
     s._render
     row_chars(s, 1, 0, 16).should eq "│ City  │ Age  │"
   end
@@ -668,9 +669,9 @@ describe "ListTable column-level horizontal scrolling" do
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 6,
       rows: [["Name", "City"], ["Alice", "Paris"]] # no width: → content-sized
     s._render
-    lt.really_scrollable_x?.should be_false
+    lt.overflows_x?.should be_false
     lt.show_horizontal_scrollbar?.should be_false
-    lt.scroll_x 1 # no-op
+    lt.scroll_by_x 1 # no-op
     lt.child_base_x.should eq 0
   end
 
@@ -703,7 +704,7 @@ describe "Horizontal scroll reaches the last column past the reserved margin" do
     ta.content_width.should eq 11
 
     hb = ta.horizontal_scrollbar_widget.not_nil!
-    hb.maximum.should eq ta.get_scroll_width - ta.content_width # 26 − 11 = 15 (was 14)
+    hb.maximum.should eq ta.scroll_width - ta.content_width # 26 − 11 = 15 (was 14)
 
     hb.value = hb.maximum # drag fully right
     s._render

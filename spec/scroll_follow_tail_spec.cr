@@ -10,7 +10,7 @@ private def ft_screen
 end
 
 private def at_bottom?(w)
-  w.get_scroll_perc(false) >= 100
+  w.scroll_percent >= 1.0
 end
 
 describe "follow_tail (sticky bottom)" do
@@ -43,7 +43,7 @@ describe "follow_tail (sticky bottom)" do
     s.render
     at_bottom?(log).should be_false
 
-    log.set_scroll_perc 100 # return to the bottom
+    log.scroll_percent = 1.0 # return to the bottom
     s.render
     3.times { |i| log.add "tail #{i}" }
     s.render

@@ -10,7 +10,7 @@ include Crysterm
 #   and modal grab, and never fire the pick callback on the dead dialog.
 # * An item view's incremental-search `LineEdit` (docked on the *window*) must be
 #   removed when the list is destroyed.
-# * `SplashScreen`'s key-dismiss handler must (re)wire on `Attach` and be removed
+# * `SplashScreen`'s key-dismiss handler must (re)wire on `Attached` and be removed
 #   on `#destroy`.
 # * A page-less `Wizard` must not expose a working "Finish" (`advance` no-op).
 
@@ -29,7 +29,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
     s = life_window
     dlg = Widget::ColorDialog.new parent: s
     called = 0
-    dlg.pick { |_| called += 1 }
+    dlg.get_color { |_| called += 1 }
     s.emit Crysterm::Event::KeyPress, enter_key
     called.should eq 1 # Enter -> accept -> finish -> callback
   end
@@ -38,7 +38,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
     s = life_window
     dlg = Widget::ColorDialog.new parent: s
     called = 0
-    dlg.pick { |_| called += 1 }
+    dlg.get_color { |_| called += 1 }
 
     dlg.destroy
     s.emit Crysterm::Event::KeyPress, enter_key # handler must be gone
@@ -69,7 +69,7 @@ describe "BUGS7 SplashScreen key-dismiss wiring/teardown" do
     s = life_window
     splash = Widget::SplashScreen.new # no parent/window at construction
     completed = 0
-    splash.on(Crysterm::Event::Complete) { completed += 1 }
+    splash.on(Crysterm::Event::Completed) { completed += 1 }
 
     s.append splash # Attach installs the window-level key handler
     s.emit Crysterm::Event::KeyPress, enter_key
@@ -80,7 +80,7 @@ describe "BUGS7 SplashScreen key-dismiss wiring/teardown" do
     s = life_window
     splash = Widget::SplashScreen.new parent: s
     completed = 0
-    splash.on(Crysterm::Event::Complete) { completed += 1 }
+    splash.on(Crysterm::Event::Completed) { completed += 1 }
 
     splash.destroy
     s.emit Crysterm::Event::KeyPress, enter_key
@@ -94,7 +94,7 @@ describe "BUGS7 page-less Wizard does not complete" do
     wiz = Widget::Wizard.new parent: s
     wiz.page_count.should eq 0
     completes = 0
-    wiz.on(Crysterm::Event::Complete) { completes += 1 }
+    wiz.on(Crysterm::Event::Completed) { completes += 1 }
 
     wiz.advance
     completes.should eq 0
@@ -105,7 +105,7 @@ describe "BUGS7 page-less Wizard does not complete" do
     wiz = Widget::Wizard.new parent: s
     wiz.add_page Widget::Box.new, "one"
     completes = 0
-    wiz.on(Crysterm::Event::Complete) { completes += 1 }
+    wiz.on(Crysterm::Event::Completed) { completes += 1 }
 
     wiz.advance # on the single (last) page -> Complete
     completes.should eq 1

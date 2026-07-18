@@ -4,11 +4,11 @@ include Crysterm
 
 # Regression: interrupting a program during the startup window — after
 # `Window.new` has entered the alternate buffer and hidden the cursor (`#enter`,
-# run from the constructor) but before any render/listen/draw — must still
+# run from the constructor) but before any render/start_input/draw — must still
 # leave the terminal in a clean state.
 #
 # That window exists because until the input fiber establishes raw mode (in
-# `#listen`, reached only from `#exec`), the tty is in cooked mode, so Ctrl+C is
+# `#start_input`, reached only from `#exec`), the tty is in cooked mode, so Ctrl+C is
 # delivered as a real SIGINT. The SIGINT/TERM/QUIT traps in `crysterm.cr`
 # (armed at module-load, before any terminal-mode change) route the signal
 # through `exit`, running the `at_exit` handler:
@@ -28,7 +28,7 @@ private def sir_screen(buf : IO) : Crysterm::Window
 end
 
 describe "Window teardown during the startup window (before first draw)" do
-  it "restores the terminal when destroyed before any draw/listen" do
+  it "restores the terminal when destroyed before any draw/start_input" do
     buf = IO::Memory.new
     s = sir_screen buf
 
@@ -38,7 +38,7 @@ describe "Window teardown during the startup window (before first draw)" do
     enter.should contain("\e[?25l")   # cursor hidden
     s.tput.is_alt.should be_true
 
-    # Simulate the early-Ctrl+C teardown path: no render, no listen, no draw,
+    # Simulate the early-Ctrl+C teardown path: no render, no start_input, no draw,
     # just the `at_exit`-driven destroy.
     s.destroy
 

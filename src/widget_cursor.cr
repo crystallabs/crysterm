@@ -15,11 +15,18 @@ module Crysterm
       @cursor ||= Cursor.new
     end
 
+    # This widget's own cursor shape override, or `nil` when it has none (the
+    # window default applies). Reads `@cursor` — unlike the old bare-call form,
+    # merely reading this never sets anything.
+    def cursor_shape : Tput::CursorShape?
+      @cursor.try &.shape
+    end
+
     # Sets this widget's cursor shape, overriding the window default while the
-    # widget is focused. Leaves blink at its default (off); see the two-argument
-    # `#cursor_shape` to set both.
+    # widget is focused. Leaves blink at its default (off); see `#set_cursor`
+    # to set both.
     def cursor_shape=(shape : Tput::CursorShape) : Tput::CursorShape
-      cursor_shape shape
+      set_cursor shape
       shape
     end
 
@@ -30,9 +37,9 @@ module Crysterm
     # On a detached widget the setting is recorded on the widget's own cursor
     # rather than dropped, and takes effect once attached and focused. Same for
     # the color/show/hide methods below.
-    def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
+    def set_cursor(shape : Tput::CursorShape, *, blink : Bool = false) : Nil
       if s = window?
-        s.cursor_shape shape, blink, cursor!
+        s.set_cursor_shape shape, blink: blink, cursor: cursor!
       else
         c = cursor!
         c.shape = shape
@@ -41,22 +48,24 @@ module Crysterm
       end
     end
 
-    # :ditto:
-    def cursor_color=(color : String?) : String?
-      cursor_color color
-      color
+    # This widget's own cursor color override (`"#rrggbb"`), or `nil` when it
+    # has none (or is the `-1` "terminal default" sentinel). Reads `@cursor` —
+    # unlike the old bare-call form, merely reading this never sets anything.
+    def cursor_color : String?
+      @cursor.try(&.style.fg).try { |c| Colors.hex(c) if c >= 0 }
     end
 
     # Sets this widget's cursor color, overriding the window default while the
-    # widget is focused. Recorded even while detached (see `#cursor_shape`).
-    def cursor_color(color : String? = nil)
+    # widget is focused. Recorded even while detached (see `#set_cursor`).
+    def cursor_color=(color : String?) : String?
       if s = window?
-        s.cursor_color color, cursor!
+        s.set_cursor_color color, cursor: cursor!
       else
         c = cursor!
         c.style.fg = color
         c._set = true
       end
+      color
     end
 
     # Shows this widget's cursor. Recorded even while detached (see `#cursor_shape`).

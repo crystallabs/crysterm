@@ -11,7 +11,7 @@ include Crysterm
 # * `Menu` Enter/Escape must not activate/cancel item 0 while no row is
 #   highlighted; menu row widths must use display width.
 # * `ComboBox#cycle` wraps a negative delta via `%` (no dead guard needed).
-# * `ProgressBar#maximum=`/`#set_range` must not emit a spurious `Event::Complete`
+# * `ProgressBar#maximum=`/`#set_range` must not emit a spurious `Event::Completed`
 #   when the range is shrunk onto the current value.
 
 private def uni_window(w = 20, h = 6)
@@ -113,29 +113,29 @@ end
 describe "BUGS7 ComboBox#cycle wraps a negative delta" do
   it "wraps to the last option when cycling below zero" do
     cb = Widget::ComboBox.new options: ["a", "b", "c"]
-    cb.selected.should eq 0
+    cb.current_index.should eq 0
     cb.cycle -1
-    cb.selected.should eq 2 # wrapped
+    cb.current_index.should eq 2 # wrapped
     cb.cycle 1
-    cb.selected.should eq 0 # wrapped back
+    cb.current_index.should eq 0 # wrapped back
   end
 end
 
 describe "BUGS7 ProgressBar does not complete on a range shrink" do
-  it "does not emit Event::Complete when the maximum drops onto the value" do
+  it "does not emit Event::Completed when the maximum drops onto the value" do
     pb = Widget::ProgressBar.new value: 100, minimum: 0, maximum: 100
     completes = 0
-    pb.on(Crysterm::Event::Complete) { completes += 1 }
+    pb.on(Crysterm::Event::Completed) { completes += 1 }
 
     pb.maximum = 50 # re-clamps 100 -> 50; a reconfiguration, not a completion
     pb.value.should eq 50
     completes.should eq 0
   end
 
-  it "still emits Event::Complete when the value rises to the maximum" do
+  it "still emits Event::Completed when the value rises to the maximum" do
     pb = Widget::ProgressBar.new value: 0, minimum: 0, maximum: 100
     completes = 0
-    pb.on(Crysterm::Event::Complete) { completes += 1 }
+    pb.on(Crysterm::Event::Completed) { completes += 1 }
 
     pb.value = 100
     completes.should eq 1

@@ -102,7 +102,7 @@ module Crysterm
       # The raw inline style (the `@style` override), before any CSS folding.
       # The CSS cascade reads this to fold inline declarations into the computed
       # per-state `@styles` at its own tier.
-      def css_inline_style : ::Crysterm::Style?
+      def inline_style : ::Crysterm::Style?
         @style
       end
 

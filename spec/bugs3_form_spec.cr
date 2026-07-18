@@ -42,7 +42,7 @@ describe "BUGS3 Form field collection (fix #1)" do
       minimum: 0, maximum: 100, value: 42)
     cb = Crysterm::Widget::ComboBox.new(
       parent: form, name: "color", top: 1, left: 0, width: 12, height: 1,
-      options: ["red", "green", "blue"], selected: 1)
+      options: ["red", "green", "blue"], current_index: 1)
     de = Crysterm::Widget::DateEdit.new(
       parent: form, name: "when", top: 2, left: 0, width: 12, height: 1,
       date: Time.utc(2021, 3, 14))
@@ -58,7 +58,7 @@ describe "BUGS3 Form field collection (fix #1)" do
 
     # Sanity: the widgets themselves hold those values.
     sb.value.should eq 42
-    cb.value.should eq "green"
+    cb.current_text.should eq "green"
     de.date.should eq Time.utc(2021, 3, 14).at_beginning_of_day
   end
 
@@ -85,19 +85,19 @@ describe "BUGS3 Form reset (fix #2)" do
       minimum: 5, maximum: 100, value: 42)
     cb = Crysterm::Widget::ComboBox.new(
       parent: form, name: "color", top: 1, left: 0, width: 12, height: 1,
-      options: ["red", "green", "blue"], selected: 2)
+      options: ["red", "green", "blue"], current_index: 2)
 
     s.render
 
     sb.value.should eq 42
-    cb.value.should eq "blue"
+    cb.current_text.should eq "blue"
 
     form.reset
 
     sb.value.should eq sb.minimum
     sb.value.should eq 5
-    cb.value.should eq "red"
-    cb.selected.should eq 0
+    cb.current_text.should eq "red"
+    cb.current_index.should eq 0
   end
 
   it "resets a DoubleSpinBox to its minimum" do
@@ -132,10 +132,10 @@ describe "BUGS3 SpinBox inverted-range constructor (fix #3)" do
     # Widen the range so stepping actually has room, then verify it moves.
     sb.maximum = 60
     before = sb.value
-    sb.increment
+    sb.step_up
     sb.value.should_not eq before
-    sb.value.should eq before + sb.step
-    sb.decrement
+    sb.value.should eq before + sb.single_step
+    sb.step_down
     sb.value.should eq before
   end
 end
@@ -154,10 +154,10 @@ describe "BUGS3 DoubleSpinBox inverted-range constructor (fix #3)" do
 
     dsb.maximum = 60.0
     before = dsb.value
-    dsb.increment
+    dsb.step_up
     dsb.value.should_not eq before
-    dsb.value.should eq before + dsb.step
-    dsb.decrement
+    dsb.value.should eq before + dsb.single_step
+    dsb.step_down
     dsb.value.should eq before
   end
 end

@@ -1,21 +1,21 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Appending text to a text widget (the prime case: `Log#add` / `push_line`).
+# Appending text to a text widget (the prime case: `Log#add` / `append_line`).
 #
 # BEFORE this optimization, every appended line went:
-#   push_line -> insert_line -> rebuild_content_from_fake
+#   append_line -> insert_line -> rebuild_content_from_fake
 #             -> set_content(@_clines.fake.join("\n")) -> process_content
 # i.e. a full re-join + full reparse of all content per line: O(total) per
 # append, O(n^2) total.
 #
-# AFTER, `push_line` first tries `append_content`, which cleans/tag-parses/
+# AFTER, `append_line` first tries `append_content`, which cleans/tag-parses/
 # wraps/attr-scans only the new segment and splices it onto the tail of
 # `@_clines` — O(appended). Falls back to the old path when it can't guarantee
 # an identical result (stale cache, width change, open tag at the boundary).
 #
 # Here "before" = calling `insert_line` at the end index directly (the old slow
-# path), "after" = the real `push_line`. The correctness block proves the fast
+# path), "after" = the real `append_line`. The correctness block proves the fast
 # build-up is byte-identical to a single one-shot `set_content`.
 #
 # Run:  crystal run --release benchmarks/content-append.cr
@@ -51,13 +51,13 @@ def slow_push(box, line)
 end
 
 # --------------------------------------------------------------------------
-# Correctness: building content line-by-line with `push_line` (which uses the
+# Correctness: building content line-by-line with `append_line` (which uses the
 # fast `append_content`) must be byte-identical, in every `CLines` field, to a
 # single one-shot `set_content` of the same lines.
 # --------------------------------------------------------------------------
 def assert_equiv(name, tags, lines)
   inc = make_box(tags)
-  lines.each { |l| inc.push_line l }
+  lines.each { |l| inc.append_line l }
   one = make_box(tags)
   one.set_content lines.join("\n")
 
@@ -79,7 +79,7 @@ def assert_equiv(name, tags, lines)
   printf "  %-46s => %s%s\n", name, bad.empty? ? "OK" : "MISMATCH", bad.empty? ? "" : " (#{bad.join(", ")})"
 end
 
-puts "== Correctness checks (push_line build-up == one-shot set_content) =="
+puts "== Correctness checks (append_line build-up == one-shot set_content) =="
 long = "this is a deliberately long line designed to exceed the eighty column wrap width and be split into several wrapped rows"
 assert_equiv "plain lines", false, (0...300).map { |i| plain_line(i) }
 assert_equiv "tagged lines", true, (0...300).map { |i| tagged_line(i) }
@@ -93,9 +93,9 @@ assert_equiv "blank lines interspersed", false, ["a", "", "b", "", "", "c"]
 # appends (raw text, joined by "\n"), and `_pcontent` must stay deferred until read.
 begin
   box = make_box(false)
-  box.push_line "alpha"            # seeds line 0 (eager set_content; builds _pcontent)
-  box.push_line "beta"             # append path -> defers
-  box.push_line "gamma"            # append path -> defers
+  box.append_line "alpha"          # seeds line 0 (eager set_content; builds _pcontent)
+  box.append_line "beta"           # append path -> defers
+  box.append_line "gamma"          # append path -> defers
   deferred_ok = box._pcontent.nil? # _pcontent stayed nil after the appends
   content_ok = box.content == "alpha\nbeta\ngamma"
   printf "  %-46s => %s\n", "lazy @content fold + deferred _pcontent",
@@ -116,7 +116,7 @@ puts "== Total time to append N lines =="
     before = Benchmark.measure { n.times { |i| slow_push(b, gen.call(i)) } }.real
 
     a = make_box(tags)
-    after = Benchmark.measure { n.times { |i| a.push_line gen.call(i) } }.real
+    after = Benchmark.measure { n.times { |i| a.append_line gen.call(i) } }.real
 
     printf "  %-6d  %12.2f  %12.2f  %7.1fx\n", n, before * 1000, after * 1000, before / after
   end
@@ -139,8 +139,8 @@ puts "== Per-append cost at a fixed base size (us/append) =="
     before = Benchmark.measure { batch.times { |i| slow_push(b, gen.call(base + i)) } }.real / batch
 
     a = make_box(tags)
-    base.times { |i| a.push_line gen.call(i) }
-    after = Benchmark.measure { batch.times { |i| a.push_line gen.call(base + i) } }.real / batch
+    base.times { |i| a.append_line gen.call(i) }
+    after = Benchmark.measure { batch.times { |i| a.append_line gen.call(base + i) } }.real / batch
 
     printf "  %-6d  %12.2f  %12.2f  %7.1fx\n", base, before * 1e6, after * 1e6, before / after
   end

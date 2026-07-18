@@ -95,7 +95,7 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
   it "keeps sane row heights when a child spans to the end (rows nil)" do
     s = headless_screen
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
-      layout: Layout::Grid.new(columns: 2, gap: 1)
+      layout: Layout::Grid.new(columns: 2, spacing: 1)
     # Spanning child in column 0, plus two ordinary children in column 1.
     Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99, column_span: 1)
@@ -114,7 +114,7 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
   it "does not drive cell heights to zero for the non-spanning siblings" do
     s = headless_screen
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
-      layout: Layout::Grid.new(columns: 2, gap: 1)
+      layout: Layout::Grid.new(columns: 2, spacing: 1)
     Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)

@@ -36,7 +36,7 @@ module Crysterm
           when ::Tput::Key::Home
             scroll_to 0
           when ::Tput::Key::End
-            scroll_to get_scroll_height
+            scroll_to scroll_height
           else
             return
           end

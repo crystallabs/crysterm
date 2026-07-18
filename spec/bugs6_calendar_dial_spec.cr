@@ -57,9 +57,9 @@ describe "BUGS6 Dial inverted range (bug 1)" do
     # Widen the range so stepping has room, then verify it moves.
     dial.maximum = 60
     before = dial.value
-    dial.increment
-    dial.value.should eq before + dial.step
-    dial.decrement
+    dial.step_up
+    dial.value.should eq before + dial.single_step
+    dial.step_down
     dial.value.should eq before
   end
 
@@ -84,9 +84,9 @@ describe "BUGS6 Slider inverted range (bug 2)" do
 
     sl.maximum = 60
     before = sl.value
-    sl.increment
-    sl.value.should eq before + sl.step
-    sl.decrement
+    sl.step_up
+    sl.value.should eq before + sl.single_step
+    sl.step_down
     sl.value.should eq before
   end
 end

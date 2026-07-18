@@ -90,7 +90,7 @@ module Crysterm
 
       def render
         with_inner_coords do |xi, xl, yi, yl|
-          window.fill_region sattr(style), style.fill_char, xi, xl, yi, yl
+          window.fill_region style_to_attr(style), style.fill_char, xi, xl, yi, yl
 
           # Pointer in the middle of the knob. When the value is shown it owns the
           # bottom row (`yl - 1`), so center the pointer in the rows above it
@@ -99,7 +99,7 @@ module Crysterm
           pointer_bottom = show_value? ? Math.max(yi, yl - 2) : yl
           cx = xi + (xl - xi) // 2
           cy = yi + (pointer_bottom - yi) // 2
-          window.fill_region sattr(style.indicator), pointer, cx, cx + 1, cy, cy + 1
+          window.fill_region style_to_attr(style.indicator), pointer, cx, cx + 1, cy, cy + 1
 
           # Draw the value on the reserved bottom row, but only when it does not
           # land on the pointer row: on a 1-row dial there is no spare row, so

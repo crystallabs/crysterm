@@ -19,6 +19,11 @@ module Crysterm
 
           def initialize(@key, @label, @callback = nil)
           end
+
+          # Block form: `Item.new(key, label) { ... }`.
+          def initialize(key, label, &callback : ->)
+            initialize(key, label, callback)
+          end
         end
 
         # Builds the tagged content for a single item: a highlighted key

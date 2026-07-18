@@ -26,11 +26,11 @@ module Crysterm
         )
           super **box
 
-          set_text content
+          self.text = content
         end
 
         # Replaces the displayed text and scrolls back to the top.
-        def set_text(content)
+        def text=(content)
           reset_and_set_content content
         end
       end

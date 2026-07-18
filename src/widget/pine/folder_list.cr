@@ -27,6 +27,11 @@ module Crysterm
 
         def initialize(@name, @count = 0, *, @callback = nil)
         end
+
+        # Block form: `Folder.new(name, count) { ... }`.
+        def initialize(name, count = 0, &callback : ->)
+          initialize(name, count, callback: callback)
+        end
       end
 
       # <!-- widget-examples:capture v1 -->

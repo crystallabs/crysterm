@@ -86,17 +86,16 @@ module Crysterm
       def initialize(
         @file = nil,
         @level : Float64 = 128.0,
-        dither : Media::Dither | Bool = Media::Dither::Auto,
+        @dither : Media::Dither = Media::Dither::Auto,
         @invert : Bool = false,
         @fit : Media::Fit = Media::Fit::Contain,
         @animate : Bool = true,
-        @speed : Float64 = 1.0,
+        speed : Float64 = 1.0,
         **box,
       )
-        # Accept a legacy Bool: true ⇒ auto, false ⇒ none.
-        @dither = Media::Dither.from_arg(dither, Media::Dither::Auto)
-
         super **box
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
+        self.speed = speed
 
         register_render_hook_deferred { draw_tek }
 

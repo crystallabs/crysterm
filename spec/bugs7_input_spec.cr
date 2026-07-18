@@ -6,7 +6,7 @@ include Crysterm
 #
 # 1. `window_mouse.cr` must not deliver `Event::Mouse`/`Event::Click` to a
 #    *disabled* widget under the pointer. Only the click-to-focus branch was
-#    gated before, so a disabled Button still fired `Event::Press` and a
+#    gated before, so a disabled Button still fired `Event::Pressed` and a
 #    disabled CheckBox still toggled. The keyboard path is safe because a
 #    disabled widget can't hold focus; the mouse path now mirrors that.
 #
@@ -39,26 +39,26 @@ private def up_at(s, x, y)
 end
 
 describe "BUGS7 disabled widget does not activate on a mouse click" do
-  it "does not emit Event::Press for a disabled Button clicked" do
+  it "does not emit Event::Pressed for a disabled Button clicked" do
     s = bugs7_screen
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
     btn.state = WidgetState::Disabled
     s._render
 
     pressed = 0
-    btn.on(Crysterm::Event::Press) { pressed += 1 }
+    btn.on(Crysterm::Event::Pressed) { pressed += 1 }
 
     down_at s, btn.aleft + 1, btn.atop + 1
     pressed.should eq 0
   end
 
-  it "still emits Event::Press for an enabled Button (no regression)" do
+  it "still emits Event::Pressed for an enabled Button (no regression)" do
     s = bugs7_screen
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
     s._render
 
     pressed = 0
-    btn.on(Crysterm::Event::Press) { pressed += 1 }
+    btn.on(Crysterm::Event::Pressed) { pressed += 1 }
 
     down_at s, btn.aleft + 1, btn.atop + 1
     pressed.should eq 1

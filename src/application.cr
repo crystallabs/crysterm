@@ -27,7 +27,7 @@ module Crysterm
     getter windows = [] of Window
 
     def initialize
-      bind
+      register_instance
     end
 
     # The physical devices (`Screen`s) backing this app's windows ↔
@@ -57,7 +57,7 @@ module Crysterm
       return unless @windows.includes? window
       @windows.delete window
       @windows << window
-      # The frame diff runs against this window's PRIVATE `@olines` (what THIS
+      # The frame diff runs against this window's PRIVATE `@flushed_lines` (what THIS
       # window last sent), but the terminal may currently show a sibling sharing
       # the device — an unchanged frame would emit zero bytes and the raise would
       # be invisible. Poison the old-frame buffer to force a full re-emit.
@@ -177,16 +177,16 @@ module Crysterm
       # Headless capture mode: if capture env vars are set, this process is
       # driven by test/example tooling — render one frame, write the requested
       # artifact(s), and return instead of entering the interactive loop.
-      return if window.capture_from_env?
+      return if window.run_env_capture
 
       window.render
-      window.listen
+      window.start_input
 
       # The main loop is currently just a sleep.
       sleep
 
       # Shouldn't reach for now.
-      window.emit ::Crysterm::Event::Detach, window
+      window.emit ::Crysterm::Event::Detached, window
     end
 
     # Opens a real terminal emulator window and returns a `Window` driving it.
@@ -199,14 +199,15 @@ module Crysterm
     # `launcher` may be a `Terminal::Launcher`, a backend name (e.g. "kitty",
     # "tmux"), or nil to auto-detect (honoring `$TERMINAL`).
     #
-    # Pass `listen: true` to start reading input immediately, so a single spawned
-    # window is interactive without a separate `#listen`/`#exec` call (the caller
-    # still has to keep the process alive, e.g. with `sleep`). A reattached
-    # screen restores whatever listening state it had before disconnecting.
+    # Pass `start_input: true` to start reading input immediately, so a single
+    # spawned window is interactive without a separate `#start_input`/`#exec`
+    # call (the caller still has to keep the process alive, e.g. with `sleep`).
+    # A reattached screen restores whatever listening state it had before
+    # disconnecting.
     def self.open(*, launcher : Terminal::Launcher | String | Nil = nil,
                   cols : Int32 = 80, rows : Int32 = 24,
                   title : String? = nil, env : Process::Env = nil,
-                  listen : Bool = false, into : Window? = nil) : Window
+                  start_input : Bool = false, into : Window? = nil) : Window
       win = Terminal.spawn_window(launcher: launcher, cols: cols, rows: rows,
         title: title, env: env)
 
@@ -217,19 +218,19 @@ module Crysterm
         window.adopt_window win
       end
 
-      window.listen if listen
+      window.start_input if start_input
       window.emit Crysterm::Event::WindowOpened, window
       window
     end
 
-    # Convenience: open *windows* emulator windows, build a window in each via the
-    # block, then render+listen them all and block. A `q` / `Ctrl-Q` in any
-    # window — or closing any window — tears that one down; the call returns (and
-    # the process exits) once the last window is gone.
-    def self.run(*, windows : Int32, launcher : Terminal::Launcher | String | Nil = nil,
+    # Convenience: open *window_count* emulator windows, build a window in each
+    # via the block, then render and start input on them all, then block. A `q` / `Ctrl-Q` in
+    # any window — or closing any window — tears that one down; the call
+    # returns (and the process exits) once the last window is gone.
+    def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String | Nil = nil,
                  cols : Int32 = 80, rows : Int32 = 24, env : Process::Env = nil,
                  & : Window, Int32 -> _) : Nil
-      wins = (0...windows).map do |i|
+      wins = (0...window_count).map do |i|
         w = open(launcher: launcher, cols: cols, rows: rows,
           title: "Window #{i + 1}", env: env)
         yield w, i
@@ -283,7 +284,7 @@ module Crysterm
 
       windows.each do |w|
         w.render
-        w.listen
+        w.start_input
       end
 
       done.receive
@@ -308,7 +309,7 @@ module Crysterm
 
       # Sets the clipboard text and copies it to the active window's terminal.
       def text=(value : String) : String
-        set_text value
+        copy value
       end
 
       # Like `#text=`, but the OSC-52 write goes to *window*'s own device (the
@@ -318,19 +319,19 @@ module Crysterm
       # would then clobber the wrong terminal's clipboard. Callers that know
       # their surface should pass it; the in-process mirror (`#text`) stays
       # app-wide either way.
-      def set_text(value : String, window : Window? = nil) : String
+      def copy(text : String, window : Window? = nil) : String
         @fragment = nil
-        @text = value
-        (window || @app.active_window).try &.copy(value)
-        value
+        @text = text
+        (window || @app.active_window).try &.copy(text)
+        text
       end
 
       # Rich copy: *fragment* for in-process rich paste, plus its plain-text
       # rendering for the terminal (OSC-52 carries text only, so the system
       # clipboard degrades to plain). *window* routes the device write like
-      # `#set_text`.
-      def set_rich(fragment : TextDocumentFragment, text : String, window : Window? = nil) : Nil
-        set_text text, window
+      # the plain `#copy`.
+      def copy(fragment : TextDocumentFragment, text : String, window : Window? = nil) : Nil
+        copy text, window
         @fragment = fragment
       end
 
@@ -348,7 +349,7 @@ module Crysterm
       # (the active window's when nil; OSC-52). The reply arrives later on that
       # device's input. Pass the requesting widget's own window so the query
       # goes to the terminal the user is actually interacting with (see
-      # `#set_text`).
+      # `#copy`).
       def request(window : Window? = nil) : Nil
         (window || @app.active_window).try &.request_clipboard
       end

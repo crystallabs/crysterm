@@ -23,7 +23,7 @@ describe "Capture wide-glyph rendering" do
 
     line[0].width.should eq(2) # sanity: a wide cell
 
-    cw = Crysterm::Font.default_normal.width # 8 for Unifont
+    cw = Crysterm::BitmapFont.default_normal.width # 8 for Unifont
     bmp = Crysterm::Capture.render(s, 0, 2, 0, 1)
 
     # Foreground color used for the terminal-default fg.

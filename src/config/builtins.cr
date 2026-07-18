@@ -75,7 +75,7 @@ module Superconf
   option "window.dock_borders", false,
     description: "Join adjacent widget borders instead of overlapping them"
   option "screen.headless", Crysterm::Headless::Auto,
-    description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|yes|no): 'auto' decides from whether the app runs interactively (output is a TTY), 'yes' forces headless, 'no' forces a real terminal"
+    description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|always|never): 'auto' decides from whether the app runs interactively (output is a TTY), 'always' forces headless, 'never' forces a real terminal"
   option "screen.force_unicode", false,
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
   option "screen.full_unicode", false,
@@ -95,7 +95,7 @@ module Superconf
   option "render.optimization", Crysterm::OptimizationFlag::DamageTracking,
     description: "Render/draw optimization flags (fast_csr|smart_csr|bce|damage_tracking, comma-separated)"
   option "render.dock_contrast", Crysterm::DockContrast::Blend,
-    description: "What to do when docked borders have differing colors (ignore|dont_dock|blend)"
+    description: "What to do when docked borders have differing colors (ignore|skip|blend)"
   option "render.csr_threshold", 40,
     description: "FastCSR optimization activates when a widget is within this many columns of a screen edge",
     validate: ->(n : Int32) { n > 0 }
@@ -112,7 +112,7 @@ module Superconf
 
   # -- Mouse -----------------------------------------------------------------
   option "mouse.pixel_coordinates", Crysterm::PixelMouse::Auto,
-    description: "Whether mouse events carry sub-cell pixel coordinates via SGR-Pixels reporting (DEC private mode 1016), exposed as Event::Mouse#px/#py (auto|on|off). 'auto' (default) enables it only when the application asks (Window#enable_mouse(pixels: true)); 'on' forces it whenever the terminal reports a cell pixel size; 'off' disables it. In pixel mode the terminal reports pixels rather than cells, and the cell coordinates are derived by dividing by the detected cell size"
+    description: "Whether mouse events carry sub-cell pixel coordinates via SGR-Pixels reporting (DEC private mode 1016), exposed as Event::Mouse#px/#py (auto|on|off). 'auto' (default) enables it only when the application asks (Window#enable_mouse(pixels: :on)); 'on' forces it whenever the terminal reports a cell pixel size; 'off' disables it. In pixel mode the terminal reports pixels rather than cells, and the cell coordinates are derived by dividing by the detected cell size"
   option "mouse.cursor_shape", false,
     description: "Allow widgets to change the GUI mouse-pointer shape (xterm's OSC 22) while the pointer hovers them — e.g. a hand over a clickable widget, reset to the terminal default on leave. Off by default: it is best-effort (only xterm-class terminals honor OSC 22; most others ignore it) and changes a window the application doesn't otherwise own"
 

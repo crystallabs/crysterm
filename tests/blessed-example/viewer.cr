@@ -90,7 +90,7 @@ show = -> {
         fit: current_fit, mode: cm.nil? ? M::Glyph::Mode::Half : cm)
     elsif t.try(&.ansi?)
       M::Ansi.new(parent: viewer_box, file: current_path, width: "100%", height: "100%",
-        fit: current_fit, colors: cc.nil? ? M::Ansi::ColorMode::TrueColor : cc)
+        fit: current_fit, color_mode: cc.nil? ? M::Ansi::ColorMode::TrueColor : cc)
     else
       M.new(parent: viewer_box, type: t, file: current_path, width: "100%", height: "100%",
         fit: current_fit)
@@ -101,7 +101,7 @@ show = -> {
 }
 
 # --- Image chooser ---------------------------------------------------------
-chooser.on(Event::SelectItem) do |e|
+chooser.on(Event::ItemSelected) do |e|
   if p = paths[e.index]?
     current_path = p
     show.call
@@ -176,7 +176,7 @@ end
 # Leave collapsed: top-level backends (with their "(n/a)" markers) stay visible;
 # expand Ansi/Glyph (Right/Enter) to reach their sub-modes.
 
-backends.on(Event::SelectItem) do |_e|
+backends.on(Event::ItemSelected) do |_e|
   node = backends.selected_node
   next unless node
   data = node.data

@@ -76,11 +76,6 @@ module Crysterm
       value
     end
 
-    # Toggles widget visibility
-    def toggle_visibility
-      self.state_style.visible? ? hide : show
-    end
-
     # Returns whether widget is visible. Does not check whether the ancestors are
     # visible too; see `#visible_in_tree?`.
     def visible?

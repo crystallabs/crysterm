@@ -6,7 +6,7 @@ module Crysterm
 
   s = Window.new(
     optimization: :smart_csr,
-    always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
+    always_propagated_keys: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
   )
 
   box = ScrollableBox.new(

@@ -53,19 +53,44 @@ module Crysterm
       new_device = application.try { |app| !app.screens.includes?(new_screen) }
 
       # Tear down the old device's terminal when this was its last live window;
-      # no later path would restore it. A sibling window keeps it alive.
-      unless other_live_window_on_device?
+      # no later path would restore it. Mirrors `#disconnect`'s split: a sibling
+      # window keeps the device alive, but the departing window's pinned
+      # hardware cursor (shape/blink/color) and title must be handed back to it
+      # rather than outliving this window on the shared terminal.
+      if other_live_window_on_device?
+        reassert_sibling_terminal_state
+        stale_window = nil
+      else
         restore_terminal
-        @screen.stop_keys
+        # The old device dies with this migration; its owned fds (spawned-window
+        # IO) would otherwise leak — nothing else ever closes them.
+        if @owns_io
+          input.close rescue nil
+          output.close rescue nil
+        end
+        @screen.stop_input
+        stale_window = @window
       end
+      # The spawned emulator window and the IO ownership belong to the OLD
+      # device. Carried across, the stale emulator's eventual close would fire
+      # `on_window_closed`, pass its `@window == win` guard, and disconnect
+      # this window from its NEW, healthy device — with `@owns_io` still true,
+      # even closing the new device's fds. Clear both BEFORE closing the stale
+      # window, so its EOF-woken watcher fails the guard. (`#connect`
+      # re-asserts ownership after this swap for IO it does own.)
+      @window = nil
+      @owns_io = false
+      # Closing the rendezvous socket also ends the watcher fiber via EOF.
+      # `nil` on the sibling path: the emulator still serves the siblings.
+      stale_window.try &.close
 
       @screen = new_screen
       # A freshly-built device is still at its 1×1 construction default and
       # unprobed; size and probe it before rendering. Pinned axes are honored.
       new_screen.adopt_terminal_size
-      new_screen.probe!
+      new_screen.probe
       # Pixel mouse (DEC 1016) and CSS `px` lengths read the cell geometry, and
-      # a fresh `Screen` starts at 0. Must run before `listen` below: the
+      # a fresh `Screen` starts at 0. Must run before `start_input` below: the
       # fallback query is a synchronous read that would race the input fiber.
       new_screen.detect_cell_geometry
       # An inline surface re-anchors at the NEW terminal's cursor row. Safe
@@ -81,7 +106,7 @@ module Crysterm
         app.emit ::Crysterm::Event::ScreenRemoved, old unless app.screens.includes? old
         app.emit ::Crysterm::Event::ScreenAdded, new_screen if new_device
       end
-      listen if was_listening
+      start_input if was_listening
       render
       new_screen
     end
@@ -90,32 +115,54 @@ module Crysterm
     # the device size — a `Window` is full-screen, so its surface size *is*
     # its screen's size.
     delegate input, output, error,
-      tput, draw_caps, colors, truecolor?,
-      force_unicode?, full_unicode?,
+      tput, draw_caps, colors, color_count, truecolor?,
+      force_unicode?, full_unicode?, full_unicode_effective?,
       glyph_tier,
-      width, height, awidth, aheight,
+      width, height,
       cell_pixel_width, cell_pixel_height,
-      attr2code, code2attr, to: @screen
+      sgr_to_attr, attr_to_sgr, to: @screen
 
-    # Device-side input-mode toggles. `#listen` enables them;
+    # `Screen#awidth`/`#aheight` were verbatim duplicates of `#width`/`#height`
+    # and were removed there; kept here (returning the screen's `width`/
+    # `height`) since these are widely used across the render/geometry hot path.
+    def awidth : Int32
+      width
+    end
+
+    # :ditto:
+    def aheight : Int32
+      height
+    end
+
+    # Device-side input-mode toggles. `#start_input` enables them;
     # `#restore_terminal` disables whatever was enabled.
     delegate enable_keyboard_protocol, disable_keyboard_protocol,
       enable_bracketed_paste, disable_bracketed_paste,
       enable_in_band_resize, disable_in_band_resize,
       enable_color_scheme_notifications, disable_color_scheme_notifications,
-      _listened_keyboard?, _listened_paste?,
-      _listened_in_band_resize?, _listened_color_scheme?,
+      keyboard_protocol_enabled?, bracketed_paste_enabled?,
+      in_band_resize_enabled?, color_scheme_notifications_enabled?,
       to: @screen
 
     # Device-side mouse transport. The surface hit-test and the
     # `#disable_mouse` wrapper stay here; everything else delegates.
-    delegate enable_mouse, listen_mouse, _listened_mouse?,
-      set_mouse_cursor_shape, mouse_cursor_shape?,
+    delegate mouse_enabled?, mouse_cursor_shaping?,
       to: @screen
 
-    # `delegate` can't forward assignment, so forward this gate explicitly.
-    def mouse_cursor_shape=(value : Bool)
-      @screen.mouse_cursor_shape = value
+    # Explicit forwarder (not `delegate`): the splat-forwarding delegate def
+    # loses the enum restriction, so `enable_mouse(pixels: :on)` symbol
+    # autocasting would not compile through it.
+    def enable_mouse(pixels : PixelMouse = :auto)
+      @screen.enable_mouse(pixels: pixels)
+    end
+
+    # `delegate` can't forward assignment, so forward these explicitly.
+    def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?)
+      @screen.mouse_cursor_shape = shape
+    end
+
+    def mouse_cursor_shaping=(value : Bool)
+      @screen.mouse_cursor_shaping = value
     end
 
     # Device-side hardware-cursor control: raw `tput` shape/color/show-hide/
@@ -123,10 +170,15 @@ module Crysterm
     # hardware-vs-artificial decision read surface state, so they stay on the
     # surface and drive the hardware path through these.
     delegate hardware_cursor_styling?, hardware_cursor_color?,
-      set_hardware_cursor_shape, set_hardware_cursor_color,
+      apply_hardware_cursor_shape,
       reset_hardware_cursor_color, show_hardware_cursor, hide_hardware_cursor,
       reset_hardware_cursor,
       to: @screen
+
+    # `delegate` can't forward assignment, so forward this setter explicitly.
+    def hardware_cursor_color=(color : Int32)
+      @screen.hardware_cursor_color = color
+    end
 
     # Device-side OSC escape-sequence transport: OSC-52 clipboard, OSC 7 cwd,
     # OSC 9;4 progress.
@@ -236,7 +288,7 @@ module Crysterm
       height : Int32? = nil,
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
-      @always_propagate = @always_propagate,
+      @always_propagated_keys = @always_propagated_keys,
       @propagate_keys = @propagate_keys,
       @default_quit_keys = @default_quit_keys,
       @tab_navigation = @tab_navigation,
@@ -284,20 +336,20 @@ module Crysterm
 
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
 
-      handle ::Crysterm::Event::Attach
-      handle ::Crysterm::Event::Detach
+      handle ::Crysterm::Event::Attached
+      handle ::Crysterm::Event::Detached
       handle ::Crysterm::Event::Destroy
       handle ::Crysterm::Event::Resize
 
-      emit ::Crysterm::Event::Attach, self
+      emit ::Crysterm::Event::Attached, self
 
-      bind
+      register_instance
 
-      # Must run after `bind` (an interrupted probe needs this screen registered
+      # Must run after `register_instance` (an interrupted probe needs this screen registered
       # for `at_exit` to cook the tty back) and before `_listen_keys` (the probe
       # round-trips queries in raw mode and would race the input fiber for reply
       # bytes). No-op on a non-tty.
-      @screen.probe!
+      @screen.probe
 
       # `report_cursor` reads `@input` synchronously, so the anchor must be
       # captured before `_listen_keys` spawns the input fiber.
@@ -326,7 +378,7 @@ module Crysterm
       @_render_loop_fiber = spawn render_loop
     end
 
-    def on_attach(e)
+    def on_attached(e)
       # Adopt the size from this window's device. Skipped when the size was
       # pinned explicitly at construction (headless / fixed-size).
       @screen.adopt_terminal_size
@@ -336,7 +388,7 @@ module Crysterm
       @_resize_handler = subscribe_global_resize
     end
 
-    def on_detach(e)
+    def on_detached(e)
       @_resize_handler.try { |handler| GlobalEvents.off ::Crysterm::Event::Resize, handler }
       # Must be nil'd, so a later reattach resubscribes instead of keeping a
       # dangling handle.
@@ -346,9 +398,9 @@ module Crysterm
       # `Screen.instances`; each screen has an independent lifecycle.
     end
 
-    # Destroys current `Display`.
+    # Destroys this `Window`.
     def on_destroy(e)
-      on_detach(e)
+      on_detached(e)
     end
 
     def on_resize(e)
@@ -410,7 +462,7 @@ module Crysterm
     # loop; returns `false` when no capture var is set.
     #
     # :nodoc:
-    def capture_from_env? : Bool
+    def run_env_capture : Bool
       shot = Config.window_shot.presence
       dump_dest = Config.window_dump.presence
       anim = Config.window_anim.presence
@@ -584,7 +636,7 @@ module Crysterm
         # BOTH buffers must be reset: `add_row` below pushes to both, so
         # resetting one alone leaves them misaligned and corrupts the frame diff.
         @lines = Array(Row).new aheight
-        @olines = Array(Row).new aheight
+        @flushed_lines = Array(Row).new aheight
         old_height = 0
         old_width = 0
       end
@@ -595,9 +647,9 @@ module Crysterm
 
         Math.min(old_height, new_height).times do |i|
           adjust_width @lines[i], old_width, new_width, dirty
-          adjust_width @olines[i], old_width, new_width, dirty
+          adjust_width @flushed_lines[i], old_width, new_width, dirty
           @lines[i].dirty = dirty
-          @olines[i].dirty = dirty
+          @flushed_lines[i].dirty = dirty
         end
       end
 
@@ -618,7 +670,7 @@ module Crysterm
 
       # A full-screen clear is only correct when we own the whole screen; an
       # inline window must never wipe the terminal. It must still erase its own
-      # region, though: `@olines` is now blank, so blank new cells compare equal
+      # region, though: `@flushed_lines` is now blank, so blank new cells compare equal
       # and the frame diff skips them, leaving whatever the terminal physically
       # shows there in place.
       if do_clear
@@ -633,7 +685,7 @@ module Crysterm
     @[AlwaysInline]
     private def add_row(dirty)
       push_row @lines, dirty
-      push_row @olines, dirty
+      push_row @flushed_lines, dirty
     end
 
     # Appends one fresh, width-adjusted row to *buf*, marked `dirty`.
@@ -648,7 +700,7 @@ module Crysterm
     @[AlwaysInline]
     private def remove_row
       @lines.pop
-      @olines.pop
+      @flushed_lines.pop
     end
 
     @[AlwaysInline]
@@ -693,13 +745,13 @@ module Crysterm
       show_cursor
       alloc
 
-      # Disabling here clears the device's `_listened_mouse` flag, so a
+      # Disabling here clears the device's `mouse_enabled` flag, so a
       # subsequent `restore_terminal` doesn't redundantly disable again.
-      disable_mouse if @screen._listened_mouse?
+      disable_mouse if @screen.mouse_enabled?
 
       tput.normal_buffer
       if cursor._set
-        cursor_reset
+        reset_cursor
       end
 
       tput.flush
@@ -715,7 +767,7 @@ module Crysterm
     # region so the shell prompt continues cleanly instead of overwriting the UI.
     private def leave_inline : Nil
       tput.disable_keypad
-      disable_mouse if @screen._listened_mouse?
+      disable_mouse if @screen.mouse_enabled?
 
       # An inline il/dl scroll op may have left the scroll region pinned to
       # `[offset, offset + aheight - 1]`; hand the whole terminal back.
@@ -725,7 +777,7 @@ module Crysterm
       # Park below the region's *actual* on-screen footprint (which, under
       # auto-grow, may be smaller than `aheight`).
       tput.cursor_pos render_row_offset + @inline_visible, 0
-      cursor_reset if cursor._set
+      reset_cursor if cursor._set
 
       tput.flush
     end
@@ -889,21 +941,35 @@ module Crysterm
     # screen = screen.switch_terminal "vt100"
     # ```
     def switch_terminal(term : String) : Window
+      # The replacement gets its own copy of the cursor (incl. its `Style`):
+      # `#reparent_onto`'s destroy of THIS window runs `reset_cursor` on its
+      # cursor object during `leave`, which would clobber a shared one back to
+      # a default block. `_set` is cleared so the new window's `enter` applies
+      # the carried shape/blink/color to the NEW terminal.
+      carried_cursor = @cursor.dup
+      carried_cursor.style = @cursor.style.dup
+      carried_cursor._set = false
       reparent_onto Window.new(
         terminfo: Unibilium.from_terminal(term),
         title: @title,
         # Carry the pin STATE, not the current size as unconditional pins:
         # passing plain Int32s set `explicit_width/height` on the new device,
-        # so `adopt_terminal_size`/`resize` no-op'd forever and the
+        # so `adopt_terminal_size`/`refresh_size` no-op'd forever and the
         # replacement window stopped tracking terminal resizes, frozen at the
         # moment-of-switch size. Only an axis that was pinned stays pinned.
         width: (@screen.explicit_width? ? width : nil),
         height: (@screen.explicit_height? ? height : nil),
+        # Surface mode/geometry knobs: without these an inline (`alternate:
+        # false`) window came back as a full-screen alt-buffer window with
+        # default padding and cursor. The new window re-captures its own inline
+        # anchor for `alternate: false` in its initializer.
+        alternate: @alternate, auto_grow: @auto_grow, max_height: @max_height,
+        padding: @padding, cursor: carried_cursor,
         dock_borders: @dock_borders, dock_contrast: @dock_contrast,
-        always_propagate: @always_propagate, propagate_keys: @propagate_keys,
+        always_propagated_keys: @always_propagated_keys, propagate_keys: @propagate_keys,
         default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,
         optimization: @optimization,
-        force_unicode: force_unicode?, full_unicode: @screen.full_unicode_requested?,
+        force_unicode: force_unicode?, full_unicode: @screen.full_unicode?,
         resize_interval: @resize_interval,
       )
     end

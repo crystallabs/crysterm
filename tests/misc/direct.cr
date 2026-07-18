@@ -41,12 +41,12 @@ d.newline 2
 # Box drawing at absolute positions, plus a horizontal rule.
 d.print "boxes:"
 d.newline
-d.box d.dim_y - 6, 2, 4, 20, fg: "cyan"
-d.box d.dim_y - 6, 26, 4, 20, fg: "magenta", ascii: true
-d.move_yx d.dim_y - 1, 0
+d.box d.height - 6, 2, 4, 20, fg: "cyan"
+d.box d.height - 6, 26, 4, 20, fg: "magenta", ascii: true
+d.move_to d.height - 1, 0
 d.hline 46, fg: "yellow"
 
 # Leave styling clean and flush.
 d.newline
-d.print "dims: #{d.dim_x}x#{d.dim_y}\n", fg: "green"
+d.print "dims: #{d.width}x#{d.height}\n", fg: "green"
 d.reset

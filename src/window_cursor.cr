@@ -11,7 +11,7 @@ module Crysterm
     # Re-renders only once the screen has painted at least one frame, since the
     # artificial cursor is composited into the cell buffer by `#draw` and
     # cursor-state changes must repaint to take effect.
-    def render_if_active : Nil
+    private def render_if_active : Nil
       render if @renders > 0
     end
 
@@ -42,7 +42,7 @@ module Crysterm
         # Artificial cursor is painted by `Window#draw`; re-render to reflect.
         render_if_active
       else
-        c.shape.try { |shape| set_hardware_cursor_shape shape, c.blink }
+        c.shape.try { |shape| apply_hardware_cursor_shape shape, blink: c.blink }
         # XXX consider a simpler structure than Style for cursor color?
         # Native color is an int (`-1` = terminal default); device formats it
         # to `#rrggbb` for `Tput#cursor_color`.
@@ -64,39 +64,52 @@ module Crysterm
     # persists).
     private def push_hardware_cursor_color(c : Cursor) : Nil
       if (color = c.style.fg) && color >= 0
-        set_hardware_cursor_color color
+        self.hardware_cursor_color = color
       else
         reset_hardware_cursor_color
       end
     end
 
-    # Sets cursor shape (and blink) on cursor `c` (screen default by default; a
-    # `Widget` passes its own). If `c` isn't the active cursor, the change shows
-    # once `c` becomes active (on focus).
-    def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false, c : Cursor = @cursor)
-      c.shape = shape
-      c.blink = blink
-      c._set = false
+    # Sets cursor shape (and blink) on *cursor* (the screen default by default;
+    # a `Widget` passes its own via `Widget#set_cursor`). If *cursor* isn't the
+    # active cursor, the change shows once it becomes active (on focus).
+    def set_cursor_shape(shape : Tput::CursorShape, *, blink : Bool = false, cursor : Cursor = @cursor) : Nil
+      cursor.shape = shape
+      cursor.blink = blink
+      cursor._set = false
       apply_cursor active_cursor
     end
 
-    # Sets cursor color on cursor `c` (screen default by default; a `Widget`
-    # passes its own).
+    # Sets the screen's own default cursor shape, leaving blink unchanged. See
+    # `#set_cursor_shape` to set both, or to target a specific cursor.
+    def cursor_shape=(shape : Tput::CursorShape) : Tput::CursorShape
+      set_cursor_shape shape, blink: @cursor.blink
+      shape
+    end
+
+    # Sets cursor color on *cursor* (the screen default by default; a `Widget`
+    # passes its own via `Widget#cursor_color=`).
     #
-    # Color is stored as `c.style.fg`, the one field driving both the artificial
-    # renderer and `#apply_cursor`. An artificial cursor applies it on the next
-    # `render`; otherwise it is pushed to the terminal.
-    def cursor_color(color : Int | String | Nil = nil, c : Cursor = @cursor)
-      c.style.fg = color
-      c._set = true
+    # Color is stored as `cursor.style.fg`, the one field driving both the
+    # artificial renderer and `#apply_cursor`. An artificial cursor applies it
+    # on the next `render`; otherwise it is pushed to the terminal.
+    def set_cursor_color(color : Int | String | Nil, cursor : Cursor = @cursor) : Nil
+      cursor.style.fg = color
+      cursor._set = true
 
       ac = active_cursor
       if ac.artificial?
         render_if_active
-        return true
+        return
       end
 
       push_hardware_cursor_color ac
+    end
+
+    # Sets the screen's own default cursor color. See `#set_cursor_color` to
+    # target a specific cursor.
+    def cursor_color=(color : Int | String | Nil) : Nil
+      set_cursor_color color
     end
 
     # :nodoc:
@@ -117,7 +130,7 @@ module Crysterm
         attr = Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
       elsif cursor.shape.none?
         # `None` is the custom cursor: draw it from the cursor's own `style` (glyph and colors).
-        cattr = Widget.sattr cursor.style
+        cattr = Widget.style_to_attr cursor.style
         flags = Attr.flags(attr)
         if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || cursor.style.italic? || cursor.style.strike? || !cursor.style.visible?
           flags = Attr.flags(cattr)
@@ -164,7 +177,7 @@ module Crysterm
     # Re-enables and resets the hardware cursor; any artificial cursor is
     # turned off and erased (via re-render). Resets cursor `c` (screen default
     # by default; a `Widget` resets its own via `Widget#reset_cursor`).
-    def cursor_reset(c : Cursor = @cursor)
+    def reset_cursor(c : Cursor = @cursor)
       was_artificial = c.artificial?
       c.artificial = false
 
@@ -184,7 +197,5 @@ module Crysterm
       # Repaint to clear the previously-drawn artificial cursor cell.
       render_if_active if was_artificial
     end
-
-    alias_previous reset_cursor
   end
 end

@@ -16,5 +16,5 @@ Crysterm::WidgetExample.run("ComboBox",
   screen.stylesheet = "ComboBox { border: solid; color: #c0caf5; }"
   Crysterm::Widget::ComboBox.new \
     parent: screen, top: "center", left: "center", width: 24, height: 3,
-    options: %w[Red Green Blue Yellow], selected: 2
+    options: %w[Red Green Blue Yellow], current_index: 2
 end

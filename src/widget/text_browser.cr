@@ -93,7 +93,7 @@ module Crysterm
         url
       end
 
-      def back_available? : Bool
+      def backward_available? : Bool
         !@history.empty?
       end
 
@@ -103,7 +103,7 @@ module Crysterm
 
       # Navigates one step back in the visited-source history (Qt
       # `backward()`; the `Backspace` key). Returns whether it moved.
-      def back : Bool
+      def backward : Bool
         url = @history.last? || return false
         doc = @loader.try(&.call(url)) || return false
         @history.pop
@@ -112,7 +112,7 @@ module Crysterm
         true
       end
 
-      # Inverse of `#back`. Returns whether it moved.
+      # Inverse of `#backward`. Returns whether it moved.
       def forward : Bool
         url = @future.last? || return false
         doc = @loader.try(&.call(url)) || return false
@@ -141,6 +141,18 @@ module Crysterm
         true
       end
 
+      # Moves keyboard link focus to the next link (wrapping). False when the
+      # document has no links.
+      def focus_next_link : Bool
+        focus_link(1)
+      end
+
+      # Moves keyboard link focus to the previous link (wrapping). False when the
+      # document has no links.
+      def focus_previous_link : Bool
+        focus_link(-1)
+      end
+
       # Browser keys: `Tab`/`Shift-Tab` cycle links, `Enter` activates the
       # focused one, `Backspace` goes back.
       def _listener(e)
@@ -159,7 +171,7 @@ module Crysterm
             end
           when Tput::Key::Backspace, Tput::Key::CtrlH
             e.accept
-            return back
+            return backward
           end
         end
         super

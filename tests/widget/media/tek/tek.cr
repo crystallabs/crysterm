@@ -21,7 +21,7 @@ Widget::Box.new \
 
 Widget::Media::Tek.new \
   parent: s,
-  dither: (ENV["TEK_DITHER"]? != "0"),
+  dither: (ENV["TEK_DITHER"]? != "0" ? Widget::Media::Dither::Auto : Widget::Media::Dither::None),
   invert: (ENV["TEK_INVERT"]? == "1"),
   # Fits into the 1024x780 Tek screen; Contain preserves aspect ratio.
   fit: (case ENV["TEK_FIT"]?

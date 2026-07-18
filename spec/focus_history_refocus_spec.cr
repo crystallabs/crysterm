@@ -12,7 +12,7 @@ include Crysterm
 # legitimately older entry off the front).
 #
 # Companion `focus_refocus_emission_spec` covers the event side (no spurious
-# `Event::Focus` on re-focus); this covers the history side. Headless, no real
+# `Event::FocusIn` on re-focus); this covers the history side. Headless, no real
 # terminal.
 private def history_screen
   Crysterm::Window.new(

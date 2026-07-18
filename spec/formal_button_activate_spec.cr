@@ -32,7 +32,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
     s = fba_screen
     b = Crysterm::Widget::Button.new parent: s, content: "Go"
     pressed = 0
-    b.on(Crysterm::Event::Press) { pressed += 1 }
+    b.on(Crysterm::Event::Pressed) { pressed += 1 }
     b.emit space_key
     pressed.should eq 1
   end
@@ -50,7 +50,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
     s = fba_screen
     tb = Crysterm::Widget::ToolButton.new parent: s, content: "T"
     pressed = 0
-    tb.on(Crysterm::Event::Press) { pressed += 1 }
+    tb.on(Crysterm::Event::Pressed) { pressed += 1 }
     tb.emit space_key
     pressed.should eq 1
   end
@@ -59,7 +59,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
     s = fba_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, content: "X"
     checks = 0
-    cb.on(Crysterm::Event::Check) { checks += 1 }
+    cb.on(Crysterm::Event::StateChanged) { |e| checks += 1 if e.state.checked? }
     cb.emit space_key
     cb.checked?.should be_true
     checks.should eq 1
@@ -78,7 +78,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
     s = fba_screen
     b = Crysterm::Widget::Button.new parent: s, content: "Go"
     pressed = 0
-    b.on(Crysterm::Event::Press) { pressed += 1 }
+    b.on(Crysterm::Event::Pressed) { pressed += 1 }
     b.emit Crysterm::Event::KeyPress.new('a', nil)
     pressed.should eq 0
   end

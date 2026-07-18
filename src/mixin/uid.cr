@@ -10,10 +10,9 @@ module Crysterm
         @@uid.add 1
       end
 
-      # Unique ID. Auto-incremented.
-      #
-      # NOTE This is an instance var; setting it to the value of `@@uid` happens in includers.
-      property uid : Int32 = ::Crysterm::Mixin::Uid.next_uid
+      # Unique ID. Auto-incremented. The setter is internal (`protected`) — the
+      # value is assigned once at construction and the CSS cascade keys off it.
+      getter uid : Int32 = ::Crysterm::Mixin::Uid.next_uid
 
       # The uid in `String` form, memoized: the CSS cascade keys nodes by this
       # string on each recompute, so caching avoids a per-widget `Int#to_s`.
@@ -24,7 +23,7 @@ module Crysterm
         @uid_s ||= @uid.to_s
       end
 
-      def uid=(value : Int32) : Int32
+      protected def uid=(value : Int32) : Int32
         @uid_s = nil
         @uid = value
       end

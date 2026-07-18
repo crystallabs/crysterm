@@ -90,19 +90,19 @@ describe "BUGS12 #35 back/forward preserve history on a declining loader" do
     tb.source = "a"
     tb.activate_link "b"
     tb.source.should eq "b"
-    tb.back_available?.should be_true
+    tb.backward_available?.should be_true
 
     # Loader now declines "a": back must fail but keep it in history.
     available = {"b"}
-    tb.back.should be_false
+    tb.backward.should be_false
     tb.source.should eq "b"
-    tb.back_available?.should be_true
+    tb.backward_available?.should be_true
 
     # Once the loader accepts "a" again, back still works.
     available = {"a", "b"}
-    tb.back.should be_true
+    tb.backward.should be_true
     tb.source.should eq "a"
-    tb.back_available?.should be_false
+    tb.backward_available?.should be_false
   end
 
   it "keeps the future entry when the loader declines during #forward" do
@@ -115,7 +115,7 @@ describe "BUGS12 #35 back/forward preserve history on a declining loader" do
 
     tb.source = "a"
     tb.activate_link "b"
-    tb.back.should be_true
+    tb.backward.should be_true
     tb.source.should eq "a"
     tb.forward_available?.should be_true
 

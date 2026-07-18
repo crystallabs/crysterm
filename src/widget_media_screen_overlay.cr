@@ -41,7 +41,7 @@ module Crysterm
 
       # One-shot guard for the self lifecycle hooks (`#wire_overlay_lifecycle_hooks`),
       # so re-registering the window listeners after a cross-window move doesn't
-      # stack duplicate `Hide`/`Detach`/... handlers on this widget.
+      # stack duplicate `Hide`/`Detached`/... handlers on this widget.
       @overlay_hooks_wired = false
 
       # Scratch `RenderedGeometry` reused by `#invalidate_old_position` and
@@ -74,11 +74,11 @@ module Crysterm
         on(::Crysterm::Event::Hide) { clear_overlay }
         # A cross-window reparent emits `Detach(previous)` then `Attach(new)`:
         # drop the old window's listeners, then clear the graphic off it; the
-        # `Attach` hook re-registers on the new window. Teardown must come FIRST —
+        # `Attached` hook re-registers on the new window. Teardown must come FIRST —
         # `#clear_overlay` ends with a render of the old window, which with the
         # `Rendered` listener still registered would repaint the graphic (via the
         # already-linked new window) mid-move.
-        on(::Crysterm::Event::Detach) do |e|
+        on(::Crysterm::Event::Detached) do |e|
           teardown_overlay_listeners
           clear_overlay e.object.as?(::Crysterm::Window)
         end
@@ -87,13 +87,13 @@ module Crysterm
         # (Re)attach hooks — wired unconditionally, not only when built detached,
         # so a widget constructed already-attached still migrates its listeners
         # when later moved to another window. The `@listener_screen` guard in
-        # `#try_register_overlay_deferred` makes a same-window `Reparent` a no-op.
-        on(::Crysterm::Event::Attach) { try_register_overlay_deferred }
-        on(::Crysterm::Event::Reparent) { try_register_overlay_deferred }
+        # `#try_register_overlay_deferred` makes a same-window `Reparented` a no-op.
+        on(::Crysterm::Event::Attached) { try_register_overlay_deferred }
+        on(::Crysterm::Event::Reparented) { try_register_overlay_deferred }
       end
 
       # Registers the overlay listeners now when a window is resolvable, else
-      # defers to the `Attach`/`Reparent` hooks. A backend built detached (the
+      # defers to the `Attached`/`Reparented` hooks. A backend built detached (the
       # standard compose-then-attach pattern) has no window at construction, so
       # registering via the raising `window` accessor would crash.
       protected def register_overlay_listeners_deferred
@@ -104,7 +104,7 @@ module Crysterm
         end
       end
 
-      # Fires from the deferred `Attach`/`Reparent` hook: registers once a window
+      # Fires from the deferred `Attached`/`Reparented` hook: registers once a window
       # exists, guarded on `@listener_screen` so a re-attach doesn't double-register.
       private def try_register_overlay_deferred
         return if @listener_screen
@@ -199,7 +199,7 @@ module Crysterm
 
       # Erases the overlay at its last painted position by forcing those cells
       # to be re-emitted, then forgets the position. *on_screen* lets the
-      # caller pass the window explicitly (e.g. `Detach`, fired after
+      # caller pass the window explicitly (e.g. `Detached`, fired after
       # `#window?` is already cleared).
       private def clear_overlay(on_screen : ::Crysterm::Window? = nil)
         last = @last_drawn || return

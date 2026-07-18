@@ -49,8 +49,8 @@ module Crysterm
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
-        # Re-clamp without emitting `Event::Complete`: shrinking the range onto
-        # the current value is a reconfiguration, not a completion — `Complete`
+        # Re-clamp without emitting `Event::Completed`: shrinking the range onto
+        # the current value is a reconfiguration, not a completion — `Completed`
         # fires only when the value *rises* to `maximum`.
         set_value @value.clamp(@minimum, @maximum), complete: false
         request_render
@@ -78,9 +78,9 @@ module Crysterm
 
       # Whether to draw the textual indicator (see `#format`) over the bar,
       # like Qt's `QProgressBar#textVisible`.
-      property? show_value : Bool = false
+      property? text_visible : Bool = false
 
-      # Template for the text drawn when `#show_value?`. Recognized placeholders,
+      # Template for the text drawn when `#text_visible?`. Recognized placeholders,
       # matching Qt's `QProgressBar#format`: `%p` percentage, `%v` current value,
       # `%m` maximum, `%M` minimum.
       property format : String = "%p%"
@@ -97,7 +97,7 @@ module Crysterm
         @minimum = 0,
         @maximum = 100,
         @single_step = 5,
-        @show_value = false,
+        @text_visible = false,
         @format = "%p%",
         @keys = true,
         @mouse = false,
@@ -147,7 +147,7 @@ module Crysterm
       # Size of the value range (`maximum - minimum`), never negative.
       #
       # ProgressBar is intentionally *not* built on `Mixin::RangedValue` — its
-      # `complete:`-gated `Event::Complete` can't be expressed through that
+      # `complete:`-gated `Event::Completed` can't be expressed through that
       # mixin's `#value=`/`#set_range`. This must stay byte-identical to
       # `RangedValue(Int32)#value_span`'s Int32 branch; update the two in lockstep.
       private def span : Int32
@@ -179,26 +179,26 @@ module Crysterm
       end
 
       # Sets the value, clamping it into range. Emits `Event::ValueChanged` when it
-      # actually changes, and `Event::Complete` upon reaching `#maximum`.
+      # actually changes, and `Event::Completed` upon reaching `#maximum`.
       def value=(v : Int32) : Int32
         set_value v, complete: true
       end
 
       # Assigns the value (clamped), emitting `Event::ValueChanged` on a real
-      # change and — when *complete* — `Event::Complete` upon reaching `#maximum`.
+      # change and — when *complete* — `Event::Completed` upon reaching `#maximum`.
       protected def set_value(v : Int32, complete : Bool) : Int32
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
         @value = v
         emit Crysterm::Event::ValueChanged, @value
-        emit Crysterm::Event::Complete if complete && @value == @maximum && span > 0
+        emit Crysterm::Event::Completed if complete && @value == @maximum && span > 0
         request_render
         @value
       end
 
       # Cached indicator text and the `{value, minimum, maximum, format}` it was
       # built for; `#render` calls `#formatted_text` every frame when
-      # `#show_value?`. `#percent` derives from the range, so the key covers it.
+      # `#text_visible?`. `#percent` derives from the range, so the key covers it.
       @text_cache : String?
       @text_cache_key : Tuple(Int32, Int32, Int32, String)?
 
@@ -228,7 +228,7 @@ module Crysterm
           # NOTE Invert fg/bg so the filled value renders using the foreground
           # color: visible even when style.indicator isn't specifically defined.
           ind = style.indicator
-          default_attr = sattr ind, ind.bg, ind.fg
+          default_attr = style_to_attr ind, ind.bg, ind.fg
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?
@@ -236,7 +236,7 @@ module Crysterm
 
           # Text to overlay: the Qt-style indicator when enabled, otherwise any
           # pre-parsed content (via `#pcontent`).
-          if show_value?
+          if text_visible?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
             # Overlay on the stable top interior row (`yi`), not `fill_yi` — for a
@@ -258,12 +258,6 @@ module Crysterm
           cy = yi + (inner_h - 1) // 2
           draw_centered_text cy, xi, xl, text
         end
-      end
-
-      # Advances the value by `delta` domain units (negative to go back),
-      # clamping into range.
-      def progress(delta : Int32)
-        self.value = @value + delta
       end
 
       def reset

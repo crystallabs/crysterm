@@ -122,7 +122,7 @@ describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
     w.version_poke big
     w._clines.content_version = big
 
-    w.push_line "two"
+    w.append_line "two"
     w.version_peek.should be > big
     w.pcontent.should contain "two"
   end

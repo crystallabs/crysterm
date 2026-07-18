@@ -45,7 +45,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
   it "emits DragLeave when a mouse drag is released over a target that refuses" do
     s = bugs9_screen
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-    source.enable_drag reposition: false
+    source.drag_mode = :transfer; source.draggable = true
 
     target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
     entered = 0
@@ -69,7 +69,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
   it "does NOT emit a spurious DragLeave when the target accepts (only Drop)" do
     s = bugs9_screen
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
-    source.enable_drag reposition: false
+    source.drag_mode = :transfer; source.draggable = true
     source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
 
     target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
@@ -92,7 +92,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
     s = bugs9_screen
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3,
       draggable: true, keys: true
-    source.enable_drag reposition: false
+    source.drag_mode = :transfer; source.draggable = true
     target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4,
       keys: true
     entered = 0
@@ -104,11 +104,11 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
 
     source.focus
     s._drag_key_handled b9_keypress(' ') # pick up (keyboard drag)
-    s.dragging.should_not be_nil
+    s.drag_session.should_not be_nil
     s._drag_key_handled b9_keypress('\0', ::Tput::Key::Tab) # focus -> target, DragEnter
     entered.should eq 1
     s._drag_key_handled b9_keypress(' ') # drop; target refuses
-    s.dragging.should be_nil
+    s.drag_session.should be_nil
 
     dropped.should eq 0
     left.should eq 1

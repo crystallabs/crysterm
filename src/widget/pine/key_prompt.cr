@@ -15,7 +15,7 @@ module Crysterm
       # single-key `key`, a short `label`, and an optional `callback`).
       #
       # When the user presses a key matching a choice, that choice becomes the
-      # `#answer`, its `callback` runs, and the widget emits `Event::Action`
+      # `#answer`, its `callback` runs, and the widget emits `Event::Activated`
       # with the chosen key. It must have focus to receive keys.
       #
       # ```
@@ -24,7 +24,7 @@ module Crysterm
       #   Widget::Pine::KeyPrompt::Choice.new("N", "No"),
       #   Widget::Pine::KeyPrompt::Choice.new("C", "Cancel"),
       # ], parent: screen, bottom: 0
-      # prompt.on(Crysterm::Event::Action) { |e| puts "answered #{e.value}" }
+      # prompt.on(Crysterm::Event::Activated) { |e| puts "answered #{e.value}" }
       # prompt.focus
       # ```
       #
@@ -91,13 +91,13 @@ module Crysterm
         end
 
         # Replaces the question text and redraws the line.
-        def set_question(question : String)
+        def question=(question : String)
           @question = question
           rebuild
         end
 
         # Replaces the choices and redraws the line.
-        def set_choices(choices : Array(Choice))
+        def choices=(choices : Array(Choice))
           @choices = choices
           rebuild
         end
@@ -123,11 +123,11 @@ module Crysterm
         end
 
         # Records *choice* as the `#answer`, runs its callback, and emits
-        # `Event::Action` with the chosen key.
+        # `Event::Activated` with the chosen key.
         def choose(choice : Choice) : Nil
           @answer = choice.key
           choice.callback.try &.call
-          emit ::Crysterm::Event::Action, choice.key
+          emit ::Crysterm::Event::Activated, choice.key
           request_render
         end
 

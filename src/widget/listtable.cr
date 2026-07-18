@@ -47,11 +47,13 @@ module Crysterm
       # change doesn't keep re-imposing (and re-enabling doesn't resurrect) a
       # stale sort.
       def sortable=(value : Bool)
+        return value if value == @sortable
         @sortable = value
         unless value
           @sort_column = nil
           @sort_descending = false
         end
+        request_render
         value
       end
 
@@ -103,24 +105,23 @@ module Crysterm
       @_row_overlay_src : Style? = nil                                                                   # alternate_row source guarding @_row_overlay
 
       # NOTE: there is deliberately no `data:` parameter — it would collide with
-      # the inherited `Widget#data` (`Mixin::Data`'s `YAML::Any?` slot), as in
+      # the inherited `Widget#data` (`Mixin::Data`'s `UserData?` slot), as in
       # `Widget::Table`. Pass `rows:`.
       def initialize(
-        rows = nil,
-        pad = nil,
-        no_cell_borders = nil,
-        fill_cell_borders = nil,
-        alternate_rows = false,
-        sortable = false,
+        rows : Array(Array(String))? = nil,
+        column_spacing : Int32? = nil,
+        alternate_rows : Bool = false,
+        sortable : Bool = false,
         *,
+        cell_borders : Bool = true,
+        fill_cell_borders : Bool = false,
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
-        keys = nil, # Absorbed: an item view always enables key handling.
         **box,
       )
         self.cell_align = align
         @alternate_rows = alternate_rows
         @sortable = sortable
-        init_cell_options pad, no_cell_borders, fill_cell_borders
+        init_cell_options column_spacing, cell_borders, fill_cell_borders
 
         super **box
 
@@ -149,7 +150,7 @@ module Crysterm
         )
 
         on(Crysterm::Event::Scroll) do
-          header.front!
+          header.to_front
           # Header overlays item 0 (the spacer). Children are already inset
           # inside the list's border, so the header's top must track
           # `child_base` directly — adding the border width again would push
@@ -164,13 +165,13 @@ module Crysterm
         header.on(Crysterm::Event::Mouse) do |e|
           next unless sortable? && e.action.down?
           if col = column_at(e.x - header.aleft)
-            desc = @sort_column == col ? !@sort_descending : false
-            sort_by_column col, desc
+            order = @sort_column == col ? (@sort_descending ? SortOrder::Ascending : SortOrder::Descending) : SortOrder::Ascending
+            sort_by_column col, order
             request_render
           end
         end
 
-        on(Crysterm::Event::Attach) { self.rows = @rows }
+        on(Crysterm::Event::Attached) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
           # `#rows=` rebuilds `@maxes`/width and every item — only needed when the
           # column layout depends on the widget's own width, i.e. a fixed- or
@@ -178,7 +179,7 @@ module Crysterm
           # content-driven and don't change with the parent, so skip the rebuild
           # an interactive resize drag would otherwise fire on every step.
           unless @content_sized
-            sel = selected
+            sel = current_index
             self.rows = @rows
             select_index sel
           end
@@ -245,7 +246,7 @@ module Crysterm
 
       # Drops the CSS-row derived-style caches when the cascade has replaced this
       # widget's styles (detected via `styles.normal`'s object identity), and —
-      # so a live `#alternate_background=` still takes effect — when the
+      # so a live `#alternate_background_color=` still takes effect — when the
       # alternate-row source object changes.
       private def sync_row_style_cache : Nil
         gen = styles.normal
@@ -274,12 +275,13 @@ module Crysterm
         @_row_overlay.fetch(base) { overlay_colors(base, source) }
       end
 
-      # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells
-      # that both parse as numbers compare numerically; otherwise they compare as
-      # tag-stripped text. Re-applies the current sort whenever data is set.
-      def sort_by_column(col : Int32, descending = false)
-        @sort_column = col
-        @sort_descending = descending
+      # Sorts the body rows (the header at index 0 stays pinned) by *column*.
+      # Cells that both parse as numbers compare numerically; otherwise they
+      # compare as tag-stripped text. Re-applies the current sort whenever data
+      # is set.
+      def sort_by_column(column : Int32, order : SortOrder = :ascending)
+        @sort_column = column
+        @sort_descending = order.descending?
         # `#rows=` re-applies the active sort over `@rows`.
         self.rows = @rows
       end
@@ -352,7 +354,7 @@ module Crysterm
 
       # Total content width in columns — the horizontal analogue of the scroll
       # height. `0` (no overflow) before the columns are measured.
-      def get_scroll_width
+      def scroll_width : Int32
         @maxes.empty? ? 0 : row_width
       end
 
@@ -360,28 +362,28 @@ module Crysterm
       # a fixed-width one overflows once its columns exceed the viewport.
       #
       # Compared against the full interior (`awidth - ihorizontal`) — the width the
-      # columns are laid out to fill (`calculate_maxes`) — *not* `content_width`.
+      # columns are laid out to fill (`compute_column_widths`) — *not* `content_width`.
       # `content_width` also subtracts the *vertical* scroll bar's reserved
       # column (`content_margin_x`); when a fixed-width table scrolls vertically,
       # `row_width` fills the interior exactly, so comparing against the narrower
       # `content_width` reported a phantom 1-column horizontal overflow and drew a
       # spurious horizontal scroll bar across the bottom row.
-      def really_scrollable_x?
+      def overflows_x?
         return false if @content_sized
-        get_scroll_width > awidth - ihorizontal
+        scroll_width > awidth - ihorizontal
       end
 
       # Scrolls horizontally by *offset* columns' worth of display columns,
       # snapping the result to a whole-column boundary (so a cell is never split
       # mid-width) and re-rendering the visible rows from the new first column.
-      def scroll_x(offset = 1)
+      def scroll_by_x(offset = 1)
         return unless @scrollable && window?
         return if @content_sized || @maxes.empty?
         visible = content_width
         return if visible <= 0
 
         offsets = column_start_offsets
-        max_left = Math.max(0, get_scroll_width - visible)
+        max_left = Math.max(0, scroll_width - visible)
         max_col = column_for_offset max_left, offsets
         # Ceil: `column_for_offset` floors to the last column starting at or
         # before `max_left`. When no column starts exactly there (the normal
@@ -445,9 +447,18 @@ module Crysterm
       # `Widget::Table#rows=`). `set_data`/`set_rows` — the two names the working
       # path used to carry — are folded in here.
       def rows=(rows)
-        sel = @ritems[selected]?
-        prev_selected = selected
+        sel = @ritems[current_index]?
+        prev_selected = current_index
         prev_count = @ritems.size
+
+        # One-way width pin: for a content-sized table, clear the self-pinned
+        # width before remeasuring so `compute_column_widths` sizes columns from
+        # content again (the numeric-slack branch keys off a non-nil `@width`).
+        # Without this the previously pinned width — including the scroll-bar
+        # `reserve` folded in by `#render` — feeds back into the column widths and
+        # the table grows one column per refresh and never shrinks. A fixed-width
+        # table keeps its `@width` and its slack-distribution behaviour.
+        @width = nil if @content_sized
 
         unless reload_rows rows
           # Empty/column-less data must empty the view too: `reload_rows` has
@@ -498,7 +509,7 @@ module Crysterm
         end
 
         self.items = items
-        header.front!
+        header.to_front
 
         # Try to keep the previous selection. When the row count is unchanged
         # (e.g. an in-place re-sort or reslice), restore by numeric index: a
@@ -510,7 +521,7 @@ module Crysterm
         elsif sel && (i = @ritems.index(sel))
           select_index i
         else
-          select_index Math.min(selected, @items.size - 1)
+          select_index Math.min(current_index, @items.size - 1)
         end
       end
 
@@ -542,7 +553,13 @@ module Crysterm
         # columns, leaving the box too narrow. Recomputing here converges header
         # and box edge on the first rendered frame. Assigned directly (not via
         # `width=`) to avoid the `Resize`-before-store recursion (see `#rows=`).
-        calculate_maxes
+        #
+        # Clear the self-pinned width first (content-sized only) so this remeasure
+        # sizes columns from content rather than folding the previously pinned
+        # width — including the scroll-bar `reserve` added below — back into the
+        # columns. See `#rows=`.
+        @width = nil if @content_sized
+        compute_column_widths
 
         # Reserve the vertical scroll bar's column (when shown) for the pinned
         # header too, mirroring body items (synced in `Mixin::ItemView#render`).
@@ -602,7 +619,7 @@ module Crysterm
               col = col_map[x]?
               cell_style = col ? css_cell_style(row, col) : nil
               if cell_style && (cell = line[xi + x]?)
-                cell.attr = sattr cell_style
+                cell.attr = style_to_attr cell_style
                 line.dirty = true
               end
               x += 1
@@ -616,11 +633,11 @@ module Crysterm
       # Ported from Blessed's `ListTable.prototype.render`.
       private def draw_borders(coords)
         border = style.border
-        return if !border.any? || no_cell_borders?
+        return if !border.any? || !cell_borders?
 
         lines = window.lines
         xi, yi, width, height = border_extent coords
-        battr = sattr border
+        battr = style_to_attr border
         last = @maxes.size - 1
 
         # Junction glyphs at the effective tier, hoisted out of the per-cell

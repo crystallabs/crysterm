@@ -18,7 +18,7 @@ module Crysterm
     # itself when nothing matches.
     #
     # Emits `Event::CurrentChanged` (the new `#current_index`) on any value
-    # change — Qt's `currentIndexChanged` — and `Event::Action` (the chosen text)
+    # change — Qt's `currentIndexChanged` — and `Event::Activated` (the chosen text)
     # only when the *user* picks or cycles a value — Qt's `activated`.
     #
     # The collection is called `#options` (`items` is `Widget`'s child widgets),
@@ -30,7 +30,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class ComboBox < Input
       # Pop-up lifecycle: open flag, modal grab, outside-click dismissal,
-      # teardown. Requires `#popup_widget` and `#close`.
+      # teardown. Requires `#popup_widget` and `#hide_popup`.
       include Mixin::Popup
 
       # A combo is fixed-size: it honors its given `width` rather than shrinking
@@ -59,14 +59,15 @@ module Crysterm
         # height is this plus its own border/padding (`#ivertical`).
         property visible_rows : Int32 = 1
 
-        property combo : ComboBox?
+        getter combo : ComboBox?
+        protected setter combo
 
-        def enter_selected
-          combo.try &.commit selected
+        def activate_current
+          combo.try &.commit current_index
         end
 
-        def cancel_selected
-          combo.try &.close
+        def cancel_current
+          combo.try &.hide_popup
         end
 
         # Re-places against the combo's final geometry once the cascade has
@@ -87,35 +88,27 @@ module Crysterm
 
       getter options : Array(String)
 
-      # Index of the current option. Assigning clamps to the option list and
-      # routes through the same path a user's choice takes, so `#value`, the edit
-      # buffer, the filtered popup and the rendered content all follow and
-      # `Event::CurrentChanged` fires.
-      getter selected : Int32 = 0
+      @selected : Int32 = 0
 
-      # :ditto:
-      def selected=(index : Int) : Nil
-        return if @options.empty?
-        i = index.clamp(0, @options.size - 1)
-        set_value @options[i], i
-      end
-
-      # Qt spelling of `#selected` / `#selected=` (`QComboBox#currentIndex`).
-      # Preferred in new code.
+      # Index of the current option (Qt's `QComboBox#currentIndex`). Assigning
+      # clamps to the option list and routes through the same path a user's
+      # choice takes, so `#current_text`, the edit buffer, the filtered popup and
+      # the rendered content all follow and `Event::CurrentChanged` fires.
       def current_index : Int32
         @selected
       end
 
       # :ditto:
       def current_index=(index : Int) : Nil
-        self.selected = index
+        return if @options.empty?
+        i = index.clamp(0, @options.size - 1)
+        set_value @options[i], i
       end
 
-      # Tag-stripped text of the current selection (or the typed text, when
-      # `#editable?` and it doesn't match an option).
-      getter value : String = ""
+      @value : String = ""
 
-      # Qt spelling of `#value` (`QComboBox#currentText`).
+      # Tag-stripped text of the current selection (or the typed text, when
+      # `#editable?` and it doesn't match an option). Qt's `QComboBox#currentText`.
       def current_text : String
         @value
       end
@@ -148,13 +141,13 @@ module Crysterm
 
       @popup : Popup?
 
-      def initialize(options : Enumerable(String) = [] of String, selected = 0, editable = false, **input)
+      def initialize(options : Enumerable(String) = [] of String, current_index = 0, editable = false, **input)
         @options = options.to_a
         @editable = editable
 
         super **input
 
-        @selected = @options.empty? ? 0 : selected.clamp(0, @options.size - 1)
+        @selected = @options.empty? ? 0 : current_index.clamp(0, @options.size - 1)
         @value = @options[@selected]? || ""
         # Edit buffer starts empty; committed `@value` is shown until the user types.
         @text = ""
@@ -183,14 +176,14 @@ module Crysterm
         # drop-down must NOT dismiss it — the window implicitly focuses the
         # scrollable list under the pointer on a wheel, which would close the
         # popup mid-scroll. Only a blur outside combo+popup closes.
-        on(Crysterm::Event::Blur) do |e|
+        on(Crysterm::Event::FocusOut) do |e|
           next unless editable? && @open
-          nf = e.el
+          nf = e.next_focused
           next if nf && (p = @popup) && (nf == p || nf.descendant_of?(p))
           # `refocus: false`: this runs mid-`_focus`, so refocusing would
           # re-enter the focus machinery, bounce focus back onto the combo (Tab
           # needed twice) and duplicate a focus-history entry.
-          close refocus: false
+          hide_popup refocus: false
         end
 
         update_content
@@ -348,9 +341,10 @@ module Crysterm
         emit Crysterm::Event::CurrentChanged, @selected if was != current_state
       end
 
-      # Drops the popup open. In editable mode the combo keeps focus (so typing
-      # keeps filtering); otherwise focus moves into the popup for navigation.
-      def open
+      # Drops the popup open (Qt's `showPopup`). In editable mode the combo keeps
+      # focus (so typing keeps filtering); otherwise focus moves into the popup
+      # for navigation.
+      def show_popup
         return if @open
         return if !editable? && @options.empty?
         pop = ensure_popup
@@ -364,16 +358,16 @@ module Crysterm
         pop.items = @filtered
         # Highlight lands on current selection; editable mode starts at top
         # since the popup is a freshly filtered list.
-        pop.selected = editable? ? 0 : @selected.clamp(0, Math.max(0, @filtered.size - 1))
+        pop.current_index = editable? ? 0 : @selected.clamp(0, Math.max(0, @filtered.size - 1))
         position_popup pop
-        show_popup pop, focus_popup: !editable?
+        present_popup pop, focus_popup: !editable?
       end
 
-      # Closes the popup (without changing the value) and refocuses the combo.
-      # Pass `refocus: false` when closing because focus is already moving
-      # elsewhere — refocusing mid-blur would re-enter the focus machinery and
-      # bounce focus back onto the combo.
-      def close(refocus : Bool = true)
+      # Closes the popup (Qt's `hidePopup`) without changing the value, and
+      # refocuses the combo. Pass `refocus: false` when closing because focus is
+      # already moving elsewhere — refocusing mid-blur would re-enter the focus
+      # machinery and bounce focus back onto the combo.
+      def hide_popup(refocus : Bool = true)
         return unless teardown_popup
         # End editing session: drop filter buffer so the box shows committed value.
         if editable?
@@ -384,27 +378,27 @@ module Crysterm
       end
 
       # Commits the choice at *index* into the currently-shown (`@filtered`) list:
-      # updates the value, closes the popup, and emits `Event::Action` (Qt's
+      # updates the value, closes the popup, and emits `Event::Activated` (Qt's
       # `activated`), which fires for the user's pick even when it re-picks the
       # value already current.
       def commit(index : Int)
         # An out-of-range row commits nothing, so it activates nothing either —
         # it only dismisses the drop-down.
-        return close unless v = @filtered[index]?
+        return hide_popup unless v = @filtered[index]?
         # Non-editable: `@filtered` is `@options` itself, so the index maps
         # directly — pass it through so a repeated option label commits the row
         # actually picked. Editable: the popup is a filtered subset whose index
         # doesn't map to `@options`; fall back to value lookup.
         set_value v, editable? ? nil : index.to_i
-        close
-        emit Crysterm::Event::Action, @value
+        hide_popup
+        emit Crysterm::Event::Activated, @value
       end
 
       # Commits the free-text buffer (editable mode, no matching option).
-      def commit_text
+      protected def commit_text
         set_value @text
-        close
-        emit Crysterm::Event::Action, @value
+        hide_popup
+        emit Crysterm::Event::Activated, @value
       end
 
       # Sets the displayed value, recording which option index it corresponds to,
@@ -428,7 +422,7 @@ module Crysterm
 
       # Restores the initial state: selects the first option (empty when there
       # are none) and clears any typed edit buffer. Programmatic, so it reports
-      # `Event::CurrentChanged` but not the user-activation `Event::Action`.
+      # `Event::CurrentChanged` but not the user-activation `Event::Activated`.
       def reset
         set_value @options.first? || "", 0
         request_render
@@ -447,7 +441,7 @@ module Crysterm
         # repeated label to its first occurrence, preventing cycling onto a
         # later duplicate.
         set_value @options[i], i
-        emit Crysterm::Event::Action, @value
+        emit Crysterm::Event::Activated, @value
         request_render
       end
 
@@ -472,11 +466,11 @@ module Crysterm
           # combo+popup pair (e.g. Tab out of the open list), nothing else would
           # dismiss it, leaving it open with a live modal grab until an outside
           # click. `refocus: false`: focus is already moving on.
-          pop.on(Crysterm::Event::Blur) do |e|
+          pop.on(Crysterm::Event::FocusOut) do |e|
             next unless @open
-            nf = e.el
+            nf = e.next_focused
             next if nf && (nf == self || nf == pop || nf.descendant_of?(pop) || nf.descendant_of?(self))
-            close refocus: false
+            hide_popup refocus: false
           end
           window.append pop
           pop.hide
@@ -489,7 +483,7 @@ module Crysterm
       private def refresh_popup
         if @open && (pop = @popup)
           pop.items = @filtered
-          pop.selected = 0
+          pop.current_index = 0
           position_popup pop
         end
       end
@@ -526,7 +520,7 @@ module Crysterm
 
         return if @open
         if e.key == Tput::Key::Down || e.key == Tput::Key::Enter || e.char == ' '
-          open
+          show_popup
           e.accept
         elsif e.key == Tput::Key::Up
           cycle -1
@@ -537,7 +531,7 @@ module Crysterm
       # Opens the popup if closed, steps its highlight (block yields the live
       # popup so the caller picks `#down`/`#up`), then accepts *e* and repaints.
       private def step_open_popup(e, &)
-        open unless @open
+        show_popup unless @open
         @popup.try { |p| yield p }
         e.accept
         request_render
@@ -551,13 +545,13 @@ module Crysterm
 
         if k == Tput::Key::Enter
           if @open
-            @filtered.empty? ? commit_text : commit(@popup.try(&.selected) || 0)
+            @filtered.empty? ? commit_text : commit(@popup.try(&.current_index) || 0)
           else
-            open
+            show_popup
           end
           e.accept
         elsif k == Tput::Key::Escape
-          close if @open
+          hide_popup if @open
           e.accept
         elsif k == Tput::Key::Down
           step_open_popup(e, &.down)
@@ -575,7 +569,7 @@ module Crysterm
         elsif ch && !k && printable?(ch)
           @text += ch
           refilter
-          open unless @open
+          show_popup unless @open
           refresh_popup
           update_content
           request_render
@@ -584,7 +578,7 @@ module Crysterm
       end
 
       def on_click(e)
-        toggle
+        toggle_popup
       end
 
       # The popup is a window child (to overlay outside the combo's own box), so

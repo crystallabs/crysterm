@@ -411,6 +411,11 @@ module Crysterm
       replace_content(TextTags.parse(text))
     end
 
+    # `=`-setter spelling of `#set_tags`.
+    def tags=(text : String) : Nil
+      set_tags(text)
+    end
+
     # The content as tag markup (see `TextTags`).
     def to_tags : String
       TextTags.generate(blocks)

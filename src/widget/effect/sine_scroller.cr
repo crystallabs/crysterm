@@ -27,7 +27,7 @@ module Crysterm
       # ```
       #
       # Glyphs are painted straight into the window cells in `#render`, each
-      # cell's color set as a native `0xRRGGBB` attribute via `sattr`, rather
+      # cell's color set as a native `0xRRGGBB` attribute via `style_to_attr`, rather
       # than through a `{#rrggbb-fg}`-tagged content string re-tokenized every
       # frame. A full-window scroller emits one color run per column, which makes
       # that tag reparse the dominant per-frame cost; the direct path skips it.
@@ -75,8 +75,8 @@ module Crysterm
 
             # The attr's invariant parts (flags + bg) are packed once per frame.
             # Only fg varies per column, so the per-column cost is a single
-            # `Attr.with_fg` rather than a full `sattr` rebuild on every cell.
-            da = sattr(style)
+            # `Attr.with_fg` rather than a full `style_to_attr` rebuild on every cell.
+            da = style_to_attr(style)
             deff = Attr.fg da # widget's own fg, for the non-rainbow case
 
             # Background fill: the field the glyphs ride over.

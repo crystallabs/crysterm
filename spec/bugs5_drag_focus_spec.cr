@@ -75,7 +75,7 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
     box.focus
 
     s._drag_key_handled(keypress(' ')).should be_true
-    sess = s.dragging.not_nil!
+    sess = s.drag_session.not_nil!
 
     # offset_x is 0 for a keyboard pickup (anchor == source top-left), so the
     # re-synced anchor equals the source's clamped aleft.

@@ -26,7 +26,7 @@ private def fu_screen(width, height)
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: height, default_quit_keys: false)
   s.full_unicode = true
-  pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+  pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
   s
 end
 

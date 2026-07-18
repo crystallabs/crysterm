@@ -66,7 +66,7 @@ describe Crysterm::TextList do
 
     it "renumbers items when an earlier one is removed" do
       doc, c = doc_and_cursor("a\nb\nc")
-      c.select :document
+      c.select_span :document
       list = c.create_list(:decimal)
       list.marker_text(doc.blocks[2]).should eq "3. "
       doc.remove(0, 2) # deletes "a\n"
@@ -76,7 +76,7 @@ describe Crysterm::TextList do
 
     it "restores membership on undo of remove" do
       doc, c = doc_and_cursor("a\nb")
-      c.select :document
+      c.select_span :document
       list = c.create_list(:disc)
       list.remove(doc.blocks[0])
       list.count.should eq 1
@@ -107,7 +107,7 @@ describe Crysterm::TextList do
 
     it "format= moves every member to the new format instance" do
       doc, c = doc_and_cursor("a\nb")
-      c.select :document
+      c.select_span :document
       list = c.create_list(:disc)
       list.format = TextListFormat.new(style: :decimal)
       list.count.should eq 2

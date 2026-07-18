@@ -8,14 +8,20 @@ module Crysterm
   # button and menu item share enabled/checked state).
   #
   # Recommended to create `Action`s as children of the window they're used in.
-  # Add to `Widget`s via `#addAction` or `<<(Action)`; an action must be added
-  # to a widget before use.
+  # Add to `Menu` via `#<<(Action)` or `#add`, to `ToolBar` via `#add_action`,
+  # or to `ActionGroup` via `#add_action`; an action must be added to a widget
+  # before use.
   #
   # NOTE Actions are inspired by `QAction` (https://doc.qt.io/qt-6/qaction.html)
   class Action
     include EventHandler
 
-    alias OneOfEvents = Crysterm::Event::Triggered.class | Crysterm::Event::Hovered.class
+    # Which notification `#activate` emits (Qt's `QAction::ActionEvent`:
+    # https://doc.qt.io/qt-6/qaction.html#ActionEvent-enum).
+    enum ActionEvent
+      Trigger
+      Hover
+    end
 
     # A single keystroke in a shortcut — a named `Tput::Key` (the enum already
     # encodes the `Ctrl*`/`Shift*`/`Alt*` chord members, e.g. `CtrlB`, `CtrlUp`).
@@ -28,8 +34,9 @@ module Crysterm
 
     # User payload carried on the action (Qt's `QAction::data`) — typically an id
     # or command name, read back in a `Triggered` handler. For a richer payload,
-    # carry an id here and look the object up, or subclass `Action`.
-    alias Data = String | Int32 | Int64 | Float64 | Bool
+    # carry an id here and look the object up, or subclass `Action`. Same union
+    # `Mixin::Data#data` (any widget's `#data`) uses — see `Crysterm::UserData`.
+    alias Data = ::Crysterm::UserData
 
     # Relative importance of the action (Qt's `QAction::Priority`). A toolbar may
     # consult it to decide whether to show an action's text beside its glyph.
@@ -318,24 +325,25 @@ module Crysterm
     # disabled entry still gives tooltip feedback. A checkable action flips
     # `#checked?` before emitting `Triggered`, which carries the post-toggle
     # state — presenters must NOT pre-toggle.
-    def activate(event : OneOfEvents = Crysterm::Event::Triggered)
-      if event == Crysterm::Event::Triggered
+    def activate(event : ActionEvent = :trigger)
+      case event
+      in .trigger?
         return unless enabled?
         self.checked = !checked? if checkable?
         emit Crysterm::Event::Triggered, checked?
-      else
+      in .hover?
         emit Crysterm::Event::Hovered
       end
     end
 
     # Activates the action's `Triggered` behavior (Qt's `QAction::trigger`).
     def trigger
-      activate Crysterm::Event::Triggered
+      activate ActionEvent::Trigger
     end
 
     # Emits the action's `Hovered` notification (Qt's `QAction::hover`).
     def hover
-      activate Crysterm::Event::Hovered
+      activate ActionEvent::Hover
     end
 
     # Flips a checkable action's `#checked?` (Qt's `QAction::toggle`), emitting

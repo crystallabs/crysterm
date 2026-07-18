@@ -16,7 +16,7 @@ module Crysterm
       #
       # The currently-selected row is drawn reverse. Navigate with the arrow keys
       # and activate with Enter; activation runs the option's `callback` (and also
-      # emits `Event::ActionItem`, so callers can hook in instead).
+      # emits `Event::ItemActivated`, so callers can hook in instead).
       # A single selectable menu command.
       class MenuOption
         # Keyboard letter for the command (e.g. `"C"`).
@@ -32,6 +32,11 @@ module Crysterm
         property callback : Proc(Nil)?
 
         def initialize(@key, @title, @description, @callback = nil)
+        end
+
+        # Block form: `Option.new(key, title, description) { ... }`.
+        def initialize(key, title, description, &callback : ->)
+          initialize(key, title, description, callback)
         end
       end
 

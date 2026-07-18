@@ -22,7 +22,7 @@ describe "ItemView#selected_values on an empty list" do
     s = sve_screen
     list = Crysterm::Widget::List.new parent: s, items: [] of String
     list.items.size.should eq 0
-    list.value.should eq ""
+    list.current_text.should eq ""
     list.selected_values.should eq [] of String
   end
 

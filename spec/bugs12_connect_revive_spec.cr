@@ -129,7 +129,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
       seen = [] of Char
       w.on(Crysterm::Event::KeyPress) { |e| seen << e.char }
 
-      screen.listen_keys
+      screen.start_input
       writer.write "a".to_slice
       writer.flush
       wait_until { seen.size >= 1 }

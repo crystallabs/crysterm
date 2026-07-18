@@ -12,7 +12,7 @@ private def fu_render(content : String, width = 20)
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: 3)
   s.full_unicode = true
-  pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+  pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
   Widget::Box.new parent: s, top: 0, left: 0, width: width, height: 3, content: content
   s._render
   s

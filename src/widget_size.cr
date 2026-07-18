@@ -178,7 +178,7 @@ module Crysterm
     # Returns minimum widget size based on bounding box
     private def minimal_children_rectangle(xi, xl, yi, yl, rendered)
       if @children.empty?
-        return Rectangle.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
+        return Rectangle.of_edges left: xi, top: yi, right: xi + 1, bottom: yi + 1
       end
 
       mxi = xi
@@ -290,7 +290,7 @@ module Crysterm
         end
       end
 
-      Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
+      Rectangle.of_edges left: xi, top: yi, right: xl, bottom: yl
     end
 
     # Returns minimum widget size based on content.
@@ -322,7 +322,7 @@ module Crysterm
         end
       end
 
-      Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
+      Rectangle.of_edges left: xi, top: yi, right: xl, bottom: yl
     end
 
     # Frame memo for `minimal_rectangle`: without it, nested shrink_to_fit widgets
@@ -389,7 +389,7 @@ module Crysterm
         yl += yll
       end
 
-      Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
+      Rectangle.of_edges left: xi, top: yi, right: xl, bottom: yl
     end
   end
 end

@@ -62,25 +62,25 @@ describe "Window connect/disconnect lifecycle" do
 
   it "restores prior listening state across a reattach" do
     w = conn_window IO::Memory.new
-    w.listen # marks the window as listening; enabling mouse reporting is a side effect
+    w.start_input # marks the window as listening; enabling mouse reporting is a side effect
 
     w.disconnect
     # The teardown turned mouse reporting back off.
-    w._listened_mouse?.should be_false
+    w.mouse_enabled?.should be_false
 
     new_out = IO::Memory.new
     w.connect(IO::Memory.new, new_out)
 
     # Listening was active before, so the reattach re-establishes it (which
     # re-enables mouse reporting).
-    w._listened_mouse?.should be_true
+    w.mouse_enabled?.should be_true
   end
 
   it "does not restore listening when it was never started" do
     w = conn_window IO::Memory.new
-    # No #listen call.
+    # No #start_input call.
     w.disconnect
     w.connect(IO::Memory.new, IO::Memory.new)
-    w._listened_mouse?.should be_false
+    w.mouse_enabled?.should be_false
   end
 end

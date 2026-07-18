@@ -90,7 +90,7 @@ describe "BUGS13 M7: ToolTip sizes by display width" do
   it "sizes a CJK tooltip to its cell width" do
     s = wdg_screen
     s.full_unicode = true
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     tt = Widget::ToolTip.new parent: s
     tt.show_at 0, 0, "日本語"
     # 6 display cells + 1 leading/trailing pad cell each side + insets;
@@ -105,7 +105,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
   it "right-aligns a wide-char section by cells" do
     s = wdg_screen(20, 3)
     s.full_unicode = true
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 20, height: 1
     bar.add_permanent "日本語" # 6 cells
     s._render
@@ -118,7 +118,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
   it "left-truncates an overflowing run by display cells" do
     s = wdg_screen(6, 3)
     s.full_unicode = true
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 6, height: 1
     bar.add_permanent "ABCDE日本" # 9 cells into 6
     s._render
@@ -137,7 +137,7 @@ describe "BUGS13 M11: hidden Wizard stands down from Enter/Escape" do
     wiz.add_page Widget::Box.new(content: "one"), title: "P1"
     wiz.add_page Widget::Box.new(content: "two"), title: "P2"
     cancelled = 0
-    wiz.on(Crysterm::Event::Cancel) { cancelled += 1 }
+    wiz.on(Crysterm::Event::Cancelled) { cancelled += 1 }
 
     wiz.current_index.should eq 0
     wiz.hide

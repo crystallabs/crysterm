@@ -89,15 +89,15 @@ describe "Window#_artificial_cursor_attr" do
     end
   end
 
-  describe "#cursor_color" do
+  describe "#cursor_color=" do
     it "stores the color as the cursor's style.fg (native int)" do
       screen = mem_screen
       screen.cursor.artificial = true # avoid hardware terminal I/O
       # A native int is stored as-is...
-      screen.cursor_color 0xff8800
+      screen.cursor_color = 0xff8800
       screen.cursor.style.fg.should eq 0xff8800
       # ...and a back-compat color string parses to its native int.
-      screen.cursor_color "red"
+      screen.cursor_color = "red"
       screen.cursor.style.fg.should eq Crysterm::Colors.convert("red")
     end
   end

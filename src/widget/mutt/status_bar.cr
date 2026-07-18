@@ -47,7 +47,7 @@ module Crysterm
         end
 
         # Replaces the left and right zone text.
-        def set(left : String, right : String = "")
+        def set_text(left : String, right : String = "")
           self.content = left
           @right_zone.content = right
         end

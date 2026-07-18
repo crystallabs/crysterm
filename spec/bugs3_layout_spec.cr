@@ -28,7 +28,7 @@ describe "TableLayout#pad_cell wide-character trim (display-width)" do
     s = unicode_screen
     t = Crysterm::Widget::Table.new parent: s, rows: [["漢字漢字"]]
 
-    s.full_unicode?.should be_true
+    s.full_unicode_effective?.should be_true
     # Four CJK graphemes at two columns each.
     t.cell_width("漢字漢字").should eq 8
   end
@@ -81,7 +81,7 @@ describe "TableLayout#pad_cell wide-character trim (display-width)" do
     s = plain_screen
     t = Crysterm::Widget::Table.new parent: s, rows: [["漢字漢字"]]
 
-    s.full_unicode?.should be_false
+    s.full_unicode_effective?.should be_false
     # Without full_unicode each character is measured as one column, so a 4-col
     # trim keeps all four characters unchanged.
     t.pad_cell("漢字漢字", 4).should eq "漢字漢字"

@@ -31,9 +31,8 @@ module Crysterm
       # noise doesn't shimmer between frames).
       property dither : Media::Dither = Media::Dither::Auto
 
-      def initialize(*args, dither : Media::Dither | Bool = Media::Dither::Auto, **opts)
-        # Accept a legacy Bool: true ⇒ auto, false ⇒ none.
-        @dither = Media::Dither.from_arg(dither, Media::Dither::Auto)
+      def initialize(*args, dither : Media::Dither = Media::Dither::Auto, **opts)
+        @dither = dither
         super *args, **opts
       end
 

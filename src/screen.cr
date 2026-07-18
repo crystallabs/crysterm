@@ -10,9 +10,9 @@ module Crysterm
   # How a `Screen` built without explicit IO chooses between a real terminal and
   # a headless (in-memory) connection. See `Crysterm.headless?`.
   enum Headless
-    Auto # Decide automatically: headless iff the app is non-interactive (output is not a TTY)
-    Yes  # Always headless, even on a real terminal
-    No   # Always use the real terminal, even when non-interactive
+    Auto   # Decide automatically: headless iff the app is non-interactive (output is not a TTY)
+    Always # Always headless, even on a real terminal
+    Never  # Always use the real terminal, even when non-interactive
   end
 
   # Explicit output color-depth override, independent of what the terminal
@@ -25,7 +25,7 @@ module Crysterm
     Xterm256  # 256-color palette
     TrueColor # 24-bit RGB
 
-    # The terminal color-count this depth maps to in `Screen#colors` terms.
+    # The terminal color-count this depth maps to in `Screen#color_count` terms.
     # `Auto` has no fixed count and returns `nil`.
     def to_count : Int32?
       case self
@@ -114,17 +114,18 @@ module Crysterm
     def full_unicode=(@full_unicode : Bool)
     end
 
+    # The `full_unicode` *option* as set, before the terminal-capability gate
+    # (`#full_unicode_effective?`) applies. Symmetric with `#full_unicode=`, and
+    # what to copy when cloning options to a new device.
+    def full_unicode? : Bool
+      @full_unicode
+    end
+
     # Whether grapheme/column-width-aware rendering is *in effect*: the
     # `full_unicode` option is on AND the terminal can render Unicode. The
     # single gate consulted by the content engine, renderer, and drawer.
-    def full_unicode? : Bool
+    def full_unicode_effective? : Bool
       @full_unicode && tput.features.unicode?
-    end
-
-    # The raw `full_unicode` *option* as requested, before the `#full_unicode?`
-    # terminal-capability gate applies. Used when copying options to a new device.
-    def full_unicode_requested? : Bool
-      @full_unicode
     end
 
     # Device width, in cells.
@@ -161,6 +162,7 @@ module Crysterm
     # `#compute_draw_caps` rather than re-queried every frame. Includes the
     # static, parameter-free sequence bytes (`smacs`/`rmacs`/`el`) the drawer
     # writes straight into the frame buffer.
+    # :nodoc:
     record DrawCaps,
       has_bce : Bool,
       parm_right_cursor : Bool,
@@ -251,16 +253,6 @@ module Crysterm
       height.try { |h| @explicit_height = true; @height = h }
     end
 
-    # Returns current device width. Local operation (size is pushed to us).
-    def awidth
-      @width
-    end
-
-    # Returns current device height. Local operation (size is pushed to us).
-    def aheight
-      @height
-    end
-
     # Runs the deferred live terminal probe that the constructor skipped. No-op
     # on a non-tty.
     #
@@ -269,7 +261,7 @@ module Crysterm
     # SGR readback. `@draw_caps` snapshots the color depth, so it MUST be
     # recomputed afterward or rendering keeps downsampling to the stale
     # pre-probe depth.
-    def probe! : Nil
+    def probe : Nil
       return unless ::Superconf.tput_probe
       @tput.probe!
       @draw_caps = compute_draw_caps
@@ -359,7 +351,7 @@ module Crysterm
         broken_acs: tput.features.broken_acs?,
         term_unicode: tput.features.unicode?,
         u8: tput.terminfo.try(&.extensions.get_num?("U8")),
-        ncolors: colors,
+        ncolors: color_count,
         acscr: tput.features.acscr,
         smacs: (s.smacs? || Bytes.empty).dup,
         rmacs: (s.rmacs? || Bytes.empty).dup,

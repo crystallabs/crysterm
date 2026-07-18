@@ -2,7 +2,7 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the draw / terminal-output path (`Screen#draw` in
-# `screen_drawing.cr`): the cell-diff of `@lines` vs `@olines` + SGR/cursor byte
+# `screen_drawing.cr`): the cell-diff of `@lines` vs `@flushed_lines` + SGR/cursor byte
 # emission. The cracktro harness measures an all-changing scene; this one
 # targets the common case — a mostly-static screen where only a few cells
 # change per frame — where the per-dirty-row scan and SGR encoding dominate.
@@ -28,7 +28,7 @@ def make_screen(devnull) : Window
   s.width = W
   s.height = H
   s.realloc
-  s.draw # prime: @olines mirrors @lines
+  s.draw # prime: @flushed_lines mirrors @lines
   s
 end
 

@@ -41,18 +41,13 @@ module Crysterm
       # `Time#to_s` format used when `#timestamps?`.
       property timestamp_format : String = "%H:%M:%S"
 
-      def scroll_percentage
-        get_scroll_perc false
-      end
-
-      def scroll_percentage=(i)
-        set_scroll_perc i
-      end
+      # Maximum number of retained lines (Qt's `QPlainTextEdit#maximumBlockCount`);
+      # oldest lines are dropped once exceeded.
+      property max_lines : Int32 = Int32::MAX
 
       def initialize(
         @scroll_on_input = false,
-        @scrollback = Int32::MAX,
-        max_lines = nil,
+        @max_lines = Int32::MAX,
         timestamps = false,
         min_level = Level::Debug,
         **scrollable_text,
@@ -61,25 +56,12 @@ module Crysterm
 
         @timestamps = timestamps
         @min_level = min_level
-        # `max_lines` is the friendlier alias for `scrollback`.
-        max_lines.try { |v| @scrollback = v }
 
         # Sticky-bottom by default: new lines scroll into view unless the user
         # has scrolled up.
         @follow_tail = true
 
-        on Crysterm::Event::SetContent, ->on_set_content(Crysterm::Event::SetContent)
-      end
-
-      # Maximum number of retained lines, an alias for `#scrollback` (Qt's
-      # `QPlainTextEdit#maximumBlockCount`).
-      def max_lines : Int32
-        @scrollback
-      end
-
-      # :ditto:
-      def max_lines=(value : Int32)
-        @scrollback = value
+        on Crysterm::Event::ContentChanged, ->on_set_content(Crysterm::Event::ContentChanged)
       end
 
       # Appends a line at *level*, honoring `#min_level`, an optional timestamp,
@@ -126,18 +108,18 @@ module Crysterm
 
       # Append a line to the log. Arguments are stringified and joined with a
       # space (like `puts`), so `add "mouse", x` logs `mouse 5`. Oldest lines
-      # are dropped once `scrollback` is exceeded.
+      # are dropped once `max_lines` is exceeded.
       def add(*args)
         text = args.map(&.to_s).join(" ")
 
         emit Crysterm::Event::Log, text
 
-        ret = push_line text
+        ret = append_line text
 
-        if @_clines.fake.size > @scrollback
+        if @_clines.fake.size > @max_lines
           # Trim a third of the limit at once rather than one line per append.
-          # `Math.max(1, …)` avoids a no-op `shift_line 0` when `scrollback` < 3.
-          shift_line Math.max(1, @scrollback // 3)
+          # `Math.max(1, …)` avoids a no-op `remove_first_line 0` when `max_lines` < 3.
+          remove_first_line Math.max(1, @max_lines // 3)
         end
 
         ret

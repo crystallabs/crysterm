@@ -14,10 +14,5 @@ module Crysterm
         super @orientation, **line
       end
     end
-
-    # <!-- widget-examples:capture v1 -->
-    # ![VLine screenshot](../../tests/widget/vline/vline.5s.apng)
-    # <!-- /widget-examples:capture -->
-    alias Vline = VLine
   end
 end

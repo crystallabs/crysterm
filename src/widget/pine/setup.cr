@@ -30,6 +30,11 @@ module Crysterm
 
         def initialize(@name, @description = "", *, @enabled = false, @callback = nil)
         end
+
+        # Block form: `Option.new(name, description, enabled: ...) { |on| ... }`.
+        def initialize(name, description = "", *, enabled = false, &callback : Bool ->)
+          initialize(name, description, enabled: enabled, callback: callback)
+        end
       end
 
       # <!-- widget-examples:capture v1 -->
@@ -48,7 +53,7 @@ module Crysterm
 
         record_accessors options, option, Option
 
-        # Enter (via `Event::ActionItem`) toggles the selected option rather than
+        # Enter (via `Event::ItemActivated`) toggles the selected option rather than
         # running a one-shot callback.
         def activate
           toggle_selected
@@ -61,10 +66,10 @@ module Crysterm
 
         # Toggles the currently-selected option and refreshes its row.
         def toggle_selected
-          o = records[selected]?
+          o = records[current_index]?
           return unless o
           o.enabled = !o.enabled?
-          set_item selected, format_row(o, selected)
+          set_item current_index, format_row(o, current_index)
           o.callback.try &.call(o.enabled?)
           request_render
         end

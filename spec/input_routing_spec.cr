@@ -62,19 +62,19 @@ describe "Window#handle_input" do
     seen.should eq ["KeyPress", "KeyRelease"]
   end
 
-  it "routes a color-scheme report to Event::ColorScheme" do
+  it "routes a color-scheme report to Event::ColorSchemeChanged" do
     s = routing_screen
     got = [] of Tput::ColorScheme
-    s.on(Crysterm::Event::ColorScheme) { |e| got << e.scheme }
+    s.on(Crysterm::Event::ColorSchemeChanged) { |e| got << e.scheme }
     s.handle_input Tput::InputEvent.new('\0', color_scheme: Tput::ColorScheme::Dark)
     got.should eq [Tput::ColorScheme::Dark]
   end
 
-  it "routes an OSC-52 clipboard read reply to Event::Clipboard (not Paste)" do
+  it "routes an OSC-52 clipboard read reply to Event::ClipboardChanged (not Paste)" do
     s = routing_screen
     clips = [] of String
     pastes = 0
-    s.on(Crysterm::Event::Clipboard) { |e| clips << e.content }
+    s.on(Crysterm::Event::ClipboardChanged) { |e| clips << e.content }
     s.on(Crysterm::Event::Paste) { |_| pastes += 1 }
     s.handle_input Tput::InputEvent.new('\0', clipboard: "clip text")
     clips.should eq ["clip text"]
@@ -179,7 +179,7 @@ describe "Application#route_input" do
     app.add win
 
     got = [] of String
-    win.on(Crysterm::Event::Clipboard) { |e| got << e.content }
+    win.on(Crysterm::Event::ClipboardChanged) { |e| got << e.content }
 
     app.route_input win.screen, Tput::InputEvent.new('\0', clipboard: "from terminal")
     got.should eq ["from terminal"]

@@ -31,11 +31,11 @@ private def f1_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
 end
 
 describe "BUGS-F1 finding 20: alias_previous defines the requested alias" do
-  it "creates Widget::Message#log as a working alias of #display" do
+  it "supports Widget::Message#display block-less overload" do
     s = f1_screen
     m = Crysterm::Widget::Message.new parent: s
     # `-1.seconds` selects the keypress-dismissal path (no timer fiber).
-    m.log("saved", -1.seconds)
+    m.display("saved", -1.seconds)
     m.visible?.should be_true
   end
 
@@ -58,7 +58,7 @@ describe "BUGS-F1 finding 30: a disabled draggable widget cannot be dragged" do
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Down, 12, 6)
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Move, 20, 12, ::Tput::Mouse::Button::None)
 
-    s.dragging.should be_nil
+    s.drag_session.should be_nil
     box.left.should eq 10
     box.top.should eq 5
   end
@@ -168,21 +168,21 @@ describe "BUGS-F1 finding 39: Donut caption is not stamped onto the bottom borde
 end
 
 describe "BUGS-F1 finding 49: ButtonGroup exclusivity survives a raising handler" do
-  it "resets @suppress even when a Check/UnCheck handler raises" do
+  it "resets @suppress even when a StateChanged handler raises" do
     s = f1_screen
     a = Widget::CheckBox.new parent: s
     b = Widget::CheckBox.new parent: s
 
     group = ButtonGroup.new
-    group.add a
-    group.add b
+    group.add_button a
+    group.add_button b
 
     a.check
     a.checked?.should be_true
 
     # A user handler that raises while the group is unchecking `a` (inside the
     # `suppressed` block triggered by checking `b`).
-    a.on(Crysterm::Event::UnCheck) { raise "boom" }
+    a.on(Crysterm::Event::StateChanged) { |e| raise "boom" if e.state.unchecked? }
 
     expect_raises(Exception, "boom") do
       b.check
@@ -208,10 +208,10 @@ describe "BUGS-F1 finding 52: set_label update path honors padding" do
       style: Style.new(border: true, padding: Padding.new(2, 0, 2, 0))
 
     box.set_label "A"
-    first = box._label!.left
+    first = box.label_widget.not_nil!.left
 
     box.set_label "B"
-    second = box._label!.left
+    second = box.label_widget.not_nil!.left
 
     second.should eq first
     # Sanity: padding is actually present (border 1 + padding 2), so the buggy

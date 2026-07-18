@@ -102,16 +102,18 @@ require "./style/css/**"
 # alias of your choosing, e.g. "C":
 #
 # ```
-# require "../src/crysterm"
+# require "crysterm"
 # alias C = Crysterm
 #
-# s = C::Window.new
-# t = C::Widget::Text.new content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true), left: "center", top: "center", parent: s
+# window = C::Window.new title: "hello"
 #
-# s.append t
-# s.on(C::Event::KeyPress) { exit }
+# C::Widget::Box.new \
+#   parent: window,
+#   content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true),
+#   left: "center", top: "center", width: 20, height: 5
 #
-# s.exec
+# # `q` / Ctrl-Q already quit by default, so nothing else is needed.
+# window.exec
 # ```
 module Crysterm
   # Project-wide alias for the "shorthand side" of an enum-valued argument: a
@@ -119,6 +121,13 @@ module Crysterm
   # shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
   # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
   alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
+
+  # Project-wide alias for a primitive scalar attached as arbitrary user
+  # payload — `Action#data` (Qt's `QAction::data`) and `Mixin::Data#data`
+  # (any widget's `#data`) both carry this. Deliberately narrow (no
+  # `YAML::Any`/collections): a payload needing more structure should carry an
+  # id here and look the richer object up elsewhere.
+  alias UserData = String | Int32 | Int64 | Float64 | Bool
 
   # Whether this process's STDOUT is a TTY. False if redirected to a file/pipe
   # or there's no controlling terminal (e.g. CI).
@@ -131,20 +140,20 @@ module Crysterm
   # Whether a `Window` constructed without explicit IO should default to a
   # headless (in-memory) connection rather than real `STDIN`/`STDOUT`/`STDERR`.
   # Resolves `screen.headless` config: `Auto` follows the inverse of
-  # `interactive?`, `Yes`/`No` force the choice.
+  # `interactive?`, `Always`/`Never` force the choice.
   def self.headless? : Bool
     case Config.screen_headless
-    in Headless::Yes  then true
-    in Headless::No   then false
-    in Headless::Auto then !interactive?
+    in Headless::Always then true
+    in Headless::Never  then false
+    in Headless::Auto   then !interactive?
     end
   end
 
-  class GlobalEventsClass
+  class GlobalEventHub
     include EventHandler
   end
 
-  GlobalEvents = GlobalEventsClass.new
+  GlobalEvents = GlobalEventHub.new
 
   # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
   # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
@@ -193,7 +202,7 @@ module Crysterm
 
   # Restores every connected window's terminal after the process continues
   # (`SIGCONT`): re-enters the alt buffer/modes via the continuation `#pause`
-  # stored, then reallocs (invalidating `@olines` — the terminal no longer shows
+  # stored, then reallocs (invalidating `@flushed_lines` — the terminal no longer shows
   # the pre-suspend frame, so diffing against it would leave shell output as
   # permanent corruption) and repaints.
   def self.resume_terminals : Nil

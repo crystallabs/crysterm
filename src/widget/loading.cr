@@ -19,20 +19,31 @@ module Crysterm
 
       # Built-in spinner animations, selectable by name via the `spinner:`
       # option (or `#spinner=`). The frames of each are cycled by `#step`.
+      enum Spinner
+        Line
+        Dots
+        Braille
+        Bar
+        Circle
+        Arrow
+        Bounce
+        Toggle
+      end
+
       SPINNERS = {
-        "line"    => ["|", "/", "-", "\\"],
-        "dots"    => [".  ", ".. ", "...", " ..", "  .", "   "],
-        "braille" => ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
-        "bar"     => ["[=   ]", "[==  ]", "[ == ]", "[  ==]", "[   =]", "[    ]"],
-        "circle"  => ["◐", "◓", "◑", "◒"],
-        "arrow"   => ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"],
-        "bounce"  => ["⠁", "⠂", "⠄", "⠂"],
-        "toggle"  => ["▮", "▯"],
+        Spinner::Line    => ["|", "/", "-", "\\"],
+        Spinner::Dots    => [".  ", ".. ", "...", " ..", "  .", "   "],
+        Spinner::Braille => ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+        Spinner::Bar     => ["[=   ]", "[==  ]", "[ == ]", "[  ==]", "[   =]", "[    ]"],
+        Spinner::Circle  => ["◐", "◓", "◑", "◒"],
+        Spinner::Arrow   => ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"],
+        Spinner::Bounce  => ["⠁", "⠂", "⠄", "⠂"],
+        Spinner::Toggle  => ["▮", "▯"],
       }
 
-      # Frames of a named built-in spinner, or `nil` if the name is unknown.
-      def self.spinner_frames(name : String | Symbol) : Array(String)?
-        SPINNERS[name.to_s]?
+      # Frames of a named built-in spinner.
+      def self.spinner_frames(spinner : Spinner) : Array(String)
+        SPINNERS[spinner]
       end
 
       property? compact = false
@@ -44,12 +55,9 @@ module Crysterm
       # the state-change paths rather than interpolated every frame.
       @compact_content = ""
 
-      # XXX Use a better name than 'icons', so that it doesn't
-      # seem to imply longer text can't be used.
-
-      # Explicitly pinned frames (`icons:`/`spinner:`/`#spinner=`), or `nil` =
-      # unset: resolve the CSS `glyphs`/registry chain instead (see `#icons`).
-      @icons : Array(String)?
+      # Explicitly pinned frames (`frames:`/`spinner:`/`#spinner=`), or `nil` =
+      # unset: resolve the CSS `glyphs`/registry chain instead (see `#frames`).
+      @frames : Array(String)?
 
       getter icon : Text
 
@@ -57,8 +65,8 @@ module Crysterm
       # CSS `glyphs` string's characters (`Loading { glyphs: "◐◓◑◒" }`), else the
       # registry's `SpinnerFrames` at the effective tier. Memoized, so the
       # per-tick `#step` costs a tuple compare.
-      def icons : Array(String)
-        if pinned = @icons
+      def frames : Array(String)
+        if pinned = @frames
           return pinned
         end
         key = glyph_key(style)
@@ -76,8 +84,8 @@ module Crysterm
       def initialize(
         @compact = false,
         @interval = Crysterm::Config.loading_interval,
-        icons : Array(String)? = nil,
-        spinner : String | Symbol | Nil = nil,
+        frames : Array(String)? = nil,
+        spinner : Spinner? = nil,
         @step = 1,
         **box,
       )
@@ -85,19 +93,19 @@ module Crysterm
           @orig_text = c
         end
 
-        # An explicit `icons:` pins the frames. An *empty* array counts as unset
-        # (resolve the default chain), else `icons[0]` would raise `IndexError`
-        # here and `#step`'s `% icons.size` a `DivisionByZeroError`.
-        @icons = icons.try { |i| i.empty? ? nil : i }
+        # An explicit `frames:` pins the frames. An *empty* array counts as unset
+        # (resolve the default chain), else `frames[0]` would raise `IndexError`
+        # here and `#step`'s `% frames.size` a `DivisionByZeroError`.
+        @frames = frames.try { |i| i.empty? ? nil : i }
 
         # A named built-in spinner overrides (and pins) the frames.
-        spinner.try { |name| SPINNERS[name.to_s]?.try { |f| @icons = f } }
+        spinner.try { |s| @frames = SPINNERS[s] }
 
         super **box
 
         @pos = 0
 
-        # Built with placeholder content: `#icons` is a method call, which can't
+        # Built with placeholder content: `#frames` is a method call, which can't
         # run until every ivar — `@icon` included — is initialized.
         @icon = Text.new \
           align: :center,
@@ -107,7 +115,7 @@ module Crysterm
           height: 1,
           content: ""
 
-        @icon.set_content self.icons[0]
+        @icon.set_content self.frames[0]
         append @icon
         rebuild_compact_content
       end
@@ -119,19 +127,13 @@ module Crysterm
       end
 
       # Switches to a named built-in spinner (see `SPINNERS`) at runtime,
-      # restarting its frame cycle. Unknown names are ignored.
-      def spinner=(name : String | Symbol)
-        SPINNERS[name.to_s]?.try do |frames|
-          @icons = frames
-          @pos = 0
-          @icon.set_content frames[0]
-          rebuild_compact_content
-        end
-      end
-
-      # Blessed-compatible alias for `#start`.
-      def load(text = nil)
-        start text
+      # restarting its frame cycle.
+      def spinner=(name : Spinner)
+        frames = SPINNERS[name]
+        @frames = frames
+        @pos = 0
+        @icon.set_content frames[0]
+        rebuild_compact_content
       end
 
       # Shows the widget and starts the spinner loop (`Effect::Animated#start`).
@@ -146,12 +148,12 @@ module Crysterm
       # Advances the spinner one frame (state + paint only); the shared
       # `Effect::Animated` loop handles `window.render` and the inter-frame sleep.
       #
-      # `@pos` is advanced *before* painting: the icon already shows `icons[0]`
+      # `@pos` is advanced *before* painting: the icon already shows `frames[0]`
       # from `initialize`/`spinner=`, so painting first would freeze the spinner
       # on frame 0 for two intervals.
       def step
-        @pos = (@pos + @step) % icons.size
-        @icon.set_content icons[@pos]
+        @pos = (@pos + @step) % frames.size
+        @icon.set_content frames[@pos]
         rebuild_compact_content
       end
 

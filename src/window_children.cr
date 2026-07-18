@@ -19,7 +19,7 @@ module Crysterm
       end
 
       # A same-window nested→top-level move must not churn the window-level
-      # `Detach`/`Attach` events or rewind focus — the widget never leaves this
+      # `Detached`/`Attached` events or rewind focus — the widget never leaves this
       # window. Must be sampled before the unlink severs the `#parent` link the
       # window is derived through.
       same_screen_move = !element.parent.nil? && element.window? == self
@@ -47,8 +47,8 @@ module Crysterm
       # A top-level widget (added straight to a Window) is the single element
       # that actually stores its screen; descendants derive it from the tree.
       # For a same-window move hand `attach` this window so it no-ops,
-      # suppressing a spurious `Attach`; otherwise the unlink above already
-      # emitted `Detach`, leaving `previous` nil.
+      # suppressing a spurious `Attached`; otherwise the unlink above already
+      # emitted `Detached`, leaving `previous` nil.
       previous = same_screen_move ? self : element.window?
       element.window = self
       attach element, previous
@@ -102,7 +102,7 @@ module Crysterm
       unregister element
 
       # A same-window re-home is a tree-position change, not a departure: skip
-      # the window-level `Detach`, the focus rewind and the transient
+      # the window-level `Detached`, the focus rewind and the transient
       # mouse-state teardown. Only the unlink above is wanted — the caller
       # re-links and re-registers the subtree immediately, so focus, hover, drag
       # and grab pointers into it stay valid throughout.
@@ -138,7 +138,7 @@ module Crysterm
     end
 
     # Notifies `element`'s subtree that it now belongs to this screen, emitting
-    # `Event::Attach` on every node (and `Event::Detach` from `previous` first,
+    # `Event::Attached` on every node (and `Event::Detached` from `previous` first,
     # if it was on a different screen).
     #
     # Only emits events; does not store the screen on any node — the caller
@@ -155,20 +155,20 @@ module Crysterm
       css_note_styled_attach element if element.is_a?(Widget)
 
       element.self_and_each_descendant do |el|
-        el.emit Crysterm::Event::Detach, previous if previous
-        el.emit Crysterm::Event::Attach, self
+        el.emit Crysterm::Event::Detached, previous if previous
+        el.emit Crysterm::Event::Attached, self
       end
     end
 
     # Notifies `element`'s subtree that it no longer belongs to `previous`
-    # (defaulting to this screen), emitting `Event::Detach` on every node.
+    # (defaulting to this screen), emitting `Event::Detached` on every node.
     #
     # Like `#attach`, only emits events; the caller unlinks the tree beforehand.
     def detach(element, previous : ::Crysterm::Window? = nil)
       previous ||= self
 
       element.self_and_each_descendant do |el|
-        el.emit Crysterm::Event::Detach, previous
+        el.emit Crysterm::Event::Detached, previous
       end
     end
   end

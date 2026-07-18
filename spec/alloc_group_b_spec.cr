@@ -138,7 +138,7 @@ describe "ALLOCS Group B2 — pooled mouse events" do
     last.not_nil!.accepted?.should be_false
   end
 
-  it "delivers hover MouseOver/MouseOut via pooled events" do
+  it "delivers hover MouseEnter/MouseLeave via pooled events" do
     s = gb_screen
     a = Widget::Box.new parent: s, left: 0, top: 0, width: 5, height: 5
     a.clickable = true
@@ -147,8 +147,8 @@ describe "ALLOCS Group B2 — pooled mouse events" do
 
     overs = [] of Int32
     outs = [] of Int32
-    a.on(Crysterm::Event::MouseOver) { |e| overs << e.x }
-    a.on(Crysterm::Event::MouseOut) { |e| outs << e.x }
+    a.on(Crysterm::Event::MouseEnter) { |e| overs << e.x }
+    a.on(Crysterm::Event::MouseLeave) { |e| outs << e.x }
 
     s.dispatch_mouse gb_mouse(::Tput::Mouse::Action::Move, 2, 2)  # enter a
     s.dispatch_mouse gb_mouse(::Tput::Mouse::Action::Move, 12, 2) # leave a -> enter b

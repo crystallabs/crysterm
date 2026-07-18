@@ -7,13 +7,13 @@ module Crysterm
     #
     # An `AbstractItemView` whose items are the entries of a directory. Selecting
     # a directory (with `Enter`) navigates into it; selecting a file emits
-    # `Event::OpenFile`. Directory changes emit `Event::ChangeDir`, and each
+    # `Event::FileSelected`. Directory changes emit `Event::DirectoryChanged`, and each
     # (re)listing emits `Event::Refresh`.
     #
     # ```
-    # fm = Widget::FileManager.new parent: window, keys: true, cwd: Dir.current
+    # fm = Widget::FileManager.new parent: window, cwd: Dir.current
     # fm.refresh
-    # fm.on(Crysterm::Event::OpenFile) { |e| puts e.path }
+    # fm.on(Crysterm::Event::FileSelected) { |e| puts e.path }
     # fm.focus
     # ```
     #
@@ -31,12 +31,13 @@ module Crysterm
       @initial_cwd : String
 
       # The most recently selected entry (directory or file), as an absolute
-      # path.
-      getter file : String
+      # path (Qt-ish selected path).
+      getter path : String
 
-      # Optional label template. If it contains the literal `%path`, that token
-      # is replaced with the current directory on every navigation.
-      property label_format : String?
+      # Whether the widget shows its current directory as its label (Qt-ish),
+      # kept in sync on every navigation. Enabled by passing `label:` at
+      # construction.
+      @path_label : Bool
 
       # Real entry names (`".."`, `"foo"`, …), parallel to the rendered rows.
       # Paths must resolve from these, not the decorated row text: that carries
@@ -44,26 +45,20 @@ module Crysterm
       # `{...}` or a trailing `@`.
       @entry_names = [] of String
 
-      # The OpenFile/Cancel handlers live only for the duration of one `#pick`,
+      # The FileSelected/Cancelled handlers live only for the duration of one `#pick`,
       # torn down together by `resume`.
       @pick_subs = Crysterm::Subscriptions.new
 
-      def initialize(cwd : String? = nil, label : String? = nil, keys = nil, **list)
-        # `keys` is absorbed here: an item view always enables key handling, so
-        # forwarding it would duplicate the `keys:` arg passed to `super`.
+      def initialize(cwd : String? = nil, label : String? = nil, **list)
         @cwd = cwd || Dir.current
         @initial_cwd = @cwd
-        @file = @cwd
-        @label_format = label
+        @path = @cwd
+        # Passing any `label:` opts the widget into the auto-updating path label.
+        @path_label = !label.nil?
 
         super **list.merge({parse_tags: true})
 
-        label.try { |l| set_label l.gsub("%path", @cwd) }
-      end
-
-      # The currently selected path (alias of `#file`).
-      def path : String
-        @file
+        set_label @cwd if @path_label
       end
 
       # Reloads the listing for `cwd` (defaulting to the current directory).
@@ -86,7 +81,7 @@ module Crysterm
           @cwd = prev_cwd
           return refresh(cwd != home ? home : "/")
         rescue
-          # Unreadable dir: roll `@cwd` back so it, the `%path` label, and the
+          # Unreadable dir: roll `@cwd` back so it, the path label, and the
           # shown rows all stay on the last good directory rather than pointing at
           # a dir whose listing we never loaded.
           @cwd = prev_cwd
@@ -127,18 +122,18 @@ module Crysterm
 
         emit Crysterm::Event::Refresh
 
-        # Announce a directory change (label + `ChangeDir`) on *every* path that
-        # lands somewhere new, so no caller can leave a stale `%path` label.
+        # Announce a directory change (label + `DirectoryChanged`) on *every* path
+        # that lands somewhere new, so no caller can leave a stale path label.
         if @cwd != prev_cwd
-          @label_format.try { |fmt| set_label fmt.gsub("%path", @cwd) if fmt.includes?("%path") }
-          emit Crysterm::Event::ChangeDir, @cwd, prev_cwd
+          set_label @cwd if @path_label
+          emit Crysterm::Event::DirectoryChanged, @cwd, prev_cwd
         end
 
         self
       end
 
       # Resets the file manager back to its initial directory (or *cwd*, when
-      # given) and reloads. Uses the construction-time directory, not `@file`,
+      # given) and reloads. Uses the construction-time directory, not `#path`,
       # which is the last-selected entry and can be a regular file.
       def reset(cwd : String? = nil)
         # Route the target through `#refresh`'s parameter rather than
@@ -160,12 +155,12 @@ module Crysterm
           request_render
         }
 
-        @pick_subs.on(self, Crysterm::Event::OpenFile) do |e|
+        @pick_subs.on(self, Crysterm::Event::FileSelected) do |e|
           resume.call
           callback.call e.path
         end
 
-        @pick_subs.on(self, Crysterm::Event::Cancel) do
+        @pick_subs.on(self, Crysterm::Event::Cancelled) do
           resume.call
           callback.call nil
         end
@@ -180,22 +175,22 @@ module Crysterm
       end
 
       # Activating an entry (Enter) navigates into directories and emits
-      # `Event::OpenFile` for regular files.
-      def enter_selected
+      # `Event::FileSelected` for regular files.
+      def activate_current
         super
         open_selected
       end
 
-      # Cancelling (Escape) emits `Event::Cancel` so `#pick` can resolve.
-      def cancel_selected
+      # Cancelling (Escape) emits `Event::Cancelled` so `#pick` can resolve.
+      def cancel_current
         super
-        emit Crysterm::Event::Cancel, ""
+        emit Crysterm::Event::Cancelled
       end
 
       private def open_selected
         return if @items.empty?
         # Resolve from the stored real name, not the decorated row text.
-        name = @entry_names[selected]?
+        name = @entry_names[current_index]?
         return unless name
 
         target = File.expand_path(name, @cwd)
@@ -206,15 +201,15 @@ module Crysterm
           return
         end
 
-        @file = target
+        @path = target
 
         if info.directory?
           # `#refresh` rolls `@cwd` back if `target` is unreadable and announces
           # the navigation itself only when it actually landed somewhere new, so a
-          # failed entry emits no spurious `ChangeDir`.
+          # failed entry emits no spurious `DirectoryChanged`.
           refresh target
         else
-          emit Crysterm::Event::OpenFile, target
+          emit Crysterm::Event::FileSelected, target
         end
       end
 

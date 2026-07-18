@@ -24,7 +24,7 @@ describe "Widget#line on empty content" do
 
   it "baseline is guarded too" do
     box = Widget::Box.new parent: headless_screen
-    box.baseline(0).should eq ""
+    box.base_line(0).should eq ""
   end
 
   it "still returns real lines for non-empty content" do

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Line` (and its `HLine`/`VLine` aliases) take a convenience `size`
+# `Widget::Line` (and its `HLine`/`VLine` aliases) take a convenience `line_size`
 # argument that sets the line's length (`width` when horizontal, `height` when
 # vertical). It used to default to `"100%"` and apply unconditionally,
 # silently overwriting an explicit `width:`/`height:` passed through `**box`:
@@ -40,7 +40,7 @@ describe Crysterm::Widget::Line do
 
   it "still honors the explicit size convenience argument" do
     s = line_mem_screen
-    h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 0, size: 30
+    h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 0, line_size: 30
     h.width.should eq 30
   end
 end

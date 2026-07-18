@@ -2,23 +2,23 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Screen.attr2code` (SGR sequence -> packed Int64 attr).
+# Behavior lock for `Screen.sgr_to_attr` (SGR sequence -> packed Int64 attr).
 # Pins conversion across every SGR form so the allocation-free in-place parser
 # can be verified against the previous split-based one.
 #
-# `attr2code` is a pure class method (no screen state), so no Window is needed.
-describe "Screen.attr2code" do
+# `sgr_to_attr` is a pure class method (no screen state), so no Window is needed.
+describe "Screen.sgr_to_attr" do
   dfl = Crysterm::Window::DEFAULT_ATTR # flags 0, default fg, default bg
 
   # Convenience: apply an SGR string starting from the default attr.
-  apply = ->(code : String) { Crysterm::Screen.attr2code(code, dfl, dfl) }
+  apply = ->(code : String) { Crysterm::Screen.sgr_to_attr(code, dfl, dfl) }
 
   it "resets to default on \\e[0m and \\e[m (empty params)" do
-    bolded = Crysterm::Screen.attr2code("\e[1m", dfl, dfl)
+    bolded = Crysterm::Screen.sgr_to_attr("\e[1m", dfl, dfl)
     (Attr.flags(bolded) & Attr::BOLD).should_not eq 0
 
-    Crysterm::Screen.attr2code("\e[0m", bolded, dfl).should eq dfl
-    Crysterm::Screen.attr2code("\e[m", bolded, dfl).should eq dfl # empty => 0 => reset
+    Crysterm::Screen.sgr_to_attr("\e[0m", bolded, dfl).should eq dfl
+    Crysterm::Screen.sgr_to_attr("\e[m", bolded, dfl).should eq dfl # empty => 0 => reset
   end
 
   it "sets and clears individual style flags" do
@@ -37,7 +37,7 @@ describe "Screen.attr2code" do
     # 22/23/24/25/27/28/29 each turn off ONLY their own flag.
     bold = apply.call("\e[1m")
     Attr.flags(apply.call("\e[1m")).should_not eq 0
-    Attr.flags(Crysterm::Screen.attr2code("\e[22m", bold, dfl)).should eq Attr.flags(dfl)
+    Attr.flags(Crysterm::Screen.sgr_to_attr("\e[22m", bold, dfl)).should eq Attr.flags(dfl)
   end
 
   it "clears only the respective flag on a partial reset, leaving others set" do
@@ -47,7 +47,7 @@ describe "Screen.attr2code" do
     (Attr.flags(multi) & Attr::ITALIC).should_not eq 0
     (Attr.flags(multi) & Attr::UNDERLINE).should_not eq 0
 
-    after = Crysterm::Screen.attr2code("\e[24m", multi, dfl)
+    after = Crysterm::Screen.sgr_to_attr("\e[24m", multi, dfl)
     (Attr.flags(after) & Attr::UNDERLINE).should eq 0  # underline cleared
     (Attr.flags(after) & Attr::BOLD).should_not eq 0   # bold preserved
     (Attr.flags(after) & Attr::ITALIC).should_not eq 0 # italic preserved
@@ -62,7 +62,7 @@ describe "Screen.attr2code" do
       "\e[29m" => Attr::STRIKE,
     }.each do |code, bit|
       all = apply.call("\e[1;2;3;4;5;7;8;9m") # every flag on
-      res = Crysterm::Screen.attr2code(code, all, dfl)
+      res = Crysterm::Screen.sgr_to_attr(code, all, dfl)
       (Attr.flags(res) & bit).should eq 0                                                                                # the targeted bit is off
       (Attr.flags(res) & (Attr::FLAGS_MASK & ~bit.to_i64)).should eq(Attr.flags(all) & (Attr::FLAGS_MASK & ~bit.to_i64)) # the rest unchanged
     end
@@ -88,9 +88,9 @@ describe "Screen.attr2code" do
 
   it "applies 39/49 default fg/bg" do
     colored = apply.call("\e[31;41m")
-    cleared_fg = Crysterm::Screen.attr2code("\e[39m", colored, dfl)
+    cleared_fg = Crysterm::Screen.sgr_to_attr("\e[39m", colored, dfl)
     Attr.unpack_color(Attr.fg(cleared_fg)).should eq -1
-    cleared_bg = Crysterm::Screen.attr2code("\e[49m", colored, dfl)
+    cleared_bg = Crysterm::Screen.sgr_to_attr("\e[49m", colored, dfl)
     Attr.unpack_color(Attr.bg(cleared_bg)).should eq -1
   end
 
@@ -116,8 +116,8 @@ describe "Screen.attr2code" do
   end
 
   it "carries over the current attr when codes don't touch a field" do
-    base = apply.call("\e[31m")                        # red fg
-    a = Crysterm::Screen.attr2code("\e[1m", base, dfl) # add bold, keep red fg
+    base = apply.call("\e[31m")                          # red fg
+    a = Crysterm::Screen.sgr_to_attr("\e[1m", base, dfl) # add bold, keep red fg
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
     Attr.unpack_color(Attr.fg(a)).should eq Colors.palette_to_rgb(1)
   end

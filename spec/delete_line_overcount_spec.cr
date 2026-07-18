@@ -8,24 +8,24 @@ end
 
 # `Widget#delete_line` deletes via `n.times { fake.delete_at i }` with a fixed
 # `i`. It clamped `i` but not `n`, so deleting more lines than remain from `i`
-# (`pop_line 2`, `shift_line n` past the count, `delete_line(i, n)` with
+# (`remove_last_line 2`, `remove_first_line n` past the count, `delete_line(i, n)` with
 # `i + n > fake.size`) ran `delete_at` off the end and raised `IndexError`.
 # `n` is now clamped, like JS `splice(i, n)`.
 describe "Widget#delete_line over-count" do
-  it "pop_line n past the end does not raise" do
-    # `pop_line(n)` is `delete_line(fake.size - 1, n)`, a *forward* delete from
+  it "remove_last_line n past the end does not raise" do
+    # `remove_last_line(n)` is `delete_line(fake.size - 1, n)`, a *forward* delete from
     # the last index (Blessed `splice` semantics); it removes only the last
     # line regardless of `n`, but the over-count used to raise first.
     box = Widget::Box.new parent: headless_screen
     box.set_content "one\ntwo\nthree"
-    box.pop_line 2
+    box.remove_last_line 2
     box.lines.should eq ["one", "two"]
   end
 
-  it "shift_line n past the end clears all lines without raising" do
+  it "remove_first_line n past the end clears all lines without raising" do
     box = Widget::Box.new parent: headless_screen
     box.set_content "one\ntwo\nthree"
-    box.shift_line 10
+    box.remove_first_line 10
     box.lines.should eq [] of String
   end
 

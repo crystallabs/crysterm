@@ -2,6 +2,14 @@ require "event_handler"
 require "tput"
 
 module Crysterm
+  # The check state of a tri-state checkable (Qt's `Qt::CheckState`). Carried by
+  # `Event::StateChanged`.
+  enum CheckState
+    Unchecked
+    PartiallyChecked
+    Checked
+  end
+
   # Collection of all events used by Crysterm.
   #
   # ## Naming
@@ -25,26 +33,26 @@ module Crysterm
     include EventHandler
 
     # Emitted when widget is attached to a screen directly or somewhere in its ancestry
-    event Attach, object : EventHandler
+    event Attached, object : EventHandler
 
     # Emitted when widget is detached from a screen directly or somewhere in its ancestry
-    event Detach, object : EventHandler
+    event Detached, object : EventHandler
 
     # Emitted when widget gains a new parent
-    event Reparent, widget : Widget?
+    event Reparented, widget : Widget?
 
     # Emitted when widget is added to parent
-    event Adopt, widget : Widget
+    event ChildAdded, widget : Widget
 
     # Emitted when widget is removed from its current parent
-    event Remove, widget : Widget
+    event ChildRemoved, widget : Widget
 
     # Emitted when Widget is destroyed
     event Destroy
 
     # Emitted when a child process backing a widget (e.g. `Widget::Terminal`'s
     # shell) exits. `code` is the process exit status, or `nil` if unknown.
-    event Exit, code : Int32? = nil
+    event ProcessExited, code : Int32? = nil
 
     # Emitted when a `Window` is bound to a freshly spawned terminal emulator
     # window. `window` is the window now bound to a terminal.
@@ -52,8 +60,8 @@ module Crysterm
 
     # Emitted when the terminal emulator window backing a `Window` goes away —
     # typically because the user closed it. The `Window` is only disconnected
-    # (not destroyed); re-attach via `Window.open(into: screen)` or tear it down
-    # with `screen.destroy`. `window` is the affected window.
+    # (not destroyed); re-attach via `Window.open(into: window)` or tear it down
+    # with `window.destroy`. `window` is the affected window.
     event WindowClosed, window : Crysterm::Window
 
     # Emitted by an `Application` when a new physical device (`Screen`) is added —
@@ -66,10 +74,12 @@ module Crysterm
     event ScreenRemoved, screen : Crysterm::Screen
 
     # Emitted when widget focuses. Requires terminal supporting the focus protocol.
-    event Focus, el : Widget? = nil
+    # `previous` is the widget that previously held focus (`nil` if none).
+    event FocusIn, previous : Widget? = nil
 
     # Emitted when widget goes out of focus. Requires terminal supporting the focus protocol.
-    event Blur, el : Widget? = nil
+    # `next_focused` is the widget taking focus (`nil` if focus is being cleared).
+    event FocusOut, next_focused : Widget? = nil
 
     # Emitted when a widget's scroll position changes. `delta` is the signed
     # change in lines (positive = toward content end; `0` if reasserted without
@@ -89,7 +99,7 @@ module Crysterm
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
     # verbatim, never interpreted as key presses. A programmatic clipboard
-    # *read* reply arrives as `Clipboard` (below), not as a paste.
+    # *read* reply arrives as `ClipboardChanged` (below), not as a paste.
     event Paste, content : String
 
     # Emitted when an OSC 52 clipboard *read* reply arrives, in answer to a
@@ -97,11 +107,11 @@ module Crysterm
     # `QClipboard::dataChanged` analogue. `content` is the decoded clipboard text.
     # Distinct from `Paste`: this is the clipboard reported back asynchronously,
     # not the user pasting. `Application#clipboard` is refreshed from it first.
-    event Clipboard, content : String
+    event ClipboardChanged, content : String
 
     # Emitted when the terminal reports a light/dark color-scheme change, once
     # `Window#enable_color_scheme_notifications` (DEC 2031) is active.
-    event ColorScheme, scheme : ::Tput::ColorScheme
+    event ColorSchemeChanged, scheme : ::Tput::ColorScheme
 
     # Emitted by a `Crysterm::Timer` on every tick. Widgets (and anything else)
     # subscribe to a shared timer to animate in lockstep off one clock.
@@ -125,16 +135,16 @@ module Crysterm
     # # event Draw
 
     # Emitted after Widget's content is defined
-    event SetContent
+    event ContentChanged
 
     # Emitted after Widget's content is parsed
-    event ParsedContent
+    event ContentParsed
 
     # Emitted on mouse click
     event Click
 
     # Emitted on button press
-    event Press
+    event Pressed
 
     # Emitted by an `Action` when a display-affecting property (`text`,
     # `enabled`, `checkable`, `checked`, `visible`) changes, so any widget
@@ -145,15 +155,10 @@ module Crysterm
     # `index`/`count` locate it (`0` for `Reset`).
     event ListChanged, op : ::Crysterm::Reactive::ListOp, index : Int32 = 0, count : Int32 = 0
 
-    # Emitted on checkbox checked
-    event Check, value : Bool
-
-    # Emitted on checkbox unchecked
-    event UnCheck, value : Bool
-
-    # Emitted when a tri-state checkbox enters its partially-checked
-    # (indeterminate) state. Mirrors Qt's `Qt::PartiallyChecked`.
-    event PartialCheck, value : Bool
+    # Emitted when a checkable widget's check state changes, carrying the new
+    # `state` (`Unchecked`/`PartiallyChecked`/`Checked`). Mirrors Qt's
+    # `QCheckBox#stateChanged(int)`. For the plain Bool view use `Toggled`.
+    event StateChanged, state : CheckState
 
     # Emitted on every keystroke as an editable text widget's (e.g.
     # `Widget::LineEdit`) text changes, not just on submit. Mirrors Qt's
@@ -217,18 +222,18 @@ module Crysterm
     event Move
 
     # Emitted on something being completed (e.g. progressbar reaching 100%)
-    event Complete
+    event Completed
 
     # Emitted on something being reset (e.g. a `Widget::Form` being reset to
     # its initial state, or a progressbar reset to 0%).
     event Reset
 
     # Emitted on value submitted (e.g. in text forms)
-    event Submit, value : String
+    event Submitted, value : String
 
     # Emitted when a `Widget::Form` is submitted. Carries the collected
     # name => value pairs of all input children.
-    event SubmitData, data : Hash(String, String)
+    event FormSubmitted, data : Hash(String, String)
 
     # Emitted when a document link/anchor is activated, carrying the link's URL.
     # The analog of Qt's `QTextBrowser::anchorClicked`.
@@ -238,38 +243,41 @@ module Crysterm
     # analog of Qt's `QTextBrowser::sourceChanged`).
     event SourceChanged, url : String
 
-    # Emitted on value canceled (e.g. in text forms)
-    event Cancel, value : String
+    # Emitted on value canceled (e.g. in text forms). `value` is the current
+    # value when one applies (text editors), `nil` for a bare dismissal.
+    event Cancelled, value : String? = nil
 
     # Emitted by `Widget::FileManager` when the current directory changes.
-    # `path` is the directory just entered; `cwd` is the directory left behind.
-    event ChangeDir, path : String, cwd : String
+    # `path` is the directory just entered; `previous` is the directory left behind.
+    event DirectoryChanged, path : String, previous : String
 
     # Emitted by `Widget::FileManager` when a (non-directory) file is selected.
-    event OpenFile, path : String
+    event FileSelected, path : String
 
     # Emitted by `Widget::FileManager` after its listing is (re)loaded, and by
     # any widget that reloads its contents from an external source.
     event Refresh
 
-    event Action, value : String
+    # Emitted when a widget is activated carrying a chosen string value (e.g.
+    # `Widget::ComboBox` text, `Widget::ColorDialog` hex, a Pine key prompt's
+    # key). `value` is that chosen string.
+    event Activated, value : String
 
-    # Emitted on creation of a list item
-    event CreateItem
+    # Emitted by `Widget::Calendar` when a day is activated (Enter or click),
+    # carrying the activated `date`. The past-tense counterpart to `DateChanged`.
+    event DateActivated, date : Time
 
     # Emitted on addition of a list item to list
-    event AddItem
+    event ItemAdded
     # Emitted on insertion of a list item at a given position
-    event InsertItem
+    event ItemInserted
     # Emitted on removal of a list item
-    event RemoveItem
+    event ItemRemoved
     # Emitted on re-set/re-definition of list items
-    event SetItem
-    # :ditto:
-    event SetItems
+    event ItemsChanged
 
-    event CancelItem, item : Widget::Box, index : Int32
-    event ActionItem, item : Widget::Box, index : Int32
+    event ItemCancelled, item : Widget::Box, index : Int32
+    event ItemActivated, item : Widget::Box, index : Int32
 
     # Event emitted when a new log line intended for `Widget::Log` is issued
     event Log, text : String
@@ -279,17 +287,12 @@ module Crysterm
     # Emitted by `Widget::Tree` when a node is expanded or collapsed. `index` is
     # the node's visible row at the time of the change. Mirror Qt's
     # `QTreeView#expanded`/`#collapsed` signals.
-    event Expand, index : Int32
+    event Expanded, index : Int32
     # :ditto:
-    event Collapse, index : Int32
+    event Collapsed, index : Int32
 
     # Emitted on selection of an item in list
-    event SelectItem, item : Widget::Box, index : Int32
-
-    # Emitted by `Widget::ListBar` when a tab/command is selected. `item` is the
-    # command's element box (`nil` if the index is out of range), `index` its
-    # position.
-    event SelectTab, item : Widget::Box?, index : Int32
+    event ItemSelected, item : Widget::Box, index : Int32
 
     # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).
     # `checked` is the action's state *after* activation; always `false` for a
@@ -360,6 +363,12 @@ module Crysterm
     # Emitted by a popup (e.g. `Widget::Menu`) just before it is hidden.
     # Mirrors Qt's `QMenu#aboutToHide`.
     event AboutToHide
+
+    # Emitted by a `Window` during a drag with a human-readable status update
+    # ("Picked up …", "Over …", "Dropped on …", "Cancelled"), for a status-line
+    # "live region" — the accessibility counterpart to the drag's on-screen
+    # feedback. `text` is the message. A no-op sink is nothing to subscribe.
+    event DragAnnounced, text : String
 
     # Shared "accept/ignore" propagation-control behavior for events that can be
     # accepted to stop them from propagating further (`Key`, `Mouse`, `DragEvent`).
@@ -470,7 +479,7 @@ module Crysterm
     end
 
     # A key release. Only emitted when an enhanced keyboard protocol with event
-    # reporting is active (`Window#enable_keyboard_protocol(events: true)`);
+    # reporting is active (`Window#enable_keyboard_protocol(level: :events)`);
     # otherwise the terminal never reports releases and this never fires.
     class KeyRelease < Key
     end
@@ -556,16 +565,16 @@ module Crysterm
     # and hit-test itself.
     #
     # Listeners subscribe to the specific transition they care about, e.g.
-    # `widget.on(Event::MouseOver) { ... }`.
+    # `widget.on(Event::MouseEnter) { ... }`.
 
     # Emitted once when the pointer enters a widget (hover in).
-    class MouseOver < Mouse; end
+    class MouseEnter < Mouse; end
 
     # Emitted on pointer motion while staying over the same widget (hovering).
     class MouseMove < Mouse; end
 
     # Emitted once when the pointer leaves a widget (hover out).
-    class MouseOut < Mouse; end
+    class MouseLeave < Mouse; end
 
     # Drag-and-drop events — a single, input-agnostic gesture.
     #

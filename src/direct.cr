@@ -33,9 +33,9 @@ module Crysterm
     getter screen : Screen
 
     # Device concerns delegated to the `Screen`.
-    delegate tput, output, colors, truecolor?, to: @screen
+    delegate tput, output, colors, color_count, truecolor?, to: @screen
 
-    # Scratch buffer reused for building each SGR sequence (`code2attr_to` needs
+    # Scratch buffer reused for building each SGR sequence (`write_sgr` needs
     # a seekable `IO::Memory`), keeping per-`print` allocation down.
     @sgr_buf = IO::Memory.new
 
@@ -54,7 +54,7 @@ module Crysterm
         terminfo: terminfo,
       )
 
-      # Adopt the terminal's size so `#dim_x`/`#dim_y` are meaningful (no-op for
+      # Adopt the terminal's size so `#width`/`#height` are meaningful (no-op for
       # an explicitly-sized/headless device).
       @screen.adopt_terminal_size
 
@@ -62,16 +62,16 @@ module Crysterm
       # upgrade the terminal to confirmed truecolor, so SGR emission reduces to
       # the right depth. Direct mode has no input listen fiber, so the synchronous
       # round-trip races nothing. No-ops on a non-tty / when disabled.
-      @screen.probe!
+      @screen.probe
     end
 
     # Terminal width in cells (columns).
-    def dim_x : Int32
+    def width : Int32
       @screen.width
     end
 
     # Terminal height in cells (rows).
-    def dim_y : Int32
+    def height : Int32
       @screen.height
     end
 
@@ -81,6 +81,7 @@ module Crysterm
     # `nil` (default). Colors are reduced to the terminal's depth on the way out.
     def print(
       str,
+      *,
       fg = nil,
       bg = nil,
       bold = false,
@@ -96,27 +97,19 @@ module Crysterm
       self
     end
 
-    # Writes a single character styled like `#print`.
-    def putc(
-      char : Char,
-      fg = nil,
-      bg = nil,
-      bold = false,
-      italic = false,
-      underline = false,
-      blink = false,
-      reverse = false,
-      strike = false,
-      invisible = false,
-    ) : self
-      print char, fg, bg, bold, italic, underline, blink, reverse, strike, invisible
+    # Writes *str* styled from a `Style`'s colors and SGR attributes (Qt-ish
+    # convenience over the individual-keyword `#print`).
+    def print(str, style : Style) : self
+      print str, fg: style.fg, bg: style.bg, bold: style.bold?, italic: style.italic?,
+        underline: style.underline?, blink: style.blink?, reverse: style.reverse?,
+        strike: style.strike?, invisible: !style.visible?
     end
 
     # Sets a *persistent* style for subsequent raw output — the stateful
     # counterpart to `#print`. Emits the SGR sequence and leaves it in effect
-    # until `#reset_styles` (or another `#set_style`). Use when interleaving with
+    # until `#reset_style` (or another `#apply_style`). Use when interleaving with
     # direct writes to `#output`; use `#print` for one-shot self-contained spans.
-    def set_style(
+    def apply_style(
       fg = nil,
       bg = nil,
       bold = false,
@@ -129,20 +122,20 @@ module Crysterm
     ) : self
       code = build_code fg, bg, bold, italic, underline, blink, reverse, strike, invisible
       @sgr_buf.clear
-      Screen.code2attr_to @sgr_buf, code, colors
+      Screen.write_sgr @sgr_buf, code, color_count
       @screen.output.write @sgr_buf.to_slice
       self
     end
 
-    # Clears any style set by `#set_style` (SGR reset).
-    def reset_styles : self
+    # Clears any style set by `#apply_style` (SGR reset).
+    def reset_style : self
       @screen.output << "\e[0m"
       self
     end
 
     # Moves the cursor to absolute row *y*, column *x* (0-based). Delegated to
     # `Tput`, which clamps to the screen and tracks the position.
-    def move_yx(y : Int, x : Int) : self
+    def move_to(y : Int, x : Int) : self
       tput.cursor_pos y, x
       self
     end
@@ -172,10 +165,13 @@ module Crysterm
     end
 
     # Moves the cursor **relative to its current position**: *dy* rows (negative
-    # = up) and *dx* columns (negative = left). `relative(-2, -2)` moves two rows
+    # = up) and *dx* columns (negative = left). `move_by(-2, -2)` moves two rows
     # up and two columns left. Reuses Tput's tracked position, so callers never
     # compute absolute coordinates.
-    def relative(dy : Int = 0, dx : Int = 0) : self
+    #
+    # Named `move_by`, not `relative`: `CursorAnchor#relative` only *computes* a
+    # relative position — this one actually moves the cursor.
+    def move_by(dy : Int = 0, dx : Int = 0) : self
       tput.rmove dx, dy
       self
     end
@@ -206,7 +202,7 @@ module Crysterm
     def vline(len : Int32, ch : Char? = nil, fg = nil, bg = nil) : self
       ch ||= Glyphs[Glyphs::Role::LineVertical, @screen.glyph_tier]
       len.times do |i|
-        putc ch, fg: fg, bg: bg
+        print ch, fg: fg, bg: bg
         if i < len - 1
           cursor_down 1
           cursor_left 1
@@ -229,15 +225,15 @@ module Crysterm
       hz = Glyphs[Glyphs::Role::BorderLineH, tier]
       vt = Glyphs[Glyphs::Role::BorderLineV, tier]
 
-      move_yx y, x
+      move_to y, x
       print "#{tl}#{hz.to_s * (w - 2)}#{tr}", fg: fg, bg: bg
       (1...(h - 1)).each do |i|
-        move_yx y + i, x
-        putc vt, fg: fg, bg: bg
-        move_yx y + i, x + w - 1
-        putc vt, fg: fg, bg: bg
+        move_to y + i, x
+        print vt, fg: fg, bg: bg
+        move_to y + i, x + w - 1
+        print vt, fg: fg, bg: bg
       end
-      move_yx y + h - 1, x
+      move_to y + h - 1, x
       print "#{bl}#{hz.to_s * (w - 2)}#{br}", fg: fg, bg: bg
       self
     end
@@ -251,7 +247,7 @@ module Crysterm
     # Resets styling and flushes — call when done with a direct-mode session so
     # no stray SGR state leaks into the shell prompt.
     def reset : self
-      reset_styles
+      reset_style
       flush
       self
     end
@@ -276,7 +272,7 @@ module Crysterm
     private def emit_styled(code : Int64, & : IO -> Nil) : Nil
       dest = @screen.output
       @sgr_buf.clear
-      Screen.code2attr_to @sgr_buf, code, colors
+      Screen.write_sgr @sgr_buf, code, color_count
       styled = @sgr_buf.size > 0
       dest.write @sgr_buf.to_slice if styled
       yield dest

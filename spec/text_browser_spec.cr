@@ -96,13 +96,13 @@ describe Widget::TextBrowser do
     tb.source = "a"
     tb.source.should eq "a"
     tb.document.to_plain_text.should contain "page a"
-    tb.back_available?.should be_false
+    tb.backward_available?.should be_false
 
     # Following the link records history and swaps the document.
     tb.activate_link "b"
     tb.source.should eq "b"
     tb.document.to_plain_text.should eq "page b"
-    tb.back_available?.should be_true
+    tb.backward_available?.should be_true
 
     # Backspace = back; forward returns.
     tb._listener ctl(::Tput::Key::Backspace)

@@ -12,7 +12,7 @@ module Crysterm
   # `Media::Ueberzug`) or a separate window (`Media::Tek`) is not visible to the
   # terminal and is omitted; `Media::Base#capture_pixels?` is the predicate.
   #
-  # Text cells use a fixed bitmap `Font` (Terminus by default), so a capture is
+  # Text cells use a fixed bitmap `BitmapFont` (Terminus by default), so a capture is
   # deterministic regardless of the user's real terminal font.
   module Capture
     # Fg/bg for cells with "terminal default" color (`-1`); light-on-dark.
@@ -23,8 +23,8 @@ module Crysterm
     # `PNGGIF::Bitmap`. *font*/*bold_font* set the glyphs (and the cell pixel
     # size); *default_fg*/*default_bg* fill terminal-default colors.
     def self.render(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
-                    font : Font = Font.default_normal,
-                    bold_font : Font = Font.default_bold,
+                    font : BitmapFont = BitmapFont.default_normal,
+                    bold_font : BitmapFont = BitmapFont.default_bold,
                     default_fg : Int32 = DEFAULT_FG,
                     default_bg : Int32 = DEFAULT_BG) : PNGGIF::Bitmap
       cw = font.width
@@ -58,8 +58,8 @@ module Crysterm
 
     # Renders the region and encodes it as a still PNG.
     def self.png(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
-                 font : Font = Font.default_normal,
-                 bold_font : Font = Font.default_bold,
+                 font : BitmapFont = BitmapFont.default_normal,
+                 bold_font : BitmapFont = BitmapFont.default_bold,
                  default_fg : Int32 = DEFAULT_FG,
                  default_bg : Int32 = DEFAULT_BG) : Bytes
       PNGGIF.encode_png render(window, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
@@ -132,7 +132,7 @@ module Crysterm
     # the whole span. Clamped to the canvas so a wide cell at the right edge
     # can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
-                               font : Font, bold_font : Font, default_fg : Int32, default_bg : Int32,
+                               font : BitmapFont, bold_font : BitmapFont, default_fg : Int32, default_bg : Int32,
                                cols : Int32 = 1)
       code = cell.attr
       flags = Attr.flags(code)

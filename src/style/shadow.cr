@@ -124,6 +124,11 @@ module Crysterm
         Shadow.default
       in Shadow
         value
+      in Side
+        # A side (`Side::Right`, `Side::Horizontal`, ...) turns the named
+        # side(s) on at their default extent.
+        s = SidedGeometry.sides value
+        Shadow.new s[:left] > 0, s[:top] > 0, s[:right] > 0, s[:bottom] > 0
       in Symbol
         # A side symbol (`:right`, `:horizontal`, ...) turns the named side(s)
         # on at their default extent.

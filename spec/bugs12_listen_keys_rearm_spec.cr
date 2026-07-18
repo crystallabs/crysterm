@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS12 #6 (src/screen_input.cr): a stop_keys ->
-# listen_keys cycle must not "un-cancel" the previous input fiber still blocked
+# Regression spec for BUGS12 #6 (src/screen_input.cr): a stop_input ->
+# start_input cycle must not "un-cancel" the previous input fiber still blocked
 # in `tput.listen` (unowned STDIN survives `Window#disconnect`, so that fiber
 # only wakes on its next event). With the old shared `@_keys_stopped` boolean,
 # re-arming reset the flag to false, so the zombie fiber resumed dispatching
@@ -39,7 +39,7 @@ private def became?(timeout = 200.milliseconds, &) : Bool
   true
 end
 
-# Drives the *real* device input fiber (`Screen#listen_keys` -> `tput.listen`)
+# Drives the *real* device input fiber (`Screen#start_input` -> `tput.listen`)
 # over an in-process pipe (same harness as bugsf1_lifecycle_spec.cr).
 private def with_live_input(&)
   reader, writer = IO.pipe
@@ -59,12 +59,12 @@ private def with_live_input(&)
   end
 end
 
-describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
-  it "dispatches exactly once across a stop_keys -> listen_keys cycle" do
+describe "BUGS12 #6 start_input must not re-arm a stopped input fiber" do
+  it "dispatches exactly once across a stop_input -> start_input cycle" do
     with_live_input do |_reader, writer, win, seen, screen|
       win.on(Crysterm::Event::KeyPress) { |e| seen << e.char }
 
-      screen.listen_keys
+      screen.start_input
 
       writer.write "a".to_slice
       writer.flush
@@ -75,8 +75,8 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
       # the first fiber is still blocked in `tput.listen` (the pipe stays open,
       # mirroring unowned STDIN). With a shared stop flag this un-cancelled the
       # zombie and left two concurrent readers.
-      screen.stop_keys
-      screen.listen_keys
+      screen.stop_input
+      screen.start_input
       screen.listening?.should be_true
 
       # Feed events one at a time. The zombie consumes AT MOST one of them
@@ -117,9 +117,9 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
     with_live_input do |_reader, writer, win, seen, screen|
       win.on(Crysterm::Event::KeyPress) { |e| seen << e.char }
 
-      screen.listen_keys
-      screen.stop_keys
-      screen.stop_keys # double stop: idempotent, no error
+      screen.start_input
+      screen.stop_input
+      screen.stop_input # double stop: idempotent, no error
       screen.listening?.should be_false
 
       # Only the stopped fiber exists; it must consume 'x', drop it, and exit.
@@ -129,7 +129,7 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
       seen.should be_empty
 
       # A fresh listen after the zombie is gone starts a clean single reader.
-      screen.listen_keys
+      screen.start_input
       screen.listening?.should be_true
 
       writer.write "k".to_slice
@@ -144,12 +144,12 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
     end
   end
 
-  it "listen_keys is a no-op while a live fiber exists (no second reader)" do
+  it "start_input is a no-op while a live fiber exists (no second reader)" do
     with_live_input do |_reader, writer, win, seen, screen|
       win.on(Crysterm::Event::KeyPress) { |e| seen << e.char }
 
-      screen.listen_keys
-      screen.listen_keys # must not spawn a second reader or cancel the first
+      screen.start_input
+      screen.start_input # must not spawn a second reader or cancel the first
 
       writer.write "ab".to_slice
       writer.flush
@@ -163,11 +163,11 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
     # A stale fiber's dispatch is observably identical to the live fiber's, so
     # the mechanism itself is pinned: cancellation must be a per-spawn
     # generation captured at spawn time — not a shared boolean a re-arm can
-    # reset — checked before dispatch, and bumped by stop_keys.
+    # reset — checked before dispatch, and bumped by stop_input.
     src = File.read(File.join(__DIR__, "..", "src", "screen_input.cr"))
     src.should_not contain("@_keys_stopped")
 
-    listen_start = src.index!("def listen_keys")
+    listen_start = src.index!("def start_input")
     listen_body = src[listen_start, 1200]
     listen_body.should contain("gen = (@_keys_gen += 1)")
     # The generation check precedes dispatch (route_input), so a zombie drops
@@ -175,7 +175,7 @@ describe "BUGS12 #6 listen_keys must not re-arm a stopped input fiber" do
     listen_body.index!("break if @_keys_gen != gen").should be <
                                                             listen_body.index!("route_input")
 
-    stop_start = src.index!("def stop_keys")
+    stop_start = src.index!("def stop_input")
     stop_body = src[stop_start, 200]
     stop_body.should contain("@_keys_gen += 1")
     stop_body.should contain("@_keys_fiber = nil")

@@ -57,6 +57,21 @@ module Crysterm
     include Colorizable
     include SidedGeometry
 
+    # Border-char override position (CSS `border-*-char` longhands / the
+    # `border-chars` shorthand): the four corners plus the `horizontal`/
+    # `vertical` run groups, and the `corner` group that seeds all four
+    # corners at once. Distinct from `Side` — a corner override needs its own
+    # axis (`top_left`, ...) that a plain side can't name.
+    enum CharPosition
+      TopLeft
+      TopRight
+      BottomLeft
+      BottomRight
+      Horizontal
+      Vertical
+      Corner
+    end
+
     # Whether every named instance variable is `nil`. Keeps the hand-maintained
     # `nil?` chain from drifting out of sync with the field set.
     private macro all_nil?(*fields)
@@ -186,21 +201,21 @@ module Crysterm
     end
 
     # Assigns the per-position corner override for a CSS longhand, keyed by
-    # position symbol. Unknown positions are ignored.
-    def set_char(position : Symbol, value : Char?) : Nil
+    # *position*. Only called by `CSS::Properties`, so kept `protected`.
+    protected def set_char(position : CharPosition, value : Char?) : Nil
       case position
-      when :top_left     then @char_top_left = value
-      when :top_right    then @char_top_right = value
-      when :bottom_left  then @char_bottom_left = value
-      when :bottom_right then @char_bottom_right = value
-      when :horizontal   then @char_horizontal = value
-      when :vertical     then @char_vertical = value
-      when :corner       then @char_corner = value
+      in .top_left?     then @char_top_left = value
+      in .top_right?    then @char_top_right = value
+      in .bottom_left?  then @char_bottom_left = value
+      in .bottom_right? then @char_bottom_right = value
+      in .horizontal?   then @char_horizontal = value
+      in .vertical?     then @char_vertical = value
+      in .corner?       then @char_corner = value
       end
     end
 
     # The SGR text attributes must live on `Border` itself, rather than being
-    # delegated to a `Style`, so that `sattr()` can work directly on a `Border`.
+    # delegated to a `Style`, so that `style_to_attr()` can work directly on a `Border`.
     include TextAttributes
 
     # Per-side widths and integer constructors, defaulting to a 1-cell box.
@@ -217,6 +232,10 @@ module Crysterm
         Border.new value
       in Border
         value
+      in Side
+        # A side (`Side::Right`, `Side::Horizontal`, ...) — one cell on the
+        # named side(s).
+        SidedGeometry.new_from_side value
       in Symbol
         # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
         # named side(s).
@@ -245,34 +264,49 @@ module Crysterm
     # `(all : Bool = true)` one are only addable once -Dpreview_overload_order
     # is the default.
 
-    # Sets one side's width, keyed by side *symbol*. Unknown sides are ignored.
-    def set_width(side : Symbol, value : Int32) : Nil
+    # Sets one side's width, keyed by *side*. Only called by
+    # `CSS::Properties`, so kept `protected`. *side* must be a single
+    # side (`Left`/`Top`/`Right`/`Bottom`); `Horizontal`/`Vertical`/`All` don't
+    # apply to a single-side setter and raise.
+    protected def set_width(side : Side, value : Int32) : Nil
       case side
-      when :top    then @top = value
-      when :right  then @right = value
-      when :bottom then @bottom = value
-      when :left   then @left = value
+      in .top?    then @top = value
+      in .right?  then @right = value
+      in .bottom? then @bottom = value
+      in .left?   then @left = value
+      in .horizontal?, .vertical?, .all?
+        raise ArgumentError.new "Border#set_width expects a single side " \
+                                "(Left/Top/Right/Bottom), got #{side}"
       end
     end
 
     # Sets one side's `fg_<side>` override slot, not the whole-border `#fg`.
-    # Unknown sides are ignored.
-    def set_color(side : Symbol, value : Int32?) : Nil
+    # Only called by `CSS::Properties`, so kept `protected`. *side* must
+    # be a single side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
+    protected def set_color(side : Side, value : Int32?) : Nil
       case side
-      when :top    then @fg_top = value
-      when :right  then @fg_right = value
-      when :bottom then @fg_bottom = value
-      when :left   then @fg_left = value
+      in .top?    then @fg_top = value
+      in .right?  then @fg_right = value
+      in .bottom? then @fg_bottom = value
+      in .left?   then @fg_left = value
+      in .horizontal?, .vertical?, .all?
+        raise ArgumentError.new "Border#set_color expects a single side " \
+                                "(Left/Top/Right/Bottom), got #{side}"
       end
     end
 
-    # Current width of one side, keyed by side symbol.
-    def width_of(side : Symbol) : Int32
+    # Current width of one side, keyed by *side*. Only called by
+    # `CSS::Properties`, so kept `protected`. *side* must be a single
+    # side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
+    protected def width_of(side : Side) : Int32
       case side
-      when :top   then @top
-      when :right then @right
-      when :left  then @left
-      else             @bottom
+      in .top?    then @top
+      in .right?  then @right
+      in .left?   then @left
+      in .bottom? then @bottom
+      in .horizontal?, .vertical?, .all?
+        raise ArgumentError.new "Border#width_of expects a single side " \
+                                "(Left/Top/Right/Bottom), got #{side}"
       end
     end
   end

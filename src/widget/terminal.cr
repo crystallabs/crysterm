@@ -23,7 +23,7 @@ module Crysterm
     # Keyboard and mouse are both forwarded to the child; the emulator supports
     # the alternate window buffer, DEC line-drawing, scroll regions/scrollback,
     # origin mode, and focus reporting. Scrollback is navigable with
-    # Shift-PageUp/PageDown, and `Event::Exit` fires (with the exit code) when the
+    # Shift-PageUp/PageDown, and `Event::ProcessExited` fires (with the exit code) when the
     # child process ends. Not yet implemented: double-width/height *lines* and
     # bracketed-paste wrapping (the mode is tracked but Crysterm has no paste
     # event to wrap yet).
@@ -46,9 +46,10 @@ module Crysterm
       # The most recent window/icon title reported by the child (OSC 0/2).
       property title : String? = nil
 
-      # Cursor shape drawn over the emulator's cursor cell: `:block` (default),
-      # `:underline`, or `:line`.
-      property cursor_shape : Symbol
+      # Cursor shape drawn over the emulator's cursor cell: `Tput::CursorShape::Block`
+      # (default), `::Underline`, or `::Line`. `::None` leaves the cell unstyled
+      # (the cursor is invisible in the overlay).
+      property cursor_shape : Tput::CursorShape
 
       @shell : String
       @args : Array(String)
@@ -73,7 +74,7 @@ module Crysterm
         *,
         shell : String? = nil,
         args : Array(String) = [] of String,
-        cursor_shape : Symbol = :block,
+        cursor_shape : Tput::CursorShape = :block,
         term_name : String? = nil,
         env : Process::Env = nil,
         handler : Proc(String, Nil)? = nil,
@@ -92,19 +93,53 @@ module Crysterm
         @input = true
         window?.try &.register_keyable self
 
-        on ::Crysterm::Event::KeyPress, ->on_data(::Crysterm::Event::KeyPress)
+        on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
         on ::Crysterm::Event::Mouse, ->on_mouse(::Crysterm::Event::Mouse)
-        on(::Crysterm::Event::Focus) { report_focus true }
-        on(::Crysterm::Event::Blur) { report_focus false }
+        on(::Crysterm::Event::FocusIn) { report_focus true }
+        on(::Crysterm::Event::FocusOut) { report_focus false }
         on(::Crysterm::Event::Destroy) { kill }
+      end
+
+      # Installs the raw-input `handler` (the block form of the `handler:` ctor
+      # param) via a block: `term.on_input { |bytes| ... }`.
+      #
+      # CONSTRAINT: must be called *before the widget bootstraps* (its first
+      # render). `@handler` is consumed in `#bootstrap`, which decides there and
+      # then whether to spawn a PTY (no handler) or run externally-driven (with
+      # one); once bootstrapped the choice is fixed, so a later install would be
+      # silently ignored. Raises if the widget has already bootstrapped.
+      def on_input(&block : String ->) : Nil
+        raise "Widget::Terminal#on_input must be set before the terminal bootstraps (first render)" if @bootstrapped
+        @handler = block
       end
 
       # Feeds output bytes into the emulator directly. Useful with a `handler`
       # (no PTY) to drive the display from an arbitrary source.
+      #
+      # Bytes written before the widget bootstraps (its first render with a
+      # positive inner size — only then does the emulator exist) are buffered
+      # and replayed into the emulator at bootstrap: handler-mode data is a
+      # stream, so silently dropping the prefix (typically the remote's
+      # initial screen state) would corrupt the display irrecoverably.
       def write(data : Bytes | String) : Nil
-        @emulator.try &.feed(data.is_a?(String) ? data.to_slice : data)
+        bytes = data.is_a?(String) ? data.to_slice : data
+        if em = @emulator
+          em.feed bytes
+        else
+          pending = @pending_writes ||= IO::Memory.new
+          # Cap the buffer so a widget that never renders (zero inner size)
+          # cannot grow it unboundedly; overflow drops the tail, keeping the
+          # stream prefix (the part that seeds the initial screen state).
+          pending.write(bytes) if pending.size + bytes.size <= PENDING_WRITES_CAP
+        end
         request_render
       end
+
+      # Pre-bootstrap `#write` data awaiting the emulator (see `#write`).
+      @pending_writes : IO::Memory? = nil
+
+      # Upper bound for `@pending_writes`.
+      PENDING_WRITES_CAP = 4 * 1024 * 1024
 
       # Inner content width/height in cells (box minus border+padding).
       private def term_cols : Int32
@@ -119,10 +154,10 @@ module Crysterm
         return if @bootstrapped
         @bootstrapped = true
 
-        @dattr = sattr style
+        @dattr = style_to_attr style
         em = TerminalEmulator.new cols, rows, @dattr
         em.on_refresh = -> { request_render; nil }
-        em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::SetContent; nil }
+        em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::ContentChanged; nil }
         @emulator = em
 
         if handler = @handler
@@ -131,6 +166,7 @@ module Crysterm
           # route them to the handler as well — otherwise a child probing the
           # terminal at startup (vim/htop query DA/CPR) waits forever.
           em.output = HandlerSink.new handler
+          flush_pending_writes em
           return
         end
 
@@ -144,6 +180,7 @@ module Crysterm
         pty = Pty.new @shell, @args, cols, rows, env
         @pty = pty
         em.output = pty.master # so DSR/DA replies reach the child
+        flush_pending_writes em
 
         # Reader fiber pumps child output into the emulator. Fibers are
         # cooperatively scheduled, so this never races the main loop.
@@ -158,7 +195,7 @@ module Crysterm
           end
           # Child closed the PTY: reap it, surface exit status, tear down.
           code = pty.reap
-          emit ::Crysterm::Event::Exit, code
+          emit ::Crysterm::Event::ProcessExited, code
           # Marshal the real teardown onto the render fiber. It must go through
           # `#destroy`: emitting a bare `Event::Destroy` would leave the widget
           # attached, keyable and focusable while listeners believed it dead, and
@@ -168,12 +205,38 @@ module Crysterm
         end
       end
 
-      # Forwards a keystroke to the child as raw bytes. `Event::KeyPress#sequence`
-      # carries the original input bytes tput read, exactly what the child expects.
-      def on_data(e : ::Crysterm::Event::KeyPress) : Nil
+      # Replays any pre-bootstrap `#write` data into the freshly built
+      # emulator, after its `output` sink is wired (solicited replies from the
+      # replayed bytes — DSR/DA probes — must reach the handler/child).
+      private def flush_pending_writes(em : TerminalEmulator) : Nil
+        if pending = @pending_writes
+          @pending_writes = nil
+          em.feed pending.to_slice unless pending.empty?
+        end
+      end
+
+      # Forwards a keystroke to the child as raw bytes. For legacy input,
+      # `Event::KeyPress#sequence` carries the original bytes tput read —
+      # exactly what the child expects. When the HOST terminal speaks an
+      # enhanced keyboard protocol (kitty CSI-u / modifyOtherKeys — enabled by
+      # default in `Window#listen`), `sequence` holds enhanced bytes the child
+      # never negotiated (Ctrl+C as `\e[99;5u`, Esc as `\e[27u`): forwarded
+      # raw, Ctrl+C would never reach the tty line discipline (no SIGINT) and
+      # Esc would arrive as junk. Such events are re-encoded to legacy bytes
+      # via `KeyEvent#to_legacy_bytes` — before the scrollback match below, so
+      # Shift-PageUp/PageDown re-encode to the legacy `;2` forms it expects.
+      protected def on_keypress(e : ::Crysterm::Event::KeyPress) : Nil
         return unless focused?
 
-        data = e.sequence.join
+        data =
+          if ke = e.key_event
+            # No legacy representation (lone modifier press, functional key
+            # with no legacy encoding): a legacy terminal would have sent
+            # nothing — forward nothing, and leave the event unconsumed.
+            ke.to_legacy_bytes || return
+          else
+            e.sequence.join
+          end
 
         # Shift-PageUp/PageDown share the PageUp/PageDown key but carry a `;2`
         # modifier in their raw sequence; matched here and consumed for
@@ -255,7 +318,7 @@ module Crysterm
       # child's selected encoding. Returns raw bytes: legacy/normal encoding
       # packs values that may exceed 0x7f, which a UTF-8 `String` would corrupt.
       private def encode_mouse(em : TerminalEmulator, e : ::Crysterm::Event::Mouse, col : Int32, row : Int32) : Bytes
-        sgr = em.mouse_encoding == :sgr
+        sgr = em.mouse_encoding.sgr?
         cb = mouse_cb e, sgr
         x1 = col + 1
         y1 = row + 1
@@ -264,11 +327,11 @@ module Crysterm
         io = @mouse_buf
         io.clear
         case em.mouse_encoding
-        when :sgr
+        in .sgr?
           io << "\e[<" << cb << ';' << x1 << ';' << y1 << (released ? 'm' : 'M')
-        when :urxvt
+        in .urxvt?
           io << "\e[" << (cb + 32) << ';' << x1 << ';' << y1 << 'M'
-        else # :normal / :utf8 (utf8 handled as normal, best-effort)
+        in .normal?, .utf8? # utf8 handled as normal, best-effort
           io << "\e[M"
           io.write_byte (cb + 32).clamp(0, 255).to_u8
           io.write_byte (x1 + 32).clamp(0, 255).to_u8
@@ -339,7 +402,7 @@ module Crysterm
 
         # Keep the emulator's "default" attr in sync with the live style so
         # default-coloured cells track theme changes.
-        @dattr = sattr style
+        @dattr = style_to_attr style
         em.default_attr = @dattr
 
         lines = window.lines
@@ -366,7 +429,7 @@ module Crysterm
         show_cursor = focused && !em.cursor_hidden? && disp == em.ybase &&
                       cur_y >= Math.max(yi, 0) && cur_y < yl &&
                       cur_x >= Math.max(xi, 0) && cur_x < xl
-        full_unicode = window.full_unicode?
+        full_unicode = window.full_unicode_effective?
 
         y = Math.max yi, 0
         while y < yl
@@ -430,15 +493,19 @@ module Crysterm
 
       # Produces the {attr, char} for the cell under the cursor, per `cursor_shape`.
       private def apply_cursor(attr : Int64, ch : Char) : {Int64, Char}
+        # `when`, not `in`: Tput::CursorShape has aliased members (Box = Block,
+        # HBar = Underline, ...) which defeat exhaustiveness checking.
         case @cursor_shape
-        when :line
-          # The host terminal draws the real beam in this column, so both `ch` and
-          # `attr` must be preserved rather than overwritten with '│'.
-          {attr, ch}
-        when :underline
+        when .underline?
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
-        else # :block — invert the cell
+        when .block?
+          # Invert the cell.
           {Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr)), ch}
+        else
+          # Line: the host terminal draws the real beam in this column, so both
+          # `ch` and `attr` must be preserved rather than overwritten with '│'.
+          # None likewise leaves the cell untouched.
+          {attr, ch}
         end
       end
 
@@ -459,8 +526,8 @@ module Crysterm
         emit ::Crysterm::Event::Scroll
       end
 
-      def scroll_percentage : Float64
-        @emulator.try(&.scroll_perc) || 0.0
+      def scroll_percent : Float64
+        @emulator.try(&.scroll_percent) || 0.0
       end
 
       # Terminates the child and tears down the PTY. Idempotent; safe to call

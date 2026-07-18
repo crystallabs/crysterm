@@ -146,7 +146,7 @@ describe "BUGS13 W13: Scale.fmt for values beyond Int64" do
   it "a HeatMap fed values beyond Int64 renders without OverflowError" do
     s = graph_screen
     Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
-      data: [[1.0e19, 2.0e19], [3.0e18, 4.0e18]]
+      values: [[1.0e19, 2.0e19], [3.0e18, 4.0e18]]
     s._render # the legend labels run Scale.fmt over the resolved bounds
   ensure
     s.try &.destroy

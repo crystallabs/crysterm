@@ -4,7 +4,7 @@ include Crysterm
 
 # Behaviour-preservation specs for the WARM/COLD allocation reductions in
 # Groups P and I (ALLOCS.md): calendar weekday-header caching (P1), tree indent
-# memoization (P7), scrollbar no-op sync early-return (P6), and Font glyph miss
+# memoization (P7), scrollbar no-op sync early-return (P6), and BitmapFont glyph miss
 # caching (I1). Each verifies the observable output is unchanged after the
 # allocation optimization.
 
@@ -69,7 +69,7 @@ describe "ALLOCS Group P/I behaviour preservation" do
       child.add "grandchild"
       tree.expand_all
 
-      rows = tree.ritems
+      rows = tree.item_texts
       rows[0].should eq "\u{25BE} root"    # depth 0: no indent, expanded marker
       rows[1].should eq "  \u{25BE} child" # depth 1: 2 spaces
       rows[2].should eq "      grandchild" # depth 2: 4 spaces + leaf marker ' ' + ' '
@@ -77,7 +77,7 @@ describe "ALLOCS Group P/I behaviour preservation" do
       # Change the indent width; a rebuild must reflect the new spacing
       # (the memoized indent strings are invalidated on the setter).
       tree.indent = 4
-      rows = tree.ritems
+      rows = tree.item_texts
       rows[1].should eq "    \u{25BE} child"   # depth 1: now 4 spaces
       rows[2].should eq "          grandchild" # depth 2: now 8 spaces + leaf ' ' + ' '
     end
@@ -113,9 +113,9 @@ describe "ALLOCS Group P/I behaviour preservation" do
     end
   end
 
-  describe "I1 — Font glyph miss caching" do
+  describe "I1 — BitmapFont glyph miss caching" do
     it "falls back to '?' for a missing glyph and caches the result" do
-      f = Crysterm::Font.default_normal
+      f = Crysterm::BitmapFont.default_normal
       q = f.glyph "?"
 
       # A codepoint Unifont does not cover falls back to the '?' glyph.

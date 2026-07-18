@@ -73,13 +73,6 @@ module Crysterm
           return self unless auto?
           animated ? Ordered : Diffusion
         end
-
-        # Coerces a constructor's legacy `Dither | Bool` `dither:` argument to a
-        # `Dither`: a `Dither` passes through unchanged; a `Bool` maps `true` to
-        # *if_true* and `false` to `None`.
-        def self.from_arg(dither : Dither | Bool, if_true : Dither) : Dither
-          dither.is_a?(Bool) ? (dither ? if_true : None) : dither
-        end
       end
 
       # Quantizes an RGBA *bmp* (*pw*×*ph*) to one backend value per pixel,
@@ -363,7 +356,7 @@ module Crysterm
         end
 
         # (2) Auto: rank by content, honor `media.exclude`, gate on capability.
-        tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
+        tput ||= (Crysterm::Window.global?.try(&.tput))
         excluded = excluded_types
         candidates = candidates_for(content).reject { |t| excluded.includes?(t) }
 
@@ -488,7 +481,7 @@ module Crysterm
         when .ueberzug?     then ueberzug_available?
         when .regis?, .tek? then false # no detection
         else
-          tp = tput || (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
+          tp = tput || (Crysterm::Window.global?.try(&.tput))
           if tp
             backend_supported?(type, tp.emulator, tp.features)
           else

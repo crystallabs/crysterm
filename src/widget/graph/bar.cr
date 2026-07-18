@@ -61,6 +61,8 @@ module Crysterm
         def show_values=(value : Bool)
           @show_values = value
           bump_data_version
+          # Rebuilds the content and schedules a frame (mirrors `values=`).
+          mark_dirty
           value
         end
 

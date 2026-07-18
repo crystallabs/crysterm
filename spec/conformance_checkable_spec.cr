@@ -7,7 +7,7 @@ include Crysterm
 #
 #   * `it_behaves_like_a_checkable` — a single toggling control (`CheckBox`,
 #     `RadioButton`, a checkable `Button`, a checkable `ToolButton`): `check`/
-#     `uncheck` are idempotent and emit exactly one `Event::Check`/`UnCheck` on a
+#     `uncheck` are idempotent and emit exactly one `Event::StateChanged` on a
 #     real transition; a `toggle` from unchecked emits exactly once and ends
 #     checked. (All four subclass `AbstractButton`, so one adapter cast covers
 #     them.)
@@ -29,7 +29,7 @@ private def it_behaves_like_a_checkable(c : CheckableCase)
       s = mem_screen
       b = c.build.call s
       checks = 0
-      b.on(Crysterm::Event::Check) { checks += 1 }
+      b.on(Crysterm::Event::StateChanged) { |e| checks += 1 if e.state.checked? }
       b.check
       b.checked?.should be_true
       checks.should eq 1
@@ -42,7 +42,7 @@ private def it_behaves_like_a_checkable(c : CheckableCase)
       b = c.build.call s
       b.check
       unchecks = 0
-      b.on(Crysterm::Event::UnCheck) { unchecks += 1 }
+      b.on(Crysterm::Event::StateChanged) { |e| unchecks += 1 if e.state.unchecked? }
       b.uncheck
       b.checked?.should be_false
       unchecks.should eq 1
@@ -54,8 +54,7 @@ private def it_behaves_like_a_checkable(c : CheckableCase)
       s = mem_screen
       b = c.build.call s
       events = 0
-      b.on(Crysterm::Event::Check) { events += 1 }
-      b.on(Crysterm::Event::UnCheck) { events += 1 }
+      b.on(Crysterm::Event::StateChanged) { events += 1 }
       b.toggle
       b.checked?.should be_true
       events.should eq 1
@@ -109,7 +108,7 @@ describe "Checkable conformance (B8)" do
       members = Array(Crysterm::Widget::AbstractButton).new
       3.times do
         b = Crysterm::Widget::Button.new parent: s
-        g.add b
+        g.add_button b
         members << b
       end
       members
@@ -140,8 +139,8 @@ describe "Checkable conformance (B8)" do
       g = Crysterm::ButtonGroup.new exclusive: true
       a = Crysterm::Widget::Button.new parent: s
       b = Crysterm::Widget::Button.new parent: s
-      g.add a
-      g.add b
+      g.add_button a
+      g.add_button b
       a.check
       a.uncheck                 # try to empty the group by unchecking the sole member
       a.checked?.should be_true # reverted — still exactly one selected

@@ -7,12 +7,12 @@ module Crysterm
     # flow*. Children are placed into the cells of a `columns`-wide grid: either
     # explicitly via a `Grid::Hint` (with optional row/column spans) or
     # auto-flowed row-major into the free cells. Columns and rows divide the
-    # interior evenly (minus `gap`); the row count is taken from `rows` or
+    # interior evenly (minus `spacing`); the row count is taken from `rows` or
     # inferred from placement.
     #
     # ```
     # g = Widget::Box.new parent: window, width: "100%", height: "100%",
-    #   layout: Layout::Grid.new(columns: 3, gap: 1)
+    #   layout: Layout::Grid.new(columns: 3, spacing: 1)
     # Widget::Box.new parent: g,
     #   layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
     # Widget::Box.new parent: g # auto-flows into the next free cell
@@ -23,26 +23,56 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Grid < Layout
       class Hint < Layout::Hint
-        getter row : Int32
-        getter column : Int32
-        getter row_span : Int32
-        getter column_span : Int32
+        property row : Int32
+        property column : Int32
+        property row_span : Int32
+        property column_span : Int32
 
         def initialize(@row : Int32, @column : Int32, @row_span : Int32 = 1, @column_span : Int32 = 1)
         end
       end
 
-      property columns : Int32
-      property rows : Int32?
+      # Number of columns; change-guarded so a real change repaints the container.
+      @columns : Int32
 
-      # `#gap` (inter-cell spacing) is inherited from `Layout`.
+      # :ditto:
+      def columns : Int32
+        @columns
+      end
+
+      # :ditto:
+      def columns=(value : Int32) : Int32
+        return value if value == @columns
+        @columns = value
+        invalidate
+        value
+      end
+
+      # Fixed row count, or `nil` to infer from placement; change-guarded so a real
+      # change repaints the container.
+      @rows : Int32?
+
+      # :ditto:
+      def rows : Int32?
+        @rows
+      end
+
+      # :ditto:
+      def rows=(value : Int32?) : Int32?
+        return value if value == @rows
+        @rows = value
+        invalidate
+        value
+      end
+
+      # `#spacing` (inter-cell spacing) is inherited from `Layout`.
 
       # Per-arrange scratch, cleared rather than reallocated so a re-render
       # allocates nothing. Not retained past `#arrange`.
       @occupied = Set({Int32, Int32}).new
       @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
 
-      def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @gap : Int32 = 0)
+      def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @spacing : Int32 = 0)
       end
 
       # Caps for degenerate `Grid::Hint` values. A row origin is clamped to
@@ -56,8 +86,8 @@ module Crysterm
       OCCUPANCY_ROW_CAP =      4096
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
-        w = interior.xl - interior.xi
-        h = interior.yl - interior.yi
+        w = interior.width
+        h = interior.height
         cols = Math.max(@columns, 1)
 
         occupied = @occupied
@@ -136,8 +166,8 @@ module Crysterm
         # carved by *cumulative* integer division (`Layout.fence`), so widths
         # differ by at most one and sum to exactly `inner_w`; a uniform floored
         # `cell_w` would strand the remainder as blank space at the far edge.
-        inner_w = w - (cols - 1) * @gap
-        inner_h = h - (nrows - 1) * @gap
+        inner_w = w - (cols - 1) * @spacing
+        inner_h = h - (nrows - 1) * @spacing
         inner_w = 0 if inner_w < 0
         inner_h = 0 if inner_h < 0
 
@@ -155,10 +185,16 @@ module Crysterm
           y1 = Layout.fence inner_h, nrows, r1
           col_gaps = c1 > c0 ? c1 - c0 - 1 : 0
           row_gaps = r1 > r0 ? r1 - r0 - 1 : 0
-          el.left = x0 + c0 * @gap
-          el.top = y0 + r0 * @gap
-          el.width = (x1 - x0) + col_gaps * @gap
-          el.height = (y1 - y0) + row_gaps * @gap
+          # Reserve the child's margin box, mirroring Layout::Box's stretch
+          # branch: `_get_coords` shifts a fixed-size box outward by its near
+          # margin without shrinking it, so a raw cell-sized child would paint
+          # its margin past the cell's far edge into the neighbour (or past the
+          # container for a last-column/row cell). Subtracting the margin sums
+          # keeps the shifted box inside its cell.
+          el.left = x0 + c0 * @spacing
+          el.top = y0 + r0 * @spacing
+          el.width = Math.max(0, (x1 - x0) + col_gaps * @spacing - el.mhorizontal)
+          el.height = Math.max(0, (y1 - y0) + row_gaps * @spacing - el.mvertical)
           render_child el
         end
       end

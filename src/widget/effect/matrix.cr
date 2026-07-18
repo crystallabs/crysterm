@@ -77,7 +77,7 @@ module Crysterm
         # scattered over `[-h, h)` rather than only above the top, so roughly half
         # start already on-window: the first frame looks established immediately
         # instead of needing a warm-up.
-        def resize(w, h)
+        def resize(w : Int32, h : Int32)
           @heads = Array.new(w) { (rand(2 * h) - h).to_f }
           @speeds = Array.new(w) { 0.25 + rand * 0.7 }
           @lengths = Array.new(w) { 6 + rand(10) }
@@ -85,7 +85,7 @@ module Crysterm
 
         # Advance every drop; recycle a drop to a fresh negative offset, speed, and
         # length once its tail has fully fallen past the bottom.
-        def advance(w, h)
+        def advance(w : Int32, h : Int32)
           return if @heads.size != w
           w.times do |x|
             @heads[x] += @speeds[x]
@@ -99,7 +99,7 @@ module Crysterm
 
         # Glyph + packed `0xRRGGBB` color for interior cell `{x, y}` (blank, with
         # the default fg, outside any drop's trail).
-        def cell(x, y, w, h) : {Char, Int32}
+        def cell(x : Int32, y : Int32, w : Int32, h : Int32) : {Char, Int32}
           dist = @heads[x] - y
           if dist >= 0 && dist < @lengths[x]
             ch = @pool.sample

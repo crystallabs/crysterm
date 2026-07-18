@@ -53,7 +53,7 @@ module Crysterm
       # is monochrome, not a colour family. *tput* defaults to the global
       # window's; with no terminal handle the optimistic `Octant` is returned.
       def self.best_mode(tput : ::Tput? = nil) : Mode
-        tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
+        tput ||= (Crysterm::Window.global?.try(&.tput))
         return Mode::Octant unless tp = tput
         return Mode::Ascii unless tp.features.unicode?
         emu = tp.emulator
@@ -72,16 +72,13 @@ module Crysterm
       ASCII_EDGE = 28
 
       def initialize(@file = nil, @mode : Mode = Mode::Half, animate : Bool | Timer = true,
-                     @speed : Float64 = 1.0, @fit : Media::Fit = Media::Fit::Stretch, **box)
+                     speed : Float64 = 1.0, @fit : Media::Fit = Media::Fit::Stretch, **box)
         super(**box)
+        # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
+        self.speed = speed
         setup_animate animate # before set_image, so shared clock is known when play subscribes
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }
-      end
-
-      # The decoded image (alias for the shared `#source`), or `nil` if none.
-      def img : PNGGIF::PNG?
-        source
       end
 
       # Cell box times this mode's sub-cell grid (e.g. 2x4 for braille/octant):

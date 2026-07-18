@@ -136,7 +136,7 @@ module Crysterm
 
         # The role + sub-index of the currently highlighted menu row.
         def selected_row : {RowKind, Int32}
-          row_at @menu.selected
+          row_at @menu.current_index
         end
 
         # Rebuilds the menu rows from the current state, re-marking the divider as
@@ -149,7 +149,7 @@ module Crysterm
           rows << separator
           @attachments.each_with_index { |a, i| rows << format_attachment(a, i) }
           @menu.items = rows
-          @menu.nonselectable = [separator_index]
+          @menu.non_selectable_rows = [separator_index]
         end
 
         # The `-- Attachments --` divider line, dash-padded.

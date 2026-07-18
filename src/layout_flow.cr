@@ -59,8 +59,14 @@ module Crysterm
             end
             break
           when Overflow::MoveWidget
-            # No-op: the child repositions itself during its own render; fall
-            # through and render it where it lands.
+            # Translate the child back into the container interior on the
+            # overflow (vertical) axis — the interior-scoped analogue of
+            # `translate_into_bounds`. A non-Window container's `overflow` is
+            # never inherited by the child (`Widget#overflow` resolves to
+            # `@overflow || window.overflow || Ignore`), so the child would NOT
+            # self-move in its own render; without this the branch behaves like
+            # Ignore. Anchor the child's whole margin box within the interior.
+            el.top = Math.max(0, interior.height - el.mvertical - el.aheight)
           end
 
           # A deferred (z-indexed) child still renders at the position assigned
@@ -85,7 +91,7 @@ module Crysterm
       # is snapped to a uniform column of that width.
       protected def flow_place(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry, high_width : Int32) : Nil
         xi = interior.xi
-        width = interior.xl - interior.xi
+        width = interior.width
 
         # Make children shrink_to_fit so a missing dimension (e.g. height) is
         # computed for them at render time.
@@ -189,7 +195,7 @@ module Crysterm
       # child height, the vertical analogue of the explicit width flow already
       # requires.
       protected def overflow_action(container : Widget, el : Widget, interior : RenderedGeometry) : Overflow?
-        height = interior.yl - interior.yi
+        height = interior.height
         # Include the top margin: render shifts a fixed-size box down by `mtop`
         # without shrinking it, so its real bottom edge is `top + mtop + aheight`.
         # Safe for auto-height children too — their `aheight` already folds both

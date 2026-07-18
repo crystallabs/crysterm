@@ -81,7 +81,7 @@ module Crysterm
         media_width = window.width
         media_height = window.height
         media_colors = begin
-          window.colors.to_i32
+          window.color_count.to_i32
         rescue
           0x1000000
         end
@@ -240,7 +240,7 @@ module Crysterm
           # that state alone while `normal` reverted to pristine. Touched states
           # are reset to pristine again below and re-fold inline at the correct
           # tier, so this never double-applies.
-          if inl = widget.css_inline_style
+          if inl = widget.inline_style
             fold_inline widget.styles.normal, inl
           end
         end
@@ -266,7 +266,7 @@ module Crysterm
           widget = target[0]
           next unless scope.nil? || scope.includes?(widget)
           entries = acc[{uid, state}]? || EMPTY_ENTRIES
-          apply_entries_with_inline get_state_style(widget, state), entries, variables, resolved, widget.css_inline_style
+          apply_entries_with_inline get_state_style(widget, state), entries, variables, resolved, widget.inline_style
           # Geometry/layout is per-widget, not per-state: apply once from the
           # (now sorted) normal-state entries.
           apply_geometry widget, entries, variables, resolved if state.normal?
@@ -306,7 +306,7 @@ module Crysterm
             # same inline-beats-stylesheet contract the main style honors.
             # Interleaved at `TIER_INLINE` so `!important` sub-element rules
             # still win over it.
-            inline_sub = widget.css_inline_style.try &.raw_sub_style(slot)
+            inline_sub = widget.inline_style.try &.raw_sub_style(slot)
             apply_entries_with_inline sub, entries, variables, resolved, inline_sub
             state_style.set_sub_style slot, sub
           end

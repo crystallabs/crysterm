@@ -22,7 +22,7 @@ describe Crysterm::Layout::HBox do
   it "lays children left-to-right, sharing leftover width among flex children" do
     s = headless_screen
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 5,
-      layout: Layout::HBox.new(gap: 1)
+      layout: Layout::HBox.new(spacing: 1)
     Widget::Box.new parent: box, width: 6, height: 3
     Widget::Box.new parent: box, height: 3 # flexible width
     Widget::Box.new parent: box, width: 8, height: 3
@@ -35,7 +35,7 @@ describe Crysterm::Layout::HBox do
   it "keeps flex sizing stable across re-renders" do
     s = headless_screen
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 5,
-      layout: Layout::HBox.new(gap: 1)
+      layout: Layout::HBox.new(spacing: 1)
     Widget::Box.new parent: box, width: 6, height: 3
     Widget::Box.new parent: box, height: 3
     Widget::Box.new parent: box, width: 8, height: 3
@@ -221,7 +221,7 @@ describe Crysterm::Layout::Grid do
     # cell with an oversized column_span ("span to the end") must reach exactly the
     # interior's right edge (x1 == 34), not overshoot via phantom off-grid gaps.
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 34, height: 6,
-      layout: Layout::Grid.new(columns: 3, rows: 1, gap: 2)
+      layout: Layout::Grid.new(columns: 3, rows: 1, spacing: 2)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 99)
 
     coords = render_children s, g
@@ -298,8 +298,8 @@ describe "Crysterm::Layout::Box flex" do
     s = headless_screen
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 4,
       layout: Layout::HBox.new
-    Widget::Box.new parent: box, height: 2, layout_hint: Layout::Box::Hint.new(grow: 1)
-    Widget::Box.new parent: box, height: 2, layout_hint: Layout::Box::Hint.new(grow: 2)
+    Widget::Box.new parent: box, height: 2, layout_hint: Layout::Box::Hint.new(stretch: 1)
+    Widget::Box.new parent: box, height: 2, layout_hint: Layout::Box::Hint.new(stretch: 2)
 
     coords = render_children s, box
     # 30 split 1:2 -> 10 and 20.

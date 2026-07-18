@@ -50,7 +50,7 @@ module Crysterm
   alias FileBrowser = Widget::Pine::FileBrowser
 
   s = Window.new(
-    always_propagate: [Tput::Key::CtrlQ],
+    always_propagated_keys: [Tput::Key::CtrlQ],
     title: "Crysterm — Alpine-style demo",
   )
 
@@ -238,14 +238,14 @@ module Crysterm
   end
 
   set_keys = ->(entries : Array(KeyMenu::Entry)) do
-    key_menu.set_entries entries
+    key_menu.entries = entries
     nil
   end
 
   # Make the bottom command bar clickable: a click on a hint emits the hint's
   # key, turned into the matching keypress so it flows through the same
   # handlers as the physical key.
-  key_menu.on(Event::Action) do |e|
+  key_menu.on(Event::Activated) do |e|
     kp = case k = e.value.to_s
          when "Spc"   then Event::KeyPress.new(' ', nil)
          when "Enter" then Event::KeyPress.new('\r', Tput::Key::Enter)
@@ -382,8 +382,8 @@ module Crysterm
   # Pop up a Pine-style yes/no prompt on the status line; *on_yes* runs if the
   # user presses Y. N or Escape just dismisses it.
   ask_yes_no = ->(question : String, on_yes : Proc(Nil)) do
-    confirm.set_question question
-    confirm.set_choices [
+    confirm.question = question
+    confirm.choices = [
       KeyPrompt::Choice.new("Y", "Yes", -> { dismiss_prompt.call; on_yes.call; nil }),
       KeyPrompt::Choice.new("N", "No", -> { dismiss_prompt.call; nil }),
     ]
@@ -587,7 +587,7 @@ module Crysterm
     header.section.content = "FLAG MAINTENANCE"
     header.info.content = m ? %(Msg: "#{m.subject}") : ""
     # Preselect the message's current flags.
-    m ? flagpick.set_checked(FLAG_NAMES.select { |f| flags_of[m].includes?(f) }) : flagpick.clear_selection
+    m ? (flagpick.checked = FLAG_NAMES.select { |f| flags_of[m].includes?(f) }) : flagpick.clear_selection
     show_only.call flagpick
     set_keys.call [
       KeyMenu::Entry.new("?", "Help"),
@@ -675,7 +675,7 @@ module Crysterm
 
   # SORT ORDER picker (single-select `ListSelect`): Enter confirms the
   # highlighted order, reorders the index, and returns to it.
-  sortpick.on_confirm = ->(sel : Array(String)) do
+  sortpick.on_confirm do |sel|
     sel.first?.try do |o|
       current_sort = o
       case o
@@ -689,12 +689,11 @@ module Crysterm
     end
     show_status.call "[Index sorted by #{current_sort}]"
     goto_index.call
-    nil
   end
 
   # FLAG MAINTENANCE (multi-select `ListSelect`): leaving the screen ("<")
   # calls `flagpick.confirm`, which applies checked flags and returns to the index.
-  flagpick.on_confirm = ->(sel : Array(String)) do
+  flagpick.on_confirm do |sel|
     flag_target.try do |m|
       flags_of[m] = sel.to_set
       apply_flags.call m
@@ -702,18 +701,17 @@ module Crysterm
     end
     show_status.call(sel.empty? ? "[Flags cleared]" : "[Flags set: #{sel.join(", ")}]")
     goto_index.call
-    nil
   end
 
   # ATTACH FILE (FileBrowser): selecting a file fills the composer's Attchmnt
   # field and returns; navigating directories updates the info line.
-  filebrowser.on(Event::OpenFile) do |e|
+  filebrowser.on(Event::FileSelected) do |e|
     compose.fields["attchmnt"]?.try &.value = File.basename(e.path)
     show_compose.call false, "attchmnt"
     show_status.call "[Attached: #{File.basename(e.path)}]"
   end
 
-  filebrowser.on(Event::ChangeDir) do |e|
+  filebrowser.on(Event::DirectoryChanged) do |e|
     header.info.content = filebrowser.cwd
     show_status.call "[#{filebrowser.cwd}]"
   end
@@ -829,14 +827,14 @@ module Crysterm
       case ch
       when '<', 'i', 'I' then goto_index.call
       when 'n', 'N'
-        ni = index.selected + 1
+        ni = index.current_index + 1
         messages[ni]?.try { |m| open_message.call(m) } if ni < messages.size
       when 'p', 'P'
-        pi = index.selected - 1
+        pi = index.current_index - 1
         messages[pi]?.try { |m| open_message.call(m) } if pi >= 0
-      when 'r', 'R' then messages[index.selected]?.try { |m| reply_to.call(m) }
+      when 'r', 'R' then messages[index.current_index]?.try { |m| reply_to.call(m) }
       when 'd', 'D'
-        messages[index.selected]?.try do |m|
+        messages[index.current_index]?.try do |m|
           flags_of[m] << "Deleted"
           apply_flags.call m
           index.messages = messages

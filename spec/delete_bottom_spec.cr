@@ -18,7 +18,7 @@ describe "Window#delete_bottom" do
     bottom = h - 1
 
     # Dirty the bottom row and the row above it, with a non-default attr/char.
-    s.fill_region 7_i64, 'X', 0, w, bottom - 1, bottom + 1, override: true
+    s.fill_region 7_i64, 'X', 0, w, bottom - 1, bottom + 1, force: true
     s.lines[bottom][0].char.should eq 'X'
     s.lines[bottom - 1][0].char.should eq 'X'
 

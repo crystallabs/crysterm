@@ -73,20 +73,20 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
   it "re-quantizes to the new palette instead of serving the stale plane" do
     s = cells_window
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8,
-      colors: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
+      color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
     img.bitmap = gradient_bmp # single-frame still
     s._render
     sig256 = cell_sig(s, img)
 
     # Genuine palette change: before the fix the memoized C256 plane kept
     # painting the 256-color look here.
-    img.colors = Crysterm::Widget::Media::Ansi::ColorMode::C8
+    img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C8
     s._render
     sig8 = cell_sig(s, img)
     sig8.should_not eq sig256
 
     # Switching back must re-derive the C256 look (memo not stuck on C8 either).
-    img.colors = Crysterm::Widget::Media::Ansi::ColorMode::C256
+    img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C256
     s._render
     cell_sig(s, img).should eq sig256
   ensure
@@ -97,7 +97,7 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
   it "re-dithers when the dither method changes in a reduced mode" do
     s = cells_window
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8,
-      colors: Crysterm::Widget::Media::Ansi::ColorMode::C16,
+      color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C16,
       dither: Crysterm::Widget::Media::Dither::Diffusion, animate: false)
     img.bitmap = gradient_bmp
     s._render
@@ -114,11 +114,11 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
   it "is a no-op for a same-value assignment (no needless churn)" do
     s = cells_window
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8,
-      colors: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
+      color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
     img.bitmap = gradient_bmp
     s._render
     sig = cell_sig(s, img)
-    img.colors = Crysterm::Widget::Media::Ansi::ColorMode::C256 # unchanged
+    img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C256 # unchanged
     s._render
     cell_sig(s, img).should eq sig
   ensure

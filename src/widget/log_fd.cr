@@ -20,7 +20,7 @@ module Crysterm
     # LogFd.new "journalctl", ["-f"], parent: window
     # ```
     #
-    # Reading begins once the widget is attached to a window (`Event::Attach`), so
+    # Reading begins once the widget is attached to a window (`Event::Attached`), so
     # appended lines can be marshalled onto the render fiber. You can also drive it
     # yourself, headless, by calling `#feed` with bytes/strings.
     class LogFd < Log
@@ -88,10 +88,10 @@ module Crysterm
       end
 
       private def wire : Nil
-        on(::Crysterm::Event::Attach) { start }
+        on(::Crysterm::Event::Attached) { start }
         on(::Crysterm::Event::Destroy) { close }
         # A `parent:`/`window:` passed to the constructor already fired
-        # `Event::Attach` during `super`, before the handler above existed, so
+        # `Event::Attached` during `super`, before the handler above existed, so
         # kick the reader off now if we're already attached. Later re-attaches go
         # through the handler (a no-op once `@started`).
         start if window?
@@ -140,7 +140,7 @@ module Crysterm
         @carry = Bytes.new(0)
       end
 
-      # Starts the background reader. Idempotent (`Event::Attach` can re-fire on
+      # Starts the background reader. Idempotent (`Event::Attached` can re-fire on
       # re-attach) and a no-op once closed.
       private def start : Nil
         return if @started || @closed
@@ -170,7 +170,7 @@ module Crysterm
       private def reap : Nil
         if p = @process
           code = p.wait.exit_code rescue nil
-          emit ::Crysterm::Event::Exit, code
+          emit ::Crysterm::Event::ProcessExited, code
         end
       end
 

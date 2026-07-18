@@ -4,11 +4,11 @@ include Crysterm
 
 # Regression specs for the BUGS5 lifecycle fixes:
 #
-#  1. `Widget#stack_index=` (used by `#front!`/`#back!`) reordered the parent's
+#  1. `Widget#stack_index=` (used by `#to_front`/`#to_back`) reordered the parent's
 #     children list directly (`insert index, delete_at i`), bypassing the
 #     `Mixin::Children#insert`/`#remove` path and therefore
 #     `mark_structure_changed`. Under `OptimizationFlag::DamageTracking` a lone
-#     `front!`/`back!` left the dirty set empty, so the compositor produced a
+#     `to_front`/`to_back` left the dirty set empty, so the compositor produced a
 #     fast frame and the new stacking order was not painted; order-dependent CSS
 #     selectors also did not re-evaluate. The fix marks the moved widget dirty,
 #     forces a full re-composite, and invalidates the CSS tree.
@@ -32,7 +32,7 @@ private def lifecycle_screen
 end
 
 describe "BUGS5 z-order reorder invalidation (fix #1)" do
-  it "#front! on a nested widget marks it dirty and invalidates the CSS tree" do
+  it "#to_front on a nested widget marks it dirty and invalidates the CSS tree" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     a = Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
@@ -44,14 +44,14 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
 
     # `a` starts before `b`; bring it to front (last slot).
     parent.children.index(a).should eq 0
-    a.front!
+    a.to_front
 
     parent.children.last.should eq a
     a.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
-  it "#back! on a nested widget reorders it and invalidates" do
+  it "#to_back on a nested widget reorders it and invalidates" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
@@ -61,14 +61,14 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     b.render_dirty = false
 
     parent.children.index(b).should eq 1
-    b.back!
+    b.to_back
 
     parent.children.first.should eq b
     b.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
-  it "#front! on a top-level widget (window parent) reorders and invalidates" do
+  it "#to_front on a top-level widget (window parent) reorders and invalidates" do
     s = lifecycle_screen
     a = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 5, height: 1)
     Crysterm::Widget::Box.new(parent: s, top: 1, left: 0, width: 5, height: 1)
@@ -77,14 +77,14 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     a.render_dirty = false
 
     s.children.index(a).should eq 0
-    a.front!
+    a.to_front
 
     s.children.last.should eq a
     a.render_dirty?.should be_true
     s.css_dirty?.should be_true
   end
 
-  it "#front! is a no-op (no reorder) when already at the front slot" do
+  it "#to_front is a no-op (no reorder) when already at the front slot" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
@@ -93,9 +93,9 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     s.render
     b.render_dirty = false
 
-    # `b` is already last (front): calling front! must not churn dirty/CSS state.
+    # `b` is already last (front): calling to_front must not churn dirty/CSS state.
     parent.children.last.should eq b
-    b.front!
+    b.to_front
 
     parent.children.last.should eq b
     b.render_dirty?.should be_false

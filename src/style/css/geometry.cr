@@ -35,7 +35,7 @@ module Crysterm
         min_width: @min_width, max_width: @max_width,
         min_height: @min_height, max_height: @max_height,
         align: @align,
-        gap: layout.try(&.gap),
+        gap: layout.try(&.spacing),
         password_character: as?(Widget::LineEdit).try(&.password_character))
     end
 
@@ -56,7 +56,7 @@ module Crysterm
       self.min_height = snap.min_height
       self.max_height = snap.max_height
       self.align = snap.align
-      snap.gap.try { |g| layout.try(&.gap=(g)) }
+      snap.gap.try { |g| layout.try(&.spacing=(g)) }
       snap.password_character.try { |c| as?(Widget::LineEdit).try(&.password_character=(c)) }
     end
 
@@ -116,7 +116,7 @@ module Crysterm
         when "spacing"
           # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
           # Engines that don't honor `gap` ignore the value; no-op with no layout.
-          value.to_i?.try { |cells| widget.layout.try(&.gap=(cells)) }
+          value.to_i?.try { |cells| widget.layout.try(&.spacing=(cells)) }
         when "lineedit-password-character"
           # Mask character for a censored `LineEdit` (Qt's
           # `lineedit-password-character`). No-op on any other widget type.

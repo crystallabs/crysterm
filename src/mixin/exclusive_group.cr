@@ -10,7 +10,7 @@ module Crysterm
       # Applies the exclusive rule to one peer *m* relative to *keep* (the member
       # that just became the selection): unchecks *m* iff it is a *different*,
       # currently-checked checkable. The `#checked?` guard avoids a spurious
-      # `Event::UnCheck`.
+      # `Event::StateChanged`.
       protected def exclude_peer(m : Widget, keep : Widget) : Nil
         return unless m.is_a?(Widget::AbstractButton)
         m.uncheck if m != keep && m.checked?

@@ -20,7 +20,7 @@ describe "drag ghost on a padded screen" do
     s.padding = Crysterm::Padding.new(3, 2, 0, 0) # left=3, top=2
 
     source = Widget::Box.new parent: s, left: 5, top: 5, width: 6, height: 3
-    source.enable_drag reposition: false # transfer source -> gets a ghost
+    source.drag_mode = :transfer; source.draggable = true # transfer source -> gets a ghost
 
     px, py = 10, 8
     s.start_drag source, px, py, Crysterm::DragSensor::Mouse

@@ -184,9 +184,9 @@ module Crysterm
             inner = aheight - ivertical
           end
           steppers = stepper_buttons? && inner >= 3
-          # A click on a stepper-button cell steps by `#step` instead of seeking.
+          # A click on a stepper-button cell steps by `#single_step` instead of seeking.
           if steppers && e.action.down? && (raw <= 0 || raw >= inner - 1)
-            raw <= 0 ? decrement : increment
+            raw <= 0 ? step_down : step_up
             e.accept
             request_render
             next
@@ -231,12 +231,12 @@ module Crysterm
         return unless t
         if @orientation.horizontal?
           visible = t.content_width
-          total = t.get_scroll_width
-          pos = t.get_scroll_x
+          total = t.scroll_width
+          pos = t.scroll_position_x
         else
           visible = t.visible_content_rows
-          total = t.get_scroll_height
-          pos = t.get_scroll
+          total = t.scroll_height
+          pos = t.scroll_position
         end
         new_page = Math.max(1, visible)
         new_max = Math.max(0, total - visible)
@@ -264,7 +264,7 @@ module Crysterm
         super
         return if @syncing
         if @orientation.horizontal?
-          @target.try &.scroll_x_to(@value)
+          @target.try &.scroll_to_x(@value)
         else
           @target.try &.scroll_to(@value)
         end
@@ -301,16 +301,16 @@ module Crysterm
         if decrement
           button = resolve_slot(base.sub_line, base, base)
           if @orientation.horizontal?
-            {sattr(resolve_slot(base.left_arrow, button, base)), left_arrow_char}
+            {style_to_attr(resolve_slot(base.left_arrow, button, base)), left_arrow_char}
           else
-            {sattr(resolve_slot(base.up_arrow, button, base)), up_arrow_char}
+            {style_to_attr(resolve_slot(base.up_arrow, button, base)), up_arrow_char}
           end
         else
           button = resolve_slot(base.add_line, base, base)
           if @orientation.horizontal?
-            {sattr(resolve_slot(base.right_arrow, button, base)), right_arrow_char}
+            {style_to_attr(resolve_slot(base.right_arrow, button, base)), right_arrow_char}
           else
-            {sattr(resolve_slot(base.down_arrow, button, base)), down_arrow_char}
+            {style_to_attr(resolve_slot(base.down_arrow, button, base)), down_arrow_char}
           end
         end
       end
@@ -336,9 +336,9 @@ module Crysterm
 
           # `::sub-page`/`::add-page` are the trough above/below the handle; both
           # fall back to `::groove` (`track`) when unset.
-          sub_page_attr = sattr resolve_slot(base.sub_page, base.track, base)
-          add_page_attr = sattr resolve_slot(base.add_page, base.track, base)
-          thumb_attr = sattr base.indicator
+          sub_page_attr = style_to_attr resolve_slot(base.sub_page, base.track, base)
+          add_page_attr = style_to_attr resolve_slot(base.add_page, base.track, base)
+          thumb_attr = style_to_attr base.indicator
 
           # With the trough hidden, only the thumb is drawn; a space keeps the
           # reserved column empty rather than glyph-filled. Both glyphs hoisted

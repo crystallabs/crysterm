@@ -4,9 +4,9 @@ include Crysterm
 
 # Regression coverage for the per-cell diff in `Window#draw` (`window_drawing.cr`).
 #
-# `draw` compares `@lines` (this frame) against `@olines` (what is on the
+# `draw` compares `@lines` (this frame) against `@flushed_lines` (what is on the
 # terminal), skips unchanged cells, and writes every emitted cell back into
-# `@olines`. After a `draw`, `@olines` mirrors exactly what the diff emitted —
+# `@flushed_lines`. After a `draw`, `@flushed_lines` mirrors exactly what the diff emitted —
 # used as the observable below.
 #
 # Bug guarded against (full_unicode): `desired_char` is only the BASE codepoint
@@ -24,16 +24,16 @@ end
 describe "Window#draw cell diff (full_unicode)" do
   it "re-emits a cell when its grapheme cluster changes but base char + attr do not" do
     s = fu_screen
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 1, 2
 
-    # Frame 1: a plain 'e' -> @olines mirrors it.
+    # Frame 1: a plain 'e' -> @flushed_lines mirrors it.
     s.lines[y][x].char = 'e'
     s.lines[y].dirty = true
     s.draw
-    s.olines[y][x].char.should eq 'e'
-    s.olines[y][x].grapheme_overlay.should be_nil
+    s.flushed_lines[y][x].char.should eq 'e'
+    s.flushed_lines[y][x].grapheme_overlay.should be_nil
 
     # Frame 2: same base 'e' and attr, now a 2-codepoint cluster (e + combining
     # acute). Ignoring the overlay would skip this cell and lose the mark.
@@ -41,40 +41,40 @@ describe "Window#draw cell diff (full_unicode)" do
     s.lines[y].dirty = true
     s.draw
 
-    s.olines[y][x].grapheme.should eq "e\u{0301}"
-    s.olines[y][x].grapheme_overlay.should eq "e\u{0301}"
+    s.flushed_lines[y][x].grapheme.should eq "e\u{0301}"
+    s.flushed_lines[y][x].grapheme_overlay.should eq "e\u{0301}"
   end
 
   it "re-emits a cell when its cluster collapses back to a single codepoint" do
     s = fu_screen
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 0, 1
 
     s.lines[y][x].grapheme = "e\u{0301}"
     s.lines[y].dirty = true
     s.draw
-    s.olines[y][x].grapheme_overlay.should eq "e\u{0301}"
+    s.flushed_lines[y][x].grapheme_overlay.should eq "e\u{0301}"
 
     # Back to a plain 'e' (overlay dropped) — the cell changed, so it must emit.
     s.lines[y][x].char = 'e'
     s.lines[y].dirty = true
     s.draw
-    s.olines[y][x].char.should eq 'e'
-    s.olines[y][x].grapheme_overlay.should be_nil
+    s.flushed_lines[y][x].char.should eq 'e'
+    s.flushed_lines[y][x].grapheme_overlay.should be_nil
   end
 
   it "does not re-emit a genuinely unchanged cluster cell on the next frame" do
     output = IO::Memory.new
     s = fu_screen output
-    pending! "full_unicode unavailable in this environment" unless s.full_unicode?
+    pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 2, 3
 
     s.lines[y][x].grapheme = "e\u{0301}"
     s.lines[y].dirty = true
     s.draw
-    s.olines[y][x].grapheme.should eq "e\u{0301}"
+    s.flushed_lines[y][x].grapheme.should eq "e\u{0301}"
 
     # Redraw identical content: unchanged, so the diff must skip it and write
     # nothing. (Keying the skip on the OLD cell's overlay would re-emit every frame.)
@@ -103,7 +103,7 @@ end
 private def drawn_bytes(edits, narrowed : Bool, width = 40, height = 6) : Bytes
   buf = IO::Memory.new
   s = plain_screen buf, width, height
-  s.draw # prime: @olines mirrors @lines
+  s.draw # prime: @flushed_lines mirrors @lines
   buf.clear
   edits.each do |(y, x, ch, at)|
     cell = s.lines[y][x]
@@ -146,13 +146,13 @@ end
 
 # End-to-end guard for the render path driving the dirty-column range (the
 # `mark_dirty(x)` calls in `widget_rendering`/`fill_region`/`docking`).
-# Invariant: after `draw`, `@olines` mirrors `@lines` exactly. A cell that
+# Invariant: after `draw`, `@flushed_lines` mirrors `@lines` exactly. A cell that
 # changed but fell outside a too-narrow dirty range would be skipped, leaving
-# `@olines` stale — asserted here can't happen as widgets move and change.
+# `@flushed_lines` stale — asserted here can't happen as widgets move and change.
 private def fully_synced(s) : {Int32, Int32}?
   s.lines.size.times do |y|
     line = s.lines[y]
-    o = s.olines[y]?
+    o = s.flushed_lines[y]?
     next unless o
     Math.min(line.size, o.size).times do |x|
       lc = line[x]
@@ -164,7 +164,7 @@ private def fully_synced(s) : {Int32, Int32}?
 end
 
 describe "Window#draw end-to-end dirty-range sync" do
-  it "leaves @olines mirroring @lines as widgets change content and move" do
+  it "leaves @flushed_lines mirroring @lines as widgets change content and move" do
     s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
     outer = Widget::Box.new parent: s, left: 0, top: 0, width: 40, height: 12
     label = Widget::Box.new parent: outer, left: 2, top: 1, width: 20, height: 1, content: "frame 0"

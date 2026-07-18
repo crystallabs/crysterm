@@ -24,8 +24,11 @@ module Crysterm
       # navigable via keys, they need `window.enable_keys(checkbox_obj)`.
 
       # Whether the box is in its partially-checked (indeterminate) state. Only
-      # reachable when `#tristate?` (Qt's `Qt::PartiallyChecked`).
-      property? partial : Bool = false
+      # reachable when `#tristate?` (Qt's `Qt::PartiallyChecked`). Read-only —
+      # a raw writer would bypass the `invalidate_css`/`Event::StateChanged`
+      # transition `#partial`/`#check_state=` run; assign `#check_state=` (or
+      # call `#partial`) instead.
+      getter? partial : Bool = false
 
       # Whether a third, partially-checked state participates in toggling, like
       # Qt's `QCheckBox#tristate`.
@@ -69,21 +72,43 @@ module Crysterm
         @partial = false
       end
 
+      # Current tri-state check state (Qt's `QCheckBox#checkState`), derived
+      # from `#checked?`/`#partial?`.
+      def check_state : ::Crysterm::CheckState
+        return ::Crysterm::CheckState::PartiallyChecked if partial?
+        checked? ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked
+      end
+
+      # Sets the tri-state check state (Qt's `QCheckBox#setCheckState`).
+      # `Checked`/`Unchecked` route through `#check`/`#uncheck` (both already
+      # emit `Event::StateChanged`); `PartiallyChecked` is a no-op unless
+      # `#tristate?`, and — matching `#check`/`#uncheck` — a checked→partial
+      # move announces the interim `Unchecked` before `PartiallyChecked`, so a
+      # listener mirroring `#checked?` never lags the `[-]` marker.
+      def check_state=(state : ::Crysterm::CheckState) : ::Crysterm::CheckState
+        case state
+        in .checked?
+          check
+        in .unchecked?
+          uncheck
+        in .partially_checked?
+          return state unless tristate?
+          return state if partial?
+          was_checked = checked?
+          @checked = false
+          @partial = true
+          invalidate_css
+          emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Unchecked if was_checked
+          emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::PartiallyChecked
+          request_render # repaint the `-` marker
+        end
+        state
+      end
+
       # Puts the box in its partially-checked (indeterminate) state. No-op unless
-      # `#tristate?`.
+      # `#tristate?`. Qt-style shorthand for `self.check_state = PartiallyChecked`.
       def partial
-        return unless tristate?
-        return if partial?
-        was_checked = checked?
-        @checked = false
-        @partial = true
-        invalidate_css
-        # A checked→partial transition drops the checked state, so announce it
-        # before `PartialCheck` — otherwise a listener mirroring `checked?` keeps
-        # believing the box is checked while it renders `[-]`.
-        emit Crysterm::Event::UnCheck, false if was_checked
-        emit Crysterm::Event::PartialCheck, false
-        request_render # repaint the `-` marker
+        self.check_state = ::Crysterm::CheckState::PartiallyChecked
       end
 
       # Cycles to the next state. With `#tristate?` the order matches Qt:

@@ -54,12 +54,12 @@ module Crysterm
   )
 
   # Mirror the child's title reports (OSC 0/2) onto the host window/terminal.
-  term.on(::Crysterm::Event::SetContent) { window.title = term.title }
+  term.on(::Crysterm::Event::ContentChanged) { window.title = term.title }
 
   # The child ended: leave with its exit status. `at_exit` (in crysterm.cr)
   # restores the terminal — cooks the tty, leaves the alt-screen — on the way
   # out, so there's nothing to clean up here.
-  term.on(::Crysterm::Event::Exit) do |e|
+  term.on(::Crysterm::Event::ProcessExited) do |e|
     exit(e.code || 0)
   end
 

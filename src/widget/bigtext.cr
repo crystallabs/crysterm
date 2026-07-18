@@ -4,7 +4,7 @@ require "../font"
 module Crysterm
   class Widget
     # Widget for displaying text in a big bitmap font — each character is drawn as
-    # a grid of cells. Glyph data comes from `Crysterm::Font` (the bundled Terminus
+    # a grid of cells. Glyph data comes from `Crysterm::BitmapFont` (the bundled Terminus
     # faces by default); pass `font:` / `font_bold:` to use other ttystudio JSON
     # fonts (https://github.com/chjj/ttystudio).
     #
@@ -13,22 +13,35 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class BigText < Widget::Box
       # Optional font-file overrides; `nil` uses the bundled Terminus normal/bold.
-      property font : String?
-      property font_bold : String?
+      # Getter-only: the fonts are loaded once in the constructor, so assigning
+      # after construction had no effect.
+      getter font : String?
+      getter font_bold : String?
 
-      property ratio : Tput::Size = Tput::Size.new 0, 0
-      property text = ""
+      # Glyph cell size (width×height). Read-only; derived once from the loaded
+      # font. Public getter — read by callers to size around the glyph grid.
+      getter ratio : Tput::Size = Tput::Size.new 0, 0
+
+      # The big-font text.
+      getter text = ""
+
+      # Assigning routes through `#set_content` so a runtime text change repaints
+      # (a plain setter left the rendered glyphs stale).
+      def text=(value : String) : String
+        set_content value
+        value
+      end
 
       # TODO This widget isn't very useful as-is.
       # Add support font scaling, character for fg/bg, etc.
 
       # Loaded fonts; `active_font` points at `normal` or `bold` per the style.
-      property normal : Font
-      property bold : Font
-      property active_font : Font
+      protected getter normal : BitmapFont
+      protected getter bold : BitmapFont
+      protected getter active_font : BitmapFont
 
-      property _shrink_width : Bool = false
-      property _shrink_height : Bool = false
+      @_shrink_width : Bool = false
+      @_shrink_height : Bool = false
 
       # Cached grapheme cluster strings for `@text`, plus the text they were built
       # from (identity-compared) and the memoized shrink-to-content advance width.
@@ -43,8 +56,8 @@ module Crysterm
         @font_bold : String? = nil,
         **box,
       )
-        @normal = (f = @font) ? Font.load(f) : Font.default_normal
-        @bold = (f = @font_bold) ? Font.load(f) : Font.default_bold
+        @normal = (f = @font) ? BitmapFont.load(f) : BitmapFont.default_normal
+        @bold = (f = @font_bold) ? BitmapFont.load(f) : BitmapFont.default_bold
         @ratio = Tput::Size.new @normal.width, @normal.height
 
         box["content"]?.try do |c|
@@ -55,14 +68,14 @@ module Crysterm
 
         @active_font = style.bold? ? @bold : @normal
 
-        # Text renders as big glyphs from `@text`; clear the plain `content`
-        # that `super` set from the same string, otherwise the base renderer
-        # draws it as normal-size text showing through the glyph gaps. Must come
-        # *after* `@active_font` is assigned, which `set_content` requires.
-        set_content "", true
+        # No trailing `set_content "", true` here: `super` routes its own
+        # `set_content(content, true)` call through the override below, which
+        # already stores `@text` and keeps the plain `content` empty (so the
+        # base renderer can't draw normal-size text through the glyph gaps).
+        # A trailing call would wipe the `@text` that `super` just set.
       end
 
-      def set_content(content : String)
+      def set_content(content = "", no_clear = false, no_tags = false)
         @content = ""
         @_content_version += 1
         @text = content || ""
@@ -117,7 +130,7 @@ module Crysterm
         right = coords.xl - iright
         bottom = coords.yl - ibottom
 
-        default_attr = sattr style
+        default_attr = style_to_attr style
         # Swap fg/bg so the "lit" glyph pixels invert the base colors.
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
@@ -144,7 +157,7 @@ module Crysterm
         x = @align.right? ? Math.max(left, right - advance) : left
         max_chars.times do |i|
           ch = graphemes[i]
-          # `Font#glyph` falls back to "?" then a blank glyph, and pads every
+          # `BitmapFont#glyph` falls back to "?" then a blank glyph, and pads every
           # row to the font width, so `map[y - top]` is a non-nil row.
           map = @active_font.glyph(ch)
           # Full-width glyphs (CJK, etc.) decode to a 16-px-wide grid even though

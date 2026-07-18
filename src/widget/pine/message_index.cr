@@ -13,7 +13,7 @@ module Crysterm
       # ```
       #
       # The selected row is drawn reverse. Navigate with the arrow keys; Enter
-      # activates the message (runs its `callback` and emits `Event::ActionItem`).
+      # activates the message (runs its `callback` and emits `Event::ItemActivated`).
       # A single message row.
       class Message
         # Status flags shown at the very left (e.g. `"+"`, `"N"`, `"D"`, `"A"`).
@@ -38,6 +38,11 @@ module Crysterm
         property callback : Proc(Nil)?
 
         def initialize(@from, @subject, *, @date = "", @size = 0, @status = "", @unread = false, @callback = nil)
+        end
+
+        # Block form: `Message.new(from, subject, ...) { ... }`.
+        def initialize(from, subject, *, date = "", size = 0, status = "", unread = false, &callback : ->)
+          initialize(from, subject, date: date, size: size, status: status, unread: unread, callback: callback)
         end
       end
 

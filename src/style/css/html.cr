@@ -133,7 +133,7 @@ module Crysterm
     end
 
     # :ditto:
-    def css_set_extra_style(slot : String, computed : Style) : Nil
+    protected def css_set_extra_style(slot : String, computed : Style) : Nil
     end
 
     # Clears any extra computed state (e.g. a `Table`'s per-cell styles) when the
@@ -197,10 +197,10 @@ module Crysterm
     # table's `cell`/`header`).
     def css_sub_elements : Array(String)
       # Common case (no scrollbar, no label) reuses the shared empty list.
-      return EMPTY_CSS_SLOTS unless scrollbar? || @_label
+      return EMPTY_CSS_SLOTS unless scrollbar? || @label_widget
       slots = [] of String
       slots << "scrollbar" << "track" if scrollbar?
-      slots << "label" if @_label
+      slots << "label" if @label_widget
       slots
     end
   end

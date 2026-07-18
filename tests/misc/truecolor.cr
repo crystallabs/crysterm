@@ -18,10 +18,10 @@ w = s.awidth
 h = s.aheight
 
 # Static `Gradient` (no `animate:`, renders once), one color per column. The
-# explicit `colors:` stops give a soft cyan→green→amber→red sweep interpolated
+# explicit `stops:` give a soft cyan→green→amber→red sweep interpolated
 # in RGB, instead of the default's full-saturation HSV rainbow.
 Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  colors: [0x00dbdf, 0x61fc9f, 0xb4f647, 0xebcb00, 0xff8100, 0xeb2300, 0xb40000, 0x610000, 0x000000]
+  stops: [0x00dbdf, 0x61fc9f, 0xb4f647, 0xebcb00, 0xff8100, 0xeb2300, 0xb40000, 0x610000, 0x000000]
 
 # Caption strip drawn on top of the gradient.
 Widget::Box.new \

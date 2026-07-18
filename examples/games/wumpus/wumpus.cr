@@ -193,7 +193,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     @screen.append @scorebox
     @input.focus
 
-    @input.on(Event::Submit) do |e|
+    @input.on(Event::Submitted) do |e|
       text = e.value.to_s.strip
       if text.empty?
         # Enter on an empty line re-prints the current status: the room
@@ -296,7 +296,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # ---- Output helpers --------------------------------------------------------
 
   private def say(line : String = "")
-    @transcript.push_line line
+    @transcript.append_line line
     @transcript.scroll_to @transcript.rendered_content.lines.size
   end
 

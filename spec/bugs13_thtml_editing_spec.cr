@@ -36,7 +36,7 @@ class T13FlatEdit < Crysterm::Widget::Input
   include Crysterm::Mixin::TextEditing
   include Crysterm::Mixin::TextEditing::FlatBuffer
 
-  def _update_cursor(get = false, to_scroll_pos = false)
+  def _update_cursor(get = false)
     @cursor_updates += 1
     super
   end
@@ -104,7 +104,7 @@ describe "BUGS13 T17 same-string external value= still updates the display curso
     w.cursor_pos = 2
 
     before = w.cursor_updates
-    w.value = nil # redisplay: content unchanged, cursor kept
+    w.refresh_value # redisplay: content unchanged, cursor kept
     w.cursor_pos.should eq 2
     w.cursor_updates.should eq before
   end

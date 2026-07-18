@@ -51,7 +51,7 @@ describe Crysterm::Widget::TabWidget do
       # C is still the page on screen; it just moved along by one.
       tabs.current_widget.should be(pc)
       tabs.current_index.should eq 2
-      tabs.bar.selected.should eq 2 # and the bar's highlight followed it
+      tabs.tab_bar.current_index.should eq 2 # and the bar's highlight followed it
       pb.visible?.should be_false
 
       tabs.insert_tab(99, "D", Crysterm::Widget::Box.new).should eq 3 # clamped
@@ -83,8 +83,8 @@ describe Crysterm::Widget::TabWidget do
 
       tabs.set_tab_text 1, "Bee"
       tabs.tab_text(1).should eq "Bee"
-      tabs.bar.ritems.should eq ["A", "Bee"]
-      tabs.bar.selected.should eq 1 # rebuild kept the highlight on the current tab
+      tabs.tab_bar.item_texts.should eq ["A", "Bee"]
+      tabs.tab_bar.current_index.should eq 1 # rebuild kept the highlight on the current tab
     end
   end
 
@@ -150,7 +150,7 @@ describe Crysterm::Widget::TabWidget do
       destroyed = false
       p0.on(Crysterm::Event::Destroy) { destroyed = true }
       removed = false
-      tabs.on(Crysterm::Event::RemoveItem) { removed = true }
+      tabs.on(Crysterm::Event::ItemRemoved) { removed = true }
 
       returned = tabs.remove_tab 0
       returned.should be(p0)    # returns the detached page (Qt's removeTab)
@@ -223,7 +223,7 @@ describe Crysterm::Widget::TabWidget do
       tabs.add_tab "Files", Crysterm::Widget::Box.new
       # ListBar prefixes each item with its command number ("1:"); the tab's
       # display title (with the ✕ close marker) is the trailing part.
-      tabs.bar.items.first.content.ends_with?("Files ✕").should be_true
+      tabs.tab_bar.items.first.content.ends_with?("Files ✕").should be_true
     end
   end
 end

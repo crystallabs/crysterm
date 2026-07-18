@@ -48,7 +48,7 @@ describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do
 
     # The 2-field case is where the old off-by-one flipped the result: backward
     # from an unselected form must land on field 1 (b), not field 0 (a).
-    form.selected = nil
+    form.reset_selected
     form.previous_focusable.should eq b
   end
 
@@ -61,7 +61,7 @@ describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do
     s.render
 
     form.focus_last
-    form.selected.should eq fields.last
+    form.current_field.should eq fields.last
   end
 end
 
@@ -90,7 +90,7 @@ describe "BUGS5 SpinBox typed entry on a wrap box (bug 2)" do
   it "still wraps on single-step overshoot (stepping past a bound)" do
     s = bugs5_screen
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, step: 1, value: 100, wrapping: true
-    sb.increment
+    sb.step_up
     sb.value.should eq 0 # stepping (not typing) past the top still wraps
   end
 end

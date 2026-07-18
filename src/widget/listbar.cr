@@ -15,8 +15,8 @@ module Crysterm
     #
     # ```
     # bar = Widget::ListBar.new keys: true, mouse: true, auto_command_keys: true
-    # bar.add "open", -> { open_file }
-    # bar.add "quit", -> { exit }, keys: ["q"]
+    # bar.add_item("open") { open_file }
+    # bar.add_item("quit", keys: ["q"]) { exit }
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -26,7 +26,7 @@ module Crysterm
       include Mixin::ActionBar
 
       def initialize(
-        commands = nil,
+        commands : Array(Mixin::ActionBar::Command) | Array(String) | Nil = nil,
         *,
         @mouse = false,
         @auto_command_keys = false,

@@ -81,7 +81,7 @@ module Crysterm
       def open : Nil
         @result = Code::Rejected.to_i
         show
-        front!
+        to_front
         self.modal = true
         focus
         install_dialog_keys
@@ -121,7 +121,7 @@ module Crysterm
       # on attach) and *whether* a given key applies (`#dialog_keys_active?`).
 
       # Window-level accelerator subscription. A `Subscription` captures the
-      # window it was installed on, so teardown works from `Detach`/`Destroy`
+      # window it was installed on, so teardown works from `Detached`/`Destroy`
       # where `window?` is already nil.
       @dialog_keys = ::Crysterm::Subscription.new
 

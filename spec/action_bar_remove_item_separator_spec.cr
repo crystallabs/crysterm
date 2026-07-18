@@ -32,15 +32,15 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     abrs_render s
 
     bar.select_index 2 # "b"
-    bar.selected.should eq 2
-    bar.ritems[bar.selected].should eq "b"
+    bar.current_index.should eq 2
+    bar.item_texts[bar.current_index].should eq "b"
 
     bar.remove_item bar.items[2] # remove the selected "b"
     # Prior command is the separator at index 1; cursor must skip back to the
     # selectable "a" rather than settle on the separator.
-    bar.selected.should eq 0
-    bar.commands[bar.selected].separator?.should be_false
-    bar.ritems[bar.selected].should eq "a"
+    bar.current_index.should eq 0
+    bar.commands[bar.current_index].separator?.should be_false
+    bar.item_texts[bar.current_index].should eq "a"
   end
 
   it "falls forward to the next selectable command when only separators precede" do
@@ -52,12 +52,12 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     abrs_render s
 
     bar.select_index 1 # "a"
-    bar.selected.should eq 1
+    bar.current_index.should eq 1
 
     bar.remove_item bar.items[1] # remove the selected "a"
     # Index 0 (now-only-preceding) is a separator with nothing selectable
     # before it, so cursor falls forward to "b".
-    bar.commands[bar.selected].separator?.should be_false
-    bar.ritems[bar.selected].should eq "b"
+    bar.commands[bar.current_index].separator?.should be_false
+    bar.item_texts[bar.current_index].should eq "b"
   end
 end
