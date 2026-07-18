@@ -2156,7 +2156,7 @@ describe Crysterm::Widget::MenuBar do
     bar = Crysterm::Widget::MenuBar.new
     win.menu_bar = bar
     fm = bar.add_menu "File"
-    fm.add("New") { }
+    fm.add_action("New") { }
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
     s._render
 
@@ -2185,7 +2185,7 @@ describe Crysterm::Widget::MenuBar do
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fired = 0
     fm = bar.add_menu "File"
-    fm.add("Quit") { fired += 1 }
+    fm.add_action("Quit") { fired += 1 }
     bar.open 0
     fm.current_index = 0
     fm.activate_selected
@@ -2210,7 +2210,7 @@ describe Crysterm::Widget::MenuBar do
     other = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 6, height: 1, content: "X"
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fm = bar.add_menu "File"
-    fm.add("New") { }
+    fm.add_action("New") { }
     fm.add_submenu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2")]
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
     s._render
@@ -2341,8 +2341,8 @@ describe "MenuBar rendering (regression)" do
     fm = bar.add_menu "File"
     # Rows added after the menu is hidden must still be visible once shown —
     # must not snapshot the menu's hidden state via a shared/dup'd style.
-    fm.add("New") { }
-    fm.add("Open") { }
+    fm.add_action("New") { }
+    fm.add_action("Open") { }
 
     s.children.includes?(fm).should be_true # in the render tree, not just screened
     bar.open 0
@@ -2359,7 +2359,7 @@ describe "Input grab (modal pop-ups)" do
     menubar = Crysterm::Widget::MenuBar.new
     win.menu_bar = menubar
     fm = menubar.add_menu "File"
-    fm.add("New") { }
+    fm.add_action("New") { }
     menubar.add_menu "Edit", [Crysterm::Action.new("Cut")]
     box = Crysterm::Widget::Box.new content: "x"
     win.central_widget = box
