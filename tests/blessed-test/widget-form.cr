@@ -92,7 +92,7 @@ class X
       content: "Press Tab/Shift+Tab to move, Enter to edit/toggle, then Submit.",
       style: Style.new(bg: "red")
 
-    submit.on(Crysterm::Event::Pressed) do
+    submit.on_click do
       form.submit
     end
 

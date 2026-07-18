@@ -4,7 +4,7 @@ require "../../src/crysterm"
 #
 # A 2x2 grid of terminal-emulator widgets, each running its own shell. You can:
 #   * type into the focused terminal,
-#   * drag a terminal around by its body (Crysterm's `enable_drag`),
+#   * drag a terminal around by its body (Crysterm's `draggable`),
 #   * click a terminal to focus it,
 #   * Shift-Tab to cycle focus,
 #   * Ctrl-Q to kill all the shells and quit.
@@ -49,7 +49,7 @@ bottomright = Widget::Terminal.new(
 terminals = [topleft, topright, bottomleft, bottomright]
 
 terminals.each do |term|
-  term.enable_drag
+  term.draggable = true
   # Reflect the child's window title on the label.
   term.on(Event::ContentChanged) do
     if title = term.title

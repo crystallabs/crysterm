@@ -657,7 +657,7 @@ module Crysterm
     def register_clickable(el : Widget)
       return unless register_in el, @clickable
       el.clickable = true
-      @screen.enable_mouse if @screen.mouse_enabled?
+      @screen.enable_mouse(focus: send_focus?) if @screen.mouse_enabled?
     end
   end
 end

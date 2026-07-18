@@ -30,6 +30,11 @@ module Crysterm
     # Whether mouse listening has been set up for this device.
     getter? mouse_enabled = false
 
+    # The last explicit SGR-Pixels request made through `#enable_mouse`
+    # (`pixels: :on`/`:off`); bare `:auto` re-asserts leave it untouched and
+    # re-apply it instead. See `#enable_mouse`.
+    @_mouse_pixels_wanted = false
+
     # Connection to the `gpm` daemon, if one was established.
     @_gpm : GPM? = nil
     @_gpm_fiber : Fiber?
@@ -76,24 +81,40 @@ module Crysterm
     # carry sub-cell pixel coordinates (`Event::Mouse#px`/`#py`) alongside the
     # usual cell coordinates. The request is gated by the
     # `mouse.pixel_coordinates` config option (`PixelMouse`): `On` forces it,
-    # `Off` forbids it, and the default `Auto` honors this *pixels* argument
-    # (`PixelMouse::On` here asks for it, `Off`/`Auto` don't).
+    # `Off` forbids it, and the default `Auto` honors the last *explicit*
+    # *pixels* argument — `PixelMouse::On` here asks for it, `Off` withdraws
+    # the request, and `Auto` (a bare re-assert, as `Window#listen` and
+    # `Window#register_clickable` issue) re-applies whatever was last
+    # requested. Without that stickiness a bare re-assert would downgrade an
+    # active pixel session: the terminal would keep reporting pixels (1016
+    # stays on) while the parser lost the cell size it divides by.
     #
     # Even when requested it needs the terminal's cell size in pixels to derive
     # cell coordinates; if that's unknown (`0`, common under multiplexers) pixel
     # mode is silently skipped and reporting stays at cell resolution. Whether
     # the terminal actually supports 1016 is auto-detected via DECRQM at startup.
-    def enable_mouse(pixels : PixelMouse = :auto) : Nil
+    #
+    # Pass *focus* to enable/disable terminal focus-in/out reporting (DEC 1004)
+    # alongside mouse reporting; `nil` (the default) leaves it as it is. Windows
+    # pass their `Window#send_focus?` here.
+    def enable_mouse(pixels : PixelMouse = :auto, focus : Bool? = nil) : Nil
+      # An explicit request updates the sticky wish; `:auto` re-asserts it.
+      @_mouse_pixels_wanted = pixels.on? unless pixels.auto?
       want = case Config.mouse_pixel_coordinates
              in PixelMouse::On   then true
              in PixelMouse::Off  then false
-             in PixelMouse::Auto then pixels.on?
+             in PixelMouse::Auto then @_mouse_pixels_wanted
              end
-      cell = nil
-      if want && cell_pixel_width > 0 && cell_pixel_height > 0
-        cell = {cell_pixel_width, cell_pixel_height}
-      end
-      tput.enable_mouse(pixels: cell)
+      cell = if want && cell_pixel_width > 0 && cell_pixel_height > 0
+               {cell_pixel_width, cell_pixel_height}
+             else
+               # Explicit `false`, not `nil`: tput downgrades an *active* pixel
+               # session (DECRST 1016 + cache clear, keeping terminal and
+               # parser in sync) and no-ops otherwise, whereas `nil` would
+               # wrongly preserve pixel mode when the config says `Off`.
+               false
+             end
+      tput.enable_mouse(pixels: cell, focus: focus)
 
       return if @mouse_enabled
       @mouse_enabled = true

@@ -108,7 +108,7 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
     s = bugs6cd_screen
     # No border/padding: interior spans the whole 9x2 widget. Value shown.
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 2,
-      minimum: 0, maximum: 100, value: 0, show_value: true
+      minimum: 0, maximum: 100, value: 0, text_visible: true
     s._render
 
     x0 = dial.aleft; x1 = dial.aleft + dial.awidth
@@ -128,7 +128,7 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
   it "still separates pointer and value on a tall dial" do
     s = bugs6cd_screen
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 4,
-      minimum: 0, maximum: 100, value: 0, show_value: true
+      minimum: 0, maximum: 100, value: 0, text_visible: true
     s._render
 
     x0 = dial.aleft; x1 = dial.aleft + dial.awidth

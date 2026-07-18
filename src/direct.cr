@@ -21,7 +21,16 @@ module Crysterm
   # ```
   #
   # With no cell buffer, all cursor bookkeeping is delegated to `Tput`, which
-  # keeps its own `{x, y}` shadow and clamps to the screen.
+  # keeps its own `{x, y}` shadow and clamps to the screen. `#print` and
+  # `#newline` advance that shadow (by display width / to the next row), so
+  # relative moves (`#move_by`, `#cursor_up`…) compose correctly with printing.
+  # Two documented limits of the tracking:
+  #
+  #   * a payload printed past the right edge clamps the shadow at the last
+  #     column — terminal auto-wrap is not modeled, so tracking is exact up to
+  #     (and including, matching xterm's deferred wrap) the screen edge;
+  #   * payloads containing control bytes, escape sequences or newlines are not
+  #     interpreted; use `#newline`/`#move_to`/`#move_by` for movement.
   #
   # NOTE: like `Window`, a `Direct` built with no explicit `output:` follows the
   # `screen.headless` convention (`Crysterm.headless?`) — when STDOUT is **not** a
@@ -94,6 +103,7 @@ module Crysterm
     ) : self
       code = build_code fg, bg, bold, italic, underline, blink, reverse, strike, invisible
       emit_styled(code) { |o| o << str }
+      advance_cursor str
       self
     end
 
@@ -185,6 +195,12 @@ module Crysterm
     # Emits *n* CRLF line breaks (inline mode scrolls the real terminal).
     def newline(n : Int = 1) : self
       n.times { @screen.output << "\r\n" }
+      # Keep Tput's shadow in step: CR returns to column 0, each LF moves one
+      # row down — pinned to the last row once the terminal starts scrolling
+      # (the cursor stays there while content moves), which the clamp models.
+      cur = tput.cursor
+      cur.x = 0
+      cur.y = Math.min(cur.y + n, height - 1)
       self
     end
 
@@ -264,6 +280,22 @@ module Crysterm
       flags |= Attr::STRIKE if strike
       flags |= Attr::INVISIBLE if invisible
       Attr.pack flags, Attr.pack_color(Colors.convert_cached(fg)), Attr.pack_color(Colors.convert_cached(bg))
+    end
+
+    # Advances Tput's shadow cursor by *payload*'s display width, clamped to
+    # the last column (auto-wrap past the edge is not modeled — see the class
+    # docs). Keeps prints and relative moves composable: without this, a
+    # `print`-then-`move_by` clamps against a stale position and the emitted
+    # CUB/CUU distance is wrong.
+    private def advance_cursor(payload) : Nil
+      w = case payload
+          when Char   then Unicode.width payload
+          when String then Unicode.display_width payload
+          else             Unicode.display_width payload.to_s
+          end
+      return if w == 0
+      cur = tput.cursor
+      cur.x = Math.min(cur.x + w, width - 1)
     end
 
     # Emits *code*'s SGR sequence (reduced to the terminal's color depth), then

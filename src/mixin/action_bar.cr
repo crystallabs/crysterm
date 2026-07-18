@@ -36,7 +36,7 @@ module Crysterm
         property keys : Array(String)?
 
         # The `Box` rendering this command, assigned by `#add_item`.
-        property box : Widget::Box?
+        property widget : Widget::Box?
 
         # Computed display width of this command's box.
         property width : Int32 = 0
@@ -107,7 +107,7 @@ module Crysterm
         # input elsewhere), and a widget-local handler is torn down with the
         # widget instead of leaking on the window.
 
-        on(::Crysterm::Event::FocusIn) { select_index current_index }
+        on(::Crysterm::Event::FocusIn) { self.current_index = current_index }
 
         # Command hotkeys are window-level accelerators, so they must be tied to
         # the window lifecycle: (re)install on attach, uninstall on detach.
@@ -122,9 +122,75 @@ module Crysterm
         @left_base + @left_offset
       end
 
-      # :ditto:
+      # Makes the item at *index* the current one, adjusting the horizontal scroll
+      # window so it is visible, and emits `Event::ItemSelected`. Selection only —
+      # it never runs the command (see `#select_item`/`#trigger`).
       def current_index=(index : Int) : Nil
-        select_index index
+        if index < 0
+          index = 0
+        elsif index >= @items.size
+          index = @items.size - 1
+        end
+
+        el = @items[index]?
+
+        # Keep every item box's state in sync with the new selection so it renders
+        # with `styles.selected`. Routed through `#highlight_item?` so a bar with
+        # its own highlight semantics inherits the re-highlight without overriding
+        # this setter.
+        reapply_highlight index
+
+        # The horizontal-scroll math below needs a real layout. Gate on `@lpos`
+        # (set after the first render), NOT on `#parent`: a top-level widget
+        # appended to a `Window` has no parent, which would skip the scroll update
+        # for every window-level bar and freeze the current index at 0. The public
+        # `#last_rendered_position` raises when unrendered, so it can't be used as
+        # a predicate here.
+        unless @lpos
+          # Before the first render there's no layout for the horizontal-scroll
+          # math, but the current index (== `@left_base + @left_offset`) must still
+          # move to *index* — otherwise the highlight/`ItemSelected` point at
+          # *index* while Enter (`fire current_index`) fires the old command.
+          el.try do |e|
+            @left_base = 0
+            @left_offset = index
+            emit ::Crysterm::Event::ItemSelected, e, index
+          end
+          return
+        end
+
+        return unless el
+
+        width = (awidth || 0) - ihorizontal
+        drawn = 0
+        visible = 0
+        @items.each_with_index do |item, i|
+          next if i < @left_base
+          w = item.awidth || 0
+          next if w <= 0
+          drawn += w + item_gap
+          visible += 1 if drawn <= width
+        end
+
+        diff = index - (@left_base + @left_offset)
+        if index > @left_base + @left_offset
+          if index > @left_base + visible - 1
+            @left_offset = 0
+            @left_base = index
+          else
+            @left_offset += diff
+          end
+        elsif index < @left_base + @left_offset
+          diff = -diff
+          if index < @left_base
+            @left_offset = 0
+            @left_base = index
+          else
+            @left_offset -= diff
+          end
+        end
+
+        emit ::Crysterm::Event::ItemSelected, el, index
       end
 
       # Number of commands on the bar, separators included (Qt's
@@ -133,10 +199,11 @@ module Crysterm
         @commands.size
       end
 
-      # (Re)defines the full set of commands from an array of `Command`s,
-      # plain strings, or `name => callback` pairs.
+      # (Re)defines the full set of commands from an array of `Command`s or
+      # plain strings. (A `name => callback` `Hash` is accepted too, but
+      # deprecated — see the `Hash` overload below.)
       def items=(commands : Array(Command))
-        @items.each &.remove_from_parent
+        @items.each &.detach_from_tree
         @commands.each { |cmd| detach_command cmd }
         @items.clear
         @ritems.clear
@@ -152,17 +219,33 @@ module Crysterm
         self.items = commands.map { |text| Command.new text }
       end
 
+      # :ditto:
+      #
+      # Deprecated: build `Command`s (or use `#add_item` with a block) instead —
+      # long-term bars consume `Action`s, not name/`Proc` pairs. Kept working for
+      # one cycle.
+      @[Deprecated("Pass an Array(Command), or use #add_item with a block")]
+      def items=(commands : Hash(String, Proc(Nil)))
+        self.items = commands.map { |text, callback| Command.new text, callback }
+      end
+
       # Removes every command (Qt's `QListWidget#clear`).
       def clear
         self.items = [] of Command
       end
 
       # Appends a command given as plain text plus optional callback/hotkeys.
+      #
+      # The block overload below is the preferred way to attach an action; the
+      # positional `callback` `Proc` param is kept mainly for forwarding an
+      # already-built `Proc`.
       def add_item(text : String, callback : Proc(Nil)? = nil, *, keys : Array(String)? = nil)
         add_item Command.new text, callback, keys: keys
       end
 
       # :ditto:
+      #
+      # Preferred over passing a positional `Proc`: `bar.add_item("Quit") { ... }`.
       def add_item(text : String, *, keys : Array(String)? = nil, &callback : -> Nil)
         add_item Command.new text, callback, keys: keys
       end
@@ -225,7 +308,7 @@ module Crysterm
         item.styles.normal = style.item.dup
         item.styles.selected = styles.selected.dup
 
-        cmd.box = item
+        cmd.widget = item
         @ritems.push clean_tags cmd.text
         @items.push item
         @commands.push cmd
@@ -245,14 +328,14 @@ module Crysterm
         # Auto-select the first *selectable* command — testing `@items.size == 1`
         # instead would leave a bar opening with a leading `add_separator` stuck on
         # the non-selectable separator. `@left_base`/`@left_offset` (selected ==
-        # their sum) are set directly rather than via `#select_index`, whose window
-        # math is gated on a laid-out `@lpos` and can't move the index before the
-        # first render. `@left_base` stays 0 so every command, separators included,
-        # remains visible.
+        # their sum) are set directly rather than via `#current_index=`, whose
+        # window math is gated on a laid-out `@lpos` and can't move the index before
+        # the first render. `@left_base` stays 0 so every command, separators
+        # included, remains visible.
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
           @left_offset = @items.size - 1
-          select_index current_index
+          self.current_index = current_index
         end
 
         emit ::Crysterm::Event::ItemAdded
@@ -275,7 +358,7 @@ module Crysterm
       # defaults to the row at *index*.
       #
       # Activation is not a selection change, so no `ItemSelected` is emitted here —
-      # the `#select_index` each caller runs around this emits it already.
+      # the `#current_index=` each caller runs around this emits it already.
       private def fire(index : Int32, item = @items[index]?)
         return unless item
         emit ::Crysterm::Event::ItemActivated, item, index
@@ -285,11 +368,11 @@ module Crysterm
       # Triggers a command: fires its action event + callback, selects it, and
       # re-renders.
       private def trigger(cmd : Command)
-        el = cmd.box
+        el = cmd.widget
         return unless el
-        idx = @items.index(el) || current_index
-        fire idx, el
-        select_index el
+        idx = @items.index(el)
+        fire (idx || current_index), el
+        self.current_index = idx if idx
         request_render
       end
 
@@ -320,92 +403,12 @@ module Crysterm
         super
       end
 
-      # Makes the item at `offset` (an index or an item/element widget) the current
-      # one, adjusting the horizontal scroll window so it is visible. Selection
-      # only — it never runs the command (see `#select_item`/`#trigger`).
-      #
-      # Named `select_index` because bare `select` is a Crystal keyword.
-      def select_index(offset : Int)
-        if offset < 0
-          offset = 0
-        elsif offset >= @items.size
-          offset = @items.size - 1
-        end
-
-        el = @items[offset]?
-
-        # Keep every item box's state in sync with the new selection so it renders
-        # with `styles.selected`. Routed through `#highlight_item?` so a bar with
-        # its own highlight semantics inherits the re-highlight without overriding
-        # `#select_index`.
-        reapply_highlight offset
-
-        # The horizontal-scroll math below needs a real layout. Gate on `@lpos`
-        # (set after the first render), NOT on `#parent`: a top-level widget
-        # appended to a `Window` has no parent, which would skip the scroll update
-        # for every window-level bar and freeze `#selected` at 0. The public
-        # `#last_rendered_position` raises when unrendered, so it can't be used as
-        # a predicate here.
-        unless @lpos
-          # Before the first render there's no layout for the horizontal-scroll
-          # math, but `selected` (== `@left_base + @left_offset`) must still move
-          # to *offset* — otherwise the highlight/`ItemSelected` point at *offset*
-          # while Enter (`fire selected`) fires the old command.
-          el.try do |e|
-            @left_base = 0
-            @left_offset = offset
-            emit ::Crysterm::Event::ItemSelected, e, offset
-          end
-          return
-        end
-
-        return unless el
-
-        width = (awidth || 0) - ihorizontal
-        drawn = 0
-        visible = 0
-        @items.each_with_index do |item, i|
-          next if i < @left_base
-          w = item.awidth || 0
-          next if w <= 0
-          drawn += w + item_gap
-          visible += 1 if drawn <= width
-        end
-
-        diff = offset - (@left_base + @left_offset)
-        if offset > @left_base + @left_offset
-          if offset > @left_base + visible - 1
-            @left_offset = 0
-            @left_base = offset
-          else
-            @left_offset += diff
-          end
-        elsif offset < @left_base + @left_offset
-          diff = -diff
-          if offset < @left_base
-            @left_offset = 0
-            @left_base = offset
-          else
-            @left_offset -= diff
-          end
-        end
-
-        emit ::Crysterm::Event::ItemSelected, el, offset
-      end
-
-      # :ditto:
-      def select_index(widget : Widget)
-        if i = @items.index widget
-          select_index i
-        end
-      end
-
       # Whether the item box at *index* should render highlighted (`:selected`)
       # after a (re)selection targeting *offset*. The base bar highlights the
       # just-selected item; a bar with a different highlight model overrides this
-      # and inherits the `#reapply_highlight` scaffold. (`selected` is not yet
-      # updated to *offset* when `#select_index` calls this, so the target index is
-      # passed explicitly.)
+      # and inherits the `#reapply_highlight` scaffold. (the current index is not
+      # yet updated to *offset* when `#current_index=` calls this, so the target
+      # index is passed explicitly.)
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
         index == offset
       end
@@ -436,19 +439,19 @@ module Crysterm
         # `1:open 2:save` leaves `2:save` while `2` now selects nothing.
         renumber_prefixes if auto_prefix?
 
-        # Keep the selection cursor on the same logical command. `selected` is
+        # Keep the selection cursor on the same logical command. `current_index` is
         # `left_base + left_offset` (an index), so removing an item *before* it
         # shifts every later command down by one, and the cursor must follow.
         if i < current_index
           # The formerly-selected command is now one index lower.
-          select_index current_index - 1
+          self.current_index = current_index - 1
         elsif i == current_index
           # The selected command itself was removed: fall back to the prior
           # command, skipping separators so the highlight never settles on a
           # non-selectable one. Falls forward when everything before the gap is a
           # separator.
           if sel = nearest_selectable(i - 1)
-            select_index sel
+            self.current_index = sel
           end
         end
 
@@ -489,11 +492,11 @@ module Crysterm
         @commands.each_with_index do |cmd, i|
           next unless cmd.auto_prefix?
           cmd.prefix = (i + 1).to_s
-          cmd.box.try &.set_content command_title(cmd)
+          cmd.widget.try &.set_content command_title(cmd)
         end
         drawn = 0
         @commands.each do |cmd|
-          cmd.box.try do |el|
+          cmd.widget.try do |el|
             el.left = drawn
             el.width = cmd.width
           end
@@ -597,7 +600,7 @@ module Crysterm
           idx = ni
         end
 
-        select_index idx
+        self.current_index = idx
       end
 
       # Moves the selection `offset` items to the left.
@@ -622,7 +625,7 @@ module Crysterm
         # on a non-selectable command. `auto_command_keys` routes here by raw
         # index, so a number landing on a separator must be a no-op too.
         return if cmd.separator?
-        select_index index
+        self.current_index = index
         request_render
         emit ::Crysterm::Event::CurrentChanged, index
       end

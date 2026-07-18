@@ -100,7 +100,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
   it "renders a Dial with minimum Int32::MIN without overflowing" do
     s = i15_screen
     dial = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
-      minimum: Int32::MIN, maximum: Int32::MAX, value: 0, show_value: false
+      minimum: Int32::MIN, maximum: Int32::MAX, value: 0, text_visible: false
     # `pointer` did `(@value - @minimum)` in Int32 -> OverflowError.
     s._render
     dial.value.should eq 0

@@ -239,7 +239,7 @@ module Crysterm
       private def refresh_rows : Nil
         sel = current_index
         sync_items
-        select_index sel
+        self.current_index = sel
         request_render
       end
 
@@ -693,7 +693,7 @@ module Crysterm
         return if act.separator?
 
         @show_highlight = true # hovering a row reveals (and moves) the highlight
-        select_index i
+        self.current_index = i
         if act.enabled? && act.menu?
           open_submenu act unless @submenu_open && @submenu_action == act
         end
@@ -798,8 +798,8 @@ module Crysterm
       # Skips over separator rows so the highlight never rests on one. The
       # direction is inferred from whether the requested index is above or below
       # the current selection.
-      def select_index(index : Int)
-        # `select_index` does *not* enable `@show_highlight` — that's driven only by
+      def current_index=(index : Int)
+        # `current_index=` does *not* enable `@show_highlight` — that's driven only by
         # user interaction (`#hover_item` / a selection key in `#on_keypress`),
         # so a programmatic selection never lights up a row on its own.
         acts = visible_actions
@@ -817,7 +817,7 @@ module Crysterm
       end
 
       # A click lands on a *raw* row index, so a click on a separator row would
-      # chain `activate_item(index)` → `select_index` (which `#skip_separators` onto
+      # chain `activate_item(index)` → `current_index=` (which `#skip_separators` onto
       # a neighbor) → `ItemActivated` → `activate_index`, silently firing the
       # adjacent command. Keyboard activation is unaffected: its `current_index` never
       # rests on a separator.
@@ -832,7 +832,7 @@ module Crysterm
         # Step in `dir` over separators, rescanning the opposite way at a boundary
         # so the highlight never rests on one. `nil` means an all-separator list —
         # a degenerate menu — so fall back to the clamped index: still a
-        # separator, still unfireable, but in range for `#select_index`'s `super`.
+        # separator, still unfireable, but in range for `#current_index=`'s `super`.
         Mixin::ActionBar.nearest_selectable(n, index.to_i, dir) { |i| acts[i].separator? } || index.clamp(0, n - 1).to_i
       end
 

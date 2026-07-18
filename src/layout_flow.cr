@@ -109,7 +109,7 @@ module Crysterm
         # (0, 0). Only a genuine absence of a predecessor falls through to origin.
         if (last = last_rendered_before container, i) && (llp = rendered_geometry(last))
           el.left = (llp.xl + last.mright) - xi
-          last_drawn = llp.xl - llp.xi
+          last_drawn = llp.width
         elsif (last = @prev_el)
           el.left = last.left.as(Int) + last.mleft + last.awidth + last.mright
           last_drawn = last.awidth
@@ -157,7 +157,7 @@ module Crysterm
           unless el.layout_excluded?
             eh =
               if lp = rendered_geometry(el)
-                (lp.yl - lp.yi) + el.mvertical
+                lp.height + el.mvertical
               else
                 el.aheight + el.mvertical
               end

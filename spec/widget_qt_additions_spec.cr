@@ -247,7 +247,7 @@ describe Crysterm::Completer do
   end
 
   # The drop-down opens with its first row already highlighted (via
-  # `reset_cursor`/`select_index`). Movement single-steps from there — arrow keys or
+  # `reset_cursor`/`current_index=`). Movement single-steps from there — arrow keys or
   # mouse wheel. `List`'s per-item wheel handler calls `move ±2`, so
   # `Popup#move` funnels the raw ±2 into a single-row step.
   it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do

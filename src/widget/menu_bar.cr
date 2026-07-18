@@ -157,7 +157,7 @@ module Crysterm
         @open_index = i = i.to_i
         # Move the bar's current item to match, so hover-switching also carries
         # the keyboard cursor.
-        select_index i
+        self.current_index = i
         menu.popup title_x(i), menu_y
       end
 
@@ -229,7 +229,7 @@ module Crysterm
       end
 
       # Title highlight tracks the *open* menu, not the action bar's raw
-      # selection: `ActionBar#trigger` re-`select_index`s the clicked item after
+      # selection: `ActionBar#trigger` re-selects (`current_index=`) the clicked item after
       # the toggle callback runs, so a click that closed the menu would otherwise
       # leave its title lit.
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool

@@ -1070,18 +1070,13 @@ module Crysterm
       # as 2-wide and hides the freshly printed char. (2) After placing a w-wide
       # glyph, an old CONTINUATION at @x+w is now orphaned from its overwritten
       # lead — blank it too.
-      if @x > 0 && line[@x].char == CONTINUATION
-        line[@x - 1] = Cell.new(erase_attr, ' ')
-      end
+      blank_split_lead line, @x
       line[@x] = Cell.new(@cur_attr, c)
       @last_char = c # remember the placed glyph so REP ('b') can repeat it
       if w == 2 && @x + 1 < @cols
         line[@x + 1] = Cell.new(@cur_attr, CONTINUATION)
       end
-      e = @x + w
-      if e < line.size && line[e].char == CONTINUATION
-        line[e] = Cell.new(erase_attr, ' ')
-      end
+      blank_split_continuation line, @x + w
 
       if @x + w >= @cols
         # Park on the last column. With autowrap on, defer the wrap (the next
@@ -1288,9 +1283,15 @@ module Crysterm
 
     private def erase_in_line(from : Int32, to : Int32) : Nil
       line = cur_line
-      blank = Cell.new(erase_attr, ' ')
       to = Math.min(to, line.size - 1)
-      line.fill(blank, from, to - from + 1) if to >= from
+      return unless to >= from
+      # Blanking `[from, to]` can split a wide-glyph pair at either edge: a
+      # CONTINUATION at *from* leaves its lead just outside the range, and a
+      # lead at *to* leaves its CONTINUATION just outside. Blank the surviving
+      # halves (same repair as `#print_char`), matching xterm.
+      blank_split_lead line, from
+      blank_split_continuation line, to + 1
+      line.fill(Cell.new(erase_attr, ' '), from, to - from + 1)
     end
 
     # IL: open *n* blank lines at the cursor inside the scroll region, pushing the
@@ -1339,12 +1340,47 @@ module Crysterm
       line = cur_line
       n = Math.min(n, line.size - @x)
       return if n <= 0
+      # The gap opens at the cursor: a CONTINUATION there leaves its lead
+      # orphaned on the gap's left (same repair as `#print_char`).
+      blank_split_lead line, @x
       blank = Cell.new(erase_attr, ' ')
       shift_cells_right line, @x, n
       i = @x + n - 1
       while i >= @x
         line[i] = blank
         i -= 1
+      end
+      # Right-boundary repairs after the shift: a CONTINUATION shifted to the
+      # gap's right edge lost its lead to the blank gap; and a pair straddling
+      # the line end lost its CONTINUATION past it, leaving a bare wide lead in
+      # the last cell.
+      blank_split_continuation line, @x + n
+      last = line.size - 1
+      if line[last].char != CONTINUATION && ::Crysterm::Unicode.width(line[last].char) == 2
+        line[last] = blank
+      end
+    end
+
+    # Blanks the wide lead at `i - 1` when the cell at *i* is its CONTINUATION —
+    # the left-boundary half of the wide-glyph pair repair: an edit that
+    # overwrites, blanks or shifts the cell at *i* strands the lead, which the
+    # renderer would still treat as 2 columns wide (hiding the cell after it).
+    # xterm blanks the surviving half; so do we. Shared by `#print_char`,
+    # `#erase_in_line`, `#insert_chars` and `#delete_chars`.
+    private def blank_split_lead(line : Array(Cell), i : Int32) : Nil
+      if i > 0 && i < line.size && line[i].char == CONTINUATION
+        line[i - 1] = Cell.new(erase_attr, ' ')
+      end
+    end
+
+    # Blanks the CONTINUATION at *i* once its wide lead no longer precedes it —
+    # the right-boundary half of the pair repair, for edits that overwrote,
+    # blanked or shifted the lead away. A bare sentinel renders blank anyway;
+    # blanking it keeps the grid honest (and its attr fresh). Out-of-range *i*
+    # is a no-op so callers can pass a computed edge unguarded.
+    private def blank_split_continuation(line : Array(Cell), i : Int32) : Nil
+      if i < line.size && line[i].char == CONTINUATION
+        line[i] = Cell.new(erase_attr, ' ')
       end
     end
 
@@ -1368,6 +1404,9 @@ module Crysterm
       line = cur_line
       n = Math.min(n, line.size - @x)
       return if n <= 0
+      # Deletion starting on a trailing CONTINUATION leaves its lead orphaned
+      # just left of the cursor (same repair as `#print_char`).
+      blank_split_lead line, @x
       blank = Cell.new(erase_attr, ' ')
       i = @x
       while i + n < line.size
@@ -1378,6 +1417,9 @@ module Crysterm
         line[i] = blank
         i += 1
       end
+      # A deletion range ending inside a pair pulls its bare CONTINUATION up to
+      # the cursor column — its lead was deleted.
+      blank_split_continuation line, @x
     end
 
     private def erase_chars(n : Int32) : Nil

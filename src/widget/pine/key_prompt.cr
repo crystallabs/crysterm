@@ -20,7 +20,7 @@ module Crysterm
       #
       # ```
       # prompt = Widget::Pine::KeyPrompt.new "Save changes?", [
-      #   Widget::Pine::KeyPrompt::Choice.new("Y", "Yes", -> { save }),
+      #   Widget::Pine::KeyPrompt::Choice.new("Y", "Yes") { save },
       #   Widget::Pine::KeyPrompt::Choice.new("N", "No"),
       #   Widget::Pine::KeyPrompt::Choice.new("C", "Cancel"),
       # ], parent: screen, bottom: 0

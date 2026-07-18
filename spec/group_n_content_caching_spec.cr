@@ -107,9 +107,9 @@ describe "Group N per-frame content caching" do
     it "fills even positions in place, stable across redundant renders" do
       s = n_screen 60, 20
       sp = Crysterm::Widget::Splitter.new parent: s, width: 60, height: 20
-      sp.add_pane Crysterm::Widget::Box.new content: "a"
-      sp.add_pane Crysterm::Widget::Box.new content: "b"
-      sp.add_pane Crysterm::Widget::Box.new content: "c"
+      sp.add_widget Crysterm::Widget::Box.new content: "a"
+      sp.add_widget Crysterm::Widget::Box.new content: "b"
+      sp.add_widget Crysterm::Widget::Box.new content: "c"
 
       s._render
       pos1 = sp.@positions.dup

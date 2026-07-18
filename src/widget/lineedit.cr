@@ -116,6 +116,14 @@ module Crysterm
         super
       end
 
+      # Single-line: a pasted trailing newline is dropped and interior newlines
+      # collapse to single spaces (the Qt `QLineEdit` convention), so a pasted
+      # shell command never puts a literal `\n` in the buffer.
+      private def sanitize_paste(text : String) : String
+        return text unless text.includes? '\n'
+        text.chomp.gsub(/\r?\n/, ' ')
+      end
+
       # Append a just-submitted line to the history and reset the cursor to the
       # live line. Blank lines and an immediate repeat of the last entry are
       # skipped (shell `ignoredups`), so Up gives back meaningful commands.

@@ -211,8 +211,8 @@ describe "Splitter mouse drag" do
     sp = Crysterm::Widget::Splitter.new parent: s, top: 0, left: 0, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
+    sp.add_widget a
+    sp.add_widget b
     sp.set_divider_position 0, 20
     s._render
 
@@ -232,7 +232,7 @@ describe "List multi-select rendering" do
     s = render_screen
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 6,
       selection_mode: :multi_selection, items: ["a", "b", "c"]
-    list.select_index 0     # cursor on row 0
+    list.current_index = 0  # cursor on row 0
     list.add_to_selection 2 # check row 2
     s._render
 
@@ -357,7 +357,7 @@ describe "Menu submenus" do
 
     m.item_texts[0].includes?("▶").should be_true
 
-    m.select_index 0
+    m.current_index = 0
     m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
     s._render
 

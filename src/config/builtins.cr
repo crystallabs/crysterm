@@ -69,7 +69,7 @@ module Superconf
   option "window.default_quit_keys", true,
     description: "Install a default quit handler (q / Ctrl-Q destroy the screen and exit) in the Screen constructor"
   option "window.send_focus", false,
-    description: "Emit focus events once the mouse is enabled"
+    description: "Report terminal focus in/out (DEC private mode 1004) while mouse reporting is enabled; reports surface as window-level Event::Mouse with #mouse.focus_event?"
   option "window.grab_keys", false,
     description: "Route all keypresses to a single grabbing widget"
   option "window.dock_borders", false,

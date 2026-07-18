@@ -318,7 +318,7 @@ module Crysterm
     @[AlwaysInline]
     protected def rendered_geometry(el : Widget) : RenderedGeometry?
       return nil unless l = el.lpos
-      ((l.xl - l.xi) > 0) && ((l.yl - l.yi) > 0) ? l : nil
+      (l.width > 0) && (l.height > 0) ? l : nil
     end
 
     # Whether `el` produced a non-empty rendered rectangle on the last frame.

@@ -20,13 +20,13 @@ module Crysterm
     # term.focus
     # ```
     #
-    # Keyboard and mouse are both forwarded to the child; the emulator supports
-    # the alternate window buffer, DEC line-drawing, scroll regions/scrollback,
-    # origin mode, and focus reporting. Scrollback is navigable with
-    # Shift-PageUp/PageDown, and `Event::ProcessExited` fires (with the exit code) when the
-    # child process ends. Not yet implemented: double-width/height *lines* and
-    # bracketed-paste wrapping (the mode is tracked but Crysterm has no paste
-    # event to wrap yet).
+    # Keyboard, mouse and pastes are all forwarded to the child (a paste
+    # wrapped in bracketed-paste markers when the child enabled DEC 2004); the
+    # emulator supports the alternate window buffer, DEC line-drawing, scroll
+    # regions/scrollback, origin mode, and focus reporting. Scrollback is
+    # navigable with Shift-PageUp/PageDown, and `Event::ProcessExited` fires
+    # (with the exit code) when the child process ends. Not yet implemented:
+    # double-width/height *lines*.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Terminal screenshot](../../tests/widget/terminal/terminal.5s.apng)
@@ -95,6 +95,7 @@ module Crysterm
 
         on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
         on ::Crysterm::Event::Mouse, ->on_mouse(::Crysterm::Event::Mouse)
+        on ::Crysterm::Event::Paste, ->on_paste(::Crysterm::Event::Paste)
         on(::Crysterm::Event::FocusIn) { report_focus true }
         on(::Crysterm::Event::FocusOut) { report_focus false }
         on(::Crysterm::Event::Destroy) { kill }
@@ -259,6 +260,32 @@ module Crysterm
           return
         end
 
+        e.accept
+        request_render
+      end
+
+      # Forwards pasted text (routed here by the window while focused) to the
+      # child, wrapped in bracketed-paste markers when the child has enabled
+      # the mode (DECSET 2004) — so a child readline/editor can treat the
+      # paste atomically instead of as typed input.
+      protected def on_paste(e : ::Crysterm::Event::Paste) : Nil
+        return unless focused?
+
+        data = e.content
+        if @emulator.try &.bracketed_paste?
+          data = "\e[200~#{data}\e[201~"
+        end
+
+        if handler = @handler
+          handler.call data
+        elsif pty = @pty
+          pty.write data
+        else
+          return
+        end
+
+        # Like a keystroke, input snaps the view back to the live bottom.
+        @emulator.try { |em| em.reset_scroll if em.ydisp != em.ybase }
         e.accept
         request_render
       end

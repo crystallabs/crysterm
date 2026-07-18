@@ -99,7 +99,7 @@ module Crysterm
     parse_tags: true,
     style: Style.new(bg: "black")
 
-  submit.on(Crysterm::Event::Pressed) do
+  submit.on_click do
     # blessed had a buggy `tabs.send._.form.submit()` here; intent is to submit the enclosing form.
     form.submit
   end

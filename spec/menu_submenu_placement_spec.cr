@@ -24,7 +24,7 @@ end
 private def msp_open_sub(s, m, x, y)
   m.popup x, y
   s._render
-  m.select_index 1
+  m.current_index = 1
   m.hover_item 1 # opens the "Recent" submenu
   s._render
   m.@submenu_open.not_nil!

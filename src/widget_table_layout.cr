@@ -299,7 +299,7 @@ module Crysterm
     # (`xi`, `yi`) plus the content `width`/`height` reaching the right/bottom
     # insets. Destructure as `xi, yi, width, height = border_extent(coords)`.
     protected def border_extent(coords) : Tuple(Int32, Int32, Int32, Int32)
-      {coords.xi, coords.yi, coords.xl - coords.xi - iright, coords.yl - coords.yi - ibottom}
+      {coords.xi, coords.yi, coords.width - iright, coords.height - ibottom}
     end
 
     # The attribute for an internal cell-border junction: either the plain
@@ -330,7 +330,7 @@ module Crysterm
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
         # Clip against the *content* width: callers pass `width` as
-        # `xl - xi - iright`, which still includes the left inset the separator is
+        # `coords.width - iright`, which still includes the left inset the separator is
         # painted past (`xi + ileft + rx`), so comparing bare `rx` would overshoot
         # the content edge by `ileft` columns on a padded/bordered table.
         break if width && rx >= width - ileft

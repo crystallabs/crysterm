@@ -6,7 +6,7 @@ module Crysterm
     #
     # Picks an integer `#value` within `[#minimum, #maximum]`; the value is shown
     # as a compass-style pointer that sweeps around as it changes (plus the number
-    # itself when `#show_value?`). Arrow keys / the mouse wheel rotate it by
+    # itself when `#text_visible?`). Arrow keys / the mouse wheel rotate it by
     # `#step`, Page Up/Down by `#page_step`, and `#wrapping?` rolls over at the ends.
     # Emits `Event::ValueChanged` on every change.
     #
@@ -14,7 +14,7 @@ module Crysterm
     # ![Dial screenshot](../../tests/widget/dial/dial.5s.apng)
     # <!-- /widget-examples:capture -->
     class Dial < AbstractSlider
-      property? show_value : Bool = true
+      property? text_visible : Bool = true
 
       # Default pointer glyphs for the eight compass directions, starting at
       # "north" and going clockwise. Resolution goes through `#pointer_ring`.
@@ -27,7 +27,7 @@ module Crysterm
         @step = 1,
         @page_step = 10,
         wrapping = false,
-        @show_value = true,
+        @text_visible = true,
         **input,
       )
         super **input
@@ -96,7 +96,7 @@ module Crysterm
           # bottom row (`yl - 1`), so center the pointer in the rows above it
           # (`yi..yl-2`); otherwise the value text would overwrite and hide the
           # pointer on a short (inner height <= 2) dial.
-          pointer_bottom = show_value? ? Math.max(yi, yl - 2) : yl
+          pointer_bottom = text_visible? ? Math.max(yi, yl - 2) : yl
           cx = xi + (xl - xi) // 2
           cy = yi + (pointer_bottom - yi) // 2
           window.fill_region style_to_attr(style.indicator), pointer, cx, cx + 1, cy, cy + 1
@@ -104,7 +104,7 @@ module Crysterm
           # Draw the value on the reserved bottom row, but only when it does not
           # land on the pointer row: on a 1-row dial there is no spare row, so
           # keep the pointer rather than let the number overwrite it.
-          if show_value? && (ty = yl - 1) != cy
+          if text_visible? && (ty = yl - 1) != cy
             draw_centered_text ty, xi, xl, value_text
           end
         end

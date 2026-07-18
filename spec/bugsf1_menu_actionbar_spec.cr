@@ -69,7 +69,7 @@ describe "BUGS-F1 #9 ActionBar items don't share one mutable Style" do
     s._render
 
     # Scroll the selection to the far right so the left edge scrolls off.
-    bar.select_index bar.items.size - 1
+    bar.current_index = bar.items.size - 1
     s._render
 
     bar.left_base.should be > 0

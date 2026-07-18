@@ -12,7 +12,7 @@ private def abr_screen
     default_quit_keys: false)
 end
 
-# Renders the screen once headlessly so the bar gets an `@lpos` (its `#select_index`
+# Renders the screen once headlessly so the bar gets an `@lpos` (its `#current_index=`
 # scroll math, and thus the `selected` index, only updates once laid out).
 private def abr_render(s)
   s._render
@@ -31,7 +31,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c", "d"]
     abr_render s
-    bar.select_index 2 # "c"
+    bar.current_index = 2 # "c"
     bar.current_index.should eq 2
     bar.item_texts[bar.current_index].should eq "c"
 
@@ -46,7 +46,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
-    bar.select_index 2 # "c" (the last command)
+    bar.current_index = 2 # "c" (the last command)
     bar.current_index.should eq 2
 
     bar.remove_item bar.items[0] # remove "a"; c shifts to index 1
@@ -60,7 +60,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
-    bar.select_index 0 # "a"
+    bar.current_index = 0 # "a"
     bar.current_index.should eq 0
 
     bar.remove_item bar.items[2] # remove "c" (below the cursor)
@@ -73,7 +73,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
-    bar.select_index 2 # "c"
+    bar.current_index = 2 # "c"
     bar.current_index.should eq 2
 
     bar.remove_item bar.items[2] # remove the selected command

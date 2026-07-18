@@ -181,7 +181,7 @@ module Crysterm
           unless @content_sized
             sel = current_index
             self.rows = @rows
-            select_index sel
+            self.current_index = sel
           end
           request_render
         end
@@ -517,16 +517,16 @@ module Crysterm
         # row — including item 0, the header spacer `""`. Fall back to the
         # value-based lookup only when the row count changed.
         if @ritems.size == prev_count && prev_selected < @ritems.size
-          select_index prev_selected
+          self.current_index = prev_selected
         elsif sel && (i = @ritems.index(sel))
-          select_index i
+          self.current_index = i
         else
-          select_index Math.min(current_index, @items.size - 1)
+          self.current_index = Math.min(current_index, @items.size - 1)
         end
       end
 
       # The header spacer (item 0) is never selectable.
-      def select_index(index : Int)
+      def current_index=(index : Int)
         # Clamp to the first *data* row: index 0 is the header spacer
         # (`@ritems[0] == ""`, overlaid by the pinned header) and is not
         # selectable. Guarding only `== 0` let a negative index (e.g. PageUp /

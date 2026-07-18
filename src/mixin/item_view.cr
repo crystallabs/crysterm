@@ -41,7 +41,7 @@ module Crysterm
       # like `MultiSelection` would be worse than not offering it.
       enum SelectionMode
         # Items cannot be selected; the view is display-only. The cursor never
-        # moves and `#select_index` is a no-op. `#interactive?` is a separate
+        # moves and `#current_index=` is a no-op. `#interactive?` is a separate
         # focus-level gate — both must pass.
         NoSelection
         # Exactly one item is current at a time (the default).
@@ -55,7 +55,7 @@ module Crysterm
       # comes from `#scroll_height`.
       @scrollbar_policy = Widget::ScrollBarPolicy::AsNeeded
 
-      # Latched true by the first `#select_index`; internal state, no accessor.
+      # Latched true by the first `#current_index=`; internal state, no accessor.
       @_list_initialized = false
 
       @ritems = [] of String
@@ -71,7 +71,7 @@ module Crysterm
 
       # Index of the currently-selected item (Qt's `QAbstractItemView`
       # `currentIndex`). Read-only here: assignment must route through
-      # `#current_index=`/`#select_index`, which clamps to the list, steps over
+      # `#current_index=`, which clamps to the list, steps over
       # non-selectable rows, refreshes `#current_text`, scrolls the item into
       # view and emits `Event::ItemSelected`. A plain setter does none of that
       # and leaves the widget internally inconsistent.
@@ -81,7 +81,55 @@ module Crysterm
 
       # :ditto:
       def current_index=(index : Int) : Nil
-        select_index index
+        return unless interactive?
+        return if @selection_mode.no_selection?
+
+        if @items.empty?
+          @selected = 0
+          @value = ""
+          # Clear the latch so re-populating the list re-runs the body below.
+          # Otherwise emptying a list leaves `@selected == 0` AND
+          # `@_list_initialized == true`, so `add_item`'s `self.current_index = 0` for the
+          # first new row hits the unchanged-index short-circuit and skips
+          # refreshing `@value`/emitting `ItemSelected`.
+          @_list_initialized = false
+          scroll_to 0
+          return
+        end
+
+        # Step the cursor over any non-selectable divider rows, in the direction
+        # of travel (moving down past a separator lands on the next real row;
+        # moving up, the previous one). No-op unless `#non_selectable_rows` is set.
+        unless @nonselectable.empty?
+          dir = index >= @selected ? 1 : -1
+          if adj = nearest_selectable_row(index.to_i, dir)
+            index = adj
+          end
+        end
+
+        # The `@ritems[@selected]` read below relies on the
+        # `@items.size == @ritems.size` invariant every mutator maintains.
+        index = index.clamp(0, @items.size - 1)
+
+        return if @selected == index && @_list_initialized
+        @_list_initialized = true
+
+        @selected = index
+        @value = clean_tags @ritems[@selected]
+
+        # Gate on having been laid out, not on having a `#parent`: a top-level
+        # widget appended straight to a `Window` has no `#parent`, so an
+        # `unless @parent` guard would silently skip `scroll_to`/`ItemSelected` for
+        # window-level lists. `@lpos` is nil only until the first render.
+        return unless @lpos
+
+        # Scroll to the item's *content row*, not its bare index: with
+        # `item_spacing > 0` the item sits at
+        # `item_row(@selected) == @selected * (1 + item_spacing)`, so
+        # `scroll_to @selected` lands `@selected * item_spacing` rows short.
+        scroll_to item_row(@selected)
+
+        emit ::Crysterm::Event::ItemSelected, @items[@selected], @selected
       end
 
       # Number of items in the view (Qt's `QListWidget#count`). Answered across the
@@ -201,7 +249,7 @@ module Crysterm
       @value : String = ""
 
       # Tag-stripped text of the currently selected item (`""` when empty),
-      # Qt's `currentText`. Kept in sync by `#select_index`.
+      # Qt's `currentText`. Kept in sync by `#current_index=`.
       def current_text : String
         @value
       end
@@ -238,7 +286,9 @@ module Crysterm
       def initialize(*, input : Bool = true, mouse : Bool = true, selection_mode : SelectionMode = SelectionMode::SingleSelection, items : Enumerable(String)? = nil, **box)
         @mouse = mouse
         @selection_mode = selection_mode
-        super **box, input: input, keys: true
+        # `merge` lets an explicit caller `keys:` (in `**box`) override the
+        # key-enabled default without tripping a duplicate-key error.
+        super **{input: input, keys: true}.merge(box)
 
         # Assign the inherited base ivars (`Widget#ignore_keys?`,
         # `#scrollable?`) rather than redeclaring the properties, which would
@@ -250,7 +300,7 @@ module Crysterm
 
         items.try &.each { |item| add_item item }
 
-        select_index 0
+        self.current_index = 0
 
         if @keys
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
@@ -420,7 +470,7 @@ module Crysterm
       end
 
       # Adds *index* to the multi-selection. A no-op unless `#multi_select?` —
-      # deliberately, rather than falling back to `#select_index`, which would
+      # deliberately, rather than falling back to `#current_index=`, which would
       # leave it asymmetric with `#remove_from_selection`/`#toggle_selection`
       # (neither of which has a single-selection meaning).
       def add_to_selection(index : Int)
@@ -530,7 +580,7 @@ module Crysterm
               if activate_on_click? || i == @selected
                 activate_item i
               else
-                select_index i
+                self.current_index = i
               end
               request_render
             end
@@ -579,7 +629,7 @@ module Crysterm
         append item
 
         if @items.size == 1
-          select_index 0
+          self.current_index = 0
         end
 
         emit ::Crysterm::Event::ItemAdded
@@ -638,15 +688,15 @@ module Crysterm
         # slides too. Otherwise `@selected` jumps to the next item or points past
         # the end. Removing the selected row itself selects the row before it.
         if i < @selected
-          select_index @selected - 1
+          self.current_index = @selected - 1
         elsif i == @selected
           # When the removed row was first (`i == 0`), the cursor stays at index
           # 0 (now holding the next row) — same `@selected` value, so
-          # `#select_index`'s unchanged-index short-circuit would skip refreshing
+          # `#current_index=`'s unchanged-index short-circuit would skip refreshing
           # `@value`/emitting `ItemSelected`. Clear the latch to force a full
           # re-run. No-op for `i > 0`, where the index actually changes.
           @_list_initialized = false
-          select_index i - 1
+          self.current_index = i - 1
         end
 
         emit ::Crysterm::Event::ItemRemoved
@@ -720,71 +770,6 @@ module Crysterm
         @items.index child
       end
 
-      # Makes *index* the current item (Qt's `QAbstractItemView#setCurrentIndex`):
-      # clamps it to the list, steps over `#non_selectable_rows` dividers, refreshes
-      # `#value`, scrolls the item into view and emits `Event::ItemSelected`.
-      #
-      # Not spelled bare `select`: that is a Crystal keyword (channel `select`),
-      # and this is called on an implicit receiver throughout the mixin.
-      def select_index(index : Int)
-        return unless interactive?
-        return if @selection_mode.no_selection?
-
-        if @items.empty?
-          @selected = 0
-          @value = ""
-          # Clear the latch so re-populating the list re-runs the body below.
-          # Otherwise emptying a list leaves `@selected == 0` AND
-          # `@_list_initialized == true`, so `add_item`'s `select_index 0` for the
-          # first new row hits the unchanged-index short-circuit and skips
-          # refreshing `@value`/emitting `ItemSelected`.
-          @_list_initialized = false
-          scroll_to 0
-          return
-        end
-
-        # Step the cursor over any non-selectable divider rows, in the direction
-        # of travel (moving down past a separator lands on the next real row;
-        # moving up, the previous one). No-op unless `#non_selectable_rows` is set.
-        unless @nonselectable.empty?
-          dir = index >= @selected ? 1 : -1
-          if adj = nearest_selectable_row(index.to_i, dir)
-            index = adj
-          end
-        end
-
-        # The `@ritems[@selected]` read below relies on the
-        # `@items.size == @ritems.size` invariant every mutator maintains.
-        index = index.clamp(0, @items.size - 1)
-
-        return if @selected == index && @_list_initialized
-        @_list_initialized = true
-
-        @selected = index
-        @value = clean_tags @ritems[@selected]
-
-        # Gate on having been laid out, not on having a `#parent`: a top-level
-        # widget appended straight to a `Window` has no `#parent`, so an
-        # `unless @parent` guard would silently skip `scroll_to`/`ItemSelected` for
-        # window-level lists. `@lpos` is nil only until the first render.
-        return unless @lpos
-
-        # Scroll to the item's *content row*, not its bare index: with
-        # `item_spacing > 0` the item sits at
-        # `item_row(@selected) == @selected * (1 + item_spacing)`, so
-        # `scroll_to @selected` lands `@selected * item_spacing` rows short.
-        scroll_to item_row(@selected)
-
-        emit ::Crysterm::Event::ItemSelected, @items[@selected], @selected
-      end
-
-      # :ditto:
-      def select_index(widget : Widget)
-        if i = @items.index(widget)
-          select_index i
-        end
-      end
-
       # Hook invoked when the pointer moves onto item *i* and `#hover_select?` is
       # on. *i* is the item's absolute index — hit-testing runs against painted
       # geometry, so a scrolled list reports the real entry under the pointer, not
@@ -801,7 +786,7 @@ module Crysterm
         # so with `item_spacing > 0` a bare `clamp(@child_base, …)` would compare
         # an item index against row bounds and snap a legitimately-visible item to
         # a different one. Convert the row bounds to item indices first.
-        select_index i.clamp(item_at_row(@child_base), item_at_row(@child_base + vis - 1))
+        self.current_index = i.clamp(item_at_row(@child_base), item_at_row(@child_base + vis - 1))
       end
 
       # Removes every item (Qt's `QListWidget#clear`).
@@ -810,9 +795,9 @@ module Crysterm
       end
 
       # Moves the selection by *delta* rows (negative = up), through
-      # `#select_index` so it clamps and steps over dividers.
+      # `#current_index=` so it clamps and steps over dividers.
       def move_selection(delta : Int32)
-        select_index @selected + delta
+        self.current_index = @selected + delta
       end
 
       # Handles one mouse-wheel notch (*dir* is `-1` up / `+1` down). Branches on
@@ -852,9 +837,9 @@ module Crysterm
           @child_base = nb
           # `nb + row` is the content row under the cursor; map it back to the item
           # index there so a spaced list selects the right entry.
-          select_index item_at_row(nb + row).clamp(0, @items.size - 1)
+          self.current_index = item_at_row(nb + row).clamp(0, @items.size - 1)
         else
-          select_index (@selected + step).clamp(0, @items.size - 1)
+          self.current_index = (@selected + step).clamp(0, @items.size - 1)
         end
       end
 
@@ -895,7 +880,7 @@ module Crysterm
         # performs. Must check `i <= selected`, not just `i == selected`, or an
         # insert before the cursor leaves `@selected`/`@value` stale.
         if i <= @selected
-          select_index @selected + 1
+          self.current_index = @selected + 1
         end
         emit Crysterm::Event::ItemInserted
       end
@@ -920,7 +905,7 @@ module Crysterm
           @ritems[i] = content
           invalidate_item_index
           # Keep cached `#value` in sync when the *selected* row's text changes
-          # in place — `#select_index` early-returns on an unchanged index, so it
+          # in place — `#current_index=` early-returns on an unchanged index, so it
           # wouldn't otherwise refresh `@value`.
           @value = clean_tags(content) if i == @selected
         end
@@ -945,7 +930,7 @@ module Crysterm
         previous = @selected
         sel = @ritems[previous]?
 
-        select_index 0
+        self.current_index = 0
 
         items.each_with_index do |item, i|
           if itm = @items[i]?
@@ -976,17 +961,17 @@ module Crysterm
         if sel
           sel = items.index sel
           if sel
-            select_index sel
+            self.current_index = sel
           elsif @items.size == original.size
             # Use the saved selection; `selected` was just reset to 0 above.
-            select_index previous
+            self.current_index = previous
           else
-            select_index Math.min previous, @items.size - 1
+            self.current_index = Math.min previous, @items.size - 1
           end
         end
 
         # Rows were reused in place above, so the selection may land on the same
-        # index whose text just changed — `select_index`'s unchanged-index
+        # index whose text just changed — `current_index=`'s unchanged-index
         # short-circuit wouldn't refresh `@value`. Sync it explicitly. `""` when
         # the list ended up empty.
         @value = @ritems[@selected]?.try { |r| clean_tags r } || ""
@@ -995,12 +980,12 @@ module Crysterm
       end
 
       # Selects the item at *index* and activates it. A click lands on a raw row
-      # index; ignore it on a divider (a bare `select_index index` would skip
+      # index; ignore it on a divider (a bare `current_index = index` would skip
       # onto a neighbor and fire *its* action). Keyboard Enter is unaffected —
-      # `select_index` never rests the cursor on a divider.
+      # `current_index=` never rests the cursor on a divider.
       def activate_item(index : Int32)
         return if @nonselectable.includes? index
-        select_index index
+        self.current_index = index
         activate_current
       end
 
@@ -1008,7 +993,7 @@ module Crysterm
       # `Event::ItemActivated`.
       #
       # Activation is NOT a selection change, so it must not emit
-      # `Event::ItemSelected`: `#select_index` already emits that, and adding one
+      # `Event::ItemSelected`: `#current_index=` already emits that, and adding one
       # here fires it twice per Enter while the selection has not moved at all.
       def activate_current
         # `items[@selected]` raises `IndexError` on an empty list under Crystal's
@@ -1019,7 +1004,7 @@ module Crysterm
 
       # Selects the item at *index* and cancels it (Escape).
       def cancel_item(index : Int32)
-        select_index index
+        self.current_index = index
         cancel_current
       end
 
@@ -1110,7 +1095,7 @@ module Crysterm
           # No match leaves the cursor where it was (`#fuzzy_find` reports `nil`
           # rather than the current selection, so there is nothing to move to).
           if data && !data.empty? && (hit = fuzzy_find(data, backward: backward))
-            select_index hit
+            self.current_index = hit
           end
           request_render
         end
@@ -1133,8 +1118,8 @@ module Crysterm
         case nav_intent(e)
         when .backward?      then up
         when .forward?       then down
-        when .first?         then select_index 0
-        when .last?          then select_index @items.size - 1
+        when .first?         then self.current_index = 0
+        when .last?          then self.current_index = @items.size - 1
         when .half_backward? then move_selection -half
         when .half_forward?  then move_selection half
         when .page_backward? then move_selection -per_page
@@ -1145,11 +1130,11 @@ module Crysterm
           # viewport; `@child_base` is a content row, so convert to an item index
           # (a bare `@child_base + …` would select a far-off item when spaced).
           when @vi && e.char == 'H'
-            select_index item_at_row(@child_base)
+            self.current_index = item_at_row(@child_base)
           when @vi && e.char == 'M'
-            select_index item_at_row(@child_base + visible // 2)
+            self.current_index = item_at_row(@child_base + visible // 2)
           when @vi && e.char == 'L'
-            select_index item_at_row(@child_base + visible - 1)
+            self.current_index = item_at_row(@child_base + visible - 1)
           when search? && e.char == '/'
             start_search backward: false
           when search? && e.char == '?'

@@ -5,8 +5,19 @@ module Crysterm
     # Broader in scope than mouse focus, since widget focus can be affected
     # by keys (Tab/Shift+Tab etc.) and operate without mouse.
 
-    # Send focus events after mouse is enabled?
-    property? send_focus : Bool = Config.window_send_focus
+    # Whether the terminal reports focus-in/out (DEC private mode 1004) while
+    # mouse reporting is on. Reports surface as window-level `Event::Mouse`
+    # events whose `#mouse.focus_event?` is true (`Action::Focus`/`::Blur`).
+    # Applied whenever mouse reporting is (re-)asserted; setting it while the
+    # mouse is already live re-asserts immediately.
+    getter? send_focus : Bool = Config.window_send_focus
+
+    # :ditto:
+    def send_focus=(value : Bool)
+      return if @send_focus == value
+      @send_focus = value
+      @screen.enable_mouse(focus: value) if @screen.mouse_enabled?
+    end
 
     # Whether `Tab`/`Shift+Tab` move keyboard focus between focusable widgets by
     # default (the GUI-toolkit convention). Enabled out of the box; set to false

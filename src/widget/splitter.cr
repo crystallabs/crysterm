@@ -12,9 +12,9 @@ module Crysterm
     #
     # ```
     # sp = Widget::Splitter.new parent: window, width: 60, height: 20
-    # sp.add_pane Widget::Box.new(content: "a")
-    # sp.add_pane Widget::Box.new(content: "b")
-    # sp.add_pane Widget::Box.new(content: "c")
+    # sp.add_widget Widget::Box.new(content: "a")
+    # sp.add_widget Widget::Box.new(content: "b")
+    # sp.add_widget Widget::Box.new(content: "c")
     # ```
     #
     # <!-- widget-examples:capture v1 -->
@@ -31,7 +31,7 @@ module Crysterm
       # The dividers (one fewer than `#panes`), in order. A copy: these boxes are
       # the splitter's own machinery, and adding or dropping one here would leave
       # them out of step with the pane list. Move one with
-      # `#set_divider_position`; add panes with `#add_pane`.
+      # `#set_divider_position`; add panes with `#add_widget`.
       def dividers : Array(Box)
         @dividers.dup
       end
@@ -80,7 +80,7 @@ module Crysterm
 
       # Appends a pane to the right/bottom, inserting a draggable divider before
       # it (except for the first pane). Existing dividers are re-evened.
-      def add_pane(widget : Widget) : self
+      def add_widget(widget : Widget) : self
         unless @panes.empty?
           idx = @dividers.size
           div = Box.new(
@@ -102,6 +102,15 @@ module Crysterm
         even_positions
         relayout
         self
+      end
+
+      # Operator alias for `#add_widget`, e.g. `splitter << pane`. Deliberately
+      # overrides the inherited `Mixin::Children#<<` (which only appends a raw
+      # child): a `Splitter`'s children are panes, so every append must also
+      # register the pane and its divider. `#add_widget` calls `append` itself, so
+      # child bookkeeping is preserved.
+      def <<(widget : Widget) : self
+        add_widget widget
       end
 
       # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------

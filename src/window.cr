@@ -151,9 +151,10 @@ module Crysterm
 
     # Explicit forwarder (not `delegate`): the splat-forwarding delegate def
     # loses the enum restriction, so `enable_mouse(pixels: :on)` symbol
-    # autocasting would not compile through it.
+    # autocasting would not compile through it. Also passes this window's
+    # `#send_focus?` so focus-in/out reporting (DEC 1004) follows the property.
     def enable_mouse(pixels : PixelMouse = :auto)
-      @screen.enable_mouse(pixels: pixels)
+      @screen.enable_mouse(pixels: pixels, focus: send_focus?)
     end
 
     # `delegate` can't forward assignment, so forward these explicitly.
@@ -949,7 +950,7 @@ module Crysterm
       carried_cursor = @cursor.dup
       carried_cursor.style = @cursor.style.dup
       carried_cursor._set = false
-      reparent_onto Window.new(
+      replacement = Window.new(
         terminfo: Unibilium.from_terminal(term),
         title: @title,
         # Carry the pin STATE, not the current size as unconditional pins:
@@ -972,6 +973,12 @@ module Crysterm
         force_unicode: force_unicode?, full_unicode: @screen.full_unicode?,
         resize_interval: @resize_interval,
       )
+      # Carry an explicit runtime glyph-tier pin, like the size pins above:
+      # without it the replacement device re-auto-detects and e.g. an Ascii pin
+      # (accessibility / broken-font workaround) silently reverts to Unicode
+      # chrome. An unpinned tier stays unpinned so detection runs as usual.
+      replacement.glyph_tier = glyph_tier if @screen.glyph_tier_explicit?
+      reparent_onto replacement
     end
 
     # Moves every top-level widget from this screen onto *other*, destroys this

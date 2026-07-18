@@ -265,7 +265,7 @@ module Crysterm
         when FileManager then el.refresh
           # Every item view (`List`/`ListTable`/`Tree`), which are siblings.
           # `FileManager` is handled above.
-        when Mixin::ItemView then el.select_index 0
+        when Mixin::ItemView then el.current_index = 0
           # Via `Mixin::TextEditing` so `LineEdit` is reset too.
         when Mixin::TextEditing then el.clear
           # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.

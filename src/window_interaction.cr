@@ -42,7 +42,7 @@ module Crysterm
       # its first read (raw mode established), then enable mouse reporting.
       Fiber.yield
 
-      @screen.enable_mouse
+      @screen.enable_mouse(focus: send_focus?)
 
       # Enable, by default, the input enhancements that are safe and universally
       # expected — after raw mode, like mouse, so enable sequences aren't echoed:
@@ -93,7 +93,21 @@ module Crysterm
       if m = e.mouse
         dispatch_mouse m
       elsif pasted = e.paste
-        emit Crysterm::Event::Paste.new pasted
+        # Route the paste to the focused widget and up its parent chain until a
+        # handler `#accept`s it — the same path a key press takes — so the
+        # focused text field / terminal receives it. Only unaccepted does it
+        # fall back to the window-level emit, for app-level listeners.
+        ev = Crysterm::Event::Paste.new pasted
+        focused.try do |el2|
+          while el2 && el2.is_a? Widget
+            if el2.has_handlers?(Crysterm::Event::Paste) && !el2.disabled?
+              el2.emit ev
+            end
+            break if ev.accepted?
+            el2 = el2.parent
+          end
+        end
+        emit ev unless ev.accepted?
       elsif clip = e.clipboard
         # OSC-52 clipboard read reply (answer to `request_clipboard`). Refresh
         # the app-wide clipboard mirror before notifying listeners, so a handler

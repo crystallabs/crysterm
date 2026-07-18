@@ -70,8 +70,8 @@ module Crysterm
         r
       end
 
-      # Amount a single key press (or default `#progress`) moves the value by,
-      # in domain units. Qt's `QAbstractSlider#singleStep`.
+      # Amount a single key press moves the value by, in domain units. Qt's
+      # `QAbstractSlider#singleStep`.
       property single_step : Int32 = 5
 
       property orientation : Tput::Orientation = :horizontal
@@ -272,9 +272,9 @@ module Crysterm
         ch = e.char
         # Keys don't conflict, so support both regardless of orientation.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
-          progress -@single_step
+          self.value = @value - @single_step
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
-          progress @single_step
+          self.value = @value + @single_step
         end
       end
     end

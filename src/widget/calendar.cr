@@ -610,7 +610,7 @@ module Crysterm
         # Select *before* showing: `#popup` sizes the menu, and that height
         # assignment is what scrolls the selected row into view — so the long
         # year list opens on the current year instead of at its top.
-        menu.select_index index
+        menu.current_index = index
         lpos = @lpos
         if lpos
           menu.popup lpos.xi + ileft + col, lpos.yi + itop + 1

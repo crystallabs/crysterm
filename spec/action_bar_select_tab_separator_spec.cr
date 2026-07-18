@@ -30,7 +30,7 @@ describe "Mixin::ActionBar#select_item separator guard" do
     bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                  Crysterm::Mixin::ActionBar::Command.new("b")]
 
-    # Lay out so `#select_index`'s scroll math (gated on a real `@lpos`) is live;
+    # Lay out so `#current_index=`'s scroll math (gated on a real `@lpos`) is live;
     # otherwise selecting an index can't move `selected` at all.
     s._render
     bar.current_index.should eq 0 # the first real command

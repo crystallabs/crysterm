@@ -318,12 +318,12 @@ module Crysterm
         self.items = rows
         if prev
           if i = @nodes.index prev
-            select_index i
+            self.current_index = i
           elsif (anc = nearest_visible_ancestor prev) && (j = @nodes.index anc)
             # Previously-selected node was hidden by a collapse; follow selection
             # up to its nearest still-visible ancestor, as Qt does, rather than
             # stranding it on row 0.
-            select_index j
+            self.current_index = j
           end
         end
         request_render
@@ -453,7 +453,7 @@ module Crysterm
             if !node.leaf? && node.expanded?
               collapse node
             elsif (p = node.parent) && (i = @nodes.index p)
-              select_index i
+              self.current_index = i
             end
             e.accept
             request_render

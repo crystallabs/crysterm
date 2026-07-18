@@ -76,7 +76,13 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
 
       Crysterm::Config.mouse_pixel_coordinates = Crysterm::PixelMouse::Off
       s.enable_mouse(pixels: :on) # explicit request; Off vetoes it
-      drained(s, buf).should_not contain "1016"
+      vetoed = drained(s, buf)
+      vetoed.should_not contain "\e[?1016h"
+      # The veto lands on an *active* pixel session, so the downgrade must
+      # reach the terminal too (DECRST 1016), keeping it in sync with the
+      # parser's cleared cell-size cache (BUGS15 #6/#7).
+      vetoed.should contain "\e[?1016l"
+      s.tput.mouse_cell_pixels.should be_nil
     ensure
       Crysterm::Config.mouse_pixel_coordinates = prev
     end

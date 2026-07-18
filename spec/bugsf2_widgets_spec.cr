@@ -211,8 +211,8 @@ describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spac
     spaced.item_spacing = 1
     s.render
 
-    plain.select_index 0
-    spaced.select_index 0
+    plain.current_index = 0
+    spaced.current_index = 0
     plain.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
     spaced.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
 
@@ -390,13 +390,13 @@ describe "BUGS-F2 40: Form submits and resets every item view, not just List" do
     form = Crysterm::Widget::Form.new parent: s, width: 40, height: 12
     lt = Crysterm::Widget::ListTable.new parent: form, name: "grid", width: 20, height: 8
     lt.rows = ([["H"], ["r1"], ["r2"], ["r3"]]) # row 0 is the header
-    lt.select_index 3
+    lt.current_index = 3
 
     data = form.submit
     data.has_key?("grid").should be_true # contributed a value (was dropped by `when List`)
 
     form.reset
-    # Reset selects the first row (`select_index 0`, clamped past the header spacer);
+    # Reset selects the first row (`current_index= 0`, clamped past the header spacer);
     # before the fix a `ListTable` was never reset and stayed on row 3.
     lt.current_index.should eq 1
   end

@@ -82,7 +82,7 @@ end
 describe "Dial pointer ring" do
   it "sweeps a CSS-supplied ring and falls back to the registry arrows" do
     s = gs_screen
-    d = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3, value: 0, show_value: false
+    d = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3, value: 0, text_visible: false
     s._render
     # Value at minimum: pointer is "north" (↑) centered in the middle row.
     row = (0...9).map { |x| s.lines[d.atop + 1][d.aleft + x].char }.join

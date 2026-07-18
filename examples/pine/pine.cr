@@ -384,8 +384,8 @@ module Crysterm
   ask_yes_no = ->(question : String, on_yes : Proc(Nil)) do
     confirm.question = question
     confirm.choices = [
-      KeyPrompt::Choice.new("Y", "Yes", -> { dismiss_prompt.call; on_yes.call; nil }),
-      KeyPrompt::Choice.new("N", "No", -> { dismiss_prompt.call; nil }),
+      KeyPrompt::Choice.new("Y", "Yes") { dismiss_prompt.call; on_yes.call; nil },
+      KeyPrompt::Choice.new("N", "No") { dismiss_prompt.call; nil },
     ]
     status_line.call confirm
     confirm.focus

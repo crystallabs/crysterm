@@ -129,7 +129,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
         ])
 
       # Select the second body row (item index 2 = "Bob").
-      lt.select_index 2
+      lt.current_index = 2
       lt.current_index.should eq 2
       lt.current_text.should contain("Bob")
 
@@ -161,7 +161,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
 
       # Select the *second* "Dup" (item index 3). A value-based restore keys on
       # the row text and could resolve to the first "Dup" instead.
-      lt.select_index 3
+      lt.current_index = 3
       lt.current_index.should eq 3
 
       lt.rows = ([

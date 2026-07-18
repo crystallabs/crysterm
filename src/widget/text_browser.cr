@@ -13,7 +13,7 @@ module Crysterm
     # is true, follows the link through `#source=`.
     #
     # Navigation history: `#source=` records every successful load;
-    # `Backspace` / `#back` and `#forward` move through it (Qt's
+    # `Backspace` / `#backward` and `#forward` move through it (Qt's
     # `backward()`/`forward()`). Loading is delegated to `#loader`, a
     # `String -> TextDocument?` — the toolkit has no resource system, so the
     # application decides what a URL means (Qt `loadResource` analog):

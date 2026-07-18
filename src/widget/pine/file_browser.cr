@@ -21,8 +21,8 @@ module Crysterm
       # ![FileBrowser screenshot](../../../tests/widget/pine/file_browser/file_browser.5s.apng)
       # <!-- /widget-examples:capture -->
       class FileBrowser < Widget::FileManager
-        def initialize(cwd : String? = nil, label : String? = nil, keys = true, **list)
-          super cwd, label, keys, **list
+        def initialize(cwd : String? = nil, label : String? = nil, **list)
+          super cwd, label, **list
 
           # Pine highlights the whole selected row in reverse video.
           styles.selected = Style.new reverse: true

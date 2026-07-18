@@ -33,7 +33,7 @@ module Crysterm
           single_step = 5,
           # Pine defaults: percentage wrapped in a `[..%]` label, single-row bar.
           # Callers can override any of these.
-          show_value = true,
+          text_visible = true,
           format = "[%p%]",
           height h = 1,
           **input,
@@ -45,7 +45,7 @@ module Crysterm
             minimum: minimum,
             maximum: maximum,
             single_step: single_step,
-            show_value: show_value,
+            text_visible: text_visible,
             format: format,
             height: h)
         end

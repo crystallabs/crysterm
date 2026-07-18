@@ -313,7 +313,7 @@ open_picker = -> do
   s.render
 end
 # Both the "Pick" button and a click on the color swatch itself open the picker.
-pickbtn.on(Event::Pressed) { open_picker.call }
+pickbtn.on_click { open_picker.call }
 swatch.on(Event::Click) { open_picker.call }
 
 # DialogButtonBox: standard buttons with the right roles wired to accept/reject.
@@ -332,7 +332,7 @@ end
 
 split = Widget::Splitter.new
 3.times do |i|
-  split.add_pane Widget::Box.new(
+  split.add_widget Widget::Box.new(
     content: "{center}Pane #{i + 1}{/center}", parse_tags: true)
 end
 

@@ -51,8 +51,8 @@ cancel = Widget::Button.new(
   parse_tags: true,
 )
 
-submit.on(Event::Pressed) { form.submit }
-cancel.on(Event::Pressed) { form.reset }
+submit.on_click { form.submit }
+cancel.on_click { form.reset }
 
 form.on(Event::FormSubmitted) do
   form.set_content "Submitted."

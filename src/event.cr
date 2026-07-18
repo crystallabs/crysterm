@@ -32,6 +32,24 @@ module Crysterm
   module Event
     include EventHandler
 
+    # Shared "accept/ignore" propagation-control behavior for events that can be
+    # accepted to stop them from propagating further (`Key`, `Mouse`,
+    # `DragEvent`, `Paste`). Defined before the first including class: `include`
+    # resolves in file order.
+    module Acceptable
+      property? accepted : Bool = false
+
+      # Accepts event and causes it to stop propagating.
+      def accept
+        @accepted = true
+      end
+
+      # Ignores event and causes it to continue propagating.
+      def ignore
+        @accepted = false
+      end
+    end
+
     # Emitted when widget is attached to a screen directly or somewhere in its ancestry
     event Attached, object : EventHandler
 
@@ -100,7 +118,20 @@ module Crysterm
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
     # verbatim, never interpreted as key presses. A programmatic clipboard
     # *read* reply arrives as `ClipboardChanged` (below), not as a paste.
-    event Paste, content : String
+    #
+    # Routed like a key press: offered to the focused widget and up its parent
+    # chain until a handler `#accept`s it (text-editing widgets insert it at
+    # the cursor, `Widget::Terminal` forwards it to the child), then emitted on
+    # the `Window` as the unaccepted fallback. Defined as a class (not via the
+    # `event` macro) to include `Acceptable`.
+    class Paste < EventHandler::Event
+      include Acceptable
+
+      getter content : String
+
+      def initialize(@content)
+      end
+    end
 
     # Emitted when an OSC 52 clipboard *read* reply arrives, in answer to a
     # `Window#request_clipboard` / `Application::Clipboard#request` — the
@@ -369,22 +400,6 @@ module Crysterm
     # "live region" — the accessibility counterpart to the drag's on-screen
     # feedback. `text` is the message. A no-op sink is nothing to subscribe.
     event DragAnnounced, text : String
-
-    # Shared "accept/ignore" propagation-control behavior for events that can be
-    # accepted to stop them from propagating further (`Key`, `Mouse`, `DragEvent`).
-    module Acceptable
-      property? accepted : Bool = false
-
-      # Accepts event and causes it to stop propagating.
-      def accept
-        @accepted = true
-      end
-
-      # Ignores event and causes it to continue propagating.
-      def ignore
-        @accepted = false
-      end
-    end
 
     # Base class for keyboard events. Carries the key identity (`char` / `key` /
     # `sequence`) and, when the terminal speaks an enhanced keyboard protocol

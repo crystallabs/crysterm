@@ -31,8 +31,8 @@ module Crysterm
       @initial_cwd : String
 
       # The most recently selected entry (directory or file), as an absolute
-      # path (Qt-ish selected path).
-      getter path : String
+      # path.
+      getter selected_path : String
 
       # Whether the widget shows its current directory as its label (Qt-ish),
       # kept in sync on every navigation. Enabled by passing `label:` at
@@ -52,7 +52,7 @@ module Crysterm
       def initialize(cwd : String? = nil, label : String? = nil, **list)
         @cwd = cwd || Dir.current
         @initial_cwd = @cwd
-        @path = @cwd
+        @selected_path = @cwd
         # Passing any `label:` opts the widget into the auto-updating path label.
         @path_label = !label.nil?
 
@@ -117,7 +117,7 @@ module Crysterm
         ordered = dirs + files
         @entry_names = ordered.map &.[:name]
         self.items = ordered.map(&.[:text])
-        select_index 0
+        self.current_index = 0
         request_render
 
         emit Crysterm::Event::Refresh
@@ -133,7 +133,7 @@ module Crysterm
       end
 
       # Resets the file manager back to its initial directory (or *cwd*, when
-      # given) and reloads. Uses the construction-time directory, not `#path`,
+      # given) and reloads. Uses the construction-time directory, not `#selected_path`,
       # which is the last-selected entry and can be a regular file.
       def reset(cwd : String? = nil)
         # Route the target through `#refresh`'s parameter rather than
@@ -201,7 +201,7 @@ module Crysterm
           return
         end
 
-        @path = target
+        @selected_path = target
 
         if info.directory?
           # `#refresh` rolls `@cwd` back if `target` is unreadable and announces

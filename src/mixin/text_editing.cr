@@ -202,7 +202,23 @@ module Crysterm
           end
         end
 
+        # A paste (bracketed paste, routed by the window to the focused widget)
+        # inserts at the cursor exactly as typing it would. A read-only widget
+        # leaves the event unaccepted, so it still propagates/falls back.
+        on(Crysterm::Event::Paste) do |e|
+          next if read_only?
+          insert_text sanitize_paste(e.content)
+          e.accept
+        end
+
         _setup_text_mouse
+      end
+
+      # Adapts pasted text to what this widget can hold before it is inserted.
+      # The default keeps it verbatim (multiline editors take newlines as-is);
+      # single-line widgets override (`Widget::LineEdit` flattens newlines).
+      private def sanitize_paste(text : String) : String
+        text
       end
 
       # Installs the click-to-position / drag-to-select mouse handler.

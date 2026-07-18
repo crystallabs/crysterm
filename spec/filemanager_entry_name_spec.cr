@@ -63,7 +63,7 @@ describe Crysterm::Widget::FileManager do
       # The `@\z` strip would produce base/"data" (missing); real path must
       # come through intact.
       opened.should eq target
-      fm.path.should eq target
+      fm.selected_path.should eq target
     ensure
       FileUtils.rm_rf base
     end

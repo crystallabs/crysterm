@@ -415,7 +415,7 @@ describe Crysterm::Widget::List do
     s = qt_mem_screen
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "c"]
-    list.select_index 0
+    list.current_index = 0
     list.add_to_selection 2
     list.item_selected?(list.items[0]).should be_true # cursor
     list.item_selected?(list.items[1]).should be_false
@@ -631,7 +631,7 @@ describe Crysterm::Widget::Menu do
     m.add_separator
     m << Crysterm::Action.new "Two"
     m.item_texts.size.should eq 3
-    m.select_index 0
+    m.current_index = 0
     m.down # would land on the separator at 1; should skip to 2
     m.current_index.should eq 2
   end
@@ -647,13 +647,13 @@ describe Crysterm::Widget::Menu do
 
     # Stepping down off the last real item must not strand the highlight on
     # the trailing separator; it stays on "Two".
-    m.select_index 2 # "Two"
+    m.current_index = 2 # "Two"
     m.down
     m.current_index.should eq 2
     m.selected_action.try(&.separator?).should be_false
 
     # Likewise stepping up off the first item must skip the leading separator.
-    m.select_index 1 # "One"
+    m.current_index = 1 # "One"
     m.up
     m.current_index.should eq 1
     m.selected_action.try(&.separator?).should be_false
@@ -667,7 +667,7 @@ describe Crysterm::Widget::Menu do
     triggered = 0
     wrap.on(Crysterm::Event::Triggered) { triggered += 1 }
     m << wrap
-    m.select_index 0
+    m.current_index = 0
     m.activate_selected
     wrap.checked?.should be_true
     triggered.should eq 1
@@ -889,8 +889,8 @@ describe Crysterm::Widget::Splitter do
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
+    sp.add_widget a
+    sp.add_widget b
     sp.set_divider_position 0, 10
 
     sp.panes[0].should be(a)
@@ -903,8 +903,8 @@ describe Crysterm::Widget::Splitter do
   it "clamps the divider position into range" do
     s = qt_mem_screen
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
-    sp.add_pane Crysterm::Widget::Box.new
-    sp.add_pane Crysterm::Widget::Box.new
+    sp.add_widget Crysterm::Widget::Box.new
+    sp.add_widget Crysterm::Widget::Box.new
     sp.set_divider_position 0, 9999
     sp.divider_position(0).should eq 38 # width - 2
     sp.set_divider_position 0, -5
@@ -917,8 +917,8 @@ describe Crysterm::Widget::Splitter do
       width: 40, height: 20
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
+    sp.add_widget a
+    sp.add_widget b
     sp.set_divider_position 0, 8
     a.height.should eq 8
     sp.dividers[0].top.should eq 8
@@ -1064,9 +1064,9 @@ describe "Splitter multi-pane" do
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
     c = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
-    sp.add_pane c
+    sp.add_widget a
+    sp.add_widget b
+    sp.add_widget c
 
     sp.panes.size.should eq 3
     sp.dividers.size.should eq 2
@@ -1089,9 +1089,9 @@ describe "Splitter multi-pane" do
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
     c = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
-    sp.add_pane c
+    sp.add_widget a
+    sp.add_widget b
+    sp.add_widget c
 
     sp.sizes.should eq [9, 9, 11] # evenly split, 2 cells to the dividers
 
@@ -1114,9 +1114,9 @@ describe "Splitter multi-pane" do
     sp.panes.should be_empty
     sp.sizes.should be_empty
 
-    sp.add_pane Crysterm::Widget::Box.new
+    sp.add_widget Crysterm::Widget::Box.new
     sp.dividers.should be_empty # still only one pane
-    sp.add_pane Crysterm::Widget::Box.new
+    sp.add_widget Crysterm::Widget::Box.new
     sp.dividers.size.should eq 1
   end
 
@@ -1126,9 +1126,9 @@ describe "Splitter multi-pane" do
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
     c = Crysterm::Widget::Box.new
-    sp.add_pane a
-    sp.add_pane b
-    sp.add_pane c
+    sp.add_widget a
+    sp.add_widget b
+    sp.add_widget c
 
     # Pin both dividers near the right edge of the wide splitter.
     sp.set_divider_position 0, 23
@@ -1180,8 +1180,8 @@ describe Crysterm::Widget::Tree do
     tree.on(Crysterm::Event::Expanded) { |e| expanded << e.index }
     tree.on(Crysterm::Event::Collapsed) { |e| collapsed << e.index }
 
-    tree.select_index 1 # cursor on "b"
-    tree.expand a       # inserts "a1" above "b"; cursor should follow "b"
+    tree.current_index = 1 # cursor on "b"
+    tree.expand a          # inserts "a1" above "b"; cursor should follow "b"
     tree.selected_node.should be(b)
     expanded.should eq [0]
 
@@ -1231,7 +1231,7 @@ describe Crysterm::Widget::Tree do
     root = tree.add "root"
     child = root.add "child"
 
-    tree.select_index 0
+    tree.current_index = 0
     tree.on_keypress keypress('\0', Tput::Key::Right) # expand
     root.expanded?.should be_true
     tree.on_keypress keypress('\0', Tput::Key::Right) # descend into child
@@ -1892,7 +1892,7 @@ describe "Menu Qt conveniences" do
     fired = 0
     m.add("Two") { fired += 1 }
     m.actions.size.should eq 2
-    m.select_index 1
+    m.current_index = 1
     m.activate_selected
     fired.should eq 1
   end
@@ -2187,7 +2187,7 @@ describe Crysterm::Widget::MenuBar do
     fm = bar.add_menu "File"
     fm.add("Quit") { fired += 1 }
     bar.open 0
-    fm.select_index 0
+    fm.current_index = 0
     fm.activate_selected
     fired.should eq 1
   end
@@ -2223,7 +2223,7 @@ describe Crysterm::Widget::MenuBar do
 
     # Diving into the entry's own submenu keeps the bar active — must not be
     # treated as a leave.
-    fm.select_index 1
+    fm.current_index = 1
     fm.hover_item 1 # opens the "Recent" submenu and focuses it
     bar.open_index.should eq 0
     fm.visible?.should be_true

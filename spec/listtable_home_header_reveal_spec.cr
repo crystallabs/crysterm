@@ -14,7 +14,7 @@ end
 
 # A `ListTable` pins its header at screen row 0 (overlaying the spacer). When the
 # selection jumps to the first data row from a scrolled position (Home / PageUp),
-# the row must scroll *below* the header, not land under it (hidden). The `select_index`
+# the row must scroll *below* the header, not land under it (hidden). The `current_index=`
 # override nudged the viewport before `super`, so `super`'s re-scroll put the row
 # right back under the header.
 describe Crysterm::Widget::ListTable do
@@ -26,9 +26,9 @@ describe Crysterm::Widget::ListTable do
     s._render
 
     # Scroll far down, then jump back to the first data row (as Home does).
-    lt.select_index 18
+    lt.current_index = 18
     s._render
-    lt.select_index 1
+    lt.current_index = 1
     s._render
 
     lt.current_index.should eq 1

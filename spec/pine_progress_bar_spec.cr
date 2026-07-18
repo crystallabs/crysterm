@@ -16,7 +16,7 @@ describe "Pine::ProgressBar" do
   it "defaults to the Pine percent-done look (text shown, [%p%] format, height 1)" do
     s = ppb_screen
     bar = Crysterm::Widget::Pine::ProgressBar.new parent: s
-    bar.show_value?.should be_true
+    bar.text_visible?.should be_true
     bar.format.should eq "[%p%]"
     bar.height.should eq 1
   end

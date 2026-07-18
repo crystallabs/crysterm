@@ -12,7 +12,7 @@ private def abrs_screen
     default_quit_keys: false)
 end
 
-# Renders once so the bar gets an `@lpos` (`#select_index` scroll math, and thus
+# Renders once so the bar gets an `@lpos` (`#current_index=` scroll math, and thus
 # `selected`, only updates once laid out).
 private def abrs_render(s)
   s._render
@@ -31,7 +31,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     bar.add_item "b"
     abrs_render s
 
-    bar.select_index 2 # "b"
+    bar.current_index = 2 # "b"
     bar.current_index.should eq 2
     bar.item_texts[bar.current_index].should eq "b"
 
@@ -51,7 +51,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     bar.add_item "b"
     abrs_render s
 
-    bar.select_index 1 # "a"
+    bar.current_index = 1 # "a"
     bar.current_index.should eq 1
 
     bar.remove_item bar.items[1] # remove the selected "a"

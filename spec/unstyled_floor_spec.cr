@@ -56,7 +56,7 @@ require "./spec_helper"
       list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 6,
         items: %w[Alpha Beta Gamma Delta]
       list.focus
-      list.select_index 2
+      list.current_index = 2
       s.apply_stylesheet
       s._render
 
@@ -204,8 +204,8 @@ require "./spec_helper"
       s = floor_screen
       sp = Crysterm::Widget::Splitter.new parent: s, orientation: Tput::Orientation::Horizontal,
         top: 0, left: 0, width: 22, height: 4
-      sp.add_pane Crysterm::Widget::Box.new(content: "A")
-      sp.add_pane Crysterm::Widget::Box.new(content: "B")
+      sp.add_widget Crysterm::Widget::Box.new(content: "A")
+      sp.add_widget Crysterm::Widget::Box.new(content: "B")
       s.apply_stylesheet
       s._render
 
