@@ -24,8 +24,8 @@ end
 
 private def popup_menu(s)
   menu = Crysterm::Widget::Menu.new parent: s, width: 12, height: 4
-  menu.add "Open"
-  menu.add "Save"
+  menu.add_action "Open"
+  menu.add_action "Save"
   s._render
   menu
 end

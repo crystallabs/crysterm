@@ -59,7 +59,7 @@ module Crysterm
       end
 
       # The actions in this menu, in display order. Read-only: mutate through
-      # `#<<`/`#add`/`#add_submenu`/`#add_separator`/`#remove_action`/`#clear`, or
+      # `#<<`/`#add_action`/`#add_submenu`/`#add_separator`/`#remove_action`/`#clear`, or
       # assign a whole new set with `#actions=`.
       getter actions = [] of Action
 
@@ -245,15 +245,15 @@ module Crysterm
 
       # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
       # `QMenu#addAction(text)`).
-      def add(text : String) : Action
+      def add_action(text : String) : Action
         action = Action.new text
         self << action
         action
       end
 
       # :ditto: — also connecting *block* to the action's `Event::Triggered`.
-      def add(text : String, &block : ->) : Action
-        action = add text
+      def add_action(text : String, &block : ->) : Action
+        action = add_action text
         action.on(::Crysterm::Event::Triggered) { block.call }
         action
       end
@@ -335,8 +335,8 @@ module Crysterm
       #
       # ```
       # menu = Widget::Menu.new parent: window, style: Style.new(border: true)
-      # menu.add("Copy") { copy }
-      # menu.add("Paste") { paste }
+      # menu.add_action("Copy") { copy }
+      # menu.add_action("Paste") { paste }
       # menu.popup e.x, e.y # e.g. from a right-click handler
       # ```
       def popup(x : Int32, y : Int32) : self

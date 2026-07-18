@@ -10,7 +10,7 @@ module Crysterm
 
     # Snapshot of the animatable values *before* a state change, so the new
     # state's values can be tweened *from* them.
-    record TransitionFrom, fg : Int32?, bg : Int32?, alpha : Float64?, tint_alpha : Float64
+    record TransitionFrom, fg : Int32?, bg : Int32?, opacity : Float64?, tint_alpha : Float64
 
     # Running per-property transition animations, so a re-triggered transition
     # replaces (rather than stacks on) the one already in flight.
@@ -24,7 +24,7 @@ module Crysterm
     # allocation-free.
     protected def transition_from : TransitionFrom?
       s = style
-      TransitionFrom.new s.fg, s.bg, s.alpha, s.tint_alpha
+      TransitionFrom.new s.fg, s.bg, s.opacity, s.tint_alpha
     end
 
     # Tweens each declared, changed animatable property from *prev* to the new
@@ -74,7 +74,7 @@ module Crysterm
                                       prev : TransitionFrom, st : ::Crysterm::Style) : Nil
       case prop
       when "opacity"
-        transition_float(:opacity, prev.alpha || 1.0, st.alpha || 1.0, dur, easing) { |v| state_style.alpha = v }
+        transition_float(:opacity, prev.opacity || 1.0, st.opacity || 1.0, dur, easing) { |v| state_style.opacity = v }
       when "color"
         transition_color(:color, prev.fg, st.fg, dur, easing) { |v| state_style.fg = v }
       when "background-color", "background"

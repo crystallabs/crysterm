@@ -29,7 +29,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "1"
   )
 
@@ -39,7 +39,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "2"
   )
 
@@ -49,7 +49,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "3"
   )
 
@@ -59,7 +59,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "4"
   )
 
@@ -69,7 +69,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "5"
   )
 
@@ -79,7 +79,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "6"
   )
 
@@ -89,7 +89,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "7"
   )
 
@@ -99,7 +99,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "8"
   )
 
@@ -109,7 +109,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "9"
   )
 
@@ -119,7 +119,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "10"
   )
 
@@ -129,7 +129,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "11"
   )
 
@@ -139,7 +139,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "12"
   )
 
@@ -150,7 +150,7 @@ module Crysterm
         parent: layout,
         width: sizes[i] > 0.5 ? 10 : 20,
         height: sizes[i] > 0.5 ? 5 : 10,
-        style: Style.new(border: BorderType::Line),
+        style: Style.new(border: BorderType::Solid),
         content: (i + 1 + 12).to_s
       )
     end

@@ -25,7 +25,7 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
     s = menu_screen
     m = Crysterm::Widget::Menu.new(parent: s)
     triggered = false
-    m.add("Delete file") { triggered = true }
+    m.add_action("Delete file") { triggered = true }
     m.focus
     s.render
 
@@ -47,7 +47,7 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
     s = menu_screen
     m = Crysterm::Widget::Menu.new(parent: s)
     triggered = false
-    m.add("Delete file") { triggered = true }
+    m.add_action("Delete file") { triggered = true }
     m.focus
     s.render
 

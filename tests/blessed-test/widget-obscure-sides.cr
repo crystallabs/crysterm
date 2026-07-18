@@ -23,7 +23,7 @@ module Crysterm
     style: Style.new(
       bg: "blue",
       # Blessed: border:{type:'bg', ch:' '} + style.border.inverse.
-      border: Border.new(type: BorderType::Bg).tap { |b| b.reverse = true },
+      border: Border.new(type: BorderType::Fill).tap { |b| b.reverse = true },
     ),
   )
 
@@ -40,7 +40,7 @@ module Crysterm
   child2 = Widget::Box.new(
     parent: box,
     content: "hello",
-    style: Style.new(bg: "green", border: BorderType::Line),
+    style: Style.new(bg: "green", border: BorderType::Solid),
     height: 5,
     width: 20,
     top: 25,

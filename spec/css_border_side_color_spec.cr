@@ -16,9 +16,9 @@ describe "CSS border-<side> shorthand color" do
     Crysterm::CSS::Properties.apply(s, "border-left", "solid #ff0000")
     b = s.border
     # Left edge takes the per-side override; others fall back to blue.
-    b.fg_left.should eq 0xff0000
     b.left_fg.should eq 0xff0000
-    b.fg_top.should be_nil
+    b.left_fg.should eq 0xff0000
+    b.top_fg.should be_nil
     b.top_fg.should eq 0x0000ff
     b.right_fg.should eq 0x0000ff
     b.bottom_fg.should eq 0x0000ff
@@ -33,8 +33,8 @@ describe "CSS border-<side> shorthand color" do
     longhand = Style.new
     Crysterm::CSS::Properties.apply(longhand, "border-top-color", "#00ff00")
 
-    shorthand.border.fg_top.should eq longhand.border.fg_top
-    shorthand.border.fg_top.should eq 0x00ff00
+    shorthand.border.top_fg.should eq longhand.border.top_fg
+    shorthand.border.top_fg.should eq 0x00ff00
     # Neither touches the whole-border color.
     shorthand.border.fg.should be_nil
   end
@@ -44,6 +44,6 @@ describe "CSS border-<side> shorthand color" do
     Crysterm::CSS::Properties.apply(s, "border-right", "2 dashed #abcdef")
     s.border.right.should eq 2
     s.border.type.should eq BorderType::Dashed
-    s.border.fg_right.should eq 0xabcdef
+    s.border.right_fg.should eq 0xabcdef
   end
 end

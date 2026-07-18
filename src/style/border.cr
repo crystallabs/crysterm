@@ -1,8 +1,8 @@
 module Crysterm
   # Type of border to draw.
   enum BorderType
-    Bg      # Bg color (a fill character)
-    Line    # Solid line, drawn in light box-drawing chars
+    Fill    # Solid fill color (a fill character)
+    Solid   # Solid line, drawn in light box-drawing chars
     Dashed  # Dashed line (light box-drawing dashes)
     Dotted  # Dotted line (light box-drawing dots)
     Double  # Double line
@@ -15,11 +15,11 @@ module Crysterm
     # Inset
     # Outset
 
-    # Whether this is a line-drawing border, as opposed to the `Bg`
+    # Whether this is a line-drawing border, as opposed to the `Fill`
     # fill-character one. Every line family uses box-drawing glyphs; only their
     # glyph set differs.
     def line_family?
-      self != Bg
+      self != Fill
     end
 
     # The six glyphs used to draw a line-family border at support *tier*: the
@@ -44,7 +44,7 @@ module Crysterm
         {tl: Glyphs[Glyphs::Role::BorderRoundedTL, tier], tr: Glyphs[Glyphs::Role::BorderRoundedTR, tier],
          bl: Glyphs[Glyphs::Role::BorderRoundedBL, tier], br: Glyphs[Glyphs::Role::BorderRoundedBR, tier],
          h: Glyphs[Glyphs::Role::BorderRoundedH, tier], v: Glyphs[Glyphs::Role::BorderRoundedV, tier]}
-      else # Line (and any non-line type, defensively)
+      else # Solid (and any non-solid type, defensively)
         {tl: Glyphs[Glyphs::Role::BorderLineTL, tier], tr: Glyphs[Glyphs::Role::BorderLineTR, tier],
          bl: Glyphs[Glyphs::Role::BorderLineBL, tier], br: Glyphs[Glyphs::Role::BorderLineBR, tier],
          h: Glyphs[Glyphs::Role::BorderLineH, tier], v: Glyphs[Glyphs::Role::BorderLineV, tier]}
@@ -78,7 +78,7 @@ module Crysterm
       ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
     end
 
-    property type = BorderType::Line
+    property type = BorderType::Solid
 
     # Border colors, as a `0xRRGGBB` int (`-1` = terminal default, `nil` =
     # unset). Setters come from `Colorizable` and also accept
@@ -88,129 +88,141 @@ module Crysterm
 
     # Optional per-side foreground colors, letting CSS `border-top-color`,
     # `border-left-color`, ... differ per edge. Unset, a side falls back to the
-    # whole-border `#fg`.
-    property fg_top : Int32?
-    property fg_right : Int32?
-    property fg_bottom : Int32?
-    property fg_left : Int32?
+    # whole-border `#fg`. Explicit setter + falling-back getter under the same
+    # name (mirrors `Shadow`'s per-side char overrides), so the write and read
+    # spelling agree.
+    @top_fg : Int32?
+    @right_fg : Int32?
+    @bottom_fg : Int32?
+    @left_fg : Int32?
+
+    setter top_fg, right_fg, bottom_fg, left_fg
 
     # The effective foreground color for each side (per-side override or `#fg`).
     def top_fg : Int32?
-      @fg_top || @fg
+      @top_fg || @fg
     end
 
     # :ditto:
     def right_fg : Int32?
-      @fg_right || @fg
+      @right_fg || @fg
     end
 
     # :ditto:
     def bottom_fg : Int32?
-      @fg_bottom || @fg
+      @bottom_fg || @fg
     end
 
     # :ditto:
     def left_fg : Int32?
-      @fg_left || @fg
+      @left_fg || @fg
     end
 
-    # Character used to draw a `BorderType::Bg` border. Acts as the fallback for
+    # Character used to draw a `BorderType::Fill` border. Acts as the fallback for
     # the three position-specific chars below.
     property fill_char = ' '
 
     # Position-specific character overrides, honored by **every** border type.
-    # Unset (`nil`), each position falls back to its group (`char_corner` for the
+    # Unset (`nil`), each position falls back to its group (`corner_char` for the
     # four corners), then to the border's normal glyph source — the `BorderType`
-    # family from the `Glyphs` registry for a line border, `fill_char` for a `Bg`
+    # family from the `Glyphs` registry for a line border, `fill_char` for a `Fill`
     # border. CSS spellings: `border-chars` (tl tr bl br h v) and the
     # per-position longhands (`border-top-left-char: "╭"`).
     #
     # The horizontal/vertical/corner split exists because terminal cells have a
     # ~1x2 (width:height) aspect ratio, so one char along a horizontal run reads
     # "doubly wide" versus the same char stacked vertically.
-    property char_horizontal : Char? = nil
-    property char_vertical : Char? = nil
-    property char_corner : Char? = nil
+    #
+    # Each position uses `Shadow`'s scheme: an explicit setter on the raw ivar,
+    # plus a falling-back getter of the same name — so the write and read
+    # spelling always agree (no `char_foo=` vs `foo_char` split).
+    @horizontal_char : Char? = nil
+    @vertical_char : Char? = nil
+    @corner_char : Char? = nil
 
-    # Per-corner overrides; each falls back to the `char_corner` group.
-    property char_top_left : Char? = nil
-    property char_top_right : Char? = nil
-    property char_bottom_left : Char? = nil
-    property char_bottom_right : Char? = nil
+    setter horizontal_char, vertical_char, corner_char
 
-    # Char to draw on the top/bottom (horizontal) sides of a `Bg` border.
+    # Per-corner overrides; each falls back to the `corner_char` group.
+    @top_left_char : Char? = nil
+    @top_right_char : Char? = nil
+    @bottom_left_char : Char? = nil
+    @bottom_right_char : Char? = nil
+
+    setter top_left_char, top_right_char, bottom_left_char, bottom_right_char
+
+    # Char to draw on the top/bottom (horizontal) sides of a `Fill` border.
     # Falls back to `fill_char`.
     def horizontal_char : Char
-      @char_horizontal || @fill_char
+      @horizontal_char || @fill_char
     end
 
-    # Char to draw on the left/right (vertical) sides of a `Bg` border.
+    # Char to draw on the left/right (vertical) sides of a `Fill` border.
     # Falls back to `fill_char`.
     def vertical_char : Char
-      @char_vertical || @fill_char
+      @vertical_char || @fill_char
     end
 
     # Char to draw where horizontal and vertical sides join (the corners /
-    # "diagonal" cells) of a `Bg` border. Falls back to `fill_char`.
+    # "diagonal" cells) of a `Fill` border. Falls back to `fill_char`.
     def corner_char : Char
-      @char_corner || @fill_char
+      @corner_char || @fill_char
     end
 
-    # Per-corner chars for a `Bg` border: position override → corner group →
+    # Per-corner chars for a `Fill` border: position override → corner group →
     # `fill_char`. A line border resolves the same overrides against its glyph
     # family instead.
     def top_left_char : Char
-      @char_top_left || corner_char
+      @top_left_char || corner_char
     end
 
     # :ditto:
     def top_right_char : Char
-      @char_top_right || corner_char
+      @top_right_char || corner_char
     end
 
     # :ditto:
     def bottom_left_char : Char
-      @char_bottom_left || corner_char
+      @bottom_left_char || corner_char
     end
 
     # :ditto:
     def bottom_right_char : Char
-      @char_bottom_right || corner_char
+      @bottom_right_char || corner_char
     end
 
     # Whether any position/group char override is set — lets the renderer skip
     # the override merge entirely for the common untouched border.
     def chars? : Bool
-      !all_nil?(char_horizontal, char_vertical, char_corner,
-        char_top_left, char_top_right, char_bottom_left, char_bottom_right)
+      !all_nil?(horizontal_char, vertical_char, corner_char,
+        top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end
 
     # The six glyphs of a line-family border with this border's char overrides
     # merged in: each position takes its override (corners falling back to the
-    # `char_corner` group), else the `BorderType` family glyph at *tier*.
+    # `corner_char` group), else the `BorderType` family glyph at *tier*.
     # The no-override fast path returns the family tuple untouched.
     def line_glyphs_with_overrides(tier : Glyphs::Tier)
       g = @type.line_glyphs(tier)
       return g unless chars?
-      {tl: @char_top_left || @char_corner || g[:tl],
-       tr: @char_top_right || @char_corner || g[:tr],
-       bl: @char_bottom_left || @char_corner || g[:bl],
-       br: @char_bottom_right || @char_corner || g[:br],
-       h:  @char_horizontal || g[:h],
-       v:  @char_vertical || g[:v]}
+      {tl: @top_left_char || @corner_char || g[:tl],
+       tr: @top_right_char || @corner_char || g[:tr],
+       bl: @bottom_left_char || @corner_char || g[:bl],
+       br: @bottom_right_char || @corner_char || g[:br],
+       h:  @horizontal_char || g[:h],
+       v:  @vertical_char || g[:v]}
     end
 
     # Assigns the per-position corner override for a CSS longhand, keyed by
     # *position*. Only called by `CSS::Properties`, so kept `protected`.
     protected def set_char(position : CharPosition, value : Char?) : Nil
       case position
-      in .top_left?     then @char_top_left = value
-      in .top_right?    then @char_top_right = value
-      in .bottom_left?  then @char_bottom_left = value
-      in .bottom_right? then @char_bottom_right = value
-      in .horizontal?   then @char_horizontal = value
-      in .vertical?     then @char_vertical = value
-      in .corner?       then @char_corner = value
+      in .top_left?     then @top_left_char = value
+      in .top_right?    then @top_right_char = value
+      in .bottom_left?  then @bottom_left_char = value
+      in .bottom_right? then @bottom_right_char = value
+      in .horizontal?   then @horizontal_char = value
+      in .vertical?     then @vertical_char = value
+      in .corner?       then @corner_char = value
       end
     end
 
@@ -280,15 +292,15 @@ module Crysterm
       end
     end
 
-    # Sets one side's `fg_<side>` override slot, not the whole-border `#fg`.
+    # Sets one side's `<side>_fg` override slot, not the whole-border `#fg`.
     # Only called by `CSS::Properties`, so kept `protected`. *side* must
     # be a single side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
     protected def set_color(side : Side, value : Int32?) : Nil
       case side
-      in .top?    then @fg_top = value
-      in .right?  then @fg_right = value
-      in .bottom? then @fg_bottom = value
-      in .left?   then @fg_left = value
+      in .top?    then @top_fg = value
+      in .right?  then @right_fg = value
+      in .bottom? then @bottom_fg = value
+      in .left?   then @left_fg = value
       in .horizontal?, .vertical?, .all?
         raise ArgumentError.new "Border#set_color expects a single side " \
                                 "(Left/Top/Right/Bottom), got #{side}"

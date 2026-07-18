@@ -8,7 +8,7 @@ require "../example"
 Crysterm::WidgetExample.run "Wizard" do |screen|
   screen.stylesheet = "Wizard { color: #c0caf5; }"
   wiz = Crysterm::Widget::Wizard.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-  wiz.add_page Crysterm::Widget::Box.new(content: "{center}Welcome to the setup wizard.{/center}", parse_tags: true), "Welcome"
-  wiz.add_page Crysterm::Widget::Box.new(content: "{center}Choose your options.{/center}", parse_tags: true), "Options"
-  wiz.add_page Crysterm::Widget::Box.new(content: "{center}All done!{/center}", parse_tags: true), "Finish"
+  wiz.add_page "Welcome", Crysterm::Widget::Box.new(content: "{center}Welcome to the setup wizard.{/center}", parse_tags: true)
+  wiz.add_page "Options", Crysterm::Widget::Box.new(content: "{center}Choose your options.{/center}", parse_tags: true)
+  wiz.add_page "Finish", Crysterm::Widget::Box.new(content: "{center}All done!{/center}", parse_tags: true)
 end

@@ -17,7 +17,7 @@ module Crysterm
     # - **Phase 2** — overlap & z-order: when a changed subtree's damage touches
     #   another subtree, recomposite the whole connected overlap cluster in
     #   z-order over its cleared region (`#damage_phase2`).
-    # - **Phase 3** — alpha / shadow / tint: the cluster recomposite is a
+    # - **Phase 3** — opacity / shadow / tint: the cluster recomposite is a
     #   region-local "mini full clear", so per-cell blend effects re-blend over a
     #   freshly rebuilt base (no saturation creep) for free. Requires a widget's
     #   damage rect to include its **shadow** band, which reaches past `@lpos`.
@@ -48,7 +48,7 @@ module Crysterm
 
     # Whether the most recently completed *full* frame can be safely carried over
     # cell-by-cell: no planes, no docking, nothing written outside the cell model.
-    # Per-cell blend effects (alpha/shadow/tint) do NOT disqualify a frame — the
+    # Per-cell blend effects (opacity/shadow/tint) do NOT disqualify a frame — the
     # cluster recomposite reproduces them (Phase 3).
     @damage_safe = false
 
@@ -193,7 +193,7 @@ module Crysterm
 
     # Records that something the selective path can't reproduce happened this
     # frame — a write outside the cell model — forcing a full-path fallback.
-    # Per-cell blend effects (alpha/shadow/tint) do NOT call this: the cluster
+    # Per-cell blend effects (opacity/shadow/tint) do NOT call this: the cluster
     # recomposite handles them (Phase 3), and planes go through `@layer_widgets`.
     def note_effect : Nil
       @frame_used_effects = true
@@ -664,11 +664,11 @@ module Crysterm
       cur.each { |el| return false unless @damage_layer_roots.includes? el }
 
       # The full path (`composite_planes`) folds same-z roots with differing
-      # alpha as separate per-alpha groups; this fast path folds them as ONE
-      # plane with a single opacity, so it only holds when every root shares
-      # the same alpha — otherwise fall back to the full path.
-      alpha0 = cur.first.style.alpha? || 1.0
-      cur.each { |el| return false unless (el.style.alpha? || 1.0) == alpha0 }
+      # opacity as separate per-opacity groups; this fast path folds them as
+      # ONE plane with a single opacity, so it only holds when every root
+      # shares the same opacity — otherwise fall back to the full path.
+      opacity0 = cur.first.style.opacity? || 1.0
+      cur.each { |el| return false unless (el.style.opacity? || 1.0) == opacity0 }
 
       # The plane's covered rectangle as of last frame (union of its layer roots'
       # recorded footprints).
@@ -677,7 +677,7 @@ module Crysterm
 
       # Re-render the plane into its own buffer if any of its widgets changed —
       # mirroring `composite_planes` for this single z (clear, opacity from the
-      # root's alpha, render each member opaquely into the plane). If nothing
+      # root's opacity, render each member opaquely into the plane). If nothing
       # changed, the plane buffer still holds last frame's content and is folded
       # as-is below.
       @layer_widgets.clear
@@ -743,9 +743,9 @@ module Crysterm
       return false if damage_out_of_scope?
 
       # Re-fold the plane over its (now freshly rebuilt, pre-plane) covered
-      # region. Opacity is recomputed from the root's current alpha each frame.
+      # region. Opacity is recomputed from the root's current opacity each frame.
       if plane_new
-        pl.opacity = cur.first.style.alpha? || 1.0
+        pl.opacity = cur.first.style.opacity? || 1.0
         pl.composite_onto @lines, plane_new[0], plane_new[1], plane_new[2], plane_new[3]
       end
 

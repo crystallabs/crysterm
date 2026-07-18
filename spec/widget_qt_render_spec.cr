@@ -560,7 +560,7 @@ describe "Horizontal scrolling" do
     s = render_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 6,
       wrap_content: false,
-      style: Style.new(border: Crysterm::BorderType::Line),
+      style: Style.new(border: Crysterm::BorderType::Solid),
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall
     s._render

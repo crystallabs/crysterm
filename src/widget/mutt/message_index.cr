@@ -58,13 +58,47 @@ module Crysterm
         # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Mutt::Message
 
-        # Thread-tree glyphs (Mutt's `$ascii_chars` off). Override for a
-        # pure-ASCII look: `vline: "| ", tee: "|-", corner: "`-", ...`.
-        property tree_vline : String = "│ "
-        property tree_gap : String = "  "
-        property tree_tee : String = "├─"
-        property tree_corner : String = "└─"
-        property tree_arrow : String = ">"
+        # Thread-tree glyphs (Mutt's `$ascii_chars` off). Each falls back to the
+        # central `Glyphs` registry at this widget's `#glyph_tier` unless
+        # explicitly set, so `Glyphs.set`/an ASCII glyph tier retunes the tree
+        # toolkit-wide. Explicit setter + falling-back getter (mirrors
+        # `Shadow`'s per-field scheme), so override for a custom look, e.g.
+        # `tree_vline = "| "; tree_tee = "|-"; tree_corner = "\`-"`.
+        @tree_vline : String? = nil
+        @tree_gap : String? = nil
+        @tree_tee : String? = nil
+        @tree_corner : String? = nil
+        @tree_arrow : String? = nil
+
+        setter tree_vline, tree_gap, tree_tee, tree_corner, tree_arrow
+
+        # Continuation line before an ancestor column that still has a later
+        # sibling, plus the one-column gap after it (registry `LineVertical`).
+        def tree_vline : String
+          @tree_vline || "#{Glyphs[Glyphs::Role::LineVertical, glyph_tier]} "
+        end
+
+        # Blank ancestor column (no further sibling at that level below).
+        def tree_gap : String
+          @tree_gap || "  "
+        end
+
+        # A reply with a later sibling at the same depth (registry
+        # `JunctionTeeLeft` + `LineHorizontal`).
+        def tree_tee : String
+          @tree_tee || "#{Glyphs[Glyphs::Role::JunctionTeeLeft, glyph_tier]}#{Glyphs[Glyphs::Role::LineHorizontal, glyph_tier]}"
+        end
+
+        # The last reply at its depth (registry `BorderLineBL` — the same
+        # square-corner glyph a `Solid` border draws — + `LineHorizontal`).
+        def tree_corner : String
+          @tree_corner || "#{Glyphs[Glyphs::Role::BorderLineBL, glyph_tier]}#{Glyphs[Glyphs::Role::LineHorizontal, glyph_tier]}"
+        end
+
+        # Points from the tee/corner at the reply's subject (registry `ArrowRight`).
+        def tree_arrow : String
+          @tree_arrow || Glyphs[Glyphs::Role::ArrowRight, glyph_tier].to_s
+        end
 
         def initialize(
           messages : Array(Message) = [] of Message,

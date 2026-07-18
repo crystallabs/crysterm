@@ -97,9 +97,9 @@ describe "BUGS6 ToolButton#cycle_menu wrapping (bug 3)" do
     s = bugs6_screen
     m = Crysterm::Widget::Menu.new
     fired = [] of String
-    m.add("One") { fired << "One" }
-    m.add("Two") { fired << "Two" }
-    m.add("Three") { fired << "Three" }
+    m.add_action("One") { fired << "One" }
+    m.add_action("Two") { fired << "Two" }
+    m.add_action("Three") { fired << "Three" }
     tb = Crysterm::Widget::ToolButton.new parent: s, content: "Tools", menu: m
 
     # Starting at index 0, each wheel-down advances one activatable action; the
@@ -112,9 +112,9 @@ describe "BUGS6 ToolButton#cycle_menu wrapping (bug 3)" do
     s = bugs6_screen
     m = Crysterm::Widget::Menu.new
     fired = [] of String
-    m.add("One") { fired << "One" }
-    m.add("Two") { fired << "Two" }
-    m.add("Three") { fired << "Three" }
+    m.add_action("One") { fired << "One" }
+    m.add_action("Two") { fired << "Two" }
+    m.add_action("Three") { fired << "Three" }
     tb = Crysterm::Widget::ToolButton.new parent: s, content: "Tools", menu: m
 
     # (0 - 1) % 3 == 2 in Crystal, so a backward step from the start wraps to the

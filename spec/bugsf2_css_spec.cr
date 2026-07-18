@@ -188,7 +188,7 @@ describe "BUGS-F2 #49 border named widths" do
     Crysterm::CSS::Properties.apply(s, "border", "thin solid red")
     s.border.left.should eq 1
     s.border.top.should eq 1
-    s.border.type.should eq BorderType::Line
+    s.border.type.should eq BorderType::Solid
     # The real color is still parsed; the width keyword did not poison it.
     s.border.fg.should eq rgb("red")
   end

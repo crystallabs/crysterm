@@ -129,34 +129,34 @@ describe "BUGS13 S12 opacity rejects non-finite numbers" do
   it "drops nan (would crash Colors.mix on the first blended cell)" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "nan")
-    s.alpha.should be_nil
+    s.opacity.should be_nil
   end
 
   it "drops inf / -infinity / nan%" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "inf")
-    s.alpha.should be_nil
+    s.opacity.should be_nil
     Crysterm::CSS::Properties.apply(s, "opacity", "-infinity")
-    s.alpha.should be_nil
+    s.opacity.should be_nil
     Crysterm::CSS::Properties.apply(s, "opacity", "nan%")
-    s.alpha.should be_nil
+    s.opacity.should be_nil
   end
 
   it "does not clobber a previously-set alpha with NaN" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "0.4")
     Crysterm::CSS::Properties.apply(s, "opacity", "nan")
-    s.alpha.should eq 0.4
+    s.opacity.should eq 0.4
   end
 
   it "still parses ordinary numbers and percentages, clamped (no regression)" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "0.5")
-    s.alpha.should eq 0.5
+    s.opacity.should eq 0.5
     Crysterm::CSS::Properties.apply(s, "opacity", "50%")
-    s.alpha.should eq 0.5
+    s.opacity.should eq 0.5
     Crysterm::CSS::Properties.apply(s, "opacity", "2.5")
-    s.alpha.should eq 1.0
+    s.opacity.should eq 1.0
   end
 end
 

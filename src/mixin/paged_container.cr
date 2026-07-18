@@ -3,9 +3,10 @@ module Crysterm
     # Shared paged-container machinery: a list of `#pages` of which exactly one is
     # visible at a time, identified by `#current_index`. Provides the common
     # vocabulary — `#count`, `#current_index` / `#current_index=`,
-    # `#current_widget` / `#current_widget=`, and `Event::CurrentChanged` (Qt's
-    # `currentChanged(int)`) on every change. Each including widget keeps only the
-    # *adding* verb its domain wants (`#add_page`/`#add_tab`/`#add_item`).
+    # `#current_widget` / `#current_widget=`, `#next_page` / `#previous_page`, and
+    # `Event::CurrentChanged` (Qt's `currentChanged(int)`) on every change. Each
+    # including widget keeps only the *adding* verb its domain wants
+    # (`#add_widget`/`#add_tab`/`#add_item`).
     #
     # The including widget appends its own pages to `#pages` (with whatever sizing
     # it needs), then drives selection through the protected `#show_index`,
@@ -43,6 +44,19 @@ module Crysterm
       # container doesn't hold is a no-op.
       def current_widget=(page : Widget) : Nil
         (i = @pages.index page) && show_index(i)
+      end
+
+      # Selects the next page, wrapping at the end. The single navigation spelling
+      # shared by every paged container (`StackedWidget`, `TabWidget`, …) rather
+      # than a per-widget `next_tab`/`next_section`.
+      def next_page : Nil
+        next_index
+      end
+
+      # Selects the previous page, wrapping at the start (the counterpart to
+      # `#next_page`).
+      def previous_page : Nil
+        previous_index
       end
 
       # Raises the page at *index*, hiding the others, and emits

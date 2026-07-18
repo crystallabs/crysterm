@@ -25,7 +25,7 @@ describe "border docking with an overlapping popup" do
     # Parent bordered box: a line border on all sides.
     parent = Widget::Box.new(
       parent: s, top: 1, left: 1, width: 20, height: 12,
-      style: Style.new(border: Border.new(type: BorderType::Line)))
+      style: Style.new(border: Border.new(type: BorderType::Solid)))
 
     # Overlay popup opened below-right of the parent's top-right corner: shares
     # the parent's right border column (`parent.xl - 1`) and starts one row below
@@ -33,7 +33,7 @@ describe "border docking with an overlapping popup" do
     # directly above the popup's top edge.
     Widget::Box.new(
       parent: s, top: 2, left: 20, width: 16, height: 6,
-      style: Style.new(border: Border.new(type: BorderType::Line)))
+      style: Style.new(border: Border.new(type: BorderType::Solid)))
 
     s._render
 

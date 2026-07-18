@@ -13,7 +13,7 @@ module Crysterm
     top: -1,
     width: "50%+1",
     height: "50%+1",
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "Foo"
   )
 
@@ -23,7 +23,7 @@ module Crysterm
     top: -1,
     width: "50%+3",
     height: "50%+1",
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "Bar"
   )
 
@@ -33,7 +33,7 @@ module Crysterm
     top: "50%-1",
     width: "50%+1",
     height: "50%+3",
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     content: "Foo"
   )
 

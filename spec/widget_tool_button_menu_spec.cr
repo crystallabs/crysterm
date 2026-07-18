@@ -29,7 +29,7 @@ describe Crysterm::Widget::ToolButton do
     it "appends the ▾ indicator to the label when a menu is attached" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new
-      m.add "One"
+      m.add_action "One"
       tb = Crysterm::Widget::ToolButton.new parent: s, content: "Tools"
       tb.content.should eq "Tools"
       tb.menu = m
@@ -50,7 +50,7 @@ describe Crysterm::Widget::ToolButton do
     it "opens the menu instead of emitting Press" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new
-      m.add "Only"
+      m.add_action "Only"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m,
         popup_mode: Crysterm::Widget::ToolButton::PopupMode::InstantPopup
       s._render
@@ -66,7 +66,7 @@ describe Crysterm::Widget::ToolButton do
     it "presses on activation and opens the menu on the Down key" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new
-      m.add "Item"
+      m.add_action "Item"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
       s._render
 
@@ -86,7 +86,7 @@ describe Crysterm::Widget::ToolButton do
     it "opens the menu when the button is menu-only (no bound action)" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new
-      m.add "Item"
+      m.add_action "Item"
       m.hide # stays hidden until summoned (as in real usage)
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
       s._render
@@ -101,7 +101,7 @@ describe Crysterm::Widget::ToolButton do
     it "opens the menu on a click even when an action is bound" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new parent: s
-      m.add "Item"
+      m.add_action "Item"
       m.hide
       act = Crysterm::Action.new "Apply"
       triggered = false
@@ -124,8 +124,8 @@ describe Crysterm::Widget::ToolButton do
     it "opens on the body and closes on a second body click" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
-      m.add "Rename"
-      m.add "Delete"
+      m.add_action "Rename"
+      m.add_action "Delete"
       m.hide
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
@@ -141,7 +141,7 @@ describe Crysterm::Widget::ToolButton do
     it "opens on the ▾ arrow and closes on a second arrow click" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
-      m.add "Rename"
+      m.add_action "Rename"
       m.hide
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
@@ -160,11 +160,11 @@ describe Crysterm::Widget::ToolButton do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new
       fired = [] of String
-      m.add("A") { fired << "A" }
+      m.add_action("A") { fired << "A" }
       m.add_separator
-      dis = m.add("D") { fired << "D" }
+      dis = m.add_action("D") { fired << "D" }
       dis.enabled = false
-      m.add("B") { fired << "B" }
+      m.add_action("B") { fired << "B" }
 
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
       # First wheel-down lands on the first activatable action (index 0 + 1 wraps

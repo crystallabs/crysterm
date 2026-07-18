@@ -27,12 +27,12 @@ describe "BUGS15 #47 animation-iteration-count 0" do
     s._render # would start (and immediately settle) the animation
 
     # Base alpha (unset) preserved: the 100% keyframe (opacity 0) was never applied.
-    b.style.alpha.should be_nil
+    b.style.opacity.should be_nil
     2.times do
       sleep 0.03.seconds
       s._render
     end
-    b.style.alpha.should be_nil
+    b.style.opacity.should be_nil
   ensure
     s.try &.destroy
   end

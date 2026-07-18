@@ -10,7 +10,7 @@ module Crysterm
       #
       # Each value in `#values` becomes one bar, `#bar_width` columns wide and
       # separated by `#bar_spacing` empty columns, rising from the bottom in
-      # proportion to its place in the `#min`..`#max` range. When there are more
+      # proportion to its place in the `#minimum`..`#maximum` range. When there are more
       # values than fit, the most recent ones (the tail) are shown — so feeding
       # it a rolling window animates like a live chart. With `bar_width: 1`,
       # `bar_spacing: 0` and a height of 1 it degenerates into a one-row
@@ -23,7 +23,7 @@ module Crysterm
       # - `#colors` — per-bar foreground colors, cycled across the bars.
       #
       # ```
-      # bar = Widget::Graph::Bar.new parent: s, width: 40, height: 8, max: 100.0,
+      # bar = Widget::Graph::Bar.new parent: s, width: 40, height: 8, maximum: 100.0,
       #   bar_width: 4, bar_spacing: 2, show_values: true,
       #   labels: %w[cpu mem net io], colors: %w[green cyan yellow red]
       # bar.values = [42, 88, 13, 64]
@@ -43,11 +43,11 @@ module Crysterm
         chart_prop labels, Array(String)?
 
         # Bottom of the scale (the baseline a zero-height bar sits at).
-        chart_prop min, Float64
+        chart_prop minimum, Float64
 
         # Top of the scale. `nil` auto-scales to the largest shown value each
         # frame; set a fixed value for a stable axis (no jumping).
-        chart_prop max, Float64?
+        chart_prop maximum, Float64?
 
         # Width of each bar, in columns.
         chart_prop bar_width, Int32
@@ -73,8 +73,8 @@ module Crysterm
         def initialize(
           values : Array = [] of Float64,
           @labels : Array(String)? = nil,
-          @min : Float64 = 0.0,
-          @max : Float64? = nil,
+          @minimum : Float64 = 0.0,
+          @maximum : Float64? = nil,
           @bar_width : Int32 = 1,
           @bar_spacing : Int32 = 0,
           @show_values : Bool = false,
@@ -118,9 +118,9 @@ module Crysterm
           shown = @values.last(cap)
           n = shown.size
 
-          top = @max || (shown.select(&.finite?).max? || 0.0)
+          top = @maximum || (shown.select(&.finite?).max? || 0.0)
           # Total filled eighth-cells per shown bar.
-          levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
+          levels = shown.map { |v| Scale.eighths(v, @minimum, top, plot_rows) }
 
           # Plot area, top row down. The fill ramp resolves CSS-first
           # (`glyphs:`), then the registry's `ScaleVertical`. Composed straight

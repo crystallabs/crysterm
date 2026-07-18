@@ -24,14 +24,14 @@ module Crysterm
     parent: s,
     left: "center", top: "center",
     width: "80%", height: "80%",
-    style: Style.new(bg: "green", border: BorderType::Line),
+    style: Style.new(bg: "green", border: BorderType::Solid),
     content: "Terminal: default — switching to vt100 in 1s…",
   )
 
   text = Widget::ScrollableText.new(
     parent: s,
     content: lorem,
-    style: Style.new(border: BorderType::Line),
+    style: Style.new(border: BorderType::Solid),
     left: "center", top: "center",
     draggable: true,
     width: "50%", height: "50%",

@@ -138,6 +138,12 @@ module Crysterm
       SliderHandle
       SliderTrack
       SliderTick
+      # ProgressBar filled-portion cell. Drawn fg/bg-inverted, so the default
+      # space shows as a solid bar of the fg color.
+      ProgressFill
+      # BigText "on"-pixel cell. The default space means "draw as reverse-video
+      # blocks of the fg color"; any other char is painted literally.
+      BigTextPixel
 
       # -- Popup / window-control affordances ---------------------------------
       SubmenuArrow  # Menu row that opens a submenu
@@ -159,7 +165,14 @@ module Crysterm
       JunctionTeeBottom # `┴`
 
       # -- Cursor ---------------------------------------------------------------
-      CursorBar # artificial cursor, `line` shape
+      CursorBar   # artificial cursor, `line` shape
+      CursorBlock # artificial cursor, `block` shape — a literal glyph for any
+      # consumer that needs to *draw* a block cursor (e.g. a custom `none`-shape
+      # cursor with no `style.fill_char` of its own). The default steady-block
+      # cursor itself never uses this: `Window#_artificial_cursor_attr` draws it
+      # by reverse-videoing whatever character already occupies the cell, which
+      # correctly keeps the underlying glyph visible (like a real terminal's
+      # hardware cursor) rather than painting over it.
 
       # -- Status icons (Message severities) -----------------------------------
       IconInfo
@@ -444,8 +457,8 @@ module Crysterm
 
       # Whether this is a *cell* role — one that fills exactly one grid cell
       # by construction (scrollbar/slider parts, rules, junctions, the cursor
-      # bar, border positions), so grid math never has to measure it. A CSS
-      # `glyph` landing on a cell role must be exactly one column wide;
+      # bar/block, border positions), so grid math never has to measure it. A
+      # CSS `glyph` landing on a cell role must be exactly one column wide;
       # anything else (including `none`) falls back to the registry (see
       # `Widget#glyph`). Everything else is a *run* role: part of an inline
       # text run, measured, where `none` legitimately contributes zero cells.
@@ -457,7 +470,7 @@ module Crysterm
              .line_horizontal?, .line_vertical?,
              .junction_cross?, .junction_tee_left?, .junction_tee_right?,
              .junction_tee_top?, .junction_tee_bottom?,
-             .cursor_bar?
+             .cursor_bar?, .cursor_block?
           true
         else
           # The border families close the enum; keep them last when adding roles.
@@ -495,6 +508,8 @@ module Crysterm
       set_in t, Role::SliderHandle, Entry.new('#', '█')
       set_in t, Role::SliderTrack, Entry.new('-', '─')
       set_in t, Role::SliderTick, Entry.new('.', '·')
+      set_in t, Role::ProgressFill, Entry.new(' ')
+      set_in t, Role::BigTextPixel, Entry.new(' ')
 
       set_in t, Role::SubmenuArrow, Entry.new('>', '▶')
       set_in t, Role::DropdownArrow, Entry.new('v', '▾')
@@ -513,6 +528,7 @@ module Crysterm
       set_in t, Role::JunctionTeeBottom, Entry.new('+', '┴')
 
       set_in t, Role::CursorBar, Entry.new('|', '│')
+      set_in t, Role::CursorBlock, Entry.new('#', '█')
 
       set_in t, Role::IconInfo, Entry.new('i', 'ℹ')
       set_in t, Role::IconWarning, Entry.new('!', '⚠')

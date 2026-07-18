@@ -91,7 +91,7 @@ private def build_alpha(screen)
   base = Widget::Box.new(parent: screen, top: 0, left: 0, width: 30, height: 12,
     style: Style.new(bg: 0x202020), content: "base")
   a = Widget::Box.new(parent: screen, top: 2, left: 2, width: 10, height: 5,
-    style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
+    style: Style.new(bg: 0x00ff00, opacity: 0.5), content: "x")
   {base, a}
 end
 

@@ -134,8 +134,8 @@ describe "BUGS13 M11: hidden Wizard stands down from Enter/Escape" do
   it "ignores window Enter/Escape while hidden, acts when visible" do
     s = wdg_screen
     wiz = Widget::Wizard.new parent: s, width: 30, height: 10
-    wiz.add_page Widget::Box.new(content: "one"), title: "P1"
-    wiz.add_page Widget::Box.new(content: "two"), title: "P2"
+    wiz.add_page "P1", Widget::Box.new(content: "one")
+    wiz.add_page "P2", Widget::Box.new(content: "two")
     cancelled = 0
     wiz.on(Crysterm::Event::Cancelled) { cancelled += 1 }
 

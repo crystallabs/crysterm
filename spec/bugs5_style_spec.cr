@@ -11,7 +11,7 @@ include Crysterm
 #  2. `parse_transition` read tokens positionally (dur = toks[1], easing = toks[2]),
 #     mis-reading valid orderings like `opacity ease-out 0.3s` / `color ease-in`.
 #     Tokens are now classified by kind; unitless numbers are not durations.
-#  3. `parse_box_shadow` captured a bare fractional offset in 0..1 as the alpha
+#  3. `parse_box_shadow` captured a bare fractional offset in 0..1 as the opacity
 #     (`0.0 4px 8px black` → invisible). A number in the leading geometry run is
 #     now treated as an offset, never opacity.
 #  4. `Shadow.from` lacked an `Int` arm (unlike `Border`/`Padding`/`Margin`), so
@@ -94,23 +94,23 @@ describe "BUGS5 parse_transition kind-based classification (fix #2)" do
   end
 end
 
-describe "BUGS5 parse_box_shadow offset-vs-alpha (fix #3)" do
-  it "does not read a leading `0.0` offset as an (invisible) alpha" do
+describe "BUGS5 parse_box_shadow offset-vs-opacity (fix #3)" do
+  it "does not read a leading `0.0` offset as an (invisible) opacity" do
     sh = box_shadow("0.0 4px 8px black")
-    sh.any?.should be_true # shadow enabled...
-    sh.alpha.should eq 0.5 # ...at the default alpha, not 0.0
+    sh.any?.should be_true   # shadow enabled...
+    sh.opacity.should eq 0.5 # ...at the default opacity, not 0.0
   end
 
-  it "does not read fractional offsets as the alpha" do
-    box_shadow("0.5 0.5 black").alpha.should eq 0.5 # default, not 0.5-from-offset
+  it "does not read fractional offsets as the opacity" do
+    box_shadow("0.5 0.5 black").opacity.should eq 0.5 # default, not 0.5-from-offset
   end
 
-  it "still honors a real alpha placed after the color" do
-    box_shadow("2px 2px black 0.3").alpha.should eq 0.3
+  it "still honors a real opacity placed after the color" do
+    box_shadow("2px 2px black 0.3").opacity.should eq 0.3
   end
 
-  it "keeps a unit'd fractional offset out of the alpha slot" do
-    box_shadow("0.5px 0.5px black").alpha.should eq 0.5 # unchanged default
+  it "keeps a unit'd fractional offset out of the opacity slot" do
+    box_shadow("0.5px 0.5px black").opacity.should eq 0.5 # unchanged default
   end
 end
 

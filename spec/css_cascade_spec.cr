@@ -176,7 +176,7 @@ describe "CSS cascade" do
     {pad.top, pad.right, pad.bottom, pad.left}.should eq({1, 2, 3, 4})
 
     border = box.styles.normal.border
-    border.type.should eq BorderType::Line
+    border.type.should eq BorderType::Solid
     border.fg.should eq rgb("red")
     border.left.should eq 1 # solid border enables sides
   end
@@ -204,16 +204,17 @@ describe "CSS cascade" do
     end
   end
 
-  it "distinguishes :blurred from the :blur substring when peeling state" do
+  it "styles the unfocused look via :not(:focus)" do
     screen = headless_screen
     button = Widget::Button.new
     screen.append button
 
-    screen.stylesheet = "Button:blurred { color: red; }"
+    # There is no "blurred" state/pseudo; the unfocused look is the standard
+    # `:not(:focus)`, whose inner `:focus` lowers to `.state-focused`.
+    screen.stylesheet = "Button:not(:focus) { color: red; }"
     screen.apply_stylesheet
 
-    # Must peel to `Button`, not corrupted by stripping the shorter `:blur` substring.
-    button.styles.blurred.fg.should eq rgb("red")
+    button.styles.normal.fg.should eq rgb("red")
   end
 
   it "maps opacity, tab-size and box-shadow" do
@@ -225,10 +226,10 @@ describe "CSS cascade" do
     screen.apply_stylesheet
 
     style = box.styles.normal
-    style.alpha.should eq 0.5
+    style.opacity.should eq 0.5
     style.tab_size.should eq 8
     style.shadow.right.should eq 2 # default drop shadow enabled
-    style.shadow.alpha.should eq 0.3
+    style.shadow.opacity.should eq 0.3
   end
 
   it "clamps an out-of-range opacity into [0, 1]" do
@@ -244,8 +245,8 @@ describe "CSS cascade" do
     screen.stylesheet = "#hi { opacity: 2.0; } #lo { opacity: -0.5; }"
     screen.apply_stylesheet
 
-    hi.styles.normal.alpha.should eq 1.0
-    lo.styles.normal.alpha.should eq 0.0
+    hi.styles.normal.opacity.should eq 1.0
+    lo.styles.normal.opacity.should eq 0.0
   end
 
   it "keeps a real box-shadow visible when its offset is 0" do
@@ -258,8 +259,8 @@ describe "CSS cascade" do
     screen.apply_stylesheet
 
     style = box.styles.normal
-    style.shadow.right.should eq 2   # default drop shadow enabled
-    style.shadow.alpha.should eq 0.5 # default opacity, not 0
+    style.shadow.right.should eq 2     # default drop shadow enabled
+    style.shadow.opacity.should eq 0.5 # default opacity, not 0
   end
 
   it "disables the shadow with box-shadow: none" do
@@ -581,7 +582,7 @@ describe "CSS cascade" do
     border = box.styles.normal.border
     border.top.should eq 3
     border.left.should eq 2
-    border.type.should eq BorderType::Line
+    border.type.should eq BorderType::Solid
     border.fg.should eq rgb("red")
   end
 
@@ -846,9 +847,9 @@ describe "CSS cascade" do
   it "routes Menu::separator to the menu's separator sub-style" do
     screen = headless_screen
     menu = Widget::Menu.new
-    menu.add "Open"
+    menu.add_action "Open"
     menu.add_separator
-    menu.add "Quit"
+    menu.add_action "Quit"
     screen.append menu
     screen.stylesheet = "Menu::separator { color: red; }"
     screen.apply_stylesheet

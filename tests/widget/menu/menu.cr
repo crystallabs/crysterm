@@ -13,5 +13,5 @@ Crysterm::WidgetExample.run("Menu",
   }) do |screen|
   screen.stylesheet = "Menu { border: solid; color: #c0caf5; }"
   menu = Crysterm::Widget::Menu.new parent: screen, top: "center", left: "center"
-  %w[New Open Save Quit].each { |t| menu.add t }
+  %w[New Open Save Quit].each { |t| menu.add_action t }
 end

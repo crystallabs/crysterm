@@ -30,10 +30,10 @@ end
 
 private def sample_menu(s)
   m = Crysterm::Widget::Menu.new(parent: s)
-  m.add "Open"
-  m.add "Save"
+  m.add_action "Open"
+  m.add_action "Save"
   m.add_separator
-  m.add "Quit"
+  m.add_action "Quit"
   m
 end
 
@@ -112,7 +112,7 @@ describe "Menu render caches (ALLOCS Group J)" do
     s._render
 
     va = m.@visible_actions
-    m.add "New" # `#sync_items` runs, rebuilding the caches
+    m.add_action "New" # `#sync_items` runs, rebuilding the caches
     m.@visible_actions.same?(va).should be_false
     m.@rows_dirty.should be_true
     m.@visible_actions.size.should eq 5

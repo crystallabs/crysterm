@@ -16,7 +16,7 @@ module Crysterm
       bg: "blue",
       bold: false,
       fill_char: '▒',
-      border: BorderType::Line,
+      border: BorderType::Solid,
     )
 
   s.append b

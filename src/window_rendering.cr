@@ -311,19 +311,19 @@ module Crysterm
     getter? compositing_layers = false
 
     # Reused across frames by `#composite_planes` to bucket this frame's layer
-    # widgets by `{z-index, layer alpha}`. Clearing the member arrays each frame
-    # (rather than `Array#group_by`, which allocates a fresh `Hash` plus one
-    # `Array` per z-level every frame) keeps a steady-state layered UI
-    # allocation-free. Keyed by alpha as well as z: opacity is applied at fold
-    # time per plane, so two independent same-z roots with differing alpha must
-    # fold separately, or the first-collected root dictates every sibling's
-    # translucency.
+    # widgets by `{z-index, layer opacity}`. Clearing the member arrays each
+    # frame (rather than `Array#group_by`, which allocates a fresh `Hash` plus
+    # one `Array` per z-level every frame) keeps a steady-state layered UI
+    # allocation-free. Keyed by opacity as well as z: opacity is applied at
+    # fold time per plane, so two independent same-z roots with differing
+    # opacity must fold separately, or the first-collected root dictates every
+    # sibling's translucency.
     @plane_buckets = {} of {Int32, Float64} => Array(Widget)
 
     # Reused list of this frame's non-empty bucket keys as
-    # `{z, first-appearance-seq, alpha}`, sorted in place — folds ascend by z
+    # `{z, first-appearance-seq, opacity}`, sorted in place — folds ascend by z
     # and stay insertion-stable within a z (the seq breaks ties, so same-z
-    # alpha groups fold in collection order).
+    # opacity groups fold in collection order).
     @sorted_zs = [] of {Int32, Int32, Float64}
 
     # Defers *el* (a z-indexed widget) to its plane instead of painting inline.
@@ -354,7 +354,7 @@ module Crysterm
 
     # Renders each of *members* into *pl*'s own buffer with `compositing` set
     # for the duration, so each layer widget paints opaquely into the plane
-    # (render-time alpha self-blend suppressed); the layer's translucency is
+    # (render-time opacity self-blend suppressed); the layer's translucency is
     # applied once at fold time as the plane's opacity. The caller manages
     # `@compositing_layers` around this.
     private def render_members_into_plane(pl : Plane, members : Enumerable(Widget)) : Nil
@@ -383,25 +383,26 @@ module Crysterm
 
       @compositing_layers = true
       begin
-        # Bucket this frame's layer widgets by {z-index, alpha} into the reused
-        # arrays, then composite bottom-to-top (ascending z; insertion-stable
-        # within a z via the seq recorded on first appearance). Equivalent to a
-        # `group_by` + `keys.sort` but without their per-frame allocations.
-        # Empty buckets (a key with widgets on a previous frame but none now)
-        # are skipped, matching `group_by`'s never-empty groups.
+        # Bucket this frame's layer widgets by {z-index, opacity} into the
+        # reused arrays, then composite bottom-to-top (ascending z;
+        # insertion-stable within a z via the seq recorded on first
+        # appearance). Equivalent to a `group_by` + `keys.sort` but without
+        # their per-frame allocations. Empty buckets (a key with widgets on a
+        # previous frame but none now) are skipped, matching `group_by`'s
+        # never-empty groups.
         @plane_buckets.each_value &.clear
         @sorted_zs.clear
         @layer_widgets.each do |el|
           z = el.style.z_index.not_nil! # ameba:disable Lint/NotNil
-          alpha = el.style.alpha? || 1.0
-          bucket = (@plane_buckets[{z, alpha}] ||= [] of Widget)
+          opacity = el.style.opacity? || 1.0
+          bucket = (@plane_buckets[{z, opacity}] ||= [] of Widget)
           # First member this frame: record the key (seq = this frame's
           # first-appearance order, so same-z groups stay collection-ordered).
-          @sorted_zs << {z, @sorted_zs.size, alpha} if bucket.empty?
+          @sorted_zs << {z, @sorted_zs.size, opacity} if bucket.empty?
           bucket << el
         end
-        # Alpha is tweened per frame by transitions/animations, so a fading
-        # z-indexed widget mints a near-unique {z, alpha} key every frame;
+        # Opacity is tweened per frame by transitions/animations, so a fading
+        # z-indexed widget mints a near-unique {z, opacity} key every frame;
         # without pruning, stale empty entries (this frame's bucket never
         # touched) would accumulate in @plane_buckets forever. Reused (i.e.
         # non-empty) keys survive this pass untouched.
@@ -409,16 +410,16 @@ module Crysterm
 
         @sorted_zs.sort!
 
-        @sorted_zs.each do |(z, _seq, alpha)|
-          members = @plane_buckets[{z, alpha}]
+        @sorted_zs.each do |(z, _seq, opacity)|
+          members = @plane_buckets[{z, opacity}]
           pl = plane(z)
           pl.clear
           # The layer's translucency is applied once, here, as the plane's
-          # opacity (this group's `alpha`); the widget paints opaquely into
+          # opacity (this group's `opacity`); the widget paints opaquely into
           # the plane (render-time self-blend suppressed while `#compositing`).
-          # Same-z groups with different alpha reuse the same plane buffer
+          # Same-z groups with different opacity reuse the same plane buffer
           # sequentially (cleared between folds), each with its own opacity.
-          pl.opacity = alpha
+          pl.opacity = opacity
           @_plane_dock_stops.clear
           render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's

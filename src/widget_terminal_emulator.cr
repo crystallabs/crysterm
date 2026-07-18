@@ -1061,8 +1061,10 @@ module Crysterm
       if @insert_mode
         # IRM: open w cells at the cursor by shifting the tail of the line right
         # by w, dropping cells pushed past the end. Same in-place shift
-        # `#insert_chars` (ICH) performs, applied per printed character.
+        # `#insert_chars` (ICH) performs, applied per printed character — with
+        # the same clipped-pair tail repair.
         shift_cells_right line, @x, w
+        blank_clipped_lead_at_end line
       end
       # Repair any wide-glyph pair this write splits, matching xterm which blanks
       # the surviving half. (1) Writing onto the trailing CONTINUATION cell leaves
@@ -1355,10 +1357,7 @@ module Crysterm
       # the line end lost its CONTINUATION past it, leaving a bare wide lead in
       # the last cell.
       blank_split_continuation line, @x + n
-      last = line.size - 1
-      if line[last].char != CONTINUATION && ::Crysterm::Unicode.width(line[last].char) == 2
-        line[last] = blank
-      end
+      blank_clipped_lead_at_end line
     end
 
     # Blanks the wide lead at `i - 1` when the cell at *i* is its CONTINUATION —
@@ -1381,6 +1380,19 @@ module Crysterm
     private def blank_split_continuation(line : Array(Cell), i : Int32) : Nil
       if i < line.size && line[i].char == CONTINUATION
         line[i] = Cell.new(erase_attr, ' ')
+      end
+    end
+
+    # Blanks a bare wide lead left in the line's last cell after a right-shift
+    # dropped its CONTINUATION past the end. Mid-line the pair repairs keep the
+    # "every wide lead is followed by its CONTINUATION" invariant, so a wide
+    # lead in the last cell without one can only be a clipped pair. Shared by
+    # `#insert_chars` and the IRM branch of `#print_char`.
+    private def blank_clipped_lead_at_end(line : Array(Cell)) : Nil
+      last = line.size - 1
+      cell = line[last]
+      if cell.char != CONTINUATION && ::Crysterm::Unicode.width(cell.char) == 2
+        line[last] = Cell.new(erase_attr, ' ')
       end
     end
 

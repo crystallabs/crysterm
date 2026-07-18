@@ -40,10 +40,10 @@ describe "CSS transition" do
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.1.seconds
-    (0.2 <= b.style.alpha.not_nil! <= 0.8).should be_true # mid-fade
+    (0.2 <= b.style.opacity.not_nil! <= 0.8).should be_true # mid-fade
 
     sleep 0.2.seconds
-    (b.style.alpha.not_nil! < 0.05).should be_true # ~fully faded
+    (b.style.opacity.not_nil! < 0.05).should be_true # ~fully faded
   end
 
   it "snaps (no tween) when no transition is declared" do
@@ -77,8 +77,8 @@ describe "CSS @keyframes / animation" do
     s.stylesheet = "@keyframes go { from { opacity: 0.0; } to { opacity: 1.0; } } " \
                    ".once { opacity: 0.0; animation: go 0.15s linear 1; }"
     s._render
-    sleep 0.3.seconds                              # past the single iteration
-    (b.style.alpha.not_nil! > 0.95).should be_true # landed on the final frame
+    sleep 0.3.seconds                                # past the single iteration
+    (b.style.opacity.not_nil! > 0.95).should be_true # landed on the final frame
   end
 
   # CSS property names are case-insensitive, so a `transition` value naming the

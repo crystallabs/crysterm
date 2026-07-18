@@ -81,9 +81,11 @@ module Crysterm
         end
       end
 
-      # Appends a section titled *title* with body *widget*. The first item added
-      # becomes current. Returns its index.
-      def add_item(title : String, widget : Widget) : Int32
+      # Appends a section titled *title* with body *widget*. Title-first argument
+      # order, matching every other container add-verb in the toolkit (a
+      # deliberate, uniform deviation from Qt's widget-first `addItem`). The first
+      # item added becomes current. Returns `self`.
+      def add_item(title : String, widget : Widget) : self
         # The header must start visible regardless of the toolbox's own state:
         # `Widget#hide` persists `visible = false` into `style`, so a header
         # created while the toolbox is hidden would dup that hidden state and
@@ -112,7 +114,7 @@ module Crysterm
         register_page widget
         relayout
 
-        index
+        self
       end
 
       private def header_text(title : String, expanded : Bool) : String

@@ -74,14 +74,14 @@ menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
 filemenu = menubar.add_menu "File"
-filemenu.add("New") { status.show_message " new file"; s.render }
-filemenu.add("Open") { status.show_message " open file"; s.render }
+filemenu.add_action("New") { status.show_message " new file"; s.render }
+filemenu.add_action("Open") { status.show_message " open file"; s.render }
 # Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
 bucket = Action.new "Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
 filemenu.add_submenu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
-filemenu.add("Quit") { s.destroy; exit }
+filemenu.add_action("Quit") { s.destroy; exit }
 
 editmenu = menubar.add_menu "Edit", [mk.call("Cut", "cut"), mk.call("Copy", "copy"), mk.call("Paste", "paste")]
 editmenu.add_separator
@@ -235,7 +235,7 @@ Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
 stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, bottom: 1
 ["Page One", "Page Two", "Page Three"].each do |label|
-  stack.add_page Widget::Box.new(
+  stack.add_widget Widget::Box.new(
     content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true)
 end
 
@@ -268,8 +268,8 @@ end
 # ToolButton with a default Action (Enter/Space applies it) and a popup Menu
 # (press Down to open it), like a Qt tool button with a drop-down.
 tb_menu = Widget::Menu.new parent: s, width: 16, height: 4
-tb_menu.add("Rename") { status.show_message " tool: rename"; s.render }
-tb_menu.add("Delete") { status.show_message " tool: delete"; s.render }
+tb_menu.add_action("Rename") { status.show_message " tool: rename"; s.render }
+tb_menu.add_action("Delete") { status.show_message " tool: delete"; s.render }
 tb_menu.hide # stays hidden until opened from the ToolButton (via Down)
 
 tool_action = Action.new "Apply"

@@ -51,9 +51,23 @@ module Crysterm
       @_graphemes_src : String?
       @_shrink_width_value : Int32?
 
+      # Character used to paint the "on" pixels of the bitmap font. The default
+      # space paints them as reverse-video blocks of the fg color; any other
+      # char is drawn literally over `Style#fill_char` gaps. Stylesheet
+      # equivalent: `BigText { glyph: "#" }` (registry role `BigTextPixel`);
+      # this property, when set, wins over the CSS/registry glyph.
+      getter foreground_char : Char = ' '
+
+      def foreground_char=(value : Char) : Char
+        @foreground_char = value
+        request_render
+        value
+      end
+
       def initialize(
         @font : String? = nil,
         @font_bold : String? = nil,
+        @foreground_char : Char = ' ',
         **box,
       )
         @normal = (f = @font) ? BitmapFont.load(f) : BitmapFont.default_normal
@@ -134,6 +148,13 @@ module Crysterm
         # Swap fg/bg so the "lit" glyph pixels invert the base colors.
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
+        # `#foreground_char` resolution, hoisted out of the per-pixel loop: the
+        # widget property wins when set, else the glyph system (`BigText {
+        # glyph: "#" }` in CSS, or the registry's `BigTextPixel` default — a
+        # space, selecting the reverse-video block mode below).
+        on_char = @foreground_char
+        on_char = glyph(Glyphs::Role::BigTextPixel, style) if on_char == ' '
+
         # One glyph per grapheme cluster (so a base + combining mark is a single
         # glyph slot, not two), keyed into the font by the cluster string.
         graphemes = @graphemes
@@ -181,9 +202,9 @@ module Crysterm
               # itself negative when the widget hangs off the left edge.
               if x + mx >= Math.max(left, 0)
                 lines[y]?.try(&.[x + mx]?).try do |cell|
-                  if style.foreground_char != ' '
+                  if on_char != ' '
                     cell.attr = default_attr
-                    cell.char = mcell == 1 ? style.foreground_char : style.fill_char
+                    cell.char = mcell == 1 ? on_char : style.fill_char
                   else
                     cell.attr = mcell == 1 ? attr : default_attr
                     cell.char = mcell == 1 ? ' ' : style.fill_char

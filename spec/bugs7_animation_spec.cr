@@ -32,7 +32,7 @@ describe "BUGS7 @keyframes opacity clamp for partial-range stops" do
     min_seen = 1.0
     12.times do
       sleep 0.03.seconds
-      a = b.style.alpha.not_nil!
+      a = b.style.opacity.not_nil!
       max_seen = a if a > max_seen
       min_seen = a if a < min_seen
     end
@@ -52,7 +52,7 @@ describe "BUGS7 pulse breathe stays within [min, max]" do
     samples = [] of Float64
     10.times do
       sleep 0.03.seconds
-      a = b.style.alpha.not_nil!
+      a = b.style.opacity.not_nil!
       (0.3 - 1e-9 <= a <= 1.0 + 1e-9).should be_true
       samples << a
     end

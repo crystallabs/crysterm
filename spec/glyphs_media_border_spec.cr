@@ -70,13 +70,13 @@ describe "border-chars CSS (rounded corners)" do
     st = Style.new
     Crysterm::CSS::Properties.apply st, "border", "solid"
     Crysterm::CSS::Properties.apply st, "border-top-left-char", %("🚀")
-    st.border.char_top_left.should be_nil
+    st.border.chars?.should be_false # the wide glyph never installed an override
   end
 
-  it "honors position chars on a Bg border too" do
-    b = Border.new BorderType::Bg
+  it "honors position chars on a Fill border too" do
+    b = Border.new BorderType::Fill
     b.fill_char = '#'
-    b.char_top_left = '@'
+    b.top_left_char = '@'
     b.top_left_char.should eq '@'
     b.top_right_char.should eq '#' # falls to fill_char through the group
   end
@@ -118,7 +118,7 @@ describe "BorderType::Rounded" do
     p.apply st, "border-radius", "0.5em"
     st.border.type.rounded?.should be_true
     p.apply st, "border-radius", "0"
-    st.border.type.line?.should be_true
+    st.border.type.solid?.should be_true
 
     p.apply st, "border", "double"
     p.apply st, "border-radius", "4px"

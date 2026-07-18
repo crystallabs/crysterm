@@ -100,6 +100,20 @@ module Crysterm
           node
         end
 
+        # Appends a child (text or `Node`) and returns *self* for chaining, e.g.
+        # `node << "a" << "b"`. The `#add` verb stays the primary spelling (it
+        # returns the *child* node, for building deeper).
+        def <<(text : String) : self
+          add text
+          self
+        end
+
+        # :ditto:
+        def <<(node : Node) : self
+          add node
+          self
+        end
+
         # Removes *node* from this node's children and refreshes the owning tree.
         # Returns the detached node, or `nil` when it was not a child of this one
         # (Qt's `QTreeWidgetItem#removeChild`).
@@ -255,6 +269,23 @@ module Crysterm
         @roots << node
         rebuild
         node
+      end
+
+      # Appends a top-level node (text or `Node`) and returns *self* for chaining,
+      # e.g. `tree << "src" << "README"`. Deliberately overrides the inherited
+      # `Mixin::ItemView#<<(String)` (which appends a raw list row): a `Tree`'s
+      # rows are re-flattened from its nodes, so a raw row would be wiped by the
+      # next `#rebuild` — routing through `#add` creates a real root node instead.
+      # The `#add` verb stays primary (it returns the *node*, for building deeper).
+      def <<(text : String) : self
+        add text
+        self
+      end
+
+      # :ditto:
+      def <<(node : Node) : self
+        add node
+        self
       end
 
       # Removes *node* from the hierarchy — wherever it sits — and returns it, or

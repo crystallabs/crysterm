@@ -18,8 +18,5 @@ module Crysterm
 
     # Strikethrough?
     property? strike : Bool = false
-
-    # Visible?
-    property? visible : Bool = true
   end
 end

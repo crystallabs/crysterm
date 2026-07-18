@@ -41,7 +41,6 @@ module Crysterm
   # States in which a widget can be
   enum WidgetState
     Normal
-    Blurred # Blur
     Focused # Focus
     Hovered # Hover
     Selected
@@ -56,7 +55,6 @@ module Crysterm
     def css_class : String
       case self
       in .normal?   then "state-normal"
-      in .blurred?  then "state-blurred"
       in .focused?  then "state-focused"
       in .hovered?  then "state-hovered"
       in .selected? then "state-selected"

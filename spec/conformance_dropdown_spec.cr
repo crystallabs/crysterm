@@ -125,7 +125,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
     make: -> {
       s = dd_screen
       menu = Crysterm::Widget::Menu.new parent: s, width: 14, height: 6
-      %w[Open Save Close Quit Print Help].each { |l| menu.add l }
+      %w[Open Save Close Quit Print Help].each { |l| menu.add_action l }
       DropdownAdapter.new(
         open: -> { menu.popup 2, 2; nil },
         is_open: -> { menu.visible? && menu.@popup_mode },

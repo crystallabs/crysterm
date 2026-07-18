@@ -27,7 +27,7 @@ describe "CSS color (malformed function value)" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "border-top-color", "#00ff00")
     Crysterm::CSS::Properties.apply(s, "border-top-color", "rgb(255)")
-    s.border.fg_top.should eq 0x00ff00
+    s.border.top_fg.should eq 0x00ff00
   end
 
   it "still applies a valid `rgb()` color" do

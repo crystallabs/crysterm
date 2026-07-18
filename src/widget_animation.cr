@@ -10,7 +10,7 @@ module Crysterm
     # sets (nil = not set by this stop).
     private record KFStop,
       offset : Float64,
-      alpha : Float64?,
+      opacity : Float64?,
       fg : Int32?,
       bg : Int32?,
       tint_alpha : Float64?,
@@ -151,7 +151,7 @@ module Crysterm
         s = ::Crysterm::Style.new
         decls.each { |k, v| ::Crysterm::CSS::Properties.apply(s, k, v) }
         has_tint = decls.has_key?("tint")
-        KFStop.new(off, s.alpha, s.fg, s.bg, (has_tint ? s.tint_alpha : nil), (has_tint ? s.tint : nil))
+        KFStop.new(off, s.opacity, s.fg, s.bg, (has_tint ? s.tint_alpha : nil), (has_tint ? s.tint : nil))
       end
     end
 
@@ -174,14 +174,14 @@ module Crysterm
       # Clamp the interpolation fraction: when the declared stops don't span the
       # whole `0%..100%` range (CSS fills the missing boundary from the element's
       # computed value; this driver doesn't synthesize that), a `p` outside
-      # `[a.offset, b.offset]` would extrapolate alpha and colors past their
+      # `[a.offset, b.offset]` would extrapolate opacity and colors past their
       # endpoints.
       t = span > 0 ? ((p - a.offset) / span).clamp(0.0, 1.0) : 0.0
 
-      if (av = a.alpha) && (bv = b.alpha)
-        st.alpha = av + (bv - av) * t
-      elsif v = (a.alpha || b.alpha)
-        st.alpha = v
+      if (av = a.opacity) && (bv = b.opacity)
+        st.opacity = av + (bv - av) * t
+      elsif v = (a.opacity || b.opacity)
+        st.opacity = v
       end
       if (av = a.tint_alpha) && (bv = b.tint_alpha)
         st.tint_alpha = av + (bv - av) * t

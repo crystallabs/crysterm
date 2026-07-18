@@ -177,7 +177,7 @@ private def build_alpha_scene(damage)
     b = Widget::Box.new(parent: s, top: 0, left: base, width: 16, height: 12,
       style: Style.new(bg: 0x202020), content: "B#{i}")
     Widget::Box.new(parent: s, top: 3, left: base + 3, width: 10, height: 6,
-      style: Style.new(bg: 0x00aa55, alpha: 0.5), content: "a#{i}")
+      style: Style.new(bg: 0x00aa55, opacity: 0.5), content: "a#{i}")
     bases << b
   end
   {s, bases}

@@ -17,7 +17,7 @@ module Crysterm
     #   and a default-background cell lets it show through (binary visibility).
     # * **Cells** (`Media::Glyph`/`Ansi`) — the image is painted *into* the window
     #   buffer. `_render` skips its empty (no-glyph) content cells so those keep
-    #   the image, while text cells draw over it (and `style.alpha` grades them).
+    #   the image, while text cells draw over it (and `style.opacity` grades them).
     #
     # The host doesn't branch on the backend except to mark a Kitty layer as a
     # background (`z=-1`); the Cells case is recognized by the layer being a

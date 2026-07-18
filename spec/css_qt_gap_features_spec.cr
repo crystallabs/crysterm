@@ -105,15 +105,15 @@ end
 
 describe "BorderType glyph helpers" do
   it "treats every line type as line_family and Bg as not" do
-    BorderType::Line.line_family?.should be_true
+    BorderType::Solid.line_family?.should be_true
     BorderType::Dashed.line_family?.should be_true
     BorderType::Dotted.line_family?.should be_true
     BorderType::Double.line_family?.should be_true
-    BorderType::Bg.line_family?.should be_false
+    BorderType::Fill.line_family?.should be_false
   end
 
   it "returns a distinct glyph set per type" do
-    BorderType::Line.line_glyphs[:h].should eq '─'
+    BorderType::Solid.line_glyphs[:h].should eq '─'
     BorderType::Dashed.line_glyphs[:h].should eq '┄'
     BorderType::Dotted.line_glyphs[:h].should eq '┈'
     BorderType::Double.line_glyphs[:v].should eq '║'

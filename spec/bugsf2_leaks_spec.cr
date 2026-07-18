@@ -37,8 +37,8 @@ describe "Menu per-action handler/association cleanup (F2 #10)" do
     s = leak_window
     menu = Crysterm::Widget::Menu.new parent: s
 
-    a = menu.add "One"
-    b = menu.add "Two"
+    a = menu.add_action "One"
+    b = menu.add_action "Two"
 
     # `<<`/`add` wired a Changed handler on each action and associated the menu.
     a.handlers(Crysterm::Event::Changed).size.should eq 1

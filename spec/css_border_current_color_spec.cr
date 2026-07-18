@@ -20,14 +20,14 @@ describe "CSS border currentColor" do
   it "resolves a per-side border-*-color longhand to the element text color" do
     s = Style.new(fg: 0x00ff00) # green text
     Crysterm::CSS::Properties.apply(s, "border-top-color", "currentColor")
-    s.border.fg_top.should eq 0x00ff00
+    s.border.top_fg.should eq 0x00ff00
     s.border.top_fg.should eq 0x00ff00
   end
 
   it "resolves the per-side border-<side> shorthand color to the element text color" do
     s = Style.new(fg: 0x0000ff) # blue text
     Crysterm::CSS::Properties.apply(s, "border-left", "solid currentColor")
-    s.border.fg_left.should eq 0x0000ff
+    s.border.left_fg.should eq 0x0000ff
     s.border.left_fg.should eq 0x0000ff
   end
 

@@ -16,14 +16,14 @@ describe "CSS border-<side> shorthand with a color function" do
     Crysterm::CSS::Properties.apply(s, "border-left", "solid rgb(0, 128, 255)")
     b = s.border
     # Resolves to the true color on the left edge only.
-    b.fg_left.should eq 0x0080ff
+    b.left_fg.should eq 0x0080ff
     b.left_fg.should eq 0x0080ff
     # Width/type from the same shorthand still honored.
-    b.type.should eq BorderType::Line
+    b.type.should eq BorderType::Solid
     b.left.should eq 1
     # Other sides untouched.
-    b.fg_top.should be_nil
-    b.fg_right.should be_nil
-    b.fg_bottom.should be_nil
+    b.top_fg.should be_nil
+    b.right_fg.should be_nil
+    b.bottom_fg.should be_nil
   end
 end

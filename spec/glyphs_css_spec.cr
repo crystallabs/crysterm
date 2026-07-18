@@ -129,13 +129,11 @@ describe "Widget glyph accessors: cell reduce vs run grapheme" do
 end
 
 describe "CSS fill-char family spellings" do
-  it "sets fill-char and percent-char" do
+  it "sets fill-char" do
     st = Style.new
     apply st, "fill-char", %("▒")
     st.fill_char.should eq '▒'
     st.specified?(:fill_char).should be_true
-    apply st, "percent-char", %("%")
-    st.percent_char.should eq '%'
   end
 
   it "drops `none` for a fill char (a cell is always painted)" do
@@ -261,7 +259,7 @@ describe "Menu glyphs and measured columns" do
   it "drops the check gutter when no item is checkable" do
     s = gc_screen
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 4
-    menu.add "Open"
+    menu.add_action "Open"
     s._render
     # Label starts flush at the content edge (border + theme padding = 2).
     gc_row(s, 1, menu.aleft + 2, 5).should eq "Open " # no 4-cell gutter
@@ -270,10 +268,10 @@ describe "Menu glyphs and measured columns" do
   it "reserves a measured check column when any item is checkable" do
     s = gc_screen
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 14, height: 5
-    a = menu.add "Wrap"
+    a = menu.add_action "Wrap"
     a.checkable = true
     a.checked = true
-    menu.add "Open"
+    menu.add_action "Open"
     s._render
     gc_row(s, 1, menu.aleft + 2, 8).should eq "[x] Wrap"
     gc_row(s, 2, menu.aleft + 2, 8).should eq "    Open"
@@ -282,9 +280,9 @@ describe "Menu glyphs and measured columns" do
   it "restyles the separator rule via Menu::separator { glyph }" do
     s = gc_screen
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 5
-    menu.add "One"
+    menu.add_action "One"
     menu.add_separator
-    menu.add "Two"
+    menu.add_action "Two"
     s.stylesheet = %(Menu::separator { glyph: "="; })
     s.apply_stylesheet
     s._render

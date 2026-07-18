@@ -550,7 +550,7 @@ module Crysterm
         # `nil`-signalled properties (no `specified_mask` bit) — folded by hand.
         style.fg = inline.fg if inline.specified?(:fg)
         style.bg = inline.bg if inline.specified?(:bg)
-        style.alpha = inline.alpha if inline.specified?(:alpha)
+        style.opacity = inline.opacity if inline.specified?(:opacity)
         if inline.specified?(:tint)
           style.tint = inline.tint
           style.tint_alpha = inline.tint_alpha
@@ -558,7 +558,7 @@ module Crysterm
         style.gridline_color = inline.gridline_color if inline.specified?(:gridline_color)
         style.z_index = inline.z_index if inline.specified?(:z_index)
         style.background_image = inline.background_image if inline.specified?(:background_image)
-        style.transitions = inline.transitions if inline.specified?(:transition)
+        style.transitions = inline.transitions if inline.specified?(:transitions)
         style.animation = inline.animation if inline.specified?(:animation)
         style.glyph = inline.glyph if inline.specified?(:glyph)
         style.glyph_ascii = inline.glyph_ascii if inline.specified?(:glyph_ascii)
@@ -637,7 +637,7 @@ module Crysterm
           # shares the `normal` object, so `same?` skips it: it already sees the
           # value via `normal`.
           NON_NORMAL_STATES.each do |state|
-            st = widget.styles.for_state(state)
+            st = widget.styles[state]
             inherit_props st, parent unless st.same?(normal)
           end
         end
@@ -657,15 +657,15 @@ module Crysterm
       # A fresh dup of the widget's pristine (pre-CSS) style for *state* — the
       # clean base declarations get applied onto.
       private def self.base_state_style(widget : Widget, state : WidgetState) : Style
-        widget.css_base_styles.for_state(state).dup
+        widget.css_base_styles[state].dup
       end
 
       private def self.get_state_style(widget : Widget, state : WidgetState) : Style
-        widget.styles.for_state(state)
+        widget.styles[state]
       end
 
       private def self.set_state_style(widget : Widget, state : WidgetState, style : Style) : Nil
-        widget.styles.set_for_state(state, style)
+        widget.styles[state] = style
       end
     end
   end

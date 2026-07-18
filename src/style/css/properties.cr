@@ -104,7 +104,7 @@ module Crysterm
           # CSS `opacity` is a `<number>` *or* a `<percentage>` (`opacity: 0.5`
           # == `opacity: 50%`, per CSS Color 4), clamped into `[0, 1]` since an
           # out-of-range value would reach `Colors.blend` as a bad mix factor.
-          parse_opacity(value).try { |num| style.alpha = num.clamp(0.0, 1.0) }
+          parse_opacity(value).try { |num| style.opacity = num.clamp(0.0, 1.0) }
         when "tab-size"
           # Only a value resolving to a cell count sets the tab width; an
           # unparseable one is dropped, leaving the previous width intact. A
@@ -113,7 +113,7 @@ module Crysterm
           Length.to_cells(value).try { |c| style.tab_size = c if c >= 0 }
         when "box-shadow"
           # A blank value is dropped rather than enabling a default drop shadow:
-          # `parse_box_shadow("")` finds neither `none` nor an alpha and returns
+          # `parse_box_shadow("")` finds neither `none` nor an opacity and returns
           # `Shadow.from(true)`.
           style.shadow = parse_box_shadow(value) unless value.blank?
         when "tint"
@@ -180,16 +180,9 @@ module Crysterm
         when "shadow-char-bottom-right"
           with_cell_char(value) { |c| style.shadow.bottom_right_char = c }
         when "fill-char"
-          # CSS spellings for the `Style` fill-character family. `none` has no
-          # meaning for a fill (a cell is always painted), so it's dropped like
-          # any other invalid value.
+          # `none` has no meaning for a fill (a cell is always painted), so it's
+          # dropped like any other invalid value.
           char_value(value).try { |c| style.fill_char = c }
-        when "percent-char"
-          char_value(value).try { |c| style.percent_char = c }
-        when "foreground-char"
-          char_value(value).try { |c| style.foreground_char = c }
-        when "background-char"
-          char_value(value).try { |c| style.background_char = c }
         when "padding"
           # A blank value is dropped rather than resetting padding to default.
           style.padding = parse_padding(value) unless value.blank?
@@ -238,7 +231,7 @@ module Crysterm
         "selection-color", "selection-background-color",
         "glyph", "glyph-ascii", "glyph-unicode", "glyph-extended",
         "glyph-open", "glyph-close", "glyphs",
-        "fill-char", "percent-char", "foreground-char", "background-char",
+        "fill-char",
         "shadow-char-horizontal", "shadow-char-vertical", "shadow-char-diagonal",
         "shadow-char-top-left", "shadow-char-top-right",
         "shadow-char-bottom-left", "shadow-char-bottom-right",
@@ -379,7 +372,7 @@ module Crysterm
       # Parses a CSS `opacity` value: a bare `<number>` (`0.5`) or a
       # `<percentage>` (`50%` → `0.5`), per CSS Color 4. Returns `nil` for a
       # blank/non-numeric value (e.g. a collapsed undefined `var()`), so the
-      # caller drops the declaration rather than resetting the alpha. The caller
+      # caller drops the declaration rather than resetting the opacity. The caller
       # clamps the result into `[0, 1]`.
       #
       # Only *finite* numbers pass: `to_f?` accepts strtod's `nan`/`inf`
@@ -611,10 +604,10 @@ module Crysterm
 
       # The CSS `border-radius` shorthand, mapped honestly onto the cell grid:
       # a terminal can't render partial curves, so any positive radius turns a
-      # light `Line` border's corners into the arc family
+      # light `Solid` border's corners into the arc family
       # (`BorderType::Rounded`, `╭╮╰╯`), and an explicit zero turns a
       # `Rounded` border back to square corners. Other families (`Double`/
-      # `Dashed`/`Dotted`/`Bg`) are left alone — the author picked a stronger
+      # `Dashed`/`Dotted`/`Fill`) are left alone — the author picked a stronger
       # corner statement than "slightly rounded". Qt themes' ubiquitous
       # `border-radius: 4px` thus rounds frames for free. Order note: the
       # `border` shorthand *replaces* the whole `Border`, so declare the
@@ -628,9 +621,9 @@ module Crysterm
         return unless m = v.match(/-?\d+(?:\.\d+)?/)
         return unless r = m[0].to_f?
         if r > 0
-          border.type = BorderType::Rounded if border.type.line?
+          border.type = BorderType::Rounded if border.type.solid?
         else
-          border.type = BorderType::Line if border.type.rounded?
+          border.type = BorderType::Solid if border.type.rounded?
         end
       end
 
@@ -727,9 +720,9 @@ module Crysterm
       # fill-ins (1 value → whole border; 2 → vertical/horizontal; 3 → top/
       # horizontal/bottom). A single color recolors the whole border and clears
       # any per-side override (`border-top-color` & co.) — the renderer reads
-      # `top_fg = @fg_top || @fg`, so a stale `@fg_top` would otherwise shadow the
+      # `top_fg = @top_fg || @fg`, so a stale `@top_fg` would otherwise shadow the
       # new whole-border `@fg`. Two-to-four colors set the per-side
-      # `fg_top`/`fg_right`/… slots directly, the analog of the multi-value
+      # `top_fg`/`right_fg`/… slots directly, the analog of the multi-value
       # `border-width` shorthand (`apply_border_width`).
       #
       # Tokens are split with `split_top_level` so a color function's internal
@@ -744,7 +737,7 @@ module Crysterm
           # `Colorizable`, and clear any per-side override so it can't shadow it.
           with_color(value, el_color) do |c|
             border.fg = c
-            border.fg_top = border.fg_right = border.fg_bottom = border.fg_left = nil
+            border.top_fg = border.right_fg = border.bottom_fg = border.left_fg = nil
           end
           return
         end
@@ -752,10 +745,10 @@ module Crysterm
         # against the element's text color, like the per-side longhands).
         c = tokens.map { |token| coerce_color_int(ColorValue.resolve(token, el_color)) }
         return unless i = trbl_indices(tokens.size) # 0 (blank) / >4 colors: drop it
-        border.fg_top = c[i[:top]]
-        border.fg_right = c[i[:right]]
-        border.fg_bottom = c[i[:bottom]]
-        border.fg_left = c[i[:left]]
+        border.top_fg = c[i[:top]]
+        border.right_fg = c[i[:right]]
+        border.bottom_fg = c[i[:bottom]]
+        border.left_fg = c[i[:left]]
       end
 
       # Maps the number of values in a CSS TRBL shorthand (`border-width`,
@@ -781,12 +774,12 @@ module Crysterm
       # `round` — no standard CSS spelling exists) the arc-corner family.
       private def self.border_type_keyword(token : String) : BorderType?
         case Case.fold_keyword(token)
-        when "solid", "line"    then BorderType::Line
+        when "solid", "line"    then BorderType::Solid
         when "dashed"           then BorderType::Dashed
         when "dotted"           then BorderType::Dotted
         when "double"           then BorderType::Double
         when "rounded", "round" then BorderType::Rounded
-        when "bg", "background" then BorderType::Bg
+        when "bg", "background" then BorderType::Fill
         else                         nil
         end
       end
@@ -794,7 +787,7 @@ module Crysterm
       # A single-side `border-<side>` shorthand: a width sets that side, a style
       # keyword sets the border type (or hides the side with `none`), and any
       # other token is the color for that side — routed to the per-side
-      # `border-<side>-color` slot (`fg_top`/`fg_left`/…), not the whole-border
+      # `border-<side>-color` slot (`top_fg`/`left_fg`/…), not the whole-border
       # `fg`. So `border-left: solid red` colors only the left edge, matching CSS.
       # *el_color* is the element's text color, the basis for `currentColor`
       # (see `apply_border`).
@@ -844,7 +837,7 @@ module Crysterm
         with_color(value, el_color) { |c| set_side_color border, side, c }
       end
 
-      # Sets the per-side border color (`fg_top`/`fg_right`/`fg_bottom`/`fg_left`)
+      # Sets the per-side border color (`top_fg`/`right_fg`/`bottom_fg`/`left_fg`)
       # for the `border-<side>` shorthand and the `border-<side>-color` longhand
       # (via `apply_side_color`), coercing the resolved color to the native int
       # form those slots store.
@@ -991,16 +984,17 @@ module Crysterm
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default
       # drop shadow is enabled, and a bare fractional `0..1` number anywhere in
-      # the value is taken as its alpha (opacity). The full CSS offset/blur/
-      # spread/color syntax is accepted but only its presence (and optional
-      # alpha) is honored.
+      # the value is taken as its opacity. The full CSS offset/blur/spread/color
+      # syntax is accepted but only its presence (and optional opacity) is
+      # honored.
       #
-      # The alpha token must carry a decimal point to tell an opacity (`0.3`)
+      # The opacity token must carry a decimal point to tell an opacity (`0.3`)
       # apart from an integer length offset — otherwise `box-shadow: 0 4px 8px
-      # <color>` would read its `0` offset as alpha `0`, an invisible shadow. It
-      # must also lie *outside* the offset run: the leading length tokens are the
-      # geometry fields (offset-x, offset-y, blur, spread), so a fractional value
-      # there (`0.0 4px 8px black`, `0.5 0.5 black`) is an offset, not opacity.
+      # <color>` would read its `0` offset as opacity `0`, an invisible shadow.
+      # It must also lie *outside* the offset run: the leading length tokens are
+      # the geometry fields (offset-x, offset-y, blur, spread), so a fractional
+      # value there (`0.0 4px 8px black`, `0.5 0.5 black`) is an offset, not
+      # opacity.
       private def self.parse_box_shadow(value : String) : Shadow
         return Shadow.from(false) if Case.fold_keyword(value.strip) == "none"
         toks = value.split
@@ -1013,20 +1007,21 @@ module Crysterm
           break if offsets >= 4
         end
         # A CSS offset spec needs *both* offset-x and offset-y, so a lone leading
-        # length isn't a coordinate — it's crysterm's bare-fractional alpha
+        # length isn't a coordinate — it's crysterm's bare-fractional opacity
         # shorthand (`box-shadow: 0.3`). Only a run of >= 2 lengths is offsets.
         offsets = 0 if offsets < 2
-        # Alpha is a unitless fractional 0..1 *outside* that run (e.g. after the
-        # color). Unit'd lengths (`0.5px`) fail `to_f?` and are excluded anyway.
-        alpha = nil
+        # Opacity is a unitless fractional 0..1 *outside* that run (e.g. after
+        # the color). Unit'd lengths (`0.5px`) fail `to_f?` and are excluded
+        # anyway.
+        opacity = nil
         toks.each_with_index do |t, i|
           next if i < offsets
           if (num = t.to_f?) && t.includes?('.') && 0.0 <= num <= 1.0
-            alpha = num
+            opacity = num
             break
           end
         end
-        alpha ? Shadow.from(alpha) : Shadow.from(true)
+        opacity ? Shadow.from(opacity) : Shadow.from(true)
       end
 
       # Whether a `box-shadow` token occupies a geometry (offset/blur/spread) slot,

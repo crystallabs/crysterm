@@ -168,3 +168,32 @@ describe "BUGS15 #80: switch_terminal keeps surface mode and chrome knobs" do
     end
   end
 end
+
+# BUGS15 #38 follow-up: `#switch_terminal` copies the salient options, but an
+# explicit runtime `glyph_tier` pin was dropped — the replacement device
+# re-auto-detected and e.g. an Ascii pin (accessibility / broken-font
+# workaround) silently reverted to Unicode chrome.
+describe "BUGS15 #38 follow-up: switch_terminal carries the glyph-tier pin" do
+  it "keeps a runtime glyph_tier pin on the replacement window" do
+    w = b15m_window(30, 5)
+    w.glyph_tier = Glyphs::Tier::Ascii
+    w2 = w.switch_terminal "xterm"
+    begin
+      w2.glyph_tier.should eq Glyphs::Tier::Ascii
+      w2.screen.glyph_tier_explicit?.should be_true
+    ensure
+      w2.destroy
+    end
+  end
+
+  it "leaves an unpinned tier to the replacement's own detection" do
+    w = b15m_window(30, 5)
+    w.screen.glyph_tier_explicit?.should be_false # default config: unpinned
+    w2 = w.switch_terminal "xterm"
+    begin
+      w2.screen.glyph_tier_explicit?.should be_false
+    ensure
+      w2.destroy
+    end
+  end
+end

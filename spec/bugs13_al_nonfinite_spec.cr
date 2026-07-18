@@ -117,8 +117,8 @@ describe "BUGS13 A16: PieChart legend survives non-finite slice values" do
     s = nf_screen 60, 20
     pie = Widget::Graph::PieChart.new parent: s, top: 0, left: 0,
       width: 30, height: 15
-    pie.add_slice 30, label: "a"
-    pie.add_slice Float64::INFINITY, label: "b"
+    pie.add_slice "a", 30
+    pie.add_slice "b", Float64::INFINITY
     s._render # Inf/Inf = NaN; NaN.round.to_i raised before the fix
   end
 end

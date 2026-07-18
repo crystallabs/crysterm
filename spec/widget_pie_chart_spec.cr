@@ -18,9 +18,9 @@ describe Crysterm::Widget::Graph::PieChart do
     begin
       pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 24, height: 13,
         type: Crysterm::Widget::Media::Type::Glyph, style: Crysterm::Style.new(border: true)
-      pie.add_slice 50, 0x40E0D0, "web"
-      pie.add_slice 30, 0xE0A040, "db"
-      pie.add_slice 20, 0xE04060, "cache"
+      pie.add_slice "web", 50, 0x40E0D0
+      pie.add_slice "db", 30, 0xE0A040
+      pie.add_slice "cache", 20, 0xE04060
       s._render
       t = text_of s
       t.each_char.any? { |ch| ('⠁'..'⣿').includes?(ch) }.should be_true # wedges
@@ -35,8 +35,8 @@ describe Crysterm::Widget::Graph::PieChart do
 
   it "cycles the default palette when no color is given" do
     pie = Crysterm::Widget::Graph::PieChart.new width: 10, height: 6
-    a = pie.add_slice 1
-    b = pie.add_slice 1
+    a = pie.add_slice "", 1
+    b = pie.add_slice "", 1
     a.color.should eq Crysterm::Widget::Graph::PieChart::DEFAULT_COLORS[0]
     b.color.should eq Crysterm::Widget::Graph::PieChart::DEFAULT_COLORS[1]
   end
@@ -49,7 +49,7 @@ describe Crysterm::Widget::Graph::PieChart do
       pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 20, height: 11,
         show_legend: false, type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
-      pie.add_slice 0, 0x40E0D0, "none"
+      pie.add_slice "none", 0, 0x40E0D0
       s._render
       # No positive slice: the interior stays free of any wedge glyphs.
       interior = (1..9).map { |y| (1...19).map { |x| s.lines[y][x].char }.join }

@@ -68,7 +68,7 @@ class Minesweeper
     # Bright grass field that "digs" into sandy tan.
     Theme.new(
       name: "Grass",
-      box_bg: "#4e7a27", border_type: BorderType::Line, border_fg: "#86a94e",
+      box_bg: "#4e7a27", border_type: BorderType::Solid, border_fg: "#86a94e",
       covered: {"#aad751", "#a2d149"}, dug: {"#e5c29f", "#d7b899"},
       numbers: {1 => "#1976d2", 2 => "#388e3c", 3 => "#d32f2f", 4 => "#7b1fa2",
                 5 => "#ff8f00", 6 => "#0097a7", 7 => "#424242", 8 => "#757575"},
@@ -229,17 +229,17 @@ class Minesweeper
       style: Style.new(fg: "white", bg: "#303050")
 
     game = menubar.add_menu "Game"
-    game.add("New") { new_game @difficulty }
+    game.add_action("New") { new_game @difficulty }
     game.add_separator
     DIFFICULTIES.each_key do |name|
-      action = game.add(name.capitalize) { new_game name }
+      action = game.add_action(name.capitalize) { new_game name }
       action.checkable = true
       @diff_actions[name] = action
     end
     game.add_separator
-    game.add("Cycle theme") { cycle_theme }
+    game.add_action("Cycle theme") { cycle_theme }
     game.add_separator
-    game.add("Quit") do
+    game.add_action("Quit") do
       # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
       # every window down before exiting, rather than hard-exiting behind the
       # toolkit's back.
@@ -247,11 +247,11 @@ class Minesweeper
     end
 
     help = menubar.add_menu "Help"
-    help.add("Controls") do
+    help.add_action("Controls") do
       @status.show_message \
         " Left-click: reveal · Right-click: flag · click a number to chord · t: theme"
     end
-    help.add("About") do
+    help.add_action("About") do
       @status.show_message " Minesweeper — a Crysterm example"
     end
   end

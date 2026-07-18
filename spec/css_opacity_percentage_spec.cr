@@ -10,24 +10,24 @@ describe "CSS opacity" do
   it "parses a numeric opacity" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "0.5")
-    s.alpha.should eq 0.5
+    s.opacity.should eq 0.5
   end
 
   it "parses a percentage opacity (CSS Color 4)" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "50%")
-    s.alpha.should eq 0.5
+    s.opacity.should eq 0.5
   end
 
   it "clamps an out-of-range percentage into [0, 1]" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "150%")
-    s.alpha.should eq 1.0
+    s.opacity.should eq 1.0
   end
 
-  it "ignores a blank/non-numeric value, leaving the alpha unset" do
+  it "ignores a blank/non-numeric value, leaving the opacity unset" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "opacity", "")
-    s.alpha.should be_nil
+    s.opacity.should be_nil
   end
 end

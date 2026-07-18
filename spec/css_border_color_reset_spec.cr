@@ -4,7 +4,7 @@ include Crysterm
 
 # The `border-color` shorthand recolors the whole border, so it must also clear
 # any per-side override (`border-top-color` & co.) a prior declaration set.
-# `Border#top_fg` & co. resolve to `@fg_<side> || @fg`; without the reset a
+# `Border#top_fg` & co. resolve to `@<side>_fg || @fg`; without the reset a
 # stale per-side color shadows the new color, leaving e.g.
 # `border-top-color: red; border-color: blue` red on top (a browser paints all
 # four sides blue).
@@ -15,7 +15,7 @@ describe "CSS border-color shorthand reset" do
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff")
     b = s.border
     # Per-side override cleared; every side resolves to the new color.
-    b.fg_top.should be_nil
+    b.top_fg.should be_nil
     b.top_fg.should eq 0x0000ff
     b.right_fg.should eq 0x0000ff
     b.bottom_fg.should eq 0x0000ff
@@ -37,6 +37,6 @@ describe "CSS border-color shorthand reset" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "border-top-color", "#ff0000")
     Crysterm::CSS::Properties.apply(s, "border-color", "") # e.g. undefined var() collapsed to ""
-    s.border.fg_top.should eq 0xff0000
+    s.border.top_fg.should eq 0xff0000
   end
 end

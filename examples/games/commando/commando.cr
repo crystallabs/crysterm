@@ -234,7 +234,7 @@ class Commando
       parent: frame,
       width: WORLD_W + 2,
       style: Style.new(fg: "white", bg: "#101410",
-        border: Border.new(BorderType::Line, fg: "#6a6a72"))
+        border: Border.new(BorderType::Solid, fg: "#6a6a72"))
     @field.painter = ->(f : Field) { draw_scene f }
 
     # The one row the field doesn't get. Only the size along the stacking axis is

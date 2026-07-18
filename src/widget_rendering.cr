@@ -108,7 +108,7 @@ module Crysterm
     property items = [] of Widget::Box
 
     # True only while this widget renders as a layer root into its own `Plane`.
-    # Translucency then comes from the plane's opacity, so the render-time alpha
+    # Translucency then comes from the plane's opacity, so the render-time
     # self-blend is suppressed.
     property compositing = false
 
@@ -205,9 +205,9 @@ module Crysterm
 
       lines = scr.lines
       fu = scr.full_unicode_effective?
-      # A layer root's alpha is applied as its plane's opacity at composite time,
+      # A layer root's opacity is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while painting into the plane.
-      style_alpha = @compositing ? nil : style.alpha?
+      style_opacity = @compositing ? nil : style.opacity?
       padding = style.padding
       fill = style.fill?
       xi = coords.xi
@@ -266,7 +266,7 @@ module Crysterm
       # fill). A background-image widget keeps the whole-box fill; a
       # `fill: false` widget must not be filled at all.
       if padding.any? || !@align.top?
-        if (alpha = style_alpha) && fill
+        if (opacity = style_opacity) && fill
           # Pre-blend only the bands the content loop won't reach: it blends the
           # content region itself, and blending twice makes a padded translucent
           # widget's interior more opaque than its padding. A background-image
@@ -291,7 +291,7 @@ module Crysterm
               unless cell
                 break
               end
-              cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
+              cell.attr = Colors.blend(attr, cell.attr, alpha: opacity)
               line.mark_dirty x
             end
           end
@@ -351,7 +351,7 @@ module Crysterm
       # very common "large box, little content" case). Everything except the
       # alpha blend writes a constant `{attr, bch}` there, so only the blend
       # needs the per-cell path.
-      bulk_fill_ok = style_alpha.nil?
+      bulk_fill_ok = style_opacity.nil?
 
       # Draw the content and background.
       (yi...yl).each do |y|
@@ -461,8 +461,8 @@ module Crysterm
                 break if x >= 0 && fcell.nil?
                 if draw_row && (fc = fcell)
                   paint_attr = highlighted_attr(attr, sel_cols, x - xi)
-                  if alpha = style_alpha
-                    fc.attr = Colors.blend(paint_attr, fc.attr, alpha: alpha)
+                  if opacity = style_opacity
+                    fc.attr = Colors.blend(paint_attr, fc.attr, alpha: opacity)
                     if content[ci - 1]?
                       fc.char = ch
                     end
@@ -548,8 +548,8 @@ module Crysterm
 
           if t = target
             paint_attr = highlighted_attr(attr, sel_cols, x - xi)
-            if alpha = style_alpha
-              t.attr = Colors.blend(paint_attr, t.attr, alpha: alpha)
+            if opacity = style_opacity
+              t.attr = Colors.blend(paint_attr, t.attr, alpha: opacity)
               if has_content
                 is_cluster ? (t.grapheme = grapheme) : (t.char = ch)
               end
@@ -710,7 +710,7 @@ module Crysterm
           if s.glyphs?
             blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, s.left_char, s.top_left_char, s.bottom_left_char
           else
-            scr.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
+            scr.blend_region s.opacity, xi - s.left, xi, Math.max(i, 0), l
           end
         end
 
@@ -719,7 +719,7 @@ module Crysterm
           if s.glyphs?
             blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
           else
-            scr.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
+            scr.blend_region s.opacity, Math.max(xi, 0), l, yi - s.top, yi
           end
         end
 
@@ -729,7 +729,7 @@ module Crysterm
           if s.glyphs?
             blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, s.right_char, s.top_right_char, s.bottom_right_char
           else
-            scr.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
+            scr.blend_region s.opacity, xl, xl + s.right, Math.max(i, 0), l
           end
         end
 
@@ -739,7 +739,7 @@ module Crysterm
           if s.glyphs?
             blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, s.bottom_char, s.bottom_left_char, s.bottom_right_char
           else
-            scr.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
+            scr.blend_region s.opacity, Math.max(i, 0), l, yl, yl + s.bottom
           end
         end
       end
@@ -777,18 +777,18 @@ module Crysterm
     # to nothing (no cap on that side) draw no cells, so each corner is painted by
     # exactly one band.
     private def blend_shadow_v(scr, s, cx0, cx1, i, l, yi, yl, run, top_cap, bot_cap)
-      scr.blend_region s.alpha, cx0, cx1, i, Math.min(l, yi), glyph: top_cap
-      scr.blend_region s.alpha, cx0, cx1, Math.max(i, yi), Math.min(l, yl), glyph: run
-      scr.blend_region s.alpha, cx0, cx1, Math.max(i, yl), l, glyph: bot_cap
+      scr.blend_region s.opacity, cx0, cx1, i, Math.min(l, yi), glyph: top_cap
+      scr.blend_region s.opacity, cx0, cx1, Math.max(i, yi), Math.min(l, yl), glyph: run
+      scr.blend_region s.opacity, cx0, cx1, Math.max(i, yl), l, glyph: bot_cap
     end
 
     # :ditto: for a horizontal (top/bottom) band in rows *ry0*...*ry1*, columns
     # *i*...*l*, split at the box's own column span *xi*...*xl* (run + left/right
     # corner caps).
     private def blend_shadow_h(scr, s, i, l, ry0, ry1, xi, xl, run, left_cap, right_cap)
-      scr.blend_region s.alpha, i, Math.min(l, xi), ry0, ry1, glyph: left_cap
-      scr.blend_region s.alpha, Math.max(i, xi), Math.min(l, xl), ry0, ry1, glyph: run
-      scr.blend_region s.alpha, Math.max(i, xl), l, ry0, ry1, glyph: right_cap
+      scr.blend_region s.opacity, i, Math.min(l, xi), ry0, ry1, glyph: left_cap
+      scr.blend_region s.opacity, Math.max(i, xi), Math.min(l, xl), ry0, ry1, glyph: run
+      scr.blend_region s.opacity, Math.max(i, xl), l, ry0, ry1, glyph: right_cap
     end
 
     # Registers on the window the rows where this widget emits horizontal
@@ -798,7 +798,7 @@ module Crysterm
     # of a line-type border; widgets drawing lines otherwise override this.
     protected def register_dock_stops(coords : RenderedGeometry)
       style.border.try do |border|
-        if border.any? && border.type.line?
+        if border.any? && border.type.solid?
           # A widget rendering into a compositing plane registers on the *plane*
           # stops so overlay borders join each other but not the base content
           # beneath; a base-layer widget uses the window stops. The gate must be
@@ -958,7 +958,10 @@ module Crysterm
     # again on every combination.
     def self.style_to_attr_flags(style) : Int32
       # TODO support style.* being Procs ?
-      (style.visible? ? 0 : Attr::INVISIBLE) |
+      # `visible` lives on `Style` proper, not the shared SGR mixin: a `Border`
+      # passed here (a widget's four sides share it as the style object) has no
+      # `visible?` and is always drawn. `responds_to?` resolves at compile time.
+      ((style.responds_to?(:visible?) && !style.visible?) ? Attr::INVISIBLE : 0) |
         (style.reverse? ? Attr::REVERSE : 0) |
         (style.blink? ? Attr::BLINK : 0) |
         (style.underline? ? Attr::UNDERLINE : 0) |

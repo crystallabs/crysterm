@@ -97,3 +97,89 @@ describe Crysterm::TerminalEmulator do
     end
   end
 end
+
+# BUGS15 #26 follow-up: the same wide-glyph pair repairs print_char got must
+# also run at the boundaries of EL/ECH (erase_in_line), DCH (delete_chars),
+# ICH (insert_chars) and the IRM per-char shift — all of which can split a
+# pair the same way. Asserted at the grid level, like the print_char cases.
+describe "editing-op boundaries repair split wide-glyph pairs (#26 follow-up)" do
+  describe "erase_in_line (EL / ECH)" do
+    it "blanks the orphaned lead when the erased range starts on a continuation" do
+      em = emu
+      em.feed "あX"                      # lead col0, CONTINUATION col1, X col2
+      em.feed "\e[1;2H"                 # cursor onto the trailing half
+      em.feed "\e[K"                    # EL 0: erase cursor → eol
+      cell_char(em, 0, 0).should eq ' ' # lead blanked, not left 2-wide
+      cell_char(em, 1, 0).should eq ' '
+    end
+
+    it "blanks the orphaned continuation when the erased range ends on a lead" do
+      em = emu
+      em.feed "あ"
+      em.feed "\e[1;1H"
+      em.feed "\e[1K" # EL 1: erase sol → cursor (col0, the lead only)
+      cell_char(em, 0, 0).should eq ' '
+      cell_char(em, 1, 0).should eq ' ' # was CONTINUATION, lead gone
+    end
+
+    it "repairs both halves when ECH erases just the trailing half" do
+      em = emu
+      em.feed "あ"
+      em.feed "\e[1;2H"
+      em.feed "\e[1X" # ECH 1 at the continuation cell
+      cell_char(em, 0, 0).should eq ' '
+      cell_char(em, 1, 0).should eq ' '
+    end
+  end
+
+  describe "delete_chars (DCH)" do
+    it "blanks the orphaned lead when deletion starts on a continuation" do
+      em = emu
+      em.feed "あB"      # lead 0, CONTINUATION 1, B 2
+      em.feed "\e[1;2H" # cursor onto the trailing half
+      em.feed "\e[1P"   # delete it; B shifts left into col1
+      cell_char(em, 0, 0).should eq ' '
+      cell_char(em, 1, 0).should eq 'B'
+    end
+
+    it "blanks the bare continuation pulled up when deletion ends inside a pair" do
+      em = emu
+      em.feed "Aあ"      # A 0, lead 1, CONTINUATION 2
+      em.feed "\e[1;2H" # cursor onto the lead
+      em.feed "\e[1P"   # delete the lead; its continuation shifts into col1
+      cell_char(em, 0, 0).should eq 'A'
+      cell_char(em, 1, 0).should eq ' ' # not a floating CONTINUATION
+    end
+  end
+
+  describe "insert_chars (ICH)" do
+    it "repairs both sides of a gap opened inside a pair" do
+      em = emu
+      em.feed "あ"
+      em.feed "\e[1;2H"                 # cursor onto the trailing half
+      em.feed "\e[1@"                   # open 1 blank cell there
+      cell_char(em, 0, 0).should eq ' ' # lead left of the gap
+      cell_char(em, 1, 0).should eq ' ' # the gap itself
+      cell_char(em, 2, 0).should eq ' ' # shifted CONTINUATION, lead gone
+    end
+
+    it "blanks the bare lead left in the last cell when the shift clips a pair" do
+      em = emu           # 6 cols
+      em.feed "\e[1;5Hあ" # lead col4, CONTINUATION col5
+      em.feed "\e[1;1H"
+      em.feed "\e[1@" # shift right: lead → col5, continuation dropped
+      cell_char(em, 5, 0).should eq ' '
+    end
+  end
+
+  describe "IRM (insert mode) per-char shift" do
+    it "blanks the bare lead left in the last cell when printing clips a pair" do
+      em = emu           # 6 cols
+      em.feed "\e[1;5Hあ" # lead col4, CONTINUATION col5
+      em.feed "\e[4h"    # IRM on
+      em.feed "\e[1;1HZ" # insert-print at col0: shift clips the pair
+      cell_char(em, 0, 0).should eq 'Z'
+      cell_char(em, 5, 0).should eq ' '
+    end
+  end
+end

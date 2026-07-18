@@ -59,7 +59,7 @@ module Crysterm
     # A widget under *active* CSS that matches no rule ends `css_styled? == false`,
     # yet every restyle still resets it to a fresh dup of its pristine snapshot,
     # so the change must land on that snapshot too or the next cascade silently
-    # undoes it (a hidden widget reappears; a faded one snaps back to full alpha).
+    # undoes it (a hidden widget reappears; a faded one snaps back to full opacity).
     # Widgets no cascade ever touched have no snapshot — no-op for them.
     protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
       if css_styled?

@@ -21,8 +21,8 @@ module Crysterm
     # (`right: 2, bottom: 1`, none on the left/top).
     SidedGeometry.sided_int_properties right: 2, bottom: 1
 
-    # Shadow alpha value (0 == full transparency, 1 == full opacity)
-    property alpha : Float64 = 0.5
+    # Shadow opacity value (0 == full transparency, 1 == full opacity)
+    property opacity : Float64 = 0.5
 
     # Optional glyphs used to paint a *thin* shadow: a band with a glyph set is
     # drawn with that half-block character rather than by darkening the whole
@@ -108,7 +108,7 @@ module Crysterm
       @top = @top,
       @right = @right,
       @bottom = @bottom,
-      @alpha = @alpha,
+      @opacity = @opacity,
       @horizontal_char = @horizontal_char,
       @vertical_char = @vertical_char,
       @diagonal_char = @diagonal_char,
@@ -137,14 +137,14 @@ module Crysterm
       in Float
         Shadow.new value
       in Int
-        # A bare integer sets every side to that width, alpha staying at its
+        # A bare integer sets every side to that width, opacity staying at its
         # default — consistent with `Border`/`Padding`/`Margin`.
         v = value.to_i32
         Shadow.new(v, v, v, v)
       end
     end
 
-    def initialize(@alpha : Float64)
+    def initialize(@opacity : Float64)
     end
 
     # Resolves a per-side shadow spec to a width/height: `true` means the
@@ -158,7 +158,12 @@ module Crysterm
       end
     end
 
-    def initialize(left : Bool | Int32?, top : Bool | Int32?, right : Bool | Int32?, bottom : Bool | Int32?, @alpha = @alpha)
+    # *opacity* is keyword-only: a positional 5th argument here would be
+    # ambiguous with the all-defaulted ivar initializer above (both accept
+    # `(Int32, Int32, Int32, Int32, Float64)` positionally), so a caller
+    # wanting a non-default opacity through this `Bool | Int32?` overload must
+    # name it explicitly.
+    def initialize(left : Bool | Int32?, top : Bool | Int32?, right : Bool | Int32?, bottom : Bool | Int32?, *, @opacity = @opacity)
       @left = dim left, 2
       @top = dim top, 1
       @right = dim right, 2

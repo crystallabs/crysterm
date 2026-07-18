@@ -85,7 +85,7 @@ describe "BUGS13 M14: menus re-home on a cross-window move" do
     s2 = bar_screen
     bar = Widget::MenuBar.new parent: s1, top: 0, left: 0, width: 40, height: 1
     menu = bar.add_menu "File"
-    menu.add("New") { }
+    menu.add_action("New") { }
     menu.window?.should eq s1
 
     s1.remove bar

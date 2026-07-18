@@ -81,8 +81,8 @@ describe "BUGS7 Menu Enter/Escape reveal gate" do
     s = uni_window
     activated = [] of String
     menu = Widget::Menu.new parent: s
-    menu.add("Open") { activated << "Open" }
-    menu.add("Save") { activated << "Save" }
+    menu.add_action("Open") { activated << "Open" }
+    menu.add_action("Save") { activated << "Save" }
     menu.popup 1, 1 # opens with no row highlighted
 
     menu.on_keypress Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)

@@ -33,7 +33,7 @@ Widget::Box.new \
 bars = Widget::Graph::Bar.new \
   parent: s,
   top: 2, left: 40, width: 36, height: 8,
-  label: " Block elements ", min: 0.0, max: 1.0,
+  label: " Block elements ", minimum: 0.0, maximum: 1.0,
   style: Style.new(fg: "cyan", bg: "#101010", border: true)
 
 phase = 0.0

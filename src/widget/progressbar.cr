@@ -232,7 +232,10 @@ module Crysterm
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?
-          window.fill_region default_attr, style.percent_char, xi, fill_xl, fill_yi, yl
+          # Fill glyph: registry `ProgressFill` (a space, showing as a solid bar
+          # via the fg/bg inversion above), overridable per-widget with
+          # `ProgressBar::indicator { glyph: "▓" }`.
+          window.fill_region default_attr, glyph(Glyphs::Role::ProgressFill, ind), xi, fill_xl, fill_yi, yl
 
           # Text to overlay: the Qt-style indicator when enabled, otherwise any
           # pre-parsed content (via `#pcontent`).

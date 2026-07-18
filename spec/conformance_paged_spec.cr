@@ -4,7 +4,7 @@ include Crysterm
 
 # FORMAL-WIDGETS Part B / B8 — shared behavioral conformance for the paged
 # container family (`StackedWidget`, `TabWidget`, `ToolBox`, `Wizard`). Only the
-# *adding* verb still differs per widget (`add_page`/`add_tab`/`add_item`); the
+# *adding* verb still differs per widget (`add_widget`/`add_tab`/`add_item`); the
 # selection contract (`count`, `current_index`/`current_index=`,
 # `current_widget`/`current_widget=`, `Event::CurrentChanged`) is one shared
 # `Mixin::PagedContainer`, so the adapter differs only where it must. Pins the
@@ -79,7 +79,7 @@ describe "Paged container conformance (B8)" do
   it_behaves_like_a_paged_container PagedCase.new(
     name: "StackedWidget",
     build: ->(s : Crysterm::Window) { Crysterm::Widget::StackedWidget.new(parent: s, width: 30, height: 10).as(Crysterm::Widget) },
-    add: ->(w : Crysterm::Widget, p : Crysterm::Widget) { w.as(Crysterm::Widget::StackedWidget).add_page p; nil },
+    add: ->(w : Crysterm::Widget, p : Crysterm::Widget) { w.as(Crysterm::Widget::StackedWidget).add_widget p; nil },
     current_index: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::StackedWidget).current_index },
     current_widget: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::StackedWidget).current_widget },
     set_current: ->(w : Crysterm::Widget, i : Int32) { w.as(Crysterm::Widget::StackedWidget).current_index = i; nil },

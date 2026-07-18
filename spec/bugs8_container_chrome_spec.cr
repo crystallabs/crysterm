@@ -10,7 +10,7 @@ end
 
 # BUGS8 #8 — the carousel auto-advance timer was created on Attach and stopped
 # only on Destroy, with no Detach handler. A `TabWidget` `remove`d (not
-# destroyed) from its window left the FrameClock timer firing `next_tab` on the
+# destroyed) from its window left the FrameClock timer firing `next_page` on the
 # detached widget forever, pinning it alive.
 describe "BUGS8 TabWidget carousel timer stops on detach (not just destroy)" do
   it "stops the timer when the widget is removed without being destroyed" do

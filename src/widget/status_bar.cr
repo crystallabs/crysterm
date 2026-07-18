@@ -95,6 +95,16 @@ module Crysterm
         request_render
       end
 
+      # Removes the first permanent section equal to *text* (Qt's
+      # `removeWidget`, specialized to a text label); a no-op when none matches.
+      def remove_permanent(text : String) : Nil
+        idx = @permanent.index text
+        return unless idx
+        @permanent.delete_at idx
+        @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
+        request_render
+      end
+
       # Removes all permanent sections.
       def clear_permanent : Nil
         @permanent.clear

@@ -16,8 +16,8 @@ module Crysterm
     #
     # ```
     # wiz = Widget::Wizard.new parent: window, width: 50, height: 16, style: Style.new(border: true)
-    # wiz.add_page Widget::Box.new(content: "Welcome"), title: "Intro"
-    # wiz.add_page Widget::Form.new, title: "Details"
+    # wiz.add_page "Intro", Widget::Box.new(content: "Welcome")
+    # wiz.add_page "Details", Widget::Form.new
     # wiz.on(Event::Completed) { finish! }
     # ```
     #
@@ -122,12 +122,19 @@ module Crysterm
         stack.count
       end
 
-      # Appends *page* (optionally titled) and refreshes the buttons.
-      def add_page(page : Widget, title : String = "") : self
+      # Appends *page* titled *title* and refreshes the buttons. Title-first
+      # argument order, matching every other container add-verb in the toolkit (a
+      # deliberate, uniform deviation from Qt's widget-first `addPage`). Returns `self`.
+      def add_page(title : String, page : Widget) : self
         @titles << title
-        stack.add_page page
+        stack.add_widget page
         refresh_buttons
         self
+      end
+
+      # :ditto: — untitled overload for when a page needs no caption.
+      def add_page(page : Widget) : self
+        add_page "", page
       end
 
       # Goes to the previous page (no-op on the first).

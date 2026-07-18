@@ -66,11 +66,11 @@ describe "BUGS15 CSS transition" do
     mid = b.style.bg.not_nil!
     mid.should_not eq 0xffffff # bg tweening, not snapped
     (0x101010 <= mid <= 0xf0f0f0).should be_true
-    (0.2 <= b.style.alpha.not_nil! <= 0.8).should be_true # opacity tweening too
+    (0.2 <= b.style.opacity.not_nil! <= 0.8).should be_true # opacity tweening too
 
     sleep 0.25.seconds
     b.style.bg.should eq 0xffffff
-    (b.style.alpha.not_nil! < 0.05).should be_true
+    (b.style.opacity.not_nil! < 0.05).should be_true
   end
 
   # #60 — an explicit per-property entry overrides `all` (and does not double-run
@@ -86,7 +86,7 @@ describe "BUGS15 CSS transition" do
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.35.seconds
     b.style.bg.should eq 0xffffff
-    (b.style.alpha.not_nil! < 0.05).should be_true
+    (b.style.opacity.not_nil! < 0.05).should be_true
   end
 
   # #27 — leaving a state whose transition tweened a property must cancel that
@@ -102,17 +102,17 @@ describe "BUGS15 CSS transition" do
     s.stylesheet = ".b27 { opacity: 1.0; transition: background-color 0.2s linear; } " \
                    ".b27:hover { opacity: 0.5; transition: opacity 2s linear; }"
     s._render
-    b.style.alpha.should eq 1.0
+    b.style.opacity.should eq 1.0
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.15.seconds # opacity tweening 1.0 -> 0.5, still far from done (2s)
-    (0.5 < b.style.alpha.not_nil! < 1.0).should be_true
+    (0.5 < b.style.opacity.not_nil! < 1.0).should be_true
 
     b.state = Crysterm::WidgetState::Normal
     b.transition_running?.should be_false # tween stopped, not left in flight
     sleep 0.2.seconds
     # Without the fix the orphaned tween keeps writing toward 0.5 into the
     # normal style; with it, normal opacity stays put.
-    b.style.alpha.should eq 1.0
+    b.style.opacity.should eq 1.0
   end
 end

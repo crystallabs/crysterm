@@ -65,7 +65,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
   it "does not wrap glyph rows to the bottom of the screen for a negative top" do
     s = neg_screen 60, 24
     bt = Crysterm::Widget::BigText.new parent: s, top: -6, left: 0,
-      content: "A", style: Style.new(foreground_char: '#')
+      content: "A", foreground_char: '#'
     s._render
 
     # The glyph is drawn with '#'; the rows that hang off the top must be
@@ -82,7 +82,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
   it "does not wrap glyph columns to the right of the screen for a negative left" do
     s = neg_screen 60, 24
     Crysterm::Widget::BigText.new parent: s, top: 0, left: -4,
-      content: "A", style: Style.new(foreground_char: '#')
+      content: "A", foreground_char: '#'
     s._render
 
     # Columns hanging off the left edge must be dropped, not wrapped to the

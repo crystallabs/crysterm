@@ -15,9 +15,9 @@ end
 
 private def three_page_wizard(s)
   wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
-  wiz.add_page Crysterm::Widget::Box.new(content: "1"), title: "One"
-  wiz.add_page Crysterm::Widget::Box.new(content: "2"), title: "Two"
-  wiz.add_page Crysterm::Widget::Box.new(content: "3"), title: "Three"
+  wiz.add_page "One", Crysterm::Widget::Box.new(content: "1")
+  wiz.add_page "Two", Crysterm::Widget::Box.new(content: "2")
+  wiz.add_page "Three", Crysterm::Widget::Box.new(content: "3")
   wiz
 end
 
@@ -52,8 +52,8 @@ describe "Wizard Enter/Escape keys (B0.4)" do
     s = mem_screen
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
     page = Crysterm::Widget::Box.new
-    wiz.add_page page, title: "Form"
-    wiz.add_page Crysterm::Widget::Box.new(content: "2"), title: "Two"
+    wiz.add_page "Form", page
+    wiz.add_page "Two", Crysterm::Widget::Box.new(content: "2")
     le = Crysterm::Widget::LineEdit.new parent: page, top: 0, left: 0, width: 20, height: 1
     s._render
     le.focus

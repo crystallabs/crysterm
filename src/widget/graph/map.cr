@@ -46,12 +46,20 @@ module Crysterm
           property latitude : Float64
           property longitude : Float64
           property char : Char
-          property color : Int32
+          # Marker color, a native `0xRRGGBB` `Int32`. A color name/`"#rrggbb"`
+          # string is accepted and converted at assignment.
+          getter color : Int32
           property label : String?
 
           def initialize(@latitude, @longitude,
                          @char = Glyphs[Glyphs::Role::MapMarker, Glyphs::Tier::Unicode],
-                         @color = 0xE05050, @label = nil)
+                         color : Int32 | String = 0xE05050, @label = nil)
+            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+          end
+
+          # Assigns the marker color, converting a color name/`"#rrggbb"` string.
+          def color=(c : Int32 | String) : Int32
+            @color = c.is_a?(String) ? Colors.convert_cached(c) : c
           end
         end
 
@@ -129,7 +137,7 @@ module Crysterm
         # Adds a marker at a geographic coordinate (Qt's `MapQuickItem`). The
         # default *char* comes from the `Glyphs` registry at the effective tier.
         def add_marker(latitude : Number, longitude : Number, char : Char? = nil,
-                       color : Int32 = 0xE05050, label : String? = nil) : Marker
+                       color : Int32 | String = 0xE05050, label : String? = nil) : Marker
           m = Marker.new latitude.to_f, longitude.to_f, char || glyph(Glyphs::Role::MapMarker), color, label
           @markers << m
           # Markers are a text overlay, not part of the coastline Canvas paint, so

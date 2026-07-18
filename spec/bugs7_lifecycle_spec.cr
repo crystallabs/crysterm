@@ -103,7 +103,7 @@ describe "BUGS7 page-less Wizard does not complete" do
   it "completes normally once on the last real page (no regression)" do
     s = life_window
     wiz = Widget::Wizard.new parent: s
-    wiz.add_page Widget::Box.new, "one"
+    wiz.add_page "one", Widget::Box.new
     completes = 0
     wiz.on(Crysterm::Event::Completed) { completes += 1 }
 

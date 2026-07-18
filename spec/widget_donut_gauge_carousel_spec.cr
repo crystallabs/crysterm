@@ -137,13 +137,13 @@ describe "Carousel (TabWidget auto-advance)" do
     c.@carousel_timer.nil?.should be_true
   end
 
-  it "next_tab cycles with wrap (the action the timer invokes)" do
+  it "next_page cycles with wrap (the action the timer invokes)" do
     s = hscreen
     c = Crysterm::Widget::TabWidget.new parent: s, width: 30, height: 8
     c.add_tab "A", Crysterm::Widget::Box.new(content: "a")
     c.add_tab "B", Crysterm::Widget::Box.new(content: "b")
     c.current_index.should eq 0
-    c.next_tab; c.current_index.should eq 1
-    c.next_tab; c.current_index.should eq 0 # wrapped
+    c.next_page; c.current_index.should eq 1
+    c.next_page; c.current_index.should eq 0 # wrapped
   end
 end

@@ -74,6 +74,15 @@ module Crysterm
         add_item(text) { block.call }
       end
 
+      # Operator alias for `#add_action`, e.g. `toolbar << action`. `Action` is
+      # not a `Widget`, so this doesn't collide with `Mixin::Children#<<(Widget)`
+      # (which still appends a raw child). `#add_action` stays the primary,
+      # Qt-faithful spelling (and returns the button box); `#<<` returns `self`.
+      def <<(action : Action) : self
+        add_action action
+        self
+      end
+
       private def activate_action(action : Action) : Nil
         # `#activate` toggles a checkable action and fires it (Qt semantics); the
         # bar must not pre-toggle or it would cancel out.

@@ -1,5 +1,24 @@
 module Crysterm
   module Mixin
+    # The widget-side style model. The round-trip in one place:
+    #
+    # - `#inline_style` (the raw `@style`, set via `style:`/`style=`) is the
+    #   user's inline override. It is never mutated by the cascade.
+    # - `#styles` is the computed per-state set (`Styles#[](state)`). With CSS
+    #   active, the cascade rebuilds it from the pristine `#css_base_styles`
+    #   snapshot, layering tiers default(0) < author(1) < inline(2) <
+    #   author-state < `!important`(3) — so inline beats plain author rules,
+    #   while state-specific rules and `!important` beat inline.
+    # - `#style` is what rendering reads: the resolved style for the *current*
+    #   state and frame (memoized per frame; adds the unstyled-floor
+    #   reverse-video/border fallbacks via transient copies).
+    # - `#state_style` is what programmatic *writes* use: the persistent backing
+    #   `Style` for the current state, with no transient fallback copies — a
+    #   write through `#style` could land on a throwaway dup and be lost.
+    #
+    # So: configure with `inline_style`/stylesheets, paint from `#style`,
+    # persist runtime flips (e.g. `visible` from `hide`/`show`) via
+    # `#state_style`.
     module Style
       # Current state of Widget
 
@@ -84,7 +103,7 @@ module Crysterm
       # already captured (i.e. this widget has been through a cascade) — `nil`
       # otherwise, so callers never force an eager capture.
       #
-      # A programmatic change (`hide`/fade alpha) to a widget under active CSS that
+      # A programmatic change (`hide`/fade opacity) to a widget under active CSS that
       # matches no rule (`css_styled? == false`) must be persisted here too: the
       # cascade resets such a widget to a fresh dup of this snapshot on every
       # restyle, so a change written only to the computed styles would be silently
@@ -138,7 +157,7 @@ module Crysterm
       # no floor highlight fallbacks — the single source of the state→style map
       # shared by `#state_style` and `#style`.
       private def per_state_style : ::Crysterm::Style
-        @styles.for_state(@state)
+        @styles[@state]
       end
 
       # The resolved `Style` for the current frame, memoized per widget per window

@@ -21,7 +21,7 @@ module Crysterm
   #
   # # tween: fade a widget out over half a second (the block gets the clock)
   # Crysterm::FrameClock.new(0.03.seconds, duration: 0.5.seconds, easing: :in_out_sine) do |clock|
-  #   widget.style.alpha = 1.0 - clock.value
+  #   widget.style.opacity = 1.0 - clock.value
   #   widget.request_render
   # end.start
   # ```

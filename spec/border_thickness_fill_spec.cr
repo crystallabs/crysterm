@@ -21,14 +21,14 @@ private def rows(s)
 end
 
 describe "thick border band fill" do
-  it "fills a 2-cell-thick Bg border with per-position chars" do
+  it "fills a 2-cell-thick Fill border with per-position chars" do
     s = screen 6, 6
     s.alloc
     b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 6, height: 6, content: "")
-    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Bg, left: 2, top: 2, right: 2, bottom: 2)
-    b.style.border.not_nil!.char_horizontal = 'h'
-    b.style.border.not_nil!.char_vertical = 'v'
-    b.style.border.not_nil!.char_corner = 'c'
+    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Fill, left: 2, top: 2, right: 2, bottom: 2)
+    b.style.border.not_nil!.horizontal_char = 'h'
+    b.style.border.not_nil!.vertical_char = 'v'
+    b.style.border.not_nil!.corner_char = 'c'
     s << b
     s._render
 
@@ -44,11 +44,11 @@ describe "thick border band fill" do
     r[5].should eq "cchhcc"
   end
 
-  it "fills a 2-cell-thick Line border with repeated run glyphs and corners" do
+  it "fills a 2-cell-thick Solid border with repeated run glyphs and corners" do
     s = screen 6, 6
     s.alloc
     b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 6, height: 6, content: "")
-    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line, left: 2, top: 2, right: 2, bottom: 2)
+    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid, left: 2, top: 2, right: 2, bottom: 2)
     s << b
     s._render
 
@@ -65,7 +65,7 @@ describe "thick border band fill" do
     s = screen 4, 4
     s.alloc
     b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 4, content: "")
-    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line)
+    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b
     s._render
 

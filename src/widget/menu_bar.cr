@@ -15,8 +15,8 @@ module Crysterm
     # ```
     # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # file = bar.add_menu "File"
-    # file.add("New") { new_doc }
-    # file.add("Open") { open_doc }
+    # file.add_action("New") { new_doc }
+    # file.add_action("Open") { open_doc }
     # bar.add_menu "Edit", [cut_action, copy_action]
     # ```
     #
@@ -78,7 +78,7 @@ module Crysterm
         # hovering another title still switches menus while one is open.
         menu.treat_as_inside { |x, y| grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
-        # Actions added *after* this call (`file.add action` on an attached bar)
+        # Actions added *after* this call (`file << action` on an attached bar)
         # need their accelerators too: the menu emits `SetItems` on every
         # structural change, so re-run the idempotent install then. Scope it to
         # the changed menu — `SetItems` fires per-add while a bar is built, so

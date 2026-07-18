@@ -55,7 +55,7 @@ describe "content-exhausted fill tail" do
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       style: Style.new(bg: 0x0000ff)
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
-      content: "x", style: Style.new(bg: 0xff0000, alpha: 0.5)
+      content: "x", style: Style.new(bg: 0xff0000, opacity: 0.5)
     s._render
     # A tail cell of the translucent overlay must show a mix, not the overlay's
     # own bg (bulk fill would stamp the raw attr over the backdrop).

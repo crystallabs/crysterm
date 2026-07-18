@@ -141,9 +141,9 @@ describe "CSS end-to-end rendering" do
   it "paints Menu::separator color onto the separator rule row" do
     screen = render_screen
     menu = Widget::Menu.new width: 20
-    menu.add "Open"
+    menu.add_action "Open"
     menu.add_separator
-    menu.add "Quit"
+    menu.add_action "Quit"
     screen.append menu
     # opacity: 1.0 cancels the theme's translucent Menu plane so the separator
     # fg is exact rather than alpha-blended

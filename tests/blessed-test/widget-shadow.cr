@@ -40,7 +40,7 @@ module Crysterm
     draggable: true,
     parse_tags: true,
     content: "{green-bg}{red-fg}{bold} --Drag Me-- {/}",
-    style: Style.new(bg: "red", border: true, shadow: true, alpha: 0.5)
+    style: Style.new(bg: "red", border: true, shadow: true, opacity: 0.5)
 
   over.focus
 

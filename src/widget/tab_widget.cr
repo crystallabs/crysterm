@@ -124,7 +124,7 @@ module Crysterm
         # Carousel auto-advance: start once attached to a window (the timer needs
         # one), and stop on destroy so it doesn't poke a dead widget. Also stop on
         # a plain detach (`remove` without `destroy`): otherwise the `FrameClock`
-        # timer keeps firing `next_tab` on the now-windowless widget forever,
+        # timer keeps firing `next_page` on the now-windowless widget forever,
         # pinning it alive via the closure. A later re-attach re-arms via `Attached`.
         wire_window_lifecycle destroy: true
       end
@@ -167,7 +167,7 @@ module Crysterm
         return unless span
         scr = window?
         return unless scr
-        @carousel_timer = scr.every(span) { next_tab }
+        @carousel_timer = scr.every(span) { next_page }
       end
 
       private def stop_carousel : Nil
@@ -405,24 +405,14 @@ module Crysterm
       # Accepting the event suppresses the window's default scroll-the-view.
       private def wheel_cycle(e : ::Crysterm::Event::Mouse) : Bool
         if e.action.wheel_down?
-          next_tab
+          next_page
         elsif e.action.wheel_up?
-          previous_tab
+          previous_page
         else
           return false
         end
         e.accept
         true
-      end
-
-      # Selects the next tab (wrapping at the end).
-      def next_tab : Nil
-        next_index
-      end
-
-      # Selects the previous tab (wrapping at the start).
-      def previous_tab : Nil
-        previous_index
       end
     end
   end

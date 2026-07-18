@@ -66,7 +66,7 @@ private def padding_ring_attr(fill : Bool)
     style: Crysterm::Style.new(bg: "red")
 
   st = Crysterm::Style.new(bg: "blue")
-  st.alpha = 0.5
+  st.opacity = 0.5
   st.fill = fill
   st.padding = 1
 
@@ -78,12 +78,12 @@ private def padding_ring_attr(fill : Bool)
   {Crysterm::Attr.bg(s.lines[lp.yi][lp.xi].attr), lp}
 end
 
-# BUGS15 #91 — the alpha pre-blend in `_render`'s pre-fill block ran
+# BUGS15 #91 — the opacity pre-blend in `_render`'s pre-fill block ran
 # unconditionally, painting a `fill: false` widget's padding/valign bands even
 # though its whole contract is to draw no background of its own. The sibling
-# opaque-fill branches were already gated on `fill`; only the alpha branch was
-# not. Fixed by gating it too: `if (alpha = style_alpha) && fill`.
-describe "BUGS15 91: alpha pre-blend honors fill: false" do
+# opaque-fill branches were already gated on `fill`; only the opacity branch was
+# not. Fixed by gating it too: `if (opacity = style_opacity) && fill`.
+describe "BUGS15 91: opacity pre-blend honors fill: false" do
   it "leaves the padding ring showing the backdrop untouched when fill: false" do
     attr, lp = padding_ring_attr(false)
     expected = backdrop_attr_at(lp.yi, lp.xi)

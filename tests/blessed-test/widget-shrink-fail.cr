@@ -29,7 +29,7 @@ module Crysterm
     keys: true,
     label: " {blue-fg}Form{/blue-fg} ", # blessed's `mouse: true` isn't a Crysterm kwarg; dropped
     parse_tags: true,
-    style: Style.new(border: BorderType::Line)
+    style: Style.new(border: BorderType::Solid)
 
   # Foo
   Widget::Text.new \

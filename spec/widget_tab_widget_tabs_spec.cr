@@ -42,7 +42,7 @@ describe Crysterm::Widget::TabWidget do
       pc = Crysterm::Widget::Box.new
       tabs.add_tab "A", pa
       tabs.add_tab "C", pc
-      tabs.next_tab # current => C (index 1)
+      tabs.next_page # current => C (index 1)
 
       pb = Crysterm::Widget::Box.new
       tabs.insert_tab(1, "B", pb).should eq 1
@@ -75,7 +75,7 @@ describe Crysterm::Widget::TabWidget do
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       tabs.add_tab "A", Crysterm::Widget::Box.new
       tabs.add_tab "B", Crysterm::Widget::Box.new
-      tabs.next_tab
+      tabs.next_page
 
       tabs.tab_text(1).should eq "B"
       tabs.tab_text(9).should be_nil
@@ -115,25 +115,25 @@ describe Crysterm::Widget::TabWidget do
 
       tabs.add_tab "A", Crysterm::Widget::Box.new # first page becomes current
       tabs.add_tab "B", Crysterm::Widget::Box.new
-      tabs.next_tab
+      tabs.next_page
       tabs.remove_tab 1
       tabs.remove_tab 0 # container now empty
       seen.should eq [0, 1, 0, -1]
     end
   end
 
-  describe "#next_tab / #previous_tab" do
+  describe "#next_page / #previous_page" do
     it "wraps around both ends" do
       s = tab_screen
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
       3.times { |i| tabs.add_tab "T#{i}", Crysterm::Widget::Box.new }
       tabs.current_index.should eq 0
-      tabs.next_tab
+      tabs.next_page
       tabs.current_index.should eq 1
-      tabs.previous_tab
-      tabs.previous_tab # wraps 0 -> 2
+      tabs.previous_page
+      tabs.previous_page # wraps 0 -> 2
       tabs.current_index.should eq 2
-      tabs.next_tab # wraps 2 -> 0
+      tabs.next_page # wraps 2 -> 0
       tabs.current_index.should eq 0
     end
   end
@@ -196,7 +196,7 @@ describe Crysterm::Widget::TabWidget do
       tabs.add_tab "A", p0
       tabs.add_tab "B", p1
       tabs.add_tab "C", p2
-      tabs.next_tab # current => B (index 1)
+      tabs.next_page # current => B (index 1)
       tabs.current_widget.should be(p1)
 
       tabs.move_tab 1, 0 # move B to the front

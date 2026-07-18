@@ -61,7 +61,7 @@ describe "Widget#_render off-screen clipping" do
     s = screen width: 12, height: 3
     s.alloc
     b = Crysterm::Widget::Box.new(left: -2, top: 0, width: 6, height: 3, content: "")
-    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line)
+    b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b
     s._render
 

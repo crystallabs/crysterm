@@ -10,7 +10,7 @@ module Crysterm
       # `#values` is an array of bars, and each bar is itself an array of segment
       # values (one per *stack level*). Segments are drawn bottom-up, each in its
       # color from `#colors` (cycled by stack level). A bar's total height is its
-      # segment sum scaled against `#max` (or the largest bar's sum when `#max`
+      # segment sum scaled against `#maximum` (or the largest bar's sum when `#maximum`
       # is `nil`).
       #
       # `#segment_labels` names the stack levels; with `#show_legend?` on, a
@@ -20,7 +20,7 @@ module Crysterm
       #
       # ```
       # sb = Widget::Graph::StackedBar.new parent: s, width: 50, height: 12,
-      #   bar_width: 5, bar_spacing: 3, max: 100.0,
+      #   bar_width: 5, bar_spacing: 3, maximum: 100.0,
       #   colors: %w[green yellow red],
       #   segment_labels: %w[idle warn crit],
       #   labels: %w[web db cache]
@@ -52,7 +52,7 @@ module Crysterm
 
         # Top of the scale (a bar's full height equals its summed value reaching
         # this). `nil` auto-scales to the largest bar's sum each frame.
-        chart_prop max, Float64?
+        chart_prop maximum, Float64?
 
         # Width of each bar, in columns.
         chart_prop bar_width, Int32
@@ -76,7 +76,7 @@ module Crysterm
           @labels : Array(String)? = nil,
           @segment_labels : Array(String)? = nil,
           @colors : Array(String) = DEFAULT_COLORS,
-          @max : Float64? = nil,
+          @maximum : Float64? = nil,
           @bar_width : Int32 = 3,
           @bar_spacing : Int32 = 2,
           @show_legend : Bool = true,
@@ -120,7 +120,7 @@ module Crysterm
           n = shown.size
 
           sums = shown.map(&.sum)
-          top = @max || (sums.select(&.finite?).max? || 0.0)
+          top = @maximum || (sums.select(&.finite?).max? || 0.0)
           top = 1.0 if top <= 0.0
 
           # Fill ramp: CSS-first (`glyphs:`), then the registry. Resolved once

@@ -158,12 +158,12 @@ describe "CSS background-image" do
       end
     end
 
-    it "grades the content over the background with style.alpha" do
+    it "grades the content over the background with style.opacity" do
       with_media_exclude("kitty") do
         s = headless_screen
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6, content: "Hi"
         box.style.background_image = bg_image_path
-        box.style.alpha = 0.5
+        box.style.opacity = 0.5
         s._render
 
         # With alpha the text cell blends over the image, so its background is

@@ -408,7 +408,12 @@ module Crysterm
       # Feed the measured cell *width* into the CSS `px` anchor so an absolute
       # `px` length maps through the terminal's real geometry rather than the
       # hardcoded `1 cell ≈ 10px` default — unless `css.px_per_cell` pins it.
-      CSS::Length.divisors["px"] = width.to_f unless CSS::Length.px_per_cell_configured?
+      # The sibling absolute units (`pt`/`pc`) follow the new anchor through
+      # their fixed CSS ratios, so `72pt` and `96px` keep agreeing.
+      unless CSS::Length.px_per_cell_configured?
+        CSS::Length.divisors["px"] = width.to_f
+        CSS::Length.rederive_physical_from_px
+      end
       return if CSS::Length.cell_aspect_ratio_configured?
       CSS::Length.cell_aspect_ratio = (height.to_f / width.to_f).clamp(1.0, 4.0)
     end

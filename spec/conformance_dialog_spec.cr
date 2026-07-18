@@ -113,7 +113,7 @@ describe "Modal dialog conformance (B8)" do
   it_behaves_like_a_modal_dialog "Wizard", saves_focus: false do
     s = dlg_screen
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
-    wiz.add_page Crysterm::Widget::Box.new, title: "One"
+    wiz.add_page "One", Crysterm::Widget::Box.new
     accepted = false
     cancelled = false
     wiz.on(Crysterm::Event::Completed) { accepted = true }

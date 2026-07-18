@@ -707,12 +707,12 @@ describe Crysterm::Widget::TabWidget do
     p1.visible?.should be_true
     p2.visible?.should be_false
 
-    tabs.next_tab
+    tabs.next_page
     tabs.current_index.should eq 1
     p1.visible?.should be_false
     p2.visible?.should be_true
 
-    tabs.previous_tab
+    tabs.previous_page
     tabs.current_index.should eq 0
     p1.visible?.should be_true
   end
@@ -999,8 +999,8 @@ describe Crysterm::Widget::StackedWidget do
     st = Crysterm::Widget::StackedWidget.new parent: s, width: 30, height: 10
     p1 = Crysterm::Widget::Box.new content: "1"
     p2 = Crysterm::Widget::Box.new content: "2"
-    st.add_page p1
-    st.add_page p2
+    st.add_widget p1
+    st.add_widget p2
     st.count.should eq 2
     st.current_index.should eq 0
     p1.visible?.should be_true
@@ -1709,9 +1709,9 @@ describe Crysterm::Widget::Wizard do
   it "navigates pages and finishes / cancels" do
     s = qt_mem_screen
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
-    wiz.add_page Crysterm::Widget::Box.new(content: "1"), title: "One"
-    wiz.add_page Crysterm::Widget::Box.new(content: "2"), title: "Two"
-    wiz.add_page Crysterm::Widget::Box.new(content: "3"), title: "Three"
+    wiz.add_page "One", Crysterm::Widget::Box.new(content: "1")
+    wiz.add_page "Two", Crysterm::Widget::Box.new(content: "2")
+    wiz.add_page "Three", Crysterm::Widget::Box.new(content: "3")
 
     completed = false
     cancelled = false
@@ -1888,9 +1888,9 @@ describe "Menu Qt conveniences" do
   it "adds actions by text and connects a block" do
     s = qt_mem_screen
     m = Crysterm::Widget::Menu.new parent: s
-    m.add "One"
+    m.add_action "One"
     fired = 0
-    m.add("Two") { fired += 1 }
+    m.add_action("Two") { fired += 1 }
     m.actions.size.should eq 2
     m.current_index = 1
     m.activate_selected
@@ -1908,8 +1908,8 @@ describe "Menu Qt conveniences" do
   it "shows and dismisses as a context-menu popup" do
     s = qt_mem_screen
     m = Crysterm::Widget::Menu.new parent: s, style: Style.new(border: true)
-    m.add "Copy"
-    m.add "Paste"
+    m.add_action "Copy"
+    m.add_action "Paste"
     m.popup 5, 5
     m.left.should eq 5
     m.top.should eq 5

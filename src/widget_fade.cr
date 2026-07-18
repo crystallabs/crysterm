@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     # Opacity animation — fades and pulses — built on the tween side of
-    # `FrameClock`. Each frame eases `style.alpha` and requests a render; the
+    # `FrameClock`. Each frame eases `style.opacity` and requests a render; the
     # per-cell alpha blend turns that into translucency over whatever is behind
     # the widget.
     #
@@ -14,7 +14,7 @@ module Crysterm
     # ```
 
     # The running fade/pulse, if any. A new one cancels it first, so two
-    # animations never fight over `style.alpha`.
+    # animations never fight over `style.opacity`.
     @fade : FrameClock?
 
     # Default fade length, shared by `#fade_in`/`#fade_out`/`#fade_to`.
@@ -30,11 +30,11 @@ module Crysterm
     def fade_to(target : Float64, duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
-      from = (style.alpha? || 1.0).to_f
+      from = (style.opacity? || 1.0).to_f
       @fade.try &.stop
       start_tween(duration, easing, fps: fps, on_done: on_done,
         store: ->(anim : FrameClock) { @fade = anim }) do |clock|
-        set_alpha from + (target - from) * clock.value
+        set_opacity from + (target - from) * clock.value
       end
     end
 
@@ -46,16 +46,16 @@ module Crysterm
     end
 
     # Makes the widget visible and fades it from fully transparent to opaque,
-    # then clears `style.alpha` (no per-cell blend cost once shown). *on_done*
+    # then clears `style.opacity` (no per-cell blend cost once shown). *on_done*
     # runs after it lands.
     def fade_in(duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
       show
-      set_alpha 0.0
+      set_opacity 0.0
       request_render
       fade_to(1.0, duration, easing, fps) do
-        set_alpha nil # fully opaque ⇒ no blend; drop the alpha entirely
+        set_opacity nil # fully opaque ⇒ no blend; drop the opacity entirely
         on_done.call
       end
     end
@@ -74,8 +74,8 @@ module Crysterm
                  fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
       fade_to(0.0, duration, easing, fps) do
         hide
-        # Clear the residual alpha == 0.0, or a later plain `#show` paints nothing.
-        set_alpha nil
+        # Clear the residual opacity == 0.0, or a later plain `#show` paints nothing.
+        set_opacity nil
         on_done.call
       end
     end
@@ -111,14 +111,14 @@ module Crysterm
         phase = (elapsed % (2.0 * half)) / half  # 0..2
         tri = phase <= 1.0 ? phase : 2.0 - phase # 0..1..0
         eased = Easing::InOutSine.apply(tri)
-        set_alpha min + (max - min) * eased
+        set_opacity min + (max - min) * eased
         request_render
       end
       @fade = anim
       anim.start
     end
 
-    # Stops any running fade/pulse, leaving `style.alpha` at its current value.
+    # Stops any running fade/pulse, leaving `style.opacity` at its current value.
     def stop_fade : Nil
       @fade.try &.stop
       @fade = nil
@@ -156,22 +156,22 @@ module Crysterm
       @tint_anim = nil
     end
 
-    # Sets `style.alpha`, and — when CSS has taken over styling — persists it onto
+    # Sets `style.opacity`, and — when CSS has taken over styling — persists it onto
     # the inline `@style` so the next cascade doesn't discard it, like
     # `#set_visible`.
-    private def set_alpha(value : Float64?) : Nil
+    private def set_opacity(value : Float64?) : Nil
       # Write the raw backing style (`#state_style`), not `#style`: at the
       # unstyled floor, `#style` returns a transient reverse-video `#dup` for small
       # focused/selected controls (`Button`, `CheckBox`, `RadioButton`), so a write
       # through it would be discarded.
-      self.state_style.alpha = value
-      persist_inline_style(&.alpha=(value))
+      self.state_style.opacity = value
+      persist_inline_style(&.opacity=(value))
       # The frame-memoized `#style` may hold a detached floor-highlight `dup`
-      # of the state style — drop it so the new alpha is visible immediately.
+      # of the state style — drop it so the new opacity is visible immediately.
       invalidate_frame_style
     end
 
-    # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).
+    # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_opacity`).
     private def set_tint(color, alpha : Float64) : Nil
       self.state_style.tint = color
       self.state_style.tint_alpha = alpha
@@ -179,7 +179,7 @@ module Crysterm
         s.tint = color
         s.tint_alpha = alpha
       end
-      # See `#set_alpha`.
+      # See `#set_opacity`.
       invalidate_frame_style
     end
   end

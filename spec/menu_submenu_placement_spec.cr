@@ -16,7 +16,7 @@ end
 
 private def msp_menu(s)
   m = Crysterm::Widget::Menu.new(parent: s)
-  m.add("New") { }
+  m.add_action("New") { }
   m.add_submenu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2"), Crysterm::Action.new("old-3")]
   m
 end

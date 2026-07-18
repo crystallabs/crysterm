@@ -303,19 +303,32 @@ module Crysterm
       protected def fit_bitmap(bw : Int32, bh : Int32, transient : Bool = false) : PNGGIF::Bitmap?
         src = source || return nil
         frame = @src_frames.try(&.[@anim_index]?).try &.[0]
-        # Reuse fast path (opt-in via `media.reuse_buffers`): a *transient*
+        # Reuse fast paths (opt-in via `media.reuse_buffers`): a *transient*
         # caller feeds the bitmap straight into `#encode` and discards it, so
-        # when the source already matches the target box the resample would be a
-        # pure identity copy — hand the source pixels over instead. Only safe
-        # for transient callers: anything that hands the bitmap to an external
-        # holder needs a copy stable across the next repaint.
+        # the result need not survive the next repaint. Only safe for transient
+        # callers: anything that hands the bitmap to an external holder
+        # (`capture_layer`) needs a copy stable across frames.
         if transient && Config.media_reuse_buffers
+          # When the source already matches the target box the resample would
+          # be a pure identity copy — hand the source pixels over instead.
           cand = frame || src.bmp
           sw, sh = Media.dims(cand)
           return cand if sw == bw && sh == bh
+          # Otherwise compose into scratch canvases reused across frames, so an
+          # animated re-encode (streaming video, an injected canvas at a
+          # non-native size, a scaled GIF's first loop) allocates no fresh
+          # resample/letterbox bitmap per frame.
+          return Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true,
+            sample_into: (@compose_sample_scratch ||= PNGGIF::Bitmap.new),
+            place_into: (@compose_place_scratch ||= PNGGIF::Bitmap.new)
         end
         Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true
       end
+
+      # Reusable compose canvases for the transient encode path (see
+      # `#fit_bitmap`); nil until `media.reuse_buffers` first exercises them.
+      @compose_sample_scratch : PNGGIF::Bitmap? = nil
+      @compose_place_scratch : PNGGIF::Bitmap? = nil
 
       # Whether this backend must drive animation frame-by-frame itself. True for
       # backends the terminal draws statically (sixel/ReGIS/Kitty); iTerm2

@@ -38,13 +38,22 @@ module Crysterm
       struct Segment
         # The slice's value, measured on the gauge's `minimum`..`maximum` span.
         property value : Float64
-        # Foreground color for the slice. `nil` uses the gauge's `style.fg`.
-        property color : String?
+        # Foreground color for the slice, a native `0xRRGGBB` `Int32`. `nil` uses
+        # the gauge's `style.fg`. A color name/`"#rrggbb"` string is accepted and
+        # converted at assignment.
+        getter color : Int32?
         # Optional caption drawn (centered) inside the slice.
         property label : String?
 
-        def initialize(value : Number, @color : String? = nil, @label : String? = nil)
+        def initialize(value : Number, color : Int32 | String | Nil = nil, @label : String? = nil)
           @value = value.to_f
+          @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+        end
+
+        # Assigns the slice color, converting a color name/`"#rrggbb"` string to a
+        # native `0xRRGGBB` int.
+        def color=(c : Int32 | String | Nil) : Int32?
+          @color = c.is_a?(String) ? Colors.convert_cached(c) : c
         end
       end
 
@@ -89,8 +98,29 @@ module Crysterm
       property format : String
 
       # Fill color for single mode (and the default for segments without their
-      # own color). `nil` uses the widget's `style.fg`.
-      property fill_color : String?
+      # own color), a native `0xRRGGBB` `Int32`. `nil` uses the widget's
+      # `style.fg`. A color name/`"#rrggbb"` string is accepted and converted.
+      getter fill_color : Int32?
+
+      # Assigns the fill color (accepting a color name/`"#rrggbb"` string) and
+      # schedules a repaint.
+      def fill_color=(c : Int32 | String | Nil) : Int32?
+        @fill_color = to_color c
+        request_render
+        @fill_color
+      end
+
+      # Converts a color spec to a native `0xRRGGBB` int (a name/`"#rrggbb"`
+      # string via the shared conversion path), or `nil`.
+      private def to_color(c : Int32 | String | Nil) : Int32?
+        c.is_a?(String) ? Colors.convert_cached(c) : c
+      end
+
+      # A slice/fill color as a `#rrggbb` tag string for `Graph::Scale.tagged_row`,
+      # or `nil` (no color → the widget's own `style.fg`). Mirrors `GaugeList`.
+      private def color_tag(c : Int32?) : String?
+        (c && c >= 0) ? Colors.hex(c) : nil
+      end
 
       # Stacked-mode slices, laid left-to-right. When set (and non-empty) the
       # gauge renders as a stack and `#value` is ignored.
@@ -117,10 +147,11 @@ module Crysterm
         @maximum : Number = 100.0,
         @show_label : Bool = true,
         @format : String = "%p%",
-        @fill_color : String? = nil,
+        fill_color : Int32 | String | Nil = nil,
         @segments : Array(Segment)? = nil,
         **box,
       )
+        @fill_color = fill_color.is_a?(String) ? Colors.convert_cached(fill_color) : fill_color
         @minimum = @minimum.to_f
         @maximum = @maximum.to_f
         v = value.to_f
@@ -160,7 +191,7 @@ module Crysterm
       # trailing `glyph_key(style)` covers every input the fill ramp resolves
       # from, so a tier upgrade or CSS `glyphs:` hot-reload rebuilds instead of
       # keeping a stale ramp.
-      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, String?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, Int32?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render
         key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
@@ -203,11 +234,12 @@ module Crysterm
         cols = cells.size
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(@value, @minimum, @maximum, cols)
+        fc = color_tag @fill_color
         cols.times do |c|
           glyph = Graph::Scale.ramp_glyph(ramp, eighths, c)
           next if glyph == ' '
           cells[c] = glyph
-          colors[c] = @fill_color
+          colors[c] = fc
         end
       end
 
@@ -235,10 +267,11 @@ module Crysterm
         spans = segment_spans(segs, cols)
         segs.each_with_index do |seg, i|
           start, w = spans[i]
+          sc = color_tag(seg.color || @fill_color)
           w.times do |k|
             x = start + k
             cells[x] = Graph::Scale::FULL
-            colors[x] = seg.color || @fill_color
+            colors[x] = sc
           end
         end
       end

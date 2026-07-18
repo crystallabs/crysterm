@@ -29,7 +29,7 @@ end
 describe "Widget::Graph::Bar#values= schedules a repaint" do
   it "marks the bar dirty when assigned an integer array (the documented call)" do
     s = bvr_screen
-    bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 40, height: 8, max: 100.0
+    bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 40, height: 8, maximum: 100.0
     s._render
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, bar).should be_false
@@ -41,7 +41,7 @@ describe "Widget::Graph::Bar#values= schedules a repaint" do
 
   it "marks the bar dirty when assigned a Float64 array (the generated-setter path)" do
     s = bvr_screen
-    bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 40, height: 8, max: 100.0
+    bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 40, height: 8, maximum: 100.0
     s._render
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, bar).should be_false

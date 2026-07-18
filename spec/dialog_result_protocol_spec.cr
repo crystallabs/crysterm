@@ -217,8 +217,8 @@ describe "Dialog subclasses report their outcome" do
   it "Wizard Finish accepts, Cancel rejects — and Enter still advances rather than accepting" do
     w = dr_window
     wiz = Crysterm::Widget::Wizard.new parent: w, width: 50, height: 16
-    wiz.add_page Crysterm::Widget::Box.new, title: "One"
-    wiz.add_page Crysterm::Widget::Box.new, title: "Two"
+    wiz.add_page "One", Crysterm::Widget::Box.new
+    wiz.add_page "Two", Crysterm::Widget::Box.new
     log = [] of String
     wiz.on(Crysterm::Event::Completed) { log << "complete" }
     wiz.on(Crysterm::Event::Accepted) { log << "accepted" }
@@ -239,7 +239,7 @@ describe "Dialog subclasses report their outcome" do
   it "Wizard#reject emits Cancel on top of the standard rejection" do
     w = dr_window
     wiz = Crysterm::Widget::Wizard.new parent: w, width: 50, height: 16
-    wiz.add_page Crysterm::Widget::Box.new, title: "One"
+    wiz.add_page "One", Crysterm::Widget::Box.new
     log = [] of String
     wiz.on(Crysterm::Event::Cancelled) { log << "cancel" }
     wiz.on(Crysterm::Event::Rejected) { log << "rejected" }

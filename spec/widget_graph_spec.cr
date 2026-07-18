@@ -24,7 +24,7 @@ describe "Graph::Bar rendering" do
   it "draws a full bar at max and an empty one at min" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 2, height: 2,
-      min: 0.0, max: 1.0, values: [1.0, 0.0]
+      minimum: 0.0, maximum: 1.0, values: [1.0, 0.0]
     s._render
     # Left column full (two stacked full blocks), right column empty.
     row_chars(s, 0, 0, 2).should eq "█ "
@@ -34,7 +34,7 @@ describe "Graph::Bar rendering" do
   it "uses eighth-blocks for sub-cell heights" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 1, height: 1,
-      min: 0.0, max: 1.0, values: [0.5]
+      minimum: 0.0, maximum: 1.0, values: [0.5]
     s._render
     # Half of one cell -> the 4/8 block.
     row_chars(s, 0, 0, 1).should eq "▄"
@@ -43,7 +43,7 @@ describe "Graph::Bar rendering" do
   it "shows category labels under the bars" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 3, height: 3,
-      min: 0.0, max: 1.0, bar_width: 3, values: [1.0], labels: ["cpu"]
+      minimum: 0.0, maximum: 1.0, bar_width: 3, values: [1.0], labels: ["cpu"]
     s._render
     # Bottom row is the label, plot rows above are the full bar.
     row_chars(s, 0, 0, 3).should eq "███"
@@ -55,7 +55,7 @@ describe "Graph::Bar rendering" do
     # Width fits 2 bars but 3 values are given, so only the last two show;
     # labels must be the matching tail ("two"/"thr"), not the leading ones.
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 7, height: 2,
-      min: 0.0, max: 1.0, bar_width: 3, bar_spacing: 1,
+      minimum: 0.0, maximum: 1.0, bar_width: 3, bar_spacing: 1,
       values: [1.0, 1.0, 1.0], labels: ["one", "two", "thr"]
     s._render
     row_chars(s, 1, 0, 7).should eq "two thr"
@@ -67,7 +67,7 @@ describe "Graph::StackedBar rendering" do
     s = render_screen
     # One bar of height 2 cells, two equal segments -> one cell each.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 1, height: 2,
-      max: 2.0, bar_width: 1, show_legend: false, values: [[1.0, 1.0]]
+      maximum: 2.0, bar_width: 1, show_legend: false, values: [[1.0, 1.0]]
     s._render
     row_chars(s, 0, 0, 1).should eq "█" # top segment
     row_chars(s, 1, 0, 1).should eq "█" # bottom segment
@@ -78,7 +78,7 @@ describe "Graph::StackedBar rendering" do
     # Bar of 2 cells, single segment at 3/4 height -> bottom cell full, top
     # cell a 4/8 partial block.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 1, height: 2,
-      max: 1.0, bar_width: 1, show_legend: false, values: [[0.75]]
+      maximum: 1.0, bar_width: 1, show_legend: false, values: [[0.75]]
     s._render
     row_chars(s, 0, 0, 1).should eq "▄" # 4/8 partial top
     row_chars(s, 1, 0, 1).should eq "█" # full bottom

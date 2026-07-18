@@ -44,13 +44,16 @@ module Crysterm
         return
       end
 
-      # Otherwise create it
+      # Otherwise create it. An explicitly-set `::label` sub-style is the label's
+      # style; otherwise the label gets its own plain `Style` (the raw ivar is
+      # read because the public `Style#label` getter falls back to `self`, which
+      # would share the parent's whole style object — border included).
       @label_widget = _label = Widget::Box.new(
         parent: self,
         content: text,
         top: -itop,
         parse_tags: @parse_tags,
-        style: style.label,
+        style: style.@label || Style.new,
         shrink_to_fit: true,
       )
       # Mark the box as a label so `coords`' scrollable-ancestor clip exempts it
@@ -123,6 +126,14 @@ module Crysterm
     # resolved; cheap for label-less widgets.
     protected def sync_label_position : Nil
       @label_widget.try do |_label|
+        # `Widget::label { … }` styles the label — it snapshots its style at
+        # creation, so push the computed `label` sub-style onto it whenever the
+        # cascade produced one (each recompute replaces the sub-style object, so
+        # an identity check suffices). Read the raw ivar: the public getter
+        # falls back to `self`. A no-op unless a `::label` rule matched.
+        if (ls = style.@label) && !_label.style.same?(ls)
+          _label.style = ls
+        end
         move_label_top(_label, @child_base - itop)
         move_label_side(_label)
       end

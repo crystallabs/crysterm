@@ -308,15 +308,14 @@ module Crysterm
       end
 
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
-      # are treated as synonyms, as are `:blur`/`:blurred`.
+      # are treated as synonyms. There is no "blurred" state — style the
+      # unfocused look with `:not(:focus)`.
       STATE_PSEUDOS = {
         ":focus"    => WidgetState::Focused,
         ":hover"    => WidgetState::Hovered,
         ":selected" => WidgetState::Selected,
         ":active"   => WidgetState::Selected,
         ":disabled" => WidgetState::Disabled,
-        ":blurred"  => WidgetState::Blurred,
-        ":blur"     => WidgetState::Blurred,
         ":normal"   => WidgetState::Normal,
       }
 
@@ -765,8 +764,7 @@ module Crysterm
       IMPORTANT_RE = /!\s*important\s*\z/i
 
       # State pseudo-class tokens, longest first, so a longer token is matched
-      # before any shorter token it contains as a substring (e.g. `:blurred`
-      # before `:blur`).
+      # before any shorter token it contains as a substring.
       STATE_PSEUDOS_BY_LENGTH = STATE_PSEUDOS.to_a.sort_by! { |(token, _)| -token.size }
 
       # Precompiled matchers for `lower_state_pseudos`, one per state pseudo
@@ -978,7 +976,7 @@ module Crysterm
       # `.state-*` classes (e.g. `Form:focus ` -> `Form.state-focused `), so they
       # match against the live document's stamped state classes. Each token is
       # matched only as a complete pseudo-class, so `:focus` is not torn out of
-      # `:focus-within` nor `:blur` out of `:blurred`.
+      # `:focus-within`.
       private def self.lower_state_pseudos(selector : String) : String
         return selector unless selector.includes?(':') # fast path: no pseudo at all
         result = selector

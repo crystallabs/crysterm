@@ -155,7 +155,7 @@ describe "tier-aware rendering" do
       s.glyph_tier = tier
       s.alloc
       b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 3, content: "")
-      b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line)
+      b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
       s << b
       s._render
 
@@ -192,9 +192,9 @@ describe "tier-aware rendering" do
     s.glyph_tier = Glyphs::Tier::Ascii
     s.alloc
     b1 = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 3, content: "")
-    b1.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line)
+    b1.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     b2 = Crysterm::Widget::Box.new(left: 3, top: 0, width: 4, height: 3, content: "")
-    b2.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Line)
+    b2.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b1
     s << b2
     s._render

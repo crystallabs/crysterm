@@ -84,8 +84,8 @@ require "./spec_helper"
     it "gives an overlay (Menu) a structural border at the floor" do
       s = floor_screen
       m = Crysterm::Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 5
-      m.add "New"
-      m.add "Quit"
+      m.add_action "New"
+      m.add_action "Quit"
       s.apply_stylesheet
       s._render
 
@@ -116,7 +116,7 @@ require "./spec_helper"
 
     it "applies a fade's alpha to a focused Button at the floor" do
       # At the floor `#style` returns a transient reverse-video `#dup` for a
-      # focused small control, so writing `style.alpha` through `#style` would
+      # focused small control, so writing `style.opacity` through `#style` would
       # land on a throwaway. `#set_alpha` must write the persistent
       # `#state_style` (like `#set_visible`) so the value survives the dup.
       s = floor_screen
@@ -128,7 +128,7 @@ require "./spec_helper"
 
       anim = btn.fade_in # synchronously sets alpha to 0.0, then tweens up
       anim.stop
-      btn.style.alpha?.should eq 0.0
+      btn.style.opacity?.should eq 0.0
     end
 
     it "shows other focusable controls (Slider/SpinBox/Dial) via reverse-video at the floor" do

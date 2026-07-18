@@ -87,6 +87,33 @@ module Crysterm
         config_set?("css.px_per_cell")
       end
 
+      # Fixed CSS ratios of the derived absolute units to the `px` anchor
+      # (`1in = 96px = 72pt = 6pc`): divisor(pt) = divisor(px) × 72/96,
+      # divisor(pc) = divisor(px) ÷ 16. Matches the defaults (`px 10 → pt 7.5,
+      # pc 0.625`).
+      PX_DERIVED = {"pt" => 0.75, "pc" => 0.0625}
+
+      # Re-derives the `px`-anchored absolute units (`pt`/`pc`) from the
+      # current `px` divisor, keeping them mutually consistent when the Window
+      # re-anchors `px` to the terminal's measured cell width. A unit the user
+      # explicitly configured via `css.unit_divisors` is left alone. The
+      # opt-in physical units (`cm`/`mm`/`in`) are not touched: dropped (`nil`)
+      # by default, and a user who mapped one chose their own scale.
+      def self.rederive_physical_from_px : Nil
+        return unless px = divisors["px"]?
+        PX_DERIVED.each do |unit, ratio|
+          divisors[unit] = px * ratio unless unit_configured?(unit)
+        end
+      end
+
+      # Whether `css.unit_divisors` explicitly configures *unit*.
+      def self.unit_configured?(unit : String) : Bool
+        return false unless config_set?("css.unit_divisors")
+        Superconf.css_unit_divisors.split(',').any? do |entry|
+          entry.partition('=')[0].strip.downcase == unit
+        end
+      end
+
       # Whether a config option carries a non-default value. Compared as the
       # rendered string so it works for any option type; a default-equal value
       # is treated as unconfigured so it never overrides a programmatic tweak.

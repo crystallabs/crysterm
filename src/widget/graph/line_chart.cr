@@ -69,11 +69,19 @@ module Crysterm
 
           property name : String
           property points : Array(Tuple(Float64, Float64))
-          property color : Int32
+          # Series color, a native `0xRRGGBB` `Int32`. A color name/`"#rrggbb"`
+          # string is accepted and converted at assignment.
+          getter color : Int32
           property kind : Kind
 
-          def initialize(@name, points : Array, @color : Int32, @kind : Kind = Kind::Line)
+          def initialize(@name, points : Array, color : Int32 | String, @kind : Kind = Kind::Line)
             @points = points.map { |pt| {pt[0].to_f, pt[1].to_f} }
+            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+          end
+
+          # Assigns the series color, converting a color name/`"#rrggbb"` string.
+          def color=(c : Int32 | String) : Int32
+            @color = c.is_a?(String) ? Colors.convert_cached(c) : c
           end
         end
 
@@ -176,7 +184,7 @@ module Crysterm
 
         # Adds a series (Qt's `QChart#addSeries`). A `nil` color is auto-assigned
         # from `PALETTE` by series index.
-        def add_series(name : String, points : Array, color : Int32? = nil,
+        def add_series(name : String, points : Array, color : Int32 | String | Nil = nil,
                        kind : Series::Kind = Series::Kind::Line) : Series
           s = Series.new name, points, color || PALETTE[@series.size % PALETTE.size], kind
           @series << s
@@ -187,15 +195,15 @@ module Crysterm
           s
         end
 
-        def add_line(name : String, points : Array, color : Int32? = nil) : Series
+        def add_line(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
           add_series name, points, color, Series::Kind::Line
         end
 
-        def add_scatter(name : String, points : Array, color : Int32? = nil) : Series
+        def add_scatter(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
           add_series name, points, color, Series::Kind::Scatter
         end
 
-        def add_area(name : String, points : Array, color : Int32? = nil) : Series
+        def add_area(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
           add_series name, points, color, Series::Kind::Area
         end
 

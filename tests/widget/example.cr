@@ -19,9 +19,10 @@
 # same event `emit`s real input goes through, so demo "rules" read declaratively
 # (`d.key :down, times: 4`, `d.type "hi"`, ...).
 #
-# Styling note: set colors/borders through CSS (`screen.stylesheet = "..."`), not
-# the legacy `style:` constructor argument — the CSS cascade discards inline
-# `style:` values it doesn't also see as CSS.
+# Styling note: these examples set colors/borders through CSS
+# (`screen.stylesheet = "..."`) so the whole demo is themed in one place. An
+# inline `style:` also works — like CSS inline style it sits above author rules
+# in the cascade (only `!important` and state-specific rules outrank it).
 require "../../src/crysterm"
 
 module Crysterm

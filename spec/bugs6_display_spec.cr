@@ -108,7 +108,7 @@ describe "BUGS6 bug 3: BigText renders full-width glyphs in full" do
     s = bugs6_screen 40, 20
     # foreground_char makes lit pixels observable as a visible char.
     Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, width: 30, height: 16,
-      content: "世", style: Crysterm::Style.new(foreground_char: '#')
+      content: "世", foreground_char: '#'
     s._render
 
     lit_cols = [] of Int32
@@ -125,7 +125,7 @@ describe "BUGS6 bug 3: BigText renders full-width glyphs in full" do
   it "keeps a half-width glyph within its 8-px cell" do
     s = bugs6_screen 40, 20
     Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, width: 30, height: 16,
-      content: "A", style: Crysterm::Style.new(foreground_char: '#')
+      content: "A", foreground_char: '#'
     s._render
 
     max_col = 0

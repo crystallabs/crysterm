@@ -22,7 +22,7 @@ describe "Widget::Graph::StackedBar with an empty colors array" do
   it "renders without dividing by zero (falls back to the default palette)" do
     s = sbec_screen
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
-      width: 50, height: 10, max: 100.0, colors: [] of String
+      width: 50, height: 10, maximum: 100.0, colors: [] of String
     sb.values = [[60, 30, 10], [20, 50, 30], [80, 15, 5]]
 
     # Before the fix this raised DivisionByZeroError inside build_content.

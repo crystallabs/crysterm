@@ -22,7 +22,7 @@ describe "Widget::Graph::Bar with an empty colors array" do
   it "renders without dividing by zero (treats empty colors like nil)" do
     s = bec_screen
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
-      width: 40, height: 8, max: 100.0, colors: [] of String
+      width: 40, height: 8, maximum: 100.0, colors: [] of String
     bar.values = [42, 88, 13, 64]
 
     # Before the fix this raised DivisionByZeroError inside build_content.

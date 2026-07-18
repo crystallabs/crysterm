@@ -33,11 +33,11 @@ describe "CSS @keyframes real-elapsed progress (BUGS5)" do
     s._render # starts the animation
 
     sleep 0.1.seconds # ~25% through the 0.4s linear cycle
-    a1 = b.style.alpha.not_nil!
+    a1 = b.style.opacity.not_nil!
     (0.02 <= a1 <= 0.55).should be_true # elapsed-driven, roughly a quarter in
 
     sleep 0.2.seconds # ~75% through the cycle
-    a2 = b.style.alpha.not_nil!
+    a2 = b.style.opacity.not_nil!
     (a2 > a1).should be_true # progress advanced with real time, not stalled
     (0.4 <= a2 <= 0.98).should be_true
   ensure
@@ -52,7 +52,7 @@ describe "CSS @keyframes real-elapsed progress (BUGS5)" do
                    ".once { opacity: 0.0; animation: go 0.15s linear 1; }"
     s._render
     sleep 0.4.seconds # well past the single iteration
-    (b.style.alpha.not_nil! > 0.95).should be_true
+    (b.style.opacity.not_nil! > 0.95).should be_true
   ensure
     s.try &.destroy
   end

@@ -24,9 +24,9 @@ module Crysterm
       #
       # ```
       # pie = Widget::Graph::PieChart.new parent: s, width: 24, height: 12
-      # pie.add_slice 50, 0x40E0D0, "web"
-      # pie.add_slice 30, 0xE0A040, "db"
-      # pie.add_slice 20, 0xE04060, "cache"
+      # pie.add_slice "web", 50, 0x40E0D0
+      # pie.add_slice "db", 30, 0xE0A040
+      # pie.add_slice "cache", 20, 0xE04060
       # ```
       #
       # <!-- widget-examples:capture v1 -->
@@ -39,8 +39,18 @@ module Crysterm
         include Mixin::CanvasOwner
 
         # One categorical wedge: its `value` (share of the total), fill `color`
-        # (`0xRRGGBB`) and legend `label`.
-        record Slice, value : Float64, color : Int32, label : String
+        # and legend `label`. The color is stored as a native `0xRRGGBB` `Int32`
+        # but a color *name*/`"#rrggbb"` string is accepted and converted.
+        struct Slice
+          getter value : Float64
+          getter color : Int32
+          getter label : String
+
+          def initialize(value : Number, color : Int32 | String, @label : String = "")
+            @value = value.to_f
+            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+          end
+        end
 
         # Default slice palette (`0xRRGGBB`), cycled by slice index when
         # `#add_slice` is called without an explicit color.
@@ -77,11 +87,13 @@ module Crysterm
           build_canvas(type, glyph_mode) { |p| paint_pie p }
         end
 
-        # Appends a slice. `color` defaults to the next entry of `DEFAULT_COLORS`,
-        # cycled by slice index.
-        def add_slice(value : Number, color : Int32? = nil, label : String = "") : Slice
-          color ||= DEFAULT_COLORS[@slices.size % DEFAULT_COLORS.size]
-          slice = Slice.new value.to_f, color, label
+        # Appends a slice. Label-first argument order, matching the toolkit's
+        # other add-verbs (`Gauge#add_item`, …). `color` accepts a native
+        # `0xRRGGBB` int or a color name/`"#rrggbb"` string, defaulting to the
+        # next entry of `DEFAULT_COLORS`, cycled by slice index.
+        def add_slice(label : String, value : Number, color : Int32 | String | Nil = nil) : Slice
+          c = color || DEFAULT_COLORS[@slices.size % DEFAULT_COLORS.size]
+          slice = Slice.new value.to_f, c, label
           @slices << slice
           invalidate_canvas
           slice

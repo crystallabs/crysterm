@@ -19,8 +19,15 @@ module Crysterm
     # regardless of include order.
     include TextAttributes
 
-    # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
-    property alpha : Float64?
+    # Whether the widget is visible (CSS `visibility`). Widget-level, not an SGR
+    # attribute — deliberately on `Style` itself, not `TextAttributes`, so
+    # `Border` (which shares the SGR mixin) doesn't inherit a meaningless
+    # `visible?`. The setter is re-wrapped below for `specified_mask`, like the
+    # SGR booleans.
+    property? visible : Bool = true
+
+    # Opacity (inverse of transparency). 0 == full transparency, 1 == full opacity.
+    property opacity : Float64?
 
     # A color the whole widget region is blended toward, by `tint_alpha`.
     # `nil` = no tint. See `#fg` for the accepted forms.
@@ -33,7 +40,7 @@ module Crysterm
 
     # Compositing layer (CSS `z-index`). When set, the widget and its subtree are
     # promoted to their own `Plane` at this z, composited over the base so
-    # content from other widgets can show through; `alpha` becomes the plane's
+    # content from other widgets can show through; `opacity` becomes the plane's
     # opacity. `nil` = the base layer (the ordinary painter's path).
     property z_index : Int32?
 
@@ -80,7 +87,7 @@ module Crysterm
 
     # Tracks which text-attribute booleans (and struct properties) were
     # explicitly set, vs left at default, so the CSS cascade can tell "set to
-    # false" from "unset". Colors and `alpha` carry their own unset signal
+    # false" from "unset". Colors and `opacity` carry their own unset signal
     # (`nil`), so they aren't tracked here.
     #
     # Must stay a bitmask rather than a `Set(Symbol)`: the cascade `#dup`s a
@@ -97,8 +104,8 @@ module Crysterm
       # plain getter. `tracked` is their concatenation and defines the bitmask.
       {% tracked_bool = %w(bold italic underline blink reverse strike visible
            fill draw_over_border) %}
-      {% tracked_value = %w(background_size fill_char percent_char foreground_char
-           background_char border padding margin shadow tab_size tab_char) %}
+      {% tracked_value = %w(background_size fill_char border padding margin
+           shadow tab_size tab_char) %}
       {% tracked = tracked_bool + tracked_value %}
       {% for prop, i in tracked %}
         SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
@@ -119,7 +126,7 @@ module Crysterm
       # copying each only where `specified?` reports it set, so an inline style
       # can switch a value on *or* off over a stylesheet. The assignments go
       # through *other*'s setters, stamping *other*'s `specified_mask` too. The
-      # remaining, `nil`-signalled properties (`fg`/`bg`/`alpha`/`tint`/…) carry
+      # remaining, `nil`-signalled properties (`fg`/`bg`/`opacity`/`tint`/…) carry
       # no mask bit and are folded by hand in the cascade.
       def fold_specified_onto(other : Style) : Nil
         {% for prop in tracked_bool %}
@@ -144,12 +151,12 @@ module Crysterm
       case property
       when :fg               then !@fg.nil?
       when :bg               then !@bg.nil?
-      when :alpha            then !@alpha.nil?
+      when :opacity          then !@opacity.nil?
       when :tint             then !@tint.nil?
       when :gridline_color   then !@gridline_color.nil?
       when :z_index          then !@z_index.nil?
       when :background_image then !@background_image.nil?
-      when :transition       then !@transitions.nil?
+      when :transitions      then !@transitions.nil?
       when :animation        then !@animation.nil?
       when :glyph            then !@glyph.nil?
       when :glyph_ascii      then !@glyph_ascii.nil?
@@ -208,10 +215,10 @@ module Crysterm
       copy
     end
 
-    # Is any transparency defined? Testing `alpha == nil` alone isn't enough:
+    # Is any transparency defined? Testing `opacity == nil` alone isn't enough:
     # 1.0 (full opacity) also means no transparency is enabled.
-    def alpha?
-      @alpha.try do |a|
+    def opacity?
+      @opacity.try do |a|
         return a if a != 1.0
       end
     end
@@ -244,28 +251,19 @@ module Crysterm
       @tab_char = value
     end
 
-    # Generic fill char (WIP)
+    # Character used to fill otherwise-empty cells the widget paints: alignment
+    # gaps (`#align_line`), `fill_region`/`clear_pos` backfill, a `Fill`-type
+    # `Border`'s fallback char, and the artificial cursor's `none`-shape glyph.
     property fill_char : Char = ' '
 
-    # Percent char (WIP)
-    property percent_char : Char = ' '
-
-    # Foreground char (WIP)
-    property foreground_char : Char = ' '
-
-    # Background char (WIP)
-    property background_char : Char = ' '
-
-    # Re-wrap the fill-character setters so an explicit assignment is recorded as
-    # `specified`; otherwise the `' '` defaults are indistinguishable from an
+    # Re-wrap the fill-character setter so an explicit assignment is recorded as
+    # `specified`; otherwise the `' '` default is indistinguishable from an
     # intentional `' '` and the cascade silently drops an inline-set fill char.
-    # Must come after the `property` declarations above to override their setters.
-    {% for attr in %w(fill_char percent_char foreground_char background_char) %}
-      def {{attr.id}}=(value : Char) : Char
-        @specified_mask |= SPEC_{{attr.upcase.id}}
-        @{{attr.id}} = value
-      end
-    {% end %}
+    # Must come after the `property` declaration above to override its setter.
+    def fill_char=(value : Char) : Char
+      @specified_mask |= SPEC_FILL_CHAR
+      @fill_char = value
+    end
 
     # -- CSS `glyph` property family ------------------------------------------
     #
@@ -482,13 +480,13 @@ module Crysterm
     # `ToolButton` popup arrow). Defaults to `self`; carries the arrow `glyph`.
     sub_style_accessor drop_down
 
-    # Style used when internally instantiating labels on widgets. Since labels
-    # are widgets, everything below it is looked up via `@label_widget.style...`.
-    #
-    # TODO An unstyled label gets a fresh `Style`, so users must style the label
-    # separately. Defaulting to `self` would carry more automatically, but also
-    # unwanted properties (e.g. `border: true`). Applies to all sub-features here.
-    property label : Style { Style.new }
+    # Style used for a widget's border label (`Widget#set_label`). Defaults to
+    # `self` like every other sub-style; since labels are widgets, the resolved
+    # sub-style is pushed onto the `@label_widget` each frame — but only when a
+    # `::label` rule (or explicit assignment) actually set it, so an unstyled
+    # label keeps its own plain `Style` and doesn't inherit box properties
+    # (e.g. the parent's border).
+    sub_style_accessor label
 
     def padding=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32) | Nil)
       @specified_mask |= SPEC_PADDING
@@ -668,11 +666,8 @@ module Crysterm
       reverse = nil,
       strike = nil,
       visible = nil,
-      alpha = nil,
+      opacity : Float64? = nil,
       fill_char = nil,
-      percent_char = nil,
-      foreground_char = nil,
-      background_char = nil,
       draw_over_border = nil,
       z_index = nil,
       tint = nil,
@@ -708,16 +703,13 @@ module Crysterm
       reverse.try { |v| self.reverse = v }
       strike.try { |v| self.strike = v }
       visible.try { |v| self.visible = v }
-      alpha.try { |v| self.alpha = self.class.alpha_from(v) }
+      opacity.try { |v| self.opacity = self.class.opacity_from(v) }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }
       margin.try { |v| self.margin = Margin.from(v) }
       shadow.try { |v| self.shadow = Shadow.from(v) }
       # Only record an explicitly-passed fill character as `specified`.
       fill_char.try { |v| self.fill_char = v }
-      percent_char.try { |v| self.percent_char = v }
-      foreground_char.try { |v| self.foreground_char = v }
-      background_char.try { |v| self.background_char = v }
       # Only record an explicitly-passed `draw_over_border` as `specified`.
       draw_over_border.try { |v| self.draw_over_border = v }
       # Tint/gridline are colors: route them through their `Colorizable`
@@ -737,17 +729,8 @@ module Crysterm
       fill.try { |v| self.fill = v }
     end
 
-    def self.alpha_from(value : Float64 | Bool?)
-      case value
-      in Float
-        value
-      in true
-        0.5
-      in false
-        1.0
-      in nil
-        nil
-      end
+    def self.opacity_from(value : Float64?)
+      value
     end
   end
 end

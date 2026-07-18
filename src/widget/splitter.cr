@@ -113,6 +113,61 @@ module Crysterm
         add_widget widget
       end
 
+      # Number of panes (Qt's `QSplitter#count`).
+      def count : Int32
+        @panes.size
+      end
+
+      # The pane at *index*, or `nil` when out of range (Qt's `QSplitter#widget`).
+      def widget(index : Int) : Widget?
+        @panes[index]?
+      end
+
+      # Index of *widget* among the panes, or `nil` when it is not one. Qt's
+      # `QSplitter#indexOf` returns `-1`; this returns the idiomatic `nil`.
+      def index_of(widget : Widget) : Int32?
+        @panes.index widget
+      end
+
+      # Inserts *widget* as a pane at *index* (clamped to the end), like Qt's
+      # `QSplitter#insertWidget`. Appending is the common case and keeps the
+      # existing dividers untouched; a mid-list insert renumbers the dividers, so
+      # they are rebuilt and the panes re-evened.
+      def insert_widget(index : Int, widget : Widget) : self
+        i = index.clamp(0, @panes.size)
+        return add_widget widget if i >= @panes.size
+        @panes.insert i, widget
+        append widget
+        rebuild_dividers
+        self
+      end
+
+      # Recreates the divider boxes (one fewer than `#panes`) after a mid-list
+      # insert renumbers them: each divider's drag/key handlers capture their
+      # positional index, so keeping the old boxes would drive the wrong split.
+      # Positions are re-evened across the new arrangement.
+      private def rebuild_dividers : Nil
+        @dividers.each { |d| remove d }
+        @dividers.clear
+        @positions.clear
+        @user_positioned = false
+        (@panes.size - 1).times do |idx|
+          div = Box.new(
+            parent: self,
+            draggable: true,
+            keys: true,
+            top: 0, left: 0, width: 1, height: 1,
+          )
+          div.add_css_class "divider"
+          wire_divider div, idx
+          @dividers << div
+          @positions << 0
+        end
+        @dividers.each &.to_front
+        even_positions
+        relayout
+      end
+
       # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------
 
       # Extent of each pane along the split axis, in content cells — one entry per

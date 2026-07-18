@@ -258,12 +258,12 @@ describe "BUGS-F1 #42 swapping animation: to a missing @keyframes stops the old 
       Crysterm::CSS::Properties.apply(box.style, "animation", "missing 0.05s linear infinite")
       box.ensure_css_animation
 
-      frozen = box.style.alpha
+      frozen = box.style.opacity
       samples = [] of Float64?
       6.times do
         sleep 0.02.seconds
         box.ensure_css_animation # a re-render must not restart the failed lookup either
-        samples << box.style.alpha
+        samples << box.style.opacity
       end
       samples.all? { |a| a == frozen }.should be_true # alpha frozen: old clock stopped
     ensure

@@ -31,7 +31,7 @@ per_call("st.padding") { st.padding }
 per_call("st.border") { st.border }
 per_call("st.shadow") { st.shadow }
 per_call("st.margin") { st.margin }
-per_call("st.alpha?") { st.alpha? }
+per_call("st.opacity?") { st.opacity? }
 per_call("st.tint?") { st.tint? }
 per_call("st.fill_char") { st.fill_char }
 per_call("st.fg") { st.fg }
@@ -39,7 +39,7 @@ per_call("st.bold?") { st.bold? }
 
 per_call("style + 6 accessors (per _render)") do
   x = w.style
-  x.padding; x.border; x.shadow; x.alpha?; x.tint?; x.fill_char
+  x.padding; x.border; x.shadow; x.opacity?; x.tint?; x.fill_char
 end
 
 STDERR.puts "\n--- edge paths ---"

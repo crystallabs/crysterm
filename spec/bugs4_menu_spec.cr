@@ -23,9 +23,9 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     s = menu_screen
     m = Crysterm::Widget::Menu.new(parent: s)
     fired = [] of String
-    m.add("A") { fired << "A" }
+    m.add_action("A") { fired << "A" }
     m.add_separator
-    m.add("B") { fired << "B" }
+    m.add_action("B") { fired << "B" }
     s.render
 
     # Rows: [A, ───, B]. `activate_item(1)` is exactly what the separator row's
@@ -38,9 +38,9 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     s = menu_screen
     m = Crysterm::Widget::Menu.new(parent: s)
     fired = [] of String
-    m.add("A") { fired << "A" }
+    m.add_action("A") { fired << "A" }
     m.add_separator
-    m.add("B") { fired << "B" }
+    m.add_action("B") { fired << "B" }
     s.render
 
     m.activate_item 0

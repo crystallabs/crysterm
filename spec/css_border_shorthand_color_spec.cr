@@ -17,7 +17,7 @@ describe "CSS border shorthand color" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "border", "solid rgb(255, 0, 0)")
     s.border.fg.should eq 0xff0000
-    s.border.type.should eq BorderType::Line
+    s.border.type.should eq BorderType::Solid
   end
 
   it "resolves an hsl() color in the shorthand" do

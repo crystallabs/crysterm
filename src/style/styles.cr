@@ -17,13 +17,12 @@ module Crysterm
     # ivar `nil`. This must stay non-materializing — the CSS cascade and
     # `own_*?` both treat a `nil` ivar as "state never set", and a state
     # materialized on read would lose every stateless rule folded into `normal`.
-    @blurred : Style?
     @focused : Style?
     @hovered : Style?
     @selected : Style?
     @disabled : Style?
 
-    {% for state in %w[blurred focused hovered selected disabled] %}
+    {% for state in %w[focused hovered selected disabled] %}
       def {{state.id}} : Style
         @{{state.id}} || normal
       end
@@ -32,17 +31,19 @@ module Crysterm
       end
     {% end %}
 
-    # Whether a distinct selected style was set, as opposed to falling back to
-    # `normal`. Only an explicitly-set selected style should color a selection.
-    def own_selected? : Bool
-      !@selected.nil?
-    end
+    # Whether a distinct style was explicitly set for *state*, as opposed to
+    # falling back to `normal`. Only an explicitly-set state style should color
+    # e.g. a selection or a focus highlight.
+    {% for state in %w[focused hovered selected disabled] %}
+      def own_{{state.id}}? : Bool
+        !@{{state.id}}.nil?
+      end
+    {% end %}
 
     # The `Style` slot for *state*.
-    def for_state(state : WidgetState) : Style
+    def [](state : WidgetState) : Style
       case state
       in .normal?   then normal
-      in .blurred?  then blurred
       in .focused?  then focused
       in .hovered?  then hovered
       in .selected? then selected
@@ -51,10 +52,9 @@ module Crysterm
     end
 
     # Stores *style* into the slot for *state*.
-    def set_for_state(state : WidgetState, style : Style) : Nil
+    def []=(state : WidgetState, style : Style) : Nil
       case state
       in .normal?   then self.normal = style
-      in .blurred?  then self.blurred = style
       in .focused?  then self.focused = style
       in .hovered?  then self.hovered = style
       in .selected? then self.selected = style
@@ -69,7 +69,6 @@ module Crysterm
     # they fall back to `normal`.
     def visible=(value : Bool) : Nil
       normal.visible = value
-      @blurred.try &.visible = value
       @focused.try &.visible = value
       @hovered.try &.visible = value
       @selected.try &.visible = value
@@ -78,7 +77,7 @@ module Crysterm
 
     # TODO Add each/each_entry iterators
 
-    def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)
+    def initialize(@normal = @normal, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)
     end
 
     # A deep copy: `normal` plus each explicitly-set state gets its own
@@ -86,7 +85,6 @@ module Crysterm
     # this does not materialize them on the original.
     def deep_dup : Styles
       copy = Styles.new(@normal.dup)
-      @blurred.try { |style| copy.blurred = style.dup }
       @focused.try { |style| copy.focused = style.dup }
       @hovered.try { |style| copy.hovered = style.dup }
       @selected.try { |style| copy.selected = style.dup }
