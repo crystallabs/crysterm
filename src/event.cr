@@ -513,15 +513,19 @@ module Crysterm
       # The underlying normalized mouse event.
       property mouse : ::Tput::Mouse::Event
 
-      def initialize(@mouse)
+      # The widget this event is being delivered to, or `nil` for the
+      # window-level emit. What `#local_x`/`#local_y` resolve against.
+      getter target : Widget?
+
+      def initialize(@mouse, @target = nil)
       end
 
-      # Re-targets this (pooled) event at a new underlying `mouse` report and
-      # clears any prior `accept`, so one event can be reused across dispatches
-      # instead of allocating per report. A handler that *retains* the event will
-      # see its fields mutate on the next report — copy anything to be kept past
-      # the handler's own invocation.
-      def reset(@mouse : ::Tput::Mouse::Event) : self
+      # Re-targets this (pooled) event at a new underlying `mouse` report (and
+      # delivery *target*) and clears any prior `accept`, so one event can be
+      # reused across dispatches instead of allocating per report. A handler
+      # that *retains* the event will see its fields mutate on the next report —
+      # copy anything to be kept past the handler's own invocation.
+      def reset(@mouse : ::Tput::Mouse::Event, @target : Widget? = nil) : self
         @accepted = false
         self
       end
@@ -556,6 +560,25 @@ module Crysterm
       # 0-based sub-cell pixel row; see `#px`.
       def py : Int32?
         @mouse.py
+      end
+
+      # 0-based column relative to the target widget's content origin (inside
+      # its border/padding) — the column of the pointer within the widget's
+      # `contents_rect`, saving every click handler the
+      # `e.x - (lpos.xi + ileft)` derivation. Falls back to the absolute `#x`
+      # for the window-level emit (no widget target).
+      def local_x : Int32
+        t = @target
+        return x unless t
+        x - ((t.lpos.try(&.xi) || t.aleft) + t.ileft)
+      end
+
+      # 0-based row relative to the target widget's content origin; see
+      # `#local_x`.
+      def local_y : Int32
+        t = @target
+        return y unless t
+        y - ((t.lpos.try(&.yi) || t.atop) + t.itop)
       end
 
       def shift? : Bool

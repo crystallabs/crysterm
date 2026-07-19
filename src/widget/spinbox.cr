@@ -38,7 +38,7 @@ module Crysterm
         wrapping = false,
         **input,
       )
-        super **input
+        super **{keys: true}.merge(input)
 
         setup_spinbox_editing value, wrapping
       end

@@ -2,7 +2,15 @@ module Crysterm
   class Window
     # File related to interaction on the display
 
-    # Is the focused element grab and receiving all keypresses?
+    include Mixin::KeyShortcuts
+
+    # Whether the focused widget has grabbed the keyboard: keys are delivered
+    # to it ONLY, with no bubbling up its ancestor chain (so `j` typed into a
+    # reading text field can't also drive an enclosing form's `vi_keys`
+    # navigation). `#always_propagated_keys` (Tab & co.) are the deliberate
+    # exception — they still bubble. Set by reading widgets for the duration of
+    # an active read; `Widget#grab_keyboard`/`#release_keyboard` are the Qt
+    # spellings.
     property? grab_keys : Bool = Config.window_grab_keys
 
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
@@ -162,6 +170,13 @@ module Crysterm
       true
     end
 
+    # Removes *el* from the keyboard registry only — the exact counterpart of
+    # `#register_keyable`, used when a widget's focus policy drops to `None`.
+    # (`#unregister` below drops keyboard AND mouse for a whole subtree.)
+    def unregister_keyable(el : Widget)
+      @keyable.delete el
+    end
+
     # Removes `el` and its entire subtree from this window's keyboard and mouse
     # registries — the counterpart to `#register_keyable`/`#register_clickable`.
     # Without it the lists grow unboundedly, pinning every widget ever inserted,
@@ -201,20 +216,10 @@ module Crysterm
           next
         end
 
-        # XXX the role of `grab_keys` is unclear: it should mean propagate_keys
-        # stops key handling and grab_keys handles-but-doesn't-pass-on, but
-        # grab_keys=true has no internal code processing it. Hook may be missing.
-
-        grab_keys = @grab_keys
-        # XXX Announce the key at screen level when grab isn't active or the key
-        # is whitelisted: `emit_key self, e`. Not wired up.
-        if !grab_keys || always_propagate
-        end
-
-        # If something changed from the screen key handler, stop.
-        if (@grab_keys != grab_keys) || !@propagate_keys || e.accepted?
-          next
-        end
+        # A handler installed before this one (this listener is installed in
+        # the Window constructor, so only internal ones can precede it) may
+        # have consumed the key already.
+        next if e.accepted?
 
         # Pass the key press to the focused widget, then up the parent tree
         # until someone `#accept`s it; drop it if it reaches the toplevel
@@ -222,7 +227,7 @@ module Crysterm
         #
         # When a widget has grabbed keys (e.g. a text edit reading input), the
         # key goes to the focused widget ONLY: typing `j`/`k` into a text field
-        # inside a `vi:`-enabled `Form` must not both insert the character and
+        # inside a `vi_keys:`-enabled `Form` must not both insert the character and
         # trigger the form's navigation. `always_propagate` keys (Tab, etc.) are
         # the deliberate exception: they still bubble so the form can navigate.
         grabbed = @grab_keys && !always_propagate

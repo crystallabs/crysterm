@@ -1,7 +1,7 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-obscure-sides.js
-# A small, centered scrollable box (blue bg, scrollbar, keyboard/vi) holding two
+# A small, centered scrollable box (blue bg, scrollbar, keyboard/vi_keys) holding two
 # green child boxes positioned so they stick out past the parent's edges — one
 # near the top, one (with a line border) running off the bottom/left.
 module Crysterm
@@ -19,7 +19,7 @@ module Crysterm
     top: "center",
     left: "center",
     keys: true,
-    vi: true,
+    vi_keys: true,
     style: Style.new(
       bg: "blue",
       # Blessed: border:{type:'bg', ch:' '} + style.border.inverse.

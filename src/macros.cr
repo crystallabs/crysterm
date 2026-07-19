@@ -103,8 +103,8 @@ module Crysterm
     macro pooled_mouse_event(name, klass)
       @_{{name.id}}_event : Crysterm::Event::{{klass.id}}?
 
-      private def {{name.id}}_event(ev : ::Tput::Mouse::Event) : Crysterm::Event::{{klass.id}}
-        (@_{{name.id}}_event ||= Crysterm::Event::{{klass.id}}.new(ev)).reset ev
+      private def {{name.id}}_event(ev : ::Tput::Mouse::Event, target : Widget? = nil) : Crysterm::Event::{{klass.id}}
+        (@_{{name.id}}_event ||= Crysterm::Event::{{klass.id}}.new(ev)).reset ev, target
       end
     end
 

@@ -8,7 +8,7 @@ module Crysterm
     height: "50%",
     parse_tags: false,
     keys: false,
-    # vi: true,
+    # vi_keys: true,
     # mouse: true,
     max_lines: 100,
     style: Style.new(

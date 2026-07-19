@@ -90,27 +90,27 @@ describe Crysterm::Widget::Dialog do
       d = PlainDialog.new parent: w, width: 20, height: 5
 
       d.modal?.should be_false
-      w.grabbing?.should be_false
+      w.popup_grab_active?.should be_false
 
       d.open
       d.modal?.should be_true
-      w.grabbing?.should be_true
+      w.popup_grab_active?.should be_true
       d.visible?.should be_true
 
       d.accept
       d.modal?.should be_false
-      w.grabbing?.should be_false
+      w.popup_grab_active?.should be_false
     end
 
     it "#destroy releases a modal grab, so it can't outlive the dialog" do
       w = dr_window
       d = PlainDialog.new parent: w, width: 20, height: 5
       d.open
-      w.grabbing?.should be_true
+      w.popup_grab_active?.should be_true
 
       d.destroy
 
-      w.grabbing?.should be_false
+      w.popup_grab_active?.should be_false
     end
   end
 end

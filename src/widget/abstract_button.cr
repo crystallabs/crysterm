@@ -68,7 +68,7 @@ module Crysterm
       setter group
 
       def initialize(text : String? = nil, checkable : Bool = false, checked : Bool = false, **input)
-        super **input
+        super **{keys: true}.merge(input)
         @checkable = checkable
         @checked = checked
 

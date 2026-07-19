@@ -43,7 +43,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
     dlg.destroy
     s.emit Crysterm::Event::KeyPress, enter_key # handler must be gone
     called.should eq 0
-    s.grabbing?.should be_false # no leaked modal grab
+    s.popup_grab_active?.should be_false # no leaked modal grab
   end
 end
 

@@ -106,11 +106,11 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     s._render
 
-    s.grab inner
-    s.grabbing?.should be_true
+    s.add_popup_grab inner
+    s.popup_grab_active?.should be_true
 
     outer.remove inner
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 
   it "leaves the window mouse-state untouched for an UNRELATED removal" do

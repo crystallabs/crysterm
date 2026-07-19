@@ -24,7 +24,7 @@ module Crysterm
     ),
     content: "foobar",
     keys: true,
-    vi: true,
+    vi_keys: true,
     always_scroll: true,
     # scrollbar: {
     #	ch: " ",
@@ -81,7 +81,7 @@ module Crysterm
       padding: 2,
     ),
     keys: true,
-    vi: true,
+    vi_keys: true,
     always_scroll: true,
   )
 
@@ -105,7 +105,7 @@ module Crysterm
       border: true,
     ),
     keys: true,
-    vi: true,
+    vi_keys: true,
     always_scroll: true,
   )
 

@@ -50,7 +50,7 @@ root = Widget::Box.new parent: screen, top: 0, left: 0, width: "100%", height: "
 sidebar = Widget::Box.new parent: root, width: 25,
   layout_hint: Layout::Border::Hint.new(:left)
 
-chooser = Widget::List.new parent: sidebar, items: files, mouse: true, vi: true,
+chooser = Widget::List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
   scrollbar: true, top: 0, left: 0, width: "100%", height: "50%-1",
   label: " Image ", style: Style.new(border: true)
 
@@ -62,7 +62,7 @@ fit_names = FITS.map { |(n, _)| n }
 fitrow = Widget::Box.new parent: sidebar, top: "50%-1", left: 0, width: "100%", height: 1,
   parse_tags: true, input: true
 
-backends = Widget::Tree.new parent: sidebar, mouse: true, vi: true,
+backends = Widget::Tree.new parent: sidebar, mouse: true, vi_keys: true,
   top: "50%", left: 0, width: "100%", height: "50%",
   label: " Render Method ", style: Style.new(border: true)
 

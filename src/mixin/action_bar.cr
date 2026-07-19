@@ -653,20 +653,20 @@ module Crysterm
         end
 
         case
-        when e.key == ::Tput::Key::Left, (@vi && e.char == 'h'),
+        when e.key == ::Tput::Key::Left, (@vi_keys && e.char == 'h'),
              (e.key == ::Tput::Key::ShiftTab)
           move_left
           request_render
           e.accept if e.key == ::Tput::Key::ShiftTab
-        when e.key == ::Tput::Key::Right, (@vi && e.char == 'l'),
+        when e.key == ::Tput::Key::Right, (@vi_keys && e.char == 'l'),
              (e.key == ::Tput::Key::Tab)
           move_right
           request_render
           e.accept if e.key == ::Tput::Key::Tab
-        when e.key == ::Tput::Key::Enter, (@vi && e.char == 'k')
+        when e.key == ::Tput::Key::Enter, (@vi_keys && e.char == 'k')
           fire current_index
           request_render
-        when e.key == ::Tput::Key::Escape, (@vi && e.char == 'q')
+        when e.key == ::Tput::Key::Escape, (@vi_keys && e.char == 'q')
           if item = @items[current_index]?
             emit ::Crysterm::Event::ItemActivated, item, current_index
             emit ::Crysterm::Event::ItemCancelled, item, current_index

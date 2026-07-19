@@ -122,6 +122,11 @@ module Crysterm
   # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
   alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
 
+  # Project-wide alias for the key enum, so user code binding shortcuts can
+  # write `Crysterm::Key::Enter` (or plain `Key::Enter` after
+  # `include Crysterm`) without ever spelling `Tput::`.
+  alias Key = ::Tput::Key
+
   # Project-wide alias for a primitive scalar attached as arbitrary user
   # payload — `Action#data` (Qt's `QAction::data`) and `Mixin::Data#data`
   # (any widget's `#data`) both carry this. Deliberately narrow (no
@@ -147,6 +152,28 @@ module Crysterm
     in Headless::Never  then false
     in Headless::Auto   then !interactive?
     end
+  end
+
+  # Builds a `Window`, yields it for UI construction, then runs the main loop —
+  # the shortest complete program:
+  #
+  # ```
+  # require "crysterm"
+  #
+  # Crysterm.run do |w|
+  #   w.layout = Crysterm::Layout::Box.new :vertical
+  #   Crysterm::Widget::Box.new parent: w, content: "Hello, World!"
+  # end
+  # ```
+  #
+  # Blocks until the application quits (`q`/Ctrl-Q out of the box, or any
+  # `quit` call) and returns the exit status, so a program can end with
+  # `exit Crysterm.run { |w| ... }` when the status matters. Keyword arguments
+  # are forwarded to `Window.new`.
+  def self.run(**window_options, & : Window ->) : Int32
+    window = Window.new(**window_options)
+    yield window
+    window.exec
   end
 
   class GlobalEventHub

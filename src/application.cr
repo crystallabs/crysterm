@@ -81,7 +81,7 @@ module Crysterm
     #
     # Also home for **app-global hotkeys**, applied as a *fallback* after the
     # window has had its say. Default quit keys (`q` / Ctrl-Q): a press (never
-    # release) on a window with `default_quit_keys?` tears it down and exits —
+    # release) on a window with `default_quit_keys?` quits the application —
     # but only when no widget/handler `#accept`ed the key and no widget has
     # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
     # edits instead of quitting the app. Windows that opt out never quit here.
@@ -101,22 +101,51 @@ module Crysterm
       end
     end
 
+    # Channel `#quit` uses to hand its exit status to the `#exec` loop.
+    # Buffered so a `quit` with no `exec` blocked on the other end (yet)
+    # doesn't deadlock the quitting fiber.
+    @quit_channel = Channel(Int32).new(1)
+
+    # Whether an `#exec` loop is currently blocked waiting for `#quit` —
+    # decides whether `#quit` signals the loop or (no loop to unwind to)
+    # falls back to exiting the process directly.
+    @exec_running = false
+
+    # One-shot latch so teardown runs once even when `#quit` re-enters (the
+    # windows it destroys call `#remove`, whose last-window-closed hook calls
+    # `#quit` again).
+    @quit_requested = false
+
+    # Whether destroying the last window ends the `#exec` loop (Qt's
+    # `quitOnLastWindowClosed`). Only consulted while `#exec` is blocked, so
+    # programs tearing windows down outside an exec loop are unaffected.
+    property? quit_on_last_window_closed = true
+
     # Shuts the application down (Qt's `QCoreApplication::quit`): emits
     # `Event::AboutToQuit` so handlers can save state, tears every window down,
-    # then exits the process with *status*.
+    # then ends the `#exec` loop, which returns *status* to its caller. When no
+    # `#exec` loop is running (input started by hand, process kept alive with a
+    # bare `sleep`), there is nothing to unwind to, so the process exits with
+    # *status* directly.
     #
     # The polite counterpart to a bare `exit`, which skips `AboutToQuit`
     # entirely and leaves teardown to the `at_exit` net (that restores the
     # terminals but runs no application code).
     #
     # NOTE `Application.exec_all` deliberately does *not* use this — it owns quit
-    # for its windows and returns normally instead of exiting the process.
-    def quit(status : Int32 = 0) : NoReturn
+    # for its windows and returns normally.
+    def quit(status : Int32 = 0) : Nil
+      return if @quit_requested
+      @quit_requested = true
       emit ::Crysterm::Event::AboutToQuit
       # Iterate a copy: `Window#destroy` calls `#remove`, which mutates
       # `@windows` under an in-place iterator.
       @windows.dup.each { |w| w.destroy unless w.destroyed? }
-      exit status
+      if @exec_running
+        @quit_channel.send status
+      else
+        exit status
+      end
     end
 
     # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).
@@ -161,6 +190,14 @@ module Crysterm
       return unless @windows.delete window
       device = window.screen
       emit ::Crysterm::Event::ScreenRemoved, device unless screens.includes? device
+      # Losing the last window ends a blocked `#exec` loop (Qt's
+      # `quitOnLastWindowClosed`), so `window.destroy` alone unblocks a program
+      # instead of leaving `exec` waiting on a quit that can no longer arrive.
+      # Only while `exec` is live — outside it (specs, hand-driven programs)
+      # destroying windows must stay side-effect-free. `#quit` re-entry (its
+      # teardown lands here for every window) is latched out by
+      # `@quit_requested`.
+      quit 0 if @exec_running && @windows.empty? && quit_on_last_window_closed?
     end
 
     # The application clipboard facade ↔ `QGuiApplication::clipboard()`. One
@@ -170,23 +207,37 @@ module Crysterm
 
     # Renders *window* and runs the main loop — the `QApplication::exec()` entry.
     # Registers the window, honors headless capture mode, then renders, starts
-    # input, and blocks.
-    def exec(window : Window) : Nil
+    # input, and blocks until `#quit` (or, with `#quit_on_last_window_closed?`,
+    # until the last window is destroyed), returning the exit status passed to
+    # `#quit` — `0` for a last-window-closed exit. The default quit keys route
+    # through `#quit`, so a plain `q` makes `exec` return rather than
+    # hard-exiting the process.
+    def exec(window : Window) : Int32
+      # Marked before the first yield point (render/start_input do IO), so a
+      # `quit` from a concurrently-scheduled fiber lands in the channel — never
+      # in the no-loop-to-unwind-to `exit` branch — even when it runs during
+      # this setup.
+      @exec_running = true
+
       add window
 
       # Headless capture mode: if capture env vars are set, this process is
       # driven by test/example tooling — render one frame, write the requested
       # artifact(s), and return instead of entering the interactive loop.
-      return if window.run_env_capture
+      if window.run_env_capture
+        @exec_running = false
+        return 0
+      end
 
       window.render
       window.start_input
 
-      # The main loop is currently just a sleep.
-      sleep
-
-      # Shouldn't reach for now.
-      window.emit ::Crysterm::Event::Detached, window
+      status = @quit_channel.receive
+      @exec_running = false
+      # Re-arm so a fresh window can be `exec`ed again after a quit (Qt allows
+      # re-entering the loop).
+      @quit_requested = false
+      status
     end
 
     # Opens a real terminal emulator window and returns a `Window` driving it.

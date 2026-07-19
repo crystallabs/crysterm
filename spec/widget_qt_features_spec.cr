@@ -2377,7 +2377,7 @@ describe "Input grab (modal pop-ups)" do
     over.should eq 1 # hover reaches the box normally
 
     menubar.open 0
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
     move.call bar_x.call(0), 0 # park hover on the bar
     move.call 60, 12           # hover the box again, now while the menu is open
     over.should eq 1           # …no new MouseEnter: suppressed by the grab
@@ -2386,7 +2386,7 @@ describe "Input grab (modal pop-ups)" do
     menubar.open_index.should eq 1
 
     menubar.close
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
     move.call bar_x.call(0), 0
     move.call 60, 12
     over.should eq 2 # hover reaches the box again once the grab is released
@@ -2490,10 +2490,10 @@ describe "Horizontal scroll API" do
     box.child_base_x.should eq 0
   end
 
-  it "jumps to the first/last column with vi 0/$ keys" do
+  it "jumps to the first/last column with vi_keys 0/$ keys" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
-      wrap_content: false, vi: true,
+      wrap_content: false, vi_keys: true,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST"
     s._render

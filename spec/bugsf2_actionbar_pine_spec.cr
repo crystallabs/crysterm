@@ -154,7 +154,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
     s = f2_screen
     input = Crysterm::Widget::Input.new(
       parent: s, width: "100%", height: "100%",
-      scrollable: true, keys: true, vi: true,
+      scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
     s._render
 
@@ -167,7 +167,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
     s = f2_screen
     input = Crysterm::Widget::Input.new(
       parent: s, width: "100%", height: "100%",
-      scrollable: true, keys: true, vi: true,
+      scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
     s._render
 

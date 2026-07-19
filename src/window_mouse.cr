@@ -20,17 +20,17 @@ module Crysterm
     @grabs = [] of Widget
 
     # Registers *w* as an active input grab (no-op if already grabbing).
-    def grab(w : Widget) : Nil
+    def add_popup_grab(w : Widget) : Nil
       @grabs << w unless @grabs.includes? w
     end
 
     # Removes *w*'s input grab.
-    def ungrab(w : Widget) : Nil
+    def remove_popup_grab(w : Widget) : Nil
       @grabs.delete w
     end
 
     # Whether any input grab is active.
-    def grabbing? : Bool
+    def popup_grab_active? : Bool
       !@grabs.empty?
     end
 
@@ -173,7 +173,7 @@ module Crysterm
       @_mouse_captor = nil if drop_captor
       stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
       stale_target.try { |st| retarget(st, nil) if @_drag == st }
-      stale_grabs.each { |g| ungrab g }
+      stale_grabs.each { |g| remove_popup_grab g }
     end
 
     # Per-Window pooled mouse events (one per concrete class), reused across
@@ -321,7 +321,7 @@ module Crysterm
       # `emit(type, event)` returns the pooled event regardless of listeners,
       # and `reset` cleared `accepted`, so with no handler (or one that didn't
       # `accept`) this correctly falls through to the default handling below.
-      me = w.emit ::Crysterm::Event::Mouse, mouse_event(ev)
+      me = w.emit ::Crysterm::Event::Mouse, mouse_event(ev, w)
       if me.accepted?
         # A `draggable?` widget handling the press itself opts out of the
         # default drag. The drag was *armed* above, before the widget could
@@ -398,10 +398,10 @@ module Crysterm
       captor = @_mouse_captor
       return false unless captor
       if ev.action.move?
-        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev)
+        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev, captor)
         return true
       elsif ev.action.up?
-        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev)
+        captor.emit ::Crysterm::Event::Mouse, mouse_event(ev, captor)
         # Only the ARMING button's release (or a buttonless legacy release)
         # ends the capture — a stray other-button tap mid-gesture must not cut
         # a drag-select short.
@@ -461,11 +461,12 @@ module Crysterm
       true
     end
 
-    # The nearest widget at or above *w* that can take focus by pointer
-    # (`keyable?` and not opted out via `focus_on_click?`), or `nil`.
+    # The nearest widget at or above *w* whose focus policy grants wheel focus
+    # (see `Widget#accepts_wheel_focus?` — Qt's `Wheel` rule with an explicit
+    # policy, the historical any-click-focusable behavior without), or `nil`.
     private def focusable_at(w : Widget) : Widget?
       # Skip disabled widgets (not a focus target), matching Tab navigation.
-      w.first_self_or_ancestor { |el| el.focus_on_click? && el.keyable? && !el.disabled? }
+      w.first_self_or_ancestor { |el| el.accepts_wheel_focus? && !el.disabled? }
     end
 
     # Scrolls the first scrollable widget at or above *w* by *offset* —
@@ -490,14 +491,14 @@ module Crysterm
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
       if w != @_hover
         if old = @_hover
-          old.emit ::Crysterm::Event::MouseLeave, mouse_out_event(ev)
+          old.emit ::Crysterm::Event::MouseLeave, mouse_out_event(ev, old)
         end
         @_hover = w
         if w
-          w.emit ::Crysterm::Event::MouseEnter, mouse_over_event(ev)
+          w.emit ::Crysterm::Event::MouseEnter, mouse_over_event(ev, w)
         end
       elsif w && ev.action.move?
-        w.emit ::Crysterm::Event::MouseMove, mouse_move_event(ev)
+        w.emit ::Crysterm::Event::MouseMove, mouse_move_event(ev, w)
       end
     end
 

@@ -145,7 +145,7 @@ module Crysterm
         @options = options.to_a
         @editable = editable
 
-        super **input
+        super **{keys: true}.merge(input)
 
         @selected = @options.empty? ? 0 : current_index.clamp(0, @options.size - 1)
         @value = @options[@selected]? || ""

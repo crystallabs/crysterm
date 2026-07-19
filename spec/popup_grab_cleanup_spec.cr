@@ -22,21 +22,21 @@ describe Crysterm::Mixin::Popup do
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.show_popup
     cb.open?.should be_true
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
 
     cb.destroy
 
     # The grab must be gone even though `#close` was never called.
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 
   it "leaves the grab untouched when destroyed while closed" do
     s = popup_mem_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.open?.should be_false
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
 
     cb.destroy
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 end

@@ -50,7 +50,7 @@ module Crysterm
     align: ::Tput::AlignFlag::Center,
     parse_tags: true,
     keys: true,
-    vi: true,
+    vi_keys: true,
     mouse: true,
     styles: Styles.new(
       normal: Style.new(

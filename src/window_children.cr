@@ -1,5 +1,30 @@
 module Crysterm
   class Window
+    # The auto-managed full-screen root box `#layout=` installs its layout on,
+    # or `nil` while no window-level layout was ever assigned. Style it (or add
+    # non-layout satellites next to it) directly when needed.
+    getter layout_root : Widget::Box?
+
+    # Installs *engine* as this window's layout (Qt's
+    # `QWidget#setLayout` on a top-level widget). A `Window` is not a `Widget`,
+    # so under the hood this lazily creates one full-screen root `Widget::Box`
+    # (`#layout_root`) and lays *engine* on it — pure sugar replacing the
+    # `Box.new parent: window, width: "100%", height: "100%"` every app
+    # otherwise hand-builds. Assigning again swaps the engine on the same root.
+    def layout=(engine : Crysterm::Layout?) : Crysterm::Layout?
+      root = (@layout_root ||= begin
+        b = Widget::Box.new width: "100%", height: "100%"
+        append b
+        b
+      end)
+      root.layout = engine
+    end
+
+    # The engine installed via `#layout=`, or `nil`.
+    def layout : Crysterm::Layout?
+      @layout_root.try &.layout
+    end
+
     def insert(element, i = -1)
       # Reorder of an existing top-level child. `Mixin::Children#insert` rejects
       # a duplicate before mutating the list, so it can't reposition; do the

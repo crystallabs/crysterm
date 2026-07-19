@@ -5,7 +5,7 @@ include Crysterm
 # Spec for `Menu`'s adoption of `Overlay::DismissSession` (FORMAL-WIDGETS Part A
 # Piece 2 — the last of the four sites) plus the Piece 4 `#treat_as_inside`
 # helper. Menu's two hand-rolled watchers (`@ev_popup`/`@ev_outside`) and the
-# manual `window.grab self` collapse to a grab-owning popup session and a
+# manual `window.add_popup_grab self` collapse to a grab-owning popup session and a
 # no-grab submenu session; teardown runs via the session's captured window.
 #
 # The existing tool-button spec covers the toggle-reopen path end-to-end; these
@@ -35,14 +35,14 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
     s = menu_screen
     menu = popup_menu s
 
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
     menu.popup 2, 2
     menu.visible?.should be_true
-    s.grabbing?.should be_true # the popup session took the modal grab
+    s.popup_grab_active?.should be_true # the popup session took the modal grab
 
     menu.hide_popup
     menu.visible?.should be_false
-    s.grabbing?.should be_false # ...and released it via the session's window
+    s.popup_grab_active?.should be_false # ...and released it via the session's window
   end
 
   it "dismisses (and releases the grab) on a press outside the menu" do
@@ -51,11 +51,11 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
 
     menu.popup 2, 2
     s._render
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
 
     press_at s, 70, 20 # well outside the menu box
     menu.visible?.should be_false
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 
   it "a press on a #treat_as_inside region is not a click-away" do
@@ -67,14 +67,14 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
 
     menu.popup 2, 2 # menu box sits at top >= 2, clear of row 0
     s._render
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
 
     press_at s, 5, 0 # in the extra region → still open
     menu.visible?.should be_true
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
 
     press_at s, 70, 20 # truly outside → now dismissed
     menu.visible?.should be_false
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 end

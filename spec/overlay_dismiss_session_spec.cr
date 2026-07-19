@@ -31,7 +31,7 @@ describe Crysterm::Overlay::DismissSession do
     sess.open?.should be_false
     sess.open
     sess.open?.should be_true
-    s.grabbing?.should be_true # modal grab taken
+    s.popup_grab_active?.should be_true # modal grab taken
 
     down_at s, 1, 1 # inside w → not a dismiss
     dismissed.should eq 0
@@ -49,13 +49,13 @@ describe Crysterm::Overlay::DismissSession do
       s, grab_owner: w,
       inside: ->(x : Int32, y : Int32) { w.contains_point?(x, y) }) { }
     sess.open
-    s.grabbing?.should be_true
+    s.popup_grab_active?.should be_true
 
     sess.close
     sess.open?.should be_false
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
     sess.close # idempotent — no crash, no double-ungrab
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
   end
 
   it "takes no grab when grab_owner is nil (the Completer shape)" do
@@ -68,7 +68,7 @@ describe Crysterm::Overlay::DismissSession do
       s, grab_owner: nil,
       inside: ->(x : Int32, y : Int32) { box.contains_point?(x, y) }) { dismissed += 1 }
     sess.open
-    s.grabbing?.should be_false # no modal grab
+    s.popup_grab_active?.should be_false # no modal grab
 
     down_at s, 60, 20 # still dismisses on an outside press
     dismissed.should eq 1

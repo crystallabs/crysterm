@@ -3,7 +3,7 @@ require "../../src/crysterm"
 # Port of Blessed's test/widget-listbar.js
 #
 # Demonstrates the interactive `Widget::ListBar`: a horizontal bar of
-# selectable commands with keyboard (and vi) navigation, mouse clicks,
+# selectable commands with keyboard (and vi_keys) navigation, mouse clicks,
 # per-command hotkeys, and `auto_command_keys` (number keys select tabs).
 # Selecting a command updates the box in the top-right corner.
 class X
@@ -28,7 +28,7 @@ class X
       height: 3,
       mouse: true,
       keys: true,
-      vi: true,
+      vi_keys: true,
       auto_command_keys: true,
       styles: Styles.new(
         normal: Style.new(

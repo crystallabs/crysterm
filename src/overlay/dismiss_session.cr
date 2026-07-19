@@ -32,7 +32,7 @@ module Crysterm
         return if @open
         @open = true
         if owner = @grab_owner
-          @window.grab owner
+          @window.add_popup_grab owner
         end
         cb = @on_dismiss
         inside = @inside
@@ -47,7 +47,7 @@ module Crysterm
         return unless @open
         @open = false
         if owner = @grab_owner
-          @window.ungrab owner
+          @window.remove_popup_grab owner
         end
         @watcher.off
       end

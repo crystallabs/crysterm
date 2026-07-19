@@ -30,7 +30,7 @@ module Crysterm
         @text_visible = true,
         **input,
       )
-        super **input
+        super **{keys: true}.merge(input)
 
         @wrapping = wrapping
         # Guarded range+value init: never store an inverted range, which would

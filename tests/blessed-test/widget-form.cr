@@ -2,7 +2,7 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-form.js
 #
-# Demonstrates `Widget::Form`: Tab/Shift+Tab (and vi j/k) navigation between a
+# Demonstrates `Widget::Form`: Tab/Shift+Tab (and vi_keys j/k) navigation between a
 # radio set, text box, checkboxes and submit button, with value collection on submit.
 class X
   include Crysterm
@@ -13,7 +13,7 @@ class X
     form = Widget::Form.new \
       parent: s,
       keys: true,
-      vi: true,
+      vi_keys: true,
       left: 0,
       top: 0,
       width: "100%",

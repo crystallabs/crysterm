@@ -2,7 +2,98 @@ module Crysterm
   class Widget
     # module Interaction
 
+    include Mixin::KeyShortcuts
+
     property? interactive = false
+
+    # Directs all subsequent mouse motion/release to this widget until the
+    # button is released (Qt's `QWidget#grabMouse`, called from a press
+    # handler) — the terminal counterpart is the window's `#capture_mouse`.
+    # No-op while detached.
+    def grab_mouse : Nil
+      window?.try &.capture_mouse(self)
+    end
+
+    # Ends this widget's mouse grab (Qt's `QWidget#releaseMouse`). Only
+    # releases a capture this widget itself holds, so it can't cut short
+    # another widget's in-flight gesture.
+    def release_mouse : Nil
+      window?.try { |w| w.release_mouse if w.mouse_captor == self }
+    end
+
+    # Focuses this widget and routes keys to it ONLY — no bubbling up the
+    # ancestor chain — until `#release_keyboard` (Qt's `QWidget#grabKeyboard`).
+    # The window's `#always_propagated_keys` (Tab & co.) still bubble. Reading
+    # widgets (`LineEdit`, `TextEdit`) grab automatically for the duration of
+    # an active read. No-op while detached.
+    def grab_keyboard : Nil
+      window?.try do |w|
+        focus
+        w.grab_keys = true
+      end
+    end
+
+    # Ends a keyboard grab (Qt's `QWidget#releaseKeyboard`). Only releases
+    # while this widget holds focus (the keyboard routes to the focused widget,
+    # so a non-focused widget has nothing to release).
+    def release_keyboard : Nil
+      window?.try { |w| w.grab_keys = false if focused? }
+    end
+
+    # Actions installed on this widget via `#add_action` (Qt's
+    # `QWidget#actions`). Empty for the vast majority of widgets, so the list
+    # is allocated lazily.
+    def actions : Array(Action)
+      @_actions ||= [] of Action
+    end
+
+    @_actions : Array(Action)?
+
+    # Whether the attach/detach handlers that (un)install action shortcuts have
+    # been wired (once, on the first `#add_action`).
+    @_actions_wired = false
+
+    # Installs *action* on this widget (Qt's `QWidget#addAction`): the action's
+    # keyboard shortcut becomes active on the widget's window — gated on this
+    # widget holding focus when the action's `shortcut_context` is
+    # `Widget`/`WidgetWithChildren` — and follows the widget across
+    # attach/detach. Unlike `Menu#add_action`/`ToolBar#add_action` this
+    # *presents nothing*; it is the way to give any widget a shortcut-reachable
+    # command. Idempotent; returns *action*.
+    def add_action(action : Action) : Action
+      acts = actions
+      return action if acts.includes? action
+      acts << action
+      action.associate self
+      wire_actions
+      window?.try { |w| action.install_shortcut w, self }
+      action
+    end
+
+    # Removes *action* (Qt's `QWidget#removeAction`): withdraws its shortcut
+    # from the window and forgets it. No-op when not installed.
+    def remove_action(action : Action) : Nil
+      return unless @_actions.try &.delete(action)
+      action.dissociate self
+      window?.try { |w| action.uninstall_shortcut w }
+    end
+
+    # Wires the attach/detach lifecycle for installed actions — once, lazily,
+    # so widgets that never carry actions don't pay for the handlers.
+    private def wire_actions : Nil
+      return if @_actions_wired
+      @_actions_wired = true
+      on(Crysterm::Event::Attached) do
+        window?.try { |w| @_actions.try &.each(&.install_shortcut(w, self)) }
+      end
+      # `@window` is already nulled when `Detached` fires; the window being
+      # left rides in the event payload (same contract `ToolBar` relies on).
+      on(Crysterm::Event::Detached) do |e|
+        e.object.as?(::Crysterm::Window).try do |w|
+          @_actions.try &.each(&.uninstall_shortcut(w))
+        end
+      end
+    end
 
     # Is element clickable?
     property? clickable = false
@@ -29,6 +120,95 @@ module Crysterm
         has_handlers?(Crysterm::Event::MouseLeave)
     end
 
+    # The ways a widget accepts keyboard focus (Qt's `Qt::FocusPolicy`).
+    enum FocusPolicy
+      # Does not accept focus.
+      None
+      # Accepts focus by Tab/Shift+Tab only.
+      Tab
+      # Accepts focus by clicking only (skipped by Tab navigation).
+      Click
+      # Accepts focus by both Tab and click (the interactive-widget default).
+      Strong
+      # `Strong`, plus the mouse wheel focuses it.
+      Wheel
+
+      # Whether Tab/Shift+Tab may land on a widget with this policy.
+      def accepts_tab? : Bool
+        tab? || strong? || wheel?
+      end
+
+      # Whether a click focuses a widget with this policy.
+      def accepts_click? : Bool
+        click? || strong? || wheel?
+      end
+
+      # Whether the mouse wheel focuses a widget with this policy.
+      def accepts_wheel? : Bool
+        wheel?
+      end
+    end
+
+    # The explicitly-assigned focus policy, or `nil` while the widget still
+    # runs on the legacy flags (`keys`/`input` + `focus_on_click`) it was
+    # constructed with. Explicit assignment becomes authoritative.
+    @focus_policy : FocusPolicy?
+
+    # The ways this widget accepts keyboard focus (Qt's `QWidget#focusPolicy`).
+    # Until a policy is set explicitly, it is derived from the legacy flags: a
+    # key-enabled widget (`keys`/`input`/`keyable`) maps to `Strong` (or `Tab`
+    # when `focus_on_click` is off), anything else to `None`.
+    def focus_policy : FocusPolicy
+      @focus_policy || begin
+        if keyable? || keys? || input?
+          focus_on_click? ? FocusPolicy::Strong : FocusPolicy::Tab
+        else
+          FocusPolicy::None
+        end
+      end
+    end
+
+    # Sets the focus policy (Qt's `QWidget#setFocusPolicy`), accepting a
+    # `Symbol` shorthand (`w.focus_policy = :none`). Keeps the legacy flags in
+    # sync: `None` de-registers the widget from keyboard input entirely, any
+    # accepting policy key-enables it (and `Tab`-only turns click-to-focus
+    # off). `Click` is honored by Tab navigation (skipped) and mouse focus;
+    # wheel-focus is granted only by `Wheel`, per Qt.
+    def focus_policy=(policy : FocusPolicy) : FocusPolicy
+      @focus_policy = policy
+      if policy.none?
+        @keys = false
+        @input = false
+        @keyable = false
+        window?.try &.unregister_keyable(self)
+      else
+        @keys = true
+        @focus_on_click = policy.accepts_click?
+        window?.try &.register_keyable(self)
+      end
+      policy
+    end
+
+    # Whether Tab/Shift+Tab navigation may land on this widget. Follows the
+    # explicit `#focus_policy` when one was set (`Click` widgets are skipped);
+    # otherwise the legacy behavior — every key-registered widget is a Tab
+    # target.
+    def accepts_tab_focus? : Bool
+      @focus_policy.try(&.accepts_tab?) != false
+    end
+
+    # Whether a mouse wheel over this widget focuses it. With an explicit
+    # `#focus_policy` this is Qt's rule — only `Wheel` grants it; the legacy
+    # default (no explicit policy) keeps the historical behavior of wheel
+    # focusing any click-focusable widget.
+    def accepts_wheel_focus? : Bool
+      if policy = @focus_policy
+        policy.accepts_wheel?
+      else
+        focus_on_click? && keyable?
+      end
+    end
+
     # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)
     property? keyable = false
 
@@ -37,7 +217,7 @@ module Crysterm
 
     property? focus_on_click = true
 
-    property? vi : Bool = false
+    property? vi_keys : Bool = false
 
     # Does it accept keyboard input?
     property? input = false

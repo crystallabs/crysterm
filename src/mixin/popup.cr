@@ -74,7 +74,7 @@ module Crysterm
       # including widget's `#destroy` (before `super`).
       protected def teardown_popup_on_destroy : Nil
         # Destroy can run without a prior `#hide_popup`, which would leave the dead
-        # widget in `@grabs` — keeping `Window#grabbing?` true and routing presses
+        # widget in `@grabs` — keeping `Window#popup_grab_active?` true and routing presses
         # to it. The session's `#close` is idempotent and holds its own window
         # reference, so releasing here is always safe.
         @open = false

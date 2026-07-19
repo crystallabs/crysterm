@@ -15,7 +15,7 @@ module Crysterm
     bottom: 0,
     scrollable: true,
     keys: true,
-    vi: true,
+    vi_keys: true,
     always_scroll: true,
     scrollbar: true
 

@@ -114,8 +114,8 @@ describe "Window#remove (mouse-interaction state)" do
     other = Widget::Box.new parent: s, left: 40, top: 0, width: 8, height: 4
     other.on(Crysterm::Event::MouseEnter) { } # makes `other` hoverable
 
-    s.grab popup
-    s.grabbing?.should be_true
+    s.add_popup_grab popup
+    s.popup_grab_active?.should be_true
     # While grabbed, the pointer over `other` (outside the grab region) hits nothing.
     ris_move s, 44, 1
     s.hovered.should be_nil
@@ -123,7 +123,7 @@ describe "Window#remove (mouse-interaction state)" do
     # Removing the grabbing widget directly (bypassing its own ungrab-on-close)
     # must lift the modal lock rather than leave `@grabs` aimed at a detached widget.
     s.remove popup
-    s.grabbing?.should be_false
+    s.popup_grab_active?.should be_false
 
     ris_move s, 44, 1
     s.hovered.should eq other

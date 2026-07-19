@@ -8,7 +8,7 @@ include Crysterm
 # full page / first / last" in both, only the action differs.
 #
 # The Interactive side is pinned by `bugs6_mixin_util_spec.cr`
-# (PageUp/Down, Home/End, Ctrl-U/D/B/F, vi j/k/g/G). This spec pins the
+# (PageUp/Down, Home/End, Ctrl-U/D/B/F, vi_keys j/k/g/G). This spec pins the
 # ItemView side against the *same* table, so an accidental divergence in either
 # family fails.
 
@@ -23,10 +23,10 @@ private def nk_screen
 end
 
 # A List tall enough that a page step differs from a single step.
-private def nk_list(vi = false)
+private def nk_list(vi_keys = false)
   s = nk_screen
   list = Crysterm::Widget::List.new(
-    parent: s, vi: vi,
+    parent: s, vi_keys: vi_keys,
     top: 0, left: 0, width: 20, height: 6,
     items: (1..30).map { |i| "item #{i}" })
   s.render
@@ -75,12 +75,12 @@ describe Crysterm::Mixin::NavKeys do
       list.current_index.should be >= half
     end
 
-    it "binds vi j/k and g/G only when vi is enabled" do
-      _, off = nk_list vi: false
+    it "binds vi_keys j/k and g/G only when vi_keys is enabled" do
+      _, off = nk_list vi_keys: false
       nk_press off, ch: 'j'
-      off.current_index.should eq 0 # inert without vi
+      off.current_index.should eq 0 # inert without vi_keys
 
-      _, on = nk_list vi: true
+      _, on = nk_list vi_keys: true
       nk_press on, ch: 'j'
       on.current_index.should eq 1
       nk_press on, ch: 'k'
@@ -94,7 +94,7 @@ describe Crysterm::Mixin::NavKeys do
 
   describe "#nav_intent classification" do
     it "classifies the physical keys and leaves others as None" do
-      _, list = nk_list vi: true
+      _, list = nk_list vi_keys: true
       mk = ->(ch : Char, key : Tput::Key?) { Crysterm::Event::KeyPress.new(ch, key) }
       list.nav_intent(mk.call('\0', Tput::Key::Up)).backward?.should be_true
       list.nav_intent(mk.call('\0', Tput::Key::Down)).forward?.should be_true
@@ -102,8 +102,8 @@ describe Crysterm::Mixin::NavKeys do
       list.nav_intent(mk.call('\0', Tput::Key::CtrlF)).page_forward?.should be_true
       list.nav_intent(mk.call('\0', Tput::Key::Home)).first?.should be_true
       list.nav_intent(mk.call('\0', Tput::Key::End)).last?.should be_true
-      list.nav_intent(mk.call('k', nil)).backward?.should be_true # vi
-      list.nav_intent(mk.call('G', nil)).last?.should be_true     # vi
+      list.nav_intent(mk.call('k', nil)).backward?.should be_true # vi_keys
+      list.nav_intent(mk.call('G', nil)).last?.should be_true     # vi_keys
       list.nav_intent(mk.call('x', nil)).none?.should be_true
     end
   end

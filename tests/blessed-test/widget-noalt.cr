@@ -1,7 +1,7 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-noalt.js
-# A centered List (items "one"/"two"/"three") with keyboard, vi and mouse
+# A centered List (items "one"/"two"/"three") with keyboard, vi_keys and mouse
 # support. Item text is blue; the selected item gets a green background.
 # Selecting an item destroys the screen; q / Ctrl-C quit.
 module Crysterm
@@ -16,7 +16,7 @@ module Crysterm
     # Crysterm's List enables key handling internally; there is no `keys:`
     # kwarg (it would collide with the value List forwards to its base), so
     # blessed's keys:true is implicit here.
-    vi: true,
+    vi_keys: true,
     width: "50%",
     # blessed height:'shrink' -> shrink_to_fit
     shrink_to_fit: true,

@@ -9,10 +9,10 @@ module Crysterm
     #
     # Sets the widget interactive (`@input`) and shrink-to-content
     # (`@shrink_to_fit`), and wires the viewport scroll keys (when `keys:` is on
-    # and `ignore_keys` is off): Up/Down (and, with `vi:`, `k`/`j`) by a line,
+    # and `ignore_keys` is off): Up/Down (and, with `vi_keys:`, `k`/`j`) by a line,
     # `Ctrl-U`/`Ctrl-D` by a half page, `PageUp`/`PageDown` (and
     # `Ctrl-B`/`Ctrl-F`) by a full page, `Home`/`End` to the top/bottom, and —
-    # with `vi:` — `g`/`G` to the top/bottom.
+    # with `vi_keys:` — `g`/`G` to the top/bottom.
     module Interactive
       include NavKeys
 

@@ -431,7 +431,7 @@ module Crysterm
         if @picking
           @picking = false
           @ev_pick.off
-          window?.try &.ungrab self
+          window?.try &.remove_popup_grab self
         end
         uninstall_dialog_keys
         window?.try &.restore_focus
@@ -568,7 +568,7 @@ module Crysterm
         return if @picking
         scr = window? || return
         @picking = true
-        scr.grab self
+        scr.add_popup_grab self
         @ev_pick.on(scr, Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           e.accept
@@ -581,7 +581,7 @@ module Crysterm
         return unless @picking
         @picking = false
         @ev_pick.off
-        window?.try &.ungrab self
+        window?.try &.remove_popup_grab self
         if hex = screen_color_at x, y
           self.current_color = hex
           store_custom

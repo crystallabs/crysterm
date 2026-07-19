@@ -35,7 +35,7 @@ module Crysterm
     left: "center", top: "center",
     draggable: true,
     width: "50%", height: "50%",
-    keys: true, vi: true,
+    keys: true, vi_keys: true,
   )
 
   text.focus

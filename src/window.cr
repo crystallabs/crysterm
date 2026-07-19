@@ -450,9 +450,18 @@ module Crysterm
     # Renders this window and runs the main loop (the `QApplication::exec()`
     # analogue). Delegates to the current application, creating one if none
     # exists, so a single-window program stays the one-liner
-    # `Window.new(...).exec`.
-    def exec : Nil
+    # `Window.new(...).exec`. Blocks until `#quit` (a plain `q` by default),
+    # returning the status passed to it.
+    def exec : Int32
       (application || Application.global).exec self
+    end
+
+    # Quits the application this window is driven by (creating/using the global
+    # one when never registered) — the canonical way for a handler to end the
+    # program: emits `Event::AboutToQuit`, tears every window down, and makes
+    # `#exec` return *status*. See `Application#quit`.
+    def quit(status : Int32 = 0) : Nil
+      (application || Application.global).quit status
     end
 
     # Writes the current screen to the files named by `CRYSTERM_SHOT` (a still
@@ -799,7 +808,7 @@ module Crysterm
       #    label: ' {bold}Debug Log{/bold} ',
       #    tags: true,
       #    keys: true,
-      #    vi: true,
+      #    vi_keys: true,
       #    mouse: true,
       #    scrollbar: {
       #      ch: ' ',

@@ -9,7 +9,7 @@ module Crysterm
     # A vertical menu of `Action`s.
     #
     # The (visible) actions are shown as selectable rows; arrow keys (and, with
-    # `vi: true`, `j`/`k`) navigate, and Enter — or a click on the highlighted
+    # `vi_keys: true`, `j`/`k`) navigate, and Enter — or a click on the highlighted
     # row — activates the selected action. Activating emits the action's
     # `Event::Triggered`, received by any listener attached via
     # `action.on(Crysterm::Event::Triggered) { ... }`. Disabled actions are
@@ -676,11 +676,11 @@ module Crysterm
 
       # Whether *e* is a key that moves the list selection (so the first such
       # press should reveal the highlight): the keys `Mixin::ItemView#on_keypress`
-      # acts on, plus vi aliases when `#vi?`.
+      # acts on, plus vi_keys aliases when `#vi_keys?`.
       private def selection_key?(e) : Bool
-        # Vertical navigation (Up/Down/paging/Home-End + vi j/k/g/G) is classified
-        # once in `Mixin::NavKeys`; only vi H/M/L fall outside it.
-        !nav_intent(e).none? || (@vi && {'H', 'M', 'L'}.includes?(e.char))
+        # Vertical navigation (Up/Down/paging/Home-End + vi_keys j/k/g/G) is classified
+        # once in `Mixin::NavKeys`; only vi_keys H/M/L fall outside it.
+        !nav_intent(e).none? || (@vi_keys && {'H', 'M', 'L'}.includes?(e.char))
       end
 
       # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active

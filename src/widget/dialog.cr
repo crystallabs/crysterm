@@ -71,7 +71,7 @@ module Crysterm
       def modal=(value : Bool) : Bool
         return value if @modal == value
         @modal = value
-        window?.try { |w| value ? w.grab(self) : w.ungrab(self) }
+        window?.try { |w| value ? w.add_popup_grab(self) : w.remove_popup_grab(self) }
         value
       end
 

@@ -190,7 +190,7 @@ module Crysterm
 
       # The skip loop below only terminates because this proves an acceptable
       # candidate exists, so it must use the very same predicate.
-      return unless @keyable.any? { |el| focusable_here?(el) }
+      return unless @keyable.any? { |el| tab_target?(el) }
 
       # With no current focus, enter from the natural end: forward navigation
       # lands on the FIRST focusable widget, backward on the LAST. Hence a
@@ -206,12 +206,21 @@ module Crysterm
           end
 
       i %= @keyable.size
-      while !focusable_here?(@keyable[i])
+      while !tab_target?(@keyable[i])
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end
 
       focus @keyable[i]
+    end
+
+    # Whether Tab navigation may land on *el* right now: a valid focus target
+    # (`focusable_here?`) whose focus policy accepts Tab — a `Click`-policy
+    # widget stays mouse-focusable but is stepped over. Only Tab traversal uses
+    # this narrower predicate; click-focus and `restore_focus` keep
+    # `focusable_here?`.
+    private def tab_target?(el) : Bool
+      focusable_here?(el) && el.accepts_tab_focus?
     end
 
     # Clears a blurred widget's transient `:focused` state — but only when it is

@@ -9,7 +9,7 @@ module Crysterm
     #
     # * **Keyboard navigation** between the focusable children. When created
     #   with `keys: true`, `Tab`/`Shift+Tab` move focus to the next/previous
-    #   focusable child (and, with `vi: true`, `j`/`k` do the same).
+    #   focusable child (and, with `vi_keys: true`, `j`/`k` do the same).
     # * **Submission** — `#submit` walks the subtree, collects each input's
     #   value into a `name => value` `Hash` and emits `Event::FormSubmitted`.
     # * **Reset** — `#reset` returns every input child to its initial state and
@@ -292,14 +292,14 @@ module Crysterm
         key = e.key
         ch = e.char
 
-        if key == Tput::Key::Tab || (@vi && ch == 'j')
+        if key == Tput::Key::Tab || (@vi_keys && ch == 'j')
           e.accept
           focus_next
           request_render
           return
         end
 
-        if key == Tput::Key::ShiftTab || (@vi && ch == 'k')
+        if key == Tput::Key::ShiftTab || (@vi_keys && ch == 'k')
           e.accept
           focus_previous
           request_render

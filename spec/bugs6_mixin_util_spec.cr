@@ -5,11 +5,11 @@ include Crysterm
 # Regression specs for BUGS6 section 3 "Mixin Layer & Misc Utilities".
 #
 #  BUG 1 (fixed in src/mixin/interactive.cr): paging (Ctrl-U/D/B/F) and
-#     jump-to-edge (g/G) were all gated behind `@vi`, and PageUp/PageDown/Home/
-#     End were never bound at all. A `keys: true, vi: false` widget (e.g.
+#     jump-to-edge (g/G) were all gated behind `@vi_keys`, and PageUp/PageDown/Home/
+#     End were never bound at all. A `keys: true, vi_keys: false` widget (e.g.
 #     PlainTextEdit) therefore had no half/full-page scroll and no jump keys.
 #     Paging + PageUp/PageDown + Home/End are now bound unconditionally
-#     (matching ScrollableBox#on_keypress); only k/j/g/G stay vi-gated.
+#     (matching ScrollableBox#on_keypress); only k/j/g/G stay vi_keys-gated.
 #
 #  BUG 2 (fixed in src/misc/util/unicode.cr): `display_width`'s ASCII fast path
 #     used `ascii_only?`, which is true for C0 controls (TAB/CR/ESC) and DEL —
@@ -49,11 +49,11 @@ private def bugs6_long_content
   String.build { |s| 50.times { |i| s << "Line " << i << '\n' } }
 end
 
-private def bugs6_widget(vi = false)
+private def bugs6_widget(vi_keys = false)
   s = bugs6_screen
   w = BugsInteractiveBox.new(
     parent: s, content: bugs6_long_content,
-    keys: true, vi: vi, top: 0, left: 0, width: 20, height: 10)
+    keys: true, vi_keys: vi_keys, top: 0, left: 0, width: 20, height: 10)
   s.render
   {s, w}
 end
@@ -73,8 +73,8 @@ private class BugsInstanceThing
 end
 
 describe "BUGS6 Interactive mixin scroll keys (bug 1)" do
-  it "PageDown / PageUp scroll a full page even with vi: false" do
-    _, w = bugs6_widget vi: false
+  it "PageDown / PageUp scroll a full page even with vi_keys: false" do
+    _, w = bugs6_widget vi_keys: false
     w.scroll_position.should eq 0
 
     press w, key: Tput::Key::PageDown
@@ -85,8 +85,8 @@ describe "BUGS6 Interactive mixin scroll keys (bug 1)" do
     w.scroll_position.should be < down
   end
 
-  it "Home / End jump to top / bottom even with vi: false" do
-    _, w = bugs6_widget vi: false
+  it "Home / End jump to top / bottom even with vi_keys: false" do
+    _, w = bugs6_widget vi_keys: false
 
     press w, key: Tput::Key::End
     w.scroll_position.should be > 0
@@ -95,8 +95,8 @@ describe "BUGS6 Interactive mixin scroll keys (bug 1)" do
     w.scroll_position.should eq 0
   end
 
-  it "Ctrl-D (half page) and Ctrl-F (full page) scroll with vi: false" do
-    _, w = bugs6_widget vi: false
+  it "Ctrl-D (half page) and Ctrl-F (full page) scroll with vi_keys: false" do
+    _, w = bugs6_widget vi_keys: false
 
     press w, key: Tput::Key::CtrlD
     half = w.scroll_position
@@ -107,12 +107,12 @@ describe "BUGS6 Interactive mixin scroll keys (bug 1)" do
     w.scroll_position.should be >= half # a full page is at least as far as a half page
   end
 
-  it "vi single-char j/k and g/G work only with vi: true" do
-    _, off = bugs6_widget vi: false
+  it "vi_keys single-char j/k and g/G work only with vi_keys: true" do
+    _, off = bugs6_widget vi_keys: false
     press off, ch: 'j'
-    off.scroll_position.should eq 0 # 'j' is inert without vi
+    off.scroll_position.should eq 0 # 'j' is inert without vi_keys
 
-    _, on = bugs6_widget vi: true
+    _, on = bugs6_widget vi_keys: true
     press on, ch: 'j'
     on.scroll_position.should be > 0
 

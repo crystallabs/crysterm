@@ -88,7 +88,7 @@ module Crysterm
         @tick_char = nil,
         **input,
       )
-        super **input
+        super **{keys: true}.merge(input)
 
         # Never store an inverted range; it would leave `#value` stuck after `clamp`.
         init_range @minimum, @maximum, value

@@ -51,7 +51,7 @@ module Crysterm
         wrapping = false,
         **input,
       )
-        super **input
+        super **{keys: true}.merge(input)
 
         @decimals = Math.max(decimals, 0)
         @fmt = "%.#{@decimals}f"

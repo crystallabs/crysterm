@@ -3,7 +3,7 @@ require "../../src/crysterm"
 # Port of Blessed's test/widget-csr.js
 # A centered 80%x80% green box with a line border, plus a centered 50%x50%
 # draggable ScrollableText whose long, multi-line content can be scrolled with
-# the mouse, arrow keys or vi keys. Demonstrates that change-scroll-region
+# the mouse, arrow keys or vi_keys keys. Demonstrates that change-scroll-region
 # (CSR) optimization still renders correctly with overlapping widgets.
 module Crysterm
   # Blessed reads test/git.diff for scrollable content; substituted with a
@@ -36,7 +36,7 @@ module Crysterm
     # Blessed's `mouse: true` has no per-widget kwarg here; wheel scrolling
     # comes from being scrollable, drag from `draggable: true`.
     keys: true,
-    vi: true,
+    vi_keys: true,
   )
 
   text.focus

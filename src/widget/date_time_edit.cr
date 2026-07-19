@@ -44,7 +44,7 @@ module Crysterm
         @datetime = date_time || Mixin::SectionedField.default_today
         @show_seconds = show_seconds
 
-        super **input
+        super **{keys: true}.merge(input)
         @parse_tags = true
 
         handle Crysterm::Event::KeyPress

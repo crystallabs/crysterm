@@ -12,7 +12,7 @@ private def ips_screen
     default_quit_keys: false)
 end
 
-# `Mixin::Interactive`'s vi page-scroll keys (Ctrl-U/D/B/F) used to be gated on
+# `Mixin::Interactive`'s vi_keys page-scroll keys (Ctrl-U/D/B/F) used to be gated on
 # `height.is_a? Int`, so a scrollable widget with a percentage height (`"100%"`)
 # or no explicit height dropped every page-scroll key (line scrolling still
 # worked). The handler now sizes the page step off the resolved `aheight`.
@@ -25,7 +25,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
       height: "100%",
       scrollable: true,
       keys: true,
-      vi: true,
+      vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
     s._render
 
@@ -49,7 +49,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
       height: "100%",
       scrollable: true,
       keys: true,
-      vi: true,
+      vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
     s._render
 

@@ -3,7 +3,7 @@ require "../../src/crysterm"
 # Port of Blessed's test/widget-listtable.js
 #
 # Demonstrates `Widget::ListTable`: selectable table with pinned header row,
-# line borders, styled header/cell, keyboard/vi navigation, and re-setting data after a delay.
+# line borders, styled header/cell, keyboard/vi_keys navigation, and re-setting data after a delay.
 class X
   include Crysterm
 
@@ -18,7 +18,7 @@ class X
       left: "center",
       height: "70%",
       keys: true,
-      vi: true,
+      vi_keys: true,
       parse_tags: true,
       align: ::Tput::AlignFlag::Center,
       styles: Styles.new(

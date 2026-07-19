@@ -365,8 +365,9 @@ module Crysterm
       focused = false,
       @focus_on_click = @focus_on_click,
       @keys = @keys,
-      @vi = @vi,
+      @vi_keys = @vi_keys,
       input = nil,
+      focus_policy = nil,
       style = nil,
       @styles = @styles,
 
@@ -407,6 +408,10 @@ module Crysterm
       if @keys || @input
         window?.try &.register_keyable self
       end
+
+      # An explicit policy overrides whatever the legacy flags above implied
+      # (through the setter, so the flags and the registry follow).
+      focus_policy.try { |p| self.focus_policy = p }
 
       # `draggable: true` installs the default reposition behavior; the splat
       # above only set the flag.

@@ -20,9 +20,6 @@ module Crysterm
 
       # TODO support for changing icons
 
-      # TODO checkboxes don't have keys enabled by default, so to be
-      # navigable via keys, they need `window.enable_keys(checkbox_obj)`.
-
       # Whether the box is in its partially-checked (indeterminate) state. Only
       # reachable when `#tristate?` (Qt's `Qt::PartiallyChecked`). Read-only —
       # a raw writer would bypass the `invalidate_css`/`Event::StateChanged`

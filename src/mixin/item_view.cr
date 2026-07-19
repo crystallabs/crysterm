@@ -160,7 +160,7 @@ module Crysterm
       # The item index whose box occupies content *row* — the inverse of
       # `#item_row`, flooring a gap row onto the item above it. With spacing `0`
       # this is just *row*. Use it wherever a viewport/content *row* must be
-      # mapped back to an item *index* (vi H/M/L, wheel scroll, hover clamp):
+      # mapped back to an item *index* (vi_keys H/M/L, wheel scroll, hover clamp):
       # treating `@child_base` as an index conflates the two once spaced.
       private def item_at_row(row : Int) : Int32
         return row if @item_spacing.zero?
@@ -1112,7 +1112,7 @@ module Crysterm
         per_page = items_per_page
         half = Math.max per_page // 2, 1
 
-        # Vertical navigation (Up/Down/paging/Home-End + vi k/j/g/G) is classified
+        # Vertical navigation (Up/Down/paging/Home-End + vi_keys k/j/g/G) is classified
         # once in `Mixin::NavKeys`; here each intent maps onto a selection move
         # rather than a viewport scroll.
         case nav_intent(e)
@@ -1126,14 +1126,14 @@ module Crysterm
         when .page_forward?  then move_selection per_page
         else
           case
-          # vi H/M/L target the item at the top/middle/bottom *row* of the
+          # vi_keys H/M/L target the item at the top/middle/bottom *row* of the
           # viewport; `@child_base` is a content row, so convert to an item index
           # (a bare `@child_base + …` would select a far-off item when spaced).
-          when @vi && e.char == 'H'
+          when @vi_keys && e.char == 'H'
             self.current_index = item_at_row(@child_base)
-          when @vi && e.char == 'M'
+          when @vi_keys && e.char == 'M'
             self.current_index = item_at_row(@child_base + visible // 2)
-          when @vi && e.char == 'L'
+          when @vi_keys && e.char == 'L'
             self.current_index = item_at_row(@child_base + visible - 1)
           when search? && e.char == '/'
             start_search backward: false

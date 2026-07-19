@@ -14,7 +14,7 @@ class X
 
     fm = Widget::FileManager.new \
       parent: s,
-      vi: true,
+      vi_keys: true,
       label: " Files ",
       cwd: ENV["HOME"]? || Dir.current,
       height: "half",
