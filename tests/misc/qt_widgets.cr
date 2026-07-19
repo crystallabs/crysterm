@@ -89,7 +89,7 @@ ed_wrap = Action.new "Word Wrap"
 ed_wrap.checkable = true
 editmenu << ed_wrap
 
-menubar.add_menu("Help").add("About") { status.show_message " Crysterm — Qt-inspired widgets"; s.render }
+menubar.add_menu("Help").add_action("About") { status.show_message " Crysterm — Qt-inspired widgets"; s.render }
 
 # --- Tool bar (action buttons) -----------------------------------------------
 

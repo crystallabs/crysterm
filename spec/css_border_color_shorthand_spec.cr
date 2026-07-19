@@ -39,7 +39,7 @@ describe "CSS border-color shorthand (multi-value TRBL)" do
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff")
     b = s.border
     b.fg.should eq 0x0000ff
-    b.top_fg.should be_nil
+    b.@top_fg.should be_nil # per-side override cleared — getter falls back
     b.top_fg.should eq 0x0000ff
   end
 end

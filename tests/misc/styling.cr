@@ -29,7 +29,7 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 2, left: 2, width: 22, height: 5,
   content: "{center}Line border\n+ thin shadow{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :line),
+  style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :solid),
     shadow: Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'))
 
 # Solid (bg) border with a shadow on all four sides. Left/right are 2 cells,
@@ -37,7 +37,7 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 2, left: 28, width: 22, height: 5,
   content: "{center}Solid bg border\n+ even shadow{/center}", parse_tags: true,
-  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"))
+  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :fill, bg: "#a07010"))
 
 # Text attributes via inline tags. The line border keeps its glyphs (drawn in
 # the terminal default fg) but its background is transparent, so the neutral
@@ -49,7 +49,7 @@ Widget::Box.new \
            "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
   parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010",
-    border: Border.new(type: :line, bg: "transparent"))
+    border: Border.new(type: :solid, bg: "transparent"))
 
 # A strip of animated 24-bit color: `Widget::Gradient` in rainbow mode,
 # hue-cycling over time, driven by a shared `Timer` (can sync several widgets).

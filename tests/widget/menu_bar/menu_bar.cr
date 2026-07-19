@@ -15,6 +15,6 @@ Crysterm::WidgetExample.run("MenuBar",
   screen.stylesheet = "MenuBar { color: #c0caf5; } Menu { color: #c0caf5; }"
   mb = Crysterm::Widget::MenuBar.new parent: screen, top: 0, left: 0, width: "100%"
   file = mb.add_menu "File"
-  %w[New Open Save Quit].each { |t| file.add t }
+  %w[New Open Save Quit].each { |t| file.add_action t }
   %w[Edit View Tools Help].each { |t| mb.add_menu t }
 end

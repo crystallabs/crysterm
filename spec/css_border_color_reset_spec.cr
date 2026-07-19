@@ -15,7 +15,7 @@ describe "CSS border-color shorthand reset" do
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff")
     b = s.border
     # Per-side override cleared; every side resolves to the new color.
-    b.top_fg.should be_nil
+    b.@top_fg.should be_nil # the raw override slot is empty again
     b.top_fg.should eq 0x0000ff
     b.right_fg.should eq 0x0000ff
     b.bottom_fg.should eq 0x0000ff

@@ -51,7 +51,7 @@ describe "CSS color (invalid value)" do
     # No per-side override -> falls back to the whole-border color.
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff")
     Crysterm::CSS::Properties.apply(s, "border-top-color", "")
-    s.border.top_fg.should be_nil
+    s.border.@top_fg.should be_nil # side stays unset — getter falls back
     s.border.top_fg.should eq 0x0000ff
   end
 end

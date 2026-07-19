@@ -206,15 +206,20 @@ describe "CSS cascade" do
 
   it "styles the unfocused look via :not(:focus)" do
     screen = headless_screen
-    button = Widget::Button.new
-    screen.append button
+    focused = Widget::Button.new
+    unfocused = Widget::Button.new
+    screen.append focused
+    screen.append unfocused
+    focused.focus
 
     # There is no "blurred" state/pseudo; the unfocused look is the standard
-    # `:not(:focus)`, whose inner `:focus` lowers to `.state-focused`.
+    # `:not(:focus)`, whose inner `:focus` lowers to `.state-focused` and is
+    # matched against the live state classes stamped on the document.
     screen.stylesheet = "Button:not(:focus) { color: red; }"
     screen.apply_stylesheet
 
-    button.styles.normal.fg.should eq rgb("red")
+    unfocused.styles.normal.fg.should eq rgb("red")
+    focused.styles.normal.fg.should_not eq rgb("red")
   end
 
   it "maps opacity, tab-size and box-shadow" do

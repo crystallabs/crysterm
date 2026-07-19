@@ -16,9 +16,9 @@ describe "CSS border-<side> shorthand color" do
     Crysterm::CSS::Properties.apply(s, "border-left", "solid #ff0000")
     b = s.border
     # Left edge takes the per-side override; others fall back to blue.
+    b.@left_fg.should eq 0xff0000 # the raw per-side override slot
     b.left_fg.should eq 0xff0000
-    b.left_fg.should eq 0xff0000
-    b.top_fg.should be_nil
+    b.@top_fg.should be_nil # no override — the getter falls back
     b.top_fg.should eq 0x0000ff
     b.right_fg.should eq 0x0000ff
     b.bottom_fg.should eq 0x0000ff
