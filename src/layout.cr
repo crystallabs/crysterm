@@ -77,6 +77,17 @@ module Crysterm
       value
     end
 
+    # Sanitizes an inter-child spacing/gap against the axis extent it is laid
+    # into: a negative value (which would overlap children) maps to 0, and any
+    # value beyond `extent` already means "no room" so it caps there. Behavior-
+    # preserving for sane spacings; it exists to keep a pathological spacing
+    # (e.g. `Int32::MAX`) from overflowing the checked `Int32` gap products and
+    # cursor accumulations in `#arrange`. Shared by `Box` and `Form`; `Grid`
+    # clamps its own spacing internally against its `Int64` fence math.
+    protected def clamped_spacing(value : Int32, extent : Int32) : Int32
+      value.clamp(0, extent)
+    end
+
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
     # frame rather than allocating a `RenderedGeometry` per render. Safe only
     # because `#arrange` never retains it past the call and a layout instance

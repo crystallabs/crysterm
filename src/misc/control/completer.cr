@@ -149,6 +149,13 @@ module Crysterm
     # Set when the intercept handler has consumed a key, so the filter handler
     # skips that same keypress.
     @suppress_filter = false
+    # The box value the per-keystroke filter last acted on. Used to dedupe:
+    # a keypress that leaves `#value` unchanged (cursor movement) never reopens
+    # a dismissed popup — only a text change does. `#close` records the current
+    # value here so Escape-then-arrow stays closed; the attach/detach/commit
+    # paths reset it to nil so retyping the same text after a commit still
+    # reopens on the change.
+    @last_filter_value : String?
 
     def initialize(@model : Array(String) = [] of String)
     end
@@ -159,6 +166,7 @@ module Crysterm
     def attach(widget : Widget::LineEdit) : Nil
       detach
       @widget = widget
+      @last_filter_value = nil
 
       # Runs *before* the box's input handler: when the popup is open it owns the
       # navigation keys (and neutralizes them so the box ignores them); when
@@ -201,6 +209,7 @@ module Crysterm
       @popup = nil
       @open = false
       @widget = nil
+      @last_filter_value = nil
     end
 
     # Whether the completion popup is currently shown.
@@ -218,9 +227,15 @@ module Crysterm
           @suppress_filter = false
         else
           refilter
-          if @matches.empty? || (@matches.size == 1 && @matches.first == widget.value)
+          val = widget.value
+          if @matches.empty? || (@matches.size == 1 && @matches.first == val)
             close
+          elsif val == @last_filter_value
+            # Value unchanged since the last filter pass (e.g. cursor movement):
+            # keep an open popup fresh, but never reopen a dismissed one.
+            refresh if @open
           else
+            @last_filter_value = val
             @open ? refresh : open
           end
         end
@@ -348,6 +363,11 @@ module Crysterm
     def close : Nil
       return unless @open
       @open = false
+      # Record the value at dismissal so a following non-modifying key (cursor
+      # movement, unchanged text) doesn't reopen the popup; only a real text
+      # change will differ from this and reopen. Nil-resetting here instead
+      # would reintroduce the reopen-on-Escape bug.
+      @last_filter_value = @widget.try &.value
       @popup.try &.hide
       @dismiss.try &.close
       @dismiss = nil
@@ -361,6 +381,9 @@ module Crysterm
         widget.value = c
       end
       close
+      # Retyping the committed text is a real edit that should reopen, so don't
+      # let `#close`'s recorded value suppress it.
+      @last_filter_value = nil
     end
 
     private def accept_current : Nil

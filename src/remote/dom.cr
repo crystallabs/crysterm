@@ -74,19 +74,32 @@ module Crysterm
     # their own keys and delegate the rest via `super`.
     def dom_apply(key : String, value : String?) : Bool
       case key
-      when "left"              then self.left = dom_coerce_dimension(value)
-      when "top"               then self.top = dom_coerce_dimension(value)
-      when "width"             then self.width = dom_coerce_dimension(value)
-      when "height"            then self.height = dom_coerce_dimension(value)
-      when "right"             then value.try(&.to_i?).try { |i| self.right = i }
-      when "bottom"            then value.try(&.to_i?).try { |i| self.bottom = i }
-      when "name"              then self.name = value
-      when "parse-tags"        then self.parse_tags = dom_coerce_bool(value)
-      when "wrap-content"      then self.wrap_content = dom_coerce_bool(value)
-      when "content"           then set_content(value || "")
-      when "id"                then self.css_id = value
-      when "class"             then value.try &.split.each { |c| add_css_class c unless c.empty? }
-      when .starts_with?("on") then dom_events[key.lchop("on")] = value || "" if key.size > 2
+      when "left"         then self.left = dom_coerce_dimension(value)
+      when "top"          then self.top = dom_coerce_dimension(value)
+      when "width"        then self.width = dom_coerce_dimension(value)
+      when "height"       then self.height = dom_coerce_dimension(value)
+      when "right"        then self.right = dom_coerce_dimension(value)
+      when "bottom"       then self.bottom = dom_coerce_dimension(value)
+      when "name"         then self.name = value
+      when "parse-tags"   then self.parse_tags = dom_coerce_bool(value)
+      when "wrap-content" then self.wrap_content = dom_coerce_bool(value)
+      when "content"      then set_content(value || "")
+      when "id"           then self.css_id = value
+      when "class"        then value.try &.split.each { |c| add_css_class c unless c.empty? }
+      when .starts_with?("on")
+        # A nil value (the bridge's only "remove" shape — `setAttribute` with no
+        # value) *deletes* the binding rather than storing `""`, which would keep
+        # firing an empty, non-declarative action. An empty string (a bare
+        # `onclick` HTML attribute) is treated the same way, since a valueless
+        # action can never do anything but emit those bogus events.
+        if key.size > 2
+          event = key.lchop("on")
+          if v = value.presence
+            dom_events[event] = v
+          else
+            dom_events.delete event
+          end
+        end
         # `data-uid`/`state-*` belong to the CSS document, not here; unrecognized
         # keys are ignored so an enriched file still loads.
       else
@@ -162,8 +175,16 @@ module Crysterm
     # top-level widget's reconstructable subtree.
     def to_layout_html(io : IO) : Nil
       io << "<w-window>\n"
+      dom_serialize_styles io
       children.each &.to_layout_html(io, 2)
       io << "</w-window>\n"
+    end
+
+    # Hook for serializing any recorded inline `<style>` into the snapshot, so
+    # `snapshot -> load_layout` is a fixed point for pages whose appearance came
+    # from a self-contained layout's inline CSS. The base is a no-op; the
+    # `inline_css.cr` reopen overrides it to emit `@css_inline_source`.
+    protected def dom_serialize_styles(io : IO) : Nil
     end
 
     # Finds the first widget on this window whose `#css_id` matches `id`.

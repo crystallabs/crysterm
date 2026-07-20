@@ -234,6 +234,16 @@ module Crysterm
         io << "<a href=\"" << escape_attr(url) << "\">"
         closers << "</a>"
       end
+      {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
+        if fmt.{{a.id}}?
+          io << "<{{tag.id}}>"
+          closers << "</{{tag.id}}>"
+        end
+      {% end %}
+      # Color <span> is emitted innermost (after the flag tags) so that on
+      # re-import its explicit fg/bg patch folds after the code element's
+      # theme-fallback patch and wins — otherwise a recolored code fragment
+      # comes back with the theme's code colors (B17-30).
       span = String.build do |s|
         if (c = fmt.fg) && c >= 0
           s << "color:" << Colors.hex(c)
@@ -247,12 +257,6 @@ module Crysterm
         io << "<span style=\"" << span << "\">"
         closers << "</span>"
       end
-      {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
-        if fmt.{{a.id}}?
-          io << "<{{tag.id}}>"
-          closers << "</{{tag.id}}>"
-        end
-      {% end %}
       io << escape_html(f.text)
       closers.reverse_each { |t| io << t }
     end

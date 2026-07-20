@@ -89,7 +89,14 @@ module Crysterm
         off = -off if neg
       end
 
-      (against * pct).to_i + off
+      # Clamp the product before the checked narrowing so a pathologically
+      # long (≥10-digit) percentage — or one long enough to saturate `pct`
+      # to Float64::INFINITY — can't overflow Int32 on `.to_i` and raise in
+      # the render path.
+      v = against * pct
+      v = -1_000_000_000.0 if v < -1_000_000_000.0
+      v = 1_000_000_000.0 if v > 1_000_000_000.0
+      v.to_i + off
     end
 
     # The four edge offsets, exactly as the user set them — not computed. `nil`

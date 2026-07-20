@@ -15,11 +15,18 @@ module Crysterm
     # alone, a changed one detaches the stale binding and wires the new one.
     def self.each_binding(window : Window, wired : Hash(String, Tuple(String, Proc(Nil)))? = nil,
                           &handler : Widget, String, String, String? ->) : Nil
+      # Keys still present in the tree this pass. Afterwards every *wired* key not
+      # seen had its binding removed (its `on*` attribute cleared / its widget
+      # gone), so its stale subscription is detached — otherwise a removed action
+      # keeps firing forever, since iterating `dom_events` alone never revisits a
+      # vanished binding.
+      seen = Set(String).new
       window.children.each do |top|
         top.self_and_each_descendant do |widget|
           widget.dom_events.each do |event_name, action|
             if wired
               key = "#{widget.uid}:#{event_name}"
+              seen << key
               if existing = wired[key]?
                 next if existing[0] == action # same action already wired
                 existing[1].call              # action changed: detach the stale binding
@@ -30,6 +37,13 @@ module Crysterm
               subscribe_binding widget, event_name, action, handler
             end
           end
+        end
+      end
+      if wired
+        wired.reject! do |key, entry|
+          next false if seen.includes? key
+          entry[1].call # binding removed since last pass: detach and drop it
+          true
         end
       end
     end

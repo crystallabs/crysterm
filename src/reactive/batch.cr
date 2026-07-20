@@ -107,7 +107,16 @@ module Crysterm
         while item = @@pending.shift?
           @@pending_set.delete item
           begin
-            item.run
+            # Suspend tracking for the drained item's run. A leaf `Effect`
+            # re-establishes its own scope via `with_current`, so its
+            # re-tracking is unaffected; a `Binding`, which has no scope
+            # management of its own, then runs with no active scope — matching
+            # the documented invariant that listeners/bindings execute outside
+            # any tracking scope. Without this, a wave-close flush triggered
+            # while a writing effect is still on the stack (e.g. the initial run
+            # inside `Effect#initialize`) would subscribe the binding's reads as
+            # spurious dependencies of the writing effect.
+            Reactive.untracked { item.run }
           rescue ex
             first_ex ||= ex
           end

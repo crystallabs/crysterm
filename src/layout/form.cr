@@ -94,6 +94,14 @@ module Crysterm
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         w = interior.width
 
+        # Clamp both spacings against the live interior before they enter the
+        # checked arithmetic below (`lw + hs`, `y += ... + vs`): a raw
+        # `Int32::MAX` overflows and a negative overlaps columns/rows. Beyond
+        # the interior there is no room for the other column / next row anyway,
+        # so this is behavior-preserving for sane values (B17-11).
+        hs = clamped_spacing @horizontal_spacing, w
+        vs = clamped_spacing @vertical_spacing, interior.height
+
         # Prune bookkeeping for children no longer in the container.
         prune_managed container, @raw_height
         prune_managed container, @assigned
@@ -114,7 +122,7 @@ module Crysterm
         # Label column width: the fixed `#label_width`, or the widest paired
         # label's own content when auto (`nil`). Clamped to the interior width.
         lw = Math.min(label_column_width(children), w)
-        fw = w - lw - @horizontal_spacing
+        fw = w - lw - hs
         fw = 0 if fw < 0
 
         y = 0
@@ -134,7 +142,7 @@ module Crysterm
             lc = Math.max(0, lw - label.mhorizontal)
             fc = Math.max(0, fw - field.mhorizontal)
             place_child label, 0, y, lc, rh
-            place_child field, lw + @horizontal_spacing, y, fc, rh
+            place_child field, lw + hs, y, fc, rh
             record_managed label, @assigned, rh
             record_managed field, @assigned, rh
             record_managed label, @assigned_width, lc
@@ -143,7 +151,7 @@ module Crysterm
             render_child field
             # Advance by the tallest margin box on the row so a margined child
             # doesn't bleed down into the next row's slot.
-            y += Math.max(rh + label.mvertical, rh + field.mvertical) + @vertical_spacing
+            y += Math.max(rh + label.mvertical, rh + field.mvertical) + vs
             i += 2
           else
             # Trailing odd child spans the full width, less its margin box.
@@ -152,7 +160,7 @@ module Crysterm
             place_and_render label, 0, y, lc, rh
             record_managed label, @assigned, rh
             record_managed label, @assigned_width, lc
-            y += rh + label.mvertical + @vertical_spacing
+            y += rh + label.mvertical + vs
             i += 1
           end
         end

@@ -57,7 +57,7 @@ module Crysterm
         # follows the divisor's sign, so the index is always valid.
         @[AlwaysInline]
         protected def scroll_glyph(f : Int64, x : Int32, n : Int32) : Char
-          @chars[(direction.left? ? f + x : x - f) % n]
+          @chars[(direction.left? ? f + x : -f + x) % n]
         end
 
         # The packed `0xRRGGBB` foreground for column *x* at frame *f* in rainbow
@@ -65,7 +65,7 @@ module Crysterm
         # (`hue_speed`). `HSV_LUT[h]` is bit-identical to `hsv_i(h)`.
         @[AlwaysInline]
         protected def rainbow_fg(x : Int32, f : Int64) : Int64
-          Attr.pack_color(Colors::HSV_LUT[(x * @hue_spread + f * @hue_speed) % 360])
+          Attr.pack_color(Colors::HSV_LUT[((f * @hue_speed + x * @hue_spread) % 360).to_i32])
         end
       end
     end

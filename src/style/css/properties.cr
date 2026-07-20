@@ -481,7 +481,11 @@ module Crysterm
       # e.g. `pulse 2s ease-in-out infinite alternate`. Order after name/duration
       # is flexible. `none`/empty clears it.
       private def self.parse_animation(value : String) : Style::AnimationSpec?
-        toks = value.split
+        # Tokenize paren-aware (like parse_transition, B16-28), so a timing
+        # function with arguments — `cubic-bezier(0.4, 0, 0.2, 1)`, `steps(2,
+        # start)` — stays one token instead of shredding into fragments that each
+        # fall into the keyframes-name fallback and hijack the name.
+        toks = split_top_level(value)
         return nil if toks.empty? || Case.fold_keyword(toks[0]) == "none"
         name : String? = nil
         dur = 1.seconds
@@ -518,8 +522,11 @@ module Crysterm
             iterations = n
           else
             # Anything that is not a time, keyword, easing or count is the
-            # keyframes name. Prefer the last such token.
-            name = t
+            # keyframes name. Prefer the last such token — but skip an
+            # unrecognized timing *function* (`cubic-bezier(...)`, `steps(...)`),
+            # which would otherwise hijack the name; it degrades to the default
+            # easing, like parse_transition.
+            name = t unless function_token?(t)
           end
         end
         # No name → no keyframes to resolve; treat as no animation.
@@ -553,6 +560,14 @@ module Crysterm
       # animation/keyframes name or property). Classifies the tokens of a
       # shorthand by kind, so a name is not mistaken for an easing (and
       # vice-versa).
+      # Whether a token is a CSS function call — `cubic-bezier(...)`, `steps(...)`,
+      # `rgb(...)` — i.e. it contains a `(`. Used by shorthand name-fallback logic
+      # so an unrecognized function isn't mistaken for a bare identifier (a
+      # keyframes name).
+      private def self.function_token?(token : String) : Bool
+        token.includes?('(')
+      end
+
       private def self.easing?(name : String) : Bool
         case Case.fold_keyword(name)
         when "linear", "ease", "ease-in", "ease-out", "ease-in-out" then true
@@ -735,6 +750,25 @@ module Crysterm
         end
       end
 
+      # Whether a resolved per-side border color is valid to store, shared by
+      # every border-color path (the multi-token `border-color` shorthand, the
+      # `border-<side>-color` longhand, and the `border-<side>` shorthand's color
+      # fallback). Valid: a `currentColor` marker (*cur*, its slot resolves at
+      # render time), a concrete `Int32` (including `transparent`'s genuine `-1`),
+      # or a named/hex `String` that `Colors.convert_cached` recognizes. Invalid:
+      # a non-`currentColor` `nil` (a malformed color function, or `inherit`/
+      # `initial`/`unset`) or an unknown color name (the `-1` sentinel) — the
+      # caller drops the token/declaration, per CSS, rather than storing a bogus
+      # color that paints the side terminal-default or clobbers a prior color.
+      private def self.valid_side_color?(resolved : Int32 | String | Nil, cur : Bool) : Bool
+        return true if cur
+        case resolved
+        when Int32  then true
+        when String then Colors.convert_cached(resolved) != -1
+        else             false
+        end
+      end
+
       # Applies the `border-color` shorthand: 1-4 colors in CSS TRBL order
       # (`border-color: <top> <right> <bottom> <left>`), with the standard CSS
       # fill-ins (1 value → whole border; 2 → vertical/horizontal; 3 → top/
@@ -782,7 +816,7 @@ module Crysterm
         # (its slot resolves at render time via the marker), so exempt it from
         # the nil check.
         curs = tokens.map { |token| current_color_token? token }
-        return if c.each_with_index.any? { |r, j| (r.nil? && !curs[j]) || (r.is_a?(String) && Colors.convert_cached(r) == -1) }
+        return if c.each_with_index.any? { |r, j| !valid_side_color?(r, curs[j]) }
         c = c.map { |r| coerce_color_int(r) }
         border.top_fg = c[i[:top]]
         border.right_fg = c[i[:right]]
@@ -865,10 +899,20 @@ module Crysterm
             # `border-left: thin solid red` sets a 1-cell edge, not a bogus color.
             explicit_width = nw
           elsif w = Length.to_cells(token, vertical)
-            explicit_width = w
+            # Clamp negatives to 0 (a `-1` or a calc() below zero): a negative
+            # border width is invalid CSS and, stored, outsets the content rect
+            # outside the widget box. Mirrors border_cells?'s `0 / negative → none`.
+            explicit_width = Math.max(0, w)
           else
-            set_side_color border, side, ColorValue.resolve(token, el_color)
-            border.set_current_color side, current_color_token?(token)
+            # Only store a valid color; an unknown name (`-1` sentinel) or a
+            # malformed-function/unset `nil` leaves the existing per-side color
+            # and marker untouched, per CSS (mirrors the multi-token shorthand).
+            cur = current_color_token?(token)
+            resolved = ColorValue.resolve(token, el_color)
+            if valid_side_color?(resolved, cur)
+              set_side_color border, side, resolved
+              border.set_current_color side, cur
+            end
           end
         end
         if explicit_width
@@ -885,6 +929,10 @@ module Crysterm
       private def self.apply_side_color(border : Border, side : Side, value : String, el_color : Int32?) : Nil
         cur = current_color_token?(value.strip)
         with_color(value, el_color) do |c|
+          # `with_color` already drops a blank/malformed-function value; also
+          # reject an unknown color name (`-1` sentinel) here, keeping the side's
+          # prior color, while a genuine `transparent` (`Int32` -1) stays valid.
+          next unless valid_side_color?(c, cur)
           set_side_color border, side, c
           border.set_current_color side, cur
         end
@@ -913,6 +961,13 @@ module Crysterm
         # internal `+`/`-` carry required spaces (`calc(2em + 1px)`) stays one
         # token — same tokenizing as the `border-color`/`border-<side>` shorthands.
         tokens = split_top_level(value)
+        # Every token must be a real length or named width. A token that isn't
+        # (a typo'd named width like `thinn`, or a partially-collapsed `var()`)
+        # resolves `nil` via `border_cells?` — drop the whole declaration per CSS
+        # rather than zeroing the affected sides and hiding edges a lower-priority
+        # rule set. (nil-ness is axis-independent, so one axis suffices.) A blank
+        # value yields no tokens and falls through to the `trbl_indices(0)` drop.
+        return if tokens.any? { |token| border_cells?(token).nil? }
         # A cell is taller than wide, so horizontal (left/right) and vertical
         # (top/bottom) axes resolve absolute units differently — resolve each
         # token on both axes and pick the right one per side.
@@ -1149,9 +1204,13 @@ module Crysterm
           elsif w = Length.to_cells(token)
             # One width for all four sides, honored at its rounded cell count
             # rather than clamping a sub-cell hairline up to a full-cell box.
-            # (top/bottom scale absolute units differently.)
+            # (top/bottom scale absolute units differently.) Clamp negatives to 0
+            # (a `-1` or a calc() below zero): stored, a negative width outsets the
+            # content rect outside the widget box, overpainting neighbors — every
+            # sibling width path clamps it (`border_cells?`, `parse_padding`).
+            w = Math.max(0, w)
             border.left = border.right = w
-            border.top = border.bottom = (Length.to_cells(token, vertical: true) || w)
+            border.top = border.bottom = Math.max(0, Length.to_cells(token, vertical: true) || w)
           else
             # Whole-border color: keep the resolved form (`Int32`/`String`) via
             # `Colorizable`. A `nil` (`inherit`/`initial`/`currentColor` with no

@@ -78,6 +78,12 @@ module Crysterm
             v = @maximum
           end
         end
+        # Sanitize non-finite input at ingestion for float instantiations: NaN
+        # survives `clamp` (every comparison with NaN is false) and never equals
+        # `@value`, so it would store, render "nan", and re-fire the change event
+        # on every step. No-op for the Int32 includers. Mirrors
+        # `PercentRange#assign_completable` and the B16-38 convention.
+        {% unless T < Int %} v = @minimum unless v.finite? {% end %}
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
         @value = v
@@ -233,6 +239,11 @@ module Crysterm
         # Never store an inverted range: `#value=`/`#value_span`/the percent
         # helpers all assume `min <= max`. Mirrors Qt's `setRange`, where a max
         # below min collapses the range to `min`.
+        # Reject non-finite bounds as a no-op for float instantiations: NaN would
+        # pass the inversion and no-op guards below (all NaN comparisons false) and
+        # get stored, wedging clamp/stepping. No-op for the Int32 includers.
+        # Matches the B16-38 reject-as-no-op convention.
+        {% unless T < Int %} return unless min.finite? && max.finite? {% end %}
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min

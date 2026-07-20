@@ -479,12 +479,15 @@ module Crysterm
       end
 
       private def on_mouse(e : Crysterm::Event::Mouse) : Nil
-        return unless @lpos
+        return unless lpos = @lpos
         # While a window move or pick is in flight, a window-level listener owns
         # the pointer — don't also treat motion as field/hue input.
         return if @ev_move.active? || @picking
-        ox = aleft + ileft
-        oy = atop + itop
+        # Resolve against the *painted* origin (`@lpos`), not layout coords:
+        # events are dispatched by painted geometry, which inside a scrolled
+        # ancestor differs from `aleft`/`atop` by the scroll base.
+        ox = lpos.xi + ileft
+        oy = lpos.yi + itop
 
         in_field = e.x >= ox + FIELD_X && e.x < ox + FIELD_X + FIELD_W &&
                    e.y >= oy + FIELD_Y && e.y < oy + FIELD_Y + FIELD_H
@@ -660,8 +663,11 @@ module Crysterm
       end
 
       private def draw_field(flags : Int64, clip : RenderedGeometry) : Nil
-        ox = aleft + ileft
-        oy = atop + itop
+        # Derive the origin from the painted clip geometry (the widget's rendered
+        # outer corner), matching what `_render` used — otherwise the overlay is
+        # stamped at layout coords and displaced inside a scrolled ancestor.
+        ox = clip.xi + ileft
+        oy = clip.yi + itop
         cur_sx = ox + FIELD_X + (@saturation * (FIELD_W - 1)).round.to_i
         cur_sy = oy + FIELD_Y + ((1.0 - @hsv_value) * (FIELD_H - 1)).round.to_i
         attrs = field_attrs flags
@@ -684,8 +690,9 @@ module Crysterm
       end
 
       private def draw_hue(flags : Int64, clip : RenderedGeometry) : Nil
-        ox = aleft + ileft
-        oy = atop + itop
+        # Painted-clip origin (see `draw_field`).
+        ox = clip.xi + ileft
+        oy = clip.yi + itop
         cur_hy = oy + HUE_Y + (@hue / 360.0 * (HUE_H - 1)).round.to_i
         attrs = hue_attrs flags
 

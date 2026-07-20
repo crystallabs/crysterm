@@ -232,10 +232,14 @@ module Crysterm
         # `left`/`top` in parent-relative terms — only correct at the window
         # origin.
         div.on(Crysterm::Event::Drag) do |e|
+          # `e.x`/`e.y` are painted coords; resolve against the splitter's
+          # painted origin (with a pre-render layout fallback), so a drag inside
+          # a scrolled container isn't offset by the enclosing scroll base.
+          origin_x, origin_y = painted_origin
           if horizontal?
-            set_divider_position i, e.x - aleft - ileft
+            set_divider_position i, e.x - origin_x - ileft
           else
-            set_divider_position i, e.y - atop - itop
+            set_divider_position i, e.y - origin_y - itop
           end
         end
 

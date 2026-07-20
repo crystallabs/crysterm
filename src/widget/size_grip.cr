@@ -73,17 +73,31 @@ module Crysterm
           if t = (@target || parent)
             begin
               # Fold in the grip's own offset from the target's outer edge so the
-              # math is placement-agnostic: `e.x - t.aleft + 1` alone assumes the
+              # math is placement-agnostic: `e.x - <origin> + 1` alone assumes the
               # grip sits on the target's outer-right column, but a documented
               # inner-corner placement (`bottom: 0, right: 0`) lands it
               # `iright`/`ibottom` cells inside. `edge_x`/`edge_y` are ~0 for an
               # outer-corner grip (e.g. DockWidget) and equal the border/padding
               # inset for an inner-corner one, so the target's outer edge tracks
               # the pointer in both cases.
-              edge_x = (t.aleft + t.awidth) - (self.aleft + self.awidth)
-              edge_y = (t.atop + t.aheight) - (self.atop + self.aheight)
-              t.width = Math.max(@min_drag_width, e.x - t.aleft + 1 + edge_x)
-              t.height = Math.max(@min_drag_height, e.y - t.atop + 1 + edge_y)
+              #
+              # `e.x`/`e.y` are painted coords: when both rects are rendered,
+              # resolve against the *painted* origins (`lpos`), so a drag inside
+              # a scrolled container isn't offset by the enclosing scroll base.
+              # Fall back to layout coords before the first render. `t.width`/
+              # `t.height` stay layout-unit sizes — only the pointer→origin delta
+              # needs the painted base.
+              if (t_lp = t.lpos) && (g_lp = @lpos)
+                edge_x = t_lp.xl - g_lp.xl
+                edge_y = t_lp.yl - g_lp.yl
+                t.width = Math.max(@min_drag_width, e.x - t_lp.xi + 1 + edge_x)
+                t.height = Math.max(@min_drag_height, e.y - t_lp.yi + 1 + edge_y)
+              else
+                edge_x = (t.aleft + t.awidth) - (self.aleft + self.awidth)
+                edge_y = (t.atop + t.aheight) - (self.atop + self.aheight)
+                t.width = Math.max(@min_drag_width, e.x - t.aleft + 1 + edge_x)
+                t.height = Math.max(@min_drag_height, e.y - t.atop + 1 + edge_y)
+              end
               t.request_render
             rescue
               # Target not laid out yet.

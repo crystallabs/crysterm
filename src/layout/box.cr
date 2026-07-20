@@ -89,6 +89,12 @@ module Crysterm
 
       @cursor = 0
       @avail = 0
+      # `@spacing` clamped against the live main extent each `#measure`
+      # (negatives -> 0, over-extent -> the extent), stashed for `#place` since
+      # it runs per child. Beyond the main extent there is no room anyway, so
+      # this is behavior-preserving while keeping the gap product and the cursor
+      # accumulation from overflowing checked `Int32` (B17-10).
+      @spacing_gap = 0
       # `Int64` because `@avail * @grow_seen` (line ~247) can exceed `Int32::MAX`
       # well before either factor does; stretch factors are clamped in
       # `#stretch_of` but the *sum* over many children is not.
@@ -144,6 +150,10 @@ module Crysterm
         prune_managed container, @filled_size
 
         main = main_extent interior
+        # Clamp spacing before any gap product/accumulation: a raw `@spacing`
+        # near `Int32::MAX` (or negative) would overflow/under-allocate here.
+        sp = clamped_spacing @spacing, main
+        @spacing_gap = sp
 
         fixed = 0
         grow = 0_i64
@@ -172,7 +182,7 @@ module Crysterm
             fixed += ms
           end
         end
-        gaps = n > 1 ? @spacing * (n - 1) : 0
+        gaps = n > 1 ? sp * (n - 1) : 0
 
         @total_grow = grow
         @grow_seen = 0_i64
@@ -278,7 +288,7 @@ module Crysterm
         # Advance past this child's whole *margin* box, plus the base gap and its
         # justify share. Without the margin term the next child's `@cursor` would
         # land inside this one.
-        @cursor += size + main_margin(el) + @spacing + gap_after
+        @cursor += size + main_margin(el) + @spacing_gap + gap_after
       end
 
       # Cumulative justify offset laid down *before* the `j`-th placed child, so a

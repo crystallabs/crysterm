@@ -46,6 +46,7 @@ module Crysterm
 
       def text=(@text : String)
         @chars = @text.chars
+        mark_dirty
       end
 
       def initialize(

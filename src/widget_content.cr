@@ -782,7 +782,7 @@ module Crysterm
         # allow surrounding SGR (and re-prepend/-append it, consuming only the
         # alignment tag); anchoring at the absolute string edge instead silently
         # drops the alignment and leaks the literal tag into output.
-        if @parse_tags && line.includes?('{')
+        if @parse_tags && !@_content_no_tags && line.includes?('{')
           if cap = line.match /^((?:\e\[[\d;]*m)*){(left|center|right)}/
             align_left_too = true
             # Drop the tag, keep any leading SGR that preceded it.
@@ -910,7 +910,7 @@ module Crysterm
       # right edge. It distributes content within the line independent of the
       # line's own alignment, so it MUST be handled before the align-direction
       # early-returns below — otherwise it never fires for default Left alignment.
-      if @parse_tags && line.includes?("{|}")
+      if @parse_tags && !@_content_no_tags && line.includes?("{|}")
         cl = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
         if res = split_right_align(line, cl, width)
           # Result width isn't cheaply `width` here (a too-wide split leaves the
@@ -984,7 +984,7 @@ module Crysterm
           s.times { io << fc }
         end
         return {res, padded_width}
-      elsif @parse_tags && (line.includes?('{') || line.includes?('}'))
+      elsif @parse_tags && !@_content_no_tags && (line.includes?('{') || line.includes?('}'))
         # XXX This is basically Tput::AlignFlag::Spread, but not sure
         # how to put that as a flag yet. Maybe this (or another)
         # widget flag could mean to spread words to fill up the whole

@@ -28,6 +28,10 @@ module Crysterm
     # would keep writing obsolete stops forever. A reparse allocates new stop
     # arrays, so a per-render `same?` against the current lookup catches the swap.
     @css_animation_keyframes : Array(Tuple(Float64, Hash(String, String)))?
+    # Whether the one-time `Event::Hide`/`Event::Detached` clock-stop hooks have
+    # been installed (lazily, on first `start_css_animation`), so they aren't
+    # registered on every start.
+    @css_animation_hooks_installed = false
 
     # Starts/keeps/stops this widget's CSS `animation` to match its current style.
     # A cheap no-op when no `animation` is declared. Called once per render.
@@ -72,6 +76,23 @@ module Crysterm
       @css_animation_spec = spec
       @css_animation_finished = false
       @css_animation_keyframes = nil
+
+      # Stop the driving `FrameClock` when the widget is hidden or detached, or
+      # its fiber keeps ticking `apply_keyframe` + `request_render` forever: a
+      # hidden widget is skipped by packing layouts (its `coords` is nil, so
+      # `_render` never reaches `ensure_css_animation` to notice), and a
+      # detached-but-alive widget's `request_render` no-ops while the clock still
+      # burns CPU. The stop leaves `@css_animation_finished` false, so the resume
+      # branch in `ensure_css_animation` restarts the animation on the first
+      # render after `show`/re-attach. `Event::Hide` also propagates to
+      # descendants (via `emit_descendants`), covering animated children of a
+      # hidden container. Installed once, on first start (mirrors
+      # `Effect::Animated`'s one-time `Event::Destroy` hook).
+      unless @css_animation_hooks_installed
+        @css_animation_hooks_installed = true
+        on(::Crysterm::Event::Hide) { @css_animation.try &.stop }
+        on(::Crysterm::Event::Detached) { @css_animation.try &.stop }
+      end
 
       scr = window? || return
       raw = scr.css_keyframes(spec.name)

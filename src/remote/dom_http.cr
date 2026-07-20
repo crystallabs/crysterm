@@ -195,6 +195,28 @@ module Crysterm
       @forwarders["#{widget.uid}:#{event}"] = detacher if detacher
     end
 
+    # Drops every wiring entry belonging to a removed widget (keys are
+    # `"uid:event"`), detaching live subscriptions as it goes, so a destroyed
+    # subtree leaves no dangling declarative bindings or runtime forwarders
+    # behind. `uids` is the set of removed widget uids (subtree included).
+    private def prune_wiring(uids : Set(Int32)) : Nil
+      removed = ->(key : String) { uids.includes? key.split(':', 2).first.to_i }
+      @declarative_wired.reject! do |key, entry|
+        next false unless removed.call key
+        entry[1].call # detach the stale declarative binding
+        true
+      end
+      @forwarders.reject! do |key, detacher|
+        next false unless removed.call key
+        detacher.call # detach the live forwarder
+        true
+      end
+      @event_wired.select { |key| removed.call key }.each { |key| @event_wired.delete key }
+      @wired_keys.each_value do |keys|
+        keys.select { |key| removed.call key }.each { |key| keys.delete key }
+      end
+    end
+
     # ---- HTTP routing -------------------------------------------------------
 
     private def handle(context : HTTP::Server::Context) : Nil
@@ -353,10 +375,24 @@ module Crysterm
       when "focus"
         each_match(selector, &.focus)
       when "remove"
-        # Detach from wherever the widget is attached — nested from its parent,
-        # top-level from the window.
-        n = each_match(selector, &.detach_from_tree)
+        # `#destroy`, not `detach_from_tree`: a bare detach only unlinks the
+        # subtree, leaking its animation fibers and PTY child processes (the same
+        # reason `reload_layout` uses `#destroy`). Destroy recurses, stops
+        # animations, kills PTYs, and unlinks. The removed widgets are then
+        # unreachable, so their wiring entries (keyed by uid, about to be dead)
+        # are pruned first — collect the uids before destroying.
+        n = 0
+        on_ui do
+          matches = match selector
+          uids = Set(Int32).new
+          matches.each { |w| w.self_and_each_descendant { |d| uids << d.uid } }
+          prune_wiring uids
+          matches.each &.destroy
+          n = matches.size
+          nil
+        end
         on_ui { rewire } # re-wire on the render fiber, like every other mutation
+        @window.render
         n
       when "append"
         html = string_param params, "html"

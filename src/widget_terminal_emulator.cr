@@ -1566,6 +1566,13 @@ module Crysterm
             (cols - line.size).times { line.push Cell.new(ea, ' ') }
           elsif line.size > cols
             line.pop(line.size - cols)
+            # A wide-glyph pair straddling the new boundary loses only its
+            # CONTINUATION to the pop, stranding a bare wide lead in the last
+            # column and breaking the "every wide lead is followed by its
+            # CONTINUATION" invariant. Repair it here (no-op unless the last cell
+            # is a clipped lead); applies to both grids since the loop iterates
+            # `@lines` and `@main_lines`.
+            blank_clipped_lead_at_end line
           end
         end
       end

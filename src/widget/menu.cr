@@ -133,6 +133,15 @@ module Crysterm
       # alone rather than fighting that toggle.
       @submenu_anchor : Widget?
 
+      # True only while `#sync_items` is rebuilding the rows. The row rebuild
+      # runs through `Mixin::ItemView#items=`, whose transient index churn
+      # dispatches back into `#current_index=`; without this guard that churn
+      # would see the momentarily-wrong highlight and force-close an open submenu
+      # on any unrelated row rebuild (an external `action.text=`/`enabled=`, an
+      # appended action, …). `#sync_items` reconciles the submenu explicitly once
+      # the final rows are in place (B17-16).
+      @syncing_items = false
+
       # Whether the highlighted row is drawn highlighted. A menu opens with *no*
       # row highlighted (Qt-like): it appears only once the user hovers a row
       # (`#hover_item`) or presses a selection key (`#on_keypress`), and clears
@@ -775,7 +784,16 @@ module Crysterm
           end
         end
 
-        self.items = rows
+        # Suppress `#current_index=`'s submenu-close check for the duration of the
+        # row rebuild: `items=` transiently moves the cursor while reusing/adding/
+        # removing boxes, and each hop dispatches into `#current_index=`. The
+        # submenu is reconciled once, below, against the final `@visible_actions`.
+        @syncing_items = true
+        begin
+          self.items = rows
+        ensure
+          @syncing_items = false
+        end
 
         # Rebuild the separator-row lookup from the just-built rows: `#items=`
         # leaves `@items[i]` corresponding to `acts[i]`, so a separator action's
@@ -791,6 +809,21 @@ module Crysterm
             @separator_items << itm
           else
             itm.add_css_class "Item"
+          end
+        end
+
+        # Reconcile an open submenu against the freshly-rebuilt rows. The per-hop
+        # close check was suppressed via `@syncing_items` during `items=`, so
+        # decide here, once, with the final `@visible_actions`: if the submenu's
+        # action was removed or hidden it can no longer be anchored — close the
+        # submenu; otherwise its row may have shifted, so re-anchor
+        # `@submenu_anchor` to the action's current item box so the outside-click
+        # watcher keeps tracking the right row (B17-16).
+        if act = @submenu_action
+          if idx = @visible_actions.index act
+            @submenu_anchor = @items[idx]?
+          else
+            close_submenu
           end
         end
       end
@@ -811,7 +844,10 @@ module Crysterm
 
         # Moving the highlight onto a different item closes a submenu anchored to
         # the previous one (clicking/selecting elsewhere dismisses the open menu).
-        if @submenu_open && selected_action != @submenu_action
+        # Skipped while `#sync_items` is rebuilding rows (`@syncing_items`): the
+        # transient index churn there must not tear down a submenu the user is
+        # navigating; `#sync_items` reconciles it once the rebuild settles.
+        if !@syncing_items && @submenu_open && selected_action != @submenu_action
           close_submenu
         end
       end

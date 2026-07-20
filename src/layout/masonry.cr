@@ -26,21 +26,36 @@ module Crysterm
         above = nil
         abovea = Int32::MAX
         each_rendered_in_range(container, @last_row_index, @row_index) do |l, lp|
-          abs = (el.left.as(Int) - (lp.xi - xi)).abs
+          # A deferred (z-indexed) child's `lpos` still holds the PREVIOUS
+          # frame's rect until plane compositing, so its `lp.xi` is stale this
+          # frame. Take its left edge from assigned geometry instead — the same
+          # fall-through `flow_place` uses for a deferred predecessor; in steady
+          # state both give the same edge.
+          left = deferred_this_frame?(l) ? l.left.as(Int) + l.mleft : lp.xi - xi
+          abs = (el.left.as(Int) - left).abs
           if abs < abovea
             above = l
             abovea = abs
           end
         end
 
-        if (ab = above) && (alp = rendered_geometry(ab))
-          # `alp.yl - yi` glues `el` flush to the above child's drawn bottom
-          # edge; add back its bottom margin so gravitation doesn't collapse
-          # it to zero, matching the horizontal chain's additive convention
-          # (`flow_place`'s `last.mright`). `Math.min` against the wrap-path
-          # top already assigned by `flow_place` means gravitation can only
-          # pull `el` up, never push it below its row-assigned position.
-          el.top = Math.min(el.top.as(Int), (alp.yl - yi) + ab.mbottom)
+        if ab = above
+          # The above child's drawn bottom edge (`alp.yl - yi`) glues `el` flush
+          # beneath it; add back its bottom margin so gravitation doesn't
+          # collapse to zero, matching the horizontal chain's additive
+          # convention (`flow_place`'s `last.mright`). A deferred above-child's
+          # `lpos` is stale this frame, so anchor on its assigned geometry
+          # (`top + mtop + aheight + mbottom`), which equals the painted edge in
+          # steady state. `Math.min` against the wrap-path top already assigned
+          # by `flow_place` means gravitation can only pull `el` up, never push
+          # it below its row-assigned position.
+          bottom =
+            if deferred_this_frame?(ab)
+              ab.top.as(Int) + ab.mtop + ab.aheight + ab.mbottom
+            elsif alp = rendered_geometry(ab)
+              (alp.yl - yi) + ab.mbottom
+            end
+          el.top = Math.min(el.top.as(Int), bottom) if bottom
         end
       end
     end

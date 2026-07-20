@@ -104,13 +104,20 @@ module Crysterm
             nxt = order[i + 1]?
             if w == body
               w.on(::Crysterm::Event::KeyPress) do |e|
-                prev.try(&.focus) if e.key == ::Tput::Key::Up && body_at_top?
+                if e.key == ::Tput::Key::Up && body_at_top?
+                  prev.try(&.focus)
+                  e.accept
+                end
               end
             else
               w.on(::Crysterm::Event::KeyPress) do |e|
                 case e.key
-                when ::Tput::Key::Up   then prev.try &.focus
-                when ::Tput::Key::Down then nxt.try &.focus
+                when ::Tput::Key::Up
+                  prev.try &.focus
+                  e.accept
+                when ::Tput::Key::Down
+                  nxt.try &.focus
+                  e.accept
                 end
               end
             end

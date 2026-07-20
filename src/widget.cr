@@ -519,6 +519,20 @@ module Crysterm
       window.capture(*region, **opts)
     end
 
+    # The widget's *painted* outer origin `{x, y}`: the top-left corner of
+    # `@lpos` when rendered, falling back to the layout coords (`aleft`/`atop`)
+    # before the first render. Mouse/drag events are dispatched against the
+    # painted rect, so hit-tests and drag math must resolve the pointer against
+    # this origin, not layout coords — inside a scrolled container the two differ
+    # by the enclosing scroll base (see `Mixin::TrackGeometry#pointer_offset`).
+    protected def painted_origin : {Int32, Int32}
+      if lp = @lpos
+        {lp.xi, lp.yi}
+      else
+        {aleft, atop}
+      end
+    end
+
     # Resolves this widget's on-window box from `@lpos`, applying the
     # `include_decorations` inset and the per-edge `d*` deltas. Returns `nil` if
     # not yet rendered.

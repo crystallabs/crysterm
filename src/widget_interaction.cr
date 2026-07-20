@@ -263,12 +263,12 @@ module Crysterm
 
     # property? clickable = false
 
-    # Puts current widget in focus
+    # Puts current widget in focus. No-op while detached.
     def focus
       # XXX Prevents multiple `Event::FocusIn`es. TBD whether repeated `#focus`
       # calls should always re-fire instead.
       return if focused?
-      window.focus self
+      window?.try &.focus self
     end
 
     # Drops keyboard focus from this widget (Qt's `QWidget#clearFocus`), handing

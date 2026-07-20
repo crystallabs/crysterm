@@ -121,6 +121,13 @@ module Crysterm
 
     private def on_contents_change(pos : Int32, removed : Int32, added : Int32) : Nil
       return if @highlighting
+      # Ignore the zero-length repaint pokes emitted purely so views refresh
+      # (real edits always carry removed > 0 || added > 0). Re-running analysis
+      # in response to another highlighter's overlay-write poke would recurse
+      # unboundedly between two highlighters attached to one document. Note that
+      # highlighters still overwrite each other's `additional_formats` — an
+      # inherent limitation of the single overlay slot per block.
+      return if removed == 0 && added == 0
       doc = @document || return
       blocks = doc.blocks
       b1 = doc.block_at(pos)[0]

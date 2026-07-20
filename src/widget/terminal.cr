@@ -310,9 +310,23 @@ module Crysterm
         # motion reports.
         return unless mouse_event_wanted? em, e
 
-        # Coordinates relative to the inner (content) area, 0-based.
+        # Coordinates relative to the inner (content) area, 0-based. Rows map
+        # through the RENDERED position (mirroring `#draw`), not the layout
+        # `atop`: inside a scrolled container `#draw` paints the grid at
+        # `lpos.yi` with the clipped-top rows folded into `lpos.base`, so the
+        # hit-map must undo exactly that — otherwise every report forwarded to
+        # the child is off by the scroll offset. Columns keep the unclipped
+        # content origin (`aleft + ileft`), which `#draw` also uses, since
+        # horizontal clipping carries no `base`. Falls back to the layout
+        # position before the first render (direct `on_mouse` calls have no
+        # `@lpos` yet), mirroring `Event::Mouse#local_y`.
         col = e.x - (aleft + ileft)
-        row = e.y - (atop + itop)
+        row =
+          if lp = @lpos
+            e.y - (lp.yi + itop) + lp.base
+          else
+            e.y - (atop + itop)
+          end
         return if col < 0 || row < 0 || col >= term_cols || row >= term_rows
 
         # A click still focuses the terminal; the default path is suppressed by
@@ -485,6 +499,21 @@ module Crysterm
               attr, ch = apply_cursor attr, ch
             end
 
+            # A wide (2-column) glyph whose continuation cell cannot be claimed —
+            # past the content region or absent from the window row — is blanked
+            # to a space, upholding the invariant "a width-2 cell is always
+            # followed by an in-region continuation" that the flush code relies on
+            # (mirrors the end-of-line safeguard in widget_rendering.cr:540-553).
+            # Terminal overrides #draw with its own loop, so it needs its own copy;
+            # without it a bare wide lead — e.g. one stranded in the last column by
+            # a column-shrink resize — would over-claim and paint across the
+            # widget's edge into the neighbouring cell. Must stay the exact
+            # complement of the continuation-claim block below.
+            if full_unicode && ::Crysterm::Unicode.width(ch) == 2 &&
+               (x + 1 >= xl || line[x + 1]?.nil?)
+              ch = ' '
+            end
+
             if cell != {attr, ch}
               cell.attr = attr
               cell.char = ch
@@ -526,8 +555,11 @@ module Crysterm
         when .underline?
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
         when .block?
-          # Invert the cell.
-          {Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr)), ch}
+          # Invert the cell. Toggle (not OR) REVERSE, mirroring the B16-05 fix in
+          # `window_cursor.cr`: a cell the child already rendered reversed (SGR 7 —
+          # selections, status bars, hlsearch matches) must flip back to normal
+          # video so the cursor stays visible instead of no-op'ing into invisibility.
+          {Attr.pack(Attr.flags(attr) ^ Attr::REVERSE, Attr.fg(attr), Attr.bg(attr)), ch}
         else
           # Line: the host terminal draws the real beam in this column, so both
           # `ch` and `attr` must be preserved rather than overwritten with '│'.

@@ -46,6 +46,16 @@ module Crysterm
       recompose_stylesheet path
     end
 
+    # Emits the recorded inline `<style>` source into a snapshot when present, so
+    # `#to_layout_html -> load_layout` preserves inline CSS. The trailing newline
+    # `collect_style_css` appends on load is chomped so the *next* snapshot is a
+    # fixed point rather than growing a newline per round-trip.
+    protected def dom_serialize_styles(io : IO) : Nil
+      if css = @css_inline_source
+        io << "  <style>" << css.chomp << "</style>\n"
+      end
+    end
+
     # Sets the inline-`<style>` stylesheet source and recomposes. Inline rules
     # come after the external source, so they win on equal specificity (like a
     # `<style>` block after a linked sheet in a browser). Empty string clears it.

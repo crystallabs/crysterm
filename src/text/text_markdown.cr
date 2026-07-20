@@ -419,6 +419,50 @@ module Crysterm
       # parent item's content column, not a fixed 2).
       @item_cols = {} of Int32 => Int32
 
+      # True when the block boundary before `blocks[i]` needs a blank
+      # separator line: margins, rules, continuation paragraphs, and the
+      # re-import guards — lazy continuation after a list item, ordered-list
+      # interruption, table termination (B17-26/B17-27).
+      private def separator_blank?(blocks : Array(TextBlock), i : Int32,
+                                   pf : TextBlockFormat, cf : TextBlockFormat) : Bool
+        # Paragraph spacing is block margins; any margin at the
+        # boundary reads back as one blank line (markdown can't say
+        # more). A rule block always gets one — `---` directly under
+        # a paragraph line would re-parse as a setext heading.
+        # A continuation paragraph (indent > 0, no list structure)
+        # following a list item or another continuation needs a blank
+        # line so CommonMark reads it as an indented continuation
+        # rather than a lazy line that merges into the item.
+        cont = cf.indent > 0 && cf.list_format.nil? &&
+               (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
+        return true if pf.bottom_margin > 0 || cf.top_margin > 0 ||
+                       cf.horizontal_rule? || cont
+        # A plain body paragraph directly after a list item (or a
+        # list-continuation paragraph) at the same quote level would be
+        # read as a lazy continuation of the item and merge into it on
+        # re-import; force a blank line so it stays a standalone
+        # paragraph (B17-26).
+        return true if cf.indent == 0 && plain_body?(blocks[i]) &&
+                       pf.quote_level == cf.quote_level &&
+                       (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
+        # An ordered list item whose rendered number is not 1 cannot
+        # interrupt a preceding paragraph — without a blank line it
+        # lazily merges into that paragraph on re-import. The number is
+        # `start + count-so-far`, read before write_block increments the
+        # counter, so it equals the number about to render (B17-26).
+        if (clf = cf.list_format) && clf.style.numbered? &&
+           plain_body?(blocks[i - 1]) &&
+           clf.start + (@list_items[clf.object_id]? || 0) != 1
+          return true
+        end
+        # A non-table block — or a second, distinct table — directly
+        # after a table run would be swallowed as a data row by the GFM
+        # table detector on re-import; force a blank line to end the
+        # table (B17-27).
+        return true if (ptf = pf.table_format) && !ptf.same?(cf.table_format)
+        false
+      end
+
       def export(blocks : Array(TextBlock)) : String
         String.build do |io|
           i = 0
@@ -426,18 +470,7 @@ module Crysterm
             if i > 0
               pf = blocks[i - 1].block_format
               cf = blocks[i].block_format
-              # Paragraph spacing is block margins; any margin at the
-              # boundary reads back as one blank line (markdown can't say
-              # more). A rule block always gets one — `---` directly under
-              # a paragraph line would re-parse as a setext heading.
-              # A continuation paragraph (indent > 0, no list structure)
-              # following a list item or another continuation needs a blank
-              # line so CommonMark reads it as an indented continuation
-              # rather than a lazy line that merges into the item.
-              cont = cf.indent > 0 && cf.list_format.nil? &&
-                     (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
-              blank = pf.bottom_margin > 0 || cf.top_margin > 0 ||
-                      cf.horizontal_rule? || cont
+              blank = separator_blank?(blocks, i, pf, cf)
               # A quote-level decrease into a plain body paragraph leaves the
               # deeper quote's paragraph open, so a bare newline would lazily
               # continue it and merge the shallower block's text back in

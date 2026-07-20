@@ -72,6 +72,14 @@ module Crysterm
     # True only while `#_render` is building a frame on the render fiber.
     getter? in_render : Bool = false
 
+    # The fiber currently inside `#_render`, captured while `@in_render` is set.
+    # `#request_frame` suppresses only same-fiber calls (a layout setter writing
+    # geometry mid-frame): a cross-fiber mutation can land only at one of
+    # `_render`'s yield points (`flush_frame`'s tty write, a `PreRender`/
+    # `Rendered` handler that does IO), describes state absent from the frame
+    # being built, and must still ring the doorbell for a follow-up frame.
+    @in_render_fiber : Fiber? = nil
+
     # Requests a frame on behalf of a *state-changing setter* (geometry,
     # content, visibility, widget state). Identical to `#schedule_render`,
     # except it is a no-op while a frame is already being built.
@@ -85,8 +93,15 @@ module Crysterm
     # `#schedule_render` / `#render` / `Widget#request_render` stay
     # unconditional: an explicit request from a `PreRender`/`Rendered` handler
     # is a deliberate ask for another frame, and must still be honored.
+    #
+    # The suppression is scoped to the render fiber itself: only a setter run
+    # *by* `_render` (a layout assigning geometry mid-frame) is part of the
+    # frame being built and must not re-arm the doorbell. A call from any other
+    # fiber can only reach here at one of `_render`'s yield points — so it
+    # describes a mutation the in-flight frame predates — and must ring the
+    # doorbell so `render_loop` produces a follow-up frame (no lost updates).
     def request_frame : Nil
-      schedule_render unless @in_render
+      schedule_render unless @in_render && Fiber.current.same?(@in_render_fiber)
     end
 
     # Queues `block` to run on the render fiber just before the next render,
@@ -224,6 +239,16 @@ module Crysterm
         # closed/absent output. `#connect` renders explicitly once bound again.
         next unless @connected
 
+        # On a device shared by several windows, only the device-active window
+        # may paint the shared terminal: a background sibling still gets rung by
+        # its own timers/transitions/`post` jobs, and its frame diff (against its
+        # private `@flushed_lines`) would splice its changed cells — and re-move
+        # the shared hardware cursor — over the active window's display. Deferred
+        # changes are not lost: `Application#activate` reallocs, poisons
+        # `@flushed_lines`, and fully repaints when this window is raised. True
+        # for unmanaged/solo windows, so single-window programs are unaffected.
+        next unless device_active_window?
+
         # Trailing throttle: the first request after an idle period renders
         # immediately; back-to-back requests are spaced out to honor
         # `frame_interval` (the FPS cap) without adding latency to an isolated
@@ -245,6 +270,11 @@ module Crysterm
         # closed-fd case, not those still-open outputs.
         break if @render_stop || generation != @loop_generation
         next unless @connected
+        # Re-check device ownership after the throttle sleep too: an
+        # `activate` on another fiber can hand the display to a sibling while
+        # we sleep, and painting now would write over it (mirrors the
+        # `@connected` recheck above).
+        next unless device_active_window?
 
         begin
           _render
@@ -519,10 +549,12 @@ module Crysterm
     # are part of — see `#request_frame`.
     def _render # (draw = true) #@@auto_draw)
       @in_render = true
+      @in_render_fiber = Fiber.current
       begin
         _render_frame
       ensure
         @in_render = false
+        @in_render_fiber = nil
       end
     end
 

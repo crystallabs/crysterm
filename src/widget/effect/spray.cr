@@ -315,8 +315,8 @@ module Crysterm
           end
           case phase
           in .pending? then @spark_colors[(@frame // 3) % @spark_colors.size]
-          in .flight?  then Colors::HSV_LUT[(i * 9 + @frame * 9) % 360]
-          in .landed?  then Colors::HSV_LUT[(i * 9 + @frame * 6) % 360]
+          in .flight?  then Colors::HSV_LUT[((@frame * 9 + i * 9) % 360).to_i32]
+          in .landed?  then Colors::HSV_LUT[((@frame * 6 + i * 9) % 360).to_i32]
           end
         end
 

@@ -119,6 +119,9 @@ module Crysterm
           dc = char.downcase
           choice = @choices.find { |c| c.key.size == 1 && c.key[0].downcase == dc }
           return unless choice
+          # Accept so the default quit-key fallback in Application#route_input
+          # doesn't also quit the app when a choice happens to be keyed 'q'.
+          e.accept
           choose choice
         end
 
