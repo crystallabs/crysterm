@@ -56,11 +56,9 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
     fired = [] of String
     bar = Widget::ListBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       auto_command_keys: true
-    bar.items = ({
-      "open" => -> { fired << "open"; nil },
-      "save" => -> { fired << "save"; nil },
-      "quit" => -> { fired << "quit"; nil },
-    })
+    bar.add_item("open") { fired << "open" }
+    bar.add_item("save") { fired << "save" }
+    bar.add_item("quit") { fired << "quit" }
     s.repaint
 
     bar.commands.map(&.prefix).should eq ["1", "2", "3"]

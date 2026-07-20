@@ -216,8 +216,7 @@ module Crysterm
       end
 
       # (Re)defines the full set of commands from an array of `Command`s or
-      # plain strings. (A `name => callback` `Hash` is accepted too, but
-      # deprecated — see the `Hash` overload below.)
+      # plain strings.
       def items=(commands : Array(Command))
         @item_boxes.each &.detach_from_tree
         @commands.each { |cmd| detach_command cmd }
@@ -233,16 +232,6 @@ module Crysterm
       # :ditto:
       def items=(commands : Array(String))
         self.items = commands.map { |text| Command.new text }
-      end
-
-      # :ditto:
-      #
-      # Deprecated: build `Command`s (or use `#add_item` with a block) instead —
-      # long-term bars consume `Action`s, not name/`Proc` pairs. Kept working for
-      # one cycle.
-      @[Deprecated("Pass an Array(Command), or use #add_item with a block")]
-      def items=(commands : Hash(String, Proc(Nil)))
-        self.items = commands.map { |text, callback| Command.new text, callback }
       end
 
       # Removes every command (Qt's `QListWidget#clear`).

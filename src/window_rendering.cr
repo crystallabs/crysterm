@@ -565,11 +565,6 @@ module Crysterm
       end
     end
 
-    @[Deprecated("Use `#repaint` (synchronous) or `#update` (scheduled)")]
-    def _render
-      repaint
-    end
-
     private def _render_frame
       t1 = Time.instant
 

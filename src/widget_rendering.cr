@@ -926,11 +926,6 @@ module Crysterm
       render with_children
     end
 
-    @[Deprecated("Use `#repaint` (synchronous paint) or `#update` (scheduled frame)")]
-    def _render(with_children = true)
-      repaint with_children
-    end
-
     # Runs `base_render`, insets the resulting coordinates by this widget's
     # border, and yields the interior rectangle `(xi, xl, yi, yl)` for a widget
     # that paints its own interior on top of the standard render (e.g.

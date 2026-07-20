@@ -104,7 +104,6 @@ module Crysterm
     alias Prompt = Widget::Prompt
     alias Message = Widget::Message
     alias Log = Widget::Log
-    alias Markdown = Widget::Markdown # deprecated — use TextBrowser + `#markdown=`
 
     # Non-visual button manager (logical grouping / exclusivity).
     alias ButtonGroup = Crysterm::ButtonGroup

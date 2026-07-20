@@ -10,10 +10,8 @@ include Crysterm
 #     position that *decreases* as x grows — the string was drawn backwards. A
 #     right-scrolling ticker needs column x to show `text[x - f]`.
 #
-#  BUG 2 (src/widget/markdown.cr): GFM-table column widths and cell padding used
-#     the codepoint count (`String#size`) instead of terminal display width, so a
-#     CJK/emoji cell (1 codepoint, 2 columns) computed its column too narrow and
-#     the `─`/`┬`/`│` chrome misaligned. Now uses `Unicode.display_width`.
+#  BUG 2 (src/widget/markdown.cr): fixed, then the deprecated Markdown widget
+#     was removed — the regression spec went with it.
 #
 #  BUG 3 (src/widget/bigtext.cr): full-width (16-px) glyphs were truncated to
 #     their left half and the pen advanced by only the half-width cell size, so a
@@ -77,29 +75,6 @@ describe "BUGS6 bug 1: SineScroller :right renders forwards, not mirrored" do
     s.repaint # frame 0
     row_str(s, 0, 5).should eq "ABCDE"
     row_str(s, 0, 5).should_not eq "AEDCB"
-  end
-end
-
-describe "BUGS6 bug 2: Markdown table sizes columns by display width" do
-  it "draws the border wide enough for a full-width (CJK) header cell" do
-    s = bugs6_screen 40, 12
-    saved = Crysterm::CSS.default_stylesheet
-    Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-    begin
-      # Single-column table whose header is one full-width CJK glyph (1 codepoint,
-      # 2 display columns). The pure box-drawing top border is 1 cell per char, so
-      # its dash count reflects the computed column width directly:
-      #   display width 2 -> "┌────┐" (w+2 = 4 dashes)
-      #   codepoint  size 1 -> "┌───┐" (the old, too-narrow rendering)
-      Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 40, height: 12,
-        markdown: "| 世 |\n|---|\n"
-      s.repaint
-      body = (0...s.aheight).map { |y| row_str(s, y, s.awidth) }.join("\n")
-      body.includes?("┌────┐").should be_true # ┌────┐
-      body.includes?("┌───┐").should be_false # ┌───┐ (old)
-    ensure
-      Crysterm::CSS.default_stylesheet = saved
-    end
   end
 end
 
