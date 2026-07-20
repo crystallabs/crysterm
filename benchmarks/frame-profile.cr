@@ -40,7 +40,7 @@ list.items = (0...12).map { |i| "item #{i}" }
 FRAMES = 3000
 
 # Warm up: first renders allocate the persistent caches (lpos, content index…).
-50.times { screen._render }
+50.times { screen.repaint }
 
 STDERR.puts "widgets≈#{4 + 4*6 + 1 + 12} (4 panels x6 rows + list x12 items), #{FRAMES} frames each"
 
@@ -48,7 +48,7 @@ STDERR.puts "widgets≈#{4 + 4*6 + 1 + 12} (4 panels x6 rows + list x12 items), 
 # compositing cost with no content reparse.
 GC.collect
 before = GC.stats.total_bytes
-wall_a = Time.measure { FRAMES.times { screen._render } }
+wall_a = Time.measure { FRAMES.times { screen.repaint } }
 static_alloc = GC.stats.total_bytes - before
 STDERR.printf "STATIC  alloc/frame: %5d bytes   wall/frame: %5.1f µs\n",
   static_alloc // FRAMES, wall_a.total_microseconds / FRAMES
@@ -63,7 +63,7 @@ wall_b = Time.measure do
   FRAMES.times do |f|
     panels.each_with_index { |pn, i| pn.content = "Panel #{i} @ #{f}" }
     list.current_index = (f % 12)
-    screen._render
+    screen.repaint
     rsum += screen.render_rate
     dsum += screen.draw_rate
   end
@@ -99,7 +99,7 @@ end
 
 [{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
   s, ps = build_scene dmg
-  50.times { s._render } # warm caches + first full frame
+  50.times { s.repaint } # warm caches + first full frame
   GC.collect
   before2 = GC.stats.total_bytes
   rsum2 = 0_i64
@@ -107,7 +107,7 @@ end
     FRAMES.times do |f|
       # Exactly ONE widget changes per frame.
       ps[f % 4].content = "Panel #{f % 4} @ #{f}"
-      s._render
+      s.repaint
       rsum2 += s.render_rate
     end
   end
@@ -144,13 +144,13 @@ end
 
 [{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
   s, ps = build_overlap_scene dmg
-  50.times { s._render }
+  50.times { s.repaint }
   GC.collect
   before3 = GC.stats.total_bytes
   wall_d = Time.measure do
     FRAMES.times do |f|
       ps[f % ps.size].content = "P#{f % ps.size}.#{f}"
-      s._render
+      s.repaint
     end
   end
   alloc_d = GC.stats.total_bytes - before3
@@ -185,13 +185,13 @@ end
 
 [{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
   s, bases = build_alpha_scene dmg
-  50.times { s._render }
+  50.times { s.repaint }
   GC.collect
   before4 = GC.stats.total_bytes
   wall_e = Time.measure do
     FRAMES.times do |f|
       bases[f % bases.size].content = "B#{f % bases.size}.#{f}"
-      s._render
+      s.repaint
     end
   end
   alloc_e = GC.stats.total_bytes - before4
@@ -233,14 +233,14 @@ end
 
 [{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
   s, bases = build_plane_scene dmg
-  50.times { s._render }
+  50.times { s.repaint }
   GC.collect
   before5 = GC.stats.total_bytes
   wall_f = Time.measure do
     FRAMES.times do |f|
       # A base panel UNDER the overlay changes each frame (panels 0 and 1).
       bases[f % 2].content = "B#{f % 2}.#{f}"
-      s._render
+      s.repaint
     end
   end
   alloc_f = GC.stats.total_bytes - before5

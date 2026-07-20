@@ -485,14 +485,14 @@ module Crysterm
         inner = content_width
         return if inner < 1
         acts = @visible_actions
-        return unless acts.size == @items.size
+        return unless acts.size == @item_boxes.size
         # The per-row content is a pure function of `inner` and the cached
         # `@row_lefts`/`@row_rights`, so an unchanged frame would rebuild
         # identical strings only for `set_content` to no-op them.
         return if inner == @last_laid_inner && !@rows_dirty
         lefts = @row_lefts
         rights = @row_rights
-        @items.each_with_index do |it, i|
+        @item_boxes.each_with_index do |it, i|
           next if @separator_items.includes? it
           l = lefts[i]
           r = rights[i]
@@ -536,7 +536,7 @@ module Crysterm
       # sits flush against the borders; those columns are realized by row text,
       # not literal padding. Colors (`background`, `:selected`) stay.
       private def strip_item_box_model : Nil
-        @items.each do |it|
+        @item_boxes.each do |it|
           next if @separator_items.includes? it
           strip_box_model it.styles.normal
           strip_box_model it.styles.selected if it.styles.own_selected?
@@ -796,7 +796,7 @@ module Crysterm
         end
 
         # Rebuild the separator-row lookup from the just-built rows: `#items=`
-        # leaves `@items[i]` corresponding to `acts[i]`, so a separator action's
+        # leaves `@item_boxes[i]` corresponding to `acts[i]`, so a separator action's
         # row is the same-index item. Non-separator rows are tagged with the
         # `Item` CSS class so they're styled as the menu's `::item` sub-control
         # (Qt's rows aren't independent widgets but the menu's `::item`, which
@@ -804,7 +804,7 @@ module Crysterm
         # `QMenu::item:selected`) rather than falling through to generic
         # `QWidget` rules and mismatching the frame.
         @separator_items = Set(Widget).new
-        @items.each_with_index do |itm, i|
+        @item_boxes.each_with_index do |itm, i|
           if (a = acts[i]?) && a.separator?
             @separator_items << itm
           else
@@ -821,7 +821,7 @@ module Crysterm
         # watcher keeps tracking the right row (B17-16).
         if act = @submenu_action
           if idx = @visible_actions.index act
-            @submenu_anchor = @items[idx]?
+            @submenu_anchor = @item_boxes[idx]?
           else
             close_submenu
           end
@@ -858,7 +858,7 @@ module Crysterm
       # adjacent command. Keyboard activation is unaffected: its `current_index` never
       # rests on a separator.
       def activate_item(index : Int32)
-        return if @items[index]?.try { |it| @separator_items.includes? it }
+        return if @item_boxes[index]?.try { |it| @separator_items.includes? it }
         super
       end
 
@@ -969,10 +969,10 @@ module Crysterm
       # `#hide_popup` no-ops for an embedded menu.
       def cancel_current
         # Guard against `IndexError` on an empty list.
-        return if @items.empty?
+        return if @item_boxes.empty?
         close_submenu if @submenu_open
         @show_highlight = false
-        emit ::Crysterm::Event::ItemCancelled, items[current_index], current_index
+        emit ::Crysterm::Event::ItemCancelled, @item_boxes[current_index], current_index
         request_render
       end
 
@@ -1042,7 +1042,7 @@ module Crysterm
         child.focus
         @submenu_open = child
         @submenu_action = action
-        @submenu_anchor = @items[current_index]?
+        @submenu_anchor = @item_boxes[current_index]?
 
         # The top-level menu watches for a click anywhere outside the open chain
         # and dismisses the submenus. In popup mode the `#popup` watcher already

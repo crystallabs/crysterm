@@ -13,7 +13,7 @@ include Crysterm
 #      bootstrapped) must be buffered and replayed, not silently dropped.
 #
 # Headless harness: a `Window` over in-memory IOs, a handler-mode terminal
-# (no PTY), rendering driven synchronously with `_render`.
+# (no PTY), rendering driven synchronously with `repaint`.
 
 private def tio_screen(width = 60, height = 24)
   Crysterm::Window.new(
@@ -34,7 +34,7 @@ private def tio_terminal(got : Array(String), width = 20, height = 5)
   term = Crysterm::Widget::Terminal.new(
     parent: s, top: 0, left: 0, width: width, height: height,
     handler: ->(d : String) { got << d; nil })
-  s._render # bootstrap
+  s.repaint # bootstrap
   term.focus
   {s, term}
 end
@@ -184,7 +184,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
     term.emulator.should be_nil
     term.write "hel"
     term.write "lo".to_slice
-    s._render # bootstrap: pending bytes must be replayed
+    s.repaint # bootstrap: pending bytes must be replayed
     em = term.emulator.not_nil!
     em_row_text(em, 0, 5).should eq "hello"
     # And they reach the screen cells on that same first render.
@@ -204,7 +204,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
     # be produced if the pending buffer is fed AFTER em.output is wired.
     term.write "\e[6n"
     got.should be_empty
-    s._render
+    s.repaint
     got.join.should eq "\e[1;1R"
   ensure
     s.try &.destroy
@@ -215,7 +215,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(_d : String) { })
-    s._render
+    s.repaint
     term.write "later"
     em = term.emulator.not_nil!
     em_row_text(em, 0, 5).should eq "later"

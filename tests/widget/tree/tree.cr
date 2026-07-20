@@ -5,14 +5,17 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
+include Crysterm
+include Crysterm::Widgets
+
 Crysterm::WidgetExample.run("Tree",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.5
     d.key :down, times: 4, dwell: 0.35
     d.key :up, times: 4, dwell: 0.35
-  }) do |screen|
-  screen.stylesheet = "Tree { border: solid; color: #c0caf5; }"
-  tree = Crysterm::Widget::Tree.new parent: screen, top: "center", left: "center", width: 34, height: 12, label: " Project "
+  }) do |window|
+  window.stylesheet = "Tree { border: solid; color: #c0caf5; }"
+  tree = Tree.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Project "
   src = tree.add "src"
   src.add "crysterm.cr"
   src.add "widget.cr"

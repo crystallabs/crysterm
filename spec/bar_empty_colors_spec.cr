@@ -26,7 +26,7 @@ describe "Widget::Graph::Bar with an empty colors array" do
     bar.values = [42, 88, 13, 64]
 
     # Before the fix this raised DivisionByZeroError inside build_content.
-    s._render
+    s.repaint
 
     # The plot renders (glyphs present), just without per-bar coloring.
     bar.content.should_not be_empty

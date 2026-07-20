@@ -223,7 +223,7 @@ describe Crysterm::Widget::TabWidget do
       tabs.add_tab "Files", Crysterm::Widget::Box.new
       # ListBar prefixes each item with its command number ("1:"); the tab's
       # display title (with the ✕ close marker) is the trailing part.
-      tabs.tab_bar.items.first.content.ends_with?("Files ✕").should be_true
+      tabs.tab_bar.item_boxes.first.content.ends_with?("Files ✕").should be_true
     end
   end
 end

@@ -16,7 +16,7 @@ private def headless_screen(w = 80, h = 24)
 end
 
 private def render_children(s, container)
-  s._render
+  s.repaint
   container.children.map do |c|
     l = c.lpos.not_nil!
     {l.xi, l.xl, l.yi, l.yl}

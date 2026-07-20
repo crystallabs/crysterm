@@ -5,8 +5,11 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Marquee" do |screen|
-  screen.stylesheet = "Marquee { color: #e0af68; }"
-  m = Crysterm::Widget::Marquee.new parent: screen, top: "center", left: "center", width: 40, height: 1, text: "Scrolling marquee text — Crysterm * "
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Marquee" do |window|
+  window.stylesheet = "Marquee { color: #e0af68; }"
+  m = Marquee.new parent: window, top: "center", left: "center", width: 40, height: 1, text: "Scrolling marquee text — Crysterm * "
   Crysterm::WidgetExample.animate_with(m.interval) { m.step }
 end

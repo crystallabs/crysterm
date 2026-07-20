@@ -109,7 +109,7 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
     # No border/padding: interior spans the whole 9x2 widget. Value shown.
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 2,
       minimum: 0, maximum: 100, value: 0, text_visible: true
-    s._render
+    s.repaint
 
     x0 = dial.aleft; x1 = dial.aleft + dial.awidth
     y0 = dial.atop; y1 = dial.atop + dial.aheight
@@ -129,7 +129,7 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
     s = bugs6cd_screen
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 4,
       minimum: 0, maximum: 100, value: 0, text_visible: true
-    s._render
+    s.repaint
 
     x0 = dial.aleft; x1 = dial.aleft + dial.awidth
     y0 = dial.atop; y1 = dial.atop + dial.aheight
@@ -147,7 +147,7 @@ describe "BUGS6 Calendar guarded date construction (bug 3)" do
     s = bugs6cd_screen
     # Plain construction reaches build_content -> local_date; must not raise.
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
-    s._render
+    s.repaint
 
     # Home/End and month stepping all build dates through local_date now.
     cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::Home)
@@ -168,7 +168,7 @@ describe "BUGS6 Calendar#day_at separator hit-testing (bug 5)" do
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 1, 15)
     cal.grid_visible = true
-    s._render
+    s.repaint
 
     ax = cal.aleft + cal.ileft
     ay = cal.atop + cal.itop

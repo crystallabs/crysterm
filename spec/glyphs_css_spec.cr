@@ -153,11 +153,11 @@ describe "CheckBox::indicator glyph theming" do
       CheckBox::indicator:checked { glyph: "*"; }
       CSS
     s.apply_stylesheet
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 9).should eq "<.> Accep"
 
     cb.check
-    s._render
+    s.repaint
     # The `[checked]`-gated rule outranks the stateless mark.
     gc_row(s, 0, 0, 9).should eq "<*> Accep"
   end
@@ -169,7 +169,7 @@ describe "CheckBox::indicator glyph theming" do
       CheckBox::indicator { glyph-open: none; glyph-close: none; glyph: "●"; }
       CSS
     s.apply_stylesheet
-    s._render
+    s.repaint
     # Marker shrinks from 3 cells to 1; the label follows after the gap.
     gc_row(s, 0, 0, 8).should eq "● Accept"
     cb.checked?.should be_true
@@ -180,7 +180,7 @@ describe "CheckBox::indicator glyph theming" do
     cb = Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
     s.stylesheet = %(CheckBox::indicator { glyph-open: none; glyph-close: none; glyph: "●"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     # Column 1 is now label gap, not marker: a click there must not toggle.
     s.dispatch_mouse(::Tput::Mouse::Event.new(
       ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, cb.aleft + 1, cb.atop, source: :test))
@@ -194,7 +194,7 @@ describe "CheckBox::indicator glyph theming" do
   it "leaves the unstyled marker byte-identical with the classic [x]" do
     s = gc_screen
     Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept", checked: true
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 10).should eq "[x] Accept"
   end
 end
@@ -205,10 +205,10 @@ describe "RadioButton::indicator glyph theming" do
     rb = Widget::RadioButton.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "One"
     s.stylesheet = %(RadioButton::indicator:checked { glyph: "o"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 7).should eq "( ) One" # unchecked mark untouched
     rb.check
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 7).should eq "(o) One"
   end
 end
@@ -219,12 +219,12 @@ describe "ComboBox::drop-down glyph" do
     Widget::ComboBox.new ["Apple"], parent: s, top: 0, left: 0, width: 12, height: 1
     s.stylesheet = %(ComboBox::drop-down { glyph: "↓"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 7).should eq "Apple ↓"
 
     s.stylesheet = %(ComboBox::drop-down { glyph: none; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gc_row(s, 0, 0, 7).should eq "Apple  "
   end
 end
@@ -238,7 +238,7 @@ describe "Slider::handle / cell-role validation" do
       Slider { glyph: "x"; }
       CSS
     s.apply_stylesheet
-    s._render
+    s.repaint
     # Handle at the low end; the widget-wide `glyph` must NOT bleed into the
     # track (only an explicitly-set sub-style answers for a part).
     s.lines[0][sl.aleft].char.should eq '◆'
@@ -250,7 +250,7 @@ describe "Slider::handle / cell-role validation" do
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1, value: 0
     s.stylesheet = %(Slider::handle { glyph: "🚀"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     s.lines[0][sl.aleft].char.should eq '█' # registry default, not the emoji
   end
 end
@@ -260,7 +260,7 @@ describe "Menu glyphs and measured columns" do
     s = gc_screen
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 4
     menu.add_action "Open"
-    s._render
+    s.repaint
     # Label starts flush at the content edge (border + theme padding = 2).
     gc_row(s, 1, menu.aleft + 2, 5).should eq "Open " # no 4-cell gutter
   end
@@ -272,7 +272,7 @@ describe "Menu glyphs and measured columns" do
     a.checkable = true
     a.checked = true
     menu.add_action "Open"
-    s._render
+    s.repaint
     gc_row(s, 1, menu.aleft + 2, 8).should eq "[x] Wrap"
     gc_row(s, 2, menu.aleft + 2, 8).should eq "    Open"
   end
@@ -285,7 +285,7 @@ describe "Menu glyphs and measured columns" do
     menu.add_action "Two"
     s.stylesheet = %(Menu::separator { glyph: "="; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     sep_y = menu.atop + 2
     gc_row(s, sep_y, menu.aleft + 1, 10).includes?("====").should be_true
   end
@@ -296,14 +296,14 @@ describe "Menu glyphs and measured columns" do
     menu.add_submenu "More", [Action.new("Child")]
     s.stylesheet = %(Menu::indicator { glyph: "»"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     row = gc_row(s, menu.atop + 1, menu.aleft + 1, 12)
     row.includes?("More").should be_true
     row.includes?("»").should be_true
 
     s.stylesheet = %(Menu::indicator { glyph: none; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gc_row(s, menu.atop + 1, menu.aleft + 1, 12).includes?("▶").should be_false
   end
 end

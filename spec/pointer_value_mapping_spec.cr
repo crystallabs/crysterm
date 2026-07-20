@@ -25,7 +25,7 @@ private def pvm_screen
 end
 
 private def press(s, x, y)
-  s._render
+  s.repaint
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test)
 end

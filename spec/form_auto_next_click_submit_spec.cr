@@ -24,7 +24,7 @@ describe Crysterm::Widget::Form do
     _le1 = Crysterm::Widget::LineEdit.new parent: form, name: "a", top: 0, height: 1, width: 20
     le2 = Crysterm::Widget::LineEdit.new parent: form, name: "b", top: 2, height: 1, width: 20
     le3 = Crysterm::Widget::LineEdit.new parent: form, name: "c", top: 4, height: 1, width: 20
-    s._render
+    s.repaint
 
     # No Tab: focus le2 directly (as a click would), then submit it. Focus must
     # advance to le3 — not stay put and not jump to the first field.

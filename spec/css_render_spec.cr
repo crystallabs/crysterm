@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # End-to-end proof that CSS actually changes what gets drawn: sets a
-# stylesheet, runs a real synchronous render (`Window#_render`, which applies
+# stylesheet, runs a real synchronous render (`Window#repaint`, which applies
 # the cascade then fills the cell buffer), and inspects the packed attributes
 # in `Window#lines`.
 
@@ -36,7 +36,7 @@ describe "CSS end-to-end rendering" do
     Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5
 
     screen.stylesheet = "Box { background-color: #0000ff; color: #ff0000; }"
-    screen._render # applies the cascade (dirty) and fills @lines
+    screen.repaint # applies the cascade (dirty) and fills @lines
 
     # cell inside the box carries the CSS colors
     cell_bg(screen, 2, 3).should eq 0x0000ff
@@ -48,7 +48,7 @@ describe "CSS end-to-end rendering" do
     Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 5
 
     screen.stylesheet = "Box { border: solid; border-top-color: #ff0000; border-bottom-color: #0000ff; }"
-    screen._render
+    screen.repaint
 
     cell_fg(screen, 0, 4).should eq 0xff0000 # top edge -> red
     cell_fg(screen, 4, 4).should eq 0x0000ff # bottom edge -> blue
@@ -59,7 +59,7 @@ describe "CSS end-to-end rendering" do
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24, rows: [["aa", "bb"], ["11", "22"]]
 
     screen.stylesheet = "Cell:nth-child(1) { color: #ff0000; } Cell:nth-child(2) { color: #0000ff; }"
-    screen._render
+    screen.repaint
 
     reds = [] of Int32
     blues = [] of Int32
@@ -83,7 +83,7 @@ describe "CSS end-to-end rendering" do
     Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24, rows: [["aa", "bb"], ["11", "22"]]
 
     screen.stylesheet = "Cell:nth-child(1) { color: #ff0000; } Cell:nth-child(2) { color: #0000ff; }"
-    screen._render
+    screen.repaint
 
     reds = [] of Int32
     blues = [] of Int32
@@ -107,7 +107,7 @@ describe "CSS end-to-end rendering" do
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "Table { alternate-background-color: #00ff00; }"
-    screen._render
+    screen.repaint
 
     greens = count_cells_bg(screen, 0x00ff00)
     greens.should be > 0
@@ -120,7 +120,7 @@ describe "CSS end-to-end rendering" do
     Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "ListTable { alternate-background-color: #00ff00; }"
-    screen._render
+    screen.repaint
 
     greens = count_cells_bg(screen, 0x00ff00)
     greens.should be > 0
@@ -132,7 +132,7 @@ describe "CSS end-to-end rendering" do
       items: ["one", "two", "three"]
     list.current_index = 1
     screen.stylesheet = "List { selection-background-color: #ff00ff; }"
-    screen._render
+    screen.repaint
 
     magentas = count_cells_bg(screen, 0xff00ff)
     magentas.should be > 0
@@ -148,7 +148,7 @@ describe "CSS end-to-end rendering" do
     # opacity: 1.0 cancels the theme's translucent Menu plane so the separator
     # fg is exact rather than alpha-blended
     screen.stylesheet = "Menu { opacity: 1.0; } Menu::separator { color: #ff00ff; }"
-    screen._render
+    screen.repaint
 
     # the separator rule (a run of '─') is drawn from the separator sub-style
     magentas = 0
@@ -166,7 +166,7 @@ describe "CSS end-to-end rendering" do
     tabs.add_tab "Two", Widget::Box.new
     screen.append tabs
     screen.stylesheet = "TabWidget::tab { color: #ff00ff; }"
-    screen._render
+    screen.repaint
 
     # the tab labels in the strip are drawn from the pushed tab sub-style
     magentas = 0
@@ -185,12 +185,12 @@ describe "CSS end-to-end rendering" do
       Box { background-color: #0000ff; }
       .hot { background-color: #00ff00; }
     CSS
-    screen._render
+    screen.repaint
     cell_bg(screen, 2, 3).should eq 0x0000ff
 
     # adding a class auto-invalidates -> next render repaints with the new rule
     box.add_css_class "hot"
-    screen._render
+    screen.repaint
     cell_bg(screen, 2, 3).should eq 0x00ff00
   end
 end

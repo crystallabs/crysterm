@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Label" do |screen|
-  screen.stylesheet = "Label { color: #9ece6a; }"
-  Crysterm::Widget::Label.new parent: screen, top: "center", left: "center", content: "A Label widget"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Label" do |window|
+  window.stylesheet = "Label { color: #9ece6a; }"
+  Label.new parent: window, top: "center", left: "center", content: "A Label widget"
 end

@@ -51,6 +51,6 @@ describe "BUGS7 Widget#visible_in_tree?" do
     box.hide
     # The `Rendered` listener runs on render; with the guard it must no-op rather
     # than resolve coords against the hidden `box`.
-    s._render
+    s.repaint
   end
 end

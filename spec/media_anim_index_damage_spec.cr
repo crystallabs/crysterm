@@ -83,7 +83,7 @@ describe "Widget::Media::Base#anim_index= damage tracking" do
 
     # Baseline full frame (the first frame under DamageTracking is always full).
     img.anim_index = 0
-    s._render
+    s.repaint
     base = region_sig s, img
 
     # Drive later frames purely via `anim_index=` + a selective render. At least
@@ -91,7 +91,7 @@ describe "Widget::Media::Base#anim_index= damage tracking" do
     # carried over as `base` because the widget was never marked dirty.
     changed = (1..8).any? do |i|
       img.anim_index = i
-      s._render
+      s.repaint
       region_sig(s, img) != base
     end
     changed.should be_true

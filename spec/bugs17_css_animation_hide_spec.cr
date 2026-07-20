@@ -42,7 +42,7 @@ describe "BUGS17 B17-37 hidden CSS animation stops its FrameClock" do
     box.add_css_class "anim"
     begin
       screen.stylesheet = ANIM_CSS
-      screen._render
+      screen.repaint
       clock1 = box.anim_clock
       clock1.should_not be_nil
       clock1.not_nil!.running?.should be_true
@@ -53,12 +53,12 @@ describe "BUGS17 B17-37 hidden CSS animation stops its FrameClock" do
       # The animation was NOT marked finished — a further render while hidden
       # must not restart it (the widget's `coords` is nil, so `_render`
       # early-returns before `ensure_css_animation` anyway).
-      screen._render
+      screen.repaint
       box.anim_clock.not_nil!.running?.should be_false
 
       # Showing + rendering resumes the animation via the resume branch.
       box.show
-      screen._render
+      screen.repaint
       clock2 = box.anim_clock
       clock2.should_not be_nil
       clock2.not_nil!.running?.should be_true
@@ -73,14 +73,14 @@ describe "BUGS17 B17-37 hidden CSS animation stops its FrameClock" do
     box.add_css_class "anim"
     begin
       screen.stylesheet = ANIM_CSS
-      screen._render
+      screen.repaint
       box.anim_clock.not_nil!.running?.should be_true
 
       screen.remove box # emits Event::Detached
       box.anim_clock.not_nil!.running?.should be_false
 
       screen.append box # re-attach
-      screen._render
+      screen.repaint
       box.anim_clock.not_nil!.running?.should be_true
     ensure
       box.try &.stop_anim

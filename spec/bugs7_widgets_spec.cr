@@ -25,11 +25,11 @@ describe "BUGS7 LineEdit wide-character horizontal scroll" do
     s = uni_window
     # Inner text width ~= awidth - ihorizontal - 1; keep the box narrow.
     input = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 8, height: 1
-    s._render
+    s.repaint
 
     value = "漢字漢字漢字漢字漢字" # 10 CJK glyphs, 20 display columns
     input.value = value  # external set → caret to the end
-    s._render
+    s.repaint
 
     shown = input.content.to_s
     # The window must show the tail near the caret, i.e. it ends with the last
@@ -43,9 +43,9 @@ describe "BUGS7 LineEdit wide-character horizontal scroll" do
   it "still shows the whole value when it fits" do
     s = uni_window
     input = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 12, height: 1
-    s._render
+    s.repaint
     input.value = "漢字"
-    s._render
+    s.repaint
     input.content.to_s.should contain "漢字"
   end
 end
@@ -61,7 +61,7 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
       "save" => -> { fired << "save"; nil },
       "quit" => -> { fired << "quit"; nil },
     })
-    s._render
+    s.repaint
 
     bar.commands.map(&.prefix).should eq ["1", "2", "3"]
 

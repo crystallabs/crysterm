@@ -25,7 +25,7 @@ private def alpha_content_bg(padding : Int32)
 
   b = Crysterm::Widget::Box.new parent: s, top: 2, left: 2, width: 20, height: 6,
     style: st, content: ""
-  s._render
+  s.repaint
 
   lp = b.lpos.not_nil!
   # A cell inside the content region (offset past any padding).

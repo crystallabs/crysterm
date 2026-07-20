@@ -11,7 +11,7 @@ module Crysterm
     #   with `keys: true`, `Tab`/`Shift+Tab` move focus to the next/previous
     #   focusable child (and, with `vi_keys: true`, `j`/`k` do the same).
     # * **Submission** — `#submit` walks the subtree, collects each input's
-    #   value into a `name => value` `Hash` and emits `Event::FormSubmitted`.
+    #   natively-typed value into a `FormData` and emits `Event::FormSubmitted`.
     # * **Reset** — `#reset` returns every input child to its initial state and
     #   emits `Event::Reset`.
     #
@@ -24,7 +24,8 @@ module Crysterm
     # ok = Widget::Button.new parent: form, name: "ok", top: 2, content: "OK"
     #
     # form.on(Crysterm::Event::FormSubmitted) do |e|
-    #   # e.data["name"] holds the entered text
+    #   # e.data["name"] holds the entered text (a String; a CheckBox
+    #   # contributes a Bool, a SpinBox an Int32, a DateEdit a Time, ...)
     # end
     # ```
     #
@@ -32,6 +33,78 @@ module Crysterm
     # ![Form screenshot](../../tests/widget/form/form.5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Box
+      # The natively-typed value of one submitted field: text widgets and item
+      # views contribute a `String`, check/radio buttons a `Bool`, `SpinBox`
+      # an `Int32`, `DoubleSpinBox` a `Float64`, and the date/time editors a
+      # `Time`.
+      alias FieldValue = String | Bool | Int32 | Float64 | Time
+
+      # Typed result of a `#submit`: the collected fields in subtree order,
+      # with `Hash`-like access by field name. Several inputs may share one
+      # name (a radio/checkbox group); `#[]` returns the first such field's
+      # value and `#values_for` all of them.
+      class FormData
+        # One collected input: the contributing widget, its resolved name
+        # (the widget's `#name`, falling back to its type name) and its
+        # `FieldValue`.
+        record Field, widget : Widget, name : String, value : FieldValue
+
+        include Enumerable(Field)
+
+        # The collected fields, in subtree (submission) order.
+        getter fields = [] of Field
+
+        def each(& : Field ->)
+          @fields.each { |f| yield f }
+        end
+
+        protected def add(widget : Widget, name : String, value : FieldValue) : Nil
+          @fields << Field.new(widget, name, value)
+        end
+
+        # Value of the first field named *name*; raises `KeyError` when absent.
+        def [](name : String) : FieldValue
+          self[name]? || raise KeyError.new "Missing form field: #{name.inspect}"
+        end
+
+        # Value of the first field named *name*, or `nil`.
+        def []?(name : String) : FieldValue?
+          @fields.find(&.name.==(name)).try &.value
+        end
+
+        # Values of every field named *name*, in subtree order — a radio or
+        # checkbox group sharing one name arrives here as one `Bool` each.
+        def values_for(name : String) : Array(FieldValue)
+          @fields.select(&.name.==(name)).map &.value
+        end
+
+        def has_key?(name : String) : Bool
+          @fields.any? &.name.==(name)
+        end
+
+        # The distinct field names, in first-appearance order.
+        def names : Array(String)
+          seen = Set(String).new
+          @fields.compact_map { |f| f.name if seen.add?(f.name) }
+        end
+
+        def empty? : Bool
+          @fields.empty?
+        end
+
+        def size : Int32
+          @fields.size
+        end
+
+        # First-field-wins `name => value` view (matching `#[]`); duplicate
+        # names lose their later values — use `#values_for` for those.
+        def to_h : Hash(String, FieldValue)
+          h = {} of String => FieldValue
+          @fields.each { |f| h[f.name] = f.value unless h.has_key? f.name }
+          h
+        end
+      end
+
       # When enabled, pressing `Enter` in a `LineEdit` child moves focus to the
       # next focusable child (instead of only submitting that field).
       property? auto_next : Bool = false
@@ -42,9 +115,9 @@ module Crysterm
       getter current_field : Widget?
       protected setter current_field
 
-      # Result of the most recent `#submit`, i.e. the collected `name => value`
-      # pairs. `nil` until the form has been submitted at least once.
-      getter submission : Hash(String, String)?
+      # Result of the most recent `#submit`. `nil` until the form has been
+      # submitted at least once.
+      getter submission : FormData?
 
       # Tracks `LineEdit` children already wired for `auto_next`, so the Submit
       # handler is installed at most once per field.
@@ -192,57 +265,55 @@ module Crysterm
         focus_previous
       end
 
-      # Collects the value of every input child into a `name => value` `Hash`,
-      # stores it in `#submission`, emits `Event::FormSubmitted`, and returns it.
+      # Collects the value of every input child into a `FormData`, stores it
+      # in `#submission`, emits `Event::FormSubmitted`, and returns it.
       #
       # A child contributes a value only if it is a recognized input type. The
-      # key is the child's `#name`, falling back to its widget type. Inputs
-      # sharing a name have their values joined with newlines (mirroring
-      # Blessed's same-named field grouping).
-      def submit
-        data = {} of String => String
+      # field name is the child's `#name`, falling back to its widget type.
+      # Inputs sharing a name each contribute their own field (see
+      # `FormData#values_for`).
+      def submit : FormData
+        data = FormData.new
         collect_values self, data
         emit Crysterm::Event::FormSubmitted, data
         @submission = data
       end
 
-      private def collect_values(el : Widget, data : Hash(String, String))
-        if value = field_value el
+      private def collect_values(el : Widget, data : FormData)
+        # `.nil?`, not truthiness: an unchecked button's `false` is a value.
+        unless (value = field_value(el)).nil?
           name = el.name
           name = el.class.name.split("::").last if name.nil? || name.empty?
-          if existing = data[name]?
-            data[name] = existing + "\n" + value
-          else
-            data[name] = value
-          end
+          data.add el, name, value
         end
         el.children.each { |child| collect_values child, data }
       end
 
       # The submitted value of a single widget, or `nil` if it is not an input.
-      private def field_value(el : Widget) : String?
+      private def field_value(el : Widget) : FieldValue?
         case el
         # Match `Mixin::TextEditing`, not `PlainTextEdit`: `LineEdit` is a
         # sibling (`< Input`) that only shares the buffer via this mixin.
         when Mixin::TextEditing then el.value
           # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so
           # each needs its own arm.
-        when RadioButton then el.checked?.to_s
-        when CheckBox    then el.checked?.to_s
+        when RadioButton then el.checked?
+        when CheckBox    then el.checked?
           # Match the mixin, not `List`: `ListTable`/`Tree` are *siblings* of
           # `List`. A `FileManager` is a picker, not a form field, so it is
           # excluded before the mixin arm.
         when FileManager     then nil
         when Mixin::ItemView then el.current_text
-          # `DoubleSpinBox` renders to `#decimals` places.
-        when SpinBox       then el.value.to_s
-        when DoubleSpinBox then el.formatted_value
+          # `SpinBox`/`DoubleSpinBox` are siblings (both `< AbstractSpinBox`);
+          # each contributes its native numeric value.
+        when DoubleSpinBox then el.value
+        when SpinBox       then el.value
         when ComboBox      then el.current_text
           # `DateEdit`/`TimeEdit` are subclasses of `DateTimeEdit`, so they must
-          # be matched *before* it. Format to the layout each widget displays.
-        when DateEdit     then el.date.to_s("%Y-%m-%d")
-        when TimeEdit     then el.time.to_s(el.show_seconds? ? "%H:%M:%S" : "%H:%M")
-        when DateTimeEdit then el.date_time.to_s(el.show_seconds? ? "%Y-%m-%d %H:%M:%S" : "%Y-%m-%d %H:%M")
+          # be matched *before* it. All three contribute a `Time`.
+        when DateEdit     then el.date
+        when TimeEdit     then el.time
+        when DateTimeEdit then el.date_time
         else                   nil
         end
       end

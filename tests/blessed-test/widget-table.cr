@@ -6,6 +6,7 @@ require "../../src/crysterm"
 # borders/header/cell, tag-colored cells, CJK characters, and re-setting data after a delay.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   DU   = "杜"
   JUAN = "鹃"
@@ -13,7 +14,7 @@ class X
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    table = Widget::Table.new \
+    table = Table.new \
       top: "center",
       left: "center",
       parse_tags: true,

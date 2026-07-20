@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # B16-01: `render_loop` re-checks liveness (`@render_stop`, generation,
-# `@connected`) AFTER the FPS-throttle sleep, before `_render`. In an animating
+# `@connected`) AFTER the FPS-throttle sleep, before `repaint`. In an animating
 # UI the render fiber spends most of each frame period parked in that sleep, so
 # a `#destroy`/`#disconnect` on another fiber very often lands inside it — the
 # device is then restored (or handed back to a sibling) and the woken fiber must

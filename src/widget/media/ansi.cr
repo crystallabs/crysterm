@@ -71,7 +71,7 @@ module Crysterm
 
       # Terminal cell height-to-width ratio, keeping the image's aspect ratio
       # correct on non-square cells (~2.0 for typical monospace fonts); `1.0`
-      # assumes square cells. Changes take effect on the next `#set_image`.
+      # assumes square cells. Changes take effect on the next `#load`.
       property cell_aspect : Float64
 
       def initialize(
@@ -92,9 +92,9 @@ module Crysterm
         super(**box.merge(shrink_to_fit: true))
         # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
         self.speed = speed
-        setup_animate animate # before set_image, so a shared clock is known when play subscribes
+        setup_animate animate # before load, so a shared clock is known when play subscribes
 
-        @file.try { |f| set_image f }
+        @file.try { |f| load f }
 
         on(::Crysterm::Event::Destroy) { stop }
       end

@@ -8,6 +8,7 @@
 require "../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 s = Window.new title: "Concurrent rendering"
 
@@ -24,7 +25,7 @@ colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
   # The percent portion is the bar's `indicator` sub-style. Set it explicitly
   # (an inline sub-style outranks the theme) to give each bar its own color
   # instead of the theme's uniform accent.
-  pb = Widget::ProgressBar.new \
+  pb = ProgressBar.new \
     parent: s,
     top: 2 + i, left: 2, width: 46, height: 1,
     percent: 0,
@@ -39,10 +40,10 @@ colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
 end
 
 # Two spinners, independent fibers.
-spin1 = Widget::Loading.new \
+spin1 = Loading.new \
   parent: s, top: 2, left: 52, width: 24, height: 3,
   content: "Worker A", style: Style.new(fg: "cyan", border: true)
-spin2 = Widget::Loading.new \
+spin2 = Loading.new \
   parent: s, top: 6, left: 52, width: 24, height: 3,
   content: "Worker B", style: Style.new(fg: "magenta", border: true)
 spin1.start
@@ -62,6 +63,6 @@ end
 
 # Live FPS overlay (bottom-left): counts the frames the doorbell coalesces
 # these fibers' render bursts into.
-Widget::Fps.new parent: s
+Fps.new parent: s
 
 s.exec

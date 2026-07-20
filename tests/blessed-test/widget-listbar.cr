@@ -8,20 +8,21 @@ require "../../src/crysterm"
 # Selecting a command updates the box in the top-right corner.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     # Blessed: borderless `width:'shrink', height:'shrink'` box pinned top-right.
     # `shrink_to_fit: true` is Crysterm's shrink.
-    box = Widget::Box.new \
+    box = Box.new \
       parent: s,
       top: 0,
       right: 0,
       shrink_to_fit: true,
       content: "..."
 
-    bar = Widget::ListBar.new \
+    bar = ListBar.new \
       bottom: 0,
       left: 3,
       right: 3,
@@ -43,7 +44,7 @@ class X
     names = %w[one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen]
     names.each do |name|
       bar.add_item(name) do
-        box.set_content "Pressed #{name}."
+        box.content = "Pressed #{name}."
         s.render
       end
     end

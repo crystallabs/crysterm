@@ -8,11 +8,12 @@ require "../../src/crysterm"
 # reappears, and on selection shows the chosen path in a box.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    fm = Widget::FileManager.new \
+    fm = FileManager.new \
       parent: s,
       vi_keys: true,
       label: " Files ",
@@ -24,7 +25,7 @@ class X
       scrollbar: true,
       style: Style.new(border: true)
 
-    box = Widget::Box.new \
+    box = Box.new \
       parent: s,
       height: "half",
       width: "half",
@@ -39,7 +40,7 @@ class X
     end
 
     fm.on(Crysterm::Event::FileSelected) do |e|
-      box.set_content "Selected: #{e.path}"
+      box.content = "Selected: #{e.path}"
       box.show
       s.render
       spawn do
@@ -60,7 +61,7 @@ class X
         exit
       when e.char == 'p'
         fm.pick do |file|
-          box.set_content file ? "Picked: #{file}" : "Cancelled"
+          box.content = file ? "Picked: #{file}" : "Cancelled"
           box.show
           s.render
           spawn do

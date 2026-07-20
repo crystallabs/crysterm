@@ -63,13 +63,21 @@ module Crysterm
       end
     end
 
-    # Requests a render. Non-blocking and coalescing; safe to call from any
-    # fiber. Multiple calls before the frame is produced collapse into one.
-    def schedule_render : Nil
+    # Requests a render ↔ `QWidget::update()`. Non-blocking and coalescing;
+    # safe to call from any fiber. Multiple calls before the frame is produced
+    # collapse into one. For a synchronous frame built on the calling fiber see
+    # `#repaint`.
+    def update : Nil
+      schedule_render
+    end
+
+    # Internal primitive behind `#update`: rings the render fiber's coalescing
+    # doorbell. Public API is `#update` (or its historical alias `#render`).
+    protected def schedule_render : Nil
       ring @render_wakeup
     end
 
-    # True only while `#_render` is building a frame on the render fiber.
+    # True only while `#repaint` is building a frame on the render fiber.
     getter? in_render : Bool = false
 
     # The fiber currently inside `#_render`, captured while `@in_render` is set.
@@ -90,17 +98,17 @@ module Crysterm
     # the FPS cap forever on an idle UI. Anything a layout writes is painted by
     # the frame that wrote it, so there is nothing to schedule.
     #
-    # `#schedule_render` / `#render` / `Widget#request_render` stay
-    # unconditional: an explicit request from a `PreRender`/`Rendered` handler
-    # is a deliberate ask for another frame, and must still be honored.
+    # `#update` / `#render` / `Widget#request_render` stay unconditional: an
+    # explicit request from a `PreRender`/`Rendered` handler is a deliberate
+    # ask for another frame, and must still be honored.
     #
     # The suppression is scoped to the render fiber itself: only a setter run
-    # *by* `_render` (a layout assigning geometry mid-frame) is part of the
+    # *by* `repaint` (a layout assigning geometry mid-frame) is part of the
     # frame being built and must not re-arm the doorbell. A call from any other
-    # fiber can only reach here at one of `_render`'s yield points — so it
+    # fiber can only reach here at one of `repaint`'s yield points — so it
     # describes a mutation the in-flight frame predates — and must ring the
     # doorbell so `render_loop` produces a follow-up frame (no lost updates).
-    def request_frame : Nil
+    protected def request_frame : Nil
       schedule_render unless @in_render && Fiber.current.same?(@in_render_fiber)
     end
 
@@ -162,7 +170,7 @@ module Crysterm
 
     # ---- Per-frame performance measurements --------------------------------
     #
-    # Updated at the end of every `_render`; read by an optional `Widget::Fps`
+    # Updated at the end of every `repaint`; read by an optional `Widget::Fps`
     # overlay (or any other observer). Describe the frame just produced. A
     # `Widget::Fps` renders as a child — before these are refreshed — so it
     # always shows the previous frame's numbers, as a frame-rate counter wants.
@@ -201,11 +209,11 @@ module Crysterm
     # frame (no previous frame to measure against).
     getter throughput_actual : Int32 = 0
 
-    # Start instant (`t1`) of the previous `_render`, used to compute the
+    # Start instant (`t1`) of the previous `repaint`, used to compute the
     # wall-clock interval for `throughput_actual`. Nil before the first frame.
     @last_frame_start : Time::Instant? = nil
 
-    # Raw per-frame durations (nanoseconds) of the most recent `_render`,
+    # Raw per-frame durations (nanoseconds) of the most recent `repaint`,
     # exposed for benchmarking harnesses wanting the precise split without the
     # lossy `Int32` frames/sec rounding of `render_rate`/`draw_rate`.
     getter render_ns_last : Int64 = 0
@@ -225,7 +233,7 @@ module Crysterm
       loop do
         # Park until a render is requested. Consuming the doorbell *here*,
         # before rendering, closes the lost-update window: a `schedule_render`
-        # that fires while `_render` runs re-rings it and triggers another frame.
+        # that fires while `repaint` runs re-rings it and triggers another frame.
         @render_wakeup.receive
         # Exit when woken by `#destroy`, or when superseded by a newer loop
         # fiber (`#revive` bumped the generation after this fiber spawned).
@@ -235,7 +243,7 @@ module Crysterm
         drain_ui_queue
 
         # While disconnected (between a window closing and a reattach), keep
-        # the fiber alive but don't paint — `_render` would write to a
+        # the fiber alive but don't paint — `repaint` would write to a
         # closed/absent output. `#connect` renders explicitly once bound again.
         next unless @connected
 
@@ -277,7 +285,7 @@ module Crysterm
         next unless device_active_window?
 
         begin
-          _render
+          repaint
           @last_render_at = Time.instant
         rescue ex : IO::Error
           # Output vanished mid-paint — almost always because the window was
@@ -485,9 +493,9 @@ module Crysterm
       Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
     end
 
-    # Delayed render (user render)
+    # Requests a coalesced render — historical alias of `#update`.
     def render
-      schedule_render
+      update
     end
 
     # Drives an animation from its own fiber: repeatedly invoke *block*,
@@ -541,13 +549,12 @@ module Crysterm
       end.start
     end
 
-    # Real render
-    #
-    # Builds and flushes one frame synchronously, on the calling fiber. Sets
-    # `#in_render?` for the duration so the state-changing setters a layout runs
-    # during the frame don't ring the render doorbell from inside the frame they
-    # are part of — see `#request_frame`.
-    def _render # (draw = true) #@@auto_draw)
+    # Builds and flushes one frame synchronously, on the calling fiber ↔
+    # `QWidget::repaint()`; the coalesced, any-fiber counterpart is `#update`.
+    # Sets `#in_render?` for the duration so the state-changing setters a
+    # layout runs during the frame don't ring the render doorbell from inside
+    # the frame they are part of — see `#request_frame`.
+    def repaint : Nil
       @in_render = true
       @in_render_fiber = Fiber.current
       begin
@@ -556,6 +563,11 @@ module Crysterm
         @in_render = false
         @in_render_fiber = nil
       end
+    end
+
+    @[Deprecated("Use `#repaint` (synchronous) or `#update` (scheduled)")]
+    def _render
+      repaint
     end
 
     private def _render_frame

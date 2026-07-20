@@ -39,7 +39,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
   it "blanks a wide glyph whose continuation falls off the screen edge" do
     s = fu_screen(6, 1)
     Widget::Box.new parent: s, top: 0, left: 5, width: 4, content: "漢"
-    s._render
+    s.repaint
     line = s.lines[0]
 
     # Lead cell blanked to a space, not left as an unpaired '漢'.
@@ -57,7 +57,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
       (2..5).each do |left|
         s = fu_screen(6, 1)
         Widget::Box.new parent: s, top: 0, left: left, width: 4, content: content
-        s._render
+        s.repaint
         line = s.lines[0]
         (0...(s.awidth)).each do |x|
           if line[x].width == 2
@@ -75,7 +75,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
   it "lays a wide glyph across two cells when the continuation fits on screen" do
     s = fu_screen(6, 1)
     Widget::Box.new parent: s, top: 0, left: 2, width: 4, content: "漢"
-    s._render
+    s.repaint
     line = s.lines[0]
 
     line[2].char.should eq '漢'

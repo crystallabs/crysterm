@@ -46,7 +46,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
-    s._render
+    s.repaint
 
     # A pre-accepted 'q' (e.g. typed into a LineEdit that consumed it) must not
     # trigger the command.
@@ -61,7 +61,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
-    s._render
+    s.repaint
 
     emit_kp(s, 'q')
     fired.should eq 1
@@ -72,7 +72,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
-    s._render
+    s.repaint
 
     emit_kp(s, 'q')
     fired.should eq 1
@@ -114,7 +114,7 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
     body = (1..40).map { |i| "line #{i}" }.join('\n')
     view = Crysterm::Widget::Pine::TextView.new body,
       parent: s, top: 0, left: 0, width: 40, height: 10
-    s._render
+    s.repaint
 
     # One direct invocation of the override = the intended per-key delta.
     view.on_keypress kp(key: Tput::Key::Down)
@@ -135,7 +135,7 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
     body = (1..40).map { |i| "line #{i}" }.join('\n')
     view = Crysterm::Widget::Pine::MessageView.new(
       parent: s, top: 0, left: 0, width: 40, height: 10, body: body)
-    s._render
+    s.repaint
 
     view.on_keypress kp(key: Tput::Key::Down)
     single = view.scroll_position
@@ -156,7 +156,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     e = emit_kp(input, key: Tput::Key::Down)
     input.scroll_position.should be > 0
@@ -169,7 +169,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     e = emit_kp(input, 'x')
     e.accepted?.should be_false

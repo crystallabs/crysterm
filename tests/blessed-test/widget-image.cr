@@ -14,6 +14,7 @@ require "../../src/crysterm"
 # bundled sample images.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   # Same locations `W3MImageDisplay` searches (plus the override env var).
   W3M_PATHS = [
@@ -41,8 +42,8 @@ class X
 
     # Factory returns `Media::Ansi | Media::Overlay` (normalized to `Box+`);
     # narrow to the overlay backend to use overlay-specific API like `#load`.
-    img = Widget::Media.new(
-      type: Widget::Media::Type::Overlay,
+    img = Media.new(
+      type: Media::Type::Overlay,
       parent: s,
       top: "center",
       left: "center",
@@ -50,12 +51,12 @@ class X
       height: "50%",
       draggable: true,
       style: Style.new(bg: "green", border: true),
-    ).as(Widget::Media::Overlay)
+    ).as(Media::Overlay)
 
     if w3m_available?
       img.load file
     else
-      Widget::Box.new \
+      Box.new \
         parent: s,
         top: 0,
         left: 0,

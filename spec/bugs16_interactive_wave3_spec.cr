@@ -81,7 +81,7 @@ describe "BUGS16 B16-37: slider tick guard near Int32::MIN" do
     Widget::Slider.new parent: s, top: 0, left: 0, width: 30, height: 2,
       minimum: Int32::MIN, maximum: Int32::MIN + 5,
       tick_position: Widget::Slider::TickPosition::Below
-    s._render # pre-fix: OverflowError from the guard's Int32 subtraction
+    s.repaint # pre-fix: OverflowError from the guard's Int32 subtraction
   ensure
     s.try &.destroy
   end

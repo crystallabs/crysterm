@@ -35,7 +35,7 @@ describe "BUGS-F1 #7 Calendar month dropdown renders (not invisible)" do
     # appear on screen if the (all-months) dropdown actually rendered.
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0,
       width: 30, height: 14, date: Time.local(2024, 6, 15)
-    s._render
+    s.repaint
 
     # 'January' must NOT be on screen before the dropdown opens.
     f1_screen_text(s).includes?("January").should be_false
@@ -54,7 +54,7 @@ describe "BUGS-F1 #7 Calendar month dropdown renders (not invisible)" do
     # the window's children so it can be laid out and painted.
     s.children.includes?(menu).should be_true
 
-    s._render
+    s.repaint
     # Rendering assertion: a month name from the dropdown (not the nav bar) is
     # now visible in the cell buffer.
     f1_screen_text(s).includes?("January").should be_true
@@ -66,20 +66,20 @@ describe "BUGS-F1 #9 ActionBar items don't share one mutable Style" do
     s = f1_screen
     bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 20
     bar.items = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
-    s._render
+    s.repaint
 
     # Scroll the selection to the far right so the left edge scrolls off.
     bar.current_index = bar.items.size - 1
-    s._render
+    s.repaint
 
     bar.left_base.should be > 0
 
     # The scrolled-off item (index 0 < left_base) must actually be hidden. With
     # a shared Style the render loop's later `show`s flipped the one shared
     # `visible` flag back to true, leaving it painted over the visible items.
-    bar.items[0].visible?.should be_false
+    bar.item_boxes[0].visible?.should be_false
     # A visible (>= left_base) item is shown.
-    bar.items[bar.left_base].visible?.should be_true
+    bar.item_boxes[bar.left_base].visible?.should be_true
   end
 end
 
@@ -130,7 +130,7 @@ describe "BUGS-F1 #31 Window#remove of a non-direct-child is a no-op" do
     s = f1_screen
     box = Crysterm::Widget::Box.new parent: s
     inner = Crysterm::Widget::Box.new parent: box, keys: true
-    s._render
+    s.repaint
 
     inner.focus
     s.focused.should eq inner

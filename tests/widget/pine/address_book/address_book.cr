@@ -5,13 +5,16 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "AddressBook" do |screen|
-  screen.stylesheet = "Pine::AddressBook { border: solid; color: #c0caf5; }"
-  ab = Crysterm::Widget::Pine::AddressBook.new parent: screen, top: "center", left: "center", width: 50, height: 12, label: " Address Book "
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "AddressBook" do |window|
+  window.stylesheet = "Pine::AddressBook { border: solid; color: #c0caf5; }"
+  ab = PineAddressBook.new parent: window, top: "center", left: "center", width: 50, height: 12, label: " Address Book "
   ab.contacts = ([
-    Crysterm::Widget::Pine::AddressBook::Contact.new("ada", "Ada Lovelace", "ada@example.com"),
-    Crysterm::Widget::Pine::AddressBook::Contact.new("linus", "Linus Torvalds", "linus@example.org"),
-    Crysterm::Widget::Pine::AddressBook::Contact.new("grace", "Grace Hopper", "grace@example.net"),
+    PineAddressBook::Contact.new("ada", "Ada Lovelace", "ada@example.com"),
+    PineAddressBook::Contact.new("linus", "Linus Torvalds", "linus@example.org"),
+    PineAddressBook::Contact.new("grace", "Grace Hopper", "grace@example.net"),
   ])
   ab.focus
 end

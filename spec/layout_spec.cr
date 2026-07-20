@@ -10,7 +10,7 @@ end
 # the loop fiber, which never runs in a one-shot spec) and returns each child's
 # rendered rectangle as `{xi, xl, yi, yl}` tuples.
 private def render_children(s, container)
-  s._render
+  s.repaint
   container.children.map do |c|
     l = c.lpos.not_nil!
     {l.xi, l.xl, l.yi, l.yl}
@@ -85,7 +85,7 @@ describe Crysterm::Layout::UniformGrid do
     Widget::Box.new(parent: box, width: 30, height: 12).layout_excluded = true
     cells = Array.new(3) { Widget::Box.new parent: box, width: 8, height: 2 }
 
-    s._render
+    s.repaint
     cells.map(&.lpos.not_nil!.xi).should eq [0, 8, 16]
   end
 end
@@ -136,7 +136,7 @@ describe Crysterm::Layout::Border do
     bottom = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:bottom)
     center = Widget::Box.new parent: b # center
 
-    s._render
+    s.repaint
     tl = top.lpos.not_nil!
     {tl.yi, tl.yl}.should eq({0, 4}) # header takes the first 4 rows
     bl = bottom.lpos.not_nil!
@@ -153,7 +153,7 @@ describe Crysterm::Layout::Stack do
       layout: Layout::Stack.new(1)
     3.times { Widget::Box.new parent: st }
 
-    s._render
+    s.repaint
     st.children[0].lpos.should be_nil
     st.children[2].lpos.should be_nil
     l = st.children[1].lpos.not_nil!
@@ -170,7 +170,7 @@ describe Crysterm::Layout::Stack do
     bg.layout_excluded = true
     pages = Array.new(3) { Widget::Box.new parent: st }
 
-    s._render
+    s.repaint
     bg.lpos.should be_nil       # excluded chrome: not arranged by the page pass
     pages[0].lpos.should be_nil # page 0 suppressed
     pages[2].lpos.should be_nil # page 2 suppressed
@@ -270,7 +270,7 @@ describe Crysterm::Layout::Wrap do
     bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 10, yi: 0, yl: 2)
     item = Widget::Box.new parent: wp, width: 8, height: 2
 
-    s._render
+    s.repaint
     item.lpos.not_nil!.xi.should eq 0
   end
 
@@ -288,7 +288,7 @@ describe Crysterm::Layout::Wrap do
     Widget::Box.new parent: wp, width: 12, height: 3
     second = Widget::Box.new parent: wp, width: 12, height: 3 # wraps to row 2
 
-    s._render
+    s.repaint
     second.lpos.not_nil!.yi.should eq 3
   end
 end
@@ -359,7 +359,7 @@ describe "Crysterm::Layout flow StopRendering" do
     b = Widget::Box.new parent: box, width: 12, height: 1
     c = Widget::Box.new parent: box, width: 12, height: 1
 
-    s._render
+    s.repaint
     # All three rendered, so each carries a live rectangle.
     a.lpos.should_not be_nil
     b.lpos.should_not be_nil
@@ -370,7 +370,7 @@ describe "Crysterm::Layout flow StopRendering" do
     # must clear the stale rectangles of *both* unrendered children — otherwise
     # `c` keeps frame-1's lpos and stays clickable/focusable at a ghost position.
     box.height = 1
-    s._render
+    s.repaint
 
     a.lpos.should_not be_nil
     b.lpos.should be_nil

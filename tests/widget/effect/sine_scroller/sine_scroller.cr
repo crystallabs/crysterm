@@ -5,8 +5,11 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "SineScroller" do |screen|
-  fx = Crysterm::Widget::Effect::SineScroller.new parent: screen, top: "center", left: 0, width: "100%", height: 11,
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "SineScroller" do |window|
+  fx = EffectSineScroller.new parent: window, top: "center", left: 0, width: "100%", height: 11,
     text: "CRYSTERM * SINE SCROLLER * "
   Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
 end

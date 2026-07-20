@@ -67,8 +67,8 @@ module Crysterm
         # Paints the looping message across the full height on a sine wave,
         # writing each glyph's cell directly with its native color. The box
         # background is filled first, then the glyphs are laid over it.
-        def render
-          with_inner_coords do |xi, xl, yi, yl|
+        def render(with_children = true)
+          with_inner_coords(with_children) do |xi, xl, yi, yl|
             w = xl - xi
             h = yl - yi
             next if w <= 0 || h <= 0

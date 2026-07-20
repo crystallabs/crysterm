@@ -2,6 +2,7 @@ require "../../../src/crysterm"
 
 class Wumpus
   include Crysterm
+  include Crysterm::Widgets
 
   private def help
     say "
@@ -137,7 +138,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   @score_arrows = 0
 
   def initialize(@opt : Hash(String, Bool))
-    @screen = Window.new title: "Hunt the Wumpus"
+    @window = Window.new title: "Hunt the Wumpus"
 
     # A `Border` layout carves the terminal into the teletype's two regions: the
     # scrolling transcript takes the center, the input line docks to the bottom
@@ -145,10 +146,10 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # the text row); Border spans it across the width and hands the transcript
     # whatever is left — so there is no `"100%-3"` height and no `top: "100%-3"`
     # to keep in sync with each other whenever the input box's height changes.
-    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+    frame = Box.new parent: @window, width: "100%", height: "100%",
       layout: Layout::Border.new
 
-    @transcript = Widget::PlainTextEdit.new \
+    @transcript = PlainTextEdit.new \
       layout_hint: :center,
       content: "",
       parse_tags: true,
@@ -156,7 +157,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       style: Style.new(fg: "white", bg: "#1a1a2e", border: true,
         scrollbar: Style.new(bg: "#5555aa"))
 
-    @input = Widget::LineEdit.new \
+    @input = LineEdit.new \
       layout_hint: :bottom,
       height: 3,
       # Yellow text field, but give the border its own dark background/white
@@ -178,7 +179,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # 15 columns and reflow the text out from under it — and the box appears and
     # disappears with the "score" flag, which would make the transcript's width
     # jump. Qt hangs a HUD overlay off the plain parent for the same reason.
-    @scorebox = Widget::GroupBox.new \
+    @scorebox = GroupBox.new \
       top: 1,
       right: 1,
       width: 15,
@@ -190,7 +191,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
     frame.append @transcript
     frame.append @input
-    @screen.append @scorebox
+    @window.append @scorebox
     @input.focus
 
     @input.on(Event::Submitted) do |e|
@@ -210,12 +211,12 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       @input.focus
     end
 
-    @screen.on(Event::KeyPress) do |e|
+    @window.on(Event::KeyPress) do |e|
       if e.key == Tput::Key::CtrlQ
         # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
         # every window down before exiting, rather than hard-exiting behind the
         # toolkit's back.
-        (@screen.application || Application.global).quit
+        @window.quit
       end
 
       # Keep typing effortless: a keystroke while focus has drifted off the
@@ -224,7 +225,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       # the box is already focused this is a no-op and the key flows normally.
       unless @input.focused?
         @input.focus
-        @screen.emit_key @input, e
+        @window.emit_key @input, e
         e.accept
       end
     end
@@ -237,9 +238,9 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # scroll would run against a zero-row viewport and push every line printed
     # here out of view. One synchronous render settles the layout first (the
     # same render-before-use order the Mutt example relies on).
-    @screen._render
+    @window.repaint
     new_game
-    @screen.exec
+    @window.exec
   end
 
   # ---- Flags -----------------------------------------------------------------
@@ -485,7 +486,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
       # every window down before exiting, rather than hard-exiting behind the
       # toolkit's back.
-      (@screen.application || Application.global).quit
+      @window.quit
     end
 
     # "SAME SET-UP (Y-N)?" prompt: the next y/n answer picks the cave.

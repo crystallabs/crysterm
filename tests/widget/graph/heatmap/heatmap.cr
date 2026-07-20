@@ -5,25 +5,28 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
+include Crysterm
+include Crysterm::Widgets
+
 Crysterm::WidgetExample.run("HeatMap",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.5
     # Roll the matrix values each frame (read-only widget, no keys — reach it
-    # via the screen and reset #values, guarded by the concrete type), so the
+    # via the window and reset #values, guarded by the concrete type), so the
     # colors sweep across the colormap and settle back.
     [0.0, 2.0, 4.0, 0.0].each do |phase|
       d.act(dwell: 0.6) do |s|
         s.children.each do |c|
-          next unless c.is_a?(Crysterm::Widget::Graph::HeatMap)
+          next unless c.is_a?(GraphHeatMap)
           c.values = (0...5).map do |r|
             (0...8).map { |col| Math.sin((r + col + phase) * 0.5) }
           end
         end
       end
     end
-  }) do |screen|
-  Crysterm::Widget::Graph::HeatMap.new \
-    parent: screen, top: "center", left: "center", width: 34, height: 14,
+  }) do |window|
+  GraphHeatMap.new \
+    parent: window, top: "center", left: "center", width: 34, height: 14,
     colormap: :viridis,
     col_labels: %w[a b c d e f g h],
     row_labels: %w[r0 r1 r2 r3 r4],

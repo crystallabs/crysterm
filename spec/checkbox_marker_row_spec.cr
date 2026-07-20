@@ -28,7 +28,7 @@ describe "CheckMarker marker-click hit-test is row-aware" do
     s = cmr_screen
     # Multi-row checkbox (no border): content rows 0..2, marker on row 0.
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 3, content: "Accept"
-    s._render
+    s.repaint
     cb.checked?.should be_false
 
     # Click the marker glyph (`[x]` is at cols 0..2 on the first content row).
@@ -39,7 +39,7 @@ describe "CheckMarker marker-click hit-test is row-aware" do
   it "does NOT toggle when the marker column is clicked on a lower row" do
     s = cmr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 3, content: "Accept"
-    s._render
+    s.repaint
     cb.checked?.should be_false
 
     # Same column, one row below the marker. Before the fix this toggled the box.

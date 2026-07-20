@@ -51,7 +51,7 @@ describe "gridline-color" do
       rows: [["aa", "bb"], ["11", "22"]]
     # Border enables gridline drawing; gridline-color recolors them.
     screen.stylesheet = "Table { border: solid; gridline-color: #ff00ff; }"
-    screen._render
+    screen.repaint
 
     count_cells_fg(screen, 0xff00ff).should be > 0
   end
@@ -61,7 +61,7 @@ describe "gridline-color" do
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["aa", "bb"], ["11", "22"]]
     screen.stylesheet = "Table { border: solid; border-color: #00ff00; }"
-    screen._render
+    screen.repaint
 
     # No gridline-color -> gridlines follow the border fg.
     count_cells_fg(screen, 0x00ff00).should be > 0
@@ -92,7 +92,7 @@ describe "spacing" do
     b = Widget::Box.new parent: box, width: 6, height: 4
     box.add_css_class "spaced"
     screen.stylesheet = ".spaced { spacing: 3; }"
-    screen._render
+    screen.repaint
 
     a = box.children[0]
     la = a.lpos.not_nil!

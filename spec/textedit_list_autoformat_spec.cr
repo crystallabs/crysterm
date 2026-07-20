@@ -19,7 +19,7 @@ end
 
 private def new_te(s, content = "")
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8, content: content
-  s._render
+  s.repaint
   te
 end
 
@@ -56,7 +56,7 @@ describe Widget::TextEdit do
       lf = blk.block_format.list_format.not_nil!
       lf.style.disc?.should be_true
       te.value.should eq "one"
-      s._render
+      s.repaint
       row_text(s, 0, 5).should eq "• one"
     end
 
@@ -79,7 +79,7 @@ describe Widget::TextEdit do
       lf = te.document.blocks[0].block_format.list_format.not_nil!
       lf.style.decimal?.should be_true
       lf.start.should eq 3
-      s._render
+      s.repaint
       row_text(s, 0, 8).should eq "3. three"
     end
 
@@ -123,7 +123,7 @@ describe Widget::TextEdit do
       lf = te.document.blocks[0].block_format.list_format.not_nil!
       list = TextList.new(te.document, lf)
       list.count.should eq 2
-      s._render
+      s.repaint
       row_text(s, 1, 5).should eq "• two"
     end
   end

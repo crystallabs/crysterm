@@ -148,7 +148,7 @@ describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 1,
       parse_tags: true
     box.content = "a{escape}{/escape}b{bold}c{/bold}"
-    s._render
+    s.repaint
     (0..2).map { |x| s.lines[0][x].char }.join.should eq "abc"
     # 'c' carries the bold attr; 'b' doesn't.
     s.lines[0][2].attr.should_not eq s.lines[0][1].attr

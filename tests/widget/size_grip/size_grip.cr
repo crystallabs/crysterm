@@ -5,9 +5,12 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "SizeGrip" do |screen|
-  screen.stylesheet = "Box { border: solid; color: #c0caf5; } SizeGrip { color: #7aa2f7; }"
-  Crysterm::Widget::Box.new parent: screen, top: 2, left: 2, width: 40, height: 14,
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "SizeGrip" do |window|
+  window.stylesheet = "Box { border: solid; color: #c0caf5; } SizeGrip { color: #7aa2f7; }"
+  Widget::Box.new parent: window, top: 2, left: 2, width: 40, height: 14,
     content: " A resizable panel — the grip sits in its corner."
-  Crysterm::Widget::SizeGrip.new parent: screen, top: 15, left: 41
+  SizeGrip.new parent: window, top: 15, left: 41
 end

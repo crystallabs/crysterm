@@ -63,7 +63,7 @@ describe "BUGS13 C2: hit-test ranks by the OUTERMOST z-indexed ancestor" do
       s.stylesheet = ".b13c2r1 { z-index: 1; } " \
                      ".b13c2c1 { z-index: 9; } " \
                      ".b13c2r2 { z-index: 2; }"
-      s._render # hit-testing uses the painted lpos
+      s.repaint # hit-testing uses the painted lpos
 
       # (8, 7) lies inside r1, c1 AND r2. The z=2 plane is painted above the
       # z=1 plane, so r2 must win — pre-fix, c1's own nested z 9 out-ranked it.
@@ -84,7 +84,7 @@ describe "BUGS13 C4: double-click detection is per-button" do
     begin
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
       box.clickable = true
-      s._render
+      s.repaint
 
       b13m_down s, 2, 1, ::Tput::Mouse::Button::Right
       s.click_count.should eq 1
@@ -176,7 +176,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
         s.capture_mouse w if e.action.down?
         moves += 1 if e.action.move?
       end
-      s._render
+      s.repaint
 
       b13m_down s, 2, 1, ::Tput::Mouse::Button::Left # press arms the capture
       b13m_move s, 40, 10                            # outside w, still delivered

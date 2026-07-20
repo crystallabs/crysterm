@@ -30,7 +30,7 @@ describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
 
     # Before the fix, `shown.max` raised ArgumentError ("Comparison of NaN
     # and ... failed") inside build_content, on the render fiber.
-    s._render
+    s.repaint
 
     bar.content.should_not be_empty
   end
@@ -41,7 +41,7 @@ describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
       width: 40, height: 8
     bar.values = [Float64::NAN, Float64::NAN]
 
-    s._render
+    s.repaint
   end
 end
 
@@ -54,7 +54,7 @@ describe "Widget::Graph::StackedBar auto-scale with a NaN segment (#11)" do
 
     # Before the fix, `sums.max?` raised ArgumentError when comparing NaN
     # against a finite sum, inside build_content on the render fiber.
-    s._render
+    s.repaint
 
     sb.content.should_not be_empty
   end

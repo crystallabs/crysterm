@@ -5,8 +5,11 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "TextView" do |screen|
-  screen.stylesheet = "TextView { border: solid; }"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "TextView" do |window|
+  window.stylesheet = "TextView { border: solid; }"
 
   help = <<-TEXT
   {bold}Navigating this interface{/bold}
@@ -22,8 +25,8 @@ Crysterm::WidgetExample.run "TextView" do |screen|
   then press Home to return to the very beginning again.
   TEXT
 
-  view = Crysterm::Widget::Pine::TextView.new \
+  view = PineTextView.new \
     content: help,
-    parent: screen, top: 0, left: 0, width: "100%", height: "100%"
+    parent: window, top: 0, left: 0, width: "100%", height: "100%"
   view.focus
 end

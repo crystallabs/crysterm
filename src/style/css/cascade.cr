@@ -739,7 +739,7 @@ module Crysterm
       # resolved value is available to children, and re-propagates to grandchildren.
       #
       # Visibility is deliberately *not* inherited: a hidden parent already keeps
-      # children off-window via its own `_render`, so propagating `visible:
+      # children off-window via its own `base_render`, so propagating `visible:
       # false` is redundant and goes stale — when the parent is re-shown, nothing
       # re-cascades the child, leaving it stuck invisible. Each widget owns its
       # visibility outright.

@@ -23,7 +23,7 @@ describe "ItemView#items= single ItemSelected emission" do
   it "emits exactly one ItemSelected (at the restored index) on unchanged items" do
     s = b17_screen
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
-    s._render # lay out so `@lpos` is set and `current_index=` reaches the emit
+    s.repaint # lay out so `@lpos` is set and `current_index=` reaches the emit
     list.current_index = 2
     list.current_text.should eq "c"
 
@@ -51,10 +51,10 @@ end
 
 private def b17_open_sub(s, m)
   m.popup 6, 2
-  s._render
+  s.repaint
   m.current_index = 1 # the "Export" submenu row (row > 0)
   m.hover_item 1      # opens the submenu
-  s._render
+  s.repaint
   m.@submenu_open.not_nil!
 end
 

@@ -193,8 +193,8 @@ module Crysterm
         end
       end
 
-      def render
-        coords = _render
+      def render(with_children = true)
+        coords = base_render with_children
         return unless coords
 
         xi = coords.xi + ileft

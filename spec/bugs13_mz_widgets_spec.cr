@@ -108,7 +108,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 20, height: 1
     bar.add_permanent "日本語" # 6 cells
-    s._render
+    s.repaint
     # Starts at xl - 6 == 14, not xl - .size == 17.
     s.lines[0][14].char.should eq '日'
   ensure
@@ -121,7 +121,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 6, height: 1
     bar.add_permanent "ABCDE日本" # 9 cells into 6
-    s._render
+    s.repaint
     # Must drop A,B,C (3 cells) keeping "DE日本" (6 cells) — the codepoint
     # slice dropped only one character and started the run off-cell.
     s.lines[0][0].char.should eq 'D'
@@ -164,7 +164,7 @@ describe "BUGS13 M13: ToolBox#add_item while hidden" do
     tb.hide
     tb.add_item "General", Widget::Box.new(content: "x")
     tb.show
-    s._render
+    s.repaint
 
     header = tb.sections[0].header
     # The header used to dup the toolbox's hidden style and stay invisible

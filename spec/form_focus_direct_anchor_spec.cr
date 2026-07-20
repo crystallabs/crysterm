@@ -23,7 +23,7 @@ describe Crysterm::Widget::Form do
     _f1 = Crysterm::Widget::LineEdit.new parent: form, name: "f1", top: 2, height: 1, width: 20
     f2 = Crysterm::Widget::LineEdit.new parent: form, name: "f2", top: 4, height: 1, width: 20
     f3 = Crysterm::Widget::LineEdit.new parent: form, name: "f3", top: 6, height: 1, width: 20
-    s._render
+    s.repaint
 
     form.focus_next
     form.current_field.should eq f0
@@ -44,7 +44,7 @@ describe Crysterm::Widget::Form do
     a = Crysterm::Widget::LineEdit.new parent: form, name: "a", top: 0, height: 1, width: 20
     _b = Crysterm::Widget::LineEdit.new parent: form, name: "b", top: 2, height: 1, width: 20
     c = Crysterm::Widget::LineEdit.new parent: form, name: "c", top: 4, height: 1, width: 20
-    s._render
+    s.repaint
 
     # Even with a field already focused, focus_first/last enter from the ends.
     c.focus

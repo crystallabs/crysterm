@@ -28,7 +28,7 @@ describe "Widget::Terminal handler-mode replies" do
 
     # Render once so the emulator is bootstrapped and its output sink wired to
     # the handler.
-    s._render
+    s.repaint
     term.emulator.should_not be_nil
 
     # Cursor-position report: fresh emulator's cursor is at home, so reply is

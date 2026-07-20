@@ -38,7 +38,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
-    s._render
+    s.repaint
 
     # LMB press arms the drag on W (arming button = Left).
     ab_press s, 3, 1
@@ -59,7 +59,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
-    s._render
+    s.repaint
 
     ab_press s, 3, 1                           # LMB arms
     ab_up s, 3, 1, ::Tput::Mouse::Button::Left # LMB release over W -> Click
@@ -72,7 +72,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
-    s._render
+    s.repaint
 
     ab_press s, 3, 1                           # LMB arms
     ab_up s, 3, 1, ::Tput::Mouse::Button::None # buttonless up -> Click
@@ -84,7 +84,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
-    s._render
+    s.repaint
 
     ab_press s, 3, 1                               # LMB arms (arming button = Left)
     ab_press s, 4, 1, ::Tput::Mouse::Button::Right # RMB press must NOT re-arm to Right

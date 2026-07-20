@@ -159,7 +159,7 @@ describe "tier-aware rendering" do
       b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 3, content: "")
       b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
       s << b
-      s._render
+      s.repaint
 
       r = rows s
       r[0].should eq top
@@ -178,7 +178,7 @@ describe "tier-aware rendering" do
       rb = Crysterm::Widget::RadioButton.new(checked: true, content: "r", left: 0, top: 1, width: 10, height: 1)
       s << cb
       s << rb
-      s._render
+      s.repaint
 
       r = rows s
       r[0].should start_with "[x] c"
@@ -199,7 +199,7 @@ describe "tier-aware rendering" do
     b2.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b1
     s << b2
-    s._render
+    s.repaint
 
     r = rows s
     # The shared column (x=3) docks: `+` would be `┬`/`┴` in Unicode.

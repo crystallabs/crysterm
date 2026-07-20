@@ -6,14 +6,14 @@ include Crysterm
 # `LineEdit` and `PlainTextEdit` via `Mixin::TextEditing` (`#position_at`,
 # `#_setup_text_mouse`, `#selection_anchor`/`#selection_range`). Driven
 # headlessly over in-memory IOs, same pattern as `drag_spec.cr` and
-# `widget_qt_render_spec.cr`: a real synchronous render (`Window#_render`,
+# `widget_qt_render_spec.cr`: a real synchronous render (`Window#repaint`,
 # NOT `Window#render` — the latter only rings the async render-loop doorbell
 # and never actually paints in a headless spec with no render fiber running)
 # followed by `Window#dispatch_mouse` with synthesized `::Tput::Mouse::Event`s.
 #
 # `#position_at` reads the widget's on-screen geometry/painted line cache
 # (`coords`/`@_clines`/`@_value`), so a widget must be rendered at least
-# once before its coordinates mean anything; `#_render` is called right after
+# once before its coordinates mean anything; `#repaint` is called right after
 # construction (and after any `.value =` that changes wrapping) in every test
 # below.
 
@@ -51,7 +51,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "moves the cursor to the clicked codepoint index (start/middle/end)" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 0, 0
       le.cursor_pos.should eq 0
@@ -66,7 +66,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "clicking past the end of the content lands the cursor at the end, not out of bounds" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 999, 0
       le.cursor_pos.should eq le.value.size
@@ -76,7 +76,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "clicking at x=0/y=0 lands at position 0" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 0, 0
       le.cursor_pos.should eq 0
@@ -85,7 +85,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "a plain click with no drag leaves no selection" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       # Down with no subsequent move.
       press s, 2, 0
@@ -100,7 +100,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "press then drag-move extends the selection to the new position" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 2, 0     # cursor_pos = 2, anchor = 2
       drag_move s, 4, 0 # cursor_pos = 4
@@ -115,7 +115,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "dragging backward (right-to-left) still produces a normalized [lo, hi) range" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 4, 0
       drag_move s, 1, 0
@@ -129,7 +129,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "typing a character after a selection clears it" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 1, 0
       drag_move s, 3, 0
@@ -142,7 +142,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "any keyboard interaction (e.g. arrow key) clears an active selection" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 1, 0
       drag_move s, 3, 0
@@ -155,7 +155,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     it "setting .value= externally clears an active selection" do
       s = sel_screen
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
-      s._render
+      s.repaint
 
       press s, 1, 0
       drag_move s, 3, 0
@@ -171,7 +171,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 0, 0
       pte.cursor_pos.should eq 0
@@ -187,7 +187,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 999, 0
       pte.cursor_pos.should eq pte.value.size
@@ -198,7 +198,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 0, 0
       pte.cursor_pos.should eq 0
@@ -208,7 +208,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 4, 0
       pte.selection?.should be_false
@@ -222,7 +222,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 0, 0
       drag_move s, 5, 0
@@ -236,7 +236,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 0, 0
       drag_move s, 5, 0
@@ -250,7 +250,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
-      s._render
+      s.repaint
 
       press s, 0, 0
       drag_move s, 5, 0
@@ -264,7 +264,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "line one\nline two"
-      s._render
+      s.repaint
 
       # Row 0 col 5 -> index 5 ("line one"[5] == 'o' of "one", start of "one").
       # Row 1 col 5 -> index 9 (after "line one\n") + 5 == 14.
@@ -284,7 +284,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       # row 0 = "abcdefghijk", row 1 = "lmnop".
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 12, height: 5
       pte.value = "abcdefghijklmnop"
-      s._render
+      s.repaint
       pte.content_width.should eq 11
 
       press s, 0, 0     # row 0, col 0 -> index 0
@@ -308,7 +308,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       # `@value`; line 1 "xy" starts at raw index 4. `#fake_line_bounds(1)` must
       # return the RAW span {4, 6}, not a tab-expanded one.
       pte.value = "\tab\nxy"
-      s._render
+      s.repaint
 
       press s, 1, 1 # row 1, col 1 -> "xy"[1] -> raw index 4 + 1 = 5
       pte.cursor_pos.should eq 5
@@ -321,7 +321,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "\tab\nxy"
-      s._render
+      s.repaint
       # Assert straight through `#position_at` (the mouse-coord → raw-index map
       # that reads `#fake_line_bounds` → `#line_offsets`) rather than through a
       # `press`: consecutive mouse-Downs across an external `value=` have their
@@ -331,7 +331,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       # Shrink line 0: row 1 now begins at raw index 2. A stale offset cache would
       # keep mapping row 1 to the old index 4.
       pte.value = "z\nxy"
-      s._render
+      s.repaint
       pte.position_at(0, 1).should eq 2
       pte.position_at(1, 1).should eq 3 # "xy"[1] -> raw index 2 + 1
     end
@@ -340,14 +340,14 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s = sel_screen
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "a\tb\ncde\nfgh"
-      s._render
+      s.repaint
 
       press s, 0, 0
       drag_move s, 2, 2 # extend down two rows
 
       first = pte.selected_text
       # Re-render several times: the cache is reused, the mapping must not drift.
-      3.times { s._render }
+      3.times { s.repaint }
       pte.selected_text.should eq first
       pte.selection_range.should eq(0...pte.cursor_pos)
       pte.selected_text.should contain "\n"

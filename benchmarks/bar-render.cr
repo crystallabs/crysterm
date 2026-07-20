@@ -29,11 +29,11 @@ def bench_bar(label, bar_width, bar_spacing, n)
     bar.values = Array.new(n) { |i| ((i * 7 + t * 3) % 100).to_f }
   }
 
-  50.times { step.call; s._render } # warm caches
+  50.times { step.call; s.repaint } # warm caches
 
   GC.collect
   before = GC.stats.total_bytes
-  wall = Time.measure { FRAMES.times { step.call; s._render } }
+  wall = Time.measure { FRAMES.times { step.call; s.repaint } }
   alloc = GC.stats.total_bytes - before
   STDERR.printf "%-26s alloc/frame: %7d bytes   wall/frame: %6.1f µs\n",
     label, alloc // FRAMES, wall.total_microseconds / FRAMES

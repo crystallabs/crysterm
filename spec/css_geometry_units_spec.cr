@@ -15,7 +15,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 200px; left: 12px; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 20 # 200 / 10
     a.left.should eq 1   # round(12 / 10)
   end
@@ -25,7 +25,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { top: 50%; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.top.should eq "50%"
   end
 
@@ -34,7 +34,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 7; height: 3cm; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 7    # the mapped unit's sibling still applies
     a.height.should be_nil # 3cm dropped -> never set
   end
@@ -44,7 +44,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { padding: 200px; margin-left: 1em; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.style.padding.left.should eq 20 # 200 / 10            (horizontal)
     a.style.padding.top.should eq 10  # 200 / (10 * 2:1 aspect) (vertical)
     a.style.margin.left.should eq 1   # 1 / 1
@@ -55,7 +55,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 100%; max-width: 10; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.max_width.should eq 10
     a.awidth.should eq 10 # 80% of the 80-wide screen, clamped to 10
   end
@@ -65,7 +65,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 4; min-width: 8; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.awidth.should eq 8
   end
 
@@ -74,7 +74,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 100%; max-width: 5; min-width: 10; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.awidth.should eq 10
   end
 
@@ -83,7 +83,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { height: 100%; max-height: 200px; min-height: 50%; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.max_height.should eq 10  # 200 / (10 * 2:1 aspect) -- vertical
     a.min_height.should be_nil # `50%` has no cell mapping -> ignored
     a.aheight.should eq 10     # full 24-row height clamped to 10
@@ -94,7 +94,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 50vw; height: 100vh; top: 25vmin; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     # Viewport string is kept on the widget (not baked to cells), re-resolving
     # against the screen every frame.
     a.width.should eq "50vw"
@@ -105,7 +105,7 @@ describe "CSS geometry units" do
     # Resize the terminal: the same widget re-resolves against the new size.
     s.width = 120
     s.height = 40
-    s._render
+    s.repaint
     a.awidth.should eq 60  # 50% of 120
     a.aheight.should eq 40 # 100% of 40
     a.atop.should eq 10    # 25% of min(120, 40)
@@ -119,7 +119,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 50VW; height: 100VH; max-width: 30VW; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq "50VW" # kept as a (reactive) viewport string, not dropped
     a.awidth.should eq 24    # 50% of 80, clamped to max-width (30% of 80 = 24)
     a.aheight.should eq 24   # 100% of 24
@@ -131,7 +131,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: calc(200px + 2em); left: calc(8px - 2px); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 22 # 20 + 2
     a.left.should eq 1   # round(0.8 - 0.2)
   end
@@ -150,7 +150,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 7; height: calc(50% - 10px); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 7    # sibling still applies
     a.height.should be_nil # calc with `%` -> dropped, never set
   end
@@ -160,7 +160,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { border-width: 2px; border-left-width: 0; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.style.border.top.should eq 1  # 2px rounds to 0 -> clamped to 1
     a.style.border.left.should eq 0 # explicit 0 stays 0
   end
@@ -175,7 +175,7 @@ describe "CSS geometry units" do
     a.css_id = "a"
     b = Widget::Box.new parent: s, content: "y"
     b.css_id = "b"
-    s._render
+    s.repaint
     a.style.border.left.should eq 20 # 200 / 10           (horizontal)
     a.style.border.right.should eq 20
     a.style.border.top.should eq 10 # 200 / (10 * 2.0)   (vertical)
@@ -195,7 +195,7 @@ describe "CSS geometry units" do
     a.css_id = "a"
     b = Widget::Box.new parent: s, content: "y"
     b.css_id = "b"
-    s._render
+    s.repaint
     a.style.border.top.should eq 0 # -20px -> -2 cells, clamped to 0
     a.style.border.left.should eq 0
     b.style.border.top.should eq 0 # bare -3 -> clamped to 0
@@ -215,7 +215,7 @@ describe "CSS geometry units" do
       w = Widget::Box.new parent: s, content: "x"
       w.css_id = id
     end
-    s._render
+    s.repaint
     boxes = s.children.to_a.compact_map(&.as?(Widget::Box))
     by = ->(id : String) { boxes.find! { |w| w.css_id == id }.style.border }
     by.call("a").any?.should be_false # 0.04em -> 0 cells -> no border
@@ -230,7 +230,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 99999999999px; height: calc(99999999999px * 99); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render # must not raise OverflowError
+    s.repaint # must not raise OverflowError
     a.width.should eq Int32::MAX
     a.height.should eq Int32::MAX
   end
@@ -242,7 +242,7 @@ describe "CSS geometry units" do
       s.stylesheet = "Box#a { width: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
-      s._render
+      s.repaint
       a.width.should eq 40 # 200 / 5
     ensure
       Superconf.css_px_per_cell = 10.0 # back to default ⇒ un-configured
@@ -258,7 +258,7 @@ describe "CSS geometry units" do
       s.stylesheet = "Box#a { width: 200px; height: 4em; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
-      s._render
+      s.repaint
       a.width.should eq 25 # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
       a.height.should eq 2 # em=2 from the map ⇒ 4 / 2
     ensure
@@ -276,7 +276,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 200px; height: 200px; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 20  # 200 / 10
     a.height.should eq 10 # 200 / (10 * 2.0)
   end
@@ -286,7 +286,7 @@ describe "CSS geometry units" do
     s.stylesheet = "Box#a { width: 4em; height: 4em; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
-    s._render
+    s.repaint
     a.width.should eq 4  # 4 / 1
     a.height.should eq 4 # 4 / 1 -- not scaled by the aspect ratio
   end
@@ -298,7 +298,7 @@ describe "CSS geometry units" do
       s.stylesheet = "Box#a { width: 200px; height: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
-      s._render
+      s.repaint
       a.width.should eq 20 # 200 / 10 (horizontal, unaffected)
       a.height.should eq 5 # 200 / (10 * 4.0)
     ensure
@@ -315,7 +315,7 @@ describe "CSS geometry units" do
       s.stylesheet = "Box#a { width: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
-      s._render
+      s.repaint
       a.width.should eq 10 # 200 / 20
     ensure
       Crysterm::CSS::Geometry.unit_divisors["px"] = original

@@ -20,7 +20,7 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Widget::DockWidget.new title: "D", area: Widget::DockWidget::Area::Right
     win.add_dock dock
-    s._render
+    s.repaint
     dock.right.should_not be_nil # docked anchor from relayout
 
     states = [] of Bool
@@ -45,7 +45,7 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
     dock = Widget::DockWidget.new title: "D",
       area: Widget::DockWidget::Area::Left, floatable: false
     win.add_dock dock
-    s._render
+    s.repaint
 
     dock.area = Widget::DockWidget::Area::Floating
     dock.floating?.should be_true # floatable gates the gesture, not the API
@@ -58,10 +58,10 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Widget::DockWidget.new title: "D", area: Widget::DockWidget::Area::Right
     win.add_dock dock
-    s._render
+    s.repaint
 
     dock.area = Widget::DockWidget::Area::Floating
-    s._render
+    s.repaint
     dock.area = Widget::DockWidget::Area::Bottom
     dock.@float_geom.should_not be_nil # remembered for the next float
     dock.floating?.should be_false
@@ -80,7 +80,7 @@ describe "BUGS16 B16-46: TabWidget tab_position/tab_height runtime changes" do
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: 30, height: 8
     pa = Widget::Box.new content: "A"
     tw.add_tab "A", pa
-    s._render
+    s.repaint
 
     tw.tab_bar.top.should eq 0
     pa.top.should eq 1
@@ -105,7 +105,7 @@ describe "BUGS16 B16-46: TabWidget tab_position/tab_height runtime changes" do
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: 30, height: 8
     pa = Widget::Box.new content: "A"
     tw.add_tab "A", pa
-    s._render
+    s.repaint
 
     tw.tab_height = 2
     tw.tab_bar.height.should eq 2

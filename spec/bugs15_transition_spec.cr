@@ -22,7 +22,7 @@ describe "BUGS15 CSS transition" do
     b.add_css_class "b59"
     s.stylesheet = ".b59 { background-color: #000000; } " \
                    ".b59:hover { background-color: #ffffff; transition: background-color 0.2s linear; }"
-    s._render
+    s.repaint
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered
@@ -43,7 +43,7 @@ describe "BUGS15 CSS transition" do
     b.add_css_class "b59b"
     s.stylesheet = ".b59b { background-color: #000000; } " \
                    ".b59b:hover { background-color: #ffffff; transition: background-color 0.2s linear; }"
-    s._render
+    s.repaint
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.35.seconds
     b.style.bg.should eq 0xffffff
@@ -59,7 +59,7 @@ describe "BUGS15 CSS transition" do
     b.add_css_class "b60"
     s.stylesheet = ".b60 { background-color: #000000; opacity: 1.0; transition: all 0.2s linear; } " \
                    ".b60:hover { background-color: #ffffff; opacity: 0.0; }"
-    s._render
+    s.repaint
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.1.seconds
@@ -82,7 +82,7 @@ describe "BUGS15 CSS transition" do
     s.stylesheet = ".b60b { background-color: #000000; opacity: 1.0; " \
                    "transition: all 0.2s linear, background-color 0.2s linear; } " \
                    ".b60b:hover { background-color: #ffffff; opacity: 0.0; }"
-    s._render
+    s.repaint
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.35.seconds
     b.style.bg.should eq 0xffffff
@@ -101,7 +101,7 @@ describe "BUGS15 CSS transition" do
     # the normal map has no opacity entry.
     s.stylesheet = ".b27 { opacity: 1.0; transition: background-color 0.2s linear; } " \
                    ".b27:hover { opacity: 0.5; transition: opacity 2s linear; }"
-    s._render
+    s.repaint
     b.style.opacity.should eq 1.0
 
     b.state = Crysterm::WidgetState::Hovered

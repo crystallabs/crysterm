@@ -31,7 +31,7 @@ describe "Widget::Gauge#segments= schedules a repaint" do
     s = gsr_screen
     gauge = Crysterm::Widget::Gauge.new parent: s, top: 0, left: 0, width: 20, height: 1,
       segments: [Crysterm::Widget::Gauge::Segment.new(100, "green")]
-    s._render
+    s.repaint
     s.@damage_dirty_roots.clear
     s.@damage_dirty_roots.includes?(gauge).should be_false
 

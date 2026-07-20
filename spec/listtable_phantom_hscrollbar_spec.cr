@@ -24,7 +24,7 @@ describe Crysterm::Widget::ListTable do
     rows = [["Name"]] of Array(String)
     (1..20).each { |i| rows << ["Row#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, rows: rows
-    s._render
+    s.repaint
 
     # Columns fit the interior; only vertical scrolling is needed.
     lt.overflows_x?.should be_false
@@ -42,7 +42,7 @@ describe Crysterm::Widget::ListTable do
     s = lph_window
     wide = [["AAAAA", "BBBBB", "CCCCC", "DDDDD"], ["1", "2", "3", "4"], ["5", "6", "7", "8"]]
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 5, rows: wide
-    s._render
+    s.repaint
 
     lt.overflows_x?.should be_true
   end

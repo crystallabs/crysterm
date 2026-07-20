@@ -27,7 +27,15 @@ module Crysterm
     # `#unsupported`.
     abstract class Media::Base < Box
       # Path (or `http(s)` URL) of the loaded image.
-      property file : String? = nil
+      getter file : String? = nil
+
+      # Loads *f* — the assignment spelling of `#load` (a bare `@file` write
+      # that displayed nothing was a footgun). `nil` clears the image via
+      # `#clear_image`.
+      def file=(f : String?) : String?
+        f ? load(f) : clear_image
+        f
+      end
 
       # How a still image is fit into a box whose aspect differs (see `Media::Fit`).
       getter fit : Media::Fit = Media::Fit::Stretch
@@ -142,14 +150,9 @@ module Crysterm
         i
       end
 
-      # Loads *file* (decodes lazily via `#source`); the canonical implementation
-      # each backend provides. `#set_image` is an alias.
+      # Loads *file* (decodes lazily via `#source`); the canonical verb every
+      # backend implements (`#file=` is the assignment spelling).
       abstract def load(file : String)
-
-      # Alias for `#load`, for API parity across backends.
-      def set_image(file : String)
-        load file
-      end
 
       # Sets the backend's source directly from an in-memory RGBA bitmap instead
       # of decoding a file, wrapping it as a single-frame `PNGGIF::PNG` so the
@@ -604,15 +607,6 @@ module Crysterm
       # Animation is not supported by an external-helper overlay.
       def play
         unsupported "animation"
-      end
-
-      # Displays *file*, replacing any image currently shown, and re-renders.
-      # The explicit `request_render` (which `Media::Base#set_image` omits) is
-      # needed because an external-overlay backend is painted out-of-band by its
-      # `#redraw_image` hook, not by the normal dirty/render path.
-      def set_image(file : String)
-        load file
-        request_render
       end
 
       # Current cell rectangle (`{xi, yi, w, h}`) this widget should be

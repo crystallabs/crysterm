@@ -24,7 +24,7 @@ describe "OSC 8 hyperlinks" do
   it "paints anchor cells with a registered link id" do
     s = osc8_screen
     anchor_te(s)
-    s._render
+    s.repaint
     id = s.lines[0][0].link
     id.should_not eq 0
     s.link_url(id).should eq "https://x.io"
@@ -37,7 +37,7 @@ describe "OSC 8 hyperlinks" do
     outp = IO::Memory.new
     s = osc8_screen(outp)
     anchor_te(s)
-    s._render
+    s.repaint
     text = outp.to_s
     text.should contain "\e]8;;https://x.io\e\\"
     text.should contain "\e]8;;\e\\"
@@ -49,9 +49,9 @@ describe "OSC 8 hyperlinks" do
     outp = IO::Memory.new
     s = osc8_screen(outp)
     anchor_te(s)
-    s._render
+    s.repaint
     outp.clear
-    s._render
+    s.repaint
     outp.to_s.should_not contain "\e]8;;"
   end
 
@@ -59,19 +59,19 @@ describe "OSC 8 hyperlinks" do
     outp = IO::Memory.new
     s = osc8_screen(outp)
     te = anchor_te(s)
-    s._render
+    s.repaint
     outp.clear
     te.document.apply_char_format(0, 5, TextCharFormat.new(anchor_href: "https://y.io"))
-    s._render
+    s.repaint
     outp.to_s.should contain "\e]8;;https://y.io\e\\"
   end
 
   it "clears the cell link when the anchor is removed" do
     s = osc8_screen
     te = anchor_te(s)
-    s._render
+    s.repaint
     te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true))
-    s._render
+    s.repaint
     s.lines[0][0].link.should eq 0
   end
 
@@ -90,7 +90,7 @@ describe "OSC 8 hyperlinks" do
     s = osc8_screen(outp)
     s.hyperlinks = false
     anchor_te(s)
-    s._render
+    s.repaint
     s.lines[0][0].link.should eq 0
     outp.to_s.should_not contain "\e]8;;"
   end

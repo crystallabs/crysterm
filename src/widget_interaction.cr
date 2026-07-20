@@ -348,7 +348,7 @@ module Crysterm
       # reparent the tooltip may still live on the window it was created on, and
       # `Widget#hide` schedules no render itself — so the old surface would keep
       # showing the tooltip frame if we only re-rendered the widget's window.
-      @_tool_tip.try &.window?.try &.schedule_render
+      @_tool_tip.try &.window?.try &.update
     end
 
     private def wire_tool_tip : Nil

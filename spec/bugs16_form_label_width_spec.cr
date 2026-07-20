@@ -30,11 +30,11 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
     label = Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
     rendered_width(label).should eq 4 # "Name"
 
     label.set_content "A much longer label"
-    s._render
+    s.repaint
     # Pre-fix: column frozen at 4, label clipped. Fixed: re-measures to 19.
     rendered_width(label).should eq 19
   end
@@ -46,11 +46,11 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
     label = Widget::Box.new parent: form, height: 1, content: "A much longer label"
     Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
     rendered_width(label).should eq 19
 
     label.set_content "Hi"
-    s._render
+    s.repaint
     # Pre-fix: stuck at 19. Fixed: re-measures to 2.
     rendered_width(label).should eq 2
   end
@@ -65,11 +65,11 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
     label = Widget::Box.new parent: form, height: 1, width: "50%", content: "Name"
     Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
     rendered_width(label).should eq 4
 
     label.set_content "A much longer label"
-    s._render
+    s.repaint
     rendered_width(label).should eq 19
   end
 
@@ -80,12 +80,12 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
     label = Widget::Box.new parent: form, height: 1, width: 10, content: "Name"
     Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
     rendered_width(label).should eq 10
 
     # A longer content does not widen an explicitly-sized label's column.
     label.set_content "A much longer label"
-    s._render
+    s.repaint
     rendered_width(label).should eq 10
   end
 end

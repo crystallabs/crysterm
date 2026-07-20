@@ -35,7 +35,7 @@ describe Crysterm::Widget::GroupBox do
     s = gb_screen
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
-    s._render
+    s.repaint
     gb.checked?.should be_true
 
     # Click on the title row (top edge).
@@ -62,7 +62,7 @@ describe Crysterm::Widget::GroupBox do
     s = gb_screen
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
-    s._render
+    s.repaint
     row = (0...30).map { |x| s.lines[gb.atop][gb.aleft + x].char }.join
     row.includes?("[x]").should be_true # Unicode tier: mark falls down to ascii 'x'
 
@@ -70,7 +70,7 @@ describe Crysterm::Widget::GroupBox do
     # post-probe auto upgrade — widgets are built before `exec` probes) must
     # rebuild the baked marker on the next render.
     s.glyph_tier = Glyphs::Tier::Extended
-    s._render
+    s.repaint
     row = (0...30).map { |x| s.lines[gb.atop][gb.aleft + x].char }.join
     row.includes?("[✓]").should be_true
   end

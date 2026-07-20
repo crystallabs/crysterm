@@ -5,7 +5,7 @@ include Crysterm
 # `Widget::Effect::SineScroller` scroll + wave logic, driven headlessly over
 # in-memory IOs. Glyphs are painted into the screen cell buffer in `#render`
 # (`#step` only advances the frame clock), so these specs run a real
-# synchronous `Window#_render` and inspect the resulting cells. `#render` reads
+# synchronous `Window#repaint` and inspect the resulting cells. `#render` reads
 # `@frame`, so frame 0 is the state before the first `#step`.
 
 private def sine_screen
@@ -39,15 +39,15 @@ describe Crysterm::Widget::Effect::SineScroller do
       wave_frequency: 0.0, wave_speed: Math::PI / 2
 
     # f=0: sin(0)=0 -> row amp*(1+0)=2 (render before the first step)
-    s._render
+    s.repaint
     glyph_row(s, 'X', 1, 5).should eq 2
     # f=1: sin(pi/2)=1 -> row amp*(1+1)=4 (bottom)
     sc.step
-    s._render
+    s.repaint
     glyph_row(s, 'X', 1, 5).should eq 4
     # f=2: sin(pi)=0   -> back to row 2
     sc.step
-    s._render
+    s.repaint
     glyph_row(s, 'X', 1, 5).should eq 2
   end
 
@@ -56,10 +56,10 @@ describe Crysterm::Widget::Effect::SineScroller do
     sc = Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 5, height: 1, text: "ABCDE", rainbow: false
 
-    s._render # f=0
+    s.repaint # f=0
     String.build { |io| (0...5).each { |x| io << cell_char(s, 0, x) } }.should eq "ABCDE"
     sc.step
-    s._render # f=1: shifted left by one column
+    s.repaint # f=1: shifted left by one column
     String.build { |io| (0...5).each { |x| io << cell_char(s, 0, x) } }.should eq "BCDEA"
   end
 
@@ -69,7 +69,7 @@ describe Crysterm::Widget::Effect::SineScroller do
     Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 4, height: 3, text: "A B", rainbow: true,
       wave_frequency: 0.0, wave_speed: 0.0 # flat: all glyphs on the middle row (amp=1)
-    s._render
+    s.repaint
 
     row = glyph_row(s, 'A', 4, 3).not_nil!
     # The 'A' glyph carries a real (non-default) color from the rainbow path.
@@ -86,7 +86,7 @@ describe Crysterm::Widget::Effect::SineScroller do
     sc = Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 3, height: 1, text: "ABC", rainbow: false,
       wave_frequency: 0.0, wave_speed: 0.0
-    s._render
+    s.repaint
     String.build { |io| (0...3).each { |x| io << cell_char(s, 0, x) } }.should eq "ABC"
 
     # Reassigning `text` must rebuild the per-column glyph cache. A non-ASCII
@@ -94,7 +94,7 @@ describe Crysterm::Widget::Effect::SineScroller do
     # `String#[]` is O(n) per column for such strings). These glyphs are
     # single-width, so a width-3 scroller shows all three straight across.
     sc.text = "áéí"
-    s._render
+    s.repaint
     String.build { |io| (0...3).each { |x| io << cell_char(s, 0, x) } }.should eq "áéí"
   end
 
@@ -102,7 +102,7 @@ describe Crysterm::Widget::Effect::SineScroller do
     s = sine_screen
     Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 4, height: 3, text: "    ", rainbow: true
-    s._render
+    s.repaint
 
     (0...3).each do |y|
       (0...4).each do |x|

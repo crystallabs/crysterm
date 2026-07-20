@@ -15,7 +15,7 @@ describe Crysterm::Widget::Fps do
   it "renders the default R/D/FPS line, throughput and total" do
     s = fps_screen
     fps = Crysterm::Widget::Fps.new parent: s
-    s._render
+    s.repaint
 
     # First frame has no prior measurements: every rate reads 0, and the
     # cumulative total is still 0 (draw bytes are counted after the widget
@@ -51,7 +51,7 @@ describe Crysterm::Widget::Fps do
   it "lets the user pick the format and which metrics to print" do
     s = fps_screen
     fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [Crysterm::Widget::Fps::Metric::Fps]
-    s._render
+    s.repaint
     fps.content.should eq "0 fps"
   end
 
@@ -59,7 +59,7 @@ describe Crysterm::Widget::Fps do
     s = fps_screen
     # %d on a String arg raises inside String#%; the widget must catch it.
     fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [Crysterm::Widget::Fps::Metric::TotalH]
-    s._render
+    s.repaint
     fps.content.should start_with "FPS format error"
   end
 
@@ -68,13 +68,13 @@ describe Crysterm::Widget::Fps do
     fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [Crysterm::Widget::Fps::Metric::Total]
 
     # Frame 1 draws the overlay text, so the running total grows above 0.
-    s._render
+    s.repaint
     first_total = s.bytes_written
     first_total.should be > 0
 
     # Frame 2: widget reports bytes emitted before this frame's draw (frame
     # 1's total), while the running total keeps climbing.
-    s._render
+    s.repaint
     fps.content.to_i.should eq first_total
     s.bytes_written.should be >= first_total
   end
@@ -85,7 +85,7 @@ describe "Window performance measurements" do
     s = fps_screen
     # Something must be on screen for `draw` to emit output.
     Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
-    s._render
+    s.repaint
     s.render_rate.should be >= 0
     s.draw_rate.should be >= 0
     s.frame_rate.should be >= 0
@@ -98,11 +98,11 @@ describe "Window performance measurements" do
     Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
 
     # First frame: no previous start to measure the real interval against.
-    s._render
+    s.repaint
     s.throughput_actual.should eq 0
 
     # Second frame: now measured over wall-clock time between the two frames.
-    s._render
+    s.repaint
     s.throughput_actual.should be >= 0
   end
 end

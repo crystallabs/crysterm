@@ -5,8 +5,11 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Log" do |screen|
-  screen.stylesheet = "Log { border: solid; color: #9ece6a; }"
-  log = Crysterm::Widget::Log.new parent: screen, top: "center", left: "center", width: 46, height: 9
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Log" do |window|
+  window.stylesheet = "Log { border: solid; color: #9ece6a; }"
+  log = Widget::Log.new parent: window, top: "center", left: "center", width: 46, height: 9
   ["system started", "loading config", "ready", "request handled"].each { |l| log.add l }
 end

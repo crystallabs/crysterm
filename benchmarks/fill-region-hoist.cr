@@ -2,7 +2,7 @@ require "benchmark"
 require "../src/crysterm"
 
 # Validates the array-hoist on `Screen#fill_region` — the per-frame full-screen
-# clear path (`clear_region` in `_render` runs it over the whole grid every
+# clear path (`clear_region` in `repaint` runs it over the whole grid every
 # frame). OLD walked the region via `each_region_cell`, constructing a `Cell`
 # handle and a bounds-checked `line[x]?` per cell; NEW indexes the row's
 # hoisted `attrs`/`chars` arrays with `unsafe_fetch`/`unsafe_put`.

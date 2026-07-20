@@ -35,7 +35,7 @@ describe "border docking with an overlapping popup" do
       parent: s, top: 2, left: 20, width: 16, height: 6,
       style: Style.new(border: Border.new(type: BorderType::Solid)))
 
-    s._render
+    s.repaint
 
     plp = parent.last_rendered_position
     cx = plp.xl - 1 # the parent's right-border column

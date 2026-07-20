@@ -27,7 +27,7 @@ describe "BUGS16 B16-34 table column-width cache invalidation on inset change" d
     # Border comes in via the cascade, after the ctor's `#rows=` ran with
     # `ihorizontal == 0`.
     s.stylesheet = "Table { border: solid; }"
-    s._render
+    s.repaint
 
     # The fixed width must be honored: render re-pins `@width = row_width +
     # ihorizontal`, which grows to 42 when `@maxes` are stale (computed for the
@@ -40,7 +40,7 @@ describe "BUGS16 B16-34 table column-width cache invalidation on inset change" d
       parent: s, top: 0, left: 0,
       width: 40, rows: [["Name", "Score"], ["Alice", "10"]],
       style: Crysterm::Style.new(border: true))
-    s._render
+    s.repaint
 
     t.@maxes.should eq(control.@maxes)
     t.width.should eq(control.width)
@@ -53,7 +53,7 @@ describe "BUGS16 B16-34 table column-width cache invalidation on inset change" d
       width: 40, rows: [["Name", "Score"], ["Alice", "10"]])
 
     s.stylesheet = "ListTable { border: solid; }"
-    s._render
+    s.repaint
 
     # Interior is 40 - ihorizontal (2). Rows sized to the stale pre-cascade
     # interior (40) overflow the content edge by 2 columns.

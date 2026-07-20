@@ -47,8 +47,8 @@ describe "BUGS16 B16-07: re-enabling DamageTracking after an off period" do
       Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2, content: "AA"
     end
 
-    plain._render
-    dmg._render
+    plain.repaint
+    dmg.repaint
     dmg.damage_full_frames.should be > 0 # first frame is always full
     assert_same_lines dmg, plain, "initial"
 
@@ -56,8 +56,8 @@ describe "BUGS16 B16-07: re-enabling DamageTracking after an off period" do
     # buffer right, but the damage caches are now frozen at position A.
     dmg.optimization = Crysterm::OptimizationFlag::None
     boxes.each(&.left=(10))
-    plain._render
-    dmg._render
+    plain.repaint
+    dmg.repaint
     assert_same_lines dmg, plain, "while tracking off"
 
     # Re-enable tracking and move B -> C. Pre-fix the selective path engaged
@@ -65,9 +65,9 @@ describe "BUGS16 B16-07: re-enabling DamageTracking after an off period" do
     # STALE bounds (A), leaving the widget's image at B as a ghost.
     dmg.optimization = Crysterm::OptimizationFlag::DamageTracking
     boxes.each(&.left=(20))
-    plain._render
+    plain.repaint
     full_before = dmg.damage_full_frames
-    dmg._render
+    dmg.repaint
     # The first frame after re-enabling must run full (refreshing all caches)…
     dmg.damage_full_frames.should eq full_before + 1
     # …and the buffer must match a screen that never tracked damage: in

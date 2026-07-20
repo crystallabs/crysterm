@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression: a border side thicker than one cell used to reserve the space
 # (shrinking the content area) but draw the glyphs only in the outermost
-# row/column, leaving the inner reserved band blank. `Widget#_render` now fills
+# row/column, leaving the inner reserved band blank. `Widget#base_render` now fills
 # the whole band, classifying each cell as a horizontal run, a vertical run, or
 # a corner/join cell so the right glyph lands everywhere.
 private def screen(width, height)
@@ -30,7 +30,7 @@ describe "thick border band fill" do
     b.style.border.not_nil!.vertical_char = 'v'
     b.style.border.not_nil!.corner_char = 'c'
     s << b
-    s._render
+    s.repaint
 
     r = rows s
     # 2-thick border all around a 6x6 box leaves a 2x2 interior at (2..3,2..3).
@@ -50,7 +50,7 @@ describe "thick border band fill" do
     b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 6, height: 6, content: "")
     b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid, left: 2, top: 2, right: 2, bottom: 2)
     s << b
-    s._render
+    s.repaint
 
     r = rows s
     r[0].should eq "┌┌──┐┐"
@@ -67,7 +67,7 @@ describe "thick border band fill" do
     b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 4, content: "")
     b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b
-    s._render
+    s.repaint
 
     r = rows s
     r[0].should eq "┌──┐"

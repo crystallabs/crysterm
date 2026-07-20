@@ -33,13 +33,13 @@ describe "TabWidget switching (regression check)" do
     Widget::Box.new parent: p0, top: 1, left: 1, width: 7, height: 1, content: "AAAcc"
     Widget::Box.new parent: p1, top: 1, left: 1, width: 7, height: 1, content: "BBBcc"
 
-    s._render
+    s.repaint
     t0 = screen_text s
     (t0.includes?("AAAcc")).should be_true  # tab 0 content renders
     (t0.includes?("BBBcc")).should be_false # tab 1 hidden
 
     tw.current_index = 1
-    s._render
+    s.repaint
     t1 = screen_text s
     (t1.includes?("BBBcc")).should be_true # <-- switched-to page must render
     (t1.includes?("AAAcc")).should be_false
@@ -61,9 +61,9 @@ describe "TabWidget switching (regression check)" do
     Widget::Box.new parent: p0, top: 1, left: 1, width: 7, height: 1, content: "AAAcc"
     Widget::Box.new parent: p1, top: 1, left: 1, width: 7, height: 1, content: "BBBcc"
 
-    s._render
+    s.repaint
     tw.current_index = 1
-    s._render
+    s.repaint
     # No intervening toggle: the very first render after the switch must show it.
     screen_text(s).includes?("BBBcc").should be_true
     p1.style.visible?.should be_true # visibility preserved through the pane push

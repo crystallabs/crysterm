@@ -1,7 +1,7 @@
 # Headless reproduction of examples/features/cracktro.cr's hot path, for
 # deterministic per-frame render cost (no real terminal, no wall-clock pacing),
 # comparing OptimizationFlag::None vs ::DamageTracking. Same scene and mutation
-# as the demo, driven by direct `_render` calls instead of `s.every`/`s.exec`.
+# as the demo, driven by direct `repaint` calls instead of `s.every`/`s.exec`.
 #
 # Run:  crystal run --release benchmarks/cracktro-profile.cr
 
@@ -121,7 +121,7 @@ def run(label, opt)
   }
 
   # warm up
-  5.times { step.call; s._render }
+  5.times { step.call; s.repaint }
 
   GC.collect
   before = GC.stats.total_bytes
@@ -129,7 +129,7 @@ def run(label, opt)
   wall = Time.measure do
     FRAMES.times do
       step.call
-      s._render
+      s.repaint
       rsum += s.render_rate
       dsum += s.draw_rate
     end

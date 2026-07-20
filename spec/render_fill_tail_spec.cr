@@ -20,7 +20,7 @@ describe "content-exhausted fill tail" do
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: "hello"
     w.style.fill_char = '.'
-    s._render
+    s.repaint
     String.build { |io| 5.times { |x| io << s.lines[0][x].char } }.should eq "hello"
     s.lines[0][10].char.should eq '.'
     s.lines[3][7].char.should eq '.' # a row fully past the content
@@ -30,7 +30,7 @@ describe "content-exhausted fill tail" do
     s = headless_screen
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       content: "\e[41mx" # red bg opened, never closed
-    s._render
+    s.repaint
     red = Attr.bg(s.lines[0][0].attr)
     red.should_not eq Attr.bg(Window::DEFAULT_ATTR)
     # The dangling attr keeps painting the fill cells, rows later.
@@ -43,7 +43,7 @@ describe "content-exhausted fill tail" do
     Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6,
       content: "x", align: Tput::AlignFlag::Bottom,
       style: Style.new(padding: 1, fill_char: '.')
-    s._render
+    s.repaint
     s.lines[0][5].char.should eq '.' # top padding band
     s.lines[2][5].char.should eq '.' # valign gap row (interior)
     s.lines[1][0].char.should eq '.' # left padding band
@@ -56,7 +56,7 @@ describe "content-exhausted fill tail" do
       style: Style.new(bg: 0x0000ff)
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: "x", style: Style.new(bg: 0xff0000, opacity: 0.5)
-    s._render
+    s.repaint
     # A tail cell of the translucent overlay must show a mix, not the overlay's
     # own bg (bulk fill would stamp the raw attr over the backdrop).
     mixed = Attr.bg s.lines[2][10].attr
@@ -74,7 +74,7 @@ describe "content-exhausted fill tail" do
       error: IO::Memory.new, full_unicode: true)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 2
     w.style.fill_char = '好'
-    s._render
+    s.repaint
     s.lines[1][0].char.should eq '好'
     s.lines[1][1].char.should eq '好'
     s.lines[1][5].char.should eq '好'

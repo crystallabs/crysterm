@@ -10,7 +10,7 @@ include Crysterm
 # yields the interior to the block.
 #
 # That inset must not corrupt the widget's cached position: the object handed
-# to the block is the same `@lpos` `_render` stored, and `Border#adjust(pos)`
+# to the block is the same `@lpos` `repaint` stored, and `Border#adjust(pos)`
 # shrinks it in place. The bug left `@lpos` collapsed to the interior after
 # every render, so readers of the cached position (hit-testing via
 # `last_rendered_position`, damage-tracking bounds, `clear_last_rendered_position`)
@@ -30,7 +30,7 @@ describe "Widget#with_inner_coords cached position" do
     # All-sides line border (1 cell per side).
     g.style.border = true
 
-    screen._render
+    screen.repaint
 
     lp = g.last_rendered_position
     # Must span the whole widget (10x5), not the border-inset interior (8x3).

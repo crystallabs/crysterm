@@ -55,6 +55,6 @@ describe "BUGS14 widget guards (W1/W2/W3)" do
     s = guard_screen
     Widget::Box.new parent: s, left: "50%+9999999999", top: "center+3000000000",
       width: 4, height: 2
-    s._render # Widget.resolve_percentage / resolve_dimension must not raise OverflowError
+    s.repaint # the Dim offset parser saturates; resolving must not raise OverflowError
   end
 end

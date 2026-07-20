@@ -18,7 +18,7 @@ end
 
 private def new_tb(s)
   tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
-  s._render
+  s.repaint
   tb
 end
 

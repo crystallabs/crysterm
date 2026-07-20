@@ -10,7 +10,7 @@ include Crysterm
 # focusable widget) routes straight to `_focus el, el`. The `old == cur` handling
 # already suppresses the spurious `FocusOut` and state clobber, but the terminating
 # `Event::FocusIn` used to still fire, re-running focus side effects on a widget
-# already focused (same family of defect `window_rendering.cr#_render` guards
+# already focused (same family of defect `window_rendering.cr#repaint` guards
 # against per frame).
 private def refocus_screen
   Crysterm::Window.new(

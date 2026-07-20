@@ -56,7 +56,7 @@ private def backdrop_attr_at(y : Int32, x : Int32) : Int64
   s = headless_screen
   Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 12,
     style: Crysterm::Style.new(bg: "red")
-  s._render
+  s.repaint
   Crysterm::Attr.bg(s.lines[y][x].attr)
 end
 
@@ -72,13 +72,13 @@ private def padding_ring_attr(fill : Bool)
 
   b = Widget::Box.new parent: s, top: 2, left: 2, width: 10, height: 6,
     style: st, content: ""
-  s._render
+  s.repaint
 
   lp = b.lpos.not_nil!
   {Crysterm::Attr.bg(s.lines[lp.yi][lp.xi].attr), lp}
 end
 
-# BUGS15 #91 — the opacity pre-blend in `_render`'s pre-fill block ran
+# BUGS15 #91 — the opacity pre-blend in `repaint`'s pre-fill block ran
 # unconditionally, painting a `fill: false` widget's padding/valign bands even
 # though its whole contract is to draw no background of its own. The sibling
 # opaque-fill branches were already gated on `fill`; only the opacity branch was
@@ -117,14 +117,14 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
     box.set_content(Array.new(20) { |i| "line #{i}" }.join("\n"))
 
-    s._render
+    s.repaint
     sb = box.scrollbar_widget.not_nil!
     sb.width.should eq 1
     box.content_margin_x.should eq 1
     width_before = box.content_width
 
     box.scrollbar_width = 2
-    s._render # reparse + reconcile
+    s.repaint # reparse + reconcile
 
     box.content_margin_x.should eq 2
     box.content_width.should eq width_before - 1
@@ -139,14 +139,14 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
       scrollable: true
     box.horizontal_scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
 
-    s._render
+    s.repaint
     hb = box.horizontal_scrollbar_widget.not_nil!
     hb.height.should eq 1
     box.hscrollbar_rows.should eq 1
     rows_before = box.aheight - box.ivertical - box.hscrollbar_rows
 
     box.scrollbar_height = 2
-    s._render
+    s.repaint
 
     box.hscrollbar_rows.should eq 2
     (box.aheight - box.ivertical - box.hscrollbar_rows).should eq rows_before - 1

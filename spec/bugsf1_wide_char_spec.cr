@@ -88,7 +88,7 @@ describe "BUGS-F1 #11: wide glyph straddling the left screen edge" do
     # screen column -1 (clipped), so its continuation would land at screen col 0.
     Widget::Box.new parent: s, top: 0, left: -1, width: 4, height: 1,
       content: "漢AB"
-    s._render
+    s.repaint
     line = s.lines[0]
 
     # Column 0 must be a plain blank, never a continuation with no lead anywhere

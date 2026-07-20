@@ -40,7 +40,7 @@ module Crysterm
       def run : Nil
         return if disposed?
         @block.call
-        @owner.window?.try &.schedule_render
+        @owner.window?.try &.update
       end
 
       # Cancels every subscription. Idempotent.

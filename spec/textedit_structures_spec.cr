@@ -18,7 +18,7 @@ end
 
 private def new_te(s, content = "", width = 40, height = 8)
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: width, height: height, content: content
-  s._render
+  s.repaint
   te
 end
 
@@ -44,7 +44,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "one\ntwo"
       select_all_list(te, :disc)
-      s._render
+      s.repaint
       row_text(s, 0, 5).should eq "• one"
       row_text(s, 1, 5).should eq "• two"
     end
@@ -53,7 +53,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s
       te.set_markdown "- [x] done\n- [ ] todo"
-      s._render
+      s.repaint
       row_text(s, 0, 8).should eq "[x] done"
       row_text(s, 1, 8).should eq "[ ] todo"
     end
@@ -62,7 +62,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "a\nb\nc"
       select_all_list(te, :decimal)
-      s._render
+      s.repaint
       row_text(s, 0, 4).should eq "1. a"
       row_text(s, 2, 4).should eq "3. c"
     end
@@ -71,9 +71,9 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "a\nb\nc"
       select_all_list(te, :decimal)
-      s._render
+      s.repaint
       te.document.remove(0, 2) # "a\n" gone
-      s._render
+      s.repaint
       row_text(s, 0, 4).should eq "1. b"
       row_text(s, 1, 4).should eq "2. c"
     end
@@ -86,7 +86,7 @@ describe Widget::TextEdit do
       c.create_list(TextListFormat.new(style: :disc, indent: 1))
       c.set_position(6)
       c.create_list(TextListFormat.new(style: :disc, indent: 2))
-      s._render
+      s.repaint
       row_text(s, 0, 7).should eq "• outer"
       row_text(s, 1, 9).should eq "  • inner"
     end
@@ -95,7 +95,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "aaaa bbbb cccc", 12, 6
       select_all_list(te, :disc)
-      s._render
+      s.repaint
       row_text(s, 0, 6).should eq "• aaaa"
       # Continuation row: no marker, text starts at the same column.
       te._clines.size.should be > 1
@@ -106,7 +106,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "one\ntwo"
       select_all_list(te, :decimal)
-      s._render
+      s.repaint
       # Click on the 'n' of "one" — drawn at x = 3 (after "1. ") + 1.
       te.position_at(4, 0).should eq 1
       # Click on the marker itself maps to the line start.
@@ -119,7 +119,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s
       te.set_markdown "- one\n- two\n\n> quoted\n\n---"
-      s._render
+      s.repaint
       row_text(s, 0, 5).should eq "• one"
       row_text(s, 1, 5).should eq "• two"
       row_text(s, 3, 8).should eq "│ quoted"
@@ -133,7 +133,7 @@ describe Widget::TextEdit do
       te = new_te s, "quoted\ndeep"
       te.document.apply_block_format(0, 0, TextBlockFormat.new(quote_level: 1))
       te.document.apply_block_format(7, 7, TextBlockFormat.new(quote_level: 2))
-      s._render
+      s.repaint
       row_text(s, 0, 8).should eq "│ quoted"
       row_text(s, 1, 8).should eq "│ │ deep"
     end
@@ -142,7 +142,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "above\n\nbelow"
       te.document.apply_block_format(6, 6, TextBlockFormat.new(horizontal_rule: true))
-      s._render
+      s.repaint
       row_text(s, 1, 40).should eq "─" * 40
       row_text(s, 2, 5).should eq "below"
     end
@@ -153,7 +153,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "moved"
       te.document.apply_block_format(0, 0, TextBlockFormat.new(indent: 3))
-      s._render
+      s.repaint
       row_text(s, 0, 8).should eq "   moved"
     end
 
@@ -162,7 +162,7 @@ describe Widget::TextEdit do
       te = new_te s, "mid\nend", 10, 4
       te.document.apply_block_format(0, 0, TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter))
       te.document.apply_block_format(4, 4, TextBlockFormat.new(alignment: Tput::AlignFlag::Right))
-      s._render
+      s.repaint
       # Content width is 10 minus the scrollbar/caret margin; the exact
       # column comes from the same math the layout used.
       r0 = row_text(s, 0, 10)
@@ -177,7 +177,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "aaa\nbbb"
       te.document.apply_block_format(4, 4, TextBlockFormat.new(top_margin: 1))
-      s._render
+      s.repaint
       row_text(s, 0, 3).should eq "aaa"
       row_text(s, 1, 3).should eq "   "
       row_text(s, 2, 3).should eq "bbb"
@@ -188,7 +188,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "aaa\nbbb"
       te.document.apply_block_format(4, 4, TextBlockFormat.new(top_margin: 1))
-      s._render
+      s.repaint
       te.cursor_pos = 1
       te._listener ctl(::Tput::Key::Down)
       te.cursor_pos.should eq 5 # "b|bb", column kept
@@ -200,10 +200,10 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "sel"
       te.document.apply_block_format(0, 0, TextBlockFormat.new(indent: 2))
-      s._render
+      s.repaint
       te.selection_anchor = 0
       te.cursor_pos = 3
-      s._render
+      s.repaint
       (Attr.flags(s.lines[0][2].attr) & Attr::REVERSE).should_not eq 0
       (Attr.flags(s.lines[0][0].attr) & Attr::REVERSE).should eq 0
     end

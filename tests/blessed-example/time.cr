@@ -16,6 +16,7 @@ require "../../src/crysterm"
 # Quit with q.
 
 include Crysterm
+include Crysterm::Widgets
 
 module Clock
   extend self
@@ -70,11 +71,11 @@ seconds = ARGV.includes?("-s")
 no_zero = ARGV.includes?("-n")
 show_date = ARGV.includes?("-d")
 
-screen = Window.new title: "time.cr"
+window = Window.new title: "time.cr"
 
-container = Widget::Box.new parent: screen, top: "center", left: 0, width: "100%", height: 9
+container = Widget::Box.new parent: window, top: "center", left: 0, width: "100%", height: 9
 
-date = Widget::Box.new parent: screen, top: 1, left: 1, width: 26, height: 3,
+date = Widget::Box.new parent: window, top: 1, left: 1, width: 26, height: 3,
   style: Style.new(border: true)
 date.hide
 
@@ -118,7 +119,7 @@ update = -> {
 
   total = chars.sum { |c| (mt = Clock.meta(c)) ? mt[:width] + 2 : 0 }
   total -= 2 if total > 0
-  pos = Math.max(0, (screen.awidth - total) // 2)
+  pos = Math.max(0, (window.awidth - total) // 2)
 
   chars.each_with_index do |c, i|
     m = Clock.meta(c)
@@ -132,23 +133,19 @@ update = -> {
   end
 
   if show_date
-    date.set_content now.to_s("%Y-%m-%dT%H:%M:%S")
+    date.content = now.to_s("%Y-%m-%dT%H:%M:%S")
     date.show
   end
-
-  screen.render
 }
-
-screen.on(Event::KeyPress) { |e| exit 0 if e.char == 'q' }
 
 # `update` early-returns when the time is unchanged, but a resize needs a
 # recompute of the horizontal position, so clear the cached time first.
-screen.on(Event::Resize) do
+window.on(Event::Resize) do
   last_time = ""
   update.call
 end
 
 update.call
-screen.every((seconds ? 0.1 : 0.95).seconds) { update.call }
+window.every((seconds ? 0.1 : 0.95).seconds) { update.call }
 
-screen.exec
+window.exec

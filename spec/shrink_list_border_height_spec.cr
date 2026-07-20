@@ -23,7 +23,7 @@ describe "Widget::List shrink-to-content height with a border" do
     l = Crysterm::Widget::List.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       style: Crysterm::Style.new(border: true)
     l.items = ["one", "two", "three"]
-    s._render
+    s.repaint
 
     lp = l.lpos.not_nil!
     height = lp.yl - lp.yi

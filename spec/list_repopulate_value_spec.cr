@@ -25,8 +25,8 @@ describe "ItemView#current_index= value after re-populating an emptied list" do
     list.current_text.should eq "b"
 
     # Second removal takes it through the empty-selection branch of `#current_index=`.
-    list.remove_item list.items[1]
-    list.remove_item list.items[0]
+    list.remove_item list.item_boxes[1]
+    list.remove_item list.item_boxes[0]
     list.items.size.should eq 0
     list.current_text.should eq ""
 

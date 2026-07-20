@@ -187,8 +187,8 @@ module Crysterm
     # damage frame, addressing the overlap union-find. Transient scratch.
     protected property damage_idx : Int32 = -1
 
-    # Schedules a repaint of this widget ↔ `QWidget::update()`; `#request_render`
-    # is `QWidget::repaint()`. Safe to call from any state-changing setter, and
+    # Schedules a repaint of this widget ↔ `QWidget::update()` (`#update` is
+    # the Qt-named alias). Safe to call from any state-changing setter, and
     # the thing to call after an in-place change the tracked setters don't see
     # (e.g. mutating a `Style` directly).
     #
@@ -216,6 +216,12 @@ module Crysterm
       end
     end
 
+    # Schedules a coalesced repaint ↔ `QWidget::update()`. Alias of
+    # `#mark_dirty`; the synchronous counterpart is `#repaint`.
+    def update : Nil
+      mark_dirty
+    end
+
     # Assigns `left`/`top`/`width`/`height` in one shot, coalescing the side
     # effects the four independent setters would each run on their own: all four
     # ivars are assigned before any dispatch, `mark_dirty` runs at most once, and
@@ -223,6 +229,11 @@ module Crysterm
     # no-op when nothing changed. The individual setters keep their per-axis
     # behavior; only this primitive coalesces.
     def set_geometry(left, top, width, height) : Nil
+      left = Dim.from left
+      top = Dim.from top
+      width = Dim.from width, size: true
+      height = Dim.from height, size: true
+
       moved = (@left != left) || (@top != top)
       resized = (@width != width) || (@height != height)
       return unless moved || resized
@@ -278,17 +289,18 @@ module Crysterm
       Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
     end
 
-    # Re-renders the owning `Window` ↔ `QWidget::repaint()`, to `#mark_dirty`'s
-    # `QWidget::update()`. No-op when detached.
+    # Unconditionally schedules a render of the owning `Window`. No-op when
+    # detached.
     #
-    # Unconditional, unlike `#mark_dirty`'s request: this one still rings the
+    # Unconditional, unlike `#mark_dirty`/`#update`: this one still rings the
     # doorbell mid-frame, so it is the right call for a driver that deliberately
     # wants *another* frame after this one (animations, transitions, media
-    # decode). For a plain state change prefer `#mark_dirty`.
+    # decode). For a plain state change prefer `#update`; for a synchronous
+    # paint of just this widget see `#repaint`.
     def request_render : Nil
       window?.try do |s|
         s.damage_mark_dirty self
-        s.render
+        s.update
       end
     end
 
@@ -306,17 +318,21 @@ module Crysterm
     end
 
     # Whether this widget is an item view (list/tree/table/menu — anything
-    # including `Mixin::ItemView`, which sets it). Duck-typed: the renderer keys
-    # off this flag plus `#item_selected?` instead of an `is_a?(List)` check.
-    @_is_list = false
-
+    # including `Mixin::ItemView`, which overrides this to `true`). Duck-typed:
+    # the renderer keys off this predicate plus `#item_selected?` instead of an
+    # `is_a?(List)` check. Base answer is `false`; the mixin overrides it — so
+    # the flag lives with its store (`#item_boxes`) rather than on every widget.
     protected def item_view? : Bool
-      @_is_list
+      false
     end
 
-    # :ditto:
-    protected def item_view=(value : Bool) : Bool
-      @_is_list = value
+    # Count of an item view's backing item-box widgets (0 for a plain widget).
+    # Lets the base geometry/scroll partials size a shrink-to-content list
+    # without naming the mixin-local `@item_boxes` store, which the base has no
+    # ivar for. Overridden by `Mixin::ItemView`. Cheap enough for the hot paths
+    # that gate on `#item_view?` (a virtual call returning an already-held size).
+    protected def item_box_count : Int32
+      0
     end
 
     # Whether *item* (a child) renders in the selected style. Base answer is
@@ -334,12 +350,12 @@ module Crysterm
       @name = @name,
       window : ::Crysterm::Window? = nil,
 
-      @left = @left,
-      @top = @top,
-      @right = @right,
-      @bottom = @bottom,
-      @width = @width,
-      @height = @height,
+      left : Dim | Int32 | String | Symbol | Nil = @left,
+      top : Dim | Int32 | String | Symbol | Nil = @top,
+      right : Dim | Int32 | String | Symbol | Nil = @right,
+      bottom : Dim | Int32 | String | Symbol | Nil = @bottom,
+      width : Dim | Int32 | String | Symbol | Nil = @width,
+      height : Dim | Int32 | String | Symbol | Nil = @height,
       @shrink_to_fit = @shrink_to_fit,
 
       visible = nil,
@@ -381,6 +397,15 @@ module Crysterm
       children = [] of Widget,
     )
       # $ = _ = JSON/YAML::Any
+
+      # Geometry lands via `Dim.from` (parse-at-assignment; see `Dim`), not the
+      # public setters — no Move/Resize emits or dirty-marking during construction.
+      @left = Dim.from left
+      @top = Dim.from top
+      @right = Dim.from right
+      @bottom = Dim.from bottom
+      @width = Dim.from width, size: true
+      @height = Dim.from height, size: true
 
       self.align = align
       self.overflow = overflow

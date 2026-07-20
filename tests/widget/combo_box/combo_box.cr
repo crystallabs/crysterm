@@ -5,16 +5,19 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run("ComboBox",
-  script: ->(d : Crysterm::WidgetExample::Driver) {
+include Crysterm
+include Crysterm::Widgets
+
+WidgetExample.run("ComboBox",
+  script: ->(d : WidgetExample::Driver) {
     d.hold 0.5
     d.key :enter, dwell: 0.5
     d.key :down, dwell: 0.4
     d.key :up, dwell: 0.4
     d.key :escape, dwell: 0.5
-  }) do |screen|
-  screen.stylesheet = "ComboBox { border: solid; color: #c0caf5; }"
-  Crysterm::Widget::ComboBox.new \
-    parent: screen, top: "center", left: "center", width: 24, height: 3,
+  }) do |window|
+  window.stylesheet = "ComboBox { border: solid; color: #c0caf5; }"
+  ComboBox.new \
+    parent: window, top: "center", left: "center", width: 24, height: 3,
     options: %w[Red Green Blue Yellow], current_index: 2
 end

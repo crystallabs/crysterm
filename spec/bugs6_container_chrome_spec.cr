@@ -53,7 +53,7 @@ describe "BUGS6 DockWidget drag/float coordinate frame (bug 1)" do
     dock = Crysterm::Widget::DockWidget.new parent: parent, title: "D",
       area: Crysterm::Widget::DockWidget::Area::Left,
       left: 5, top: 3, width: 12, height: 6
-    s._render
+    s.repaint
 
     before_l = dock.aleft
     before_t = dock.atop
@@ -64,7 +64,7 @@ describe "BUGS6 DockWidget drag/float coordinate frame (bug 1)" do
     # position must not move (the old code shifted it by parent.ileft/itop).
     dock.toggle_floating restore: false
     dock.floating?.should be_true
-    s._render
+    s.repaint
 
     dock.aleft.should eq before_l
     dock.atop.should eq before_t
@@ -76,7 +76,7 @@ describe "BUGS6 DockWidget drag/float coordinate frame (bug 1)" do
     dock = Crysterm::Widget::DockWidget.new parent: parent, title: "D",
       area: Crysterm::Widget::DockWidget::Area::Floating,
       left: 4, top: 3, width: 12, height: 6
-    s._render
+    s.repaint
 
     tb = dock.titlebar
     data = Crysterm::DragData.new tb
@@ -105,7 +105,7 @@ describe "BUGS6 DockWidget drag clamp bounds (bug 2)" do
     dock = Crysterm::Widget::DockWidget.new parent: parent, title: "D",
       area: Crysterm::Widget::DockWidget::Area::Floating,
       left: 4, top: 3, width: 12, height: 6
-    s._render
+    s.repaint
 
     tb = dock.titlebar
     data = Crysterm::DragData.new tb
@@ -131,7 +131,7 @@ describe "BUGS6 StatusBar right-aligned overflow (bug 3)" do
     bar.add_permanent "AAAA"
     bar.add_permanent "BBBB"
     bar.add_permanent "CCCC" # joined text (18 cells) overflows the 12-wide bar
-    s._render
+    s.repaint
 
     line = row_text s, 0, 0, 12
     line.includes?("CCCC").should be_true  # newest section survives
@@ -142,7 +142,7 @@ describe "BUGS6 StatusBar right-aligned overflow (bug 3)" do
     s = chrome_win
     bar = Crysterm::Widget::StatusBar.new parent: s, top: 0, left: 0, width: 12, height: 1
     bar.add_permanent "OK" # fits: right-aligned against the bar's right edge
-    s._render
+    s.repaint
 
     row_text(s, 0, 0, 12).should eq "          OK"
   end

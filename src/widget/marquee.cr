@@ -64,8 +64,8 @@ module Crysterm
 
       # Paints the `awidth`-wide window onto the looping message into the top
       # content row, writing each glyph's cell directly with its native color.
-      def render
-        with_inner_coords do |xi, xl, yi, yl|
+      def render(with_children = true)
+        with_inner_coords(with_children) do |xi, xl, yi, yl|
           w = xl - xi
           h = yl - yi
           next if w <= 0 || h <= 0

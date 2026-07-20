@@ -21,7 +21,7 @@ describe "inline auto_grow" do
     win = autogrow_window
     Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 3,
       content: "a\nb\nc"
-    win._render
+    win.repaint
     win.content_height.should eq 3
     win.aheight.should eq 3
   end
@@ -29,23 +29,23 @@ describe "inline auto_grow" do
   it "grows further as content grows" do
     win = autogrow_window
     box = Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 2
-    win._render
+    win.repaint
     win.aheight.should eq 2
 
     box.height = 5
-    win._render
+    win.repaint
     win.aheight.should eq 5
   end
 
   it "shrinks and erases the rows it vacates" do
     win = autogrow_window
     box = Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 6
-    win._render
+    win.repaint
     win.aheight.should eq 6
 
     win.output.as(IO::Memory).clear
     box.height = 2
-    win._render
+    win.repaint
 
     win.aheight.should eq 2
     out = win.output.as(IO::Memory).to_s
@@ -56,7 +56,7 @@ describe "inline auto_grow" do
   it "respects max_height" do
     win = autogrow_window(max_height: 4)
     Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 20
-    win._render
+    win.repaint
     win.aheight.should eq 4
   end
 
@@ -68,7 +68,7 @@ describe "inline auto_grow" do
     Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 6, content: "x"
 
     win.output.as(IO::Memory).clear
-    win._render
+    win.repaint
 
     win.aheight.should eq 6
     # Re-anchored up so offset + height == the screen bottom (fits exactly).
@@ -82,7 +82,7 @@ describe "inline auto_grow" do
       width: 40, height: 10, default_quit_keys: false)
     win.auto_grow?.should be_false
     Crysterm::Widget::Box.new parent: win, top: 0, left: 0, width: 40, height: 3
-    win._render
+    win.repaint
     win.aheight.should eq 10 # unchanged
   end
 end

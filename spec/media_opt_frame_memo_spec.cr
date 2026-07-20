@@ -140,8 +140,8 @@ describe "Media::Cells::FrameMemo (M7)" do
       drive_ready img
 
       n = 4
-      pass1 = (0...n).map { |i| img.anim_index = i; s._render; cell_sig(s, img) }
-      pass2 = (0...n).map { |i| img.anim_index = i; s._render; cell_sig(s, img) }
+      pass1 = (0...n).map { |i| img.anim_index = i; s.repaint; cell_sig(s, img) }
+      pass2 = (0...n).map { |i| img.anim_index = i; s.repaint; cell_sig(s, img) }
       pass1.should eq pass2         # loop-stable: same frame -> same cells
       pass1.uniq.size.should be > 1 # frames are genuinely distinct
 
@@ -152,7 +152,7 @@ describe "Media::Cells::FrameMemo (M7)" do
           file: path, color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256
         drive_ready rimg
         rimg.anim_index = i
-        rs._render
+        rs.repaint
         cell_sig(rs, rimg).should eq pass1[i]
         rimg.stop
         rs.destroy
@@ -173,8 +173,8 @@ describe "Media::Cells::FrameMemo (M7)" do
         file: path, mode: Crysterm::Widget::Media::Glyph::Mode::Braille
       drive_ready img
       n = 4
-      pass1 = (0...n).map { |i| img.anim_index = i; s._render; cell_sig(s, img) }
-      pass2 = (0...n).map { |i| img.anim_index = i; s._render; cell_sig(s, img) }
+      pass1 = (0...n).map { |i| img.anim_index = i; s.repaint; cell_sig(s, img) }
+      pass2 = (0...n).map { |i| img.anim_index = i; s.repaint; cell_sig(s, img) }
       pass1.should eq pass2
 
       (0...n).each do |i|
@@ -183,7 +183,7 @@ describe "Media::Cells::FrameMemo (M7)" do
           file: path, mode: Crysterm::Widget::Media::Glyph::Mode::Braille
         drive_ready rimg
         rimg.anim_index = i
-        rs._render
+        rs.repaint
         cell_sig(rs, rimg).should eq pass1[i]
         rimg.stop
         rs.destroy

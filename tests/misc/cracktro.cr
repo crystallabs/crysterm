@@ -16,6 +16,7 @@
 require "../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 # Full-screen animation: every cell changes every frame, and the scene mutates
 # `style.fg`/`bg` in place. Damage tracking (the default) can't win here —
@@ -39,7 +40,7 @@ MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
 # `step`) so the whole scene stays on one clock.
 COPPER_ROWS = [1, 3]
 copper = COPPER_ROWS.map_with_index do |row, idx|
-  Widget::Effect::CopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
+  EffectCopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
     hue_offset: idx * 26, hue_speed: 9
 end
 copper_idx = {1 => 0, 3 => 1}
@@ -48,7 +49,7 @@ copper_idx = {1 => 0, 3 => 1}
 # `Widget::Marquee`. Advanced explicitly via `step` (rather than `start` and its
 # own fiber) so it stays locked to the scene's clock and the recorded GIF tiles
 # seamlessly.
-hscroll = Widget::Marquee.new \
+hscroll = Marquee.new \
   parent: s, top: 2, left: 0, width: "100%", height: 1,
   text: MSG, rainbow: true, style: Style.new(bg: "black")
 
@@ -61,7 +62,7 @@ greet = Widget::Box.new \
 # `Widget::Effect::SineScroller`. Advanced via `step` so it shares the one frame
 # clock.
 sine_top = 5
-sine = Widget::Effect::SineScroller.new \
+sine = EffectSineScroller.new \
   parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
   text: MSG, style: Style.new(bg: "black")
 
@@ -131,7 +132,7 @@ end
 # Live performance overlay. Added last so it paints on top of the scene;
 # updates itself from render stats each frame (no `step` needed). Anchored
 # top-left here (default is bottom-left, where the sine scroller is).
-Widget::Fps.new \
+Fps.new \
   parent: s, top: 0, left: 0,
   format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
   args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,

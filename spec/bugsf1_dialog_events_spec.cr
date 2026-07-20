@@ -69,7 +69,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
     cd = Crysterm::Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 56, height: 20
     cd.show
     # Hit-testing / geometry uses the painted lpos, so render once first.
-    s._render
+    s.repaint
 
     # Start from a known corner color so a mid-field click must move it.
     cd.current_color = "#ffffff"
@@ -103,7 +103,7 @@ describe "BUGS-F1 finding 17: ColorDialog Enter with a focused button fires once
     cd.on(Crysterm::Event::Rejected) { rejected += 1 }
 
     cd.get_color { }
-    s._render
+    s.repaint
 
     # Focus the Cancel button so it consumes/accepts the Enter itself.
     cancel = find_button cd, "cancel"
@@ -126,7 +126,7 @@ describe "BUGS-F1 finding 16: Question callback fires once on Enter over a focus
 
     count = 0
     q.ask("Sure?") { |_data| count += 1 }
-    s._render
+    s.repaint
 
     # Focus the Ok button; its Enter → Press → done, and the window-level key
     # handler also saw Enter. Before the fix both paths invoked the callback.

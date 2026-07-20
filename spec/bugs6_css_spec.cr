@@ -68,9 +68,9 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
       CSS
       screen.apply_stylesheet
 
-      list.items[0].styles.normal.fg.should eq rgb("green") # first-child (forward, always worked)
-      list.items[1].styles.normal.fg.should be_nil
-      list.items[2].styles.normal.fg.should eq rgb("red") # last-child now hits the real last item
+      list.item_boxes[0].styles.normal.fg.should eq rgb("green") # first-child (forward, always worked)
+      list.item_boxes[1].styles.normal.fg.should be_nil
+      list.item_boxes[2].styles.normal.fg.should eq rgb("red") # last-child now hits the real last item
     end
   end
 
@@ -86,9 +86,9 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
       CSS
       screen.apply_stylesheet
 
-      list.items[2].styles.normal.fg.should eq rgb("red")   # last
-      list.items[1].styles.normal.fg.should eq rgb("green") # second from last
-      list.items[0].styles.normal.fg.should be_nil
+      list.item_boxes[2].styles.normal.fg.should eq rgb("red")   # last
+      list.item_boxes[1].styles.normal.fg.should eq rgb("green") # second from last
+      list.item_boxes[0].styles.normal.fg.should be_nil
     end
   end
 

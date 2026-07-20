@@ -251,7 +251,7 @@ module VtDriver
       shell: spawn_shell, args: spawn_args, env: {"TERM" => "vt100"})
     eof = false
     term.on(::Crysterm::Event::ProcessExited) { eof = true }
-    window._render # first render bootstraps the widget: spawns vttest, starts its reader fiber
+    window.repaint # first render bootstraps the widget: spawns vttest, starts its reader fiber
     emu = term.emulator
     unless emu
       STDERR.puts "test #{path}: widget failed to bootstrap"
@@ -260,7 +260,7 @@ module VtDriver
     n = drive(path, dir, keys, max_screens, rows, emu,
       ->(s : String) { term.pty.try(&.write(s)); nil },
       -> { eof },
-      ->(base : String, _e : TerminalEmulator) { window._render; File.write("#{base}.dump", window.dump) })
+      ->(base : String, _e : TerminalEmulator) { window.repaint; File.write("#{base}.dump", window.dump) })
     term.kill rescue nil
     n
   end

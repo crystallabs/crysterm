@@ -28,7 +28,7 @@ describe "BUGS11 #8 dragging a margined widget tracks the pointer" do
       parent: s, left: 5, top: 4, width: 10, height: 4,
       draggable: true,
       style: Crysterm::Style.new(margin: Crysterm::Margin.new(left: 3, top: 2, right: 0, bottom: 0)))
-    s._render
+    s.repaint
 
     start_left = box.left
     start_top = box.top

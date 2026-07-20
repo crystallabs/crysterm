@@ -30,10 +30,10 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
       top: 8, left: 2, width: 20, height: 6
     # A child far below gives the scrollable box a real scroll extent.
     Widget::Box.new parent: box, top: 30, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     box.scroll_to 4, true
-    s._render
+    s.repaint
 
     lp = gb.lpos.not_nil!
     lp.yi.should_not eq gb.atop
@@ -53,7 +53,7 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
     s = cf_screen
     gb = Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
-    s._render
+    s.repaint
     gb.checked?.should be_true
 
     gb.emit Crysterm::Event::Mouse, cf_mouse_down(gb.aleft + 1, gb.atop).mouse
@@ -67,12 +67,12 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
     gb = Widget::GroupBox.new parent: box, title: "Opt", checkable: true,
       top: 0, left: 2, width: 20, height: 6
     Widget::Box.new parent: box, top: 30, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     # Scroll far enough that the group's title row (top of the group) is
     # above the viewport; only body rows remain visible.
     box.scroll_to 4, true
-    s._render
+    s.repaint
 
     lp = gb.lpos.not_nil!
     lp.no_top?.should be_true # title clipped off, not just shifted
@@ -94,7 +94,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
     win.menu_bar.hide
     central = Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
 
     central.atop.should eq win.atop # no blank strip reserved for the hidden menu bar
   end
@@ -105,7 +105,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
     win.status_bar.hide
     central = Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
 
     central.atop.should eq win.atop
     central.aheight.should eq win.aheight # spans the full height, no bottom strip
@@ -118,7 +118,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
     win.status_bar
     central = Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
 
     central.atop.should eq win.atop + 1
     central.aheight.should eq win.aheight - 2
@@ -130,11 +130,11 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
     win.menu_bar.hide
     central = Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
     central.atop.should eq win.atop
 
     win.menu_bar.show
-    s._render
+    s.repaint
     central.atop.should eq win.atop + 1
   end
 end
@@ -196,7 +196,7 @@ describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
     pb.focus
     ancestor_hits = 0
     s.on(Crysterm::Event::KeyPress) { |e| ancestor_hits += 1 unless e.accepted? }
-    s._render
+    s.repaint
 
     s.emit Crysterm::Event::KeyPress.new 'j'
 

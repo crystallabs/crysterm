@@ -26,7 +26,7 @@ end
 
 private def new_lineedit(s, content)
   le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 40, height: 1, content: content
-  s._render
+  s.repaint
   le
 end
 

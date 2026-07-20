@@ -30,10 +30,10 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
       options: ["Red", "Green", "Blue", "Cyan"]
     # A child far below the combo gives the box a real scroll extent.
     Widget::Box.new parent: box, top: 20, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     box.scroll_to 4, true
-    s._render
+    s.repaint
 
     lp = cb.lpos.not_nil!
     # The combo is painted 4 rows above its layout position.
@@ -42,7 +42,7 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
 
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s._render
+    s.repaint
 
     # Anchored on the painted combo (row 4), not the layout row (8).
     pop.atop.should eq lp.yi + cb.aheight
@@ -54,10 +54,10 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
     cb = Widget::ComboBox.new parent: s, top: 5, left: 5, width: 16, height: 1,
       options: ["Red", "Green", "Blue", "Cyan"]
     cb.focus
-    s._render
+    s.repaint
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s._render
+    s.repaint
 
     pop.atop.should eq cb.atop + cb.aheight
     cb.lpos.not_nil!.yi.should eq cb.atop # not scrolled: painted == layout
@@ -70,17 +70,17 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
     de = Widget::DateEdit.new parent: box, top: 8, left: 2, width: 12, height: 1,
       date: Time.utc(2026, 7, 4)
     Widget::Box.new parent: box, top: 20, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     box.scroll_to 4, true
-    s._render
+    s.repaint
 
     lp = de.lpos.not_nil!
     lp.yi.should eq de.atop - 4
 
     de.show_popup
     pop = de.@popup.not_nil!
-    s._render
+    s.repaint
 
     # The calendar opens directly below the painted field (it fits below on a
     # 24-row screen), not below the layout row 8.

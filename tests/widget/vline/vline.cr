@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "VLine" do |screen|
-  screen.stylesheet = "VLine { color: #7aa2f7; }"
-  Crysterm::Widget::VLine.new parent: screen, left: "center", top: 2, height: 16
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "VLine" do |window|
+  window.stylesheet = "VLine { color: #7aa2f7; }"
+  VLine.new parent: window, left: "center", top: 2, height: 16
 end

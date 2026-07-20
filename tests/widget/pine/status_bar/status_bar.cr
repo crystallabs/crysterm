@@ -5,9 +5,12 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "StatusBar" do |screen|
-  screen.stylesheet = "StatusBar { border: solid; }"
-  Crysterm::Widget::Pine::StatusBar.new \
-    parent: screen, top: 0, left: 0, width: "100%", height: "100%",
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "StatusBar" do |window|
+  window.stylesheet = "StatusBar { border: solid; }"
+  PineStatusBar.new \
+    parent: window, top: 0, left: 0, width: "100%", height: "100%",
     content: "{center}StatusBar{/center}", parse_tags: true
 end

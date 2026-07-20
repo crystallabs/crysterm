@@ -23,13 +23,13 @@ describe Crysterm::Widget::ListTable do
     rows = [["Name"]] of Array(String)
     (1..20).each { |i| rows << ["Row#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, rows: rows
-    s._render
+    s.repaint
 
     # Scroll far down, then jump back to the first data row (as Home does).
     lt.current_index = 18
-    s._render
+    s.repaint
     lt.current_index = 1
-    s._render
+    s.repaint
 
     lt.current_index.should eq 1
     # child_base must be 0 so item 1 sits at screen row 1 (below the header at

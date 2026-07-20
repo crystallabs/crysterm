@@ -26,7 +26,7 @@ private def popup_menu(s)
   menu = Crysterm::Widget::Menu.new parent: s, width: 12, height: 4
   menu.add_action "Open"
   menu.add_action "Save"
-  s._render
+  s.repaint
   menu
 end
 
@@ -50,7 +50,7 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
     menu = popup_menu s
 
     menu.popup 2, 2
-    s._render
+    s.repaint
     s.popup_grab_active?.should be_true
 
     press_at s, 70, 20 # well outside the menu box
@@ -66,7 +66,7 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
     menu.treat_as_inside { |_x, y| y == 0 } # the top screen row is "inside"
 
     menu.popup 2, 2 # menu box sits at top >= 2, clear of row 0
-    s._render
+    s.repaint
     s.popup_grab_active?.should be_true
 
     press_at s, 5, 0 # in the extra region → still open

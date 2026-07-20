@@ -70,7 +70,7 @@ describe "BUGS4 _focus scrolls a deep descendant into view (fix #2)" do
       width: 18, height: 40
     target = Crysterm::Widget::Box.new parent: inner, keys: true,
       top: 15, left: 0, width: 5, height: 1, content: "x"
-    s._render
+    s.repaint
 
     box.child_base.should eq 0
 

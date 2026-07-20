@@ -7,7 +7,7 @@ module Crysterm
     # media lifecycle — decode/scale, cell-pixel detection, move/resize tracking,
     # erase-on-hide/destroy — for free. It is `#layout_excluded?` (never arranged
     # or rendered by the normal child pass) and instead rendered explicitly from
-    # `_render` *before* the content, so it sits underneath.
+    # `base_render` *before* the content, so it sits underneath.
     #
     # Backend selection reuses `Media.resolve(Content::Background)` (and thus the
     # `image.exclude` config). Two backend families render a background:
@@ -16,7 +16,7 @@ module Crysterm
     #   (negative `z=`). The image is a terminal layer, so cells stay untouched
     #   and a default-background cell lets it show through (binary visibility).
     # * **Cells** (`Media::Glyph`/`Ansi`) — the image is painted *into* the window
-    #   buffer. `_render` skips its empty (no-glyph) content cells so those keep
+    #   buffer. `base_render` skips its empty (no-glyph) content cells so those keep
     #   the image, while text cells draw over it (and `style.opacity` grades them).
     #
     # The host doesn't branch on the backend except to mark a Kitty layer as a
@@ -25,7 +25,7 @@ module Crysterm
 
     # Whether this widget is internal chrome that the layout engines must neither
     # arrange (measure/place) nor render in the normal child pass. The background
-    # layer sets this; it is rendered out-of-band from `_render` instead.
+    # layer sets this; it is rendered out-of-band from `base_render` instead.
     getter? layout_excluded = false
 
     # :ditto: — a runtime `false → true` flip also clears the subtree's

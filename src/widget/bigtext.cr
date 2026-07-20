@@ -117,7 +117,7 @@ module Crysterm
         @_shrink_width_value = nil
       end
 
-      def render
+      def render(with_children = true)
         ensure_graphemes
         if @width.nil? || @_shrink_width
           # Sum per-grapheme glyph widths, not `@ratio.width * codepoints`: the
@@ -130,7 +130,7 @@ module Crysterm
           @height = @ratio.height
           @_shrink_height = true
         end
-        coords = _render
+        coords = base_render with_children
         return unless coords
 
         # A degenerate font ratio (malformed/missing custom font leaves

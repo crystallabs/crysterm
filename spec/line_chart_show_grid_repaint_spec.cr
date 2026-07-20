@@ -26,7 +26,7 @@ describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
     c = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 50, height: 16, show_grid: true
     c.add_line "a", [{0.0, 0.0}, {1.0, 1.0}, {2.0, 0.5}]
-    s._render
+    s.repaint
     # After a render the plot Canvas has painted and cleared its dirty flag.
     c.plot.@paint_dirty.should be_false
 
@@ -41,7 +41,7 @@ describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
     c = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 50, height: 16, show_grid: true
     c.add_line "a", [{0.0, 0.0}, {1.0, 1.0}]
-    s._render
+    s.repaint
     c.plot.@paint_dirty.should be_false
 
     c.show_grid = true # same value

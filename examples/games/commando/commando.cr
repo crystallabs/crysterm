@@ -50,6 +50,7 @@ end
 # from world state (see `draw_scene`).
 class Commando
   include Crysterm
+  include Crysterm::Widgets
 
   # ---- World / view geometry -------------------------------------------------
 
@@ -214,7 +215,7 @@ class Commando
     # Full-motion scene: every field cell can change each frame, so damage
     # tracking is pure overhead — `OptimizationFlag::None` (full re-composite) is
     # faster and correct, exactly as in `quicktro.cr`.
-    @screen = Window.new title: "commando.cr", optimization: OptimizationFlag::None
+    @window = Window.new title: "commando.cr", optimization: OptimizationFlag::None
 
     # The cabinet: one frame holding the two stacked regions this game has — the
     # play field above, the status bar below. `Window` is not a `Widget`, so the
@@ -227,7 +228,7 @@ class Commando
     # horizontally for free; the field then takes no explicit height and flexes
     # into everything the status bar leaves. Qt would write this the same way:
     # a QVBoxLayout with the arena added under Qt::AlignHCenter.
-    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+    frame = Box.new parent: @window, width: "100%", height: "100%",
       layout: Layout::VBox.new(align: Layout::Box::Align::Center)
 
     @field = Field.new \
@@ -241,7 +242,7 @@ class Commando
     # declared; the box supplies the row it lands on. (`width` stays explicit:
     # under `align: Center` the cross axis is *not* stretched, so the bar has to
     # ask for the full width it wants to span.)
-    @status = Widget::StatusBar.new \
+    @status = StatusBar.new \
       parent: frame,
       width: "100%",
       height: 1,
@@ -254,8 +255,8 @@ class Commando
     # — created after `frame`, hence composited over it rather than overpainted.
     #
     # Centered card for the title / pause / game-over / victory screens.
-    @overlay = Widget::Box.new \
-      parent: @screen,
+    @overlay = Box.new \
+      parent: @window,
       top: "center",
       left: "center",
       width: 46,
@@ -267,8 +268,8 @@ class Commando
 
     # A slim top banner shown during the attract-mode demo, so the live
     # gameplay stays visible below it.
-    @banner = Widget::Box.new \
-      parent: @screen,
+    @banner = Box.new \
+      parent: @window,
       top: 1,
       left: "center",
       width: 48,
@@ -279,8 +280,8 @@ class Commando
         border: Border.new(BorderType::Double, fg: "#c8b048"))
     @banner.hide
 
-    @screen.on(Event::KeyPress) { |e| on_key e }
-    @screen.on(Event::Resize) { @screen.render }
+    @window.on(Event::KeyPress) { |e| on_key e }
+    @window.on(Event::Resize) { @window.render }
   end
 
   def run
@@ -289,8 +290,8 @@ class Commando
     # the `render` that `every` runs after this block). Painting writes cells
     # straight to the buffer, so a frame stays well under the interval and the
     # FrameClock sleeps normally — no busy-loop, input stays responsive.
-    @screen.every((1.0 / FPS).seconds) { tick }
-    @screen.exec
+    @window.every((1.0 / FPS).seconds) { tick }
+    @window.exec
   end
 
   # ---- Level design ----------------------------------------------------------
@@ -486,8 +487,7 @@ class Commando
   private def on_key(e)
     case
     when e.char == 'q', e.key == Tput::Key::Escape, e.key == Tput::Key::CtrlQ
-      @screen.destroy
-      exit 0
+      @window.quit
     when @state.title?
       deploy if e.key == Tput::Key::Enter || e.key == Tput::Key::Space || e.char == ' '
     when @state.dead? || @state.won?
@@ -942,7 +942,7 @@ class Commando
   # the clock's frames. Refreshes the status bar, then composites.
   private def render
     render_status
-    @screen.render
+    @window.render
   end
 
   # Map one world tile to {glyph, fg, bg} (colours packed `0xRRGGBB`).

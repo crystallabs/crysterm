@@ -27,6 +27,7 @@ require "../../../src/crysterm"
 #   * A live timer and a remaining-mine counter (mines minus flags).
 class Minesweeper
   include Crysterm
+  include Crysterm::Widgets
 
   # Each cell is drawn this many columns wide and one row tall. Fixed width lets
   # a click's (x, y) be mapped straight back to a (row, col).
@@ -134,13 +135,13 @@ class Minesweeper
   @theme_index = THEMES.index { |t| t.name == "Neon" } || 0
 
   def initialize(@difficulty)
-    @screen = Window.new title: "Minesweeper"
+    @window = Window.new title: "Minesweeper"
 
     # A single Border layout carves the window into this game's three regions:
     # the menu bar on top, the status bar at the bottom, and the play area
     # filling whatever is left in between. Nothing below is placed at a
     # hand-computed coordinate, and no region has to reserve room for another.
-    frame = Widget::Box.new parent: @screen, width: "100%", height: "100%",
+    frame = Box.new parent: @window, width: "100%", height: "100%",
       layout: Layout::Border.new
 
     # The play area: whatever the two bars leave over. The board is the only
@@ -151,13 +152,13 @@ class Minesweeper
     # spare column to the left (mid − half), the box engine floors
     # `(area − board) / 2` and rounds it to the right. Keeping `"center"` keeps
     # the board where it has always been drawn.
-    board_area = Widget::Box.new parent: frame, layout_hint: :center
+    board_area = Box.new parent: frame, layout_hint: :center
 
     # The board declares its size and asks to be centred in the play area; that
     # area's position and extent come from the layout, so the board no longer
     # knows a menu bar or a status bar exists. Its top margin — not a `top:`
     # counted off the menu bar's height — is the row of breathing space above it.
-    @board = Widget::GroupBox.new \
+    @board = GroupBox.new \
       parent: board_area,
       left: "center",
       width: @cols * CELL_W + 2, # +2 for the left/right border
@@ -166,7 +167,7 @@ class Minesweeper
       parse_tags: true,
       style: Style.new(fg: "white", border: true, margin: :top, shadow: true)
 
-    @status = Widget::StatusBar.new \
+    @status = StatusBar.new \
       parent: frame,
       height: 1, # the only size it declares: Border spans it across the window
       parse_tags: true,
@@ -187,13 +188,13 @@ class Minesweeper
       handle_click e
     end
 
-    @screen.on(Event::KeyPress) do |e|
+    @window.on(Event::KeyPress) do |e|
       case
       when e.key == Tput::Key::CtrlQ, e.char == 'q'
         # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
         # every window down before exiting, rather than hard-exiting behind the
         # toolkit's back.
-        (@screen.application || Application.global).quit
+        @window.quit
       when e.char == 'n'
         new_game @difficulty
       when e.char == '1'
@@ -209,7 +210,7 @@ class Minesweeper
 
     # Tick the clock once a second while a game is in progress. `every` owns the
     # fiber, the sleep and the repaint — the body only advances state.
-    @screen.every(1.second) do
+    @window.every(1.second) do
       if @state.playing? && (start = @started_at)
         @elapsed = (Time.instant - start).total_seconds.to_i
         render_status
@@ -221,7 +222,7 @@ class Minesweeper
   # a "Help" menu. Difficulty entries are checkable and act as a radio group
   # (current one ticked), updated in `new_game`.
   private def build_menu_bar(frame : Widget)
-    menubar = Widget::MenuBar.new \
+    menubar = MenuBar.new \
       parent: frame,
       height: 1,
       layout_hint: :top,
@@ -243,7 +244,7 @@ class Minesweeper
       # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
       # every window down before exiting, rather than hard-exiting behind the
       # toolkit's back.
-      (@screen.application || Application.global).quit
+      @window.quit
     end
 
     help = menubar.add_menu "Help"
@@ -258,7 +259,7 @@ class Minesweeper
 
   def run
     new_game @difficulty
-    @screen.exec
+    @window.exec
   end
 
   # ---- Helpers ---------------------------------------------------------------

@@ -2,13 +2,14 @@ require "../../src/crysterm"
 
 class X
   include Crysterm
+  include Crysterm::Widgets
   include EventHandler
 
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
     # parent: l,
-    i = Widget::PlainTextEdit.new \
+    i = PlainTextEdit.new \
       width: "half",
       height: "half",
       top: "center",

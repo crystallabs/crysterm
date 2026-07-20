@@ -195,7 +195,7 @@ module Crysterm
       # `glyphs:` hot-reload rebuilds instead of keeping a stale ramp.
       @content_key : Tuple(Int32, Int32, Int32, Int32, Int32?, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
-      def render
+      def render(with_children = true)
         key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
                glyph_key(style)}
         if key != @content_key

@@ -25,7 +25,7 @@ describe "BUGS15 #29: @plane_buckets pruning" do
     b = Widget::Box.new parent: s, left: 10, top: 0, width: 5, height: 3
     b.style.z_index = 2
 
-    s._render
+    s.repaint
     20.times do |i|
       # A tweened opacity (CSS transition/keyframes) mints a near-unique
       # {z, alpha} key every frame. Without pruning, each frame's stale key
@@ -33,7 +33,7 @@ describe "BUGS15 #29: @plane_buckets pruning" do
       # forever.
       a.style.opacity = 0.1 + i * 0.01
       a.mark_dirty
-      s._render
+      s.repaint
     end
 
     # Only the buckets actually in use this frame (one per live z-index)

@@ -3,6 +3,13 @@ require "./scrollable_text"
 
 module Crysterm
   class Widget
+    # DEPRECATED: use `Widget::TextBrowser` (or any `TextEdit`) with
+    # `#markdown=` / `TextDocument.from_markdown` instead — the `TextDocument`
+    # pipeline covers the same GFM constructs, adds real anchors (positions,
+    # keyboard cycling, mouse activation), navigation history, undo-safe
+    # documents shared between views, and round-trips via `#to_markdown`.
+    # This tag-based widget remains for one deprecation cycle.
+    #
     # A read-only Markdown viewer, modeled after Qt's `QTextBrowser` fed by
     # `QTextDocument#setMarkdown`. GitHub Flavored Markdown is parsed by the
     # `markd` shard and rendered to styled, scrollable terminal text (crysterm
@@ -61,6 +68,7 @@ module Crysterm
       property quote_color : Int32
       property link_color : Int32
 
+      @[Deprecated("Use `Widget::TextBrowser` with `#markdown=` / `TextDocument.from_markdown` instead")]
       def initialize(
         markdown : String = "",
         @heading_color : Int32 = 0x86B5FF,

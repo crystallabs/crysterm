@@ -1,89 +1,89 @@
 require "../../src/crysterm"
 
-module Crysterm
-  s = Window.new
-  include Widgets
+include Crysterm
+include Crysterm::Widgets
 
-  prompt = Prompt.new(
-    style: Style.new(border: true),
-    shrink_to_fit: true,
-    width: "half",
-    top: "center",
-    left: "center",
-    label: " {blue-fg}Prompt{/blue-fg} ",
-    parse_tags: true,
-    keys: true,
-    # vi_keys: true
-  )
+s = Window.new
 
-  question = Question.new(
-    style: Style.new(border: true),
-    shrink_to_fit: true,
-    width: "half",
-    top: "center",
-    left: "center",
-    label: " {blue-fg}Question{/blue-fg} ",
-    parse_tags: true,
-    keys: true,
-    # vi_keys: true
-  )
+prompt = Prompt.new(
+  style: Style.new(border: true),
+  shrink_to_fit: true,
+  width: "half",
+  top: "center",
+  left: "center",
+  label: " {blue-fg}Prompt{/blue-fg} ",
+  parse_tags: true,
+  keys: true,
+  # vi_keys: true
+)
 
-  msg = Message.new(
-    style: Style.new(border: true),
-    shrink_to_fit: true,
-    width: "half",
-    top: "center",
-    left: "center",
-    label: " {blue-fg}Message{/blue-fg} ",
-    parse_tags: true,
-    keys: true,
-    visible: false,
-    # vi_keys: true
-  )
+question = Question.new(
+  style: Style.new(border: true),
+  shrink_to_fit: true,
+  width: "half",
+  top: "center",
+  left: "center",
+  label: " {blue-fg}Question{/blue-fg} ",
+  parse_tags: true,
+  keys: true,
+  # vi_keys: true
+)
 
-  loader = Loading.new(
-    style: Style.new(border: true),
-    shrink_to_fit: true,
-    width: "half",
-    top: "center",
-    left: "center",
-    label: " {blue-fg}Loader{/blue-fg} ",
-    parse_tags: true,
-    keys: true,
-    visible: false,
-    # vi_keys: true
-  )
+msg = Message.new(
+  style: Style.new(border: true),
+  shrink_to_fit: true,
+  width: "half",
+  top: "center",
+  left: "center",
+  label: " {blue-fg}Message{/blue-fg} ",
+  parse_tags: true,
+  keys: true,
+  visible: false,
+  # vi_keys: true
+)
 
-  s.append prompt
-  s.append question
-  s.append msg
-  s.append loader
+loader = Loading.new(
+  style: Style.new(border: true),
+  shrink_to_fit: true,
+  width: "half",
+  top: "center",
+  left: "center",
+  label: " {blue-fg}Loader{/blue-fg} ",
+  parse_tags: true,
+  keys: true,
+  visible: false,
+  # vi_keys: true
+)
 
-  s.on(Event::KeyPress) do |e|
-    # STDERR.puts e.inspect
-    if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
-      e.accept
-      s.destroy
-      exit
-    end
+s.append prompt
+s.append question
+s.append msg
+s.append loader
+
+s.on(Event::KeyPress) do |e|
+  # STDERR.puts e.inspect
+  if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
+    e.accept
+    s.destroy
+    exit
   end
+end
 
-  prompt.read_input("Question?", "") do |_|
-    STDERR.puts :q1
-    question.ask("Question?") do |_|
-      STDERR.puts :q2
-      msg.display("Hello world!", 3.seconds) do          # |err|
-        msg.display("Hello world again!", -1.seconds) do # |err|
-          loader.start("Loading...")
-          spawn do
-            sleep 3.seconds
-            loader.stop
-            s.destroy
-          end
+prompt.read_input("Question?", "") do |_|
+  STDERR.puts :q1
+  question.ask("Question?") do |_|
+    STDERR.puts :q2
+    msg.display("Hello world!", 3.seconds) do          # |err|
+      msg.display("Hello world again!", -1.seconds) do # |err|
+        loader.start("Loading...")
+        spawn do
+          sleep 3.seconds
+          loader.stop
+          s.destroy
         end
       end
     end
   end
-
-  s.exec
 end
+
+s.exec

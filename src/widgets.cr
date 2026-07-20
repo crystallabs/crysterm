@@ -5,185 +5,185 @@ module Crysterm
   #    t = Text.new
   module Widgets
     # Blessed-like
-    Box   = Widget::Box
-    Input = Widget::Input
+    alias Box = Widget::Box
+    alias Input = Widget::Input
 
     # `Media` is the factory (`Media.new` auto-picks a backend). Each concrete
     # backend is also registered for explicit construction.
-    Media                  = Widget::Media
-    MediaAnsi              = Widget::Media::Ansi
-    MediaAnsiTrueColor     = Widget::Media::Ascii::TrueColor
-    MediaAnsiC256          = Widget::Media::Ascii::C256
-    MediaAnsiC16           = Widget::Media::Ascii::C16
-    MediaAnsiC8            = Widget::Media::Ascii::C8
-    MediaGlyph             = Widget::Media::Glyph
-    MediaAsciiTrueColor    = Widget::Media::Ascii::TrueColor
-    MediaAsciiC256         = Widget::Media::Ascii::C256
-    MediaAsciiC16          = Widget::Media::Ascii::C16
-    MediaAsciiC8           = Widget::Media::Ascii::C8
-    MediaAsciiEdge         = Widget::Media::Ascii::Edge
-    MediaAsciiArtTrueColor = Widget::Media::Ascii::Art::TrueColor
-    MediaAsciiArtC256      = Widget::Media::Ascii::Art::C256
-    MediaAsciiArtC16       = Widget::Media::Ascii::Art::C16
-    MediaAsciiArtC8        = Widget::Media::Ascii::Art::C8
-    MediaUnicodeHalf       = Widget::Media::Unicode::Half
-    MediaUnicodeQuadrant   = Widget::Media::Unicode::Quadrant
-    MediaUnicodeSextant    = Widget::Media::Unicode::Sextant
-    MediaUnicodeOctant     = Widget::Media::Unicode::Octant
-    MediaUnicodeBraille    = Widget::Media::Unicode::Braille
-    MediaSixel             = Widget::Media::Sixel
-    MediaKitty             = Widget::Media::Kitty
-    MediaIterm             = Widget::Media::Iterm
-    MediaRegis             = Widget::Media::Regis
-    MediaTek               = Widget::Media::Tek
-    MediaOverlay           = Widget::Media::Overlay
-    MediaUeberzug          = Widget::Media::Ueberzug
-    Video                  = Widget::Video
-    Gradient               = Widget::Gradient
-    ProgressBar            = Widget::ProgressBar
-    Loading                = Widget::Loading
-    Question               = Widget::Question
-    Line                   = Widget::Line
-    HLine                  = Widget::HLine
-    VLine                  = Widget::VLine
-    ListTable              = Widget::ListTable
-    ListBar                = Widget::ListBar
-    List                   = Widget::List
-    Tree                   = Widget::Tree
-    Table                  = Widget::Table
-    Form                   = Widget::Form
-    FileManager            = Widget::FileManager
+    alias Media = Widget::Media
+    alias MediaAnsi = Widget::Media::Ansi
+    alias MediaAnsiTrueColor = Widget::Media::Ascii::TrueColor
+    alias MediaAnsiC256 = Widget::Media::Ascii::C256
+    alias MediaAnsiC16 = Widget::Media::Ascii::C16
+    alias MediaAnsiC8 = Widget::Media::Ascii::C8
+    alias MediaGlyph = Widget::Media::Glyph
+    alias MediaAsciiTrueColor = Widget::Media::Ascii::TrueColor
+    alias MediaAsciiC256 = Widget::Media::Ascii::C256
+    alias MediaAsciiC16 = Widget::Media::Ascii::C16
+    alias MediaAsciiC8 = Widget::Media::Ascii::C8
+    alias MediaAsciiEdge = Widget::Media::Ascii::Edge
+    alias MediaAsciiArtTrueColor = Widget::Media::Ascii::Art::TrueColor
+    alias MediaAsciiArtC256 = Widget::Media::Ascii::Art::C256
+    alias MediaAsciiArtC16 = Widget::Media::Ascii::Art::C16
+    alias MediaAsciiArtC8 = Widget::Media::Ascii::Art::C8
+    alias MediaUnicodeHalf = Widget::Media::Unicode::Half
+    alias MediaUnicodeQuadrant = Widget::Media::Unicode::Quadrant
+    alias MediaUnicodeSextant = Widget::Media::Unicode::Sextant
+    alias MediaUnicodeOctant = Widget::Media::Unicode::Octant
+    alias MediaUnicodeBraille = Widget::Media::Unicode::Braille
+    alias MediaSixel = Widget::Media::Sixel
+    alias MediaKitty = Widget::Media::Kitty
+    alias MediaIterm = Widget::Media::Iterm
+    alias MediaRegis = Widget::Media::Regis
+    alias MediaTek = Widget::Media::Tek
+    alias MediaOverlay = Widget::Media::Overlay
+    alias MediaUeberzug = Widget::Media::Ueberzug
+    alias Video = Widget::Video
+    alias Gradient = Widget::Gradient
+    alias ProgressBar = Widget::ProgressBar
+    alias Loading = Widget::Loading
+    alias Question = Widget::Question
+    alias Line = Widget::Line
+    alias HLine = Widget::HLine
+    alias VLine = Widget::VLine
+    alias ListTable = Widget::ListTable
+    alias ListBar = Widget::ListBar
+    alias List = Widget::List
+    alias Tree = Widget::Tree
+    alias Table = Widget::Table
+    alias Form = Widget::Form
+    alias FileManager = Widget::FileManager
 
-    Label          = Widget::Label
-    Text           = Widget::Text
-    ScrollableBox  = Widget::ScrollableBox
-    ScrollableText = Widget::ScrollableText
-    Marquee        = Widget::Marquee
-    LineEdit       = Widget::LineEdit
-    PlainTextEdit  = Widget::PlainTextEdit
+    alias Label = Widget::Label
+    alias Text = Widget::Text
+    alias ScrollableBox = Widget::ScrollableBox
+    alias ScrollableText = Widget::ScrollableText
+    alias Marquee = Widget::Marquee
+    alias LineEdit = Widget::LineEdit
+    alias PlainTextEdit = Widget::PlainTextEdit
 
-    BigText = Widget::BigText
+    alias BigText = Widget::BigText
 
     # Graphs
-    GraphBar        = Widget::Graph::Bar
-    GraphStackedBar = Widget::Graph::StackedBar
-    GraphCanvas     = Widget::Graph::Canvas
-    GraphLineChart  = Widget::Graph::LineChart
-    GraphMap        = Widget::Graph::Map
-    GraphDonut      = Widget::Graph::Donut
-    GraphPieChart   = Widget::Graph::PieChart
-    GraphHeatMap    = Widget::Graph::HeatMap
-    Painter         = Widget::Graph::Painter
-    Gauge           = Widget::Gauge
-    GaugeList       = Widget::GaugeList
+    alias GraphBar = Widget::Graph::Bar
+    alias GraphStackedBar = Widget::Graph::StackedBar
+    alias GraphCanvas = Widget::Graph::Canvas
+    alias GraphLineChart = Widget::Graph::LineChart
+    alias GraphMap = Widget::Graph::Map
+    alias GraphDonut = Widget::Graph::Donut
+    alias GraphPieChart = Widget::Graph::PieChart
+    alias GraphHeatMap = Widget::Graph::HeatMap
+    alias Painter = Widget::Graph::Painter
+    alias Gauge = Widget::Gauge
+    alias GaugeList = Widget::GaugeList
 
     # A one-row `Graph::Bar` is a sparkline.
-    SparkLine = Widget::Graph::Bar
+    alias SparkLine = Widget::Graph::Bar
 
     # Short names for the categorical pie chart.
-    PieChart = Widget::Graph::PieChart
-    Pie      = Widget::Graph::PieChart
+    alias PieChart = Widget::Graph::PieChart
+    alias Pie = Widget::Graph::PieChart
 
     # Short name for the 2D heatmap.
-    HeatMap = Widget::Graph::HeatMap
+    alias HeatMap = Widget::Graph::HeatMap
 
     # Effects
-    EffectMatrix       = Widget::Effect::Matrix
-    EffectSpray        = Widget::Effect::Spray
-    EffectFire         = Widget::Effect::Fire
-    EffectPlasma       = Widget::Effect::Plasma
-    EffectSineScroller = Widget::Effect::SineScroller
-    EffectCopperBar    = Widget::Effect::CopperBar
+    alias EffectMatrix = Widget::Effect::Matrix
+    alias EffectSpray = Widget::Effect::Spray
+    alias EffectFire = Widget::Effect::Fire
+    alias EffectPlasma = Widget::Effect::Plasma
+    alias EffectSineScroller = Widget::Effect::SineScroller
+    alias EffectCopperBar = Widget::Effect::CopperBar
 
-    RadioSet    = Widget::RadioSet
-    RadioButton = Widget::RadioButton
-    CheckBox    = Widget::CheckBox
+    alias RadioSet = Widget::RadioSet
+    alias RadioButton = Widget::RadioButton
+    alias CheckBox = Widget::CheckBox
 
-    Button     = Widget::Button
-    ToolButton = Widget::ToolButton
-    Prompt     = Widget::Prompt
-    Message    = Widget::Message
-    Log        = Widget::Log
-    Markdown   = Widget::Markdown
+    alias Button = Widget::Button
+    alias ToolButton = Widget::ToolButton
+    alias Prompt = Widget::Prompt
+    alias Message = Widget::Message
+    alias Log = Widget::Log
+    alias Markdown = Widget::Markdown # deprecated — use TextBrowser + `#markdown=`
 
     # Non-visual button manager (logical grouping / exclusivity).
-    ButtonGroup = Crysterm::ButtonGroup
+    alias ButtonGroup = Crysterm::ButtonGroup
 
-    DialogButtonBox = Widget::DialogButtonBox
-    ColorDialog     = Widget::ColorDialog
+    alias DialogButtonBox = Widget::DialogButtonBox
+    alias ColorDialog = Widget::ColorDialog
 
     # Non-visual autocompletion helper attached to a text input.
-    Completer = Crysterm::Completer
+    alias Completer = Crysterm::Completer
 
-    Slider        = Widget::Slider
-    SpinBox       = Widget::SpinBox
-    DoubleSpinBox = Widget::DoubleSpinBox
-    TabWidget     = Widget::TabWidget
+    alias Slider = Widget::Slider
+    alias SpinBox = Widget::SpinBox
+    alias DoubleSpinBox = Widget::DoubleSpinBox
+    alias TabWidget = Widget::TabWidget
     # A `TabWidget` with `auto_advance:` set is a carousel.
-    Carousel      = Widget::TabWidget
-    ComboBox      = Widget::ComboBox
-    GroupBox      = Widget::GroupBox
-    Splitter      = Widget::Splitter
-    StackedWidget = Widget::StackedWidget
-    ToolBox       = Widget::ToolBox
-    Wizard        = Widget::Wizard
-    ScrollBar     = Widget::ScrollBar
-    Dial          = Widget::Dial
+    alias Carousel = Widget::TabWidget
+    alias ComboBox = Widget::ComboBox
+    alias GroupBox = Widget::GroupBox
+    alias Splitter = Widget::Splitter
+    alias StackedWidget = Widget::StackedWidget
+    alias ToolBox = Widget::ToolBox
+    alias Wizard = Widget::Wizard
+    alias ScrollBar = Widget::ScrollBar
+    alias Dial = Widget::Dial
 
-    Calendar     = Widget::Calendar
-    DateEdit     = Widget::DateEdit
-    TimeEdit     = Widget::TimeEdit
-    DateTimeEdit = Widget::DateTimeEdit
+    alias Calendar = Widget::Calendar
+    alias DateEdit = Widget::DateEdit
+    alias TimeEdit = Widget::TimeEdit
+    alias DateTimeEdit = Widget::DateTimeEdit
 
-    ToolTip      = Widget::ToolTip
-    StatusBar    = Widget::StatusBar
-    MainWindow   = Widget::MainWindow
-    DockWidget   = Widget::DockWidget
-    ToolBar      = Widget::ToolBar
-    SizeGrip     = Widget::SizeGrip
-    LCDNumber    = Widget::LCDNumber
-    SplashScreen = Widget::SplashScreen
+    alias ToolTip = Widget::ToolTip
+    alias StatusBar = Widget::StatusBar
+    alias MainWindow = Widget::MainWindow
+    alias DockWidget = Widget::DockWidget
+    alias ToolBar = Widget::ToolBar
+    alias SizeGrip = Widget::SizeGrip
+    alias LCDNumber = Widget::LCDNumber
+    alias SplashScreen = Widget::SplashScreen
 
-    Terminal = Widget::Terminal
+    alias Terminal = Widget::Terminal
 
     # Debug overlay showing render/draw/FPS rates and terminal byte throughput.
-    Fps = Widget::Fps
+    alias Fps = Widget::Fps
 
     # Qt-like
-    Action  = Crysterm::Action
-    Menu    = Widget::Menu
-    MenuBar = Widget::MenuBar
+    alias Action = Crysterm::Action
+    alias Menu = Widget::Menu
+    alias MenuBar = Widget::MenuBar
 
     # Layout engines (not widgets; install on a container via `widget.layout = ...`)
-    ManualLayout      = Crysterm::Layout::Manual
-    GridLayout        = Crysterm::Layout::Grid
-    UniformGridLayout = Crysterm::Layout::UniformGrid
-    MasonryLayout     = Crysterm::Layout::Masonry
-    WrapLayout        = Crysterm::Layout::Wrap
-    BoxLayout         = Crysterm::Layout::Box
-    HBoxLayout        = Crysterm::Layout::HBox
-    VBoxLayout        = Crysterm::Layout::VBox
-    BorderLayout      = Crysterm::Layout::Border
-    StackLayout       = Crysterm::Layout::Stack
-    StackedLayout     = Crysterm::Layout::Stack
-    FormLayout        = Crysterm::Layout::Form
+    alias ManualLayout = Crysterm::Layout::Manual
+    alias GridLayout = Crysterm::Layout::Grid
+    alias UniformGridLayout = Crysterm::Layout::UniformGrid
+    alias MasonryLayout = Crysterm::Layout::Masonry
+    alias WrapLayout = Crysterm::Layout::Wrap
+    alias BoxLayout = Crysterm::Layout::Box
+    alias HBoxLayout = Crysterm::Layout::HBox
+    alias VBoxLayout = Crysterm::Layout::VBox
+    alias BorderLayout = Crysterm::Layout::Border
+    alias StackLayout = Crysterm::Layout::Stack
+    alias StackedLayout = Crysterm::Layout::Stack
+    alias FormLayout = Crysterm::Layout::Form
 
     # Pine-like
-    PineHeaderBar    = Widget::Pine::HeaderBar
-    PineStatusBar    = Widget::Pine::StatusBar
-    PineKeyMenu      = Widget::Pine::KeyMenu
-    PineMainMenu     = Widget::Pine::MainMenu
-    PineMessageIndex = Widget::Pine::MessageIndex
-    PineMessageView  = Widget::Pine::MessageView
-    PineCompose      = Widget::Pine::Compose
-    PineSetup        = Widget::Pine::Setup
-    PineFolderList   = Widget::Pine::FolderList
-    PineAddressBook  = Widget::Pine::AddressBook
-    PineKeyPrompt    = Widget::Pine::KeyPrompt
-    PineListSelect   = Widget::Pine::ListSelect
-    PineOptionList   = Widget::Pine::OptionList
-    PineFileBrowser  = Widget::Pine::FileBrowser
-    PineTextView     = Widget::Pine::TextView
-    PineProgressBar  = Widget::Pine::ProgressBar
+    alias PineHeaderBar = Widget::Pine::HeaderBar
+    alias PineStatusBar = Widget::Pine::StatusBar
+    alias PineKeyMenu = Widget::Pine::KeyMenu
+    alias PineMainMenu = Widget::Pine::MainMenu
+    alias PineMessageIndex = Widget::Pine::MessageIndex
+    alias PineMessageView = Widget::Pine::MessageView
+    alias PineCompose = Widget::Pine::Compose
+    alias PineSetup = Widget::Pine::Setup
+    alias PineFolderList = Widget::Pine::FolderList
+    alias PineAddressBook = Widget::Pine::AddressBook
+    alias PineKeyPrompt = Widget::Pine::KeyPrompt
+    alias PineListSelect = Widget::Pine::ListSelect
+    alias PineOptionList = Widget::Pine::OptionList
+    alias PineFileBrowser = Widget::Pine::FileBrowser
+    alias PineTextView = Widget::Pine::TextView
+    alias PineProgressBar = Widget::Pine::ProgressBar
   end
 end

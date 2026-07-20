@@ -155,7 +155,7 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| st
      "  vs  NEW #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| sgr.match(styled, i, options: Regex::MatchOptions::ANCHORED) if ch == '\e' } }.round(2)} MB  (#{ROUNDS} scans)"
 
 # ---------------------------------------------------------------------------
-# #10  StringIndex reuse — `_render` builds a codepoint index over @_pcontent
+# #10  StringIndex reuse — `repaint` builds a codepoint index over @_pcontent
 #      once per widget every frame. OLD rebuilt it each frame; for non-ASCII
 #      that re-materializes a `chars` array (per-frame garbage), and even ASCII
 #      re-runs the O(n) `ascii_only?` scan. NEW reuses a cached index while
@@ -207,10 +207,10 @@ Benchmark.ips do |x|
       p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v
     end
   end
-  x.report("NEW  Widget.resolve_percentage") { exprs.each { |e| Widget.resolve_percentage(e, 80) } }
+  x.report("NEW  Dim.parse.resolve") { exprs.each { |e| Dim.parse(e).resolve(80) } }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { exprs.each { |e| p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v } }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Widget.resolve_percentage(e, 80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
+     "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Dim.parse(e).resolve(80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
 
 # ---------------------------------------------------------------------------
 # #docking  per-frame dock-stop iteration (only when dock_borders is on).

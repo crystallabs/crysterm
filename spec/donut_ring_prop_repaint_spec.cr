@@ -25,7 +25,7 @@ describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
     s = drp_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, thickness: 0.45
-    s._render
+    s.repaint
     # After a render the Canvas has painted and cleared its dirty flag.
     d.canvas.@paint_dirty.should be_false
 
@@ -39,7 +39,7 @@ describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
     s = drp_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, fill_color: 0x40E0D0
-    s._render
+    s.repaint
     d.canvas.@paint_dirty.should be_false
 
     d.fill_color = 0xE05050
@@ -51,7 +51,7 @@ describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
     s = drp_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, thickness: 0.45
-    s._render
+    s.repaint
     d.canvas.@paint_dirty.should be_false
 
     d.thickness = 0.45 # same value

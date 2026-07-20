@@ -30,7 +30,7 @@ describe "multi-line content over a cells background" do
       s = headless_screen
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
       box.style.background_image = bg_image_path
-      s._render
+      s.repaint
 
       box.background_paints_cells?.should be_true
 
@@ -53,7 +53,7 @@ describe "multi-line content over a cells background" do
       s = headless_screen
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
       box.style.background_image = bg_image_path
-      s._render
+      s.repaint
 
       # Cells after "ab" on row 0 keep the painted image rather than being
       # cleared to the widget fill.
@@ -64,7 +64,7 @@ describe "multi-line content over a cells background" do
   it "leaves multi-line rendering without a cells background unchanged" do
     s = headless_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
-    s._render
+    s.repaint
 
     box.background_paints_cells?.should be_false
     s.lines[0][0].char.should eq 'a'

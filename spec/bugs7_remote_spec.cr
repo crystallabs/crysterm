@@ -23,7 +23,7 @@ require "./spec_helper"
       s = rem_window
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
       box.add_css_class "tab"
-      s._render
+      s.repaint
 
       # `:not(.x)` is a real pseudo-class the selector engine matches statically,
       # and it carries a colon — so the class token must be split off the right.
@@ -37,7 +37,7 @@ require "./spec_helper"
       s = rem_window
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
       box.add_css_class "tab"
-      s._render
+      s.repaint
 
       Crysterm::DOM::Actions.run("add-class:.tab:active", box.as(Widget), s)
       box.css_classes.includes?("active").should be_true

@@ -34,6 +34,14 @@ module Crysterm
         handle Crysterm::Event::Click
       end
 
+      # Positional text convenience — Qt's `QPushButton(text)`. Routed via
+      # `content:` (see `AbstractButton#text`), so `.text`/`.content` both read
+      # it back; an explicit `content:` in *opts* wins over the positional
+      # *text*.
+      def initialize(text : String, **opts)
+        initialize(**{content: text}.merge(opts))
+      end
+
       # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
       # selector matches/unmatches; marks/unmarks this as the dialog's *default*
       # button (`[default]`).

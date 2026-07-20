@@ -78,7 +78,7 @@ module Crysterm
 
         to_front
         show
-        s.schedule_render
+        s.update
       end
     end
   end

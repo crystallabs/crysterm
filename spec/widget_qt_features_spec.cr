@@ -222,7 +222,7 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
-    s._render
+    s.repaint
     ta.show_scrollbar?.should be_true
     sb = ta.scrollbar_widget.should_not be_nil
     sb.maximum.should be > 0
@@ -236,7 +236,7 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0 # caret at the top
-    s._render
+    s.repaint
     sb = ta.scrollbar_widget.not_nil!
 
     sb.value = 3              # a small drag the old model lost into @child_offset
@@ -252,7 +252,7 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0
-    s._render
+    s.repaint
     sb = ta.scrollbar_widget.not_nil!
 
     # Walk the caret down past the bottom visible row; the view follows.
@@ -266,13 +266,13 @@ describe Crysterm::Widget::PlainTextEdit do
     s = qt_mem_screen
     short = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 4,
       content: "hi"
-    s._render
+    s.repaint
     short.overflows_y?.should be_false    # `@shrink_to_fit` no longer forces this
     short.show_scrollbar?.should be_false # …so no vertical bar for a fitting field
 
     tall = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 20, width: 12, height: 4,
       content: (1..10).map { |i| "L#{i}" }.join("\n")
-    s._render
+    s.repaint
     tall.show_scrollbar?.should be_true
   end
 
@@ -280,13 +280,13 @@ describe Crysterm::Widget::PlainTextEdit do
     s = qt_mem_screen
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 6,
       content: "hi"
-    s._render
+    s.repaint
     ta.value = (1..20).map { |i| "line#{i}" }.join("\n") # overflow → bar appears
-    s._render
+    s.repaint
     ta.show_scrollbar?.should be_true
 
     ta.value = "hi" # shrink back: the hidden bar child must not keep scroll
-    s._render       # height inflated and re-trigger AsNeeded
+    s.repaint       # height inflated and re-trigger AsNeeded
     ta.scroll_height.should eq 1
     ta.show_scrollbar?.should be_false
   end
@@ -297,7 +297,7 @@ describe Crysterm::Widget::PlainTextEdit do
     # margin, so the overflow decision depends only on viewport height.
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 12,
       content: (1..8).map { |i| "line #{i}" }.join("\n")
-    s._render
+    s.repaint
     # Tall enough to fit: no vertical bar, wrap reserved exactly `content_margin_x`.
     ta.show_scrollbar?.should be_false
     ta._clines.margin.should eq ta.content_margin_x
@@ -305,7 +305,7 @@ describe Crysterm::Widget::PlainTextEdit do
     # Shrink height only; width/content/horizontal scroll unchanged — only
     # whether the AsNeeded bar is now needed (`content_margin_x`) changes.
     ta.height = 4
-    s._render
+    s.repaint
 
     ta.show_scrollbar?.should be_true
     # Regression: wrapped lines must re-wrap to reserve the now-shown bar's
@@ -319,7 +319,7 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
-    s._render
+    s.repaint
     ta.overflows_x?.should be_true
     ta.show_horizontal_scrollbar?.should be_true
     ta.child_base_x.should be > 0 # caret created at the line end → view followed it
@@ -334,7 +334,7 @@ describe Crysterm::Widget::PlainTextEdit do
     long = "X" * 40
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false, content: (1..20).map { |i| "#{long} L#{i}" }.join("\n")
-    s._render
+    s.repaint
     # Both overflows: horizontal bar reserves the bottom interior row, and
     # there are more lines than fit.
     ta.show_horizontal_scrollbar?.should be_true
@@ -356,7 +356,7 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false, content: (1..30).map { line }.join("\n")
     ta.focus
-    s._render
+    s.repaint
 
     ta.show_horizontal_scrollbar?.should be_true
     ta.hscrollbar_rows.should eq 1
@@ -379,7 +379,7 @@ describe Crysterm::Widget::PlainTextEdit do
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
     ta._listener keypress(' ', Tput::Key::Home)
-    s._render
+    s.repaint
     ta.child_base_x.should eq 0
 
     hb = ta.horizontal_scrollbar_widget.not_nil!
@@ -417,18 +417,18 @@ describe Crysterm::Widget::List do
       items: ["a", "b", "c"]
     list.current_index = 0
     list.add_to_selection 2
-    list.item_selected?(list.items[0]).should be_true # cursor
-    list.item_selected?(list.items[1]).should be_false
-    list.item_selected?(list.items[2]).should be_true # multi-selected
+    list.item_selected?(list.item_boxes[0]).should be_true # cursor
+    list.item_selected?(list.item_boxes[1]).should be_false
+    list.item_selected?(list.item_boxes[2]).should be_true # multi-selected
   end
 
   it "keeps selected indices aligned when an earlier row is removed" do
     s = qt_mem_screen
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "c", "d"]
-    list.add_to_selection 2        # "c"
-    list.add_to_selection 3        # "d"
-    list.remove_item list.items[0] # remove "a"; c,d shift to 1,2
+    list.add_to_selection 2             # "c"
+    list.add_to_selection 3             # "d"
+    list.remove_item list.item_boxes[0] # remove "a"; c,d shift to 1,2
     list.selected_indices.to_a.sort.should eq [1, 2]
     list.selected_values.should eq ["c", "d"]
   end
@@ -689,8 +689,8 @@ describe Crysterm::Widget::ListBar do
     # Moving right from item 0 must land on item 2, stepping over the
     # separator at index 1.
     bar.move_selection 1
-    bar.items[2].state.selected?.should be_true
-    bar.items[1].state.selected?.should be_false
+    bar.item_boxes[2].state.selected?.should be_true
+    bar.item_boxes[1].state.selected?.should be_false
   end
 end
 
@@ -1213,10 +1213,10 @@ describe Crysterm::Widget::Tree do
     tree.nodes.map(&.text).should eq ["a", "b"]
   end
 
-  it "runs a single deferred rebuild for the update block form" do
+  it "runs a single deferred rebuild for the batch_update block form" do
     s = qt_mem_screen
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
-    tree.update do
+    tree.batch_update do
       root = tree.add "root"
       root.add "child"
       root.expanded = true
@@ -1430,7 +1430,7 @@ describe Crysterm::Widget::ScrollBar do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
-    s._render # establish geometry + wrapped content lines
+    s.repaint # establish geometry + wrapped content lines
 
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 21, width: 1, height: 5
     sb.attach box
@@ -1497,7 +1497,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     box.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
-    s._render
+    s.repaint
     box.show_scrollbar?.should be_true
     sb = box.scrollbar_widget.should_not be_nil
     sb.visible?.should be_true
@@ -1508,7 +1508,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
       content: "a\nb\nc"
-    s._render
+    s.repaint
     box.show_scrollbar?.should be_false
     box.scrollbar_widget.try(&.visible?).should_not eq true
   end
@@ -1517,7 +1517,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
       content: "a\nb\nc", scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOn
-    s._render
+    s.repaint
     box.show_scrollbar?.should be_true
     box.scrollbar_widget.not_nil!.visible?.should be_true
   end
@@ -1527,7 +1527,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n"),
       scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOff
-    s._render
+    s.repaint
     box.show_scrollbar?.should be_false
     box.scrollbar_widget.try(&.visible?).should_not eq true
   end
@@ -1546,7 +1546,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5,
       items: (1..20).map { |i| "item#{i}" }
     list.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
-    s._render
+    s.repaint
     list.show_scrollbar?.should be_true
     sb = list.scrollbar_widget.not_nil!
     sb.maximum.should be > 0    # range derived from item count
@@ -1559,7 +1559,7 @@ describe "Event::Scroll payload (delta / orientation)" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
-    s._render
+    s.repaint
 
     events = [] of {Int32, Tput::Orientation}
     box.on(Crysterm::Event::Scroll) { |e| events << {e.delta, e.orientation} }
@@ -1612,7 +1612,7 @@ describe "QAbstractScrollArea facade" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
-    s._render
+    s.repaint
     box.child_base.should eq 0
     box.ensure_visible(15).should be_true # line 15 below the viewport
     box.child_base.should be > 0
@@ -1625,7 +1625,7 @@ describe "QAbstractScrollArea facade" do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
-    s._render
+    s.repaint
     bar = box.vertical_scrollbar
     box.scroll_contents_by(0, 4)
     box.scroll_position.should be > 0
@@ -1637,7 +1637,7 @@ describe "QAbstractScrollArea facade" do
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     child = Crysterm::Widget::Box.new parent: box, top: 20, left: 0, width: 5, height: 1, content: "x"
-    s._render
+    s.repaint
     box.ensure_widget_visible(child).should be_true
     (box.child_base <= child.rtop).should be_true
   end
@@ -1796,7 +1796,7 @@ describe Crysterm::Widget::Calendar do
     s = qt_mem_screen
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 5, 15)
-    s._render
+    s.repaint
 
     mx = cal.aleft + cal.ileft + 4 # a column inside the month field
     navy = cal.atop + cal.itop     # the navigation-bar row
@@ -1805,7 +1805,7 @@ describe Crysterm::Widget::Calendar do
     s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, mx, navy)
     cal.month_menu.should_not be_nil
     cal.month_menu.not_nil!.actions.size.should eq 12 # all twelve months
-    s._render
+    s.repaint
 
     # Regression: a wheel over the month must still page it — the modal grab
     # previously swallowed it, leaving the wheel "stuck" until an arrow was clicked.
@@ -1820,7 +1820,7 @@ describe Crysterm::Widget::Calendar do
     s = qt_mem_screen
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 5, 15)
-    s._render
+    s.repaint
 
     # The year sits at content column 2 + MONTH_FIELD_WIDTH + 1 == 12.
     yx = cal.aleft + cal.ileft + 13
@@ -1834,7 +1834,7 @@ describe Crysterm::Widget::Calendar do
     menu.actions.first.text.should eq "1924"
     menu.actions.last.text.should eq "2124"
     menu.current_index.should eq 100
-    s._render
+    s.repaint
 
     before = cal.year_shown
     s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelDown, Tput::Mouse::Button::None, yx, navy)
@@ -2010,7 +2010,7 @@ describe Crysterm::Widget::DockWidget do
       area: Crysterm::Widget::DockWidget::Area::Floating
     dock.top = 1; dock.left = 1; dock.width = 20; dock.height = 6
     dock.widget = Crysterm::Widget::Box.new content: "x"
-    s._render
+    s.repaint
 
     bar_bg = dock.titlebar.style.bg
     bar_bg.should eq 0x334455
@@ -2034,7 +2034,7 @@ describe Crysterm::Widget::MainWindow do
     win.central_widget = central
     win.add_dock Crysterm::Widget::DockWidget::Area::Left,
       Crysterm::Widget::DockWidget.new(title: "L", dock_size: 20)
-    s._render
+    s.repaint
 
     menu.atop.should eq win.atop                     # full-width strip at the top
     status.atop.should eq win.atop + win.aheight - 1 # full-width strip at the bottom
@@ -2049,7 +2049,7 @@ describe Crysterm::Widget::MainWindow do
     central = Crysterm::Widget::Box.new content: "central"
     win.add_tool_bar tool
     win.central_widget = central
-    s._render
+    s.repaint
 
     # With no menu bar, the tool bar must occupy row 0, and the central widget
     # sits below it rather than overlapping it.
@@ -2065,7 +2065,7 @@ describe Crysterm::Widget::MainWindow do
     t2 = win.add_tool_bar Crysterm::Widget::ToolBar.new
     central = Crysterm::Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
 
     t1.atop.should eq win.atop + 1 # below the menu bar
     t2.atop.should eq win.atop + 2 # below the first tool bar
@@ -2073,7 +2073,7 @@ describe Crysterm::Widget::MainWindow do
     win.tool_bars.should eq [t1, t2]
 
     win.remove_tool_bar t1
-    s._render
+    s.repaint
     win.tool_bars.should eq [t2]
     t2.atop.should eq win.atop + 1 # took the freed row
     central.atop.should eq win.atop + 2
@@ -2104,7 +2104,7 @@ describe Crysterm::Widget::MainWindow do
 
     central = Crysterm::Widget::Box.new content: "central"
     win.central_widget = central
-    s._render
+    s.repaint
     dock.aleft.should eq win.aleft + win.awidth - 12
 
     win.remove_dock dock
@@ -2158,10 +2158,10 @@ describe Crysterm::Widget::MenuBar do
     fm = bar.add_menu "File"
     fm.add_action("New") { }
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
-    s._render
+    s.repaint
 
     bar.item_texts.should eq ["File", "Edit"] # no "1:" prefix
-    sel = -> { bar.items.map(&.state.selected?) }
+    sel = -> { bar.item_boxes.map(&.state.selected?) }
     sel.call.should eq [false, false] # nothing marked at startup
 
     bar.open 0
@@ -2213,12 +2213,12 @@ describe Crysterm::Widget::MenuBar do
     fm.add_action("New") { }
     fm.add_submenu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2")]
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
-    s._render
+    s.repaint
 
     # Activate a top-level entry: its title highlights and the menu opens.
     bar.open 0
     bar.open_index.should eq 0
-    bar.items[0].state.selected?.should be_true
+    bar.item_boxes[0].state.selected?.should be_true
     fm.visible?.should be_true
 
     # Diving into the entry's own submenu keeps the bar active — must not be
@@ -2238,7 +2238,7 @@ describe Crysterm::Widget::MenuBar do
     other.focus
     bar.open_index.should be_nil
     fm.visible?.should be_false
-    bar.items.map(&.state.selected?).should eq [false, false]
+    bar.item_boxes.map(&.state.selected?).should eq [false, false]
   end
 end
 
@@ -2269,7 +2269,7 @@ describe Crysterm::Widget::SizeGrip do
       style: Style.new(border: true)
     grip = Crysterm::Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1,
       min_drag_width: 3, min_drag_height: 3
-    s._render
+    s.repaint
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, grip.aleft, grip.atop, source: :test))
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 30, 12, source: :test))
     # `right: 0`/`bottom: 0` is the documented inner-corner placement, so the grip
@@ -2292,7 +2292,7 @@ describe Crysterm::Widget::ToolBar do
     bold.checkable = true
     item = tb.add_action bold
     tb.add_separator
-    s._render
+    s.repaint
 
     tb.item_texts[0].should eq "New" # no "1:" prefix
     tb.commands[0].callback.try &.call
@@ -2314,7 +2314,7 @@ describe Crysterm::Widget::SplashScreen do
       content: Crysterm::Widget::Box.new(content: "Loading")
     sp.content_widget.should_not be_nil
     sp.show_message "Init"
-    s._render
+    s.repaint
     sp.aleft.should eq (s.awidth - 30) // 2
     sp.atop.should eq (s.aheight - 8) // 2
 
@@ -2328,7 +2328,7 @@ describe Crysterm::Widget::SplashScreen do
   it "respects an explicit position" do
     s = qt_mem_screen
     sp = Crysterm::Widget::SplashScreen.new parent: s, top: 1, left: 2, width: 20, height: 6
-    s._render
+    s.repaint
     sp.aleft.should eq 2
     sp.atop.should eq 1
   end
@@ -2348,7 +2348,7 @@ describe "MenuBar rendering (regression)" do
     bar.open 0
     fm.visible?.should be_true
     fm.items.size.should eq 2
-    fm.items.all?(&.visible?).should be_true
+    fm.item_boxes.all?(&.visible?).should be_true
   end
 end
 
@@ -2365,12 +2365,12 @@ describe "Input grab (modal pop-ups)" do
     win.central_widget = box
     over = 0
     box.on(Crysterm::Event::MouseEnter) { over += 1 }
-    s._render
+    s.repaint
 
     move = ->(x : Int32, y : Int32) do
       s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y, source: :test))
     end
-    bar_x = ->(i : Int32) { menubar.items[i].aleft + 1 }
+    bar_x = ->(i : Int32) { menubar.item_boxes[i].aleft + 1 }
 
     # Far from the (top-left) menu, well inside the central box.
     move.call 60, 12
@@ -2405,7 +2405,7 @@ describe "Horizontal scroll API" do
   it "reports content width and clamps scroll_by_x into range" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.scroll_width.should eq 20
     box.scroll_position_x.should eq 0
 
@@ -2420,7 +2420,7 @@ describe "Horizontal scroll API" do
   it "scroll_to_x seeks to an absolute column" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.scroll_to_x 6
     box.child_base_x.should eq 6
     box.scroll_to_x 0
@@ -2430,7 +2430,7 @@ describe "Horizontal scroll API" do
   it "emits Scroll with a horizontal orientation and column delta" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     events = [] of {Int32, Tput::Orientation}
     box.on(Crysterm::Event::Scroll) { |e| events << {e.delta, e.orientation} }
     box.scroll_by_x 4
@@ -2444,7 +2444,7 @@ describe "Horizontal scroll API" do
   it "shows the horizontal bar only on horizontal overflow (AsNeeded)" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.show_horizontal_scrollbar?.should be_true
     box.horizontal_scrollbar_widget.not_nil!.visible?.should be_true
 
@@ -2453,14 +2453,14 @@ describe "Horizontal scroll API" do
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "short"
-    s._render
+    s.repaint
     fit.show_horizontal_scrollbar?.should be_false
   end
 
   it "scrolls horizontally with Left/Right keys" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.on_keypress keypress(' ', Tput::Key::Right)
     box.child_base_x.should eq 1
     box.on_keypress keypress(' ', Tput::Key::Right)
@@ -2472,7 +2472,7 @@ describe "Horizontal scroll API" do
   it "pages horizontally with Ctrl-Left/Ctrl-Right (one content width)" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.content_width.should eq 10
     box.on_keypress keypress(' ', Tput::Key::CtrlRight)
     box.child_base_x.should eq 10 # advanced a full page, clamped to max (20 - 10)
@@ -2483,7 +2483,7 @@ describe "Horizontal scroll API" do
   it "jumps to the first/last column with Shift-Home/Shift-End" do
     s = qt_mem_screen
     box = hbox(s)
-    s._render
+    s.repaint
     box.on_keypress keypress(' ', Tput::Key::ShiftEnd)
     box.child_base_x.should eq 10 # last column window: width(20) - viewport(10)
     box.on_keypress keypress(' ', Tput::Key::ShiftHome)
@@ -2496,7 +2496,7 @@ describe "Horizontal scroll API" do
       wrap_content: false, vi_keys: true,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST"
-    s._render
+    s.repaint
     box.on_keypress keypress('$')
     box.child_base_x.should eq 10
     box.on_keypress keypress('0')
@@ -2508,7 +2508,7 @@ describe "Horizontal scroll API" do
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false,
       content: "ABCDEFGHIJKLMNOPQRST\nline2\nline3\nline4\nline5\nline6\nline7\nline8"
-    s._render
+    s.repaint
     box.scroll_contents_by 5, 2
     box.child_base_x.should eq 5    # horizontal axis moved
     box.scroll_position.should eq 2 # vertical axis moved (combined position)
@@ -2527,7 +2527,7 @@ describe "ProgressBar vertical mouse mapping" do
     s = qt_mem_screen
     pb = Crysterm::Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 3, height: 6,
       orientation: Tput::Orientation::Vertical, mouse: true, minimum: 0, maximum: 100
-    s._render
+    s.repaint
     # Top of the bar => full; bottom => empty (the bar fills bottom-up).
     pb.emit Crysterm::Event::Mouse, mouse_down(pb.aleft, pb.atop).mouse
     pb.percent.should eq 100
@@ -2542,9 +2542,9 @@ describe "Form radio buttons" do
     form = Crysterm::Widget::Form.new parent: s, width: 20, height: 10
     Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "A", checked: true
     Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "B"
-    form.submit["choice"].should eq "true\nfalse"
+    form.submit.values_for("choice").should eq [true, false]
     form.reset
-    form.submit["choice"].should eq "false\nfalse"
+    form.submit.values_for("choice").should eq [false, false]
   end
 end
 

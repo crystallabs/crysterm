@@ -50,7 +50,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
     w.clickable = true
     wheeled = 0
     w.on(Crysterm::Event::Mouse) { |e| wheeled += 1 if e.action.wheel_up? || e.action.wheel_down? }
-    s._render
+    s.repaint
 
     # Enabled: the wheel reaches the widget.
     bm_wheel s, 3, 1
@@ -72,7 +72,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
     child.state = Crysterm::WidgetState::Disabled
     scrolled = 0
     child.on(Event::Scroll) { scrolled += 1 }
-    s._render
+    s.repaint
 
     bm_wheel s, 2, 1, up: false
     scrolled.should eq(0) # the disabled widget did not scroll itself
@@ -92,7 +92,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
     child.state = Crysterm::WidgetState::Disabled
     panel_scrolled = 0
     panel.on(Event::Scroll) { panel_scrolled += 1 }
-    s._render
+    s.repaint
 
     bm_wheel s, 2, 1, up: false
     wheeled.should eq(0)        # the disabled child never saw the wheel

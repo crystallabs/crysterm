@@ -101,7 +101,7 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
         .anim { animation: pulse 60s infinite; }
         @keyframes pulse { from { opacity: 0.1; } to { opacity: 0.9; } }
         CSS
-      screen._render
+      screen.repaint
       clock1 = box.anim_clock
       clock1.should_not be_nil
       box.anim_stops.not_nil!.last[1]["opacity"].should eq "0.9"
@@ -111,7 +111,7 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
         .anim { animation: pulse 60s infinite; }
         @keyframes pulse { from { opacity: 0.2; } to { opacity: 0.4; } }
         CSS
-      screen._render
+      screen.repaint
       clock2 = box.anim_clock
       clock2.should_not be_nil
       clock2.not_nil!.same?(clock1.not_nil!).should be_false # restarted
@@ -130,10 +130,10 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
         .anim { animation: pulse 60s infinite; }
         @keyframes pulse { from { opacity: 0.1; } to { opacity: 0.9; } }
         CSS
-      screen._render
+      screen.repaint
       clock1 = box.anim_clock
       clock1.should_not be_nil
-      screen._render
+      screen.repaint
       box.anim_clock.not_nil!.same?(clock1.not_nil!).should be_true
     ensure
       box.try &.stop_anim
@@ -149,14 +149,14 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
         .anim { animation: pulse 60s infinite; }
         @keyframes pulse { from { opacity: 0.1; } to { opacity: 0.9; } }
         CSS
-      screen._render
+      screen.repaint
       box.anim_clock.should_not be_nil
 
       screen.stylesheet = ".anim { animation: pulse 60s infinite; }" # keyframes gone
-      screen._render
+      screen.repaint
       box.anim_clock.should be_nil
       # And the failed lookup is not re-attempted every render (memo settled).
-      screen._render
+      screen.repaint
       box.anim_clock.should be_nil
     ensure
       box.try &.stop_anim

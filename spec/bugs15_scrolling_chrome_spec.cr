@@ -30,7 +30,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
     c1 = Widget::Box.new parent: box
     c2 = Widget::Box.new parent: box
 
-    s._render
+    s.repaint
 
     box.itop.should eq 1 # border reserves one row
     lbl.layout_chrome?.should be_true
@@ -62,7 +62,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
     c1 = Widget::Box.new parent: box
     c2 = Widget::Box.new parent: box
 
-    s._render
+    s.repaint
 
     sb = box.scrollbar_widget.not_nil!
     sb.layout_chrome?.should be_true
@@ -130,7 +130,7 @@ describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
     box.horizontal_scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
 
-    s._render
+    s.repaint
 
     vb = box.scrollbar_widget.not_nil!
     hb = box.horizontal_scrollbar_widget.not_nil!
@@ -148,7 +148,7 @@ describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
     # horizontal stays AlwaysOff (default)
 
-    s._render
+    s.repaint
 
     vb = box.scrollbar_widget.not_nil!
     vb.height.should eq "100%" # no horizontal bar → no corner reservation

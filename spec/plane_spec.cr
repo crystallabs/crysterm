@@ -30,7 +30,7 @@ private def paint(plane, x0, x1, attr)
       c.attr = attr
       c.char = ' '
     end
-    # Real widget paint marks every written row `dirty` (see `Widget#_render`);
+    # Real widget paint marks every written row `dirty` (see `Widget#base_render`);
     # `composite_onto` relies on that flag to skip untouched rows.
     row.dirty = true
   end
@@ -110,7 +110,7 @@ describe "CSS z-index auto-promotes a widget to a translucent layer" do
     # plane's opacity, so the overlay blends over the base, all from CSS.
     s.stylesheet = ".under { background-color: #0000ff; } " \
                    ".over { background-color: #ff0000; z-index: 10; opacity: 0.5; }"
-    s._render
+    s.repaint
     bg_at(s, 3, 10).should eq 0x7f007f # red @ 50% over blue
   end
 
@@ -122,7 +122,7 @@ describe "CSS z-index auto-promotes a widget to a translucent layer" do
     child.add_css_class "c"
     s.stylesheet = ".p { background-color: #0000ff; } " \
                    ".c { background-color: #ff0000; z-index: 10; opacity: 0.5; }"
-    s._render
+    s.repaint
     bg_at(s, 3, 10).should eq 0x7f007f # nested child blends over the parent's blue
   end
 end

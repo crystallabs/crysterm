@@ -34,7 +34,7 @@ describe "BUGS16 B16-21: Form#add_row with a trailing odd child" do
     form.children[2].content.should eq "Age"
     form.children[3].should eq f2
 
-    s._render
+    s.repaint
 
     # Row 0: Name/f1. Row 1: Age/f2. Row 2: separator, full interior width.
     fl = form.lpos.not_nil!
@@ -74,7 +74,7 @@ describe "BUGS16 B16-22: Grid clamps an off-grid row origin like the column axis
     control = Widget::Box.new parent: box,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 5)
 
-    s._render
+    s.repaint
 
     bl = box.lpos.not_nil!
     # Column axis (pre-existing behavior): clamped into the last column.
@@ -103,17 +103,17 @@ describe "BUGS16 B16-24: Flow does not chain off a deferred child's stale lpos" 
     a.style.z_index = 1
     b = Widget::Box.new parent: box, width: 5, height: 2
 
-    s._render
+    s.repaint
     bl = box.lpos.not_nil!
     b.lpos.not_nil!.xi.should eq bl.xi + 5
 
     a.width = 10
-    s._render
+    s.repaint
     # Pre-fix: B stayed at the stale right edge (xi + 5) for this frame and
     # only healed one render later.
     b.lpos.not_nil!.xi.should eq bl.xi + 10
 
-    s._render
+    s.repaint
     b.lpos.not_nil!.xi.should eq bl.xi + 10 # stable thereafter
   ensure
     s.try &.destroy

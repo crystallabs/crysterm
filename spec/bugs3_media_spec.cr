@@ -149,7 +149,7 @@ describe "Widget CSS transition cancel-before-return" do
     # A long (2s) tween so it is comfortably still running when we re-apply.
     s.stylesheet = ".btn { background-color: #000000; transition: background-color 2.0s linear; } " \
                    ".btn:hover { background-color: #ffffff; }"
-    s._render
+    s.repaint
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.15.seconds

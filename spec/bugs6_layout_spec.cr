@@ -11,7 +11,7 @@ end
 # Renders `container` headlessly and returns each child's rendered rectangle as
 # `{xi, xl, yi, yl}` tuples (mirrors `spec/layout_spec.cr`).
 private def render_children(s, container)
-  s._render
+  s.repaint
   container.children.map do |c|
     l = c.lpos.not_nil!
     {l.xi, l.xl, l.yi, l.yl}

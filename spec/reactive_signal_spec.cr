@@ -79,7 +79,7 @@ describe "Crysterm::Reactive.bind" do
     box = Crysterm::Widget::Box.new parent: scr, top: 0, left: 0, width: 20, height: 3
     count = Crysterm::Reactive::Signal.new 0
     Crysterm::Reactive.bind(box, count) { box.content = "n=#{count.value}" }
-    scr._render
+    scr.repaint
     scr.@damage_dirty_roots.clear
     repaint_scheduled?(scr, box).should be_false
 

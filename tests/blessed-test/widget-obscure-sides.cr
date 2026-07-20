@@ -4,59 +4,60 @@ require "../../src/crysterm"
 # A small, centered scrollable box (blue bg, scrollbar, keyboard/vi_keys) holding two
 # green child boxes positioned so they stick out past the parent's edges — one
 # near the top, one (with a line border) running off the bottom/left.
-module Crysterm
-  # Blessed's `autoPadding: true` screen option has no Crysterm equivalent, so
-  # it's dropped.
-  s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
+include Crysterm
+include Crysterm::Widgets
 
-  box = Widget::ScrollableBox.new(
-    parent: s,
-    scrollable: true,
-    always_scroll: true,
-    scrollbar: true,
-    height: 10,
-    width: 30,
-    top: "center",
-    left: "center",
-    keys: true,
-    vi_keys: true,
-    style: Style.new(
-      bg: "blue",
-      # Blessed: border:{type:'bg', ch:' '} + style.border.inverse.
-      border: Border.new(type: BorderType::Fill).tap { |b| b.reverse = true },
-    ),
-  )
+# Blessed's `autoPadding: true` screen option has no Crysterm equivalent, so
+# it's dropped.
+s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
 
-  child = Widget::Box.new(
-    parent: box,
-    content: "hello",
-    style: Style.new(bg: "green"),
-    height: 5,
-    width: 20,
-    top: 2,
-    left: 15,
-  )
+box = ScrollableBox.new(
+  parent: s,
+  scrollable: true,
+  always_scroll: true,
+  scrollbar: true,
+  height: 10,
+  width: 30,
+  top: "center",
+  left: "center",
+  keys: true,
+  vi_keys: true,
+  style: Style.new(
+    bg: "blue",
+    # Blessed: border:{type:'bg', ch:' '} + style.border.inverse.
+    border: Border.new(type: BorderType::Fill).tap { |b| b.reverse = true },
+  ),
+)
 
-  child2 = Widget::Box.new(
-    parent: box,
-    content: "hello",
-    style: Style.new(bg: "green", border: BorderType::Solid),
-    height: 5,
-    width: 20,
-    top: 25,
-    left: -5,
-  )
+child = Widget::Box.new(
+  parent: box,
+  content: "hello",
+  style: Style.new(bg: "green"),
+  height: 5,
+  width: 20,
+  top: 2,
+  left: 15,
+)
 
-  box.focus
+child2 = Widget::Box.new(
+  parent: box,
+  content: "hello",
+  style: Style.new(bg: "green", border: BorderType::Solid),
+  height: 5,
+  width: 20,
+  top: 25,
+  left: -5,
+)
 
-  s.on(Event::KeyPress) do |e|
-    if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
-      s.destroy
-      exit
-    end
+box.focus
+
+s.on(Event::KeyPress) do |e|
+  if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
+    s.destroy
+    exit
   end
-
-  s.render
-
-  s.exec
 end
+
+s.render
+
+s.exec

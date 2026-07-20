@@ -609,7 +609,7 @@ module Crysterm
 
       # ----------------------------------------------------------- drawing
 
-      def render
+      def render(with_children = true)
         ret = super
         return ret unless ret && window?
         # Style flags are invariant across every cell of the field and hue bar

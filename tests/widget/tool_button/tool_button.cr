@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "ToolButton" do |screen|
-  screen.stylesheet = "ToolButton { border: solid; background-color: #394b70; color: #c0caf5; }"
-  Crysterm::Widget::ToolButton.new parent: screen, top: "center", left: "center", width: 14, height: 3, content: " Format ▾"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "ToolButton" do |window|
+  window.stylesheet = "ToolButton { border: solid; background-color: #394b70; color: #c0caf5; }"
+  ToolButton.new parent: window, top: "center", left: "center", width: 14, height: 3, content: " Format ▾"
 end

@@ -573,7 +573,7 @@ module Crysterm
 
       # Cheapest check first: hit-test against the widget's *painted* rectangle
       # (`lpos`), not the raw `aleft/atop/awidth/aheight` geometry. `lpos` is
-      # what `_render` laid down: it folds in the margin shift AND the
+      # what `base_render` laid down: it folds in the margin shift AND the
       # enclosing-scroll offset (`base`) and clips to every clipping ancestor's
       # viewport, so a scrolled list item is matched where it actually appears
       # (and a `shrink_to_fit` widget by its shrunk content box, not the full slot

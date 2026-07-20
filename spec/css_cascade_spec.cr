@@ -535,12 +535,12 @@ describe "CSS cascade" do
     CSS
     screen.apply_stylesheet
 
-    list.items.each(&.styles.normal.fg.should(eq(rgb("white"))))
+    list.item_boxes.each(&.styles.normal.fg.should(eq(rgb("white"))))
     # items are children at positions 1..4, so :nth-child(even) hits #2 and #4
-    list.items[0].styles.normal.bg.should be_nil
-    list.items[1].styles.normal.bg.should eq rgb("blue")
-    list.items[2].styles.normal.bg.should be_nil
-    list.items[3].styles.normal.bg.should eq rgb("blue")
+    list.item_boxes[0].styles.normal.bg.should be_nil
+    list.item_boxes[1].styles.normal.bg.should eq rgb("blue")
+    list.item_boxes[2].styles.normal.bg.should be_nil
+    list.item_boxes[3].styles.normal.bg.should eq rgb("blue")
   end
 
   it "applies @media rules conditionally on terminal size" do
@@ -870,8 +870,8 @@ describe "CSS cascade" do
     screen.stylesheet = "TabWidget::tab { color: red; }"
     screen.apply_stylesheet
     tabs.style.tab.fg.should eq rgb("red") # cascade computed the slot
-    screen._render                         # PreRender pushes it onto each tab
-    tabs.tab_bar.items.each(&.styles.normal.fg.should(eq(rgb("red"))))
+    screen.repaint                         # PreRender pushes it onto each tab
+    tabs.tab_bar.item_boxes.each(&.styles.normal.fg.should(eq(rgb("red"))))
   end
 
   it "leaves tabs at their default style when no TabWidget::tab rule matches" do
@@ -881,7 +881,7 @@ describe "CSS cascade" do
     screen.append tabs
     screen.stylesheet = "Box { color: green; }" # unrelated rule
     screen.apply_stylesheet
-    screen._render
+    screen.repaint
     # `style.tab` falls back to `self`, so the bridge is a no-op.
     tabs.style.tab.same?(tabs.style).should be_true
   end
@@ -893,7 +893,7 @@ describe "CSS cascade" do
     screen.stylesheet = "GroupBox::title { color: red; }"
     screen.apply_stylesheet
     gb.style.title.fg.should eq rgb("red")
-    screen._render
+    screen.repaint
     gb.@label_widget.not_nil!.styles.normal.fg.should eq rgb("red")
   end
 
@@ -904,7 +904,7 @@ describe "CSS cascade" do
     screen.stylesheet = "DockWidget::title { color: red; }"
     screen.apply_stylesheet
     dock.style.title.fg.should eq rgb("red")
-    screen._render
+    screen.repaint
     dock.titlebar.styles.normal.fg.should eq rgb("red")
   end
 
@@ -917,7 +917,7 @@ describe "CSS cascade" do
     screen.stylesheet = "TabWidget::pane { background-color: blue; }"
     screen.apply_stylesheet
     tabs.style.pane.bg.should eq rgb("blue")
-    screen._render
+    screen.repaint
     page.styles.normal.bg.should eq rgb("blue")
   end
 
@@ -930,7 +930,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
     dock.style.close_button.fg.should eq rgb("red")
     dock.style.float_button.fg.should eq rgb("green")
-    screen._render # PreRender pushes each onto its button box
+    screen.repaint # PreRender pushes each onto its button box
     dock.@close_button.not_nil!.styles.normal.fg.should eq rgb("red")
     dock.@float_button.not_nil!.styles.normal.fg.should eq rgb("green")
   end
@@ -1374,9 +1374,9 @@ describe "CSS cascade" do
     CSS
     screen.apply_stylesheet
 
-    lt.items[0].styles.normal.fg.should eq rgb("white")
-    lt.items[1].styles.normal.fg.should eq rgb("red") # 2nd row
-    lt.items[2].styles.normal.fg.should eq rgb("white")
+    lt.item_boxes[0].styles.normal.fg.should eq rgb("white")
+    lt.item_boxes[1].styles.normal.fg.should eq rgb("red") # 2nd row
+    lt.item_boxes[2].styles.normal.fg.should eq rgb("white")
   end
 
   it "supports font and background shorthands" do

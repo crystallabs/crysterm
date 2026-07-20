@@ -130,8 +130,8 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         open: -> { menu.popup 2, 2; nil },
         is_open: -> { menu.visible? && menu.@popup_mode },
         selected: -> { menu.current_index },
-        item_count: -> { menu.@items.size },
-        render: -> { s._render; nil },
+        item_count: -> { menu.@item_boxes.size },
+        render: -> { s.repaint; nil },
         wheel_down: -> { dd_wheel s, menu.aleft + 2, menu.atop + menu.itop + 1; nil },
         press_outside: -> { dd_press s, 78, 22; nil },
         outside_covered: -> { menu.contains_point? 78, 22 },
@@ -153,7 +153,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         open: -> { cb.show_popup; nil },
         is_open: -> { cb.open? },
         selected: -> { cb.popup_widget.not_nil!.as(Crysterm::Widget::ComboBox::Popup).current_index },
-        item_count: -> { cb.popup_widget.not_nil!.@items.size },
+        item_count: -> { cb.popup_widget.not_nil!.@item_boxes.size },
         render: -> { s.render; nil },
         wheel_down: -> {
           pop = cb.popup_widget.not_nil!
@@ -184,8 +184,8 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         open: -> { box.emit Crysterm::Event::KeyPress, dd_kp('\0', ::Tput::Key::Down); nil },
         is_open: -> { completer.open? },
         selected: -> { completer.@popup.not_nil!.current_index },
-        item_count: -> { completer.@popup.not_nil!.@items.size },
-        render: -> { s._render; nil },
+        item_count: -> { completer.@popup.not_nil!.@item_boxes.size },
+        render: -> { s.repaint; nil },
         wheel_down: -> {
           pop = completer.@popup.not_nil!
           dd_wheel s, pop.aleft + 2, pop.atop + pop.itop + 1; nil

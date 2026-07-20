@@ -5,12 +5,15 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "FolderList" do |screen|
-  screen.stylesheet = "Pine::FolderList { border: solid; color: #c0caf5; }"
-  fl = Crysterm::Widget::Pine::FolderList.new parent: screen, top: "center", left: "center", width: 34, height: 12, label: " Folders "
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "FolderList" do |window|
+  window.stylesheet = "Pine::FolderList { border: solid; color: #c0caf5; }"
+  fl = PineFolderList.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Folders "
   fl.folders = ([
-    Crysterm::Widget::Pine::FolderList::Folder.new("INBOX", 12), Crysterm::Widget::Pine::FolderList::Folder.new("Sent", 48),
-    Crysterm::Widget::Pine::FolderList::Folder.new("Drafts", 2), Crysterm::Widget::Pine::FolderList::Folder.new("Trash", 7),
+    PineFolderList::Folder.new("INBOX", 12), PineFolderList::Folder.new("Sent", 48),
+    PineFolderList::Folder.new("Drafts", 2), PineFolderList::Folder.new("Trash", 7),
   ])
   fl.focus
 end

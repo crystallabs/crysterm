@@ -5,21 +5,24 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "OptionList" do |screen|
-  screen.stylesheet = "Pine::OptionList { border: solid; color: #c0caf5; }"
-  ol = Crysterm::Widget::Pine::OptionList.new parent: screen, top: "center", left: "center", width: 64, height: 12, label: " Options "
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "OptionList" do |window|
+  window.stylesheet = "Pine::OptionList { border: solid; color: #c0caf5; }"
+  ol = PineOptionList.new parent: window, top: "center", left: "center", width: 64, height: 12, label: " Options "
   ol.options = ([
-    Crysterm::Widget::Pine::OptionList::Option.new("line-wrap",
-      Crysterm::Widget::Pine::OptionKind::Toggle,
+    PineOptionList::Option.new("line-wrap",
+      Widget::Pine::OptionKind::Toggle,
       "Wrap long lines", value: "true"),
-    Crysterm::Widget::Pine::OptionList::Option.new("username",
-      Crysterm::Widget::Pine::OptionKind::Text,
+    PineOptionList::Option.new("username",
+      Widget::Pine::OptionKind::Text,
       "Name shown to others", value: "crysterm"),
-    Crysterm::Widget::Pine::OptionList::Option.new("tab-width",
-      Crysterm::Widget::Pine::OptionKind::Number,
+    PineOptionList::Option.new("tab-width",
+      Widget::Pine::OptionKind::Number,
       "Spaces per tab", value: "4"),
-    Crysterm::Widget::Pine::OptionList::Option.new("theme",
-      Crysterm::Widget::Pine::OptionKind::Choice,
+    PineOptionList::Option.new("theme",
+      Widget::Pine::OptionKind::Choice,
       "Color theme", value: "dark", allowed: %w[dark light solarized]),
   ])
   ol.focus

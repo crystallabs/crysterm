@@ -31,7 +31,7 @@ describe "ItemView#selected_values on an empty list" do
     list = Crysterm::Widget::List.new parent: s, items: ["a"]
     list.selected_values.should eq ["a"]
 
-    list.remove_item list.items[0]
+    list.remove_item list.item_boxes[0]
     list.items.size.should eq 0
     list.selected_values.should eq [] of String
   end

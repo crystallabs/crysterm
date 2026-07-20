@@ -41,7 +41,7 @@ describe "Media::Graphics#reset_sample_cache (live bitmap= update)" do
     # Frame 1: a solid red bitmap.
     img.bitmap = solid(255, 0, 0)
     buf.clear
-    s._render
+    s.repaint
     red_payload = sixel_of(buf.to_s)
     red_payload.should_not be_nil
 
@@ -49,7 +49,7 @@ describe "Media::Graphics#reset_sample_cache (live bitmap= update)" do
     # geometry-keyed cache would re-emit the red payload verbatim.
     img.bitmap = solid(0, 0, 255)
     buf.clear
-    s._render
+    s.repaint
     blue_payload = sixel_of(buf.to_s)
     blue_payload.should_not be_nil
 

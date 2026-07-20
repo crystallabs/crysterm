@@ -33,7 +33,7 @@ describe "BUGS11 #20 Table#draw_borders honors vertical padding" do
     t = Crysterm::Widget::Table.new(parent: s, left: 0, top: 0,
       rows: [["Name", "Email"], ["Alice", "a@x"]],
       style: Crysterm::Style.new(border: true, padding: Padding.new(0, 1, 0, 1)))
-    s._render
+    s.repaint
 
     lp = t.lpos.not_nil!
     t.itop.should eq 2 # border.top (1) + padding.top (1): the shifted origin
@@ -77,7 +77,7 @@ describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
     rows = (0...10).map { |i| ["R#{i}a", "R#{i}b"] of String }
     t = Crysterm::Widget::Table.new(parent: box, left: 0, top: 0,
       rows: rows, style: Crysterm::Style.new(border: true))
-    s._render
+    s.repaint
 
     lp = t.lpos.not_nil!
     lp.no_bottom?.should be_true # actually clipped by the ancestor

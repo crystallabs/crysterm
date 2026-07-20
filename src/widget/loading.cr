@@ -166,7 +166,7 @@ module Crysterm
         request_render
       end
 
-      def render
+      def render(with_children = true)
         if compact?
           set_content @compact_content, true
           super false

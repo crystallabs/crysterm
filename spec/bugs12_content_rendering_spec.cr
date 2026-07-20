@@ -94,7 +94,7 @@ describe "Effect::Direct#paint clips the off-top/left band" do
     # Positioned so xi/yi are negative — part of the box is off the top-left.
     p = Crysterm::Widget::Effect::Plasma.new(
       parent: s, left: -3, top: -3, width: 8, height: 8, glyph: '#')
-    s._render
+    s.repaint
 
     # The bottom and right edges of the buffer must remain untouched (a
     # negative-index wrap would have stamped the plasma glyph there).
@@ -127,7 +127,7 @@ describe "Widget newline row-fill honors fill: false" do
     # fills the rest of that row.
     b = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 6, height: 3,
       style: st, content: "ab\ncd"
-    s._render
+    s.repaint
 
     lp = b.lpos.not_nil!
     # Reference the backdrop from just OUTSIDE the box (col == lp.xl), which the

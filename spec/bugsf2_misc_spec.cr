@@ -193,7 +193,7 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
     sixel = Crysterm::Widget::Media::Sixel.new file: "does-not-exist.png"
     s = f2_window
     s << sixel
-    s._render # exercises the deferred Rendered listener + cell-pixel re-resolve
+    s.repaint # exercises the deferred Rendered listener + cell-pixel re-resolve
 
     # After attach the real cell size is adopted (was stuck at the 10x20 fallback).
     if s.cell_pixel_width > 0
@@ -209,7 +209,7 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
     Crysterm::Widget::Media::Sixel.new file: "does-not-exist.png", parent: box
     s = f2_window
     s << box
-    s._render
+    s.repaint
   end
 
   it "constructs the RenderHook backends (Tek/Ueberzug) detached, then attaches" do
@@ -218,13 +218,13 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
     s = f2_window
     s << tek
     s << uz
-    s._render
+    s.repaint
   end
 
   it "constructs the external Overlay (w3m) backend detached, then attaches" do
     ov = Crysterm::Widget::Media::Overlay.new file: "does-not-exist.png"
     s = f2_window
     s << ov
-    s._render
+    s.repaint
   end
 end

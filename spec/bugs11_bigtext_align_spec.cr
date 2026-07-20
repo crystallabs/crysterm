@@ -41,7 +41,7 @@ describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds
       content: "漢字テスト",
       foreground_char: '#'
 
-    s._render
+    s.repaint
 
     lit = [] of Tuple(Int32, Int32) # {y, x}
     (0...24).each do |y|

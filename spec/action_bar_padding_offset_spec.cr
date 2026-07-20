@@ -24,10 +24,10 @@ describe "Mixin::ActionBar#render content origin" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
     bar.items = ["a", "b", "c"]
-    s._render
+    s.repaint
 
     bar.ileft.should eq 4
-    first = bar.items[0]
+    first = bar.item_boxes[0]
     # Must sit exactly at the content origin (bar.aleft + bar.ileft) — inset
     # applied once, not twice.
     first.aleft.should eq(bar.aleft + bar.ileft)
@@ -38,10 +38,10 @@ describe "Mixin::ActionBar#render content origin" do
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
     bar.items = ["a", "b"]
-    s._render
+    s.repaint
 
-    a = bar.items[0]
-    b = bar.items[1]
+    a = bar.item_boxes[0]
+    b = bar.item_boxes[1]
     # Second item starts one item-gap past the first item's right edge.
     b.aleft.should eq(a.aleft + (a.awidth || 0) + bar.item_gap)
   end

@@ -204,7 +204,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   it "LineEdit inserts pasted text at the cursor" do
     s = ppf_screen
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
-    s._render
+    s.repaint
     le.focus
     s.handle_input paste_event("abc")
     le.value.should eq "abc"
@@ -215,7 +215,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   it "LineEdit flattens pasted newlines (single-line semantics)" do
     s = ppf_screen
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
-    s._render
+    s.repaint
     le.focus
     s.handle_input paste_event("ls -la\n")
     le.value.should eq "ls -la"
@@ -231,7 +231,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
       read_only: true
     fallback = 0
     s.on(Crysterm::Event::Paste) { |_| fallback += 1 }
-    s._render
+    s.repaint
     le.focus
     s.handle_input paste_event("nope")
     le.value.should eq ""
@@ -246,7 +246,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(d : String) { got << d; nil })
-    s._render # bootstrap
+    s.repaint # bootstrap
     term.focus
     s.handle_input paste_event("echo hi")
     got.should eq ["echo hi"]
@@ -260,7 +260,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(d : String) { got << d; nil })
-    s._render # bootstrap
+    s.repaint # bootstrap
     term.focus
     term.write "\e[?2004h" # child enables bracketed paste
     s.handle_input paste_event("hi")

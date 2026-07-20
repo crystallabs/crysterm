@@ -28,6 +28,13 @@ module Crysterm
         handle Crysterm::Event::StateChanged
       end
 
+      # Positional text convenience — Qt's `QRadioButton(text)`. Routed via
+      # `content:`, the same label path `#setup_marker_control` already reads;
+      # an explicit `content:` in *opts* wins over the positional *text*.
+      def initialize(text : String, **opts)
+        initialize(**{content: text}.merge(opts))
+      end
+
       # A radio button only ever *checks* itself when toggled; the containing
       # group unchecks the others. Overrides `AbstractButton#toggle`, which would
       # let Space/Enter uncheck the selection and leave the group empty.
@@ -35,7 +42,7 @@ module Crysterm
         check
       end
 
-      def render
+      def render(with_children = true)
         # `(`/`)` and the state mark resolve CSS-first (`RadioButton::indicator`,
         # `:checked` addressing the checked mark), then the registry.
         set_content marker_line(Glyphs::Role::RadioOpen, Glyphs::Role::RadioClose,

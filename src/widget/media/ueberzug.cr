@@ -117,6 +117,10 @@ module Crysterm
           # `remove` clears @last itself.
           remove
         end
+        # Explicit request: the überzug placement is (re)added by the post-render
+        # hook, not by the normal dirty/render path, so nothing else schedules
+        # the frame that fires it.
+        request_render
       end
 
       def clear_image

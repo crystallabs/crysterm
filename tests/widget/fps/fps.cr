@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Fps" do |screen|
-  screen.stylesheet = "Fps { border: solid; color: #9ece6a; }"
-  Crysterm::Widget::Fps.new parent: screen, top: "center", left: "center", width: 30, height: 5
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Fps" do |window|
+  window.stylesheet = "Fps { border: solid; color: #9ece6a; }"
+  Fps.new parent: window, top: "center", left: "center", width: 30, height: 5
 end

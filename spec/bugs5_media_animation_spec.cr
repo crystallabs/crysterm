@@ -30,7 +30,7 @@ describe "CSS @keyframes real-elapsed progress (BUGS5)" do
     b.add_css_class "grow"
     s.stylesheet = "@keyframes grow { from { opacity: 0.0; } to { opacity: 1.0; } } " \
                    ".grow { opacity: 0.0; animation: grow 0.4s linear infinite; }"
-    s._render # starts the animation
+    s.repaint # starts the animation
 
     sleep 0.1.seconds # ~25% through the 0.4s linear cycle
     a1 = b.style.opacity.not_nil!
@@ -50,7 +50,7 @@ describe "CSS @keyframes real-elapsed progress (BUGS5)" do
     b.add_css_class "once"
     s.stylesheet = "@keyframes go { from { opacity: 0.0; } to { opacity: 1.0; } } " \
                    ".once { opacity: 0.0; animation: go 0.15s linear 1; }"
-    s._render
+    s.repaint
     sleep 0.4.seconds # well past the single iteration
     (b.style.opacity.not_nil! > 0.95).should be_true
   ensure

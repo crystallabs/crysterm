@@ -88,7 +88,7 @@ describe "BUGS13 W5: streaming decoder only opens on explicit request" do
       img.probe_stream.should be_nil
 
       # A full window render goes through the same path.
-      s._render
+      s.repaint
       img.probe_load_failed.should be_false
       img.probe_stream.should be_nil
 
@@ -169,17 +169,17 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
     probe = HookProbe.new parent: a, top: 0, left: 0, width: 4, height: 2
     probe.hooked_screen.should eq s1
 
-    s1._render
+    s1.repaint
     probe.paints.should eq 1
 
     b.append probe # cross-window move: Detach(s1) then Attach(s2)
     probe.hooked_screen.should eq s2
 
     # The old window no longer drives the paint block...
-    s1._render
+    s1.repaint
     probe.paints.should eq 1
     # ...the new one does, exactly once per render (no duplicate listeners).
-    s2._render
+    s2.repaint
     probe.paints.should eq 2
   ensure
     s1.try &.destroy
@@ -194,7 +194,7 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
     a.append probe
     probe.hooked_screen.should eq s1
-    s1._render
+    s1.repaint
     probe.paints.should eq 1
 
     # Second migration must work too (the deferred block is retained, not
@@ -202,9 +202,9 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
     b = Widget::Box.new parent: s2, width: "100%", height: "100%"
     b.append probe
     probe.hooked_screen.should eq s2
-    s1._render
+    s1.repaint
     probe.paints.should eq 1
-    s2._render
+    s2.repaint
     probe.paints.should eq 2
   ensure
     s1.try &.destroy
@@ -220,7 +220,7 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
     b.append probe # same-window move: Reparent only
     probe.hooked_screen.should eq s
 
-    s._render
+    s.repaint
     probe.paints.should eq 1 # exactly one listener
   ensure
     s.try &.destroy
@@ -229,10 +229,10 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
   it "teardown_render_hook on destroy leaves nothing firing" do
     s = media_screen
     probe = HookProbe.new parent: s, top: 0, left: 0, width: 4, height: 2
-    s._render
+    s.repaint
     probe.paints.should eq 1
     probe.destroy
-    s._render
+    s.repaint
     probe.paints.should eq 1
   ensure
     s.try &.destroy
@@ -244,7 +244,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
     s = media_screen
     img = RectProbe.new parent: s, top: -2, left: 0, width: 8, height: 6
     img.bitmap = solid_bitmap
-    s._render
+    s.repaint
     # yi would be -2 — not drawable; the paint/erase lifecycle must treat it
     # like a hidden widget instead of emitting `\e[-1;…H`.
     img.probe_content_rect.should be_nil
@@ -256,7 +256,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
     s = media_screen
     img = RectProbe.new parent: s, top: -1, left: 0, width: 8, height: 6
     img.bitmap = solid_bitmap
-    s._render
+    s.repaint
     img.probe_content_rect.should be_nil # pre-fix this emitted `\e[0;…H`
   ensure
     s.try &.destroy
@@ -266,7 +266,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
     s = media_screen
     img = RectProbe.new parent: s, top: 1, left: -3, width: 8, height: 6
     img.bitmap = solid_bitmap
-    s._render
+    s.repaint
     img.probe_content_rect.should be_nil
   ensure
     s.try &.destroy
@@ -280,7 +280,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
       img = RectProbe.new parent: s, top: top, left: left, width: 8, height: 6
       img.bitmap = solid_bitmap
     end
-    s._render
+    s.repaint
     str = outbuf.to_s
     str.should_not match(/\e\[-/)      # negative CSI parameter (malformed)
     str.should_not match(/\e\[0;\d+H/) # zero row: one row off, unclipped
@@ -293,7 +293,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
     s = media_screen
     img = RectProbe.new parent: s, top: 1, left: 2, width: 4, height: 3
     img.bitmap = solid_bitmap
-    s._render
+    s.repaint
     img.probe_content_rect.should eq({2, 1, 4, 3})
   ensure
     s.try &.destroy

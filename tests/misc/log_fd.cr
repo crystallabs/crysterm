@@ -14,6 +14,7 @@
 require "../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 win = Window.new
 
@@ -57,8 +58,7 @@ win.on(Event::KeyPress) do |e|
     left.close
     right.close
     writer.close rescue nil
-    win.destroy
-    exit
+    win.quit
   end
 end
 

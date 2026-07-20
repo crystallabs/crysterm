@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "Spray" do |screen|
-  fx = Crysterm::Widget::Effect::Spray.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Spray" do |window|
+  fx = EffectSpray.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
   Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
 end

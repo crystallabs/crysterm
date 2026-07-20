@@ -242,7 +242,7 @@ describe "ListTable alternate_rows parity after scroll (OPT W2)" do
 
     # Oracle: exactly the parity the old `@items.index item` scan decided.
     verify = ->(label : String) do
-      lt.items.each_with_index do |item, i|
+      lt.item_boxes.each_with_index do |item, i|
         want_alt = i > 0 && i.even?
         got_alt = lt.render_style_for(item).bg == alt_bg
         got_alt.should eq(want_alt), "#{label}: item #{i}"

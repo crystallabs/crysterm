@@ -162,7 +162,7 @@ module Crysterm
             true
           end
         end
-        @owner.try &.window?.try &.schedule_render
+        @owner.try &.window?.try &.update
       end
 
       # Cancels all subscriptions and stops the effect. Idempotent.

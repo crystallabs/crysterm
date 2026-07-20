@@ -5,10 +5,13 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "ToolBox" do |screen|
-  screen.stylesheet = "ToolBox { border: solid; color: #c0caf5; }"
-  tbx = Crysterm::Widget::ToolBox.new parent: screen, top: "center", left: "center", width: 36, height: 14
-  tbx.add_item "General", Crysterm::Widget::Box.new(content: "Theme, language, startup")
-  tbx.add_item "Editor", Crysterm::Widget::Box.new(content: "Tabs, wrap, font size")
-  tbx.add_item "Advanced", Crysterm::Widget::Box.new(content: "Proxies, caches, flags")
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "ToolBox" do |window|
+  window.stylesheet = "ToolBox { border: solid; color: #c0caf5; }"
+  tbx = ToolBox.new parent: window, top: "center", left: "center", width: 36, height: 14
+  tbx.add_item "General", Widget::Box.new(content: "Theme, language, startup")
+  tbx.add_item "Editor", Widget::Box.new(content: "Tabs, wrap, font size")
+  tbx.add_item "Advanced", Widget::Box.new(content: "Proxies, caches, flags")
 end

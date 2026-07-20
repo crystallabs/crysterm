@@ -79,7 +79,7 @@ describe "BUGS13 C20: SIGTSTP/SIGCONT suspend-resume" do
     w = b13l_window 30, 5
     begin
       Widget::Box.new parent: w, left: 0, top: 0, width: 12, height: 1, content: "SUSPEND20"
-      w._render
+      w.repaint
       out = w.output.as(IO::Memory)
 
       # Suspend: the terminal is handed back (teardown sequences, continuation

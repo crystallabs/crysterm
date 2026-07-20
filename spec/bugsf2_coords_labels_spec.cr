@@ -46,7 +46,7 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     s = f2_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true, label: "TITLE", style: Style.new(border: true)
-    s._render
+    s.repaint
 
     # The label child must be positioned (not clipped away) and painted.
     box.label_widget.should_not be_nil
@@ -69,9 +69,9 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     # A labeled child taller than the viewport, forcing a scroll.
     Widget::Box.new parent: box, top: 0, left: 0, width: 10, height: 20,
       label: "CH", style: Style.new(border: true)
-    s._render
+    s.repaint
     box.scroll 10
-    s._render
+    s.repaint
 
     # The container's own bottom-left corner must survive (not be punched
     # through by the scrolled child's border). Before the fix all four clip
@@ -91,9 +91,9 @@ describe "BUGS-F2 finding 14: CheckMarker marker-click uses painted coords" do
       Widget::CheckBox.new parent: box, top: i, left: 0, width: 20, height: 1,
         content: "Opt#{i}"
     end
-    s._render
+    s.repaint
     box.scroll 4
-    s._render
+    s.repaint
 
     # Pick a checkbox that is now painted inside the viewport.
     target = boxes.find!(&.lpos)
@@ -116,9 +116,9 @@ describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords"
       height: 12, scrollbar: false, content: content
     sl = Widget::Slider.new parent: box, top: 15, left: 0, width: 3, height: 8,
       orientation: Tput::Orientation::Vertical, minimum: 0, maximum: 100, value: 0
-    s._render
+    s.repaint
     box.scroll_to 14, true
-    s._render
+    s.repaint
 
     # The slider's layout top (15) differs from its painted top (15 - 14 == 1);
     # every click must be resolved against the painted `@lpos`.
@@ -145,7 +145,7 @@ describe "BUGS-F2 finding 48: table separators honor ileft, not a hardcoded 1" d
     t = Widget::Table.new parent: s, top: 0, left: 0,
       rows: [["AA", "BB"], ["CC", "DD"]],
       style: Style.new(border: true)
-    s._render
+    s.repaint
 
     t.ileft.should eq 1
     # A vertical separator sits at content offset maxes[0] from the content
@@ -166,7 +166,7 @@ describe "BUGS-F2 finding 48: table separators honor ileft, not a hardcoded 1" d
     t = Widget::Table.new parent: s, top: 0, left: 0,
       rows: [["AA", "BB"], ["CC", "DD"]],
       style: Style.new(border: true, padding: Padding.new(2, 0, 0, 0)) # left: 2
-    s._render
+    s.repaint
 
     t.ileft.should eq 3 # border 1 + padding 2
     sep_x = t.aleft + t.ileft + t.@maxes[0]

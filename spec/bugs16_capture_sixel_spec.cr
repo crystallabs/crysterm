@@ -51,7 +51,7 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
     img.z = -1
     img.bitmap = green_bitmap
 
-    s._render
+    s.repaint
     bmp = Crysterm::Capture.render(s, 0, s.awidth, 0, s.aheight)
     # The concrete blue background must win, exactly as the terminal shows it
     # (background= draws under text but is still hidden by a concrete bg).
@@ -66,7 +66,7 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
     img.z = -1
     img.bitmap = green_bitmap
 
-    s._render
+    s.repaint
     bmp = Crysterm::Capture.render(s, 0, s.awidth, 0, s.aheight)
     capture_has_green?(bmp).should be_true
   ensure
@@ -80,7 +80,7 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
     img = Widget::Media::Kitty.new parent: box, top: 0, left: 0, width: 8, height: 4
     img.bitmap = green_bitmap
 
-    s._render
+    s.repaint
     bmp = Crysterm::Capture.render(s, 0, s.awidth, 0, s.aheight)
     capture_has_green?(bmp).should be_true
   ensure
@@ -122,7 +122,7 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
     s = sixel_window
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
-    s._render
+    s.repaint
 
     img.probe_payload_geom.should_not be_nil
     img.probe_frame_payloads.empty?.should be_false
@@ -140,7 +140,7 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
     s = sixel_window
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
-    s._render
+    s.repaint
     img.probe_payload_geom.should_not be_nil
 
     img.dither = img.dither # already Auto — must not churn the cache
@@ -153,12 +153,12 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
     s = sixel_window
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
-    s._render
+    s.repaint
     first = img.probe_frame_payloads[0]?
     first.should_not be_nil
 
     img.dither = Crysterm::Widget::Media::Dither::None
-    s._render
+    s.repaint
     second = img.probe_frame_payloads[0]?
     second.should_not be_nil
 

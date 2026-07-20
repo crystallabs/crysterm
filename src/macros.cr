@@ -90,7 +90,7 @@ module Crysterm
         return val if sig.peek == val
         sig.value = val
         mark_dirty
-        window?.try &.schedule_render
+        window?.try &.update
         {% if event %} emit ::Crysterm::Event::{{event.id}} {% end %}
         val
       end

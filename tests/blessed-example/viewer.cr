@@ -27,6 +27,7 @@ require "../../src/crysterm"
 # Keys:  arrows/j/k select   Right/Left expand/collapse   Tab switch pane   q quit
 
 include Crysterm
+include Crysterm::Widgets
 alias M = Widget::Media
 
 IMAGE_DIR = File.join(__DIR__, "..", "..", "data", "image")
@@ -39,18 +40,18 @@ start_idx = files.index { |f| !f.ends_with?(".ans") } || 0
 # braille) render as real Unicode glyphs instead of Crysterm's ACS "?" fallback
 # on terminals not auto-detected as Unicode-capable. Octants are Unicode 16
 # (2024), so they still need an up-to-date terminal font.
-screen = Window.new title: "viewer.cr", force_unicode: true
-screen.enable_mouse
+window = Window.new title: "viewer.cr", force_unicode: true
+window.enable_mouse
 
-root = Widget::Box.new parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-  layout: Layout::Border.new, overflow: :ignore
+root = Widget::Box.new parent: window, top: 0, left: 0, width: "100%", height: "100%",
+  layout: Layout::Border.new
 
 # Left column: fixed 25 cells. Children are positioned by hand so the Fit row is
 # exactly one line, with the two lists taking the halves above and below it.
 sidebar = Widget::Box.new parent: root, width: 25,
   layout_hint: Layout::Border::Hint.new(:left)
 
-chooser = Widget::List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
+chooser = List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
   scrollbar: true, top: 0, left: 0, width: "100%", height: "50%-1",
   label: " Image ", style: Style.new(border: true)
 
@@ -62,7 +63,7 @@ fit_names = FITS.map { |(n, _)| n }
 fitrow = Widget::Box.new parent: sidebar, top: "50%-1", left: 0, width: "100%", height: 1,
   parse_tags: true, input: true
 
-backends = Widget::Tree.new parent: sidebar, mouse: true, vi_keys: true,
+backends = Tree.new parent: sidebar, mouse: true, vi_keys: true,
   top: "50%", left: 0, width: "100%", height: "50%",
   label: " Render Method ", style: Style.new(border: true)
 
@@ -96,8 +97,7 @@ show = -> {
         fit: current_fit)
     end
   media = m
-  viewer_box.set_label " #{File.basename current_path} — #{(t.try(&.to_s) || "Auto")} "
-  screen.render
+  viewer_box.label = " #{File.basename current_path} — #{(t.try(&.to_s) || "Auto")} "
 }
 
 # --- Image chooser ---------------------------------------------------------
@@ -120,7 +120,7 @@ end
 
 render_fit = -> {
   parts = fit_names.map_with_index { |n, i| i == fit_idx ? "{inverse}#{n}{/inverse}" : n }
-  fitrow.set_content "Fit " + parts.join(' ')
+  fitrow.content = "Fit " + parts.join(' ')
 }
 
 set_fit = ->(i : Int32) {
@@ -169,7 +169,7 @@ backend_defs = [
 label_for = ->(text : String, avail : Bool) { avail ? text : "#{text} (n/a)" }
 
 backend_defs.each do |(type, subs)|
-  avail = M.available?(type, screen.tput)
+  avail = M.available?(type, window.tput)
   node = backends.add(label_for.call(type.to_s, avail), type.to_s)
   subs.each { |(label, data)| node.add(label_for.call(label, avail), data) }
 end
@@ -184,7 +184,7 @@ backends.on(Event::ItemSelected) do |_e|
   base, _, sub = data.partition('/')
   type = M::Type.parse?(base)
   next unless type
-  next unless M.available?(type, screen.tput) # "(n/a)" backends are inert
+  next unless M.available?(type, window.tput) # "(n/a)" backends are inert
 
   current_type = type
   current_mode = type.glyph? && !sub.empty? ? M::Glyph::Mode.parse?(sub) : nil
@@ -193,12 +193,11 @@ backends.on(Event::ItemSelected) do |_e|
 end
 
 # --- keys ------------------------------------------------------------------
-screen.on(Event::KeyPress) do |e|
+window.on(Event::KeyPress) do |e|
   if e.char == 'q'
-    exit 0
+    window.quit
   elsif e.key == Tput::Key::Tab
-    screen.focus_next
-    screen.render
+    window.focus_next
   end
 end
 
@@ -206,7 +205,7 @@ chooser.focus
 chooser.current_index = start_idx
 
 # Paint one frame so the layout sizes the panes, then build the first image.
-screen._render
+window.repaint
 show.call unless current_path.empty?
 
-screen.exec
+window.exec

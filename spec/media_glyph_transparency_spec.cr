@@ -21,7 +21,7 @@ private def render_cell(mode : Widget::Media::Glyph::Mode, bmp : PNGGIF::Bitmap)
   img = Widget::Media::Glyph.new(parent: s, top: 0, left: 0, width: 1, height: 1,
     mode: mode, fit: Widget::Media::Fit::Stretch)
   img.bitmap = bmp
-  s._render
+  s.repaint
   s.lines[0][0]
 ensure
   s.try &.destroy

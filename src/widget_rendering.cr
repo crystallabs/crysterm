@@ -35,7 +35,7 @@ module Crysterm
     end
 
     # Layout engine arranging this widget's children, or `nil` for manual
-    # placement, in which case `#_render` uses `Layout::Manual`. Mirrors Qt's
+    # placement, in which case `#base_render` uses `Layout::Manual`. Mirrors Qt's
     # null `QWidget::layout()`.
     @layout : Crysterm::Layout? = nil
 
@@ -108,8 +108,6 @@ module Crysterm
     # parent's `lpos` rather than recomputing it (which mishandles content
     # shrinkage). Stale if the parent is moved afterwards.
 
-    property items = [] of Widget::Box
-
     # True only while this widget renders as a layer root into its own `Plane`.
     # Translucency then comes from the plane's opacity, so the render-time
     # self-blend is suppressed.
@@ -144,9 +142,14 @@ module Crysterm
     # alone cannot tell them apart.
     property? layout_suppressed : Bool = false
 
-    # Renders all child elements into the output buffer.
+    # The base painting implementation: renders this widget (and, when
+    # *with_children*, its subtree) into the window's cell buffer. Subclass
+    # `#render` overrides call this the way a `paintEvent` override calls the
+    # base class — it never dispatches back into `#render`, so an override can
+    # run it and then paint on top. External callers use `#repaint` (sync) or
+    # `#update` (scheduled) instead.
     # ameba:disable Metrics/CyclomaticComplexity
-    def _render(with_children = true)
+    protected def base_render(with_children = true)
       # Reaching here means this widget is on the active layout branch. Cleared
       # before the early-outs below so a scrolled/clipped-out widget (which
       # still returns here) stays focus-reachable.
@@ -892,7 +895,7 @@ module Crysterm
 
     # Returns the codepoint index of the `m` terminating an SGR sequence whose
     # parameter run starts at `i` (first codepoint after `\e[`), or `nil` if the
-    # run is not `[\d;]* m`. Lets `_render` recognize SGR sequences without
+    # run is not `[\d;]* m`. Lets `base_render` recognize SGR sequences without
     # allocating a `Regex::MatchData`/substring per escape.
     private def sgr_terminator(content : StringIndex, i : Int32) : Int32?
       while ch = content[i]?
@@ -907,18 +910,35 @@ module Crysterm
       nil
     end
 
+    # Paints this widget synchronously into the window's cell buffer. This is
+    # the polymorphic paint entry — subclasses override it (keeping the
+    # `(with_children = true)` signature, or the call is an overload rather
+    # than an override) and invoke `#base_render` for the standard box/content
+    # pass. `#repaint` is the Qt-named spelling of the same thing.
     def render(with_children = true)
-      _render with_children
+      base_render with_children
     end
 
-    # Runs the base `_render`, insets the resulting coordinates by this widget's
+    # Synchronously paints this widget ↔ `QWidget::repaint()` — dispatches to
+    # the (possibly overridden) `#render`. For a coalesced, scheduled frame of
+    # the whole window use `#update`.
+    def repaint(with_children = true)
+      render with_children
+    end
+
+    @[Deprecated("Use `#repaint` (synchronous paint) or `#update` (scheduled frame)")]
+    def _render(with_children = true)
+      repaint with_children
+    end
+
+    # Runs `base_render`, insets the resulting coordinates by this widget's
     # border, and yields the interior rectangle `(xi, xl, yi, yl)` for a widget
     # that paints its own interior on top of the standard render (e.g.
     # `ProgressBar`, `Gradient`). Returns the render's `RenderedGeometry` (or `nil` when
     # nothing was rendered). Use `next` inside the block to bail out early while
     # still returning the coords.
     # Shared body of `with_inner_coords`/`with_content_coords`: runs the base
-    # `_render` (forwarding *with_children*), bails when nothing rendered, then
+    # `base_render` (forwarding *with_children*), bails when nothing rendered, then
     # insets the resulting coordinates by this widget's border — and, when *pad*
     # is true, additionally by the padding — before yielding the interior
     # rectangle `(xi, xl, yi, yl)`. Returns the render's `RenderedGeometry` (or `nil`).
@@ -930,7 +950,7 @@ module Crysterm
     # `clear_last_rendered_position` until the next frame. The allocation-free
     # by-value overloads used here leave `@lpos`/`ret` describing the full rect.
     private def with_inset_coords(with_children, pad : Bool, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
-      ret = _render with_children
+      ret = base_render with_children
       return unless ret
       xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
       if border = style.border
@@ -943,17 +963,17 @@ module Crysterm
       ret
     end
 
-    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
-      with_inset_coords(true, false) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
+    def with_inner_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
+      with_inset_coords(with_children, false) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
     end
 
     # Like `with_inner_coords`, but insets the rendered rectangle by the border
     # AND the padding — the interior *content* region, matching the two-step
-    # inset `_render` itself applies (border first, then padding) before laying
+    # inset `base_render` itself applies (border first, then padding) before laying
     # out content. Yields `(xi, xl, yi, yl)` for a widget that paints its own
     # content straight into the cell buffer on top of the standard render (e.g.
     # `Effect::Direct`). Returns the render's `RenderedGeometry` (or `nil` when nothing was
-    # rendered). `with_children` is forwarded to `_render` so an interior-painting
+    # rendered). `with_children` is forwarded to `base_render` so an interior-painting
     # widget can still opt out of rendering its children.
     def with_content_coords(with_children = true, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
       with_inset_coords(with_children, true) { |xi, xl, yi, yl| yield xi, xl, yi, yl }
@@ -1055,7 +1075,7 @@ module Crysterm
     # Clears area/position of widget's last render
     def clear_last_rendered_position(*, rendered : Bool = false, force : Bool = false)
       return unless window?
-      # Reuse the cached `@lpos` from the previous `_render` instead of
+      # Reuse the cached `@lpos` from the previous `base_render` instead of
       # recomputing geometry from scratch — it's still correct even after the
       # caller moved the widget, since `@lpos` holds where it actually painted.
       # Falls back to `coords` only when never rendered. Same

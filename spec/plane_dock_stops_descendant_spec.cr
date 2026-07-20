@@ -39,7 +39,7 @@ describe "Widget#register_dock_stops (layer descendants)" do
     Widget::Box.new(parent: outer, left: 1, top: 1, width: 8, height: 4,
       style: Style.new(border: true))
 
-    s._render
+    s.repaint
 
     # The child's border rows must not have leaked onto the base docking set.
     s._dock_stops.empty?.should be_true

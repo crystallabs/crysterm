@@ -196,7 +196,7 @@ module Crysterm
       # keeping a stale ramp.
       @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, Int32?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
-      def render
+      def render(with_children = true)
         key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
                glyph_key(style)}
         if key != @content_key

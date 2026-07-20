@@ -19,7 +19,7 @@ end
 
 private def new_te(s, doc, top = 0)
   te = Widget::TextEdit.new parent: s, left: 0, top: top, width: 40, height: 4, document: doc
-  s._render
+  s.repaint
   te
 end
 
@@ -136,7 +136,7 @@ describe Widget::TextEdit do
       new_te s, doc, top: 4
       a.cursor_pos = 3
       a._listener chr('!')
-      s._render
+      s.repaint
       String.build { |io| 4.times { |x| io << s.lines[0][x].char } }.should eq "one!"
       String.build { |io| 4.times { |x| io << s.lines[4][x].char } }.should eq "one!"
     end

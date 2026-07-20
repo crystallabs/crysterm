@@ -265,7 +265,7 @@ describe "BUGS-F2 32: Calendar closes one nav dropdown before opening the other"
     # which only exists once a frame has actually run. `render` merely schedules
     # one, leaving `handle_mouse`'s `coords` nil — and its blanket `rescue`
     # then swallows the click, so no menu ever opens.
-    s._render
+    s.repaint
 
     ox = cal.aleft + cal.ileft
     oy = cal.atop + cal.itop
@@ -452,11 +452,11 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
     s = f2_screen
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: false,
       top: 0, left: 0, width: 30, height: 8
-    # `_render` (not `render`, which only rings the async doorbell) so the
+    # `repaint` (not `update`, which only rings the async doorbell) so the
     # painted rect `@lpos` the checkable click handler hit-tests is populated,
     # as it is under real dispatch (a Mouse event only reaches the widget once
     # it has been painted).
-    s._render
+    s.repaint
 
     gb.checkable = true
     gb.label_widget.not_nil!.rendered_content.should contain "[x]" # marker now shown

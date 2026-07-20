@@ -28,7 +28,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     before = s.lines.size
     # Move child_base (always: true forces a base shift) — reaches the CSR
@@ -50,7 +50,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     # corruption from a wrapped negative delete_at shifts these rows.
     Widget::Box.new parent: s, top: 10, left: 0, width: "100%", height: 2,
       content: "MARKER-A\nMARKER-B"
-    s._render
+    s.repaint
 
     bottom1 = row_chars(s, 10)
     bottom2 = row_chars(s, 11)
@@ -69,10 +69,10 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
     w.scroll(5, true)
     w.child_base.should be > 0
-    s._render
+    s.repaint
 
     before = s.lines.size
     w.scroll(-1, true) # insert_line direction; must not raise
@@ -86,7 +86,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w = Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 6,
       scrollable: true
     w.set_content((1..40).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     w.scroll(1, true)
     w.child_base.should be > 0
@@ -100,7 +100,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..20).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     before = s.lines.size
     w.insert_line 1, "inserted" # render_line_shift → window.insert_line

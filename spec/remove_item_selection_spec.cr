@@ -25,7 +25,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     list.current_index = 2 # "c"
     list.current_text.should eq "c"
 
-    list.remove_item list.items[0] # remove "a"; b,c,d shift to 0,1,2
+    list.remove_item list.item_boxes[0] # remove "a"; b,c,d shift to 0,1,2
     list.items.size.should eq 3
     list.current_index.should eq 1  # "c" is now at index 1
     list.current_text.should eq "c" # still tracking the same logical item
@@ -36,11 +36,11 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 2 # "c" (the last row)
 
-    list.remove_item list.items[0] # remove "a"; c shifts to index 1
+    list.remove_item list.item_boxes[0] # remove "a"; c shifts to index 1
     list.current_index.should eq 1
     list.current_text.should eq "c"
     # The cursor must point at a real row, not past the end.
-    list.items[list.current_index]?.should_not be_nil
+    list.item_boxes[list.current_index]?.should_not be_nil
   end
 
   it "leaves the cursor untouched when a later row is removed" do
@@ -48,7 +48,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 0 # "a"
 
-    list.remove_item list.items[2] # remove "c" (below the cursor)
+    list.remove_item list.item_boxes[2] # remove "c" (below the cursor)
     list.current_index.should eq 0
     list.current_text.should eq "a"
   end
@@ -58,7 +58,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 2 # "c"
 
-    list.remove_item list.items[2] # remove the selected row
+    list.remove_item list.item_boxes[2] # remove the selected row
     list.current_index.should eq 1
     list.current_text.should eq "b"
   end
@@ -69,7 +69,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     # Cursor stays at index 0 (default selection).
     list.current_text.should eq "a"
 
-    list.remove_item list.items[0] # remove the selected first row; "b" shifts to 0
+    list.remove_item list.item_boxes[0] # remove the selected first row; "b" shifts to 0
     list.items.size.should eq 2
     list.current_index.should eq 0  # cursor stays at index 0
     list.current_text.should eq "b" # now tracking the row that slid into index 0

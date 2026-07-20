@@ -33,7 +33,7 @@ describe "BUGS13 M2: media backends clamp negative coordinates" do
     img = Widget::Media::Ansi.new parent: s, top: -2, left: 0, width: 4, height: 4,
       fit: Widget::Media::Fit::Stretch
     img.bitmap = red_bitmap(4, 4)
-    s._render
+    s.repaint
 
     base = s.lines[4][10].attr # an untouched reference cell
     (0..3).each do |x|
@@ -52,7 +52,7 @@ describe "BUGS13 M2: media backends clamp negative coordinates" do
     img = Widget::Media::Glyph.new parent: s, top: 0, left: -2, width: 4, height: 2,
       mode: Widget::Media::Glyph::Mode::Block, fit: Widget::Media::Fit::Stretch
     img.bitmap = red_bitmap(8, 4)
-    s._render
+    s.repaint
 
     base = s.lines[0][10].attr
     [18, 19].each do |x|
@@ -71,7 +71,7 @@ describe "BUGS13 M4: paint_document clamps negative columns" do
     s = paint_screen(20, 4)
     Widget::PlainTextEdit.new parent: s, top: 0, left: -3, width: 10, height: 2,
       content: "hello world"
-    s._render
+    s.repaint
 
     # The first visible character is the 4th of the row's text.
     s.lines[0][0].char.should eq 'l'
@@ -89,7 +89,7 @@ describe "BUGS13 M6: TextBrowser click hit-testing is exact" do
     s = paint_screen(40, 8)
     tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
     tb.document = TextDocument.from_markdown("go [one](u://1) and [two](u://2)")
-    s._render
+    s.repaint
 
     clicked = [] of String
     tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }

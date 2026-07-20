@@ -20,7 +20,7 @@ describe "BUGS16 B16-38: Gauge/GaugeList/Donut set_range rejects non-finite boun
     g = Widget::Gauge.new parent: s, top: 0, left: 0, width: 20, height: 1, value: 50
     g.maximum = Float64::NAN
     g.maximum.should eq 100.0
-    s._render # must not raise OverflowError
+    s.repaint # must not raise OverflowError
   end
 
   it "rejects a NaN Gauge#minimum, keeping the previous bound, and renders" do
@@ -28,7 +28,7 @@ describe "BUGS16 B16-38: Gauge/GaugeList/Donut set_range rejects non-finite boun
     g = Widget::Gauge.new parent: s, top: 2, left: 0, width: 20, height: 1, value: 50
     g.minimum = Float64::NAN
     g.minimum.should eq 0.0
-    s._render
+    s.repaint
   end
 
   it "rejects a non-finite Gauge#set_range call outright" do
@@ -37,7 +37,7 @@ describe "BUGS16 B16-38: Gauge/GaugeList/Donut set_range rejects non-finite boun
     g.set_range 0.0, Float64::NAN
     g.minimum.should eq 0.0
     g.maximum.should eq 100.0
-    s._render
+    s.repaint
   end
 
   it "rejects a NaN GaugeList#maximum, keeping the previous bound, and renders" do
@@ -46,7 +46,7 @@ describe "BUGS16 B16-38: Gauge/GaugeList/Donut set_range rejects non-finite boun
     gl.add_item "cpu", 64
     gl.maximum = Float64::NAN
     gl.maximum.should eq 100.0
-    s._render
+    s.repaint
   end
 
   it "rejects a non-finite Graph::Donut#set_range call outright" do
@@ -56,7 +56,7 @@ describe "BUGS16 B16-38: Gauge/GaugeList/Donut set_range rejects non-finite boun
     d.set_range 0.0, Float64::NAN
     d.minimum.should eq 0.0
     d.maximum.should eq 100.0
-    s._render
+    s.repaint
   end
 end
 
@@ -67,7 +67,7 @@ describe "BUGS16 B16-41: GaugeList::Item#value= sanitizes non-finite input" do
     gl.add_item "mem", 50
     gl["mem"].not_nil!.value = Float64::NAN
     gl["mem"].not_nil!.value.should eq gl.minimum
-    s._render # must not raise OverflowError
+    s.repaint # must not raise OverflowError
   end
 
   it "coerces an Infinity direct item.value= to the list's minimum and renders" do
@@ -76,6 +76,6 @@ describe "BUGS16 B16-41: GaugeList::Item#value= sanitizes non-finite input" do
     gl.add_item "net", 50
     gl["net"].not_nil!.value = Float64::INFINITY
     gl["net"].not_nil!.value.should eq gl.minimum
-    s._render
+    s.repaint
   end
 end

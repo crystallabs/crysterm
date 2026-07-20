@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: off-screen (negative-coordinate) clipping in `Widget#_render`
+# Regression: off-screen (negative-coordinate) clipping in `Widget#base_render`
 # (`widget_rendering.cr`).
 #
 # A top-level widget positioned partly off the left or top screen edge has a
@@ -19,13 +19,13 @@ private def screen(width = 12, height = 4)
     width: width, height: height)
 end
 
-describe "Widget#_render off-screen clipping" do
+describe "Widget#base_render off-screen clipping" do
   it "clips a widget off the LEFT edge without wrapping onto the right edge" do
     s = screen width: 12, height: 3
     s.alloc
     b = Crysterm::Widget::Box.new(left: -3, top: 0, width: 6, height: 1, content: "ABCDEF")
     s << b
-    s._render
+    s.repaint
 
     row = s.lines[0]
     chars = (0...row.size).map { |x| row[x].char }.join
@@ -44,7 +44,7 @@ describe "Widget#_render off-screen clipping" do
     b = Crysterm::Widget::Box.new(left: 0, top: -2, width: 4, height: 4,
       content: "aaaa\nbbbb\ncccc\ndddd")
     s << b
-    s._render
+    s.repaint
 
     def_char = Crysterm::Window::DEFAULT_CHAR
 
@@ -63,7 +63,7 @@ describe "Widget#_render off-screen clipping" do
     b = Crysterm::Widget::Box.new(left: -2, top: 0, width: 6, height: 3, content: "")
     b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)
     s << b
-    s._render
+    s.repaint
 
     def_char = Crysterm::Window::DEFAULT_CHAR
     # The widget occupies columns -2..3; its right border lands on column 3.

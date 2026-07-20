@@ -2,13 +2,13 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the child-arranging layout engines (`src/layout/*`). Each
-# engine's `#arrange` runs on every `Widget#_render` of a container with a
+# engine's `#arrange` runs on every `Widget#base_render` of a container with a
 # layout installed, so any per-frame allocation there is paid every frame.
 #
 # Method: build one headless screen per engine holding a single container with
-# N identical children, prime it with a full `s._render`, then measure
+# N identical children, prime it with a full `s.repaint`, then measure
 # `layout.render_children(container)` directly in a loop (a repeated
-# `s._render` would short-circuit on the clean tree and skip `arrange`).
+# `s.repaint` would short-circuit on the clean tree and skip `arrange`).
 # Children's geometry is unchanged between calls, so setters no-op and child
 # re-renders stay cheap, leaving the engine's own per-frame collections as the
 # dominant, deterministic B/frame signal. ns/frame is noisy.
@@ -26,7 +26,7 @@ def make(layout : Layout, & : Widget -> _) : {Layout, Widget}
   box = Widget::Box.new parent: s, left: 0, top: 0, width: 60, height: 20,
     layout: layout, overflow: Crysterm::Overflow::Ignore
   yield box
-  s._render # prime (establishes container.lpos + first-frame child geometry)
+  s.repaint # prime (establishes container.lpos + first-frame child geometry)
   {layout, box}
 end
 

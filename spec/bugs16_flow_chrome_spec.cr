@@ -28,7 +28,7 @@ describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" 
     c1 = Widget::Box.new parent: box, width: 5, height: 2
     c2 = Widget::Box.new parent: box, width: 5, height: 2
 
-    s._render
+    s.repaint
 
     box.itop.should eq 1
     lbl.layout_chrome?.should be_true
@@ -60,7 +60,7 @@ describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" 
     c1 = Widget::Box.new parent: box, width: 5, height: 2
     c2 = Widget::Box.new parent: box, width: 5, height: 2
 
-    s._render
+    s.repaint
 
     # Pre-fix the label's full-interior awidth became the uniform column width,
     # collapsing the grid to one column so c2 wrapped to a second row. Post-fix
@@ -79,7 +79,7 @@ describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" 
     c1 = Widget::Box.new parent: box, width: 5, height: 2
     c2 = Widget::Box.new parent: box, width: 5, height: 2
 
-    s._render
+    s.repaint
 
     lbl.top.should eq(-box.itop) # pinned to border row, not arranged to a slot
 

@@ -25,7 +25,7 @@ private def shrink_box_rect(anchor : Symbol, pad : Crysterm::Padding, child_w = 
     else             Widget::Box.new parent: s, left: 2, bottom: 2, shrink_to_fit: true, style: st
     end
   Widget::Box.new parent: sh, left: 0, top: 0, width: child_w, height: child_h
-  s._render
+  s.repaint
   l = sh.lpos.not_nil!
   {l.xi, l.xl, l.yi, l.yl}
 end

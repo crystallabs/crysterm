@@ -77,7 +77,7 @@ describe "BUGS13 S1 fold_specified_onto copies mutable box props" do
       inline.border = true
       box = Widget::Box.new parent: screen, width: 10, height: 5, style: inline
       screen.stylesheet = "Box { border-left-width: 0 !important; }"
-      screen._render
+      screen.repaint
       # The computed style honors the rule ...
       box.style.border.left.should eq 0
       # ... but the user's inline object is untouched (was mutated to 0).
@@ -92,7 +92,7 @@ describe "BUGS13 S1 fold_specified_onto copies mutable box props" do
       inline.border = true
       box = Widget::Box.new parent: screen, width: 10, height: 5, style: inline
       screen.stylesheet = "Box:focus { border-left-width: 0 !important; }"
-      screen._render
+      screen.repaint
       # The focused state got its own border object; normal keeps the inline's.
       box.styles.focused.border.left.should eq 0
       box.styles.normal.border.left.should eq 1
@@ -106,11 +106,11 @@ describe "BUGS13 S3 cascade reset reinstalls the floor border" do
     without_default_theme do
       screen = headless_screen
       box = FloorBox.new parent: screen, width: 10, height: 5
-      screen._render
+      screen.repaint
       box.style.border.left.should eq 1 # floor border installed at the unstyled floor
 
       screen.stylesheet = "Label { color: red; }" # active CSS; box matches nothing
-      screen._render
+      screen.repaint
       box.css_styled?.should be_false
       box.style.border.left.should eq 1 # was 0: memo skipped the reinstall forever
     end
@@ -120,13 +120,13 @@ describe "BUGS13 S3 cascade reset reinstalls the floor border" do
     without_default_theme do
       screen = headless_screen
       box = FloorBox.new parent: screen, width: 10, height: 5
-      screen._render
+      screen.repaint
       screen.stylesheet = "Box { color: red; }" # matches: cascade owns the border
-      screen._render
+      screen.repaint
       box.css_styled?.should be_true
 
       screen.stylesheet = nil # back to the unstyled floor (reset pass)
-      screen._render
+      screen.repaint
       box.css_styled?.should be_false
       box.style.border.left.should eq 1
     end
@@ -139,13 +139,13 @@ describe "BUGS13 S4 programmatic hide survives a recascade for unmatched widgets
       screen = headless_screen
       box = Widget::Box.new parent: screen, width: 10, height: 5
       screen.stylesheet = "Label { color: red; }" # active CSS; box matches nothing
-      screen._render
+      screen.repaint
       box.css_styled?.should be_false
 
       box.hide
       box.visible?.should be_false
       box.add_css_class "poke" # attribute change -> the document changes -> recascade
-      screen._render
+      screen.repaint
       box.visible?.should be_false # was true: the reset wiped the computed-only write
     end
   end
@@ -155,14 +155,14 @@ describe "BUGS13 S4 programmatic hide survives a recascade for unmatched widgets
       screen = headless_screen
       box = Widget::Box.new parent: screen, width: 10, height: 5
       screen.stylesheet = "Label { color: red; }"
-      screen._render
+      screen.repaint
       box.hide
-      screen._render
+      screen.repaint
       box.show
       box.visible?.should be_true
       box.remove_css_class "poke" # no-op class change; add one to force a change
       box.add_css_class "poke2"
-      screen._render
+      screen.repaint
       box.visible?.should be_true
     end
   end
@@ -186,7 +186,7 @@ describe "BUGS13 S6 cascade reset invalidates the pushed-substyle memo" do
       box = Widget::Box.new parent: screen, width: 5, height: 3
       box._substyle_src = Style.new
       screen.stylesheet = "Box { color: red; }"
-      screen._render
+      screen.repaint
       box._substyle_src.should be_nil
     end
   end
@@ -196,10 +196,10 @@ describe "BUGS13 S6 cascade reset invalidates the pushed-substyle memo" do
       screen = headless_screen
       box = Widget::Box.new parent: screen, width: 5, height: 3
       screen.stylesheet = "Box { color: red; }"
-      screen._render
+      screen.repaint
       box._substyle_src = Style.new
       screen.stylesheet = nil
-      screen._render
+      screen.repaint
       box._substyle_src.should be_nil
     end
   end
@@ -212,12 +212,12 @@ describe "BUGS13 S9 reparenting a styled widget to a rule-less window reverts it
       b = headless_screen
       a.stylesheet = "Box { color: red; }"
       box = Widget::Box.new parent: a, width: 5, height: 3
-      a._render
+      a.repaint
       box.css_styled?.should be_true
       box.style.fg.should eq rgb("red")
 
       b.insert box # cross-window move; b has no active rules
-      b._render
+      b.repaint
       box.css_styled?.should be_false # was stuck true
       box.style.fg.should be_nil      # was red forever
     end
@@ -231,11 +231,11 @@ describe "BUGS13 S9 reparenting a styled widget to a rule-less window reverts it
       inline = Style.new
       inline.fg = "cyan"
       box = Widget::Box.new parent: a, width: 5, height: 3, style: inline
-      a._render
+      a.repaint
       box.css_styled?.should be_true
 
       b.insert box
-      b._render
+      b.repaint
       box.css_styled?.should be_false
       box.style.fg.should eq rgb("cyan") # inline wins wholesale again
     end

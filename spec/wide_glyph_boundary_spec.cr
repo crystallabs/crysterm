@@ -36,7 +36,7 @@ describe "wide glyph at a content boundary" do
     s = fu_screen(5, 3)
     Widget::Box.new parent: s, top: 0, left: 0, width: 3, height: 3,
       content: "漢", style: Style.new(border: true)
-    s._render
+    s.repaint
     line = s.lines[1] # content row (row 0 is the top border)
 
     line[1].char.should eq ' ' # lead cell blanked, not '漢'
@@ -55,7 +55,7 @@ describe "wide glyph at a content boundary" do
     s = fu_screen(6, 3)
     Widget::Box.new parent: s, top: 0, left: 0, width: 6, height: 3,
       content: "漢z", style: Style.new(border: true) # content cols x=1..4
-    s._render
+    s.repaint
     line = s.lines[1]
 
     line[1].char.should eq '漢'
@@ -78,7 +78,7 @@ describe "wide glyph at a content boundary" do
               content: content, style: Style.new(border: true)
             b.wrap_content = wrap
             b.child_base_x = sx unless wrap
-            s._render
+            s.repaint
             s.lines.each do |line|
               (0...(w - 1)).each do |x|
                 if line[x].width == 2

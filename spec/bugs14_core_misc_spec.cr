@@ -35,7 +35,7 @@ describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
   it "feed_animation_frames with fps: 0 does not raise (no Infinity clock)" do
     s = b14_window
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
-    s._render
+    s.repaint
     io = IO::Memory.new
     # Before the fix `FrameClock.new((1.0 / 0).seconds)` raised OverflowError
     # at construction. A tiny duration keeps the clock loop short.
@@ -45,7 +45,7 @@ describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
   it "feed_animation_frames with a negative fps does not raise either" do
     s = b14_window
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
-    s._render
+    s.repaint
     io = IO::Memory.new
     s.feed_animation_frames(io, 0, s.awidth, 0, s.aheight, 2.milliseconds, -5)
   end
@@ -59,7 +59,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
-    s._render
+    s.repaint
 
     # Drive a move onto the inner widget so it becomes the window's hover.
     lp = inner.lpos.not_nil!
@@ -76,7 +76,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
-    s._render
+    s.repaint
 
     lp = inner.lpos.not_nil!
     s.dispatch_mouse b14_mouse(::Tput::Mouse::Action::Move, lp.xi, lp.yi)
@@ -91,7 +91,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
-    s._render
+    s.repaint
 
     s.capture_mouse inner
     s.mouse_captor.should eq inner
@@ -104,7 +104,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     s = b14_window
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
-    s._render
+    s.repaint
 
     s.add_popup_grab inner
     s.popup_grab_active?.should be_true
@@ -119,7 +119,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
     a = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 2
     b = Widget::Box.new parent: outer, left: 1, top: 3, width: 6, height: 2
     a.clickable = true
-    s._render
+    s.repaint
 
     lp = a.lpos.not_nil!
     s.dispatch_mouse b14_mouse(::Tput::Mouse::Action::Move, lp.xi, lp.yi)

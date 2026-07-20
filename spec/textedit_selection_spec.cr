@@ -46,7 +46,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo\nthree"
-    s._render
+    s.repaint
 
     press s, 2, 1
     te.cursor_pos.should eq 6 # "one\n tw|o" -> block 1, offset 2
@@ -59,13 +59,13 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "hello world"
-    s._render
+    s.repaint
 
     press s, 0, 0
     drag_move s, 5, 0
     te.selected_text.should eq "hello"
 
-    s._render
+    s.repaint
     reversed?(s, 0, 0).should be_true
     reversed?(s, 4, 0).should be_true
     reversed?(s, 6, 0).should be_false
@@ -75,13 +75,13 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo"
-    s._render
+    s.repaint
 
     press s, 1, 0
     drag_move s, 2, 1
     te.selected_text.should eq "ne\ntw"
 
-    s._render
+    s.repaint
     reversed?(s, 1, 0).should be_true
     reversed?(s, 1, 1).should be_true
     reversed?(s, 2, 1).should be_false
@@ -91,7 +91,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "hello world"
-    s._render
+    s.repaint
 
     press s, 0, 0
     drag_move s, 5, 0
@@ -106,7 +106,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "abcdef"
-    s._render
+    s.repaint
 
     te.cursor_pos = 0
     3.times { te._listener ctl(::Tput::Key::ShiftRight) }
@@ -121,13 +121,13 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "overlay target"
-    s._render
+    s.repaint
 
     c = TextCursor.new(te.document)
     c.set_position(0)
     c.set_position(7, :keep_anchor)
     te.extra_selections = [Widget::TextEdit::ExtraSelection.new(c, TextCharFormat.new(bg: 0x333333))]
-    s._render
+    s.repaint
 
     Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x333333)
     Attr.bg(s.lines[0][6].attr).should eq Attr.pack_color(0x333333)
@@ -141,12 +141,12 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo\nthree"
-    s._render
+    s.repaint
 
     te.cursor_pos = 5 # inside "two"
     c = TextCursor.new(te.document, te.cursor_pos)
     te.extra_selections = [Widget::TextEdit::ExtraSelection.new(c, TextCharFormat.new(bg: 0x222244), full_width: true)]
-    s._render
+    s.repaint
 
     # Whole row 1 carries the bg — including cells past the text.
     Attr.bg(s.lines[1][0].attr).should eq Attr.pack_color(0x222244)
@@ -161,13 +161,13 @@ describe Widget::TextEdit do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "bold"
     te.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
-    s._render
+    s.repaint
 
     c = TextCursor.new(te.document)
     c.set_position(0)
     c.set_position(4, :keep_anchor)
     te.extra_selections = [Widget::TextEdit::ExtraSelection.new(c, TextCharFormat.new(bg: 0x111111))]
-    s._render
+    s.repaint
 
     a = s.lines[0][0].attr
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
@@ -178,7 +178,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "alpha beta gamma"
-    s._render
+    s.repaint
 
     press s, 7, 0
     press s, 7, 0 # second click within the multi-click window

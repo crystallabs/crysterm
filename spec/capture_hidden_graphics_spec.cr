@@ -8,7 +8,7 @@ include Crysterm
 # consulted a graphics widget's OWN `visible?` flag (via `capture_layer`), not
 # its ancestors' — so a graphics widget inside a hidden container was still
 # painted into the capture even though the live terminal never shows it (a
-# hidden widget's `_render`, and thus its escape sequence, is skipped).
+# hidden widget's `repaint`, and thus its escape sequence, is skipped).
 #
 # A faithful capture must mirror what the terminal displays, so a hidden
 # subtree's graphics must be excluded.
@@ -39,7 +39,7 @@ describe "Capture of in-band graphics inside a hidden subtree" do
     img.bitmap = red_bitmap
 
     # Visible: the image's pixels are composited into the capture.
-    s._render
+    s.repaint
     capture_has_red?(Crysterm::Capture.render(s, 0, s.awidth, 0, s.aheight)).should be_true
 
     # Hiding the *parent* (the image itself stays flag-visible) must remove the

@@ -1,12 +1,12 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Per-frame cost of the `Widget#_render` content loop (`widget_rendering.cr`):
+# Per-frame cost of the `Widget#base_render` content loop (`widget_rendering.cr`):
 # the per-cell walk that lays `@_pcontent` into the screen's `@lines` buffer.
 # `widget-content.cr` covers `process_content`/wrapping/tag parsing; this one
 # targets the cell-painting loop itself.
 #
-# A box is filled with multi-line text and `_render`ed in a tight loop.
+# A box is filled with multi-line text and `repaint`ed in a tight loop.
 # Content is unchanged between frames, so `process_content` takes its
 # cache-hit path and cost is dominated by the per-cell loop. Output never
 # touches the terminal (headless Window over /dev/null).
@@ -62,7 +62,7 @@ printf "%-22s %12s %14s\n", "scenario", "ns/render", "KB/render"
 puts "=" * 64
 
 {"plain text" => plain, "colored SGR" => colored}.each do |name, w|
-  ns = ns_per(ROUNDS) { w._render }
-  kb = alloc_kb(ROUNDS) { w._render } / ROUNDS
+  ns = ns_per(ROUNDS) { w.repaint }
+  kb = alloc_kb(ROUNDS) { w.repaint } / ROUNDS
   printf "%-22s %12.0f %14.4f\n", name, ns, kb
 end

@@ -132,13 +132,13 @@ describe "BUGS15 #24: Kitty graphic deleted when slid to a negative origin" do
     img = KittyProbe.new parent: s, top: 1, left: 0, width: 4, height: 3
     img.bitmap = solid_bmp
 
-    s._render
+    s.repaint
     img.probe_last_drawn.should_not be_nil # placed on screen
     img.cleared_count.should eq 0
 
     # Slide it above the top edge: content_rect is now nil (negative origin).
     img.top = -2
-    s._render
+    s.repaint
 
     # Pre-fix: redraw_image bailed on `content_rect || return` without clearing,
     # leaving the Kitty layer floating and @last_drawn stuck at the old rect.
@@ -168,7 +168,7 @@ describe "BUGS15 #14: Kitty z=/background= take effect at runtime" do
     s = gfx_window
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
 
     k.probe_payload_geom.should_not be_nil
     k.probe_emitted_key.should_not be_nil
@@ -185,7 +185,7 @@ describe "BUGS15 #14: Kitty z=/background= take effect at runtime" do
     s = gfx_window
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_payload_geom.should_not be_nil
 
     k.z = nil # already nil — must not churn the cache
@@ -198,7 +198,7 @@ describe "BUGS15 #14: Kitty z=/background= take effect at runtime" do
     s = gfx_window
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_payload_geom.should_not be_nil
 
     k.background = true
@@ -245,7 +245,7 @@ describe "BUGS15 #52: toggling double_buffer drops the cache and clears the ghos
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.double_buffer?.should be_true
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_payload_geom.should_not be_nil
 
     idb = k.probe_id_b
@@ -269,7 +269,7 @@ describe "BUGS15 #52: toggling double_buffer drops the cache and clears the ghos
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3,
       double_buffer: false
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_payload_geom.should_not be_nil
 
     outbuf.clear
@@ -286,7 +286,7 @@ describe "BUGS15 #53: cache drops do not re-arm first-paint auto-play" do
     s = gfx_window
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_anim_checked.should be_true # first paint probed the source
 
     k.fit = Widget::Media::Fit::Contain
@@ -305,13 +305,13 @@ describe "BUGS15 #53: cache drops do not re-arm first-paint auto-play" do
     s = gfx_window
     k = KittyProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     k.bitmap = solid_bmp
-    s._render
+    s.repaint
     k.probe_anim_checked.should be_true
 
     k.load "data/image/matterhorn.png"
     k.probe_anim_checked.should be_false # load re-arms
 
-    s._render
+    s.repaint
     k.probe_anim_checked.should be_true
     k.clear_image
     k.probe_anim_checked.should be_false # clear_image re-arms

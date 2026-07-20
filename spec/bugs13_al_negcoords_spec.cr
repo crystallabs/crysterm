@@ -36,7 +36,7 @@ describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
   it "drops a negative row instead of wrapping to the bottom screen row" do
     s = neg_screen
     box = SpecTextRunBox.new parent: s, top: 0, left: 0, width: 20, height: 3
-    s._render
+    s.repaint
 
     box.spec_run(-1, 5, "ZZZ", 20)
 
@@ -49,7 +49,7 @@ describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
   it "skips negative columns instead of wrapping to the right end of the row" do
     s = neg_screen
     box = SpecTextRunBox.new parent: s, top: 0, left: 0, width: 20, height: 3
-    s._render
+    s.repaint
 
     box.spec_run(1, -2, "ABC", 20)
 
@@ -66,7 +66,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
     s = neg_screen 60, 24
     bt = Crysterm::Widget::BigText.new parent: s, top: -6, left: 0,
       content: "A", foreground_char: '#'
-    s._render
+    s.repaint
 
     # The glyph is drawn with '#'; the rows that hang off the top must be
     # dropped, not painted onto the bottom rows of the screen.
@@ -83,7 +83,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
     s = neg_screen 60, 24
     Crysterm::Widget::BigText.new parent: s, top: 0, left: -4,
       content: "A", foreground_char: '#'
-    s._render
+    s.repaint
 
     # Columns hanging off the left edge must be dropped, not wrapped to the
     # right end of the rows.
@@ -101,7 +101,7 @@ describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
     cd = Crysterm::Widget::ColorDialog.new(
       parent: s, top: 0, left: -6, width: 56, height: 20)
     cd.show
-    s._render
+    s.repaint
 
     # An untouched baseline cell (bottom-right corner is outside the dialog).
     base_attr = s.lines[23][79].attr
@@ -120,7 +120,7 @@ describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
     cd = Crysterm::Widget::ColorDialog.new(
       parent: s, top: -5, left: 0, width: 56, height: 20)
     cd.show
-    s._render
+    s.repaint
 
     base_attr = s.lines[23][79].attr
 

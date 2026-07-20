@@ -57,7 +57,7 @@ describe "BUGS-F2 #1 default quit keys are a fallback, not a pre-empt" do
     app.add win
 
     le = Widget::LineEdit.new parent: win, left: 0, top: 0, width: 40, height: 1, content: ""
-    win._render
+    win.repaint
     le.read_input
     win.grab_keys?.should be_true
 
@@ -90,7 +90,7 @@ describe "BUGS-F2 #7 a reading editor accepts the keys it consumes" do
   it "accepts printable insertions, editing and Enter/Escape but not Tab" do
     win = f2_screen
     le = Widget::LineEdit.new parent: win, left: 0, top: 0, width: 40, height: 1, content: ""
-    win._render
+    win.repaint
 
     ins = f2_key('a')
     le._listener ins
@@ -122,7 +122,7 @@ describe "BUGS-F2 #4 text-edit teardown does not yank focus when focus moved on"
     a = Widget::Box.new parent: win, left: 0, top: 0, width: 10, height: 1
     le = Widget::LineEdit.new parent: win, left: 0, top: 2, width: 40, height: 1, content: ""
     b = Widget::Box.new parent: win, left: 0, top: 4, width: 10, height: 1
-    win._render
+    win.repaint
 
     win.focus a
     le.read_input # saves `a` (le was unfocused), focuses le
@@ -140,7 +140,7 @@ describe "BUGS-F2 #26 restore_focus skips a widget disabled while saved" do
     win = f2_screen
     a = Widget::Box.new parent: win, left: 0, top: 0, width: 10, height: 1
     b = Widget::Box.new parent: win, left: 0, top: 2, width: 10, height: 1
-    win._render
+    win.repaint
 
     win.focus a
     win.save_focus      # dialog opens, remembers `a`
@@ -158,7 +158,7 @@ describe "BUGS-F2 #27 rewind_focus empty-history branch guards on focused?" do
   it "does not reset (re-enable) a popped widget that is not focused" do
     win = f2_screen
     a = Widget::Box.new parent: win, left: 0, top: 0, width: 10, height: 1
-    win._render
+    win.repaint
 
     win.focus a
     a.state = :disabled # disabled while focused
@@ -177,7 +177,7 @@ describe "BUGS-F2 #35 external value= clears the vertical goal column" do
   it "clears @goal_col on an external set but keeps it on redisplay" do
     win = f2_screen
     pte = Widget::PlainTextEdit.new parent: win, left: 0, top: 0, width: 40, height: 6, content: "hello"
-    win._render
+    win.repaint
 
     pte.goal_col = 50
     pte.value = "brand new text"

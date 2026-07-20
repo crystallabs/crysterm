@@ -17,9 +17,9 @@ include Crysterm
 #      carried onto the wrapped remainder.
 #
 # Both are exercised through the public API: a `Widget::Box` with `wrap_content`
-# on, given content with inline SGR, wrapped to a narrow width by `_render`, and
+# on, given content with inline SGR, wrapped to a narrow width by `repaint`, and
 # the resulting wrapped rows (`@_clines`) inspected. Headless harness: a `Window`
-# over in-memory IOs plus the synchronous `Window#_render` (like the other specs).
+# over in-memory IOs plus the synchronous `Window#repaint` (like the other specs).
 
 private def sized_screen(w, h)
   Crysterm::Window.new(
@@ -41,7 +41,7 @@ private def wrapped_box(s, content, w, h)
   b = Widget::Box.new(
     parent: s, top: 0, left: 0, width: w, height: h,
     content: content, parse_tags: true, wrap_content: true)
-  s._render
+  s.repaint
   b
 end
 

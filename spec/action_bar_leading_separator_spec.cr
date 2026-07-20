@@ -37,9 +37,9 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
 
     # Stays there across a render (separator must not be scrolled off by an
     # inflated left_base).
-    s._render
+    s.repaint
     bar.current_index.should eq 1
-    bar.items[0].lpos.should_not be_nil
+    bar.item_boxes[0].lpos.should_not be_nil
   end
 
   it "still selects index 0 for an ordinary leading command" do

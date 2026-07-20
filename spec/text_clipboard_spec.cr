@@ -24,7 +24,7 @@ end
 
 private def new_te(s, content = "")
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8, content: content
-  s._render
+  s.repaint
   te
 end
 
@@ -96,7 +96,7 @@ describe "rich clipboard" do
     src._listener ctl(::Tput::Key::CtrlC)
 
     le = Widget::LineEdit.new parent: s, left: 0, top: 10, width: 20, height: 1, content: ""
-    s._render
+    s.repaint
     le._listener ctl(::Tput::Key::CtrlV)
     le.value.should eq "styled"
   end
@@ -111,7 +111,7 @@ describe "rich clipboard" do
 
     # Plain copy from a flat-buffer widget wins (it's newer).
     le = Widget::LineEdit.new parent: s, left: 0, top: 10, width: 20, height: 1, content: "plain"
-    s._render
+    s.repaint
     select_range le, 0, 5
     le._listener ctl(::Tput::Key::CtrlC)
     app_clipboard(s).fragment.should be_nil
@@ -161,7 +161,7 @@ describe "rich clipboard" do
 
     dst = Widget::TextEdit.new parent: s, left: 0, top: 10, width: 40, height: 4,
       content: "12", max_length: 6
-    s._render
+    s.repaint
     dst.cursor_pos = 2
     dst._listener ctl(::Tput::Key::CtrlV)
 

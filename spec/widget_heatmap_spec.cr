@@ -116,7 +116,7 @@ describe Crysterm::Widget::Graph::HeatMap do
         colormap: :viridis, values: [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]],
         type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
-      s._render
+      s.repaint
       # Some interior cell picked up a real RGB background (a colored block):
       # a resolved color is `0..0xFFFFFF`, below the `COLOR_DEFAULT` sentinel.
       any_bg = (1...11).any? do |y|
@@ -142,7 +142,7 @@ describe Crysterm::Widget::Graph::HeatMap do
         type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
       # All cells NaN -> paint_grid fills nothing; render must not raise.
-      s._render
+      s.repaint
       hm.values.size.should eq 2
     ensure
       Crysterm::CSS.default_stylesheet = saved
@@ -158,7 +158,7 @@ describe Crysterm::Widget::Graph::HeatMap do
         show_legend: false, show_labels: false,
         values: [[10.0, 20.0], [30.0, 40.0]],
         type: Crysterm::Widget::Media::Type::Glyph
-      s._render
+      s.repaint
 
       seen = [] of {Int32, Int32, Float64}
       hm.on(Crysterm::Event::CellHover) { |e| seen << {e.row, e.col, e.value} }
@@ -184,7 +184,7 @@ describe Crysterm::Widget::Graph::HeatMap do
         show_legend: false, show_labels: false,
         values: [[1.0, 2.0], [3.0, 4.0]],
         type: Crysterm::Widget::Media::Type::Glyph
-      s._render
+      s.repaint
 
       count = 0
       hm.on(Crysterm::Event::CellHover) { count += 1 }

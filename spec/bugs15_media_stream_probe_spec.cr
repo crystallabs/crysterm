@@ -63,7 +63,7 @@ describe "BUGS15 #21 stream-mode source memoizes its decode mode" do
     Crysterm::Config.media_video_decode = Crysterm::Widget::Media::VideoDecode::Auto
     s = probe_window
     img = ProbeAnsi.new(parent: s)
-    img.file = "clip.mp4" # stream-mode video (via the stubbed estimator)
+    img.reload "clip.mp4" # stream-mode video (via the stubbed estimator); no decode yet
 
     Crysterm::Widget::Media::VideoSource.reset_estimate_calls
 

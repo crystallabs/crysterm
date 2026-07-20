@@ -24,7 +24,7 @@ describe "BUGS7 completer popup position accounts for window insets" do
     input = Widget::LineEdit.new parent: s, top: 2, left: 3, width: 10, height: 1
     comp = Crysterm::Completer.new ["hello", "help", "helm"]
     comp.attach input
-    s._render
+    s.repaint
     input.focus
 
     # Down opens the drop-down (browse mode); this runs `position`.

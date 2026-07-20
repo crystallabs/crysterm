@@ -76,8 +76,8 @@ module Crysterm
         super(**box)
         # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
         self.speed = speed
-        setup_animate animate # before set_image, so shared clock is known when play subscribes
-        @file.try { |f| set_image f }
+        setup_animate animate # before load, so shared clock is known when play subscribes
+        @file.try { |f| load f }
         on(::Crysterm::Event::Destroy) { stop }
       end
 
@@ -105,7 +105,7 @@ module Crysterm
         @mode = m
         @rendered_size = nil
         if @animated
-          @file.try { |f| set_image f }
+          @file.try { |f| load f }
         else
           request_render
         end

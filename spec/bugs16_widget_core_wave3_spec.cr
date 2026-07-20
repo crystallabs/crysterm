@@ -89,7 +89,7 @@ describe "BUGS16 B16-13: reserved horizontal-bar band gets the widget background
       style: Style.new(bg: "blue"),
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall: both bars
-    s._render
+    s.repaint
 
     box.hscrollbar_rows.should eq 1
     # The corner (last cell of the bar row) is left to the widget's own fill.
@@ -109,7 +109,7 @@ describe "BUGS16 B16-14: last_rendered_position? on a detached widget" do
   it "returns nil instead of raising after the widget is removed" do
     s = wave3_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2
-    s._render
+    s.repaint
     box.lpos.should_not be_nil
 
     s.remove box
@@ -130,7 +130,7 @@ describe "BUGS16 B16-15: disabling scrollable resets the scroll state" do
       wrap_content: false
     box.scrollable = true
     box.set_content (1..20).map { |i| "line#{i}" }.join("\n")
-    s._render
+    s.repaint
     box.scroll 15
     box.child_base.should be > 0
 
@@ -138,7 +138,7 @@ describe "BUGS16 B16-15: disabling scrollable resets the scroll state" do
     box.child_base.should eq 0
 
     box.set_content "one line"
-    s._render
+    s.repaint
     w3_row_chars(s, 0, 0, 8).should eq "one line"
   ensure
     s.try &.destroy

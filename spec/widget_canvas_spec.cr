@@ -68,7 +68,7 @@ describe Crysterm::Widget::Graph::Canvas do
         p.pen = 0xFFFFFF
         p.fill_rect 0, 0, w, h
       end
-      s._render
+      s.repaint
 
       braille = ->(ch : Char) { ('⠀'..'⣿').includes?(ch) && ch != '⠀' }
       # Interior (cols 1..6, rows 1..3) is filled braille.
@@ -93,7 +93,7 @@ describe Crysterm::Widget::Graph::Canvas do
       p.pen = 0xFFFFFF
       p.fill_rect 0, 0, cv.device.native_resolution(6, 3)[0], cv.device.native_resolution(6, 3)[1]
     end
-    s._render
+    s.repaint
 
     # The Canvas interior (6x3 cells at 0,0) should now be full-block braille.
     full = '⣿' # U+28FF, all 8 dots
@@ -116,12 +116,12 @@ describe Crysterm::Widget::Graph::Canvas do
       p.fill_rect 0, 0, (w * frac).to_i, h
     end
 
-    s._render
+    s.repaint
     paints.should eq 1
     snap = s.lines.map(&.map { |c| {c.char, c.attr} })
 
     # Several renders with no state change: no extra paints, identical cells.
-    3.times { s._render }
+    3.times { s.repaint }
     paints.should eq 1
     s.lines.map(&.map { |c| {c.char, c.attr} }).should eq snap
   end
@@ -138,12 +138,12 @@ describe Crysterm::Widget::Graph::Canvas do
       p.pen = 0x40E0D0
       p.fill_rect 0, 0, (w * frac).to_i, h
     end
-    s._render
+    s.repaint
     before = s.lines.map(&.map { |c| {c.char, c.attr} })
 
     frac = 0.95
     cv.refresh
-    s._render
+    s.repaint
     paints.should eq 2 # refresh forced exactly one more paint
     s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq before
   end
@@ -156,13 +156,13 @@ describe Crysterm::Widget::Graph::Donut do
     s = render_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 18, height: 9,
       value: 20, type: Crysterm::Widget::Media::Type::Glyph
-    s._render
+    s.repaint
     a = s.lines.map(&.map { |c| {c.char, c.attr} })
-    s._render
+    s.repaint
     s.lines.map(&.map { |c| {c.char, c.attr} }).should eq a # static: unchanged
 
     d.value = 95
-    s._render
+    s.repaint
     s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq a # mutation repaints
   end
 end

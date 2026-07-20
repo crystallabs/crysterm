@@ -35,7 +35,7 @@ def run(label, opt)
     phase += 0.025
   }
 
-  5.times { step.call; s._render }
+  5.times { step.call; s.repaint }
 
   GC.collect
   before = GC.stats.total_bytes
@@ -43,7 +43,7 @@ def run(label, opt)
   wall = Time.measure do
     FRAMES.times do
       step.call
-      s._render
+      s.repaint
       rsum += s.render_rate
       dsum += s.draw_rate
     end

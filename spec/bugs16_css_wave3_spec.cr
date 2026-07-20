@@ -105,7 +105,7 @@ describe "BUGS16 B16-29: currentColor border resolves at render time" do
     Crysterm::CSS::Properties.apply(control.style, "color", "red")
     Crysterm::CSS::Properties.apply(control.style, "border-color", "currentColor")
 
-    s._render
+    s.repaint
     s.lines[0][0].attr.should eq s.lines[5][0].attr
   ensure
     s.try &.destroy

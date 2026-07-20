@@ -37,7 +37,7 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 6, parse_tags: true)
     box.set_content "{center}Title"
-    s._render
+    s.repaint
 
     box.append_line "subtitle"
 
@@ -46,7 +46,7 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
     ref = Widget::Box.new(
       parent: s, top: 6, left: 0, width: 20, height: 6, parse_tags: true)
     ref.set_content "{center}Title\nsubtitle"
-    s._render
+    s.repaint
 
     box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
 
@@ -67,7 +67,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
       scrollable: true, wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOn,
       content: "L0\nL1\nL2\nL3\nL4\nL5")
-    s._render
+    s.repaint
 
     box.hscrollbar_rows.should eq 1
 
@@ -88,7 +88,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
       scrollable: true, wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOn,
       content: "L0\nL1\nL2\nL3\nL4\nL5")
-    s._render
+    s.repaint
 
     box.delete_bottom 1
 
@@ -104,7 +104,7 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 3, content: "Hi")
-    s._render
+    s.repaint
     box._clines.lines[0].should eq "Hi"
 
     box.align = Tput::AlignFlag::Center
@@ -122,7 +122,7 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 3,
       content: "{bold}Hi{/bold}", parse_tags: false)
-    s._render
+    s.repaint
     box._clines.lines[0].should eq "{bold}Hi{/bold}"
 
     box.parse_tags = true
@@ -137,7 +137,7 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 6, height: 5,
       content: "aaaa bbbb cccc", wrap_content: true)
-    s._render
+    s.repaint
     (box._clines.lines.size > 1).should be_true
 
     box.wrap_content = false

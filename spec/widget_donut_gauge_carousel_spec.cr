@@ -19,7 +19,7 @@ describe Crysterm::Widget::Graph::Donut do
       d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 18, height: 11,
         value: 72, label: "CPU", type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
-      s._render
+      s.repaint
       t = text_of s
       t.each_char.any? { |ch| ('⠁'..'⣿').includes?(ch) }.should be_true # ring
       t.includes?("72%").should be_true
@@ -48,7 +48,7 @@ describe Crysterm::Widget::Graph::Donut do
       Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 20, height: 11,
         value: 8, show_label: false, type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
-      s._render
+      s.repaint
       # The 8% arc sits near the top; the bottom interior rows must be blank
       # (a full track ring would have filled them, which was the bug).
       bottom = (7..9).map { |y| (1...19).map { |x| s.lines[y][x].char }.join }
@@ -67,7 +67,7 @@ describe Crysterm::Widget::Graph::Donut do
         value: 35, show_label: false, show_track: true,
         fill_color: 0x40E0D0, track_color: 0x404850,
         type: Crysterm::Widget::Media::Type::Glyph, style: Crysterm::Style.new(border: true)
-      s._render
+      s.repaint
       fgs = [] of Int64
       (1...10).each do |y|
         (1...19).each do |x|
@@ -104,7 +104,7 @@ describe Crysterm::Widget::GaugeList do
         style: Crysterm::Style.new(border: true)
       gl.add_item "cpu", 64
       gl.add_item "mem", 88, 0xE05050
-      s._render
+      s.repaint
       t = text_of s
       t.includes?("cpu").should be_true
       t.includes?("mem").should be_true

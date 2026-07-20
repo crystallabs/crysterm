@@ -2,11 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Widget.resolve_percentage` (the extracted percentage position/size
-# resolver): must match the previous inline `expr.split(/(?=\+|-)/)` formula
-# from widget_position/widget_size, reproduced below as the reference oracle.
-describe "Widget.resolve_percentage" do
-  # Pre-extraction computation (the six inline blocks).
+# Behavior lock for the percentage arm of `Dim` (D2, parse-at-assignment):
+# `Dim.parse(expr).resolve(dim)` must match the historical inline
+# `expr.split(/(?=\+|-)/)` formula from widget_position/widget_size,
+# reproduced below as the reference oracle — rendered geometry must not move
+# under the typed representation.
+describe "Dim percentage resolution" do
+  # The pre-Dim (pre-extraction) computation, from the six inline blocks.
   old = ->(expr : String, dim : Int32) {
     e = expr.split(/(?=\+|-)/)
     base = e[0][0...-1].to_f / 100
@@ -25,17 +27,17 @@ describe "Widget.resolve_percentage" do
   it "matches the old split-based formula for all expr/dim combinations" do
     exprs.each do |expr|
       dims.each do |dim|
-        Widget.resolve_percentage(expr, dim).should eq old.call(expr, dim)
+        Dim.parse(expr).resolve(dim).should eq old.call(expr, dim)
       end
     end
   end
 
   it "computes representative values directly" do
-    Widget.resolve_percentage("50%", 80).should eq 40
-    Widget.resolve_percentage("50%+5", 80).should eq 45
-    Widget.resolve_percentage("50%-5", 80).should eq 35
-    Widget.resolve_percentage("100%", 24).should eq 24
-    Widget.resolve_percentage("0%", 24).should eq 0
-    Widget.resolve_percentage("25%+1", 100).should eq 26
+    Dim.parse("50%").resolve(80).should eq 40
+    Dim.parse("50%+5").resolve(80).should eq 45
+    Dim.parse("50%-5").resolve(80).should eq 35
+    Dim.parse("100%").resolve(24).should eq 24
+    Dim.parse("0%").resolve(24).should eq 0
+    Dim.parse("25%+1").resolve(100).should eq 26
   end
 end

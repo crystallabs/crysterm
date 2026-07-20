@@ -27,7 +27,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
       keys: true,
       vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     input.scroll_position.should eq 0
     # Half-page down: ~aheight/2 ≈ 12 lines on a 24-row screen. `scroll_position` is
@@ -51,7 +51,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
       keys: true,
       vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
-    s._render
+    s.repaint
 
     # Jump well down first, then page back up.
     input.scroll_to 40

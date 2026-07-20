@@ -24,11 +24,11 @@ WIDGETS.times do |i|
 end
 
 # Warm up (first renders allocate caches: lpos, content index, etc.).
-50.times { screen._render }
+50.times { screen.repaint }
 
 GC.collect
 before = GC.stats.total_bytes
-FRAMES.times { screen._render }
+FRAMES.times { screen.repaint }
 after = GC.stats.total_bytes
 
 total = after - before

@@ -24,13 +24,13 @@ describe "BUGS15 #47 animation-iteration-count 0" do
     # `to { opacity: 0 }` — a bug would settle the box at opacity 0 on tick 1.
     s.stylesheet = "@keyframes zero { to { opacity: 0; } } " \
                    ".zero { animation: zero 1s 0; }"
-    s._render # would start (and immediately settle) the animation
+    s.repaint # would start (and immediately settle) the animation
 
     # Base alpha (unset) preserved: the 100% keyframe (opacity 0) was never applied.
     b.style.opacity.should be_nil
     2.times do
       sleep 0.03.seconds
-      s._render
+      s.repaint
     end
     b.style.opacity.should be_nil
   ensure
@@ -47,7 +47,7 @@ describe "BUGS15 #48 tint-only keyframe animation" do
     # keyframe animates only tint_alpha and `style.tint` stays nil (invisible).
     s.stylesheet = "@keyframes flash { from { tint: red 0.0; } to { tint: red 0.8; } } " \
                    ".flash { animation: flash 0.1s infinite; }"
-    s._render # starts the animation
+    s.repaint # starts the animation
 
     seen_tint = false
     12.times do

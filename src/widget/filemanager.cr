@@ -188,7 +188,7 @@ module Crysterm
       end
 
       private def open_selected
-        return if @items.empty?
+        return if @item_boxes.empty?
         # Resolve from the stored real name, not the decorated row text.
         name = @entry_names[current_index]?
         return unless name

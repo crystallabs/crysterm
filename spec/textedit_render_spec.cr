@@ -5,7 +5,7 @@ include Crysterm
 # `Widget::TextEdit` rendering: document fragments written directly into the
 # cell buffer with packed attributes (TEXTEDIT.md Phase 2). Headless harness
 # like `text_editing_keys_spec.cr`: a `Window` over in-memory IOs and a
-# synchronous `Window#_render` (NOT `#render`, which only rings the async
+# synchronous `Window#repaint` (NOT `#render`, which only rings the async
 # render-loop doorbell), then cells asserted straight off `Window#lines`.
 
 private def te_screen(width = 40, height = 8)
@@ -19,7 +19,7 @@ end
 
 private def new_te(s, content = "")
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8, content: content
-  s._render
+  s.repaint
   te
 end
 
@@ -56,7 +56,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = new_te s, "hello world"
     te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
-    s._render
+    s.repaint
 
     a = s.lines[0][0].attr
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
@@ -75,7 +75,7 @@ describe Widget::TextEdit do
     te.document.apply_char_format(1, 2, TextCharFormat.new(italic: true))
     te.document.apply_char_format(2, 3, TextCharFormat.new(strike: true))
     te.document.apply_char_format(3, 4, TextCharFormat.new(inverse: true))
-    s._render
+    s.repaint
 
     (Attr.flags(s.lines[0][0].attr) & Attr::UNDERLINE).should_not eq 0
     (Attr.flags(s.lines[0][1].attr) & Attr::ITALIC).should_not eq 0
@@ -87,7 +87,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = new_te s, "link here"
     te.document.apply_char_format(0, 4, TextCharFormat.new(anchor_href: "https://example.org"))
-    s._render
+    s.repaint
     (Attr.flags(s.lines[0][0].attr) & Attr::UNDERLINE).should_not eq 0
     (Attr.flags(s.lines[0][5].attr) & Attr::UNDERLINE).should eq 0
   end
@@ -96,7 +96,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = new_te s, "Title\nbody"
     te.document.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 1))
-    s._render
+    s.repaint
     (Attr.flags(s.lines[0][0].attr) & Attr::BOLD).should_not eq 0
     (Attr.flags(s.lines[1][0].attr) & Attr::BOLD).should eq 0
   end
@@ -105,7 +105,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = new_te s, "bg\nplain"
     te.document.apply_block_format(0, 0, TextBlockFormat.new(bg: 0x0000FF))
-    s._render
+    s.repaint
     Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x0000FF)
     # Trailing cell far past the two chars of text:
     Attr.bg(s.lines[0][20].attr).should eq Attr.pack_color(0x0000FF)
@@ -122,7 +122,7 @@ describe Widget::TextEdit do
     te.cursor_pos = 0
     te._listener key('X')
     te.value.should eq "Xhello world"
-    s._render
+    s.repaint
 
     # The bold run moved right with its text.
     (Attr.flags(s.lines[0][7].attr) & Attr::BOLD).should_not eq 0
@@ -135,7 +135,7 @@ describe Widget::TextEdit do
     te.merge_current_char_format TextCharFormat.new(bold: true)
     te._listener key('b')
     te._listener key('o')
-    s._render
+    s.repaint
 
     te.value.should eq "bo"
     (Attr.flags(s.lines[0][0].attr) & Attr::BOLD).should_not eq 0
@@ -148,7 +148,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = new_te s, ""
     te.value = "a\tb"
-    s._render
+    s.repaint
     ts = te.style.tab_size
     row_text(s, 0, 2 + ts).should eq "a" + (te.style.tab_char * ts) + "b"
   end
@@ -158,14 +158,14 @@ describe Widget::TextEdit do
     doc = TextDocument.new("shared")
     te1 = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 4, document: doc
     te2 = Widget::TextEdit.new parent: s, left: 0, top: 5, width: 30, height: 4, document: doc
-    s._render
+    s.repaint
 
     te1.cursor_pos = doc.size
     te1._listener key('!')
     te1.value.should eq "shared!"
     te2.value.should eq "shared!"
 
-    s._render
+    s.repaint
     row_text(s, 0, 7).should eq "shared!"
     row_text(s, 5, 7).should eq "shared!"
   end

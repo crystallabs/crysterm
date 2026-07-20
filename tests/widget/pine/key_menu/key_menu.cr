@@ -5,12 +5,15 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "KeyMenu" do |screen|
-  screen.stylesheet = "Pine::KeyMenu { color: #c0caf5; }"
-  km = Crysterm::Widget::Pine::KeyMenu.new parent: screen, bottom: 0, left: 0, width: "100%", height: 2
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "KeyMenu" do |window|
+  window.stylesheet = "Pine::KeyMenu { color: #c0caf5; }"
+  km = PineKeyMenu.new parent: window, bottom: 0, left: 0, width: "100%", height: 2
   km.entries = [
-    Crysterm::Widget::Pine::KeyMenu::Entry.new("?", "Help"), Crysterm::Widget::Pine::KeyMenu::Entry.new("C", "Compose"),
-    Crysterm::Widget::Pine::KeyMenu::Entry.new("D", "Delete"), Crysterm::Widget::Pine::KeyMenu::Entry.new("R", "Reply"),
-    Crysterm::Widget::Pine::KeyMenu::Entry.new("Q", "Quit"),
+    PineKeyMenu::Entry.new("?", "Help"), PineKeyMenu::Entry.new("C", "Compose"),
+    PineKeyMenu::Entry.new("D", "Delete"), PineKeyMenu::Entry.new("R", "Reply"),
+    PineKeyMenu::Entry.new("Q", "Quit"),
   ]
 end

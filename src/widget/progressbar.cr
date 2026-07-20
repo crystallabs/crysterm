@@ -212,8 +212,8 @@ module Crysterm
         cached
       end
 
-      def render
-        with_inner_coords do |xi, xl, yi, yl|
+      def render(with_children = true)
+        with_inner_coords(with_children) do |xi, xl, yi, yl|
           pct = percent
           # Filled sub-region (rest of interior stays unfilled). Kept separate so
           # `xi`/`xl`/`yi`/`yl` remain the full interior for the overlay below.

@@ -94,7 +94,7 @@ describe "margin" do
       screen = render_screen
       box = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
       screen.stylesheet = "Box { margin: 1; }"
-      screen._render
+      screen.repaint
 
       l = box.lpos.not_nil!
       {l.xi, l.xl, l.yi, l.yl}.should eq({3, 13, 2, 7})
@@ -105,7 +105,7 @@ describe "margin" do
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 20, height: 10
       box.add_css_class "deco"
       screen.stylesheet = ".deco { border: solid; padding: 1; margin: 2; }"
-      screen._render
+      screen.repaint
 
       # i* are inner offsets: border(1) + padding(1) = 2 per side, regardless of
       # margin. m* are the separate outer offsets.
@@ -125,7 +125,7 @@ describe "margin" do
       boxed.shrink_to_fit = true
       boxed.add_css_class "m"
       screen.stylesheet = ".m { margin: 1; }"
-      screen._render
+      screen.repaint
 
       pl = plain.lpos.not_nil!
       bx = boxed.lpos.not_nil!
@@ -188,7 +188,7 @@ describe "margin" do
       b = Widget::Box.new parent: box, width: 8, height: 4
       b.add_css_class "ml"
       screen.stylesheet = ".ml { margin-left: 2; }"
-      screen._render
+      screen.repaint
 
       la = a.lpos.not_nil!
       lb = b.lpos.not_nil!

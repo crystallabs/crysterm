@@ -81,7 +81,7 @@ describe "BUGS16 B16-56: Media::Regis#dither= invalidates the cached payload" do
     s = mc3_screen
     img = RegisProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = mc3_bitmap(40, 60)
-    s._render
+    s.repaint
     img.probe_payload_geom.should_not be_nil
 
     img.dither = img.dither # no-op: cache must survive

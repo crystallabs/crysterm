@@ -37,7 +37,7 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :block,
       handler: ->(_data : String) { nil })
-    s._render
+    s.repaint
     term.focus
 
     em = term.emulator.not_nil!
@@ -45,7 +45,7 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
     # the block cursor lands on an already-reversed cell.
     em.feed "\e[7mX\e[0m\e[G"
     em.cursor_x.should eq 0
-    s._render
+    s.repaint
 
     line = s.lines[0]
     line[0].char.should eq 'X'
@@ -63,12 +63,12 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :block,
       handler: ->(_data : String) { nil })
-    s._render
+    s.repaint
     term.focus
 
     em = term.emulator.not_nil!
     em.feed "X\e[G" # plain 'X', cursor back onto it
-    s._render
+    s.repaint
 
     line = s.lines[0]
     (Attr.flags(line[0].attr) & Attr::REVERSE).should_not eq 0
@@ -117,9 +117,9 @@ describe "Widget::Terminal#on_mouse row mapping in a scrolled container (B17-34)
     # rows off the viewport (child_base only moves past the interior height).
     Widget::Box.new parent: outer, top: 6, left: 0, width: 1, height: 30
 
-    s._render
+    s.repaint
     outer.scroll_to 3, true
-    s._render
+    s.repaint
 
     lp = term.lpos.not_nil!
     base = lp.base

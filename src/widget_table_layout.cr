@@ -38,7 +38,7 @@ module Crysterm
     # distributed over the pre-cascade interior. Comparing the key recomputes
     # exactly when a dependency moved; for content-sized tables `@width` is nil
     # and the key stays stable, so the cache still hits every frame.
-    @maxes_key : Tuple(Int32 | String | Nil, Int32, Int32)? = nil
+    @maxes_key : Tuple(Dim | Int32 | String | Nil, Int32, Int32)? = nil
 
     # Extra padding added to each column when the table is sized to its
     # content (i.e. when no fixed `width` is set).
@@ -143,7 +143,7 @@ module Crysterm
     # separator.
     #
     # A trailing space is appended so the row is one column wider than its
-    # visible content: `Widget#_render`'s draw loop (`while x < xl - 1`) never
+    # visible content: `Widget#base_render`'s draw loop (`while x < xl - 1`) never
     # paints the final content column, so without this spare column a last
     # cell filled to its full width would lose its last character.
     # `#row_width` accounts for this extra column.

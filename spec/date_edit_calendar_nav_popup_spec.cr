@@ -27,23 +27,23 @@ end
 private def denp_down(s, x, y)
   s.dispatch_mouse Tput::Mouse::Event.new(
     Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test)
-  s._render
+  s.repaint
 end
 
 private def denp_open(s)
   de = Crysterm::Widget::DateEdit.new parent: s, top: 5, left: 10, width: 12, height: 1,
     date: Time.utc(2026, 7, 4)
   de.focus
-  s._render
+  s.repaint
   de.show_popup
-  s._render
+  s.repaint
   {de, de.@popup.not_nil!}
 end
 
 # Lowest actually-rendered row of a menu (the one most likely to overhang the
 # calendar), as an absolute (x, y).
 private def denp_lowest_row(menu)
-  lp = menu.@items.compact_map(&.@lpos).max_by(&.yi)
+  lp = menu.@item_boxes.compact_map(&.@lpos).max_by(&.yi)
   {lp.xi, lp.yi}
 end
 

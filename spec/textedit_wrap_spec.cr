@@ -35,7 +35,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 12, height: 6,
       content: "aaaa bbbb cccc"
-    s._render
+    s.repaint
 
     te._clines.size.should be > 1
     # The rows join back (modulo the wrap cuts) to the block's text.
@@ -46,7 +46,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo\nthree"
-    s._render
+    s.repaint
 
     te.cursor_pos = te.value.size # end of "three"
     te._listener ctl(::Tput::Key::Up)
@@ -60,7 +60,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "abcd"
-    s._render
+    s.repaint
 
     te.cursor_pos = 2
     te._listener key('\n', ::Tput::Key::Enter)
@@ -80,12 +80,12 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8,
       content: "first\nsecond\nthird"
-    s._render
+    s.repaint
 
     te.cursor_pos = te.value.index!("second")
     te._listener key('X')
     te.value.should eq "first\nXsecond\nthird"
-    s._render
+    s.repaint
 
     row_text(s, 0, 5).should eq "first"
     row_text(s, 1, 7).should eq "Xsecond"
@@ -96,7 +96,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "base"
-    s._render
+    s.repaint
 
     te.cursor_pos = 4
     te._listener key('1')
@@ -118,7 +118,7 @@ describe Widget::TextEdit do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "bold text"
     te.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
-    s._render
+    s.repaint
 
     te.cursor_pos = 4
     3.times { te._listener ctl(::Tput::Key::Backspace) }
@@ -132,7 +132,7 @@ describe Widget::TextEdit do
   it "emits TextChanged on edits and on undo" do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6, content: ""
-    s._render
+    s.repaint
 
     changes = [] of String
     te.on(Crysterm::Event::TextChanged) { |e| changes << e.value }
@@ -146,14 +146,14 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "old"
-    s._render
+    s.repaint
 
     te._listener key('x')
     te.value = "brand new"
     te.value.should eq "brand new"
     te.cursor_pos.should eq 9
     te.document.undo_available?.should be_false
-    s._render
+    s.repaint
     row_text(s, 0, 9).should eq "brand new"
   end
 
@@ -161,7 +161,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "12345", max_length: 6
-    s._render
+    s.repaint
 
     te.cursor_pos = 5
     te._listener key('6')
@@ -173,7 +173,7 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "fixed", read_only: true
-    s._render
+    s.repaint
 
     te.cursor_pos = 5
     te._listener key('X')
@@ -193,7 +193,7 @@ describe Widget::TextEdit do
       te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
         content: "keep cut"
       te.kill_ring = Crysterm::KillRing.new
-      s._render
+      s.repaint
 
       te.cursor_pos = 4
       te._listener ctl(::Tput::Key::CtrlK)
@@ -210,18 +210,18 @@ describe Widget::TextEdit do
     s = te_screen
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "a"
-    s._render
+    s.repaint
     te._clines.size.should eq 1
 
     te.cursor_pos = 1
     te._listener key('\n', ::Tput::Key::Enter)
     te._listener key('b')
-    s._render
+    s.repaint
     te._clines.size.should eq 2
 
     te._listener ctl(::Tput::Key::Backspace)
     te._listener ctl(::Tput::Key::Backspace)
-    s._render
+    s.repaint
     te._clines.size.should eq 1
   end
 end

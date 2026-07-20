@@ -44,7 +44,7 @@ describe "CheckBox programmatic state changes schedule a repaint" do
   it "schedules a repaint when checked programmatically" do
     s = cbr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
-    s._render                   # paint once,
+    s.repaint                   # paint once,
     s.@damage_dirty_roots.clear # then start from a clean damage set
     repaint_scheduled?(s, cb).should be_false
 
@@ -56,7 +56,7 @@ describe "CheckBox programmatic state changes schedule a repaint" do
   it "schedules a repaint when unchecked programmatically" do
     s = cbr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, checked: true, content: "Accept"
-    s._render
+    s.repaint
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, cb).should be_false
 
@@ -68,7 +68,7 @@ describe "CheckBox programmatic state changes schedule a repaint" do
   it "schedules a repaint when set to the partially-checked state" do
     s = cbr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, tristate: true, content: "Accept"
-    s._render
+    s.repaint
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, cb).should be_false
 
@@ -80,7 +80,7 @@ describe "CheckBox programmatic state changes schedule a repaint" do
   it "schedules a repaint when toggled programmatically" do
     s = cbr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
-    s._render
+    s.repaint
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, cb).should be_false
 

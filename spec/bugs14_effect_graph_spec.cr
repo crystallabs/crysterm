@@ -33,7 +33,7 @@ describe "BUGS14 A3: Calendar ISO week numbers at December 9999" do
     cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
     cal.year_shown.should eq 9999
     cal.month_shown.should eq 12
-    s._render
+    s.repaint
   ensure
     s.try &.destroy
   end
@@ -47,7 +47,7 @@ describe "BUGS14 A3: Calendar ISO week numbers at December 9999" do
     # still be computed for a normal month.
     cal.content.should contain "Wk"
     cal.content.should contain " 1"
-    s._render
+    s.repaint
   ensure
     s.try &.destroy
   end
@@ -99,7 +99,7 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
     lo.finite?.should be_true
     hi.finite?.should be_true
     hi.should be > lo
-    s._render
+    s.repaint
   ensure
     s.try &.destroy
   end
@@ -112,7 +112,7 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
     lo, hi = hm.value_range
     lo.finite?.should be_true
     hi.finite?.should be_true
-    s._render
+    s.repaint
   ensure
     s.try &.destroy
   end

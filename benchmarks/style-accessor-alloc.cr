@@ -1,7 +1,7 @@
 require "../src/crysterm"
 
 # Measures per-call allocation of the per-frame style accessors that
-# `Widget#_render` invokes, via GC.stats over warm iterations.
+# `Widget#base_render` invokes, via GC.stats over warm iterations.
 #
 # Run:  crystal run --release benchmarks/style-accessor-alloc.cr
 
@@ -22,7 +22,7 @@ s = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.
   width: 120, height: 40, optimization: Crysterm::OptimizationFlag::None)
 w = Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 5,
   style: Style.new(border: true, padding: 1, fg: "red", bg: "blue"))
-10.times { s._render }
+10.times { s.repaint }
 STDERR.puts "widget css_styled? #{w.css_styled?}  state=#{w.state}"
 
 st = w.style
@@ -37,7 +37,7 @@ per_call("st.fill_char") { st.fill_char }
 per_call("st.fg") { st.fg }
 per_call("st.bold?") { st.bold? }
 
-per_call("style + 6 accessors (per _render)") do
+per_call("style + 6 accessors (per repaint)") do
   x = w.style
   x.padding; x.border; x.shadow; x.opacity?; x.tint?; x.fill_char
 end

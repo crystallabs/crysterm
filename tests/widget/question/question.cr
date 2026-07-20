@@ -5,9 +5,12 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Question" do |screen|
-  screen.stylesheet = "Question { border: solid; color: #c0caf5; }"
-  Crysterm::Widget::Question.new \
-    parent: screen, top: "center", left: "center", width: 46, height: 7,
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Question" do |window|
+  window.stylesheet = "Question { border: solid; color: #c0caf5; }"
+  Question.new \
+    parent: window, top: "center", left: "center", width: 46, height: 7,
     content: "Delete this file? This cannot be undone."
 end

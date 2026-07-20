@@ -41,7 +41,7 @@ describe "LineEdit selection anchor after a plain click" do
     other = Crysterm::Widget::Button.new parent: s, top: 10, left: 10, width: 8, height: 1, content: "High"
     completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
     completer.attach langbox
-    s._render
+    s.repaint
 
     lx = langbox.aleft
     ly = langbox.atop
@@ -51,7 +51,7 @@ describe "LineEdit selection anchor after a plain click" do
     completer.open?.should be_true
 
     # Click the first row ("Crystal") in the popup to commit it.
-    s._render
+    s.repaint
     pop = completer.@popup.not_nil!
     click s, pop.aleft + 2, pop.atop + 1
     langbox.value.should eq "Crystal"
@@ -65,9 +65,9 @@ describe "LineEdit selection anchor after a plain click" do
 
     # Two Backspaces: previously crashed with IndexError on the second.
     backspace langbox
-    s._render
+    s.repaint
     backspace langbox
-    s._render
+    s.repaint
 
     langbox.value.should eq "Cryst"
     langbox.selection?.should be_false
@@ -76,7 +76,7 @@ describe "LineEdit selection anchor after a plain click" do
   it "does not select the just-typed character after a plain click" do
     s = mem_screen
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "hello"
-    s._render
+    s.repaint
     box.read_input
 
     # Plain click to reposition the caret at the end, then type: no phantom

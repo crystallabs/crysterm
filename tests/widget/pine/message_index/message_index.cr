@@ -5,13 +5,16 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "MessageIndex" do |screen|
-  screen.stylesheet = "Pine::MessageIndex { border: solid; color: #c0caf5; }"
-  mi = Crysterm::Widget::Pine::MessageIndex.new parent: screen, top: "center", left: "center", width: 56, height: 12, label: " INBOX "
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "MessageIndex" do |window|
+  window.stylesheet = "Pine::MessageIndex { border: solid; color: #c0caf5; }"
+  mi = PineMessageIndex.new parent: window, top: "center", left: "center", width: 56, height: 12, label: " INBOX "
   mi.messages = ([
-    Crysterm::Widget::Pine::MessageIndex::Message.new("Ada Lovelace", "Re: Analytical Engine", date: "Jun 24", unread: true),
-    Crysterm::Widget::Pine::MessageIndex::Message.new("Grace Hopper", "Compiler patches", date: "Jun 23"),
-    Crysterm::Widget::Pine::MessageIndex::Message.new("Linus T.", "Merge window", date: "Jun 22"),
+    PineMessageIndex::Message.new("Ada Lovelace", "Re: Analytical Engine", date: "Jun 24", unread: true),
+    PineMessageIndex::Message.new("Grace Hopper", "Compiler patches", date: "Jun 23"),
+    PineMessageIndex::Message.new("Linus T.", "Merge window", date: "Jun 22"),
   ])
   mi.focus
 end

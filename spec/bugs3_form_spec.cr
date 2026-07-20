@@ -52,9 +52,9 @@ describe "BUGS3 Form field collection (fix #1)" do
     form.submit
     data = form.submission.not_nil!
 
-    data["count"]?.should eq "42"
+    data["count"]?.should eq 42
     data["color"]?.should eq "green"
-    data["when"]?.should eq "2021-03-14"
+    data["when"]?.should eq Time.utc(2021, 3, 14)
 
     # Sanity: the widgets themselves hold those values.
     sb.value.should eq 42
@@ -62,7 +62,7 @@ describe "BUGS3 Form field collection (fix #1)" do
     de.date.should eq Time.utc(2021, 3, 14).at_beginning_of_day
   end
 
-  it "#submit collects a DoubleSpinBox's formatted value" do
+  it "#submit collects a DoubleSpinBox's native Float64 value" do
     s = form_screen
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     Crysterm::Widget::DoubleSpinBox.new(
@@ -71,7 +71,7 @@ describe "BUGS3 Form field collection (fix #1)" do
 
     s.render
     form.submit
-    form.submission.not_nil!["ratio"]?.should eq "3.50"
+    form.submission.not_nil!["ratio"]?.should eq 3.5
   end
 end
 

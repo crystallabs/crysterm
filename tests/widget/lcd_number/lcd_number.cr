@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "LCDNumber" do |screen|
-  screen.stylesheet = "LCDNumber { color: #f7768e; }"
-  Crysterm::Widget::LCDNumber.new parent: screen, top: "center", left: "center", value: 1234
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "LCDNumber" do |window|
+  window.stylesheet = "LCDNumber { color: #f7768e; }"
+  LCDNumber.new parent: window, top: "center", left: "center", value: 1234
 end

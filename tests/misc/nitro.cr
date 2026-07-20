@@ -9,7 +9,7 @@
 #
 #   quicktro.cr  ONE widget whose `#render` writes finished cells straight into
 #                the buffer with `fill_region`. Still goes through the window's
-#                `_render` (compositor clear → the one widget paints → draw →
+#                `repaint` (compositor clear → the one widget paints → draw →
 #                flush), so it stays capturable by the standard `.png`/`.apng`
 #                harness. ~6× cheaper compositing than cracktro.
 #
@@ -17,12 +17,12 @@
 #                paints cells directly with `window.fill_region`, then pushes the
 #                frame with `window.draw` (diff `@lines` vs `@flushed_lines`, encode,
 #                write) — nothing else runs. This is the shortest path: no
-#                buffer clear, no widget tree walk, no per-frame `_render`
+#                buffer clear, no widget tree walk, no per-frame `repaint`
 #                bookkeeping. The full-screen scene overwrites every cell each
 #                frame anyway, so the compositor's clear was pure waste here.
 #
 # The cost of "bar none": the standard headless capture is driven by the
-# window's `_render` → `Event::Rendered` cycle (see `Window#run_env_capture`),
+# window's `repaint` → `Event::Rendered` cycle (see `Window#run_env_capture`),
 # which nitro never runs — so `Application#exec`'s capture path would snapshot a
 # blank screen. nitro therefore drives its OWN capture too (paint a frame → read
 # the buffer), below, guarded by the same env vars. In the interactive path it
@@ -187,7 +187,7 @@ paint = ->(fr : Int64) do
   end
 
   # Overlay: same figures the `Fps` widget shows, computed by hand (there is no
-  # `_render` to record them). Painted last, on top, like the real overlay.
+  # `repaint` to record them). Painted last, on top, like the real overlay.
   # `0xe5e5e5` is the palette's named "white" — what `Style.new(fg: "white")`
   # resolves to — so this matches quicktro's `Fps` widget exactly.
   put_str s, " FPS #{stat_fps} (avg #{stat_fps_avg})  render #{stat_render}  draw #{stat_draw}  flush #{stat_flush} ",
@@ -217,7 +217,7 @@ if shot || dump_dest || anim
   if anim
     fr = start_frame
     # `capture(duration:)` snapshots the buffer on every `Event::Rendered`; nitro
-    # has no `_render`, so it emits the event itself after painting each frame.
+    # has no `repaint`, so it emits the event itself after painting each frame.
     clock = FrameClock.new(0.07.seconds) do
       fr += 1
       # Keep the overlay alive in the recording: time the paint as `render` and

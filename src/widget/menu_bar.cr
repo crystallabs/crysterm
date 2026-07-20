@@ -96,7 +96,7 @@ module Crysterm
         add_item(title) { toggle index } # action-bar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
-        if item = items[index]?
+        if item = item_boxes[index]?
           item.on(::Crysterm::Event::MouseEnter) do
             open index if @open_index && @open_index != index
           end
@@ -216,7 +216,7 @@ module Crysterm
 
       # Absolute x of title *i* (0 before the bar is laid out).
       private def title_x(i : Int) : Int32
-        items[i]?.try(&.aleft) || 0
+        item_boxes[i]?.try(&.aleft) || 0
       rescue
         0
       end

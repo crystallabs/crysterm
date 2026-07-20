@@ -49,8 +49,8 @@ describe "BUGS16 B16-10: overflow= marks the widget dirty" do
         content: "x" * 20
     end
 
-    plain._render
-    dmg._render
+    plain.repaint
+    dmg.repaint
     dmg.damage_full_frames.should be > 0 # first frame is always full
 
     assert_same_lines dmg, plain, "before overflow="
@@ -61,8 +61,8 @@ describe "BUGS16 B16-10: overflow= marks the widget dirty" do
     plain.children.first.overflow = Overflow::Hidden
     dmg.children.first.overflow = Overflow::Hidden
 
-    plain._render
-    dmg._render
+    plain.repaint
+    dmg.repaint
 
     # Pre-fix: the damage-tracking screen's clip never engages (the widget's
     # subtree was skipped), so its cells still show the un-clipped "xxxx...x"

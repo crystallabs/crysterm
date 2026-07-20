@@ -1,6 +1,6 @@
 # Full-recomposite-only variant of cracktro-profile.cr, for bisecting commits
 # that predate the OptimizationFlag param: constructs the scene without
-# `optimization:` and calls `_render` N times (the legacy render path).
+# `optimization:` and calls `repaint` N times (the legacy render path).
 #
 # Run:  crystal run --release benchmarks/cracktro-noopt.cr
 
@@ -116,7 +116,7 @@ step = -> {
   frame += 1
 }
 
-5.times { step.call; s._render }
+5.times { step.call; s.repaint }
 
 GC.collect
 before = GC.stats.total_bytes
@@ -124,7 +124,7 @@ rsum = 0_i64
 wall = Time.measure do
   FRAMES.times do
     step.call
-    s._render
+    s.repaint
     rsum += s.render_rate
   end
 end

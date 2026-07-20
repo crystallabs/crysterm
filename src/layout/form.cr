@@ -75,7 +75,7 @@ module Crysterm
       # and make the shared pair-row max sticky. Remember each child's raw height
       # and the Int last assigned, restore the raw value before re-measuring, and
       # release a child whose raw height the user changed.
-      @raw_height = {} of Widget => (Int32 | String | Nil)
+      @raw_height = {} of Widget => (Dim | Int32 | String | Nil)
       @assigned = {} of Widget => Int32
 
       # Placing a child likewise writes the resolved column width back over its
@@ -85,7 +85,7 @@ module Crysterm
       # explicit width. Same raw/assigned bookkeeping as height, but restored
       # *before* the placement loop: label widths are read up front by
       # `label_column_width`, so restoring inside the loop would be too late.
-      @raw_width = {} of Widget => (Int32 | String | Nil)
+      @raw_width = {} of Widget => (Dim | Int32 | String | Nil)
       @assigned_width = {} of Widget => Int32
 
       def initialize(@label_width : Int32? = nil, @horizontal_spacing : Int32 = 1, @vertical_spacing : Int32 = 0)
@@ -233,14 +233,14 @@ module Crysterm
         el._clines.max_width + el.ihorizontal
       end
 
-      # A child's row height: an explicit `Int32`, a resolved `String` (e.g.
-      # `"30%"` -> its `aheight` against the live container), or 1 (forms are
-      # single-line by default) for a nil/auto height.
+      # A child's row height: an explicit `Int32`, a resolved `Dim`/`String`
+      # (e.g. `"30%"` -> its `aheight` against the live container), or 1
+      # (forms are single-line by default) for a nil/auto height.
       private def row_height(el : Widget) : Int32
         case h = el.height
-        when Int32  then h
-        when String then el.aheight
-        else             1
+        when Int32       then h
+        when Dim, String then el.aheight
+        else                  1
         end
       end
 

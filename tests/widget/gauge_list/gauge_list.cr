@@ -5,16 +5,19 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
+include Crysterm
+include Crysterm::Widgets
+
 Crysterm::WidgetExample.run("GaugeList",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.5
-    # Ramp the gauges and return to the initial set (reach the widget via the screen).
+    # Ramp the gauges and return to the initial set (reach the widget via the window).
     [[72.0, 48.0, 91.0], [88.0, 64.0, 76.0], [96.0, 80.0, 62.0], [88.0, 64.0, 76.0], [72.0, 48.0, 91.0]].each do |vals|
-      d.act(dwell: 0.45) { |s| s.children.each { |c| vals.each_with_index { |v, i| c[i] = v if i < c.items.size } if c.is_a?(Crysterm::Widget::GaugeList) } }
+      d.act(dwell: 0.45) { |s| s.children.each { |c| vals.each_with_index { |v, i| c[i] = v if i < c.items.size } if c.is_a?(GaugeList) } }
     end
-  }) do |screen|
-  screen.stylesheet = "GaugeList { border: solid; }"
-  gl = Crysterm::Widget::GaugeList.new parent: screen, top: "center", left: "center", width: 46, height: 9
+  }) do |window|
+  window.stylesheet = "GaugeList { border: solid; }"
+  gl = GaugeList.new parent: window, top: "center", left: "center", width: 46, height: 9
   gl.add_item "CPU", 72
   gl.add_item "Memory", 48
   gl.add_item "Disk", 91

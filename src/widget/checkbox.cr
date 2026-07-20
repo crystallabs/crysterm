@@ -38,7 +38,14 @@ module Crysterm
         setup_marker_control checked, input["content"]?
       end
 
-      def render
+      # Positional text convenience — Qt's `QCheckBox(text)`. Routed via
+      # `content:`, the same label path `#setup_marker_control` already reads;
+      # an explicit `content:` in *opts* wins over the positional *text*.
+      def initialize(text : String, **opts)
+        initialize(**{content: text}.merge(opts))
+      end
+
+      def render(with_children = true)
         # `[`/`]` and the state mark resolve CSS-first (`CheckBox::indicator`,
         # with `:checked`/`:indeterminate` addressing the per-state mark), then
         # the registry; the width is stabilized over every reachable state.

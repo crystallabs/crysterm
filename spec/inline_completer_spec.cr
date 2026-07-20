@@ -19,9 +19,9 @@ private def build_completer(s, top)
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl Go]
   completer.attach box
   box.focus
-  s._render
+  s.repaint
   box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
-  s._render
+  s.repaint
   {box, completer, completer.@popup.not_nil!}
 end
 
@@ -45,7 +45,7 @@ describe "Completer inside an inline window" do
     # rows are actually emitted this frame.
     s.output.as(IO::Memory).clear
     s.realloc
-    s._render
+    s.repaint
     out = s.output.as(IO::Memory).to_s
 
     # The popup's surface top is box row 1 (top:0 + height 1); on the wire that
@@ -62,7 +62,7 @@ describe "Completer inside an inline window" do
     box, completer, _pop = build_completer s, 0
     # Enter accepts the highlighted completion into the field.
     box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter)
-    s._render
+    s.repaint
     box.value.empty?.should be_false
     completer.open?.should be_false
   end

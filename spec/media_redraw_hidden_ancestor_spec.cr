@@ -19,13 +19,13 @@ describe "Media::Graphics overlay redraw with a hidden ancestor" do
     red = PNGGIF::Pixel.new(255, 0, 0, 255)
     img.bitmap = Array(Array(PNGGIF::Pixel)).new(8) { Array(PNGGIF::Pixel).new(8, red) }
 
-    s._render # first render establishes positions
+    s.repaint # first render establishes positions
 
     # The widget itself is still own-visible; only its container is hidden.
     parent.hide
     img.visible?.should be_true
 
     # Before the fix this raised inside redraw_image (Rendered listener).
-    s._render
+    s.repaint
   end
 end

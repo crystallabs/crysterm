@@ -47,7 +47,7 @@ describe "Qt `.qss` corpus (data/css)" do
         screen.auto_reload_stylesheet = false
         build_widget_zoo screen
         screen.stylesheet = Crysterm::CSS::Stylesheet.from_file(path)
-        screen._render # cascade + cell-buffer fill; must not raise
+        screen.repaint # cascade + cell-buffer fill; must not raise
       end
     end
   end

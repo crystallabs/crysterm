@@ -5,60 +5,60 @@ require "../../src/crysterm"
 # Demonstrates drop shadows (`Style#shadow`): a full-screen background box, a
 # static "under" box, and a centered draggable "over" box that casts a shadow
 # over the others. Arrow keys nudge the over box; drag it with the mouse.
-module Crysterm
-  s = Window.new optimization: OptimizationFlag::SmartCSR,
-    dock_borders: true,
-    always_propagated_keys: [::Tput::Key::CtrlQ]
+include Crysterm
 
-  # Blessed uses a long Cicero passage; a short filler suffices here.
-  lorem = ([
-    "Non eram nescius Brute cum quae summis ingeniis exquisitaque doctrina",
-    "philosophi Graeco sermone tractavissent ea Latinis litteris mandaremus",
-    "fore ut hic noster labor in varias reprehensiones incurreret nam quibusdam",
-    "et iis quidem non admodum indoctis totum hoc displicet philosophari.",
-  ] * 8).join(" ")
+s = Window.new optimization: OptimizationFlag::SmartCSR,
+  dock_borders: true,
+  always_propagated_keys: [::Tput::Key::CtrlQ]
 
-  bg = Widget::Box.new \
-    parent: s,
-    left: 0, top: 0, right: 0, bottom: 0,
-    content: lorem,
-    style: Style.new(bg: "lightblue", shadow: true)
+# Blessed uses a long Cicero passage; a short filler suffices here.
+lorem = ([
+  "Non eram nescius Brute cum quae summis ingeniis exquisitaque doctrina",
+  "philosophi Graeco sermone tractavissent ea Latinis litteris mandaremus",
+  "fore ut hic noster labor in varias reprehensiones incurreret nam quibusdam",
+  "et iis quidem non admodum indoctis totum hoc displicet philosophari.",
+] * 8).join(" ")
 
-  Widget::Box.new \
-    parent: s,
-    left: 10, top: 4,
-    width: "40%", height: "30%",
-    parse_tags: true,
-    style: Style.new(bg: "yellow", border: true, shadow: true)
+bg = Widget::Box.new \
+  parent: s,
+  left: 0, top: 0, right: 0, bottom: 0,
+  content: lorem,
+  style: Style.new(bg: "lightblue", shadow: true)
 
-  # blessed `style.transparent: true` → crysterm's `Style#alpha` (blends each cell
-  # with what's underneath via `Colors.blend`). 0.5 matches blessed's 50% mix.
-  over = Widget::Box.new \
-    parent: s,
-    left: "center", top: "center",
-    width: "50%", height: "50%",
-    draggable: true,
-    parse_tags: true,
-    content: "{green-bg}{red-fg}{bold} --Drag Me-- {/}",
-    style: Style.new(bg: "red", border: true, shadow: true, opacity: 0.5)
+Widget::Box.new \
+  parent: s,
+  left: 10, top: 4,
+  width: "40%", height: "30%",
+  parse_tags: true,
+  style: Style.new(bg: "yellow", border: true, shadow: true)
 
-  over.focus
+# blessed `style.transparent: true` → crysterm's `Style#alpha` (blends each cell
+# with what's underneath via `Colors.blend`). 0.5 matches blessed's 50% mix.
+over = Widget::Box.new \
+  parent: s,
+  left: "center", top: "center",
+  width: "50%", height: "50%",
+  draggable: true,
+  parse_tags: true,
+  content: "{green-bg}{red-fg}{bold} --Drag Me-- {/}",
+  style: Style.new(bg: "red", border: true, shadow: true, opacity: 0.5)
 
-  s.render
+over.focus
 
-  s.on(Event::KeyPress) do |e|
-    case e.key
-    when ::Tput::Key::Left  then over.left = over.aleft - 2; s.render
-    when ::Tput::Key::Right then over.left = over.aleft + 2; s.render
-    when ::Tput::Key::Up    then over.top = over.atop - 1; s.render
-    when ::Tput::Key::Down  then over.top = over.atop + 1; s.render
-    else
-      if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
-        s.destroy
-        exit
-      end
+s.render
+
+s.on(Event::KeyPress) do |e|
+  case e.key
+  when ::Tput::Key::Left  then over.left = over.aleft - 2; s.render
+  when ::Tput::Key::Right then over.left = over.aleft + 2; s.render
+  when ::Tput::Key::Up    then over.top = over.atop - 1; s.render
+  when ::Tput::Key::Down  then over.top = over.atop + 1; s.render
+  else
+    if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
+      s.destroy
+      exit
     end
   end
-
-  s.exec
 end
+
+s.exec

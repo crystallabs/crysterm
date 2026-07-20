@@ -64,7 +64,7 @@ describe "BUGS12 9: overlay cleared when scrolled out of a scrollable ancestor" 
     img = SpySixel.new parent: outer, top: 0, left: 0, width: 6, height: 4
     img.bitmap = red_bitmap
 
-    s._render
+    s.repaint
     img.spy_last_drawn.should_not be_nil
     img.cleared_count.should eq 0
 
@@ -73,19 +73,19 @@ describe "BUGS12 9: overlay cleared when scrolled out of a scrollable ancestor" 
     # painted rect) so re-emitted cells / an explicit Kitty delete cover it.
     outer.scroll_to 12
     outer.child_base.should be > 0
-    s._render
+    s.repaint
     img.cleared_count.should eq 1
     img.cleared_on.should eq [s]
     img.spy_last_drawn.should be_nil
 
     # Still scrolled out: the clear must not re-run every frame.
-    s._render
-    s._render
+    s.repaint
+    s.repaint
     img.cleared_count.should eq 1
 
     # Scroll back in: the graphic repaints (fresh painted rect).
     outer.scroll_to 0
-    s._render
+    s.repaint
     img.spy_last_drawn.should_not be_nil
     img.cleared_count.should eq 1
   end
@@ -103,7 +103,7 @@ describe "BUGS12 26: overlay listeners migrate on a cross-window move" do
     img.bitmap = red_bitmap
     img.spy_listener_screen.should eq s1
 
-    s1._render
+    s1.repaint
     img.spy_last_drawn.should_not be_nil
 
     b.append img # cross-window move: Detach(s1) then Attach(s2)
@@ -117,10 +117,10 @@ describe "BUGS12 26: overlay listeners migrate on a cross-window move" do
 
     # The old window no longer drives this widget's repaint...
     rc = img.redraw_count
-    s1._render
+    s1.repaint
     img.redraw_count.should eq rc
     # ...the new one does, exactly once per render (no duplicate listeners).
-    s2._render
+    s2.repaint
     img.redraw_count.should eq rc + 1
     img.spy_last_drawn.should_not be_nil
   end
@@ -136,7 +136,7 @@ describe "BUGS12 26: overlay listeners migrate on a cross-window move" do
 
     img.spy_listener_screen.should eq s
     rc = img.redraw_count
-    s._render
+    s.repaint
     # Exactly one Rendered listener — a double registration would repaint twice.
     img.redraw_count.should eq rc + 1
   end

@@ -23,15 +23,15 @@ describe "BUGS17 B17-42: Completer stays dismissed on non-modifying keys after E
     box = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 2, width: 20, height: 1
     comp = Crysterm::Completer.new %w[apple apricot banana]
     comp.attach box
-    s._render
+    s.repaint
 
     # Park focus off the box, then focus it so a genuine FocusIn installs the
     # per-keystroke filter and enters read mode (the auto-focus at first render
     # does not drive that path).
     other.focus
-    s._render
+    s.repaint
     box.focus
-    s._render
+    s.repaint
 
     # Type "ap" -> popup opens on the matches (apple/apricot).
     box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('a')

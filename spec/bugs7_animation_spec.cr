@@ -26,7 +26,7 @@ describe "BUGS7 @keyframes opacity clamp for partial-range stops" do
     # without the clamp.
     s.stylesheet = "@keyframes partial { from { opacity: 0.2; } 50% { opacity: 1.0; } } " \
                    ".partial { opacity: 0.2; animation: partial 0.2s linear infinite; }"
-    s._render # starts the animation
+    s.repaint # starts the animation
 
     max_seen = 0.0
     min_seen = 1.0

@@ -26,7 +26,7 @@ private def fill_false_interior_bg(padding : Int32)
 
   b = Crysterm::Widget::Box.new parent: s, top: 1, left: 1, width: 10, height: 5,
     style: st, content: ""
-  s._render
+  s.repaint
 
   lp = b.lpos.not_nil!
   y = lp.yi + padding + 1

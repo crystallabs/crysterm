@@ -137,9 +137,9 @@ module Crysterm
         end
       end
 
-      def render
+      def render(with_children = true)
         # Interior inset; border kept intact.
-        with_inner_coords do |xi, xl, yi, yl|
+        with_inner_coords(with_children) do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi
 
           # Only the bg varies from cell to cell, so compute the base word

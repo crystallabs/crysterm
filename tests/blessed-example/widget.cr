@@ -8,12 +8,13 @@ require "../../src/crysterm"
 #   * q / Escape / Ctrl-C quits.
 
 include Crysterm
+include Crysterm::Widgets
 
-screen = Window.new title: "widget.cr"
+window = Window.new title: "widget.cr"
 
 # Box centered horizontally and vertically.
 box = Widget::Box.new(
-  parent: screen,
+  parent: window,
   top: "center",
   left: "center",
   width: "50%",
@@ -25,28 +26,25 @@ box = Widget::Box.new(
 
 # Change content on click.
 box.on(Event::Click) do
-  box.set_content "{center}Some different {red-fg}content{/red-fg}.{/center}"
-  screen.render
+  box.content = "{center}Some different {red-fg}content{/red-fg}.{/center}"
 end
 
 # Handle Enter when focused.
 box.on(Event::KeyPress) do |e|
   if e.key == Tput::Key::Enter
-    box.set_content "{right}Even different {black-fg}content{/black-fg}.{/right}\n"
+    box.content = "{right}Even different {black-fg}content{/black-fg}.{/right}\n"
     box.replace_line 1, "bar"
     box.insert_line 1, "foo"
-    screen.render
   end
 end
 
 # Quit on Escape, q, or Ctrl-C.
-screen.on(Event::KeyPress) do |e|
+window.on(Event::KeyPress) do |e|
   if e.char == 'q' || e.key == Tput::Key::Escape || e.key == Tput::Key::CtrlC
-    screen.destroy
-    exit 0
+    window.quit
   end
 end
 
 box.focus
 
-screen.exec
+window.exec

@@ -41,7 +41,7 @@ module Crysterm
     # bar — that an installed layout engine must *not* arrange (measure/place) as
     # a content slot. Distinct from `#layout_excluded?`: excluded chrome (a
     # `background-image` layer) is skipped by the normal child pass entirely and
-    # painted out-of-band from `_render`, whereas chrome flagged here is still
+    # painted out-of-band from `base_render`, whereas chrome flagged here is still
     # painted by the child pass, at its own pinned coordinates (`top: -itop`,
     # `right: 0`, …) rather than as an arranged slot. Without this, any engine
     # tears a `GroupBox` title off its border row and turns a scroll bar into a
@@ -520,9 +520,10 @@ module Crysterm
     protected def scroll_extent_bottom
       return 0 unless @scrollable
 
-      # Optimization for lists: just return items.size instead of computing children.
-      if @_is_list
-        return @items.any? ? @items.size : 0
+      # Optimization for lists: just return the item-box count instead of
+      # computing children.
+      if item_view?
+        return item_box_count
       end
 
       @lpos.try do |lpos|

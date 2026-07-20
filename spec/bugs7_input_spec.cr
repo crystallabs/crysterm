@@ -43,7 +43,7 @@ describe "BUGS7 disabled widget does not activate on a mouse click" do
     s = bugs7_screen
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
     btn.state = WidgetState::Disabled
-    s._render
+    s.repaint
 
     pressed = 0
     btn.on(Crysterm::Event::Pressed) { pressed += 1 }
@@ -55,7 +55,7 @@ describe "BUGS7 disabled widget does not activate on a mouse click" do
   it "still emits Event::Pressed for an enabled Button (no regression)" do
     s = bugs7_screen
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
-    s._render
+    s.repaint
 
     pressed = 0
     btn.on(Crysterm::Event::Pressed) { pressed += 1 }
@@ -68,7 +68,7 @@ describe "BUGS7 disabled widget does not activate on a mouse click" do
     s = bugs7_screen
     cb = Widget::CheckBox.new parent: s, top: 2, left: 2, width: 12, height: 1
     cb.state = WidgetState::Disabled
-    s._render
+    s.repaint
 
     was = cb.checked?
     down_at s, cb.aleft, cb.atop
@@ -89,7 +89,7 @@ describe "BUGS7 click-count is not inflated by an arm→drag promotion" do
       style: Style.new(border: true))
     other.clickable = true
 
-    s._render
+    s.repaint
 
     # Press over the draggable arms the drag (no Click yet), then a motion on a
     # different cell promotes it to a real drag — the arming press is consumed

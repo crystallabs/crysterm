@@ -69,7 +69,7 @@ describe Crysterm::TextTable do
       width: 30, height: 8)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 8
     te.set_markdown "| a | b |\n| --- | --- |\n| 1 | 2 |"
-    s._render
+    s.repaint
     String.build { |io| 9.times { |x| io << s.lines[0][x].char } }.should eq "┌───┬───┐"
     String.build { |io| 9.times { |x| io << s.lines[1][x].char } }.should eq "│ a │ b │"
   end

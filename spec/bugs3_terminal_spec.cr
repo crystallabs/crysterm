@@ -154,7 +154,7 @@ describe "Widget::Terminal wide glyph under cursor (fix #1)" do
       parent: s, top: 0, left: 0, width: 10, height: 4,
       handler: ->(_data : String) { nil })
 
-    s._render
+    s.repaint
     term.focus # cursor must be shown for the lead-under-cursor branch to matter
 
     em = term.emulator
@@ -169,7 +169,7 @@ describe "Widget::Terminal wide glyph under cursor (fix #1)" do
     em.feed "\e[D\e[D" # CUB x2 → onto the lead cell
     em.cursor_x.should eq 0
 
-    s._render
+    s.repaint
 
     line = s.lines[0]
     # Lead cell holds the wide glyph.
@@ -189,13 +189,13 @@ describe "Widget::Terminal wide glyph under cursor (fix #1)" do
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,
       handler: ->(_data : String) { nil })
-    s._render
+    s.repaint
 
     em = term.emulator.not_nil!
     # Print the glyph then move the cursor well away so it is not over the pair.
     em.feed "中"
     em.feed "\e[5G" # cursor to column 5 (1-based) → away from the glyph
-    s._render
+    s.repaint
 
     line = s.lines[0]
     ::Crysterm::Unicode.width(line[0].char).should eq 2

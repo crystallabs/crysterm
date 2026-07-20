@@ -113,7 +113,7 @@ describe "BUGS3 two-click drag does not inflate click_count" do
       style: Style.new(border: true))
     other.clickable = true
 
-    s._render
+    s.repaint
 
     # Press on the draggable widget: this lifts it into a two-click drag and
     # the press is swallowed (never becomes a Click). It must NOT feed the

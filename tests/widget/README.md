@@ -43,28 +43,34 @@ Every example calls the shared harness in [`example.cr`](./example.cr):
 ```crystal
 require "../example"                       # one ../ per directory level deep
 
-Crysterm::WidgetExample.run "Button" do |screen|
-  screen.stylesheet = "Button { border: solid; }"   # style via CSS (see note)
-  Crysterm::Widget::Button.new parent: screen, top: "center", left: "center",
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Button" do |window|
+  window.stylesheet = "Button { border: solid; }"   # style via CSS (see note)
+  Button.new parent: window, top: "center", left: "center",
     width: 22, height: 3, content: "Click me"
 end
 ```
 
-`WidgetExample.run` runs the block in one of two modes:
+`WidgetExample.run` runs the block in one of several modes:
 
-* **interactive** (default) — a real terminal `Screen` + `exec`.
+* **interactive** (default) — a real terminal `Window` + `exec`.
 * **screenshot** — when `CRYSTERM_SHOT=<path>` is set, the block is built on a
-  *headless* screen (all I/O on `IO::Memory`), rendered once, and captured to
-  `<path>` via `Screen#capture`. This is how the tool snapshots every widget
+  *headless* window (all I/O on `IO::Memory`), rendered once, and captured to
+  `<path>` via `Window#capture`. This is how the tool snapshots every widget
   with no real terminal involved.
+* **animation** / **dump** — `CRYSTERM_ANIM=<path>` records an APNG of the
+  `script:`-driven demo; `CRYSTERM_DUMP=<path>` writes one text frame per
+  scripted action (the textual golden). See `example.cr`'s header for details.
 
 ### Styling note
 
-Set colors and borders through **CSS** (`screen.stylesheet = "..."`), not the
-legacy `style:` constructor argument. The CSS cascade computes each widget's
-style every frame and discards inline `style:` values it doesn't also see as
-CSS, so only CSS-applied styling actually renders — and it renders identically
-whether captured or run live.
+Set colors and borders through **CSS** (`window.stylesheet = "..."`) so the
+whole demo is themed in one place. An inline `style:` constructor argument also
+works — like CSS inline style it sits above author rules in the cascade (only
+`!important` and state-specific rules outrank it) — and either way it renders
+identically whether captured or run live.
 
 ## Regenerating / screenshotting
 

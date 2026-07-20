@@ -29,13 +29,13 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
       layout_hint: Layout::Border::Hint.new(:top)
     Widget::Box.new parent: box # center
 
-    s._render
+    s.repaint
     rendered_height(top).should eq 10 # 50% of 20
 
     # Shrink the container: the percent must re-resolve (pre-fix it stayed 10,
     # the frame-1 cells written back over the "50%" string).
     box.height = 10
-    s._render
+    s.repaint
     rendered_height(top).should eq 5 # 50% of 10
   end
 
@@ -47,16 +47,16 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
       layout_hint: Layout::Border::Hint.new(:top)
     Widget::Box.new parent: box # center
 
-    s._render
+    s.repaint
     rendered_height(top).should eq 8
 
     # Squeeze so the edge clamps to the remaining span, then grow back.
     box.height = 5
-    s._render
+    s.repaint
     rendered_height(top).should eq 5 # clamped
 
     box.height = 20
-    s._render
+    s.repaint
     rendered_height(top).should eq 8 # restored, not stuck at the clamp
   end
 end
@@ -74,7 +74,7 @@ describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
       style: Style.new(margin: Margin.new(left: 2, top: 0, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 
-    s._render
+    s.repaint
 
     hl = header.lpos.not_nil!
     bl = box.lpos.not_nil!
@@ -98,7 +98,7 @@ describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
     off = Widget::Box.new parent: box,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 5) # column >= columns
 
-    s._render
+    s.repaint
 
     # Pre-fix: width 0, left 30 (past the interior), lpos nil.
     off.lpos.should_not be_nil
@@ -118,7 +118,7 @@ describe "BUGS15 flow overflow accounts for the child's top margin (fix #34)" do
     child = Widget::Box.new parent: box, width: 4, height: 5,
       style: Style.new(margin: Margin.new(left: 0, top: 1, right: 0, bottom: 0))
 
-    s._render
+    s.repaint
 
     # 0 + mtop(1) + aheight(5) = 6 > 5 interior -> SkipWidget -> lpos cleared.
     # Pre-fix (0 + 5 > 5 is false) it rendered, painting a row past the bottom.
@@ -138,10 +138,10 @@ describe "BUGS15 flow keeps scrolled rows visible (fix #4)" do
       layout: Layout::Wrap.new, overflow: :ignore, scrollable: true
     20.times { Widget::Box.new parent: box, width: 3, height: 2 }
 
-    s._render
+    s.repaint
     box.scroll_to 7
     box.child_base.should eq 2 # two content rows scrolled above the viewport
-    s._render
+    s.repaint
 
     kids = box.children
     # Row 0 (children 0-3) is scrolled fully above the viewport.
@@ -168,7 +168,7 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
     label = Widget::Box.new parent: form, height: 5
     field = Widget::Box.new parent: form, height: "30%"
 
-    s._render
+    s.repaint
     # row height = max(5, 30% of 30 = 9) = 9. Pre-fix "30%" -> 1, so max = 5.
     rendered_height(field).should eq 9
     rendered_height(label).should eq 9
@@ -176,7 +176,7 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
     # Shrink the form: the percent must re-resolve (30% of 10 = 3), so the row
     # falls back to the label's 5 instead of staying frozen.
     form.height = 10
-    s._render
+    s.repaint
     rendered_height(field).should eq 5
   end
 
@@ -187,13 +187,13 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
     label = Widget::Box.new parent: form, height: 5
     field = Widget::Box.new parent: form, height: 3
 
-    s._render
+    s.repaint
     rendered_height(field).should eq 5 # max(5, 3)
 
     # Shrink the label: the row must shrink to the field's 3. Pre-fix the field's
     # raw 3 was overwritten with the frame-1 max (5), so the row stayed 5.
     label.height = 1
-    s._render
+    s.repaint
     rendered_height(field).should eq 3 # max(1, 3)
   end
 end

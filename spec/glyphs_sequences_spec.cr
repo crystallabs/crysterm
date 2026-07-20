@@ -59,7 +59,7 @@ describe "Loading spinner frames" do
     l = Widget::Loading.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.stylesheet = %(Loading { glyphs: "◐◓◑◒"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     l.frames.should eq ["◐", "◓", "◑", "◒"]
     l.step
     l.icon.content.should eq "◓"
@@ -73,7 +73,7 @@ describe "Loading spinner frames" do
     pinned = Widget::Loading.new parent: s, top: 5, left: 0, width: 20, height: 5, spinner: :circle
     s.stylesheet = %(Loading { glyphs: "xy"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     pinned.frames.should eq ["◐", "◓", "◑", "◒"] # spinner: pins over CSS
     l.frames.should eq ["x", "y"]                # unpinned follows CSS
   end
@@ -83,16 +83,16 @@ describe "Dial pointer ring" do
   it "sweeps a CSS-supplied ring and falls back to the registry arrows" do
     s = gs_screen
     d = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3, value: 0, text_visible: false
-    s._render
+    s.repaint
     # Value at minimum: pointer is "north" (↑) centered in the middle row.
     row = (0...9).map { |x| s.lines[d.atop + 1][d.aleft + x].char }.join
     row.includes?('↑').should be_true
 
-    # Let `_render` drive the cascade: it must see `css_dirty?` to force a
+    # Let `repaint` drive the cascade: it must see `css_dirty?` to force a
     # full damage re-composite, or the direct-painting (content-less) dial
     # is skipped and keeps its stale pointer cells.
     s.stylesheet = %(Dial { glyphs: "NESW"; })
-    s._render
+    s.repaint
     row = (0...9).map { |x| s.lines[d.atop + 1][d.aleft + x].char }.join
     row.includes?('N').should be_true
   end
@@ -104,7 +104,7 @@ describe "Chart fill ramps" do
     g = Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1, value: 50.0
     s.stylesheet = %(Gauge { glyphs: " -=#"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     row = (0...10).map { |x| s.lines[g.atop][g.aleft + x].char }.join
     row.includes?('#').should be_true  # filled cells use the ramp's full step
     row.includes?('█').should be_false # not the registry blocks
@@ -115,7 +115,7 @@ describe "Chart fill ramps" do
     g = Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1, value: 50.0
     s.stylesheet = %(Gauge { glyphs: " 🚀"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     row = (0...10).map { |x| s.lines[g.atop][g.aleft + x].char }.join
     row.includes?('█').should be_true
   end

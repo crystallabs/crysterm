@@ -31,7 +31,7 @@ describe "BUGS5 coords bottom clip uses the parent's bottom border (fix #1)" do
     # equals the parent's outer bottom (10).
     child = Widget::Box.new parent: parent, top: 8, left: 0, width: 20, height: 1
 
-    s._render
+    s.repaint
 
     pl = parent.lpos.not_nil!
     pl.yl.should eq 10
@@ -68,7 +68,7 @@ describe "BUGS5 coords horizontal clip uses the parent's left/right border (fix 
     # over the border); the fix shifts it to the inner content edge.
     child = Widget::Box.new parent: parent, top: 0, left: -1, width: 5, height: 3
 
-    s._render
+    s.repaint
 
     pl = parent.lpos.not_nil!
     cl = child.lpos
@@ -101,7 +101,7 @@ describe "BUGS5 nil-height flow children are not spuriously overflow-skipped (fi
     # interior height instead of collapsing on a below-interior wrapped row.
     children = Array.new(2) { Widget::Box.new parent: box, width: 8 }
 
-    s._render
+    s.repaint
 
     # A skipped child has `lpos == nil` (see `Layout#skip`); had the auto-height
     # been (mis)treated as an overflow, `SkipWidget` would have nilled these.

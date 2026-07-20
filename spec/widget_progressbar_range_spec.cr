@@ -47,7 +47,7 @@ describe "ProgressBar range changes re-clamp and schedule a repaint" do
   it "schedules a repaint when maximum changes (percent is derived)" do
     s = pbr_screen
     pb = Crysterm::Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1, value: 50, minimum: 0, maximum: 100
-    s._render
+    s.repaint
     s.@damage_dirty_roots.clear
     repaint_scheduled?(s, pb).should be_false
 

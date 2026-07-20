@@ -47,14 +47,14 @@ describe "BUGS4 ListTable per-cell CSS recolor honors scroll (child_base)" do
     screen.stylesheet = "Row:nth-last-child(10) Cell { color: #ff0000; }"
 
     # Unscrolled: data row 5 shows at content row 5.
-    screen._render
+    screen.repaint
     content_rows_with_fg(screen, lt, 0xff0000).should contain(5)
 
     # Scrolled down by 3: data row 5 now shows at content row 2, NOT row 5. With
     # the pre-fix screen-row==data-row lookup, the styled-row check would miss
     # entirely (screen row 2 != data row 5), painting nothing.
     lt.child_base = 3
-    screen._render
+    screen.repaint
     reds = content_rows_with_fg(screen, lt, 0xff0000)
     reds.should contain(2)
     reds.should_not contain(5)

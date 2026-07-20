@@ -71,7 +71,7 @@ describe "BUGS12 #20 background-size re-asserted after layer exists" do
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6
       box.style.background_image = "#{__DIR__}/../data/image/matterhorn.png"
       box.style.background_size = Style::BackgroundSize::Contain
-      s._render
+      s.repaint
 
       bg = box.background_media
       bg.should_not be_nil
@@ -80,7 +80,7 @@ describe "BUGS12 #20 background-size re-asserted after layer exists" do
       # Change the size after the layer exists; the per-frame reconcile must
       # re-assert it (previously ignored — fit was set once at creation).
       box.style.background_size = Style::BackgroundSize::Cover
-      box._render
+      box.repaint
       box.background_media.not_nil!.fit.should eq Widget::Media::Fit::Cover
     ensure
       Crysterm::Config.media_exclude = orig

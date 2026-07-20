@@ -301,7 +301,7 @@ module Crysterm
     end
 
     # Text counterpart to `Window#capture` — same region semantics, plain-text
-    # output, via `Dump`. Renders nothing itself: call `_render` first so the
+    # output, via `Dump`. Renders nothing itself: call `repaint` first so the
     # buffer reflects the intended frame.
     #
     # With *path*, writes the dump there and returns `nil`; otherwise returns the

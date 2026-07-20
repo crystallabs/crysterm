@@ -100,7 +100,7 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
     outer.style.z_index = 10
     Widget::HLine.new(parent: outer, top: 2, left: 1, width: 8)
 
-    s._render
+    s.repaint
 
     s._dock_stops.empty?.should be_true
     s._plane_dock_stops.empty?.should be_false
@@ -112,7 +112,7 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
 
     Widget::HLine.new(parent: s, top: 3, left: 2, width: 8)
 
-    s._render
+    s.repaint
 
     s._dock_stops.empty?.should be_false
   end

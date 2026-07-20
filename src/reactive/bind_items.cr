@@ -39,15 +39,18 @@ module Crysterm
           # Remove `count` rows at `index`: after each removal later rows slide
           # down, so the row now *at* `index` is the next one to drop.
           ev.count.times do
-            break if ev.index >= view.items.size
-            view.remove_item view.items[ev.index]
+            break if ev.index >= view.item_boxes.size
+            # Remove by box identity, not by text: two rows can share text, and
+            # `remove_item(String)` would drop the first match rather than the
+            # one now at `ev.index`.
+            view.remove_item view.item_boxes[ev.index]
           end
         when .update?
           view.set_item ev.index, render.call(list[ev.index])
         when .reset?
           fill.call
         end
-        view.window?.try &.schedule_render
+        view.window?.try &.update
       end
 
       view.on(::Crysterm::Event::Destroy) { sub.off }

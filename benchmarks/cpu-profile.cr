@@ -36,12 +36,12 @@ screen = Window.new(
 end
 
 # Warm up caches.
-50.times { screen._render }
+50.times { screen.repaint }
 
 frames = 0
 deadline = Time.instant + SECONDS.seconds
 until Time.instant >= deadline
-  100.times { screen._render }
+  100.times { screen.repaint }
   frames += 100
 end
 

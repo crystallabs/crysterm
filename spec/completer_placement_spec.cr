@@ -19,9 +19,9 @@ private def cp_build(s, top)
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
   completer.attach box
   box.focus
-  s._render
+  s.repaint
   box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
-  s._render
+  s.repaint
   {box, completer, completer.@popup.not_nil!}
 end
 

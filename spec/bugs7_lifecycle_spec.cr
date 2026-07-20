@@ -52,7 +52,7 @@ describe "BUGS7 item-view search box is not orphaned on destroy" do
     s = life_window
     list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 6,
       items: ["alpha", "beta", "gamma"]
-    s._render
+    s.repaint
 
     list.start_search # lazily builds + appends the search box to the window
     box = s.children.select(Widget::LineEdit).first

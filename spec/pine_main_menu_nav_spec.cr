@@ -37,9 +37,9 @@ describe "Pine::MainMenu spaced navigation" do
   it "renders the options spaced apart via item_spacing" do
     s = pmm_screen
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s, top: 0, left: 0, width: 60, height: 12
-    s._render
+    s.repaint
     menu.item_spacing.should eq 1
-    menu.@items.map(&.atop).should eq [0, 2, 4] # a blank row between each
+    menu.@item_boxes.map(&.atop).should eq [0, 2, 4] # a blank row between each
   end
 
   it "steps one option at a time, clamped at the ends" do

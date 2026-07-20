@@ -31,11 +31,11 @@ def bench_table(label, cols, body)
     rows: make_rows(cols, body),
     style: Style.new(border: true))
 
-  50.times { s._render } # warm caches
+  50.times { s.repaint } # warm caches
 
   GC.collect
   before = GC.stats.total_bytes
-  wall = Time.measure { FRAMES.times { s._render } }
+  wall = Time.measure { FRAMES.times { s.repaint } }
   alloc = GC.stats.total_bytes - before
   STDERR.printf "%-22s alloc/frame: %6d bytes   wall/frame: %6.1f µs\n",
     label, alloc // FRAMES, wall.total_microseconds / FRAMES
@@ -52,11 +52,11 @@ def bench_listtable(label, cols, body)
     rows: make_rows(cols, body),
     style: Style.new(border: true))
 
-  50.times { s._render }
+  50.times { s.repaint }
 
   GC.collect
   before = GC.stats.total_bytes
-  wall = Time.measure { FRAMES.times { s._render } }
+  wall = Time.measure { FRAMES.times { s.repaint } }
   alloc = GC.stats.total_bytes - before
   STDERR.printf "%-22s alloc/frame: %6d bytes   wall/frame: %6.1f µs\n",
     label, alloc // FRAMES, wall.total_microseconds / FRAMES

@@ -111,19 +111,19 @@ describe "Group N per-frame content caching" do
       sp.add_widget Crysterm::Widget::Box.new content: "b"
       sp.add_widget Crysterm::Widget::Box.new content: "c"
 
-      s._render
+      s.repaint
       pos1 = sp.@positions.dup
       pos1.size.should eq 2    # n-1 dividers
       pos1.should eq pos1.sort # ascending
       (pos1[0] < pos1[1]).should be_true
 
       # Redundant render must not change the evenly-distributed positions.
-      s._render
+      s.repaint
       sp.@positions.should eq pos1
 
       # Pinning a divider still works (user-positioned clamp path).
       sp.set_divider_position 0, 10
-      s._render
+      s.repaint
       sp.divider_position(0).should eq 10
     end
   end
@@ -135,19 +135,19 @@ describe "Group N per-frame content caching" do
       bar.add_permanent "AAAA"
       bar.add_permanent "BBBB" # permanent_text "AAAA │ BBBB" (11) overflows width 10
 
-      s._render
+      s.repaint
       t1 = bar.@_trunc
       t1.empty?.should be_false
       # Truncated tail keeps the most-recent (right) sections.
       bar.@permanent_text.ends_with?(t1).should be_true
 
       # Redundant render: identical cached value.
-      s._render
+      s.repaint
       bar.@_trunc.should eq t1
 
       # Changing the permanent text rebuilds the cache.
       bar.add_permanent "CCCC"
-      s._render
+      s.repaint
       bar.@permanent_text.ends_with?(bar.@_trunc).should be_true
     end
   end

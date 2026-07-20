@@ -21,7 +21,7 @@ describe Crysterm::Overlay::DismissSession do
   it "grabs on open and dismisses on a press outside the inside-region" do
     s = ds_screen
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
-    s._render
+    s.repaint
 
     dismissed = 0
     sess = Crysterm::Overlay::DismissSession.new(
@@ -43,7 +43,7 @@ describe Crysterm::Overlay::DismissSession do
   it "releases the grab and detaches on close, idempotently" do
     s = ds_screen
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
-    s._render
+    s.repaint
 
     sess = Crysterm::Overlay::DismissSession.new(
       s, grab_owner: w,
@@ -61,7 +61,7 @@ describe Crysterm::Overlay::DismissSession do
   it "takes no grab when grab_owner is nil (the Completer shape)" do
     s = ds_screen
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
-    s._render
+    s.repaint
 
     dismissed = 0
     sess = Crysterm::Overlay::DismissSession.new(

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS15 #25: `Widget#_render`'s early-return paths (nil `coords`, or a
+# BUGS15 #25: `Widget#base_render`'s early-return paths (nil `coords`, or a
 # degenerate zero-width/height rect) cleared only the widget's OWN `lpos`,
 # leaving every descendant's last-rendered rect intact. Because `Window#widget_at`
 # hit-tests each widget independently against its own `lpos`, a scrolled-away
@@ -15,7 +15,7 @@ private def b15_screen
     width: 60, height: 24, default_quit_keys: false)
 end
 
-describe "BUGS15 25: early-return _render clears descendants' hit rects" do
+describe "BUGS15 25: early-return base_render clears descendants' hit rects" do
   it "a scrolled-away descendant is no longer hit-testable" do
     s = b15_screen
     # Manual placement (the default) scrollable container.
@@ -27,15 +27,15 @@ describe "BUGS15 25: early-return _render clears descendants' hit rects" do
     g = Widget::Box.new parent: w, top: 1, left: 1, width: 6, height: 1
     g.on(Crysterm::Event::Click) { }
 
-    s._render
+    s.repaint
     gl = g.lpos.not_nil!
     # Frame 1: G paints and is hit-testable at its on-screen rect.
     s.widget_at(gl.xi, gl.yi).should eq g
 
     # Scroll so W (rows 0..4) moves entirely above the viewport: `coords`
-    # returns nil for W, which early-returns from `_render` before rendering G.
+    # returns nil for W, which early-returns from `repaint` before rendering G.
     outer.scroll_to 20
-    s._render
+    s.repaint
     outer.child_base.should be > 4
     w.lpos.should be_nil
 
@@ -52,13 +52,13 @@ describe "BUGS15 25: early-return _render clears descendants' hit rects" do
     g = Widget::Box.new parent: w, top: 1, left: 1, width: 6, height: 1
     g.on(Crysterm::Event::Click) { }
 
-    s._render
+    s.repaint
     outer.scroll_to 20
-    s._render
+    s.repaint
     g.lpos.should be_nil
 
     outer.scroll_to 0
-    s._render
+    s.repaint
     gl = g.lpos.not_nil!
     s.widget_at(gl.xi, gl.yi).should eq g
   end
@@ -68,14 +68,14 @@ describe "BUGS15 25: early-return _render clears descendants' hit rects" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     grand = Widget::Box.new parent: box, top: 1, left: 1, width: 6, height: 1
     grand.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     gl = grand.lpos.not_nil!
     s.widget_at(gl.xi, gl.yi).should eq grand
 
-    # Collapse the container to zero rows: `_render` hits the degenerate-height
+    # Collapse the container to zero rows: `repaint` hits the degenerate-height
     # early return, which must still clear the descendant's stale rect.
     box.height = 0
-    s._render
+    s.repaint
     grand.lpos.should be_nil
     s.widget_at(gl.xi, gl.yi).should_not eq grand
   end

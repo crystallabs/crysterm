@@ -93,7 +93,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 3,
       minimum: 0, maximum: Int32::MAX, value: 1_000_000,
       tick_position: Widget::Slider::TickPosition::Both
-    s._render # value-space loop would run ~2e8 iterations and overflow on the add
+    s.repaint # value-space loop would run ~2e8 iterations and overflow on the add
     sl.value.should eq 1_000_000
   end
 
@@ -104,7 +104,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
       orientation: Tput::Orientation::Vertical,
       minimum: 0, maximum: Int32::MAX, value: 2_000_000_000,
       tick_position: Widget::Slider::TickPosition::Both
-    s._render
+    s.repaint
     sl.value.should eq 2_000_000_000
   end
 end

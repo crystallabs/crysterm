@@ -22,7 +22,7 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
 
     gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 20, height: 4
     gl.add_item "日本", 50 # 2 codepoints, 4 display columns
-    s._render
+    s.repaint
 
     cols = gl.awidth.not_nil! - gl.ihorizontal
     line = clean_tags(gl.content) # single gauge → single content line
@@ -35,7 +35,7 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
     s = uni_screen
     gl = Crysterm::Widget::GaugeList.new parent: s, top: 0, left: 0, width: 20, height: 4
     gl.add_item "cpu", 64
-    s._render
+    s.repaint
     cols = gl.awidth.not_nil! - gl.ihorizontal
     Crysterm::Unicode.display_width(clean_tags(gl.content)).should eq cols
   end

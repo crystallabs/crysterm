@@ -4,7 +4,7 @@ include Crysterm
 
 # Render- and interaction-level specs for the Qt-inspired widgets. Unlike
 # `widget_qt_features_spec.cr` (which checks state/logic), these drive a real
-# synchronous render (`Window#_render`) on an in-memory screen, inspect the
+# synchronous render (`Window#repaint`) on an in-memory screen, inspect the
 # resulting cell buffer, and feed real mouse events through `#dispatch_mouse`.
 
 private def render_screen
@@ -43,17 +43,17 @@ describe "Slider rendering" do
     s = render_screen
     sl = Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 10, value: 0, handle_char: '#', track_char: '-'
-    s._render
+    s.repaint
     # value 0 -> handle at the far left.
     row_chars(s, 0, 0, 11).should eq "#----------"
 
     sl.value = 10
-    s._render
+    s.repaint
     # value max -> handle at the far right (11 cells, 10 steps).
     row_chars(s, 0, 0, 11).should eq "----------#"
 
     sl.value = 5
-    s._render
+    s.repaint
     # value mid -> handle in the middle.
     row_chars(s, 0, 0, 11).should eq "-----#-----"
   end
@@ -69,7 +69,7 @@ describe "Slider rendering" do
       st.indicator = Crysterm::Style.new(fg: "red", bg: "blue")
       Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
         minimum: 0, maximum: 100, value: 50, text_visible: true, style: st
-      s._render
+      s.repaint
       # "50" is centered at columns 4-5; the handle sits at column 5, so the '0'
       # digit lands directly on it.
       s.lines[0][4].char.should eq '5'
@@ -90,7 +90,7 @@ describe "SpinBox rendering" do
     s = render_screen
     Crysterm::Widget::SpinBox.new parent: s, top: 0, left: 0, width: 6, height: 1,
       value: 7, prefix: "$", suffix: "%"
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 4).should eq "$7% "
   end
 end
@@ -101,7 +101,7 @@ describe "Table alternating rows rendering" do
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: true,
       style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
-    s._render
+    s.repaint
 
     alt_bg = Crysterm::Colors.convert("blue")
     found = s.lines.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
@@ -113,7 +113,7 @@ describe "Table alternating rows rendering" do
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: false,
       style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
-    s._render
+    s.repaint
 
     alt_bg = Crysterm::Colors.convert("blue")
     found = s.lines.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
@@ -126,7 +126,7 @@ describe "GroupBox rendering" do
     s = render_screen
     Crysterm::Widget::GroupBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       title: "Opts"
-    s._render
+    s.repaint
     top = row_chars(s, 0, 0, 20)
     # Box-drawing corners + the title text somewhere on the top edge.
     top.includes?("Opts").should be_true
@@ -139,11 +139,11 @@ describe "ComboBox interaction" do
     s = render_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 6).should eq "Red ▾ "
 
     cb.show_popup
-    s._render
+    s.repaint
     cb.open?.should be_true
     # Popup sits directly under the combo (row 1+).
     cb.@popup.not_nil!.atop.should eq 1
@@ -153,9 +153,9 @@ describe "ComboBox interaction" do
     s = render_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
-    s._render
+    s.repaint
     cb.show_popup
-    s._render
+    s.repaint
 
     pop = cb.@popup.not_nil!
     # First item row: one row inside the popup's top border.
@@ -172,9 +172,9 @@ describe "ComboBox interaction" do
     s = render_screen
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
-    s._render
+    s.repaint
     cb.show_popup
-    s._render
+    s.repaint
     cb.open?.should be_true
 
     press s, 70, 20 # far away
@@ -190,17 +190,17 @@ describe "TabWidget with layout" do
     tabs = Crysterm::Widget::TabWidget.new parent: s, top: 0, left: 0, width: 40, height: 10
     tabs.add_tab "A", Crysterm::Widget::Box.new(content: "one")
     tabs.add_tab "B", Crysterm::Widget::Box.new(content: "two")
-    s._render
+    s.repaint
 
     tabs.current_index = 1
-    s._render
+    s.repaint
     tabs.current_index.should eq 1
     tabs.tab_bar.current_index.should eq 1
 
     # Focusing the bar must not switch the page back (the Focus re-emit lands on
     # the already-current tab).
     tabs.tab_bar.focus
-    s._render
+    s.repaint
     tabs.current_index.should eq 1
   end
 end
@@ -214,7 +214,7 @@ describe "Splitter mouse drag" do
     sp.add_widget a
     sp.add_widget b
     sp.set_divider_position 0, 20
-    s._render
+    s.repaint
 
     sp.divider_position(0).should eq 20
     # Grab the divider (a vertical bar at column 20) and drag it left to 12.
@@ -234,11 +234,11 @@ describe "List multi-select rendering" do
       selection_mode: :multi_selection, items: ["a", "b", "c"]
     list.current_index = 0  # cursor on row 0
     list.add_to_selection 2 # check row 2
-    s._render
+    s.repaint
 
-    cursor = list.render_style_for(list.items[0])
-    marked = list.render_style_for(list.items[2])
-    plain = list.render_style_for(list.items[1])
+    cursor = list.render_style_for(list.item_boxes[0])
+    marked = list.render_style_for(list.item_boxes[2])
+    plain = list.render_style_for(list.item_boxes[1])
 
     marked.underline?.should be_true
     plain.underline?.should be_false
@@ -253,18 +253,18 @@ describe "List scroll-bar column reservation" do
     # Two items: fits in height 4, no vertical overflow, no bar yet.
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 4,
       scrollbar: true, items: ["AAAAAAAAAA", "BBBBBBBBBB"]
-    s._render
+    s.repaint
     list.show_scrollbar?.should be_false
-    list.items.all? { |i| i.right == 0 }.should be_true
+    list.item_boxes.all? { |i| i.right == 0 }.should be_true
 
     # Grow past the viewport: bar now shows, #render must re-sync every item's
     # reservation to the real bar width, or the shown bar overpaints them.
     list.add_item "CCCCCCCCCC"
     list.add_item "DDDDDDDDDD"
     list.add_item "EEEEEEEEEE" # 5 items > height 4 -> overflow
-    s._render
+    s.repaint
     list.show_scrollbar?.should be_true
-    list.items.all? { |i| i.right == list.scrollbar_width }.should be_true
+    list.item_boxes.all? { |i| i.right == list.scrollbar_width }.should be_true
   end
 end
 
@@ -274,7 +274,7 @@ describe "Question#ask_choices" do
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
     q.ask_choices("Pick one", ["Yes", "No", "Maybe"]) { |i| chosen = i }
-    s._render
+    s.repaint
 
     # The choice row is now a `DialogButtonBox` child (was inline direct-child
     # buttons); the standard OK/Cancel pair stays direct children (hidden here).
@@ -292,7 +292,7 @@ describe "Question#ask_choices" do
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
     q.ask_choices("Pick one", [] of String) { |i| chosen = i }
-    s._render
+    s.repaint
 
     # Left/Right used to do `(cur ± 1) % buttons.size` with size 0 → crash.
     s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Left
@@ -333,12 +333,12 @@ describe "Dial rendering" do
     s = render_screen
     d = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 7, height: 5,
       minimum: 0, maximum: 8, value: 0
-    s._render
+    s.repaint
     # value 0 -> north pointer somewhere in the dial.
     s.lines.any? { |line| line.any? { |c| c.char == '↑' } }.should be_true
 
     d.value = 2 # quarter turn -> east
-    s._render
+    s.repaint
     s.lines.any? { |line| line.any? { |c| c.char == '→' } }.should be_true
   end
 end
@@ -353,13 +353,13 @@ describe "Menu submenus" do
     triggered = false
     new_a.on(Crysterm::Event::Triggered) { triggered = true }
     m << file
-    s._render
+    s.repaint
 
     m.item_texts[0].includes?("▶").should be_true
 
     m.current_index = 0
     m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
-    s._render
+    s.repaint
 
     child = s.focused
     child.should_not eq m
@@ -382,7 +382,7 @@ describe "wheel implicitly focuses" do
     list = Crysterm::Widget::List.new parent: s, top: 6, left: 0, width: 16, height: 5,
       items: ["a", "b", "c"]
     btn.focus
-    s._render
+    s.repaint
 
     s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, dial.aleft + 3, dial.atop + 1, ::Tput::Mouse::Button::None)
     dial.focused?.should be_true
@@ -399,7 +399,7 @@ describe "CheckBox marker-only click" do
     s = render_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1,
       content: "Enable feature"
-    s._render
+    s.repaint
     cb.checked?.should be_false
     # Click on the text label -> no toggle.
     press s, cb.aleft + 10, cb.atop
@@ -417,7 +417,7 @@ describe "Slider mouse wheel" do
     s = render_screen
     sl = Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 16, height: 1,
       minimum: 0, maximum: 100, value: 50
-    s._render
+    s.repaint
     s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
     sl.value.should eq 51
     s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelDown, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
@@ -435,7 +435,7 @@ describe "ScrollBar rendering" do
     s = render_screen
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0
-    s._render
+    s.repaint
     # thumb at the top (value 0), `::add-page` trough below it.
     col_chars(s, 0, 0, 7).should eq "█░░░░░░"
   end
@@ -444,7 +444,7 @@ describe "ScrollBar rendering" do
     s = render_screen
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, show_trough: false
-    s._render
+    s.repaint
     # Thumb at the top, the rest of the track left blank (no `░` trough).
     col_chars(s, 0, 0, 7).should eq "█      "
   end
@@ -453,7 +453,7 @@ describe "ScrollBar rendering" do
     s = render_screen
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
-    s._render
+    s.repaint
     # ▲ sub-line, █ thumb, ░ add-page trough, ▼ add-line.
     col_chars(s, 0, 0, 7).should eq "▲█░░░░▼"
   end
@@ -463,7 +463,7 @@ describe "ScrollBar rendering" do
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 7, height: 1,
       orientation: Tput::Orientation::Horizontal,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 7).should eq "◀█░░░░▶"
   end
 
@@ -471,7 +471,7 @@ describe "ScrollBar rendering" do
     s = render_screen
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 5, step: 1, stepper_buttons: true
-    s._render
+    s.repaint
     press(s, 0, 6) # the bottom (add-line) button -> increment
     sb.value.should eq 6
     press(s, 0, 0) # the top (sub-line) button -> decrement
@@ -487,7 +487,7 @@ describe "ScrollBar rendering" do
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
     s.stylesheet = "ScrollBar::add-page { background-color: #00ff00; } " \
                    "ScrollBar::up-arrow { color: #0000ff; }"
-    s._render
+    s.repaint
     # The slots route into the bar's sub-styles...
     sb.style.add_page.bg.should eq Crysterm::Colors.convert("#00ff00")
     sb.style.up_arrow.fg.should eq Crysterm::Colors.convert("#0000ff")
@@ -506,7 +506,7 @@ describe "Horizontal scrolling" do
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST\n0123456789abcdefghij"
-    s._render
+    s.repaint
 
     box.scroll_width.should eq 20 # widest unclipped line
     box.overflows_x?.should be_true
@@ -514,7 +514,7 @@ describe "Horizontal scrolling" do
     row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ" # columns [0,10)
 
     box.scroll_by_x 5
-    s._render
+    s.repaint
     box.child_base_x.should eq 5
     row_chars(s, 0, 0, 10).should eq "FGHIJKLMNO" # columns [5,15)
     row_chars(s, 1, 0, 10).should eq "56789abcde"
@@ -526,7 +526,7 @@ describe "Horizontal scrolling" do
     hb.maximum.should eq 10 # width(20) - viewport(10)
 
     hb.value = 10 # drag the bar fully right
-    s._render
+    s.repaint
     box.child_base_x.should eq 10
     row_chars(s, 0, 0, 10).should eq "KLMNOPQRST" # columns [10,20)
   end
@@ -537,7 +537,7 @@ describe "Horizontal scrolling" do
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall: both bars
-    s._render
+    s.repaint
 
     box.hscrollbar_rows.should eq 1
     # Both bars show, so the horizontal one stops one column short of the right
@@ -550,7 +550,7 @@ describe "Horizontal scrolling" do
 
     # The last line stays reachable above the bar (not permanently hidden under it).
     box.scroll_to box.scroll_height
-    s._render
+    s.repaint
     row_chars(s, 3, 0, 4).should eq "L8-A"
     bar_glyphs.call(4).should be_true
     row_chars(s, 4, 11, 12).should eq " "
@@ -563,7 +563,7 @@ describe "Horizontal scrolling" do
       style: Style.new(border: Crysterm::BorderType::Solid),
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall
-    s._render
+    s.repaint
 
     box.show_horizontal_scrollbar?.should be_true
     # The bar reserves the last *interior* row (row 4); the bottom border stays at
@@ -579,7 +579,7 @@ describe "Horizontal scrolling" do
     s = render_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,
       content: "ABCDEFGHIJKLMNOPQRST" # wraps by default
-    s._render
+    s.repaint
     box.overflows_x?.should be_false # wrapped → never horizontally scrollable
     box.scroll_by_x 5                # no-op
     box.child_base_x.should eq 0
@@ -593,7 +593,7 @@ describe "Horizontal scrolling" do
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST"
-    s._render
+    s.repaint
     # Shift + wheel-down scrolls right; plain wheel would scroll vertically.
     down = mouse(::Tput::Mouse::Action::WheelDown, 2, 0, ::Tput::Mouse::Button::None)
     down.shift = true
@@ -613,7 +613,7 @@ describe "ListTable column-level horizontal scrolling" do
     s = render_screen
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"], ["Bob", "Rome", "25"]]
-    s._render
+    s.repaint
     lt.scroll_width.should eq 22
     lt.overflows_x?.should be_true
     lt.show_horizontal_scrollbar?.should be_true
@@ -621,16 +621,16 @@ describe "ListTable column-level horizontal scrolling" do
     row_chars(s, 0, 0, 14).should eq " Name    City " # header: col0 + col1 partial
 
     lt.scroll_by_x 1 # advance one whole column
-    s._render
+    s.repaint
     lt.child_base_x.should eq 8 # snapped to column 1's offset
     row_chars(s, 0, 0, 14).should eq " City    Age  "
 
     lt.scroll_by_x 1 # already at the last column — clamps
-    s._render
+    s.repaint
     lt.child_base_x.should eq 8
 
     lt.scroll_by_x -1
-    s._render
+    s.repaint
     lt.child_base_x.should eq 0
     row_chars(s, 0, 0, 14).should eq " Name    City "
   end
@@ -639,14 +639,14 @@ describe "ListTable column-level horizontal scrolling" do
     s = render_screen
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
-    s._render
+    s.repaint
     hb = lt.horizontal_scrollbar_widget.not_nil!
     hb.orientation.horizontal?.should be_true
     hb.value.should eq 0
     hb.maximum.should eq 8 # scroll_width(22) - viewport(14)
 
     hb.value = hb.maximum # drag fully right
-    s._render
+    s.repaint
     lt.child_base_x.should eq 8
     row_chars(s, 0, 0, 14).should eq " City    Age  "
   end
@@ -656,11 +656,11 @@ describe "ListTable column-level horizontal scrolling" do
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 16, height: 8,
       style: Crysterm::Style.new(border: true),
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
-    s._render
+    s.repaint
     # Header is row 1 (inside the top border); the `│` separator tracks the columns.
     row_chars(s, 1, 0, 16).should eq "│ Name  │ City │"
     lt.scroll_by_x 1
-    s._render
+    s.repaint
     row_chars(s, 1, 0, 16).should eq "│ City  │ Age  │"
   end
 
@@ -668,7 +668,7 @@ describe "ListTable column-level horizontal scrolling" do
     s = render_screen
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 6,
       rows: [["Name", "City"], ["Alice", "Paris"]] # no width: → content-sized
-    s._render
+    s.repaint
     lt.overflows_x?.should be_false
     lt.show_horizontal_scrollbar?.should be_false
     lt.scroll_by_x 1 # no-op
@@ -682,12 +682,12 @@ describe "ListTable column-level horizontal scrolling" do
     8.times { |i| rows << ["item#{i}", "okay#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 5,
       scrollbar: true, rows: rows
-    s._render
+    s.repaint
 
     lt.show_scrollbar?.should be_true
     # Header reserves the bar's column too, matching the body items (List#render).
     lt.header.right.should eq lt.scrollbar_width
-    lt.items.all? { |i| i.right == lt.scrollbar_width }.should be_true
+    lt.item_boxes.all? { |i| i.right == lt.scrollbar_width }.should be_true
     # A content-sized table widens by that column so the bar gets its own cell.
     lt.awidth.should eq lt.row_width + lt.ihorizontal + lt.scrollbar_width
   end
@@ -699,7 +699,7 @@ describe "Horizontal scroll reaches the last column past the reserved margin" do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
-    s._render
+    s.repaint
     # 12 cols − 1 reserved caret column (no vertical bar for one line) = 11 usable.
     ta.content_width.should eq 11
 
@@ -707,7 +707,7 @@ describe "Horizontal scroll reaches the last column past the reserved margin" do
     hb.maximum.should eq ta.scroll_width - ta.content_width # 26 − 11 = 15 (was 14)
 
     hb.value = hb.maximum # drag fully right
-    s._render
+    s.repaint
     ta.child_base_x.should eq 15
     # The trailing 'Z' is now visible — previously the margin left it unreachable.
     row_chars(s, 0, 0, 11).should eq "PQRSTUVWXYZ"

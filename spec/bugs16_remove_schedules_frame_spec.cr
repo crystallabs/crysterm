@@ -49,7 +49,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
-    s._render
+    s.repaint
     drain_frames s
 
     box.remove child
@@ -60,7 +60,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
-    s._render
+    s.repaint
     drain_frames s
 
     child.parent = nil
@@ -71,7 +71,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
-    s._render
+    s.repaint
     drain_frames s
 
     child.destroy
@@ -81,7 +81,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   it "removing a top-level widget from the window rings the render doorbell" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
-    s._render
+    s.repaint
     drain_frames s
 
     s.remove box
@@ -91,7 +91,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   it "destroying a top-level widget rings the render doorbell" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
-    s._render
+    s.repaint
     drain_frames s
 
     box.destroy
@@ -101,7 +101,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   it "a runtime append (the same structural hook) rings the render doorbell" do
     s = b16_08_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
-    s._render
+    s.repaint
     drain_frames s
 
     Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2

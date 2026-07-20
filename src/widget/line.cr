@@ -10,7 +10,7 @@ module Crysterm
 
       @orientation : Tput::Orientation = :horizontal
 
-      def initialize(@orientation = @orientation, char : Char? = nil, line_size : Int32 | String | Nil = nil, **box)
+      def initialize(@orientation = @orientation, char : Char? = nil, line_size : Dim | Int32 | String | Nil = nil, **box)
         super **box
 
         # `line_size` is the line's *length* (`width` when horizontal, `height`
@@ -66,13 +66,13 @@ module Crysterm
 
       # The line's *length* along its `#orientation` — i.e. `#width` when
       # horizontal, `#height` when vertical — in the user-set form (`Int32`,
-      # a `"50%"`-style String, or `nil` when unset). `#awidth`/`#aheight` give
-      # the resolved cell count.
-      def line_size : Int32 | String | Nil
+      # a `Dim`, a `"50%"`-style String, or `nil` when unset). `#awidth`/
+      # `#aheight` give the resolved cell count.
+      def line_size : Dim | Int32 | String | Nil
         @orientation.vertical? ? @height : @width
       end
 
-      def line_size=(size : Int32 | String) : Int32 | String
+      def line_size=(size : Dim | Int32 | String) : Dim | Int32 | String
         case @orientation
         when Tput::Orientation::Horizontal
           self.width = size

@@ -27,7 +27,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     w2 = pl_screen
     combo = Widget::ComboBox.new parent: w1, options: %w[a b c],
       top: 0, left: 0, width: 12, height: 1
-    w1._render
+    w1.repaint
 
     combo.show_popup
     pop1 = combo.@popup.not_nil!
@@ -35,7 +35,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     combo.hide_popup
 
     w2.append combo
-    w2._render
+    w2.repaint
 
     combo.show_popup
     pop2 = combo.@popup.not_nil!
@@ -48,7 +48,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     w1 = pl_screen
     w2 = pl_screen
     de = Widget::DateEdit.new parent: w1, top: 0, left: 0, width: 12, height: 1
-    w1._render
+    w1.repaint
 
     de.show_popup
     pop1 = de.@popup.not_nil!
@@ -56,7 +56,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     de.hide_popup
 
     w2.append de
-    w2._render
+    w2.repaint
 
     de.show_popup
     pop2 = de.@popup.not_nil!
@@ -71,7 +71,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     box = Widget::LineEdit.new parent: w1, top: 0, left: 0, width: 20, height: 1
     comp = Completer.new %w[apple apricot banana]
     comp.attach box
-    w1._render
+    w1.repaint
 
     box.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Down) # opens
     comp.open?.should be_true
@@ -80,7 +80,7 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
     box.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Escape) # closes
 
     w2.append box
-    w2._render
+    w2.repaint
 
     box.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
     comp.open?.should be_true
@@ -96,7 +96,7 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
     combo = Widget::ComboBox.new parent: s, options: %w[a b c], editable: true,
       top: 0, left: 0, width: 12, height: 1
     other = Widget::Box.new parent: s, input: true, top: 5, left: 0, width: 5, height: 1
-    s._render
+    s.repaint
 
     combo.focus
     combo.show_popup
@@ -115,7 +115,7 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
     combo = Widget::ComboBox.new parent: s, options: %w[a b c],
       top: 0, left: 0, width: 12, height: 1
     other = Widget::Box.new parent: s, input: true, top: 5, left: 0, width: 5, height: 1
-    s._render
+    s.repaint
 
     combo.focus
     combo.show_popup # focuses the popup
@@ -136,7 +136,7 @@ describe "BUGS13 A19: Completer tears down when its LineEdit is destroyed" do
     box = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1
     comp = Completer.new %w[apple apricot banana]
     comp.attach box
-    s._render
+    s.repaint
 
     box.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
     comp.open?.should be_true

@@ -113,12 +113,12 @@ describe "CSS invalidation" do
     saved = Crysterm::CSS.default_stylesheet
     begin
       Crysterm::CSS.default_stylesheet = "Button { color: #ff0000; }"
-      s._render
+      s.repaint
       b.styles.normal.fg.should eq 0xff0000
 
       # Nothing else marks styling dirty; the generation change alone must.
       Crysterm::CSS.default_stylesheet = "Button { color: #0000ff; }"
-      s._render
+      s.repaint
       b.styles.normal.fg.should eq 0x0000ff
     ensure
       Crysterm::CSS.default_stylesheet = saved
@@ -134,7 +134,7 @@ describe "CSS invalidation" do
     b.add_css_class "btn"
     s.stylesheet = ".btn { background-color: #000000; transition: background-color 0.4s linear; } " \
                    ".btn:hover { background-color: #ffffff; }"
-    s._render
+    s.repaint
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered

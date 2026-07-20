@@ -212,7 +212,7 @@ module Crysterm
           # it from there and overlay onto the row's own CSS style.
           # `alternate_row?` gates before the index lookup, so an unstyled table
           # skips it for every row. `item_index_of` is an O(1) identity map, not
-          # the O(n) `@items.index` scan, which here would be O(n²) per frame; it
+          # the O(n) `@item_boxes.index` scan, which here would be O(n²) per frame; it
           # returns nil for a non-item child (the pinned header, a scroll bar), so
           # those keep falling through.
           n = styles.normal
@@ -430,9 +430,9 @@ module Crysterm
           text = render_row row, @first_col
           if i == 0
             header.set_content text
-          elsif @items[i]?
+          elsif @item_boxes[i]?
             # Pass the index (not the widget): `set_item(widget, …)` re-resolves
-            # it with `@items.index` (O(n)) inside this per-row loop — O(n²) per
+            # it with `@item_boxes.index` (O(n)) inside this per-row loop — O(n²) per
             # scroll tick. The loop already has `i`.
             set_item i, content: text
           end
@@ -468,7 +468,7 @@ module Crysterm
           # is left alone, so constructing without rows stays item-less.)
           @first_col = 0
           @child_base_x = 0
-          unless @items.empty?
+          unless @item_boxes.empty?
             header.set_content ""
             self.items = [""] # index 0 is the header-spacer row
           end
@@ -521,7 +521,7 @@ module Crysterm
         elsif sel && (i = @ritems.index(sel))
           self.current_index = i
         else
-          self.current_index = Math.min(current_index, @items.size - 1)
+          self.current_index = Math.min(current_index, @item_boxes.size - 1)
         end
       end
 
@@ -532,7 +532,7 @@ module Crysterm
         # selectable. Guarding only `== 0` let a negative index (e.g. PageUp /
         # Ctrl-B / Ctrl-U near the top, `selected - visible < 0`) slip through
         # and clamp to 0 in the parent, activating the empty header row.
-        index = index.clamp(1, @items.size - 1) if @items.size > 1
+        index = index.clamp(1, @item_boxes.size - 1) if @item_boxes.size > 1
         super index
         # After `super` scrolls the selection into view, a row near the top can
         # land at screen row 0 — the row the pinned header overlays — hiding it.
@@ -547,7 +547,7 @@ module Crysterm
 
       def render(with_children = true)
         # Re-pin the width now that the CSS cascade has run (runs at the top of
-        # the window's `_render`, before any widget renders). `#rows=` pins
+        # the window's `repaint`, before any widget renders). `#rows=` pins
         # the width at construction/Attach time, but a border arriving via CSS
         # isn't folded into `style` yet then, so `ihorizontal` would omit the border
         # columns, leaving the box too narrow. Recomputing here converges header

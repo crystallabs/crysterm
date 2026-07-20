@@ -202,7 +202,7 @@ module Crysterm
     # * *no_tags* — store the content with tag parsing disabled for this widget
     #   (kept as `@_content_no_tags`, so later reparses stay literal too).
     # * *no_clear* — vestigial (stale cells are cleared centrally by
-    #   `Window#_render`); accepted for call compatibility.
+    #   `Window#repaint`); accepted for call compatibility.
     def set_content(content = "", no_clear = false, no_tags = false)
       # Fold deferred appends so the comparison below sees current content.
       fold_content_tail

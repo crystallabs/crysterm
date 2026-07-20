@@ -226,12 +226,12 @@ module Crysterm
         end
       end
 
-      def render
+      def render(with_children = true)
         # Must paint into the *content* region (border AND padding inset), not the
         # border-only interior: `#pointer_offset` maps clicks through insets that
         # include padding, so anything else makes the drawn handle and the
         # click-mapped value disagree on a padded slider.
-        with_content_coords do |xi, xl, yi, yl|
+        with_content_coords(with_children) do |xi, xl, yi, yl|
           track_attr = style_to_attr style
           window.fill_region track_attr, track_char, xi, xl, yi, yl
 

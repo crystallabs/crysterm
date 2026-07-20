@@ -243,7 +243,7 @@ describe "WP-12 app loop, input, shortcuts" do
         style: Crysterm::Style.new(border: true)
       got = nil
       b.on(Crysterm::Event::Mouse) { |e| got = {e.local_x, e.local_y, e.target} }
-      s._render
+      s.repaint
       s.dispatch_mouse ::Tput::Mouse::Event.new(
         ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, 8, 4, source: :test)
       # Content origin is (5+1, 2+1) with the border inset.

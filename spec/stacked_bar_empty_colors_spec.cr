@@ -26,7 +26,7 @@ describe "Widget::Graph::StackedBar with an empty colors array" do
     sb.values = [[60, 30, 10], [20, 50, 30], [80, 15, 5]]
 
     # Before the fix this raised DivisionByZeroError inside build_content.
-    s._render
+    s.repaint
 
     # The plot renders, colored from DEFAULT_COLORS (so color tags are emitted).
     sb.content.should_not be_empty

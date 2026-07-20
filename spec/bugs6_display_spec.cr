@@ -51,7 +51,7 @@ describe "BUGS6 bug 1: Marquee :right renders forwards, not mirrored" do
     s = bugs6_screen
     Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 5, height: 1,
       text: "ABCDE", direction: :right
-    s._render # frame 0: column x shows text[(x - 0) % 5]
+    s.repaint # frame 0: column x shows text[(x - 0) % 5]
     row_str(s, 0, 5).should eq "ABCDE"
     # Guard against the old mirrored output ("AEDCB").
     row_str(s, 0, 5).should_not eq "AEDCB"
@@ -62,7 +62,7 @@ describe "BUGS6 bug 1: Marquee :right renders forwards, not mirrored" do
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 5, height: 1,
       text: "ABCDE", direction: :right
     m.step # frame 1: column x shows text[(x - 1) % 5]; the window slides right
-    s._render
+    s.repaint
     row_str(s, 0, 5).should eq "EABCD"
   end
 end
@@ -74,7 +74,7 @@ describe "BUGS6 bug 1: SineScroller :right renders forwards, not mirrored" do
     Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 5, height: 1, text: "ABCDE", direction: :right, rainbow: false,
       wave_frequency: 0.0, wave_speed: 0.0
-    s._render # frame 0
+    s.repaint # frame 0
     row_str(s, 0, 5).should eq "ABCDE"
     row_str(s, 0, 5).should_not eq "AEDCB"
   end
@@ -93,7 +93,7 @@ describe "BUGS6 bug 2: Markdown table sizes columns by display width" do
       #   codepoint  size 1 -> "┌───┐" (the old, too-narrow rendering)
       Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 40, height: 12,
         markdown: "| 世 |\n|---|\n"
-      s._render
+      s.repaint
       body = (0...s.aheight).map { |y| row_str(s, y, s.awidth) }.join("\n")
       body.includes?("┌────┐").should be_true # ┌────┐
       body.includes?("┌───┐").should be_false # ┌───┐ (old)
@@ -109,7 +109,7 @@ describe "BUGS6 bug 3: BigText renders full-width glyphs in full" do
     # foreground_char makes lit pixels observable as a visible char.
     Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, width: 30, height: 16,
       content: "世", foreground_char: '#'
-    s._render
+    s.repaint
 
     lit_cols = [] of Int32
     (0...16).each do |y|
@@ -126,7 +126,7 @@ describe "BUGS6 bug 3: BigText renders full-width glyphs in full" do
     s = bugs6_screen 40, 20
     Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, width: 30, height: 16,
       content: "A", foreground_char: '#'
-    s._render
+    s.repaint
 
     max_col = 0
     (0...16).each do |y|
@@ -145,7 +145,7 @@ describe "BUGS6 bug 4: Gradient paints its final stop at the last column" do
     # color and the last column is the end color exactly.
     g = Crysterm::Widget::Gradient.new parent: s, top: 0, left: 0, width: 8, height: 1,
       stops: [0xff0000, 0x00ff00]
-    s._render
+    s.repaint
     w = g.awidth
     xi = 0
     cell_bg(s, 0, xi).should eq 0xff0000         # first column: start stop
@@ -156,7 +156,7 @@ describe "BUGS6 bug 4: Gradient paints its final stop at the last column" do
     s = bugs6_screen 20, 8
     g = Crysterm::Widget::Gradient.new parent: s, top: 0, left: 0, width: 4, height: 6,
       stops: [0xff0000, 0x00ff00], direction: :vertical
-    s._render
+    s.repaint
     h = g.aheight
     cell_bg(s, 0, 0).should eq 0xff0000
     cell_bg(s, h - 1, 0).should eq 0x00ff00

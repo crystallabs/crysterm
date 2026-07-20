@@ -6,6 +6,7 @@ require "../../src/crysterm"
 # line borders, styled header/cell, keyboard/vi_keys navigation, and re-setting data after a delay.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   DU   = "杜"
   JUAN = "鹃"
@@ -13,7 +14,7 @@ class X
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    table = Widget::ListTable.new \
+    table = ListTable.new \
       top: "center",
       left: "center",
       height: "70%",

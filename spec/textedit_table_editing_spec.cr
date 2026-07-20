@@ -22,7 +22,7 @@ end
 private def table_te(s, md = GFM)
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 12
   te.set_markdown md
-  s._render
+  s.repaint
   tf = te.document.blocks[0].block_format.table_format.not_nil!
   {te, TextTable.new(te.document, tf)}
 end

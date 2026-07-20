@@ -178,7 +178,7 @@ module Crysterm
       # (`QTabWidget::pane`) sub-styles onto the bar's tabs and the current page.
       # With no matching rule each push is a no-op, keeping the default look.
       private def sync_tab_style : Nil
-        tab_bar.items.each { |it| apply_substyle it, style.tab }
+        tab_bar.item_boxes.each { |it| apply_substyle it, style.tab }
 
         # `::pane` styles the current page itself, since it fills the pane region.
         apply_substyle current_widget, style.pane
@@ -219,7 +219,7 @@ module Crysterm
           # No close mark drawn (`::close-button { glyph: none }`) — nothing to
           # click; without this guard the last two cells would still close.
           next unless close_glyph
-          next unless i = tab_bar.items.index(item)
+          next unless i = tab_bar.item_boxes.index(item)
           if e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
             close_tab i
             e.accept
@@ -261,7 +261,7 @@ module Crysterm
         tab_bar.items = @tab_titles.map { |t| display_title t }
         repoint_tab_callbacks
         @switching = false
-        tab_bar.items.each { |it| wire_close it }
+        tab_bar.item_boxes.each { |it| wire_close it }
       end
 
       # Appends a tab titled *title* whose body is *page*, sized to fill the
@@ -281,7 +281,7 @@ module Crysterm
         @switching = true
         tab_bar.add_item(display_title title) { self.current_index = index }
         @switching = false
-        tab_bar.items.last?.try { |it| wire_close it }
+        tab_bar.item_boxes.last?.try { |it| wire_close it }
 
         register_page page
         self

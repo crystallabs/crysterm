@@ -55,15 +55,31 @@ module Crysterm
         end
       end
 
+      # Backing per-command `Box` widgets, one per command, parallel to
+      # `#commands`/`@ritems`. The render/geometry store the bar mutates; the
+      # public *model* is `#items` (the commands). Moved off the `Widget` base
+      # here so only bars carry it.
+      property item_boxes = [] of Widget::Box
+
       @ritems = [] of String
 
-      # Tag-stripped command texts, parallel to `#items`. Read-only view; the bar
-      # rebuilds it internally as commands are added/removed.
+      # Tag-stripped command texts, parallel to `#item_boxes`. Read-only view;
+      # the bar rebuilds it internally as commands are added/removed.
       def item_texts : Array(String)
         @ritems
       end
 
-      # The commands, parallel to `#items`.
+      # The bar's item model: its `Command`s, in order. Symmetric with the
+      # `#items=(Array(Command))` setter, so `bar.items += [cmd]` reads, appends
+      # and writes back end-to-end. This is the model, NOT the backing `Box`
+      # widgets — those are `#item_boxes`. `#commands` is the same array under its
+      # domain name.
+      def items : Array(Command)
+        @commands
+      end
+
+      # The commands, parallel to `#item_boxes`. Same array as `#items` under its
+      # domain name.
       getter commands = [] of Command
 
       # Index of the left-most fully-visible item (for horizontal scrolling).
@@ -128,11 +144,11 @@ module Crysterm
       def current_index=(index : Int) : Nil
         if index < 0
           index = 0
-        elsif index >= @items.size
-          index = @items.size - 1
+        elsif index >= @item_boxes.size
+          index = @item_boxes.size - 1
         end
 
-        el = @items[index]?
+        el = @item_boxes[index]?
 
         # Keep every item box's state in sync with the new selection so it renders
         # with `styles.selected`. Routed through `#highlight_item?` so a bar with
@@ -164,7 +180,7 @@ module Crysterm
         width = (awidth || 0) - ihorizontal
         drawn = 0
         visible = 0
-        @items.each_with_index do |item, i|
+        @item_boxes.each_with_index do |item, i|
           next if i < @left_base
           w = item.awidth || 0
           next if w <= 0
@@ -203,9 +219,9 @@ module Crysterm
       # plain strings. (A `name => callback` `Hash` is accepted too, but
       # deprecated — see the `Hash` overload below.)
       def items=(commands : Array(Command))
-        @items.each &.detach_from_tree
+        @item_boxes.each &.detach_from_tree
         @commands.each { |cmd| detach_command cmd }
-        @items.clear
+        @item_boxes.clear
         @ritems.clear
         @commands.clear
 
@@ -271,7 +287,7 @@ module Crysterm
 
         unless cmd.separator?
           if auto_prefix? && cmd.prefix.nil?
-            cmd.prefix = (@items.size + 1).to_s
+            cmd.prefix = (@item_boxes.size + 1).to_s
             cmd.auto_prefix = true
           end
 
@@ -310,7 +326,7 @@ module Crysterm
 
         cmd.widget = item
         @ritems.push clean_tags cmd.text
-        @items.push item
+        @item_boxes.push item
         @commands.push cmd
         append item
 
@@ -325,7 +341,7 @@ module Crysterm
           end
         end
 
-        # Auto-select the first *selectable* command — testing `@items.size == 1`
+        # Auto-select the first *selectable* command — testing `@item_boxes.size == 1`
         # instead would leave a bar opening with a leading `add_separator` stuck on
         # the non-selectable separator. `@left_base`/`@left_offset` (selected ==
         # their sum) are set directly rather than via `#current_index=`, whose
@@ -334,7 +350,7 @@ module Crysterm
         # included, remains visible.
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
-          @left_offset = @items.size - 1
+          @left_offset = @item_boxes.size - 1
           self.current_index = current_index
         end
 
@@ -359,7 +375,7 @@ module Crysterm
       #
       # Activation is not a selection change, so no `ItemSelected` is emitted here —
       # the `#current_index=` each caller runs around this emits it already.
-      private def fire(index : Int32, item = @items[index]?)
+      private def fire(index : Int32, item = @item_boxes[index]?)
         return unless item
         emit ::Crysterm::Event::ItemActivated, item, index
         @commands[index]?.try &.callback.try &.call
@@ -370,7 +386,7 @@ module Crysterm
       private def trigger(cmd : Command)
         el = cmd.widget
         return unless el
-        idx = @items.index(el)
+        idx = @item_boxes.index(el)
         fire (idx || current_index), el
         self.current_index = idx if idx
         request_render
@@ -391,7 +407,7 @@ module Crysterm
         # the cursor at `ileft` here would double-count the inset and shove items
         # off the edge whenever the bar had a border/padding.
         drawn = 0
-        @items.each_with_index do |el, i|
+        @item_boxes.each_with_index do |el, i|
           if i < @left_base
             el.hide
           else
@@ -417,7 +433,7 @@ module Crysterm
       # `#highlight_item?`. Also call it after a state change outside a selection
       # (a checkable toggling, a menu opening/closing, focus change).
       protected def reapply_highlight(offset : Int32 = current_index) : Nil
-        @items.each_with_index do |item, i|
+        @item_boxes.each_with_index do |item, i|
           item.state = highlight_item?(item, i, offset) ? :selected : :normal
         end
       end
@@ -425,10 +441,10 @@ module Crysterm
       # Removes the command at *child* — a row index or the item/element widget —
       # and returns its box (`nil` when *child* resolves to no command).
       def remove_item(child : Int | Widget)
-        i = child.is_a?(Int) ? child : @items.index(child)
-        return unless i && @items[i]?
+        i = child.is_a?(Int) ? child : @item_boxes.index(child)
+        return unless i && @item_boxes[i]?
 
-        item = @items.delete_at i
+        item = @item_boxes.delete_at i
         @ritems.delete_at i
         detach_command @commands.delete_at i
         remove item
@@ -667,7 +683,7 @@ module Crysterm
           fire current_index
           request_render
         when e.key == ::Tput::Key::Escape, (@vi_keys && e.char == 'q')
-          if item = @items[current_index]?
+          if item = @item_boxes[current_index]?
             emit ::Crysterm::Event::ItemActivated, item, current_index
             emit ::Crysterm::Event::ItemCancelled, item, current_index
           end

@@ -19,7 +19,7 @@ module Crysterm
     # document's `ContentsChanged` for only the touched blocks, so edits stay
     # O(block), not O(document). The assembled rows fill `@_clines` — the same
     # structure the shared caret/selection geometry already reads — while
-    # `@_pcontent` stays empty: the base `_render` paints only background/
+    # `@_pcontent` stays empty: the base `base_render` pass paints only background/
     # borders/scroll bars, and `#paint_document` then writes the fragments
     # directly into the cell buffer with packed attributes. No tag or SGR
     # string is ever generated.
@@ -168,6 +168,32 @@ module Crysterm
       def document=(doc : TextDocument)
         return if doc.same?(@document)
         swap_document(doc)
+      end
+
+      # Replaces the document's whole content from Markdown (Qt
+      # `QTextEdit#setMarkdown`), colored by *theme* (this widget's `#theme`
+      # by default). Same reset semantics as `TextDocument#set_markdown`:
+      # not undoable, cursors rewind. Views sharing the document all update.
+      def set_markdown(text : String, theme : TextTheme = @theme) : Nil
+        document.set_markdown text, theme
+      end
+
+      # `=`-setter spelling of `#set_markdown` (widget theme; use
+      # `#set_markdown` for an explicit one).
+      def markdown=(text : String) : Nil
+        set_markdown text
+      end
+
+      # Replaces the document's whole content from HTML (Qt
+      # `QTextEdit#setHtml`); otherwise like `#set_markdown`.
+      def set_html(html : String, theme : TextTheme = @theme) : Nil
+        document.set_html html, theme
+      end
+
+      # `=`-setter spelling of `#set_html` (widget theme; use `#set_html` for
+      # an explicit one).
+      def html=(html : String) : Nil
+        set_html html
       end
 
       protected def reset_document_caches : Nil
@@ -368,7 +394,7 @@ module Crysterm
         cl.max_width = max_width
         cl.real = cl
         cl.attr = nil
-        # Keep the printable content empty: the base `_render` then paints
+        # Keep the printable content empty: the base `base_render` pass then paints
         # only the background fill (plus borders/bars/selection-on-fill), and
         # `#paint_document` draws the actual text over it.
         @_pcontent = ""
@@ -436,7 +462,7 @@ module Crysterm
 
       # === Render ===
 
-      def render
+      def render(with_children = true)
         # Relayout before following the caret: `ensure_cursor_visible` maps
         # the caret through `@_clines`, which a document edit just staled.
         process_content
@@ -448,7 +474,7 @@ module Crysterm
           # scroll away from the caret must stick).
           _type_scroll
         end
-        ret = _render
+        ret = base_render with_children
         paint_document(ret) if ret
         ret
       end
@@ -622,7 +648,7 @@ module Crysterm
               if w == 2 && (col + 1 >= region_w || line[x + 1]?.nil?)
                 # Half a wide glyph can't render at the right edge — blank
                 # it, preserving the "width-2 cell is always followed by its
-                # continuation" invariant (same safeguard as `_render`).
+                # continuation" invariant (same safeguard as `base_render`).
                 cell.set_if_changed(pattr, ' ')
                 w = 1
               elsif cluster

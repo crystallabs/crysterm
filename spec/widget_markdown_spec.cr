@@ -19,7 +19,7 @@ describe Crysterm::Widget::Markdown do
       doc = "# Title\n\nSome **bold** and `code`.\n\n- one\n- two\n\n1. a\n2. b\n\n> quote\n\n```\nblk\n```\n"
       md = Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 50, height: 16,
         markdown: doc, style: Crysterm::Style.new(border: true)
-      s._render
+      s.repaint
       t = text_of s
       t.includes?("# Title").should be_true
       t.includes?("Some bold and code.").should be_true
@@ -55,7 +55,7 @@ describe Crysterm::Widget::Markdown do
     begin
       Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 50, height: 6,
         markdown: "# Hi\n\nbody\n", heading_color: 0x86B5FF
-      s._render
+      s.repaint
       # Find the 'H' of the heading; its fg should be the heading color.
       heading_fg = nil
       (0...s.aheight).each do |y|
@@ -75,7 +75,7 @@ private def md_render(doc, w = 46, h = 18)
   saved = Crysterm::CSS.default_stylesheet
   Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
   Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: w, height: h, markdown: doc
-  s._render
+  s.repaint
   text = (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
   Crysterm::CSS.default_stylesheet = saved
   text
@@ -97,7 +97,7 @@ private def md_attr_screen(doc, w = 40, h = 6)
   saved = Crysterm::CSS.default_stylesheet
   Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
   Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: w, height: h, markdown: doc
-  s._render
+  s.repaint
   Crysterm::CSS.default_stylesheet = saved
   s
 end
@@ -110,7 +110,7 @@ describe "Markdown GFM extensions" do
     begin
       Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 30, height: 4,
         markdown: "Some ~~struck~~ text.\n"
-      s._render
+      s.repaint
       txt = text_of s
       txt.includes?("~~").should be_false # markers consumed
       txt.includes?("struck").should be_true

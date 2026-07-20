@@ -97,7 +97,7 @@ describe "BUGS5 focus scroll-into-view through a non-scrollable container (guard
       width: 18, height: 40
     child = Crysterm::Widget::Box.new parent: container, top: 30, left: 0,
       width: 5, height: 1, keys: true, content: "x"
-    s._render
+    s.repaint
 
     # The child's true row in the scroll area's content frame folds in BOTH the
     # container offset (5) and the child's own top (30) — not just `child.rtop`.

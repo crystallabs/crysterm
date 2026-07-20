@@ -32,7 +32,7 @@ describe "Mixin::ActionBar#select_item separator guard" do
 
     # Lay out so `#current_index=`'s scroll math (gated on a real `@lpos`) is live;
     # otherwise selecting an index can't move `selected` at all.
-    s._render
+    s.repaint
     bar.current_index.should eq 0 # the first real command
 
     # Selecting the separator at index 1 must not move the cursor onto it...
@@ -40,7 +40,7 @@ describe "Mixin::ActionBar#select_item separator guard" do
     bar.current_index.should eq 0
     bar.commands[bar.current_index].separator?.should be_false
     # ...nor highlight the separator's own item box.
-    bar.items[1].state.selected?.should be_false
+    bar.item_boxes[1].state.selected?.should be_false
 
     # A real tab still selects normally.
     bar.select_item 2

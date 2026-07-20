@@ -33,7 +33,7 @@ describe "Media::Cells single-frame APNG" do
     img = Crysterm::Widget::Media::Ansi.new(
       file: tmp.path, parent: s, top: 0, left: 0, width: 4, height: 4)
 
-    s._render
+    s.repaint
 
     # A single frame is a still: playback must NOT engage.
     img.playing?.should be_false

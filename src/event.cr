@@ -264,7 +264,7 @@ module Crysterm
 
     # Emitted when a `Widget::Form` is submitted. Carries the collected
     # name => value pairs of all input children.
-    event FormSubmitted, data : Hash(String, String)
+    event FormSubmitted, data : Widget::Form::FormData
 
     # Emitted when a document link/anchor is activated, carrying the link's URL.
     # The analog of Qt's `QTextBrowser::anchorClicked`.

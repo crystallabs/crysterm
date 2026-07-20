@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "Fire" do |screen|
-  fx = Crysterm::Widget::Effect::Fire.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Fire" do |window|
+  fx = EffectFire.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
   Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
 end

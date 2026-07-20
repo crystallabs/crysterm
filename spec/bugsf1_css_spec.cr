@@ -214,19 +214,19 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
           Box { color: white; }
           @media (max-width: 40) { Box { color: green; } }
         CSS
-        screen._render
+        screen.repaint
         box.styles.normal.fg.should eq rgb("white")
 
         # Mirror the resize path (resize; realloc; render) — nothing marks CSS
-        # dirty, so this exercises the media-size-change trigger in `_render`.
+        # dirty, so this exercises the media-size-change trigger in `repaint`.
         screen.width = 40
         screen.realloc
-        screen._render
+        screen.repaint
         box.styles.normal.fg.should eq rgb("green")
 
         screen.width = 100
         screen.realloc
-        screen._render
+        screen.repaint
         box.styles.normal.fg.should eq rgb("white")
       end
     ensure
@@ -244,11 +244,11 @@ describe "BUGS-F1 #42 swapping animation: to a missing @keyframes stops the old 
 
     begin
       # Start a valid, looping animation via a real render (so the driving
-      # `FrameClock`'s `request_render` works). One `_render` is enough; the
+      # `FrameClock`'s `request_render` works). One `repaint` is enough; the
       # clock then ticks on its own during the sleeps below.
       screen.stylesheet = "@keyframes good { from { opacity: 0.2; } to { opacity: 1.0; } } .a { animation: good 0.05s linear infinite; }"
       box.add_css_class "a"
-      screen._render
+      screen.repaint
       sleep 0.02.seconds
 
       # Swap `animation:` to a name with no `@keyframes`, mutating the already-

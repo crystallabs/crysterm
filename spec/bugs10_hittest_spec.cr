@@ -35,9 +35,9 @@ private def b10_scrolled_bar
   Widget::Box.new parent: outer, top: 0, left: 5, width: 1, height: 30
   bar = Widget::ScrollBar.new parent: outer, top: 8, left: 0, width: 1, height: 5,
     minimum: 0, maximum: 4
-  s._render
+  s.repaint
   outer.scroll_to 12
-  s._render
+  s.repaint
   base = outer.child_base
   base.should be > 0
   lp = bar.lpos.not_nil!
@@ -52,7 +52,7 @@ describe "BUGS10 16: ScrollBar pointer mapping uses painted coords" do
     s = b10_screen
     bar = Widget::ScrollBar.new parent: s, top: 4, left: 0, width: 1, height: 10,
       minimum: 0, maximum: 9
-    s._render
+    s.repaint
     # Painted position equals layout position here; click 5 cells into the bar.
     bar.emit Crysterm::Event::Mouse, b10_mouse(::Tput::Mouse::Action::Down, 0, 4 + 5).mouse
     bar.slider_position.should eq 5
@@ -88,9 +88,9 @@ describe "BUGS10 16 follow-up: clipped ScrollBar seeks over the painted track" d
     Widget::Box.new parent: outer, top: 0, left: 5, width: 1, height: 30
     bar = Widget::ScrollBar.new parent: outer, top: 8, left: 0, width: 1, height: 5,
       minimum: 0, maximum: 4
-    s._render
+    s.repaint
     outer.scroll_to 16
-    s._render
+    s.repaint
     # Setup guard: the bar must straddle the viewport top — partially clipped,
     # at least 2 painted rows (so the trough has a non-degenerate span).
     clip = outer.child_base - 8
@@ -122,12 +122,12 @@ private def b10_flow_box(overflow)
   bg = Widget::Box.new parent: b, top: 1, left: 1, width: 5, height: 1
   c = Widget::Box.new parent: box, width: 28, height: 4
   cg = Widget::Box.new parent: c, top: 1, left: 1, width: 5, height: 1
-  s._render
+  s.repaint
   bg.lpos.should_not be_nil
   cg.lpos.should_not be_nil
   # Shrink so the second row (`b`) overflows the interior.
   box.height = 6
-  s._render
+  s.repaint
   {b, bg, c, cg}
 end
 
@@ -160,13 +160,13 @@ describe "BUGS10 24: collapsed container interior clears children's hit rects" d
       layout: Layout::VBox.new, style: Style.new(border: true)
     child = Widget::Box.new parent: box, width: 10, height: 3
     child.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     cl = child.lpos.not_nil!
     s.widget_at(cl.xi + 1, cl.yi + 1).should eq child
 
     # Collapse the interior to 0 rows (border eats both remaining rows).
     box.height = 2
-    s._render
+    s.repaint
     child.lpos.should be_nil
     s.widget_at(cl.xi + 1, cl.yi + 1).should_not eq child
   end
@@ -178,12 +178,12 @@ describe "BUGS10 24: collapsed container interior clears children's hit rects" d
     child = Widget::Box.new parent: box, width: 14, height: 5
     grand = Widget::Box.new parent: child, top: 1, left: 1, width: 6, height: 1
     grand.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     gl = grand.lpos.not_nil!
     s.widget_at(gl.xi, gl.yi).should eq grand
 
     box.height = 2
-    s._render
+    s.repaint
     grand.lpos.should be_nil
     s.widget_at(gl.xi, gl.yi).should_not eq grand
   end
@@ -194,13 +194,13 @@ describe "BUGS10 24: collapsed container interior clears children's hit rects" d
       layout: Layout::VBox.new, style: Style.new(border: true)
     child = Widget::Box.new parent: box, width: 10, height: 3
     child.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     box.height = 2
-    s._render
+    s.repaint
     child.lpos.should be_nil
 
     box.height = 10
-    s._render
+    s.repaint
     cl = child.lpos.not_nil!
     s.widget_at(cl.xi + 1, cl.yi + 1).should eq child
   end

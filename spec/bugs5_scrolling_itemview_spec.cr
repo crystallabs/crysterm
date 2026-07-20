@@ -76,9 +76,9 @@ describe "BUGS5 scrolling & item-view fixes" do
       items = (0...20).map { |i| "item#{i}" }
       list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5, items: items
       list.item_spacing = 1
-      # `_render` (not `render`) actually lays the list out and sets `@lpos`;
+      # `repaint` (not `render`) actually lays the list out and sets `@lpos`;
       # `current_index=`'s scroll path is gated on `@lpos`, so a bare `render` would skip it.
-      s._render
+      s.repaint
 
       # Select the last item. With spacing 1 it sits at content row 19*2 == 38.
       list.current_index = 19

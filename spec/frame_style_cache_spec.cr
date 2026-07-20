@@ -38,7 +38,7 @@ describe "frame-memoized style" do
   it "returns the same resolved object within one frame" do
     s = headless_screen
     w = Widget::Box.new parent: s, width: 10, height: 3
-    s._render
+    s.repaint
     w.style.should be w.style
   end
 
@@ -47,7 +47,7 @@ describe "frame-memoized style" do
       s = floor_screen
       btn = Widget::Button.new parent: s, top: 0, left: 0, content: "OK"
       s.apply_stylesheet
-      s._render
+      s.repaint
       # Auto-focus may have focused the button on first render; normalize, and
       # exercise the invalidation in both directions with no render between.
       btn.state = WidgetState::Normal
@@ -65,7 +65,7 @@ describe "frame-memoized style" do
       w = Widget::Box.new parent: s, width: 10, height: 3,
         style: Style.new(fg: 0x112233)
       s.apply_stylesheet
-      s._render
+      s.repaint
       w.style.fg.should eq 0x112233
       w.style = Style.new(fg: 0x445566)
       w.style.fg.should eq 0x445566
@@ -77,7 +77,7 @@ describe "frame-memoized style" do
       s = floor_screen
       w = Widget::Box.new parent: s, width: 10, height: 3
       s.apply_stylesheet
-      s._render
+      s.repaint
       w.style # prime the memo
       w.styles = Styles.new normal: Style.new(fg: 0x778899)
       w.style.fg.should eq 0x778899
@@ -89,10 +89,10 @@ describe "frame-memoized style" do
       s = floor_screen
       w = Widget::Box.new parent: s, width: 10, height: 3
       s.apply_stylesheet
-      s._render
+      s.repaint
       w.style # prime the memo for this frame
       w.styles.normal.fg = 0xaabbcc
-      s._render
+      s.repaint
       w.style.fg.should eq 0xaabbcc
     end
   end
@@ -101,10 +101,10 @@ describe "frame-memoized style" do
     s = headless_screen
     w = Widget::Box.new parent: s, width: 10, height: 3
     w.add_css_class "t"
-    s._render
+    s.repaint
     w.style # prime
     s.stylesheet = ".t { color: #ff8800; }"
-    s._render
+    s.repaint
     w.css_styled?.should be_true
     w.style.fg.should eq 0xff8800
   end
@@ -116,7 +116,7 @@ describe "frame-cached insets" do
       s = floor_screen
       w = Widget::Box.new parent: s, width: 10, height: 3
       s.apply_stylesheet
-      s._render
+      s.repaint
       w.ileft.should eq 0
       w.style = Style.new(border: true, padding: 1)
       w.ileft.should eq 2
@@ -131,10 +131,10 @@ describe "frame-cached insets" do
       s = floor_screen
       w = Widget::Box.new parent: s, width: 10, height: 3
       s.apply_stylesheet
-      s._render
+      s.repaint
       w.ileft.should eq 0
       w.styles.normal.padding = Padding.new 3, 0, 0, 0
-      s._render
+      s.repaint
       w.ileft.should eq 3
     end
   end
@@ -145,10 +145,10 @@ describe "frame-memoized minimal rectangle" do
     s = headless_screen
     w = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "ab"
-    s._render
+    s.repaint
     small = (w.lpos.not_nil!.xl - w.lpos.not_nil!.xi)
     w.content = "abcdef"
-    s._render
+    s.repaint
     (w.lpos.not_nil!.xl - w.lpos.not_nil!.xi).should eq small + 4
   end
 
@@ -156,10 +156,10 @@ describe "frame-memoized minimal rectangle" do
     s = headless_screen
     parent = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true
     child = Widget::Box.new parent: parent, top: 0, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
     w0 = parent.lpos.not_nil!.xl - parent.lpos.not_nil!.xi
     child.width = 9
-    s._render
+    s.repaint
     (parent.lpos.not_nil!.xl - parent.lpos.not_nil!.xi).should eq w0 + 5
   end
 end

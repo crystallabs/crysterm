@@ -28,7 +28,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
     b = Widget::Box.new parent: box, width: 12, height: 3
     c = Widget::Box.new parent: box, width: 6, height: 1
 
-    s._render
+    s.repaint
 
     bl = box.lpos.not_nil!
     xi = bl.xi
@@ -59,7 +59,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
     b = Widget::Box.new parent: box, width: 12, height: 20
     c = Widget::Box.new parent: box, width: 18, height: 2
 
-    s._render
+    s.repaint
 
     bl = box.lpos.not_nil!
     yi = bl.yi
@@ -86,7 +86,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
     b = Widget::Box.new parent: box, width: 12, height: 3
     c = Widget::Box.new parent: box, width: 6, height: 1
 
-    s._render
+    s.repaint
 
     bl = box.lpos.not_nil!
 

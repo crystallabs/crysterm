@@ -130,7 +130,7 @@ module Crysterm
     end
 
     # Renders one child, performing the same render-index bookkeeping the
-    # default (no-layout) loop in `Widget#_render` does.
+    # default (no-layout) loop in `Widget#base_render` does.
     protected def render_child(el : Widget) : Nil
       # Layout-excluded chrome (e.g. a `background-image` layer) renders
       # out-of-band, never through the child pass.
@@ -265,7 +265,7 @@ module Crysterm
     # Yields each of the container's *arrangeable* children — the ones an engine
     # actually positions — skipping both `layout_excluded?` chrome (e.g. a
     # `background-image` layer or out-of-band scrollbar, rendered separately from
-    # `Widget#_render` with its own full-interior `lpos`) and `layout_chrome?`
+    # `Widget#base_render` with its own full-interior `lpos`) and `layout_chrome?`
     # chrome (a border label or bound scroll bar, painted by `#render_chrome` at
     # its own pinned coordinates). Neither kind may consume a gap, a `justify`/
     # page slot, a grid cell, a form label/field, a dock region, nor inflate a

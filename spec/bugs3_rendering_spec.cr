@@ -49,12 +49,12 @@ describe "BUGS3: scrollable text box per-line attr fallback" do
     # Scroll down so the first rendered line is a non-first content line
     # (coords.base > 0 -> the `ci > 0` fallback branch is exercised).
     b.scroll 10
-    s._render
+    s.repaint
 
     # Drop the cached per-line attr array to force the fallback branch, then
     # re-render. With the fix this yields DEFAULT_ATTR; before it, `0_i64`.
     b._clines.attr = nil
-    s._render
+    s.repaint
 
     pos = b.last_rendered_position
     # Inspect the top-left content cell of the rendered box.

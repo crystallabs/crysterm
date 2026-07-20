@@ -21,7 +21,7 @@ end
 private def new_pte(s, content = "")
   pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6
   pte.value = content unless content.empty?
-  s._render
+  s.repaint
   pte
 end
 
@@ -106,7 +106,7 @@ describe "Widget::PlainTextEdit undo/redo" do
     doc = Crysterm::TextDocument.new("shared")
     a = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 3, document: doc
     b = Widget::PlainTextEdit.new parent: s, left: 0, top: 3, width: 40, height: 3, document: doc
-    s._render
+    s.repaint
     a.value.should eq "shared"
     b.value.should eq "shared"
 
@@ -114,7 +114,7 @@ describe "Widget::PlainTextEdit undo/redo" do
     a.cursor_pos = 6
     a._listener key('!')
     a.value.should eq "shared!"
-    s._render
+    s.repaint
     b.value.should eq "shared!"
   end
 end

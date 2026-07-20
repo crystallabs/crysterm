@@ -6,11 +6,14 @@ module Crysterm
 
     # Widget's size
 
-    # User-defined width (setter is defined below)
-    getter width : Int32 | String | Nil
+    # User-defined width (setter is defined below). Accepts a cell count
+    # (`Int32`), a `Dim` (`Dim.percent(50)`), `:half`, or the string micro-DSL
+    # (`"50%"`, `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once,
+    # at assignment (malformed raises `ArgumentError` there); `nil` stretches.
+    getter width : Dim | Int32 | String | Nil
 
-    # User-defined height (setter is defined below)
-    getter height : Int32 | String | Nil
+    # User-defined height (setter is defined below); forms as for `#width`.
+    getter height : Dim | Int32 | String | Nil
 
     # Whether the widget sizes itself to its content and children rather than to
     # its slot — roughly CSS `width: fit-content`. Only the dimensions the user
@@ -21,12 +24,19 @@ module Crysterm
     # `Widget::SizeGrip`.
     property? shrink_to_fit = false
 
-    # `width=`/`height=`: change-guarded setters that mark dirty and emit
+    # `width=`/`height=`: change-guarded setters that normalize through
+    # `Dim.from` (parse-at-assignment, size context), mark dirty and emit
     # `Resize`. The assign lands *before* the emit so in-tree Resize listeners
     # observe the new size, not the old one.
     {% for dim in %w[width height] %}
       # Sets widget's total {{dim.id}}
-      change_guarded_setter {{dim.id}}, Resize
+      def {{dim.id}}=(val : Dim | Int32 | String | Symbol | Nil)
+        val = Dim.from val, size: true
+        return if @{{dim.id}} == val
+        @{{dim.id}} = val
+        mark_dirty
+        emit ::Crysterm::Event::Resize
+      end
     {% end %}
 
     # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints, in cells
@@ -69,6 +79,12 @@ module Crysterm
       clamp_dim h, @min_height, @max_height
     end
 
+    # Size-context variant of `#resolve_dim`: a stored `Dim` resolves as
+    # parsed; the cold raw-`String` arm parses with the `"half"` alias.
+    private def resolve_size_dim(o : Dim | String, against : Int32) : Int32
+      o.is_a?(Dim) ? resolve_dim(o, against) : resolve_dim(o, against, size: true)
+    end
+
     # Returns computed width, in cells.
     #
     # *rendered* resolves against the parent's **last-rendered** position instead
@@ -79,18 +95,18 @@ module Crysterm
       oright = @right
       width = @width
 
-      # Parent's rendered position is only needed by the String/`nil` branches;
+      # Parent's rendered position is only needed by the Dim/String/`nil` branches;
       # a fixed `Int32` width (common case) ignores it, so it's resolved lazily
       # to avoid walking the ancestor chain every frame.
       case width
-      when String
+      when Dim, String
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
         # Percentage of the parent's content area (inside border/padding), like
         # CSS `width: 100%`. Matching `aleft` adds the parent's near inset, so a
         # `left: 0` child sits inside the border and `"100%"` reaches the far inset.
         # A specified size keeps its full extent — an outward margin *shifts* it
         # (see `coords`), it does not shrink it.
-        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half"))
+        return clamp_awidth(resolve_size_dim(width, (parent.awidth || 0) - parent.ileft - parent.iright))
       end
 
       # Stretched or shrunken element: shrunken widths are computed in the
@@ -103,8 +119,8 @@ module Crysterm
         # O(2^depth) to O(depth) for a chain of nil-width + string-left widgets.
         pw = parent.awidth || 0
         left = oleft || 0
-        if left.is_a? String
-          left = resolve_dimension(left, pw, "center")
+        unless left.is_a? Int32
+          left = resolve_dim(left, pw)
         end
         # `pw` is already resolved here, so the symmetric `String` right
         # (`right: "50%"`) costs nothing extra — see `#resolve_edge`.
@@ -124,8 +140,9 @@ module Crysterm
         return clamp_awidth(width - mw)
       end
 
-      # Every `String` returned above and every `nil` in the branch above it, so
-      # only an `Int32` reaches here; the `as` states that for the return type.
+      # Every `Dim`/`String` returned above and every `nil` in the branch above
+      # it, so only an `Int32` reaches here; the `as` states that for the return
+      # type.
       clamp_awidth(width.as(Int32))
     end
 
@@ -136,13 +153,13 @@ module Crysterm
       height = @height
 
       # See `awidth`: parent's rendered position is only needed by the
-      # String/`nil` branches, resolved lazily rather than on every call.
+      # Dim/String/`nil` branches, resolved lazily rather than on every call.
       case height
-      when String
+      when Dim, String
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
         # Percentage of the parent's content height; see `awidth` for rationale.
         # A specified size keeps its full extent (outward margin shifts it).
-        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half"))
+        return clamp_aheight(resolve_size_dim(height, (parent.aheight || 0) - parent.itop - parent.ibottom))
       end
 
       # Stretched or shrunken element: shrunken height is computed in the render
@@ -154,8 +171,8 @@ module Crysterm
         # subtraction. O(2^depth) → O(depth).
         ph = parent.aheight || 0
         top = otop || 0
-        if top.is_a? String
-          top = resolve_dimension(top, ph, "center")
+        unless top.is_a? Int32
+          top = resolve_dim(top, ph)
         end
         # See `#awidth`: `ph` is already resolved, so a `String` bottom is free.
         height = ph - resolve_edge(obottom, ph) - top
@@ -259,23 +276,23 @@ module Crysterm
           xl += iright
         end
       end
-      if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list)
+      if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
         # Shrunken lists assume all items should be showing; height can be
         # calculated from item count.
-        if @_is_list
+        if item_view?
           # Anchor the extent at the widget's own top: `myi`/`myl` are absolute
           # window coordinates, and the top-anchored placement below uses `myl`
           # absolutely. A 0-based `myi` is correct only at `yi == 0`; anywhere else
           # the rectangle comes out inverted/truncated and the span comparison in
           # `minimal_rectangle_uncached` collapses the box to its content rect.
           myi = yi
-          # `@items.size` counts only content rows, and the top-anchored placement
-          # below (`yl = myl; yl += ibottom`) adds only the bottom inset — so fold
-          # the *top* inset in here, or a bordered shrink-to-content list comes out
-          # `itop` rows short and clips its last item. `itop` (not `ibottom`), or
-          # the error inverts; `myi = yi` keeps the bottom-anchored branch's span
-          # (`myl - myi == items + itop`) unchanged.
-          myl = yi + @items.size + itop
+          # `#item_box_count` counts only content rows, and the top-anchored
+          # placement below (`yl = myl; yl += ibottom`) adds only the bottom inset
+          # — so fold the *top* inset in here, or a bordered shrink-to-content list
+          # comes out `itop` rows short and clips its last item. `itop` (not
+          # `ibottom`), or the error inverts; `myi = yi` keeps the bottom-anchored
+          # branch's span (`myl - myi == items + itop`) unchanged.
+          myl = yi + item_box_count + itop
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
@@ -314,7 +331,7 @@ module Crysterm
       end
 
       if @height.nil? && (@top.nil? || @bottom.nil?) &&
-         (!@scrollable || @_is_list)
+         (!@scrollable || item_view?)
         if @top.nil? && !@bottom.nil?
           yi = yl - h - ivertical
         else

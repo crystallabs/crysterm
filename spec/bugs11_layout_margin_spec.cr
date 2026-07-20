@@ -26,7 +26,7 @@ describe "BUGS11 flow wrap fit-check includes the child's left margin (fix #25)"
     c0 = Widget::Box.new parent: box, width: 4, height: 2, style: Style.new(margin: mg)
     c1 = Widget::Box.new parent: box, width: 4, height: 2, style: Style.new(margin: mg)
 
-    s._render
+    s.repaint
 
     bl = box.lpos.not_nil!
     l0 = c0.lpos.not_nil!
@@ -57,7 +57,7 @@ describe "BUGS11 border layout reserves the edge child's margin box (fix #26)" d
       style: Style.new(margin: Margin.new(left: 0, top: 1, right: 0, bottom: 0))
     center = Widget::Box.new parent: box
 
-    s._render
+    s.repaint
 
     hl = header.lpos.not_nil!
     cl = center.lpos.not_nil!

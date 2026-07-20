@@ -66,7 +66,7 @@ describe "BUGS12 finding 31: ColorDialog window-move uses parent-relative coords
     cd = Crysterm::Widget::ColorDialog.new(
       parent: parent, top: 2, left: 2, width: 56, height: 20)
     cd.show
-    s._render
+    s.repaint
 
     cd.left.should eq 2
     cd.top.should eq 2

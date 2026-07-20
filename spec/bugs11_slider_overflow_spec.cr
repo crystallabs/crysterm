@@ -22,7 +22,7 @@ private def overflow_screen
 end
 
 private def press(s, x, y)
-  s._render
+  s.repaint
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test)
 end
@@ -34,7 +34,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
       minimum: 0, maximum: 200_000_000, value: 150_000_000
     # (slider_position - minimum) * room overflowed Int32 here.
     sb.value.should eq 150_000_000
-    s._render # must not raise OverflowError
+    s.repaint # must not raise OverflowError
   end
 
   it "maps a track click on a large-range Slider without raising (value_at)" do
@@ -52,7 +52,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
     s = overflow_screen
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 1,
       minimum: 0, maximum: 100_000_000, value: 90_000_000
-    s._render # handle_offset: (value - minimum) * avail must not overflow
+    s.repaint # handle_offset: (value - minimum) * avail must not overflow
     sl.value.should eq 90_000_000
   end
 
@@ -62,7 +62,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
       minimum: 0, maximum: 100_000_000, value: 50_000_000,
       tick_position: Widget::Slider::TickPosition::Both,
       tick_interval: 10_000_000
-    s._render # draw_ticks: (tv - minimum) * avail must not overflow
+    s.repaint # draw_ticks: (tv - minimum) * avail must not overflow
     sl.value.should eq 50_000_000
   end
 end

@@ -40,7 +40,7 @@ private def render_bordered_box(css : String)
   screen = render_screen
   Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 5
   screen.stylesheet = css
-  screen._render
+  screen.repaint
   screen
 end
 

@@ -3,10 +3,11 @@
 require "../../../../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 s = Window.new title: "Media::Unicode::Half"
 
-Widget::Media::Unicode::Half.new \
+Media::Unicode::Half.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   animate: false,
   file: "#{__DIR__}/../../../../../data/image/matterhorn.png"

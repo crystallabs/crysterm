@@ -5,11 +5,14 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "DialogButtonBox" do |screen|
-  screen.stylesheet = "Box { border: solid; color: #c0caf5; } Button { color: #c0caf5; }"
-  Crysterm::Widget::Box.new parent: screen, top: "center", left: "center", width: 46, height: 8,
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "DialogButtonBox" do |window|
+  window.stylesheet = "Box { border: solid; color: #c0caf5; } Button { color: #c0caf5; }"
+  Widget::Box.new parent: window, top: "center", left: "center", width: 46, height: 8,
     content: "{center}\nSave changes before closing?{/center}", parse_tags: true
-  Crysterm::Widget::DialogButtonBox.new \
-    parent: screen, top: "50%+2", left: "center", width: 40, height: 1,
-    buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok | Crysterm::Widget::DialogButtonBox::StandardButton::Cancel
+  DialogButtonBox.new \
+    parent: window, top: "50%+2", left: "center", width: 40, height: 1,
+    buttons: DialogButtonBox::StandardButton::Ok | DialogButtonBox::StandardButton::Cancel
 end

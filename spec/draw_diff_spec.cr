@@ -170,27 +170,27 @@ describe "Window#draw end-to-end dirty-range sync" do
     label = Widget::Box.new parent: outer, left: 2, top: 1, width: 20, height: 1, content: "frame 0"
     side = Widget::Box.new parent: outer, left: 2, top: 3, width: 1, height: 6, content: "|"
 
-    s._render; s.draw
+    s.repaint; s.draw
     fully_synced(s).should be_nil
 
     # Change content in place (a few cells in one row).
     label.set_content "updated text here"
-    s._render; s.draw
+    s.repaint; s.draw
     fully_synced(s).should be_nil
 
     # Move a widget (clears old cells, paints new ones at different columns).
     label.left = 10
-    s._render; s.draw
+    s.repaint; s.draw
     fully_synced(s).should be_nil
 
     # Shorten content (trailing cells must be cleared back).
     label.set_content "x"
-    s._render; s.draw
+    s.repaint; s.draw
     fully_synced(s).should be_nil
 
     # Move the vertical bar across columns (sparse change across many rows).
     side.left = 30
-    s._render; s.draw
+    s.repaint; s.draw
     fully_synced(s).should be_nil
   end
 end

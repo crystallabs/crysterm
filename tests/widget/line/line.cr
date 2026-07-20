@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Line" do |screen|
-  screen.stylesheet = "Line { color: #7aa2f7; }"
-  Crysterm::Widget::Line.new parent: screen, top: "center", left: 4, width: 40, orientation: :horizontal
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Line" do |window|
+  window.stylesheet = "Line { color: #7aa2f7; }"
+  Line.new parent: window, top: "center", left: 4, width: 40, orientation: :horizontal
 end

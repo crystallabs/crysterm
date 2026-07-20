@@ -43,13 +43,13 @@ describe "BUGS15 9: Calendar hit-tests through the painted position, not layout 
     cal = Widget::Calendar.new parent: outer, top: 3, left: 0, width: 24, height: 14,
       date: Time.local(2024, 1, 15)
     cal.grid_visible = true
-    s._render
+    s.repaint
 
     # Scroll the container down 3 rows (into the child_base, which drives the
     # paint shift): the calendar paints 3 rows higher than its layout `atop`.
     # `aleft`/`atop`-based mapping would resolve 3 rows off.
     outer.scroll_to 3, always: true
-    s._render
+    s.repaint
     lp = cal.lpos.not_nil!
     lp.yi.should eq cal.atop - outer.child_base # painted position is shifted up
 
@@ -75,7 +75,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 40, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0
     # `handle_offset` did `(@value - @minimum)` in Int32 -> OverflowError.
-    s._render
+    s.repaint
     sl.value.should eq 0
   end
 
@@ -84,7 +84,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 40, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0,
       tick_position: Widget::Slider::TickPosition::Both
-    s._render # `each_tick_cell`'s `(tv - @minimum)` also widened
+    s.repaint # `each_tick_cell`'s `(tv - @minimum)` also widened
     sl.value.should eq 0
   end
 
@@ -93,7 +93,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 12,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0
     # `thumb_offset` did `(slider_position - @minimum)` in Int32 -> OverflowError.
-    s._render
+    s.repaint
     sb.value.should eq 0
   end
 
@@ -102,7 +102,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
     dial = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0, text_visible: false
     # `pointer` did `(@value - @minimum)` in Int32 -> OverflowError.
-    s._render
+    s.repaint
     dial.value.should eq 0
   end
 end
@@ -118,7 +118,7 @@ describe "BUGS15 44: Slider paints its track in the content region (padding resp
       minimum: 0, maximum: 100, value: 50,
       track_char: '-', handle_char: '#',
       style: Crysterm::Style.new(padding: Crysterm::Padding.new(2, 0, 2, 0))
-    s._render
+    s.repaint
 
     lp = sl.lpos.not_nil!
     row = lp.yi
@@ -146,7 +146,7 @@ describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edg
     s = i15_screen
     lt = Widget::ListTable.new parent: s, top: 0, left: 0, width: 16, height: 8,
       rows: [["Name", "City"], ["aaaaaaaaaa", "bbbbbbbbbb"]]
-    s._render
+    s.repaint
 
     # maxes = [12, 12]; row_width 26; offsets [0, 13]; viewport 16; max_left 10.
     lt.column_start_offsets.should eq [0, 13]
@@ -157,14 +157,14 @@ describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edg
     # scroll no-op'd and the "City" column tail was unreachable. The ceil bump
     # lets the scroll snap to column 1 (offset 13).
     lt.scroll_by_x 1
-    s._render
+    s.repaint
     lt.child_base_x.should eq 13
     # The right-edge column (data row 1) is now on screen — previously dead.
     i15_row(s, 1, 0, 12).should contain "bbbbbbbbbb"
 
     # And it can scroll back to the origin.
     lt.scroll_by_x -1
-    s._render
+    s.repaint
     lt.child_base_x.should eq 0
   end
 end

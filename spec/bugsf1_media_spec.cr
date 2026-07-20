@@ -158,7 +158,7 @@ describe "Media::Tek bad source graceful failure (F1 #19)" do
 
     # A full window render (which fires the real `Rendered` hook) must also not
     # raise now that the flag short-circuits it.
-    s._render
+    s.repaint
   ensure
     tek.try &.stop
     s.try &.destroy
@@ -232,7 +232,7 @@ describe "Media::Ueberzug helper reaping (F1 #41)" do
       file: "/nonexistent/pic-#{Process.pid}.png", parent: s, width: 8, height: 4)
     # A render fires the `Rendered` hook -> redraw_image -> send; with no helper
     # `Ueberzug.proc` returns nil and `send` returns early without raising.
-    s._render
+    s.repaint
     uz.stop rescue nil
   ensure
     s.try &.destroy

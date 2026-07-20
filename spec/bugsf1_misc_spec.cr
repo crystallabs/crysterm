@@ -53,7 +53,7 @@ describe "BUGS-F1 finding 30: a disabled draggable widget cannot be dragged" do
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4,
       draggable: true
     box.state = Crysterm::WidgetState::Disabled
-    s._render
+    s.repaint
 
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Down, 12, 6)
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Move, 20, 12, ::Tput::Mouse::Button::None)
@@ -67,7 +67,7 @@ describe "BUGS-F1 finding 30: a disabled draggable widget cannot be dragged" do
     s = f1_screen
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4,
       draggable: true
-    s._render
+    s.repaint
 
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Down, 12, 6)
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Move, 20, 12, ::Tput::Mouse::Button::None)
@@ -127,7 +127,7 @@ describe "BUGS-F1 finding 38: ScrollBar keeps tracking a drag that leaves the ba
     s = f1_screen
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 12,
       minimum: 0, maximum: 100
-    s._render
+    s.repaint
 
     # Press in the middle of the 1-column trough.
     s.dispatch_mouse f1_mouse(::Tput::Mouse::Action::Down, 0, 6)
@@ -157,7 +157,7 @@ describe "BUGS-F1 finding 39: Donut caption is not stamped onto the bottom borde
       width: 12, height: 5, value: 0, label: "CPU",
       style: Style.new(border: true)
 
-    s._render
+    s.repaint
 
     # The centered "CPU" would land at column 4 (xi=1, width 12).
     # Tight donut: bottom border row is 2 — must NOT hold the caption.

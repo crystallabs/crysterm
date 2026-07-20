@@ -48,7 +48,7 @@ describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
       cursor_shape: :block, # inverts the cursor cell — easy to detect
       handler: ->(_data : String) { nil }    )
 
-    s._render
+    s.repaint
     term.focus # cursor must be shown for the branch to matter
 
     em = term.emulator.not_nil!
@@ -58,7 +58,7 @@ describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
     em.feed "世\e[2G"
     em.cursor_x.should eq 1
 
-    s._render
+    s.repaint
 
     line = s.lines[0]
     # Grid invariant preserved: lead holds the wide glyph, next cell is its
@@ -79,12 +79,12 @@ describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :block,
       handler: ->(_data : String) { nil })
-    s._render
+    s.repaint
     term.focus
 
     em = term.emulator.not_nil!
     em.feed "世\e[5G" # cursor to col 5, away from the glyph pair
-    s._render
+    s.repaint
 
     line = s.lines[0]
     line[1].continuation?.should be_true
@@ -132,13 +132,13 @@ describe "Widget::Terminal :line cursor preserves the underlying glyph (BUG 3)" 
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :line,
       handler: ->(_data : String) { nil })
-    s._render
+    s.repaint
     term.focus
 
     em = term.emulator.not_nil!
     em.feed "X\e[G" # print 'X' at (0,0), then CHA back onto it
     em.cursor_x.should eq 0
-    s._render
+    s.repaint
 
     line = s.lines[0]
     # The glyph under the bar cursor is preserved (not replaced by '│').

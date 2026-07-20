@@ -5,10 +5,13 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "Loading" do |screen|
-  screen.stylesheet = "Loading { color: #7dcfff; }"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "Loading" do |window|
+  window.stylesheet = "Loading { color: #7dcfff; }"
   # compact: spinner inline with text on one row.
-  l = Crysterm::Widget::Loading.new parent: screen, top: "center", left: "center", width: 30, height: 1,
+  l = Loading.new parent: window, top: "center", left: "center", width: 30, height: 1,
     compact: true, content: "Loading…"
   Crysterm::WidgetExample.animate_with(l.interval) { l.step }
 end

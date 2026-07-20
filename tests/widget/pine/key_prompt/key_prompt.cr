@@ -5,16 +5,19 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "KeyPrompt" do |screen|
-  screen.stylesheet = "Pine::KeyPrompt { color: #c0caf5; }"
-  prompt = Crysterm::Widget::Pine::KeyPrompt.new(
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "KeyPrompt" do |window|
+  window.stylesheet = "Pine::KeyPrompt { color: #c0caf5; }"
+  prompt = PineKeyPrompt.new(
     "Save changes before exiting?",
     [
-      Crysterm::Widget::Pine::KeyPrompt::Choice.new("Y", "Yes"),
-      Crysterm::Widget::Pine::KeyPrompt::Choice.new("N", "No"),
-      Crysterm::Widget::Pine::KeyPrompt::Choice.new("C", "Cancel"),
+      PineKeyPrompt::Choice.new("Y", "Yes"),
+      PineKeyPrompt::Choice.new("N", "No"),
+      PineKeyPrompt::Choice.new("C", "Cancel"),
     ],
-    parent: screen, bottom: 0, left: 0,
+    parent: window, bottom: 0, left: 0,
   )
   prompt.focus
 end

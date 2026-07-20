@@ -75,19 +75,19 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8,
       color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
     img.bitmap = gradient_bmp # single-frame still
-    s._render
+    s.repaint
     sig256 = cell_sig(s, img)
 
     # Genuine palette change: before the fix the memoized C256 plane kept
     # painting the 256-color look here.
     img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C8
-    s._render
+    s.repaint
     sig8 = cell_sig(s, img)
     sig8.should_not eq sig256
 
     # Switching back must re-derive the C256 look (memo not stuck on C8 either).
     img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C256
-    s._render
+    s.repaint
     cell_sig(s, img).should eq sig256
   ensure
     img.try &.stop
@@ -100,11 +100,11 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
       color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C16,
       dither: Crysterm::Widget::Media::Dither::Diffusion, animate: false)
     img.bitmap = gradient_bmp
-    s._render
+    s.repaint
     sig_diff = cell_sig(s, img)
 
     img.dither = Crysterm::Widget::Media::Dither::Ordered
-    s._render
+    s.repaint
     cell_sig(s, img).should_not eq sig_diff
   ensure
     img.try &.stop
@@ -116,10 +116,10 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8,
       color_mode: Crysterm::Widget::Media::Ansi::ColorMode::C256, animate: false)
     img.bitmap = gradient_bmp
-    s._render
+    s.repaint
     sig = cell_sig(s, img)
     img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C256 # unchanged
-    s._render
+    s.repaint
     cell_sig(s, img).should eq sig
   ensure
     img.try &.stop
@@ -167,10 +167,10 @@ describe "BUGS15 #22 fit= must not freeze a playing animation" do
       img.fit = Crysterm::Widget::Media::Fit::Contain
 
       img.anim_index = 0
-      s._render
+      s.repaint
       sig0 = cell_sig(s, img)
       img.anim_index = 1
-      s._render
+      s.repaint
       sig1 = cell_sig(s, img)
       # Frozen (buggy) render ignores anim_index and paints the still -> equal.
       sig0.should_not eq sig1
@@ -192,7 +192,7 @@ describe "BUGS15 #22 fit= must not freeze a playing animation" do
       img.bitmap = gradient_bmp # a directly-injected still
       img.animated?.should be_false
 
-      img.set_image(path) # animated again
+      img.load(path) # animated again
       img.animated?.should be_true
       img.clear_image
       img.animated?.should be_false

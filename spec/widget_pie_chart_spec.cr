@@ -21,7 +21,7 @@ describe Crysterm::Widget::Graph::PieChart do
       pie.add_slice "web", 50, 0x40E0D0
       pie.add_slice "db", 30, 0xE0A040
       pie.add_slice "cache", 20, 0xE04060
-      s._render
+      s.repaint
       t = text_of s
       t.each_char.any? { |ch| ('⠁'..'⣿').includes?(ch) }.should be_true # wedges
       t.includes?("web").should be_true
@@ -50,7 +50,7 @@ describe Crysterm::Widget::Graph::PieChart do
         show_legend: false, type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
       pie.add_slice "none", 0, 0x40E0D0
-      s._render
+      s.repaint
       # No positive slice: the interior stays free of any wedge glyphs.
       interior = (1..9).map { |y| (1...19).map { |x| s.lines[y][x].char }.join }
       interior.all? { |row| row.each_char.none? { |ch| ('⠁'..'⣿').includes?(ch) } }.should be_true

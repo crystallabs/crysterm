@@ -54,8 +54,8 @@ describe "Qt-shaped text API" do
       seen = [] of String
       le.on(Crysterm::Event::TextChanged) { |e| seen << e.value }
 
-      s._render
-      s._render
+      s.repaint
+      s.repaint
       seen.should be_empty
     end
 
@@ -97,7 +97,7 @@ describe "Qt-shaped text API" do
       s = mem_screen
       b = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
         parse_tags: true, content: "{bold}hi{/bold}"
-      s._render
+      s.repaint
       # The trap this pair is named for: they are NOT inverses.
       b.content.should eq "{bold}hi{/bold}"
       b.rendered_text.should eq "hi"
@@ -108,7 +108,7 @@ describe "Qt-shaped text API" do
       s = mem_screen
       b = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
         content: "one\ntwo"
-      s._render
+      s.repaint
       b.line(0).should eq "one"
       b.lines.should eq ["one", "two"]
       b.screen_lines.size.should eq 2
@@ -120,7 +120,7 @@ describe "Qt-shaped text API" do
       s = mem_screen
       le = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "abcd"
       le.echo_mode.should eq Crysterm::Widget::LineEdit::EchoMode::Normal
-      s._render
+      s.repaint
       le.@_value.should eq "abcd"
     end
 
@@ -128,7 +128,7 @@ describe "Qt-shaped text API" do
       s = mem_screen
       le = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1,
         content: "abcd", echo_mode: :password
-      s._render
+      s.repaint
       le.@_value.should eq "****"
       le.value.should eq "abcd"
 

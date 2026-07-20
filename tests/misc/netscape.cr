@@ -20,6 +20,7 @@
 require "../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 img_path = ENV["IMAGE"]? || "#{__DIR__}/../../data/image/netscape.gif"
 name = File.basename(img_path)
@@ -27,11 +28,11 @@ name = File.basename(img_path)
 # Pick the rendering backend; all of these animate and resize.
 def make_image(backend, **opts)
   case backend
-  when "kitty" then Widget::Media::Kitty.new(**opts)
-  when "sixel" then Widget::Media::Sixel.new(**opts)
-  when "iterm" then Widget::Media::Iterm.new(**opts)
-  when "ansi"  then Widget::Media::Ansi.new(**opts)
-  else              Widget::Media::Glyph.new(**opts, mode: Widget::Media::Glyph.best_mode)
+  when "kitty" then MediaKitty.new(**opts)
+  when "sixel" then MediaSixel.new(**opts)
+  when "iterm" then MediaIterm.new(**opts)
+  when "ansi"  then MediaAnsi.new(**opts)
+  else              MediaGlyph.new(**opts, mode: MediaGlyph.best_mode)
   end
 end
 
@@ -50,7 +51,7 @@ s = Window.new title: "Netscape"
 
 # Header label: the glyph backend resolves to a concrete sub-cell family
 # (`Glyph.best_mode`, the same choice `make_image` makes), so show which one.
-desc = backend == "glyph" ? "glyph (#{Widget::Media::Glyph.best_mode.to_s.downcase})" : backend
+desc = backend == "glyph" ? "glyph (#{MediaGlyph.best_mode.to_s.downcase})" : backend
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,

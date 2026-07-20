@@ -54,7 +54,7 @@ describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
       style: Crysterm::Style.new(border: true))
     grip = Crysterm::Widget::SizeGrip.new(
       parent: box, bottom: 0, right: 0, width: 1, height: 1)
-    s._render
+    s.repaint
 
     # Sanity: the grip sits inside the target's outer edge (inner corner), so a
     # non-trivial edge offset exists to fold in.

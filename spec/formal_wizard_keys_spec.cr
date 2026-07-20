@@ -55,7 +55,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
     wiz.add_page "Form", page
     wiz.add_page "Two", Crysterm::Widget::Box.new(content: "2")
     le = Crysterm::Widget::LineEdit.new parent: page, top: 0, left: 0, width: 20, height: 1
-    s._render
+    s.repaint
     le.focus
     le.focused?.should be_true # sanity: focus actually took
 

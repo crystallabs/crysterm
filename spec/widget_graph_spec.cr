@@ -25,7 +25,7 @@ describe "Graph::Bar rendering" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 2, height: 2,
       minimum: 0.0, maximum: 1.0, values: [1.0, 0.0]
-    s._render
+    s.repaint
     # Left column full (two stacked full blocks), right column empty.
     row_chars(s, 0, 0, 2).should eq "█ "
     row_chars(s, 1, 0, 2).should eq "█ "
@@ -35,7 +35,7 @@ describe "Graph::Bar rendering" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 1, height: 1,
       minimum: 0.0, maximum: 1.0, values: [0.5]
-    s._render
+    s.repaint
     # Half of one cell -> the 4/8 block.
     row_chars(s, 0, 0, 1).should eq "▄"
   end
@@ -44,7 +44,7 @@ describe "Graph::Bar rendering" do
     s = render_screen
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 3, height: 3,
       minimum: 0.0, maximum: 1.0, bar_width: 3, values: [1.0], labels: ["cpu"]
-    s._render
+    s.repaint
     # Bottom row is the label, plot rows above are the full bar.
     row_chars(s, 0, 0, 3).should eq "███"
     row_chars(s, 2, 0, 3).should eq "cpu"
@@ -57,7 +57,7 @@ describe "Graph::Bar rendering" do
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 7, height: 2,
       minimum: 0.0, maximum: 1.0, bar_width: 3, bar_spacing: 1,
       values: [1.0, 1.0, 1.0], labels: ["one", "two", "thr"]
-    s._render
+    s.repaint
     row_chars(s, 1, 0, 7).should eq "two thr"
   end
 end
@@ -68,7 +68,7 @@ describe "Graph::StackedBar rendering" do
     # One bar of height 2 cells, two equal segments -> one cell each.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 1, height: 2,
       maximum: 2.0, bar_width: 1, show_legend: false, values: [[1.0, 1.0]]
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 1).should eq "█" # top segment
     row_chars(s, 1, 0, 1).should eq "█" # bottom segment
   end
@@ -79,7 +79,7 @@ describe "Graph::StackedBar rendering" do
     # cell a 4/8 partial block.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 1, height: 2,
       maximum: 1.0, bar_width: 1, show_legend: false, values: [[0.75]]
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 1).should eq "▄" # 4/8 partial top
     row_chars(s, 1, 0, 1).should eq "█" # full bottom
   end
@@ -90,7 +90,7 @@ describe "Graph::StackedBar rendering" do
     # (separator included) and would overrun, so it's omitted entirely.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 8, height: 2,
       bar_width: 1, show_legend: true, segment_labels: %w[ab cd], values: [[1.0, 1.0]]
-    s._render
+    s.repaint
     # Row 0 is the legend; only the first entry appears, the rest blank.
     row_chars(s, 0, 0, 8).should eq "█ ab    "
   end
@@ -101,7 +101,7 @@ describe "Gauge rendering" do
     s = render_screen
     Crysterm::Widget::Gauge.new parent: s, top: 0, left: 0, width: 4, height: 1,
       minimum: 0.0, maximum: 100.0, value: 100, show_label: false
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 4).should eq "████"
   end
 
@@ -109,7 +109,7 @@ describe "Gauge rendering" do
     s = render_screen
     Crysterm::Widget::Gauge.new parent: s, top: 0, left: 0, width: 4, height: 1,
       minimum: 0.0, maximum: 100.0, value: 0, show_label: false
-    s._render
+    s.repaint
     row_chars(s, 0, 0, 4).should eq "    "
   end
 

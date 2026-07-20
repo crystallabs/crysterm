@@ -26,16 +26,16 @@ describe "BUGS13 A11: DockWidget float geometry excludes the CSS margin" do
     dock = Widget::DockWidget.new parent: s, top: 2, left: 4, width: 20, height: 10,
       area: Widget::DockWidget::Area::Floating,
       style: Style.new(margin: Margin.new(left: 2, top: 1, right: 0, bottom: 0))
-    s._render
+    s.repaint
 
     a0 = dock.aleft
     t0 = dock.atop
 
     # Dock, then float again (restoring the remembered rectangle).
     dock.toggle_floating
-    s._render
+    s.repaint
     dock.toggle_floating
-    s._render
+    s.repaint
 
     # Before the fix each cycle re-added the margin: aleft drifted +2, atop +1.
     dock.aleft.should eq a0
@@ -87,7 +87,7 @@ describe "BUGS13 A13: Form traversal skips disabled widgets" do
     a = Widget::Box.new parent: form, input: true, top: 0, left: 0, width: 5, height: 1
     b = Widget::Box.new parent: form, input: true, top: 2, left: 0, width: 5, height: 1
     c = Widget::Box.new parent: form, input: true, top: 4, left: 0, width: 5, height: 1
-    s._render
+    s.repaint
 
     b.state = WidgetState::Disabled
 
@@ -110,7 +110,7 @@ describe "BUGS13 A13: Form traversal skips disabled widgets" do
     s = wb_screen
     form = Widget::Form.new parent: s, keys: true, width: 30, height: 10
     a = Widget::Box.new parent: form, input: true, top: 0, left: 0, width: 5, height: 1
-    s._render
+    s.repaint
 
     a.state = WidgetState::Disabled
     form.next_focusable.should be_nil

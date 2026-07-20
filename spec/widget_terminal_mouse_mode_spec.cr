@@ -30,7 +30,7 @@ describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
       handler: ->(data : String) { captured << data; nil })
 
     # Render once so the emulator bootstraps from resolved geometry.
-    s._render
+    s.repaint
     term.emulator.should_not be_nil
 
     # ── normal tracking (1000): motion not forwarded ──

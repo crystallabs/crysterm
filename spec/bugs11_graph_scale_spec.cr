@@ -46,7 +46,7 @@ describe "BUGS11 #22 Scale.eighths guards non-finite values" do
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 20, height: 6, maximum: 100.0
     bar.values = [50.0, 0.0/0.0]
     # Without the #22 fix this render pass crashes with OverflowError.
-    s._render
+    s.repaint
     bar.values[0].should eq 50.0
     bar.values[1].nan?.should be_true
   end

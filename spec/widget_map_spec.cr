@@ -27,7 +27,7 @@ describe Crysterm::Widget::Graph::Map do
         type: Crysterm::Widget::Media::Type::Glyph, style: Crysterm::Style.new(border: true)
       m.add_marker latitude: 40.71, longitude: -74.0, label: "NYC", color: 0xE05050
       m.add_marker latitude: 35.68, longitude: 139.69, label: "Tokyo", color: 0x40E0D0
-      s._render
+      s.repaint
 
       text = cells_text s
       # Coastlines rendered as braille.
@@ -54,7 +54,7 @@ describe Crysterm::Widget::Graph::Map do
       m.look_at 12.0, 34.0, 0, 0
       m.add_marker latitude: 12.0, longitude: 34.0, char: 'X'
       # The defect raised OverflowError here; with the guard, render completes.
-      s._render
+      s.repaint
     ensure
       Crysterm::CSS.default_stylesheet = saved
     end
@@ -69,7 +69,7 @@ describe Crysterm::Widget::Graph::Map do
         type: Crysterm::Widget::Media::Type::Glyph
       m.add_marker latitude: 0.0, longitude: -150.0, char: 'W'
       m.add_marker latitude: 0.0, longitude: 150.0, char: 'E'
-      s._render
+      s.repaint
       rows = (0...s.aheight).map { |y| (0...s.awidth).map { |x| s.lines[y][x].char }.join }
       wx = rows.compact_map(&.index('W')).first?
       ex = rows.compact_map(&.index('E')).first?

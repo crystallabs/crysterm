@@ -194,10 +194,10 @@ describe "BUGS15 #84 manual #play on an animate:false cell image animates" do
       # anim_index is ours to drive. The render must follow it (the bug froze on
       # frame 0 because the gate consulted @animated, still false).
       img.anim_index = 0
-      s._render
+      s.repaint
       sig0 = cell_sig(s, img)
       img.anim_index = 2
-      s._render
+      s.repaint
       sig2 = cell_sig(s, img)
       sig0.should_not eq sig2
     ensure
@@ -227,10 +227,10 @@ describe "BUGS15 #84 manual #play on an animate:false cell image animates" do
 
       # Stopped: the still path ignores anim_index, so both renders match.
       img.anim_index = 0
-      s._render
+      s.repaint
       still0 = cell_sig(s, img)
       img.anim_index = 2
-      s._render
+      s.repaint
       still2 = cell_sig(s, img)
       still0.should eq still2
     ensure

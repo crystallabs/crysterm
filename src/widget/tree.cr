@@ -258,8 +258,9 @@ module Crysterm
       end
 
       # Runs *block* inside a `#begin_update`/`#end_update` batch, flushing even if
-      # it raises.
-      def update(&) : Nil
+      # it raises. (Named `batch_update` so the plain `Widget#update`
+      # repaint-scheduler keeps its Qt meaning on trees too.)
+      def batch_update(&) : Nil
         begin_update
         begin
           yield

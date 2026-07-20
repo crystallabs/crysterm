@@ -34,7 +34,7 @@ describe "BUGS11 #4: focus_pop blurs the popped widget when the history empties"
   it "resets the :focused state and emits Blur when popping the sole focused widget" do
     win = bugs11_window
     a = Widget::Box.new parent: win, left: 0, top: 0, width: 10, height: 1
-    win._render
+    win.repaint
 
     win.focus a
     win.focused.should be(a)

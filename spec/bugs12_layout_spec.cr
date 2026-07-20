@@ -29,13 +29,13 @@ describe "BUGS12 stack layout clears hidden pages' descendants (fix #36)" do
 
     # Show page 0: its descendant paints and gets a live rect.
     stack.current_index = 0
-    s._render
+    s.repaint
     child0.lpos.should_not be_nil
 
     # Switch to page 1: page 0 is now hidden. Its descendant must be cleared,
     # not left with the stale rect from the previous frame.
     stack.current_index = 1
-    s._render
+    s.repaint
 
     child0.lpos.should be_nil     # hidden page's descendant no longer hittable
     child1.lpos.should_not be_nil # newly-shown page's descendant paints
@@ -58,7 +58,7 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
       style: Style.new(margin: Margin.new(left: 0, top: 1, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 
-    s._render
+    s.repaint
 
     fl = footer.lpos.not_nil!
     bl = box.lpos.not_nil!
@@ -78,7 +78,7 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
       style: Style.new(margin: Margin.new(left: 1, top: 0, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 
-    s._render
+    s.repaint
 
     rl = sidebar.lpos.not_nil!
     bl = box.lpos.not_nil!

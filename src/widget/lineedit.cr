@@ -91,6 +91,14 @@ module Crysterm
         placeholder_text.try { |v| @placeholder_text = v }
       end
 
+      # Positional contents convenience — Qt's `QLineEdit(contents)`: the
+      # initial value, routed via `content:` (read by `#setup_text_buffer`
+      # through `input["content"]?`, same as the keyword form); an explicit
+      # `content:` in *opts* wins over the positional *text*.
+      def initialize(text : String, **opts)
+        initialize(**{content: text}.merge(opts))
+      end
+
       def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
           e.accept

@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "HLine" do |screen|
-  screen.stylesheet = "HLine { color: #7aa2f7; }"
-  Crysterm::Widget::HLine.new parent: screen, top: "center", left: 4, width: 40
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "HLine" do |window|
+  window.stylesheet = "HLine { color: #7aa2f7; }"
+  HLine.new parent: window, top: "center", left: 4, width: 40
 end

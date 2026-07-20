@@ -13,35 +13,36 @@ require "../../src/crysterm"
 # (`Event::ContentChanged`, new title in `terminal.title`).
 
 include Crysterm
+include Crysterm::Widgets
 
-screen = Window.new title: "multiplex.cr", dock_borders: true
-screen.enable_mouse
+window = Window.new title: "multiplex.cr", dock_borders: true
+window.enable_mouse
 
-screen.stylesheet = <<-CSS
+window.stylesheet = <<-CSS
   Terminal        { border: solid; }
   Terminal:focus  { border-color: green; }
 CSS
 
-topleft = Widget::Terminal.new(
-  parent: screen, cursor_shape: :line,
+topleft = Terminal.new(
+  parent: window, cursor_shape: :line,
   label: " multiplex.cr ",
   left: 0, top: 0, width: "50%", height: "50%",
 )
 
-topright = Widget::Terminal.new(
-  parent: screen, cursor_shape: :block,
+topright = Terminal.new(
+  parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: "50%", top: 0, width: "50%", height: "50%",
 )
 
-bottomleft = Widget::Terminal.new(
-  parent: screen, cursor_shape: :block,
+bottomleft = Terminal.new(
+  parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: 0, top: "50%", width: "50%", height: "50%",
 )
 
-bottomright = Widget::Terminal.new(
-  parent: screen, cursor_shape: :block,
+bottomright = Terminal.new(
+  parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: "50%", top: "50%", width: "50%", height: "50%",
 )
@@ -53,9 +54,8 @@ terminals.each do |term|
   # Reflect the child's window title on the label.
   term.on(Event::ContentChanged) do
     if title = term.title
-      screen.title = title
-      term.set_label " #{title} "
-      screen.render
+      window.title = title
+      term.label = " #{title} "
     end
   end
   # Click to focus.
@@ -64,15 +64,13 @@ end
 
 topleft.focus
 
-screen.on(Event::KeyPress) do |e|
+window.on(Event::KeyPress) do |e|
   if e.key == Tput::Key::CtrlQ
     terminals.each &.kill
-    screen.destroy
-    exit 0
+    window.quit
   elsif e.key == Tput::Key::ShiftTab
-    screen.focus_next
-    screen.render
+    window.focus_next
   end
 end
 
-screen.exec
+window.exec

@@ -23,10 +23,10 @@ private def cws_build(s)
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
   completer.attach box
   box.focus
-  s._render
+  s.repaint
   # Down opens the popup on the whole model (combo-box style).
   box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
-  s._render
+  s.repaint
   {box, completer, completer.@popup.not_nil!}
 end
 
@@ -35,13 +35,13 @@ private def cws_move(s, x, y)
   # Re-render so item hit rectangles (`lpos`) reflect the current scroll, exactly
   # as the running app repaints between input events — mouse hit-testing reads
   # `lpos`, so a stale frame would mis-map which entry is under the pointer.
-  s._render
+  s.repaint
 end
 
 private def cws_wheel(s, dir, x, y)
   act = dir > 0 ? Tput::Mouse::Action::WheelDown : Tput::Mouse::Action::WheelUp
   s.dispatch_mouse(Tput::Mouse::Event.new(act, Tput::Mouse::Button::None, x, y, source: :test))
-  s._render
+  s.repaint
 end
 
 describe "Completer drop-down wheel scrolling" do
@@ -49,13 +49,13 @@ describe "Completer drop-down wheel scrolling" do
     s = cws_screen
     _box, completer, pop = cws_build s
     completer.open?.should be_true
-    pop.@items.size.should be > pop.visible_content_rows # must actually overflow
+    pop.@item_boxes.size.should be > pop.visible_content_rows # must actually overflow
 
     x = pop.aleft + 2
     base = pop.atop + pop.itop
-    12.times { cws_wheel s, 1, x, base + 2 }        # wheel down, cursor held on row 2
-    pop.@child_base.should be > 0                   # the view scrolled past page one
-    pop.current_index.should eq pop.@items.size - 1 # every entry is reachable by the wheel
+    12.times { cws_wheel s, 1, x, base + 2 }             # wheel down, cursor held on row 2
+    pop.@child_base.should be > 0                        # the view scrolled past page one
+    pop.current_index.should eq pop.@item_boxes.size - 1 # every entry is reachable by the wheel
     completer.open?.should be_true
   end
 
@@ -111,7 +111,7 @@ describe "Completer drop-down wheel scrolling" do
     x = pop.aleft + 2
     base = pop.atop + pop.itop
     20.times { cws_wheel s, 1, x, base + 2 } # go to the bottom
-    pop.current_index.should eq pop.@items.size - 1
+    pop.current_index.should eq pop.@item_boxes.size - 1
     20.times { cws_wheel s, -1, x, base + 2 } # and all the way back
     pop.current_index.should eq 0
     pop.@child_base.should eq 0

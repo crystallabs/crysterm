@@ -15,17 +15,15 @@ module Crysterm
     class Media::Overlay < Media::External
       include Media::ScreenOverlay
 
-      property? stretch = false
-      property? center = false
       property image : W3MImageDisplay::Image?
 
       def initialize(
         @file = nil,
-        @stretch = false,
-        @center = true,
-        # Accepted so the `Media` factory can forward them uniformly, but
-        # advisory here: an external helper does its own scaling and can't
-        # animate.
+        # w3m can only fill the given rect (aspect lost) or draw at native
+        # size; `#fit` maps onto those two — see `#redraw_image`. `Contain`/
+        # `Cover` degrade to a rect fill. `animate:` is accepted so the
+        # `Media` factory can forward it uniformly, but an external helper
+        # can't animate.
         @fit : Media::Fit = Media::Fit::Stretch,
         @animate : Bool = false,
         speed : Float64 = 1.0,
@@ -51,6 +49,10 @@ module Crysterm
         # New source: clear the failure latch, or one failed helper run would
         # leave every later `load` of a good file permanently un-drawn.
         @helper_failed = false
+        # Explicit request: an external-overlay backend is painted out-of-band
+        # by its `#redraw_image` hook (which runs post-render), not by the
+        # normal dirty/render path, so nothing else schedules the frame.
+        request_render
       end
 
       # Removes the currently displayed image, clearing its overlay from window.
@@ -81,7 +83,10 @@ module Crysterm
           # TODO - get coords of content only, without borders/padding
           rect = overlay_geometry || return
           begin
-            image.draw(rect[0], rect[1], rect[2], rect[3], @stretch, @center).sync.sync_communication
+            # `Fit::None` draws at the source's native size, centered; every
+            # scaling mode becomes w3m's rect fill (it can't preserve aspect).
+            stretch = !@fit.none?
+            image.draw(rect[0], rect[1], rect[2], rect[3], stretch, !stretch).sync.sync_communication
             @last_drawn = rect
           rescue
             # w3mimgdisplay missing/failed: degrade instead of crashing the

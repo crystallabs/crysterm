@@ -315,9 +315,9 @@ module Crysterm
         end
       end
 
-      def render
+      def render(with_children = true)
         base = style
-        with_inner_coords do |xi, xl, yi, yl|
+        with_inner_coords(with_children) do |xi, xl, yi, yl|
           horizontal = @orientation.horizontal?
           main_lo, main_hi = horizontal ? {xi, xl} : {yi, yl}
           avail_full = main_hi - main_lo

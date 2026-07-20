@@ -28,7 +28,7 @@ describe "Media::Overlay#load clears the @helper_failed latch" do
 
     # Drive the real post-render hook: `redraw_image` runs and (with no working
     # `w3mimgdisplay`) latches `@helper_failed`. Must not raise out of render.
-    s._render
+    s.repaint
 
     # Only meaningful when the helper actually failed here (i.e. w3mimgdisplay
     # absent / erroring, the common CI case). If it happened to succeed, the

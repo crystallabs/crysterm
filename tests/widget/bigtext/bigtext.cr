@@ -5,7 +5,10 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "BigText" do |screen|
-  screen.stylesheet = "BigText { color: #f7768e; }"
-  Crysterm::Widget::BigText.new parent: screen, top: "center", left: "center", content: "Hi!"
+include Crysterm
+include Crysterm::Widgets
+
+WidgetExample.run "BigText" do |window|
+  window.stylesheet = "BigText { color: #f7768e; }"
+  BigText.new parent: window, top: "center", left: "center", content: "Hi!"
 end

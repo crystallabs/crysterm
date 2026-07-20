@@ -31,12 +31,12 @@ private def build
   langbox = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 10, width: 18, height: 1
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl]
   completer.attach langbox
-  s._render
+  s.repaint
   # Start focus elsewhere so clicking the box fires a real Focus event that
   # drives read_input (matches the running app; the auto-focus at first render
   # does not go through that path).
   other.focus
-  s._render
+  s.repaint
   {s, langbox, completer}
 end
 
@@ -53,14 +53,14 @@ describe "Completer keeps the box editable after committing" do
     ly = langbox.atop
 
     click s, lx, ly # focus
-    s._render
+    s.repaint
     click s, lx, ly # open dropdown
-    s._render
+    s.repaint
     completer.open?.should be_true
 
     pop = completer.@popup.not_nil!
     click s, pop.aleft + 2, pop.atop + 1 # commit "Crystal"
-    s._render
+    s.repaint
 
     langbox.value.should eq "Crystal"
     completer.open?.should be_false
@@ -74,13 +74,13 @@ describe "Completer keeps the box editable after committing" do
     ly = langbox.atop
 
     click s, lx, ly
-    s._render
+    s.repaint
     click s, lx, ly
-    s._render
+    s.repaint
     completer.open?.should be_true
 
     langbox.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter)
-    s._render
+    s.repaint
 
     langbox.value.should eq "Crystal"
     completer.open?.should be_false

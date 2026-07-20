@@ -29,7 +29,7 @@ describe "margin hit-testing" do
       s = mht_screen
       box = Widget::Box.new parent: s, top: 3, left: 2, width: 30, height: 10,
         style: Style.new(border: true, margin: Margin.new(m, m, m, m))
-      s._render
+      s.repaint
       l = box.lpos.not_nil!
       # Hit-testing getters match the painted rectangle on every edge.
       box.aleft.should eq l.xi
@@ -45,7 +45,7 @@ describe "margin hit-testing" do
     gb = Widget::Box.new parent: s, top: 1, left: 1, width: 30, height: 12,
       style: Style.new(border: true, margin: Margin.new(0, 2, 0, 0))
     child = Widget::Box.new parent: gb, top: 4, left: 2, width: 10, height: 1
-    s._render
+    s.repaint
     cl = child.lpos.not_nil!
     # Child has no margin of its own but inherits the parent's downward shift
     # through `gb.atop`, so its hit rectangle lands where it is painted.
@@ -60,7 +60,7 @@ describe "margin hit-testing" do
     # Click handler makes the child mouse-responsive / hit-testable.
     child = Widget::Box.new parent: gb, top: 4, left: 2, width: 10, height: 1
     child.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     # Hit-test at the child's painted top-left must resolve to the child, not
     # the container painted behind it.
     cl = child.lpos.not_nil!
@@ -74,7 +74,7 @@ describe "margin hit-testing" do
     box = Widget::Box.new parent: s, right: 2, bottom: 3, width: 10, height: 4,
       style: Style.new(margin: Margin.new(left: 1, top: 1, right: 2, bottom: 3))
     box.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     l = box.lpos.not_nil!
     box.aleft.should eq l.xi
     box.atop.should eq l.yi
@@ -88,7 +88,7 @@ describe "margin hit-testing" do
     box = Widget::Box.new parent: s, top: "center", left: "center", width: 10, height: 4,
       style: Style.new(margin: 1)
     box.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     l = box.lpos.not_nil!
     box.aleft.should eq l.xi
     box.atop.should eq l.yi
@@ -106,7 +106,7 @@ describe "margin hit-testing" do
       style: Style.new(margin: 1)
     box.shrink_to_fit = true
     box.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     l = box.lpos.not_nil!
     # Inside the painted content box → the widget.
     s.widget_at(l.xi, l.yi).should eq box
@@ -128,7 +128,7 @@ describe "scroll/clip hit-testing" do
     # Child below the 5-row viewport → painted nothing (`lpos == nil`).
     child = Widget::Box.new parent: c, top: 10, left: 0, width: 10, height: 1, content: "x"
     child.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     child.lpos.should be_nil
     # Its unscrolled coordinates must not be clickable while it is off-screen.
     s.widget_at(0, 10).should_not eq child
@@ -139,9 +139,9 @@ describe "scroll/clip hit-testing" do
     c = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5, scrollable: true
     child = Widget::Box.new parent: c, top: 10, left: 0, width: 10, height: 1, content: "x"
     child.on(Crysterm::Event::Click) { }
-    s._render
+    s.repaint
     c.scroll_to 10
-    s._render
+    s.repaint
     cl = child.lpos.not_nil!
     # Now visible inside the viewport (rows 0..4), well above its `top: 10`.
     (cl.yi < 10).should be_true

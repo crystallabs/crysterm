@@ -28,7 +28,7 @@ describe "BUGS16 18: Masonry gravitation respects the above child's bottom margi
     a = Widget::Box.new parent: box, width: 12, height: 3, style: margin(bottom: 2)
     b = Widget::Box.new parent: box, width: 12, height: 3
 
-    s._render
+    s.repaint
 
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!
@@ -49,7 +49,7 @@ describe "BUGS16 18: Masonry gravitation respects the above child's bottom margi
     a = Widget::Box.new parent: box, width: 12, height: 3
     b = Widget::Box.new parent: box, width: 12, height: 3
 
-    s._render
+    s.repaint
 
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!

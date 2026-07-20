@@ -34,7 +34,7 @@ end
 private def cnd_open_calendar(s)
   cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
     date: Time.local(2024, 1, 15)
-  s._render
+  s.repaint
   cal
 end
 
@@ -48,7 +48,7 @@ describe "Calendar year drop-down visibility (bug A)" do
     # Click the year field to open its ±100-year drop-down.
     s.dispatch_mouse Tput::Mouse::Event.new(
       Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, ax + cal.@nav_year_range.begin, ay)
-    s._render
+    s.repaint
 
     ym = cal.year_menu.not_nil!
     # Overflowing list -> a vertical scroll bar is reserved.
@@ -74,7 +74,7 @@ describe "Calendar month drop-down numbering (bug B)" do
 
     s.dispatch_mouse Tput::Mouse::Event.new(
       Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, ax + cal.@nav_month_range.begin, ay)
-    s._render
+    s.repaint
 
     mm = cal.month_menu.not_nil!
     texts = mm.@ritems.map { |r| mm.clean_tags r }
@@ -100,7 +100,7 @@ describe "Calendar month drop-down numbering (bug B)" do
     ay = cal.atop + cal.itop
     s.dispatch_mouse Tput::Mouse::Event.new(
       Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, ax + cal.@nav_month_range.begin, ay)
-    s._render
+    s.repaint
     mm = cal.month_menu.not_nil!
     mm.actions[2].activate # "03: March"
     cal.month_shown.should eq 3

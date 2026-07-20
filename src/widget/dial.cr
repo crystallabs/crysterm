@@ -88,8 +88,8 @@ module Crysterm
         focused? ? @value_bracketed : @value_plain
       end
 
-      def render
-        with_inner_coords do |xi, xl, yi, yl|
+      def render(with_children = true)
+        with_inner_coords(with_children) do |xi, xl, yi, yl|
           window.fill_region style_to_attr(style), style.fill_char, xi, xl, yi, yl
 
           # Pointer in the middle of the knob. When the value is shown it owns the

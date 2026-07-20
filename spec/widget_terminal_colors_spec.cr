@@ -23,9 +23,9 @@ private def term_dump(data : String, w = 12, h = 2) : String
   term = Crysterm::Widget::Terminal.new(
     parent: window, top: 0, left: 0, width: "100%", height: "100%",
     handler: ->(_s : String) { })
-  window._render # bootstrap: sizes and attaches the emulator
+  window.repaint # bootstrap: sizes and attaches the emulator
   term.write data
-  window._render # copy the emulator grid (incl. attrs) onto the window cells
+  window.repaint # copy the emulator grid (incl. attrs) onto the window cells
   window.dump.to_s
 end
 

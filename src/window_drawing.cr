@@ -145,7 +145,7 @@ module Crysterm
     #
     # Diffs `@lines` against `@flushed_lines` and encodes the needed escapes into the
     # frame buffers (`@pre`/`@main`/`@post`), then — unless *flush* is false —
-    # writes them to the terminal via `#flush_frame`. `#_render` passes
+    # writes them to the terminal via `#flush_frame`. `#repaint` passes
     # `flush: false` so it can time the diff/encode and the (blocking) terminal
     # write separately.
     protected def draw(start = 0, stop = @lines.size - 1, flush = true)

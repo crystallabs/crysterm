@@ -19,7 +19,7 @@ describe "CSS transition" do
     b.add_css_class "btn"
     s.stylesheet = ".btn { background-color: #000000; transition: background-color 0.2s linear; } " \
                    ".btn:hover { background-color: #ffffff; }"
-    s._render
+    s.repaint
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered
@@ -36,7 +36,7 @@ describe "CSS transition" do
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "x"
     s.stylesheet = ".x { opacity: 1.0; transition: opacity 0.2s linear; } .x:hover { opacity: 0.0; }"
-    s._render
+    s.repaint
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.1.seconds
@@ -51,7 +51,7 @@ describe "CSS transition" do
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "y"
     s.stylesheet = ".y { background-color: #000000; } .y:hover { background-color: #ffffff; }"
-    s._render
+    s.repaint
     b.state = Crysterm::WidgetState::Hovered
     b.style.bg.should eq 0xffffff # immediate, no animation
   end
@@ -64,7 +64,7 @@ describe "CSS @keyframes / animation" do
     b.add_css_class "glow"
     s.stylesheet = "@keyframes glow { from { background-color: #000000; } to { background-color: #ffffff; } } " \
                    ".glow { background-color: #000000; animation: glow 0.2s linear infinite; }"
-    s._render # starts the animation
+    s.repaint # starts the animation
     sleep 0.1.seconds
     mid = b.style.bg.not_nil!
     (0x303030 <= mid <= 0xd0d0d0).should be_true # interpolating between black and white
@@ -76,7 +76,7 @@ describe "CSS @keyframes / animation" do
     b.add_css_class "once"
     s.stylesheet = "@keyframes go { from { opacity: 0.0; } to { opacity: 1.0; } } " \
                    ".once { opacity: 0.0; animation: go 0.15s linear 1; }"
-    s._render
+    s.repaint
     sleep 0.3.seconds                                # past the single iteration
     (b.style.opacity.not_nil! > 0.95).should be_true # landed on the final frame
   end

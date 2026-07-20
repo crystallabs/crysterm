@@ -5,9 +5,12 @@
 # Maintained by tools/manage-examples.cr
 require "../example"
 
-Crysterm::WidgetExample.run "StatusBar" do |screen|
-  screen.stylesheet = "StatusBar { color: #c0caf5; background-color: #283457; }"
-  sb = Crysterm::Widget::StatusBar.new parent: screen, bottom: 0, left: 0, width: "100%", height: 1
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "StatusBar" do |window|
+  window.stylesheet = "StatusBar { color: #c0caf5; background-color: #283457; }"
+  sb = StatusBar.new parent: window, bottom: 0, left: 0, width: "100%", height: 1
   sb.show_message "Ready"
   sb.add_permanent "Ln 12, Col 4"
   sb.add_permanent "UTF-8"

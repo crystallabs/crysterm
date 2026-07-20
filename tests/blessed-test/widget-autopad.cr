@@ -1,38 +1,38 @@
 require "../../src/crysterm"
 
-module Crysterm
-  s = Window.new optimization: OptimizationFlag::SmartCSR
+include Crysterm
 
-  b = Widget::Box.new(
-    top: "center",
-    left: "center",
-    width: 20,
-    height: 10,
-    style: Style.new(border: true),
-  )
+s = Window.new optimization: OptimizationFlag::SmartCSR
 
-  # Must add the Widget to screen in this way for the moment
-  s.append b
+b = Widget::Box.new(
+  top: "center",
+  left: "center",
+  width: 20,
+  height: 10,
+  style: Style.new(border: true),
+)
 
-  b2 = Widget::Box.new(
-    parent: b,
-    top: 0,
-    left: 0,
-    width: 10,
-    height: 5,
-    style: Style.new(border: true),
-  )
+# Must add the Widget to screen in this way for the moment
+s.append b
 
-  s.on(Event::KeyPress) do |e|
-    # STDERR.puts e.inspect
-    if e.char == 'q'
-      # e.accept
-      s.destroy
-      exit
-    end
+b2 = Widget::Box.new(
+  parent: b,
+  top: 0,
+  left: 0,
+  width: 10,
+  height: 5,
+  style: Style.new(border: true),
+)
+
+s.on(Event::KeyPress) do |e|
+  # STDERR.puts e.inspect
+  if e.char == 'q'
+    # e.accept
+    s.destroy
+    exit
   end
-
-  s.render
-
-  s.exec
 end
+
+s.render
+
+s.exec

@@ -68,7 +68,7 @@ module Crysterm
         refresh_buttons
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating? if value.floating? != was_floating
-        window?.try &.schedule_render
+        window?.try &.update
         value
       end
 
@@ -209,7 +209,7 @@ module Crysterm
       def close : Nil
         hide
         emit ::Crysterm::Event::Close
-        window?.try &.schedule_render
+        window?.try &.update
       end
 
       # Toggles between `Floating` and the last docked area, emitting
@@ -242,7 +242,7 @@ module Crysterm
         # style and let it re-sync on the next `#style` read.
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating?
-        window?.try &.schedule_render
+        window?.try &.update
       end
 
       @prev_area : Area?

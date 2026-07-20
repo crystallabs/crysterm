@@ -43,7 +43,7 @@ describe Crysterm::WidgetCursorAnchor do
       width: 80, height: 24, default_quit_keys: false)
     term = Crysterm::Widget::Terminal.new(
       parent: win, top: 3, left: 5, width: 40, height: 10)
-    win._render
+    win.repaint
 
     anchor = Crysterm::WidgetCursorAnchor.new(term)
     row, col = anchor.cursor_pos

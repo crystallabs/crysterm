@@ -126,13 +126,13 @@ describe "BUGS13 C5: activate re-emits the raised window's frame" do
     app = Application.new
     app.add w
 
-    w._render
+    w.repaint
     out = w.output.as(IO::Memory)
     out.clear
 
     # Unchanged frame: the plain diff emits nothing (the pre-fix behavior of
     # activate) — this is the control.
-    w._render
+    w.repaint
     out.to_s.includes?("HELLO13").should be_false
 
     # activate must invalidate + repaint, so the content is re-emitted even
@@ -262,7 +262,7 @@ describe "BUGS13 C23: clipboard routes to the requesting window's device" do
     begin
       te = Widget::TextEdit.new parent: w1, left: 0, top: 0, width: 30, height: 5,
         content: "hello"
-      w1._render
+      w1.repaint
       # Select "hello" the way the mouse path does.
       te.cursor_pos = 5
       te.selection_anchor = 0

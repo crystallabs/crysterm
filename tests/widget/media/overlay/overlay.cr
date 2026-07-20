@@ -22,7 +22,7 @@ Widget::Box.new \
 
 Widget::Media::Overlay.new \
   parent: s, top: 1, left: 0, width: "100%", height: "100%-1",
-  stretch: true,
+  fit: :stretch,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 
 # Optional self-terminate for screenshot tooling: OVERLAY_SECONDS=8 makes the

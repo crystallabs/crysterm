@@ -41,7 +41,7 @@ def build : {Crysterm::Window, Hash(Int32, Bool)}
     end
   end
 
-  s._render
+  s.repaint
   {s, s._dock_stops.dup}
 end
 

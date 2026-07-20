@@ -186,7 +186,7 @@ module Crysterm
           (cols + @bar_spacing) // unit
         end
 
-        def render
+        def render(with_children = true)
           # `glyph_key(style)` covers the fill-ramp inputs `build_content`
           # resolves (CSS `glyphs:`, effective tier, `Glyphs.generation`), so a
           # ramp change rebuilds instead of serving the stale cached content.

@@ -25,7 +25,7 @@ describe "Widget#ensure_widget_visible with a bordered scroll area" do
       content: (1..40).map { |i| "line#{i}" }.join("\n")
     child = Crysterm::Widget::Box.new parent: box, top: 10, left: 0,
       width: 5, height: 1, content: "x"
-    s._render
+    s.repaint
 
     box.itop.should eq 1                # border contributes a top inset
     content_row = child.rtop - box.itop # the child's true content-row index

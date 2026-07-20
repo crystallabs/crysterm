@@ -101,7 +101,7 @@ describe Crysterm::Reactive::Effect do
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
     count = Crysterm::Reactive::Signal.new 0
     Crysterm::Reactive.effect(box) { box.content = "e#{count.value}" }
-    scr._render
+    scr.repaint
     scr.@damage_dirty_roots.clear
     count.value = 1
     scr.@damage_dirty_roots.includes?(box).should be_true

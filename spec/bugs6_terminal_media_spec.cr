@@ -74,7 +74,7 @@ describe "Media backends detached construction (BUGS6)" do
     s = headless_window
     img = Widget::Media::Sixel.new parent: s, width: 4, height: 3
     img.window?.should eq s
-    s._render # exercises the registered Rendered listener (empty image: no-op)
+    s.repaint # exercises the registered Rendered listener (empty image: no-op)
   ensure
     s.try &.destroy
   end

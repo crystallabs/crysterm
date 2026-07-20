@@ -6,11 +6,12 @@ require "../../src/crysterm"
 # radio set, text box, checkboxes and submit button, with value collection on submit.
 class X
   include Crysterm
+  include Crysterm::Widgets
 
   def initialize
     s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
-    form = Widget::Form.new \
+    form = Form.new \
       parent: s,
       keys: true,
       vi_keys: true,
@@ -21,7 +22,7 @@ class X
       scrollable: true,
       style: Style.new(bg: "green")
 
-    set = Widget::RadioSet.new \
+    set = RadioSet.new \
       parent: form,
       left: 1,
       top: 1,
@@ -29,7 +30,7 @@ class X
       height: 1,
       style: Style.new(bg: "magenta")
 
-    Widget::RadioButton.new \
+    RadioButton.new \
       parent: set,
       keys: true,
       height: 1,
@@ -39,7 +40,7 @@ class X
       content: "radio1",
       style: Style.new(bg: "magenta")
 
-    Widget::RadioButton.new \
+    RadioButton.new \
       parent: set,
       keys: true,
       height: 1,
@@ -49,7 +50,7 @@ class X
       content: "radio2",
       style: Style.new(bg: "magenta")
 
-    Widget::LineEdit.new \
+    LineEdit.new \
       parent: form,
       keys: true,
       height: 1,
@@ -59,7 +60,7 @@ class X
       name: "text",
       style: Style.new(bg: "blue")
 
-    Widget::Checkbox.new \
+    CheckBox.new \
       parent: form,
       keys: true,
       height: 1,
@@ -69,7 +70,7 @@ class X
       content: "check",
       style: Style.new(bg: "magenta")
 
-    submit = Widget::Button.new \
+    submit = Button.new \
       parent: form,
       keys: true,
       height: 1,
@@ -82,7 +83,7 @@ class X
       align: ::Tput::AlignFlag::Center,
       style: Style.new(bg: "blue")
 
-    output = Widget::ScrollableText.new \
+    output = ScrollableText.new \
       parent: form,
       keys: true,
       left: 0,
@@ -97,8 +98,8 @@ class X
     end
 
     form.on(Crysterm::Event::FormSubmitted) do |e|
-      lines = e.data.map { |k, v| "#{k}: #{v}" }
-      output.set_content "Submitted:\n" + lines.join("\n")
+      lines = e.data.map { |f| "#{f.name}: #{f.value}" }
+      output.content = "Submitted:\n" + lines.join("\n")
       s.render
     end
 

@@ -27,7 +27,7 @@ end
 # `Dial#render` (`with_inner_coords` insets), so it's correct with a themed
 # border/padding too.
 private def center_glyph(s, dial) : Char
-  s._render
+  s.repaint
   cx = dial.aleft + dial.ileft + ((dial.awidth - dial.ihorizontal) // 2)
   cy = dial.atop + dial.itop + ((dial.aheight - dial.ivertical) // 2)
   s.lines[cy][cx].char

@@ -17,7 +17,7 @@ private def headless_screen(w = 60, h = 20)
 end
 
 private def rendered_rect(widget, s)
-  s._render
+  s.repaint
   l = widget.lpos.not_nil!
   {l.xi, l.xl, l.yi, l.yl}
 end

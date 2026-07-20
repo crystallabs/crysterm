@@ -485,7 +485,7 @@ module Crysterm
       anim = Config.window_anim.presence
       return false unless shot || dump_dest || anim
 
-      _render
+      repaint
 
       capture path: shot if shot
       dump path: dump_dest if dump_dest

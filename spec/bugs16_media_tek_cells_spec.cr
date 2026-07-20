@@ -106,7 +106,7 @@ describe "B16-54 animated cell backend must show the first frame immediately" do
       # still nil here. The buggy render left @sample nil (blank box); the fix
       # composes the still fallback so something is painted right away.
       img.frames_ready?.should be_false
-      s._render
+      s.repaint
       img.sample_present?.should be_true
     ensure
       img.try &.stop
@@ -122,14 +122,14 @@ describe "B16-54 animated cell backend must show the first frame immediately" do
       s = cells_window
       img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 8, file: path)
       img.frames_ready?.should be_false
-      s._render
+      s.repaint
       img.sample_cols.should eq 8
 
       # Resize while the frames are still building: the fallback still must be
       # re-composed at the new width, not kept at the old one.
       img.width = 12
       img.frames_ready?.should be_false
-      s._render
+      s.repaint
       img.sample_cols.should eq 12
     ensure
       img.try &.stop

@@ -43,6 +43,7 @@
 require "../../src/crysterm"
 
 include Crysterm
+include Crysterm::Widgets
 
 s = Window.new title: "Qt-like Widgets"
 # Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …), e.g.
@@ -51,9 +52,9 @@ s.dock_borders = true
 
 # --- Main window frame -------------------------------------------------------
 
-win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
+win = MainWindow.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 
-status = Widget::StatusBar.new
+status = StatusBar.new
 win.status_bar = status
 status.add_permanent "Tab: focus"
 status.add_permanent "q: quit"
@@ -61,7 +62,7 @@ status.add_permanent "q: quit"
 # Shared helper: an Action that reports to the status bar when triggered.
 mk = ->(text : String, msg : String) do
   a = Action.new text
-  a.on(Event::Triggered) { status.show_message " #{msg}"; s.render }
+  a.on(Event::Triggered) { status.show_message " #{msg}" }
   a
 end
 
@@ -259,7 +260,7 @@ bgroup.on(Event::ButtonClick) do
   # cascade on the next render, but content is outside the cascade.
   bgroup.buttons.each_with_index do |b, i|
     btn = b.as(Widget::Button)
-    btn.set_content(btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i])
+    btn.content = btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i]
   end
   status.show_message " mode = #{bgroup.checked_id}"
   s.render

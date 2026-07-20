@@ -28,7 +28,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
       layout: Layout::HBox.new(spacing: Int32::MAX)
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
-    screen._render # pre-fix: OverflowError at the `@cursor` accumulation in place
+    screen.repaint # pre-fix: OverflowError at the `@cursor` accumulation in place
   end
 
   it "does not raise OverflowError with Int32::MAX spacing and three children" do
@@ -38,7 +38,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
-    screen._render # pre-fix: OverflowError at the `gaps` product in measure
+    screen.repaint # pre-fix: OverflowError at the `gaps` product in measure
   end
 
   it "does not raise (and does not over-allocate) with negative spacing" do
@@ -47,7 +47,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
       layout: Layout::HBox.new(spacing: -1000)
     a = Widget::Box.new parent: box
     b = Widget::Box.new parent: box
-    screen._render
+    screen.repaint
     # Negative spacing clamps to 0: the two flex children split the interior
     # exactly, no overlap and no over-allocation past the 30-wide interior.
     a.awidth.should eq 15
@@ -60,7 +60,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
       layout: Layout::HBox.new(spacing: 2)
     a = Widget::Box.new parent: box
     b = Widget::Box.new parent: box
-    screen._render
+    screen.repaint
     # 30 - one 2-cell gap = 28, split evenly.
     a.awidth.should eq 14
     b.awidth.should eq 14
@@ -74,7 +74,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
       layout: Layout::Form.new(horizontal_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
-    screen._render # pre-fix: OverflowError at `lw + @horizontal_spacing`
+    screen.repaint # pre-fix: OverflowError at `lw + @horizontal_spacing`
   end
 
   it "does not raise OverflowError with Int32::MAX vertical_spacing" do
@@ -83,7 +83,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
       layout: Layout::Form.new(vertical_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
-    screen._render # pre-fix: OverflowError at the `y += ... + @vertical_spacing` advance
+    screen.repaint # pre-fix: OverflowError at the `y += ... + @vertical_spacing` advance
   end
 
   it "does not raise with negative horizontal and vertical spacing" do
@@ -92,7 +92,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
       layout: Layout::Form.new(horizontal_spacing: -50, vertical_spacing: -50)
     Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
-    screen._render
+    screen.repaint
   end
 end
 
@@ -105,13 +105,13 @@ describe "BUGS17 B17-09 Masonry gravitation uses a deferred child's current geom
     a.style.z_index = 1 # composited on its own plane -> deferred during arrange
     b = Widget::Box.new parent: box, width: 12, height: 3
 
-    screen._render
+    screen.repaint
     bl = box.lpos.not_nil!
     # B wraps below A (12 + 12 > 20) and gravitates flush under A's 3-tall edge.
     b.lpos.not_nil!.yi.should eq bl.yi + 3
 
     a.height = 5
-    screen._render
+    screen.repaint
     # Pre-fix: B glued to A's STALE 3-tall previous-frame bottom edge for this
     # frame and only healed one render later. Post-fix: it anchors on A's
     # assigned geometry (height 5) immediately.

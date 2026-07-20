@@ -68,13 +68,13 @@ describe "BUGS17 effects" do
         width: 9, height: 1, text: "OLD"
       w = m.awidth
 
-      s._render # frame 0
+      s.repaint # frame 0
       old = row0(s, w)
       old.should eq String.build { |io| (0...w).each { |x| io << "OLD"[x % 3] } }
 
       m.text = "NEW"
       m.text.should eq "NEW"
-      s._render
+      s.repaint
       row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "NEW"[x % 3] } }
       row0(s, w).should_not eq old
     end
@@ -88,7 +88,7 @@ describe "BUGS17 effects" do
       m.frame = BIG_FRAME
 
       (BIG_FRAME.to_i64 * 8).should be > Int32::MAX # pre-fix overflow condition
-      s._render                                     # rainbow_fg used to raise OverflowError here
+      s.repaint                                     # rainbow_fg used to raise OverflowError here
     end
 
     it "does not raise scrolling a :right marquee past the Int32 frame horizon" do
@@ -98,7 +98,7 @@ describe "BUGS17 effects" do
       m = FrameMarquee.new parent: s, top: 0, left: 0,
         width: 8, height: 1, text: "ABCDE", direction: :right
       m.frame = 3_000_000_000_i64
-      s._render
+      s.repaint
     end
 
     it "does not raise computing a CopperBar color past the Int32 frame horizon" do

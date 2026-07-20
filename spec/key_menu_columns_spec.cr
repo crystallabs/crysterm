@@ -15,7 +15,7 @@ include Crysterm
 # gap between columns, last column reaches the right edge for any
 # `columns`/width combination.
 #
-# Driven headlessly over in-memory IOs: after one synchronous `_render` the cell
+# Driven headlessly over in-memory IOs: after one synchronous `repaint` the cell
 # boxes carry resolved absolute geometry to inspect.
 
 private def km_screen(width = 80)
@@ -39,7 +39,7 @@ describe Crysterm::Widget::Pine::KeyMenu do
     km = Crysterm::Widget::Pine::KeyMenu.new(
       parent: s, bottom: 0, left: 0, width: "100%",
       entries: km_entries(6), columns: 6, rows: 1)
-    s._render
+    s.repaint
 
     cells = km.cells
     cells.size.should eq 6
@@ -63,7 +63,7 @@ describe Crysterm::Widget::Pine::KeyMenu do
     km = Crysterm::Widget::Pine::KeyMenu.new(
       parent: s, bottom: 0, left: 0, width: "100%",
       entries: km_entries(8), columns: 4, rows: 2)
-    s._render
+    s.repaint
 
     top_row = km.cells.select { |c| c.atop == km.cells.first.atop }
     top_row.size.should eq 4

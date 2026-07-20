@@ -5,14 +5,17 @@
 # Maintained by tools/manage-examples.cr
 require "../../example"
 
-Crysterm::WidgetExample.run "ListSelect" do |screen|
-  screen.stylesheet = "Pine::ListSelect { border: solid; color: #c0caf5; }"
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::WidgetExample.run "ListSelect" do |window|
+  window.stylesheet = "Pine::ListSelect { border: solid; color: #c0caf5; }"
   items = ["Apricot", "Banana", "Cherry", "Date", "Elderberry"]
-  ls = Crysterm::Widget::Pine::ListSelect(String).new(
+  ls = PineListSelect(String).new(
     items,
     label: ->(s : String) { s },
     multi: true,
-    parent: screen,
+    parent: window,
     top: "center", left: "center", width: 40, height: 9)
   ls.focus
 end

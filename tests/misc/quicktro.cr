@@ -19,11 +19,11 @@
 #
 # Why still a widget, and not a bare `window.draw` loop? Because Crysterm's
 # headless capture (the `.dump`/`.png`/`.apng` goldens) is driven by the
-# window's own `_render` → `Event::Rendered` cycle. Painting inside a child's
+# window's own `repaint` → `Event::Rendered` cycle. Painting inside a child's
 # `#render` — during the compositor's pass, after its buffer clear — keeps the
 # demo fully capturable, exactly like `cracktro.cr`, while collapsing ~1200
 # widgets into one. (A pure `window.fill_region … ; window.draw` loop with no
-# widgets would be marginally faster still, but `_render` never runs, so nothing
+# widgets would be marginally faster still, but `repaint` never runs, so nothing
 # could snapshot the frames — see `nitro.cr` for that variant.)
 
 require "../../src/crysterm"

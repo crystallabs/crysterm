@@ -134,7 +134,7 @@ describe "CSS background-image" do
         s = headless_screen
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6, content: "Hi"
         box.style.background_image = bg_image_path
-        s._render
+        s.repaint
 
         box.background_media.should_not be_nil
         box.background_media.is_a?(Widget::Media::Cells).should be_true
@@ -164,7 +164,7 @@ describe "CSS background-image" do
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6, content: "Hi"
         box.style.background_image = bg_image_path
         box.style.opacity = 0.5
-        s._render
+        s.repaint
 
         # With alpha the text cell blends over the image, so its background is
         # image-derived, not the terminal default.
@@ -177,7 +177,7 @@ describe "CSS background-image" do
     it "creates no background layer when no background-image is set" do
       s = headless_screen
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 3, content: "hi"
-      s._render
+      s.repaint
 
       box.background_media.should be_nil
       box.background_paints_cells?.should be_false
@@ -190,13 +190,13 @@ describe "CSS background-image" do
         s = headless_screen
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 3, content: "hi"
         box.style.background_image = bg_image_path
-        s._render
+        s.repaint
         box.background_media.should_not be_nil
 
         # Rendered directly: the screen's damage tracking would skip a clean
-        # widget on a second `s._render`.
+        # widget on a second `s.repaint`.
         box.style.background_image = nil
-        box._render
+        box.repaint
         box.background_media.should be_nil
       end
     end

@@ -17,7 +17,7 @@ end
 
 private def new_tb(s)
   tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
-  s._render
+  s.repaint
   tb
 end
 
@@ -66,7 +66,7 @@ describe Widget::TextBrowser do
     s = tb_screen
     tb = new_tb s
     tb.document = linked_doc
-    s._render
+    s.repaint
     clicked = [] of String
     tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }
 
@@ -122,15 +122,15 @@ describe Widget::TextBrowser do
     s = tb_screen
     tb = new_tb s
     tb.document = linked_doc
-    s._render
+    s.repaint
     tb.focus_link(1).should be_true
-    s._render
+    s.repaint
     # "go |one|" — link text cells render inverse.
     (Attr.flags(s.lines[0][3].attr) & Attr::REVERSE).should_not eq 0
     (Attr.flags(s.lines[0][0].attr) & Attr::REVERSE).should eq 0
     # Moving focus moves the highlight instead of stacking a second one.
     tb.focus_link(1)
-    s._render
+    s.repaint
     (Attr.flags(s.lines[0][3].attr) & Attr::REVERSE).should eq 0
     tb.extra_selections.size.should eq 1
   end

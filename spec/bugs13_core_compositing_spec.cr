@@ -169,7 +169,7 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
     s = b13cp_window
     begin
       b13cp_build_scene s, oa_first: true
-      s._render
+      s.repaint
       b13cp_bg(s, 2, 5).should eq 0x7f007f  # red @ 0.5 over blue
       b13cp_bg(s, 2, 18).should eq 0x00ff00 # opaque green, NOT dragged to 0.5
     ensure
@@ -181,7 +181,7 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
     s = b13cp_window
     begin
       b13cp_build_scene s, oa_first: false
-      s._render
+      s.repaint
       # Pre-fix, collecting `ob` first pinned the whole z-10 plane at ITS
       # alpha (1.0), flipping the result with declaration order.
       b13cp_bg(s, 2, 5).should eq 0x7f007f
@@ -196,7 +196,7 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
     begin
       b13cp_build_scene s, oa_first: true
       lbl = Widget::Box.new parent: s, top: 5, left: 0, width: 8, height: 1, content: "aa"
-      s._render
+      s.repaint
       b13cp_bg(s, 2, 5).should eq 0x7f007f
       b13cp_bg(s, 2, 18).should eq 0x00ff00
 
@@ -204,7 +204,7 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
       # single-plane fast path when every same-z root shares one alpha; with
       # differing alphas it must fall back and keep both regions exact.
       lbl.content = "bb"
-      s._render
+      s.repaint
       b13cp_bg(s, 2, 5).should eq 0x7f007f
       b13cp_bg(s, 2, 18).should eq 0x00ff00
     ensure

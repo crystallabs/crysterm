@@ -133,7 +133,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "Table { alternate-background-color: #333333; color: #ff0000; }"
-    screen._render
+    screen.repaint
 
     count_cells_fg_bg(screen, 0xff0000, 0x333333).should be > 0
   end
@@ -143,7 +143,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "Table { color: #ff0000; alternate-background-color: #333333; }"
-    screen._render
+    screen.repaint
 
     count_cells_fg_bg(screen, 0xff0000, 0x333333).should be > 0
   end
@@ -160,7 +160,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
     #wrap { color: #ff0000; }
     Table { alternate-background-color: #333333; }
     CSS
-    screen._render
+    screen.repaint
 
     count_cells_fg_bg(screen, 0xff0000, 0x333333).should be > 0
   end

@@ -66,7 +66,7 @@ describe "reactive_property" do
   it "marks the widget dirty and schedules a repaint on change" do
     scr = rx_screen
     w = RPBox.new parent: scr, width: 20, height: 3
-    scr._render
+    scr.repaint
     scr.@damage_dirty_roots.clear
     w.caption = "changed"
     scr.@damage_dirty_roots.includes?(w).should be_true
@@ -80,7 +80,7 @@ describe "reactive_property" do
     Crysterm::Reactive.effect { runs += 1; w.caption }
     runs.should eq 1
 
-    scr._render
+    scr.repaint
     scr.@damage_dirty_roots.clear
     w.caption = "same"                            # unchanged
     scr.@damage_dirty_roots.empty?.should be_true # no repaint

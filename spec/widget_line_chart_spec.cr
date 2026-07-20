@@ -25,7 +25,7 @@ describe Crysterm::Widget::Graph::LineChart do
       c.add_line "cos", (0..60).map { |i| {i / 10.0, Math.cos(i / 10.0)} }
       c.axis_y.minimum = -1.0
       c.axis_y.maximum = 1.0
-      s._render
+      s.repaint
 
       text = rows(s)
       all = text.join("\n")

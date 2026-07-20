@@ -124,7 +124,7 @@ module Crysterm
       # covers the drop-down in the default theme.
       def render_style_for(item : Widget) : Style
         st = super
-        st = st.with_reverse_fallback if @items[@selected]? == item
+        st = st.with_reverse_fallback if @item_boxes[@selected]? == item
         st
       end
     end

@@ -61,7 +61,7 @@ describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
-    s._render
+    s.repaint
     drain_frames s
 
     bar.bar_width = 3
@@ -73,7 +73,7 @@ describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
-    s._render
+    s.repaint
     drain_frames s
 
     bar.labels = ["a", "b", "c"]
@@ -85,7 +85,7 @@ describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
-    s._render
+    s.repaint
     drain_frames s
 
     bar.show_values = true
@@ -99,7 +99,7 @@ describe "Widget::Graph::StackedBar decoration setters schedule a render (#70)" 
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10, segment_labels: ["x", "y"]
     sb.values = [[3.0, 2.0], [1.0, 4.0]]
-    s._render
+    s.repaint
     drain_frames s
 
     sb.show_legend = false
@@ -111,7 +111,7 @@ describe "Widget::Graph::StackedBar decoration setters schedule a render (#70)" 
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10
     sb.values = [[3.0, 2.0], [1.0, 4.0]]
-    s._render
+    s.repaint
     drain_frames s
 
     sb.maximum = 20.0
@@ -125,7 +125,7 @@ describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12
     lc.add_line "s", [{0.0, 1.0}, {1.0, 3.0}, {2.0, 2.0}]
-    s._render
+    s.repaint
     drain_frames s
 
     lc.title = "CPU load"
@@ -136,7 +136,7 @@ describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
     s = g15c_screen
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12, title: "same"
-    s._render
+    s.repaint
     drain_frames s
 
     lc.title = "same"
@@ -148,7 +148,7 @@ describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12, show_legend: false
     lc.add_line "s", [{0.0, 1.0}, {1.0, 3.0}]
-    s._render
+    s.repaint
     drain_frames s
 
     lc.show_legend = true
@@ -162,13 +162,13 @@ describe "Widget::Graph::Bar content cache tracks the glyph ramp (#78)" do
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 20, height: 8
     bar.values = [1.0, 2.0, 3.0, 4.0]
-    s._render
+    s.repaint
     before = bar.content
 
     # A CSS `glyphs:` hot-reload / tier upgrade changes the resolved fill ramp
     # with no change to size or data; the cached content must not be reused.
     bar.style.glyphs = " .:-=+*#%@"
-    s._render
+    s.repaint
     after = bar.content
 
     after.should_not eq before
@@ -182,7 +182,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
     s = g15c_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
-    s._render
+    s.repaint
     drain_frames s
 
     d.label = "CPU"
@@ -193,7 +193,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
     s = g15c_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
-    s._render
+    s.repaint
     drain_frames s
 
     d.format = "%v"
@@ -204,7 +204,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
     s = g15c_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
-    s._render
+    s.repaint
     drain_frames s
 
     d.show_label = false
@@ -215,7 +215,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
     s = g15c_screen
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72, show_label: true
-    s._render
+    s.repaint
     drain_frames s
 
     d.show_label = true
@@ -228,7 +228,7 @@ describe "Widget::Graph::HeatMap overlay setters schedule a render (#87)" do
     s = g15c_screen
     h = Crysterm::Widget::Graph::HeatMap.new parent: s, top: 0, left: 0,
       width: 30, height: 12, values: [[1.0, 2.0], [3.0, 4.0]]
-    s._render
+    s.repaint
     drain_frames s
 
     h.show_legend = false
@@ -239,7 +239,7 @@ describe "Widget::Graph::HeatMap overlay setters schedule a render (#87)" do
     s = g15c_screen
     h = Crysterm::Widget::Graph::HeatMap.new parent: s, top: 0, left: 0,
       width: 30, height: 12, values: [[1.0, 2.0], [3.0, 4.0]]
-    s._render
+    s.repaint
     drain_frames s
 
     h.show_labels = false
@@ -253,13 +253,13 @@ describe "Widget::Graph::LineChart axis mutation re-rasterizes the plot (#88)" d
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12
     lc.add_line "s", [{0.0, 1.0}, {1.0, 5.0}, {2.0, 3.0}]
-    s._render
+    s.repaint
     before = bitmap_sig(lc.plot)
 
     # Change only the Y scale (no #refresh, no resize). The chrome re-scales;
     # without the fix the plot raster stays at the old auto-range and disagrees.
     lc.axis_y.maximum = 100.0
-    s._render
+    s.repaint
     after = bitmap_sig(lc.plot)
 
     after.should_not eq before

@@ -102,16 +102,16 @@ describe "damage tracking" do
     pp = build_panels plain
     dp = build_panels dmg
 
-    plain._render
-    dmg._render
+    plain.repaint
+    dmg.repaint
     assert_same_lines dmg, plain, "(initial)"
 
     5.times do |f|
       i = f % pp.size
       pp[i].content = "Panel #{i} @ #{f}"
       dp[i].content = "Panel #{i} @ #{f}"
-      plain._render
-      dmg._render
+      plain.repaint
+      dmg.repaint
       assert_same_lines dmg, plain, "(frame #{f})"
     end
 
@@ -125,12 +125,12 @@ describe "damage tracking" do
     dmg = new_screen true
     pp = build_panels plain
     dp = build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Mutate the nested row of panel 1, not the panel itself.
     pp[1].children.first.content = "changed row"
     dp[1].children.first.content = "changed row"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(nested child)"
     dmg.damage_fast_frames.should be > 0
   end
@@ -140,13 +140,13 @@ describe "damage tracking" do
     dmg = new_screen true
     pp = build_panels plain
     dp = build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pp[0].left = 4
     pp[0].top = 2
     dp[0].left = 4
     dp[0].top = 2
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(moved)"
   end
 
@@ -155,11 +155,11 @@ describe "damage tracking" do
     dmg = new_screen true
     pp = build_panels plain
     dp = build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pp[3].hide
     dp[3].hide
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(hidden)"
   end
 
@@ -168,13 +168,13 @@ describe "damage tracking" do
     dmg = new_screen true
     pp = build_panels plain
     dp = build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pp[0].width = 14
     pp[0].height = 4
     dp[0].width = 14
     dp[0].height = 4
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(shrunk)"
   end
 
@@ -185,13 +185,13 @@ describe "damage tracking" do
     dmg = new_screen true
     pa, _pb = build_overlap plain
     da, _db = build_overlap dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(overlap initial)"
 
     before = dmg.damage_fast_frames
     pa.content = "A2"
     da.content = "A2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(lower update)"
     # The overlap was handled by the selective (Phase 2) path, not a full fallback.
     dmg.damage_fast_frames.should be > before
@@ -202,12 +202,12 @@ describe "damage tracking" do
     dmg = new_screen true
     _pa, pb = build_overlap plain
     _da, db = build_overlap dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     before = dmg.damage_fast_frames
     pb.content = "B2"
     db.content = "B2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(upper update)"
     dmg.damage_fast_frames.should be > before
   end
@@ -226,12 +226,12 @@ describe "damage tracking" do
     }
     pa, _pb, _pc = build.call plain
     da, _da2, _da3 = build.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Update the first link; the change reaches the third only transitively.
     pa.content = "A2"
     da.content = "A2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(chain update)"
   end
 
@@ -247,13 +247,13 @@ describe "damage tracking" do
       style: Style.new(border: true), content: "A")
     Widget::Box.new(parent: dmg, top: 0, left: 30, width: 14, height: 6,
       style: Style.new(border: true), content: "B")
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(disjoint)"
 
     # Move A so it now overlaps B.
     pa.left = 24
     da.left = 24
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(moved into overlap)"
   end
 
@@ -262,14 +262,14 @@ describe "damage tracking" do
     dmg = new_screen true
     pa, _pb = build_overlap plain
     da, _db = build_overlap dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Move A away from B.
     pa.left = 38
     pa.top = 14
     da.left = 38
     da.top = 14
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(moved out of overlap)"
   end
 
@@ -289,11 +289,11 @@ describe "damage tracking" do
     }
     pa1, pb1 = build.call plain
     da1, db1 = build.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pa1.content = "1x"; pb1.content = "3x"
     da1.content = "1x"; db1.content = "3x"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(two clusters)"
   end
 
@@ -304,13 +304,13 @@ describe "damage tracking" do
     dmg = new_screen true
     _pbase, pa = build_alpha plain
     _dbase, da = build_alpha dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(alpha initial)"
 
     before = dmg.damage_fast_frames
     pa.content = "y"
     da.content = "y"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(alpha widget update)"
     dmg.damage_fast_frames.should be > before # handled selectively (Phase 3), not full
   end
@@ -320,13 +320,13 @@ describe "damage tracking" do
     dmg = new_screen true
     pbase, _pa = build_alpha plain
     dbase, _da = build_alpha dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Change only the base; the alpha widget must re-blend over the new base.
     before = dmg.damage_fast_frames
     pbase.content = "BASE!"
     dbase.content = "BASE!"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(base under alpha update)"
     dmg.damage_fast_frames.should be > before
   end
@@ -340,12 +340,12 @@ describe "damage tracking" do
     }
     pb = mk.call plain
     db = mk.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(shadow initial)"
 
     pb.left = 20; pb.top = 10
     db.left = 20; db.top = 10
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(shadow moved — old band cleared)"
   end
 
@@ -362,11 +362,11 @@ describe "damage tracking" do
     }
     pu = build.call plain
     du = build.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pu.content = "U2"
     du.content = "U2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(under-shadow update)"
   end
 
@@ -382,12 +382,12 @@ describe "damage tracking" do
     }
     pb = mk.call plain
     db = mk.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     before = dmg.damage_fast_frames
     pb.content = "tinted!"
     db.content = "tinted!"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(tint update)"
     dmg.damage_fast_frames.should be > before
   end
@@ -397,14 +397,14 @@ describe "damage tracking" do
     dmg = new_screen true
     pa, pb = build_overlap plain
     da, db = build_overlap dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Mutate the UPPER (b) first, then the LOWER (a): the dirty set's insertion
     # order is then the reverse of @children z-order, which must not affect the
     # composited result (regression test for dirty/dirty z-ordering).
     pb.content = "B2"; pa.content = "A2"
     db.content = "B2"; da.content = "A2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(both overlapping changed)"
   end
 
@@ -429,11 +429,11 @@ describe "damage tracking" do
     }
     pl1, pr1 = build.call plain
     dl1, dr1 = build.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pl1.content = "L1x"; pr1.content = "R1x"
     dl1.content = "L1x"; dr1.content = "R1x"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(gap widget preserved)"
   end
 
@@ -444,14 +444,14 @@ describe "damage tracking" do
     dmg = new_screen true
     pbases, _pov = build_plane plain
     dbases, _dov = build_plane dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(plane initial)"
 
     before = dmg.damage_fast_frames
     3.times do |f|
       pbases[0].content = "X#{f}"
       dbases[0].content = "X#{f}"
-      plain._render; dmg._render
+      plain.repaint; dmg.repaint
       assert_same_lines dmg, plain, "(base under plane, frame #{f})"
     end
     # Handled by the selective Phase 4 plane path, not a full fallback.
@@ -463,12 +463,12 @@ describe "damage tracking" do
     dmg = new_screen true
     _pbases, pov = build_plane plain
     _dbases, dov = build_plane dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     before = dmg.damage_fast_frames
     pov.content = "overlay!"
     dov.content = "overlay!"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(overlay changed)"
     dmg.damage_fast_frames.should be > before
   end
@@ -478,12 +478,12 @@ describe "damage tracking" do
     dmg = new_screen true
     _pbases, pov = build_plane plain
     _dbases, dov = build_plane dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     before = dmg.damage_fast_frames
     pov.left = 20; pov.top = 8
     dov.left = 20; dov.top = 8
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(plane moved)"
     dmg.damage_fast_frames.should be > before
   end
@@ -493,11 +493,11 @@ describe "damage tracking" do
     dmg = new_screen true
     _pbases, pov = build_plane plain
     _dbases, dov = build_plane dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pov.hide
     dov.hide
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(plane hidden)"
   end
 
@@ -506,11 +506,11 @@ describe "damage tracking" do
     dmg = new_screen true
     pbases, _pov = build_plane plain
     dbases, _dov = build_plane dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     pbases[2].content = "far away"
     dbases[2].content = "far away"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(base far from plane)"
   end
 
@@ -533,12 +533,12 @@ describe "damage tracking" do
     dmg = new_screen true
     pbase, _po1 = build.call plain
     dbase, _do1 = build.call dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(multi-plane initial)"
 
     pbase.content = "BASE2"
     dbase.content = "BASE2"
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(multi-plane base change)"
   end
 
@@ -547,18 +547,18 @@ describe "damage tracking" do
     dmg = new_screen true
     pp = build_panels plain
     dp = build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     # Add a child.
     Widget::Box.new(parent: pp[2], top: 3, left: 1, width: 10, height: 1, content: "new")
     Widget::Box.new(parent: dp[2], top: 3, left: 1, width: 10, height: 1, content: "new")
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(after add)"
 
     # Remove a child.
     pp[2].remove pp[2].children.last
     dp[2].remove dp[2].children.last
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
     assert_same_lines dmg, plain, "(after remove)"
   end
 
@@ -567,11 +567,11 @@ describe "damage tracking" do
     dmg = new_screen true
     build_panels plain
     build_panels dmg
-    plain._render; dmg._render
+    plain.repaint; dmg.repaint
 
     3.times do
-      plain._render
-      dmg._render
+      plain.repaint
+      dmg.repaint
     end
     assert_same_lines dmg, plain, "(idle)"
   end

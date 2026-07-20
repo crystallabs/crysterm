@@ -24,7 +24,7 @@ describe "Widget::List shrink-to-content height at a non-zero top offset" do
     l = Crysterm::Widget::List.new parent: s, top: 5, left: 0, shrink_to_fit: true,
       style: Crysterm::Style.new(border: true)
     l.items = ["one", "two", "three"]
-    s._render
+    s.repaint
 
     lp = l.lpos.not_nil!
     lp.yi.should eq 5
@@ -46,7 +46,7 @@ describe "Widget::List shrink-to-content height at a non-zero top offset" do
     l = Crysterm::Widget::List.new parent: box, top: 3, left: 0, shrink_to_fit: true,
       style: Crysterm::Style.new(border: true)
     l.items = ["one", "two", "three"]
-    s._render
+    s.repaint
 
     lp = l.lpos.not_nil!
     # Absolute top: parent top (2) + own top (3).

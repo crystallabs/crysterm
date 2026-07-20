@@ -1,4 +1,5 @@
 require "./macros"
+require "./dim"
 
 module Crysterm
   class Widget
@@ -7,125 +8,42 @@ module Crysterm
     # Methods related to 2D position (X and Y).
     # Position in 3D (index) is in widget_children.cr
 
-    # Resolves a percentage position/size expression against the parent
-    # dimension *against*. Accepts `"50%"`, `"50%+5"`, `"50%-3"` (callers pre-map
-    # `"center"`/`"half"` to `"50%"`); returns `(against * pct).to_i + offset`.
-    # Allocation-free: byte-scans for the `+`/`-` separator and parses both the
-    # percentage (decimals included, so `"33.5%"` works) and the offset in place.
-    def self.resolve_percentage(expr : String, against : Int32) : Int32
-      bytes = expr.to_slice
-
-      # Find the offset separator (`+`/`-`); never at index 0 for valid input,
-      # and the preceding byte is the trailing `%` of the percentage.
-      sep = -1
-      i = 1
-      while i < bytes.size
-        b = bytes.unsafe_fetch(i)
-        if b == '+'.ord || b == '-'.ord
-          sep = i
-          break
-        end
-        i += 1
-      end
-
-      pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
-      # Parse the percentage number in place (optional sign, digits, one dot):
-      # `byte_slice(...).to_f?` would allocate a String per call, and this runs for
-      # every string-positioned widget every frame. A non-clean percentage (e.g.
-      # `0.5em` -> `0.5e`) yields 0 rather than raising, so layout never aborts.
-      k = 0
-      neg_pct = false
-      if pct_end > 0
-        b0 = bytes.unsafe_fetch(0)
-        if b0 == '-'.ord
-          neg_pct = true
-          k = 1
-        elsif b0 == '+'.ord
-          k = 1
-        end
-      end
-      num = 0.0
-      scale = 0.0         # 0 while in the integer part, then the next fraction digit's weight
-      valid = pct_end > k # an empty number (or bare sign) is invalid -> 0
-      while k < pct_end
-        b = bytes.unsafe_fetch(k)
-        if b == '.'.ord && scale == 0.0
-          scale = 0.1
-        elsif '0'.ord <= b <= '9'.ord
-          d = (b - '0'.ord).to_f64
-          if scale == 0.0
-            num = num * 10 + d
-          else
-            num += d * scale
-            scale /= 10
-          end
-        else
-          valid = false
-          break
-        end
-        k += 1
-      end
-      num = -num if neg_pct
-      pct = valid ? num / 100 : 0.0
-
-      off = 0
-      if sep != -1
-        neg = bytes.unsafe_fetch(sep) == '-'.ord
-        j = sep + 1
-        while j < bytes.size
-          b = bytes.unsafe_fetch(j)
-          # Only digits form a valid offset; the contract is malformed → 0.
-          # Folding arbitrary bytes through the `*10 +` accumulator would read
-          # "50%+1.5" as +135 and "50% + 5" as -155.
-          unless '0'.ord <= b <= '9'.ord
-            off = 0
-            break
-          end
-          # Clamp the accumulator so a pathologically long (≥10-digit) offset
-          # can't overflow Int32 on `off * 10` and raise in the render path.
-          off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
-          j += 1
-        end
-        off = -off if neg
-      end
-
-      # Clamp the product before the checked narrowing so a pathologically
-      # long (≥10-digit) percentage — or one long enough to saturate `pct`
-      # to Float64::INFINITY — can't overflow Int32 on `.to_i` and raise in
-      # the render path.
-      v = against * pct
-      v = -1_000_000_000.0 if v < -1_000_000_000.0
-      v = 1_000_000_000.0 if v > 1_000_000_000.0
-      v.to_i + off
-    end
-
     # The four edge offsets, exactly as the user set them — not computed. `nil`
     # means "unanchored on this edge"; see `#aleft` and friends for the resolved
     # values.
     #
-    # All four accept the same `Int32 | String | Nil`, the `String` being a
-    # percentage of the parent's content extent (`"50%"`, `"50%+5"`, `"50%-3"`) or
-    # a `center` expression (`"center"`, `"center+5"`), and all four resolve
-    # through the same path: `right: "50%"` works exactly like `left: "50%"`.
+    # All four accept a cell count (`Int32`), a `Dim` (`Dim.percent(50, 5)`,
+    # `Dim.center`), `:center`, or the string micro-DSL (`"50%"`, `"50%+5"`,
+    # `"center-3"`, `"50vw"`) — strings/symbols are parsed to a `Dim` **once,
+    # at assignment** (a malformed string raises `ArgumentError` there, rather
+    # than silently resolving to 0 every frame). All four resolve through the
+    # same path: `right: "50%"` works exactly like `left: "50%"`.
 
     # User-defined left
-    getter left : Int32 | String | Nil
+    getter left : Dim | Int32 | String | Nil
 
     # User-defined top
-    getter top : Int32 | String | Nil
+    getter top : Dim | Int32 | String | Nil
 
     # User-defined right
-    getter right : Int32 | String | Nil
+    getter right : Dim | Int32 | String | Nil
 
     # User-defined bottom
-    getter bottom : Int32 | String | Nil
+    getter bottom : Dim | Int32 | String | Nil
 
-    # `left=`/`top=`/`right=`/`bottom=`: change-guarded setters that mark dirty
-    # and emit `Move`. The assign lands *before* the emit so in-tree Move
-    # listeners see the new position, not the old one (cf. `width=` for Resize).
+    # `left=`/`top=`/`right=`/`bottom=`: change-guarded setters that normalize
+    # through `Dim.from` (parse-at-assignment), mark dirty and emit `Move`. The
+    # assign lands *before* the emit so in-tree Move listeners see the new
+    # position, not the old one (cf. `width=` for Resize).
     {% for side in %w[left top right bottom] %}
       # Sets Widget's `@{{side.id}}`
-      change_guarded_setter {{side.id}}, Move
+      def {{side.id}}=(val : Dim | Int32 | String | Symbol | Nil)
+        val = Dim.from val
+        return if @{{side.id}} == val
+        @{{side.id}} = val
+        mark_dirty
+        emit ::Crysterm::Event::Move
+      end
     {% end %}
 
     #
@@ -162,67 +80,47 @@ module Crysterm
     # Computed absolute position on window
     #
 
-    # Resolves a `String` position/size expression to an absolute cell count
-    # against `parent_dim`, first mapping the *aliased* word ("center" for
-    # positions, "half" for sizes) to "50%". Only the caller's own word is mapped,
-    # so an unusual input like `width: "center"` keeps its original meaning.
-    private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
-      # Viewport units resolve against the window every frame (`width: 50vw`
-      # re-sizes on terminal resize): `vw`→width, `vh`→height, `vmin`/`vmax`→
-      # smaller/larger side, like CSS. The `'v'` check is an allocation-free gate
-      # keeping the heavier regex off the per-frame hot path; `viewport_cells`
-      # returns nil for a non-viewport string.
-      if expr.includes?('v') || expr.includes?('V')
+    # Resolves a stored `Dim` against the parent extent *against*, in cells; a
+    # viewport kind resolves against the live window size instead.
+    private def resolve_dim(o : Dim, against : Int32) : Int32
+      if o.viewport?
         scr = window
-        if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
-          return cells
-        end
+        o.resolve_viewport scr.awidth, scr.aheight
+      else
+        o.resolve against
       end
-      if expr == aliased
-        expr = "50%"
-      elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')
-        # `center+5`/`half-3`: 50% of the parent plus the offset, parsed in place
-        # rather than rebuilding `"50%" + expr[aliased.size..]`, which would
-        # allocate two Strings per call, every frame.
-        bytes = expr.to_slice
-        off = 0
-        j = aliased.size + 1
-        while j < bytes.size
-          b = bytes.unsafe_fetch(j)
-          # Digits only — malformed offset reads as 0 (see `Widget.resolve_percentage`).
-          unless '0'.ord <= b <= '9'.ord
-            off = 0
-            break
-          end
-          # Clamp the accumulator (see `Widget.resolve_percentage`) so a ≥10-digit offset
-          # can't overflow Int32 and raise OverflowError in the render path.
-          off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
-          j += 1
-        end
-        off = -off if c == '-'
-        return (parent_dim * 0.5).to_i + off
-      end
-      Widget.resolve_percentage(expr, parent_dim)
+    end
+
+    # Cold arm for a raw `String` written directly into a geometry ivar
+    # (bypassing the normalizing setters): parsed per frame, with a malformed
+    # expression degrading to the historical 0 — a frame must never raise.
+    # *size* selects the `"half"` alias over `"center"`.
+    private def resolve_dim(o : String, against : Int32, size : Bool = false) : Int32
+      (d = Dim.parse?(o, size: size)) ? resolve_dim(d, against) : 0
     end
 
     # Resolves a raw edge value (`@left`/`@top`/`@right`/`@bottom`) to cells: an
-    # `Int32` passes through, `nil` reads as 0, and a `String` resolves as a
-    # percentage/`center` expression against *parent_dim*. Callers that only have
-    # `parent_dim` behind an ancestor walk must keep the `String` test outside
-    # this helper, so the common `Int32` case doesn't pay for the walk.
+    # `Int32` passes through, `nil` reads as 0, and a `Dim` (or cold `String`)
+    # resolves against *parent_dim*. Callers that only have `parent_dim` behind
+    # an ancestor walk must keep the non-`Int32` test outside this helper, so
+    # the common `Int32` case doesn't pay for the walk.
     private def resolve_edge(o, parent_dim : Int32) : Int32
       case o
-      when String then resolve_dimension(o, parent_dim, "center")
-      when Int32  then o
-      else             0
+      when Dim, String then resolve_dim(o, parent_dim)
+      when Int32       then o
+      else                  0
       end
     end
 
-    # Whether a position value asks to be centered — `"center"` or an offset form
-    # like `"center+5"` / `"center-3"`. Centered widgets pull back by half their
-    # size and skip the near-side inner offset.
+    # Whether a position value asks to be centered — `Dim.center` (or the cold
+    # raw-string spelling; see `#resolve_dim`). Centered widgets pull back by
+    # half their size and skip the near-side inner offset.
     private def center_expr?(o) : Bool
-      o.is_a?(String) && (o == "center" || o.starts_with?("center+") || o.starts_with?("center-"))
+      case o
+      when Dim    then o.center?
+      when String then o == "center" || o.starts_with?("center+") || o.starts_with?("center-")
+      else             false
+      end
     end
 
     # Whether the parent's near-side inner offset (`ileft`/`itop`) applies to a
@@ -262,8 +160,8 @@ module Crysterm
       parent = parent_pos || (rendered ? parent_or_window.last_rendered_position : parent_or_window)
 
       left = oleft || 0
-      if left.is_a? String
-        left = resolve_dimension(left, parent.awidth || 0, "center")
+      unless left.is_a? Int32
+        left = resolve_dim(left, parent.awidth || 0)
         if center_expr?(oleft)
           left -= (width || awidth(rendered)) // 2
         end
@@ -299,8 +197,8 @@ module Crysterm
       parent = parent_pos || (rendered ? parent_or_window.last_rendered_position : parent_or_window)
 
       top = otop || 0
-      if top.is_a? String
-        top = resolve_dimension(top, parent.aheight || 0, "center")
+      unless top.is_a? Int32
+        top = resolve_dim(top, parent.aheight || 0)
         if center_expr?(otop)
           top -= (height || aheight(rendered)) // 2
         end
@@ -328,13 +226,13 @@ module Crysterm
         return right
       end
 
-      # A `String` right (`"50%"`) resolves against the parent's width, exactly as
-      # a `String` left does in `#aleft`. Kept behind the `is_a?` so the common
+      # A `Dim` right (`"50%"`) resolves against the parent's width, exactly as
+      # a `Dim` left does in `#aleft`. Kept behind the type test so the common
       # `Int32`/`nil` case never triggers the `parent.awidth` ancestor walk.
-      right = if oright.is_a? String
-                resolve_dimension(oright, parent.awidth || 0, "center")
-              else
-                oright || 0
+      right = case oright
+              in Int32       then oright
+              in Dim, String then resolve_dim(oright, parent.awidth || 0)
+              in Nil         then 0
               end
       right += (parent.aright || 0)
       right += parent.iright
@@ -356,12 +254,12 @@ module Crysterm
         return bottom
       end
 
-      # See `#aright`: a `String` bottom resolves against the parent's height,
+      # See `#aright`: a `Dim` bottom resolves against the parent's height,
       # with the ancestor walk kept off the `Int32`/`nil` fast path.
-      bottom = if obottom.is_a? String
-                 resolve_dimension(obottom, parent.aheight || 0, "center")
-               else
-                 obottom || 0
+      bottom = case obottom
+               in Int32       then obottom
+               in Dim, String then resolve_dim(obottom, parent.aheight || 0)
+               in Nil         then 0
                end
       bottom += (parent.abottom || 0)
       bottom += parent.ibottom
@@ -410,7 +308,7 @@ module Crysterm
     end
 
     # `width_hint`, when given, is this widget's already-resolved `awidth(rendered)`,
-    # computed by `#_render` just before calling here, to skip re-resolving the
+    # computed by `#base_render` just before calling here, to skip re-resolving the
     # identical `awidth`. Only the render path passes it.
     # ameba:disable Metrics/CyclomaticComplexity
     def coords(rendered = false, noscroll = false, into : RenderedGeometry? = nil, width_hint : Int32? = nil) : RenderedGeometry?

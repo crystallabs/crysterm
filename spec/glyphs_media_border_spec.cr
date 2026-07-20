@@ -26,7 +26,7 @@ describe "border-chars CSS (rounded corners)" do
             border-bottom-left-char: "╰"; border-bottom-right-char: "╯"; }
       CSS
     s.apply_stylesheet
-    s._render
+    s.repaint
     gmb_ch(s, box.atop, box.aleft).should eq '╭'
     gmb_ch(s, box.atop, box.aleft + 9).should eq '╮'
     gmb_ch(s, box.atop + 4, box.aleft).should eq '╰'
@@ -41,7 +41,7 @@ describe "border-chars CSS (rounded corners)" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: solid; border-chars: "1" "2" "3" "4" "h" "v"; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gmb_ch(s, box.atop, box.aleft).should eq '1'
     gmb_ch(s, box.atop, box.aleft + 9).should eq '2'
     gmb_ch(s, box.atop + 4, box.aleft).should eq '3'
@@ -58,7 +58,7 @@ describe "border-chars CSS (rounded corners)" do
       Box { border-top-left-char: none; }
       CSS
     s.apply_stylesheet
-    s._render
+    s.repaint
     # `none` cleared the TL position override; the corner *group* still holds.
     gmb_ch(s, box.atop, box.aleft).should eq '+'
     gmb_ch(s, box.atop, box.aleft + 9).should eq '+'
@@ -95,7 +95,7 @@ describe "BorderType::Rounded" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: rounded; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gmb_ch(s, box.atop, box.aleft).should eq '╭'
     gmb_ch(s, box.atop + 4, box.aleft + 9).should eq '╯'
     gmb_ch(s, box.atop, box.aleft + 4).should eq '─'
@@ -106,7 +106,7 @@ describe "BorderType::Rounded" do
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: solid red; border-radius: 4px; })
     s.apply_stylesheet
-    s._render
+    s.repaint
     gmb_ch(s, box.atop, box.aleft).should eq '╭'
     gmb_ch(s, box.atop + 4, box.aleft).should eq '╰'
   end
@@ -189,15 +189,15 @@ describe "@media (glyphs: …)" do
     blue = Crysterm::Colors.convert("blue").to_i32
     red = Crysterm::Colors.convert("red").to_i32
     s.apply_stylesheet
-    s._render
+    s.repaint
     box.styles.normal.bg.should eq blue # default tier Unicode: guarded rule off
 
     s.glyph_tier = Glyphs::Tier::Ascii
-    s._render # recascades via the has_media?/tier-change path
+    s.repaint # recascades via the has_media?/tier-change path
     box.styles.normal.bg.should eq red
 
     s.glyph_tier = Glyphs::Tier::Unicode
-    s._render
+    s.repaint
     box.styles.normal.bg.should eq blue
   end
 end

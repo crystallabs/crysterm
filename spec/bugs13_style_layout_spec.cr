@@ -24,7 +24,7 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
     parent = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20
     child = Widget::Box.new parent: parent, left: 0, top: 0, width: 10, height: 5
     grand = Widget::Box.new parent: child, left: 0, top: 0, width: 4, height: 2
-    screen._render
+    screen.repaint
     child.lpos.should_not be_nil
     grand.lpos.should_not be_nil
 
@@ -33,7 +33,7 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
     grand.lpos.should be_nil
 
     # The child pass keeps skipping it, so the rects stay cleared.
-    screen._render
+    screen.repaint
     child.lpos.should be_nil
     grand.lpos.should be_nil
   end
@@ -44,12 +44,12 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, height: 5
     b = Widget::Box.new parent: box, height: 5
-    screen._render
+    screen.repaint
     a.lpos.should_not be_nil
 
     a.layout_excluded = true
     a.lpos.should be_nil
-    screen._render
+    screen.repaint
     a.lpos.should be_nil
     b.lpos.should_not be_nil # sibling keeps rendering (and now gets the space)
   end
@@ -58,13 +58,13 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
     screen = headless_screen
     parent = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20
     child = Widget::Box.new parent: parent, left: 0, top: 0, width: 10, height: 5
-    screen._render
+    screen.repaint
     child.layout_excluded = true
-    screen._render
+    screen.repaint
     child.lpos.should be_nil
 
     child.layout_excluded = false
-    screen._render
+    screen.repaint
     child.lpos.should_not be_nil
   end
 end
@@ -79,7 +79,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     b = Widget::Box.new parent: g # auto-flow
 
     started = Time.instant
-    screen._render # pre-fix: ~2^31 Set inserts per span axis (effectively a hang)
+    screen.repaint # pre-fix: ~2^31 Set inserts per span axis (effectively a hang)
     (Time.instant - started).should be < 5.seconds
 
     a.lpos.should_not be_nil
@@ -96,7 +96,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: Int32::MAX, column: 0)
     Widget::Box.new parent: g # auto-flow
-    screen._render            # pre-fix: OverflowError in the checked `p[1] + p[3]`/`p[1] + 1`
+    screen.repaint            # pre-fix: OverflowError in the checked `p[1] + p[3]`/`p[1] + 1`
   end
 
   it "keeps ordinary spans and occupancy intact (no regression)" do
@@ -106,7 +106,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     a = Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 2, column_span: 2)
     b = Widget::Box.new parent: g # auto-flow: must skip a's 2x2 block -> (0, 2)
-    screen._render
+    screen.repaint
 
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!
@@ -126,7 +126,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, row_span: 99, column_span: 1)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 1, column: 1)
-    screen._render
+    screen.repaint
 
     al = a.lpos.not_nil!
     al.yi.should eq 0

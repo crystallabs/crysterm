@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# full_unicode single-codepoint fast path (`Widget#_render`): a lone codepoint
+# full_unicode single-codepoint fast path (`Widget#base_render`): a lone codepoint
 # with no combining/extending successor is stored as a `Char`, no
 # `String`/overlay allocation. A genuine multi-codepoint cluster still goes
 # through `extend_grapheme` into the row's grapheme overlay.
@@ -14,7 +14,7 @@ private def fu_render(content : String, width = 20)
   s.full_unicode = true
   pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
   Widget::Box.new parent: s, top: 0, left: 0, width: width, height: 3, content: content
-  s._render
+  s.repaint
   s
 end
 

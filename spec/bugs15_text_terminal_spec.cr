@@ -5,7 +5,7 @@ include Crysterm
 # Regression specs for BUGS15 findings #17, #36, #45, #46.
 #
 # Headless harness (like text_editing_keys_spec / textedit_render_spec): a
-# `Window` over in-memory IOs driven by the synchronous `Window#_render`, with
+# `Window` over in-memory IOs driven by the synchronous `Window#repaint`, with
 # cells asserted straight off `Window#lines`.
 
 private def bt_screen(width = 60, height = 24)
@@ -32,7 +32,7 @@ describe "BUGS15 17: Widget::Terminal exports term_name as TERM to the child" do
       parent: s, top: 0, left: 0, width: 40, height: 4,
       shell: "sh", args: ["-c", "printf 'TERM=[%s]' \"$TERM\"; sleep 5"],
       term_name: "xterm-crysterm17")
-    s._render # bootstrap + spawn PTY
+    s.repaint # bootstrap + spawn PTY
     em = term.emulator.not_nil!
 
     # Reader fiber pumps child output into the emulator asynchronously.
@@ -55,7 +55,7 @@ describe "BUGS15 17: Widget::Terminal exports term_name as TERM to the child" do
       parent: s, top: 0, left: 0, width: 40, height: 4,
       shell: "sh", args: ["-c", "printf 'TERM=[%s]' \"$TERM\"; sleep 5"],
       term_name: "xterm-crysterm17", env: env)
-    s._render
+    s.repaint
     em = term.emulator.not_nil!
 
     150.times do
@@ -81,12 +81,12 @@ describe "BUGS15 36: text editor click/caret map through the clip-aware base" do
     # top rows above the viewport (spilling scroll into child_base, which is
     # what shifts child widgets — see widget_position.cr:510).
     Widget::Box.new parent: outer, top: 10, left: 0, width: 1, height: 30
-    s._render
+    s.repaint
 
     # Scroll so the editor's top 3 rows are clipped: its first visible row now
     # shows buffer line 3 (lpos.base == 3, the editor's own child_base still 0).
     outer.scroll_to 8
-    s._render
+    s.repaint
     lp = pte.lpos.not_nil!
     lp.base.should eq 3
     pte.child_base.should eq 0
@@ -102,9 +102,9 @@ describe "BUGS15 36: text editor click/caret map through the clip-aware base" do
     pte = Widget::PlainTextEdit.new parent: outer, top: 0, left: 0, width: 20, height: 10,
       content: "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9"
     Widget::Box.new parent: outer, top: 10, left: 0, width: 1, height: 30
-    s._render
+    s.repaint
     outer.scroll_to 8
-    s._render
+    s.repaint
     lp = pte.lpos.not_nil!
     lp.base.should eq 3
 
@@ -129,7 +129,7 @@ describe "BUGS15 45: clipped Widget::Terminal shows the correct grid region" do
       handler: ->(_d : String) { })
     # Spacer so the container can scroll the terminal's top rows off-viewport.
     Widget::Box.new parent: outer, top: 10, left: 0, width: 1, height: 30
-    s._render # bootstrap the emulator (20x10)
+    s.repaint # bootstrap the emulator (20x10)
 
     # Fill each emulator row with its own digit so a row is identifiable, and
     # park the cursor at row 5, col 3 (1-based) — emulator (row 4, col 2).
@@ -146,7 +146,7 @@ describe "BUGS15 45: clipped Widget::Terminal shows the correct grid region" do
 
     term.focus
     outer.scroll_to 8 # clip the terminal's top 3 rows
-    s._render
+    s.repaint
     lp = term.lpos.not_nil!
     lp.base.should eq 3
 
@@ -170,7 +170,7 @@ describe "BUGS15 46: ranged extra selections use the row decoration offset" do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
     "- one".each_char { |c| te._listener Crysterm::Event::KeyPress.new(c) }
-    s._render
+    s.repaint
     # Row renders as "• one": marker at cols 0-1, text "one" at cols 2-4.
     row_text(s, 0, 5).should eq "• one"
 
@@ -180,7 +180,7 @@ describe "BUGS15 46: ranged extra selections use the row decoration offset" do
     te.extra_selections = [
       Widget::TextEdit::ExtraSelection.new(cur, TextCharFormat.new(underline: true), false),
     ]
-    s._render
+    s.repaint
 
     # Underline must land on the text cells (2,3,4), offset past the marker —
     # crucially col 4 ('e'), which the pre-fix text-relative range never reached.

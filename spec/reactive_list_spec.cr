@@ -148,7 +148,7 @@ describe "Crysterm::Reactive.bind_items" do
     view = Crysterm::Widget::List.new parent: scr, width: 20, height: 6
     names = Crysterm::Reactive::ObservableList(String).new %w[a]
     Crysterm::Reactive.bind_items(view, names, &.itself)
-    scr._render
+    scr.repaint
     scr.@damage_dirty_roots.clear
     names << "b"
     scr.@damage_dirty_roots.empty?.should be_false

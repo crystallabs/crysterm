@@ -38,7 +38,7 @@ describe "BUGS15 #85 content-sized table sizing" do
     t.width.as(Int32).should be < wide.as(Int32)
 
     # Rendering must not re-grow it either.
-    s._render
+    s.repaint
     t.width.should eq(fresh.width)
   end
 
@@ -51,7 +51,7 @@ describe "BUGS15 #85 content-sized table sizing" do
 
     widths = [] of Int32
     5.times do
-      s._render
+      s.repaint
       widths << lt.width.as(Int32)
       lt.rows = data # identical data, refreshed
     end
@@ -74,7 +74,7 @@ describe "BUGS15 #85 content-sized table sizing" do
     t.rows = [["A", "B"], ["c", "d"]]
     t.width.should eq(30)
 
-    s._render
+    s.repaint
     t.width.should eq(30)
   end
 end

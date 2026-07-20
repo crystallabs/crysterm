@@ -38,11 +38,11 @@ describe "BUGS17 B17-22: Splitter divider drag inside a scrolled container" do
     sp.add_widget Crysterm::Widget::Box.new
     # A child far below gives the container a real scroll extent.
     Crysterm::Widget::Box.new parent: sc, top: 40, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     k = 3
     sc.scroll_to k, true
-    s._render
+    s.repaint
 
     lp = sp.lpos.not_nil!
     # Sanity: the splitter is painted k rows above its layout position.
@@ -73,11 +73,11 @@ describe "BUGS17 B17-23: SizeGrip drag-resize inside a scrolled container" do
     grip = Crysterm::Widget::SizeGrip.new parent: box, bottom: 0, right: 0,
       width: 1, height: 1
     Crysterm::Widget::Box.new parent: sc, top: 40, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     k = 3
     sc.scroll_to k, true
-    s._render
+    s.repaint
 
     # Sanity: the target and its grip are painted k rows above their layout row.
     box.lpos.not_nil!.yi.should eq box.atop - k
@@ -118,11 +118,11 @@ describe "BUGS17 B17-18: ColorDialog gradient hit-test inside a scrolled contain
       width: 56, height: 20
     cd.show
     Crysterm::Widget::Box.new parent: sc, top: 40, left: 0, width: 4, height: 1
-    s._render
+    s.repaint
 
     k = 3
     sc.scroll_to k, true
-    s._render
+    s.repaint
 
     lp = cd.lpos.not_nil!
     # Sanity: painted k rows above the layout row.

@@ -58,7 +58,7 @@ require "./spec_helper"
       list.focus
       list.current_index = 2
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       list.css_styled?.should be_false # confirm we are on the non-CSS floor path
       # The selected row (index 2) is at content row 2 of a borderless list.
@@ -74,7 +74,7 @@ require "./spec_helper"
       lb.items = %w[File Edit View]
       lb.focus
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       lb.css_styled?.should be_false
       # `set_items` selects index 0; its box renders reverse at the floor.
@@ -87,7 +87,7 @@ require "./spec_helper"
       m.add_action "New"
       m.add_action "Quit"
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       m.css_styled?.should be_false
       m.style.border.any?.should be_true
@@ -102,7 +102,7 @@ require "./spec_helper"
         content: "OK"
       btn.state = :focused
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       btn.css_styled?.should be_false # confirm we are on the non-CSS floor path
       btn.floor_focus_reverse?.should be_true
@@ -171,7 +171,7 @@ require "./spec_helper"
       left_docked = Crysterm::Widget::DockWidget.new parent: s, title: "D",
         area: Crysterm::Widget::DockWidget::Area::Left, top: 0, left: 0, width: 14, height: 5
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       floating.css_styled?.should be_false # on the non-CSS floor
       # Floating overlay → full frame.
@@ -207,7 +207,7 @@ require "./spec_helper"
       sp.add_widget Crysterm::Widget::Box.new(content: "A")
       sp.add_widget Crysterm::Widget::Box.new(content: "B")
       s.apply_stylesheet
-      s._render
+      s.repaint
 
       div = sp.dividers.first
       div.css_styled?.should be_false   # no `.divider` rule on the floor
@@ -221,7 +221,7 @@ require "./spec_helper"
       list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 5,
         items: %w[a b]
       s.apply_stylesheet
-      s._render
+      s.repaint
       list.style.border.any?.should be_false
     end
   end

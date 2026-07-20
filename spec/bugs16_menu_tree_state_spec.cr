@@ -33,11 +33,11 @@ describe Crysterm::Widget::Menu do
     export.enabled = false
     m << Action.new("Other")
 
-    s._render
+    s.repaint
     m.current_index = 0 # highlight the disabled "Export" row
 
     m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
-    s._render
+    s.repaint
 
     # No submenu opened, and focus stayed on the parent menu.
     s.focused.should eq m
@@ -50,11 +50,11 @@ describe Crysterm::Widget::Menu do
     export = m.add_submenu "Export", [Action.new("PDF"), Action.new("CSV")]
     export.enabled = true
 
-    s._render
+    s.repaint
     m.current_index = 0
 
     m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
-    s._render
+    s.repaint
 
     child = s.focused
     child.should_not eq m

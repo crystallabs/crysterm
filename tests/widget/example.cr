@@ -104,7 +104,7 @@ module Crysterm
       # one text frame (`Window#dump`) is appended to *dump_io* — the textual
       # analogue of recording one frame per action. `advance` neither sleeps nor
       # renders dwell frames here, since time is irrelevant.
-      def initialize(@screen : Window? = nil, fps : Int32 = FPS, @record : Bool = true,
+      def initialize(@window : Window? = nil, fps : Int32 = FPS, @record : Bool = true,
                      @dump_io : IO? = nil)
         @frame_secs = 1.0 / fps
       end
@@ -119,9 +119,9 @@ module Crysterm
         return if @suppress_dump
         io = @dump_io
         return unless io
-        if scr = @screen
+        if scr = @window
           WidgetExample.settle scr
-          scr._render
+          scr.repaint
           WidgetExample.frame io, scr, label
         end
       end
@@ -189,7 +189,7 @@ module Crysterm
 
       # The screen when recording, else nil (measure pass).
       private def recording : Window?
-        @record ? @screen : nil
+        @record ? @window : nil
       end
 
       # Record mode: render `seconds` worth of frames (so the demo dwells here);
@@ -201,7 +201,7 @@ module Crysterm
           frames = Math.max(1, (seconds / @frame_secs).round.to_i)
           frames.times do
             WidgetExample.tick_animation(@frame_secs) # advance any self-animating widget
-            scr._render                               # single frame source
+            scr.repaint                               # single frame source
             sleep @frame_secs.seconds
           end
         else
@@ -245,12 +245,12 @@ module Crysterm
     def self.dump_run(dest : String, script : (Driver ->)?, &build : Window ->)
       s = headless
       build.call s
-      s._render
+      s.repaint
       # A self-animating widget has no settled state; pre-roll to a deterministic,
       # representative frame (same as still `screenshot` mode).
       if step = @@anim_step
         (PREROLL / @@anim_interval).to_i.times { step.call }
-        s._render
+        s.repaint
       end
 
       io = IO::Memory.new
@@ -289,12 +289,6 @@ module Crysterm
       if step = @@anim_step
         s.every(@@anim_interval.seconds) { step.call }
       end
-      s.on(Event::KeyPress) do |e|
-        if e.char == 'q' || e.key == Tput::Key::CtrlQ
-          s.destroy
-          exit 0
-        end
-      end
       s.exec
     end
 
@@ -303,10 +297,10 @@ module Crysterm
     def self.screenshot(dest : String, &build : Window ->)
       s = headless
       build.call s
-      s._render
+      s.repaint
       if step = @@anim_step
         (PREROLL / @@anim_interval).to_i.times { step.call }
-        s._render
+        s.repaint
       end
       s.capture path: dest
       s.destroy rescue nil
@@ -337,7 +331,7 @@ module Crysterm
       #    driven frame is in (extra idle time adds no frames).
       s = headless
       build.call s
-      s._render
+      s.repaint
       d = Driver.new s
 
       done = Channel(Nil).new

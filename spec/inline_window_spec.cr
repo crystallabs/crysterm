@@ -58,7 +58,7 @@ describe "inline (non-alt) Window" do
       content: "hello", style: Style.new(bg: 0x202020)
 
     inline.output.as(IO::Memory).clear
-    inline._render
+    inline.repaint
 
     out = inline.output.as(IO::Memory).to_s
     # A CUP to the surface's row 0 must land on physical row 11 (1-based 10+1),

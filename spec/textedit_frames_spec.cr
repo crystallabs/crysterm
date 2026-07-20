@@ -19,7 +19,7 @@ end
 
 private def new_te(s, content = "", width = 20, height = 8)
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: width, height: height, content: content
-  s._render
+  s.repaint
   te
 end
 
@@ -41,7 +41,7 @@ describe Widget::TextEdit do
       c = te.text_cursor
       c.set_position(7)
       c.insert_frame(TextFrameFormat.new(border: true))
-      s._render
+      s.repaint
       row_text(s, 0, 6).should eq "before"
       row_text(s, 1, 20).should eq "┌" + "─" * 18 + "┐"
       row_text(s, 2, 8).should eq "│ inside"
@@ -54,7 +54,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "plain"
       te.text_cursor.insert_frame(TextFrameFormat.new(margin: 3))
-      s._render
+      s.repaint
       row_text(s, 0, 8).should eq "   plain"
       te._clines.size.should eq 1 # no border rows
     end
@@ -65,7 +65,7 @@ describe Widget::TextEdit do
       c = te.text_cursor
       c.insert_frame(TextFrameFormat.new(border: true))
       c.insert_frame(TextFrameFormat.new(border: true))
-      s._render
+      s.repaint
       row_text(s, 0, 20).should eq "┌" + "─" * 18 + "┐"
       row_text(s, 1, 20).should eq "│ ┌" + "─" * 14 + "┐ │"
       row_text(s, 2, 8).should eq "│ │ deep"
@@ -81,7 +81,7 @@ describe Widget::TextEdit do
       c = te.text_cursor
       c.set_position(7)
       c.insert_frame(TextFrameFormat.new(border: true))
-      s._render
+      s.repaint
       # Row 2 is the frame's text row; its text starts at column 2.
       te.position_at(2, 2).should eq 7
       te.position_at(3, 2).should eq 8
@@ -95,7 +95,7 @@ describe Widget::TextEdit do
       c = te.text_cursor
       c.set_position(7)
       c.insert_frame(TextFrameFormat.new(border: true))
-      s._render
+      s.repaint
       te.cursor_pos = 0
       te._listener ctl(::Tput::Key::Down)
       te.cursor_pos.should eq 7 # over the top border row into "inside"
@@ -109,7 +109,7 @@ describe Widget::TextEdit do
       s = te_screen
       te = new_te s, "aaaa bbbb cccc dddd"
       te.text_cursor.insert_frame(TextFrameFormat.new(border: true))
-      s._render
+      s.repaint
       # Text rows all carry both bars.
       (1...te._clines.size - 1).each do |rl|
         s.lines[rl][0].char.should eq '│'

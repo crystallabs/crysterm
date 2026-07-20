@@ -53,7 +53,7 @@ describe Crysterm::Widget::ToolButton do
       m.add_action "Only"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m,
         popup_mode: Crysterm::Widget::ToolButton::PopupMode::InstantPopup
-      s._render
+      s.repaint
       pressed = false
       tb.on(Crysterm::Event::Pressed) { pressed = true }
       tb.click
@@ -68,7 +68,7 @@ describe Crysterm::Widget::ToolButton do
       m = Crysterm::Widget::Menu.new
       m.add_action "Item"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
-      s._render
+      s.repaint
 
       pressed = false
       tb.on(Crysterm::Event::Pressed) { pressed = true }
@@ -89,7 +89,7 @@ describe Crysterm::Widget::ToolButton do
       m.add_action "Item"
       m.hide # stays hidden until summoned (as in real usage)
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
-      s._render
+      s.repaint
 
       pressed = false
       tb.on(Crysterm::Event::Pressed) { pressed = true }
@@ -107,7 +107,7 @@ describe Crysterm::Widget::ToolButton do
       triggered = false
       act.on(Crysterm::Event::Triggered) { triggered = true }
       tb = Crysterm::Widget::ToolButton.new parent: s, default_action: act, menu: m
-      s._render
+      s.repaint
 
       tb.on_click nil
       m.visible?.should be_true # a click opens the drop-down (the whole button)...
@@ -130,7 +130,7 @@ describe Crysterm::Widget::ToolButton do
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
         width: 12, height: 1, default_action: act, menu: m, align: :center
-      s._render
+      s.repaint
 
       sb_click s, tb.aleft + 1, tb.atop # body, left of the ▾
       m.visible?.should be_true         # opened
@@ -146,7 +146,7 @@ describe Crysterm::Widget::ToolButton do
       act = Crysterm::Action.new "Apply"
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
         width: 12, height: 1, default_action: act, menu: m, align: :center
-      s._render
+      s.repaint
 
       sb_click s, tb.aleft + tb.awidth - 1, tb.atop # the arrow cell
       m.visible?.should be_true

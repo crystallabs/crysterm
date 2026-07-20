@@ -28,7 +28,7 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
     label = Widget::Box.new parent: form, height: 1, style: margin(left: 2)
     field = Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
 
     ll = label.lpos.not_nil!
     fl = field.lpos.not_nil!
@@ -49,7 +49,7 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
     l2 = Widget::Box.new parent: form, height: 1
     Widget::Box.new parent: form, height: 1
 
-    s._render
+    s.repaint
 
     l1l = l1.lpos.not_nil!
     l2l = l2.lpos.not_nil!
@@ -68,7 +68,7 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
     # Odd trailing child spans the full width; a right margin must keep it inside.
     trailer = Widget::Box.new parent: form, height: 1, style: margin(left: 2, right: 3)
 
-    s._render
+    s.repaint
 
     tl = trailer.lpos.not_nil!
     fl = form.lpos.not_nil!
@@ -93,7 +93,7 @@ describe "BUGS15 grid reserves child margin boxes (fix #67)" do
     b = Widget::Box.new parent: box,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 1)
 
-    s._render
+    s.repaint
 
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!
@@ -109,7 +109,7 @@ describe "BUGS15 grid reserves child margin boxes (fix #67)" do
     child = Widget::Box.new parent: box,
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0), style: margin(top: 2)
 
-    s._render
+    s.repaint
 
     cl = child.lpos.not_nil!
     bl = box.lpos.not_nil!
@@ -134,7 +134,7 @@ describe "BUGS15 flow MoveWidget moves an overflowing child back in (fix #73)" d
     Widget::Box.new parent: box, width: 8, height: 3
     second = Widget::Box.new parent: box, width: 8, height: 3
 
-    s._render
+    s.repaint
 
     sl = second.lpos.not_nil!
     bl = box.lpos.not_nil!

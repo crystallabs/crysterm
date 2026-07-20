@@ -972,7 +972,7 @@ module Crysterm
       end
 
       # The portion of `#selection_range` that falls on real (post-wrap) line *rl*,
-      # as a `x - xi` column range for `Widget#_render`'s highlight pass, or `nil`
+      # as a `x - xi` column range for `Widget#base_render`'s highlight pass, or `nil`
       # when the selection doesn't touch this row.
       #
       # *rl* is `@child_base`-relative like everywhere else in this module — exact
@@ -982,7 +982,7 @@ module Crysterm
       # Columns are shifted left by `@child_base_x` so a horizontally-scrolled
       # non-wrap view highlights the right cells (0 in wrap mode, where there is no
       # horizontal scroll). A range whose start is left of the viewport comes back
-      # with a negative `begin`, which the per-cell `includes?` check in `_render`
+      # with a negative `begin`, which the per-cell `includes?` check in `base_render`
       # handles correctly.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
         return nil unless range = selection_range
@@ -1300,9 +1300,9 @@ module Crysterm
         ensure_cursor_visible_x
       end
 
-      def render
+      def render(with_children = true)
         refresh_value
-        super # OR _render
+        super
       end
 
       # Finishes the current read, submitting the entered text. Calls the

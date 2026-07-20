@@ -7,19 +7,19 @@ require "../../src/crysterm"
 # Button colors and focus/hover state come from a CSS stylesheet.
 
 include Crysterm
+include Crysterm::Widgets
 
-screen = Window.new title: "simple-form.cr"
-screen.enable_mouse
+window = Window.new title: "simple-form.cr"
+window.enable_mouse
 
-screen.stylesheet = <<-CSS
+window.stylesheet = <<-CSS
   Form   { background-color: green; color: white; }
   Button { background-color: blue;  color: white; }
   Button:focus, Button:hover { background-color: red; }
 CSS
 
-form = Widget::Form.new(
-  parent: screen,
-  keys: true,
+form = Form.new(
+  parent: window,
   left: 0,
   top: 0,
   width: 30,
@@ -27,9 +27,8 @@ form = Widget::Form.new(
   content: "Submit or cancel?",
 )
 
-submit = Widget::Button.new(
+submit = Button.new(
   parent: form,
-  keys: true,
   left: 10,
   top: 2,
   width: 8,
@@ -39,9 +38,8 @@ submit = Widget::Button.new(
   parse_tags: true,
 )
 
-cancel = Widget::Button.new(
+cancel = Button.new(
   parent: form,
-  keys: true,
   left: 20,
   top: 2,
   width: 8,
@@ -55,18 +53,12 @@ submit.on_click { form.submit }
 cancel.on_click { form.reset }
 
 form.on(Event::FormSubmitted) do
-  form.set_content "Submitted."
-  screen.render
+  form.content = "Submitted."
 end
 
 form.on(Event::Reset) do
-  form.set_content "Canceled."
-  screen.render
-end
-
-screen.on(Event::KeyPress) do |e|
-  exit 0 if e.char == 'q'
+  form.content = "Canceled."
 end
 
 submit.focus
-screen.exec
+window.exec

@@ -35,7 +35,7 @@ describe "BUGS13 M3: Table#draw_borders row/column clamping" do
     Widget::Table.new(parent: s, top: 3, left: 2,
       rows: [["Name", "Email"], ["a", "b"]],
       style: Style.new(border: Border.new(top: 0)))
-    s._render
+    s.repaint
     # The row just above the table (y == 2) must stay untouched; the bug
     # stamped `│` at `yi + border.top - 1 == yi - 1` when border-top was 0.
     row_chars(s, 2).strip.should eq ""
@@ -48,7 +48,7 @@ describe "BUGS13 M3: Table#draw_borders row/column clamping" do
     Widget::Table.new(parent: s, top: -3, left: 0,
       rows: [["Name", "Email"], ["a", "b"], ["c", "d"]],
       style: Style.new(border: true))
-    s._render
+    s.repaint
     # Grid rows -3..-1 used to wrap (`lines[-3]?` == `lines[9]`) and stamp
     # border glyphs onto the bottom rows of the screen buffer.
     (9..11).each do |y|
@@ -65,7 +65,7 @@ describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
     Widget::ListTable.new(parent: s, top: 0, left: 0, width: 8, height: 6,
       rows: [["Hdr01", "Hdr02"], ["abcde", "fghij"], ["klmno", "pqrst"]],
       style: Style.new(border: Border.new(right: 0)))
-    s._render
+    s.repaint
     # Columns are wider than the 8-cell viewport; the first separator falls at
     # content offset 7, which the off-by-`ileft` clip used to paint at
     # absolute column 8 — one column OUTSIDE the widget (columns 0..7).
@@ -81,7 +81,7 @@ describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
     Widget::ListTable.new(parent: s, top: 0, left: 0, height: 5,
       rows: [["AA", "BB"], ["a", "b"], ["c", "d"]],
       style: Style.new(border: Border.new(bottom: 0)))
-    s._render
+    s.repaint
     # With no bottom border, the `ry == height` junction row is
     # `yl - ibottom == yl` — the row just BELOW the widget (rows 0..4).
     row_chars(s, 5).strip.should eq ""
@@ -95,7 +95,7 @@ describe "BUGS13 A9: ListTable runtime sortable toggle" do
     s = tbl_screen(30, 10)
     lt = Widget::ListTable.new(parent: s, top: 0, left: 0,
       rows: [["N", "V"], ["b", "2"], ["a", "1"]])
-    s._render
+    s.repaint
 
     # Disabled (the default): a header click must not sort.
     lt.header.emit Crysterm::Event::Mouse, mouse_down(lt.header.aleft, lt.header.atop).mouse
