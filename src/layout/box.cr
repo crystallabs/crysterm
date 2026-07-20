@@ -89,10 +89,13 @@ module Crysterm
 
       @cursor = 0
       @avail = 0
-      @total_grow = 0
+      # `Int64` because `@avail * @grow_seen` (line ~247) can exceed `Int32::MAX`
+      # well before either factor does; stretch factors are clamped in
+      # `#stretch_of` but the *sum* over many children is not.
+      @total_grow : Int64 = 0
       # Running sum of grow factors of flex children placed so far; distributes
       # `@avail` by cumulative rounding. Reset each measure, consumed in place order.
-      @grow_seen = 0
+      @grow_seen : Int64 = 0
       # Leftover space distributed along the main axis by `justify` when nothing
       # grows, carved into per-child gaps by *cumulative* rounding rather than a
       # floored `leftover // slots`, which strands up to `slots - 1` columns.
@@ -143,7 +146,7 @@ module Crysterm
         main = main_extent interior
 
         fixed = 0
-        grow = 0
+        grow = 0_i64
         # The render pipeline shifts every laid child outward by its near margin,
         # and a Box-assigned size is a fixed `Int32` that never folds its margin
         # in, so the packing must reserve both main-axis margins — otherwise
@@ -160,6 +163,8 @@ module Crysterm
           n += 1
           margins += main_margin el
           if main_flex? el
+            # `stretch_of` returns a clamped `Int32`; `grow` accumulates as
+            # `Int64` since the *sum* over many children can still overflow.
             grow += stretch_of el
           else
             ms = a_main_size el
@@ -170,7 +175,7 @@ module Crysterm
         gaps = n > 1 ? @spacing * (n - 1) : 0
 
         @total_grow = grow
-        @grow_seen = 0
+        @grow_seen = 0_i64
         @avail = main - fixed - gaps - margins
         @avail = 0 if @avail < 0
 
@@ -244,9 +249,14 @@ module Crysterm
             # strand up to `total_grow - 1` columns at the far edge.
             s =
               if @total_grow > 0
-                before = (@avail * @grow_seen) // @total_grow
+                # `@avail * @grow_seen` overflows `Int32` well before either
+                # factor reaches `Int32::MAX`, so the share math runs in
+                # `Int64`; the result is always within `0..@avail`, so the
+                # narrowing back to `Int32` is safe.
+                avail64 = @avail.to_i64
+                before = (avail64 * @grow_seen) // @total_grow
                 @grow_seen += stretch_of el
-                (@avail * @grow_seen) // @total_grow - before
+                ((avail64 * @grow_seen) // @total_grow - before).to_i32
               else
                 0
               end
@@ -293,8 +303,12 @@ module Crysterm
         end
       end
 
+      # Clamped to a sane range: a pathological (huge or negative) per-child
+      # factor must not overflow the grow accumulation/share math below.
+      # Negatives map to 0 (no share of leftover, same as an explicit `stretch:
+      # 0` — CSS `flex-grow: 0` / Qt stretch 0), not the default of 1.
       private def stretch_of(el : Widget) : Int32
-        (el.layout_hint.as?(Hint)).try(&.stretch) || 1
+        ((el.layout_hint.as?(Hint)).try(&.stretch) || 1).clamp(0, 1_000_000)
       end
 
       # This child's cross-axis alignment: its `Hint#alignment` when set, else the

@@ -177,35 +177,31 @@ module Crysterm
         end
       end
 
-      # Plays the decoded frames in the Tek window: enter Tek once, then
-      # PAGE-clear + redraw each frame on its own fiber (sleeping per-frame
-      # delay), leaving Tek mode when stopped. Loops until `#stop`/destroy.
+      # Plays the decoded frames in the Tek window: each tick emits enter-Tek +
+      # PAGE-clear + redraw + leave-Tek as one atomic write (mirroring the still
+      # path), so the terminal is never left in Tek mode across the per-frame
+      # `sleep` — a concurrent VT100 window render can't be splattered into the
+      # Tek window. The storage tube retains the picture between frames. Runs on
+      # its own fiber (sleeping the per-frame delay) until `#stop`/destroy.
       private def animate_loop(s : ::Crysterm::Window, ox : Int32, oy : Int32, gen : Int32)
         frames = @src_frames || return
         # The frame list is fixed and cycles, so dither + build each frame's
         # vector payload once up front instead of every tick.
         payloads = frames.map { |(bmp, _delay)| build_frame(bmp, ox, oy) }
-        s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
-        s.tput.flush
         idx = 0
         # Exit as soon as a newer loop has taken over, even if `@playing` was
         # flipped back to true under us by that new loop.
         while @playing && gen == @anim_gen
           _bmp, delay = frames[idx]
           @anim_index = idx
-          s.tput._oprint payloads[idx]
+          # Enter Tek, draw the frame, leave Tek in one write, so the next
+          # normal render doesn't leak into the Tek window (as the still path).
+          s.tput._oprint String.build { |io| io << "\e[?38h" << payloads[idx] << '\e' << ETX }
           s.tput.flush
           idx = (idx + 1) % frames.size
           ms = (delay / @speed).to_i
           ms = 1 if ms < 1
           sleep ms.milliseconds
-        end
-        # Only hand the display back to VT100 if still the live loop — a
-        # superseded loop leaving Tek mode would yank the window out from
-        # under the new loop.
-        if gen == @anim_gen
-          s.tput._oprint "\e\u{03}" rescue nil # ESC ETX: back to VT100
-          s.tput.flush rescue nil
         end
       end
 

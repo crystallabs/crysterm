@@ -106,8 +106,15 @@ module Crysterm
         # including a String like "50%", is explicit and must be honored.
         return unless @width.nil? || @height.nil?
         native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
-        self.width = (native[0]?.try(&.size) || 0) if @width.nil?
-        self.height = native.size if @height.nil?
+        # Size the OUTER box: the image paints into the content box, so add the
+        # border/padding insets back — otherwise the "native" render is
+        # resampled down by `ihorizontal`/`ivertical` cells (and aspect-shifted
+        # on non-uniform insets). Guarded so an empty cellmap doesn't produce a
+        # bare border shell.
+        cols = native[0]?.try(&.size) || 0
+        rows = native.size
+        self.width = (cols > 0 ? cols + ihorizontal : 0) if @width.nil?
+        self.height = (rows > 0 ? rows + ivertical : 0) if @height.nil?
       end
 
       # One cell per pixel: sample at the content box size, with cell-aspect

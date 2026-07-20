@@ -24,11 +24,14 @@ module Crysterm
     end
 
     def overflow=(value : Overflow?)
+      return value if value == @overflow
       @overflow = value
+      mark_dirty
+      value
     end
 
     def overflow=(value : ::Crystallabs::Helpers::Enums::Shorthands)
-      @overflow = ::Crystallabs::Helpers::Enums.from(Overflow, value)
+      self.overflow = ::Crystallabs::Helpers::Enums.from(Overflow, value)
     end
 
     # Layout engine arranging this widget's children, or `nil` for manual
@@ -264,8 +267,11 @@ module Crysterm
       # bands and the scrollbar-reserved rows need pre-filling (the loop paints
       # the valign gap itself — a negative `ci` indexes to nil, i.e. the `bch`
       # fill). A background-image widget keeps the whole-box fill; a
-      # `fill: false` widget must not be filled at all.
-      if padding.any? || !@align.top?
+      # `fill: false` widget must not be filled at all. The `hsr > 0` arm covers
+      # the no-padding default-align case: the reserved bar band (including the
+      # corner cell a shortened bar leaves to us) still needs the widget's own
+      # background.
+      if padding.any? || !@align.top? || hsr > 0
         if (opacity = style_opacity) && fill
           # Pre-blend only the bands the content loop won't reach: it blends the
           # content region itself, and blending twice makes a padded translucent
@@ -622,10 +628,14 @@ module Crysterm
         # All four sides share `border` as the style object, so the SGR flag word
         # is identical across them — computed once, with only the fg per side.
         border_flags = self.class.style_to_attr_flags(border)
-        top_attr = self.class.pack_attr border_flags, border, border.top_fg, border_bg
-        bottom_attr = self.class.pack_attr border_flags, border, border.bottom_fg, border_bg
-        left_attr = self.class.pack_attr border_flags, border, border.left_fg, border_bg
-        right_attr = self.class.pack_attr border_flags, border, border.right_fg, border_bg
+        # `side_fg` resolves any `currentColor` marker against the widget's
+        # effective text color at render time (CSS computed-value semantics —
+        # the final `color` wins regardless of declaration order).
+        el_fg = style.fg
+        top_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Top, el_fg), border_bg
+        bottom_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Bottom, el_fg), border_bg
+        left_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Left, el_fg), border_bg
+        right_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Right, el_fg), border_bg
 
         # The glyph family with any per-position char overrides (CSS
         # `border-chars`/`border-top-left-char` …) merged over it, resolved once
@@ -1011,10 +1021,16 @@ module Crysterm
       # Already resolved for this rectangle.
       return pos if pos.aleft
 
+      # Resolving needs the window's extent; a detached widget with a stale
+      # `@lpos` has none — report "no usable rendered position" instead of
+      # raising (this is the documented non-raising variant), and mutate
+      # nothing so the object isn't left half-resolved.
+      scr = window? || return nil
+
       pos.aleft = pos.xi
       pos.atop = pos.yi
-      pos.aright = window.awidth - pos.xl
-      pos.abottom = window.aheight - pos.yl
+      pos.aright = scr.awidth - pos.xl
+      pos.abottom = scr.aheight - pos.yl
       pos.awidth = pos.xl - pos.xi
       pos.aheight = pos.yl - pos.yi
 

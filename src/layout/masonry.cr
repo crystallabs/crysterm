@@ -34,7 +34,13 @@ module Crysterm
         end
 
         if (ab = above) && (alp = rendered_geometry(ab))
-          el.top = alp.yl - yi
+          # `alp.yl - yi` glues `el` flush to the above child's drawn bottom
+          # edge; add back its bottom margin so gravitation doesn't collapse
+          # it to zero, matching the horizontal chain's additive convention
+          # (`flow_place`'s `last.mright`). `Math.min` against the wrap-path
+          # top already assigned by `flow_place` means gravitation can only
+          # pull `el` up, never push it below its row-assigned position.
+          el.top = Math.min(el.top.as(Int), (alp.yl - yi) + ab.mbottom)
         end
       end
     end

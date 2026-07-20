@@ -93,6 +93,19 @@ module Crysterm
 
         # :ditto:
         def add(node : Node) : Node
+          return node if node.parent.same?(self)
+
+          # Detach from wherever *node* currently sits before re-parenting it here,
+          # or it stays in its old parent's `#children` too and #rebuild flattens
+          # it twice. Routing through `Tree#remove_node` (when attached) rebuilds
+          # the OLD tree as well, so a cross-tree move doesn't leave a stale row
+          # behind there; a detached (tree-less) subtree just needs the raw
+          # `#children` unlink.
+          if t = node.tree
+            t.remove_node node
+          elsif p = node.parent
+            p.children.delete node
+          end
           node.parent = self
           node.tree = @tree
           @children << node
@@ -264,6 +277,15 @@ module Crysterm
 
       # :ditto:
       def add(node : Node) : Node
+        return node if node.parent.nil? && @roots.includes?(node)
+
+        # See `Node#add`'s comment: detach from the old parent/tree first so the
+        # moved node doesn't linger in a stale `#children` or `@roots`.
+        if t = node.tree
+          t.remove_node node
+        elsif p = node.parent
+          p.children.delete node
+        end
         node.parent = nil
         node.tree = self
         @roots << node

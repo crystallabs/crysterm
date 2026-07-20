@@ -187,8 +187,12 @@ module Crysterm
     end
 
     # Structural-change hook: a child was added to / removed from the screen itself.
+    # Rings the doorbell too so an idle UI repaints the vacated cells; a top-level
+    # `Window#remove`/append has no other frame trigger. `#request_frame` is
+    # in_render-safe.
     protected def _damage_invalidate_structure : Nil
       damage_force_full
+      request_frame
     end
 
     # Records that something the selective path can't reproduce happened this
@@ -325,6 +329,13 @@ module Crysterm
         @damage_last_awidth = awidth
         @damage_last_aheight = aheight
         @damage_full_frames += 1
+      else
+        # Tracking is off: the caches above (damage_bounds, `@damage_safe`, dims)
+        # are frozen at their last tracked-frame values while the scene keeps
+        # changing under full composites. Poison the fast path so the first
+        # frame after re-enabling runs full and refreshes them — otherwise the
+        # selective path would clear stale footprints, leaving ghosts.
+        @damage_force_full = true
       end
     end
 

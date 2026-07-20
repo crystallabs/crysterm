@@ -234,6 +234,18 @@ module Crysterm
           sleep(frame - elapsed) if elapsed < frame
         end
 
+        # Re-check liveness after the throttle sleep. In an animating UI the
+        # render fiber spends most of each frame period parked in that `sleep`,
+        # so a `#destroy`/`#disconnect` on another fiber very often lands inside
+        # it — teardown restores the terminal (or hands a shared device back to
+        # a sibling) while we sleep. Rendering now would diff and write a full
+        # frame to a terminal this window no longer owns, dumping the dead UI
+        # into the user's shell scrollback (detach) or over the surviving
+        # sibling (shared device). The `rescue IO::Error` below only covers the
+        # closed-fd case, not those still-open outputs.
+        break if @render_stop || generation != @loop_generation
+        next unless @connected
+
         begin
           _render
           @last_render_at = Time.instant

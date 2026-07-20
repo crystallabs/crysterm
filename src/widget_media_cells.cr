@@ -213,7 +213,11 @@ module Crysterm
               @rendered_size = {cols, rows}
               @frame_cache.clear
               clear_frame_derived
-              @sample = nil unless @animated
+              # Drop the sample on resize unless real animation frames exist:
+              # while the frames are still building (`@src_frames` nil) the
+              # sample is a placeholder still that must be re-composed at the new
+              # size; once frames exist the `@sample = frame` path below resizes.
+              @sample = nil if !@animated || @src_frames.nil?
             end
             # `@animated` is the load-time auto-play latch; also take the animation
             # path when playback was started manually (`#play` on an `animate: false`
@@ -228,6 +232,11 @@ module Crysterm
                 end
                 @sample = frame if frame
               end
+              # Frames build in a background fiber (`Media::Base#play`), so until
+              # the first one is ready show frame 1 (`png.bmp`, via a nil frame)
+              # instead of a blank box. `||=` so a real frame, once present,
+              # wins and this never re-composes per tick.
+              @sample ||= compose(img, cols, rows, nil)
             elsif @sample.nil?
               @sample = compose(img, cols, rows, nil)
             end

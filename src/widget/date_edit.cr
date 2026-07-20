@@ -50,6 +50,19 @@ module Crysterm
 
       section_value date, @date, at_beginning_of_day
 
+      # The inherited `date_time` accessors track the parent's unused
+      # `@datetime` ivar; delegate to `@date` (via `#date=`, reusing its
+      # day-normalization and change guard) so `setDateTime`-style usage stays
+      # coherent with the widget's actual value, as in Qt.
+      def date_time : Time
+        @date
+      end
+
+      # :ditto:
+      def date_time=(value : Time) : Time
+        self.date = value
+      end
+
       private def section_count : Int32
         3
       end
@@ -140,8 +153,18 @@ module Crysterm
       # Places the calendar against the field: below when its full height fits,
       # otherwise flipped above, clamped on-window.
       private def position_popup(pop : Calendar) : Nil
-        Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
-          Overlay::BELOW_ABOVE)
+        # Anchor on the field's *painted* rect, not its layout coords: inside a
+        # scrolled/child_base ancestor the two diverge by the ancestor's scroll
+        # base, and the calendar (a window child) is painted exactly where we
+        # put it — so layout coords would open it detached from the visible
+        # field. Mirrors ComboBox#place_popup / Menu#open_submenu.
+        if lp = last_rendered_position?
+          Overlay.place_child(pop, {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}, {pop.awidth, pop.aheight},
+            Overlay::BELOW_ABOVE)
+        else
+          Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
+            Overlay::BELOW_ABOVE)
+        end
       rescue
         # Not laid out yet.
       end

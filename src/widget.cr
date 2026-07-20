@@ -294,9 +294,15 @@ module Crysterm
 
     # Structural-change hook (a child was added/removed under this widget).
     # Forces the next frame to a full re-composite, since vacated cells aren't
-    # covered by per-subtree damage rects.
+    # covered by per-subtree damage rects, and rings the doorbell so an idle UI
+    # actually repaints: removal (and runtime append/reparent) is a visual
+    # mutation with no other frame trigger. `#request_frame` is in_render-safe,
+    # so a mid-frame layout mutation here cannot spin the render loop.
     protected def _damage_invalidate_structure : Nil
-      window?.try &.damage_force_full
+      window?.try do |w|
+        w.damage_force_full
+        w.request_frame
+      end
     end
 
     # Whether this widget is an item view (list/tree/table/menu — anything
@@ -445,7 +451,7 @@ module Crysterm
       # end
 
       if @scrollable
-        # XXX also remove handler when scrollable is turned off?
+        @_scroll_index_wired = true
         on(Crysterm::Event::ContentParsed) do
           reclamp_scroll_index
         end

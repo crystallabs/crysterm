@@ -190,7 +190,13 @@ module Crysterm
       if lf && lf.style.checkbox?
         io << (bf.checked? ? %(<input type="checkbox" checked disabled>) : %(<input type="checkbox" disabled>))
       end
+      # A heading inside a list item keeps its level by wrapping only the
+      # inline content in `<h*>` inside the `<li>`; the importer's heading
+      # branch merges list membership back on the way in.
+      inner_heading = lf && (hl = bf.heading_level) > 0 ? "h#{hl.clamp(1, 6)}" : nil
+      io << '<' << inner_heading << '>' if inner_heading
       b.fragments.each { |f| write_fragment(io, f) }
+      io << "</" << inner_heading << '>' if inner_heading
       io << "</" << tag << '>'
     end
 

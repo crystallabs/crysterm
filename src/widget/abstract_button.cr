@@ -70,7 +70,10 @@ module Crysterm
       def initialize(text : String? = nil, checkable : Bool = false, checked : Bool = false, **input)
         super **{keys: true}.merge(input)
         @checkable = checkable
-        @checked = checked
+        # `checked: true` without `checkable:` would otherwise create the very
+        # state `#checkable=` documents as unclearable: `checked?` true while
+        # `#uncheck`/`#toggle` no-op on the `checkable?` guard.
+        @checked = checked && checkable
 
         # `text:` is the family-level spelling of `content:`; assigning it after
         # `super` routes through the subclass's `#text=`.

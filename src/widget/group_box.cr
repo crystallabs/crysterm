@@ -142,7 +142,14 @@ module Crysterm
         # `checkable = false` stops it from toggling.
         on(Crysterm::Event::Mouse) do |e|
           next unless checkable? && e.action.down?
-          if e.y == atop && e.x >= aleft && e.x < aleft + awidth
+          # Hit-test the *painted* rect (`@lpos`), not layout coords
+          # (`aleft`/`atop`): inside a scrolled container the painted rect is
+          # shifted by the ancestor's scroll base, and dispatch hit-tests
+          # `@lpos`. Guard on `no_top?` too — when the title row itself is
+          # scrolled out of view, `lpos.yi` clips to the viewport top instead
+          # of vanishing, which would otherwise toggle on the first visible
+          # body row.
+          if (lp = @lpos) && !lp.no_top? && e.y == lp.yi && e.x >= lp.xi && e.x < lp.xl
             toggle
             e.accept
           end

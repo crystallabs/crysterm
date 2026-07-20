@@ -75,6 +75,12 @@ module Crysterm
         (@z || 0) < 0
       end
 
+      # A negative `z` places the image under the cell text (the whole point of
+      # `background=`), so a capture must composite it before the text pass.
+      def capture_under_text? : Bool
+        (@z || 0) < 0
+      end
+
       def initialize(*args, **opts)
         @@next_id += 1; @id_a = @@next_id
         @@next_id += 1; @id_b = @@next_id

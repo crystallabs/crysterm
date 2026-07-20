@@ -68,21 +68,25 @@ module Crysterm
       color
     end
 
-    # Shows this widget's cursor. Recorded even while detached (see `#cursor_shape`).
+    # Shows this widget's cursor. Always recorded on the widget's own cursor;
+    # forwarded to the window only while this widget is focused — a hardware
+    # cursor is a single global resource, so an unfocused widget's setting
+    # must not fire it out from under the focused widget.
     def show_cursor
-      if s = window?
-        s.show_cursor cursor!
-      else
-        cursor!._hidden = false
+      c = cursor!
+      c._hidden = false
+      if (s = window?) && s.focused == self
+        s.show_cursor c
       end
     end
 
-    # Hides this widget's cursor. Recorded even while detached (see `#cursor_shape`).
+    # Hides this widget's cursor. Recorded even while unfocused or detached
+    # (see `#show_cursor`).
     def hide_cursor
-      if s = window?
-        s.hide_cursor cursor!
-      else
-        cursor!._hidden = true
+      c = cursor!
+      c._hidden = true
+      if (s = window?) && s.focused == self
+        s.hide_cursor c
       end
     end
 

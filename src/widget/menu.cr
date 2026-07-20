@@ -885,7 +885,7 @@ module Crysterm
         # Escape doesn't fall through to the item view's cancel path.
         if e.key == ::Tput::Key::Right
           act = selected_action
-          if act && act.menu?
+          if act && act.enabled? && act.menu?
             open_submenu act
             e.accept
             return

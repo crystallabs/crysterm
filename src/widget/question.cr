@@ -88,6 +88,10 @@ module Crysterm
             next
           end
 
+          # Mark this KeyPress handled before `finish` — otherwise an
+          # un-accepted 'q' reaches `Application#route_input`'s default quit
+          # keys and kills the app after the dialog already answered it.
+          e.accept
           finish.call(k == Tput::Key::Enter || e.char == 'y')
         end
 
@@ -163,13 +167,16 @@ module Crysterm
             next if buttons.empty? # nothing to move between (and `% 0` would crash)
             cur = (cur - 1) % buttons.size
             buttons[cur].focus
+            e.accept
             request_render
           when Tput::Key::Right
             next if buttons.empty?
             cur = (cur + 1) % buttons.size
             buttons[cur].focus
+            e.accept
             request_render
           when Tput::Key::Escape
+            e.accept
             finish.call -1
           end
         end

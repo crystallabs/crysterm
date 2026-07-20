@@ -126,8 +126,11 @@ module Crysterm
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
         # Reverse-video block, the classic terminal cursor: reads on any
-        # background, so keep the cell's own fg/bg and invert.
-        attr = Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
+        # background, so keep the cell's own fg/bg and invert. Toggle (not
+        # OR) REVERSE: a cell that is already reversed (selections, the
+        # focused/selected 'floor highlight') must flip back to normal video
+        # so the cursor stays visible instead of no-op'ing into invisibility.
+        attr = Attr.pack(Attr.flags(attr) ^ Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
       elsif cursor.shape.none?
         # `None` is the custom cursor: draw it from the cursor's own `style` (glyph and colors).
         cattr = Widget.style_to_attr cursor.style
@@ -160,6 +163,9 @@ module Crysterm
         c._hidden = hidden
         render_if_active
       else
+        # Record on the hardware path too, so the state survives a later
+        # hardware-to-artificial switch instead of resetting to hidden.
+        c._hidden = hidden
         hidden ? hide_hardware_cursor : show_hardware_cursor
       end
     end

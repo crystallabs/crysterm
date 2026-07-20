@@ -452,7 +452,11 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
     s = f2_screen
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: false,
       top: 0, left: 0, width: 30, height: 8
-    s.render
+    # `_render` (not `render`, which only rings the async doorbell) so the
+    # painted rect `@lpos` the checkable click handler hit-tests is populated,
+    # as it is under real dispatch (a Mouse event only reaches the widget once
+    # it has been painted).
+    s._render
 
     gb.checkable = true
     gb.label_widget.not_nil!.rendered_content.should contain "[x]" # marker now shown

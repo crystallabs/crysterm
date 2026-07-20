@@ -76,6 +76,9 @@ module Crysterm
         has_slots = index.any? { |key, _| key.includes?("::") }
         structural_doc : HTML5::Node? = nil
         structural_cache = Hash(String, Array(HTML5::Node)).new
+        # `data-uid -> structural node`, for the slot-subject split's host
+        # lookups. Built lazily, only on cascades where such a rule fires.
+        structural_hosts : Hash(String, HTML5::Node)? = nil
 
         # Terminal metrics for `@media` evaluation.
         media_width = window.width
@@ -127,11 +130,22 @@ module Crysterm
               # this cascade so the string isn't re-serialized per rule.
               sdoc = structural_doc ||= window.css_structural_document
               real = matched_nodes(sheet, sdoc, rule, structural_cache)
-              slots = matched_nodes(sheet, doc, rule, selector_cache).select do |node|
-                next false unless k = node["data-uid"]?
-                sep = k.val.index("::")
-                sep ? !k.val[(sep + 2)..].includes?(':') : false
-              end
+              # A slot-subject rule (`Box:last-child::scrollbar`, lowered to
+              # `.Box:last-child .Scrollbar`) can't run wholesale against
+              # either document: the slot node exists only in the full one,
+              # where the prefix's backward pseudo miscounts (and the engine
+              # can't even compile some shapes, e.g. a child combinator
+              # followed by a descendant one). Split it — prefix against the
+              # structural document, slot compound against the full one,
+              # joined by host uid. Non-slot subjects fall back to the plain
+              # full-document match.
+              slots =
+                if split = split_slot_selector(rule.selector)
+                  hosts = structural_hosts ||= uid_node_index(sdoc)
+                  slot_subject_nodes(sheet, doc, sdoc, rule, split, selector_cache, structural_cache, hosts)
+                else
+                  matched_nodes(sheet, doc, rule, selector_cache).select { |node| sub_element_uid?(node) }
+                end
               nodes = real + slots
             else
               nodes = matched_nodes(sheet, doc, rule, selector_cache)
@@ -378,6 +392,114 @@ module Crysterm
           end
         end
         nodes
+      end
+
+      # Whether *node* is a sub-element pseudo-node — a `uid::slot` `data-uid`
+      # whose slot part carries no further `:` (extra slots like a table's
+      # `row:0`/`cell:0:1` match structurally, not here).
+      private def self.sub_element_uid?(node : HTML5::Node) : Bool
+        return false unless k = node["data-uid"]?
+        sep = k.val.index("::")
+        sep ? !k.val[(sep + 2)..].includes?(':') : false
+      end
+
+      # The subject compound `lower_sub_elements` emits for a `::slot`: a single
+      # capitalized class, optionally with attribute selectors.
+      SLOT_COMPOUND = /\A\.[A-Z][a-zA-Z0-9_-]*(?:\[[^\]]*\])*\z/
+
+      # Splits a rule selector whose subject is a slot compound into `{prefix,
+      # combinator, compound}` at the last top-level combinator (quote- and
+      # bracket-aware). Returns nil — caller falls back to the plain
+      # full-document match — when the subject isn't a slot compound, the final
+      # combinator is a sibling one, or there is no prefix at all.
+      private def self.split_slot_selector(selector : String) : Tuple(String, Char, String)?
+        n = selector.size
+        i = 0
+        comb = ' '
+        prefix_end = -1
+        subject_start = -1
+        while i < n
+          case selector[i]
+          when '"', '\''
+            i = Selectors.skip_string(selector, i)
+          when '['
+            i = Selectors.skip_balanced(selector, i, '[', ']')
+          when '('
+            i = Selectors.skip_balanced(selector, i, '(', ')')
+          when ' ', '>', '+', '~'
+            prefix_end = i
+            comb = ' '
+            while i < n && ((c = selector[i]) == ' ' || c == '>' || c == '+' || c == '~')
+              comb = c unless c == ' '
+              i += 1
+            end
+            subject_start = i
+          else
+            i += 1
+          end
+        end
+        return nil if subject_start <= 0 || subject_start >= n
+        return nil unless comb == ' ' || comb == '>'
+        compound = selector[subject_start..]
+        return nil unless compound.matches?(SLOT_COMPOUND)
+        prefix = selector[0, prefix_end].strip
+        return nil if prefix.empty?
+        {prefix, comb, compound}
+      end
+
+      # Matches a backward-structural slot-subject rule via its *split*: the
+      # prefix runs against the structural document *sdoc* (correct sibling
+      # counts), the slot compound against the full *doc* (where alone slot
+      # nodes exist), and a candidate survives when its host widget — the
+      # structural node for the `data-uid` text before `::` — is a prefix match
+      # (child combinator) or is-or-descends-from one (descendant combinator:
+      # the `::slot` lowering inserts a descendant combinator, so
+      # `List:last-child Scrollbar` also reaches scrollbars nested under the
+      # matched ancestor, as the plain full-document path provides). The rule's
+      # relational `:has` filters then apply, as in `matched_nodes`.
+      private def self.slot_subject_nodes(sheet : Stylesheet, doc : HTML5::Node, sdoc : HTML5::Node, rule : Rule, split : Tuple(String, Char, String), cache : Hash(String, Array(HTML5::Node)), structural_cache : Hash(String, Array(HTML5::Node)), hosts : Hash(String, HTML5::Node)) : Array(HTML5::Node)
+        prefix, comb, compound = split
+        matched = structural_cache.fetch(prefix) do
+          structural_cache[prefix] = select_nodes(sheet, sdoc, prefix)
+        end
+        return [] of HTML5::Node if matched.empty?
+        prefix_set = matched.to_set
+        candidates = cache.fetch(compound) do
+          cache[compound] = select_nodes(sheet, doc, compound)
+        end
+        nodes = candidates.select do |node|
+          next false unless key = node["data-uid"]?.try(&.val)
+          next false unless sep = key.index("::")
+          next false if key[(sep + 2)..].includes?(':')
+          next false unless host = hosts[key[0, sep]]?
+          prefix_set.includes?(host) || (comb == ' ' && descends_from?(host, prefix_set))
+        end
+        if has = rule.has
+          nodes.select! { |node| has_descendant?(node, has) }
+        end
+        if anc = rule.ancestor_has
+          anc.each do |(qualifier, inner)|
+            qualified = qualified_ancestors(sheet, doc, qualifier, inner, cache)
+            nodes = qualified.empty? ? [] of HTML5::Node : nodes.select { |node| descends_from?(node, qualified) }
+          end
+        end
+        nodes
+      end
+
+      # `data-uid -> node` over the structural document, for the slot-subject
+      # split's host lookups. Iterative walk (hot-path convention).
+      private def self.uid_node_index(doc : HTML5::Node) : Hash(String, HTML5::Node)
+        index = {} of String => HTML5::Node
+        stack = [doc]
+        while node = stack.pop?
+          node["data-uid"]?.try { |attr| index[attr.val] = node }
+          child = node.first_child
+          while child
+            stack << child
+            child = child.next_sibling
+          end
+        end
+        index
       end
 
       # The set of nodes matching *qualifier* (an ancestor compound) that satisfy

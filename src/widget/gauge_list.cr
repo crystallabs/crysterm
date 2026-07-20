@@ -39,10 +39,13 @@ module Crysterm
           @value = value.to_f
         end
 
-        # Assigns the value and, when the item belongs to a list, bumps that
-        # list's version counter and repaints.
+        # Assigns the value, coercing non-finite input to the owning list's
+        # `#minimum` (or `0.0` unowned) since NaN would survive `clamp` and
+        # crash the render fiber on `pct.round.to_i`. When the item belongs to
+        # a list, bumps that list's version counter and repaints.
         def value=(v : Number) : Float64
-          @value = v.to_f
+          f = v.to_f
+          @value = f.finite? ? f : (@owner.try(&.minimum) || 0.0)
           @owner.try &.item_changed
           @value
         end
@@ -69,10 +72,14 @@ module Crysterm
         @maximum
       end
 
-      # Sets both bounds at once (Qt's `setRange`). Never stores an inverted
-      # range (a max below min collapses to min), re-clamps every gauge row's
-      # value into the new range, and repaints on an actual change.
+      # Sets both bounds at once (Qt's `setRange`). Rejects a non-finite bound
+      # outright (NaN survives `max < min` and would poison `percent_of` and
+      # the render fiber's `.round.to_i`), keeping the previous valid range.
+      # Never stores an inverted range (a max below min collapses to min),
+      # re-clamps every gauge row's value into the new range, and repaints on
+      # an actual change.
       def set_range(min : Float64, max : Float64) : Nil
+        return unless min.finite? && max.finite?
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min

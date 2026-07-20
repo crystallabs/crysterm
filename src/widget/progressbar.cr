@@ -276,8 +276,10 @@ module Crysterm
         # Keys don't conflict, so support both regardless of orientation.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
           self.value = @value - @single_step
+          e.accept
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
           self.value = @value + @single_step
+          e.accept
         end
       end
     end

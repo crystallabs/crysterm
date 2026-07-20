@@ -145,11 +145,11 @@ module Crysterm
       # out never *constructs* the bars it is asking about.
       private def relayout : Nil
         top = 0
-        bottom = @status_bar ? @status_height : 0
+        bottom = (sb = @status_bar) && sb.visible? ? @status_height : 0
         left = 0
         right = 0
 
-        if mb = @menu_bar
+        if (mb = @menu_bar) && mb.visible?
           set_geo mb, top: top, left: 0, right: 0, height: @menu_height
           top += @menu_height
         end
@@ -160,7 +160,7 @@ module Crysterm
           set_geo tb, top: top, left: 0, right: 0, height: @tool_height
           top += @tool_height
         end
-        if sb = @status_bar
+        if (sb = @status_bar) && sb.visible?
           set_geo sb, bottom: 0, left: 0, right: 0, height: @status_height
         end
 

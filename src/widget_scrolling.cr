@@ -16,10 +16,18 @@ module Crysterm
     # content and the viewport blank until a manual scroll repaired it.
     def scrollable=(value : Bool) : Bool
       return value if value == @scrollable
+      # Disabling freezes `@child_base` into every subsequent render while all
+      # repair paths (`scroll`, `reset_scroll`, `reclamp_scroll_index`) early
+      # -return on `!@scrollable` — so zero the scroll state NOW, while still
+      # scrollable, letting `reset_scroll` mark dirty and emit `Event::Scroll`
+      # for bound chrome/listeners itself.
+      reset_scroll unless value
       @scrollable = value
-      if value && !@_scroll_index_wired
-        @_scroll_index_wired = true
-        on(Crysterm::Event::ContentParsed) { reclamp_scroll_index }
+      if value
+        unless @_scroll_index_wired
+          @_scroll_index_wired = true
+          on(Crysterm::Event::ContentParsed) { reclamp_scroll_index }
+        end
         reclamp_scroll_index
       end
       value

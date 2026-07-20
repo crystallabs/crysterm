@@ -109,10 +109,14 @@ module Crysterm
           @maximum
         end
 
-        # Sets both bounds at once (Qt's `setRange`). Never stores an inverted
-        # range (a max below min collapses to min), re-clamps `#value` into the
-        # new range, and invalidates the Canvas raster on an actual change.
+        # Sets both bounds at once (Qt's `setRange`). Rejects a non-finite
+        # bound outright (NaN survives `max < min` and would poison `#percent`
+        # and the render fiber's `.round.to_i`), keeping the previous valid
+        # range. Never stores an inverted range (a max below min collapses to
+        # min), re-clamps `#value` into the new range, and invalidates the
+        # Canvas raster on an actual change.
         def set_range(min : Float64, max : Float64) : Nil
+          return unless min.finite? && max.finite?
           max = min if max < min
           return if min == @minimum && max == @maximum
           @minimum = min

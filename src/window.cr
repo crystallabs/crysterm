@@ -303,6 +303,11 @@ module Crysterm
       full_unicode : Bool = Config.screen_full_unicode,
       @resize_interval = @resize_interval,
 
+      # `false` defers the live terminal probe (and the cell-geometry query it
+      # gates) to the caller — `#switch_terminal` builds its replacement on a
+      # tty whose previous reader could still swallow the reply bytes.
+      probe : Bool = true,
+
       terminfo : Bool | Unibilium = true,
 
       # An already-built device may be passed directly (e.g. by `Application` or
@@ -350,7 +355,7 @@ module Crysterm
       # for `at_exit` to cook the tty back) and before `_listen_keys` (the probe
       # round-trips queries in raw mode and would race the input fiber for reply
       # bytes). No-op on a non-tty.
-      @screen.probe
+      @screen.probe if probe
 
       # `report_cursor` reads `@input` synchronously, so the anchor must be
       # captured before `_listen_keys` spawns the input fiber.
@@ -372,7 +377,9 @@ module Crysterm
       # restyle resolves unit'd geometry: config first (can pin the ratio),
       # then the terminal's measured cell size (won't override a pinned ratio).
       CSS::Length.apply_config
-      @screen.detect_cell_geometry
+      # Deferred along with the probe: the fallback cell-size query is a
+      # synchronous read the tty's previous reader could swallow.
+      @screen.detect_cell_geometry if probe
       restyle
 
       # The loop doesn't render until the first `#render`, so spawning here is fine.
@@ -683,7 +690,16 @@ module Crysterm
       # region, though: `@flushed_lines` is now blank, so blank new cells compare equal
       # and the frame diff skips them, leaving whatever the terminal physically
       # shows there in place.
-      if do_clear
+      #
+      # On a shared device, only the device-active window may touch the
+      # physical terminal: a non-active sibling's realloc (each window drains
+      # its own debounced resize fiber) would wipe the active window's freshly
+      # painted frame, whose `@flushed_lines` still claims the content is on
+      # screen — so its next frame diff emits nothing and the terminal stays
+      # blank. A non-active window is fully repainted via `Application#activate`
+      # anyway, so it never needs the physical clear; the buffer resets above
+      # stay unconditional.
+      if do_clear && device_active_window?
         if @alternate
           tput.clear
         else
@@ -951,6 +967,15 @@ module Crysterm
     # screen = screen.switch_terminal "vt100"
     # ```
     def switch_terminal(term : String) : Window
+      # Stop the old input fiber FIRST: it is parked in a read on the very tty
+      # the replacement opens (fresh default IO — the same STDIN/STDOUT), so it
+      # would win the race for probe reply bytes and dispatch them as garbage
+      # key events. A reader on unowned STDIN can't be joined (it only wakes on
+      # the next bytes), so stopping alone isn't enough — the replacement is
+      # also built unprobed (`probe: false`) and probed below, once the old
+      # window and its claim on the tty are gone.
+      was_listening = @screen.listening?
+      @screen.stop_input
       # The replacement gets its own copy of the cursor (incl. its `Style`):
       # `#reparent_onto`'s destroy of THIS window runs `reset_cursor` on its
       # cursor object during `leave`, which would clobber a shared one back to
@@ -960,6 +985,7 @@ module Crysterm
       carried_cursor.style = @cursor.style.dup
       carried_cursor._set = false
       replacement = Window.new(
+        probe: false,
         terminfo: Unibilium.from_terminal(term),
         title: @title,
         # Carry the pin STATE, not the current size as unconditional pins:
@@ -988,6 +1014,16 @@ module Crysterm
       # chrome. An unpinned tier stays unpinned so detection runs as usual.
       replacement.glyph_tier = glyph_tier if @screen.glyph_tier_explicit?
       reparent_onto replacement
+      # The deferred device probe (see `probe: false` above), now that no other
+      # reader contends for the tty. `Screen#probe` refreshes draw_caps itself;
+      # cell geometry (the CSS `px` anchor) and unit'd styles derive from probe
+      # results, so re-run those too. Mirrors the ordering `#screen=` uses:
+      # stop old input → probe → detect_cell_geometry → start_input.
+      replacement.screen.probe
+      replacement.screen.detect_cell_geometry
+      replacement.restyle
+      replacement.start_input if was_listening
+      replacement
     end
 
     # Moves every top-level widget from this screen onto *other*, destroys this

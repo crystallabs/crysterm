@@ -415,10 +415,19 @@ module Crysterm
       if flags.backward?
         best = nil
         pos = 0
-        while (m = subject.match(text, pos))
+        # Enumerate over the `from`-truncated prefix so a match straddling
+        # `from` (e.g. a greedy run that would otherwise extend past it) is
+        # still found ending at or before `from`; word-boundary checks still
+        # read the full `text`, not `hay`, since a WholeWords match ending
+        # exactly at `from` must still be rejected when a word char follows
+        # `from` in the real document (the prefix would make `after` nil and
+        # wrongly accept it). Anchors/lookaheads ($, \z, (?=...)) evaluate
+        # against the prefix end rather than the document end — the coherent
+        # choice given Crystal's Regex API has no endpos/match-limit param.
+        hay = from >= text.size ? text : text[0, from.clamp(0, text.size)]
+        while (m = subject.match(hay, pos))
           s = m.begin(0)
           e = s + m[0].size
-          break if e > from
           best = {s, e} if word_boundaries_ok?(text, s, e - s, flags)
           # Standard non-overlapping enumeration: continue past the match (a
           # `s + 1` restart would re-match suffixes, e.g. "3" inside "333").

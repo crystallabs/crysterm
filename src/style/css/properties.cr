@@ -295,22 +295,38 @@ module Crysterm
       # function's parenthesized argument list intact so a color function with
       # internal spaces/commas (`rgb(30, 30, 46)`) survives as one token rather
       # than being shredded by a plain `String#split`.
-      private def self.split_top_level(value : String) : Array(String)
+      # With *separator* nil, splits on top-level whitespace (the token form);
+      # given a separator char (e.g. `','` for `transition` entries), splits on
+      # top-level occurrences of it instead, keeping other whitespace inside the
+      # pieces. Quoted spans (`" "`/`' '`) are skipped whole via
+      # `Selectors.skip_string`, so a quoted space glyph value (`border-chars:
+      # " " "x" "y"`) stays one token instead of being shredded into bare
+      # quote fragments.
+      private def self.split_top_level(value : String, separator : Char? = nil) : Array(String)
         tokens = [] of String
         depth = 0
         start = 0
-        value.each_char_with_index do |ch, i|
-          case ch
-          when '(' then depth += 1
-          when ')' then depth -= 1 if depth > 0
+        i = 0
+        n = value.size
+        while i < n
+          case ch = value[i]
+          when '('
+            depth += 1
+            i += 1
+          when ')'
+            depth -= 1 if depth > 0
+            i += 1
+          when '"', '\''
+            i = Selectors.skip_string(value, i)
           else
-            if depth == 0 && ch.whitespace?
+            if depth == 0 && (separator ? ch == separator : ch.whitespace?)
               tokens << value[start...i] unless i == start
               start = i + 1
             end
+            i += 1
           end
         end
-        tokens << value[start..] if start < value.size
+        tokens << value[start..] if start < n
         tokens
       end
 
@@ -422,8 +438,12 @@ module Crysterm
       private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Easing))?
         return nil if Case.fold_keyword(value.strip) == "none" || value.strip.empty?
         out = {} of String => Tuple(Time::Span, Easing)
-        value.split(',').each do |entry|
-          toks = entry.split
+        # Entries split at TOP-LEVEL commas only, and each entry tokenized
+        # paren-aware, so a comma-bearing easing function — `cubic-bezier(0.4,
+        # 0, 0.2, 1)`, `steps(4, end)` — stays one (unrecognized-easing) token
+        # instead of shredding into bogus property entries.
+        split_top_level(value, ',').each do |entry|
+          toks = split_top_level(entry)
           next if toks.empty?
           # CSS only pins <time> values positionally (1st = duration, 2nd = delay);
           # the easing keyword may sit before or after the time. So classify tokens
@@ -735,20 +755,48 @@ module Crysterm
         if tokens.size == 1
           # Whole-border recolor: keep the resolved form (`Int32`/`String`) via
           # `Colorizable`, and clear any per-side override so it can't shadow it.
+          # A `currentColor` keyword additionally sets the render-time marker
+          # (see `Border#side_fg`) — and a concrete color clears it.
+          cur = current_color_token?(value.strip)
           with_color(value, el_color) do |c|
             border.fg = c
             border.top_fg = border.right_fg = border.bottom_fg = border.left_fg = nil
+            border.fg_current_color = cur
+            border.clear_side_current_colors
           end
           return
         end
-        # Resolve each token to the native per-side int form (`currentColor`
-        # against the element's text color, like the per-side longhands).
-        c = tokens.map { |token| coerce_color_int(ColorValue.resolve(token, el_color)) }
         return unless i = trbl_indices(tokens.size) # 0 (blank) / >4 colors: drop it
+        # Resolve each token to the native per-side int form (`currentColor`
+        # against the element's text color, like the per-side longhands) before
+        # assigning any of them: an invalid token — `nil` (a malformed color
+        # function, or `inherit`/`initial`/`unset`, neither of which is a valid
+        # per-side token in a value list) or a `String` that fails
+        # `Colors.convert_cached` (an unknown color name, the `-1` sentinel) —
+        # makes the whole declaration invalid and must not touch the border, the
+        # same drop-the-invalid-declaration rule `with_color` and `parse_border`
+        # already implement. A genuine `transparent` resolves to the `Int32` -1
+        # sentinel and stays valid, distinguishable from the unknown-name case.
+        c = tokens.map { |token| ColorValue.resolve(token, el_color) }
+        # A `currentColor` token is valid even when no text color is known yet
+        # (its slot resolves at render time via the marker), so exempt it from
+        # the nil check.
+        curs = tokens.map { |token| current_color_token? token }
+        return if c.each_with_index.any? { |r, j| (r.nil? && !curs[j]) || (r.is_a?(String) && Colors.convert_cached(r) == -1) }
+        c = c.map { |r| coerce_color_int(r) }
         border.top_fg = c[i[:top]]
         border.right_fg = c[i[:right]]
         border.bottom_fg = c[i[:bottom]]
         border.left_fg = c[i[:left]]
+        border.top_fg_current_color = curs[i[:top]]
+        border.right_fg_current_color = curs[i[:right]]
+        border.bottom_fg_current_color = curs[i[:bottom]]
+        border.left_fg_current_color = curs[i[:left]]
+      end
+
+      # Whether *token* is the CSS `currentColor` keyword (case-insensitive).
+      private def self.current_color_token?(token : String) : Bool
+        Case.fold_keyword(token) == "currentcolor"
       end
 
       # Maps the number of values in a CSS TRBL shorthand (`border-width`,
@@ -820,6 +868,7 @@ module Crysterm
             explicit_width = w
           else
             set_side_color border, side, ColorValue.resolve(token, el_color)
+            border.set_current_color side, current_color_token?(token)
           end
         end
         if explicit_width
@@ -834,7 +883,11 @@ module Crysterm
       # color slot via `set_side_color` — the same per-side dispatch the
       # `border-<side>` shorthand uses, rather than four inline copies.
       private def self.apply_side_color(border : Border, side : Side, value : String, el_color : Int32?) : Nil
-        with_color(value, el_color) { |c| set_side_color border, side, c }
+        cur = current_color_token?(value.strip)
+        with_color(value, el_color) do |c|
+          set_side_color border, side, c
+          border.set_current_color side, cur
+        end
       end
 
       # Sets the per-side border color (`top_fg`/`right_fg`/`bottom_fg`/`left_fg`)
@@ -1113,6 +1166,9 @@ module Crysterm
             elsif resolved
               border.fg = resolved
             end
+            # `currentColor` re-resolves against the element's final text color
+            # at render time (see `Border#side_fg`), even when none is known yet.
+            border.fg_current_color = true if current_color_token?(token)
           end
         end
         border

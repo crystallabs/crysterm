@@ -273,6 +273,14 @@ module Crysterm
         false
       end
 
+      # Whether this backend's terminal-native graphic stacks *under* the cell
+      # text (e.g. a Kitty placement with negative `z`), so `Capture.render`
+      # must composite it before the text pass instead of after. False by
+      # default (on-top stacking, the common case).
+      def capture_under_text? : Bool
+        false
+      end
+
       # The current frame as a capture layer: an RGBA `PNGGIF::Bitmap` sized to
       # the widget's content cell-box × (*font_w* × *font_h*) pixels, plus the
       # content's top-left cell coordinates `{bmp, cell_xi, cell_yi}`. `nil` by

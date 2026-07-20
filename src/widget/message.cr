@@ -43,8 +43,11 @@ module Crysterm
 
         if !time || time.to_f <= 0
           # No timeout: dismiss on next keypress.
-          @ev_keypress.on(window, Crysterm::Event::KeyPress) do |_|
+          @ev_keypress.on(window, Crysterm::Event::KeyPress) do |e|
             @ev_keypress.off
+            # Mark handled — otherwise the dismissing key (e.g. 'q') falls
+            # through to `Application#route_input`'s default quit keys.
+            e.accept
             end_it gen do
               callback.try &.call
             end

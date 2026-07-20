@@ -78,6 +78,16 @@ module Crysterm
       @raw_height = {} of Widget => (Int32 | String | Nil)
       @assigned = {} of Widget => Int32
 
+      # Placing a child likewise writes the resolved column width back over its
+      # raw `@width`, which would freeze an auto (`nil`)/`"50%"` width at frame
+      # 1's cells and — worse — make the auto label column sticky, since
+      # `measured_label_width` reads back the assigned Int as if it were an
+      # explicit width. Same raw/assigned bookkeeping as height, but restored
+      # *before* the placement loop: label widths are read up front by
+      # `label_column_width`, so restoring inside the loop would be too late.
+      @raw_width = {} of Widget => (Int32 | String | Nil)
+      @assigned_width = {} of Widget => Int32
+
       def initialize(@label_width : Int32? = nil, @horizontal_spacing : Int32 = 1, @vertical_spacing : Int32 = 0)
       end
 
@@ -87,12 +97,19 @@ module Crysterm
         # Prune bookkeeping for children no longer in the container.
         prune_managed container, @raw_height
         prune_managed container, @assigned
+        prune_managed container, @raw_width
+        prune_managed container, @assigned_width
 
         # Only pair arrangeable children: layout-excluded chrome must not be
         # consumed as a label/field slot.
         children = @row_children
         children.clear
         each_arrangeable(container) { |el| children << el }
+
+        # Restore each child's raw width before it is measured/placed, so an
+        # auto/percent width re-resolves and a layout-assigned Int never leaks
+        # into the next frame's `label_column_width`.
+        children.each { |el| restore_width el }
 
         # Label column width: the fixed `#label_width`, or the widest paired
         # label's own content when auto (`nil`). Clamped to the interior width.
@@ -114,10 +131,14 @@ module Crysterm
             # margin past its column into the neighbouring one. Mirror
             # Layout::Box's margin-box reservation.
             rh = Math.max(row_height(label), row_height(field))
-            place_child label, 0, y, Math.max(0, lw - label.mhorizontal), rh
-            place_child field, lw + @horizontal_spacing, y, Math.max(0, fw - field.mhorizontal), rh
+            lc = Math.max(0, lw - label.mhorizontal)
+            fc = Math.max(0, fw - field.mhorizontal)
+            place_child label, 0, y, lc, rh
+            place_child field, lw + @horizontal_spacing, y, fc, rh
             record_managed label, @assigned, rh
             record_managed field, @assigned, rh
+            record_managed label, @assigned_width, lc
+            record_managed field, @assigned_width, fc
             render_child label
             render_child field
             # Advance by the tallest margin box on the row so a margined child
@@ -127,8 +148,10 @@ module Crysterm
           else
             # Trailing odd child spans the full width, less its margin box.
             rh = row_height label
-            place_and_render label, 0, y, Math.max(0, w - label.mhorizontal), rh
+            lc = Math.max(0, w - label.mhorizontal)
+            place_and_render label, 0, y, lc, rh
             record_managed label, @assigned, rh
+            record_managed label, @assigned_width, lc
             y += rh + label.mvertical + @vertical_spacing
             i += 1
           end
@@ -142,8 +165,28 @@ module Crysterm
       def add_row(label : String, field : Widget) : Widget
         c = container
         raise ArgumentError.new "Layout::Form#add_row: layout not installed on a container" unless c
-        Widget::Box.new parent: c, height: 1, content: label
-        c.append field
+        # Pairing is positional over the *arrangeable* children. When the form
+        # currently ends with a blessed trailing odd child (a separator/button
+        # row), a plain append would split the new pair across rows: the
+        # trailing child would consume the new label as its "field" and the
+        # field would land alone full-width. Insert the pair BEFORE the
+        # trailing child so it stays trailing — appending a filler instead
+        # would pull the separator into the label column, destroying its
+        # documented full-width span.
+        count = 0
+        trailing = nil.as(Widget?)
+        each_arrangeable(c) do |el|
+          count += 1
+          trailing = el
+        end
+        if count.odd? && (t = trailing)
+          label_box = Widget::Box.new height: 1, content: label
+          c.insert_before label_box, t
+          c.insert_before field, t
+        else
+          Widget::Box.new parent: c, height: 1, content: label
+          c.append field
+        end
         field
       end
 
@@ -197,6 +240,13 @@ module Crysterm
       # the child when its raw height no longer matches what was last assigned.
       private def restore_height(el : Widget) : Nil
         restore_managed(el, @raw_height, @assigned, el.height) { |v| el.height = v }
+      end
+
+      # Restores `el`'s remembered raw width before it is re-measured/placed.
+      # Releases the child when its raw width no longer matches what was last
+      # assigned (the user set an explicit width).
+      private def restore_width(el : Widget) : Nil
+        restore_managed(el, @raw_width, @assigned_width, el.width) { |v| el.width = v }
       end
     end
   end

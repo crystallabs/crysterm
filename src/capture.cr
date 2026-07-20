@@ -38,15 +38,26 @@ module Crysterm
       bg0 = rgb(default_bg)
       canvas = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, bg0) }
 
+      # Terminal-native graphics stack either under or over the text, per the
+      # terminal's own compositing (e.g. a Kitty placement with negative `z`
+      # draws under text). Split so each group lands on its own side of the
+      # text pass below.
+      under, over = graphics_layers(window).partition &.capture_under_text?
+
+      under.each do |w|
+        layer = w.capture_layer(cw, ch)
+        next unless layer
+        bmp, cxi, cyi = layer
+        composite canvas, bmp, (cxi - xi) * cw, (cyi - yi) * ch
+      end
+
       # Text cells from the rendered buffer.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width
       end
 
-      # Terminal-native graphics, composited over the text as the terminal
-      # stacks them.
-      graphics_layers(window).each do |w|
+      over.each do |w|
         layer = w.capture_layer(cw, ch)
         next unless layer
         bmp, cxi, cyi = layer
@@ -138,9 +149,14 @@ module Crysterm
       flags = Attr.flags(code)
       fg = Attr.unpack_color(Attr.fg(code))
       bg = Attr.unpack_color(Attr.bg(code))
+      fg, bg = bg, fg if (flags & Attr::REVERSE) != 0
+      # Whether the effective background is terminal-default (-1), checked
+      # right after the REVERSE swap (so a reversed cell, whose effective bg is
+      # the fg color, is unaffected) and before substituting the concrete
+      # default_bg color below.
+      bg_is_default = bg == -1
       fg = default_fg if fg == -1
       bg = default_bg if bg == -1
-      fg, bg = bg, fg if (flags & Attr::REVERSE) != 0
 
       fgpx = rgb(fg)
       bgpx = rgb(bg)
@@ -151,10 +167,15 @@ module Crysterm
       avail = pw - px
       span = avail if span > avail
 
-      # Background fill.
-      ch.times do |gy|
-        row = canvas[py + gy]
-        span.times { |gx| row[px + gx] = bgpx }
+      # Background fill, skipped for a default-background cell: the canvas is
+      # already pre-filled with default_bg, so this is pixel-identical there
+      # and, where an under-text graphics layer exists (negative-z Kitty
+      # background), lets it show through exactly as the terminal renders it.
+      unless bg_is_default
+        ch.times do |gy|
+          row = canvas[py + gy]
+          span.times { |gx| row[px + gx] = bgpx }
+        end
       end
 
       # INVISIBLE (concealed) must suppress every foreground mark, not just the

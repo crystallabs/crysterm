@@ -40,7 +40,19 @@ module Crysterm
       # How colors are dithered down to ReGIS' 8-color palette. `Dither::None`
       # by default: dithering looks noisy and explodes the vector count, since
       # per-pixel color changes break up the run-length horizontal spans.
-      property dither : Media::Dither = Media::Dither::None
+      getter dither : Media::Dither = Media::Dither::None
+
+      # `dither` is not part of the payload cache key (`Media::Graphics#payload_for`
+      # keys on geometry only), so a plain setter would silently keep re-emitting
+      # the stale cached payload. Drop it and request a render.
+      def dither=(v : Media::Dither) : Media::Dither
+        unless v == @dither
+          @dither = v
+          reset_sample_cache
+          request_render
+        end
+        v
+      end
 
       # ReGIS addresses a *fixed logical window* (not raw window pixels): xterm
       # maps `[0,0]..[regis_width-1, regis_height-1]` onto the whole text area.

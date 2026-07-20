@@ -24,9 +24,11 @@ module Crysterm
     # shifts the horizontal inset.
     @label_side : LabelSide = LabelSide::Left
 
-    # Sets or clears label text
+    # Sets or clears label text. A text-only update keeps the side the label
+    # was placed on (`set_label(text, :right)` followed by `label = "..."` must
+    # not silently move it back to the left).
     def label=(text : String?)
-      text ? set_label(text) : remove_label
+      text ? set_label(text, @label_side) : remove_label
     end
 
     # Returns the currently set label text, or `nil` when no label is set.

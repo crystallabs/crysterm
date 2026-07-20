@@ -35,13 +35,27 @@ module Crysterm
 
         children = container.children
         children.each_with_index do |el, i|
-          next if el.layout_excluded?
+          # Skip `layout_chrome?` children (a border label or bound scroll bar)
+          # too — like every other engine via `each_arrangeable`. They are pinned
+          # at their own coordinates and painted by `#render_chrome`; arranging one
+          # as flow child 0 would overwrite its pins, consume a slot, and wrap the
+          # real children (BUGS15 #20, missed for the whole Flow family).
+          next if el.layout_excluded? || el.layout_chrome?
           # Every child consumes a render index, even one we skip below, to
           # keep z-order bookkeeping consistent.
           bump_index el
 
+          # Snapshot the row cursor: `place_one` may wrap this child to a new row
+          # (advancing `@row_offset`/`@row_index`) before deciding it overflows
+          # vertically and must be skipped. A skipped child renders nothing, so
+          # leaving the cursor advanced strands every later child on the empty new
+          # row while it still chains its `left` off the prior row's last rendered
+          # child — the restore below un-consumes the wrap no child took.
+          saved_offset, saved_index, saved_last = @row_offset, @row_index, @last_row_index
+
           case place_one container, el, i, interior
           when Overflow::SkipWidget
+            @row_offset, @row_index, @last_row_index = saved_offset, saved_index, saved_last
             skip_subtree el
             next
           when Overflow::StopRendering
@@ -54,7 +68,7 @@ module Crysterm
             j = i + 1
             while j < children.size
               nxt = children[j]
-              skip_subtree nxt unless nxt.layout_excluded?
+              skip_subtree nxt unless nxt.layout_excluded? || nxt.layout_chrome?
               j += 1
             end
             break
@@ -107,7 +121,13 @@ module Crysterm
         # placed (scroll-clipping nil'd its `lpos`), chain off its assigned
         # geometry; otherwise a scrolled flow blanks as every child re-piles at
         # (0, 0). Only a genuine absence of a predecessor falls through to origin.
-        if (last = last_rendered_before container, i) && (llp = rendered_geometry(last))
+        # A deferred (z-indexed) predecessor's `lpos` is only refreshed later,
+        # during plane compositing, so from frame 2 on it still holds the
+        # PREVIOUS frame's rect — chaining off it would lag successors one
+        # frame behind any geometry change. Fall through to the assigned-
+        # geometry branch instead (in steady state both compute the same left).
+        if (last = last_rendered_before container, i) && !deferred_this_frame?(last) &&
+           (llp = rendered_geometry(last))
           el.left = (llp.xl + last.mright) - xi
           last_drawn = llp.width
         elsif (last = @prev_el)
@@ -149,16 +169,23 @@ module Crysterm
       # rect height; a placed-but-unrendered (scroll-clipped) one contributes its
       # assigned `aheight`, both plus vertical margin. Without that fallback the
       # cursor stalls at 0 for a fully-clipped row, re-piling later rows onto it.
+      # A `layout_suppressed?` child is excluded entirely: within one arrange pass
+      # suppressed == skipped-this-frame (SkipWidget/StopRendering), and its
+      # `aheight` fallback would otherwise inflate the row by a widget that never
+      # renders. Scroll-clipped children stay counted — their `#_render` ran and
+      # cleared the flag even though it produced no `lpos` (BUGS15 #4).
       protected def row_tallest(container : Widget, from : Int32, to : Int32) : Int32
         tallest = 0
         j = from
         while j < to
           el = container.children[j]
-          unless el.layout_excluded?
+          unless el.layout_excluded? || el.layout_chrome? || el.layout_suppressed?
             eh =
-              if lp = rendered_geometry(el)
+              if !deferred_this_frame?(el) && (lp = rendered_geometry(el))
                 lp.height + el.mvertical
               else
+                # Placed-but-unrendered (scroll-clipped) or deferred to a plane
+                # (stale `lpos`): the assigned height is the truth this frame.
                 el.aheight + el.mvertical
               end
             tallest = eh if eh > tallest
@@ -166,6 +193,15 @@ module Crysterm
           j += 1
         end
         tallest
+      end
+
+      # True when `el` will be composited on its own plane this frame — the
+      # exact predicate `render_or_defer` uses. Such a child's `lpos` is not
+      # refreshed until plane compositing, so within `#arrange` it still holds
+      # the previous frame's rect and must not anchor chain/row-height math.
+      private def deferred_this_frame?(el : Widget) : Bool
+        return false unless el.style.z_index
+        !el.window.compositing_layers?
       end
 
       # Yields each child in `container.children[from...to]` that this engine
@@ -176,7 +212,7 @@ module Crysterm
         j = from
         while j < to
           el = container.children[j]
-          if !el.layout_excluded? && (lp = rendered_geometry(el))
+          if !el.layout_excluded? && !el.layout_chrome? && (lp = rendered_geometry(el))
             yield el, lp
           end
           j += 1

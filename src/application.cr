@@ -57,6 +57,14 @@ module Crysterm
       return unless @windows.includes? window
       @windows.delete window
       @windows << window
+      # A device resize while this window was non-active may not have reached
+      # it yet (its debounced resize loop can still be pending); compositing
+      # into stale-sized buffers would clip the frame to the old rows/columns.
+      # Realloc defensively when the buffer no longer matches the device size.
+      if window.lines.size != window.aheight ||
+         (window.lines[0]?.try(&.size) || 0) != window.awidth
+        window.realloc
+      end
       # The frame diff runs against this window's PRIVATE `@flushed_lines` (what THIS
       # window last sent), but the terminal may currently show a sibling sharing
       # the device — an unchanged frame would emit zero bytes and the raise would
@@ -86,6 +94,18 @@ module Crysterm
     # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
     # edits instead of quitting the app. Windows that opt out never quit here.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
+      # An in-band resize report (DEC 2048) describes the DEVICE, not a
+      # surface — and the flag is device-level, so the SIGWINCH path stands
+      # down for every window sharing the screen. Delivered only to the active
+      # window, siblings would keep stale-sized cell buffers forever and
+      # `#activate` would composite them truncated. Broadcast instead: each
+      # window debounces on its own resize loop, and `Window#on_resize`
+      # already restricts the repaint to the device-active window.
+      if e.resize
+        @windows.each { |w| w.handle_input e if w.screen.same? screen }
+        return
+      end
+
       win = active_window_for(screen)
       return unless win
 

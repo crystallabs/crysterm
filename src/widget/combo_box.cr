@@ -141,6 +141,13 @@ module Crysterm
 
       @popup : Popup?
 
+      # True once the open popup has been anchored against the combo's *painted*
+      # rect (i.e. the combo was actually rendered while open). Distinguishes
+      # "just opened, not yet rendered" (anchor on layout coords, wait for the
+      # next frame) from "was visible, now scrolled fully out of view" (dismiss).
+      # Reset on each fresh open.
+      @popup_anchored = false
+
       def initialize(options : Enumerable(String) = [] of String, current_index = 0, editable = false, **input)
         @options = options.to_a
         @editable = editable
@@ -347,6 +354,7 @@ module Crysterm
       def show_popup
         return if @open
         return if !editable? && @options.empty?
+        @popup_anchored = false
         pop = ensure_popup
         # An editable combo keeps keyboard focus and drives the popup
         # indirectly, so the popup must stay off the wheel-implicit-focus path:
@@ -509,8 +517,26 @@ module Crysterm
         pop.height = want unless pop.height == want
         w = Math.max(awidth, 4)
         pop.width = w unless pop.width == w
-        Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {w, want},
-          Overlay::BELOW_ABOVE)
+        # Anchor on the combo's *painted* rect, not its layout coords: inside a
+        # scrolled/child_base ancestor the two diverge by the ancestor's scroll
+        # base, and the popup (a window child) is painted exactly where we put
+        # it — so layout coords would open the list detached from the visible
+        # combo. Mirrors Menu#open_submenu (also anchored on the painted rect).
+        if lp = last_rendered_position?
+          @popup_anchored = true
+          Overlay.place_child(pop, {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}, {w, want},
+            Overlay::BELOW_ABOVE)
+        elsif @popup_anchored
+          # Was anchored on a painted rect before, but the combo has no painted
+          # rect this frame — it scrolled fully out of view. Re-anchoring on
+          # layout coords would drop the list somewhere unrelated, so dismiss it.
+          hide_popup
+        else
+          # Not yet rendered while open — anchor on layout coords; the next
+          # frame re-runs with the real painted rect.
+          Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {w, want},
+            Overlay::BELOW_ABOVE)
+        end
       rescue
         # Not laid out yet — keep defaults; render re-runs with real geometry.
       end

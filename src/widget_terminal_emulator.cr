@@ -1057,6 +1057,17 @@ module Crysterm
         line_feed
       end
 
+      # A wide glyph that STILL cannot fit in the final column — autowrap off
+      # (the cursor is stuck there), or a 1-column grid (the wrap above lands
+      # back on the same column) — degrades to a blank, preserving the "every
+      # wide lead is followed by its CONTINUATION" invariant the renderer
+      # relies on; a bare lead would paint two columns into a one-column slot
+      # and spill outside the widget.
+      if w == 2 && @x == @cols - 1
+        c = ' '
+        w = 1
+      end
+
       line = cur_line
       if @insert_mode
         # IRM: open w cells at the cursor by shifting the tail of the line right

@@ -104,7 +104,7 @@ module Crysterm
         when .paragraph?
           import_paragraph(node)
         when .heading?
-          separator if top_level? || @quote_depth > 0
+          separator if top_level? || quote_break?
           start_block TextBlockFormat.new(heading_level: node.data["level"].as(Int32))
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
@@ -126,7 +126,7 @@ module Crysterm
         when .code_block?
           import_code_block(node)
         when .thematic_break?
-          separator if top_level? || @quote_depth > 0
+          separator if top_level? || quote_break?
           start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
@@ -172,7 +172,7 @@ module Crysterm
       # markd hands tables through as a plain paragraph of `|` rows.
       private def import_paragraph(node : Markd::Node) : Nil
         txt = node_text(node)
-        separator if top_level?
+        separator if top_level? || quote_break?
         if TextTable.gfm_table?(txt)
           import_table(txt)
           return
@@ -205,7 +205,7 @@ module Crysterm
 
       # A fenced/indented code block: one code-bg block per line.
       private def import_code_block(node : Markd::Node) : Nil
-        separator if top_level? || @quote_depth > 0
+        separator if top_level? || quote_break?
         fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
         bf = TextBlockFormat.new(bg: @theme.code_bg)
         node.text.chomp.split('\n').each do |line|
@@ -217,6 +217,16 @@ module Crysterm
 
       private def top_level? : Bool
         @list_stack.empty? && @quote_depth == 0
+      end
+
+      # Whether a quote-interior separator is owed before the next structure:
+      # only *between* successive structures at the current quote depth — the
+      # previously emitted block must itself sit at this depth or deeper.
+      # Entering a quote owes nothing (the previous block is shallower), and
+      # list machinery owns spacing inside items.
+      private def quote_break? : Bool
+        return false unless @quote_depth > 0 && @list_stack.empty?
+        (@blocks.last?.try(&.block_format.quote_level) || 0) >= @quote_depth
       end
 
       # Paragraph spacing before the next structure: at top level a
@@ -428,6 +438,23 @@ module Crysterm
                      (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
               blank = pf.bottom_margin > 0 || cf.top_margin > 0 ||
                       cf.horizontal_rule? || cont
+              # A quote-level decrease into a plain body paragraph leaves the
+              # deeper quote's paragraph open, so a bare newline would lazily
+              # continue it and merge the shallower block's text back in
+              # (CommonMark lazy continuation). Break the run only when the
+              # previous block leaves a continuable paragraph (plain body, a
+              # list item, or a list-continuation paragraph): a ">"-only line
+              # at the lower level when the target still sits in a quote (it
+              # re-imports with no extra block), else a blank line at level 0.
+              if !blank && pf.quote_level > cf.quote_level && plain_body?(blocks[i]) &&
+                 (plain_body?(blocks[i - 1]) || pf.list_format ||
+                 (pf.indent > 0 && pf.list_format.nil?))
+                if cf.quote_level > 0
+                  io << '\n' << ("> " * cf.quote_level).rstrip
+                else
+                  blank = true
+                end
+              end
               # Adjacent plain body blocks with no separating margin are a
               # hard break — a bare newline would soft-wrap them back into
               # one paragraph on re-import.
@@ -552,6 +579,16 @@ module Crysterm
               lf.style.numbered? ? "#{lf.start + n}. " : "- "
             end
           io << marker
+          # A heading inside a list item ("- # Title", which the importer
+          # merges into one block) re-emits its hashes as item *content* —
+          # CommonMark allows a heading as list-item content, and dropping
+          # them would silently downgrade the construct on every roundtrip.
+          # Skipped for checkbox items: GFM does not parse "- [x] # h" as a
+          # task-item heading (and the importer can't produce that combination
+          # from markdown anyway).
+          if !lf.style.checkbox? && (lvl = bf.heading_level) > 0
+            io << "#" * lvl << ' '
+          end
           # For a checkbox item the content column is right after "- " —
           # the "[x] " marker is item *content* to CommonMark.
           @item_cols[lf.indent] = pad + (lf.style.checkbox? ? 2 : marker.size)

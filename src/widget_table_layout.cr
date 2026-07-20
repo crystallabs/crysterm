@@ -30,6 +30,16 @@ module Crysterm
     # nothing relevant changed.
     @maxes_dirty : Bool = true
 
+    # The `{@width, ihorizontal, @column_spacing}` under which `@maxes` was last
+    # computed. `ihorizontal` (border/padding insets) has no setter that trips
+    # `@maxes_dirty` and changes silently when the CSS cascade first runs (after
+    # the constructor's `#rows=`, with no `Resize` since the outer `@width` is
+    # unchanged), so the dirty flag alone would leave the fixed-width slack
+    # distributed over the pre-cascade interior. Comparing the key recomputes
+    # exactly when a dependency moved; for content-sized tables `@width` is nil
+    # and the key stays stable, so the cache still hits every frame.
+    @maxes_key : Tuple(Int32 | String | Nil, Int32, Int32)? = nil
+
     # Extra padding added to each column when the table is sized to its
     # content (i.e. when no fixed `width` is set).
     getter column_spacing : Int32 = 2
@@ -67,8 +77,10 @@ module Crysterm
     # columns; otherwise each column is sized to its widest cell plus
     # `@column_spacing`.
     def compute_column_widths
-      return @maxes unless @maxes_dirty
+      key = {@width, ihorizontal, @column_spacing}
+      return @maxes if !@maxes_dirty && @maxes_key == key
       @maxes_dirty = false
+      @maxes_key = key
 
       @maxes = [] of Int32
       return @maxes if @rows.empty?

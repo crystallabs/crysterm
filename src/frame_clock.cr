@@ -128,8 +128,12 @@ module Crysterm
             sleep delay
           else
             # Behind schedule (slow tick, or process paused): resync the phase
-            # to now instead of firing a burst of catch-up ticks.
+            # to now instead of firing a burst of catch-up ticks. Still yield,
+            # or this branch would loop into the next tick with no blocking
+            # operation and — fibers being cooperative — monopolize the thread,
+            # starving the render/input fibers for as long as the overload lasts.
             next_at = Time.instant
+            Fiber.yield
           end
         end
 

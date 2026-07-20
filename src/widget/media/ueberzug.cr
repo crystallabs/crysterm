@@ -53,7 +53,21 @@ module Crysterm
         end
       end
 
-      property scaler : Scaler
+      getter scaler : Scaler
+
+      # Changing the scaler must re-send `add`: the placement is only re-sent
+      # when the rect changes (`redraw_image`'s `return if rect == @last`), so
+      # nil `@last` (like `#load` does) and request a render. Genuine-change
+      # guarded, mirroring `Media::Base#fit=`, so per-frame reconciles don't
+      # churn.
+      def scaler=(v : Scaler) : Scaler
+        unless v == @scaler
+          @scaler = v
+          @last = nil
+          request_render
+        end
+        v
+      end
 
       # One shared helper process drives every placement (keyed by identifier).
       @@proc : Process? = nil

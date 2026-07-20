@@ -135,6 +135,12 @@ module Crysterm
     protected def render_or_defer(el : Widget) : Nil
       scr = el.window
       if el.style.z_index && !scr.compositing_layers?
+        # A deferred child renders later, on its own plane, so its `#_render`
+        # (which clears `layout_suppressed`) hasn't run yet this frame. Clear the
+        # flag here so a child skipped last frame isn't treated as still-suppressed
+        # — otherwise `Flow#row_tallest` would drop a legitimately placed deferred
+        # child from its row-height accounting.
+        el.layout_suppressed = false
         scr.defer_layer el
       else
         el.render
@@ -234,9 +240,15 @@ module Crysterm
     # columns/rows (and `Box`, in a weighted variant, its grow-share/justify
     # leftover). `i` is clamped to `0..n` so an off-grid span stops at the edge.
     # Pure (no instance state), hence a class method; allocates nothing.
+    #
+    # `i * total` runs in `Int64`: callers clamp `i` to `n`, but not `total`
+    # (an interior extent) against `i`, so ordinary-sized interiors combined
+    # with a large `n`/`i` (an off-grid span) can still exceed `Int32::MAX`
+    # before the division. The quotient is always within `0..total`, so
+    # narrowing the result back to `Int32` is safe.
     def self.fence(total : Int32, n : Int32, i : Int32) : Int32
       i = i.clamp(0, n)
-      (i * total) // n
+      (i.to_i64 * total // n).to_i32
     end
 
     # Yields each of the container's *arrangeable* children — the ones an engine

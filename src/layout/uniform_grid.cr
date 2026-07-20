@@ -19,12 +19,13 @@ module Crysterm
       @high_width = 0
 
       # Widest child becomes the uniform column width. Layout-excluded chrome
-      # (e.g. a full-width `background-image` layer) is skipped; it would
-      # otherwise inflate the column to the whole interior and collapse the grid
-      # to one column.
+      # (e.g. a full-width `background-image` layer) and `layout_chrome?` chrome
+      # (a border label / bound scroll bar) are skipped; either would otherwise
+      # inflate the column to the whole interior and collapse the grid to one
+      # column.
       protected def before_flow(container : Widget) : Nil
         @high_width = container.children.reduce(0) do |o, el|
-          next o if el.layout_excluded?
+          next o if el.layout_excluded? || el.layout_chrome?
           Math.max o, el.awidth
         end
       end

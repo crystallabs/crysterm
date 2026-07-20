@@ -88,7 +88,11 @@ module Crysterm
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         w = interior.width
         h = interior.height
-        cols = Math.max(@columns, 1)
+        # Cap axis counts at the interior extent, not just `1`: any column/row
+        # past the interior is a zero-size cell already, so this is
+        # behavior-preserving, and it keeps `cols`/`nrows` small enough that
+        # the spacing/fence math below can't overflow `Int32`.
+        cols = @columns.clamp(1, Math.max(w, 1))
 
         occupied = @occupied
         occupied.clear
@@ -103,10 +107,23 @@ module Crysterm
         # is known.
         max_origin = 0
         total = 0
+        # Row-origin cap: with a declared `rows` clamp to the *last* valid row —
+        # like the column axis below, so an off-grid row origin stays visible
+        # instead of collapsing to a zero-height cell past the bottom edge.
+        # Without a declared `rows` the count is inferred, so the origin may
+        # extend the grid and only the overflow-guard cap applies.
+        row_origin_cap =
+          if (r = @rows) && r > 0
+            Math.min(ROW_ORIGIN_CAP, r - 1)
+          elsif @rows
+            0
+          else
+            ROW_ORIGIN_CAP
+          end
         each_arrangeable container do |el|
           total += 1
           next unless hint = el.layout_hint.as?(Hint)
-          row = hint.row.clamp(0, ROW_ORIGIN_CAP)
+          row = hint.row.clamp(0, row_origin_cap)
           # Clamp to the *last* valid column, not `cols`: an origin of `cols`
           # collapses the cell to zero width past the right edge, vanishing —
           # asymmetric with a negative `column`, which clamps to 0 and stays
@@ -150,7 +167,10 @@ module Crysterm
         # content, so an over-large span spans to the last real row — symmetric
         # with `column_span`.
         if r = @rows
-          nrows = r
+          # Same reasoning as `cols` above: a declared `rows` past the
+          # interior height is all zero-size cells, so capping it there is
+          # behavior-preserving and keeps the spacing math below overflow-safe.
+          nrows = r.clamp(1, Math.max(h, 1))
         else
           start_rows = 0
           span_rows = 0
@@ -166,10 +186,12 @@ module Crysterm
         # carved by *cumulative* integer division (`Layout.fence`), so widths
         # differ by at most one and sum to exactly `inner_w`; a uniform floored
         # `cell_w` would strand the remainder as blank space at the far edge.
-        inner_w = w - (cols - 1) * @spacing
-        inner_h = h - (nrows - 1) * @spacing
-        inner_w = 0 if inner_w < 0
-        inner_h = 0 if inner_h < 0
+        # `cols`/`nrows` are now capped to the interior extent, but `@spacing`
+        # itself is not: a pathological spacing still overflows `Int32` here,
+        # so the gap term runs in `Int64` and the result clamps back to
+        # `0..w`/`0..h` (a negative raw result already meant "no room left").
+        inner_w = (w.to_i64 - (cols - 1).to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32
+        inner_h = (h.to_i64 - (nrows - 1).to_i64 * @spacing).clamp(0_i64, h.to_i64).to_i32
 
         placements.each do |(el, row, column, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
@@ -191,10 +213,16 @@ module Crysterm
           # its margin past the cell's far edge into the neighbour (or past the
           # container for a last-column/row cell). Subtracting the margin sums
           # keeps the shifted box inside its cell.
-          el.left = x0 + c0 * @spacing
-          el.top = y0 + r0 * @spacing
-          el.width = Math.max(0, (x1 - x0) + col_gaps * @spacing - el.mhorizontal)
-          el.height = Math.max(0, (y1 - y0) + row_gaps * @spacing - el.mvertical)
+          #
+          # `c0`/`col_gaps` (resp. `r0`/`row_gaps`) are bounded by `cols`
+          # (resp. `nrows`), which are now capped to the interior, but a
+          # pathological `@spacing` still overflows `Int32` in these products,
+          # so each offset/size runs in `Int64` and clamps back to the
+          # interior it can never legitimately exceed.
+          el.left = (x0.to_i64 + c0.to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32
+          el.top = (y0.to_i64 + r0.to_i64 * @spacing).clamp(0_i64, h.to_i64).to_i32
+          el.width = ((x1.to_i64 - x0.to_i64) + col_gaps.to_i64 * @spacing - el.mhorizontal).clamp(0_i64, w.to_i64).to_i32
+          el.height = ((y1.to_i64 - y0.to_i64) + row_gaps.to_i64 * @spacing - el.mvertical).clamp(0_i64, h.to_i64).to_i32
           render_child el
         end
       end

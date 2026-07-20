@@ -46,11 +46,28 @@ module Crysterm
       # Not a bare `property`: `#floor_border_value` depends on the area (which
       # side faces the content), so the frame style memoizing it must be dropped
       # with it; the float button's glyph tracks `#floating?` too.
+      # Unlike `#toggle_floating` this is not gated on `floatable?` —
+      # `floatable` gates the button/gesture, not programmatic moves — but a
+      # float transition performs the same bookkeeping: geometry pinning (so
+      # leftover docked anchors don't fight the drag handler), `@prev_area`
+      # for the float button's re-dock, and `Event::Float`.
       def area=(value : Area) : Area
         return value if @area == value
+        was_floating = @area.floating?
+        if value.floating? && !was_floating
+          @prev_area = @area
+          if g = @float_geom
+            apply_rect g
+          else
+            freeze_rect
+          end
+        elsif was_floating && !value.floating?
+          save_float_geom # remember where/what size we were, to restore later
+        end
         @area = value
         refresh_buttons
         invalidate_frame_style
+        emit ::Crysterm::Event::Float, floating? if value.floating? != was_floating
         window?.try &.schedule_render
         value
       end

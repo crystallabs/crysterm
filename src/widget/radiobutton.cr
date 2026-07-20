@@ -48,6 +48,10 @@ module Crysterm
         # Only a transition *into* checked drives exclusivity; ignore uncheck and
         # partial transitions the merged `StateChanged` now also reports.
         return unless e.state.checked?
+        # A `ButtonGroup` member defers exclusivity to the group (its own
+        # `exclude_peers` already handles it, regardless of layout) — matching
+        # Qt, where per-parent autoExclusive applies only to ungrouped buttons.
+        return if group
         el = self
         while el && (el = el.parent)
           if el.is_a?(RadioSet) # || el.is_a?(Form)

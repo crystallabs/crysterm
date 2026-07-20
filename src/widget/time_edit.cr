@@ -36,6 +36,19 @@ module Crysterm
 
       section_value time, @time
 
+      # The inherited `date_time` accessors track the parent's unused
+      # `@datetime` ivar; delegate to `@time` (via `#time=`, reusing its change
+      # guard) so `setDateTime`-style usage stays coherent with the widget's
+      # actual value, as in Qt.
+      def date_time : Time
+        @time
+      end
+
+      # :ditto:
+      def date_time=(value : Time) : Time
+        self.time = value
+      end
+
       private def section_count : Int32
         show_seconds? ? 3 : 2
       end

@@ -118,6 +118,65 @@ module Crysterm
       @left_fg || @fg
     end
 
+    # `currentColor` markers, one per color slot. CSS resolves `currentColor`
+    # at computed-value time — against the element's FINAL `color`, regardless
+    # of declaration order within a rule or which rule supplied the color — so
+    # the CSS appliers record the keyword here (besides eagerly storing the
+    # text color known at apply time) and the border draw path re-resolves the
+    # marked slots against the widget's effective fg via `#side_fg`.
+    property? fg_current_color = false
+    property? top_fg_current_color = false
+    property? right_fg_current_color = false
+    property? bottom_fg_current_color = false
+    property? left_fg_current_color = false
+
+    # Sets/clears one side's `currentColor` marker (the marker analog of
+    # `set_color`).
+    protected def set_current_color(side : Side, value : Bool) : Nil
+      case side
+      in .top?    then @top_fg_current_color = value
+      in .right?  then @right_fg_current_color = value
+      in .bottom? then @bottom_fg_current_color = value
+      in .left?   then @left_fg_current_color = value
+      in .horizontal?, .vertical?, .all?
+        raise ArgumentError.new "Border#set_current_color expects a single side " \
+                                "(Left/Top/Right/Bottom), got #{side}"
+      end
+    end
+
+    # Clears every per-side `currentColor` marker (used when the whole-border
+    # `border-color` shorthand also clears the per-side color overrides).
+    protected def clear_side_current_colors : Nil
+      @top_fg_current_color = @right_fg_current_color =
+        @bottom_fg_current_color = @left_fg_current_color = false
+    end
+
+    # Render-time per-side color: like `#top_fg` & co. but with the
+    # `currentColor` markers resolved against *el_fg*, the element's effective
+    # text color. Fallback order mirrors the plain getters — a concrete
+    # per-side override still wins over a whole-border `currentColor`.
+    def side_fg(side : Side, el_fg : Int32?) : Int32?
+      side_current, own =
+        case side
+        in .top?    then {@top_fg_current_color, @top_fg}
+        in .right?  then {@right_fg_current_color, @right_fg}
+        in .bottom? then {@bottom_fg_current_color, @bottom_fg}
+        in .left?   then {@left_fg_current_color, @left_fg}
+        in .horizontal?, .vertical?, .all?
+          raise ArgumentError.new "Border#side_fg expects a single side " \
+                                  "(Left/Top/Right/Bottom), got #{side}"
+        end
+      if side_current
+        el_fg
+      elsif own
+        own
+      elsif @fg_current_color
+        el_fg
+      else
+        @fg
+      end
+    end
+
     # Character used to draw a `BorderType::Fill` border. Acts as the fallback for
     # the three position-specific chars below.
     property fill_char = ' '

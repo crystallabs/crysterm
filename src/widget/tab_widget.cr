@@ -52,10 +52,44 @@ module Crysterm
       @tab_titles = [] of String
 
       # Height (in rows) reserved for the tab bar.
-      property tab_height : Int32 = 1
+      #
+      # Not a bare `property`: the bar's geometry and every page's inset bake
+      # this in, so a runtime change must re-lay both out (the constructor
+      # assigns the ivar directly, before the bar exists).
+      getter tab_height : Int32 = 1
+
+      # :ditto:
+      def tab_height=(value : Int32) : Int32
+        return value if value == @tab_height
+        @tab_height = value
+        relayout_tab_chrome
+        value
+      end
 
       # Where the tab bar is placed.
-      property tab_position : Position = :top
+      #
+      # Not a bare `property`: see `#tab_height=`.
+      getter tab_position : Position = :top
+
+      # :ditto:
+      def tab_position=(value : Position) : Position
+        return value if value == @tab_position
+        @tab_position = value
+        relayout_tab_chrome
+        value
+      end
+
+      # Re-pins the bar to the current `tab_position`/`tab_height` — clearing
+      # the opposite anchor, so the bar isn't left over-constrained with both
+      # `top` and `bottom` set — and re-insets every page to match.
+      private def relayout_tab_chrome : Nil
+        bar = tab_bar
+        bar.top = @tab_position.top? ? 0 : nil
+        bar.bottom = @tab_position.bottom? ? 0 : nil
+        bar.height = @tab_height
+        @pages.each { |p| layout_page p }
+        request_render
+      end
 
       # Whether tabs show a `✕` marker and can be closed.
       property? tabs_closable : Bool = false

@@ -156,11 +156,14 @@ module Crysterm
         request_render if e.accepted?
       end
 
-      # Whether the accelerator should act on *e*. Default: always. Overridden to
-      # stand down while a field is focused, or once the focused widget already
-      # consumed the key.
+      # Whether the accelerator should act on *e*. Overridden to also stand down
+      # while a field is focused. The accelerator outlives the close funnel
+      # (`#done` hides but does not uninstall — Wizard's attach-lifecycle install
+      # must survive it), so a closed/hidden dialog must gate on visibility here
+      # or it keeps swallowing every unconsumed Enter/Escape and re-emitting
+      # Accepted/Finished on the window.
       protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
-        true
+        !e.accepted? && visible_in_tree?
       end
 
       # Affirmative gesture (Enter / Ok), mirroring Qt's `QDialog#accept`:

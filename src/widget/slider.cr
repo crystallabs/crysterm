@@ -180,7 +180,10 @@ module Crysterm
           tv = @minimum
           while tv <= @maximum
             yield value_to_cell(tv.to_i64, avail)
-            break if tv > @maximum - interval # guard the `tv += interval` overflow
+            # Guard the `tv += interval` overflow — in Int64, since the Int32
+            # form `@maximum - interval` itself underflows when `@maximum` sits
+            # within one tick interval of `Int32::MIN`.
+            break if tv.to_i64 > @maximum.to_i64 - interval
             tv += interval
           end
         end
