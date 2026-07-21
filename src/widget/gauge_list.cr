@@ -119,7 +119,7 @@ module Crysterm
       # Appends a gauge and returns it. A `nil` color is auto-assigned from
       # `DEFAULT_COLORS`.
       def add_item(label : String, value : Number = 0, color : Int32? = nil) : Item
-        item = Item.new label, sanitize_value(value), color || DEFAULT_COLORS[@gauge_items.size % DEFAULT_COLORS.size]
+        item = Item.new(label, sanitize_value(value), color || DEFAULT_COLORS[@gauge_items.size % DEFAULT_COLORS.size])
         item.owner = self
         @gauge_items << item
         @version &+= 1

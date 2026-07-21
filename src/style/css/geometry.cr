@@ -7,12 +7,12 @@ module Crysterm
     # class) reverts the widget instead of sticking forever. The `Style` side of
     # the same contract is `css_base_styles`.
     record CssBaseGeometry,
-      width : Dim | Int32 | String | Nil,
-      height : Dim | Int32 | String | Nil,
-      top : Dim | Int32 | String | Nil,
-      left : Dim | Int32 | String | Nil,
-      right : Dim | Int32 | String | Nil,
-      bottom : Dim | Int32 | String | Nil,
+      width : Dim | Int32 | String?,
+      height : Dim | Int32 | String?,
+      top : Dim | Int32 | String?,
+      left : Dim | Int32 | String?,
+      right : Dim | Int32 | String?,
+      bottom : Dim | Int32 | String?,
       min_width : Int32?,
       max_width : Int32?,
       min_height : Int32?,
@@ -133,7 +133,7 @@ module Crysterm
       # (parsed here once, in *size*/position context), and an unparseable one
       # returns `nil` so the caller skips the declaration instead of letting
       # the setter's `ArgumentError` kill the cascade.
-      private def self.dim_guard(v : Int32 | String, size : Bool = false) : Dim | Int32 | Nil
+      private def self.dim_guard(v : Int32 | String, size : Bool = false) : Dim | Int32?
         case v
         in Int32  then v
         in String then Dim.parse?(v, size: size)
@@ -152,7 +152,7 @@ module Crysterm
       # passes through as its *string*, so the positioner re-resolves it against
       # the window every frame and tracks terminal resize; everything else
       # resolves statically.
-      private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
+      private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String?
         # Only a viewport unit contains a 'v'; this allocation-free scan keeps
         # the VIEWPORT regex off every plain width/height/top/left value.
         (maybe_viewport?(value) && Length.viewport?(value)) ? value : dimension(value, vertical)
@@ -184,7 +184,7 @@ module Crysterm
       # converted to cells through `unit_divisors`; everything else (`50%`,
       # `center`, `50%-10`, ...) passes through as a `String`, which crysterm's
       # positioning already understands.
-      private def self.dimension(value : String, vertical : Bool = false) : Int32 | String | Nil
+      private def self.dimension(value : String, vertical : Bool = false) : Int32 | String?
         if cells = Length.to_cells(value, vertical)
           cells
         elsif value.matches?(Length::PATTERN) || value.matches?(Length::CALC)

@@ -97,7 +97,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   it "ask_choices accepts Left/Right/Escape so they don't fall through" do
     w = b16_window
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
-    picked = :unset.as(Symbol | Int32 | Nil)
+    picked = :unset.as(Symbol | Int32?)
     q.ask_choices("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }
 
     e_right = Crysterm::Event::KeyPress.new '\0', ::Tput::Key::Right

@@ -46,7 +46,7 @@ module Crysterm
       # and a wide upgrade must reserve its columns. `set_content`/`width=` both
       # no-op while unchanged, so an unstyled `◢` grip stays byte-identical.
       def render(with_children = true)
-        g = self.glyph
+        g = glyph
         # Reserve the glyph's measured width: grow (never shrink) so a 2-column
         # emoji isn't clipped by a `width: 1` grip. `◢` measures 1 → no change.
         w = Unicode.width(g)
@@ -93,8 +93,8 @@ module Crysterm
                 t.width = Math.max(@min_drag_width, e.x - t_lp.xi + 1 + edge_x)
                 t.height = Math.max(@min_drag_height, e.y - t_lp.yi + 1 + edge_y)
               else
-                edge_x = (t.aleft + t.awidth) - (self.aleft + self.awidth)
-                edge_y = (t.atop + t.aheight) - (self.atop + self.aheight)
+                edge_x = (t.aleft + t.awidth) - (aleft + awidth)
+                edge_y = (t.atop + t.aheight) - (atop + aheight)
                 t.width = Math.max(@min_drag_width, e.x - t.aleft + 1 + edge_x)
                 t.height = Math.max(@min_drag_height, e.y - t.atop + 1 + edge_y)
               end

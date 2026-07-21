@@ -139,7 +139,7 @@ describe "BUGS-F1 #22 state pseudo-classes inside :has() are lowered to .state-*
       screen.stylesheet = <<-CSS
         Form { color: white; }
         Form:has(Input:focus) { color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
       form.styles.normal.fg.should eq rgb("white") # nothing focused
 
@@ -170,7 +170,7 @@ describe "BUGS-F1 #23 an attribute change updates a :has() ancestor subject outs
       screen.stylesheet = <<-CSS
         Form { color: white; }
         Form:has(.error) { color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
       form.styles.normal.fg.should eq rgb("white")
 
@@ -194,7 +194,7 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
       screen.stylesheet = <<-CSS
         Box { color: white; }
         @media (max-width: 40) { Box { color: green; } }
-      CSS
+        CSS
       screen.apply_stylesheet
       box.styles.normal.fg.should eq rgb("white") # 100 > 40, media skipped
 
@@ -213,7 +213,7 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
         screen.stylesheet = <<-CSS
           Box { color: white; }
           @media (max-width: 40) { Box { color: green; } }
-        CSS
+          CSS
         screen.repaint
         box.styles.normal.fg.should eq rgb("white")
 
@@ -283,7 +283,7 @@ describe "BUGS-F1 #48 state-specific rules on table-cell extra slots" do
       screen.stylesheet = <<-CSS
         Cell { color: white; }
         Cell:hover { color: red; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # State-independent per-cell storage can't represent :hover, so the base

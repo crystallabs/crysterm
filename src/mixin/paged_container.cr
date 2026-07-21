@@ -36,7 +36,7 @@ module Crysterm
       def current_widget : Widget?
         # Crystal's `[]?` counts a negative index from the end, so `@pages[-1]?`
         # would return the last page instead of `nil`.
-        return nil if @current_index < 0
+        return if @current_index < 0
         @pages[@current_index]?
       end
 

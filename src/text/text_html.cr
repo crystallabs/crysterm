@@ -146,12 +146,11 @@ module Crysterm
       when "left"   then Tput::AlignFlag::Left
       when "center" then Tput::AlignFlag::HCenter
       when "right"  then Tput::AlignFlag::Right
-      else               nil
       end
     end
 
     private def self.align_css(a : Tput::AlignFlag?) : String?
-      return nil unless a
+      return unless a
       return "center" if a.h_center?
       return "right" if a.right?
       return "left" if a.left?
@@ -235,9 +234,9 @@ module Crysterm
         closers << "</a>"
       end
       {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
-        if fmt.{{a.id}}?
-          io << "<{{tag.id}}>"
-          closers << "</{{tag.id}}>"
+        if fmt.{{ a.id }}?
+          io << "<{{ tag.id }}>"
+          closers << "</{{ tag.id }}>"
         end
       {% end %}
       # Color <span> is emitted innermost (after the flag tags) so that on
@@ -834,7 +833,7 @@ module Crysterm
       # Inline-format patch from a `style` attribute, or nil when it sets
       # nothing we model.
       private def style_patch(style : String?) : TextCharFormat?
-        return nil unless style
+        return unless style
         bold = italic = underline = strike = nil
         fg = bg = nil
         any = false
@@ -864,7 +863,7 @@ module Crysterm
             any = true
           end
         end
-        return nil unless any
+        return unless any
         TextCharFormat.new(bold: bold, italic: italic, underline: underline,
           strike: strike, fg: fg, bg: bg)
       end

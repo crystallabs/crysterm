@@ -40,7 +40,7 @@ describe "CSS inheritance into materialized states" do
       screen.stylesheet = <<-CSS
         Form { color: yellow; font-weight: bold; font-style: italic; }
         Box:focus { background-color: blue; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # The :focus rule materialized a distinct focused style (only setting bg).
@@ -70,7 +70,7 @@ describe "CSS inheritance into materialized states" do
       screen.stylesheet = <<-CSS
         Form { color: yellow; }
         #inner:focus { color: red; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # The focused state sets its own color, which wins over the inherited one.

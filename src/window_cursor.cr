@@ -93,7 +93,7 @@ module Crysterm
     # Color is stored as `cursor.style.fg`, the one field driving both the
     # artificial renderer and `#apply_cursor`. An artificial cursor applies it
     # on the next `render`; otherwise it is pushed to the terminal.
-    def set_cursor_color(color : Int | String | Nil, cursor : Cursor = @cursor) : Nil
+    def set_cursor_color(color : Int | String?, cursor : Cursor = @cursor) : Nil
       cursor.style.fg = color
       cursor._set = true
 
@@ -108,7 +108,7 @@ module Crysterm
 
     # Sets the screen's own default cursor color. See `#set_cursor_color` to
     # target a specific cursor.
-    def cursor_color=(color : Int | String | Nil) : Nil
+    def cursor_color=(color : Int | String?) : Nil
       set_cursor_color color
     end
 

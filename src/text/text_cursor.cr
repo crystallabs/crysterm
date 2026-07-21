@@ -418,12 +418,12 @@ module Crysterm
         bi < doc.block_count - 1 ? doc.block_position(bi + 1) : nil
       when .up?
         bi, col = doc.block_at(from)
-        return nil if bi == 0
+        return if bi == 0
         target = bi - 1
         doc.block_position(target) + Math.min(col, doc.blocks[target].size)
       when .down?
         bi, col = doc.block_at(from)
-        return nil if bi == doc.block_count - 1
+        return if bi == doc.block_count - 1
         target = bi + 1
         doc.block_position(target) + Math.min(col, doc.blocks[target].size)
       else

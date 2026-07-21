@@ -291,7 +291,7 @@ module Crysterm
       # stylesheet (and the matching definition) is unchanged — the animation
       # driver's staleness check relies on that.
       def keyframes_for(name : String, width : Int32, height : Int32, colors : Int32, glyphs : Int32 = 1) : KeyframeStops?
-        return nil unless defs = @keyframes[name]?
+        return unless defs = @keyframes[name]?
         defs.reverse_each do |(mq, stops)|
           return stops if mq.nil? || mq.matches?(width, height, colors, glyphs)
         end

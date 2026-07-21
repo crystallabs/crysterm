@@ -146,7 +146,7 @@ describe Crysterm::CSS::Qss do
       QPushButton { background-color: #222; subcontrol-origin: margin; }
       QCheckBox::indicator { border-image: url(:/x.png); }
       QColumnView { color: pink; }
-    QSS
+      QSS
     sheet = Crysterm::CSS::Stylesheet.parse(Crysterm::CSS::Qss.to_css(qss))
     sheet.rules.size.should be > 0
   end

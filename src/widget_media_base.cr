@@ -234,10 +234,10 @@ module Crysterm
         if s = @source
           return s
         end
-        return nil if @load_failed
-        file = @file || return nil
+        return if @load_failed
+        file = @file || return
         if stream_mode_source? file
-          return nil unless open_stream
+          return unless open_stream
           if st = Media::VideoSource::Stream.open(file)
             @stream = st
             @source = st.vehicle
@@ -326,7 +326,8 @@ module Crysterm
           else
             # Capture a fresh generation for this loop; a superseding
             # play/pause/stop bumps `@stream_gen` so this fiber exits.
-            spawn stream_loop((@stream_gen += 1))
+            gen = (@stream_gen += 1)
+            spawn stream_loop(gen)
           end
         elsif @src_frames
           start_playback

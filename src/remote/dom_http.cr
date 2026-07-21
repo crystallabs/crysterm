@@ -79,11 +79,9 @@ module Crysterm
       # `listen` on a closed server raises — a benign shutdown, not a failure to
       # surface.
       spawn do
-        begin
-          server.listen
-        rescue ex
-          raise ex unless server.closed?
-        end
+        server.listen
+      rescue ex
+        raise ex unless server.closed?
       end
     end
 
@@ -141,18 +139,16 @@ module Crysterm
       # A failing binding is reported to handlers as an `error` event rather
       # than crashing the render/input fiber it fired on.
       DOM.each_binding(@window, @declarative_wired) do |widget, type, action, value|
-        begin
-          # A built-in declarative verb runs in-process; everything else is
-          # forwarded to the handler. `declarative?` is true for any colon-bearing
-          # action but `run` only handles a recognized verb, so an unrecognized
-          # one (e.g. `navigate:home`) must still reach the handler — hence
-          # checking `run`'s return, not just `declarative?`.
-          unless DOM::Actions.declarative?(action) && DOM::Actions.run(action, widget, @window, @on_quit)
-            publish_event type, widget, action, value: value
-          end
-        rescue ex
-          publish_error "action #{action.inspect}: #{ex.message}"
+        # A built-in declarative verb runs in-process; everything else is
+        # forwarded to the handler. `declarative?` is true for any colon-bearing
+        # action but `run` only handles a recognized verb, so an unrecognized
+        # one (e.g. `navigate:home`) must still reach the handler — hence
+        # checking `run`'s return, not just `declarative?`.
+        unless DOM::Actions.declarative?(action) && DOM::Actions.run(action, widget, @window, @on_quit)
+          publish_event type, widget, action, value: value
         end
+      rescue ex
+        publish_error "action #{action.inspect}: #{ex.message}"
       end
       # Re-apply any handler-requested runtime subscriptions to the new tree.
       @subscriptions.each { |selector, event| wire_subscription selector, event }
@@ -321,7 +317,7 @@ module Crysterm
       end
     end
 
-    private def respond(context, id, *, result : Int32 | String | Array(String) | Nil) : Nil
+    private def respond(context, id, *, result : Int32 | String | Array(String)?) : Nil
       respond_envelope(context, id) { |json| json.field "result", result }
     end
 
@@ -346,7 +342,7 @@ module Crysterm
 
     # Mutating commands return the number of widgets affected (so a handler can
     # tell "matched nothing" from "done"); getters return their value.
-    private def dispatch(method : String, params : JSON::Any?) : Int32 | String | Array(String) | Nil
+    private def dispatch(method : String, params : JSON::Any?) : Int32 | String | Array(String)?
       selector = params.try(&.["selector"]?).try(&.as_s)
       case method
       when "setContent"

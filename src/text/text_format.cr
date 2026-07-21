@@ -67,16 +67,16 @@ module Crysterm
       dim : Bool? = nil,
       blink : Bool? = nil,
       code : Bool? = nil,
-      fg : Int32 | String | Nil = nil,
-      bg : Int32 | String | Nil = nil,
+      fg : Int32 | String? = nil,
+      bg : Int32 | String? = nil,
       anchor_href : String? = nil,
     )
       attrs = Attr::None
       mask = Attr::None
-      {% for a in %w(bold italic underline strike inverse dim blink code) %}
-        unless {{a.id}}.nil?
-          mask |= Attr::{{a.camelcase.id}}
-          attrs |= Attr::{{a.camelcase.id}} if {{a.id}}
+      {% for a in %w[bold italic underline strike inverse dim blink code] %}
+        unless {{ a.id }}.nil?
+          mask |= Attr::{{ a.camelcase.id }}
+          attrs |= Attr::{{ a.camelcase.id }} if {{ a.id }}
         end
       {% end %}
       @attributes = attrs
@@ -89,9 +89,9 @@ module Crysterm
     protected def initialize(@attributes, @attr_mask, @fg, @bg, @anchor_href)
     end
 
-    {% for a in %w(bold italic underline strike inverse dim blink code) %}
-      def {{a.id}}? : Bool
-        @attributes.{{a.id}}?
+    {% for a in %w[bold italic underline strike inverse dim blink code] %}
+      def {{ a.id }}? : Bool
+        @attributes.{{ a.id }}?
       end
     {% end %}
 
@@ -174,7 +174,7 @@ module Crysterm
       indent : Int32? = nil,
       top_margin : Int32? = nil,
       bottom_margin : Int32? = nil,
-      bg : Int32 | String | Nil = nil,
+      bg : Int32 | String? = nil,
       heading_level : Int32? = nil,
       non_breakable : Bool? = nil,
       quote_level : Int32? = nil,

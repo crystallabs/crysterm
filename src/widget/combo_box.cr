@@ -267,7 +267,7 @@ module Crysterm
       def item_text(index : Int) : String?
         # Guard the negative index explicitly: Crystal's `[]?` counts a negative
         # from the end, so `item_text(-1)` would answer with the *last* option.
-        return nil if index < 0
+        return if index < 0
         @options[index]?
       end
 
@@ -300,7 +300,7 @@ module Crysterm
       # Removes the option at *index* (Qt's `removeItem`); out of range is a
       # no-op. Returns the removed text.
       def remove_item(index : Int) : String?
-        return nil unless 0 <= index < @options.size
+        return unless 0 <= index < @options.size
         was = current_state
         i = index.to_i
         text = @options.delete_at i

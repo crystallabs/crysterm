@@ -155,7 +155,7 @@ module Crysterm
           spawn { p.wait rescue nil }
           @@proc = nil
         end
-        bin = binary || return nil
+        bin = binary || return
         @@proc = Process.new(bin, ["layer", "--parser", "json", "--silent"],
           input: Process::Redirect::Pipe,
           output: Process::Redirect::Close,

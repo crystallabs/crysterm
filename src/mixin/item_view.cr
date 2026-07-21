@@ -706,7 +706,7 @@ module Crysterm
         # everything past it down by one.
         if @selected_indices.includes?(i) || @selected_indices.any? { |s| s > i }
           @selected_indices = @selected_indices.compact_map do |s|
-            next nil if s == i
+            next if s == i
             s > i ? s - 1 : s
           end.to_set
         end
@@ -739,7 +739,7 @@ module Crysterm
       # — or `nil` when it resolves to no item (Qt's `QListWidget#item(row)`).
       def item(child)
         i = index_of child
-        return nil unless i
+        return unless i
         @item_boxes[i]?
       end
 
@@ -1069,7 +1069,7 @@ module Crysterm
       # not tell apart from a real hit on that same row (Qt's `findItems` likewise
       # reports an empty result rather than a fallback).
       def fuzzy_find(query : String, *, backward : Bool = false) : Int32?
-        return nil if @item_boxes.empty?
+        return if @item_boxes.empty?
         q = query.downcase
         n = @item_boxes.size
         step = backward ? -1 : 1

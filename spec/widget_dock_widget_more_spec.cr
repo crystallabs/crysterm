@@ -45,7 +45,7 @@ describe Crysterm::Widget::DockWidget do
     s = dock_win
     floating = Crysterm::Widget::DockWidget.new parent: s, title: "F",
       area: Crysterm::Widget::DockWidget::Area::Floating
-    floating.floor_border_value.should eq true # full frame
+    floating.floor_border_value.should be_true # full frame
 
     left = Crysterm::Widget::DockWidget.new parent: s, title: "L",
       area: Crysterm::Widget::DockWidget::Area::Left

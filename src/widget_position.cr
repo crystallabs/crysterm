@@ -20,27 +20,27 @@ module Crysterm
     # same path: `right: "50%"` works exactly like `left: "50%"`.
 
     # User-defined left
-    getter left : Dim | Int32 | String | Nil
+    getter left : Dim | Int32 | String?
 
     # User-defined top
-    getter top : Dim | Int32 | String | Nil
+    getter top : Dim | Int32 | String?
 
     # User-defined right
-    getter right : Dim | Int32 | String | Nil
+    getter right : Dim | Int32 | String?
 
     # User-defined bottom
-    getter bottom : Dim | Int32 | String | Nil
+    getter bottom : Dim | Int32 | String?
 
     # `left=`/`top=`/`right=`/`bottom=`: change-guarded setters that normalize
     # through `Dim.from` (parse-at-assignment), mark dirty and emit `Move`. The
     # assign lands *before* the emit so in-tree Move listeners see the new
     # position, not the old one (cf. `width=` for Resize).
     {% for side in %w[left top right bottom] %}
-      # Sets Widget's `@{{side.id}}`
-      def {{side.id}}=(val : Dim | Int32 | String | Symbol | Nil)
+      # Sets Widget's `@{{ side.id }}`
+      def {{ side.id }}=(val : Dim | Int32 | String | Symbol | Nil)
         val = Dim.from val
-        return if @{{side.id}} == val
-        @{{side.id}} = val
+        return if @{{ side.id }} == val
+        @{{ side.id }} = val
         mark_dirty
         emit ::Crysterm::Event::Move
       end
@@ -53,9 +53,9 @@ module Crysterm
     # `rleft`/`rtop`/`rright`/`rbottom`: computed relative position, mechanically
     # identical across the four sides modulo which `a*` getter they call.
     {% for side in %w(left top right bottom) %}
-      # Returns computed relative {{side.id}}
-      def r{{side.id}}
-        (a{{side.id}} || 0) - (parent_or_window.a{{side.id}} || 0)
+      # Returns computed relative {{ side.id }}
+      def r{{ side.id }}
+        (a{{ side.id }} || 0) - (parent_or_window.a{{ side.id }} || 0)
       end
     {% end %}
 
@@ -528,7 +528,7 @@ module Crysterm
       # area, preserving size (e.g. a completion list that would run off the bottom
       # slides up to stay on window). Unlike `ShrinkWidget` (parent-policy, clamps
       # edges), this is child-policy: the widget declares it for itself.
-      if self.overflow.move_widget?
+      if overflow.move_widget?
         scr = window
         s_left = scr.ileft
         s_top = scr.itop

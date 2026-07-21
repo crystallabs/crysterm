@@ -206,13 +206,12 @@ module Crysterm
       end
       surviving ||= Window.instances.find { |w| live_sibling_on_device? w }
       surviving.try do |w|
-        begin
-          w.apply_cursor
-          w.title.try { |t| w.tput.title = t }
-        rescue
-          # Dead fds on a user-closed window raise on write; the sibling's
-          # state re-assert must never break the disconnect itself.
-        end
+        w.apply_cursor
+        w.title.try { |t| w.tput.title = t }
+      rescue
+        # Dead fds on a user-closed window raise on write; the sibling's
+        # state re-assert must never break the disconnect itself.
+
       end
     end
 

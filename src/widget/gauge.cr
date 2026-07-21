@@ -45,14 +45,14 @@ module Crysterm
         # Optional caption drawn (centered) inside the slice.
         property label : String?
 
-        def initialize(value : Number, color : Int32 | String | Nil = nil, @label : String? = nil)
+        def initialize(value : Number, color : Int32 | String? = nil, @label : String? = nil)
           @value = value.to_f
           @color = color.is_a?(String) ? Colors.convert_cached(color) : color
         end
 
         # Assigns the slice color, converting a color name/`"#rrggbb"` string to a
         # native `0xRRGGBB` int.
-        def color=(c : Int32 | String | Nil) : Int32?
+        def color=(c : Int32 | String?) : Int32?
           @color = c.is_a?(String) ? Colors.convert_cached(c) : c
         end
       end
@@ -107,7 +107,7 @@ module Crysterm
 
       # Assigns the fill color (accepting a color name/`"#rrggbb"` string) and
       # schedules a repaint.
-      def fill_color=(c : Int32 | String | Nil) : Int32?
+      def fill_color=(c : Int32 | String?) : Int32?
         @fill_color = to_color c
         request_render
         @fill_color
@@ -115,7 +115,7 @@ module Crysterm
 
       # Converts a color spec to a native `0xRRGGBB` int (a name/`"#rrggbb"`
       # string via the shared conversion path), or `nil`.
-      private def to_color(c : Int32 | String | Nil) : Int32?
+      private def to_color(c : Int32 | String?) : Int32?
         c.is_a?(String) ? Colors.convert_cached(c) : c
       end
 
@@ -150,7 +150,7 @@ module Crysterm
         @maximum : Number = 100.0,
         @show_label : Bool = true,
         @format : String = "%p%",
-        fill_color : Int32 | String | Nil = nil,
+        fill_color : Int32 | String? = nil,
         @segments : Array(Segment)? = nil,
         **box,
       )

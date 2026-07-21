@@ -47,7 +47,7 @@ module Crysterm
       # raw size and the Int last assigned, restore the raw value before
       # re-reading `aheight`/`awidth`, and release the child once its raw size
       # no longer matches what we assigned — the user reclaimed it.
-      @consume_raw = {} of Widget => (Dim | Int32 | String | Nil)
+      @consume_raw = {} of Widget => (Dim | Int32 | String)?
       @consume_assigned = {} of Widget => Int32
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil

@@ -319,7 +319,7 @@ module Crysterm
 
       # The title of the tab at *index*, or `nil` when out of range (Qt's `tabText`).
       def tab_text(index : Int) : String?
-        return nil if index < 0
+        return if index < 0
         @tab_titles[index]?
       end
 
@@ -362,7 +362,7 @@ module Crysterm
       # returning it — like Qt's `removeTab`. Keeps a valid current tab and
       # emits `Event::ItemRemoved`.
       def remove_tab(index : Int) : Widget?
-        return nil unless 0 <= index < @pages.size
+        return unless 0 <= index < @pages.size
 
         # Removing a *non-current* tab must not switch the visible page (Qt's
         # `removeTab` keeps the current page current) — remember it so it can be

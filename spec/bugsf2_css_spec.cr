@@ -39,7 +39,7 @@ describe "BUGS-F2 #5 sub-element state rule keeps the parent's base rules" do
       screen.stylesheet = <<-CSS
         ProgressBar { background-color: blue; color: white; }
         ProgressBar::indicator:hover { color: red; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # The Hovered state is materialized because a sub-element rule targets it.
@@ -62,7 +62,7 @@ describe "BUGS-F2 #5 sub-element state rule keeps the parent's base rules" do
       screen.stylesheet = <<-CSS
         ProgressBar { background-color: navy; }
         ProgressBar::indicator:focus { color: yellow; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       bar.styles.focused.bg.should eq rgb("navy")
@@ -143,7 +143,7 @@ describe "BUGS-F2 #25 table Row selectors" do
       screen.stylesheet = <<-CSS
         Row { background-color: navy; color: white; }
         Cell:nth-child(1) { color: yellow; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # First-column cell: navy background inherited from the Row rule, yellow
@@ -237,7 +237,7 @@ describe "BUGS-F2 #51 !important on a custom property" do
   it "strips the !important marker from the stored custom-property value" do
     sheet = Crysterm::CSS::Stylesheet.parse <<-CSS
       Button { --accent: red !important; color: var(--accent); }
-    CSS
+      CSS
     sheet.variables["--accent"].should eq "red"
   end
 
@@ -248,7 +248,7 @@ describe "BUGS-F2 #51 !important on a custom property" do
     without_default_theme do
       screen.stylesheet = <<-CSS
         Button { --accent: red !important; color: var(--accent); }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       button.styles.normal.fg.should eq rgb("red")

@@ -58,6 +58,11 @@ module Crysterm
       # *scope* is given, only widgets in that set have their styles recomputed
       # (incremental update); selector matching is still over the whole document
       # so ancestor/sibling context is correct.
+      #
+      # Deliberately one flat resolver walk (the benchmarked cascade hot path);
+      # splitting it to satisfy the metric would spread cascade state across
+      # helpers.
+      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
@@ -438,12 +443,12 @@ module Crysterm
             i += 1
           end
         end
-        return nil if subject_start <= 0 || subject_start >= n
-        return nil unless comb == ' ' || comb == '>'
+        return if subject_start <= 0 || subject_start >= n
+        return unless comb == ' ' || comb == '>'
         compound = selector[subject_start..]
-        return nil unless compound.matches?(SLOT_COMPOUND)
+        return unless compound.matches?(SLOT_COMPOUND)
         prefix = selector[0, prefix_end].strip
-        return nil if prefix.empty?
+        return if prefix.empty?
         {prefix, comb, compound}
       end
 

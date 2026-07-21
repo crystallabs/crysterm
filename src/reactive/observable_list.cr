@@ -147,13 +147,13 @@ module Crysterm
 
       # Removes and returns the last item (`nil` if empty).
       def pop : T?
-        return nil if @array.empty?
+        return if @array.empty?
         delete_at @array.size - 1
       end
 
       # Removes and returns the first item (`nil` if empty).
       def shift : T?
-        return nil if @array.empty?
+        return if @array.empty?
         delete_at 0
       end
 

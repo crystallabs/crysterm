@@ -154,7 +154,7 @@ module Crysterm
       # narrower than its own insets, or a large negative `d*` delta. There is
       # no image to produce, and `Capture.render` would raise an opaque
       # `ArgumentError("empty region")`.
-      return nil if xl <= xi || yl <= yi
+      return if xl <= xi || yl <= yi
 
       fmt = (format || (path ? File.extname(path).lchop('.') : nil)).to_s.downcase
       fmt = "png" if fmt.empty?
@@ -265,6 +265,9 @@ module Crysterm
         spawn { out_ch.try &.send(proc.output.getb_to_end) }
       end
 
+      # Not useless: the only real assignment is inside the `ensure`, and Crystal
+      # requires this initializer for the read after the block to compile.
+      # ameba:disable Lint/UselessAssign
       result = nil
       begin
         yield proc.input

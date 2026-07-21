@@ -64,7 +64,7 @@ module Crysterm
 
         # Paint this frame's color onto `style.bg` and advance one frame.
         def step
-          self.style.bg = color
+          style.bg = color
           @frame += 1
           mark_dirty
         end

@@ -13,16 +13,16 @@ module Crysterm
     # `Colors.convert_cached`, and `Nil` which clears it (no SGR emitted). The
     # getter is declared by each including class.
     macro color_setter(name)
-      def {{name.id}}=(color : Int)
-        @{{name.id}} = color.to_i32
+      def {{ name.id }}=(color : Int)
+        @{{ name.id }} = color.to_i32
       end
 
-      def {{name.id}}=(color : String)
-        @{{name.id}} = Colors.convert_cached(color)
+      def {{ name.id }}=(color : String)
+        @{{ name.id }} = Colors.convert_cached(color)
       end
 
-      def {{name.id}}=(color : Nil)
-        @{{name.id}} = nil
+      def {{ name.id }}=(color : Nil)
+        @{{ name.id }} = nil
       end
     end
 

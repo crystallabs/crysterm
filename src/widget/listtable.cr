@@ -327,7 +327,7 @@ module Crysterm
       # Maps a header-local x offset onto a column index using the cached column
       # widths (`@maxes`). Returns `nil` for a negative offset.
       private def column_at(x : Int32) : Int32?
-        return nil if x < 0
+        return if x < 0
         # Header/rows render from `@first_col`, so a click at relative `x == 0`
         # lands on column `@first_col`, not column 0.
         acc = 0

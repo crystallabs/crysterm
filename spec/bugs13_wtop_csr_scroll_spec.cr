@@ -19,7 +19,7 @@ private def csr_screen
 end
 
 private def row_chars(s, y)
-  s.lines[y].size.times.map { |x| s.lines[y][x].char }.to_a
+  Array.new(s.lines[y].size) { |x| s.lines[y][x].char }
 end
 
 describe "BUGS13 W4: CSR scroll fast path bounds" do

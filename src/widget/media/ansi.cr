@@ -241,13 +241,11 @@ module Crysterm
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
       def self.fetch(url : String) : Bytes
         [{"curl", ["-s", "-A", "", url]}, {"wget", ["-U", "", "-O", "-", url]}].each do |cmd, args|
-          begin
-            io = IO::Memory.new
-            status = Process.run(cmd, args, output: io, error: Process::Redirect::Close)
-            return io.to_slice if status.success?
-          rescue
-            # Try the next downloader.
-          end
+          io = IO::Memory.new
+          status = Process.run(cmd, args, output: io, error: Process::Redirect::Close)
+          return io.to_slice if status.success?
+        rescue
+          # Try the next downloader.
         end
         raise "curl or wget failed."
       end

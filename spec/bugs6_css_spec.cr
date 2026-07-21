@@ -65,7 +65,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
       screen.stylesheet = <<-CSS
         List Box:first-child { color: green; }
         List Box:last-child { color: red; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       list.item_boxes[0].styles.normal.fg.should eq rgb("green") # first-child (forward, always worked)
@@ -83,7 +83,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
       screen.stylesheet = <<-CSS
         List Box:nth-last-child(1) { color: red; }
         List Box:nth-last-child(2) { color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       list.item_boxes[2].styles.normal.fg.should eq rgb("red")   # last
@@ -125,7 +125,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
         Box > Button:first-child { color: green; }
         Box > Button:last-child { color: red; }
         Scrollbar { color: cyan; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       b1.styles.normal.fg.should eq rgb("green")           # forward pseudo unaffected
@@ -207,7 +207,7 @@ describe "BUGS6 @media feature parsing (fix #2)" do
       css = <<-CSS
         Box { color: white; }
         @media (min-width: 80px) { Box { color: green; } }
-      CSS
+        CSS
       narrow.stylesheet = css
       narrow.apply_stylesheet
       wide.stylesheet = css
@@ -228,7 +228,7 @@ describe "BUGS6 @media feature parsing (fix #2)" do
       screen.stylesheet = <<-CSS
         Box { color: white; }
         @media print { Box { color: red; } }
-      CSS
+        CSS
       screen.apply_stylesheet
       box.styles.normal.fg.should eq rgb("white") # print never matches a terminal
     end

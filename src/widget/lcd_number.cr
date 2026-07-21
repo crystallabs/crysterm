@@ -105,7 +105,7 @@ module Crysterm
         m
       end
 
-      def initialize(value : Int | Float | String | Nil = nil, digit_count = 5, mode : Mode = :dec, **box)
+      def initialize(value : Int | Float | String? = nil, digit_count = 5, mode : Mode = :dec, **box)
         @digit_count = digit_count
         @mode = mode
 

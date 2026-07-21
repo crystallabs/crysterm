@@ -596,9 +596,9 @@ module Crysterm
       # background, or its foreground when the background is the terminal
       # default; `nil` when neither carries a concrete color.
       private def screen_color_at(x : Int32, y : Int32) : String?
-        scr = window? || return nil
-        line = scr.lines[y]? || return nil
-        cell = line[x]? || return nil
+        scr = window? || return
+        line = scr.lines[y]? || return
+        cell = line[x]? || return
         {Crysterm::Attr.bg(cell.attr), Crysterm::Attr.fg(cell.attr)}.each do |field|
           next if Crysterm::Attr.default? field
           rgb = Crysterm::Attr.unpack_color field

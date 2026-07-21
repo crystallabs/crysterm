@@ -136,7 +136,7 @@ module Crysterm
         # inset by both padding *and* border (the base `with_inner_coords` insets
         # by border only), or `nil` when the widget isn't positioned yet.
         private def interior_coords : Tuple(Int32, Int32, Int32, Int32)?
-          lp = @lpos || return nil
+          lp = @lpos || return
           {lp.xi + ileft, lp.xl - iright, lp.yi + itop, lp.yl - ibottom}
         end
       end
@@ -165,10 +165,10 @@ module Crysterm
         # A getter plus a setter that also bumps the content-cache version, so a
         # decoration change invalidates the per-frame build cache.
         macro chart_prop(name, type)
-          getter {{name.id}} : {{type}}
+          getter {{ name.id }} : {{ type }}
 
-          def {{name.id}}=(value : {{type}})
-            @{{name.id}} = value
+          def {{ name.id }}=(value : {{ type }})
+            @{{ name.id }} = value
             bump_data_version
             # A decoration change alters the built content; `mark_dirty` both
             # registers damage and schedules a frame, so the chart actually

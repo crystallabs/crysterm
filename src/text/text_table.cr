@@ -50,7 +50,7 @@ module Crysterm
 
     # The trimmed text of cell (*row*, *column*), or nil when out of range.
     def cell_text(row : Int32, column : Int32) : String?
-      b = row_block(row) || return nil
+      b = row_block(row) || return
       TextTable.split_data_row(b.text)[column]?
     end
 
@@ -62,8 +62,8 @@ module Crysterm
     # glyph snaps to the cell left of it.
     def cell_at(pos : Int32) : {Int32, Int32}?
       bi, off = document.block_at(pos)
-      b = document.blocks[bi]? || return nil
-      return nil unless member?(b) && TextTable.data_row?(b.text)
+      b = document.blocks[bi]? || return
+      return unless member?(b) && TextTable.data_row?(b.text)
       row = nil
       data_row_indexed.each_with_index do |(i, _), r|
         if i == bi
@@ -71,9 +71,9 @@ module Crysterm
           break
         end
       end
-      return nil unless row
+      return unless row
       bars = bar_positions(b.text)
-      return nil if bars.size < 2
+      return if bars.size < 2
       col = (bars.count { |bp| bp < off } - 1).clamp(0, bars.size - 2)
       {row, col.clamp(0, columns - 1)}
     end
@@ -82,14 +82,14 @@ module Crysterm
     # when out of range. Empty for an empty cell (a caret can still sit
     # there); alignment padding around the text is excluded.
     def cell_text_range(row : Int32, column : Int32) : Range(Int32, Int32)?
-      entry = data_row_indexed[row]? || return nil
+      entry = data_row_indexed[row]? || return
       bi, b = entry
       text = b.text
       bars = bar_positions(text)
-      return nil unless column + 1 < bars.size
+      return unless column + 1 < bars.size
       inner_lo = bars[column] + 2     # past the bar and its pad space
       inner_hi = bars[column + 1] - 1 # exclusive; before the trailing pad
-      return nil if inner_hi < inner_lo
+      return if inner_hi < inner_lo
       raw = text[inner_lo, inner_hi - inner_lo]
       lead = 0
       while lead < raw.size && raw[lead] == ' '
@@ -108,7 +108,7 @@ module Crysterm
     # A cursor at the start of cell (*row*, *column*)'s text (Qt
     # `cellAt(...).firstCursorPosition()`), or nil when out of range.
     def cell_cursor(row : Int32, column : Int32) : TextCursor?
-      r = cell_text_range(row, column) || return nil
+      r = cell_text_range(row, column) || return
       TextCursor.new(document, r.begin)
     end
 
@@ -330,12 +330,12 @@ module Crysterm
     # Builds the pre-rendered blocks for a GFM table text. Returns nil when
     # *text* isn't one.
     def self.build_from_gfm(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)?
-      return nil unless gfm_table?(text)
+      return unless gfm_table?(text)
       rows = text.lines.map(&.strip).reject(&.empty?)
       header = split_gfm_row(rows[0])
       alignments = split_gfm_row(rows[1]).map { |c| gfm_align(c) }
       body = rows[2..]?.try(&.map { |r| split_gfm_row(r) }) || [] of Array(String)
-      return nil if header.empty?
+      return if header.empty?
       build(header, body, alignments, theme)
     end
 

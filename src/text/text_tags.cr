@@ -89,7 +89,7 @@ module Crysterm
     end
 
     private def self.align_name(a : Tput::AlignFlag?) : String?
-      return nil unless a
+      return unless a
       return "center" if a.h_center?
       return "right" if a.right?
       return "left" if a.left?

@@ -144,7 +144,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   it "width= : a Resize listener sees the NEW width" do
     s = f1_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
-    seen = nil.as(Int32 | String | Nil)
+    seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Resize) { seen = box.width }
     box.width = 25
     seen.should eq 25
@@ -153,7 +153,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   it "height= : a Resize listener sees the NEW height" do
     s = f1_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
-    seen = nil.as(Int32 | String | Nil)
+    seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Resize) { seen = box.height }
     box.height = 9
     seen.should eq 9
@@ -171,7 +171,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   it "left= : a Move listener sees the NEW left" do
     s = f1_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
-    seen = nil.as(Int32 | String | Nil)
+    seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Move) { seen = box.left }
     box.left = 7
     seen.should eq 7
@@ -180,7 +180,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   it "top= : a Move listener sees the NEW top" do
     s = f1_screen
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
-    seen = nil.as(Int32 | String | Nil)
+    seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Move) { seen = box.top }
     box.top = 3
     seen.should eq 3

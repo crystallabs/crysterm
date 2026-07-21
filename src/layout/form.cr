@@ -75,7 +75,7 @@ module Crysterm
       # and make the shared pair-row max sticky. Remember each child's raw height
       # and the Int last assigned, restore the raw value before re-measuring, and
       # release a child whose raw height the user changed.
-      @raw_height = {} of Widget => (Dim | Int32 | String | Nil)
+      @raw_height = {} of Widget => (Dim | Int32 | String)?
       @assigned = {} of Widget => Int32
 
       # Placing a child likewise writes the resolved column width back over its
@@ -85,7 +85,7 @@ module Crysterm
       # explicit width. Same raw/assigned bookkeeping as height, but restored
       # *before* the placement loop: label widths are read up front by
       # `label_column_width`, so restoring inside the loop would be too late.
-      @raw_width = {} of Widget => (Dim | Int32 | String | Nil)
+      @raw_width = {} of Widget => (Dim | Int32 | String)?
       @assigned_width = {} of Widget => Int32
 
       def initialize(@label_width : Int32? = nil, @horizontal_spacing : Int32 = 1, @vertical_spacing : Int32 = 0)

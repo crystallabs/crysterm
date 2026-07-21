@@ -340,7 +340,7 @@ module Crysterm
     # neighbour. `#rendered?` is defined in terms of this, so the two agree.
     @[AlwaysInline]
     protected def rendered_geometry(el : Widget) : RenderedGeometry?
-      return nil unless l = el.lpos
+      return unless l = el.lpos
       (l.width > 0) && (l.height > 0) ? l : nil
     end
 

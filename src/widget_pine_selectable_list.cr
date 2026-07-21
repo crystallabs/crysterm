@@ -58,18 +58,18 @@ module Crysterm
         # `record_accessors folders, folder, Folder` generates `#folders`,
         # `#folders=` and `#selected_folder`.
         macro record_accessors(plural, singular, type)
-          # The {{plural.id}} currently displayed, parallel to the list rows.
-          def {{plural.id}} : Array({{type}})
+          # The {{ plural.id }} currently displayed, parallel to the list rows.
+          def {{ plural.id }} : Array({{ type }})
             records
           end
 
-          # Replaces the displayed {{plural.id}}.
-          def {{plural.id}}=({{plural.id}} : Array({{type}}))
-            self.records = {{plural.id}}
+          # Replaces the displayed {{ plural.id }}.
+          def {{ plural.id }}=({{ plural.id }} : Array({{ type }}))
+            self.records = {{ plural.id }}
           end
 
-          # The currently-selected {{singular.id}}, if any.
-          def selected_{{singular.id}} : {{type}}?
+          # The currently-selected {{ singular.id }}, if any.
+          def selected_{{ singular.id }} : {{ type }}?
             selected_record
           end
         end

@@ -102,14 +102,12 @@ describe Crysterm::Glyphs do
   end
 
   it "accepts both Char and String overrides via set" do
-    begin
-      Glyphs.set Glyphs::Role::IconWarning, extended: "⚠️" # String
-      Glyphs.str(Glyphs::Role::IconWarning, Glyphs::Tier::Extended).should eq "⚠️"
-      Glyphs.set Glyphs::Role::IconWarning, unicode: '!' # Char still works
-      Glyphs[Glyphs::Role::IconWarning, Glyphs::Tier::Unicode].should eq '!'
-    ensure
-      Glyphs.reset
-    end
+    Glyphs.set Glyphs::Role::IconWarning, extended: "⚠️" # String
+    Glyphs.str(Glyphs::Role::IconWarning, Glyphs::Tier::Extended).should eq "⚠️"
+    Glyphs.set Glyphs::Role::IconWarning, unicode: '!' # Char still works
+    Glyphs[Glyphs::Role::IconWarning, Glyphs::Tier::Unicode].should eq '!'
+  ensure
+    Glyphs.reset
   end
 
   it "retunes roles via set and restores via reset, bumping the generation" do

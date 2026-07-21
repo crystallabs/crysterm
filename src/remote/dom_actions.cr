@@ -104,8 +104,6 @@ module Crysterm
       when "select", "change"
         h = widget.on(::Crysterm::Event::ItemSelected) { |e| block.call event_name, e.index.to_s }
         -> { widget.off(::Crysterm::Event::ItemSelected, h); nil }
-      else
-        nil
       end
     end
 

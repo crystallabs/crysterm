@@ -119,7 +119,7 @@ module Crysterm
     # right place to learn about a typo, not a 0-resolved frame), and a
     # `Symbol` maps `:center` (and, for sizes, `:half`). *size* selects the
     # size-context alias (`"half"`) over the position one (`"center"`).
-    def self.from(value : Dim | Int32 | String | Symbol | Nil, size : Bool = false) : Dim | Int32 | Nil
+    def self.from(value : Dim | Int32 | String | Symbol?, size : Bool = false) : Dim | Int32?
       case value
       in Int32, Nil then value
       in Dim
@@ -162,7 +162,7 @@ module Crysterm
       # values; parsing happens once, at assignment, unlike the historical
       # per-frame resolve.
       if (str.includes?('v') || str.includes?('V')) && (m = str.strip.match(VIEWPORT_RE))
-        pct = m[1].to_f? || return nil
+        pct = m[1].to_f? || return
         axis = case m[2].downcase
                when "vw"   then ViewportAxis::Width
                when "vh"   then ViewportAxis::Height
@@ -178,7 +178,7 @@ module Crysterm
       if str == aliased
         return center_like size
       elsif str.starts_with?(aliased) && (c = str[aliased.size]?) && (c == '+' || c == '-')
-        off = parse_offset(str, aliased.size + 1) || return nil
+        off = parse_offset(str, aliased.size + 1) || return
         return center_like size, (c == '-' ? -off : off)
       end
 
@@ -194,12 +194,12 @@ module Crysterm
         i += 1
       end
       pct_end = sep == -1 ? str.bytesize - 1 : sep - 1 # index of the '%'
-      return nil unless pct_end > 0 && str.to_slice.unsafe_fetch(pct_end) == '%'.ord
+      return unless pct_end > 0 && str.to_slice.unsafe_fetch(pct_end) == '%'.ord
 
-      pct = parse_percent_number(str, pct_end) || return nil
+      pct = parse_percent_number(str, pct_end) || return
       off = 0
       if sep != -1
-        off = parse_offset(str, sep + 1) || return nil
+        off = parse_offset(str, sep + 1) || return
         off = -off if str.to_slice.unsafe_fetch(sep) == '-'.ord
       end
       percent pct, off
@@ -217,7 +217,7 @@ module Crysterm
         return v
       end
       bytes = s.to_slice
-      return nil if bytes.empty?
+      return if bytes.empty?
       i = 0
       neg = false
       b0 = bytes.unsafe_fetch(0)
@@ -236,11 +236,11 @@ module Crysterm
         elsif '0'.ord <= b <= '9'.ord
           digits = true
         else
-          return nil
+          return
         end
         i += 1
       end
-      return nil unless digits
+      return unless digits
       neg ? -Float64::INFINITY : Float64::INFINITY
     end
 
@@ -254,12 +254,12 @@ module Crysterm
     # empty or non-digit (the historical parsers treated those as malformed).
     private def self.parse_offset(str : String, from : Int32) : Int32?
       bytes = str.to_slice
-      return nil if from >= bytes.size
+      return if from >= bytes.size
       off = 0
       j = from
       while j < bytes.size
         b = bytes.unsafe_fetch(j)
-        return nil unless '0'.ord <= b <= '9'.ord
+        return unless '0'.ord <= b <= '9'.ord
         # Clamp the accumulator so a pathological (≥10-digit) offset can't
         # overflow Int32 (mirrors the historical resolver).
         off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off

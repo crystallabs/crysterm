@@ -75,11 +75,11 @@ module Crysterm
         # other needles (none in the mixin today) fall back to a scan.
         def buf_index(ch : Char, from : Int32) : Int32?
           size = buf_size
-          return nil if from >= size
+          return if from >= size
           from = Math.max(from, 0)
           if ch == '\n'
             bi, _ = document.block_at(from)
-            return nil if bi >= document.block_count - 1
+            return if bi >= document.block_count - 1
             document.block_position(bi) + document.blocks[bi].size
           else
             (from...size).each do |i|
@@ -90,9 +90,9 @@ module Crysterm
         end
 
         def buf_rindex(ch : Char, from : Int32) : Int32?
-          return nil if from < 0
+          return if from < 0
           from = Math.min(from, buf_size - 1)
-          return nil if from < 0
+          return if from < 0
           if ch == '\n'
             bi, off = document.block_at(from)
             # `from` sitting exactly on a separator matches it (inclusive

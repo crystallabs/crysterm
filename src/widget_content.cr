@@ -1025,10 +1025,10 @@ module Crysterm
       # `cline` carry the same delimiters (at different indices); widths are
       # measured on the SGR-stripped `cline`, output taken from `line`.
       cb1 = brace_after(cline, 0)
-      return nil unless cb1
+      return unless cb1
       cb2 = brace_after(cline, cb1 + 1)
       # No second brace -> `split` yields no parts[2].
-      return nil unless cb2
+      return unless cb2
       cb3 = brace_after(cline, cb2 + 1)
       cpart0 = cline[0...cb1]
       cpart2 = cline[(cb2 + 1)...(cb3 || cline.size)]
@@ -1036,7 +1036,7 @@ module Crysterm
       lb1 = brace_after(line, 0)
       lb2 = lb1 ? brace_after(line, lb1 + 1) : nil
       # `line` shares `cline`'s brace count, so both are present here.
-      return nil unless lb1 && lb2
+      return unless lb1 && lb2
       lb3 = brace_after(line, lb2 + 1)
       lpart0 = line[0...lb1]
       lpart2 = line[(lb2 + 1)...(lb3 || line.size)]
@@ -1574,7 +1574,7 @@ module Crysterm
     def glyph?(role : Glyphs::Role, slot : ::Crysterm::Style?) : Char?
       tier = glyph_tier
       if slot && (s = slot.glyph_for(tier))
-        return nil if s == Glyphs::NONE_STR
+        return if s == Glyphs::NONE_STR
         return s[0] if s.size == 1
         # Multi-codepoint override: not representable as a lone cell `Char`.
       end
@@ -1598,7 +1598,7 @@ module Crysterm
     def glyph_str?(role : Glyphs::Role, slot : ::Crysterm::Style?) : String?
       tier = glyph_tier
       if slot && (s = slot.glyph_for(tier))
-        return nil if s == Glyphs::NONE_STR
+        return if s == Glyphs::NONE_STR
         return s
       end
       Glyphs.str(role, tier)
@@ -1626,10 +1626,10 @@ module Crysterm
     # would corrupt the grid. A run role tolerates a single wide char (an emoji
     # affordance). Width is checked only on this rare styled path.
     private def usable_cell_glyph(s : String, role : Glyphs::Role) : Char?
-      return nil if s == Glyphs::NONE_STR
-      return nil unless s.size == 1
+      return if s == Glyphs::NONE_STR
+      return unless s.size == 1
       c = s[0]
-      return nil if role.cell? && Unicode.width(c) != 1
+      return if role.cell? && Unicode.width(c) != 1
       c
     end
 
@@ -1780,11 +1780,11 @@ module Crysterm
         when '\e'
           # Need the `[` immediately after the `\e` (i.e. at `k + 1`).
           return k if k + 1 < mi && line[k + 1] == '['
-          return nil
+          return
         when '[', ';', '0'..'9'
           k -= 1
         else
-          return nil
+          return
         end
       end
       nil
@@ -1929,7 +1929,7 @@ module Crysterm
     # `chars` array — neither calls `String#[]?`/`String#size`.
     @[AlwaysInline]
     def []?(i : Int) : Char?
-      return nil if i < 0 || i >= @size
+      return if i < 0 || i >= @size
       if bytes = @bytes
         bytes.unsafe_fetch(i).unsafe_chr
       else
@@ -1938,7 +1938,7 @@ module Crysterm
     end
 
     def [](i : Int) : Char?
-      return nil if i < 0
+      return if i < 0
       raise IndexError.new if i >= @size
       if bytes = @bytes
         bytes.unsafe_fetch(i).unsafe_chr

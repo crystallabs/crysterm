@@ -564,7 +564,7 @@ module Crysterm
       # edge semantics live once. A class method so a widget that doesn't include
       # this module can reuse it.
       def self.nearest_selectable(size : Int32, from : Int32, dir : Int32, & : Int32 -> Bool) : Int32?
-        return nil if size == 0
+        return if size == 0
         i = from.clamp(0, size - 1)
         size.times do
           break unless yield i
@@ -579,7 +579,7 @@ module Crysterm
           while (j -= dir) >= 0 && j < size
             return j unless yield j
           end
-          return nil
+          return
         end
         i
       end

@@ -144,7 +144,7 @@ module Crysterm
       # default, so the wide form is opt-in via CSS, never forced.
       private def marker_piece(css : String?, role : Glyphs::Role, tier : Glyphs::Tier) : String?
         if s = css
-          return nil if s == Glyphs::NONE_STR
+          return if s == Glyphs::NONE_STR
           return s
         end
         Glyphs[role, tier].to_s
@@ -165,7 +165,7 @@ module Crysterm
       protected def on_focusin(e : ::Crysterm::Event::FocusIn)
         return unless lpos = @lpos
         window?.try do |s|
-          s.tput.lsave_cursor self.hash
+          s.tput.lsave_cursor hash
           # `+ render_row_offset` keeps the marker cursor in the rendered region
           # for an inline window (no-op at offset 0). The mark cell sits
           # `@_mark_offset` columns in (0 when the open delimiter is `none`-d away).
@@ -175,7 +175,7 @@ module Crysterm
 
       protected def on_focusout(e : ::Crysterm::Event::FocusOut)
         window?.try do |s|
-          s.tput.lrestore_cursor self.hash, true
+          s.tput.lrestore_cursor hash, true
         end
       end
     end

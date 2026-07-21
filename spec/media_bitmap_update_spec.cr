@@ -25,8 +25,8 @@ end
 
 # Extract the in-band sixel payload (DCS … ST) from emitted terminal bytes.
 private def sixel_of(bytes : String) : String?
-  start = bytes.index("\eP") || return nil
-  fin = bytes.index("\e\\", start) || return nil
+  start = bytes.index("\eP") || return
+  fin = bytes.index("\e\\", start) || return
   bytes[start..(fin + 1)]
 end
 

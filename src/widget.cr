@@ -285,7 +285,7 @@ module Crysterm
     # `QWidget::geometry()`. `nil` before the widget has a rendered position
     # (see `#lpos`).
     def geometry : Rectangle?
-      lp = @lpos || return nil
+      lp = @lpos || return
       Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
     end
 
@@ -350,20 +350,20 @@ module Crysterm
       @name = @name,
       window : ::Crysterm::Window? = nil,
 
-      left : Dim | Int32 | String | Symbol | Nil = @left,
-      top : Dim | Int32 | String | Symbol | Nil = @top,
-      right : Dim | Int32 | String | Symbol | Nil = @right,
-      bottom : Dim | Int32 | String | Symbol | Nil = @bottom,
-      width : Dim | Int32 | String | Symbol | Nil = @width,
-      height : Dim | Int32 | String | Symbol | Nil = @height,
+      left : Dim | Int32 | String | Symbol? = @left,
+      top : Dim | Int32 | String | Symbol? = @top,
+      right : Dim | Int32 | String | Symbol? = @right,
+      bottom : Dim | Int32 | String | Symbol? = @bottom,
+      width : Dim | Int32 | String | Symbol? = @width,
+      height : Dim | Int32 | String | Symbol? = @height,
       @shrink_to_fit = @shrink_to_fit,
 
       visible = nil,
       @fixed = @fixed,
       align : Tput::AlignFlag | Shorthands = @align,
-      overflow : Overflow | Shorthands | Nil = @overflow,
+      overflow : Overflow | Shorthands? = @overflow,
       @layout = @layout,
-      layout_hint : Crysterm::Layout::Hint | Shorthands | Nil = @layout_hint,
+      layout_hint : Crysterm::Layout::Hint | Shorthands? = @layout_hint,
 
       scrollbar : Bool? = nil,
       @scrollbar_policy = @scrollbar_policy,

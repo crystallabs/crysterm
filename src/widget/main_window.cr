@@ -80,9 +80,9 @@ module Crysterm
       # occupant, stores and appends the new widget, and returns it. `nil`
       # clears the slot, so a bar can be taken away again.
       private macro def_slot_setter(name, type)
-        def {{name.id}}=(w : {{type.id}}?) : {{type.id}}?
-          @{{name.id}}.try &.remove_from_parent
-          @{{name.id}} = w
+        def {{ name.id }}=(w : {{ type.id }}?) : {{ type.id }}?
+          @{{ name.id }}.try &.remove_from_parent
+          @{{ name.id }} = w
           append w if w
           w
         end

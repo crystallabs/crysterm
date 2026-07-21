@@ -10,10 +10,10 @@ module Crysterm
     # (`Int32`), a `Dim` (`Dim.percent(50)`), `:half`, or the string micro-DSL
     # (`"50%"`, `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once,
     # at assignment (malformed raises `ArgumentError` there); `nil` stretches.
-    getter width : Dim | Int32 | String | Nil
+    getter width : Dim | Int32 | String?
 
     # User-defined height (setter is defined below); forms as for `#width`.
-    getter height : Dim | Int32 | String | Nil
+    getter height : Dim | Int32 | String?
 
     # Whether the widget sizes itself to its content and children rather than to
     # its slot — roughly CSS `width: fit-content`. Only the dimensions the user
@@ -29,11 +29,11 @@ module Crysterm
     # `Resize`. The assign lands *before* the emit so in-tree Resize listeners
     # observe the new size, not the old one.
     {% for dim in %w[width height] %}
-      # Sets widget's total {{dim.id}}
-      def {{dim.id}}=(val : Dim | Int32 | String | Symbol | Nil)
+      # Sets widget's total {{ dim.id }}
+      def {{ dim.id }}=(val : Dim | Int32 | String | Symbol | Nil)
         val = Dim.from val, size: true
-        return if @{{dim.id}} == val
-        @{{dim.id}} = val
+        return if @{{ dim.id }} == val
+        @{{ dim.id }} = val
         mark_dirty
         emit ::Crysterm::Event::Resize
       end
@@ -58,7 +58,7 @@ module Crysterm
     # so they emit `Resize` too, or its listeners go stale. Assign-before-emit, so
     # those listeners see the new constraint.
     {% for dim in %w[min_width max_width min_height max_height] %}
-      change_guarded_setter {{dim.id}}, Resize, Int32?
+      change_guarded_setter {{ dim.id }}, Resize, Int32?
     {% end %}
 
     # Clamps a computed dimension to `[min, max]`. `max` is applied before `min`

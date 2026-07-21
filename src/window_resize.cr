@@ -64,7 +64,7 @@ module Crysterm
         tput._ncoords
         emit ::Crysterm::Event::Resize.new ::Tput::Namespace::Size.new(cols, rows)
       else
-        self.tput.reset_screen_size
+        tput.reset_screen_size
         # Pick up a changed cell pixel size (e.g. font/zoom change) via the
         # ioctl; safe here since it does no escape-sequence round-trip.
         @screen.refresh_cell_geometry

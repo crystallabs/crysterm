@@ -466,9 +466,9 @@ module Crysterm
       end
 
       {% for m in %w[shift alt ctrl super hyper meta] %}
-        # Whether the {{m.id}} modifier was held.
-        def {{m.id}}? : Bool
-          !!@key_event.try(&.{{m.id}}?)
+        # Whether the {{ m.id }} modifier was held.
+        def {{ m.id }}? : Bool
+          !!@key_event.try(&.{{ m.id }}?)
         end
       {% end %}
     end
@@ -488,8 +488,8 @@ module Crysterm
       # than to every keypress.
       KEYS = {} of ::Tput::Key => self.class
       {% for m in ::Tput::Key.constants %}
-        class {{m.id}} < self; end
-        KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}
+        class {{ m.id }} < self; end
+        KEYS[ ::Tput::Key::{{ m.id }} ] = {{ m.id }}
       {% end %}
     end
 

@@ -167,7 +167,7 @@ module Crysterm
         # `touch` at half the lookups. LRU must promote on a hit — and so must
         # tell a cached `nil` from absence — and keeps the two-step path.
         if @lru
-          return nil unless @store.has_key? key
+          return unless @store.has_key? key
           touch key
         else
           @store[key]?

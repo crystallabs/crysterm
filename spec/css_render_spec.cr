@@ -184,7 +184,7 @@ describe "CSS end-to-end rendering" do
     screen.stylesheet = <<-CSS
       Box { background-color: #0000ff; }
       .hot { background-color: #00ff00; }
-    CSS
+      CSS
     screen.repaint
     cell_bg(screen, 2, 3).should eq 0x0000ff
 

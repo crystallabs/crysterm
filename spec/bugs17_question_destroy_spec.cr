@@ -102,7 +102,7 @@ describe "BUGS17 B17-17: Question#ask_choices tears down its accelerator on dest
   it "destroy while an ask_choices is pending leaves no stale window handler" do
     w = b17_window
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
-    picked = :unset.as(Symbol | Int32 | Nil)
+    picked = :unset.as(Symbol | Int32?)
     q.ask_choices("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }
 
     q.destroy

@@ -60,7 +60,7 @@ module Crysterm
       # eager `#decode` and streaming `Stream.open`.
       # :nodoc:
       def resolve_geometry(file : String, cap : Int32, max_fps : Float64) : Tuple(Int32, Int32, Float64)?
-        info = probe(file) || return nil
+        info = probe(file) || return
         w, h = cap_size info.width, info.height, cap
         fps = sample_fps info.fps, max_fps
         {w, h, fps}
@@ -72,9 +72,9 @@ module Crysterm
       def decode(file : String,
                  cap : Int32 = Crysterm::Config.video_max_size,
                  max_fps : Float64 = Crysterm::Config.video_fps) : PNGGIF::PNG?
-        w, h, fps = resolve_geometry(file, cap, max_fps) || return nil
+        w, h, fps = resolve_geometry(file, cap, max_fps) || return
         frames = read_frames file, w, h, fps, Crysterm::Config.video_max_frames
-        return nil if frames.nil? || frames.empty?
+        return if frames.nil? || frames.empty?
         delay = frame_delay fps
         PNGGIF::PNG.from_frames frames.map { |bmp| {bmp, delay} }, w, h, num_plays: 0
       rescue
@@ -115,7 +115,7 @@ module Crysterm
         def self.open(file : String,
                       cap : Int32 = Crysterm::Config.video_max_size,
                       max_fps : Float64 = Crysterm::Config.video_fps) : Stream?
-          w, h, fps = VideoSource.resolve_geometry(file, cap, max_fps) || return nil
+          w, h, fps = VideoSource.resolve_geometry(file, cap, max_fps) || return
           new file, w, h, fps
         rescue
           nil
@@ -190,8 +190,8 @@ module Crysterm
         end
 
         private def read_one : PNGGIF::Bitmap?
-          pr = @process || return nil
-          return nil unless VideoSource.read_full(pr.output, @buf)
+          pr = @process || return
+          return unless VideoSource.read_full(pr.output, @buf)
           read_ppong
         rescue
           nil
@@ -222,7 +222,7 @@ module Crysterm
       # Estimates the total frame count via ffprobe (nb_frames, else
       # duration × fps), or `nil` when unknown.
       def estimate_frames(file : String) : Int32?
-        fields = ffprobe_fields(file, "nb_frames,avg_frame_rate,duration") || return nil
+        fields = ffprobe_fields(file, "nb_frames,avg_frame_rate,duration") || return
         nb = fields["nb_frames"]?.try(&.to_i?) || 0
         return nb if nb > 0
         dur = fields["duration"]?.try(&.to_f?) || 0.0
@@ -260,10 +260,10 @@ module Crysterm
       # ffprobe is missing or the file has no usable video stream.
       # :nodoc:
       def probe(file : String) : Info?
-        fields = ffprobe_fields(file, "width,height,avg_frame_rate") || return nil
+        fields = ffprobe_fields(file, "width,height,avg_frame_rate") || return
         w = fields["width"]?.try(&.to_i?) || 0
         h = fields["height"]?.try(&.to_i?) || 0
-        return nil if w <= 0 || h <= 0
+        return if w <= 0 || h <= 0
         Info.new w, h, parse_frame_rate(fields["avg_frame_rate"]?)
       rescue
         nil
@@ -280,7 +280,7 @@ module Crysterm
           "-show_entries", "stream=#{entries}",
           "-of", "default=noprint_wrappers=1:nokey=0", file,
         ], output: stdout, error: Process::Redirect::Close)
-        return nil unless status.success?
+        return unless status.success?
         fields = {} of String => String
         stdout.to_s.each_line do |line|
           key, _, val = line.partition('=')

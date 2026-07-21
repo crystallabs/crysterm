@@ -93,12 +93,12 @@ module Crysterm
     # those mix the *rendered* and *live* geometry bases (`aleft(true)` reads the
     # last frame, bare `awidth` recomputes now), which disagree mid-resize.
     def contents_rect : Rectangle?
-      lp = @lpos || return nil
+      lp = @lpos || return
       xi = lp.xi + ileft
       xl = lp.xl - iright
       yi = lp.yi + itop
       yl = lp.yl - ibottom
-      return nil if xl <= xi || yl <= yi
+      return if xl <= xi || yl <= yi
       Rectangle.of_edges xi, yi, xl, yl
     end
 
@@ -106,9 +106,9 @@ module Crysterm
     # applied to the resolved rectangle in `#coords`.
 
     {% for side in %w[left top right bottom] %}
-      # Margin offset on the {{side.id}} side
-      def m{{side.id}} : Int32
-        style.margin.{{side.id}}
+      # Margin offset on the {{ side.id }} side
+      def m{{ side.id }} : Int32
+        style.margin.{{ side.id }}
       end
     {% end %}
 

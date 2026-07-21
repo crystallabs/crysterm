@@ -116,7 +116,7 @@ module Crysterm
     # Recursively constructs the widget for one element node and its subtree.
     private def self.build(node : HTML5::Node, window : ::Crysterm::Window) : ::Crysterm::Widget?
       type = node.data.lchop("w-")
-      return nil unless factory = registry[type]?
+      return unless factory = registry[type]?
       widget = factory.call(window)
       # Attribute replay order is load-bearing, since `dom_apply` routes through
       # real setters:

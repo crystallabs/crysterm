@@ -31,7 +31,7 @@ module Crysterm
       # box. iTerm2 draws at the cursor, so the pixel origin is irrelevant.
       protected def build_payload(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
-        bytes = raw_bytes || return nil
+        bytes = raw_bytes || return
         b64 = Base64.strict_encode bytes
         # iTerm2 letterboxes within the width×height cell box when
         # preserveAspectRatio=1; Stretch wants it off. Cover/crop isn't

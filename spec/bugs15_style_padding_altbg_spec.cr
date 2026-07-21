@@ -157,9 +157,9 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
     # The color matches only the parent (id selector), so it must INHERIT down
     # to the Table and its alternate rows; the Table rule sets only the bg.
     screen.stylesheet = <<-CSS
-    #wrap { color: #ff0000; }
-    Table { alternate-background-color: #333333; }
-    CSS
+      #wrap { color: #ff0000; }
+      Table { alternate-background-color: #333333; }
+      CSS
     screen.repaint
 
     count_cells_fg_bg(screen, 0xff0000, 0x333333).should be > 0

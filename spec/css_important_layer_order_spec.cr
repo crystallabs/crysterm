@@ -23,7 +23,7 @@ describe "CSS !important @layer ordering" do
       @layer base, theme;
       @layer theme { Box { color: green !important; } }
       @layer base  { Box { color: red !important; } }
-    CSS
+      CSS
     screen.apply_stylesheet
     # `base` is declared before `theme`; for !important the earlier layer wins
     # (reverse of the normal-declaration case).
@@ -38,7 +38,7 @@ describe "CSS !important @layer ordering" do
     screen.stylesheet = <<-CSS
       @layer theme { Box { color: green !important; } }
       Box { color: orange !important; }
-    CSS
+      CSS
     screen.apply_stylesheet
     # Unlayered important is lowest priority, so layered `theme` wins — the
     # mirror image of unlayered normal declarations, which beat every layer.

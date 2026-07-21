@@ -62,9 +62,9 @@ module Crysterm
       # re-cascades so `[<name>]` starts/stops matching, and repaints. The flag
       # itself is still declared with its own `getter?`/default in each widget.
       private macro css_toggle_setter(name)
-        def {{name.id}}=(value : Bool) : Bool
-          return value if value == @{{name.id}}
-          @{{name.id}} = value
+        def {{ name.id }}=(value : Bool) : Bool
+          return value if value == @{{ name.id }}
+          @{{ name.id }} = value
           invalidate_css
           request_render
           value

@@ -22,7 +22,6 @@ module Crysterm
     module Style
       # Current state of Widget
 
-      # ameba:disable Lint/UselessAssign
       Crystallabs::Helpers::Enums.enum_property state : WidgetState = WidgetState::Normal
 
       # Re-wraps the generated `state=` setters so a state transition invalidates
@@ -321,7 +320,6 @@ module Crysterm
         case value
         when true       then {1, 1, 1, 1}
         when false, nil then {0, 0, 0, 0}
-        else                 nil
         end
       end
 

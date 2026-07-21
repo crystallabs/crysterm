@@ -943,11 +943,11 @@ module Crysterm
         flags = Attr.flags(attr)
         mask = fmt.attr_mask
         {% for a, flag in {bold: "BOLD", italic: "ITALIC", underline: "UNDERLINE", strike: "STRIKE", inverse: "REVERSE", blink: "BLINK"} %}
-          if mask.{{a.id}}?
-            if fmt.{{a.id}}?
-              flags |= Attr::{{flag.id}}
+          if mask.{{ a.id }}?
+            if fmt.{{ a.id }}?
+              flags |= Attr::{{ flag.id }}
             else
-              flags &= ~Attr::{{flag.id}}.to_i64
+              flags &= ~Attr::{{ flag.id }}.to_i64
             end
           end
         {% end %}
@@ -1137,7 +1137,7 @@ module Crysterm
       # The table the caret's block belongs to, or nil.
       private def caret_table : TextTable?
         bi, _ = document.block_at(@cursor_pos)
-        tf = document.blocks[bi].block_format.table_format || return nil
+        tf = document.blocks[bi].block_format.table_format || return
         TextTable.new(document, tf)
       end
 
@@ -1277,22 +1277,22 @@ module Crysterm
       # at the end). The document's `ContentsChanged` drives relayout, so no
       # display work happens here. ===
 
-      {% for f in %w(tags markdown html) %}
-        # Replaces the content from {{f.id}} markup.
-        def set_{{f.id}}(str : String) : Nil
-          document.set_{{f.id}}(str)
+      {% for f in %w[tags markdown html] %}
+        # Replaces the content from {{ f.id }} markup.
+        def set_{{ f.id }}(str : String) : Nil
+          document.set_{{ f.id }}(str)
           interchange_reset_caret
         end
 
         # :ditto:
-        def {{f.id}}=(str : String) : String
-          set_{{f.id}}(str)
+        def {{ f.id }}=(str : String) : String
+          set_{{ f.id }}(str)
           str
         end
 
-        # The content as {{f.id}} markup.
-        def to_{{f.id}} : String
-          document.to_{{f.id}}
+        # The content as {{ f.id }} markup.
+        def to_{{ f.id }} : String
+          document.to_{{ f.id }}
         end
       {% end %}
 

@@ -164,7 +164,7 @@ module Crysterm
       # unstyled floor, `#style` returns a transient reverse-video `#dup` for small
       # focused/selected controls (`Button`, `CheckBox`, `RadioButton`), so a write
       # through it would be discarded.
-      self.state_style.opacity = value
+      state_style.opacity = value
       persist_inline_style(&.opacity=(value))
       # The frame-memoized `#style` may hold a detached floor-highlight `dup`
       # of the state style — drop it so the new opacity is visible immediately.
@@ -173,8 +173,8 @@ module Crysterm
 
     # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_opacity`).
     private def set_tint(color, alpha : Float64) : Nil
-      self.state_style.tint = color
-      self.state_style.tint_alpha = alpha
+      state_style.tint = color
+      state_style.tint_alpha = alpha
       persist_inline_style do |s|
         s.tint = color
         s.tint_alpha = alpha

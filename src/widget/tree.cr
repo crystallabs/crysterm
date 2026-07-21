@@ -131,7 +131,7 @@ module Crysterm
         # Returns the detached node, or `nil` when it was not a child of this one
         # (Qt's `QTreeWidgetItem#removeChild`).
         def remove_child(node : Node) : Node?
-          return nil unless @children.delete node
+          return unless @children.delete node
           node.parent = nil
           node.tree = nil
           @tree.try &.rebuild
@@ -319,7 +319,7 @@ module Crysterm
         if p = node.parent
           return p.remove_child node
         end
-        return nil unless @roots.delete node
+        return unless @roots.delete node
         node.tree = nil
         rebuild
         node

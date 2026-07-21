@@ -129,7 +129,7 @@ module Crysterm
         when job = @ui_queue.receive
           begin
             job.call
-          rescue ex
+          rescue
             # A posted job must never kill the render fiber: that would freeze
             # the whole UI and drain no further jobs. A cross-fiber caller
             # needing the failure captures it inside its own job and re-raises

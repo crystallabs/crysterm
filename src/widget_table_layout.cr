@@ -38,7 +38,7 @@ module Crysterm
     # distributed over the pre-cascade interior. Comparing the key recomputes
     # exactly when a dependency moved; for content-sized tables `@width` is nil
     # and the key stays stable, so the cache still hits every frame.
-    @maxes_key : Tuple(Dim | Int32 | String | Nil, Int32, Int32)? = nil
+    @maxes_key : Tuple(Dim | Int32 | String?, Int32, Int32)? = nil
 
     # Extra padding added to each column when the table is sized to its
     # content (i.e. when no fixed `width` is set).
@@ -69,7 +69,6 @@ module Crysterm
     # doesn't pad every line to the full box width and defeat shrink-to-content
     # sizing; for `ListTable`, it decouples cell alignment from list-item
     # alignment.
-    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
 
     # Computes per-column widths from the current `@rows`. When a fixed numeric
@@ -152,7 +151,7 @@ module Crysterm
         ci = first_col
         while ci < row.size
           str << ' ' unless ci == first_col
-          pad_cell_to str, row[ci], @maxes[ci]? || cell_width(row[ci])
+          pad_cell_to(str, row[ci], @maxes[ci]? || cell_width(row[ci]))
           ci += 1
         end
         str << ' '

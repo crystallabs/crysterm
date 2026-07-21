@@ -282,7 +282,7 @@ module Crysterm
       *,
       icon : String? = nil,
       icon_text : String? = nil,
-      shortcut : KeyStroke | KeySequence | Nil = nil,
+      shortcut : KeyStroke | KeySequence? = nil,
       shortcuts : Array(KeySequence)? = nil,
       shortcut_context : ShortcutContext = ShortcutContext::Window,
       checkable : Bool = false,

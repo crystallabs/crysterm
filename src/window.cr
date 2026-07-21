@@ -221,11 +221,11 @@ module Crysterm
     # :ditto:
     def title=(@title : String?)
       if t = @title
-        self.tput.title = t
+        tput.title = t
       else
         # An explicit `nil` clears the terminal's title; terminals then show
         # their own default.
-        self.tput.title = ""
+        tput.title = ""
       end
     end
 
@@ -234,7 +234,6 @@ module Crysterm
 
     # Optimization flags for rendering/drawing.
     # XXX TODO: decide default flags dynamically.
-    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
 
     # What to do with "overflowing" (too large) widgets. `Overflow::Ignore`
@@ -414,9 +413,9 @@ module Crysterm
     def on_resize(e)
       # A pinned axis ignores the terminal's reported size; only unpinned axes
       # follow it (an inline window pins height, tracks width).
-      e.size.try { |size|
+      e.size.try do |size|
         @screen.resize(size.width, size.height)
-      }
+      end
 
       # Keep an inline region on-screen if the terminal shrank: clamp the anchor
       # so `offset + aheight` still fits. Best-effort — a precise re-anchor would

@@ -21,15 +21,15 @@ module Crysterm
     # person.full_name # => "John"
     # ```
     macro alias_method(new_method, old_method)
-      def {{new_method.id}}(*args)
-        {{old_method.id}}(*args)
+      def {{ new_method.id }}(*args)
+        {{ old_method.id }}(*args)
       end
     end
 
     # Defines new_method as an alias of last (most recently defined) method.
     macro alias_previous(*new_methods)
       {% for new_method in new_methods %}
-        alias_method {{new_method}}, {{@type.methods.last.name}}
+        alias_method {{ new_method }}, {{ @type.methods.last.name }}
       {% end %}
     end
 
@@ -39,11 +39,11 @@ module Crysterm
     #
     # The backing ivar is `@name`. Pass *val_type* to type-annotate the argument.
     macro change_guarded_setter(name, event, val_type = nil)
-      def {{name.id}}=(val{% if val_type %} : {{val_type.id}}{% end %})
-        return if @{{name.id}} == val
-        @{{name.id}} = val
+      def {{ name.id }}=(val{% if val_type %} : {{ val_type.id }}{% end %})
+        return if @{{ name.id }} == val
+        @{{ name.id }} = val
         mark_dirty
-        emit ::Crysterm::Event::{{event.id}}
+        emit ::Crysterm::Event::{{ event.id }}
       end
     end
 
@@ -73,25 +73,25 @@ module Crysterm
     macro reactive_property(decl, event = nil)
       {% raise "reactive_property #{decl.var} requires a default value" unless decl.value %}
 
-      @{{decl.var}} : ::Crysterm::Reactive::Signal({{decl.type}})?
+      @{{ decl.var }} : ::Crysterm::Reactive::Signal({{ decl.type }})?
 
-      def {{decl.var}}_signal : ::Crysterm::Reactive::Signal({{decl.type}})
-        @{{decl.var}} ||= ::Crysterm::Reactive::Signal({{decl.type}}).new({{decl.value}})
+      def {{ decl.var }}_signal : ::Crysterm::Reactive::Signal({{ decl.type }})
+        @{{ decl.var }} ||= ::Crysterm::Reactive::Signal({{ decl.type }}).new({{ decl.value }})
       end
 
-      def {{decl.var}} : {{decl.type}}
-        {{decl.var}}_signal.value
+      def {{ decl.var }} : {{ decl.type }}
+        {{ decl.var }}_signal.value
       end
 
-      def {{decl.var}}=(val : {{decl.type}}) : {{decl.type}}
-        sig = {{decl.var}}_signal
+      def {{ decl.var }}=(val : {{ decl.type }}) : {{ decl.type }}
+        sig = {{ decl.var }}_signal
         # Untracked guard read (`#peek`, not `#value`) so a setter called from
         # inside an effect doesn't spuriously depend on the property.
         return val if sig.peek == val
         sig.value = val
         mark_dirty
         window?.try &.update
-        {% if event %} emit ::Crysterm::Event::{{event.id}} {% end %}
+        {% if event %} emit ::Crysterm::Event::{{ event.id }} {% end %}
         val
       end
     end
@@ -101,10 +101,10 @@ module Crysterm
     # of `Crysterm::Event::<klass>` and `reset`s it on every dispatch, so a
     # high-frequency mouse report doesn't heap-allocate a fresh event each time.
     macro pooled_mouse_event(name, klass)
-      @_{{name.id}}_event : Crysterm::Event::{{klass.id}}?
+      @_{{ name.id }}_event : Crysterm::Event::{{ klass.id }}?
 
-      private def {{name.id}}_event(ev : ::Tput::Mouse::Event, target : Widget? = nil) : Crysterm::Event::{{klass.id}}
-        (@_{{name.id}}_event ||= Crysterm::Event::{{klass.id}}.new(ev)).reset ev, target
+      private def {{ name.id }}_event(ev : ::Tput::Mouse::Event, target : Widget? = nil) : Crysterm::Event::{{ klass.id }}
+        (@_{{ name.id }}_event ||= Crysterm::Event::{{ klass.id }}.new(ev)).reset ev, target
       end
     end
 
@@ -121,7 +121,7 @@ module Crysterm
     # on(Event::Attached, ->on_attached(Event::Attached)
     # ```
     macro handle(event, handler = nil)
-      on({{event}}, ->on_{{ handler || (event.stringify.split("::")[-1].downcase.id) }}({{event}}))
+      on({{ event }}, ->on_{{ handler || (event.stringify.split("::")[-1].downcase.id) }}({{ event }}))
     end
   end
 end

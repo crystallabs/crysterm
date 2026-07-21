@@ -289,9 +289,9 @@ module Crysterm
     @[AlwaysInline]
     private def neighbor_cell(lines, x, y, dx, dy)
       nx, ny = x + dx, y + dy
-      return nil unless nx >= 0 && ny >= 0
+      return unless nx >= 0 && ny >= 0
       nrow = lines[ny]?
-      return nil unless nrow && nx < nrow.size
+      return unless nrow && nx < nrow.size
       {nrow, nx}
     end
 
@@ -319,7 +319,7 @@ module Crysterm
       if nattr != attr
         case dock_contrast
         when DockContrast::Skip
-          return nil
+          return
         when DockContrast::Blend
           # Blend into the cell's *current* attr, not the captured original: a
           # junction can border more than one contrasting color, and each must

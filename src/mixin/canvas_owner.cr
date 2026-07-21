@@ -19,9 +19,9 @@ module Crysterm
       # must invalidate the raster and schedule a render. Overrides the generated
       # setter; a matching `getter`/`getter?` stays.
       macro canvas_prop(name, type)
-        def {{name.id}}=(v : {{type}}) : {{type}}
-          return v if v == @{{name.id}}
-          @{{name.id}} = v
+        def {{ name.id }}=(v : {{ type }}) : {{ type }}
+          return v if v == @{{ name.id }}
+          @{{ name.id }} = v
           invalidate_canvas
           v
         end

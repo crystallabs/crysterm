@@ -23,11 +23,11 @@ module Crysterm
     @disabled : Style?
 
     {% for state in %w[focused hovered selected disabled] %}
-      def {{state.id}} : Style
-        @{{state.id}} || normal
+      def {{ state.id }} : Style
+        @{{ state.id }} || normal
       end
 
-      def {{state.id}}=(@{{state.id}} : Style)
+      def {{ state.id }}=(@{{ state.id }} : Style)
       end
     {% end %}
 
@@ -35,8 +35,8 @@ module Crysterm
     # falling back to `normal`. Only an explicitly-set state style should color
     # e.g. a selection or a focus highlight.
     {% for state in %w[focused hovered selected disabled] %}
-      def own_{{state.id}}? : Bool
-        !@{{state.id}}.nil?
+      def own_{{ state.id }}? : Bool
+        !@{{ state.id }}.nil?
       end
     {% end %}
 

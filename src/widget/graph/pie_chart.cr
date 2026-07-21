@@ -91,7 +91,7 @@ module Crysterm
         # other add-verbs (`Gauge#add_item`, …). `color` accepts a native
         # `0xRRGGBB` int or a color name/`"#rrggbb"` string, defaulting to the
         # next entry of `DEFAULT_COLORS`, cycled by slice index.
-        def add_slice(label : String, value : Number, color : Int32 | String | Nil = nil) : Slice
+        def add_slice(label : String, value : Number, color : Int32 | String? = nil) : Slice
           c = color || DEFAULT_COLORS[@slices.size % DEFAULT_COLORS.size]
           slice = Slice.new value.to_f, c, label
           @slices << slice

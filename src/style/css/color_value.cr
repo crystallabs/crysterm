@@ -20,7 +20,7 @@ module Crysterm
       # it (`0.5turn` → 180°, not 0.5°).
       HUE_RE = /(#{Length::NUM})(deg|grad|rad|turn)?/i
 
-      def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
+      def self.resolve(value : String, current_fg : Int32?) : Int32 | String?
         v = value.strip
         # CSS function names and keywords are case-insensitive, so dispatch on a
         # folded copy (`RGB(...)`/`LINEAR-GRADIENT(...)` are valid). The parsers
@@ -61,7 +61,6 @@ module Crysterm
         case resolved = resolve(token, current_fg)
         when Int32  then resolved == -1 ? nil : resolved
         when String then (c = Colors.convert_cached(token)) == -1 ? nil : c
-        else             nil
         end
       end
 
@@ -82,7 +81,7 @@ module Crysterm
       # channel-wise average of the gradient's stop colors. Returns `nil` when
       # *value* is not a gradient or has no parseable stops.
       def self.gradient_color(value : String) : Int32?
-        return nil unless value =~ GRADIENT_HEAD
+        return unless value =~ GRADIENT_HEAD
         r = g = b = n = 0
         value.scan(GRADIENT_STOP) do |m|
           # The gradient's non-color keywords (`to`/`circle`/…) and units collapse
@@ -94,7 +93,7 @@ module Crysterm
           b += c & 0xff
           n += 1
         end
-        return nil if n == 0
+        return if n == 0
         rgb r // n, g // n, b // n
       end
 
@@ -120,7 +119,7 @@ module Crysterm
       # is clamped to `0..255`. Alpha is ignored.
       private def self.parse_rgb(value : String) : Int32?
         comps = value.scan(RGB_COMPONENT)
-        return nil if comps.size < 3
+        return if comps.size < 3
         rgb component(comps[0]), component(comps[1]), component(comps[2])
       end
 
@@ -136,7 +135,7 @@ module Crysterm
       # `hsl(h, s%, l%)` / `hsla(...)`. h is a CSS `<angle>`, s/l in percent.
       private def self.parse_hsl(value : String) : Int32?
         nums = numbers(value)
-        return nil if nums.size < 3
+        return if nums.size < 3
         h = hue_degrees(value) % 360.0
         s = (nums[1] / 100.0).clamp(0.0, 1.0)
         l = (nums[2] / 100.0).clamp(0.0, 1.0)

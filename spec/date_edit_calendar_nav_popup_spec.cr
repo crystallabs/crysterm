@@ -65,7 +65,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
 
     denp_down s, mx, my
     de.open?.should be_true                           # calendar still open …
-    cal.month_menu.try(&.visible?).should_not eq true # … only the dropdown closed
+    cal.month_menu.try(&.visible?).should_not be_true # … only the dropdown closed
     cal.month_shown.should eq 12                      # and the pick took effect
   end
 
@@ -82,7 +82,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
 
     denp_down s, yx, yy
     de.open?.should be_true
-    cal.year_menu.try(&.visible?).should_not eq true
+    cal.year_menu.try(&.visible?).should_not be_true
   end
 
   it "renders the year dropdown's scroll handle the same size as a Completer's (not a 1-cell nub)" do

@@ -98,7 +98,7 @@ module Crysterm
     # frame, nil for the root itself (Qt `parentFrame`) or for an empty view
     # (no member block to read the path from).
     def parent_frame : TextFrame?
-      return nil if root?
+      return if root?
       document.blocks.each do |b|
         path = b.block_format.frame_formats || next
         if i = path.index(&.same?(@frame_format))

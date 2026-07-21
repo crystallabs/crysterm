@@ -222,6 +222,10 @@ module Crysterm
     #
     # A widget that wants to override a default can simply `accept` the
     # `Event::Mouse` in its own handler.
+    #
+    # Deliberately one flat dispatcher over every mouse action kind; splitting
+    # it to satisfy the metric would scatter the event-routing rules.
+    # ameba:disable Metrics/CyclomaticComplexity
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       ev = translate_inline_mouse ev
 

@@ -116,7 +116,7 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
       screen.stylesheet = <<-CSS
         Box > Box:last-child { color: blue; }
         Box > Box:last-child::scrollbar { color: red; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       c2.styles.normal.fg.should eq rgb("blue")

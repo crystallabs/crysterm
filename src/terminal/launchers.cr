@@ -38,7 +38,7 @@ module Crysterm
       # anything — a dry-run of `#launch` for inspection/testing. Returns `nil`
       # for backends driven by a custom spawner (no single argv).
       def argv_for(inner : Array(String), cols : Int32, rows : Int32, title : String?) : Array(String)?
-        return nil if @spawn
+        return if @spawn
         @command.call(inner, cols, rows, title)
       end
 
@@ -130,7 +130,7 @@ module Crysterm
     # Resolves the launcher to use. Accepts a `Launcher`, a backend name, or nil
     # (auto-detect). Auto-detection honors `$TERMINAL` first, then the first
     # available registered backend.
-    def self.resolve_launcher(launcher : Launcher | String | Nil) : Launcher?
+    def self.resolve_launcher(launcher : Launcher | String?) : Launcher?
       case launcher
       when Launcher
         launcher
@@ -154,7 +154,7 @@ module Crysterm
       if known = LAUNCHERS.find { |l| l.name == base }
         return known if known.available?
       end
-      return nil unless Process.find_executable(name)
+      return unless Process.find_executable(name)
       # Build the fallback with the resolved spec (the literal `name`, which may
       # be an absolute path), not `base`, so `Process.new` execs exactly what
       # was validated instead of doing a PATH lookup on the basename.

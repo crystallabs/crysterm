@@ -96,7 +96,7 @@ module Crysterm
       # unrelated pre-existing keyable widget that merely happens to be
       # unfocused. The predicate must match the registration gate above, not a
       # bare `keyable?`, for the `keys: true` case described there.
-      if (element.keys? || element.input? || element.keyable?) && !self.focused
+      if (element.keys? || element.input? || element.keyable?) && !focused
         focus_next
       end
     end

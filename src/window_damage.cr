@@ -787,8 +787,8 @@ module Crysterm
     # render to a non-empty rectangle.
     private def damage_widget_rect(w : Widget) : Tuple(Int32, Int32, Int32, Int32)?
       lp = w.lpos
-      return nil unless lp
-      return nil if lp.xl <= lp.xi || lp.yl <= lp.yi
+      return unless lp
+      return if lp.xl <= lp.xi || lp.yl <= lp.yi
       xi = lp.xi
       xl = lp.xl
       yi = lp.yi

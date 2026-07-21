@@ -28,13 +28,13 @@ describe "CSS background-image" do
   describe "parsing" do
     it "extracts the url from the background-image longhand" do
       s = Style.new
-      Crysterm::CSS::Properties.apply(s, "background-image", %{url("pics/bg.png")})
+      Crysterm::CSS::Properties.apply(s, "background-image", %(url("pics/bg.png")))
       s.background_image.should eq "pics/bg.png"
     end
 
     it "extracts both color and image from the background shorthand" do
       s = Style.new
-      Crysterm::CSS::Properties.apply(s, "background", %{red url('a/b.png') center})
+      Crysterm::CSS::Properties.apply(s, "background", %(red url('a/b.png') center))
       s.background_image.should eq "a/b.png"
       s.bg.should_not be_nil
     end

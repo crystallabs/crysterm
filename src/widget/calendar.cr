@@ -127,15 +127,15 @@ module Crysterm
 
       # Getter plus setter that repaints only on an actual change.
       private macro visual(name, type, default)
-        @{{name}} : {{type}} = {{default}}
+        @{{ name }} : {{ type }} = {{ default }}
 
-        def {{name}} : {{type}}
-          @{{name}}
+        def {{ name }} : {{ type }}
+          @{{ name }}
         end
 
-        def {{name}}=(value : {{type}}) : {{type}}
-          return value if value == @{{name}}
-          @{{name}} = value
+        def {{ name }}=(value : {{ type }}) : {{ type }}
+          return value if value == @{{ name }}
+          @{{ name }} = value
           update_content
           request_render
           value
@@ -525,15 +525,15 @@ module Crysterm
 
       # Day number under grid cell (*grid_row*, content column *col*), or `nil`.
       private def day_at(grid_row : Int32, col : Int32) : Int32?
-        return nil if grid_row < 0
+        return if grid_row < 0
         rel = col - @col_offset
-        return nil if rel < 0
+        return if rel < 0
         # Each day cell is 2 columns wide plus a 1-column separator, so
         # `rel % 3 == 2` is the separator: it belongs to no day, and must not
         # hit-test onto the adjacent cell.
-        return nil if rel % 3 == 2
+        return if rel % 3 == 2
         c = rel // 3
-        return nil if c > 6
+        return if c > 6
 
         first = local_date(@shown_year, @shown_month, 1)
         d = grid_row * 7 + c - column_of(first) + 1

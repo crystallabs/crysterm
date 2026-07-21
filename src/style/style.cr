@@ -102,13 +102,13 @@ module Crysterm
       # Split by getter form so one list also drives `#fold_specified_onto`:
       # boolean attributes are read through their `?` getter, the rest through a
       # plain getter. `tracked` is their concatenation and defines the bitmask.
-      {% tracked_bool = %w(bold italic underline blink reverse strike visible
-           fill draw_over_border) %}
-      {% tracked_value = %w(background_size fill_char border padding margin
-           shadow tab_size tab_char) %}
+      {% tracked_bool = %w[bold italic underline blink reverse strike visible
+           fill draw_over_border] %}
+      {% tracked_value = %w[background_size fill_char border padding margin
+           shadow tab_size tab_char] %}
       {% tracked = tracked_bool + tracked_value %}
       {% for prop, i in tracked %}
-        SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
+        SPEC_{{ prop.upcase.id }} = 1_u32 << {{ i }}
       {% end %}
 
       # The mask bit for a tracked property symbol; `0` if untracked, those
@@ -116,7 +116,7 @@ module Crysterm
       private def specified_bit(property : Symbol) : UInt32
         case property
         {% for prop in tracked %}
-        when :{{prop.id}} then SPEC_{{prop.upcase.id}}
+        when :{{ prop.id }} then SPEC_{{ prop.upcase.id }}
         {% end %}
         else 0_u32
         end
@@ -130,17 +130,17 @@ module Crysterm
       # no mask bit and are folded by hand in the cascade.
       def fold_specified_onto(other : Style) : Nil
         {% for prop in tracked_bool %}
-          other.{{prop.id}} = {{prop.id}}? if specified?(:{{prop.id}})
+          other.{{ prop.id }} = {{ prop.id }}? if specified?(:{{ prop.id }})
         {% end %}
         {% for prop in tracked_value %}
-          {% if %w(border padding margin shadow).includes?(prop) %}
+          {% if %w[border padding margin shadow].includes?(prop) %}
             # Mutable box sub-objects must be copied, not shared by reference:
             # the longhand tiers (`border-left`, `padding-top`, …) mutate the
             # folded object in place, which would permanently corrupt the user's
             # inline `@style`. Mirrors `Style#dup`'s policy.
-            other.{{prop.id}} = {{prop.id}}.dup if specified?(:{{prop.id}})
+            other.{{ prop.id }} = {{ prop.id }}.dup if specified?(:{{ prop.id }})
           {% else %}
-            other.{{prop.id}} = {{prop.id}} if specified?(:{{prop.id}})
+            other.{{ prop.id }} = {{ prop.id }} if specified?(:{{ prop.id }})
           {% end %}
         {% end %}
       end
@@ -172,10 +172,10 @@ module Crysterm
     # Re-wrap the `property?`-generated boolean setters so each explicit
     # assignment is recorded, making `bold = false` distinguishable from the
     # default `false`.
-    {% for attr in %w(bold italic underline blink reverse strike visible) %}
-      def {{attr.id}}=(value : Bool) : Bool
-        @specified_mask |= SPEC_{{attr.upcase.id}}
-        @{{attr.id}} = value
+    {% for attr in %w[bold italic underline blink reverse strike visible] %}
+      def {{ attr.id }}=(value : Bool) : Bool
+        @specified_mask |= SPEC_{{ attr.upcase.id }}
+        @{{ attr.id }} = value
       end
     {% end %}
 
@@ -344,10 +344,10 @@ module Crysterm
     # back to *fallback* (`self` for most slots, `cell` for the alternate row)
     # when the slot was never explicitly assigned.
     private macro sub_style_accessor(name, fallback = "self")
-      setter {{name.id}} : Style?
+      setter {{ name.id }} : Style?
 
-      def {{name.id}}
-        @{{name.id}} || {{fallback.id}}
+      def {{ name.id }}
+        @{{ name.id }} || {{ fallback.id }}
       end
     end
 
@@ -410,7 +410,6 @@ module Crysterm
         case color
         when Int    then color.to_i32
         when String then Colors.convert_cached(color)
-        else             nil
         end
       @alternate_row_composed = nil
     end
@@ -429,7 +428,7 @@ module Crysterm
 
     Colorizable.color_setter gridline_color
 
-    def border=(value : Bool | BorderType | Border | Side | Symbol | Int32 | Nil)
+    def border=(value : Bool | BorderType | Border | Side | Symbol | Int32?)
       @specified_mask |= SPEC_BORDER
       @border = Border.from value
     end
@@ -488,7 +487,7 @@ module Crysterm
     # (e.g. the parent's border).
     sub_style_accessor label
 
-    def padding=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32) | Nil)
+    def padding=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32)?)
       @specified_mask |= SPEC_PADDING
       @padding = Padding.from value
     end
@@ -501,7 +500,7 @@ module Crysterm
 
     # Element's outer spacing. Unlike `padding`/`border`, which are inner insets,
     # margin offsets and shrinks the element itself within its allotted slot.
-    def margin=(value : Bool | Margin | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32) | Nil)
+    def margin=(value : Bool | Margin | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32)?)
       @specified_mask |= SPEC_MARGIN
       @margin = Margin.from value
     end
@@ -512,7 +511,7 @@ module Crysterm
     sub_style_accessor scrollbar
 
     # Should element drop shadow?
-    def shadow=(value : Bool | Shadow | Side | Symbol | Float64 | Int32 | Nil)
+    def shadow=(value : Bool | Shadow | Side | Symbol | Float64 | Int32?)
       @specified_mask |= SPEC_SHADOW
       @shadow = Shadow.from value
     end
@@ -581,7 +580,7 @@ module Crysterm
       # fall back to `self`/`cell`, so they would always look "set".
       def fold_inline_sub_styles(inline : Style) : Nil
         {% for css_name, accessor in slots %}
-        @{{accessor.id}} = inline.@{{accessor.id}} if inline.@{{accessor.id}}
+        @{{ accessor.id }} = inline.@{{ accessor.id }} if inline.@{{ accessor.id }}
         {% end %}
         # `alternate-background-color` is stored as a scalar override, not a
         # sub-style, so the slot loop above misses it.
@@ -599,7 +598,7 @@ module Crysterm
       def raw_sub_style(slot : String) : Style?
         case slot
         {% for css_name, accessor in slots %}
-        when {{css_name}} then @{{accessor.id}}
+        when {{ css_name }} then @{{ accessor.id }}
         {% end %}
         else nil
         end
@@ -611,7 +610,7 @@ module Crysterm
       def sub_style(slot : String?) : Style
         case slot
         {% for css_name, accessor in slots %}
-        when {{css_name}} then {{accessor.id}}
+        when {{ css_name }} then {{ accessor.id }}
         {% end %}
         else self
         end
@@ -621,7 +620,7 @@ module Crysterm
       def set_sub_style(slot : String?, sub : Style) : Nil
         case slot
         {% for css_name, accessor in slots %}
-        when {{css_name}} then self.{{accessor.id}} = sub
+        when {{ css_name }} then self.{{ accessor.id }} = sub
         {% end %}
         end
       end

@@ -126,9 +126,9 @@ module Crysterm
                        pixel_box : Bool = false,
                        sample_into : PNGGIF::Bitmap? = nil,
                        place_into : PNGGIF::Bitmap? = nil) : PNGGIF::Bitmap?
-        return nil if bw <= 0 || bh <= 0
+        return if bw <= 0 || bh <= 0
         sw, sh = Media.dims(src_bmp)
-        return nil if sw <= 0 || sh <= 0
+        return if sw <= 0 || sh <= 0
 
         # 1:1 on a device-pixel box — the source's native pixels, centered and
         # cropped to the box; nothing to resample.
@@ -149,7 +149,7 @@ module Crysterm
           th = {fch * sub_h, 1}.max
           sampled = png.create_cellmap(src_bmp, cmwidth: tw, cmheight: th, cell_aspect: 1.0,
             into: sample_into)
-          return nil if sampled.empty?
+          return if sampled.empty?
           nw, nh = Media.dims(sampled)
           # Center on a whole-cell boundary (see the letterbox note below).
           return place_at sampled, bw, bh, snap((bw - nw) // 2, sub_w), snap((bh - nh) // 2, sub_h),
@@ -175,7 +175,7 @@ module Crysterm
 
         sampled = png.create_cellmap(src_bmp, cmwidth: dw, cmheight: dh, cell_aspect: 1.0,
           into: sample_into)
-        return nil if sampled.empty?
+        return if sampled.empty?
 
         # The sample already fills the box exactly at the origin (Stretch always;
         # any fit whose laid-out size equals the box with no offset): there is no
@@ -202,9 +202,9 @@ module Crysterm
       # *src* is empty. *into* is the optional reusable canvas — see `#place_at`.
       def self.place_centered(src : PNGGIF::Bitmap, bw : Int32, bh : Int32,
                               into : PNGGIF::Bitmap? = nil) : PNGGIF::Bitmap?
-        return nil if src.empty?
+        return if src.empty?
         nw, nh = Media.dims(src)
-        return nil if nw <= 0
+        return if nw <= 0
         place_at src, bw, bh, (bw - nw) // 2, (bh - nh) // 2, into: into
       end
 

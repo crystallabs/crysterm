@@ -15,8 +15,12 @@ Globs:
 # --- False positives (the rule's suggestion is wrong here) --------------------
 
 # `SidedGeometry#any?` / `Margin#any?` are domain methods ("is any amount set on
-# any side?"), not `Enumerable#any?`. Rewriting to `!empty?` would be incorrect.
+# any side?"), not `Enumerable#any?`. Rewriting to `!empty?` or `present?` would
+# be incorrect (`present?` does not even exist on these types; the autocorrect
+# breaks the build).
 Performance/AnyInsteadOfEmpty:
+  Enabled: false
+Performance/AnyInsteadOfPresent:
   Enabled: false
 
 # The rule token-matches `.lines.each` assuming `String#lines` (which allocates
@@ -26,15 +30,6 @@ Performance/AnyInsteadOfEmpty:
 # `lines` is a core buffer concept across the codebase, so the rule only misfires.
 Performance/ExcessiveAllocations:
   Enabled: false
-
-# src/event.cr is wall-to-wall `event Foo, bar : T` macro calls (event_handler
-# shard) that the rule misreads as assignments, so the whole file is excluded.
-# The scattered `enum_property foo : T = ...` macro hits (crystallabs-helpers
-# shard) in otherwise-normal files are handled with inline `# ameba:disable`
-# directives instead, so real assignments in those files stay checked.
-Lint/UselessAssign:
-  Excluded:
-    - src/event.cr
 
 # `not_nil!` is idiomatic in test setup/assertions; flagging it across the spec
 # suite is noise. Still active for src/.

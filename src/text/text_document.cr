@@ -179,7 +179,7 @@ module Crysterm
 
     # Character at `pos`; the separator reads as `'\n'`, end-of-document as nil.
     def char_at(pos : Int32) : Char?
-      return nil if pos < 0 || pos >= size
+      return if pos < 0 || pos >= size
       bi, off = block_at(pos)
       b = blocks[bi]
       off == b.size ? '\n' : b.text[off]
@@ -381,7 +381,7 @@ module Crysterm
     # match (anchor at start) or nil. `Backward` finds the last match ending
     # at or before `from`. Matches may span blocks (the separator is `'\n'`).
     def find(subject : String, from : Int32 = 0, flags : FindFlag = FindFlag::None) : TextCursor?
-      return nil if subject.empty?
+      return if subject.empty?
       text = to_plain_text
       # Length-preserving 1:1 case fold: `String#downcase` applies Unicode
       # full case mappings (e.g. 'İ' → two codepoints), which would shift the

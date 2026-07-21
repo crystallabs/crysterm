@@ -47,7 +47,7 @@ module Crysterm
       # as `#arrange` clamps it. Nil when there are no pages / no container.
       def current_widget : Widget?
         n = count
-        return nil if n == 0
+        return if n == 0
         widget current_index.clamp(0, n - 1)
       end
 
@@ -55,7 +55,7 @@ module Crysterm
       # range or not installed on a container.
       def widget(index : Int32) : Widget?
         c = container
-        return nil if c.nil? || index < 0
+        return if c.nil? || index < 0
         i = 0
         each_arrangeable(c) do |el|
           return el if i == index

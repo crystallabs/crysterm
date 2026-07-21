@@ -170,57 +170,57 @@ module Crysterm
       # stylesheet.
       WIDGET_RULES = <<-CSS
 
-      /* Editable fields (Button is an Input subclass, so this comes first and
-         the Button rules below win the equal-specificity tie via source order). */
-      Input, LineEdit, PlainTextEdit, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
-      Input:focus, LineEdit:focus, PlainTextEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
+        /* Editable fields (Button is an Input subclass, so this comes first and
+           the Button rules below win the equal-specificity tie via source order). */
+        Input, LineEdit, PlainTextEdit, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
+        Input:focus, LineEdit:focus, PlainTextEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
 
-      /* Buttons (after Input so they win the tie) */
-      Button { background-color: var(--muted-dark); color: var(--text); }
-      Button:hover { background-color: var(--muted); }
-      Button:focus { background-color: var(--accent); color: var(--accent-fg); }
-      Button:disabled { color: var(--muted-light); }
+        /* Buttons (after Input so they win the tie) */
+        Button { background-color: var(--muted-dark); color: var(--text); }
+        Button:hover { background-color: var(--muted); }
+        Button:focus { background-color: var(--accent); color: var(--accent-fg); }
+        Button:disabled { color: var(--muted-light); }
 
-      /* Framed containers */
-      GroupBox { border: solid; border-color: var(--muted); }
-      /* Flat buttons/groups drop their frame (Qt's `flat` property). Overridable. */
-      Button[flat], GroupBox[flat] { border: none; }
-      /* Overlays sit on their own compositing planes (z-index) and are *opaque*:
-         a translucent menu/popup would blend its plane over whatever's behind it,
-         causing banding where rows over darker vs lighter content look
-         "alternating". Set `opacity` on a specific menu to opt into translucency.
-         Background is `--surface`, matching what an unstyled `QMenu` inherits in
-         Qt; a theme that styles `QMenu` explicitly overrides it. */
-      Menu { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; padding: 0 1; }
-      .popup { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; }
+        /* Framed containers */
+        GroupBox { border: solid; border-color: var(--muted); }
+        /* Flat buttons/groups drop their frame (Qt's `flat` property). Overridable. */
+        Button[flat], GroupBox[flat] { border: none; }
+        /* Overlays sit on their own compositing planes (z-index) and are *opaque*:
+           a translucent menu/popup would blend its plane over whatever's behind it,
+           causing banding where rows over darker vs lighter content look
+           "alternating". Set `opacity` on a specific menu to opt into translucency.
+           Background is `--surface`, matching what an unstyled `QMenu` inherits in
+           Qt; a theme that styles `QMenu` explicitly overrides it. */
+        Menu { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; padding: 0 1; }
+        .popup { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; }
 
-      /* Scrollbars are a real widget (.scrollbar) on a thin translucent plane
-         so content shows faintly through. */
-      .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
-      Track { color: var(--surface-dark); }
-      ProgressBar::indicator, Slider::indicator, Dial::indicator { color: var(--accent); }
+        /* Scrollbars are a real widget (.scrollbar) on a thin translucent plane
+           so content shows faintly through. */
+        .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
+        Track { color: var(--surface-dark); }
+        ProgressBar::indicator, Slider::indicator, Dial::indicator { color: var(--accent); }
 
-      /* Tables */
-      Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }
+        /* Tables */
+        Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }
 
-      /* Bars and chrome */
-      MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
-      StatusBar { background-color: var(--muted-dark); color: var(--text); }
-      ListBar::prefix { color: var(--info); }
+        /* Bars and chrome */
+        MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
+        StatusBar { background-color: var(--muted-dark); color: var(--text); }
+        ListBar::prefix { color: var(--info); }
 
-      /* Tooltips */
-      ToolTip { background-color: var(--warning); color: var(--warning-fg); z-index: 10; opacity: 0.96; }
+        /* Tooltips */
+        ToolTip { background-color: var(--warning); color: var(--warning-fg); z-index: 10; opacity: 0.96; }
 
-      /* Migrated chrome looks (see widgets that drop their hardcoded styles) */
-      .titlebar, .titlebutton { background-color: var(--accent); color: var(--accent-fg); }
-      .divider { background-color: var(--muted); }
-      .search { background-color: var(--accent); color: var(--accent-fg); }
+        /* Migrated chrome looks (see widgets that drop their hardcoded styles) */
+        .titlebar, .titlebutton { background-color: var(--accent); color: var(--accent-fg); }
+        .divider { background-color: var(--muted); }
+        .search { background-color: var(--accent); color: var(--accent-fg); }
 
-      /* Selection highlight — `Box` is the base of almost every visible widget;
-         coming last, this wins the selected state at equal specificity.
-         Widgets painting selected rows from `styles.selected` pick it up too. */
-      Box:selected { background-color: var(--accent); color: var(--accent-fg); }
-      CSS
+        /* Selection highlight — `Box` is the base of almost every visible widget;
+           coming last, this wins the selected state at equal specificity.
+           Widgets painting selected rows from `styles.selected` pick it up too. */
+        Box:selected { background-color: var(--accent); color: var(--accent-fg); }
+        CSS
     end
 
     # The currently active theme, or `nil` when styling is not theme-driven

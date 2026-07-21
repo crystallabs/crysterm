@@ -261,7 +261,7 @@ module Crysterm
       # `nil`. A *cell*-role consumer later reduces the result to a lone `Char`.
       def self.parse_glyph(value : String) : String?
         v = value.strip
-        return nil if v.empty?
+        return if v.empty?
         return Glyphs::NONE_STR if Case.fold_keyword(v) == "none"
         # An *unquoted* number is a code point (quotes not yet stripped).
         if v[0].ascii_number?
@@ -436,7 +436,7 @@ module Crysterm
       # map of property name -> `{duration, easing}`; `none` clears it. Unknown
       # easings fall back to a gentle in/out sine.
       private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Easing))?
-        return nil if Case.fold_keyword(value.strip) == "none" || value.strip.empty?
+        return if Case.fold_keyword(value.strip) == "none" || value.strip.empty?
         out = {} of String => Tuple(Time::Span, Easing)
         # Entries split at TOP-LEVEL commas only, and each entry tokenized
         # paren-aware, so a comma-bearing easing function — `cubic-bezier(0.4,
@@ -486,7 +486,7 @@ module Crysterm
         # start)` — stays one token instead of shredding into fragments that each
         # fall into the keyframes-name fallback and hijack the name.
         toks = split_top_level(value)
-        return nil if toks.empty? || Case.fold_keyword(toks[0]) == "none"
+        return if toks.empty? || Case.fold_keyword(toks[0]) == "none"
         name : String? = nil
         dur = 1.seconds
         dur_seen = false
@@ -518,7 +518,7 @@ module Crysterm
             # A negative iteration count is invalid; drop the whole declaration
             # (mirroring parse_transition's negative-duration drop). `0` is valid
             # (play zero times) and handled at the driver.
-            return nil if n < 0
+            return if n < 0
             iterations = n
           else
             # Anything that is not a time, keyword, easing or count is the
@@ -721,7 +721,7 @@ module Crysterm
       # resolve to `nil` and *should* reset the color so cascade inheritance can
       # refill it — so only a failed `rgb`/`hsl` function is dropped, told apart by
       # its leading function name.
-      private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil
+      private def self.with_color(value : String, current : Int32?, & : (Int32 | String)? ->) : Nil
         return if value.blank?
         resolved = ColorValue.resolve(value, current)
         return if resolved.nil? && color_function?(value)
@@ -742,11 +742,10 @@ module Crysterm
       # Coerces a resolved color (`Int32`, a named/hex `String`, or `nil`) to the
       # native `0xRRGGBB` int the per-side `border-*-color` slots store (the
       # whole-border `border-color` keeps the string form via `Colorizable`).
-      private def self.coerce_color_int(resolved : Int32 | String | Nil) : Int32?
+      private def self.coerce_color_int(resolved : Int32 | String?) : Int32?
         case resolved
         when Int32  then resolved
         when String then Colors.convert_cached(resolved)
-        else             nil
         end
       end
 
@@ -760,7 +759,7 @@ module Crysterm
       # `initial`/`unset`) or an unknown color name (the `-1` sentinel) — the
       # caller drops the token/declaration, per CSS, rather than storing a bogus
       # color that paints the side terminal-default or clobbers a prior color.
-      private def self.valid_side_color?(resolved : Int32 | String | Nil, cur : Bool) : Bool
+      private def self.valid_side_color?(resolved : Int32 | String?, cur : Bool) : Bool
         return true if cur
         case resolved
         when Int32  then true
@@ -845,7 +844,6 @@ module Crysterm
         when 2 then {top: 0, right: 1, bottom: 0, left: 1} # vertical horizontal
         when 3 then {top: 0, right: 1, bottom: 2, left: 1} # top horizontal bottom
         when 4 then {top: 0, right: 1, bottom: 2, left: 3} # top right bottom left
-        else        nil
         end
       end
 
@@ -862,7 +860,6 @@ module Crysterm
         when "double"           then BorderType::Double
         when "rounded", "round" then BorderType::Rounded
         when "bg", "background" then BorderType::Fill
-        else                         nil
         end
       end
 
@@ -942,7 +939,7 @@ module Crysterm
       # for the `border-<side>` shorthand and the `border-<side>-color` longhand
       # (via `apply_side_color`), coercing the resolved color to the native int
       # form those slots store.
-      private def self.set_side_color(border : Border, side : Side, resolved : Int32 | String | Nil) : Nil
+      private def self.set_side_color(border : Border, side : Side, resolved : Int32 | String?) : Nil
         border.set_color side, coerce_color_int(resolved)
       end
 
@@ -1054,7 +1051,6 @@ module Crysterm
         case Case.fold_keyword(token.strip)
         when "thin", "medium" then 1
         when "thick"          then 2
-        else                       nil
         end
       end
 
@@ -1086,7 +1082,7 @@ module Crysterm
           return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible; 0 / negative → none
         end
         c = Length.to_cells(value, vertical) # a `calc()` border still resolves here
-        return nil unless c                  # nothing parsed → invalid declaration, dropped by caller
+        return unless c                      # nothing parsed → invalid declaration, dropped by caller
         c > 0 ? c : 0
       end
 
@@ -1156,7 +1152,7 @@ module Crysterm
         v = parts.map { |part| cells(part, vertical: true) }
         # left/right read the horizontal-axis cells, top/bottom the vertical-axis
         # cells; `nil` for an empty (0) or over-long (>4) value.
-        return nil unless i = trbl_indices(parts.size)
+        return unless i = trbl_indices(parts.size)
         {h[i[:left]], v[i[:top]], h[i[:right]], v[i[:bottom]]}
       end
 

@@ -111,8 +111,8 @@ module Crysterm
     # Coerces a position/size attribute string into the `Int32 | String | Nil`
     # the geometry setters accept: a bare integer becomes an `Int32`, anything
     # else (`"center"`, `"50%"`, `"100%-2"`) stays a `String`.
-    protected def dom_coerce_dimension(value : String?) : Int32 | String | Nil
-      return nil unless value
+    protected def dom_coerce_dimension(value : String?) : Int32 | String?
+      return unless value
       value.to_i? || value
     end
 

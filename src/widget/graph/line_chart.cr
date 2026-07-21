@@ -184,9 +184,9 @@ module Crysterm
 
         # Adds a series (Qt's `QChart#addSeries`). A `nil` color is auto-assigned
         # from `PALETTE` by series index.
-        def add_series(name : String, points : Array, color : Int32 | String | Nil = nil,
+        def add_series(name : String, points : Array, color : Int32 | String? = nil,
                        kind : Series::Kind = Series::Kind::Line) : Series
-          s = Series.new name, points, color || PALETTE[@series.size % PALETTE.size], kind
+          s = Series.new(name, points, color || PALETTE[@series.size % PALETTE.size], kind)
           @series << s
           # The plot Canvas draws the series, so its content is now stale.
           @data_version &+= 1
@@ -195,15 +195,15 @@ module Crysterm
           s
         end
 
-        def add_line(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
+        def add_line(name : String, points : Array, color : Int32 | String? = nil) : Series
           add_series name, points, color, Series::Kind::Line
         end
 
-        def add_scatter(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
+        def add_scatter(name : String, points : Array, color : Int32 | String? = nil) : Series
           add_series name, points, color, Series::Kind::Scatter
         end
 
-        def add_area(name : String, points : Array, color : Int32 | String | Nil = nil) : Series
+        def add_area(name : String, points : Array, color : Int32 | String? = nil) : Series
           add_series name, points, color, Series::Kind::Area
         end
 

@@ -166,16 +166,16 @@ module Crysterm
       # (`ws_xpixel`/`ws_ypixel` ÷ columns/rows), or `nil` when the terminal
       # doesn't report pixel dimensions or the output isn't a tty.
       def self.terminal_cell_pixels(window : ::Crysterm::Screen?) : Tuple(Int32, Int32)?
-        s = window || return nil
+        s = window || return
         tty = s.output
-        return nil unless tty.is_a?(IO::FileDescriptor)
+        return unless tty.is_a?(IO::FileDescriptor)
         ws = LibC::Winsize.new
-        return nil unless LibC.ioctl(tty.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
+        return unless LibC.ioctl(tty.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
         xp = ws.ws_xpixel.to_i
         yp = ws.ws_ypixel.to_i
         c = ws.ws_col.to_i
         r = ws.ws_row.to_i
-        return nil unless xp > 0 && yp > 0 && c > 0 && r > 0
+        return unless xp > 0 && yp > 0 && c > 0 && r > 0
         {xp // c, yp // r}
       rescue
         nil
@@ -247,8 +247,8 @@ module Crysterm
         if b = @raw
           return b
         end
-        return nil if @raw_failed
-        file = @file || return nil
+        return if @raw_failed
+        file = @file || return
         @raw =
           if file =~ /^https?:/
             Widget::Media::Ansi.fetch file
@@ -270,15 +270,15 @@ module Crysterm
       # currently occupies — its rendered coords inset by border/padding — or
       # `nil` when it has no rendered position or is zero-sized.
       private def content_rect : Tuple(Int32, Int32, Int32, Int32)?
-        pos = coords(true, into: @content_lpos) || return nil
+        pos = coords(true, into: @content_lpos) || return
         xi, yi, cols, rows = overlay_rect pos
-        return nil if cols <= 0 || rows <= 0
+        return if cols <= 0 || rows <= 0
         # A partially-offscreen widget (negative origin) is not drawable: the
         # emitted CUP would be clamped (`\e[0;…H` — one row off, unclipped) or
         # malformed (`\e[-1;…H`, splatting the image at the cursor), and
         # `@last_drawn` would record the negative rect, so the erase pass would
         # target the wrong cells. Treat it like a hidden widget.
-        return nil if xi < 0 || yi < 0
+        return if xi < 0 || yi < 0
         {xi, yi, cols, rows}
       end
 
@@ -287,10 +287,10 @@ module Crysterm
       # composites it where the terminal draws the graphic. Must mirror
       # `#redraw_image`'s geometry. `nil` while hidden or with no image.
       def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
-        return nil unless visible?
-        return nil unless has_image?
-        xi, yi, cols, rows = content_rect || return nil
-        bmp = fit_bitmap(cols * font_w, rows * font_h) || return nil
+        return unless visible?
+        return unless has_image?
+        xi, yi, cols, rows = content_rect || return
+        bmp = fit_bitmap(cols * font_w, rows * font_h) || return
         {bmp, xi, yi}
       end
 
@@ -301,7 +301,7 @@ module Crysterm
       # its native pixel size instead of a cell footprint (which would halve its
       # height by the cell aspect ratio).
       protected def fit_bitmap(bw : Int32, bh : Int32, transient : Bool = false) : PNGGIF::Bitmap?
-        src = source || return nil
+        src = source || return
         frame = @src_frames.try(&.[@anim_index]?).try &.[0]
         # Reuse fast paths (opt-in via `media.reuse_buffers`): a *transient*
         # caller feeds the bitmap straight into `#encode` and discards it, so
@@ -318,9 +318,10 @@ module Crysterm
           # animated re-encode (streaming video, an injected canvas at a
           # non-native size, a scaled GIF's first loop) allocates no fresh
           # resample/letterbox bitmap per frame.
+          sample_scratch = (@compose_sample_scratch ||= PNGGIF::Bitmap.new)
+          place_scratch = (@compose_place_scratch ||= PNGGIF::Bitmap.new)
           return Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true,
-            sample_into: (@compose_sample_scratch ||= PNGGIF::Bitmap.new),
-            place_into: (@compose_place_scratch ||= PNGGIF::Bitmap.new)
+            sample_into: sample_scratch, place_into: place_scratch
         end
         Media::Fitting.compose src, frame, bw, bh, @fit, 1.0, pixel_box: true
       end
@@ -355,9 +356,9 @@ module Crysterm
       # `#raw_bytes` + the cell box instead.
       protected def build_payload(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
-        bmp = fit_bitmap(bw, bh, transient: true) || return nil
+        bmp = fit_bitmap(bw, bh, transient: true) || return
         real_w, real_h = Media.dims(bmp)
-        return nil if real_w == 0 || real_h == 0
+        return if real_w == 0 || real_h == 0
         encode(bmp, real_w, real_h, ox, oy, cols, rows)
       end
 
@@ -373,7 +374,7 @@ module Crysterm
           @frame_payloads.clear
         end
         p = @frame_payloads[@anim_index]? || begin
-          built = build_payload(bw, bh, ox, oy, cols, rows) || return nil
+          built = build_payload(bw, bh, ox, oy, cols, rows) || return
           @frame_payloads[@anim_index] = built
           built
         end

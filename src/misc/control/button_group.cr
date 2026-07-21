@@ -101,7 +101,7 @@ module Crysterm
     # nothing is checked), so as in Qt it never addresses a real button:
     # `button(-1)` is always `nil`, even though several un-id'd members carry it.
     def button(id : Int32) : Widget?
-      return nil if id == -1
+      return if id == -1
       @buttons.find { |b| @ids[b]? == id }
     end
 

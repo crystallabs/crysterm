@@ -7,12 +7,12 @@ module Crysterm
     # Class method only — this is a generic filesystem lookup, not per-instance
     # state, so it needn't pollute every `Helpers`-including instance's surface.
     def self.find_file(start : String, target : String) : String?
-      return nil if %w(/dev /sys /proc /net).includes?(start)
+      return if %w[/dev /sys /proc /net].includes?(start)
 
       files = begin
         # https://github.com/crystal-lang/crystal/issues/4807
         Dir.children start
-      rescue e : Exception
+      rescue Exception
         [] of String
       end
 
@@ -23,7 +23,7 @@ module Crysterm
 
         stat = begin
           File.info full, follow_symlinks: false
-        rescue e : Exception
+        rescue Exception
           nil
         end
 

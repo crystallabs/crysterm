@@ -50,7 +50,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Button { color: red; font-weight: bold; }
       Button:focus { color: green; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     button.styles.focused.bold?.should be_true      # base still applies
@@ -81,7 +81,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Button { color: red; }
       #ok { color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     button.styles.normal.fg.should eq rgb("blue")
@@ -111,7 +111,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Form { color: yellow; }
       Box { color: red; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     inner.styles.normal.fg.should eq rgb("red") # own rule wins over inheritance
@@ -126,7 +126,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Box { color: white; }
       Scrollbar { color: cyan; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     box.styles.normal.scrollbar.fg.should eq rgb("cyan")
@@ -157,7 +157,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       ProgressBar::indicator { color: cyan; }
       ProgressBar:focus { background-color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     bar.styles.focused.indicator.fg.should eq rgb("cyan")
@@ -194,7 +194,7 @@ describe "CSS cascade" do
       screen.stylesheet = <<-CSS
         Button { color: red; }
         #b:focus { color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # base-only widget: no distinct focused style built, lazily resolves to normal
@@ -359,7 +359,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       #x { color: blue; }
       Button { color: red !important; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     button.styles.normal.fg.should eq rgb("red") # !important beats #id specificity
@@ -373,7 +373,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       :root { --brand: cyan; }
       Box { color: var(--brand); background-color: var(--missing, magenta); }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     box.styles.normal.fg.should eq rgb("cyan")
@@ -391,7 +391,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       :root { --brand: cyan; }
       Box { color: var(--brand, var(--other, red)); }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     box.styles.normal.fg.should eq rgb("cyan")
@@ -532,7 +532,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       List Box { color: white; }
       List Box:nth-child(even) { background-color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     list.item_boxes.each(&.styles.normal.fg.should(eq(rgb("white"))))
@@ -554,7 +554,7 @@ describe "CSS cascade" do
       Box { color: white; }
       @media (min-width: 80) { Box { color: green; } }
       @media (min-width: 200) { Box { color: red; } }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     # width 100 satisfies min-width:80 (green) but not min-width:200 (red)
@@ -570,7 +570,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Box { color: white; }
       @media (min-width: 80) { Box { color: green; } }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     box.styles.normal.fg.should eq rgb("white") # 40 < 80, media rule skipped
@@ -621,7 +621,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Button { color: white; }
       Form:focus Button { color: green; }
-    CSS
+      CSS
     screen.apply_stylesheet
     button.styles.normal.fg.should eq rgb("white") # form not focused
 
@@ -674,7 +674,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Form { font-weight: bold; }
       Box { font-weight: normal; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     inner.styles.normal.bold?.should be_false # own normal wins over inherited bold
@@ -690,7 +690,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       ProgressBar Indicator { color: red; }
       Slider Indicator { color: green; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     pb.styles.normal.indicator.fg.should eq rgb("red")
@@ -1041,7 +1041,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Form { color: red; }
       .blue { color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
     inner.styles.normal.fg.should eq rgb("red") # inherited from form
 
@@ -1079,7 +1079,7 @@ describe "CSS cascade" do
       Form Box:first-child { color: red; }
       Form Box:nth-child(2) { color: green; }
       Form Box:last-child { color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     a.styles.normal.fg.should eq rgb("red")
@@ -1108,7 +1108,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Form Box:last-child { color: blue; }
       Form Box:nth-last-child(2) { color: green; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     c.styles.normal.fg.should eq rgb("blue")  # last child
@@ -1143,7 +1143,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Form Box:last-child { color: blue; }
       Form Box:nth-last-child(2) { color: green; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     d.styles.normal.fg.should eq rgb("blue")
@@ -1186,7 +1186,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       [class*="dang"] { color: red; }
       [class$="state-normal"] { background-color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     box.styles.normal.fg.should eq rgb("red")  # *= (contains)
@@ -1263,7 +1263,7 @@ describe "CSS cascade" do
       CheckBox { color: white; }
       CheckBox[checked] { color: red; }
       .big { background-color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
     cb.styles.normal.fg.should eq rgb("white")
 
@@ -1332,7 +1332,7 @@ describe "CSS cascade" do
       Table Cell { color: white; }
       Header { background-color: blue; }
       Table Cell:nth-child(2) { color: red; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     table.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white") # all cells white
@@ -1355,7 +1355,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       Box:has(+ CheckBox) { color: red; }
       Box:has(~ CheckBox) { background-color: blue; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     a.styles.normal.fg.should eq rgb("red")  # immediately followed by a checkbox
@@ -1371,7 +1371,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       ListTable Box { color: white; }
       ListTable Box:nth-child(2) { color: red; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     lt.item_boxes[0].styles.normal.fg.should eq rgb("white")
@@ -1406,7 +1406,7 @@ describe "CSS cascade" do
         Button { color: red; }
         &.active { background-color: blue; }
       }
-    CSS
+      CSS
     form.add_css_class "active"
     screen.apply_stylesheet
 
@@ -1424,7 +1424,7 @@ describe "CSS cascade" do
       @layer base, theme;
       @layer theme { Box { color: green; } }
       @layer base  { Box { color: red; } }
-    CSS
+      CSS
     screen.apply_stylesheet
     # theme is declared after base, so theme wins even though its rule appears first
     box.styles.normal.fg.should eq rgb("green")
@@ -1432,7 +1432,7 @@ describe "CSS cascade" do
     screen.stylesheet = <<-CSS
       @layer theme { Box { color: green; } }
       Box { color: orange; }
-    CSS
+      CSS
     screen.apply_stylesheet
     box.styles.normal.fg.should eq rgb("orange") # unlayered beats any layer
   end
@@ -1468,7 +1468,7 @@ describe "CSS cascade" do
       ListTable Cell { color: white; }
       Header { background-color: blue; }
       ListTable Cell:nth-child(2) { color: red; }
-    CSS
+      CSS
     screen.apply_stylesheet
 
     lt.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white")
@@ -1549,7 +1549,7 @@ describe "CSS cascade" do
       screen.stylesheet = <<-CSS
         List { color: white; background-color: black;
                selection-color: yellow; selection-background-color: magenta; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       # Selection colors land on the selected state, not normal.
@@ -1571,7 +1571,7 @@ describe "CSS cascade" do
       screen.stylesheet = <<-CSS
         List { selection-background-color: magenta; }
         #lst:selected { background-color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
 
       list.styles.selected.bg.should eq rgb("green") # id selector wins
@@ -1730,7 +1730,7 @@ describe "CSS::ColorValue" do
       screen.stylesheet = <<-CSS
         Button { color: red; }
         Button:FOCUS { color: green; }
-      CSS
+        CSS
       screen.apply_stylesheet
       button.styles.normal.fg.should eq rgb("red")
       button.styles.focused.fg.should eq rgb("green")

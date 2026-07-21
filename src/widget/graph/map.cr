@@ -138,7 +138,7 @@ module Crysterm
         # default *char* comes from the `Glyphs` registry at the effective tier.
         def add_marker(latitude : Number, longitude : Number, char : Char? = nil,
                        color : Int32 | String = 0xE05050, label : String? = nil) : Marker
-          m = Marker.new latitude.to_f, longitude.to_f, char || glyph(Glyphs::Role::MapMarker), color, label
+          m = Marker.new(latitude.to_f, longitude.to_f, char || glyph(Glyphs::Role::MapMarker), color, label)
           @markers << m
           # Markers are a text overlay, not part of the coastline Canvas paint, so
           # deliberately do NOT invalidate the Canvas: its content is unchanged

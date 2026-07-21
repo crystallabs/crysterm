@@ -325,9 +325,9 @@ module Crysterm
       # version assumes. Highlight is suppressed in every non-`Normal` echo mode:
       # a masked field's selection shouldn't be visually revealed.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
-        return nil unless rl == 0
-        return nil unless effective_echo_mode.normal?
-        return nil unless range = selection_range
+        return unless rl == 0
+        return unless effective_echo_mode.normal?
+        return unless range = selection_range
 
         # First and last `@value` indices actually shown, mapped back from the
         # `@_value` window. The window can be scrolled left of the value's end,
@@ -337,7 +337,7 @@ module Crysterm
 
         lo = Math.max(range.begin, vis_start)
         hi = Math.min(range.end, vis_end)
-        return nil if lo >= hi
+        return if lo >= hi
 
         col_lo = rendered_column(vis_start, lo)
         col_hi = rendered_column(vis_start, hi)

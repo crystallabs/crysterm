@@ -76,29 +76,29 @@ module Crysterm
     # four-positional integer constructor. `new` binds to the type at the
     # expansion site, so each `.from` builds its own type.
     macro new_from_side(value)
-      %s = SidedGeometry.sides {{value}}
+      %s = SidedGeometry.sides {{ value }}
       new %s[:left], %s[:top], %s[:right], %s[:bottom]
     end
 
     # The `in Symbol` arm of the integer `.from` constructors: same as
     # `new_from_side`, resolving through the `Symbol` delegator overload above.
     macro new_from_symbol(value)
-      %s = SidedGeometry.sides {{value}}
+      %s = SidedGeometry.sides {{ value }}
       new %s[:left], %s[:top], %s[:right], %s[:bottom]
     end
 
     # The four per-side integer properties, each with its own resting default.
     macro sided_int_properties(left = 0, top = 0, right = 0, bottom = 0)
-      property left : Int32 = {{left}}
-      property top : Int32 = {{top}}
-      property right : Int32 = {{right}}
-      property bottom : Int32 = {{bottom}}
+      property left : Int32 = {{ left }}
+      property top : Int32 = {{ top }}
+      property right : Int32 = {{ right }}
+      property bottom : Int32 = {{ bottom }}
     end
 
     # The four per-side integer properties at one shared resting *default*, plus
     # the all-sides and four-positional integer constructors.
     macro sided_properties(default = 0)
-      SidedGeometry.sided_int_properties {{default}}, {{default}}, {{default}}, {{default}}
+      SidedGeometry.sided_int_properties {{ default }}, {{ default }}, {{ default }}, {{ default }}
 
       def initialize(all : Int)
         @left = @top = @right = @bottom = all
@@ -129,7 +129,7 @@ module Crysterm
           new 1
         in nil, false
           default
-        in {{@type}}
+        in {{ @type }}
           value
         in Side
           # One cell on the named side(s).

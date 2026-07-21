@@ -254,9 +254,9 @@ module Crysterm
         end
 
         def result : Float64?
-          return nil if @tokens.empty?
+          return if @tokens.empty?
           value = expression
-          return nil unless @pos == @tokens.size # trailing junk
+          return unless @pos == @tokens.size # trailing junk
           value
         rescue Error
           nil

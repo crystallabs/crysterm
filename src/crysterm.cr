@@ -193,10 +193,7 @@ module Crysterm
   # raw mode, the tty is still cooked, so Ctrl+C arrives as a real SIGINT and
   # interrupting there would strand the terminal in the alt buffer. Once raw mode
   # is active ISIG is off, Ctrl+C is a keystroke, and this trap is dormant.
-  Signal::INT.trap do
-    exit
-  end
-  Signal::TERM.trap do
+  Process.on_terminate do
     exit
   end
   Signal::QUIT.trap do

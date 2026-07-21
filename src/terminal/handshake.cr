@@ -58,7 +58,7 @@ module Crysterm
     # in-window helper to report its TTY, opens that TTY, and returns a `Window`.
     # Raises if no backend is available, the binary can't be found, or the helper
     # does not connect in time.
-    def self.spawn_window(*, launcher : Launcher | String | Nil = nil,
+    def self.spawn_window(*, launcher : Launcher | String? = nil,
                           cols : Int32 = 80, rows : Int32 = 24,
                           title : String? = nil,
                           env : Process::Env = nil) : Window
@@ -76,7 +76,9 @@ module Crysterm
 
       # Whether the socket file was handed to a live `Window`, which unlinks it on
       # close. On every failure path the `ensure` deletes it instead, so a failed
-      # spawn leaks no dead `.sock`.
+      # spawn leaks no dead `.sock`. Not useless: when the `begin` raises before
+      # `success = true`, this initial value is what the `ensure` reads.
+      # ameba:disable Lint/UselessAssign
       success = false
       begin
         # Inline the handshake env var (and any user env) into the command, so it
@@ -127,7 +129,9 @@ module Crysterm
         server.close rescue nil
         # On any failure path the socket file is ours to clean up (the success
         # path leaves it for `Window#close`, which unlinks it).
-        File.delete(path) rescue nil unless success
+        unless success
+          File.delete(path) rescue nil
+        end
       end
     end
 
@@ -178,11 +182,9 @@ module Crysterm
       socket.flush
 
       Signal::WINCH.trap do
-        begin
-          socket.puts "WINCH"
-          socket.flush
-        rescue
-        end
+        socket.puts "WINCH"
+        socket.flush
+      rescue
       end
 
       # Park: block until the parent closes the connection (gets => nil) or asks

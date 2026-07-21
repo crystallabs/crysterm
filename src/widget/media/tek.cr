@@ -52,9 +52,9 @@ module Crysterm
       # on an actual change. xterm auto-rescales the Tek window from the 4014
       # logical space, so a resize needs no redraw, but a drawing parameter does.
       private macro redraw_setter(name, type)
-        def {{name.id}}=(v : {{type}})
-          return if v == @{{name.id}}
-          @{{name.id}} = v
+        def {{ name.id }}=(v : {{ type }})
+          return if v == @{{ name.id }}
+          @{{ name.id }} = v
           redraw!
         end
       end

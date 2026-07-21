@@ -58,7 +58,7 @@ module Crysterm
       # Keeps a valid current page visible.
       def remove_widget(page : Widget) : Widget?
         i = @pages.index page
-        return nil unless i
+        return unless i
         cur = current_widget
         @pages.delete_at i
         remove page

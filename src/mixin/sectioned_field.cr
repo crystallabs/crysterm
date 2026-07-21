@@ -59,7 +59,7 @@ module Crysterm
       # leave the active section untouched on a click past the value.
       private def section_from_columns(x : Int32, ends : Array(Int32)) : Int32?
         col = x - aleft - ileft
-        return nil if col < 0 || col > ends[-1]
+        return if col < 0 || col > ends[-1]
         ends.index { |e| col <= e }
       rescue
         nil
@@ -166,20 +166,20 @@ module Crysterm
       # fail to expand cleanly, so each including widget declares its own
       # `@ivar : Time` explicitly.
       macro section_value(name, ivar, normalize = nil)
-        def {{name}} : Time
-          {{ivar}}
+        def {{ name }} : Time
+          {{ ivar }}
         end
 
-        def {{name}}=(value : Time) : Time
+        def {{ name }}=(value : Time) : Time
           {% if normalize %}
-            v = value.{{normalize}}
+            v = value.{{ normalize }}
           {% else %}
             v = value
           {% end %}
-          return {{ivar}} if v == {{ivar}}
-          {{ivar}} = v
-          commit_value {{ivar}}
-          {{ivar}}
+          return {{ ivar }} if v == {{ ivar }}
+          {{ ivar }} = v
+          commit_value {{ ivar }}
+          {{ ivar }}
         end
       end
 

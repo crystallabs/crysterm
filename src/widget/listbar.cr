@@ -26,7 +26,7 @@ module Crysterm
       include Mixin::ActionBar
 
       def initialize(
-        commands : Array(Mixin::ActionBar::Command) | Array(String) | Nil = nil,
+        commands : Array(Mixin::ActionBar::Command) | Array(String)? = nil,
         *,
         @mouse = false,
         @auto_command_keys = false,

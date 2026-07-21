@@ -92,7 +92,7 @@ module Crysterm
     # (Kitty when available, else the cell-grid fallback), or `nil` when this
     # widget has no window yet.
     private def background_backend : Media::Type?
-      return nil unless s = window?
+      return unless s = window?
       Media.resolve Media::Content::Background, s.tput
     end
 
@@ -101,7 +101,7 @@ module Crysterm
     # `nil` when no background-capable backend is available.
     protected def ensure_background_media(src : String) : Media::Base?
       @background_media ||= begin
-        type = background_backend || return nil
+        type = background_backend || return
         m = Media.new(
           type: type,
           file: src,

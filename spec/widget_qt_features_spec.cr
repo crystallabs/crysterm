@@ -1510,7 +1510,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
       content: "a\nb\nc"
     s.repaint
     box.show_scrollbar?.should be_false
-    box.scrollbar_widget.try(&.visible?).should_not eq true
+    box.scrollbar_widget.try(&.visible?).should_not be_true
   end
 
   it "AlwaysOn shows the bar even without overflow" do
@@ -1529,7 +1529,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
       scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOff
     s.repaint
     box.show_scrollbar?.should be_false
-    box.scrollbar_widget.try(&.visible?).should_not eq true
+    box.scrollbar_widget.try(&.visible?).should_not be_true
   end
 
   it "legacy scrollbar: true/false maps to a policy" do

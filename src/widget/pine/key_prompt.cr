@@ -105,7 +105,7 @@ module Crysterm
         # Returns the `Choice` the user picked, if any.
         def answered_choice : Choice?
           a = @answer
-          return nil unless a
+          return unless a
           @choices.find { |c| c.key == a }
         end
 

@@ -59,8 +59,8 @@ module Crysterm
       getter unicode : String?
       getter extended : String?
 
-      def initialize(@ascii : Char, unicode : Char | String | Nil = nil,
-                     extended : Char | String | Nil = nil)
+      def initialize(@ascii : Char, unicode : Char | String? = nil,
+                     extended : Char | String? = nil)
         @unicode = unicode.is_a?(Char) ? unicode.to_s : unicode
         @extended = extended.is_a?(Char) ? extended.to_s : extended
       end
@@ -852,8 +852,8 @@ module Crysterm
     # Overrides *role*'s characters. Omitted tiers keep their current value;
     # pass `unset: true` to clear the `unicode`/`extended` overrides back to
     # tier fall-down instead.
-    def self.set(role : Role, ascii : Char? = nil, unicode : Char | String | Nil = nil,
-                 extended : Char | String | Nil = nil, unset : Bool = false) : Nil
+    def self.set(role : Role, ascii : Char? = nil, unicode : Char | String? = nil,
+                 extended : Char | String? = nil, unset : Bool = false) : Nil
       e = @@table[role.value]
       @@table[role.value] = Entry.new(
         ascii || e.ascii,

@@ -50,7 +50,7 @@ module Crysterm
     # Widgets with an orientation surface it as a boolean attribute, so Qt's
     # `:horizontal`/`:vertical` map to `[horizontal]`/`[vertical]`.
     {% for w in %w[ScrollBar Slider ProgressBar Splitter] %}
-      class {{w.id}}
+      class {{ w.id }}
         def css_attributes : Hash(String, String?)
           attrs = super.dup # never mutate super's (possibly shared) result
           attrs[orientation.horizontal? ? "horizontal" : "vertical"] = nil

@@ -904,7 +904,7 @@ module Crysterm
         elsif ch == ';' || (ch >= '0' && ch <= '9')
           i += 1
         else
-          return nil
+          return
         end
       end
       nil
@@ -1031,7 +1031,7 @@ module Crysterm
     # Returns the widget's **live `@lpos`**, which the next render mutates in
     # place: read the values, do not retain the object across frames.
     def last_rendered_position? : RenderedGeometry?
-      pos = @lpos || return nil
+      pos = @lpos || return
 
       # Already resolved for this rectangle.
       return pos if pos.aleft
@@ -1040,7 +1040,7 @@ module Crysterm
       # `@lpos` has none — report "no usable rendered position" instead of
       # raising (this is the documented non-raising variant), and mutate
       # nothing so the object isn't left half-resolved.
-      scr = window? || return nil
+      scr = window? || return
 
       pos.aleft = pos.xi
       pos.atop = pos.yi

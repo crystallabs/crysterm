@@ -314,7 +314,6 @@ module Crysterm
         when DateEdit     then el.date
         when TimeEdit     then el.time
         when DateTimeEdit then el.date_time
-        else                   nil
         end
       end
 

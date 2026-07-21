@@ -125,7 +125,7 @@ module Crysterm
 
     # The URI registered under cell link id *id*, or nil (id 0 or unknown).
     def link_url(id : UInt16) : String?
-      return nil if id == 0
+      return if id == 0
       @link_urls[id - 1]?
     end
 

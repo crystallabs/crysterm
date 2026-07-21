@@ -275,7 +275,7 @@ module Crysterm
     # call (the caller still has to keep the process alive, e.g. with `sleep`).
     # A reattached screen restores whatever listening state it had before
     # disconnecting.
-    def self.open(*, launcher : Terminal::Launcher | String | Nil = nil,
+    def self.open(*, launcher : Terminal::Launcher | String? = nil,
                   cols : Int32 = 80, rows : Int32 = 24,
                   title : String? = nil, env : Process::Env = nil,
                   start_input : Bool = false, into : Window? = nil) : Window
@@ -298,7 +298,7 @@ module Crysterm
     # via the block, then render and start input on them all, then block. A `q` / `Ctrl-Q` in
     # any window — or closing any window — tears that one down; the call
     # returns (and the process exits) once the last window is gone.
-    def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String | Nil = nil,
+    def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String? = nil,
                  cols : Int32 = 80, rows : Int32 = 24, env : Process::Env = nil,
                  & : Window, Int32 -> _) : Nil
       wins = (0...window_count).map do |i|

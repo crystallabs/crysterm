@@ -450,7 +450,7 @@ module Crysterm
         private def ring_geometry(p : Painter) : Tuple(Float64, Float64, Float64)?
           w = p.width
           h = p.height
-          return nil if w <= 0 || h <= 0
+          return if w <= 0 || h <= 0
           # True geometric center of the pixel span (`0..w-1`): `(w-1)/2`, not
           # `w//2`, which sits half a pixel low-and-right and skews the ring.
           cx = (w - 1) / 2.0
@@ -459,7 +459,7 @@ module Crysterm
           # by pixel_aspect), with a small margin.
           aspect = p.pixel_aspect
           ro = Math.min(w / 2.0, (h / 2.0) / (aspect <= 0 ? 1.0 : aspect)) * 0.92
-          return nil if ro <= 1
+          return if ro <= 1
           {cx, cy, ro}
         end
       end

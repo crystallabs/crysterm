@@ -580,20 +580,18 @@ module Crysterm
         # `fetch` caches the result — including a `nil` failure — and only runs
         # the block on a miss.
         @@decode_cache.fetch(key) do
-          begin
-            if file =~ ANSI_ART_RE
-              # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
-              raw = file =~ /^https?:/ ? Ansi.fetch(file) : File.open(file, &.getb_to_end)
-              decode_ansi(raw)
-            elsif VideoSource.video? file
-              # Decoded to animation frames via ffmpeg; nil if missing/failed.
-              VideoSource.decode file
-            else
-              PNGGIF::PNG.new(source_data(file))
-            end
-          rescue
-            nil
+          if file =~ ANSI_ART_RE
+            # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
+            raw = file =~ /^https?:/ ? Ansi.fetch(file) : File.open(file, &.getb_to_end)
+            decode_ansi(raw)
+          elsif VideoSource.video? file
+            # Decoded to animation frames via ffmpeg; nil if missing/failed.
+            VideoSource.decode file
+          else
+            PNGGIF::PNG.new(source_data(file))
           end
+        rescue
+          nil
         end
       end
 

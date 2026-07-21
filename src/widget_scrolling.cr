@@ -543,7 +543,8 @@ module Crysterm
         # inside a scrollable element won't grow past the scrollable element's
         # context regardless of its content, unless we call get_coords without
         # the scrollable calculation. See: test/widget-shrink-fail-2
-        el_bottom = if el.window? && (lpos = el.coords(false, true, into: (@_scrollb_lpos ||= RenderedGeometry.new)))
+        scrollb_lpos = (@_scrollb_lpos ||= RenderedGeometry.new)
+        el_bottom = if el.window? && (lpos = el.coords(false, true, into: scrollb_lpos))
                       el.rtop + (lpos.yl - lpos.yi)
                     else
                       el.rtop + el.aheight

@@ -12,20 +12,20 @@ include Crysterm
 # screen and `mark_dirty` no-ops when detached.
 describe "Widget size-constraint setters emit Resize" do
   {% for dim in %w[min_width max_width min_height max_height] %}
-    it "emits Event::Resize when {{dim.id}} changes" do
+    it "emits Event::Resize when {{ dim.id }} changes" do
       b = Widget::Box.new
       fired = 0
       b.on(Crysterm::Event::Resize) { fired += 1 }
 
-      b.{{dim.id}} = 7
+      b.{{ dim.id }} = 7
       fired.should eq 1
 
       # Idempotent: re-setting the same value does not re-emit (mirrors the
       # `return if @x == val` guard on `width=`/`height=`).
-      b.{{dim.id}} = 7
+      b.{{ dim.id }} = 7
       fired.should eq 1
 
-      b.{{dim.id}} = nil
+      b.{{ dim.id }} = nil
       fired.should eq 2
     end
   {% end %}

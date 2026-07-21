@@ -45,26 +45,24 @@ module Crysterm
     def start_input : Nil
       return if @_keys_fiber
       gen = (@_keys_gen += 1)
-      @_keys_fiber = spawn {
-        begin
-          tput.listen do |e|
-            # Cooperative cancel on a stale generation. MUST precede dispatch,
-            # or a zombie fiber double-dispatches its last event.
-            break if @_keys_gen != gen
+      @_keys_fiber = spawn do
+        tput.listen do |e|
+          # Cooperative cancel on a stale generation. MUST precede dispatch,
+          # or a zombie fiber double-dispatches its last event.
+          break if @_keys_gen != gen
 
-            # Isolate user-handler exceptions per event: one raising handler
-            # must not unwind `tput.listen` and kill the only input fiber,
-            # leaving the app permanently deaf.
-            begin
-              (application || Application.global).route_input self, e
-            rescue ex
-              ::Log.error(exception: ex) { "Crysterm: input handler raised; continuing input loop" }
-            end
+          # Isolate user-handler exceptions per event: one raising handler
+          # must not unwind `tput.listen` and kill the only input fiber,
+          # leaving the app permanently deaf.
+          begin
+            (application || Application.global).route_input self, e
+          rescue ex
+            ::Log.error(exception: ex) { "Crysterm: input handler raised; continuing input loop" }
           end
         rescue IO::Error
           # Input fd closed mid-read; normal teardown.
         end
-      }
+      end
     end
 
     # Whether the input read fiber has been started (and not yet dropped).

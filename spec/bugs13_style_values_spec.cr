@@ -25,29 +25,29 @@ end
 describe "BUGS13 S5 url(...) is matched case-insensitively" do
   it "parses URL(...) / Url(...) like url(...)" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "background-image", %q{URL("x.png")})
+    Crysterm::CSS::Properties.apply(s, "background-image", %q(URL("x.png")))
     s.background_image.should eq "x.png"
-    Crysterm::CSS::Properties.apply(s, "background-image", %q{Url('y.png')})
+    Crysterm::CSS::Properties.apply(s, "background-image", %q(Url('y.png')))
     s.background_image.should eq "y.png"
   end
 
   it "does not clear a set image when the uppercase spelling re-applies it" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "background-image", %q{url("x.png")})
-    Crysterm::CSS::Properties.apply(s, "background-image", %q{URL("x.png")})
+    Crysterm::CSS::Properties.apply(s, "background-image", %q(url("x.png")))
+    Crysterm::CSS::Properties.apply(s, "background-image", %q(URL("x.png")))
     s.background_image.should eq "x.png"
   end
 
   it "still clears the image on `none`" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "background-image", %q{url("x.png")})
+    Crysterm::CSS::Properties.apply(s, "background-image", %q(url("x.png")))
     Crysterm::CSS::Properties.apply(s, "background-image", "none")
     s.background_image.should be_nil
   end
 
   it "extracts an uppercase URL(...) from the background shorthand" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "background", %q{red URL("z.png")})
+    Crysterm::CSS::Properties.apply(s, "background", %q(red URL("z.png")))
     s.background_image.should eq "z.png"
     s.bg.should eq rgb("red")
   end
@@ -215,19 +215,19 @@ end
 
 describe "BUGS13 S15 comment stripping honors quoted strings" do
   it "keeps /*...*/ inside a quoted url() path" do
-    sheet = Crysterm::CSS::Stylesheet.parse(%q{Box { background-image: url("/a/*x*/b.png"); }})
-    sheet.rules.first.declarations["background-image"].should eq %q{url("/a/*x*/b.png")}
+    sheet = Crysterm::CSS::Stylesheet.parse(%q(Box { background-image: url("/a/*x*/b.png"); }))
+    sheet.rules.first.declarations["background-image"].should eq %q(url("/a/*x*/b.png"))
   end
 
   it "keeps /* inside an attribute-selector string" do
-    sheet = Crysterm::CSS::Stylesheet.parse(%q{Box[name="a/*b*/c"] { color: red; }})
-    sheet.rules.first.selector.should contain %q{a/*b*/c}
+    sheet = Crysterm::CSS::Stylesheet.parse(%q(Box[name="a/*b*/c"] { color: red; }))
+    sheet.rules.first.selector.should contain %q(a/*b*/c)
     sheet.rules.first.declarations["color"].should eq "red"
   end
 
   it "keeps /* inside a glyphs string" do
-    sheet = Crysterm::CSS::Stylesheet.parse(%q{Box { glyphs: "/*"; }})
-    sheet.rules.first.declarations["glyphs"].should eq %q{"/*"}
+    sheet = Crysterm::CSS::Stylesheet.parse(%q(Box { glyphs: "/*"; }))
+    sheet.rules.first.declarations["glyphs"].should eq %q("/*")
   end
 
   it "still strips real comments, including multi-line and unterminated" do
@@ -237,7 +237,7 @@ describe "BUGS13 S15 comment stripping honors quoted strings" do
   end
 
   it "strips a comment between a quote-bearing declaration and the next rule" do
-    css = %q{Box { glyphs: "x"; } /* between */ Label { color: blue; }}
+    css = %q(Box { glyphs: "x"; } /* between */ Label { color: blue; })
     sheet = Crysterm::CSS::Stylesheet.parse(css)
     sheet.rules.size.should eq 2
   end

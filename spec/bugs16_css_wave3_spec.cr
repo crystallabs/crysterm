@@ -10,7 +10,7 @@ include Crysterm
 describe "BUGS16 B16-27: quote-aware shorthand tokenization" do
   it "keeps a quoted space corner char in the border-chars group form" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "border-chars", %q{" " "x" "y"})
+    Crysterm::CSS::Properties.apply(s, "border-chars", %q(" " "x" "y"))
     s.border.@corner_char.should eq ' '
     s.border.@horizontal_char.should eq 'x'
     s.border.@vertical_char.should eq 'y'
@@ -18,7 +18,7 @@ describe "BUGS16 B16-27: quote-aware shorthand tokenization" do
 
   it "still applies the unquoted forms" do
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "border-chars", %q{"a" "b" "c"})
+    Crysterm::CSS::Properties.apply(s, "border-chars", %q("a" "b" "c"))
     s.border.@corner_char.should eq 'a'
     s.border.@horizontal_char.should eq 'b'
     s.border.@vertical_char.should eq 'c'

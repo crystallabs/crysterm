@@ -421,12 +421,12 @@ module Crysterm
         private def cell_at(x : Int32, y : Int32) : Tuple(Int32, Int32)?
           d = @matrix
           rows = d.size
-          return nil if rows == 0
+          return if rows == 0
           cols = d[0].size
-          return nil if cols == 0
-          xi, xl, yi, yl = interior_coords || return nil
-          return nil if xl <= xi || yl <= yi
-          return nil if x < xi || x >= xl || y < yi || y >= yl
+          return if cols == 0
+          xi, xl, yi, yl = interior_coords || return
+          return if xl <= xi || yl <= yi
+          return if x < xi || x >= xl || y < yi || y >= yl
           col = ((x - xi) * cols) // (xl - xi)
           row = ((y - yi) * rows) // (yl - yi)
           {row.clamp(0, rows - 1), col.clamp(0, cols - 1)}

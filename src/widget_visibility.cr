@@ -2,7 +2,7 @@ module Crysterm
   class Widget
     # Shows widget on window
     def show
-      return if self.state_style.visible?
+      return if state_style.visible?
       set_visible true
       mark_dirty
       emit Crysterm::Event::Show
@@ -14,7 +14,7 @@ module Crysterm
 
     # Hides widget from window
     def hide
-      return if !self.state_style.visible?
+      return if !state_style.visible?
       # No need to erase the old footprint: the whole cell buffer is cleared
       # before each frame, so a hidden widget's old cells are gone next render.
       set_visible false
@@ -42,7 +42,7 @@ module Crysterm
       # Write to the *raw* backing style: at the unstyled floor `#style` returns a
       # transient reverse-video `#dup` for a `:focused`/`:selected` widget, so a
       # write through it would be discarded (a focused `Button` could never hide).
-      self.state_style.visible = value
+      state_style.visible = value
       # Visibility is a widget-level property, not a per-state visual, but a
       # CSS-styled widget has a distinct computed style per materialized state and
       # `state_style` touches only the current one. Apply across every state, or a
@@ -79,7 +79,7 @@ module Crysterm
     # Returns whether widget is visible. Does not check whether the ancestors are
     # visible too; see `#visible_in_tree?`.
     def visible?
-      self.state_style.visible?
+      state_style.visible?
     end
 
     # Inverse of `#visible?` (Qt's `QWidget#isHidden`). Consults only this

@@ -105,9 +105,9 @@ module Crysterm
       # `nil` when nothing is selected (no anchor, or anchor and cursor coincide
       # — a plain click with no drag).
       def selection_range : Range(Int32, Int32)?
-        return nil unless anchor = @selection_anchor
+        return unless anchor = @selection_anchor
         lo, hi = anchor < cursor_pos ? {anchor, cursor_pos} : {cursor_pos, anchor}
-        return nil if lo == hi
+        return if lo == hi
         lo...hi
       end
 
@@ -197,7 +197,7 @@ module Crysterm
           @ev_enter = on(Crysterm::Event::KeyPress) do |e|
             next if @_reading
             if e.key.try &.==(Tput::Key::Enter)
-              next read_input
+              read_input
             end
           end
         end
@@ -985,15 +985,15 @@ module Crysterm
       # with a negative `begin`, which the per-cell `includes?` check in `base_render`
       # handles correctly.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
-        return nil unless range = selection_range
-        return nil if rl < 0 || rl >= @_clines.size
+        return unless range = selection_range
+        return if rl < 0 || rl >= @_clines.size
 
         line_start = pos_from_rowcol(rl, 0)
         line_end = pos_from_rowcol(rl, line_display_width(rl))
 
         lo = Math.max(range.begin, line_start)
         hi = Math.min(range.end, line_end)
-        return nil if lo >= hi
+        return if lo >= hi
 
         off = row_text_x_offset(rl)
         col_lo = off + rendered_column(line_start, lo) - @child_base_x
@@ -1345,9 +1345,9 @@ module Crysterm
 
         # @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
 
-        @ev_reading = on(Crysterm::Event::KeyPress) { |e|
+        @ev_reading = on(Crysterm::Event::KeyPress) do |e|
           @__listener.try &.call e
-        }
+        end
 
         @__done = @_done = ->_done_default(String?)
 
@@ -1355,7 +1355,7 @@ module Crysterm
         # Blur handler accumulates on every focus; worse, `rewind_focus` emits
         # Blur during teardown, so a stale handler would re-enter
         # `__done_default` and double-pop the focus history.
-        @ev_done_blur = on(Crysterm::Event::FocusOut) { |e|
+        @ev_done_blur = on(Crysterm::Event::FocusOut) do |e|
           # When focus moves to ANOTHER widget (Tab between form fields, click on
           # a sibling input), the user deliberately chose the new target: tear
           # down read state but do NOT `rewind_focus` (would yank focus back and
@@ -1364,7 +1364,7 @@ module Crysterm
           @_skip_rewind = !e.next_focused.nil?
           @__done.try &.call nil
           @_skip_rewind = false
-        }
+        end
       end
 
       def read_input(&callback : String? ->)
