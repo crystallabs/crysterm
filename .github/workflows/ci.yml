@@ -14,5 +14,9 @@ jobs:
         run: sudo apt-get update -y && sudo apt-get install -y libunibilium-dev
       - name: Install dependencies
         run: shards install --ignore-crystal-version
+      # Ameba on master no longer ships a postinstall that builds the binary
+      # on `shards install`, so build it explicitly.
+      - name: Build ameba
+        run: crystal build lib/ameba/src/cli.cr -o bin/ameba
       - name: Run ameba
         run: bin/ameba
