@@ -378,10 +378,17 @@ module Crysterm
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
         when "br"
-          bf = @block_format.with_list_format(nil).with_checked(nil)
+          # A hard break splits one paragraph into interior lines. The
+          # continuation is an interior line (never owed rows above), so it must
+          # not inherit the paragraph's top_margin, and the bottom_margin must
+          # move to (not be duplicated onto) the continuation so it lands only on
+          # the paragraph's last line. Derive the continuation before mutating
+          # @block_format, then strip bottom off the block being closed.
+          cont = @block_format.with_list_format(nil).with_checked(nil).with_top_margin(nil)
           collapse = @collapse
+          @block_format = @block_format.with_bottom_margin(nil)
           end_block
-          start_block(bf, collapse)
+          start_block(cont, collapse)
           # The break's new block is a real (possibly empty) line — a
           # following block element must not discard it as a wrapper block.
           @block_virgin = false

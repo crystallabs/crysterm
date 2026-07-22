@@ -45,7 +45,12 @@ module Crysterm
 
     # Parses markdown into detached blocks.
     def self.parse(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
-      Importer.new(theme).import(Markd::Parser.parse(text))
+      # `source_pos` records each block's source line/column so the importer
+      # can tell a real `[x]` task marker from an escaped `\[x\]` one — markd
+      # resolves the escape before the AST, so the text nodes are identical
+      # (B17-31).
+      doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
+      Importer.new(theme, text).import(doc)
     end
 
     # Serializes *blocks* to markdown.
@@ -83,7 +88,12 @@ module Crysterm
       # nodes around the `Strong`) and clears at block end.
       @strike = false
 
-      def initialize(@theme : TextTheme)
+      # Raw source lines, kept so `task_marker` can consult `source_pos` to
+      # reject escaped `\[x\]` markers (B17-31).
+      @source : Array(String)
+
+      def initialize(@theme : TextTheme, source : String = "")
+        @source = source.split('\n')
       end
 
       def import(doc : Markd::Node) : Array(TextBlock)
@@ -325,9 +335,23 @@ module Crysterm
       # markd tokenizes as plain text.
       private def task_marker(item : Markd::Node) : Symbol?
         s = node_text item
+        return if md_escaped_marker?(item)
         if md = s.match(/\A\[([ xX])\]\s/)
           md[1].downcase == "x" ? :done : :todo
         end
+      end
+
+      # Whether the item's leading `[` is backslash-escaped in the source.
+      # markd resolves `\[` to a plain `[` text node, so the AST alone can't
+      # distinguish `\[x\]` (a literal `[x]` in a plain bullet) from a real
+      # `[x]` task marker; the item's first block starts at the `\` in the
+      # escaped case and at the `[` in the real one (B17-31).
+      private def md_escaped_marker?(item : Markd::Node) : Bool
+        para = item.first_child?
+        return false unless para
+        line, col = para.source_pos[0]
+        return false unless (l = @source[line - 1]?)
+        l[col - 1]? == '\\'
       end
 
       private def node_text(node : Markd::Node) : String
@@ -460,6 +484,17 @@ module Crysterm
         # table detector on re-import; force a blank line to end the
         # table (B17-27).
         return true if (ptf = pf.table_format) && !ptf.same?(cf.table_format)
+        # An empty list item after a plain paragraph renders as a bare
+        # marker ("1. "); with only a newline it lazily merges into the
+        # paragraph (an empty item can't interrupt a paragraph even with
+        # number 1, so the numbered-!=1 guard above misses it) (B17-45).
+        return true if cf.list_format && blocks[i].fragments.empty? &&
+                       plain_body?(blocks[i - 1])
+        # A table directly after a plain paragraph would be swallowed into
+        # that paragraph on re-import (the GFM detector needs the table to
+        # begin its own paragraph); force a blank line (B17-45).
+        return true if cf.table_format && pf.table_format.nil? &&
+                       plain_body?(blocks[i - 1])
         false
       end
 
@@ -498,15 +533,36 @@ module Crysterm
             end
             if opens_fence?(blocks, i)
               first = i
-              prefix = "> " * blocks[i].block_format.quote_level
-              io << prefix << "```\n"
+              fbf = blocks[first].block_format
+              ql = fbf.quote_level
+              prefix = "> " * ql
+              # A fence that imported as list content must re-export inside its
+              # item, else re-import detaches the code block from the list (and,
+              # if the fence is the item's first content, drops the bullet and
+              # shifts ordered numbering). Indent every fence/code line to the
+              # item's content column: the item marker (when the fence is the
+              # item's first block) or the continuation column (@item_cols keyed
+              # by bf.indent // 2, mirroring write_block). Top-level and quoted
+              # fences keep pad 0 and are unchanged.
+              io << prefix
+              pad =
+                if lf = fbf.list_format
+                  write_list_marker(io, lf, fbf.checked?)
+                elsif fbf.indent > 0
+                  col = @item_cols[fbf.indent // 2]? || fbf.indent
+                  io << " " * col
+                  col
+                else
+                  0
+                end
+              io << "```\n"
               # The fence run ends at a margin or quote-level boundary —
               # two fences separated by a blank line stay two fences.
-              while fence_member?(blocks, i, first, blocks[first].block_format.quote_level)
-                io << prefix << blocks[i].text << '\n'
+              while fence_member?(blocks, i, first, ql)
+                io << prefix << " " * pad << blocks[i].text << '\n'
                 i += 1
               end
-              io << prefix << "```"
+              io << prefix << " " * pad << "```"
             elsif tf = blocks[i].block_format.table_format
               run = [] of TextBlock
               while i < blocks.size && blocks[i].block_format.table_format.same?(tf)
@@ -589,6 +645,34 @@ module Crysterm
         !b.fragments.empty? && !rule?(b.text)
       end
 
+      # Emits a list item's marker (bullet, ordered number, or checkbox) for
+      # *lf* to *io* — indenting to the parent item's content column, advancing
+      # @list_items for ordered numbering, and recording the item's own content
+      # column in @item_cols. Returns that content column, where the item's
+      # inline text (or a fenced code block that opens as the item's first
+      # content) must align. Shared by write_block's list branch and the
+      # exporter's fence branch so both position items identically.
+      private def write_list_marker(io : IO, lf : TextListFormat, checked : Bool) : Int32
+        # A nested item indents to the parent item's content column
+        # (falling back to 2/level when the parent never appeared).
+        pad = lf.indent > 1 ? (@item_cols[lf.indent - 1]? || (lf.indent - 1) * 2) : 0
+        io << " " * pad
+        marker =
+          if lf.style.checkbox?
+            checked ? "- [x] " : "- [ ] "
+          else
+            n = @list_items[lf.object_id]? || 0
+            @list_items[lf.object_id] = n + 1
+            lf.style.numbered? ? "#{lf.start + n}. " : "- "
+          end
+        io << marker
+        # For a checkbox item the content column is right after "- " —
+        # the "[x] " marker is item *content* to CommonMark.
+        col = pad + (lf.style.checkbox? ? 2 : marker.size)
+        @item_cols[lf.indent] = col
+        col
+      end
+
       private def write_block(io : IO, b : TextBlock) : Nil
         bf = b.block_format
         io << "> " * bf.quote_level if bf.quote_level > 0
@@ -599,19 +683,7 @@ module Crysterm
         end
 
         if lf = bf.list_format
-          # A nested item indents to the parent item's content column
-          # (falling back to 2/level when the parent never appeared).
-          pad = lf.indent > 1 ? (@item_cols[lf.indent - 1]? || (lf.indent - 1) * 2) : 0
-          io << " " * pad
-          marker =
-            if lf.style.checkbox?
-              bf.checked? ? "- [x] " : "- [ ] "
-            else
-              n = @list_items[lf.object_id]? || 0
-              @list_items[lf.object_id] = n + 1
-              lf.style.numbered? ? "#{lf.start + n}. " : "- "
-            end
-          io << marker
+          write_list_marker(io, lf, bf.checked?)
           # A heading inside a list item ("- # Title", which the importer
           # merges into one block) re-emits its hashes as item *content* —
           # CommonMark allows a heading as list-item content, and dropping
@@ -622,9 +694,6 @@ module Crysterm
           if !lf.style.checkbox? && (lvl = bf.heading_level) > 0
             io << "#" * lvl << ' '
           end
-          # For a checkbox item the content column is right after "- " —
-          # the "[x] " marker is item *content* to CommonMark.
-          @item_cols[lf.indent] = pad + (lf.style.checkbox? ? 2 : marker.size)
           write_inline(io, b.fragments, lead: true)
           return
         end
@@ -736,9 +805,12 @@ module Crysterm
             run = 0
           end
         end
-        return "`#{text}`" if longest == 0
         ticks = "`" * (longest + 1)
-        "#{ticks} #{text} #{ticks}"
+        # Pad when a strip on re-import will fire: always when the text carries
+        # a backtick, and for backtick-free text only when it has an edge space
+        # AND a non-space char (markd strips one edge space per side only then).
+        needs_pad = longest > 0 || ((text.starts_with?(' ') || text.ends_with?(' ')) && text.matches?(/[^ ]/))
+        needs_pad ? "#{ticks} #{text} #{ticks}" : "`#{text}`"
       end
 
       # Percent-encodes the characters that break a bare CommonMark link
@@ -764,7 +836,7 @@ module Crysterm
         return text unless lead
         # Block-leading syntax the inline class above doesn't cover: bullet
         # `-`/`+`, heading `#`, quote `>`, setext `=`, ordered `1.`/`1)`.
-        if md = text.match(/\A(\s{0,3})([-+>#=])/)
+        if md = text.match(/\A(\s{0,3})([-+>#=|])/)
           text = "#{md[1]}\\#{md[2]}#{text[md[0].size..]}"
         elsif md = text.match(/\A(\s{0,3}\d{1,9})([.)])/)
           text = "#{md[1]}\\#{md[2]}#{text[md[0].size..]}"

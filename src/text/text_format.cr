@@ -270,10 +270,10 @@ module Crysterm
     # A full-field copy overriding exactly the given nil-able properties. Every
     # field is forwarded from the `@`-ivars, so adding a block property means
     # editing this once.
-    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats) : TextBlockFormat
+    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin) : TextBlockFormat
       TextBlockFormat.new(
-        alignment: @alignment, indent: @indent, top_margin: @top_margin,
-        bottom_margin: @bottom_margin, bg: @bg, heading_level: @heading_level,
+        alignment: @alignment, indent: @indent, top_margin: top_margin,
+        bottom_margin: bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
         table_format: @table_format, frame_formats: frame_formats)
@@ -295,6 +295,19 @@ module Crysterm
     # root frame. `#merge` cannot express clearing, same as `#with_list_format`.
     def with_frame_formats(ff : Array(TextFrameFormat)?) : TextBlockFormat
       copy_with(frame_formats: ff)
+    end
+
+    # A copy with the top margin replaced, or cleared with `nil` — `#merge`
+    # cannot clear a set value. Clear with `nil` (not `0`) so an otherwise-empty
+    # result still equals `TextBlockFormat.default`.
+    def with_top_margin(margin : Int32?) : TextBlockFormat
+      copy_with(top_margin: margin)
+    end
+
+    # A copy with the bottom margin replaced, or cleared with `nil`, mirroring
+    # `#with_top_margin`.
+    def with_bottom_margin(margin : Int32?) : TextBlockFormat
+      copy_with(bottom_margin: margin)
     end
 
     def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats

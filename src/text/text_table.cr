@@ -303,6 +303,12 @@ module Crysterm
       Glyphs[Glyphs::Role::LineVertical, Glyphs::Tier::Unicode]
     end
 
+    # Maps a v_char inside cell content to an ASCII '|' so grid recovery never
+    # mistakes it for a column boundary (build-path twin of `sanitize_cell`).
+    protected def self.sanitize_build_cell(s : String) : String
+      s.includes?(v_char) ? s.gsub(v_char, '|') : s
+    end
+
     # Whether pre-rendered block text is a data row (vs. a border row).
     def self.data_row?(text : String) : Bool
       text.starts_with?(v_char)
@@ -352,6 +358,14 @@ module Crysterm
     # live table's own block format (identity matters) and border colors rather
     # than fresh ones.
     protected def self.build_blocks(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)?, cols : Int32, bf : TextBlockFormat, border_fmt : TextCharFormat) : Array(TextBlock)
+      # A v_char inside a cell renders indistinguishably from a column boundary,
+      # so grid recovery (`split_data_row`) would read it as an extra cell. Map
+      # it to an ASCII '|', which recovery never splits on and the markdown
+      # exporter escapes; this is the build-path twin of the editing-API guard
+      # `sanitize_cell`. Covers every build caller (build/gfm/HTML import).
+      header = header.map { |c| sanitize_build_cell(c) }
+      body = body.map { |row| row.map { |c| sanitize_build_cell(c) } }
+
       widths = Array.new(cols, 0)
       ([header] + body).each do |row|
         row.each_with_index do |cell, i|
