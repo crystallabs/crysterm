@@ -195,20 +195,6 @@ module Crysterm
       nil
     end
 
-    # Resolves a color endpoint for animation math: `nil` stays `nil`; the `-1`
-    # terminal-default sentinel is substituted with the configured default RGB
-    # (`Colors.default_fg_rgb`/`default_bg_rgb`), or `nil` when that substitute
-    # is itself unknown (`-1`); a concrete color passes through. Without this,
-    # `Colors.mix` reads `-1`'s bits as `0xFFFFFF` (arithmetic shift) and the
-    # tween blends through — and permanently lands on — pure white instead of
-    # the terminal default (the same hazard `Colors.tint_field` guards against).
-    private def resolve_anim_color(c : Int32?, fg : Bool) : Int32?
-      return nil unless c
-      return c unless c == -1
-      d = fg ? Colors.default_fg_rgb : Colors.default_bg_rgb
-      d == -1 ? nil : d
-    end
-
     private def transition_color(key : Symbol, from : Int32?, to : Int32?,
                                  dur : Time::Span, easing : Easing, &set : Int32 ->) : Nil
       # Cancel first, even on the no-op early returns (nil target or from == to):
@@ -220,8 +206,8 @@ module Crysterm
       # from/toward the configured default rather than white. Snap straight to
       # the raw target when an endpoint is unresolvable (unknown terminal
       # default) or resolution collapses the change to a no-op.
-      rf = resolve_anim_color(f, key == :color)
-      rt = resolve_anim_color(t, key == :color)
+      rf = Colors.resolve(f, key == :color)
+      rt = Colors.resolve(t, key == :color)
       if rf.nil? || rt.nil? || rf == rt
         set.call(t)
         return

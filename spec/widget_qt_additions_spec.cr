@@ -118,6 +118,30 @@ describe Crysterm::ButtonGroup do
     g.button(42).should eq btn
     g.id(btn).should eq 42
   end
+
+  it "reconciles down to one checked member when exclusivity is turned on at runtime" do
+    s = add_mem_screen
+    a = Crysterm::Widget::CheckBox.new parent: s
+    b = Crysterm::Widget::CheckBox.new parent: s
+
+    g = Crysterm::ButtonGroup.new exclusive: false
+    g.add_button a, 1
+    g.add_button b, 2
+    a.check
+    b.check
+    a.checked?.should be_true
+    b.checked?.should be_true
+
+    # Flipping to exclusive must leave at most one checked (the first), without
+    # emitting a spurious ButtonClick from the uncheck cascade.
+    clicks = 0
+    g.on(Crysterm::Event::ButtonClick) { clicks += 1 }
+    g.exclusive = true
+    a.checked?.should be_true
+    b.checked?.should be_false
+    g.checked_button.should eq a
+    clicks.should eq 0
+  end
 end
 
 describe Crysterm::Widget::ToolButton do

@@ -35,8 +35,28 @@ module Crysterm
     include Mixin::ExclusiveGroup
 
     # Whether at most one member may be checked at a time (Qt's
-    # `QButtonGroup#exclusive`). Defaults to `true`.
-    property? exclusive : Bool = true
+    # `QButtonGroup#exclusive`). Defaults to `true`. Turning this on forces
+    # every current member checkable (exclusivity is meaningless without a
+    # checked state) and reconciles down to at most one checked member.
+    getter? exclusive : Bool = true
+
+    # Sets `#exclusive`. Forces every member checkable when turning exclusivity
+    # on (the same invariant `#add_button` enforces at add time), and, so the
+    # group doesn't display more than one check-mark until the next activation,
+    # unchecks every member but the first that's already checked. The uncheck
+    # cascade runs `suppressed` so it neither re-enters the exclusivity handling
+    # nor emits a spurious `Event::ButtonClick`.
+    def exclusive=(value : Bool) : Bool
+      return value if @exclusive == value
+      @exclusive = value
+      if value
+        @buttons.each { |b| b.checkable = true if b.is_a?(Widget::AbstractButton) }
+        if first = @buttons.find { |b| member_checked? b }
+          suppressed { exclude_peers @buttons, first }
+        end
+      end
+      value
+    end
 
     @buttons = [] of Widget
     @ids = {} of Widget => Int32

@@ -92,7 +92,9 @@ module Crysterm
             # `@overflow || window.overflow || Ignore`), so the child would NOT
             # self-move in its own render; without this the branch behaves like
             # Ignore. Anchor the child's whole margin box within the interior.
-            el.top = Math.max(0, interior.height - el.mvertical - el.aheight)
+            # B18-25: compute the anchor in Int64 and clamp so a huge
+            # margin+height can't underflow/overflow the checked Int32 math.
+            el.top = Math.max(0_i64, interior.height.to_i64 - el.mvertical - el.aheight).clamp(0_i64, interior.height.to_i64).to_i32
           end
 
           # A deferred (z-indexed) child still renders at the position assigned
@@ -146,7 +148,10 @@ module Crysterm
           last_drawn = llp.width
         elsif (last = @prev_el)
           last_drawn = occupied_width last
-          el.left = last.left.as(Int) + last.mleft + last_drawn + last.mright
+          # B18-25: widen the chain sum to Int64 and clamp to the interior so a
+          # pathological predecessor extent can't overflow the checked Int32
+          # accumulation (`occupied_width` returns raw `awidth`).
+          el.left = (last.left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
         else
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
@@ -165,12 +170,16 @@ module Crysterm
         # by `mleft` without shrinking a fixed width, so the child occupies
         # `[left + mleft, left + mleft + awidth)`. Omitting it lets a margined
         # child paint past the interior instead of wrapping.
-        if el.left.as(Int) + el.mleft + el.awidth <= width
+        # B18-25: run the fit comparison in Int64 so a margin+width beyond the
+        # Int32 range can't overflow the sum.
+        if el.left.as(Int).to_i64 + el.mleft + el.awidth <= width
           el.top = @row_offset
         else
           # Doesn't fit on this row: advance the row offset by the tallest child
           # on the row we're leaving, and start a new row.
-          @row_offset += row_tallest container, @row_index, i
+          # B18-25: clamp the row height to the interior so a pathological child
+          # can't overflow the checked Int32 `@row_offset` accumulation.
+          @row_offset += clamped_size(row_tallest(container, @row_index, i), interior.height)
           @last_row_index = @row_index
           @row_index = i
           el.left = 0
@@ -277,7 +286,9 @@ module Crysterm
         # without shrinking it, so its real bottom edge is `top + mtop + aheight`.
         # Safe for auto-height children too — their `aheight` already folds both
         # vertical margins in, so adding `mtop` still can't exceed the interior.
-        if el.top.as(Int) + el.mtop + el.aheight > height
+        # B18-25: run the overflow comparison in Int64 so the bottom-edge sum
+        # can't overflow the checked Int32 arithmetic.
+        if el.top.as(Int).to_i64 + el.mtop + el.aheight > height
           return container.overflow
         end
         nil

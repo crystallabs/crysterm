@@ -102,6 +102,18 @@ module Crysterm
       Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
     end
 
+    # Resolves a *logical* color (`-1` default, or `0xRRGGBB`) to a concrete
+    # `0xRRGGBB`, substituting the configured terminal default for a `-1`
+    # default. Returns `nil` when the color is a still-unknown default
+    # (`default_fg/bg_rgb == -1`) — i.e. unresolvable. The `Int32`/`0xRRGGBB`
+    # counterpart of the private `resolve_field`, for callers working in logical
+    # color space (animation tweens) rather than packed attr fields.
+    def self.resolve(color : Int32, fg : Bool) : Int32?
+      return color unless color == -1
+      d = fg ? default_fg_rgb : default_bg_rgb
+      d == -1 ? nil : d
+    end
+
     # Blends two packed color fields in RGB space (`alpha` = weight of *field*
     # over *other*), resolving defaults first and short-circuiting the unknowns:
     # both-default stays `default`, and a single unknown side (`-1`) falls back
@@ -113,6 +125,22 @@ module Crysterm
       b = resolve_field(other, fg)
       return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
       Attr.pack_color(mix(a, b, alpha))
+    end
+
+    # Mixes two *logical* colors (`-1` default, or `0xRRGGBB`) in RGB space
+    # (`alpha` = weight of *a* over *b*), resolving defaults first and
+    # short-circuiting the unknowns: both-default stays `-1`, a single
+    # unresolvable side falls back to the other, else the two are mixed. The
+    # `Int32`/`0xRRGGBB` counterpart of the private `blend_fields`, so a caller
+    # painting logical colors (e.g. gradient stops) never washes a `-1` default
+    # through white the way a bare `mix` would (it reads `-1`'s bits as
+    # `0xFFFFFF`).
+    def self.mix_resolved(a : Int32, b : Int32, alpha : Float64, fg : Bool) : Int32
+      return -1 if a == -1 && b == -1
+      ra = resolve(a, fg)
+      rb = resolve(b, fg)
+      return rb || ra || -1 if ra.nil? || rb.nil?
+      mix(ra, rb, alpha)
     end
 
     # Blends the fg and bg of `attr` with those of `attr2` (alpha compositing,

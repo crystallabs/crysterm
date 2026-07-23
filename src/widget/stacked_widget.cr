@@ -62,19 +62,25 @@ module Crysterm
         cur = current_widget
         @pages.delete_at i
         remove page
-        if @pages.empty?
-          clear_current_index
-        else
-          # `-1` first: the surviving current page may sit at the same index it
-          # did before, and `#show_index` no-ops on the already-current one.
-          @current_index = -1
-          if cur && cur != page && (ci = @pages.index(cur))
-            self.current_index = ci
-          else
-            self.current_index = i.clamp(0, @pages.size - 1)
-          end
-        end
+        reclamp_after_removal i, cur
         page
+      end
+
+      # Catches a page detached by any path other than `#remove_widget` — a
+      # direct `page.destroy` or `#detach_from_tree` (both land here via
+      # `parent.remove(self)`), a bare `#remove`, or a reparenting append — and
+      # keeps `@pages`/the selection in sync. `#remove_widget` deletes the page
+      # from `@pages` *before* it calls `remove page`, so on that path the guard
+      # below is already false and it does the work itself (mirrors
+      # `Splitter#remove_widget`); non-page children pass straight through.
+      def remove(element)
+        i = @pages.index element
+        cur = current_widget
+        super
+        if i
+          @pages.delete_at i
+          reclamp_after_removal i, cur
+        end
       end
 
       # Operator alias for `#add_widget`, e.g. `stack << page`. Deliberately

@@ -83,6 +83,37 @@ module Crysterm
         emit ::Crysterm::Event::CurrentChanged, -1
       end
 
+      # Restores a valid selection after a page was removed. Call it *after*
+      # deleting the page (and whatever parallel per-widget data rides alongside
+      # it) from `#pages`, passing the index the page occupied and the widget
+      # that should stay current — the one current *before* the removal, or `nil`.
+      # The single reclamp shared by every removal path (`#remove_tab`,
+      # `#remove_widget`, `#remove_item`, and the `#remove` overrides that catch a
+      # direct `destroy`/detach), so the `-1`-first dance lives in one place.
+      #
+      # * No pages left — drops to the `-1` sentinel via `#clear_current_index`,
+      #   which emits `CurrentChanged(-1)` (nothing else would report it).
+      # * *kept_widget* survived — re-shows it at its (possibly shifted) index.
+      #   It may still sit at the very index it did before, and `#show_index`
+      #   no-ops on the already-current page, so `@current_index` is reset to the
+      #   `-1` sentinel first to force the switch — and any per-widget
+      #   `#after_show_index` work (bar highlight, relayout) — to run.
+      # * Otherwise (the current page *was* the one removed, so it is gone from
+      #   `#pages`) — falls back to the neighbor at *removed_index*, clamped into
+      #   the now-shorter list.
+      protected def reclamp_after_removal(removed_index : Int, kept_widget : Widget?) : Nil
+        if @pages.empty?
+          clear_current_index
+        else
+          @current_index = -1
+          if kept_widget && (ci = @pages.index(kept_widget))
+            self.current_index = ci
+          else
+            self.current_index = removed_index.clamp(0, @pages.size - 1)
+          end
+        end
+      end
+
       # Hook for per-widget work after the visible page changes. Default: nothing.
       protected def after_show_index(index : Int) : Nil
       end

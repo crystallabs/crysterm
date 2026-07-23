@@ -133,7 +133,10 @@ module Crysterm
           i = seg.to_i
           i = @stops.size - 2 if i > @stops.size - 2
           frac = seg - i
-          Colors.mix @stops[i], @stops[i + 1], 1.0 - frac
+          # Stops paint the background (`fg: false`); `mix_resolved` (not a bare
+          # `Colors.mix`) so a `-1`/`default` stop resolves to the configured
+          # terminal default instead of washing the blend through white.
+          Colors.mix_resolved @stops[i], @stops[i + 1], 1.0 - frac, false
         end
       end
 

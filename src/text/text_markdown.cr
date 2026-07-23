@@ -114,12 +114,12 @@ module Crysterm
         when .paragraph?
           import_paragraph(node)
         when .heading?
-          separator if top_level? || quote_break?
+          structure_separator
           start_block TextBlockFormat.new(heading_level: node.data["level"].as(Int32))
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
         when .block_quote?
-          separator if top_level? || quote_break?
+          structure_separator
           @quote_depth += 1
           walk_children(node)
           @quote_depth -= 1
@@ -136,11 +136,11 @@ module Crysterm
         when .code_block?
           import_code_block(node)
         when .thematic_break?
-          separator if top_level? || quote_break?
+          structure_separator
           start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
-          separator if top_level? || quote_break?
+          structure_separator
           node.text.chomp.split('\n').each do |line|
             start_block
             append_text line
@@ -182,7 +182,7 @@ module Crysterm
       # markd hands tables through as a plain paragraph of `|` rows.
       private def import_paragraph(node : Markd::Node) : Nil
         txt = node_text(node)
-        separator if top_level? || quote_break?
+        structure_separator
         # A table-shaped paragraph inside a list item stays ordinary item
         # content: import_table stamps no list membership, so taking the
         # table path there would detach it from the list and shift ordered
@@ -200,7 +200,9 @@ module Crysterm
       # A list node: pushes its shared `TextListFormat` (instance identity =
       # list identity) for the item walks, then pops it.
       private def import_list(node : Markd::Node) : Nil
-        separator if @list_stack.empty? && (top_level? || quote_break?)
+        # `top_level?`/`quote_break?` already both require an empty list
+        # stack, so no explicit `@list_stack.empty?` guard is needed here.
+        structure_separator
         ordered = node.data["type"]? != "bullet"
         start = (node.data["start"]?.try &.as(Int32)) || 1
         style = if !ordered && task_list?(node)
@@ -220,7 +222,7 @@ module Crysterm
 
       # A fenced/indented code block: one code-bg block per line.
       private def import_code_block(node : Markd::Node) : Nil
-        separator if top_level? || quote_break?
+        structure_separator
         fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
         bf = TextBlockFormat.new(bg: @theme.code_bg)
         node.text.chomp.split('\n').each do |line|
@@ -228,6 +230,15 @@ module Crysterm
           @frags << TextFragment.new(line, fmt) unless line.empty?
           end_block
         end
+      end
+
+      # Emit a structural separator before the next block when one is owed:
+      # between successive top-level structures, or between successive
+      # structures at the current quote depth. Folds the `top_level? ||
+      # quote_break?` gate that every structural walk site shares into one
+      # place (a missed `|| quote_break?` guard was B18-70).
+      private def structure_separator : Nil
+        separator if top_level? || quote_break?
       end
 
       private def top_level? : Bool

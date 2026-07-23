@@ -229,14 +229,14 @@ module Crysterm
     # sentinel intact: boundary fractions return the RAW endpoint (so a stop
     # declaring `transparent` really settles on the terminal default, not the
     # configured approximation), mid-frames lerp in resolved RGB space (via
-    # `resolve_anim_color`, since `Colors.mix` reads `-1`'s bits as `0xFFFFFF`
+    # `Colors.resolve`, since `Colors.mix` reads `-1`'s bits as `0xFFFFFF`
     # and would wash the tween through white), and an endpoint whose default is
     # unknown snaps to the nearest raw endpoint instead of lerping.
     private def kf_lerp_color(af : Int32, bf : Int32, t : Float64, fg : Bool) : Int32
       return bf if t >= 1.0
       return af if t <= 0.0
-      ra = resolve_anim_color(af, fg)
-      rb = resolve_anim_color(bf, fg)
+      ra = Colors.resolve(af, fg)
+      rb = Colors.resolve(bf, fg)
       return (t < 0.5 ? af : bf) if ra.nil? || rb.nil?
       lerp_color(ra, rb, t)
     end

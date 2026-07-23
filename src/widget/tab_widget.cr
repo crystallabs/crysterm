@@ -404,24 +404,40 @@ module Crysterm
         # Re-point current_index at a still-existing tab and show it: the page
         # that was current stays current when it survived the removal; only
         # removing the current tab itself falls back to its neighbor.
-        if @pages.empty?
-          # Nothing left to show, so `#show_index` can't report the change —
-          # `#clear_current_index` emits `CurrentChanged(-1)` instead.
-          clear_current_index
-        else
-          # `-1` first: the surviving current page may sit at the same index it
-          # did before, and `#show_index` no-ops on the current one.
-          @current_index = -1
-          if cur && (ci = @pages.index(cur))
-            self.current_index = ci
-          else
-            self.current_index = index.clamp(0, @pages.size - 1)
-          end
-        end
+        reclamp_after_removal index, cur
 
         emit ::Crysterm::Event::ItemRemoved
         request_render
         page
+      end
+
+      # Catches a managed page detached by any path other than `#remove_tab` — a
+      # direct `page.destroy` or `#detach_from_tree` (both land here via
+      # `parent.remove(self)`), a bare `#remove`, or a reparenting append — and
+      # runs the same teardown so `@pages`/`@tab_titles`/the bar never point at a
+      # gone page. `#remove_tab` deletes the page from `@pages` *before* it calls
+      # `remove page`, so on that path the guard below is already false and it
+      # does the work itself (mirrors `Splitter#remove_widget`); the tab bar and
+      # any other non-page child pass straight through.
+      def remove(element)
+        idx = @pages.index element
+        # Snapshot the current page before the delete so the reclamp can keep it
+        # current when it wasn't the one removed.
+        cur = current_widget
+        super
+        if idx
+          @tab_titles.delete_at idx
+          @pages.delete_at idx
+          @switching = true
+          tab_bar.remove_item idx
+          # Surviving commands' captured indices go stale after removal; re-point
+          # them or Enter on a later tab jumps to the wrong page.
+          repoint_tab_callbacks
+          @switching = false
+          reclamp_after_removal idx, cur
+          emit ::Crysterm::Event::ItemRemoved
+          request_render
+        end
       end
 
       # Like `#remove_tab`, but also destroys the detached page — the

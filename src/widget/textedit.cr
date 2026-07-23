@@ -499,8 +499,22 @@ module Crysterm
         xl = coords.xl
         yi = coords.yi
         yl = coords.yl
-        style.border.try { |b| xi, xl, yi, yl = b.adjust xi, xl, yi, yl }
-        xi, xl, yi, yl = style.padding.adjust xi, xl, yi, yl
+        # Effective per-edge insets: when scroll-clipped by an enclosing
+        # viewport, part of the border/padding band is hidden past that
+        # viewport (recorded in `coords.hidden_*`), so the inset still to
+        # apply is only each band's visible remainder — subtracting the full
+        # border+padding would double-count the clipped rows/columns and start
+        # the document too far in. Mirrors base_render's per-edge treatment.
+        sb = style.border
+        pd = style.padding
+        ebt, ept = effective_edge_insets(sb.top, pd.top, coords.hidden_top)
+        ebb, epb = effective_edge_insets(sb.bottom, pd.bottom, coords.hidden_bottom)
+        ebl, epl = effective_edge_insets(sb.left, pd.left, coords.hidden_left)
+        ebr, epr = effective_edge_insets(sb.right, pd.right, coords.hidden_right)
+        xi += ebl + epl
+        xl -= ebr + epr
+        yi += ebt + ept
+        yl -= ebb + epb
         yl -= hscrollbar_rows
         region_w = xl - xi
         return if region_w <= 0 || yl <= yi

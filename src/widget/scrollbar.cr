@@ -167,7 +167,15 @@ module Crysterm
           if lp = @lpos
             txi, txl, tyi, tyl = lp.xi, lp.xl, lp.yi, lp.yl
             if border = style.border
-              txi, txl, tyi, tyl = border.adjust txi, txl, tyi, tyl
+              # Inset by the *visible* border remainder per edge: an ancestor
+              # clip may hide part of the border band (recorded in `lp.hidden_*`),
+              # so subtracting the full width would double-count the clipped
+              # cells and land a seek on the wrong value. Padding stays out of
+              # this branch (border-only, mirroring its original `border.adjust`).
+              txi += effective_edge_insets(border.left, 0, lp.hidden_left)[0]
+              txl -= effective_edge_insets(border.right, 0, lp.hidden_right)[0]
+              tyi += effective_edge_insets(border.top, 0, lp.hidden_top)[0]
+              tyl -= effective_edge_insets(border.bottom, 0, lp.hidden_bottom)[0]
             end
             if @orientation.horizontal?
               raw = e.x - txi

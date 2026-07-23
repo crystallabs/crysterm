@@ -53,7 +53,10 @@ module Crysterm
           # `el` up, never push it below its row-assigned position.
           bottom =
             if deferred_this_frame?(ab)
-              ab.top.as(Int) + ab.mtop + occupied_height(ab) + ab.mbottom
+              # B18-25: widen the anchor sum to Int64 and clamp to the interior
+              # so a pathological above-child extent can't overflow the checked
+              # Int32 accumulation before `bottom` is assigned to `el.top`.
+              (ab.top.as(Int).to_i64 + ab.mtop + occupied_height(ab) + ab.mbottom).clamp(0_i64, interior.height.to_i64).to_i32
             elsif alp = rendered_geometry(ab)
               (alp.yl - yi) + ab.mbottom
             end

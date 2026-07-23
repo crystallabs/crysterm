@@ -32,6 +32,13 @@ module Crysterm
         property widget : Widget
         property header : Widget::Box
 
+        # The header's "click → select this section" subscription. A re-armable
+        # slot (rather than a bare `header.on`) so `#repoint_headers` can swap in
+        # a handler capturing the section's new index after a removal shifts it,
+        # without stacking a second handler or clobbering unrelated ones — the
+        # `Subscription` twin of `TabWidget`'s per-command `callback=`.
+        getter click = Subscription.new
+
         def initialize(@title, @widget, @header)
         end
       end
@@ -107,11 +114,12 @@ module Crysterm
         )
 
         index = @sections.size
-        header.on(::Crysterm::Event::Click) { self.current_index = index }
+        item = Item.new(title, widget, header)
+        item.click.on(header, ::Crysterm::Event::Click) { self.current_index = index }
 
         append widget
 
-        @sections << Item.new(title, widget, header)
+        @sections << item
         @pages << widget
 
         # `#register_page` raises the first item added and hides every later one;
@@ -120,6 +128,63 @@ module Crysterm
         relayout
 
         self
+      end
+
+      # Removes the section at *index*, detaching (not destroying) its content
+      # widget and returning it — Qt's `QToolBox#removeItem`. Its header row is
+      # dropped, the surviving headers re-point at their new indices, and a valid
+      # section is kept current. Out of range is a no-op. Thin like
+      # `Splitter#remove_widget`: the bookkeeping lives in the `#remove` override
+      # so every detach path shares it.
+      def remove_item(index : Int) : Widget?
+        return unless 0 <= index < @pages.size
+        page = @pages[index]
+        remove page
+        page
+      end
+
+      # :ditto:, addressing the section by *title* (the first match). No section
+      # with that title is a no-op.
+      def remove_item(title : String) : Widget?
+        if i = @sections.index { |it| it.title == title }
+          remove_item i
+        end
+      end
+
+      # Catches a section's content widget detached by any path — `#remove_item`,
+      # a direct `widget.destroy` or `#detach_from_tree` (both land here via
+      # `parent.remove(self)`), a bare `#remove` — and tears the section down so
+      # `@sections`/`@pages`/the selection and the header row never outlive it.
+      # Header rows and any other non-section child pass straight through (the
+      # `remove item.header` below re-enters here and is a no-op for them).
+      def remove(element)
+        idx = @pages.index element
+        # Snapshot the current section before the delete so the reclamp can keep
+        # it current when it wasn't the one removed.
+        cur = current_widget
+        super
+        if idx
+          item = @sections.delete_at idx
+          @pages.delete_at idx
+          item.click.off # drop the header's captured-index click handler
+          remove item.header
+          # Surviving headers capture an absolute index; re-point after the shift.
+          repoint_headers
+          # Reclamp — its `current_index=` runs `#after_show_index`, which
+          # re-marks and re-stacks the headers (relayout) for free.
+          reclamp_after_removal idx, cur
+          emit ::Crysterm::Event::ItemRemoved
+        end
+      end
+
+      # Re-points every header's click handler at its current index: the handlers
+      # capture an absolute index when the section is added, which goes stale
+      # after a removal shifts the sections. Twin of
+      # `TabWidget#repoint_tab_callbacks`.
+      private def repoint_headers : Nil
+        @sections.each_with_index do |item, i|
+          item.click.on(item.header, ::Crysterm::Event::Click) { self.current_index = i }
+        end
       end
 
       private def header_text(title : String, expanded : Bool) : String

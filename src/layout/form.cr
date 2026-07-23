@@ -138,7 +138,11 @@ module Crysterm
             # without shrinking it, so a raw-`lw`/`fw` child would paint its
             # margin past its column into the neighbouring one. Mirror
             # Layout::Box's margin-box reservation.
-            rh = Math.max(row_height(label), row_height(field))
+            # Clamp the row height to the interior before it enters the checked
+            # `y += ...` cursor accumulation: an `Int32::MAX`-height child would
+            # otherwise overflow the sum (B18-25). Beyond the interior "fills
+            # everything visible", so clamping is behavior-preserving.
+            rh = clamped_size(Math.max(row_height(label), row_height(field)), interior.height)
             lc = Math.max(0, lw - label.mhorizontal)
             fc = Math.max(0, fw - field.mhorizontal)
             place_child label, 0, y, lc, rh
@@ -155,7 +159,7 @@ module Crysterm
             i += 2
           else
             # Trailing odd child spans the full width, less its margin box.
-            rh = row_height label
+            rh = clamped_size(row_height(label), interior.height)
             lc = Math.max(0, w - label.mhorizontal)
             place_and_render label, 0, y, lc, rh
             record_managed label, @assigned, rh
