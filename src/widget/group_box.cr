@@ -219,7 +219,7 @@ module Crysterm
 
       # Toggles the flat (frameless) look, re-cascading so `GroupBox[flat]`
       # matches/unmatches.
-      css_toggle_setter flat
+      repaint_property flat, Bool, after: invalidate_css
 
       # Reflects the checked state onto children's `state`, so an unchecked
       # group renders disabled. The auto-created label is left untouched.

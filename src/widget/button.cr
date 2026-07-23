@@ -45,8 +45,8 @@ module Crysterm
       # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
       # selector matches/unmatches; marks/unmarks this as the dialog's *default*
       # button (`[default]`).
-      css_toggle_setter flat
-      css_toggle_setter default
+      repaint_property flat, Bool, after: invalidate_css
+      repaint_property default, Bool, after: invalidate_css
     end
   end
 end

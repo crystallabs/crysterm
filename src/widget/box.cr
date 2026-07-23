@@ -56,20 +56,6 @@ module Crysterm
         cx = xi + Math.max(0, (xl - xi - text.size) // 2)
         draw_text_run y, cx, text, xl, attr
       end
-
-      # Defines a `<name>=` setter for a boolean flag surfaced as a CSS attribute
-      # selector (e.g. `Button[flat]`). On an actual change it stores the value,
-      # re-cascades so `[<name>]` starts/stops matching, and repaints. The flag
-      # itself is still declared with its own `getter?`/default in each widget.
-      private macro css_toggle_setter(name)
-        def {{ name.id }}=(value : Bool) : Bool
-          return value if value == @{{ name.id }}
-          @{{ name.id }} = value
-          invalidate_css
-          request_render
-          value
-        end
-      end
     end
   end
 end

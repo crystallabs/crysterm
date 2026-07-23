@@ -124,30 +124,17 @@ module Crysterm
         Mixin::SectionedField.build_time(year, month, day)
       end
 
-      # Getter plus setter that repaints only on an actual change.
-      private macro visual(name, type, default)
-        @{{ name }} : {{ type }} = {{ default }}
-
-        def {{ name }} : {{ type }}
-          @{{ name }}
-        end
-
-        def {{ name }}=(value : {{ type }}) : {{ type }}
-          return value if value == @{{ name }}
-          @{{ name }} = value
-          update_content
-          request_render
-          value
-        end
-      end
-
-      visual selection_mode, SelectionMode, SelectionMode::SingleSelection
-      visual horizontal_header_format, HorizontalHeaderFormat, HorizontalHeaderFormat::ShortDayNames
-      visual vertical_header_format, VerticalHeaderFormat, VerticalHeaderFormat::NoHeader
-      visual first_day_of_week, ::Time::DayOfWeek, ::Time::DayOfWeek::Sunday
-      visual grid_visible, Bool, false
-      visual navigation_bar_visible, Bool, true
-      visual highlight_today, Bool, true
+      # Getter plus setter that rebuilds the content and repaints, only on an
+      # actual change. `update_content` (`set_content`) does not itself schedule a
+      # window render, so the trailing `request_render` in `repaint_property` is
+      # required, not redundant.
+      repaint_property selection_mode, SelectionMode, SelectionMode::SingleSelection, after: update_content
+      repaint_property horizontal_header_format, HorizontalHeaderFormat, HorizontalHeaderFormat::ShortDayNames, after: update_content
+      repaint_property vertical_header_format, VerticalHeaderFormat, VerticalHeaderFormat::NoHeader, after: update_content
+      repaint_property first_day_of_week, ::Time::DayOfWeek, ::Time::DayOfWeek::Sunday, after: update_content
+      repaint_property grid_visible, Bool, false, after: update_content
+      repaint_property navigation_bar_visible, Bool, true, after: update_content
+      repaint_property highlight_today, Bool, true, after: update_content
 
       # Bool predicates (Qt names these `gridVisible()`, etc.).
       def grid_visible? : Bool

@@ -78,12 +78,7 @@ module Crysterm
       # Assigns `#label_width` and schedules a repaint: the content cache's key
       # includes `@label_width` so a bare `property` setter's change would only
       # take effect on some later, unrelated frame.
-      def label_width=(v : Int32?) : Int32?
-        return v if v == @label_width
-        @label_width = v
-        request_render
-        v
-      end
+      repaint_property label_width, Int32?
 
       @gauge_items : Array(Item) = [] of Item
 

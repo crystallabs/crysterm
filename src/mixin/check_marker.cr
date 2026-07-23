@@ -8,6 +8,12 @@ module Crysterm
     #
     # The including type must derive `Widget::AbstractButton`.
     module CheckMarker
+      # `repaint_property` (below) is a body-level macro call, so `Macros` must be
+      # in scope here — unlike the `handle` calls, which resolve through the
+      # including `Widget` because they sit inside method bodies. Harmless
+      # re-include: every includer is already a `Widget`, which includes `Macros`.
+      include ::Crysterm::Macros
+
       # The label drawn after the marker glyph. A marker control renders the
       # composed `<open><mark><close> text` line as its `#content`, so it cannot
       # let `AbstractButton#text` read/write `#content` the way the push buttons
@@ -19,13 +25,9 @@ module Crysterm
         @text
       end
 
-      # :ditto:
-      def text=(value : String) : String
-        return value if value == @text
-        @text = value
-        request_render # `#render` re-composes the marker line from `@text`
-        value
-      end
+      # :ditto: — a change only needs a repaint; `#render` re-composes the marker
+      # line from `@text`.
+      repaint_property text, String
 
       # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
       # `#text` from an explicit `content:`, and wires marker input via

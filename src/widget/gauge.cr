@@ -81,12 +81,7 @@ module Crysterm
       # Assigns `#show_label?` and schedules a repaint: the content cache's key
       # includes `@show_label` so a bare `property` setter's change would only
       # take effect on some later, unrelated frame.
-      def show_label=(v : Bool) : Bool
-        return v if v == @show_label
-        @show_label = v
-        request_render
-        v
-      end
+      repaint_property show_label, Bool
 
       # Template for the single-mode label. Placeholders, as in
       # `ProgressBar#format`: `%p` percentage, `%v` value, `%m` maximum,
@@ -94,12 +89,7 @@ module Crysterm
       getter format : String
 
       # Assigns `#format` and schedules a repaint (see `#show_label=`).
-      def format=(v : String) : String
-        return v if v == @format
-        @format = v
-        request_render
-        v
-      end
+      repaint_property format, String
 
       # Fill color for single mode (and the default for segments without their
       # own color), a native `0xRRGGBB` `Int32`. `nil` uses the widget's

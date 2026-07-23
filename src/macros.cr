@@ -47,6 +47,58 @@ module Crysterm
       end
     end
 
+    # Defines a repaint-on-change property: the repaint sibling of
+    # `change_guarded_setter` (which marks dirty + emits) and `reactive_property`
+    # (which fans out to signal subscribers). The generated setter bails when the
+    # value is unchanged, otherwise assigns, runs the optional *after* hook, and
+    # schedules a repaint via `request_render`, returning the new value:
+    #
+    # ```
+    # def name=(value : Type) : Type
+    #   return value if value == @name
+    #   @name = value
+    #   <after>        # only when given
+    #   request_render
+    #   value
+    # end
+    # ```
+    #
+    # The backing ivar is `@name`. Two shapes, selected by *default*:
+    #
+    # * **Full property** (a non-nil *default* is given): also declares
+    #   `@name : type = default` and a plain `#name` getter, so the whole property
+    #   lives in one call. This is the shape Calendar's former `visual` macro had.
+    # * **Setter only** (*default* omitted): emits just the setter, for a property
+    #   whose ivar and getter are already declared elsewhere (e.g. a `getter?`
+    #   predicate, or an `initialize` parameter). This is the shape Box's former
+    #   `css_toggle_setter` and the leaner hand-rolled meter setters had — keep the
+    #   existing `getter`/`getter?` line, it stays the source of the reader.
+    #
+    # *after* is an optional post-assign hook run **before** the unconditional
+    # `request_render` — deliberately scoped to hooks that do **not** themselves
+    # schedule a repaint (`update_content`, `invalidate_css`). A hook that already
+    # schedules one (`mark_dirty`/`invalidate`/`invalidate_canvas`) would
+    # double-schedule and must not be used here; route those through a plain
+    # setter (or `change_guarded_setter`) instead. Assumes the including type is a
+    # `Widget` (uses `request_render`), like `change_guarded_setter`.
+    macro repaint_property(name, type, default = nil, after = nil)
+      {% if default != nil %}
+        @{{ name.id }} : {{ type }} = {{ default }}
+
+        def {{ name.id }} : {{ type }}
+          @{{ name.id }}
+        end
+      {% end %}
+
+      def {{ name.id }}=(value : {{ type }}) : {{ type }}
+        return value if value == @{{ name.id }}
+        @{{ name.id }} = value
+        {% if after %} {{ after.id }} {% end %}
+        request_render
+        value
+      end
+    end
+
     # Declares a signal-backed widget property — the reactive sibling of
     # `change_guarded_setter`. Given `reactive_property title : String = ""` it
     # generates:
