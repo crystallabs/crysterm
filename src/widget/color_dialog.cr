@@ -161,12 +161,11 @@ module Crysterm
       # (accept) / Escape (reject) accelerator.
       def get_color(&block : String? -> Nil) : Nil
         @callback = block
+        # Save the focus to restore on close *before* `#open` shows the dialog,
+        # then delegate the rest — `Dialog#open` is exactly this tail (prime
+        # `#result`, show modally, focus, install the accelerator, render).
         window.save_focus
-        @result = Code::Rejected.to_i
-        show_modal
-        focus
-        install_dialog_keys
-        request_render
+        open
       end
 
       # Confirms the current color (Ok / Enter).

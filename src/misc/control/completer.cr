@@ -196,7 +196,7 @@ module Crysterm
       # Tear down with the box: the popup is a *window* child, so destroying the
       # box alone would leave it in the window's children forever, with the
       # completer referencing a dead widget.
-      @subs.on(widget, Crysterm::Event::Destroy) { detach }
+      @subs.auto_dispose(widget) { detach }
     end
 
     # Removes all handlers and tears down the popup.

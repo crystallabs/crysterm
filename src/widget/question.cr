@@ -67,12 +67,7 @@ module Crysterm
       # `Code::Rejected` (`Event::Rejected`), and `Event::Finished` follows
       # either way.
       def ask(text = nil, &block : Bool ->)
-        set_content text || @text
-        # On top with the modal grab taken (`Dialog#show_modal`), so widgets
-        # beneath the open dialog aren't clickable; every close path runs
-        # `#done`, which releases the grab.
-        show_modal
-        @result = Code::Rejected.to_i
+        begin_modal_content text
 
         # Publish the pending callback on the instance so `#destroy` can reach
         # (and cancel) it. It doubles as the idempotence latch below.
@@ -148,12 +143,7 @@ module Crysterm
       # into `#result` would collide with Qt's codes (choice `1` would read as
       # `Accepted`).
       def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32? ->)
-        set_content text || @text
-        # On top with the modal grab taken (`Dialog#show_modal`), so widgets
-        # beneath the open dialog aren't clickable; every close path runs
-        # `#done`, which releases the grab.
-        show_modal
-        @result = Code::Rejected.to_i
+        begin_modal_content text
 
         # The fixed OK/Cancel pair is not used in this mode.
         @ok.hide

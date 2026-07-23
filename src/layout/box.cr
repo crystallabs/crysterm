@@ -351,15 +351,41 @@ module Crysterm
         (el.layout_hint.as?(Hint)).try(&.alignment) || @align
       end
 
-      # The child's total margin along the main axis (near + far).
-      private def main_margin(el : Widget) : Int32
-        orientation.horizontal? ? el.mhorizontal : el.mvertical
+      # Generates a mirror-image main/cross axis-dispatch pair from one
+      # declaration: `main` evaluates `horiz` on a horizontal box and `vert` on a
+      # vertical one, and `cross` is the identical body with the two arms swapped
+      # — so the pair stays provably each other's inverse instead of by hand
+      # (`Widget` uses the same `{% for %}` idiom for its paired size/position
+      # accessors). The optional `ret` types both getters where their arms are
+      # `Int32`; `main_size`/`cross_size` return the raw `Dim` union and so stay
+      # unannotated. `main_extent`/`cross_extent` are the one pair left hand-written
+      # below, taking a `RenderedGeometry` rather than a `Widget`.
+      macro axis_pair(main, cross, horiz, vert, ret = nil)
+        private def {{ main.id }}(el : Widget){% if ret %} : {{ ret.id }}{% end %}
+          orientation.horizontal? ? {{ horiz }} : {{ vert }}
+        end
+
+        private def {{ cross.id }}(el : Widget){% if ret %} : {{ ret.id }}{% end %}
+          orientation.horizontal? ? {{ vert }} : {{ horiz }}
+        end
       end
 
-      # The child's total margin along the cross axis.
-      private def cross_margin(el : Widget) : Int32
-        orientation.horizontal? ? el.mvertical : el.mhorizontal
+      # :ditto: for the *assigning* pairs — each arm writes `v` into one of the
+      # child's two axis fields, so the mirror is over which field is written.
+      # `vtype` types the value where the caller constrains it (positions are
+      # `Int32`; sizes take the full `Dim` union and stay unannotated).
+      macro axis_pair_set(main, cross, horiz, vert, vtype = nil)
+        private def {{ main.id }}(el : Widget, v{% if vtype %} : {{ vtype.id }}{% end %}) : Nil
+          orientation.horizontal? ? {{ horiz }} : {{ vert }}
+        end
+
+        private def {{ cross.id }}(el : Widget, v{% if vtype %} : {{ vtype.id }}{% end %}) : Nil
+          orientation.horizontal? ? {{ vert }} : {{ horiz }}
+        end
       end
+
+      # The child's total margin (near + far) along the main / cross axis.
+      axis_pair main_margin, cross_margin, el.mhorizontal, el.mvertical, Int32
 
       # Whether the child's main-axis size is decided by this layout: either its
       # raw size is unset (`nil`), or we assigned it and it still holds that
@@ -383,37 +409,17 @@ module Crysterm
         orientation.horizontal? ? interior.height : interior.width
       end
 
-      private def main_size(el : Widget)
-        orientation.horizontal? ? el.width : el.height
-      end
+      # The child's raw (user-set) main / cross size — a `Dim` union, possibly nil.
+      axis_pair main_size, cross_size, el.width, el.height
 
-      private def cross_size(el : Widget)
-        orientation.horizontal? ? el.height : el.width
-      end
+      # The child's resolved (`a*`) main / cross size in cells.
+      axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32
 
-      private def a_main_size(el : Widget) : Int32
-        orientation.horizontal? ? el.awidth : el.aheight
-      end
+      # Writes `v` as the child's main / cross size.
+      axis_pair_set set_main_size, set_cross_size, (el.width = v), (el.height = v)
 
-      private def a_cross_size(el : Widget) : Int32
-        orientation.horizontal? ? el.aheight : el.awidth
-      end
-
-      private def set_main_size(el : Widget, v) : Nil
-        orientation.horizontal? ? (el.width = v) : (el.height = v)
-      end
-
-      private def set_cross_size(el : Widget, v) : Nil
-        orientation.horizontal? ? (el.height = v) : (el.width = v)
-      end
-
-      private def set_main_pos(el : Widget, v : Int32) : Nil
-        orientation.horizontal? ? (el.left = v) : (el.top = v)
-      end
-
-      private def set_cross_pos(el : Widget, v : Int32) : Nil
-        orientation.horizontal? ? (el.top = v) : (el.left = v)
-      end
+      # Writes `v` as the child's main / cross position.
+      axis_pair_set set_main_pos, set_cross_pos, (el.left = v), (el.top = v), Int32
     end
   end
 end

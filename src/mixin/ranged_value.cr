@@ -243,7 +243,7 @@ module Crysterm
         # pass the inversion and no-op guards below (all NaN comparisons false) and
         # get stored, wedging clamp/stepping. No-op for the Int32 includers.
         # Matches the B16-38 reject-as-no-op convention.
-        {% unless T < Int %} return unless min.finite? && max.finite? {% end %}
+        {% unless T < Int %} return unless Crysterm.all_finite?(min, max) {% end %}
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min
@@ -336,7 +336,7 @@ module Crysterm
       # otherwise. The caller stores the pair and runs its own per-widget
       # value-clamp and repaint.
       def normalize_range(min : Float64, max : Float64) : {Float64, Float64}?
-        return unless min.finite? && max.finite?
+        return unless Crysterm.all_finite?(min, max)
         max = min if max < min
         return if min == minimum && max == maximum
         {min, max}

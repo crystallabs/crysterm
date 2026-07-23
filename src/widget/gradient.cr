@@ -54,8 +54,15 @@ module Crysterm
       # Setters that change the rendered appearance schedule a repaint, so e.g.
       # `gradient.phase = …` from an external clock scrolls the colors.
       def stops=(stops : Array(Int32 | String))
-        @stops = stops.map { |c| c.is_a?(String) ? Colors.convert(c).as(Int32) : c }
+        @stops = convert_stops(stops)
         mark_dirty
+      end
+
+      # Coerces gradient stops (native ints, or `"#rrggbb"`/named color strings)
+      # into native `Int32` colors via the shared cached converter. Called from
+      # both the setter and the initializer, which took identical bodies before.
+      private def convert_stops(stops : Array(Int32 | String)) : Array(Int32)
+        stops.map { |c| Colors.to_native(c) }
       end
 
       def direction=(@direction : Direction)
@@ -90,7 +97,7 @@ module Crysterm
         interval : Time::Span = 0.1.seconds,
         **box,
       )
-        @stops = stops.map { |c| c.is_a?(String) ? Colors.convert(c).as(Int32) : c }
+        @stops = convert_stops(stops)
 
         super **box
 

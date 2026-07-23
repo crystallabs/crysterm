@@ -127,7 +127,7 @@ module Crysterm
           io << '<' << tag
           # Column alignment rides on each cell, the shape both the importer and
           # browsers read back.
-          if name = align_css(als.try(&.[ci]?))
+          if name = align_name(als.try(&.[ci]?))
             io << %( style="text-align:) << name << '"'
           end
           io << '>' << escape_html(cell) << "</" << tag << '>'
@@ -149,7 +149,11 @@ module Crysterm
       end
     end
 
-    private def self.align_css(a : Tput::AlignFlag?) : String?
+    # The reverse of `align_flag`: a `Tput::AlignFlag` to its alignment
+    # keyword (`"left"`/`"center"`/`"right"`, horizontal center as `"center"`),
+    # or `nil` when it carries no horizontal alignment. Shared with `TextTags`,
+    # which inverts the same `align_flag` map.
+    def self.align_name(a : Tput::AlignFlag?) : String?
       return unless a
       return "center" if a.h_center?
       return "right" if a.right?
@@ -201,7 +205,7 @@ module Crysterm
 
     private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
       props = [] of String
-      if (a = bf.alignment) && (name = align_css(a))
+      if (a = bf.alignment) && (name = align_name(a))
         props << "text-align:#{name}"
       end
       if (bg = bf.bg) && bg >= 0
@@ -271,22 +275,22 @@ module Crysterm
     # DOM → blocks: a patch stack for inline formats,
     # `TextList`/quote-level/rule block structures, code-bg code blocks.
     private class Importer
-      @blocks = [] of TextBlock
-      @frags = [] of TextFragment
-      @block_format : TextBlockFormat = TextBlockFormat.default
+      # The block-assembly / inline-patch core: `@blocks`/`@frags`/
+      # `@block_format`, the patch stack (`@patches`/`@fmt`), `@quote_depth`,
+      # `@list_stack`, `@pending_item`/`@pending_checked`, and the shared
+      # `with_patch`/`current_format`/`start_block`/`commit_block`/
+      # `adopt_table_blocks`/`finalize_blocks` methods. The html-specific hooks
+      # (`take_margin`, `adopt_pending_item`, `pending_item_collapse`,
+      # `after_start_block`) are defined below; `format_extra_merge` falls back
+      # to the module default (html has no inline strike toggle).
+      include TextImport::Builder
+
+      # Whether a block is currently open (html opens blocks eagerly and can
+      # discard virgin ones; markdown has no such lifecycle).
       @block_open = false
       # Whether the open block collapses whitespace (false under
       # `white-space: pre*`).
       @collapse = true
-      @patches = [] of TextCharFormat
-      @fmt : TextCharFormat?
-      @quote_depth = 0
-      # Open (nested) list elements; one shared `TextListFormat` instance
-      # per `ul`/`ol` — instance identity is list identity.
-      @list_stack = [] of TextListFormat
-      # List the next `start_block`'s block joins (set by `li`, consumed by
-      # the first block opened inside it).
-      @pending_item : TextListFormat?
       # Block format parsed off the `li` element itself (margins/alignment),
       # consumed together with `@pending_item`.
       @pending_item_format : TextBlockFormat?
@@ -294,12 +298,10 @@ module Crysterm
       # `white-space:pre-wrap` on the item), adopted by the item's first
       # block so TABs / significant spaces survive the round-trip.
       @pending_item_collapse : Bool?
-      # Whether the pending `li` is a checked checkbox item (its block's
-      # `checked` flag; the `Checkbox` list style comes from the enclosing
-      # `<ul>`).
-      @pending_checked = false
       # Blank rows owed to the next block's `top_margin` (accumulated from
-      # empty spacing `<p></p>`s — the margins re-base).
+      # empty spacing `<p></p>`s — the margins re-base). An accumulating
+      # `Int32` (markdown's owed margin is instead a flat `Bool`), so the
+      # margin-adoption step is a per-importer hook.
       @pending_margin = 0
       # Whether the open block was eagerly opened by a wrapper (`<p>`/`<div>`)
       # and hasn't received text yet. A nested block element's leading
@@ -318,7 +320,7 @@ module Crysterm
           walk_children(body)
         end
         end_block
-        @blocks.empty? ? [TextBlock.new] : @blocks
+        finalize_blocks
       end
 
       private def find_body(node : HTML5::Node) : HTML5::Node?
@@ -547,15 +549,7 @@ module Crysterm
         return unless header
         alignments = aligns.any? ? aligns.map { |a| a || Tput::AlignFlag::Left } : nil
         bs = TextTable.build(header, body, alignments, @theme)
-        if @pending_margin > 0
-          bs[0].block_format = bs[0].block_format.merge(TextBlockFormat.new(top_margin: @pending_margin))
-          @pending_margin = 0
-        end
-        if @quote_depth > 0
-          q = TextBlockFormat.new(quote_level: @quote_depth)
-          bs.each { |b| b.block_format = b.block_format.merge(q) }
-        end
-        @blocks.concat(bs)
+        adopt_table_blocks(bs)
       end
 
       # The marker style for a `<ul>`/`<ol>`: decimal for ordered, checkbox
@@ -622,35 +616,47 @@ module Crysterm
       end
 
       # === Block assembly ===
+      #
+      # The `start_block`/`commit_block`/`adopt_table_blocks` skeleton lives in
+      # `TextImport::Builder`; the hooks below supply html's divergences from
+      # markdown: an accumulating `Int32` owed margin, `<li>` element-style
+      # donation, per-item whitespace-collapse adoption, and the collapse /
+      # block-open / virgin bookkeeping the shared `start_block` finishes with.
 
-      private def start_block(bf : TextBlockFormat = TextBlockFormat.default, collapse : Bool = true) : Nil
-        @frags = [] of TextFragment
-        if @pending_margin > 0
-          bf = bf.merge(TextBlockFormat.new(top_margin: bf.top_margin + @pending_margin))
-          @pending_margin = 0
+      # Hook (`TextImport::Builder#take_margin`): html's owed margin accumulates
+      # in the `Int32` `@pending_margin` and folds additively onto *bf*'s own
+      # `top_margin`.
+      private def take_margin(bf : TextBlockFormat) : TextBlockFormat
+        return bf unless @pending_margin > 0
+        bf = bf.merge(TextBlockFormat.new(top_margin: bf.top_margin + @pending_margin))
+        @pending_margin = 0
+        bf
+      end
+
+      # Hook (`TextImport::Builder#adopt_pending_item`): the li element's own
+      # block styles apply under the block's (a loose item's `<p>` wins where
+      # both specify).
+      private def adopt_pending_item(bf : TextBlockFormat) : TextBlockFormat
+        if ibf = @pending_item_format
+          bf = ibf.merge(bf)
+          @pending_item_format = nil
         end
-        bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
-        if li = @pending_item
-          # An item's first block is the list item proper; the li element's
-          # own block styles apply under the block's (a loose item's `<p>`
-          # wins where both specify).
-          if ibf = @pending_item_format
-            bf = ibf.merge(bf)
-            @pending_item_format = nil
-          end
-          bf = bf.merge(TextBlockFormat.new(list_format: li))
-          bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
-          # A pre-wrap li opens its first block uncollapsed so its TABs /
-          # significant spaces are not run through `WS_RUN`.
-          collapse = false if @pending_item_collapse == false
-          @pending_item_collapse = nil
-          @pending_item = nil
-        elsif !@list_stack.empty?
-          # A continuation block inside an item: indent to roughly the item
-          # text column (nesting + a 2-cell marker approximation).
-          bf = bf.merge(TextBlockFormat.new(indent: @list_stack.size * 2))
-        end
-        @block_format = bf
+        bf
+      end
+
+      # Hook (`TextImport::Builder#pending_item_collapse`): a pre-wrap li opens
+      # its first block uncollapsed so its TABs / significant spaces are not run
+      # through `WS_RUN`.
+      private def pending_item_collapse(collapse : Bool) : Bool
+        collapse = false if @pending_item_collapse == false
+        @pending_item_collapse = nil
+        collapse
+      end
+
+      # Hook (`TextImport::Builder#after_start_block`): records the block's
+      # collapse mode and marks it open and virgin (a wrapper-opened block a
+      # nested block element may later discard).
+      private def after_start_block(collapse : Bool) : Nil
         @collapse = collapse
         @block_open = true
         @block_virgin = true
@@ -683,22 +689,10 @@ module Crysterm
           last.text = last.text.rstrip(' ')
           @frags.pop if last.text.empty?
         end
-        @blocks << TextBlock.new(@frags, @block_format)
-        @frags = [] of TextFragment
-        @block_format = TextBlockFormat.default
+        # The shared emit core (`@blocks << …`, reset `@frags`/`@block_format`);
+        # html additionally clears its block-open flag.
+        commit_block
         @block_open = false
-      end
-
-      private def with_patch(patch : TextCharFormat, &) : Nil
-        @patches << patch
-        @fmt = nil
-        yield
-        @patches.pop
-        @fmt = nil
-      end
-
-      private def current_format : TextCharFormat
-        @fmt ||= @patches.reduce(TextCharFormat.default) { |acc, p| acc.merge(p) }
       end
 
       private def append_text(str : String) : Nil

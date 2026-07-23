@@ -28,6 +28,15 @@ module Crysterm
       safe_convert(color)
     end
 
+    # Whether *spec* names a color `convert_cached` recognizes — i.e. it doesn't
+    # collapse to the `-1` "unknown" sentinel. Centralizes the one place that
+    # knows `-1` means unknown, so the sentinel test isn't re-encoded (with the
+    # polarity flipped each way) across the stylesheet layer's color guards.
+    @[AlwaysInline]
+    def self.known?(spec : String) : Bool
+      convert_cached(spec) != -1
+    end
+
     # Coerces a color spec into Crysterm's native `Int32` color space: a color
     # name/`"#rrggbb"` `String` goes through the cached converter, while an
     # already-native `Int32` is returned as-is (identity — *not* re-converted, so

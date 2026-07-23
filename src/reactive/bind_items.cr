@@ -58,7 +58,7 @@ module Crysterm
       # Tearing down the whole bag also removes this very hook (safe mid-emit:
       # the handler list is copy-on-write), so neither the view's destruction
       # nor an early `#off` by the caller leaves a dead handler on the view.
-      subs.on(view, ::Crysterm::Event::Destroy) { subs.off }
+      subs.auto_dispose(view) { subs.off }
       subs
     end
   end

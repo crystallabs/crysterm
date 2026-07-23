@@ -80,20 +80,12 @@ module Crysterm
           io << '\n' if i > 0
           bf = b.block_format
           write_block_prefix(io, bf)
-          wrap = align_name(bf.alignment)
+          wrap = TextHtml.align_name(bf.alignment)
           io << '{' << wrap << '}' if wrap
           b.fragments.each { |f| write_fragment(io, f) }
           io << "{/" << wrap << '}' if wrap
         end
       end
-    end
-
-    private def self.align_name(a : Tput::AlignFlag?) : String?
-      return unless a
-      return "center" if a.h_center?
-      return "right" if a.right?
-      return "left" if a.left?
-      nil
     end
 
     private def self.write_block_prefix(io : IO, bf : TextBlockFormat) : Nil

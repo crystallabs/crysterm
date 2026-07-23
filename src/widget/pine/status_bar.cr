@@ -31,7 +31,7 @@ module Crysterm
             height: h,
             width: "100%",
             align: :hcenter,
-            style: style.dup.strip_frame!,
+            style: style.stripped_frame,
             content: status_content,
           )
 

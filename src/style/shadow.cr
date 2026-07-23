@@ -3,12 +3,6 @@ module Crysterm
   class Shadow
     include SidedGeometry
 
-    # Whether every named instance variable is `nil`. Keeps the hand-maintained
-    # `nil?` chain from drifting out of sync with the field set.
-    private macro all_nil?(*fields)
-      ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
-    end
-
     # A fresh zero shadow ("no shadow": all sides 0). Must never be a shared
     # singleton: `Shadow` is mutable and every `Style` gets one, so a shared
     # instance would let one style's edit leak into all others.
@@ -98,7 +92,7 @@ module Crysterm
     # When false the shadow is a plain full-cell alpha blend, which the renderer
     # paints on a faster, undivided path.
     def glyphs? : Bool
-      !all_nil?(horizontal_char, vertical_char, diagonal_char,
+      !SidedGeometry.all_nil?(horizontal_char, vertical_char, diagonal_char,
         top_char, bottom_char, left_char, right_char,
         top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end

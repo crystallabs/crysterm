@@ -91,17 +91,13 @@ module Crysterm
 
         # Growth ramp a glyph steps through while in flight, faking a zoom toward
         # the viewer as it flies out of the emitter.
-        getter grow : Array(String) = DEFAULT_GROW
-
-        # :ditto:
+        #
         # An empty ramp — or one that only *contains* empty strings — would crash
         # the render fiber (`recompute` reads `@grow[…][0]`, and `""[0]` raises
         # `IndexError`). Drop empty entries and fall back to the default if nothing
         # usable remains.
-        def grow=(value : Array(String)) : Array(String)
-          cleaned = value.reject(&.empty?)
-          @grow = cleaned.empty? ? DEFAULT_GROW.dup : cleaned
-        end
+        # ameba:disable Lint/UselessAssign
+        nonempty_property grow : Array(String) = DEFAULT_GROW, reject_empty_entries: true
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.
         getter origin : Tuple(Int32, Int32)?
@@ -140,18 +136,17 @@ module Crysterm
 
         # Colors the pre-launch "charge-up" spark cycles through at the emitter
         # (native `0xRRGGBB` ints).
-        getter spark_colors : Array(Int32) = DEFAULT_SPARK_COLORS
-
-        # :ditto:
+        #
         # An empty list would crash the render fiber (`% @spark_colors.size` is a
-        # division by zero), so it is rejected in favour of the default.
-        def spark_colors=(colors : Array(Int32)) : Array(Int32)
-          @spark_colors = colors.empty? ? DEFAULT_SPARK_COLORS.dup : colors
-        end
+        # division by zero), so an empty assignment is rejected in favour of the
+        # default.
+        # ameba:disable Lint/UselessAssign
+        nonempty_property spark_colors : Array(Int32) = DEFAULT_SPARK_COLORS
 
-        # Backwards compatibility: accept `"#rrggbb"`/named color strings.
+        # Backwards compatibility: accept `"#rrggbb"`/named color strings. Converts
+        # to native ints, then routes through the empty-guarded `Int32` setter above.
         def spark_colors=(colors : Array(String))
-          self.spark_colors = colors.map { |c| Colors.convert(c).to_i32 }
+          self.spark_colors = colors.map { |c| Colors.to_native(c) }
         end
 
         # A slot's lifecycle phase, passed to a custom `#color` proc.

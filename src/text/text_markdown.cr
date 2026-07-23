@@ -62,20 +62,15 @@ module Crysterm
     # patches (entering `Strong` pushes `bold: true`, …); the current format
     # is the fold of the stack over the default, so nesting works for free.
     private class Importer
-      @blocks = [] of TextBlock
-      @frags = [] of TextFragment
-      @block_format : TextBlockFormat = TextBlockFormat.default
-      @patches = [] of TextCharFormat
-      @fmt : TextCharFormat?
-      @quote_depth = 0
-      # Open (nested) lists; one shared `TextListFormat` instance per
-      # markdown list — instance identity is list identity.
-      @list_stack = [] of TextListFormat
-      # List the next `start_block`'s block joins (an item's first block).
-      @pending_item : TextListFormat?
-      # Whether that pending item is a *checked* checkbox item (its
-      # `TextBlockFormat#checked` flag; the list format itself is shared).
-      @pending_checked = false
+      # The block-assembly / inline-patch core: `@blocks`/`@frags`/
+      # `@block_format`, the patch stack (`@patches`/`@fmt`), `@quote_depth`,
+      # `@list_stack`, `@pending_item`/`@pending_checked`, and the shared
+      # `with_patch`/`current_format`/`start_block`/`commit_block`/
+      # `adopt_table_blocks`/`finalize_blocks` methods. The markdown-specific
+      # hooks (`format_extra_merge`, `take_margin`) are defined below; the
+      # unshared `start_block` hooks fall back to the module's defaults.
+      include TextImport::Builder
+
       # Chars of a task-list `[x] ` marker still to strip from upcoming text.
       @strip_task = 0
       # Whether any block was emitted (suppresses spacing before the first).
@@ -98,7 +93,7 @@ module Crysterm
 
       def import(doc : Markd::Node) : Array(TextBlock)
         walk_children(doc)
-        @blocks.empty? ? [TextBlock.new] : @blocks
+        finalize_blocks
       end
 
       private def walk_children(node : Markd::Node) : Nil
@@ -274,36 +269,24 @@ module Crysterm
         end
       end
 
-      # Consumes any owed top-level spacing into *bf*.
+      # Hook (`TextImport::Builder#take_margin`): markdown's owed top-level
+      # spacing is a flat `top_margin: 1`, gated by the `Bool` `@pending_margin`.
       private def take_margin(bf : TextBlockFormat) : TextBlockFormat
         return bf unless @pending_margin
         @pending_margin = false
         bf.merge(TextBlockFormat.new(top_margin: 1))
       end
 
-      private def start_block(bf : TextBlockFormat = TextBlockFormat.default) : Nil
-        @frags = [] of TextFragment
-        bf = take_margin(bf)
-        bf = bf.merge(TextBlockFormat.new(quote_level: @quote_depth)) if @quote_depth > 0
-        if li = @pending_item
-          # An item's first block is the list item proper.
-          bf = bf.merge(TextBlockFormat.new(list_format: li))
-          # Checked task item: flag the block (unchecked stays the default).
-          bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
-          @pending_item = nil
-          @pending_checked = false
-        elsif !@list_stack.empty?
-          # A continuation block inside an item: indent to roughly the item
-          # text column (nesting + a 2-cell marker approximation).
-          bf = bf.merge(TextBlockFormat.new(indent: @list_stack.size * 2))
-        end
-        @block_format = bf
-      end
+      # The block-assembly `start_block`/`commit_block`/`adopt_table_blocks`
+      # skeleton lives in `TextImport::Builder`; markdown needs no `start_block`
+      # customization hooks (it has no per-item element styles, collapse mode,
+      # or block-open bookkeeping), so it uses the module defaults.
 
+      # Markdown's `end_block` wraps the shared `commit_block` with its own
+      # strike reset (an unbalanced `~~` span ends with its block) and the
+      # `@emitted` latch that suppresses spacing before the first block.
       private def end_block : Nil
-        @blocks << TextBlock.new(@frags, @block_format)
-        @frags = [] of TextFragment
-        @block_format = TextBlockFormat.default
+        commit_block
         if @strike # unbalanced `~~`: the strike span ends with its block
           @strike = false
           @fmt = nil
@@ -316,12 +299,7 @@ module Crysterm
       # it).
       private def import_table(txt : String) : Nil
         bs = TextTable.build_from_gfm(txt, @theme) || return
-        bs[0].block_format = take_margin(bs[0].block_format)
-        if @quote_depth > 0
-          q = TextBlockFormat.new(quote_level: @quote_depth)
-          bs.each { |b| b.block_format = b.block_format.merge(q) }
-        end
-        @blocks.concat(bs)
+        adopt_table_blocks(bs)
         @emitted = true
       end
 
@@ -397,19 +375,11 @@ module Crysterm
         end
       end
 
-      private def with_patch(patch : TextCharFormat, &) : Nil
-        @patches << patch
-        @fmt = nil
-        yield
-        @patches.pop
-        @fmt = nil
-      end
-
-      private def current_format : TextCharFormat
-        @fmt ||= begin
-          f = @patches.reduce(TextCharFormat.default) { |acc, p| acc.merge(p) }
-          @strike ? f.merge(TextCharFormat.new(strike: true)) : f
-        end
+      # Hook (`TextImport::Builder#format_extra_merge`): folds the open `~~`
+      # strike toggle onto the patch-stack fold. `with_patch` and the rest of
+      # `current_format` are shared.
+      private def format_extra_merge(fmt : TextCharFormat) : TextCharFormat
+        @strike ? fmt.merge(TextCharFormat.new(strike: true)) : fmt
       end
 
       private def push_frag(text : String) : Nil
@@ -467,6 +437,7 @@ module Crysterm
       # separator line: margins, rules, continuation paragraphs, and the
       # re-import guards — lazy continuation after a list item, ordered-list
       # interruption, table termination (B17-26/B17-27).
+      # ameba:disable Metrics/CyclomaticComplexity
       private def separator_blank?(blocks : Array(TextBlock), i : Int32,
                                    pf : TextBlockFormat, cf : TextBlockFormat) : Bool
         # Paragraph spacing is block margins; any margin at the
@@ -481,6 +452,18 @@ module Crysterm
                (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
         return true if pf.bottom_margin > 0 || cf.top_margin > 0 ||
                        cf.horizontal_rule? || cont
+        # An html block (CommonMark types 1-6) re-imports its lines RAW,
+        # and markd's type-6 "continue until a blank line" rule would
+        # swallow a following structured block — "<div>\n# h" reads the
+        # heading back as literal html text. Force a blank line unless the
+        # follower is a plain body paragraph at the *same* quote level:
+        # that run re-imports as one html_block and re-splits 1:1 (the
+        # BUGS18.md:1121 deferral). A quote-level mismatch still needs the
+        # blank — write_block adds a per-level "> " prefix that plain_body?
+        # doesn't account for, so a bare newline would leak the quote marker
+        # into the html block on re-import (O3-35, B18-70's sibling).
+        return true if html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i]) &&
+                       (!plain_body?(blocks[i]) || cf.quote_level != pf.quote_level)
         # A plain body paragraph directly after a list item (or a
         # list-continuation paragraph) at the same quote level would be
         # read as a lazy continuation of the item and merge into it on
@@ -677,6 +660,13 @@ module Crysterm
         has_code || count > 1
       end
 
+      # The CommonMark HTML-block start patterns of types 1-6 — the kinds
+      # that interrupt a paragraph and re-import their lines RAW. Type 7 (a
+      # lone complete tag, which cannot interrupt a paragraph) is excluded.
+      # Sliced once here rather than allocating a fresh Array per
+      # `html_blockish?` call.
+      private HTML_BLOCK_OPEN_TYPES = Markd::Rule::HTML_BLOCK_OPEN[0, 6]
+
       # Does *b*'s text open a CommonMark HTML block of types 1-6 — the
       # kinds that interrupt a paragraph and re-import their lines RAW?
       # Mirrors markd's own start conditions (type 7, a lone complete tag,
@@ -684,7 +674,7 @@ module Crysterm
       private def html_blockish?(b : TextBlock) : Bool
         t = b.text
         t.starts_with?('<') &&
-          Markd::Rule::HTML_BLOCK_OPEN[0, 6].any? { |re| t.matches?(re) }
+          HTML_BLOCK_OPEN_TYPES.any? { |re| t.matches?(re) }
       end
 
       # A plain paragraph body block — the kind a hard break may join to

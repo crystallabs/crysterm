@@ -77,9 +77,8 @@ module Crysterm
       @owns_io = true
       @window = window
 
-      # Re-apply this window's stored terminal state (hardware cursor, title)
-      # on the new terminal.
-      reassert_terminal_state
+      # (This window's stored terminal state — hardware cursor, title — is
+      # re-applied by `#screen=` above, which the swap on line 72 always runs.)
 
       # Restore input listening only if it was active before disconnecting.
       start_input if @was_listening

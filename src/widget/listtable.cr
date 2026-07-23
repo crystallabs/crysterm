@@ -241,14 +241,11 @@ module Crysterm
       # row shares the one `style.alternate_row` object.
       private def alt_row_style : Style
         src = style.alternate_row
-        fp = src.attr_fingerprint
-        if (d = @_alt_row_derived) && @_alt_row_src.same?(src) && @_alt_row_fp == fp
-          d
-        else
-          @_alt_row_src = src
-          @_alt_row_fp = fp
-          @_alt_row_derived = without_border(src)
-        end
+        derived, @_alt_row_src, @_alt_row_derived, @_alt_row_fp =
+          Style.memo_derive(src, @_alt_row_src, @_alt_row_derived, @_alt_row_fp) do |s|
+            without_border s
+          end
+        derived
       end
 
       # Drops the CSS-row derived-style caches when the cascade has replaced this

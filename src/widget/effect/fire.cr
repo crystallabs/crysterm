@@ -38,14 +38,11 @@ module Crysterm
         # Glyph ramp indexed by cell heat, coldest first. The first entry is used
         # for cells below `ignition` (so a leading space leaves cold cells blank);
         # the rest shade the flame from faint to solid.
-        getter ramp : Array(Char) = DEFAULT_RAMP
-
-        # :ditto:
-        # An empty ramp would crash the render fiber (`@ramp[0]` / `clamp`), so it
-        # is rejected in favour of the default.
-        def ramp=(value : Array(Char)) : Array(Char)
-          @ramp = value.empty? ? DEFAULT_RAMP.dup : value
-        end
+        #
+        # An empty ramp would crash the render fiber (`@ramp[0]` / `clamp`), so an
+        # empty assignment is rejected in favour of the default.
+        # ameba:disable Lint/UselessAssign
+        nonempty_property ramp : Array(Char) = DEFAULT_RAMP
 
         # Fraction of heat that survives each upward step (`0.0..1.0`); the flame
         # decays by this factor per row, so higher = taller flames, lower = a

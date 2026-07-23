@@ -130,142 +130,104 @@ module Crysterm
       (!o.nil? || o_opp.nil?) && !center_expr?(o)
     end
 
-    # Returns computed absolute left position.
-    #
-    # `width`, when given, is this widget's already-resolved `awidth(rendered)`,
-    # needed by the right-anchored and `"center"` branches; passing it in avoids a
-    # second `awidth` walk per frame. When nil it is resolved on demand.
-    def aleft(rendered = false, width = nil, parent_pos = nil, with_margin = true) : Int32
-      # Original left
-      oleft = @left
-      oright = @right
+    # `aleft`/`atop`: computed absolute near-edge position, the mechanical axis
+    # mirror of each other (left→top, right→bottom, awidth→aheight, ileft→itop).
+    # Generated from one body — like the `aright`/`abottom` loop below and the
+    # `rleft`/… loop above — so the subtle margin-anchor / center / parent-pos
+    # threading can never drift between the two axes. The size parameter itself
+    # is axis-specific (`width` on the x axis, `height` on the y axis), so its
+    # name comes from `{{ axis[:dim].id }}` too; the signatures stay identical to
+    # the hand-written originals.
+    {% for axis in [
+                     {near: "left", far: "right", dim: "width"},
+                     {near: "top", far: "bottom", dim: "height"},
+                   ] %}
+      # Returns computed absolute {{ axis[:near].id }} position.
+      #
+      # `{{ axis[:dim].id }}`, when given, is this widget's already-resolved
+      # `a{{ axis[:dim].id }}(rendered)`, needed by the far-anchored and `"center"`
+      # branches; passing it in avoids a second `a{{ axis[:dim].id }}` walk per
+      # frame. When nil it is resolved on demand.
+      def a{{ axis[:near].id }}(rendered = false, {{ axis[:dim].id }} = nil, parent_pos = nil, with_margin = true) : Int32
+        # Original {{ axis[:near].id }}
+        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        o{{ axis[:far].id }} = @{{ axis[:far].id }}
 
-      mg = style.margin
+        mg = style.margin
 
-      # Right-anchored: the outward margin pushes the box LEFT by its own right
-      # margin. Included so hit-test geometry matches where `coords` paints it;
-      # `coords` and the anchoring callers below pass `with_margin: false` so the
-      # shift is applied exactly once.
-      if oleft.nil? && !oright.nil?
-        mr = (with_margin && mg.any?) ? mg.right : 0
-        return window.awidth - (width || awidth(rendered)) - aright(rendered) - mr
-      end
-
-      # Left-anchored: the outward margin pushes the box RIGHT by its own left
-      # margin (see above for why it's gated on `with_margin`).
-      ml = (with_margin && mg.any?) ? mg.left : 0
-
-      # `parent_pos`, when given, is the parent's already-resolved position for
-      # this frame, threaded in by `coords` so `aleft`/`atop` don't re-resolve.
-      parent = parent_pos || (rendered ? parent_or_window.last_rendered_position : parent_or_window)
-
-      left = oleft || 0
-      unless left.is_a? Int32
-        left = resolve_dim(left, parent.awidth || 0)
-        if center_expr?(oleft)
-          left -= (width || awidth(rendered)) // 2
+        # Far-anchored: the outward margin pushes the box toward its NEAR edge by
+        # its own far margin. Included so hit-test geometry matches where `coords`
+        # paints it; `coords` and the anchoring callers below pass
+        # `with_margin: false` so the shift is applied exactly once.
+        if o{{ axis[:near].id }}.nil? && !o{{ axis[:far].id }}.nil?
+          m_far = (with_margin && mg.any?) ? mg.{{ axis[:far].id }} : 0
+          return window.a{{ axis[:dim].id }} - ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered)) - a{{ axis[:far].id }}(rendered) - m_far
         end
-      end
 
-      if applies_near_offset?(oleft, oright)
-        left += parent.ileft
-      end
+        # Near-anchored: the outward margin pushes the box toward its FAR edge by
+        # its own near margin (see above for why it's gated on `with_margin`).
+        m_near = (with_margin && mg.any?) ? mg.{{ axis[:near].id }} : 0
 
-      (parent.aleft || 0) + left + ml
-    end
+        # `parent_pos`, when given, is the parent's already-resolved position for
+        # this frame, threaded in by `coords` so `aleft`/`atop` don't re-resolve.
+        parent = parent_pos || (rendered ? parent_or_window.last_rendered_position : parent_or_window)
 
-    # Returns computed absolute top position. `height`, when given, is this
-    # widget's already-resolved `aheight(rendered)` — see `#aleft`.
-    def atop(rendered = false, height = nil, parent_pos = nil, with_margin = true) : Int32
-      otop = @top
-      obottom = @bottom
-
-      mg = style.margin
-
-      # See `#aleft`: bottom-anchored, the outward margin pushes the box UP by
-      # its own bottom margin.
-      if otop.nil? && !obottom.nil?
-        mb = (with_margin && mg.any?) ? mg.bottom : 0
-        return window.aheight - (height || aheight(rendered)) - abottom(rendered) - mb
-      end
-
-      # See `#aleft`: top-anchored, the outward margin pushes the box DOWN by its
-      # own top margin.
-      mt = (with_margin && mg.any?) ? mg.top : 0
-
-      # See `#aleft`: `parent_pos` is the parent's already-resolved position.
-      parent = parent_pos || (rendered ? parent_or_window.last_rendered_position : parent_or_window)
-
-      top = otop || 0
-      unless top.is_a? Int32
-        top = resolve_dim(top, parent.aheight || 0)
-        if center_expr?(otop)
-          top -= (height || aheight(rendered)) // 2
+        {{ axis[:near].id }} = o{{ axis[:near].id }} || 0
+        unless {{ axis[:near].id }}.is_a? Int32
+          {{ axis[:near].id }} = resolve_dim({{ axis[:near].id }}, parent.a{{ axis[:dim].id }} || 0)
+          if center_expr?(o{{ axis[:near].id }})
+            {{ axis[:near].id }} -= ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered)) // 2
+          end
         end
+
+        if applies_near_offset?(o{{ axis[:near].id }}, o{{ axis[:far].id }})
+          {{ axis[:near].id }} += parent.i{{ axis[:near].id }}
+        end
+
+        (parent.a{{ axis[:near].id }} || 0) + {{ axis[:near].id }} + m_near
       end
+    {% end %}
 
-      if applies_near_offset?(otop, obottom)
-        top += parent.itop
+    # `aright`/`abottom`: computed absolute far-edge position, the mechanical
+    # axis mirror of each other (left→top, right→bottom, awidth→aheight,
+    # iright→ibottom). Generated from one body so a fix to one axis can never
+    # drift from the other — see the `rleft`/`rtop`/… loop above for the same
+    # pattern. Each axis map lists exactly the tokens that differ: `near`/`far`
+    # edge names and `dim` (the same-axis size word, `width`/`height`).
+    {% for axis in [
+                     {near: "left", far: "right", dim: "width"},
+                     {near: "top", far: "bottom", dim: "height"},
+                   ] %}
+      # Returns computed absolute {{ axis[:far].id }} position
+      def a{{ axis[:far].id }}(rendered = false) : Int32
+        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        o{{ axis[:far].id }} = @{{ axis[:far].id }}
+
+        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
+
+        if o{{ axis[:far].id }}.nil? && !o{{ axis[:near].id }}.nil?
+          # Base geometry: `coords` composes in the margin, so this far-edge
+          # offset must not double-count it.
+          {{ axis[:far].id }} = window.a{{ axis[:dim].id }} - (a{{ axis[:near].id }}(rendered, with_margin: false) + a{{ axis[:dim].id }}(rendered))
+          {{ axis[:far].id }} += parent.i{{ axis[:far].id }}
+          return {{ axis[:far].id }}
+        end
+
+        # A `Dim` far edge (`"50%"`) resolves against the parent's {{ axis[:dim].id }},
+        # exactly as a `Dim` near edge does in `#a{{ axis[:near].id }}`. Kept behind the
+        # type test so the common `Int32`/`nil` case never triggers the
+        # `parent.a{{ axis[:dim].id }}` ancestor walk.
+        {{ axis[:far].id }} = case o{{ axis[:far].id }}
+                              in Int32       then o{{ axis[:far].id }}
+                              in Dim, String then resolve_dim(o{{ axis[:far].id }}, parent.a{{ axis[:dim].id }} || 0)
+                              in Nil         then 0
+                              end
+        {{ axis[:far].id }} += (parent.a{{ axis[:far].id }} || 0)
+        {{ axis[:far].id }} += parent.i{{ axis[:far].id }}
+
+        {{ axis[:far].id }}
       end
-
-      (parent.atop || 0) + top + mt
-    end
-
-    # Returns computed absolute right position
-    def aright(rendered = false) : Int32
-      oleft = @left
-      oright = @right
-
-      parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-
-      if oright.nil? && !oleft.nil?
-        # Base geometry: `coords` composes in the margin, so this far-edge
-        # offset must not double-count it.
-        right = window.awidth - (aleft(rendered, with_margin: false) + awidth(rendered))
-        right += parent.iright
-        return right
-      end
-
-      # A `Dim` right (`"50%"`) resolves against the parent's width, exactly as
-      # a `Dim` left does in `#aleft`. Kept behind the type test so the common
-      # `Int32`/`nil` case never triggers the `parent.awidth` ancestor walk.
-      right = case oright
-              in Int32       then oright
-              in Dim, String then resolve_dim(oright, parent.awidth || 0)
-              in Nil         then 0
-              end
-      right += (parent.aright || 0)
-      right += parent.iright
-
-      right
-    end
-
-    # Returns computed absolute bottom position
-    def abottom(rendered = false) : Int32
-      otop = @top
-      obottom = @bottom
-
-      parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-
-      if obottom.nil? && !otop.nil?
-        # Base geometry (see `#aright`): margin is composed in by `coords`.
-        bottom = window.aheight - atop(rendered, with_margin: false) - aheight(rendered)
-        bottom += parent.ibottom
-        return bottom
-      end
-
-      # See `#aright`: a `Dim` bottom resolves against the parent's height,
-      # with the ancestor walk kept off the `Int32`/`nil` fast path.
-      bottom = case obottom
-               in Int32       then obottom
-               in Dim, String then resolve_dim(obottom, parent.aheight || 0)
-               in Nil         then 0
-               end
-      bottom += (parent.abottom || 0)
-      bottom += parent.ibottom
-
-      bottom
-    end
+    {% end %}
 
     # Shifts the `lo..hi` pair by the widget's own margin: outward by `far` when
     # only the far side is anchored (`near_anchor` nil, `far_anchor` not),

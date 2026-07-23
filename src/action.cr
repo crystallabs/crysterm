@@ -58,12 +58,15 @@ module Crysterm
     end
 
     # Defines a `name=` setter that assigns and emits `Event::Changed` only on an
-    # actual change. Properties that also emit a granular event
-    # (enabled/checkable/checked/visible) define their setters explicitly below.
-    private macro notifying_setter(name, type)
+    # actual change. When *event* is given (a granular event class such as
+    # `Event::EnabledChanged`), that event is emitted with the new value *before*
+    # `notify_changed`; the emit-before-notify_changed order matters — see the
+    # granular callers (enabled/checkable/checked/visible) below.
+    private macro notifying_setter(name, type, event = nil)
       def {{ name.id }}=(value : {{ type }}) : {{ type }}
         return value if @{{ name.id }} == value
         @{{ name.id }} = value
+        {% if event %} emit {{ event }}, value {% end %}
         notify_changed
         value
       end
@@ -95,13 +98,7 @@ module Crysterm
 
     # Sets `#enabled`, emitting `Event::EnabledChanged` plus `Event::Changed`,
     # only on a real change.
-    def enabled=(value : Bool) : Bool
-      return value if @enabled == value
-      @enabled = value
-      emit ::Crysterm::Event::EnabledChanged, value
-      notify_changed
-      value
-    end
+    notifying_setter enabled, Bool, ::Crysterm::Event::EnabledChanged
 
     # Whether the action has an on/off checked state (Qt's `QAction#checkable`),
     # e.g. a toggleable "Word Wrap" menu entry. `Widget::Menu` draws a
@@ -110,13 +107,7 @@ module Crysterm
 
     # Sets `#checkable`, emitting `Event::CheckableChanged` plus `Event::Changed`,
     # only on a real change.
-    def checkable=(value : Bool) : Bool
-      return value if @checkable == value
-      @checkable = value
-      emit ::Crysterm::Event::CheckableChanged, value
-      notify_changed
-      value
-    end
+    notifying_setter checkable, Bool, ::Crysterm::Event::CheckableChanged
 
     # Current checked state; only meaningful when `#checkable?`.
     getter? checked = false
@@ -124,13 +115,7 @@ module Crysterm
     # Sets `#checked`, emitting `Event::Toggled` (Qt's `toggled(bool)`) plus
     # `Event::Changed`, only on a real change. `Toggled` fires on any checked
     # change; `Triggered` only on activation.
-    def checked=(value : Bool) : Bool
-      return value if @checked == value
-      @checked = value
-      emit ::Crysterm::Event::Toggled, value
-      notify_changed
-      value
-    end
+    notifying_setter checked, Bool, ::Crysterm::Event::Toggled
 
     # Whether this is a non-selectable separator rather than a real action
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
@@ -230,13 +215,7 @@ module Crysterm
 
     # Sets `#visible`, emitting `Event::VisibleChanged` plus `Event::Changed`,
     # only on a real change.
-    def visible=(value : Bool) : Bool
-      return value if @visible == value
-      @visible = value
-      emit ::Crysterm::Event::VisibleChanged, value
-      notify_changed
-      value
-    end
+    notifying_setter visible, Bool, ::Crysterm::Event::VisibleChanged
 
     # The widgets currently presenting this action (Qt's
     # `QAction::associatedWidgets`), in insertion order. A `Widget::Menu`/

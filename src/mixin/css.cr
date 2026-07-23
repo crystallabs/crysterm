@@ -81,6 +81,15 @@ module Crysterm
         @css_classes.includes?(name) ? remove_css_class(name) : add_css_class(name)
       end
 
+      # Adds every whitespace-separated class in a `class="a b c"` attribute
+      # string, skipping empty tokens; a `nil` value is a no-op. The additive
+      # counterpart used by the layout-DOM appliers (`dom_apply`'s `class`
+      # handler and the bridge's `setAttribute`, which clears first for replace
+      # semantics), so both split/skip-empty the same way.
+      def add_css_class_list(value : String?) : Nil
+        value.try &.split.each { |c| add_css_class c unless c.empty? }
+      end
+
       # Base implementation for `Widget` itself. Subclasses override this via the
       # `inherited` hook above with their own full type chain. Shared constant —
       # treat as read-only.

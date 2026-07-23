@@ -379,13 +379,11 @@ module Crysterm
                                           fp : ::Crysterm::Style::AttrFingerprint?)
         return {st, src, copy, fp} if skip
         return {st, src, copy, fp} if st.visibly_styled?
-        cur = st.attr_fingerprint
-        if src && src.same?(st) && copy && fp == cur
-          return {copy, src, copy, fp}
+        ::Crysterm::Style.memo_derive(st, src, copy, fp) do |s|
+          c = s.dup
+          c.reverse = true
+          c
         end
-        c = st.dup
-        c.reverse = true
-        {c, st, c, cur}
       end
     end
   end

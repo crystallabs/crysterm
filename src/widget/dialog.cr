@@ -88,6 +88,20 @@ module Crysterm
         self.modal = true
       end
 
+      # Shared prelude for the block-based presenters
+      # (`Question#ask`/`#ask_choices`, `Prompt#read_input`): sets the body to
+      # *text* (falling back to `@text`), shows the dialog modally, and primes
+      # `#result` to `Rejected` so a dismissal without an answer reads as
+      # rejected. Each presenter's own button/key wiring follows this call.
+      protected def begin_modal_content(text : String?) : Nil
+        set_content(text || @text)
+        # On top with the modal grab taken (`#show_modal`), so widgets beneath
+        # the open dialog aren't clickable; every close path runs `#done`, which
+        # releases the grab.
+        show_modal
+        @result = Code::Rejected.to_i
+      end
+
       # Shows the dialog modally and returns **immediately** (Qt's
       # `QDialog#open`); the outcome arrives later on `Event::Finished` (or
       # `Accepted`/`Rejected`). This is the form to use from an event handler.

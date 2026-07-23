@@ -72,10 +72,13 @@ module Crysterm
       Corner
     end
 
-    # Whether every named instance variable is `nil`. Keeps the hand-maintained
-    # `nil?` chain from drifting out of sync with the field set.
-    private macro all_nil?(*fields)
-      ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
+    # Raises the uniform "single side expected" `ArgumentError` for the
+    # multi-side (`Horizontal`/`Vertical`/`All`) arms of the per-side
+    # dispatchers below. `@def.name` names the enclosing method at expansion,
+    # so the message can never drift from the method it actually fires in.
+    private macro raise_multi_side(side)
+      raise ArgumentError.new "Border#" + {{ @def.name.stringify }} +
+        " expects a single side (Left/Top/Right/Bottom), got #{ {{ side }} }"
     end
 
     property type = BorderType::Solid
@@ -134,13 +137,11 @@ module Crysterm
     # `set_color`).
     protected def set_current_color(side : Side, value : Bool) : Nil
       case side
-      in .top?    then @top_fg_current_color = value
-      in .right?  then @right_fg_current_color = value
-      in .bottom? then @bottom_fg_current_color = value
-      in .left?   then @left_fg_current_color = value
-      in .horizontal?, .vertical?, .all?
-        raise ArgumentError.new "Border#set_current_color expects a single side " \
-                                "(Left/Top/Right/Bottom), got #{side}"
+      in .top?                           then @top_fg_current_color = value
+      in .right?                         then @right_fg_current_color = value
+      in .bottom?                        then @bottom_fg_current_color = value
+      in .left?                          then @left_fg_current_color = value
+      in .horizontal?, .vertical?, .all? then raise_multi_side side
       end
     end
 
@@ -158,13 +159,11 @@ module Crysterm
     def side_fg(side : Side, el_fg : Int32?) : Int32?
       side_current, own =
         case side
-        in .top?    then {@top_fg_current_color, @top_fg}
-        in .right?  then {@right_fg_current_color, @right_fg}
-        in .bottom? then {@bottom_fg_current_color, @bottom_fg}
-        in .left?   then {@left_fg_current_color, @left_fg}
-        in .horizontal?, .vertical?, .all?
-          raise ArgumentError.new "Border#side_fg expects a single side " \
-                                  "(Left/Top/Right/Bottom), got #{side}"
+        in .top?                           then {@top_fg_current_color, @top_fg}
+        in .right?                         then {@right_fg_current_color, @right_fg}
+        in .bottom?                        then {@bottom_fg_current_color, @bottom_fg}
+        in .left?                          then {@left_fg_current_color, @left_fg}
+        in .horizontal?, .vertical?, .all? then raise_multi_side side
         end
       if side_current
         el_fg
@@ -252,7 +251,7 @@ module Crysterm
     # Whether any position/group char override is set — lets the renderer skip
     # the override merge entirely for the common untouched border.
     def chars? : Bool
-      !all_nil?(horizontal_char, vertical_char, corner_char,
+      !SidedGeometry.all_nil?(horizontal_char, vertical_char, corner_char,
         top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end
 
@@ -341,13 +340,11 @@ module Crysterm
     # apply to a single-side setter and raise.
     protected def set_width(side : Side, value : Int32) : Nil
       case side
-      in .top?    then @top = value
-      in .right?  then @right = value
-      in .bottom? then @bottom = value
-      in .left?   then @left = value
-      in .horizontal?, .vertical?, .all?
-        raise ArgumentError.new "Border#set_width expects a single side " \
-                                "(Left/Top/Right/Bottom), got #{side}"
+      in .top?                           then @top = value
+      in .right?                         then @right = value
+      in .bottom?                        then @bottom = value
+      in .left?                          then @left = value
+      in .horizontal?, .vertical?, .all? then raise_multi_side side
       end
     end
 
@@ -356,13 +353,11 @@ module Crysterm
     # be a single side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
     protected def set_color(side : Side, value : Int32?) : Nil
       case side
-      in .top?    then @top_fg = value
-      in .right?  then @right_fg = value
-      in .bottom? then @bottom_fg = value
-      in .left?   then @left_fg = value
-      in .horizontal?, .vertical?, .all?
-        raise ArgumentError.new "Border#set_color expects a single side " \
-                                "(Left/Top/Right/Bottom), got #{side}"
+      in .top?                           then @top_fg = value
+      in .right?                         then @right_fg = value
+      in .bottom?                        then @bottom_fg = value
+      in .left?                          then @left_fg = value
+      in .horizontal?, .vertical?, .all? then raise_multi_side side
       end
     end
 
@@ -371,13 +366,11 @@ module Crysterm
     # side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
     protected def width_of(side : Side) : Int32
       case side
-      in .top?    then @top
-      in .right?  then @right
-      in .left?   then @left
-      in .bottom? then @bottom
-      in .horizontal?, .vertical?, .all?
-        raise ArgumentError.new "Border#width_of expects a single side " \
-                                "(Left/Top/Right/Bottom), got #{side}"
+      in .top?                           then @top
+      in .right?                         then @right
+      in .left?                          then @left
+      in .bottom?                        then @bottom
+      in .horizontal?, .vertical?, .all? then raise_multi_side side
       end
     end
   end

@@ -350,7 +350,6 @@ module Crysterm
           return if cols == 0
           xi, xl, yi, yl = interior_coords || return
           return if xl - xi <= 0 || yl - yi <= 0
-          text_attr = style_to_attr(style, style.fg, style.bg)
 
           # Column labels across the top row, each centered in its cell column.
           unless @col_labels.empty?
@@ -394,7 +393,6 @@ module Crysterm
           end
 
           # Numeric end labels, right-aligned just left of the bar.
-          text_attr = style_to_attr(style, style.fg, style.bg)
           hi_s = Scale.fmt hi
           lo_s = Scale.fmt lo
           put_text Math.max(xi, bar_x - hi_s.size), yi, hi_s, text_attr, xi, bar_x

@@ -193,6 +193,16 @@ module Crysterm
       # `dispose` unhooks it. Skipped if the initial run already disposed the
       # effect (e.g. its body tore down the owner) — the hook would never fire
       # usefully and could never be cancelled.
+      #
+      # This is the standalone-`Subscription` variant of the auto-dispose idiom
+      # that `Subscriptions#auto_dispose` bags up for binding.cr/bind_items.cr/
+      # completer.cr. It diverges deliberately: an effect keeps its per-signal
+      # subs in a `Hash` (`@subs_by_id`), not a `Subscriptions` bag, and — unlike
+      # those sites, which attach their `Destroy` hook *before* any run/detach —
+      # it attaches *after* `Effect.new` has already done the initial tracked
+      # run, hence the extra `!eff.disposed?` guard. A new site should copy the
+      # bag-routed `auto_dispose` shape unless it likewise attaches after a run
+      # that could dispose early.
       if owner && !eff.disposed?
         sub = ::Crysterm::Subscription.new
         sub.on(owner, ::Crysterm::Event::Destroy) { eff.dispose }

@@ -239,6 +239,21 @@ module Crysterm
       self
     end
 
+    # A copy of this style with its frame stripped (`#strip_frame!`) — the
+    # dup-then-mutate convenience (paralleling `#with_reverse_fallback`) for a
+    # fixed-height-1 chrome row (a `ToolBox` header, a `Pine::StatusBar` inner
+    # box) that must never carry the container's border/padding: a bordered
+    # 1-row box has a negative content interior and blanks its own row (B18-54).
+    # *visible* forces the copy's visibility when given; left `nil` (the default)
+    # the dup's `visible` flag is untouched — a caller that needs the row shown
+    # regardless of the container's hidden state passes `visible: true`.
+    def stripped_frame(visible : Bool? = nil) : Style
+      dup.tap do |s|
+        s.visible = visible unless visible.nil?
+        s.strip_frame!
+      end
+    end
+
     # Whether this style carries a visible distinction of its own — an explicit
     # `fg`/`bg` color, or reverse-video — as opposed to being fully unstyled.
     def visibly_styled? : Bool
@@ -273,6 +288,31 @@ module Crysterm
     # :ditto:
     def attr_fingerprint : AttrFingerprint
       {@fg, @bg, @specified_mask, bold?, italic?, underline?, blink?, reverse?, strike?, visible?}
+    end
+
+    # Shared core of an identity+fingerprint memo over a derived `Style` copy.
+    # Given the current source *src* and the previous memo triple
+    # (*prev_src*/*prev_copy*/*prev_fp*), returns the stateless
+    # `{result, src, copy, fp}` value tuple that `reverse_fallback_memo` uses:
+    # the cached *prev_copy* is reused while the source is unchanged both by
+    # identity (`same?` — a cascade swaps the backing object, so a hit means the
+    # copy is still current) and by value (*prev_fp*, the source's
+    # `#attr_fingerprint` at derivation time, so an in-place `src.fg = ...`
+    # recomputes rather than returning a stale copy). On a miss the block
+    # produces the fresh copy from *src*. A plain class method, not an instance
+    # method: the three callers differ in what `self` is (a widget for the
+    # reverse-video and `ListTable` alternate-row memos, the `Style` itself for
+    # `#alternate_row`), so the source is passed explicitly. Each caller keeps
+    # its own skip/short-circuit conditions and owns its memo triple — one widget
+    # may run several of these per frame, so the storage stays separate.
+    def self.memo_derive(src : Style, prev_src : Style?, prev_copy : Style?,
+                         prev_fp : AttrFingerprint?, & : Style -> Style)
+      fp = src.attr_fingerprint
+      if prev_src && prev_src.same?(src) && prev_copy && prev_fp == fp
+        return {prev_copy, prev_src, prev_copy, prev_fp}
+      end
+      copy = yield src
+      {copy, src, copy, fp}
     end
 
     # Is any transparency defined? Testing `opacity == nil` alone isn't enough:
@@ -447,16 +487,13 @@ module Crysterm
       # Reuse the memoized composition while the base object is unchanged —
       # both by identity and by value, so an in-place `base.fg = ...` between
       # frames recomposes instead of returning the stale frozen copy.
-      fp = base.attr_fingerprint
-      if (c = @alternate_row_composed) && (s = @alternate_row_composed_src) &&
-         s.same?(base) && @alternate_row_composed_fp == fp
-        return c
-      end
-      composed = base.dup
-      composed.bg = bg
-      @alternate_row_composed = composed
-      @alternate_row_composed_src = base
-      @alternate_row_composed_fp = fp
+      composed, @alternate_row_composed_src, @alternate_row_composed, @alternate_row_composed_fp =
+        Style.memo_derive(base, @alternate_row_composed_src, @alternate_row_composed,
+          @alternate_row_composed_fp) do |s|
+          copy = s.dup
+          copy.bg = bg
+          copy
+        end
       composed
     end
 

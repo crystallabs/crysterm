@@ -35,14 +35,11 @@ module Crysterm
         DEFAULT_POOL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=?<>/\\|".chars
 
         # Characters rained down the window; one is sampled per lit cell per frame.
-        getter pool : Array(Char) = DEFAULT_POOL
-
-        # :ditto:
-        # An empty pool would crash the render fiber (`@pool.sample` raises), so it
-        # is rejected in favour of the default.
-        def pool=(value : Array(Char)) : Array(Char)
-          @pool = value.empty? ? DEFAULT_POOL.dup : value
-        end
+        #
+        # An empty pool would crash the render fiber (`@pool.sample` raises), so an
+        # empty assignment is rejected in favour of the default.
+        # ameba:disable Lint/UselessAssign
+        nonempty_property pool : Array(Char) = DEFAULT_POOL
 
         # Color of the leading ("head") glyph of every drop (a native `0xRRGGBB`
         # int, painted straight into the cell). For backwards compatibility the
@@ -54,7 +51,7 @@ module Crysterm
         end
 
         def head_color=(color : String)
-          @head_color = Colors.convert(color).to_i32
+          @head_color = Colors.to_native(color)
         end
 
         # Per-column state, (re)built whenever the column count changes.

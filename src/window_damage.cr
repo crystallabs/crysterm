@@ -683,8 +683,7 @@ module Crysterm
 
       # The plane's covered rectangle as of last frame (union of its layer roots'
       # recorded footprints).
-      plane_old = nil
-      cur.each { |el| plane_old = damage_union(plane_old, el.damage_bounds) }
+      plane_old = damage_union_bounds(cur)
 
       # Re-render the plane into its own buffer if any of its widgets changed —
       # mirroring `composite_planes` for this single z (clear, opacity from the
@@ -710,8 +709,7 @@ module Crysterm
       end
 
       # The plane's covered rectangle as of this frame (after any re-render).
-      plane_new = nil
-      cur.each { |el| plane_new = damage_union(plane_new, el.damage_bounds) }
+      plane_new = damage_union_bounds(cur)
 
       # Re-render the base-layer (non-z) dirty roots to learn their new footprints
       # (clearing each one's old footprint first), capturing the old footprints as
@@ -830,6 +828,14 @@ module Crysterm
     # Half-open rectangle overlap test (`{xi, xl, yi, yl}`).
     private def damage_rects_overlap?(a : Tuple(Int32, Int32, Int32, Int32), b : Tuple(Int32, Int32, Int32, Int32)) : Bool
       a[0] < b[1] && b[0] < a[1] && a[2] < b[3] && b[2] < a[3]
+    end
+
+    # Bounding union of a widget list's `damage_bounds` — `nil` when the list is
+    # empty or none of them carry a footprint.
+    private def damage_union_bounds(widgets : Array(Widget)) : Tuple(Int32, Int32, Int32, Int32)?
+      acc = nil
+      widgets.each { |el| acc = damage_union(acc, el.damage_bounds) }
+      acc
     end
 
     # Bounding union of two optional rectangles.

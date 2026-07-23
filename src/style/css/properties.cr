@@ -749,7 +749,7 @@ module Crysterm
         # terminal-default instead of dropping the invalid declaration per
         # CSS. `transparent` is a genuine `-1` `Int32` from `resolve`, not a
         # `String`, so it's unaffected; same guard as `valid_side_color?`.
-        return if resolved.is_a?(String) && Colors.convert_cached(resolved) == -1
+        return if resolved.is_a?(String) && !Colors.known?(resolved)
         yield resolved
       end
 
@@ -785,7 +785,7 @@ module Crysterm
         return true if cur
         case resolved
         when Int32  then true
-        when String then Colors.convert_cached(resolved) != -1
+        when String then Colors.known?(resolved)
         else             false
         end
       end

@@ -26,7 +26,7 @@ module Crysterm
       # must not leave a dead handler (pinning this binding and everything its
       # block captured) on the long-lived owner. Called by `Reactive.bind`.
       protected def attach_auto_dispose : Nil
-        @subs.on(@owner, ::Crysterm::Event::Destroy) { dispose }
+        @subs.auto_dispose(@owner) { dispose }
       end
 
       # A watched signal changed: run now, or defer to the flush under an explicit

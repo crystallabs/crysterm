@@ -85,7 +85,7 @@ module Crysterm
       when "wrap-content" then self.wrap_content = dom_coerce_bool(value)
       when "content"      then set_content(value || "")
       when "id"           then self.css_id = value
-      when "class"        then value.try &.split.each { |c| add_css_class c unless c.empty? }
+      when "class"        then add_css_class_list value
       when .starts_with?("on")
         # A nil value (the bridge's only "remove" shape — `setAttribute` with no
         # value) *deletes* the binding rather than storing `""`, which would keep

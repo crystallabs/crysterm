@@ -153,7 +153,7 @@ module Crysterm
           # walk plots every pixel *between* the endpoints, so a valid point to a
           # sentinel point draws a visible stray ray to the canvas edge and then
           # iterates ~10^6 rejected pixels off-canvas. Skip the segment entirely.
-          return unless x0.to_f.finite? && y0.to_f.finite? && x1.to_f.finite? && y1.to_f.finite?
+          return unless Crysterm.all_finite?(x0.to_f, y0.to_f, x1.to_f, y1.to_f)
           line dx(x0), dy(y0), dx(x1), dy(y1)
         end
 
@@ -163,7 +163,7 @@ module Crysterm
           (1...points.size).each do |i|
             a = points[i - 1]
             b = points[i]
-            next unless a[0].finite? && a[1].finite? && b[0].finite? && b[1].finite?
+            next unless Crysterm.all_finite?(a[0], a[1], b[0], b[1])
             line dx(a[0]), dy(a[1]), dx(b[0]), dy(b[1])
           end
         end
@@ -175,7 +175,7 @@ module Crysterm
           # Bresenham `line` walk plots every pixel between a valid corner and
           # the sentinel: a visible stray full-height/width ray plus ~10^6
           # rejected off-canvas plots per edge. Skip the whole rect instead.
-          return unless x.to_f.finite? && y.to_f.finite? && w.to_f.finite? && h.to_f.finite?
+          return unless Crysterm.all_finite?(x.to_f, y.to_f, w.to_f, h.to_f)
           x0, y0, x1, y1 = dx(x), dy(y), dx(x + w), dy(y + h)
           line x0, y0, x1, y0
           line x1, y0, x1, y1
@@ -232,7 +232,7 @@ module Crysterm
           # terminate; a huge finite `ro` would iterate for ages. Bail on
           # non-finite radii and cap `ro` at `ELLIPSE_R_MAX` (as `#draw_ellipse`
           # does) so the loop count stays bounded.
-          return unless ri.finite? && ro.finite?
+          return unless Crysterm.all_finite?(ri, ro)
           return if ro <= 0
           ro = ELLIPSE_R_MAX.to_f if ro > ELLIPSE_R_MAX
           cxf = cx.to_f
@@ -243,7 +243,7 @@ module Crysterm
           # NaN start/stop would spin the spoke loop forever (or crash on the
           # NaN→Int32 conversion in `plot`); a non-positive `step` never lets `a`
           # reach `stop`. Bail on non-finite angles and clamp step to the default.
-          return unless start.finite? && stop.finite?
+          return unless Crysterm.all_finite?(start, stop)
           step = step_deg.to_f
           step = 0.7 if !step.finite? || step <= 0.0
           # Refine the angular step so adjacent spokes stay ≤ ~0.5 px apart at the
@@ -393,6 +393,17 @@ module Crysterm
         private def overlay_attr(color : Int32) : Int64
           bg = style.bg
           @attr_cache.fetch({color, bg}) { style_to_attr(style, color, bg) }
+        end
+
+        # Returns (and caches) the packed cell attr for the widget's DEFAULT
+        # foreground (`style.fg`) on its current background — the attr used for
+        # titles, axis/legend labels and center readouts, drawn every frame.
+        # Shares `#overlay_attr`'s `@attr_cache`; the key coalesces a `nil` fg to
+        # `-1`, which `Attr.pack_color` already treats identically to an explicit
+        # `-1`, so the non-nilable first key slot is satisfied without changing
+        # the packed result.
+        private def text_attr : Int64
+          @attr_cache.fetch({style.fg || -1, style.bg}) { style_to_attr(style, style.fg, style.bg) }
         end
 
         # Writes *text* starting at absolute cell (x, y), clipped to the

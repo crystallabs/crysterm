@@ -40,7 +40,7 @@ module Crysterm
       # Reads the current derived value, registering a dependency if read inside
       # an effect/computed (same tracking as `Signal#value`).
       def value : T
-        Reactive.current?.try &.track(self)
+        register_read
         @value
       end
 

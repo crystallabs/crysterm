@@ -245,15 +245,6 @@ module Crysterm
         end
       end
 
-      # True when `el` will be composited on its own plane this frame — the
-      # exact predicate `render_or_defer` uses. Such a child's `lpos` is not
-      # refreshed until plane compositing, so within `#arrange` it still holds
-      # the previous frame's rect and must not anchor chain/row-height math.
-      private def deferred_this_frame?(el : Widget) : Bool
-        return false unless el.style.z_index
-        !el.window.compositing_layers?
-      end
-
       # Yields each child in `container.children[from...to]` that this engine
       # arranged and rendered to a non-empty rectangle, with that rectangle;
       # `layout_excluded?` chrome and unrendered children are skipped.

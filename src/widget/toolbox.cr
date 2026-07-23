@@ -102,9 +102,7 @@ module Crysterm
         # carries: a height-1 header with a border has a negative content
         # interior, so the title would never paint (only border glyphs would
         # show on the single row).
-        st = style.dup
-        st.visible = true
-        st.strip_frame!
+        st = style.stripped_frame(visible: true)
         header = Widget::Box.new(
           parent: self,
           left: 0, right: 0, height: 1,

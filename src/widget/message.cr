@@ -37,7 +37,13 @@ module Crysterm
           scroll_to 0
         end
 
-        show
+        # `show_modal` (not a bare `show`) so the message paints on top of its
+        # siblings and takes the pointer grab — no widget beneath it stays
+        # clickable while it's up, matching every other `Dialog` presenter. The
+        # grab is pointer-only (`Window#add_popup_grab`), so the below
+        # dismiss-on-any-keypress path still receives keys; every close path
+        # (`#end_it`→`#done`, and `#destroy`) releases the grab.
+        show_modal
         set_content text
         request_render
 

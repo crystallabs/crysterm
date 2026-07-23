@@ -14,6 +14,14 @@ module Crysterm
     # reference.
     abstract class SignalBase
       include EventHandler
+
+      # Registers this signal as a dependency of the running `Effect`/`Computed`,
+      # if any — the single place the read-tracking contract lives. Called at the
+      # top of every concrete `#value` reader (`Signal#value`, `Computed#value`).
+      # A no-op outside a tracking scope.
+      protected def register_read : Nil
+        Reactive.current?.try &.track(self)
+      end
     end
 
     # An observable value cell. Reading `#value` returns the current value;
@@ -38,7 +46,7 @@ module Crysterm
       # `Effect`/`Computed` is running), registers that consumer as a dependent
       # so it re-runs when this signal changes. Outside such a scope, a plain read.
       def value : T
-        Reactive.current?.try &.track(self)
+        register_read
         @value
       end
 

@@ -1,5 +1,31 @@
 module Crysterm
   module DOM
+    # Composite key for a `(widget, event)` wiring entry — `"uid:event"` —
+    # under which both `each_binding`'s declarative bindings and the HTTP
+    # bridge's runtime forwarders are stored. Single home for the key shape so
+    # builders and the `wiring_key_owner` decode can't drift.
+    def self.wiring_key(widget : Widget, event : String) : String
+      "#{widget.uid}:#{event}"
+    end
+
+    # The owning widget's uid encoded in a `wiring_key`. Inverse of `wiring_key`:
+    # the uid is numeric and precedes the first colon.
+    def self.wiring_key_owner(key : String) : Int32
+      key.split(':', 2).first.to_i
+    end
+
+    # Drops entries from a `(action, detacher)` wiring map whose key the block
+    # selects for removal, invoking each dropped entry's detacher (`entry[1]`)
+    # *before* removing it — so a dropped binding never keeps firing. The block
+    # returns true for keys to drop.
+    def self.detach_and_drop(wired : Hash(String, Tuple(String, Proc(Nil))), & : String -> Bool) : Nil
+      wired.reject! do |key, entry|
+        next false unless yield key
+        entry[1].call
+        true
+      end
+    end
+
     # Subscribes every `on*` action binding declared in a window's widget tree
     # (e.g. `onclick="save"`, `onsubmit="send"`) and invokes `handler` when the
     # corresponding event fires.
@@ -25,7 +51,7 @@ module Crysterm
         top.self_and_each_descendant do |widget|
           widget.dom_events.each do |event_name, action|
             if wired
-              key = "#{widget.uid}:#{event_name}"
+              key = wiring_key widget, event_name
               seen << key
               if existing = wired[key]?
                 next if existing[0] == action # same action already wired
@@ -40,11 +66,9 @@ module Crysterm
         end
       end
       if wired
-        wired.reject! do |key, entry|
-          next false if seen.includes? key
-          entry[1].call # binding removed since last pass: detach and drop it
-          true
-        end
+        # A wired key not seen this pass had its binding removed (its `on*`
+        # attribute cleared / its widget gone): detach and drop it.
+        detach_and_drop(wired) { |key| !seen.includes?(key) }
       end
     end
 

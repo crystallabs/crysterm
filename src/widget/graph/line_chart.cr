@@ -258,7 +258,7 @@ module Crysterm
               # A NaN/Infinity sample must not poison the auto-range: a NaN
               # min/max propagates into the tick fractions in `#draw_chrome`,
               # where `.round.to_i` raises OverflowError in the render fiber.
-              next unless x.finite? && y.finite?
+              next unless Crysterm.all_finite?(x, y)
               xs_min = xs_min.nil? ? x : Math.min(xs_min, x)
               xs_max = xs_max.nil? ? x : Math.max(xs_max, x)
               ys_min = ys_min.nil? ? y : Math.min(ys_min, y)

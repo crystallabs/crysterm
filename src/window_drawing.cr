@@ -722,16 +722,6 @@ module Crysterm
       end
     end
 
-    private def blank_line(ch = ' ', dirty = false)
-      # `Row.new awidth` only reserves capacity (size 0), so the row must be
-      # populated: a zero-width row renders as nothing and puts later
-      # `lines[y][x]` writes out of range.
-      o = Row.new awidth
-      awidth.times { o.push @default_attr, ch }
-      o.dirty = dirty
-      o
-    end
-
     # Shifts the cell buffer (`@lines`/`@flushed_lines`) *down* by `n` rows: a blank line
     # appears at `y` and the line that was at `bottom` falls off — the buffer-side
     # counterpart of the terminal `il`/scroll-down.
@@ -748,7 +738,7 @@ module Crysterm
 
     # Shifts both cell buffers `n` times so a blank line appears at `insert_at` and
     # the line at `delete_at` falls off. The evicted row is recycled (deleted,
-    # blanked in place, re-inserted) rather than allocating a fresh `blank_line`
+    # blanked in place, re-inserted) rather than allocating a fresh blank row
     # per shift; each buffer only ever recycles its own row, so the two stay
     # independent.
     #

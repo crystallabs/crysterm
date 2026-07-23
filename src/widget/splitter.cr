@@ -94,16 +94,7 @@ module Crysterm
       # it (except for the first pane). Existing dividers are re-evened.
       def add_widget(widget : Widget) : self
         unless @panes.empty?
-          idx = @dividers.size
-          div = Box.new(
-            parent: self,
-            draggable: true,
-            keys: true,
-            top: 0, left: 0, width: 1, height: 1,
-          )
-          div.add_css_class "divider" # themed via `.divider { ... }`
-          wire_divider div, idx
-          @dividers << div
+          @dividers << make_divider(@dividers.size)
           @positions << 0
         end
 
@@ -189,15 +180,7 @@ module Crysterm
         @positions.clear
         @user_positioned = false
         (@panes.size - 1).times do |idx|
-          div = Box.new(
-            parent: self,
-            draggable: true,
-            keys: true,
-            top: 0, left: 0, width: 1, height: 1,
-          )
-          div.add_css_class "divider"
-          wire_divider div, idx
-          @dividers << div
+          @dividers << make_divider(idx)
           @positions << 0
         end
         @dividers.each &.to_front
@@ -262,6 +245,23 @@ module Crysterm
       end
 
       # --- Internals -----------------------------------------------------------
+
+      # Builds a divider box wired to split index *idx*: a one-cell,
+      # draggable/keyboard-movable `Box` carrying the `.divider` css class
+      # (themed via `.divider { ... }`). The single construction site for both
+      # `#add_widget` and `#rebuild_dividers`; callers push the matching
+      # `@positions << 0` themselves to keep the divider/position counts in step.
+      private def make_divider(idx : Int) : Box
+        div = Box.new(
+          parent: self,
+          draggable: true,
+          keys: true,
+          top: 0, left: 0, width: 1, height: 1,
+        )
+        div.add_css_class "divider"
+        wire_divider div, idx
+        div
+      end
 
       private def wire_divider(div : Box, i : Int)
         # Drive the split from the pointer position relative to the splitter's

@@ -301,8 +301,16 @@ module Crysterm
         delete_image s
       end
 
+      # The delete-placement control sequence for one concrete image id
+      # (`a=d` delete, `d=i` by id, `q=2` suppress replies).
+      private def delete_seq(id : UInt32) : String
+        "\e_Ga=d,d=i,i=#{id},q=2\e\\"
+      end
+
       private def delete_image(s : ::Crysterm::Window)
-        s.tput._oprint "\e_Ga=d,d=i,i=#{@id_a},q=2\e\\\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
+        # Two args (not a concatenated string): `_oprint` joins them straight to
+        # the output IO, skipping the intermediate allocation.
+        s.tput._oprint delete_seq(@id_a), delete_seq(@id_b)
         s.tput.flush
       end
 
@@ -313,7 +321,7 @@ module Crysterm
       protected def on_double_buffer_changed(v : Bool)
         return if v
         window?.try do |s|
-          s.tput._oprint "\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
+          s.tput._oprint delete_seq(@id_b)
           s.tput.flush
         end
       end

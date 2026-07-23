@@ -155,18 +155,29 @@ module Crysterm
     # the base tree). While compositing a layer, nested layers flatten into the
     # enclosing plane and render inline.
     protected def render_or_defer(el : Widget) : Nil
-      scr = el.window
-      if el.style.z_index && !scr.compositing_layers?
+      if deferred_this_frame? el
         # A deferred child renders later, on its own plane, so its `#_render`
         # (which clears `layout_suppressed`) hasn't run yet this frame. Clear the
         # flag here so a child skipped last frame isn't treated as still-suppressed
         # — otherwise `Flow#row_tallest` would drop a legitimately placed deferred
         # child from its row-height accounting.
         el.layout_suppressed = false
-        scr.defer_layer el
+        el.window.defer_layer el
       else
         el.render
       end
+    end
+
+    # Whether `el` will be composited on its own plane this frame rather than
+    # rendered inline: it carries a `z_index` and we aren't already compositing a
+    # layer (nested layers flatten into the enclosing plane). The single source
+    # for the deferral test — `#render_or_defer` acts on it, and the flow engines
+    # consult it for chain/row-height math, since a deferred child's `lpos` is not
+    # refreshed until plane compositing and so within `#arrange` still holds the
+    # previous frame's rect and must not anchor that math.
+    protected def deferred_this_frame?(el : Widget) : Bool
+      return false unless el.style.z_index
+      !el.window.compositing_layers?
     end
 
     # Assigns the child its z-order/render index for this frame. Every child

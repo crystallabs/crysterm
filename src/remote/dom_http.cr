@@ -175,7 +175,7 @@ module Crysterm
       # the selector, which misses widgets that stopped matching since subscribe.
       keys = (@wired_keys[{selector, event}] ||= Set(String).new)
       matches.each do |widget|
-        key = "#{widget.uid}:#{event}"
+        key = DOM.wiring_key widget, event
         keys << key
         next if @event_wired.includes? key
         @event_wired << key
@@ -188,7 +188,7 @@ module Crysterm
       detacher = DOM.on_widget_event(widget, event) do |type, value|
         publish_event type, widget, value: value
       end
-      @forwarders["#{widget.uid}:#{event}"] = detacher if detacher
+      @forwarders[DOM.wiring_key(widget, event)] = detacher if detacher
     end
 
     # Drops every wiring entry belonging to a removed widget (keys are
@@ -196,12 +196,8 @@ module Crysterm
     # subtree leaves no dangling declarative bindings or runtime forwarders
     # behind. `uids` is the set of removed widget uids (subtree included).
     private def prune_wiring(uids : Set(Int32)) : Nil
-      removed = ->(key : String) { uids.includes? key.split(':', 2).first.to_i }
-      @declarative_wired.reject! do |key, entry|
-        next false unless removed.call key
-        entry[1].call # detach the stale declarative binding
-        true
-      end
+      removed = ->(key : String) { uids.includes? DOM.wiring_key_owner(key) }
+      DOM.detach_and_drop(@declarative_wired) { |key| removed.call key }
       @forwarders.reject! do |key, detacher|
         next false unless removed.call key
         detacher.call # detach the live forwarder
@@ -465,7 +461,7 @@ module Crysterm
     private def set_attribute(widget : Widget, name : String, value : String?) : Nil
       if name == "class"
         widget.css_classes.dup.each { |c| widget.remove_css_class c }
-        value.try &.split.each { |c| widget.add_css_class c unless c.empty? }
+        widget.add_css_class_list value
       else
         widget.dom_apply name, value
         # Backstop for the generated `dom_apply`: a runtime `setAttribute` must

@@ -85,112 +85,81 @@ module Crysterm
       o.is_a?(Dim) ? resolve_dim(o, against) : resolve_dim(o, against, size: true)
     end
 
-    # Returns computed width, in cells.
+    # `awidth`/`aheight`: computed used size in cells, the mechanical axis mirror
+    # of each other (width→height, left→top, right→bottom, ileft→itop,
+    # iright→ibottom). Generated from one body — as `aleft`/`atop` and
+    # `aright`/`abottom` are in widget_position.cr — so the auto/percentage/margin
+    # handling can never drift between the two axes. Each axis map lists only the
+    # tokens that differ: `dim` (the size word, driving the method name
+    # `a{{ dim }}` and the `clamp_a{{ dim }}`/`min_{{ dim }}` family), and the
+    # `near`/`far` edge names.
     #
     # *rendered* resolves against the parent's **last-rendered** position instead
     # of its live geometry — what the render path wants, since the parent has
     # already been placed for this frame.
-    def awidth(rendered = false) : Int32
-      oleft = @left
-      oright = @right
-      width = @width
+    {% for axis in [
+                     {dim: "width", near: "left", far: "right"},
+                     {dim: "height", near: "top", far: "bottom"},
+                   ] %}
+      # Returns computed {{ axis[:dim].id }}, in cells. See *rendered* above.
+      def a{{ axis[:dim].id }}(rendered = false) : Int32
+        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        o{{ axis[:far].id }} = @{{ axis[:far].id }}
+        {{ axis[:dim].id }} = @{{ axis[:dim].id }}
 
-      # Parent's rendered position is only needed by the Dim/String/`nil` branches;
-      # a fixed `Int32` width (common case) ignores it, so it's resolved lazily
-      # to avoid walking the ancestor chain every frame.
-      case width
-      when Dim, String
-        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # Percentage of the parent's content area (inside border/padding), like
-        # CSS `width: 100%`. Matching `aleft` adds the parent's near inset, so a
-        # `left: 0` child sits inside the border and `"100%"` reaches the far inset.
-        # A specified size keeps its full extent — an outward margin *shifts* it
-        # (see `coords`), it does not shrink it.
-        return clamp_awidth(resolve_size_dim(width, (parent.awidth || 0) - parent.ileft - parent.iright))
-      end
-
-      # Stretched or shrunken element: shrunken widths are computed in the
-      # render function from content width, seeded by the element's own width,
-      # so it's calculated here too.
-      if width.nil?
-        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # `parent.awidth` climbs the whole ancestor chain. It's needed twice here
-        # (string base + width subtraction); computing it once collapses
-        # O(2^depth) to O(depth) for a chain of nil-width + string-left widgets.
-        pw = parent.awidth || 0
-        left = oleft || 0
-        unless left.is_a? Int32
-          left = resolve_dim(left, pw)
+        # Parent's rendered position is only needed by the Dim/String/`nil` branches;
+        # a fixed `Int32` {{ axis[:dim].id }} (common case) ignores it, so it's resolved
+        # lazily to avoid walking the ancestor chain every frame.
+        case {{ axis[:dim].id }}
+        when Dim, String
+          parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
+          # Percentage of the parent's content area (inside border/padding), like
+          # CSS `{{ axis[:dim].id }}: 100%`. Matching `#a{{ axis[:near].id }}` adds the
+          # parent's near inset, so a `{{ axis[:near].id }}: 0` child sits inside the
+          # border and `"100%"` reaches the far inset. A specified size keeps its
+          # full extent — an outward margin *shifts* it (see `coords`), it does not
+          # shrink it.
+          return clamp_a{{ axis[:dim].id }}(resolve_size_dim({{ axis[:dim].id }}, (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}))
         end
-        # `pw` is already resolved here, so the symmetric `String` right
-        # (`right: "50%"`) costs nothing extra — see `#resolve_edge`.
-        width = pw - resolve_edge(oright, pw) - left
 
-        if applies_near_offset?(oleft, oright)
-          width -= parent.ileft
+        # Stretched or shrunken element: shrunken sizes are computed in the render
+        # function from content size, seeded by the element's own {{ axis[:dim].id }},
+        # so it's calculated here too.
+        if {{ axis[:dim].id }}.nil?
+          parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
+          # `parent.a{{ axis[:dim].id }}` climbs the whole ancestor chain. It's needed
+          # twice here (string base + size subtraction); computing it once collapses
+          # O(2^depth) to O(depth) for a chain of nil-{{ axis[:dim].id }} + string-{{ axis[:near].id }} widgets.
+          psize = parent.a{{ axis[:dim].id }} || 0
+          {{ axis[:near].id }} = o{{ axis[:near].id }} || 0
+          unless {{ axis[:near].id }}.is_a? Int32
+            {{ axis[:near].id }} = resolve_dim({{ axis[:near].id }}, psize)
+          end
+          # `psize` is already resolved here, so the symmetric `String` {{ axis[:far].id }}
+          # (`{{ axis[:far].id }}: "50%"`) costs nothing extra — see `#resolve_edge`.
+          {{ axis[:dim].id }} = psize - resolve_edge(o{{ axis[:far].id }}, psize) - {{ axis[:near].id }}
+
+          if applies_near_offset?(o{{ axis[:near].id }}, o{{ axis[:far].id }})
+            {{ axis[:dim].id }} -= parent.i{{ axis[:near].id }}
+          end
+          {{ axis[:dim].id }} -= parent.i{{ axis[:far].id }}
+
+          # `{{ axis[:dim].id }}: auto` fills the slot, so the element's *own* margins
+          # eat into the filled content (CSS: a stretched box shrinks by its margins);
+          # a fixed size keeps its extent and shifts instead, so only this branch
+          # folds the margin in. Subtract before clamping, so
+          # `[min_{{ axis[:dim].id }}, max_{{ axis[:dim].id }}]` applies to the
+          # post-margin (used) size, per CSS min/max semantics.
+          msum = (mg = style.margin).any? ? mg.{{ axis[:near].id }} + mg.{{ axis[:far].id }} : 0
+          return clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }} - msum)
         end
-        width -= parent.iright
 
-        # `width: auto` fills the slot, so the element's *own* margins eat into
-        # the filled content (CSS: a stretched box shrinks by its margins); a fixed
-        # width keeps its size and shifts instead, so only this branch folds the
-        # margin in. Subtract before clamping, so `[min_width, max_width]` applies
-        # to the post-margin (used) size, per CSS min/max semantics.
-        mw = (mg = style.margin).any? ? mg.left + mg.right : 0
-        return clamp_awidth(width - mw)
+        # Every `Dim`/`String` returned above and every `nil` in the branch above
+        # it, so only an `Int32` reaches here; the `as` states that for the return
+        # type.
+        clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32))
       end
-
-      # Every `Dim`/`String` returned above and every `nil` in the branch above
-      # it, so only an `Int32` reaches here; the `as` states that for the return
-      # type.
-      clamp_awidth(width.as(Int32))
-    end
-
-    # Returns computed height, in cells. See `#awidth` for *rendered*.
-    def aheight(rendered = false) : Int32
-      otop = @top
-      obottom = @bottom
-      height = @height
-
-      # See `awidth`: parent's rendered position is only needed by the
-      # Dim/String/`nil` branches, resolved lazily rather than on every call.
-      case height
-      when Dim, String
-        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # Percentage of the parent's content height; see `awidth` for rationale.
-        # A specified size keeps its full extent (outward margin shifts it).
-        return clamp_aheight(resolve_size_dim(height, (parent.aheight || 0) - parent.itop - parent.ibottom))
-      end
-
-      # Stretched or shrunken element: shrunken height is computed in the render
-      # function but seeded by the content height, which is initially decided
-      # by the element's own height, so it's calculated here too.
-      if height.nil?
-        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
-        # See `awidth`: one `parent.aheight` shared between string base and height
-        # subtraction. O(2^depth) → O(depth).
-        ph = parent.aheight || 0
-        top = otop || 0
-        unless top.is_a? Int32
-          top = resolve_dim(top, ph)
-        end
-        # See `#awidth`: `ph` is already resolved, so a `String` bottom is free.
-        height = ph - resolve_edge(obottom, ph) - top
-
-        if applies_near_offset?(otop, obottom)
-          height -= parent.itop
-        end
-        height -= parent.ibottom
-
-        # See `awidth`: only an auto (stretched) height folds in the element's own
-        # margins, and the margin comes off before the clamp.
-        mh = (mg = style.margin).any? ? mg.top + mg.bottom : 0
-        return clamp_aheight(height - mh)
-      end
-
-      # See `#awidth`: only an `Int32` can reach here.
-      clamp_aheight(height.as(Int32))
-    end
+    {% end %}
 
     # Returns minimum widget size based on bounding box
     private def minimal_children_rectangle(xi, xl, yi, yl, rendered)

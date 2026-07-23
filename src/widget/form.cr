@@ -349,9 +349,9 @@ module Crysterm
           # Date/time editors have no stored initial value; reset to "now",
           # matching a freshly-constructed editor's default. `DateEdit`/`TimeEdit`
           # are subclasses of `DateTimeEdit`, so match them first.
-        when DateEdit     then el.date = (Time.local rescue Time.utc(2000, 1, 1))
-        when TimeEdit     then el.time = (Time.local rescue Time.utc(2000, 1, 1))
-        when DateTimeEdit then el.date_time = (Time.local rescue Time.utc(2000, 1, 1))
+        when DateEdit     then el.date = Mixin::SectionedField.default_today
+        when TimeEdit     then el.time = Mixin::SectionedField.default_today
+        when DateTimeEdit then el.date_time = Mixin::SectionedField.default_today
         end
         el.children.each { |child| reset_children child }
       end

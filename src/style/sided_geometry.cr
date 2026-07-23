@@ -151,6 +151,15 @@ module Crysterm
       end
     end
 
+    # Whether every named instance variable is `nil`. Keeps a hand-maintained
+    # `nil?` chain (`Border#chars?`, `Shadow#glyphs?`) from drifting out of sync
+    # with the field set. Invoked as `SidedGeometry.all_nil?(a, b, ...)` from
+    # inside an includer's method body; each bare name expands to that
+    # includer's `@name` ivar.
+    macro all_nil?(*fields)
+      ({% for f, i in fields %}{% if i > 0 %} && {% end %}@{{ f.id }}.nil?{% end %})
+    end
+
     # Is there anything on the left side?
     def left?
       @left > 0

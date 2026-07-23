@@ -148,6 +148,40 @@ module Crysterm
       end
     end
 
+    # Declares an empty-guarded collection property: a `getter name : type =
+    # default` paired with a setter that rejects an *empty* assignment, falling
+    # back to `default.dup` so the ivar is never left empty. An empty collection
+    # here crashes the render fiber at read time (an out-of-range index, a
+    # `sample` on nothing, a `% size` division by zero), so this macro guards
+    # *emptiness* the way `change_guarded_setter`/`reactive_property` guard
+    # *change*. The backing ivar is `@name`; the setter returns the stored value.
+    #
+    # Two shapes, selected by *reject_empty_entries*:
+    #
+    # * **Whole-empty** (default): only a wholly-empty assignment falls back to
+    #   the default (Fire's `ramp`, Matrix's `pool`, Spray's `spark_colors`).
+    # * **Reject-empty-entries** (`reject_empty_entries: true`): empty *elements*
+    #   are dropped first (`value.reject(&.empty?)`), then the whole-empty test
+    #   applies to what remains — for a collection whose entries are themselves
+    #   indexed (Spray's `grow`, which reads `entry[0]`, so `""` is as fatal as an
+    #   empty list).
+    #
+    # Like `reactive_property`, the `name : Type = default` argument reads as an
+    # assignment to `ameba`, so prefix each call site with
+    # `# ameba:disable Lint/UselessAssign`.
+    macro nonempty_property(decl, reject_empty_entries = false)
+      {% raise "nonempty_property #{decl.var} requires a default value" unless decl.value %}
+
+      getter {{ decl.var }} : {{ decl.type }} = {{ decl.value }}
+
+      def {{ decl.var }}=(value : {{ decl.type }}) : {{ decl.type }}
+        {% if reject_empty_entries %}
+          value = value.reject(&.empty?)
+        {% end %}
+        @{{ decl.var }} = value.empty? ? {{ decl.value }}.dup : value
+      end
+    end
+
     # Defines a per-Window pooled mouse-event factory: a nilable `@_<name>_event`
     # ivar plus a private `<name>_event(ev)` that lazily constructs one instance
     # of `Crysterm::Event::<klass>` and `reset`s it on every dispatch, so a

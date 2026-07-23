@@ -182,7 +182,7 @@ module Crysterm
           # Infinity "show everything" spelling) would poison every bound
           # computed from it; keep the previous viewport instead of crashing
           # `#draw_markers` or hanging `#paint_map`'s graticule loop.
-          return unless min_lat.finite? && max_lat.finite? && min_lon.finite? && max_lon.finite?
+          return unless Crysterm.all_finite?(min_lat, max_lat, min_lon, max_lon)
           @min_lat = min_lat
           @max_lat = max_lat
           @min_lon = min_lon
@@ -272,7 +272,7 @@ module Crysterm
           # just `> 0`. Skip markers instead of crashing the render.
           lon_span = @max_lon - @min_lon
           lat_span = @max_lat - @min_lat
-          return unless lon_span.finite? && lat_span.finite? && lon_span > 0 && lat_span > 0
+          return unless Crysterm.all_finite?(lon_span, lat_span) && lon_span > 0 && lat_span > 0
 
           @markers.each do |m|
             # The visibility filter below is inverted for NaN (every comparison
