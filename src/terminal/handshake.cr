@@ -78,7 +78,6 @@ module Crysterm
       # close. On every failure path the `ensure` deletes it instead, so a failed
       # spawn leaks no dead `.sock`. Not useless: when the `begin` raises before
       # `success = true`, this initial value is what the `ensure` reads.
-      # ameba:disable Lint/UselessAssign
       success = false
       begin
         # Inline the handshake env var (and any user env) into the command, so it

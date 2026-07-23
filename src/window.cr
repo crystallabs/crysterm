@@ -261,6 +261,7 @@ module Crysterm
 
     # Optimization flags for rendering/drawing.
     # XXX TODO: decide default flags dynamically.
+    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
 
     # What to do with "overflowing" (too large) widgets. `Overflow::Ignore`

@@ -37,6 +37,18 @@ Lint/NotNil:
   Excluded:
     - spec/**/*.cr
 
+# `src/event.cr` is a pure event-DSL registry: nearly every line is an
+# `event Name, param : Type = default` declaration. Ameba parses the macro
+# argument `param : Type = default` as a local assignment and — when a variable
+# of that name is not also read elsewhere in the `Event` module scope — reports
+# it as useless. These are event-payload field declarations, not assignments,
+# so the rule only misfires here. (Sparse `enum_property`/`reactive_property`
+# call sites elsewhere carry an inline `# ameba:disable` instead, since those
+# files also hold ordinary code the rule should keep checking.)
+Lint/UselessAssign:
+  Excluded:
+    - src/event.cr
+
 # --- Deliberate, pervasive project conventions --------------------------------
 
 # Short single-letter block parameters (|w|, |c|, |s|) are the house style,

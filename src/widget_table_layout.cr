@@ -69,6 +69,7 @@ module Crysterm
     # doesn't pad every line to the full box width and defeat shrink-to-content
     # sizing; for `ListTable`, it decouples cell alignment from list-item
     # alignment.
+    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
 
     # Computes per-column widths from the current `@rows`. When a fixed numeric

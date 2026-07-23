@@ -267,7 +267,6 @@ module Crysterm
 
       # Not useless: the only real assignment is inside the `ensure`, and Crystal
       # requires this initializer for the read after the block to compile.
-      # ameba:disable Lint/UselessAssign
       result = nil
       begin
         yield proc.input

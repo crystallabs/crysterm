@@ -62,7 +62,6 @@ module Crysterm
       # Deliberately one flat resolver walk (the benchmarked cascade hot path);
       # splitting it to satisfy the metric would spread cascade state across
       # helpers.
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
