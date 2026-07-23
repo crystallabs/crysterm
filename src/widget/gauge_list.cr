@@ -45,7 +45,7 @@ module Crysterm
         # a list, bumps that list's version counter and repaints.
         def value=(v : Number) : Float64
           f = v.to_f
-          @value = f.finite? ? f : (@owner.try(&.minimum) || 0.0)
+          @value = @owner.try(&.sanitize_value(f, @owner.try(&.minimum) || 0.0)) || 0.0
           @owner.try &.item_changed
           @value
         end
@@ -58,20 +58,6 @@ module Crysterm
       getter minimum : Float64
       getter maximum : Float64
 
-      # Sets the lower bound, re-clamping every row's value and the upper
-      # bound (carried up rather than inverted) into range. See `#set_range`.
-      def minimum=(v : Float64) : Float64
-        set_range v, Math.max(v, @maximum)
-        @minimum
-      end
-
-      # Sets the upper bound, re-clamping every row's value and the lower
-      # bound (carried down rather than inverted) into range. See `#set_range`.
-      def maximum=(v : Float64) : Float64
-        set_range Math.min(v, @minimum), v
-        @maximum
-      end
-
       # Sets both bounds at once (Qt's `setRange`). Rejects a non-finite bound
       # outright (NaN survives `max < min` and would poison `percent_of` and
       # the render fiber's `.round.to_i`), keeping the previous valid range.
@@ -79,11 +65,8 @@ module Crysterm
       # re-clamps every gauge row's value into the new range, and repaints on
       # an actual change.
       def set_range(min : Float64, max : Float64) : Nil
-        return unless min.finite? && max.finite?
-        max = min if max < min
-        return if min == @minimum && max == @maximum
-        @minimum = min
-        @maximum = max
+        return unless nm = normalize_range(min, max)
+        @minimum, @maximum = nm
         @gauge_items.each { |g| g.value = g.value.clamp(@minimum, @maximum) }
         @version &+= 1
         request_render
@@ -130,7 +113,7 @@ module Crysterm
       # Appends a gauge and returns it. A `nil` color is auto-assigned from
       # `DEFAULT_COLORS`.
       def add_item(label : String, value : Number = 0, color : Int32? = nil) : Item
-        item = Item.new(label, sanitize_value(value), color || DEFAULT_COLORS[@gauge_items.size % DEFAULT_COLORS.size])
+        item = Item.new(label, sanitize_value(value.to_f), color || DEFAULT_COLORS[@gauge_items.size % DEFAULT_COLORS.size])
         item.owner = self
         @gauge_items << item
         @version &+= 1
@@ -151,14 +134,14 @@ module Crysterm
       # Sets a gauge's value by row index.
       def []=(index : Int, value : Number) : Nil
         if item = @gauge_items[index]?
-          item.value = sanitize_value(value)
+          item.value = sanitize_value(value.to_f)
         end
       end
 
       # Sets a gauge's value by label (first match).
       def []=(label : String, value : Number) : Nil
         if item = @gauge_items.find { |i| i.label == label }
-          item.value = sanitize_value(value)
+          item.value = sanitize_value(value.to_f)
         end
       end
 
@@ -183,14 +166,6 @@ module Crysterm
       protected def item_changed : Nil
         @version &+= 1
         request_render
-      end
-
-      # Coerces non-finite input to `@minimum` at ingestion: NaN survives every
-      # later `clamp` (comparisons with NaN are false) and would crash the
-      # render fiber on `pct.round.to_i`.
-      private def sanitize_value(value : Number) : Float64
-        v = value.to_f
-        v.finite? ? v : @minimum
       end
 
       def clear : Nil

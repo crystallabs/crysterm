@@ -61,10 +61,7 @@ module Crysterm
       # it yet (its debounced resize loop can still be pending); compositing
       # into stale-sized buffers would clip the frame to the old rows/columns.
       # Realloc defensively when the buffer no longer matches the device size.
-      if window.lines.size != window.aheight ||
-         (window.lines[0]?.try(&.size) || 0) != window.awidth
-        window.realloc
-      end
+      window.realloc unless window.buffers_match_device?
       # The frame diff runs against this window's PRIVATE `@flushed_lines` (what THIS
       # window last sent), but the terminal may currently show a sibling sharing
       # the device — an unchanged frame would emit zero bytes and the raise would

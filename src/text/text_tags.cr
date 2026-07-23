@@ -330,7 +330,7 @@ module Crysterm
           when "hr"               then hr = true
           when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
           when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
-          when /\Als-(\d+)\z/     then list_start = ($1.to_i? || list_start).clamp(1, 1_000_000)
+          when /\Als-(\d+)\z/     then list_start = TextListFormat.sanitize_start($1.to_i? || list_start)
           when "checked"          then checked = true
           end
         end

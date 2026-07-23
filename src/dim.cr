@@ -268,21 +268,6 @@ module Crysterm
       off
     end
 
-    # NaN slips straight through a comparison-based `.clamp`/manual
-    # `<`/`>` clamp — every comparison against NaN is false — and reaches
-    # `.to_i`/`.round.to_i`, which raises `OverflowError`. It arises from
-    # `0 * ±Infinity` (a legitimately 0-extent parent times a percent that
-    # saturated to infinity while parsing a pathological string, B17-05) or
-    # from an explicitly NaN `Float64` handed to the typed `percent`/`vw`/...
-    # constructors. Neutralize to 0 before any clamp/narrowing sees it: any
-    # finite percent of a 0 extent is correctly 0, and it's a safe default for
-    # a NaN input. Shared by `#resolve` and `#resolve_viewport` (B18-22,
-    # B18-27); `CSS::Length.to_cell_count` has the identical hole and carries
-    # its own copy of this guard since it lives in a different module.
-    private def nan_to_zero(v : Float64) : Float64
-      v.nan? ? 0.0 : v
-    end
-
     # Resolves against the parent's content extent *against*, in cells.
     # Byte-for-byte the same arithmetic as the historical per-frame String
     # resolution, so rendered output is unchanged. `Viewport` values need the
@@ -297,9 +282,7 @@ module Crysterm
         # percentage — or one long enough to saturate the parsed Float64 to
         # infinity — must not overflow Int32 on `.to_i` and raise in the
         # render path.
-        v = nan_to_zero(against * (@percent / 100.0))
-        v = -1_000_000_000.0 if v < -1_000_000_000.0
-        v = 1_000_000_000.0 if v > 1_000_000_000.0
+        v = Crysterm.saturate_cells_trunc(against * (@percent / 100.0), -1_000_000_000.0, 1_000_000_000.0)
         # The offset accumulator saturates at parse time (`parse_offset`), but
         # the typed `Dim.percent`/`Dim.center` constructors — the documented
         # fully-typed API — store any Int32 offset raw, so the sum can still
@@ -321,8 +304,7 @@ module Crysterm
               in .min?    then Math.min(window_width, window_height)
               in .max?    then Math.max(window_width, window_height)
               end
-      r = nan_to_zero(basis * @percent / 100.0)
-      r.round.clamp(Int32::MIN.to_f64, Int32::MAX.to_f64).to_i
+      Crysterm.saturate_cells_round(basis * @percent / 100.0)
     end
 
     # A `Dim` equals the `Int32`/`String`/`Symbol` spelling it was parsed

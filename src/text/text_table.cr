@@ -117,12 +117,13 @@ module Crysterm
 
     # Rewrites cell (*row*, *column*)'s text, re-rendering the column
     # padding (and borders when the column widens/narrows) — one undo step.
-    # Newlines and border glyphs in *text* become spaces. Returns whether
-    # the cell existed.
+    # A newline in *text* becomes a space and a border glyph becomes an ASCII
+    # '|' (the rebuild funnels through `sanitize_cell`, matching the import
+    # path). Returns whether the cell existed.
     def set_cell_text(row : Int32, column : Int32, text : String) : Bool
       return false unless row >= 0 && row < rows && column >= 0 && column < columns
       header, body = grid
-      (row == 0 ? header : body[row - 1])[column] = sanitize_cell(text)
+      (row == 0 ? header : body[row - 1])[column] = text
       rebuild_content(header, body)
       true
     end
@@ -133,7 +134,7 @@ module Crysterm
     def insert_row(at : Int32, cells : Array(String)? = nil) : Bool
       at = at.clamp(1, rows)
       header, body = grid
-      row = (cells || [] of String).map { |c| sanitize_cell(c) }
+      row = (cells || [] of String).dup
       row = row[0, columns]
       row.concat(Array.new(columns - row.size, "")) if row.size < columns
       body.insert(at - 1, row)
@@ -158,7 +159,7 @@ module Crysterm
     def insert_column(at : Int32, header_text : String = "") : Bool
       at = at.clamp(0, columns)
       header, body = grid
-      header.insert(at, sanitize_cell(header_text))
+      header.insert(at, header_text)
       body.each(&.insert(at, ""))
       als = @format.alignments.try(&.dup)
       # A partial alignments array — fewer entries than columns, typical after
@@ -218,12 +219,6 @@ module Crysterm
     # a rebuild keeps the theme the table was imported with).
     private def border_char_format : TextCharFormat
       blocks.first?.try(&.fragments.first?.try(&.format)) || TextCharFormat.default
-    end
-
-    private def sanitize_cell(s : String) : String
-      s = s.gsub('\n', ' ')
-      s = s.gsub(TextTable.v_char, ' ') if s.includes?(TextTable.v_char)
-      s
     end
 
     # Replaces the table's rendered blocks with a fresh rendering of the
@@ -306,13 +301,15 @@ module Crysterm
       Glyphs[Glyphs::Role::LineVertical, Glyphs::Tier::Unicode]
     end
 
-    # Maps a v_char inside cell content to an ASCII '|' so grid recovery never
-    # mistakes it for a column boundary, and collapses '\n' to a space so the
-    # rendered block never contains the block separator (build-path twin of
-    # `sanitize_cell`).
-    protected def self.sanitize_build_cell(s : String) : String
+    # Normalizes cell content on its way into a pre-rendered block: collapses
+    # '\n' to a space so the block never contains the block separator, and maps
+    # a v_char inside the content to *v_to* (the build path passes '|') so grid
+    # recovery (`split_data_row`) never mistakes it for a column boundary. The
+    # single sanitize point for both the importers and the editing ops (which
+    # reach it through `build_blocks`).
+    protected def self.sanitize_cell(s : String, v_to : Char) : String
       s = s.gsub('\n', ' ')
-      s = s.gsub(v_char, '|') if s.includes?(v_char)
+      s = s.gsub(v_char, v_to) if s.includes?(v_char)
       s
     end
 
@@ -368,10 +365,11 @@ module Crysterm
       # A v_char inside a cell renders indistinguishably from a column boundary,
       # so grid recovery (`split_data_row`) would read it as an extra cell. Map
       # it to an ASCII '|', which recovery never splits on and the markdown
-      # exporter escapes; this is the build-path twin of the editing-API guard
-      # `sanitize_cell`. Covers every build caller (build/gfm/HTML import).
-      header = header.map { |c| sanitize_build_cell(c) }
-      body = body.map { |row| row.map { |c| sanitize_build_cell(c) } }
+      # exporter escapes. This is the one sanitize choke point: every path into
+      # the table — build/gfm/HTML import and the editing ops via
+      # `rebuild_content` — funnels through here, so content is normalized once.
+      header = header.map { |c| sanitize_cell(c, '|') }
+      body = body.map { |row| row.map { |c| sanitize_cell(c, '|') } }
 
       widths = Array.new(cols, 0)
       ([header] + body).each do |row|

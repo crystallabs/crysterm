@@ -473,11 +473,7 @@ module Crysterm
     # style at read time (see `#alternate_row`), so a later `color` declaration or
     # inherited color still reaches alternate rows.
     def alternate_background_color=(color) : Nil
-      @alternate_bg =
-        case color
-        when Int    then color.to_i32
-        when String then Colors.convert_cached(color)
-        end
+      @alternate_bg = Colors.to_native color
       @alternate_row_composed = nil
     end
 

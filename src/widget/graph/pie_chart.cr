@@ -48,7 +48,7 @@ module Crysterm
 
           def initialize(value : Number, color : Int32 | String, @label : String = "")
             @value = value.to_f
-            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+            @color = Colors.to_native color
           end
         end
 

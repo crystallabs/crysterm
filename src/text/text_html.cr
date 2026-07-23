@@ -415,9 +415,10 @@ module Crysterm
         when "ul", "ol"
           end_block(discard_virgin: true)
           # `to_i?` accepts values up to `Int32::MAX`, which overflow the
-          # plain-Int32 marker/numbering arithmetic downstream; clamp at this
-          # single import choke point so the model stays sane.
-          start = (attr_val(node, "start").try(&.to_i?) || 1).clamp(1, 1_000_000)
+          # plain-Int32 marker/numbering arithmetic downstream; route through
+          # `TextListFormat.sanitize_start`, the shared clamp used by every
+          # importer, so the model stays sane.
+          start = TextListFormat.sanitize_start(attr_val(node, "start").try(&.to_i?) || 1)
           @list_stack << TextListFormat.new(
             style: list_style(node),
             indent: @list_stack.size + 1,

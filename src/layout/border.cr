@@ -73,58 +73,55 @@ module Crysterm
         # render pipeline shifts a fixed-size child outward by its near margin
         # without shrinking it, so advancing by size alone (or assigning the full
         # span) would paint a margined child over its neighbor.
-        each_arrangeable container do |el|
-          next unless region_of(el).top?
-          # Hidden and not holding its slot: consume no band.
-          next if vacant? el
-          restore_consume el, true
-          mh = el.mvertical
-          ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), ch
-          record_managed el, @consume_assigned, ch
-          y0 += ch + mh
-        end
-        each_arrangeable container do |el|
-          next unless region_of(el).bottom?
-          # Hidden and not holding its slot: consume no band.
-          next if vacant? el
-          restore_consume el, true
-          mh = el.mvertical
-          ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-          place_and_render el, x0, y1 - ch - mh, Math.max(0, x1 - x0 - el.mhorizontal), ch
-          record_managed el, @consume_assigned, ch
-          y1 -= ch + mh
-        end
-        each_arrangeable container do |el|
-          next unless region_of(el).left?
-          # Hidden and not holding its slot: consume no band.
-          next if vacant? el
-          restore_consume el, false
-          mw = el.mhorizontal
-          cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x0, y0, cw, Math.max(0, y1 - y0 - el.mvertical)
-          record_managed el, @consume_assigned, cw
-          x0 += cw + mw
-        end
-        each_arrangeable container do |el|
-          next unless region_of(el).right?
-          # Hidden and not holding its slot: consume no band.
-          next if vacant? el
-          restore_consume el, false
-          mw = el.mhorizontal
-          cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-          place_and_render el, x1 - cw - mw, y0, cw, Math.max(0, y1 - y0 - el.mvertical)
-          record_managed el, @consume_assigned, cw
-          x1 -= cw + mw
-        end
-        each_arrangeable container do |el|
+        x0, y0, x1, y1 = consume_edge container, :top, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge container, :bottom, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge container, :left, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge container, :right, x0, y0, x1, y1
+        each_occupying container do |el|
           # Center: everything not top/bottom/left/right. Consumes neither axis,
           # so it needs no release bookkeeping.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
-          next if vacant? el
           place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), Math.max(0, y1 - y0 - el.mvertical)
         end
+      end
+
+      # Places every child docked to `region` and returns the working rect
+      # `{x0, y0, x1, y1}` shrunk by the band they consumed — the single edge
+      # pass the top/bottom/left/right calls in `#arrange` share, threaded through
+      # as a tuple rather than mutating ivars so the working rect stays purely
+      # local per-`arrange`-call state. Two booleans decide everything the four
+      # edges differ by: `vertical` (top/bottom consume height, spanning the
+      # remaining width; left/right consume width, spanning the remaining height)
+      # and `far` (bottom/right eat from the far edge and place against it, top/
+      # left from the near edge). Each child reserves its *margin* box, clamped to
+      # what the rect has left, so an oversized edge can't hand the center a
+      # negative extent.
+      private def consume_edge(container : Widget, region : Region, x0 : Int32, y0 : Int32, x1 : Int32, y1 : Int32) : Tuple(Int32, Int32, Int32, Int32)
+        vertical = region.top? || region.bottom?
+        far = region.bottom? || region.right?
+        each_occupying container do |el|
+          next unless region_of(el) == region
+          restore_consume el, vertical
+          if vertical
+            # Consume height off the near/far edge; span the remaining width.
+            mh = el.mvertical
+            ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
+            cw = Math.max(0, x1 - x0 - el.mhorizontal)
+            place_and_render el, x0, (far ? y1 - ch - mh : y0), cw, ch
+            record_managed el, @consume_assigned, ch
+            far ? (y1 -= ch + mh) : (y0 += ch + mh)
+          else
+            # Consume width off the near/far edge; span the remaining height.
+            mw = el.mhorizontal
+            cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
+            ch = Math.max(0, y1 - y0 - el.mvertical)
+            place_and_render el, (far ? x1 - cw - mw : x0), y0, cw, ch
+            record_managed el, @consume_assigned, cw
+            far ? (x1 -= cw + mw) : (x0 += cw + mw)
+          end
+        end
+        {x0, y0, x1, y1}
       end
 
       # Restores `el`'s remembered raw consume-axis size (height when *vertical*,

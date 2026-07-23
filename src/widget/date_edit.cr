@@ -122,10 +122,7 @@ module Crysterm
       private def ensure_popup : Calendar
         # The calendar is a *window* child, not ours, so a cross-window reparent
         # strands it on the old window. Drop it and rebuild on the current one.
-        if (stale = @popup) && stale.window? != window?
-          ::Crysterm::Widget.destroy_satellite stale
-          @popup = nil
-        end
+        @popup = refresh_satellite(@popup)
         @popup ||= begin
           cal = Calendar.new(
             window: window, top: 0, left: 0, width: 22, height: 10,
@@ -158,13 +155,7 @@ module Crysterm
         # base, and the calendar (a window child) is painted exactly where we
         # put it — so layout coords would open it detached from the visible
         # field. Mirrors ComboBox#place_popup / Menu#open_submenu.
-        if lp = last_rendered_position?
-          Overlay.place_child(pop, {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}, {pop.awidth, pop.aheight},
-            Overlay::BELOW_ABOVE)
-        else
-          Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {pop.awidth, pop.aheight},
-            Overlay::BELOW_ABOVE)
-        end
+        Overlay.place_child(pop, painted_rect, {pop.awidth, pop.aheight}, Overlay::BELOW_ABOVE)
       rescue
         # Not laid out yet.
       end

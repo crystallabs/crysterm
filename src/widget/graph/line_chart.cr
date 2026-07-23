@@ -76,12 +76,12 @@ module Crysterm
 
           def initialize(@name, points : Array, color : Int32 | String, @kind : Kind = Kind::Line)
             @points = points.map { |pt| {pt[0].to_f, pt[1].to_f} }
-            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+            @color = Colors.to_native color
           end
 
           # Assigns the series color, converting a color name/`"#rrggbb"` string.
           def color=(c : Int32 | String) : Int32
-            @color = c.is_a?(String) ? Colors.convert_cached(c) : c
+            @color = Colors.to_native c
           end
         end
 
@@ -182,6 +182,18 @@ module Crysterm
           @plot = pl
         end
 
+        # Bumps the data version and re-rasters the plot Canvas next frame: the
+        # series set (or its points) changed, so the Canvas content is stale and
+        # the content cache must rebuild. Mirrors `Mixin::CanvasOwner`'s
+        # `invalidate_canvas`, plus the shared `@data_version` bump — kept as a
+        # helper (not the full mixin) so LineChart keeps its own margin-positioned
+        # Canvas construction and public `plot`/`plot?` accessor.
+        private def invalidate_data : Nil
+          @data_version &+= 1
+          plot?.try &.invalidate_paint
+          request_render
+        end
+
         # Adds a series (Qt's `QChart#addSeries`). A `nil` color is auto-assigned
         # from `PALETTE` by series index.
         def add_series(name : String, points : Array, color : Int32 | String? = nil,
@@ -189,9 +201,7 @@ module Crysterm
           s = Series.new(name, points, color || PALETTE[@series.size % PALETTE.size], kind)
           @series << s
           # The plot Canvas draws the series, so its content is now stale.
-          @data_version &+= 1
-          plot?.try &.invalidate_paint
-          request_render
+          invalidate_data
           s
         end
 
@@ -210,17 +220,13 @@ module Crysterm
         # Removes all series.
         def clear_series : Nil
           @series.clear
-          @data_version &+= 1
-          plot?.try &.invalidate_paint
-          request_render
+          invalidate_data
         end
 
         # Re-renders (e.g. after mutating a series' `points` in place).
         def refresh : Nil
           # Series points may have been mutated in place, so the plot is stale.
-          @data_version &+= 1
-          plot?.try &.invalidate_paint
-          request_render
+          invalidate_data
         end
 
         def render(with_children = true)

@@ -81,8 +81,8 @@ module Crysterm
       {% end %}
       @attributes = attrs
       @attr_mask = mask
-      @fg = fg.is_a?(String) ? Colors.convert_cached(fg) : fg
-      @bg = bg.is_a?(String) ? Colors.convert_cached(bg) : bg
+      @fg = Colors.to_native fg
+      @bg = Colors.to_native bg
       @anchor_href = anchor_href
     end
 
@@ -187,7 +187,7 @@ module Crysterm
       @indent = indent
       @top_margin = top_margin
       @bottom_margin = bottom_margin
-      @bg = bg.is_a?(String) ? Colors.convert_cached(bg) : bg
+      @bg = Colors.to_native bg
       @heading_level = heading_level
       @non_breakable = non_breakable
       @quote_level = quote_level
@@ -358,6 +358,15 @@ module Crysterm
       @number_prefix : String = "",
       @number_suffix : String = ".",
     )
+    end
+
+    # Clamps an imported ordered-list `start` into the sane range shared by
+    # every importer: at least 1 (a `0.`/negative start renders as `1.`) and at
+    # most 1_000_000, since larger values overflow the plain-Int32
+    # marker/numbering arithmetic downstream. The single choke point all three
+    # interchange importers (markdown, HTML, tags) route through.
+    def self.sanitize_start(n : Int32) : Int32
+      n.clamp(1, 1_000_000)
     end
 
     # The rendered marker of 0-based item *item* under this format, including

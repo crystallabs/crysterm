@@ -54,12 +54,12 @@ module Crysterm
           def initialize(@latitude, @longitude,
                          @char = Glyphs[Glyphs::Role::MapMarker, Glyphs::Tier::Unicode],
                          color : Int32 | String = 0xE05050, @label = nil)
-            @color = color.is_a?(String) ? Colors.convert_cached(color) : color
+            @color = Colors.to_native color
           end
 
           # Assigns the marker color, converting a color name/`"#rrggbb"` string.
           def color=(c : Int32 | String) : Int32
-            @color = c.is_a?(String) ? Colors.convert_cached(c) : c
+            @color = Colors.to_native c
           end
         end
 

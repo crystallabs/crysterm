@@ -80,7 +80,9 @@ describe Crysterm::TextTable do
     it "sanitizes newlines and border glyphs" do
       doc, tbl = table_doc
       tbl.set_cell_text(1, 0, "a\nb│c")
-      tbl.cell_text(1, 0).should eq "a b c"
+      # Newline collapses to a space; the border glyph maps to an ASCII '|'
+      # (matching the import/build path), not a space.
+      tbl.cell_text(1, 0).should eq "a b|c"
       doc.block_count.should eq 6
     end
   end

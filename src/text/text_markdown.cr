@@ -204,7 +204,11 @@ module Crysterm
         # stack, so no explicit `@list_stack.empty?` guard is needed here.
         structure_separator
         ordered = node.data["type"]? != "bullet"
-        start = (node.data["start"]?.try &.as(Int32)) || 1
+        # markd's `parse_list_marker` allows up to 9 numeral digits (start up to
+        # ~999_999_999) and permits `start: 0` (`0. item`), so both the
+        # overflow-adjacent range and the zero case are reachable — route
+        # through the shared clamp like the HTML and tags importers.
+        start = TextListFormat.sanitize_start((node.data["start"]?.try &.as(Int32)) || 1)
         style = if !ordered && task_list?(node)
                   TextListFormat::Style::Checkbox
                 elsif ordered

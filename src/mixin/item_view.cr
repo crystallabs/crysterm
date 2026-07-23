@@ -1122,10 +1122,7 @@ module Crysterm
         # window, the memoized box is stranded on the old one and the prompt shows
         # (and reads keys) on the wrong window, leaving `/` search silently dead.
         # Drop the stale satellite and rebuild on this window.
-        if (box = @search_box) && !box.window?.same?(window?)
-          Widget.destroy_satellite box
-          @search_box = nil
-        end
+        @search_box = refresh_satellite(@search_box)
         @search_box ||= begin
           box = Widget::LineEdit.new(
             window: window,

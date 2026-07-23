@@ -284,9 +284,20 @@ module Crysterm
     # it allocates nothing per frame.
     protected def each_arrangeable(container : Widget, &) : Nil
       container.children.each do |el|
-        next if el.layout_excluded? || el.layout_chrome?
+        next unless arrangeable?(el)
         yield el
       end
+    end
+
+    # Whether an engine actually positions `el` this frame: it is neither
+    # `layout_excluded?` chrome (rendered out-of-band with its own `lpos`) nor
+    # `layout_chrome?` chrome (pinned and painted by `#render_chrome`). The
+    # single predicate every arrangeable-child filter routes through, so a future
+    # chrome flavor is one edit; inlined, so the sites cost nothing (BUGS15 #20,
+    # where forgetting this pair was missed across the whole Flow family).
+    @[AlwaysInline]
+    protected def arrangeable?(el : Widget) : Bool
+      !el.layout_excluded? && !el.layout_chrome?
     end
 
     # Whether *el* takes up no space this frame and the engine should pack as
@@ -317,7 +328,7 @@ module Crysterm
     # Number of arrangeable (non-`layout_excluded?`, non-`layout_chrome?`)
     # children — the slot/page count engines size their distribution against.
     protected def arrangeable_count(container : Widget) : Int32
-      container.children.count { |el| !el.layout_excluded? && !el.layout_chrome? }
+      container.children.count { |el| arrangeable?(el) }
     end
 
     # The container's interior content rectangle (inside border + padding), in
@@ -373,7 +384,7 @@ module Crysterm
       while i > 0
         i -= 1
         el = container.children[i]
-        next if el.layout_excluded? || el.layout_chrome?
+        next unless arrangeable?(el)
         return el if rendered? el
       end
       nil

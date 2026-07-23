@@ -26,10 +26,9 @@ module Crysterm
       # though they weren't there, and a hidden wide child must not set the
       # column pitch for the visible ones.
       protected def before_flow(container : Widget) : Nil
-        @high_width = container.children.reduce(0) do |o, el|
-          next o if el.layout_excluded? || el.layout_chrome? || vacant?(el)
-          Math.max o, el.awidth
-        end
+        hw = 0
+        each_occupying(container) { |el| hw = Math.max hw, el.awidth }
+        @high_width = hw
       end
 
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?

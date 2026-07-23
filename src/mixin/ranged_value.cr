@@ -311,6 +311,37 @@ module Crysterm
         ((value - minimum) / span * 100).clamp(0.0, 100.0)
       end
 
+      # Sets the lower bound, re-clamping the value(s) and the upper bound (which
+      # is carried up rather than inverted) into range via the includer's own
+      # `#set_range`. Qt's `setMinimum`.
+      def minimum=(v : Float64) : Float64
+        set_range v, Math.max(v, maximum)
+        minimum
+      end
+
+      # Sets the upper bound, re-clamping the value(s) and the lower bound (which
+      # is carried down rather than inverted) into range via the includer's own
+      # `#set_range`. Qt's `setMaximum`.
+      def maximum=(v : Float64) : Float64
+        set_range Math.min(v, minimum), v
+        maximum
+      end
+
+      # Sanitizes a `#set_range` request against the current range, centralizing
+      # the finite-guard + inversion-collapse + no-op-compare the float meters
+      # share (the B16-38 reject-as-no-op convention). Returns `nil` to signal a
+      # no-op — a non-finite bound (rejected outright, keeping the previous
+      # range), or a range identical to the current `#minimum`/`#maximum` — and
+      # the sanitized `{min, max}` (a `max < min` collapsed up to `min`)
+      # otherwise. The caller stores the pair and runs its own per-widget
+      # value-clamp and repaint.
+      def normalize_range(min : Float64, max : Float64) : {Float64, Float64}?
+        return unless min.finite? && max.finite?
+        max = min if max < min
+        return if min == minimum && max == maximum
+        {min, max}
+      end
+
       # Constructor-time bound sanitizer: neutralizes a non-finite *min*/*max*
       # before they're ever stored, mirroring `#set_range`'s reject-outright
       # guard (a NaN bound would survive `max < min` and every later `clamp`,
@@ -327,6 +358,16 @@ module Crysterm
         {min, max}
       end
 
+      # Coerces a non-finite `#value` input to *floor* (default `#minimum`) at
+      # ingestion: NaN survives every later `clamp` (comparisons with NaN are
+      # false) and would crash the render fiber on `.round.to_i`. The value-side
+      # counterpart of `#sanitize_range`. Public (not `protected`) because
+      # `GaugeList::Item#value=` calls it across an unrelated type, passing its
+      # own *floor* since the owning list may be `nil`.
+      def sanitize_value(v : Float64, floor : Float64 = minimum) : Float64
+        v.finite? ? v : floor
+      end
+
       # Shared `#value=` body for a read-only `Float64` meter: clamps *v* into
       # `[minimum, maximum]`, and on an actual change stores it, emits
       # `Event::DoubleValueChanged`, emits `Event::Completed` upon reaching
@@ -339,7 +380,7 @@ module Crysterm
         # Sanitize non-finite input at ingestion: NaN survives `clamp` (every
         # comparison with NaN is false) and later `NaN.round.to_i` raises
         # OverflowError inside the render fiber, killing it.
-        v = minimum unless v.finite?
+        v = sanitize_value(v)
         v = v.clamp(minimum, maximum)
         return v if v == @value
         @value = v

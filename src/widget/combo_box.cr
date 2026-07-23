@@ -458,10 +458,7 @@ module Crysterm
         # (it is a *window* child, not ours): reopening would render the list
         # over there while placement and the dismiss grab use the new window.
         # Drop the stale popup and rebuild on the current window.
-        if (stale = @popup) && stale.window? != window?
-          ::Crysterm::Widget.destroy_satellite stale
-          @popup = nil
-        end
+        @popup = refresh_satellite(@popup)
         @popup ||= begin
           pop = Popup.new(
             window: window,
@@ -522,10 +519,12 @@ module Crysterm
         # base, and the popup (a window child) is painted exactly where we put
         # it — so layout coords would open the list detached from the visible
         # combo. Mirrors Menu#open_submenu (also anchored on the painted rect).
-        if lp = last_rendered_position?
+        if last_rendered_position?
           @popup_anchored = true
-          Overlay.place_child(pop, {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}, {w, want},
-            Overlay::BELOW_ABOVE)
+          # `painted_rect` re-calls `last_rendered_position?` here — redundant but
+          # cheap (it's memoized: `return pos if pos.aleft`), so don't "optimize"
+          # it back into a hand-spelled `{lp.xi, lp.yi, …}` tuple literal.
+          Overlay.place_child(pop, painted_rect, {w, want}, Overlay::BELOW_ABOVE)
         elsif @popup_anchored
           # Was anchored on a painted rect before, but the combo has no painted
           # rect this frame — it scrolled fully out of view. Re-anchoring on
@@ -533,9 +532,9 @@ module Crysterm
           hide_popup
         else
           # Not yet rendered while open — anchor on layout coords; the next
-          # frame re-runs with the real painted rect.
-          Overlay.place_child(pop, {aleft, atop, awidth, aheight}, {w, want},
-            Overlay::BELOW_ABOVE)
+          # frame re-runs with the real painted rect. (`last_rendered_position?`
+          # is nil in this arm, so `painted_rect` yields the layout fallback.)
+          Overlay.place_child(pop, painted_rect, {w, want}, Overlay::BELOW_ABOVE)
         end
       rescue
         # Not laid out yet — keep defaults; render re-runs with real geometry.

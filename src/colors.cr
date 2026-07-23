@@ -28,6 +28,22 @@ module Crysterm
       safe_convert(color)
     end
 
+    # Coerces a color spec into Crysterm's native `Int32` color space: a color
+    # name/`"#rrggbb"` `String` goes through the cached converter, while an
+    # already-native `Int32` is returned as-is (identity — *not* re-converted, so
+    # a palette-index-looking value is preserved). Centralizes the
+    # `x.is_a?(String) ? convert_cached(x) : x` guard hand-written across the
+    # widget/text/style layers.
+    def self.to_native(color : Int32 | String) : Int32
+      color.is_a?(String) ? convert_cached(color) : color
+    end
+
+    # :ditto: `nil` (an unset color) passes through unchanged, so a nilable call
+    # site can coerce without an outer nil guard.
+    def self.to_native(color : Nil) : Nil
+      nil
+    end
+
     # `convert`, with an unparseable spec mapped to the `-1` "unknown" sentinel
     # instead of raising, so a malformed stylesheet value can't crash the renderer.
     private def self.safe_convert(color) : Int32

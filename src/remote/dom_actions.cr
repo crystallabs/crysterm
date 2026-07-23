@@ -197,7 +197,7 @@ module Crysterm
         sel = parts[0]
         parts[1..].each_with_index do |part, i|
           candidate = "#{sel}:#{part}"
-          compiled = (::CSS.compile(CSS::Selectors.expand_types(candidate)) rescue nil)
+          compiled = DOM.compile_selector(candidate)
           if compiled
             sel = candidate
           else

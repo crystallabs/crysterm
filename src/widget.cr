@@ -558,6 +558,15 @@ module Crysterm
       end
     end
 
+    # The widget's *painted content* origin `{x, y}`: the top-left of `@lpos`
+    # plus the `ileft`/`itop` inset, i.e. where the content area begins on the
+    # window. `nil` before the first render — unlike `#painted_origin`, this
+    # deliberately does NOT fall back to layout coords, since its callers are
+    # pointer hit-tests that must ignore (not mis-map) an unrendered widget.
+    protected def painted_content_origin? : {Int32, Int32}?
+      (lp = @lpos) ? {lp.xi + ileft, lp.yi + itop} : nil
+    end
+
     # Resolves this widget's on-window box from `@lpos`, applying the
     # `include_decorations` inset and the per-edge `d*` deltas. Returns `nil` if
     # not yet rendered.

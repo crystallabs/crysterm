@@ -407,10 +407,7 @@ module Crysterm
       # is a *satellite* window child, not ours), so reusing it would pop the
       # tip up on the wrong surface at this window's coordinates. Drop the stale
       # tooltip and let the lazy-create below rebuild it on the current window.
-      if (stale = @_tool_tip) && stale.window? != s
-        ::Crysterm::Widget.destroy_satellite stale
-        @_tool_tip = nil
-      end
+      @_tool_tip = refresh_satellite(@_tool_tip)
       tip = (@_tool_tip ||= begin
         t = Widget::ToolTip.new window: s
         s.append t

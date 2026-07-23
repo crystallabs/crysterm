@@ -92,11 +92,10 @@ module Crysterm
       # A freshly-built device is still at its 1×1 construction default and
       # unprobed; size and probe it before rendering. Pinned axes are honored.
       new_screen.adopt_terminal_size
-      new_screen.probe
       # Pixel mouse (DEC 1016) and CSS `px` lengths read the cell geometry, and
       # a fresh `Screen` starts at 0. Must run before `start_input` below: the
       # fallback query is a synchronous read that would race the input fiber.
-      new_screen.detect_cell_geometry
+      new_screen.reprobe_and_detect_geometry
       # An inline surface re-anchors at the NEW terminal's cursor row. Safe
       # here for the same no-input-fiber-yet reason.
       capture_inline_anchor unless @alternate
@@ -658,6 +657,13 @@ module Crysterm
       end
     end
 
+    # Whether the cell buffers already match the device's current size, i.e.
+    # `alloc`/`realloc` would be a no-op. The `|| 0` keeps an unallocated
+    # window (empty `@lines`) comparing as a mismatch so it still reallocs.
+    def buffers_match_device? : Bool
+      @lines.size == aheight && (@lines[0]?.try(&.size) || 0) == awidth
+    end
+
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     #
     # `dirty` means lines must be redrawn: re-creates the cell grid from
@@ -1053,8 +1059,7 @@ module Crysterm
       # cell geometry (the CSS `px` anchor) and unit'd styles derive from probe
       # results, so re-run those too. Mirrors the ordering `#screen=` uses:
       # stop old input → probe → detect_cell_geometry → start_input.
-      replacement.screen.probe
-      replacement.screen.detect_cell_geometry
+      replacement.screen.reprobe_and_detect_geometry
       replacement.restyle
       replacement.start_input if was_listening
       replacement

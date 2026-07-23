@@ -46,6 +46,25 @@ module Crysterm
       satellite.destroy
     end
 
+    # Returns *sat* unchanged while it still lives on this widget's window, else
+    # tears it down (via `.destroy_satellite`) and returns `nil`. The shared
+    # stale-on-reparent guard the `ensure_*` lazy-init sites run before an `||=`
+    # rebuild of a *window*-child satellite (pop-up, search box, tooltip): a
+    # cross-window reparent strands the cached satellite on the old window, so
+    # reusing it would render/read on the wrong surface — dropping it forces a
+    # rebuild on the current window. `.same?` pins window *identity* as the
+    # single convention (some sites historically spelled it `!=`, equivalent
+    # since `Window` has no `#==` override).
+    #
+    # Generic over the satellite's own (nilable) type so `@popup = refresh_…`
+    # writes back into a narrowly-typed ivar (`Popup?`, `Calendar?`, …) without
+    # a widening cast.
+    protected def refresh_satellite(sat : T) : T forall T
+      return sat if sat.nil? || sat.window?.same?(window?)
+      Widget.destroy_satellite sat
+      nil
+    end
+
     # Stretches *child* to fill this widget, `top`/`left`/`right`/`bottom` giving
     # the inset on each side (all `0` — flush — by default). Returns *child*.
     def stretch_child(child : Widget, *, top = 0, left = 0, right = 0, bottom = 0) : Widget

@@ -62,12 +62,12 @@ module Crysterm
           # Compute the marker cell from the *painted* position (`@lpos`), not
           # the layout coords: inside a scrolled container the two differ by the
           # scroll base, and mouse dispatch hit-tests against `@lpos`.
-          next unless lpos = @lpos
-          marker_start = lpos.xi + ileft
+          next unless origin = painted_content_origin?
+          marker_start = origin[0]
           # Row check needed because `Mouse` fires for clicks anywhere in the
           # widget's rect — without it, a taller control (border/explicit
           # height) would toggle on any row at the marker's column.
-          marker_row = lpos.yi + itop
+          marker_row = origin[1]
           if e.y == marker_row && e.x >= marker_start && e.x < marker_start + @_marker_width
             toggle
             request_render

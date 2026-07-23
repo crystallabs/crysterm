@@ -483,9 +483,9 @@ module Crysterm
         # Map the pointer through the *painted* position (`@lpos`), not the layout
         # coords (`aleft`/`atop`): inside a scrolled container the painted rect is
         # shifted by the ancestor's scroll base, and dispatch hit-tests `@lpos`.
-        lpos = @lpos || return
-        col = e.x - (lpos.xi + ileft)
-        row = e.y - (lpos.yi + itop)
+        ox, oy = painted_content_origin? || return
+        col = e.x - ox
+        row = e.y - oy
         return if col < 0 || row < 0
 
         if navigation_bar_visible? && row == 0
@@ -619,12 +619,12 @@ module Crysterm
         # assignment is what scrolls the selected row into view — so the long
         # year list opens on the current year instead of at its top.
         menu.current_index = index
-        lpos = @lpos
-        if lpos
-          menu.popup lpos.xi + ileft + col, lpos.yi + itop + 1
-        else
-          menu.popup aleft + ileft + col, atop + itop + 1
-        end
+        # Falls back to layout coords (not a bail) when unrendered, preserving the
+        # original additive-origin behavior. This branch is currently unreachable
+        # anyway — `popup_nav_menu` is only entered via `handle_mouse`, which
+        # already bailed on a nil `@lpos`.
+        ox, oy = painted_content_origin? || {aleft + ileft, atop + itop}
+        menu.popup ox + col, oy + 1
       end
 
       # Whether absolute point (*x*, *y*) falls inside an open month/year nav
@@ -642,9 +642,9 @@ module Crysterm
       # grab region (see `#popup_nav_menu`).
       private def nav_grab_region?(x : Int32, y : Int32) : Bool
         return false unless navigation_bar_visible?
-        lpos = @lpos || return false
-        col = x - (lpos.xi + ileft)
-        row = y - (lpos.yi + itop)
+        ox, oy = painted_content_origin? || return false
+        col = x - ox
+        row = y - oy
         return false unless row == 0
         col == @nav_prev_col || col == @nav_next_col ||
           @nav_month_range.includes?(col) || @nav_year_range.includes?(col)

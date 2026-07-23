@@ -382,6 +382,18 @@ module Crysterm
       apply_cell_pixels(cp[0], cp[1]) if cp
     end
 
+    # Re-probes the device and re-detects cell geometry, in that order, for the
+    # device-swap sites (`Window#screen=`, `Window#switch_terminal`) that adopt
+    # a fresh/replacement terminal. This ordered pair MUST run before
+    # `start_input`: `detect_cell_geometry`'s fallback is a synchronous read
+    # that would race the input fiber. The constructor deliberately does NOT use
+    # this helper — it splits the same two calls around theme/stylesheet setup
+    # (unit'd styles derive from probe results), so they can't run adjacently.
+    def reprobe_and_detect_geometry : Nil
+      probe
+      detect_cell_geometry
+    end
+
     # Re-reads the terminal's cell pixel size on resize, catching font/zoom
     # changes arriving as `SIGWINCH`. Uses the `TIOCGWINSZ` ioctl *only*: the
     # input listen loop is active by now, so the escape-sequence fallback would

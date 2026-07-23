@@ -1,4 +1,20 @@
 module Crysterm
+  module DOM
+    # Compiles `selector` through the exact lowering the resolver uses —
+    # `CSS::Selectors.expand_types` (so bare type names like `Button` match) then
+    # the `html5` engine — returning the compiled selector, or `nil` if it does
+    # not parse.
+    #
+    # The single home for this probe: `resolve_selector` runs it to reject an
+    # unparseable selector, and `set-content`'s `split_selector_arg` runs it to
+    # find the selector/argument boundary. Keeping both on one helper guarantees
+    # the boundary probe accepts exactly the selectors the resolver can match, so
+    # a future lowering step can't silently split the two apart.
+    def self.compile_selector(selector : String)
+      ::CSS.compile(CSS::Selectors.expand_types(selector)) rescue nil
+    end
+  end
+
   class Window
     # Resolves a CSS selector string to the live widgets it matches — the
     # runtime, query-anything counterpart to `#find_by_id`.
@@ -11,7 +27,7 @@ module Crysterm
     # applies — `#id`, `.class`, `Type`, combinators, `:nth-child`, attribute
     # selectors. An unparseable selector yields an empty array.
     def resolve_selector(selector : String) : Array(Widget)
-      compiled = ::CSS.compile(CSS::Selectors.expand_types(selector)) rescue nil
+      compiled = DOM.compile_selector(selector)
       return [] of Widget unless compiled
 
       doc, index = resolve_document

@@ -40,7 +40,7 @@ module Crysterm
           # at their own coordinates and painted by `#render_chrome`; arranging one
           # as flow child 0 would overwrite its pins, consume a slot, and wrap the
           # real children (BUGS15 #20, missed for the whole Flow family).
-          next if el.layout_excluded? || el.layout_chrome?
+          next unless arrangeable?(el)
           # A hidden child gives its space back (`#vacant?`), packing as though
           # it weren't there — matching `Layout::Box`/`Border`. Mirror the
           # SkipWidget path: consume its render index, nil its subtree's
@@ -80,7 +80,7 @@ module Crysterm
             j = i + 1
             while j < children.size
               nxt = children[j]
-              skip_subtree nxt unless nxt.layout_excluded? || nxt.layout_chrome?
+              skip_subtree nxt if arrangeable?(nxt)
               j += 1
             end
             break
@@ -202,7 +202,7 @@ module Crysterm
         j = from
         while j < to
           el = container.children[j]
-          unless el.layout_excluded? || el.layout_chrome? || el.layout_suppressed?
+          if arrangeable?(el) && !el.layout_suppressed?
             eh =
               if !deferred_this_frame?(el) && (lp = rendered_geometry(el))
                 lp.height + el.mvertical
@@ -262,7 +262,7 @@ module Crysterm
         j = from
         while j < to
           el = container.children[j]
-          if !el.layout_excluded? && !el.layout_chrome? && (lp = rendered_geometry(el))
+          if arrangeable?(el) && (lp = rendered_geometry(el))
             yield el, lp
           end
           j += 1

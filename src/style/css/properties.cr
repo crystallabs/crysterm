@@ -768,10 +768,7 @@ module Crysterm
       # native `0xRRGGBB` int the per-side `border-*-color` slots store (the
       # whole-border `border-color` keeps the string form via `Colorizable`).
       private def self.coerce_color_int(resolved : Int32 | String?) : Int32?
-        case resolved
-        when Int32  then resolved
-        when String then Colors.convert_cached(resolved)
-        end
+        Colors.to_native resolved
       end
 
       # Whether a resolved per-side border color is valid to store, shared by
@@ -1245,15 +1242,12 @@ module Crysterm
             # to the `-1` sentinel (a stray keyword — e.g. a misspelled width);
             # drop it too rather than storing a bogus border color. `transparent`
             # resolves to a genuine `Int32` `-1` and is kept.
+            cur = current_color_token?(token)
             resolved = ColorValue.resolve(token, el_color)
-            if resolved.is_a?(String)
-              border.fg = resolved unless Colors.convert_cached(resolved) == -1
-            elsif resolved
-              border.fg = resolved
-            end
+            border.fg = resolved if valid_side_color?(resolved, cur)
             # `currentColor` re-resolves against the element's final text color
             # at render time (see `Border#side_fg`), even when none is known yet.
-            border.fg_current_color = true if current_color_token?(token)
+            border.fg_current_color = true if cur
           end
         end
         border

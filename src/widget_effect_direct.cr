@@ -107,6 +107,29 @@ module Crysterm
         protected def clip_offsets(xi : Int32, origin_x : Int32) : {Int32, Int32}
           {Math.max(0, xi - origin_x), lpos.try(&.base) || 0}
         end
+
+        # `{full_w, full_h, col_off, row_off}` for a full-field effect: the
+        # unclipped interior size inside the given insets, plus the
+        # `clip_offsets` mapping from the visible left edge *xi* into that field.
+        # The four insets are passed distinctly (rather than as a single
+        # horizontal/vertical total) so the size and the column origin stay
+        # consistent — the origin uses `aleft + inset_left`, the width subtracts
+        # both left and right. Callers choose which inset defines "interior":
+        # `Direct#paint` passes the content insets (padding-inclusive), while
+        # `SineScroller#render` passes the border-only insets. Each keeps its
+        # own early-return guard on the returned `full_w`/`full_h`.
+        protected def full_field_geometry(
+          xi : Int32,
+          inset_left : Int32,
+          inset_right : Int32,
+          inset_top : Int32,
+          inset_bottom : Int32,
+        ) : {Int32, Int32, Int32, Int32}
+          full_w = Math.max(0, awidth - inset_left - inset_right)
+          full_h = Math.max(0, aheight - inset_top - inset_bottom)
+          col_off, row_off = clip_offsets(xi, aleft + inset_left)
+          {full_w, full_h, col_off, row_off}
+        end
       end
 
       # Shared machinery for "direct" effects — those that paint their interior
@@ -176,14 +199,12 @@ module Crysterm
           # visible cells map into it through `clip_offsets` (hidden top rows
           # from `coords.base`, hidden left columns from the unclipped content
           # origin), matching the `Widget::Terminal#draw` clipping convention.
-          full_w = Math.max(0, awidth - ihorizontal)
-          full_h = Math.max(0, aheight - ivertical)
+          full_w, full_h, col_off, row_off = full_field_geometry(xi, ileft, iright, itop, ibottom)
           return if full_w <= 0 || full_h <= 0
           if full_w != @cols || full_h != @rows
             @cols, @rows = full_w, full_h
             resize full_w, full_h
           end
-          col_off, row_off = clip_offsets(xi, aleft + ileft)
 
           # Default attr carries the widget's bg/flags; only the fg varies per
           # cell, so `Attr.with_fg` reuses `da`'s flags/bg/Opaque alpha.

@@ -95,20 +95,6 @@ module Crysterm
         canvas_prop show_track, Bool
         canvas_prop thickness, Float64
 
-        # Sets the lower bound, re-clamping the value and the upper bound (which
-        # is carried up rather than inverted) into range. See `#set_range`.
-        def minimum=(v : Float64) : Float64
-          set_range v, Math.max(v, @maximum)
-          @minimum
-        end
-
-        # Sets the upper bound, re-clamping the value and the lower bound (which
-        # is carried down rather than inverted) into range. See `#set_range`.
-        def maximum=(v : Float64) : Float64
-          set_range Math.min(v, @minimum), v
-          @maximum
-        end
-
         # Sets both bounds at once (Qt's `setRange`). Rejects a non-finite
         # bound outright (NaN survives `max < min` and would poison `#percent`
         # and the render fiber's `.round.to_i`), keeping the previous valid
@@ -116,11 +102,8 @@ module Crysterm
         # min), re-clamps `#value` into the new range, and invalidates the
         # Canvas raster on an actual change.
         def set_range(min : Float64, max : Float64) : Nil
-          return unless min.finite? && max.finite?
-          max = min if max < min
-          return if min == @minimum && max == @maximum
-          @minimum = min
-          @maximum = max
+          return unless nm = normalize_range(min, max)
+          @minimum, @maximum = nm
           @value = @value.clamp(@minimum, @maximum)
           invalidate_canvas
         end
@@ -145,11 +128,9 @@ module Crysterm
           # A non-finite bound would bypass `#set_range`'s guard and poison
           # `#percent_of`, crashing the render fiber on `percent.round.to_i`.
           @minimum, @maximum = sanitize_range(@minimum.to_f, @maximum.to_f)
-          v = value.to_f
           # Non-finite input would survive `clamp` (NaN compares false) and later
           # crash the render fiber on `percent.round.to_i`, so sanitize on entry.
-          v = @minimum unless v.finite?
-          @value = v.clamp(@minimum, @maximum)
+          @value = sanitize_value(value.to_f).clamp(@minimum, @maximum)
           super **box
 
           build_canvas(type, glyph_mode) { |p| paint_ring p }

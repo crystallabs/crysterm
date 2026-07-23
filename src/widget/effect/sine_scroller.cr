@@ -84,10 +84,8 @@ module Crysterm
             # visible cells map into it through `clip_offsets` (border-only
             # inset here, so the column origin is `aleft + border.left`).
             border = style.border
-            full_w = Math.max(0, awidth - border.left - border.right)
-            full_h = Math.max(0, aheight - border.top - border.bottom)
+            full_w, full_h, col_off, row_off = full_field_geometry(xi, border.left, border.right, border.top, border.bottom)
             next if full_w <= 0 || full_h <= 0
-            col_off, row_off = clip_offsets(xi, aleft + border.left)
 
             # The attr's invariant parts (flags + bg) are packed once per frame.
             # Only fg varies per column, so the per-column cost is a single

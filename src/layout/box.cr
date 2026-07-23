@@ -166,10 +166,9 @@ module Crysterm
         # Only arranged children count: layout-excluded chrome must not consume a
         # gap or justify slot.
         n = 0
-        each_arrangeable container do |el|
-          # A hidden child not holding its slot contributes no size, grow weight,
-          # margin or gap.
-          next if vacant? el
+        # A hidden child not holding its slot (`#vacant?`) contributes no size,
+        # grow weight, margin or gap, so `#each_occupying` skips it.
+        each_occupying container do |el|
           n += 1
           margins += main_margin el
           if main_flex? el

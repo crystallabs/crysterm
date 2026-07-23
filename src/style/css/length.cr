@@ -174,8 +174,7 @@ module Crysterm
       # `#resolve_viewport`). Also covers `#to_cells` and `#viewport_cells`,
       # which both round through here.
       def self.to_cell_count(cells : Float64) : Int32
-        return 0 if cells.nan?
-        cells.round.clamp(Int32::MIN.to_f64, Int32::MAX.to_f64).to_i
+        Crysterm.saturate_cells_round(cells)
       end
 
       # Cells for a bare integer (`5` → 5), a unit'd length (`200px` → 20 with the

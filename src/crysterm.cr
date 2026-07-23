@@ -4,6 +4,7 @@ require "event_handler"
 
 require "./version"
 require "./macros"
+require "./num_util"
 require "./config"
 require "./cache"
 require "./misc/util/unicode"
