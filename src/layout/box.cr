@@ -177,7 +177,12 @@ module Crysterm
             # `Int64` since the *sum* over many children can still overflow.
             grow += stretch_of el
           else
-            ms = a_main_size el
+            # Clamp a fixed child's own resolved size against the main extent
+            # before accumulating: an unclamped `Int32::MAX`-ish size (a
+            # child's own `awidth`/`aheight` isn't bounded by the parent)
+            # overflows checked `Int32` the moment a second child's size is
+            # added (B18-25).
+            ms = clamped_size a_main_size(el), main
             @measured[el] = ms
             fixed += ms
           end
@@ -236,6 +241,23 @@ module Crysterm
           end
           set_cross_pos el, 0
         else
+          # Align moved off Stretch (or a per-child `Hint#alignment` overrides
+          # a still-Stretch box) — release a cross size this layout previously
+          # assigned back to the user's raw `nil` before measuring, mirroring
+          # Form's restore-before-measure (B16-17). Without this the child
+          # stays frozen at whatever cross extent the Stretch branch last
+          # wrote forever: it stops tracking container resizes and the user's
+          # raw `nil` (auto) is destroyed for good (B18-23). Safe: a child only
+          # ever enters `@filled` when its raw cross size was `nil` (the
+          # `cross_flex?` membership test), so `nil` is always the correct
+          # value to restore; a user-reclaimed explicit size (raw no longer
+          # matches `@filled_size`) fails the guard and is left untouched.
+          if @filled.includes?(el) && cross_size(el) == @filled_size[el]?
+            set_cross_size el, nil
+            @filled.delete el
+            @filled_size.delete el
+          end
+
           # Position the child's whole *margin* box (`cs + cross_margin`), not its
           # border box: the render shift pushes the border box out by the near
           # margin, so an offset computed from `cross - cs` alone would overflow
@@ -251,6 +273,7 @@ module Crysterm
         end
 
         # Main axis: explicit size wins; otherwise a stretch-weighted share.
+        main = main_extent interior
         size =
           if !@measured.has_key?(el)
             # Cumulative rounding: each child's size is the difference of
@@ -276,10 +299,12 @@ module Crysterm
             # Advance by the *clamped* used size, not the raw share `s`: a CSS
             # min/max size makes the child render at `a_main_size`, so advancing
             # by `s` would overlap the next child or leave a gap. An
-            # unconstrained child clamps back to exactly `s`.
-            a_main_size el
+            # unconstrained child clamps back to exactly `s`. Also clamp against
+            # the main extent (B18-25): a min-size constraint can push
+            # `a_main_size` arbitrarily high regardless of `s`/`@avail`.
+            clamped_size a_main_size(el), main
           else
-            @measured[el]? || a_main_size el
+            @measured[el]? || clamped_size(a_main_size(el), main)
           end
 
         set_main_pos el, @cursor

@@ -73,7 +73,9 @@ module Crysterm
         msg = args.map(&.to_s).join(" ")
         line = String.build do |s|
           if timestamps?
-            s << Time.local.to_s(@timestamp_format) << ' '
+            # "Now" in UTC when `Time.local` is unavailable (headless context,
+            # missing tzdata) — see `Mixin::SectionedField.build_time`.
+            s << (Time.local rescue Time.utc).to_s(@timestamp_format) << ' '
           end
           if parse_tags?
             s << '{' << level.color << "-fg}" << level.label << "{/" << level.color << "-fg} "

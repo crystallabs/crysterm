@@ -167,8 +167,17 @@ module Crysterm
       # (Re)places the image when its cell rectangle changes.
       private def redraw_image
         path = @path || return
-        rect = overlay_geometry || return
-        return if rect[2] <= 0 || rect[3] <= 0
+        # Not drawable — hidden (directly or via an ancestor, including a CSS
+        # `visibility: hidden`/`display: none` restyle that never emits the
+        # `Event::Hide` this widget's `remove` hook listens for), detached, or
+        # a degenerate rect: take the placement down. The überzug helper window
+        # always stays on top, so leaving it placed would float it over
+        # whatever the layout draws there. `remove` is `@last`-guarded, so it
+        # no-ops when nothing is placed.
+        unless (rect = overlay_geometry) && rect[2] > 0 && rect[3] > 0
+          remove
+          return
+        end
         return if rect == @last
 
         send({

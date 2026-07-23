@@ -78,12 +78,30 @@ module Crysterm
 
       # Whether to draw the textual indicator (see `#format`) over the bar,
       # like Qt's `QProgressBar#textVisible`.
-      property? text_visible : Bool = false
+      getter? text_visible : Bool = false
+
+      # Assigns `#text_visible?` and schedules a repaint: `#render` reads it
+      # directly (no content cache to key on), so a bare `property` setter's
+      # change would only become visible on some later, unrelated frame.
+      def text_visible=(v : Bool) : Bool
+        return v if v == @text_visible
+        @text_visible = v
+        request_render
+        v
+      end
 
       # Template for the text drawn when `#text_visible?`. Recognized placeholders,
       # matching Qt's `QProgressBar#format`: `%p` percentage, `%v` current value,
       # `%m` maximum, `%M` minimum.
-      property format : String = "%p%"
+      getter format : String = "%p%"
+
+      # Assigns `#format` and schedules a repaint (see `#text_visible=`).
+      def format=(v : String) : String
+        return v if v == @format
+        @format = v
+        request_render
+        v
+      end
 
       # XXX Change this to enabled? later.
       property? keys : Bool = true

@@ -275,7 +275,13 @@ module Crysterm
         drawn = @commands.sum(&.width) + item_gap * @commands.size
 
         unless cmd.separator?
-          if auto_prefix? && cmd.prefix.nil?
+          # Auto prefixes are position numbers, so a command re-added at a new
+          # position (`items=` reorder/filter, remove + re-add) must be
+          # renumbered — number-key selection routes by raw index, and a stale
+          # baked-in number would point its label at the wrong key. Only
+          # explicit/hotkey-derived prefixes (`auto_prefix?` false) survive a
+          # re-add unchanged.
+          if auto_prefix? && (cmd.prefix.nil? || cmd.auto_prefix?)
             cmd.prefix = (@item_boxes.size + 1).to_s
             cmd.auto_prefix = true
           end
@@ -427,10 +433,22 @@ module Crysterm
         end
       end
 
+      # Validated raw index for *child*: the `Int` itself when within
+      # `0...count`, else `nil` — like `Mixin::ItemView#index_of`. Validates
+      # rather than handing its argument back so a negative index (which
+      # `Array#[]?` would resolve from the end) is rejected up front, instead
+      # of removing/firing the *last* command while the raw value corrupts the
+      # index bookkeeping downstream.
+      def index_of(child : Int) : Int32?
+        i = child.to_i
+        (0 <= i < @commands.size) ? i : nil
+      end
+
       # Removes the command at *child* — a row index or the item/element widget —
       # and returns its box (`nil` when *child* resolves to no command).
+      # An out-of-range or negative row index is a no-op.
       def remove_item(child : Int | Widget)
-        i = child.is_a?(Int) ? child : @item_boxes.index(child)
+        i = child.is_a?(Int) ? index_of(child) : @item_boxes.index(child)
         return unless i && @item_boxes[i]?
 
         item = @item_boxes.delete_at i
@@ -523,6 +541,12 @@ module Crysterm
           # editor typing the hotkey char).
           next if e.accepted?
           if keys.includes? e.char.to_s
+            # Handled: accept *before* triggering (matching
+            # `KeyShortcuts#on_key`) so the key stops propagating to other
+            # window-level handlers and to `Application`'s default quit keys
+            # ('q' is the doc'd example hotkey!) even if the callback tears
+            # the surface down.
+            e.accept
             trigger cmd
           end
         end
@@ -623,26 +647,29 @@ module Crysterm
       # `setCurrentIndex` emits `currentChanged` while `activated` is a separate
       # signal (here, `#activate_item`).
       def select_item(index : Int)
-        # An out-of-range index is a no-op.
-        cmd = @commands[index]?
-        return if cmd.nil?
+        # An out-of-range (including negative) index is a no-op — `#index_of`
+        # validates instead of letting `Array#[]?` resolve `-1` from the end.
+        return unless i = index_of index
+        cmd = @commands[i]
         # A separator is not a real item: selecting one would settle the highlight
         # on a non-selectable command. `auto_command_keys` routes here by raw
         # index, so a number landing on a separator must be a no-op too.
         return if cmd.separator?
-        self.current_index = index
+        self.current_index = i
         request_render
-        emit ::Crysterm::Event::CurrentChanged, index
+        emit ::Crysterm::Event::CurrentChanged, i
       end
 
-      # Selects the item at `index` *and* runs its command — what a number key
+      # Selects the item at `index` *and* fires its command — what a number key
       # (`auto_command_keys`) means. Applies the same range/separator guards as
-      # `#select_item`, so a rejected index runs no callback either.
+      # `#select_item`, so a rejected index runs no callback either. Routed
+      # through `#fire`, the shared activation core, so a number-key activation
+      # emits `Event::ItemActivated` exactly like Enter/click/hotkey do.
       def activate_item(index : Int)
-        cmd = @commands[index]?
-        return if cmd.nil? || cmd.separator?
-        select_item index
-        cmd.callback.try &.call
+        return unless i = index_of index
+        return if @commands[i].separator?
+        select_item i
+        fire i
       end
 
       def on_keypress(e)
@@ -662,12 +689,10 @@ module Crysterm
              (e.key == ::Tput::Key::ShiftTab)
           move_left
           request_render
-          e.accept if e.key == ::Tput::Key::ShiftTab
         when e.key == ::Tput::Key::Right, (@vi_keys && e.char == 'l'),
              (e.key == ::Tput::Key::Tab)
           move_right
           request_render
-          e.accept if e.key == ::Tput::Key::Tab
         when e.key == ::Tput::Key::Enter, (@vi_keys && e.char == 'k')
           fire current_index
           request_render
@@ -676,7 +701,16 @@ module Crysterm
             emit ::Crysterm::Event::ItemActivated, item, current_index
             emit ::Crysterm::Event::ItemCancelled, item, current_index
           end
+        else
+          return
         end
+
+        # Consume every handled key so it doesn't also drive an ancestor
+        # (mirrors `Mixin::ItemView#on_keypress`): an un-accepted key would go
+        # on to window-level accelerators (a dialog's Enter/Escape) and to
+        # `Application`'s default quit keys — where the bar's own vi cancel key
+        # 'q' would quit the whole app.
+        e.accept
       end
     end
   end

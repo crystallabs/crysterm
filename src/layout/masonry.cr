@@ -45,13 +45,15 @@ module Crysterm
           # collapse to zero, matching the horizontal chain's additive
           # convention (`flow_place`'s `last.mright`). A deferred above-child's
           # `lpos` is stale this frame, so anchor on its assigned geometry
-          # (`top + mtop + aheight + mbottom`), which equals the painted edge in
-          # steady state. `Math.min` against the wrap-path top already assigned
-          # by `flow_place` means gravitation can only pull `el` up, never push
-          # it below its row-assigned position.
+          # (`top + mtop + occupied_height + mbottom` — `occupied_height`, not
+          # `aheight`, so a shrink-to-fit deferred child anchors at its drawn
+          # height rather than the stretched interior), which equals the
+          # painted edge in steady state. `Math.min` against the wrap-path top
+          # already assigned by `flow_place` means gravitation can only pull
+          # `el` up, never push it below its row-assigned position.
           bottom =
             if deferred_this_frame?(ab)
-              ab.top.as(Int) + ab.mtop + ab.aheight + ab.mbottom
+              ab.top.as(Int) + ab.mtop + occupied_height(ab) + ab.mbottom
             elsif alp = rendered_geometry(ab)
               (alp.yl - yi) + ab.mbottom
             end

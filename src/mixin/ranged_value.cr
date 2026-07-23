@@ -311,6 +311,22 @@ module Crysterm
         ((value - minimum) / span * 100).clamp(0.0, 100.0)
       end
 
+      # Constructor-time bound sanitizer: neutralizes a non-finite *min*/*max*
+      # before they're ever stored, mirroring `#set_range`'s reject-outright
+      # guard (a NaN bound would survive `max < min` and every later `clamp`,
+      # then crash the render fiber on `.round.to_i`). Unlike `set_range`
+      # (which rejects a bad call outright and keeps the previous range), a
+      # constructor has no previous range to fall back to, so a non-finite
+      # `min` collapses to `0.0` and a non-finite `max` collapses to `min`.
+      # `max < min` still collapses `max` up to `min`, as `set_range` does.
+      # Call before any value sanitization that assumes a finite `minimum`.
+      protected def sanitize_range(min : Float64, max : Float64) : {Float64, Float64}
+        min = 0.0 unless min.finite?
+        max = min unless max.finite?
+        max = min if max < min
+        {min, max}
+      end
+
       # Shared `#value=` body for a read-only `Float64` meter: clamps *v* into
       # `[minimum, maximum]`, and on an actual change stores it, emits
       # `Event::DoubleValueChanged`, emits `Event::Completed` upon reaching

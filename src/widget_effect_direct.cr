@@ -20,7 +20,17 @@ module Crysterm
       # their defaults and runs until `#stop`.
       module Animated
         # Delay between frames.
-        property interval : Time::Span = 0.07.seconds
+        getter interval : Time::Span = 0.07.seconds
+
+        # :ditto:
+        # Forwarded to the running `FrameClock`, whose loop reads its own copy
+        # live on every tick — so a cadence change (e.g. from a speed slider)
+        # applies mid-run instead of silently waiting for the next `#start`.
+        def interval=(value : Time::Span) : Time::Span
+          @interval = value
+          @animation.try &.interval = value
+          value
+        end
 
         # The frame clock; non-nil while running.
         @animation : FrameClock?
@@ -83,6 +93,20 @@ module Crysterm
         def toggle
           running? ? stop : start
         end
+
+        # `{columns, rows}` of this widget's interior hidden by an ancestor clip
+        # (a scrolled or `overflow: Hidden` container), for an effect that paints
+        # a full-size field of which only a slice may be visible. `coords` moves
+        # the rendered rect inward to the clip edge and records the clipped-off
+        # top rows in `RenderedGeometry#base`; horizontal clipping has no `base`,
+        # so the hidden column count is the distance from *origin_x* — the
+        # unclipped interior origin (`aleft` + the left inset) — to the visible
+        # interior left edge *xi*. Both are `0` when unclipped, including for a
+        # widget merely off the window's top/left edge (negative coords, no
+        # clipping ancestor — `base` stays 0 and `xi == origin_x` there).
+        protected def clip_offsets(xi : Int32, origin_x : Int32) : {Int32, Int32}
+          {Math.max(0, xi - origin_x), lpos.try(&.base) || 0}
+        end
       end
 
       # Shared machinery for "direct" effects — those that paint their interior
@@ -98,7 +122,10 @@ module Crysterm
       # a glyph and `0xRRGGBB` per cell and writes the packed attr in place, with
       # no per-cell `String`.
       #
-      # An including widget is a `Box` and must define:
+      # An including widget is a `Box` and must define (all sizes are the FULL
+      # content interior — unclipped by any scrolled/`overflow: Hidden`
+      # ancestor, so a partially visible effect keeps simulating its whole
+      # field and scrolling never resets it):
       #
       # * `resize(w, h)` — (re)allocate per-area state when the *w*×*h* interior
       #   size changes. Called from `render` before any `cell`.
@@ -141,10 +168,22 @@ module Crysterm
           h = yl - yi
           return if w <= 0 || h <= 0
           lines = window.lines
-          if w != @cols || h != @rows
-            @cols, @rows = w, h
-            resize w, h
+          # Simulate at the UNCLIPPED content size. An ancestor clip (a scrolled
+          # or `overflow: Hidden` container) shrinks the *visible* rect per
+          # scroll step; sizing the simulation from it would `resize` — i.e.
+          # wipe — the whole state on every step, while also squashing the field
+          # into the visible slice. Instead the field stays full-size and the
+          # visible cells map into it through `clip_offsets` (hidden top rows
+          # from `coords.base`, hidden left columns from the unclipped content
+          # origin), matching the `Widget::Terminal#draw` clipping convention.
+          full_w = Math.max(0, awidth - ihorizontal)
+          full_h = Math.max(0, aheight - ivertical)
+          return if full_w <= 0 || full_h <= 0
+          if full_w != @cols || full_h != @rows
+            @cols, @rows = full_w, full_h
+            resize full_w, full_h
           end
+          col_off, row_off = clip_offsets(xi, aleft + ileft)
 
           # Default attr carries the widget's bg/flags; only the fg varies per
           # cell, so `Attr.with_fg` reuses `da`'s flags/bg/Opaque alpha.
@@ -156,12 +195,16 @@ module Crysterm
           # negative index wraps to the end and would corrupt the bottom/right
           # of the terminal — start each loop past the offscreen band instead.
           (Math.max(0, -yi)...h).each do |ry|
+            fy = ry + row_off
+            break if fy >= full_h
             line = lines[yi + ry]?
             next unless line
             (Math.max(0, -xi)...w).each do |rx|
+              fx = rx + col_off
+              break if fx >= full_w
               c = line[xi + rx]?
               next unless c
-              ch, color = cell rx, ry, w, h
+              ch, color = cell fx, fy, full_w, full_h
               fgf = color < 0 ? deff : Attr.pack_color(color)
               a = Attr.with_fg(da, fgf)
               if c.attr != a || c.char != ch

@@ -60,12 +60,12 @@ describe "BUGS-F2 #5 sub-element state rule keeps the parent's base rules" do
 
     without_default_theme do
       screen.stylesheet = <<-CSS
-        ProgressBar { background-color: navy; }
+        ProgressBar { background-color: magenta; }
         ProgressBar::indicator:focus { color: yellow; }
         CSS
       screen.apply_stylesheet
 
-      bar.styles.focused.bg.should eq rgb("navy")
+      bar.styles.focused.bg.should eq rgb("magenta")
       bar.styles.focused.indicator.fg.should eq rgb("yellow")
     end
   end
@@ -109,12 +109,12 @@ describe "BUGS-F2 #25 table Row selectors" do
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
 
     without_default_theme do
-      screen.stylesheet = "Row { background-color: navy; }"
+      screen.stylesheet = "Row { background-color: magenta; }"
       screen.apply_stylesheet
 
-      table.css_cell_style(0, 0).not_nil!.bg.should eq rgb("navy")
-      table.css_cell_style(1, 1).not_nil!.bg.should eq rgb("navy")
-      table.css_cell_style(2, 0).not_nil!.bg.should eq rgb("navy")
+      table.css_cell_style(0, 0).not_nil!.bg.should eq rgb("magenta")
+      table.css_cell_style(1, 1).not_nil!.bg.should eq rgb("magenta")
+      table.css_cell_style(2, 0).not_nil!.bg.should eq rgb("magenta")
     end
   end
 
@@ -141,15 +141,15 @@ describe "BUGS-F2 #25 table Row selectors" do
 
     without_default_theme do
       screen.stylesheet = <<-CSS
-        Row { background-color: navy; color: white; }
+        Row { background-color: magenta; color: white; }
         Cell:nth-child(1) { color: yellow; }
         CSS
       screen.apply_stylesheet
 
-      # First-column cell: navy background inherited from the Row rule, yellow
+      # First-column cell: magenta background inherited from the Row rule, yellow
       # text from the more-specific Cell rule.
       c10 = table.css_cell_style(1, 0).not_nil!
-      c10.bg.should eq rgb("navy")
+      c10.bg.should eq rgb("magenta")
       c10.fg.should eq rgb("yellow")
       # Other-column cell keeps the row's white text.
       table.css_cell_style(1, 1).not_nil!.fg.should eq rgb("white")

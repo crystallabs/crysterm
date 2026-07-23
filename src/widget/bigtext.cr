@@ -119,15 +119,25 @@ module Crysterm
 
       def render(with_children = true)
         ensure_graphemes
+        # Re-derive the active font every frame: `style.bold?` may only settle
+        # after the CSS cascade (which runs before repaint, after construction),
+        # and may change again later via CSS or `style.bold =`. A font switch
+        # changes glyph advance widths, so the memoized shrink width must be
+        # invalidated along with it.
+        want_font = style.bold? ? @bold : @normal
+        unless want_font.same?(@active_font)
+          @active_font = want_font
+          @_shrink_width_value = nil
+        end
         if @width.nil? || @_shrink_width
           # Sum per-grapheme glyph widths, not `@ratio.width * codepoints`: the
           # renderer advances the pen by each glyph's own column count, so a
           # codepoint count sizes a CJK/emoji box half as wide as its glyphs need.
-          @width = (@_shrink_width_value ||= @graphemes.sum { |g| glyph_width(g) })
+          @width = (@_shrink_width_value ||= @graphemes.sum { |g| glyph_width(g) }) + ihorizontal
           @_shrink_width = true
         end
         if @height.nil? || @_shrink_height
-          @height = @ratio.height
+          @height = @ratio.height + ivertical
           @_shrink_height = true
         end
         coords = base_render with_children

@@ -224,6 +224,21 @@ module Crysterm
       @_content_version += 1
 
       process_content(no_tags)
+      # Detached: `process_content` bailed (no window), leaving `@_clines.fake`
+      # describing the PREVIOUS content. The fake-splicing line editors
+      # (`insert_line`/`delete_line`/`replace_line`/... and their index math)
+      # trust `fake` unconditionally, so a stale copy would resurrect the old
+      # text via `rebuild_content_from_fake`. Resync `fake` to the new raw lines
+      # and drop the line maps — the "content seeded before attach" shape the
+      # editors already handle. `content_version` is deliberately left stale so
+      # the `Event::Attached` reparse still fires. Skipped during
+      # `rebuild_content_from_fake` (an identity resync of its own source).
+      if window?.nil? && !@_rebuilding_from_fake
+        @_clines.fake.clear
+        @_clines.fake.concat(content.split('\n')) unless content.empty?
+        @_clines.ftor.clear
+        @_clines.rtof.clear
+      end
       mark_dirty
       emit(Crysterm::Event::ContentChanged)
     end
@@ -273,6 +288,16 @@ module Crysterm
       # part of the wrap cache key, so scrolling forces a reparse like a width
       # change does. Only meaningful when `wrap_content` is off.
       property base_x = 0
+
+      # Style inputs baked into the wrapped line text — TAB expansion
+      # (`tab_char * tab_size`, `clean_content_chars`) and alignment padding
+      # (`fill_char`, `_align`/`split_right_align`). Part of the wrap cache key
+      # so a style change (direct mutation + `mark_dirty`, or a CSS cascade)
+      # forces a rewrap; types match `Style#tab_char` (String) and
+      # `Style#fill_char` (Char).
+      property tab_size = 4
+      property tab_char = " "
+      property fill_char = ' '
 
       # Widest unclipped line in display columns (before horizontal viewport
       # slice). Drives `Widget#scroll_width` and the horizontal scroll bar's
@@ -379,7 +404,7 @@ module Crysterm
       # unchanged, and the stale-margin lines would let the bar overpaint the last
       # content column. The convergence loop below leaves
       # `@_clines.margin == content_margin_x`, so this doesn't re-fire in steady state.
-      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x || @_clines.margin != content_margin_x
+      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x || @_clines.margin != content_margin_x || @_clines.tab_size != style.tab_size || @_clines.tab_char != style.tab_char || @_clines.fill_char != style.fill_char
         # A reparse reads raw `@content`, so fold deferred appends first (the
         # cache-hit path below never reaches here).
         fold_content_tail
@@ -429,6 +454,9 @@ module Crysterm
         @_clines.base_x = @child_base_x
         @_clines.content = @content
         @_clines.content_version = @_content_version
+        @_clines.tab_size = style.tab_size
+        @_clines.tab_char = style.tab_char
+        @_clines.fill_char = style.fill_char
         # `_parse_attr` also records `style_to_attr(style)` in `@_parse_attr_default`, so
         # no separate recompute is needed here.
         @_clines.attr = _parse_attr @_clines
@@ -485,6 +513,10 @@ module Crysterm
     def _parse_tags(text)
       @_parse_tags_left_open = false
       return text unless @parse_tags
+      # Attribute tags resolve through `window.tput`, so a detached widget can't
+      # parse — return the text literal, mirroring `process_content`'s guard.
+      # The raw line lands in `fake`; the `Event::Attached` reparse expands it.
+      return text unless window?
       # Enter the parser whenever a brace is present (not only on a valid tag):
       # under the drop-malformed policy a stray `{`/`}` must be stripped too.
       return text unless text.includes?('{') || text.includes?('}')

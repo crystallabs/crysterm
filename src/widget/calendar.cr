@@ -118,11 +118,10 @@ module Crysterm
 
       # Builds a `Time` for the given calendar date, falling back to UTC when
       # `Time.local` is unavailable. Every constructed date must route through
-      # here, or a headless context raises from a render/setter path.
+      # here, or a headless context raises from a render/setter path. Shared
+      # guard: `Mixin::SectionedField.build_time`.
       private def local_date(year : Int32, month : Int32, day : Int32) : Time
-        Time.local(year, month, day)
-      rescue
-        Time.utc(year, month, day)
+        Mixin::SectionedField.build_time(year, month, day)
       end
 
       # Getter plus setter that repaints only on an actual change.
@@ -172,8 +171,12 @@ module Crysterm
         @minimum_date
       end
 
+      # As in `Mixin::RangedValue#minimum=` (and Qt): a new minimum above the
+      # current maximum carries the maximum up with it (the range collapses to
+      # *value*) rather than inverting via `#set_date_range`'s swap-on-crossing,
+      # which would silently install *value* as the maximum instead.
       def minimum_date=(value : Time) : Time
-        set_date_range value, @maximum_date
+        set_date_range value, Math.max(value, @maximum_date)
         @minimum_date
       end
 
@@ -181,8 +184,10 @@ module Crysterm
         @maximum_date
       end
 
+      # :ditto: — a new maximum below the current minimum carries the minimum
+      # down with it.
       def maximum_date=(value : Time) : Time
-        set_date_range @minimum_date, value
+        set_date_range Math.min(@minimum_date, value), value
         @maximum_date
       end
 
@@ -516,7 +521,7 @@ module Crysterm
           shift_page_month(e.action.wheel_up? ? -1 : 1)
           e.accept
           request_render
-        elsif e.action.down? && (d = day_at(grid_row, col))
+        elsif e.action.down? && !selection_mode.no_selection? && (d = day_at(grid_row, col))
           activate_day d
           e.accept
           request_render
@@ -541,9 +546,12 @@ module Crysterm
       end
 
       # Selects (in `SingleSelection`) and activates day *d* of the shown month.
+      # Callers must gate on `!selection_mode.no_selection?` — a display-only
+      # calendar must not emit `Event::DateActivated` any more than it selects,
+      # matching the keyboard path's early return in `#on_keypress`.
       private def activate_day(d : Int32) : Nil
         t = local_date(@shown_year, @shown_month, d)
-        self.selected_date = t unless selection_mode.no_selection?
+        self.selected_date = t
         emit Crysterm::Event::DateActivated, clamp_date(t)
       end
 

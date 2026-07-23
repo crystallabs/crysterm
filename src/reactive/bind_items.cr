@@ -8,7 +8,9 @@ module Crysterm
     # `Event::ListChanged`: an insert adds just those rows, a remove drops just
     # those, an update rewrites one row, and only a reset rebuilds. A repaint is
     # scheduled after each change, and the binding is torn down when the view is
-    # destroyed. Returns the `Subscription` so it can be cancelled early.
+    # destroyed. Returns the `Subscriptions` bag so the binding can be cancelled
+    # early with `#off` — which also unhooks the auto-teardown `Destroy` hook,
+    # so a view rebound repeatedly accumulates no dead handlers.
     #
     # ```
     # names = Crysterm::Reactive::ObservableList(String).new %w[Ada Alan]
@@ -16,7 +18,7 @@ module Crysterm
     # names << "Grace"    # one row appended
     # names[0] = "Ada L." # one row's text updated
     # ```
-    def self.bind_items(view : V, list : ObservableList(T), &render : T -> String) : ::Crysterm::Subscription forall V, T
+    def self.bind_items(view : V, list : ObservableList(T), &render : T -> String) : ::Crysterm::Subscriptions forall V, T
       fill = -> {
         rendered = [] of String
         list.each { |e| rendered << render.call(e) }
@@ -25,8 +27,8 @@ module Crysterm
       }
       fill.call
 
-      sub = ::Crysterm::Subscription.new
-      sub.on(list, ::Crysterm::Event::ListChanged) do |ev|
+      subs = ::Crysterm::Subscriptions.new
+      subs.on(list, ::Crysterm::Event::ListChanged) do |ev|
         case ev.op
         when .insert?
           # Ascending order: each insert shifts later rows down, so inserting the
@@ -53,8 +55,11 @@ module Crysterm
         view.window?.try &.update
       end
 
-      view.on(::Crysterm::Event::Destroy) { sub.off }
-      sub
+      # Tearing down the whole bag also removes this very hook (safe mid-emit:
+      # the handler list is copy-on-write), so neither the view's destruction
+      # nor an early `#off` by the caller leaves a dead handler on the view.
+      subs.on(view, ::Crysterm::Event::Destroy) { subs.off }
+      subs
     end
   end
 end

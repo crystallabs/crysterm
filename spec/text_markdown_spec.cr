@@ -91,10 +91,14 @@ describe Crysterm::TextMarkdown do
       doc = md_doc "> quoted\n>> deeper\n\n---"
       doc.blocks[0].text.should eq "quoted"
       doc.blocks[0].block_format.quote_level.should eq 1
-      doc.blocks[1].block_format.quote_level.should eq 2
-      doc.blocks[2].block_format.horizontal_rule?.should be_true
-      doc.blocks[2].block_format.top_margin.should eq 1
-      doc.blocks[2].text.should eq ""
+      # Quote-interior structure boundary: a quote-level separator block
+      # (renders the quote bar), same as between quoted paragraphs/headings.
+      doc.blocks[1].text.should eq ""
+      doc.blocks[1].block_format.quote_level.should eq 1
+      doc.blocks[2].block_format.quote_level.should eq 2
+      doc.blocks[3].block_format.horizontal_rule?.should be_true
+      doc.blocks[3].block_format.top_margin.should eq 1
+      doc.blocks[3].text.should eq ""
     end
 
     it "imports fenced code as code-bg blocks, one per line" do

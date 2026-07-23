@@ -9,8 +9,10 @@ module Crysterm
     # in-between value and lands exactly on the target.
 
     # Snapshot of the animatable values *before* a state change, so the new
-    # state's values can be tweened *from* them.
-    record TransitionFrom, fg : Int32?, bg : Int32?, opacity : Float64?, tint_alpha : Float64
+    # state's values can be tweened *from* them. `tint_alpha` is the *effective*
+    # strength (0.0 when no tint color is set — the raw field defaults to 0.5
+    # even for a tint-less style) and `tint` the color it applies to.
+    record TransitionFrom, fg : Int32?, bg : Int32?, opacity : Float64?, tint_alpha : Float64, tint : Int32?
 
     # Running per-property transition animations, so a re-triggered transition
     # replaces (rather than stacks on) the one already in flight.
@@ -24,7 +26,18 @@ module Crysterm
     # allocation-free.
     protected def transition_from : TransitionFrom?
       s = style
-      TransitionFrom.new s.fg, s.bg, s.opacity, s.tint_alpha
+      # `tint?` (not the raw fields) so a mid-tween retrigger eases from the
+      # partial value, and a tint-less state snapshots strength 0.
+      TransitionFrom.new s.fg, s.bg, s.opacity, effective_tint_strength(s), s.tint?.try(&.[0])
+    end
+
+    # The style's *effective* tint strength: its `tint_alpha` when a tint color
+    # is actually set and non-transparent (via `Style#tint?`), else `0.0`. The
+    # raw `tint_alpha` field defaults to 0.5 even when no tint renders, so
+    # animation code must never ease from/to the raw field. Shared with
+    # `Widget#tint_to`.
+    protected def effective_tint_strength(style : ::Crysterm::Style) : Float64
+      style.tint?.try(&.[1]) || 0.0
     end
 
     # Tweens each declared, changed animatable property from *prev* to the new
@@ -80,8 +93,57 @@ module Crysterm
       when "background-color", "background"
         transition_color(:bg, prev.bg, st.bg, dur, easing) { |v| state_style.bg = v }
       when "tint"
-        transition_float(:tint, prev.tint_alpha, st.tint_alpha, dur, easing) { |v| state_style.tint_alpha = v }
+        transition_tint(prev, st, dur, easing)
       end
+    end
+
+    # Tweens the *effective* tint — color and strength via `Style#tint?` — not
+    # the raw `tint_alpha` field: that field defaults to 0.5 even with no tint
+    # color, and a nil-`@tint` state renders no overlay regardless of alpha, so
+    # raw-field tweening made `transition: tint` a silent no-op in the standard
+    # declare-tint-only-in-the-highlight-state pattern. Mirrors the two sibling
+    # drivers (`tint_to`, `apply_keyframe`), which already ease the effective
+    # strength and carry the color alongside it.
+    private def transition_tint(prev : TransitionFrom, st : ::Crysterm::Style,
+                                dur : Time::Span, easing : Easing) : Nil
+      cancel_transition(:tint)
+      to_t = st.tint?
+      from_a = prev.tint_alpha
+      to_a = to_t.try(&.[1]) || 0.0
+      from_c = prev.tint
+      to_c = to_t.try(&.[0])
+      # No tint on either side: nothing to draw. (Also binds the single
+      # declared color for the appear/disappear branch below.)
+      return unless single_c = to_c || from_c
+      # Nothing changes visually (same strength, and same — or only one —
+      # color): snapping is correct, and a 0-length tween would only churn.
+      return if from_a == to_a && (from_c == to_c || from_c.nil? || to_c.nil?)
+      anim =
+        if from_c && to_c
+          # Cross-fade the color while easing the strength.
+          cf = from_c
+          ct = to_c
+          start_tween(dur, easing) do |clock|
+            v = clock.value
+            s2 = state_style
+            s2.tint = lerp_color(cf, ct, v)
+            s2.tint_alpha = from_a + (to_a - from_a) * v
+          end
+        else
+          # Appearing/disappearing tint: hold the single declared color and
+          # ease the strength. A fade-out's final tick lands exactly on alpha
+          # 0.0 (`FrameClock` clamps to 1.0), leaving `tint?` inert as before;
+          # the residual `@tint` color is invisible at alpha 0 and is rebuilt
+          # away by the next recascade (same residue `set_tint` leaves).
+          color = single_c
+          start_tween(dur, easing) do |clock|
+            s2 = state_style
+            s2.tint = color
+            s2.tint_alpha = from_a + (to_a - from_a) * clock.value
+          end
+        end
+      (@style_transitions ||= {} of Symbol => FrameClock)[:tint] = anim
+      nil
     end
 
     # Whether any declarative CSS `transition` is currently tweening on this
@@ -133,6 +195,20 @@ module Crysterm
       nil
     end
 
+    # Resolves a color endpoint for animation math: `nil` stays `nil`; the `-1`
+    # terminal-default sentinel is substituted with the configured default RGB
+    # (`Colors.default_fg_rgb`/`default_bg_rgb`), or `nil` when that substitute
+    # is itself unknown (`-1`); a concrete color passes through. Without this,
+    # `Colors.mix` reads `-1`'s bits as `0xFFFFFF` (arithmetic shift) and the
+    # tween blends through — and permanently lands on — pure white instead of
+    # the terminal default (the same hazard `Colors.tint_field` guards against).
+    private def resolve_anim_color(c : Int32?, fg : Bool) : Int32?
+      return nil unless c
+      return c unless c == -1
+      d = fg ? Colors.default_fg_rgb : Colors.default_bg_rgb
+      d == -1 ? nil : d
+    end
+
     private def transition_color(key : Symbol, from : Int32?, to : Int32?,
                                  dur : Time::Span, easing : Easing, &set : Int32 ->) : Nil
       # Cancel first, even on the no-op early returns (nil target or from == to):
@@ -140,11 +216,25 @@ module Crysterm
       cancel_transition(key)
       return if !(from && to) || from == to
       f, t = from || 0, to || 0
-      anim = start_tween(dur, easing) do |clock|
+      # Tween in resolved RGB space, so a `-1` terminal-default endpoint eases
+      # from/toward the configured default rather than white. Snap straight to
+      # the raw target when an endpoint is unresolvable (unknown terminal
+      # default) or resolution collapses the change to a no-op.
+      rf = resolve_anim_color(f, key == :color)
+      rt = resolve_anim_color(t, key == :color)
+      if rf.nil? || rt.nil? || rf == rt
+        set.call(t)
+        return
+      end
+      mf, mt = rf, rt
+      # `on_done` restores the exact raw target on natural completion — for a
+      # `-1` target the final mix product would otherwise permanently replace
+      # the state's computed sentinel with the substitute RGB.
+      anim = start_tween(dur, easing, on_done: -> { set.call(t); nil }) do |clock|
         # Per-channel `from + (to-from)*t` via the shared `Colors.mix`, whose
         # first arg is weighted by `alpha`: weight-of-`t` (the target) = the
         # tween value, so `mix(t, f, clock.value)`.
-        set.call(Colors.mix(t, f, clock.value))
+        set.call(Colors.mix(mt, mf, clock.value))
       end
       (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       nil

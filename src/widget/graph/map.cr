@@ -106,10 +106,28 @@ module Crysterm
         # — which otherwise skips repaint under its own `@paint_dirty` — and
         # schedule a render. Markers are a text overlay and keep their own
         # no-invalidate path.
-        canvas_prop min_lon, Float64
-        canvas_prop max_lon, Float64
-        canvas_prop min_lat, Float64
-        canvas_prop max_lat, Float64
+        #
+        # The four viewport bounds use `finite_bound_prop` instead of the plain
+        # `canvas_prop`: NaN survives every comparison and Infinity survives
+        # addition, so an unguarded bound would silently poison `#draw_markers`
+        # (`OverflowError` on `.round.to_i`) and hang `#paint_map`'s graticule
+        # loop (`-Inf + step == -Inf`, never reaching `@max_lon`/`@max_lat`).
+        # Rejecting a non-finite assignment keeps the previous valid viewport,
+        # mirroring `Donut#set_range`'s "reject a non-finite bound outright".
+        private macro finite_bound_prop(name)
+          def {{ name.id }}=(v : Float64) : Float64
+            return @{{ name.id }} unless v.finite?
+            return v if v == @{{ name.id }}
+            @{{ name.id }} = v
+            invalidate_canvas
+            v
+          end
+        end
+
+        finite_bound_prop min_lon
+        finite_bound_prop max_lon
+        finite_bound_prop min_lat
+        finite_bound_prop max_lat
         canvas_prop land_color, Int32
         canvas_prop show_graticule, Bool
         canvas_prop graticule_color, Int32
@@ -156,10 +174,19 @@ module Crysterm
         # Recenters the view on (lat, lon) with the given degree spans (Qt's
         # `center` + `zoomLevel`, expressed as a span).
         def look_at(lat : Number, lon : Number, span_lat : Number = 120, span_lon : Number = 360) : Nil
-          @min_lat = lat.to_f - span_lat.to_f / 2
-          @max_lat = lat.to_f + span_lat.to_f / 2
-          @min_lon = lon.to_f - span_lon.to_f / 2
-          @max_lon = lon.to_f + span_lon.to_f / 2
+          min_lat = lat.to_f - span_lat.to_f / 2
+          max_lat = lat.to_f + span_lat.to_f / 2
+          min_lon = lon.to_f - span_lon.to_f / 2
+          max_lon = lon.to_f + span_lon.to_f / 2
+          # A non-finite span (e.g. an empty-dataset-computed `0.0/0.0`, or an
+          # Infinity "show everything" spelling) would poison every bound
+          # computed from it; keep the previous viewport instead of crashing
+          # `#draw_markers` or hanging `#paint_map`'s graticule loop.
+          return unless min_lat.finite? && max_lat.finite? && min_lon.finite? && max_lon.finite?
+          @min_lat = min_lat
+          @max_lat = max_lat
+          @min_lon = min_lon
+          @max_lon = max_lon
           # The coastline projection depends on the viewport, so repaint the Canvas.
           invalidate_canvas
         end
@@ -181,19 +208,19 @@ module Crysterm
           # height maps max_lat→top.
           p.set_window @min_lon, @max_lat, @max_lon - @min_lon, @min_lat - @max_lat
 
-          # A zero/negative (or non-finite) step would never advance `lon`/`lat`
-          # past the loop bound — an infinite loop inside the paint callback.
+          # A zero/negative (or non-finite) step, a non-finite bound, or an
+          # extreme finite bound (float ulp at large magnitude can exceed
+          # `@graticule_step`, so `pos += step` stalls) would never advance
+          # `lon`/`lat` past the loop bound in an accumulation-driven loop —
+          # an infinite loop inside the paint callback. `#each_graticule_line`
+          # is index-driven instead, which sidesteps all three cases.
           if show_graticule? && @graticule_step > 0
             p.pen = @graticule_color
-            lon = (@min_lon / @graticule_step).ceil * @graticule_step
-            while lon <= @max_lon
+            each_graticule_line(@min_lon, @max_lon, @graticule_step) do |lon|
               p.draw_line lon, @min_lat, lon, @max_lat
-              lon += @graticule_step
             end
-            lat = (@min_lat / @graticule_step).ceil * @graticule_step
-            while lat <= @max_lat
+            each_graticule_line(@min_lat, @max_lat, @graticule_step) do |lat|
               p.draw_line @min_lon, lat, @max_lon, lat
-              lat += @graticule_step
             end
           end
 
@@ -210,6 +237,23 @@ module Crysterm
           end
         end
 
+        # Yields each graticule line position between *min*/*max* every *step*
+        # units (a meridian/longitude family or a parallel/latitude family,
+        # depending on the caller). Index-driven rather than `pos += step`
+        # accumulation: besides non-finite bounds (already rejected on entry
+        # by `finite_bound_prop`/`#look_at`, but `#initialize`'s constructor
+        # params bypass those setters), a huge finite offset can make
+        # `pos + step == pos` at that magnitude's float ulp, which would hang
+        # an accumulation loop exactly like a non-finite bound does. Also
+        # bails on a >10_000-line span so an absurd (but technically finite)
+        # span cannot near-hang the paint callback either.
+        private def each_graticule_line(min : Float64, max : Float64, step : Float64, & : Float64 ->) : Nil
+          first = (min / step).ceil
+          count = (max / step).floor - first
+          return unless count.finite? && count >= 0 && count <= 10_000
+          (0..count.to_i).each { |i| yield (first + i) * step }
+        end
+
         # --- markers (terminal glyphs over the map) ---------------------------
 
         private def draw_markers : Nil
@@ -221,10 +265,14 @@ module Crysterm
 
           # A degenerate viewport (zero span from `look_at`, or `min_*` == `max_*`)
           # would divide by zero below, yielding `NaN`, and `NaN.to_i` raises
-          # `OverflowError`. Skip markers instead of crashing the render.
+          # `OverflowError`. A non-finite span (surviving `finite_bound_prop`
+          # via `#initialize`'s unguarded constructor params) is just as
+          # poisonous — every comparison with NaN is false and an Inf span
+          # passes `<= 0` too — so `.finite?` must be checked explicitly, not
+          # just `> 0`. Skip markers instead of crashing the render.
           lon_span = @max_lon - @min_lon
           lat_span = @max_lat - @min_lat
-          return if lon_span <= 0 || lat_span <= 0
+          return unless lon_span.finite? && lat_span.finite? && lon_span > 0 && lat_span > 0
 
           @markers.each do |m|
             # The visibility filter below is inverted for NaN (every comparison

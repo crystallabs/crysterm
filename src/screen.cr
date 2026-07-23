@@ -396,6 +396,16 @@ module Crysterm
     # width, clamped to a sane band so a bogus report can't wreck layout) to
     # the CSS layer — unless `css.cell_aspect_ratio` pins it. No-op for a
     # non-positive size.
+    #
+    # The CSS anchors are process-global while cell geometry is per-device, so
+    # they follow a first-device-anchors policy: the first screen to report
+    # claims them (`CSS::Length.measured_source`) and keeps refreshing them on
+    # its own font/zoom changes, while a *different* device's report updates
+    # only this screen's own state — otherwise on a multi-device app (e.g.
+    # `Application.open`) whichever terminal reported last would silently
+    # re-anchor every other window's `px` lengths and aspect ratio. The claim
+    # is released on the anchoring device's teardown
+    # (`#release_cell_geometry_anchor`) so a surviving device can take over.
     def apply_cell_pixels(width : Int32, height : Int32) : Nil
       return unless width > 0 && height > 0
       @cell_pixel_width = width
@@ -405,6 +415,11 @@ module Crysterm
       # stale value mis-maps every pixel event to the wrong cell. Only refresh
       # when pixel mode is already active (non-nil).
       tput.mouse_cell_pixels = {width, height} if tput.mouse_cell_pixels
+      # First-device-anchors (see above): only the claiming device — or the
+      # first to report — may write the process-global CSS anchors below.
+      src = CSS::Length.measured_source
+      return unless src.nil? || src == object_id
+      CSS::Length.measured_source = object_id
       # Feed the measured cell *width* into the CSS `px` anchor so an absolute
       # `px` length maps through the terminal's real geometry rather than the
       # hardcoded `1 cell ≈ 10px` default — unless `css.px_per_cell` pins it.
@@ -416,6 +431,15 @@ module Crysterm
       end
       return if CSS::Length.cell_aspect_ratio_configured?
       CSS::Length.cell_aspect_ratio = (height.to_f / width.to_f).clamp(1.0, 4.0)
+    end
+
+    # Releases this device's claim as the process-global CSS geometry anchor
+    # (see `#apply_cell_pixels`' first-device-anchors policy) so a surviving
+    # device's next report can take over. No-op when another (or no) device
+    # holds the claim. Called by the window teardown paths that retire the
+    # device.
+    def release_cell_geometry_anchor : Nil
+      CSS::Length.measured_source = nil if CSS::Length.measured_source == object_id
     end
 
     # Cell pixel size `{width, height}` queried from the terminal itself, for

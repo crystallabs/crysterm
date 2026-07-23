@@ -434,7 +434,14 @@ module Crysterm
       # Prefer directly below the field; flip above only when the list can't fit
       # below. `Overlay.place_child` owns the fit choice, the on-window clamp, and
       # the absolute→window-local inset conversion the window-appended popup needs.
-      Overlay.place_child(pop, {widget.aleft, widget.atop, widget.awidth, widget.aheight},
+      #
+      # Anchor on the field's *painted* rect (`Widget#painted_rect`, with a
+      # pre-render layout fallback), not its layout coords: inside a
+      # scrolled/child_base ancestor the two diverge by the ancestor's scroll
+      # base, and the popup (a window child) is painted exactly where we put
+      # it — so layout coords would open the list detached from the visible
+      # field. Mirrors ComboBox#place_popup / DateEdit#position_popup.
+      Overlay.place_child(pop, widget.painted_rect,
         {w, h}, [Overlay::Side::Below, Overlay::Side::Above])
     rescue
       # Not laid out yet — keep defaults.

@@ -19,7 +19,7 @@ module Crysterm
     def self.bind(owner : ::Crysterm::Widget, *signals : SignalBase, &block : ->) : Binding
       binding = Binding.new owner, block
       signals.each { |s| binding.watch s }
-      owner.on(::Crysterm::Event::Destroy) { binding.dispose }
+      binding.attach_auto_dispose
       binding.run
       binding
     end

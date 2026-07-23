@@ -21,7 +21,19 @@ module Crysterm
     # ![Splitter screenshot](../../tests/widget/splitter/splitter.5s.apng)
     # <!-- /widget-examples:capture -->
     class Splitter < Box
-      property orientation : Tput::Orientation = :horizontal
+      getter orientation : Tput::Orientation = :horizontal
+
+      # Changing orientation at runtime re-lays the panes out along the new
+      # axis and repaints (Qt's `QSplitter#setOrientation`). `#place_pane`
+      # clears the sizes the old axis pinned, so panes stretch across the new
+      # cross axis instead of keeping their old extents.
+      def orientation=(v : Tput::Orientation) : Tput::Orientation
+        return v if v == @orientation
+        @orientation = v
+        relayout
+        request_render
+        v
+      end
 
       # The panes, in order.
       getter panes = [] of Widget
@@ -140,6 +152,31 @@ module Crysterm
         append widget
         rebuild_dividers
         self
+      end
+
+      # Removes *widget* from the panes, detaching (not destroying) it, and
+      # returns it — or `nil` when it is not a pane. The dividers are rebuilt
+      # and the remaining panes re-evened; the actual bookkeeping lives in the
+      # `#remove` override so every detach path shares it.
+      def remove_widget(widget : Widget) : Widget?
+        return unless @panes.includes? widget
+        remove widget
+        widget
+      end
+
+      # Counterpart of the `#<<` override: every detach must also unregister
+      # the pane and rebuild the dividers, whatever the path — `#remove_widget`,
+      # a generic `#remove`, `Widget#destroy` or `#detach_from_tree` (both of
+      # which land here via `parent.remove(self)`), or a reparenting append.
+      # Dividers themselves pass through untouched (`rebuild_dividers` removes
+      # them with this very method).
+      def remove(element)
+        was_pane = @panes.includes? element
+        super
+        if was_pane
+          @panes.delete element
+          rebuild_dividers
+        end
       end
 
       # Recreates the divider boxes (one fewer than `#panes`) after a mid-list
@@ -337,6 +374,9 @@ module Crysterm
       # edge (meeting the container border) rather than carrying an explicit size.
       private def place_pane(pane : Widget, start : Int32, size : Int32, last : Bool)
         if horizontal?
+          # Clear any size a previous vertical layout pinned; an explicit Int32
+          # `height` would otherwise win over the `top: 0`/`bottom: 0` stretch.
+          pane.height = nil
           pane.top = 0
           pane.bottom = 0
           pane.left = start
@@ -348,6 +388,8 @@ module Crysterm
             pane.width = size
           end
         else
+          # Symmetric: clear the width a previous horizontal layout pinned.
+          pane.width = nil
           pane.left = 0
           pane.right = 0
           pane.top = start
@@ -366,12 +408,14 @@ module Crysterm
           div.top = 0
           div.bottom = 0
           div.left = pos
+          div.right = nil # clear the anchor a previous vertical layout set
           div.width = 1
           div.height = nil
         else
           div.left = 0
           div.right = 0
           div.top = pos
+          div.bottom = nil # clear the anchor a previous horizontal layout set
           div.height = 1
           div.width = nil
         end

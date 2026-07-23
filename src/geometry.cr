@@ -240,6 +240,16 @@ module Crysterm
     property? no_top : Bool = false
     property? no_bottom : Bool = false
 
+    # Rows/columns of the widget hidden past the clipping ancestor's viewport on
+    # each edge (0 when the edge is not clipped; the matching `no_*` flag is set
+    # whenever one of these is positive). The rectangle itself is clamped to the
+    # viewport, so these carry how much was cut away — the renderer uses them to
+    # derive how much of a clipped edge's border/padding band is still visible.
+    property hidden_left : Int32 = 0
+    property hidden_right : Int32 = 0
+    property hidden_top : Int32 = 0
+    property hidden_bottom : Int32 = 0
+
     # Number of times object was rendered
     property renders = 0
 
@@ -272,6 +282,11 @@ module Crysterm
       @no_right = @no_right,
       @no_top = @no_top,
       @no_bottom = @no_bottom,
+
+      @hidden_left = @hidden_left,
+      @hidden_right = @hidden_right,
+      @hidden_top = @hidden_top,
+      @hidden_bottom = @hidden_bottom,
 
       @renders = @renders,
 
@@ -309,6 +324,10 @@ module Crysterm
       @no_top,
       @no_bottom,
       @renders,
+      @hidden_left = 0,
+      @hidden_right = 0,
+      @hidden_top = 0,
+      @hidden_bottom = 0,
     ) : self
       @aleft = nil
       @atop = nil

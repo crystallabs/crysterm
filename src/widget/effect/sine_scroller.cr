@@ -39,7 +39,7 @@ module Crysterm
         include TextScroll
 
         def text=(@text : String)
-          @chars = @text.chars
+          rebuild_scroll_columns @text
           mark_dirty
         end
 
@@ -60,8 +60,11 @@ module Crysterm
           @hue_speed = 6,
           **box,
         )
-          @chars = @text.chars
           super **box
+          # After `super`, so `full_unicode?` (which resolves through
+          # `window?`) sees an already-attached `parent:` — same caveat as
+          # `Marquee#initialize`.
+          rebuild_scroll_columns @text
         end
 
         # Paints the looping message across the full height on a sine wave,
@@ -73,6 +76,19 @@ module Crysterm
             h = yl - yi
             next if w <= 0 || h <= 0
 
+            # Wave geometry comes from the UNCLIPPED inner size: an ancestor
+            # clip (a scrolled or `overflow: Hidden` container) shrinks the
+            # visible rect per scroll step, and deriving the amplitude and
+            # column phases from it would visibly squash the wave while
+            # scrolling. Instead the wave rides the full-size field and the
+            # visible cells map into it through `clip_offsets` (border-only
+            # inset here, so the column origin is `aleft + border.left`).
+            border = style.border
+            full_w = Math.max(0, awidth - border.left - border.right)
+            full_h = Math.max(0, aheight - border.top - border.bottom)
+            next if full_w <= 0 || full_h <= 0
+            col_off, row_off = clip_offsets(xi, aleft + border.left)
+
             # The attr's invariant parts (flags + bg) are packed once per frame.
             # Only fg varies per column, so the per-column cost is a single
             # `Attr.with_fg` rather than a full `style_to_attr` rebuild on every cell.
@@ -82,18 +98,36 @@ module Crysterm
             # Background fill: the field the glyphs ride over.
             window.fill_region(da, ' ', xi, xl, yi, yl)
 
-            n = text.size
-            next if n == 0
+            next if @scroll_width == 0
 
             f = @frame
-            amp = (h - 1) / 2.0
+            amp = (full_h - 1) / 2.0
 
             (0...w).each do |x|
-              ch = scroll_glyph(f, x, n)
+              # Full-field column this visible column shows; the glyph, its
+              # wave row and its hue all derive from it, so a clipped scroller
+              # shows the correct slice of the same wave.
+              fx = x + col_off
+              break if fx >= full_w
+              ch, width, offset = scroll_column(f, fx)
+              # A continuation column was either already written by its lead
+              # (the previous loop iteration) or, if the lead scrolled off the
+              # left edge (x == 0 here), stays the background blank filled above.
+              next if offset == 1
               next if ch == ' '
-              r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
-              fgf = rainbow? ? rainbow_fg(x, f) : deff
-              window.fill_region(Attr.with_fg(da, fgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
+              r = (amp * (1.0 + Math.sin(fx * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, full_h - 1)
+              # Rows hidden above the clip edge shift the glyph up; skip it
+              # when its row falls outside the visible slice.
+              sy = r - row_off
+              next if sy < 0 || sy >= h
+              fgf = rainbow? ? rainbow_fg(fx, f) : deff
+              attr = Attr.with_fg(da, fgf)
+              if width == 2
+                next if x + 1 >= w # right-edge straddle: half a glyph can't render
+                window.put_wide(attr, ch, xi + x, yi + sy)
+              else
+                window.fill_region(attr, ch, xi + x, xi + x + 1, yi + sy, yi + sy + 1)
+              end
             end
           end
         end

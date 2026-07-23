@@ -64,13 +64,21 @@ module Crysterm
         # Inner-hole radius as a fraction of the outer radius (0..1). `0.0` (the
         # default) is a solid pie; a positive value hollows the center so the
         # slices read as a multi-color ring (a categorical donut).
-        property inner_radius : Float64
+        #
+        # `getter` only: a plain `property` setter's generated `(Float64)`
+        # overload would be *more specific* than the hand-written invalidating
+        # `#inner_radius=(Number)` below, so the ordinary `pie.inner_radius =
+        # 0.5` (a `Float64` literal) would dispatch to the silent generated
+        # setter instead — verified empirically, this is the exact overload
+        # shadowing pitfall `canvas_prop` exists to avoid. Keeping only the
+        # `Number` overload as the sole setter closes the gap.
+        getter inner_radius : Float64
 
         # Whether to draw the color-key legend over the bottom of the chart.
-        property? show_legend : Bool
+        getter? show_legend : Bool
 
         # Whether the legend appends each slice's percentage after its label.
-        property? show_percentages : Bool
+        getter? show_percentages : Bool
 
         def initialize(
           slices : Array(Slice) = [] of Slice,
@@ -113,9 +121,30 @@ module Crysterm
         end
 
         def inner_radius=(v : Number) : Float64
-          @inner_radius = v.to_f
+          f = v.to_f
+          return @inner_radius if f == @inner_radius
+          @inner_radius = f
           invalidate_canvas
           @inner_radius
+        end
+
+        # Text-overlay setters: these change only what `#draw_legend` stamps
+        # (the Canvas raster is untouched, so no `invalidate_canvas`), but a
+        # plain `property?` setter schedules nothing and the change never
+        # appears on an idle screen. `mark_dirty` registers damage and
+        # schedules a frame.
+        def show_legend=(v : Bool) : Bool
+          return v if v == @show_legend
+          @show_legend = v
+          mark_dirty
+          v
+        end
+
+        def show_percentages=(v : Bool) : Bool
+          return v if v == @show_percentages
+          @show_percentages = v
+          mark_dirty
+          v
         end
 
         def render(with_children = true)
@@ -123,19 +152,33 @@ module Crysterm
           draw_legend
         end
 
+        # Sum of only the finite, positive slice values. A NaN slice value
+        # survives `<= 0` (every comparison with NaN is false) and an
+        # Infinite one passes it too, so an unfiltered `@slices.sum &.value`
+        # lets one bad slice poison the shared total: in `#paint_pie` every
+        # angle becomes NaN and `Painter#fill_ring`'s non-finite guard blanks
+        # the whole chart; in `#draw_legend` the percentages are all
+        # suppressed. Both call this instead of summing raw values so they
+        # can never disagree.
+        private def finite_positive_total : Float64
+          @slices.sum { |s| s.value.finite? && s.value > 0 ? s.value : 0.0 }
+        end
+
         private def paint_pie(p : Painter) : Nil
           cx, cy, ro = ring_geometry(p) || return
           ri = ro * @inner_radius.clamp(0.0, 0.95)
 
-          total = @slices.sum &.value
+          total = finite_positive_total
           return if total <= 0
 
           # Accumulate angles clockwise from 12 o'clock; each slice sweeps its
-          # share of 360°. Skip zero/negative slices so they neither advance the
-          # angle nor draw a degenerate wedge.
+          # share of 360°. Skip zero/negative/non-finite slices so they neither
+          # advance the angle nor draw a degenerate wedge — a non-finite value
+          # would otherwise poison `a0` (and every later slice) via `a1 = a0 +
+          # 360.0 * slice.value / total`.
           a0 = 0.0
           @slices.each do |slice|
-            next if slice.value <= 0
+            next unless slice.value.finite? && slice.value > 0
             a1 = a0 + 360.0 * slice.value / total
             p.pen = slice.color
             p.fill_ring cx, cy, ri, ro, a0, a1 - a0
@@ -148,7 +191,7 @@ module Crysterm
           xi, xl, yi, yl = interior_coords || return
           return if xl - xi <= 0 || yl - yi <= 0
 
-          total = @slices.sum &.value
+          total = finite_positive_total
           # One entry per slice, along the bottom rows (bottom-most = last slice),
           # so the legend reads top-to-bottom in slice order. Clip to the interior
           # so it never overwrites the top of the chart on a short widget.
@@ -164,9 +207,11 @@ module Crysterm
             put_cell xi, y, Scale::FULL, overlay_attr(slice.color), xi, xl
             text = slice.label
             if show_percentages? && total > 0
-              # A non-finite slice value makes `total` infinite (passing the
-              # guard) and the share `Inf/Inf = NaN`, on which `.round.to_i`
-              # raises OverflowError in the render fiber; show 0% instead. The
+              # `total` is always finite here (`#finite_positive_total`
+              # filters it), but `slice.value` itself may still be
+              # non-finite (e.g. this very slice was excluded from `total`);
+              # `frac` would then be NaN, on which `.round.to_i` raises
+              # OverflowError in the render fiber — show 0% instead. The
               # clamp also keeps a huge finite share — possible when negative
               # slices shrink `total` — within Int32.
               frac = 100.0 * slice.value / total

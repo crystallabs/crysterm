@@ -141,26 +141,44 @@ module Crysterm
       # `abstract def`, which trips a codegen crash when a module is included by
       # more than one widget.
 
+      # The cell rectangle the overlay can be painted at this frame, or `nil`
+      # when it isn't drawable at all — hidden directly or via an ancestor
+      # (including CSS `visibility: hidden`/`display: none`, which flips
+      # `style.visible` without ever emitting `Event::Hide`), scrolled/clipped
+      # out of a viewport (unresolvable coords), or a degenerate rect.
+      # `visible_in_tree?` is checked BEFORE `coords`: resolving against a
+      # hidden never-rendered ancestor would raise (`coords(false)` itself also
+      # returns nil for a self-hidden widget, and uses the nilable `.lpos`
+      # accessor, so it cannot raise here).
+      private def overlay_drawable_rect : Tuple(Int32, Int32, Int32, Int32)?
+        return unless visible_in_tree?
+        pos = coords(false, into: @overlay_lpos) || return
+        rect = overlay_rect(pos)
+        return if rect[2] <= 0 || rect[3] <= 0
+        rect
+      end
+
       # Before this frame's cells are composited: if moved since the last paint,
       # force re-emit of the previous region's cells so the terminal's text
       # rendering covers the overlay left there. Deliberately not an explicit
       # clear — a re-emitted cell covers stale pixels without the black smears an
       # explicit clear would leave.
       private def invalidate_old_position
-        return unless overlay_visible? && visible?
+        return unless overlay_visible?
         last = @last_drawn || return
         s = window? || return
-        pos = coords(false, into: @overlay_lpos)
-        rect = pos.try { |p| overlay_rect(p) }
-        # Scrolled or clipped out of an ancestor's viewport: coords are
-        # unresolvable (or the rect degenerate), so `#redraw_image` won't run and
-        # nothing would cover the graphic left behind — a Kitty image is a
-        # separate layer re-emitted cells can't paint over. Treat it as a
-        # move-away and run the clear path once (`@last_drawn = nil` stops it
-        # re-running every frame); scrolling back in repaints via `#redraw_image`,
-        # since `#overlay_cleared` drops the emit-skip key. No explicit `s.render`:
-        # inside `PreRender` the ongoing pass flushes the invalidated cells.
-        if rect.nil? || rect[2] <= 0 || rect[3] <= 0
+        rect = overlay_drawable_rect
+        # Scrolled or clipped out of an ancestor's viewport (coords
+        # unresolvable / rect degenerate), or hidden by a CSS restyle that
+        # never emits `Event::Hide`: `#redraw_image` won't run and nothing
+        # would cover the graphic left behind — a Kitty image is a separate
+        # layer re-emitted cells can't paint over. Treat it as a move-away and
+        # run the clear path once (`@last_drawn = nil` stops it re-running
+        # every frame); scrolling back in / re-showing repaints via
+        # `#redraw_image`, since `#overlay_cleared` drops the emit-skip key.
+        # No explicit `s.render`: inside `PreRender` the ongoing pass flushes
+        # the invalidated cells.
+        if rect.nil?
           overlay_cleared s
           s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
           @last_drawn = nil
@@ -179,11 +197,15 @@ module Crysterm
       # here: a painted graphic with no drawable rect is cleared (`#clear_overlay`
       # schedules the render re-emitting the invalidated cells; a Kitty layer is
       # deleted via `#overlay_cleared`). Otherwise repaint via the backend.
+      #
+      # Deliberately NOT gated on `visible?`: a CSS restyle (`visibility:
+      # hidden`/`display: none`, on this widget or an ancestor) flips the
+      # computed style without emitting `Event::Hide`, so the `Hide` hook's
+      # `#clear_overlay` fast path never runs — the "not drawable" decision
+      # here must catch that case too, or the graphic floats over the UI.
       private def overlay_rendered
-        if @last_drawn && overlay_visible? && visible?
-          pos = coords(false, into: @overlay_lpos)
-          rect = pos.try { |p| overlay_rect(p) }
-          if rect.nil? || rect[2] <= 0 || rect[3] <= 0
+        if @last_drawn && overlay_visible?
+          unless overlay_drawable_rect
             clear_overlay
             return
           end

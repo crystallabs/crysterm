@@ -45,11 +45,13 @@ module Crysterm
 
     # The block rendering 0-based data row *row*, or nil.
     def row_block(row : Int32) : TextBlock?
+      return if row < 0
       data_blocks[row]?
     end
 
     # The trimmed text of cell (*row*, *column*), or nil when out of range.
     def cell_text(row : Int32, column : Int32) : String?
+      return if column < 0
       b = row_block(row) || return
       TextTable.split_data_row(b.text)[column]?
     end
@@ -82,6 +84,7 @@ module Crysterm
     # when out of range. Empty for an empty cell (a caret can still sit
     # there); alignment padding around the text is excluded.
     def cell_text_range(row : Int32, column : Int32) : Range(Int32, Int32)?
+      return if row < 0 || column < 0
       entry = data_row_indexed[row]? || return
       bi, b = entry
       text = b.text
@@ -304,9 +307,13 @@ module Crysterm
     end
 
     # Maps a v_char inside cell content to an ASCII '|' so grid recovery never
-    # mistakes it for a column boundary (build-path twin of `sanitize_cell`).
+    # mistakes it for a column boundary, and collapses '\n' to a space so the
+    # rendered block never contains the block separator (build-path twin of
+    # `sanitize_cell`).
     protected def self.sanitize_build_cell(s : String) : String
-      s.includes?(v_char) ? s.gsub(v_char, '|') : s
+      s = s.gsub('\n', ' ')
+      s = s.gsub(v_char, '|') if s.includes?(v_char)
+      s
     end
 
     # Whether pre-rendered block text is a data row (vs. a border row).

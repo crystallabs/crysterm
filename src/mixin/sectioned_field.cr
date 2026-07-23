@@ -58,7 +58,12 @@ module Crysterm
       # `ends[-1]` (past the text) — `select_section_at` relies on that `nil` to
       # leave the active section untouched on a click past the value.
       private def section_from_columns(x : Int32, ends : Array(Int32)) : Int32?
-        col = x - aleft - ileft
+        # *x* is the mouse event's painted screen coordinate (dispatch
+        # hit-tests against the painted rect), so resolve it against the
+        # *painted* origin, not the layout coords — the two diverge when the
+        # painted rect is shifted (overflow MoveWidget, edge clipping). Same
+        # rule as `Mixin::TrackGeometry#pointer_offset` / `Mixin::CheckMarker`.
+        col = x - painted_origin[0] - ileft
         return if col < 0 || col > ends[-1]
         ends.index { |e| col <= e }
       rescue
@@ -85,7 +90,14 @@ module Crysterm
         end
         # Year/month branches changed y/mo, so recompute days-in-month if unset.
         d = Math.min(d, dim || Time.days_in_month(y, mo))
-        Time.local(y, mo, d, h, mi, s)
+        # Rebuild in *t*'s own zone, not the machine-local one: the sections are
+        # wall-clock components of *t*, so a value stored as UTC (or any fixed
+        # offset) must step within that same zone. Building in `Time::Location.local`
+        # instead would shift the instant by the zone offset, and when that offset
+        # cancels the step (e.g. a UTC value on a +1 machine, 10:00→11:00 == the
+        # same instant) the change-guarded setter sees no change and the step
+        # silently no-ops.
+        SectionedField.build_time(y, mo, d, h, mi, s, location: t.location)
       end
 
       # Selects the section under absolute *x* (no-op when off the field or
@@ -155,6 +167,20 @@ module Crysterm
         Time.local
       rescue
         Time.utc(2000, 1, 1)
+      end
+
+      # Builds a `Time` for the given components in *location* (machine-local by
+      # default), falling back to UTC when the zone is unavailable (headless
+      # context, missing tzdata). Every constructed date/time must route through
+      # here (or carry the same rescue), or a headless context raises from a
+      # step/render/setter path — the shared guard behind `#step_time_field` and
+      # `Calendar#local_date`. Pass *location* to preserve the zone of a value
+      # being stepped (see `#step_time_field`); the default matches
+      # `Time.local` for callers that build a fresh machine-local date.
+      def self.build_time(y : Int32, mo : Int32, d : Int32, h : Int32 = 0, mi : Int32 = 0, s : Int32 = 0, location : Time::Location = Time::Location.local) : Time
+        Time.local(y, mo, d, h, mi, s, location: location)
+      rescue
+        Time.utc(y, mo, d, h, mi, s)
       end
 
       # Generates the value getter *name* (returning *ivar*) plus a

@@ -169,7 +169,14 @@ module Crysterm
         private def column(bar : Array(Float64), plot_rows : Int32, top : Float64, ramp : Array(Char)) : Array({Char, String?})
           blank = {' ', nil.as(String?)}
           col = Array({Char, String?}).new(plot_rows, blank)
-          sum = bar.sum
+          # A NaN segment survives `sum <= 0` (every comparison with NaN is
+          # false) and makes `sum` itself NaN; `Scale.eighths` happens to
+          # return 0 for a non-finite input, so today `total <= 0` catches it
+          # before the `cum / sum` loop below runs. Filtering here (treating a
+          # non-finite segment as a zero-height contribution, like `PieChart`
+          # skips a non-finite slice) keeps that safety margin explicit rather
+          # than incidental, and keeps `sum`/`cum` in agreement below.
+          sum = bar.sum { |v| v.finite? ? v : 0.0 }
           return col if sum <= 0
 
           # Total filled height of the whole bar, in eighth-cells from the bottom.
@@ -183,7 +190,7 @@ module Crysterm
           cum = 0.0
           prev = 0
           bar.each_with_index do |seg, level|
-            cum += seg
+            cum += seg.finite? ? seg : 0.0
             edge = (total * (cum / sum)).round.to_i
             edge = ((edge + 4) // 8) * 8 if level < last # snap to nearest cell
             edge = total if level == last                # topmost: sub-cell exact
@@ -217,13 +224,19 @@ module Crysterm
           width = 0
           names.each_with_index do |name, level|
             entry = "#{Scale::FULL} #{name}"
+            # str_width, not a raw .size: a CJK/emoji segment label displays
+            # 2 columns per grapheme, and this must match how the content
+            # engine measures/wraps the built line (field_line already does
+            # this via Scale.center_to; legend_line was the one path that
+            # skipped the convention).
+            entry_w = str_width(entry)
             # The separating space must be in the overflow check too, or a
             # too-wide entry overruns the legend by that separator.
             sep = level > 0 ? 1 : 0
-            break if width + sep + entry.size > cols
+            break if width + sep + entry_w > cols
             io << ' ' if level > 0
             io << "{#{segment_color(level)}-fg}#{Scale::FULL}{/} #{name}"
-            width += entry.size + sep
+            width += entry_w + sep
           end
         end
       end

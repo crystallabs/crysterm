@@ -113,6 +113,53 @@ module Crysterm
           (pad - left).times { io << ' ' }
         end
 
+        # Overlays `text` onto `cells`/`colors` (parallel arrays serialized by
+        # `#tagged_row`), starting at *display column* `at`, and writes it in
+        # place. Module-level (not a widget method) because `Gauge`/`GaugeList`
+        # share it, so `full_unicode` is passed explicitly rather than read off
+        # `Widget#full_unicode?`.
+        #
+        # Measures/advances by *display columns*, not codepoints: a wide
+        # (CJK/emoji) grapheme occupies 2 terminal columns but only 1 array
+        # slot, so writing it into a single `Char` slot and advancing by 1
+        # would under-consume the row, making the serialized content wider
+        # than `cells.size` columns and wrapping the row. Instead, a wide char
+        # consumes an extra slot — deleted from both arrays (not blanked:
+        # blanking would still serialize to one column too many) — so the
+        # arrays shrink but the row keeps exactly its original display width.
+        # A wide char that would land in the row's last slot (no continuation
+        # slot to delete) stops the overlay rather than corrupt the tail. A
+        # zero-width (combining) char is skipped outright: writing it into its
+        # own slot would remove a display column it doesn't occupy.
+        #
+        # Callers overlaying more than one caption onto the same row (e.g. one
+        # per stacked segment) must overlay them in *reverse* (right-to-left)
+        # order: a wide char's slot deletion shifts every later index, so
+        # processing right-to-left keeps not-yet-overlaid positions stable.
+        def self.overlay_text(cells : Array(Char), colors : Array(String?), at : Int32, text : String, full_unicode : Bool = false) : Nil
+          x = at
+          text.each_char do |ch|
+            cw = full_unicode ? Unicode.display_width(ch.to_s) : 1
+            next if cw == 0
+            if x < 0
+              x += cw
+              next
+            end
+            break if x >= cells.size
+            if cw == 2
+              break if x + 1 >= cells.size # no continuation slot to consume
+              cells[x] = ch
+              colors[x] = nil
+              cells.delete_at(x + 1)
+              colors.delete_at(x + 1)
+            else
+              cells[x] = ch
+              colors[x] = nil
+            end
+            x += 1
+          end
+        end
+
         # Formats a numeric value compactly: integers lose their `.0`, others
         # are rounded to one decimal. Uses `to_i64` (not `to_i`, which is Int32
         # and raises `OverflowError` on ordinary large data — byte counts,

@@ -22,10 +22,12 @@ module Crysterm
       # (e.g. a full-width `background-image` layer) and `layout_chrome?` chrome
       # (a border label / bound scroll bar) are skipped; either would otherwise
       # inflate the column to the whole interior and collapse the grid to one
-      # column.
+      # column. So are `#vacant?` (hidden) children — `Flow#arrange` packs as
+      # though they weren't there, and a hidden wide child must not set the
+      # column pitch for the visible ones.
       protected def before_flow(container : Widget) : Nil
         @high_width = container.children.reduce(0) do |o, el|
-          next o if el.layout_excluded? || el.layout_chrome?
+          next o if el.layout_excluded? || el.layout_chrome? || vacant?(el)
           Math.max o, el.awidth
         end
       end

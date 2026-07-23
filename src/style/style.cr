@@ -137,8 +137,11 @@ module Crysterm
             # Mutable box sub-objects must be copied, not shared by reference:
             # the longhand tiers (`border-left`, `padding-top`, …) mutate the
             # folded object in place, which would permanently corrupt the user's
-            # inline `@style`. Mirrors `Style#dup`'s policy.
-            other.{{ prop.id }} = {{ prop.id }}.dup if specified?(:{{ prop.id }})
+            # inline `@style`. Mirrors `Style#dup`'s policy. Gated on
+            # `box_touched?`, not `specified?`: an in-place `padding.left = 2`
+            # through the lazy getter never stamps the mask, but must still
+            # survive the fold.
+            other.{{ prop.id }} = {{ prop.id }}.dup if box_touched?(:{{ prop.id }})
           {% else %}
             other.{{ prop.id }} = {{ prop.id }} if specified?(:{{ prop.id }})
           {% end %}
@@ -167,6 +170,28 @@ module Crysterm
       when :glyphs           then !@glyphs.nil?
       else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
+    end
+
+    # Whether the *property* box was effectively set by the user: explicitly
+    # assigned through its setter (`specified?`), or materialized via the lazy
+    # getter and mutated in place to a non-zero side (`style.border.left = 1`
+    # never stamps the mask). Compared against the getter-materialization
+    # default — an all-zero box — NOT the class resting defaults (`Border`
+    # rests at 1,1,1,1; `Shadow` at right 2/bottom 1), so a merely-*read* box
+    # stays untouched. Accepted residue: side-less in-place edits (border
+    # `fg`/`type`/chars with all sides 0) read as untouched — visually moot,
+    # a zero-side box renders nothing — and an in-place reset back to all-zero
+    # reads as untouched (use the setter to express "explicitly off").
+    def box_touched?(property : Symbol) : Bool
+      return true if specified?(property)
+      box = case property
+            when :border  then @border
+            when :padding then @padding
+            when :margin  then @margin
+            when :shadow  then @shadow
+            end
+      return false unless box
+      box.left != 0 || box.top != 0 || box.right != 0 || box.bottom != 0
     end
 
     # Re-wrap the `property?`-generated boolean setters so each explicit
@@ -199,6 +224,21 @@ module Crysterm
       copy
     end
 
+    # Clears border and padding on this style in place, for a chrome row that
+    # must never carry the container's frame — e.g. a fixed-height-1 header
+    # or status row, where the container's border/padding would eat some or
+    # all of the row's interior (a 1-row box with a border has a negative
+    # content height). Always mutates `self`, so callers that don't already
+    # own an independent copy must `#dup` first — matching the existing
+    # dup-then-mutate convention (see `ToolBox#add_item`, `Pine::StatusBar`).
+    # `Mixin::ItemView#without_border` strips border only, since list items
+    # keep their own padding.
+    def strip_frame! : self
+      self.border = false
+      self.padding = 0
+      self
+    end
+
     # Whether this style carries a visible distinction of its own — an explicit
     # `fg`/`bg` color, or reverse-video — as opposed to being fully unstyled.
     def visibly_styled? : Bool
@@ -213,6 +253,26 @@ module Crysterm
       copy = dup
       copy.reverse = true
       copy
+    end
+
+    # Value fingerprint of the attribute fields a composed/derived style copy
+    # takes from its source: colors, the `specified_mask`, the SGR booleans and
+    # `visible`. Identity-keyed memos of such copies (`#alternate_row`'s
+    # composition, the reverse-video fallbacks, `ListTable`'s alternate-row
+    # derivation) compare this alongside `same?`, so an *in-place* mutation of
+    # the source (`s.fg = ...` with no object swap, as programmatic styling
+    # without CSS does) still invalidates them. `visible?` must be included:
+    # `visible=` only ORs its mask bit, so a second hide/show flip changes
+    # neither the mask nor any other field. Box sub-objects (`border`/
+    # `padding`/…), `opacity`, `tint` etc. are deliberately outside the
+    # fingerprint: no memoized consumer reads them from the copy (they read
+    # attributes only), and a flat stack tuple keeps the per-read compare
+    # allocation-free.
+    alias AttrFingerprint = Tuple(Int32?, Int32?, UInt32, Bool, Bool, Bool, Bool, Bool, Bool, Bool)
+
+    # :ditto:
+    def attr_fingerprint : AttrFingerprint
+      {@fg, @bg, @specified_mask, bold?, italic?, underline?, blink?, reverse?, strike?, visible?}
     end
 
     # Is any transparency defined? Testing `opacity == nil` alone isn't enough:
@@ -367,11 +427,13 @@ module Crysterm
     # Only the background override is frozen; fg/attributes compose live.
     @alternate_bg : Int32?
 
-    # Memoized composed sub-style, guarded by the base style's identity so the
-    # per-frame read stays cheap; invalidated whenever the base object or the bg
-    # override changes.
+    # Memoized composed sub-style, guarded by the base style's identity *and*
+    # its `#attr_fingerprint` so the per-frame read stays cheap; invalidated
+    # whenever the base object, its attribute values (in-place mutation), or
+    # the bg override changes.
     @alternate_row_composed : Style?
     @alternate_row_composed_src : Style?
+    @alternate_row_composed_fp : AttrFingerprint?
 
     def alternate_row=(value : Style?) : Style?
       @alternate_row_composed = nil
@@ -382,14 +444,19 @@ module Crysterm
       base = @alternate_row || cell
       bg = @alternate_bg
       return base if bg.nil?
-      # Reuse the memoized composition while the base object is unchanged.
-      if (c = @alternate_row_composed) && (s = @alternate_row_composed_src) && s.same?(base)
+      # Reuse the memoized composition while the base object is unchanged —
+      # both by identity and by value, so an in-place `base.fg = ...` between
+      # frames recomposes instead of returning the stale frozen copy.
+      fp = base.attr_fingerprint
+      if (c = @alternate_row_composed) && (s = @alternate_row_composed_src) &&
+         s.same?(base) && @alternate_row_composed_fp == fp
         return c
       end
       composed = base.dup
       composed.bg = bg
       @alternate_row_composed = composed
       @alternate_row_composed_src = base
+      @alternate_row_composed_fp = fp
       composed
     end
 

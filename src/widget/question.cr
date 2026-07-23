@@ -68,7 +68,10 @@ module Crysterm
       # either way.
       def ask(text = nil, &block : Bool ->)
         set_content text || @text
-        show
+        # On top with the modal grab taken (`Dialog#show_modal`), so widgets
+        # beneath the open dialog aren't clickable; every close path runs
+        # `#done`, which releases the grab.
+        show_modal
         @result = Code::Rejected.to_i
 
         # Publish the pending callback on the instance so `#destroy` can reach
@@ -146,7 +149,10 @@ module Crysterm
       # `Accepted`).
       def ask_choices(text = nil, choices : Array(String) = ["OK", "Cancel"], default = 0, &block : Int32? ->)
         set_content text || @text
-        show
+        # On top with the modal grab taken (`Dialog#show_modal`), so widgets
+        # beneath the open dialog aren't clickable; every close path runs
+        # `#done`, which releases the grab.
+        show_modal
         @result = Code::Rejected.to_i
 
         # The fixed OK/Cancel pair is not used in this mode.

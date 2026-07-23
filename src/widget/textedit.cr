@@ -176,24 +176,28 @@ module Crysterm
       # not undoable, cursors rewind. Views sharing the document all update.
       def set_markdown(text : String, theme : TextTheme = @theme) : Nil
         document.set_markdown text, theme
+        interchange_reset_caret
       end
 
       # `=`-setter spelling of `#set_markdown` (widget theme; use
       # `#set_markdown` for an explicit one).
-      def markdown=(text : String) : Nil
+      def markdown=(text : String) : String
         set_markdown text
+        text
       end
 
       # Replaces the document's whole content from HTML (Qt
       # `QTextEdit#setHtml`); otherwise like `#set_markdown`.
       def set_html(html : String, theme : TextTheme = @theme) : Nil
         document.set_html html, theme
+        interchange_reset_caret
       end
 
       # `=`-setter spelling of `#set_html` (widget theme; use `#set_html` for
       # an explicit one).
-      def html=(html : String) : Nil
+      def html=(html : String) : String
         set_html html
+        html
       end
 
       protected def reset_document_caches : Nil
@@ -1278,17 +1282,26 @@ module Crysterm
       # display work happens here. ===
 
       {% for f in %w[tags markdown html] %}
-        # Replaces the content from {{ f.id }} markup.
-        def set_{{ f.id }}(str : String) : Nil
-          document.set_{{ f.id }}(str)
-          interchange_reset_caret
-        end
+        {% if f == "tags" %}
+          # Replaces the content from {{ f.id }} markup.
+          #
+          # markdown/html deliberately have NO setters here: their themed
+          # overloads (`#set_markdown`/`#set_html` near the top of the class,
+          # defaulting to this widget's `#theme`) are the single definitions —
+          # a 1-arg def generated here would REPLACE the defaulted-arg def
+          # entirely (not overload it), dropping both the 2-arg themed call
+          # and the widget-theme default.
+          def set_{{ f.id }}(str : String) : Nil
+            document.set_{{ f.id }}(str)
+            interchange_reset_caret
+          end
 
-        # :ditto:
-        def {{ f.id }}=(str : String) : String
-          set_{{ f.id }}(str)
-          str
-        end
+          # :ditto:
+          def {{ f.id }}=(str : String) : String
+            set_{{ f.id }}(str)
+            str
+          end
+        {% end %}
 
         # The content as {{ f.id }} markup.
         def to_{{ f.id }} : String

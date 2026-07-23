@@ -1068,6 +1068,25 @@ module Crysterm
       end
     end
 
+    # Writes one wide (2-column) glyph directly into window cells: a lead cell
+    # at `(x, y)` plus a claimed continuation cell at `(x + 1, y)`, both
+    # carrying *attr*. Upholds the same "a width-2 cell is always followed by
+    # an in-region continuation" invariant the content draw path maintains
+    # (see the claim/blank pair around line 566 and 606 above), for
+    # direct-paint widgets (`Marquee`, `Effect::SineScroller`) that bypass the
+    # content pipeline and write cells straight via `#fill_region`.
+    #
+    # The caller is responsible for confirming `x + 1` is still within the
+    # widget's own content region before calling — a lead with no in-region
+    # continuation must be left blank instead (half a wide glyph can't
+    # render), mirroring `widget_rendering.cr`'s edge-blanking. Built on top
+    # of `#fill_region` so it gets the same change-guarding, dirty-marking,
+    # and grapheme/link overlay cleanup for free.
+    def put_wide(attr : Int64, ch : Char, x : Int32, y : Int32) : Nil
+      fill_region(attr, ch, x, x + 1, y, y + 1)
+      fill_region(attr, Cell::CONTINUATION, x + 1, x + 2, y, y + 1)
+    end
+
     # Alpha-blends every cell in a region toward black (shadow compositing).
     # Unlike `fill_region` this does NOT clamp `xi`/`yi` to 0: shadow callers pass
     # intentionally unclamped bounds and rely on the lookups skipping whatever

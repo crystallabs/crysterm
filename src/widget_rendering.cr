@@ -142,6 +142,19 @@ module Crysterm
     # alone cannot tell them apart.
     property? layout_suppressed : Bool = false
 
+    # Splits one edge's scroll-clipped run (`RenderedGeometry#hidden_*`) across
+    # that edge's border and padding bands — the border is the outermost band,
+    # so it is consumed first. Returns `{visible_border, visible_padding}`: the
+    # parts of each band still inside the clipping ancestor's viewport, i.e. the
+    # effective insets to apply in place of the full widths. Equals
+    # `{border_w, padding_w}` on an unclipped edge (`hidden == 0`), so callers
+    # need no clipped/unclipped distinction.
+    protected def effective_edge_insets(border_w : Int32, padding_w : Int32, hidden : Int32) : {Int32, Int32}
+      eb = (border_w - hidden).clamp(0, border_w)
+      ep = (padding_w - Math.max(hidden - border_w, 0)).clamp(0, padding_w)
+      {eb, ep}
+    end
+
     # The base painting implementation: renders this widget (and, when
     # *with_children*, its subtree) into the window's cell buffer. Subclass
     # `#render` overrides call this the way a `paintEvent` override calls the
@@ -253,9 +266,23 @@ module Crysterm
         attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || default_attr
       end
 
-      style.border.try do |border|
-        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
-      end
+      # Effective per-edge insets: on a scroll-clipped edge part (or all) of the
+      # border/padding band is hidden past the ancestor's viewport, and `coords`
+      # clamps the rect to that viewport (recording the cut in `hidden_*`), so
+      # the inset still to apply here is only each band's visible remainder.
+      # Unclipped edges get the full widths. These replace the whole-width
+      # `border.adjust`/`p.adjust` calls, which would double-count the hidden
+      # rows/columns and start content too far in (or paint phantom padding).
+      sb = style.border
+      ebt, ept = effective_edge_insets(sb.top, padding.top, coords.hidden_top)
+      ebb, epb = effective_edge_insets(sb.bottom, padding.bottom, coords.hidden_bottom)
+      ebl, epl = effective_edge_insets(sb.left, padding.left, coords.hidden_left)
+      ebr, epr = effective_edge_insets(sb.right, padding.right, coords.hidden_right)
+
+      xi += ebl
+      xl -= ebr
+      yi += ebt
+      yl -= ebb
 
       # Reserve the bottom row(s) for a shown horizontal scroll bar so content
       # never paints under it. `may_scroll` also stays true for a widget that
@@ -280,13 +307,14 @@ module Crysterm
           # content region itself, and blending twice makes a padded translucent
           # widget's interior more opaque than its padding. A background-image
           # widget's content loop leaves empty cells untouched, so there the
-          # whole-box blend must stay.
-          pd = padding
+          # whole-box blend must stay. Band widths use the effective (visible)
+          # padding: a scroll-clipped edge's hidden padding rows/columns are
+          # outside the rect and must not re-appear as a band inside it.
           skip_content = style.background_image.nil?
-          cxi = xi + pd.left
-          cxl = xl - pd.right
-          cyi = yi + pd.top
-          cyl = yl - pd.bottom - hsr
+          cxi = xi + epl
+          cxl = xl - epr
+          cyi = yi + ept
+          cyl = yl - epb - hsr
           (Math.max(yi, 0)...yl).each do |y|
             line = lines[y]?
             unless line
@@ -305,15 +333,17 @@ module Crysterm
             end
           end
         elsif fill && style.background_image.nil?
-          pd = padding
-          bot = pd.bottom + hsr
+          bot = epb + hsr
+          # Effective (visible) padding widths: a scroll-clipped edge's hidden
+          # padding band must not be re-painted inside the viewport as a
+          # phantom blank band over rows/columns that belong to content.
           # Degenerate boxes (padding thicker than the box) make bands overlap
           # or ranges invert; `fill_region` clamps and empty ranges no-op, and a
           # double-filled cell is change-skipped on the second write.
-          scr.fill_region(default_attr, bch, xi, xl, yi, yi + pd.top) if pd.top > 0
+          scr.fill_region(default_attr, bch, xi, xl, yi, yi + ept) if ept > 0
           scr.fill_region(default_attr, bch, xi, xl, yl - bot, yl) if bot > 0
-          scr.fill_region(default_attr, bch, xi, xi + pd.left, yi + pd.top, yl - bot) if pd.left > 0
-          scr.fill_region(default_attr, bch, xl - pd.right, xl, yi + pd.top, yl - bot) if pd.right > 0
+          scr.fill_region(default_attr, bch, xi, xi + epl, yi + ept, yl - bot) if epl > 0
+          scr.fill_region(default_attr, bch, xl - epr, xl, yi + ept, yl - bot) if epr > 0
         else
           # A background-image widget (the image paints over this base fill) or
           # a `fill: false` widget. The `fill` gate keeps the latter transparent:
@@ -330,8 +360,11 @@ module Crysterm
       update_background_media
       bg_cells = background_paints_cells?
 
-      p = padding
-      xi, xl, yi, yl = p.adjust xi, xl, yi, yl
+      # Effective padding, for the same reason as the border inset above.
+      xi += epl
+      xl -= epr
+      yi += ept
+      yl -= epb
       yl -= hsr
 
       # Determine where to place the text if it's vertically aligned.
@@ -601,12 +634,13 @@ module Crysterm
       # edge), styleable/interactive rather than an inline glyph.
       update_scrollbar_widget if may_scroll
 
-      style.border.try do |border|
-        xi, xl, yi, yl = border.adjust xi, xl, yi, yl, -1
-      end
-
-      p = padding
-      xi, xl, yi, yl = p.adjust xi, xl, yi, yl, -1
+      # Restore the outer box by undoing the effective border+padding insets
+      # applied above (same effective widths, so this lands exactly back on the
+      # clamped `lpos` rect — never past a clipped edge's viewport).
+      xi -= ebl + epl
+      xl += ebr + epr
+      yi -= ebt + ept
+      yl += ebb + epb
 
       # Add back the row(s) reserved for the horizontal scroll bar (subtracted
       # above): the border must draw at the true bottom edge, not the bar row.
@@ -646,12 +680,15 @@ module Crysterm
         glyphs = border.line_glyphs_with_overrides(glyph_tier)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
-        # each side's thickness. Every cell of the outer box outside it is a
-        # border cell, so a side thicker than one cell fills its whole band.
-        in_yi = yi + border.top
-        in_yl = yl - border.bottom
-        in_xi = xi + border.left
-        in_xl = xl - border.right
+        # each side's *visible* thickness (a clipped edge's hidden band rows are
+        # already cut off the rect, so insetting by the full width would push
+        # the interior — and the left/right vertical runs — short of the
+        # viewport edge). Every cell of the outer box outside it is a border
+        # cell, so a side thicker than one cell fills its whole band.
+        in_yi = yi + ebt
+        in_yl = yl - ebb
+        in_xi = xi + ebl
+        in_xl = xl - ebr
 
         (yi...yl).each do |y|
           next if y < 0 # off the top edge (a negative index would wrap)
@@ -710,14 +747,17 @@ module Crysterm
       end
 
       # Shadow: each side blends a band of cells toward black, differing only in
-      # bounds.
+      # bounds. A band on a scroll-clipped (`no_*`) edge is skipped: shadows
+      # intentionally paint *outside* the rect, so on a clipped edge the band
+      # would land past the clipping ancestor's viewport, over cells that
+      # belong to other widgets.
       if (s = style.shadow) && s.any?
         # Half-block (thin) shadow: each band splits into the straight run
         # alongside the box and the corner caps beyond its edges, so the cell
         # where two bands meet gets its own diagonal glyph. Corner ownership
         # follows the band partition, so no cell is painted twice. The plain
         # (no-glyphs) path does a single blend per band instead.
-        if s.left?
+        if s.left? && !coords.no_left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
           if s.glyphs?
@@ -727,7 +767,7 @@ module Crysterm
           end
         end
 
-        if s.top?
+        if s.top? && !coords.no_top?
           l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
           if s.glyphs?
             blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
@@ -736,7 +776,7 @@ module Crysterm
           end
         end
 
-        if s.right?
+        if s.right? && !coords.no_right?
           i = (s.top? || s.left?) ? yi : yi + s.bottom
           l = s.bottom? ? yl + s.bottom : yl
           if s.glyphs?
@@ -746,7 +786,7 @@ module Crysterm
           end
         end
 
-        if s.bottom?
+        if s.bottom? && !coords.no_bottom?
           i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
           l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
           if s.glyphs?
@@ -942,18 +982,25 @@ module Crysterm
     # `Border#adjust(pos)`/`Padding#adjust(pos)` would shrink it in place, so
     # mutating it would permanently collapse `@lpos` to the interior,
     # under-reporting mouse hit-testing, damage-tracking bounds, and
-    # `clear_last_rendered_position` until the next frame. The allocation-free
-    # by-value overloads used here leave `@lpos`/`ret` describing the full rect.
+    # `clear_last_rendered_position` until the next frame. The loose-locals
+    # arithmetic used here leaves `@lpos`/`ret` describing the full rect.
     private def with_inset_coords(with_children, pad : Bool, & : (Int32, Int32, Int32, Int32) -> _) : RenderedGeometry?
       ret = base_render with_children
       return unless ret
       xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
-      if border = style.border
-        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
-      end
-      if pad
-        xi, xl, yi, yl = style.padding.adjust xi, xl, yi, yl
-      end
+      # Effective insets, exactly as `base_render` applies them: `ret` is
+      # clamped to a clipping ancestor's viewport, so on a clipped edge only
+      # the visible remainder of the border/padding band insets the interior.
+      border = style.border
+      padding = style.padding
+      ebt, ept = effective_edge_insets(border.top, padding.top, ret.hidden_top)
+      ebb, epb = effective_edge_insets(border.bottom, padding.bottom, ret.hidden_bottom)
+      ebl, epl = effective_edge_insets(border.left, padding.left, ret.hidden_left)
+      ebr, epr = effective_edge_insets(border.right, padding.right, ret.hidden_right)
+      xi += pad ? ebl + epl : ebl
+      xl -= pad ? ebr + epr : ebr
+      yi += pad ? ebt + ept : ebt
+      yl -= pad ? ebb + epb : ebb
       yield xi, xl, yi, yl
       ret
     end

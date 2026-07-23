@@ -102,23 +102,27 @@ module Crysterm
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
         # Hints are clamped to grid bounds before any bookkeeping: column
-        # origin/span to `columns`, the row origin to `ROW_ORIGIN_CAP`. The row
-        # *span* is clamped against `row_bound` below, once every explicit origin
-        # is known.
+        # origin/span to `columns`, the row origin to `row_origin_cap` below.
+        # The row *span* is clamped against `row_bound` below, once every
+        # explicit origin is known.
         max_origin = 0
         total = 0
         # Row-origin cap: with a declared `rows` clamp to the *last* valid row —
         # like the column axis below, so an off-grid row origin stays visible
         # instead of collapsing to a zero-height cell past the bottom edge.
         # Without a declared `rows` the count is inferred, so the origin may
-        # extend the grid and only the overflow-guard cap applies.
+        # extend the grid — but no further than the interior's last row: a row
+        # past the interior can never be visible (each visible row needs at
+        # least one cell), and a single child hinted far off-grid would
+        # otherwise inflate the inferred row count until every innocent
+        # sibling's cell divides down to zero height and vanishes.
         row_origin_cap =
           if (r = @rows) && r > 0
             Math.min(ROW_ORIGIN_CAP, r - 1)
           elsif @rows
             0
           else
-            ROW_ORIGIN_CAP
+            Math.min(ROW_ORIGIN_CAP, Math.max(h, 1) - 1)
           end
         each_arrangeable container do |el|
           total += 1
@@ -155,7 +159,12 @@ module Crysterm
           while occupied.includes?({r, c})
             r, c = next_cell r, c, cols
           end
-          placements << {el, r, c, 1, 1}
+          # Record the placement at the clamped row, like the hint pass: a
+          # child auto-flowed past the last row stacks into it visibly instead
+          # of collapsing to a zero-height cell past the bottom edge. The
+          # occupancy bookkeeping and cursor stay on the raw `r`, so
+          # subsequent auto-flow children still walk distinct cells.
+          placements << {el, Math.min(r, row_origin_cap), c, 1, 1}
           occupied << {r, c}
           r, c = next_cell r, c, cols
         end
@@ -179,6 +188,11 @@ module Crysterm
             span_rows = Math.max(span_rows, p[1] + p[3])
           end
           nrows = Math.min(span_rows, Math.max(start_rows, placements.size))
+          # Cap the inferred count at the interior height, mirroring the
+          # declared-rows clamp above: with origins already capped this only
+          # matters for many auto-flow children, where the capped result
+          # matches what a declared `rows` of the same magnitude yields.
+          nrows = Math.min(nrows, Math.max(h, 1))
         end
         nrows = 1 if nrows < 1
 

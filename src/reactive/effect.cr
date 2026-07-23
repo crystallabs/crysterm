@@ -75,6 +75,11 @@ module Crysterm
       # `initialize` rather than as an ivar default because the closure calls the
       # instance method `schedule`, only in scope there.
       @on_change : Proc(::Crysterm::Event::Changed, ::Nil)
+      # The owner's auto-dispose `Event::Destroy` hook, held so `dispose` can
+      # unhook it — an effect disposed early by hand must not leave a dead
+      # handler (pinning this effect and everything its block captured) on the
+      # long-lived owner. Set by `Reactive.effect`.
+      protected property owner_sub : ::Crysterm::Subscription?
       getter? disposed = false
 
       # *eager* effects recompute synchronously the moment an upstream changes,
@@ -173,6 +178,8 @@ module Crysterm
         @subs_by_id.clear
         @tracked.clear
         @added.clear
+        @owner_sub.try &.off
+        @owner_sub = nil
       end
     end
 
@@ -182,7 +189,15 @@ module Crysterm
     # automatically when *owner* is destroyed. Returns the `Effect`.
     def self.effect(owner : ::Crysterm::Widget? = nil, &block : ->) : Effect
       eff = Effect.new owner, &block
-      owner.try &.on(::Crysterm::Event::Destroy) { eff.dispose }
+      # Auto-dispose with the owner, through a `Subscription` the effect owns so
+      # `dispose` unhooks it. Skipped if the initial run already disposed the
+      # effect (e.g. its body tore down the owner) — the hook would never fire
+      # usefully and could never be cancelled.
+      if owner && !eff.disposed?
+        sub = ::Crysterm::Subscription.new
+        sub.on(owner, ::Crysterm::Event::Destroy) { eff.dispose }
+        eff.owner_sub = sub
+      end
       eff
     end
   end

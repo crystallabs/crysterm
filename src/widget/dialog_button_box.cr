@@ -152,8 +152,13 @@ module Crysterm
       # Builds one button, appends it, and wires its `Pressed` to the box-level
       # accept/reject signal implied by *role*.
       private def make_button(text : String, role : Role) : Button
+        # str_width, not a raw .size: under full_unicode a CJK/emoji label is
+        # twice as wide as its codepoint count, and the button must be sized
+        # to fit its actual rendered (display-column) width, matching how the
+        # box's own content engine wraps the label. (Buttons render with
+        # parse_tags: false, so no clean_tags here — brace text is literal.)
         b = ::Crysterm::Mixin::OkCancelDialog.dialog_button(
-          text, text.size + 2,
+          text, str_width(text) + 2,
           parent: self, top: 0,
           focus_on_click: true, shrink_to_fit: true,
         )

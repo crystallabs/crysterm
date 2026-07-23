@@ -93,12 +93,30 @@ module Crysterm
 
       # Whether to draw the inline percentage label (single mode) / segment
       # captions (stacked mode).
-      property? show_label : Bool
+      getter? show_label : Bool
+
+      # Assigns `#show_label?` and schedules a repaint: the content cache's key
+      # includes `@show_label` so a bare `property` setter's change would only
+      # take effect on some later, unrelated frame.
+      def show_label=(v : Bool) : Bool
+        return v if v == @show_label
+        @show_label = v
+        request_render
+        v
+      end
 
       # Template for the single-mode label. Placeholders, as in
       # `ProgressBar#format`: `%p` percentage, `%v` value, `%m` maximum,
       # `%M` minimum.
-      property format : String
+      getter format : String
+
+      # Assigns `#format` and schedules a repaint (see `#show_label=`).
+      def format=(v : String) : String
+        return v if v == @format
+        @format = v
+        request_render
+        v
+      end
 
       # Fill color for single mode (and the default for segments without their
       # own color), a native `0xRRGGBB` `Int32`. `nil` uses the widget's
@@ -155,8 +173,9 @@ module Crysterm
         **box,
       )
         @fill_color = fill_color.is_a?(String) ? Colors.convert_cached(fill_color) : fill_color
-        @minimum = @minimum.to_f
-        @maximum = @maximum.to_f
+        # A non-finite bound would bypass `#set_range`'s guard and poison
+        # `#percent_of`, crashing the render fiber on `.round.to_i`.
+        @minimum, @maximum = sanitize_range(@minimum.to_f, @maximum.to_f)
         v = value.to_f
         # Non-finite input would survive `clamp` (NaN compares false) and later
         # crash the render fiber on `.round.to_i`; sanitize at ingestion.
@@ -291,26 +310,23 @@ module Crysterm
 
         if segs && !segs.empty?
           spans = segment_spans(segs, cols)
-          segs.each_with_index do |seg, i|
+          # Overlay right-to-left: a wide caption deletes a slot from `cells`,
+          # shifting every later index, so processing the highest-index
+          # (rightmost) segment first keeps not-yet-overlaid spans' `start`
+          # positions valid. See `Graph::Scale.overlay_text`.
+          (segs.size - 1).downto(0) do |i|
+            seg = segs[i]
             start, w = spans[i]
             if (lbl = seg.label) && w > 0
-              overlay(cells, colors, start + Math.max(0, (w - lbl.size) // 2), lbl)
+              at = start + Math.max(0, (w - str_width(lbl)) // 2)
+              Graph::Scale.overlay_text(cells, colors, at, lbl, full_unicode?)
             end
           end
         else
-          overlay(cells, colors, 1, formatted_text)
+          Graph::Scale.overlay_text(cells, colors, 1, formatted_text, full_unicode?)
         end
 
         String.build { |io| Graph::Scale.tagged_row(io, cells, colors) }
-      end
-
-      private def overlay(cells, colors, at : Int32, text : String) : Nil
-        text.each_char_with_index do |ch, i|
-          x = at + i
-          next if x < 0 || x >= cells.size
-          cells[x] = ch
-          colors[x] = nil
-        end
       end
     end
   end

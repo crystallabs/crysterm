@@ -76,11 +76,14 @@ module Crysterm
       run_highlight { doc.blocks.each_with_index { |b, i| highlight_one(b, i) } }
     end
 
-    # Re-highlights one block.
+    # Re-highlights one block, cascading to following blocks while their
+    # state keeps changing — Qt's `QSyntaxHighlighter::rehighlightBlock`
+    # semantics, matching the cascade `#on_contents_change` already applies
+    # to edits.
     def rehighlight_block(block : TextBlock) : Nil
       doc = @document || return
       i = doc.blocks.index(&.same?(block)) || return
-      run_highlight { highlight_one(block, i) }
+      run_highlight { highlight_from(i, i) }
     end
 
     # === The `#highlight_block` toolkit ===
@@ -129,22 +132,29 @@ module Crysterm
       # inherent limitation of the single overlay slot per block.
       return if removed == 0 && added == 0
       doc = @document || return
-      blocks = doc.blocks
       b1 = doc.block_at(pos)[0]
       # A removal ending exactly at a block boundary changes the *following*
       # block's `previous_block_state` without touching its own text, so the
       # window extends one block whenever anything was removed.
       b2 = doc.block_at(pos + added + (removed > 0 ? 1 : 0))[0]
-      run_highlight do
-        i = b1
-        while b = blocks[i]?
-          before = b.user_state
-          highlight_one(b, i)
-          i += 1
-          # Beyond the edited range, keep cascading only while the block
-          # states keep changing.
-          break if i > b2 && b.user_state == before
-        end
+      run_highlight { highlight_from(b1, b2) }
+    end
+
+    # Highlights blocks `[b1, b2]` and keeps cascading past `b2` while each
+    # successive block's `user_state` keeps changing — the shared cascade
+    # used by both the edit path (`#on_contents_change`) and
+    # `#rehighlight_block`.
+    private def highlight_from(b1 : Int32, b2 : Int32) : Nil
+      doc = @document || return
+      blocks = doc.blocks
+      i = b1
+      while b = blocks[i]?
+        before = b.user_state
+        highlight_one(b, i)
+        i += 1
+        # Beyond the edited range, keep cascading only while the block
+        # states keep changing.
+        break if i > b2 && b.user_state == before
       end
     end
 

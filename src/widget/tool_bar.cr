@@ -84,8 +84,9 @@ module Crysterm
       end
 
       private def activate_action(action : Action) : Nil
-        # `#activate` toggles a checkable action and fires it (Qt semantics); the
-        # bar must not pre-toggle or it would cancel out.
+        # `#activate` toggles a checkable action and fires it (Qt semantics,
+        # except re-selecting an exclusive `ActionGroup`'s checked member, which
+        # stays checked); the bar must not pre-toggle or it would cancel out.
         action.activate
         refresh
       end

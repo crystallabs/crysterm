@@ -32,8 +32,27 @@ module Crysterm
     getter actions = [] of Action
 
     # Whether checking one member unchecks the others (Qt's
-    # `QActionGroup#exclusive`). On by default, as in Qt.
-    property? exclusive : Bool = true
+    # `QActionGroup#exclusive`). On by default, as in Qt. Turning this on
+    # forces every current member checkable (mirroring `#add_action`'s
+    # add-time behavior — exclusivity is meaningless without a checked state)
+    # and reconciles down to at most one checked member.
+    getter? exclusive : Bool = true
+
+    # Sets `#exclusive`. Forces every member checkable when turning exclusivity
+    # on (same invariant `#add_action` enforces at add time), and, so the group
+    # doesn't display more than one check-mark until the next activation,
+    # unchecks every member but the first that's already checked.
+    def exclusive=(value : Bool) : Bool
+      return value if @exclusive == value
+      @exclusive = value
+      if value
+        @actions.each(&.checkable=(true))
+        if first = @actions.find &.checked?
+          @actions.each { |a| a.checked = false unless a.same? first }
+        end
+      end
+      value
+    end
 
     # Per-member subscriptions, so `#remove_action` detaches exactly the handlers
     # this group installed and leaves the caller's own alone.
@@ -48,7 +67,12 @@ module Crysterm
     # exclusivity is meaningless without a checked state.
     def add_action(action : Action) : Action
       return action if @actions.includes? action
+      # Mirror Qt's `QActionGroup::addAction`: an action can belong to only one
+      # group at a time, so leaving a previous group drops its exclusivity
+      # handling before this group takes over.
+      action.group.try &.remove_action(action)
       @actions << action
+      action.group = self
       action.checkable = true if exclusive?
       subs = @subs[action] = Subscriptions.new
       # Relay the member's activation as the group's own signal, carrying the
@@ -75,6 +99,7 @@ module Crysterm
     # The action itself is left intact (still checkable, still checked).
     def remove_action(action : Action) : Nil
       return unless @actions.delete action
+      action.group = nil if (g = action.group) && g.same?(self)
       @subs.delete(action).try &.off
     end
 

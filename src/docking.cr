@@ -248,13 +248,25 @@ module Crysterm
       # the very corner it exists to protect. Subsumes the isolated-glyph rule.
       return ch if recip == 0
 
-      # In *ascii* mode, don't reduce a full four-arm `+` when only a single
-      # neighbor reciprocates: a plain-text `+` beside another `+`/`-`/`|` on a
-      # stop row (e.g. "C++" sharing a row with an ASCII border) would otherwise
-      # be rewritten to `-`/`|`. Real ASCII border junctions reciprocate on >= 2
-      # arms and still merge.
+      # In *ascii* mode, don't let a single reciprocating neighbor rewrite
+      # plain text sharing a stop row with an ASCII border/line. Two cases:
+      #
+      # * A full four-arm `+` (e.g. "C++" beside an ASCII border) — kept
+      #   unconditionally on a single recip, `preserve` or not: the adjacent
+      #   text `+` is itself a line glyph, so `preserve` legitimately equals
+      #   `recip` here, and gating this arm on `preserve == 0` would reject the
+      #   very case it exists to protect (reintroducing BUGS15 #30 — "C++"
+      #   rendering as "C--").
+      # * A `-`/`|` text glyph (self_bits a single L|R or U|D pair) whose lone
+      #   reciprocating neighbor is PERPENDICULAR to it (`self_bits & recip ==
+      #   0`) — e.g. a text '-' with a border '+' directly above rewriting it
+      #   to '|' (B18-28). Scoped to `preserve == 0`: a genuine border run-end
+      #   always carries a `preserve` arm from its adjacent line-glyph
+      #   neighbors (line 240), so real junction merging is untouched — this
+      #   only catches text, which never contributes `preserve`.
       return ch if ascii && (recip & (recip - 1)) == 0 &&
-                   self_bits == (BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE)
+                   (self_bits == (BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE) ||
+                   ((self_bits & recip) == 0 && preserve == 0))
 
       # `recip | preserve` only ever carries the four arm bits, so it indexes
       # the 16-entry table directly; `'\0'` (the absent `0` entry) keeps `ch`.

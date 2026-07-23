@@ -77,8 +77,9 @@ module Crysterm
       @owns_io = true
       @window = window
 
-      # Re-apply the window title (sets it on the new terminal via tput).
-      @title.try { |t| self.title = t }
+      # Re-apply this window's stored terminal state (hardware cursor, title)
+      # on the new terminal.
+      reassert_terminal_state
 
       # Restore input listening only if it was active before disconnecting.
       start_input if @was_listening
@@ -123,6 +124,9 @@ module Crysterm
         output.close rescue nil
       end
       @screen.stop_input
+      # The device dies with this window; release any claim it holds on the
+      # process-global CSS geometry anchor so a surviving device can take over.
+      @screen.release_cell_geometry_anchor
 
       @window.try &.close
       @window = nil
@@ -206,8 +210,7 @@ module Crysterm
       end
       surviving ||= Window.instances.find { |w| live_sibling_on_device? w }
       surviving.try do |w|
-        w.apply_cursor
-        w.title.try { |t| w.tput.title = t }
+        w.reassert_terminal_state
       rescue
         # Dead fds on a user-closed window raise on write; the sibling's
         # state re-assert must never break the disconnect itself.

@@ -450,6 +450,15 @@ module Crysterm
           @pending_checked = false
         when "table"
           end_block(discard_virgin: true)
+          # A table that is a list item's first content: materialize the
+          # item's (empty) member block *before* the table, so the item keeps
+          # its membership and ordered numbering — `import_table` stamps no
+          # list format, and the li's deferred `start_block` would otherwise
+          # fabricate the member block after the table, out of order.
+          if @pending_item
+            start_block
+            end_block
+          end
           import_table(node)
         when "script", "style", "head", "template", "title"
           # skipped subtrees
@@ -661,6 +670,8 @@ module Crysterm
           if (lf = @block_format.list_format) && @pending_item.nil?
             @pending_item = lf
             @pending_checked = @block_format.checked?
+            @pending_item_format ||= @block_format.with_list_format(nil).with_top_margin(nil)
+            @pending_item_collapse ||= (@collapse ? nil : false)
           end
           @frags = [] of TextFragment
           @block_format = TextBlockFormat.default
@@ -737,6 +748,10 @@ module Crysterm
 
       private def collect_text(node : HTML5::Node, io : IO) : Nil
         io << node.data if node.type.text?
+        if node.type.element? && node.data == "br"
+          io << '\n'
+          return
+        end
         child = node.first_child
         while child
           collect_text(child, io)

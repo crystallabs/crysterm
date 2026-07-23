@@ -171,9 +171,12 @@ module Crysterm
       @bottom > 0
     end
 
-    # Is there any [amount] defined on any side?
+    # Is there any [amount] defined on any side? Tests each side individually
+    # rather than summing them, so legitimate negative amounts (e.g. CSS
+    # `margin-top: -1`) aren't masked by an unrelated side canceling the sum
+    # out to zero or below.
     def any?
-      (@left + @top + @right + @bottom) > 0
+      @left != 0 || @top != 0 || @right != 0 || @bottom != 0
     end
 
     # Insets (`sign = 1`, the default) or outsets (`sign = -1`) *pos* by the

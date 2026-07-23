@@ -280,6 +280,14 @@ module Crysterm
                       bgb = idx >= 8; bg = bgb ? idx - 8 : idx
                     end
                   end
+                when 58
+                  # Underline color (ISO 8613-6): same payload shape as 38/48
+                  # but this decoder has no underline-color attribute. Consume
+                  # the sub-parameters purely so they aren't misread as
+                  # standalone SGR codes (e.g. a `0` channel in `58;2;r;0;b`
+                  # would otherwise read as "reset all"); discard the result.
+                  _, consumed = ext_color_index(params, param_colons, k + 1)
+                  k += consumed
                 else # 5 (blink) / 8 (conceal) / … ignored
                 end
                 k += 1

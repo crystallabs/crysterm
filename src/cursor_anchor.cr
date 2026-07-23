@@ -54,19 +54,34 @@ module Crysterm
 
   # Anchors to the cursor of an embedded `Widget::Terminal`'s emulator,
   # translated into the owning `Window`'s coordinate space: the terminal
-  # widget's on-screen content origin (`atop + itop`, `aleft + ileft`) plus the
-  # emulator's cursor cell. A popup at `relative(1, 0)` of this anchor lands one
-  # row below the shell's cursor, *inside* the terminal widget.
+  # widget's *painted* content origin (the rendered `lpos` row — which inside a
+  # scrolled/clipped container differs from layout `atop` by the enclosing
+  # scroll base — plus `itop`; columns via `aleft + ileft`, which matches the
+  # painted origin because horizontal clipping carries no base) plus the
+  # emulator's cursor cell. This mirrors `Terminal#draw`'s cursor painting and
+  # `Terminal#on_mouse`'s row mapping, so a popup at `relative(1, 0)` of this
+  # anchor lands one row below the shell's *visible* cursor, inside the
+  # terminal widget.
   #
-  # Falls back to the content origin when the terminal has no live emulator yet.
+  # Falls back to the layout origin (`atop + itop`) before the first render,
+  # and to the content origin when the terminal has no live emulator yet.
   class WidgetCursorAnchor < CursorAnchor
     def initialize(@terminal : Widget::Terminal)
     end
 
     def cursor_pos : {Int32, Int32}
       t = @terminal
-      row = t.atop + t.itop
       col = t.aleft + t.ileft
+      # Map through the painted rect, exactly as `Terminal#draw` paints the
+      # cursor (`coords.yi + itop + cursor_y - coords.base`): inside a scrolled
+      # container `lpos.yi != atop`, and when the terminal's own top rows are
+      # clipped the emulator row at `yi` is `base`, not 0.
+      row =
+        if lp = t.last_rendered_position?
+          lp.yi + t.itop - lp.base
+        else
+          t.atop + t.itop
+        end
       if em = t.emulator
         {row + em.cursor_y, col + em.cursor_x}
       else

@@ -1431,10 +1431,10 @@ describe "CSS cascade" do
 
     screen.stylesheet = <<-CSS
       @layer theme { Box { color: green; } }
-      Box { color: orange; }
+      Box { color: magenta; }
       CSS
     screen.apply_stylesheet
-    box.styles.normal.fg.should eq rgb("orange") # unlayered beats any layer
+    box.styles.normal.fg.should eq rgb("magenta") # unlayered beats any layer
   end
 
   it "supports @import" do

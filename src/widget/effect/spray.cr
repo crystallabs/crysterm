@@ -49,12 +49,42 @@ module Crysterm
         # Cell-visit order. Either a built-in `Fill` (`Fill::Spiral` (default),
         # `Fill::Rows`, `Fill::Columns`, `Fill::Diagonal`, `Fill::Radial`,
         # `Fill::Random`) or a `FillProc` returning a custom ordering.
-        property fill : Fill | FillProc
+        getter fill : Fill | FillProc
+
+        # :ditto:
+        # Rebuilds the landing slots immediately when the area size is known, so
+        # a mid-run reassignment reorders the spray live (slots are otherwise
+        # rebuilt only on a size change, leaving the change queued until an
+        # unrelated resize).
+        def fill=(value : Fill | FillProc) : Fill | FillProc
+          return value if value == @fill
+          @fill = value
+          reset_slots(@cols, @rows) if @cols > 0 && @rows > 0
+          mark_dirty
+          value
+        end
 
         # Text the cells settle on once landed: non-space chars are cycled across
         # the visit order. Defaults to the DOS dithered block `▒` for a solid
         # shaded fill; pass any string to spell it out instead.
-        property pattern : String
+        getter pattern : String
+
+        # :ditto:
+        # Remaps the new glyphs onto the existing visit order in place, so a
+        # mid-run reassignment respells the spray live — without reshuffling a
+        # `Fill::Random` layout the way a full slot rebuild would.
+        def pattern=(value : String) : String
+          return value if value == @pattern
+          @pattern = value
+          unless @slots.empty?
+            letters = pattern_letters
+            @slots = @slots.map_with_index do |(x, y, _), i|
+              {x, y, letters[i % letters.size]}
+            end
+          end
+          mark_dirty
+          value
+        end
 
         # Default growth ramp; also the fallback if an empty ramp is assigned.
         DEFAULT_GROW = [".", "·", ":", "*", "o", "O", "0", "@"]
@@ -74,7 +104,23 @@ module Crysterm
         end
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.
-        property origin : Tuple(Int32, Int32)?
+        getter origin : Tuple(Int32, Int32)?
+
+        # :ditto:
+        # Only a `Fill::Radial` visit order depends on the emitter (it is sorted
+        # by distance from it at slot-build time), so re-sort it around the new
+        # origin; other orders are origin-independent and keep their slots (no
+        # gratuitous `Fill::Random` reshuffle). Flight trajectories and the
+        # pending spark read `origin` live each frame either way.
+        def origin=(value : Tuple(Int32, Int32)?) : Tuple(Int32, Int32)?
+          return value if value == @origin
+          @origin = value
+          if @fill.as?(Fill).try(&.radial?) && @cols > 0 && @rows > 0
+            reset_slots(@cols, @rows)
+          end
+          mark_dirty
+          value
+        end
 
         # Frames between successive glyph launches (smaller = denser, faster fill).
         property spacing : Int32
@@ -224,11 +270,18 @@ module Crysterm
           @origin || {w // 2, h // 2}
         end
 
+        # The non-space glyphs of `pattern`, cycled across the visit order; a
+        # whitespace-only (or empty) pattern falls back to `'*'` so the slot set
+        # is always fillable.
+        private def pattern_letters : Array(Char)
+          letters = @pattern.chars.reject(&.whitespace?)
+          letters.empty? ? ['*'] : letters
+        end
+
         # (Re)build the landing slots for *w*×*h*: each visited cell paired with the
         # non-space glyph it will settle on, cycled from `pattern`.
         private def reset_slots(w, h)
-          letters = @pattern.chars.reject(&.whitespace?)
-          letters = ['*'] if letters.empty?
+          letters = pattern_letters
           @slots = fill_cells(w, h).map_with_index do |(x, y), i|
             {x, y, letters[i % letters.size]}
           end
@@ -264,7 +317,14 @@ module Crysterm
         # `#resize` sized.
         private def recompute(w, h)
           ox, oy = emitter(w, h)
-          cycle = fill_frame + @hold
+          # `spacing`/`travel`/`hold` are all plain knobs an app may zero out
+          # ("fill instantly, loop immediately"), making the cycle 0 — and
+          # `@frame % 0` would raise `DivisionByZeroError` and kill the
+          # animation fiber. Floor at 1: `f` is then 0 every frame and the
+          # degenerate configuration renders the fully-landed pattern instead.
+          # (Also covers a negative `hold` driving the cycle below zero, which
+          # would otherwise freeze the spray in the pending-spark state.)
+          cycle = Math.max(1, fill_frame + @hold)
           f = repeat? ? @frame % cycle : @frame
 
           @cell_glyph.fill(' ')

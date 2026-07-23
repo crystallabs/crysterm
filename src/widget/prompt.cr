@@ -61,7 +61,11 @@ module Crysterm
       # (`Event::Rejected`); `Event::Finished` follows either way.
       def read_input(text = nil, value = "", &callback : String? ->)
         set_content text || @text
-        show
+        # On top with the modal grab taken (`Dialog#show_modal`), so widgets
+        # beneath the open dialog aren't clickable; every close path runs
+        # `#done`, which releases the grab (an invalid submit re-arms the
+        # reader without closing, correctly keeping the grab).
+        show_modal
         @result = Code::Rejected.to_i
 
         @line_edit.value = value

@@ -19,6 +19,12 @@ end
 # An in-band resize report carries the new window size in pixels; the screen
 # refreshes its cell pixel size and the CSS cell aspect ratio straight from it.
 describe "Window cell geometry" do
+  # Every test builds a fresh screen: drop any anchor claim a prior test's (or
+  # spec file's) screen left behind, or the first-device-anchors policy would
+  # block this test's screen from writing the global CSS anchors — and drop
+  # this test's claim afterwards for the same reason.
+  before_each { Crysterm::CSS::Length.measured_source = nil }
+  after_each { Crysterm::CSS::Length.measured_source = nil }
   it "refreshes cell pixel size and CSS aspect ratio from an in-band resize report" do
     s = make_screen
     begin

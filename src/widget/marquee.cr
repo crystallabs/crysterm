@@ -45,7 +45,7 @@ module Crysterm
       end
 
       def text=(@text : String)
-        @chars = @text.chars
+        rebuild_scroll_columns @text
         mark_dirty
       end
 
@@ -58,8 +58,12 @@ module Crysterm
         @hue_speed = 8,
         **box,
       )
-        @chars = @text.chars
         super **box
+        # After `super`, so `full_unicode?` (which resolves through `window?`)
+        # sees an already-attached `parent:`. A box built detached and
+        # attached later still measures with the codepoint fallback, same
+        # caveat as DialogButtonBox#make_button.
+        rebuild_scroll_columns @text
       end
 
       # Paints the `awidth`-wide window onto the looping message into the top
@@ -73,8 +77,7 @@ module Crysterm
           # The field the glyphs ride over, and the inter-glyph gaps.
           window.fill_region(style_to_attr(style), ' ', xi, xl, yi, yl)
 
-          n = text.size
-          next if n == 0
+          next if @scroll_width == 0
 
           f = @frame
 
@@ -84,10 +87,19 @@ module Crysterm
           base = style_to_attr style, style.fg, style.bg
 
           (0...w).each do |x|
-            ch = scroll_glyph(f, x, n)
+            ch, width, offset = scroll_column(f, x)
+            # A continuation column was either already written by its lead
+            # (the previous loop iteration) or, if the lead scrolled off the
+            # left edge (x == 0 here), stays the background blank filled above.
+            next if offset == 1
             next if ch == ' '
             attr = rainbow? ? Attr.with_fg(base, rainbow_fg(x, f)) : base
-            window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
+            if width == 2
+              next if x + 1 >= w # right-edge straddle: half a glyph can't render
+              window.put_wide(attr, ch, xi + x, yi)
+            else
+              window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
+            end
           end
         end
       end

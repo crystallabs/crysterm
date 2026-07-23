@@ -514,12 +514,29 @@ module Crysterm
             alternate = true
           elsif easing?(t)
             easing = css_easing(t)
-          elsif (n = t.to_i?)
-            # A negative iteration count is invalid; drop the whole declaration
-            # (mirroring parse_transition's negative-duration drop). `0` is valid
-            # (play zero times) and handled at the driver.
-            return if n < 0
-            iterations = n
+          elsif tl.in?("normal", "forwards", "backwards", "both", "paused", "running", "reverse")
+            # Recognized standard animation-direction / fill-mode / play-state
+            # keywords (B18-30). Crysterm doesn't implement these (the driver
+            # always plays forward, unpaused), but they must still be consumed
+            # here so they can't fall through to the name fallback below and
+            # hijack the keyframes name — this is strictly better than the
+            # prior silent no-animation-with-bogus-name behavior. Known
+            # best-effort deviations: "reverse" plays forward, "paused" plays
+            # immediately.
+          elsif tl == "alternate-reverse"
+            # Best-effort: map onto the existing `alternate` flag (direction
+            # reversal itself isn't implemented, same caveat as "reverse").
+            alternate = true
+          elsif (f = t.to_f?)
+            # `to_f?` subsumes the old `to_i?` branch ("3" -> 3.0 -> 3) and also
+            # accepts a fractional iteration count (`1.5`), which otherwise fell
+            # through to the name fallback and hijacked the name. Guard against
+            # `to_f?`/strtod accepting "nan"/"inf" spellings and huge exponents:
+            # `f >= 0` (not `!(f < 0)`) rejects NaN since NaN fails every
+            # comparison, and the finite/magnitude check mirrors `sane_time`
+            # (unbounded values raise `OverflowError` out of `.ceil.to_i`).
+            return unless f.finite? && f >= 0 && f <= Int32::MAX
+            iterations = f.ceil.to_i
           else
             # Anything that is not a time, keyword, easing or count is the
             # keyframes name. Prefer the last such token — but skip an
@@ -725,6 +742,14 @@ module Crysterm
         return if value.blank?
         resolved = ColorValue.resolve(value, current)
         return if resolved.nil? && color_function?(value)
+        # An unknown color name (a typo, or any keyword `Colors` doesn't
+        # recognize) resolves to a plain `String` that survives here, and
+        # storing it (via `Colorizable`'s String setter) bakes in
+        # `Colors.convert_cached`'s `-1` unknown-name sentinel — painting
+        # terminal-default instead of dropping the invalid declaration per
+        # CSS. `transparent` is a genuine `-1` `Int32` from `resolve`, not a
+        # `String`, so it's unaffected; same guard as `valid_side_color?`.
+        return if resolved.is_a?(String) && Colors.convert_cached(resolved) == -1
         yield resolved
       end
 
@@ -1101,7 +1126,12 @@ module Crysterm
       # opacity.
       private def self.parse_box_shadow(value : String) : Shadow
         return Shadow.from(false) if Case.fold_keyword(value.strip) == "none"
-        toks = value.split
+        # Paren-aware, like every sibling shorthand that can carry a color
+        # function (`border`, `background`, `tint`, `transition`, `animation`,
+        # ...): a plain `value.split` would shred a space-separated color
+        # function (`rgb(0.2 0.4 0.6)`) into fragments, and a bare fractional
+        # fragment could then be misread as the opacity below (B18-37).
+        toks = split_top_level(value)
         # Count the leading run of length/number tokens (up to the 4 geometry
         # slots). A number within this run is always a geometry offset.
         offsets = 0

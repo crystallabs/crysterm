@@ -147,16 +147,23 @@ module Crysterm
                                cols : Int32 = 1)
       code = cell.attr
       flags = Attr.flags(code)
-      fg = Attr.unpack_color(Attr.fg(code))
-      bg = Attr.unpack_color(Attr.bg(code))
-      fg, bg = bg, fg if (flags & Attr::REVERSE) != 0
-      # Whether the effective background is terminal-default (-1), checked
-      # right after the REVERSE swap (so a reversed cell, whose effective bg is
-      # the fg color, is unaffected) and before substituting the concrete
-      # default_bg color below.
-      bg_is_default = bg == -1
-      fg = default_fg if fg == -1
-      bg = default_bg if bg == -1
+      raw_fg = Attr.unpack_color(Attr.fg(code))
+      raw_bg = Attr.unpack_color(Attr.bg(code))
+      reversed = (flags & Attr::REVERSE) != 0
+      # Resolve the terminal-default sentinels (-1) *before* applying REVERSE:
+      # a real terminal swaps the *resolved* defaults (SGR 7 on default colors
+      # renders a light bar with a dark glyph), so swapping the raw sentinels
+      # would resolve them post-swap exactly as for a non-reversed cell and
+      # lose reverse video entirely for default-colored cells.
+      fg = raw_fg == -1 ? default_fg : raw_fg
+      bg = raw_bg == -1 ? default_bg : raw_bg
+      fg, bg = bg, fg if reversed
+      # Whether the background fill may be skipped: only a *non-reversed* cell
+      # with a raw default background is pixel-identical to the pre-filled
+      # canvas. A reversed cell's effective background is the (resolved) fg
+      # color — it paints opaquely and must cover any under-text graphics
+      # layer, matching what the terminal shows.
+      bg_is_default = !reversed && raw_bg == -1
 
       fgpx = rgb(fg)
       bgpx = rgb(bg)

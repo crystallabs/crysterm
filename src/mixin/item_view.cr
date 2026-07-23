@@ -298,11 +298,13 @@ module Crysterm
       @item_index : Hash(Widget, Int32)? = nil
 
       # Memo for `#selection_fallback`'s reverse-video copy, keyed by source style
-      # identity. The cascade replaces the backing per-state style, so a `same?`
-      # hit means the copy is still valid; only rebuilt on a new source object
-      # instead of a `Style#dup` per call.
+      # identity plus its attribute fingerprint. The cascade replaces the backing
+      # per-state style, so a `same?` hit means the copy is still valid — and the
+      # fingerprint catches programmatic *in-place* mutations of the same object;
+      # only rebuilt on a changed source instead of a `Style#dup` per call.
       @_sel_reverse_fallback_src : ::Crysterm::Style?
       @_sel_reverse_fallback_copy : ::Crysterm::Style?
+      @_sel_reverse_fallback_fp : ::Crysterm::Style::AttrFingerprint?
 
       @interactive = true
 
@@ -381,8 +383,9 @@ module Crysterm
       # The memo pair `@_sel_reverse_fallback_{src,copy}` is kept separate from
       # the focus-highlight fallback's, so a `List` can run both in one frame.
       private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
-        result, @_sel_reverse_fallback_src, @_sel_reverse_fallback_copy =
-          reverse_fallback_memo st, selection_visibly_styled?, @_sel_reverse_fallback_src, @_sel_reverse_fallback_copy
+        result, @_sel_reverse_fallback_src, @_sel_reverse_fallback_copy, @_sel_reverse_fallback_fp =
+          reverse_fallback_memo st, selection_visibly_styled?, @_sel_reverse_fallback_src,
+            @_sel_reverse_fallback_copy, @_sel_reverse_fallback_fp
         result
       end
 
@@ -705,10 +708,14 @@ module Crysterm
         # Keep the multi-selection aligned: drop the removed index, slide
         # everything past it down by one.
         if @selected_indices.includes?(i) || @selected_indices.any? { |s| s > i }
-          @selected_indices = @selected_indices.compact_map do |s|
-            next if s == i
-            s > i ? s - 1 : s
-          end.to_set
+          @selected_indices = shift_index_set(@selected_indices, i, -1, drop_at: true)
+        end
+
+        # Keep the divider set aligned the same way — otherwise a marker keeps
+        # pointing at a stale row once a row before it is removed (see
+        # `#non_selectable_rows=`).
+        if @nonselectable.includes?(i) || @nonselectable.any? { |s| s > i }
+          @nonselectable = shift_index_set(@nonselectable, i, -1, drop_at: true)
         end
 
         # Keep the single-selection cursor on the same logical item: removing a
@@ -772,6 +779,19 @@ module Crysterm
           h
         end
         index[child]?
+      end
+
+      # Realigns an index set (`@selected_indices` or `@nonselectable`) after a
+      # row is inserted/removed at *at*. *delta* is `-1` for a removal, `+1` for
+      # an insertion; *drop_at* discards an index sitting exactly *at* the
+      # removed row (irrelevant for insertion, where nothing is dropped).
+      # Shared by `#remove_item` and `#insert_item` so the multi-selection and
+      # the divider set can't drift apart from each other again.
+      private def shift_index_set(set : Set(Int32), at : Int32, delta : Int32, drop_at : Bool) : Set(Int32)
+        set.compact_map do |s|
+          next if drop_at && s == at
+          s >= at ? s + delta : s
+        end.to_set
       end
 
       # Drops the cached `clean_tags` index so it's rebuilt fresh next lookup.
@@ -893,7 +913,13 @@ module Crysterm
         item = create_item content
         # Slide multi-selected indices at/after the insertion point up by one.
         if @selected_indices.any? { |s| s >= i }
-          @selected_indices = @selected_indices.map { |s| s >= i ? s + 1 : s }.to_set
+          @selected_indices = shift_index_set(@selected_indices, i, 1, drop_at: false)
+        end
+
+        # Same slide for the divider set, so a marked row keeps pointing at the
+        # same logical row instead of a row that shifted out from under it.
+        if @nonselectable.any? { |s| s >= i }
+          @nonselectable = shift_index_set(@nonselectable, i, 1, drop_at: false)
         end
         item.top = item_row(i)
         # The inserted item shifts every later row down one slot; re-place them.

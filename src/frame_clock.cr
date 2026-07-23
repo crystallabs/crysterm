@@ -104,45 +104,51 @@ module Crysterm
       next_at = start_at
 
       f = Fiber.new do
-        loop do
-          break unless @running && @generation == gen
+        begin
+          loop do
+            break unless @running && @generation == gen
 
-          if dur
-            elapsed = Time.instant - start_at
-            raw = dur.zero? ? 1.0 : (elapsed.total_seconds / dur.total_seconds).clamp(0.0, 1.0)
-            @value = @easing.apply(raw)
-            @on_tick.call self
-            if raw >= 1.0
-              @running = false
-              @completed = true
+            if dur
+              elapsed = Time.instant - start_at
+              raw = dur.zero? ? 1.0 : (elapsed.total_seconds / dur.total_seconds).clamp(0.0, 1.0)
+              @value = @easing.apply(raw)
+              run_tick
+              if raw >= 1.0
+                @running = false
+                @completed = true
+              end
+            else
+              run_tick
             end
-          else
-            @on_tick.call self
+
+            break unless @running && @generation == gen
+
+            next_at += @interval
+            delay = next_at - Time.instant
+            if delay > Time::Span.zero
+              sleep delay
+            else
+              # Behind schedule (slow tick, or process paused): resync the phase
+              # to now instead of firing a burst of catch-up ticks. Still yield,
+              # or this branch would loop into the next tick with no blocking
+              # operation and — fibers being cooperative — monopolize the thread,
+              # starving the render/input fibers for as long as the overload lasts.
+              next_at = Time.instant
+              Fiber.yield
+            end
           end
-
-          break unless @running && @generation == gen
-
-          next_at += @interval
-          delay = next_at - Time.instant
-          if delay > Time::Span.zero
-            sleep delay
-          else
-            # Behind schedule (slow tick, or process paused): resync the phase
-            # to now instead of firing a burst of catch-up ticks. Still yield,
-            # or this branch would loop into the next tick with no blocking
-            # operation and — fibers being cooperative — monopolize the thread,
-            # starving the render/input fibers for as long as the overload lasts.
-            next_at = Time.instant
-            Fiber.yield
+        ensure
+          # Only finalize if this fiber is still the current run: a superseded
+          # fiber (a newer `#start` bumped `@generation`) must not clear the new
+          # run's state. Inside an `ensure` so the fiber unwinding (anything the
+          # tick isolation above doesn't cover) cannot skip it — the `#on_stop`
+          # contract promises firing for *any* end of the loop, and a skipped
+          # finalize leaves `@running` stuck `true` (`#start` no-ops forever)
+          # with the stop callback lost.
+          if @generation == gen
+            @running = false
+            @on_stop.try &.call
           end
-        end
-
-        # Only finalize if this fiber is still the current run: a superseded
-        # fiber (a newer `#start` bumped `@generation`) must not clear the new
-        # run's state.
-        if @generation == gen
-          @running = false
-          @on_stop.try &.call
         end
       end
       @fiber = f
@@ -159,6 +165,17 @@ module Crysterm
 
     def toggle : Nil
       running? ? stop : start
+    end
+
+    # Runs the tick block, isolating its exceptions: one raising tick must not
+    # unwind the loop fiber — dumping a backtrace over the live TUI and, for a
+    # shared `Timer`, killing the tick source for every subscriber at once.
+    # Mirrors the per-event rescue in the input fiber (`Screen#start_input`)
+    # and the per-job rescue in `Window`'s UI-queue drain.
+    private def run_tick : Nil
+      @on_tick.call self
+    rescue ex
+      ::Log.error(exception: ex) { "Crysterm: FrameClock tick raised; continuing" }
     end
   end
 

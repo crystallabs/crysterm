@@ -73,8 +73,17 @@ module Crysterm
       getter value : Float64 = 0.0
 
       # The value rounded to an integer (Qt's `QLCDNumber#intValue`).
+      #
+      # `@value` is sanitized to finite at ingestion (`#display(Float)`), but a
+      # large-but-finite value (e.g. `1e300`) still overflows a checked
+      # `to_i64` conversion, so guard defensively here too. Clamped to
+      # `Int64::MAX.to_f.prev_float` (the largest `Float64` strictly below
+      # `2**63`) rather than `Int64::MAX.to_f`, which rounds up to exactly
+      # `2**63` — itself out of `Int64` range and still raises `OverflowError`
+      # on `#to_i64`.
       def int_value : Int64
-        @value.round.to_i64
+        return 0_i64 unless @value.finite?
+        @value.round.clamp(Int64::MIN.to_f, Int64::MAX.to_f.prev_float).to_i64
       end
 
       # Shows *v* (Qt has no `setValue`; this is `#display`'s setter spelling,
@@ -135,8 +144,20 @@ module Crysterm
       # Shows *value* (its default string form).
       def display(value : Float) : Nil
         @last_int = nil
-        @value = value.to_f
-        show_text value.to_s
+        v = value.to_f
+        # Non-finite input would render a misleading glyph (`NaN.to_s` upcases
+        # to a lone 'A' — 'N' has no seven-segment glyph) and later crash
+        # `#int_value`'s `.round.to_i64`; sanitize at ingestion, like every
+        # other numeric widget in this repo (Gauge, GaugeList, RangedValue).
+        # The fallback shows the plain digit "0", not "0.0" — it's a safe
+        # sentinel for an invalid value, not a real (decimal) reading.
+        unless v.finite?
+          @value = 0.0
+          show_text "0"
+          return
+        end
+        @value = v
+        show_text v.to_s
       end
 
       # Shows the literal *value* (unknown characters render blank).

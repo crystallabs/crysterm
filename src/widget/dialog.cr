@@ -75,14 +75,25 @@ module Crysterm
         value
       end
 
+      # Shared presenter step: shows the dialog on top of its siblings with the
+      # modal input grab taken. Both `#open` and the concrete dialogs'
+      # block-based presenters (`ColorDialog#get_color`, `Question#ask`/
+      # `#ask_choices`, `Prompt#read_input`) funnel through here, so no
+      # presenter can show a "modal" dialog that leaves the widgets beneath it
+      # clickable. `#done` (and `#destroy`) release the grab on every close
+      # path.
+      protected def show_modal : Nil
+        show
+        to_front
+        self.modal = true
+      end
+
       # Shows the dialog modally and returns **immediately** (Qt's
       # `QDialog#open`); the outcome arrives later on `Event::Finished` (or
       # `Accepted`/`Rejected`). This is the form to use from an event handler.
       def open : Nil
         @result = Code::Rejected.to_i
-        show
-        to_front
-        self.modal = true
+        show_modal
         focus
         install_dialog_keys
         request_render

@@ -214,16 +214,24 @@ module Crysterm
         close
       end
 
-      # Absolute x of title *i* (0 before the bar is laid out).
+      # Absolute x of title *i* (0 before the bar is laid out). Uses the item
+      # box's *painted* rect (`Widget#painted_rect`), not its layout coords —
+      # see `#menu_y`.
       private def title_x(i : Int) : Int32
-        item_boxes[i]?.try(&.aleft) || 0
+        item_boxes[i]?.try(&.painted_rect[0]) || 0
       rescue
         0
       end
 
-      # The row just below the bar.
+      # The row just below the bar. Anchored on the bar's *painted* rect
+      # (`Widget#painted_rect`), not its layout coords: inside a
+      # scrolled/child_base ancestor the two diverge by the ancestor's scroll
+      # base, and the pop-up menu (a window child) is painted exactly where we
+      # put it — so layout coords would drop it detached from the visible bar.
+      # Mirrors ComboBox#place_popup / DateEdit#position_popup.
       private def menu_y : Int32
-        atop + aheight
+        r = painted_rect
+        r[1] + r[3]
       rescue
         1
       end

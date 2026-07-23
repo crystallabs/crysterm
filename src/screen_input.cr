@@ -59,9 +59,13 @@ module Crysterm
           rescue ex
             ::Log.error(exception: ex) { "Crysterm: input handler raised; continuing input loop" }
           end
-        rescue IO::Error
-          # Input fd closed mid-read; normal teardown.
         end
+      rescue IO::Error
+        # Input fd closed mid-read; normal teardown. The raise comes from
+        # `tput.listen`'s own blocking read (between block invocations), so
+        # the rescue must wrap the `listen` call itself — a block-body rescue
+        # never sees it and the fiber dies with an unhandled-exception
+        # backtrace on the launching terminal.
       end
     end
 

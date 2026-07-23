@@ -44,7 +44,12 @@ module Crysterm
         update_label
         if value
           install_checkable_handlers
-          apply_enabled
+          # Only run the disabling direction here: on a *checked* group (the
+          # default) `apply_enabled` takes the `checked?` restore branch, which
+          # is meant to undo greying the group itself applied on uncheck — on
+          # this path the group never greyed anything, so running it would
+          # force-enable every child the app itself disabled.
+          apply_enabled unless checked?
         else
           # No longer checkable ⇒ the "disabled because unchecked" reason is
           # gone, and there's no checkbox left to toggle back on. Restore any
@@ -157,8 +162,11 @@ module Crysterm
 
         # A child added to an unchecked group must come up disabled. Children
         # are appended after construction, so reflect state on each as it's
-        # adopted, not just on toggle.
-        on(Crysterm::Event::ChildAdded) { apply_enabled if checkable? }
+        # adopted, not just on toggle. Only the disabling direction applies
+        # here: on a *checked* group `apply_enabled` would instead run the
+        # restore branch and force-enable every child the app itself disabled
+        # (there was nothing for this adopt to restore).
+        on(Crysterm::Event::ChildAdded) { apply_enabled if checkable? && !checked? }
       end
 
       private def label_text : String

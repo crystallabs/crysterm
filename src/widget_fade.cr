@@ -135,7 +135,7 @@ module Crysterm
     def tint_to(color, target : Float64 = 0.5, duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
-      from = style.tint?.try(&.[1]) || 0.0 # current strength, or 0 if no tint yet
+      from = effective_tint_strength(style) # current strength, or 0 if no tint yet
       @tint_anim.try &.stop
       start_tween(duration, easing, fps: fps, on_done: on_done,
         store: ->(anim : FrameClock) { @tint_anim = anim }) do |clock|

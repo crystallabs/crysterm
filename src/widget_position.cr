@@ -332,9 +332,17 @@ module Crysterm
       w = width_hint || awidth(rendered)
       h = aheight(rendered)
       xi = aleft(rendered, w, ppos, with_margin: false)
-      xl = xi + w
+      # Saturating, not checked: a pathological (e.g. `Int32::MAX`) fixed
+      # width/height combined with a nonzero absolute origin overflows plain
+      # `Int32 + Int32` here and raises `OverflowError` in the render fiber
+      # (B18-25) — an origin-0 widget with the same size happens to land
+      # exactly on `Int32::MAX` and doesn't overflow, which is what let this
+      # slip through as "renders fine". Clamping the far edge instead is
+      # behavior-preserving: downstream clipping already tolerates
+      # `xl == Int32::MAX` today.
+      xl = (xi.to_i64 + w).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
       yi = atop(rendered, h, ppos, with_margin: false)
-      yl = yi + h
+      yl = (yi.to_i64 + h).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
 
       # Which side is partly hidden due to being enclosed in a parent
       # (potentially scrollable) element. Set/computed later.
@@ -342,6 +350,13 @@ module Crysterm
       no_top = false
       no_right = false
       no_bottom = false
+
+      # How many rows/columns each clipped edge lost to the clipping ancestor's
+      # viewport (see `RenderedGeometry#hidden_top` & co).
+      hidden_left = 0
+      hidden_top = 0
+      hidden_right = 0
+      hidden_bottom = 0
 
       base = @child_base
       el = self
@@ -437,16 +452,21 @@ module Crysterm
         # `style.border` is always non-nil (zero border means "no border"; see
         # Style#border), so fetch both borders once.
         my_border = style.border
+        my_padding = style.padding
         sp_border = scrollable_parent.style.border
 
-        b = sp_border.top
         # The clip on each edge must trigger at THAT edge's inner (border) width:
         # the bottom clip against the parent's BOTTOM border, the horizontal clips
         # against the LEFT/RIGHT ones. Reusing `b` (the top border) for all edges
-        # mis-clips asymmetric borders.
-        bb = sp_border.bottom
-        bl = sp_border.left
-        br = sp_border.right
+        # mis-clips asymmetric borders. Each width is the *visible* remainder of
+        # the parent's own border band: when the parent is itself clipped by ITS
+        # ancestor, the hidden part of its band (`hidden_*` on the parent's lpos)
+        # no longer insets the viewport — a fully clipped-away parent border
+        # means the parent's inner edge IS its lpos edge.
+        b = effective_edge_insets(sp_border.top, 0, scrollable_parent_lpos.hidden_top)[0]
+        bb = effective_edge_insets(sp_border.bottom, 0, scrollable_parent_lpos.hidden_bottom)[0]
+        bl = effective_edge_insets(sp_border.left, 0, scrollable_parent_lpos.hidden_left)[0]
+        br = effective_edge_insets(sp_border.right, 0, scrollable_parent_lpos.hidden_right)[0]
 
         # Exempt a widget that *is* a label (it sits ON the parent's border) from
         # border compensation. Testing `@label_widget` instead ("widget HAS a label") is
@@ -465,12 +485,21 @@ module Crysterm
             # Is above.
             return
           else
-            # Is partially covered above.
+            # Is partially covered above. `v` is the number of this widget's own
+            # rows hidden above the clip edge (the parent's inner top): clamp
+            # `yi` to that edge — never past it, so `lpos` (hit-testing,
+            # tint/shadow, dock stops) stays inside the ancestor's viewport —
+            # and advance `base` by the hidden CONTENT lines only. The widget's
+            # own top border and padding rows are not content lines, and when
+            # fewer rows than `border.top + padding.top` are hidden, no content
+            # is hidden at all — the floor keeps `base` from going negative
+            # (a negative index silently wraps `Array#[]?` around to the LAST
+            # content line). `base_render` derives the still-visible part of
+            # the border/padding bands from `hidden_top`.
             no_top = true
-            v = scrollable_parent_lpos.yi - yi
-            v -= my_border.top
-            v += sp_border.top
-            base += v
+            v = (scrollable_parent_lpos.yi + b) - yi
+            hidden_top = v
+            base += Math.max(v - my_border.top - my_padding.top, 0)
             yi += v
           end
         end
@@ -484,11 +513,14 @@ module Crysterm
             # Is below.
             return
           else
-            # Is partially covered below.
+            # Is partially covered below: clamp `yl` to the parent's inner
+            # bottom. Widening the rect by this widget's own border thickness
+            # instead (the pre-clamp behavior) leaked `lpos` past the viewport:
+            # clicks/hover, `style.tint`/shadow bands and dock-stop rows all
+            # landed on cells outside the container.
             no_bottom = true
-            v = yl - scrollable_parent_lpos.yl
-            v -= my_border.bottom
-            v += sp_border.bottom
+            v = yl - (scrollable_parent_lpos.yl - bb)
+            hidden_bottom = v
             yl -= v
           end
         end
@@ -499,17 +531,21 @@ module Crysterm
 
         # Could allow overlapping stuff in scrolling elements
         # if we cleared the pending buffer before every draw.
+        #
+        # Horizontal clips clamp to the parent's inner edges the same way the
+        # vertical ones do (see the bottom clip above for why no widening by
+        # this widget's own border happens here). There is no horizontal `base`:
+        # content columns are not index-shifted, so only the hidden count is
+        # recorded.
         if xi < scrollable_parent_lpos.xi + bl
-          xi = scrollable_parent_lpos.xi
           no_left = true
-          xi -= my_border.left
-          xi += sp_border.left
+          hidden_left = (scrollable_parent_lpos.xi + bl) - xi
+          xi = scrollable_parent_lpos.xi + bl
         end
         if xl > scrollable_parent_lpos.xl - br
-          xl = scrollable_parent_lpos.xl
           no_right = true
-          xl += my_border.right
-          xl -= sp_border.right
+          hidden_right = xl - (scrollable_parent_lpos.xl - br)
+          xl = scrollable_parent_lpos.xl - br
         end
         if xi >= xl
           return
@@ -554,7 +590,11 @@ module Crysterm
           no_right: no_right,
           no_top: no_top,
           no_bottom: no_bottom,
-          renders: window.renders
+          renders: window.renders,
+          hidden_left: hidden_left,
+          hidden_right: hidden_right,
+          hidden_top: hidden_top,
+          hidden_bottom: hidden_bottom
       else
         v = RenderedGeometry.new \
           xi: xi,
@@ -566,9 +606,30 @@ module Crysterm
           no_right: no_right,
           no_top: no_top,
           no_bottom: no_bottom,
-          renders: window.renders
+          renders: window.renders,
+          hidden_left: hidden_left,
+          hidden_right: hidden_right,
+          hidden_top: hidden_top,
+          hidden_bottom: hidden_bottom
       end
       v
+    end
+
+    # The widget's *painted* outer rect `{x, y, w, h}` from
+    # `last_rendered_position?`, falling back to the layout coords
+    # (`aleft`/`atop`/`awidth`/`aheight`) before the first render (or when the
+    # widget resolved to nothing last frame). Popup owners must anchor on this,
+    # not on layout coords: inside a scrolled/child_base ancestor the two
+    # diverge by the ancestor's scroll base, and a window-child popup is
+    # painted exactly where it is placed — so layout coords would open it
+    # detached from the visible widget. Mirrors ComboBox#place_popup /
+    # DateEdit#position_popup / Menu#open_submenu.
+    def painted_rect : {Int32, Int32, Int32, Int32}
+      if lp = last_rendered_position?
+        {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}
+      else
+        {aleft, atop, awidth, aheight}
+      end
     end
   end
 end

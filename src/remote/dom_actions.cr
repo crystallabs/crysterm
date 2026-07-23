@@ -153,7 +153,7 @@ module Crysterm
             end
           end
         when "set-content"
-          sel, _, text = rest.partition(':')
+          sel, text = split_selector_arg(rest)
           targets(sel, source, window).each &.set_content(text)
         else
           return false
@@ -168,16 +168,72 @@ module Crysterm
         else                  window.resolve_selector selector
         end
       end
+
+      # Splits a `<selector>:<arg>` verb argument at the boundary between the
+      # selector and its free-text argument. Unlike the class verbs (which
+      # `rpartition` at the *last* colon, since their argument is a colon-free
+      # class name), a verb whose argument can itself contain colons — e.g.
+      # `set-content`'s text — can't use a fixed side split: the selector may
+      # legitimately contain `:` too (a pseudo-class, e.g. `.tab:hover`,
+      # `:nth-child(2)`).
+      #
+      # So this walks `rest` colon-by-colon, greedily extending the selector
+      # prefix while it stays a compilable selector (the same validity check
+      # `resolve_selector` uses), and stops at the first extension that fails
+      # to compile — that colon is the selector/argument boundary. The first
+      # segment is never itself compile-checked (so `@self` and the bare/empty
+      # selector are unaffected); only extensions past the first colon are
+      # probed. If every segment compiles, the whole string is the selector
+      # and the argument is `""`.
+      #
+      # This is inherently ambiguous when the argument text itself happens to
+      # be a compilable pseudo-class name right after a valid selector (e.g.
+      # `set-content:#msg:empty` greedily reads as selector `#msg:empty` with
+      # empty text) — unavoidable in a colon-delimited grammar. A verb that
+      # needs to allow that should take a dedicated, unambiguous form instead.
+      private def self.split_selector_arg(rest : String) : {String, String}
+        parts = rest.split(':')
+        return {rest, ""} if parts.size <= 1
+        sel = parts[0]
+        parts[1..].each_with_index do |part, i|
+          candidate = "#{sel}:#{part}"
+          compiled = (::CSS.compile(CSS::Selectors.expand_types(candidate)) rescue nil)
+          if compiled
+            sel = candidate
+          else
+            return {sel, parts[(i + 1)..].join(':')}
+          end
+        end
+        {sel, ""}
+      end
     end
   end
 
   class Window
+    # Each declarative `on*` binding's current action plus its detacher, keyed
+    # by "uid:event", passed to `DOM.each_binding` so a repeated
+    # `wire_dom_actions` call (e.g. after appending a fragment) is idempotent
+    # rather than double-subscribing every already-wired binding — mirroring
+    # `HTTPBridge#rewire`'s `@declarative_wired`.
+    @dom_actions_wired = {} of String => Tuple(String, Proc(Nil))
+    # The `on_quit` from the most recent `wire_dom_actions` call, read by the
+    # binding block at fire time (like the bridge's `@on_quit`) so a later call
+    # with a different `on_quit` takes effect even for bindings left unchanged
+    # (and thus not re-wired) by `each_binding`'s dedup.
+    @dom_actions_on_quit : Proc(Nil)? = nil
+
     # Wires declarative `on*` actions in the loaded tree so simple apps need no
     # handler process. Named actions are ignored here — the HTTP bridge handles
     # those. `on_quit` lets a host unwind cleanly on `quit`.
+    #
+    # Safe to call repeatedly (e.g. after `DOM.load`/`load_layout` appends a
+    # fragment onto an existing page): the persistent wired map dedups by
+    # `(widget, event)`, so an unchanged binding is left alone rather than
+    # re-subscribed.
     def wire_dom_actions(on_quit : Proc(Nil)? = nil) : Nil
-      DOM.each_binding(self) do |widget, _type, action, _value|
-        DOM::Actions.run(action, widget, self, on_quit) if DOM::Actions.declarative?(action)
+      @dom_actions_on_quit = on_quit
+      DOM.each_binding(self, @dom_actions_wired) do |widget, _type, action, _value|
+        DOM::Actions.run(action, widget, self, @dom_actions_on_quit) if DOM::Actions.declarative?(action)
       end
     end
   end

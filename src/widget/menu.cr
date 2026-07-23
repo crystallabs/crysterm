@@ -891,7 +891,9 @@ module Crysterm
 
         # `#activate` flips a checkable action's state before firing (emitting
         # `Event::Toggled`/`Event::Changed`, turned by `watch_action` into a
-        # marker redraw) and carries the new state on `Event::Triggered`.
+        # marker redraw) and carries the new state on `Event::Triggered` —
+        # except re-selecting the checked member of an exclusive `ActionGroup`,
+        # which `#activate` keeps checked (Qt semantics).
         action.activate
 
         # A leaf fired from within a submenu closes the whole chain back to the

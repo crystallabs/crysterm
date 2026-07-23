@@ -88,6 +88,17 @@ module Crysterm
       value.clamp(0, extent)
     end
 
+    # Sanitizes a child's resolved fixed main-axis size against the axis
+    # extent it is laid into: a fixed size beyond the interior already means
+    # "fills everything visible" (matches the historical behavior of a huge
+    # child under no layout engine, which renders clipped rather than
+    # crashing), so clamping is behavior-preserving. Keeps a pathological
+    # (e.g. `Int32::MAX`) child size from overflowing the checked `Int32`
+    # fixed-size sum/cursor accumulation in `Box#measure`/`#place` (B18-25).
+    protected def clamped_size(v : Int32, extent : Int32) : Int32
+      v.clamp(0, extent)
+    end
+
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
     # frame rather than allocating a `RenderedGeometry` per render. Safe only
     # because `#arrange` never retains it past the call and a layout instance
@@ -282,12 +293,12 @@ module Crysterm
     # though it weren't there: it is hidden and hasn't asked to keep its slot
     # (`Widget#retain_size_when_hidden?`). Qt's `QWidgetItem#isEmpty`.
     #
-    # Only the *packing* engines consult this — `Layout::Box` (VBox/HBox) and
-    # `Layout::Border` — where "give the space back" is the unambiguous reading
-    # and the one Qt's `QBoxLayout` implements. `Layout::Stack` and
-    # `Layout::Grid` address their children by slot (page index, cell), so a
-    # hidden child there must keep its position; they ignore this, as
-    # `QStackedLayout`/`QGridLayout` do.
+    # Only the *packing* engines consult this — `Layout::Box` (VBox/HBox),
+    # `Layout::Border` and the `Flow` family (Wrap/Masonry/UniformGrid) —
+    # where "give the space back" is the unambiguous reading and the one Qt's
+    # `QBoxLayout` implements. `Layout::Stack` and `Layout::Grid` address
+    # their children by slot (page index, cell), so a hidden child there must
+    # keep its position; they ignore this, as `QStackedLayout`/`QGridLayout` do.
     #
     # Reads `#visible?` (the node's own flag — Qt's `isHidden`), not
     # `#visible_in_tree?`: a hidden ancestor's subtree never arranges anyway.

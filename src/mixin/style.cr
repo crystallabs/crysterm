@@ -170,13 +170,17 @@ module Crysterm
       @_frame_style_stamp : Int32 = -1
 
       # Memo for the unstyled-floor reverse-video fallback copy: the source
-      # per-state `Style` it was derived from, and the derived copy. Keyed on
-      # source-style identity so it survives across frames (the frame-style memo
-      # above mismatches every new frame): the cascade *replaces* per-state style
-      # objects on recompute, so a `same?` hit means the copy is still valid.
-      # Dropped by `#invalidate_frame_style`.
+      # per-state `Style` it was derived from, its attribute fingerprint at
+      # derivation time, and the derived copy. Keyed on source-style identity
+      # so it survives across frames (the frame-style memo above mismatches
+      # every new frame): the cascade *replaces* per-state style objects on
+      # recompute, so a `same?` hit means the copy is still valid — plus the
+      # fingerprint, so a programmatic *in-place* mutation of the state style
+      # (no object swap) invalidates it too. Dropped by
+      # `#invalidate_frame_style`.
       @_reverse_fallback_src : ::Crysterm::Style?
       @_reverse_fallback_copy : ::Crysterm::Style?
+      @_reverse_fallback_fp : ::Crysterm::Style::AttrFingerprint?
 
       # Drops the frame-memoized style resolution and the insets derived from it.
       # Every same-frame-visible style change must call this; rendering is
@@ -187,6 +191,7 @@ module Crysterm
         @_frame_insets = nil
         @_reverse_fallback_src = nil
         @_reverse_fallback_copy = nil
+        @_reverse_fallback_fp = nil
       end
 
       # If specific style is not set, it will depend on current state
@@ -287,9 +292,12 @@ module Crysterm
         # Capture once whether a border was explicitly set before the floor ever
         # touched it; that choice then wins for good. (`||=` can't memoize
         # `false`, hence the explicit nil check — must run before this method
-        # sets the border below, which flips `specified?` true.)
+        # sets the border below, which flips `specified?` true.) `box_touched?`,
+        # not `specified?`: an in-place `styles.normal.border.left = 1` through
+        # the lazy getter never stamps the mask, but is just as much the user's
+        # border — the floor must not wipe it with `Border.from(false)`.
         if @floor_border_user_set.nil?
-          @floor_border_user_set = normal.specified?(:border)
+          @floor_border_user_set = normal.box_touched?(:border)
         end
         return if @floor_border_user_set
 
@@ -346,32 +354,38 @@ module Crysterm
       # `@_reverse_fallback_src` / `@_reverse_fallback_copy` — a focused/selected
       # floor widget otherwise re-dups ~5 heap objects every frame.
       private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
-        result, @_reverse_fallback_src, @_reverse_fallback_copy =
-          reverse_fallback_memo st, @css_styled, @_reverse_fallback_src, @_reverse_fallback_copy
+        result, @_reverse_fallback_src, @_reverse_fallback_copy, @_reverse_fallback_fp =
+          reverse_fallback_memo st, @css_styled, @_reverse_fallback_src, @_reverse_fallback_copy,
+            @_reverse_fallback_fp
         result
       end
 
       # Shared core of the reverse-video source-identity memo. When *st* is
       # stylable as a highlight (not *skip*ped, and not already
       # `visibly_styled?`), returns a reverse-video copy of it, reusing the
-      # previously memoized *copy* while its source *src* is unchanged (`same?`) —
-      # the cascade swaps the backing per-state `Style`, so a `same?` hit means the
-      # copy is still current, avoiding a `Style#dup` per call.
+      # previously memoized *copy* while its source *src* is unchanged — by
+      # identity (`same?`; the cascade swaps the backing per-state `Style`, so
+      # a hit means the copy is still current) and by value (*fp*, the source's
+      # `Style#attr_fingerprint` at derivation time, so an in-place
+      # `st.bold = ...` on a non-visibly-styled style recomputes rather than
+      # returning the stale copy) — avoiding a `Style#dup` per call.
       #
-      # Stateless on purpose: it returns the new `{result, src, copy}` as a value
-      # tuple (no heap) rather than owning ivars, so each caller keeps its own memo
-      # pair. One widget may run several of these memos per frame (e.g.
-      # focus-highlight and selection), so the storage must stay separate.
+      # Stateless on purpose: it returns the new `{result, src, copy, fp}` as a
+      # value tuple (no heap) rather than owning ivars, so each caller keeps its
+      # own memo triple. One widget may run several of these memos per frame
+      # (e.g. focus-highlight and selection), so the storage must stay separate.
       protected def reverse_fallback_memo(st : ::Crysterm::Style, skip : Bool,
-                                          src : ::Crysterm::Style?, copy : ::Crysterm::Style?)
-        return {st, src, copy} if skip
-        return {st, src, copy} if st.visibly_styled?
-        if src && src.same?(st) && copy
-          return {copy, src, copy}
+                                          src : ::Crysterm::Style?, copy : ::Crysterm::Style?,
+                                          fp : ::Crysterm::Style::AttrFingerprint?)
+        return {st, src, copy, fp} if skip
+        return {st, src, copy, fp} if st.visibly_styled?
+        cur = st.attr_fingerprint
+        if src && src.same?(st) && copy && fp == cur
+          return {copy, src, copy, fp}
         end
         c = st.dup
         c.reverse = true
-        {c, st, c}
+        {c, st, c, cur}
       end
     end
   end

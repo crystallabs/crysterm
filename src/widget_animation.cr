@@ -199,30 +199,46 @@ module Crysterm
       # endpoints.
       t = span > 0 ? ((p - a.offset) / span).clamp(0.0, 1.0) : 0.0
 
-      if (av = a.opacity) && (bv = b.opacity)
-        st.opacity = av + (bv - av) * t
-      elsif v = (a.opacity || b.opacity)
-        st.opacity = v
-      end
-      if (av = a.tint_alpha) && (bv = b.tint_alpha)
-        st.tint_alpha = av + (bv - av) * t
-      elsif v = (a.tint_alpha || b.tint_alpha)
-        st.tint_alpha = v
-      end
+      kf_channel(opacity) { |av, bv| av + (bv - av) * t }
+      kf_channel(tint_alpha) { |aa, ba| aa + (ba - aa) * t }
       # The tint *color* must be carried alongside the strength: `Style#tint?`
       # (and thus the tint overlay) is inert while `@tint` is nil regardless of
       # `tint_alpha`, so a tint-only keyframe animation is invisible without it.
-      if (ac = a.tint) && (bc = b.tint)
-        st.tint = lerp_color(ac, bc, t)
-      elsif c = (a.tint || b.tint)
-        st.tint = c
+      kf_channel(tint) { |ac, bc| lerp_color(ac, bc, t) }
+      kf_channel(fg) { |af, bf| kf_lerp_color(af, bf, t, true) }
+      kf_channel(bg) { |ab, bb| kf_lerp_color(ab, bb, t, false) }
+    end
+
+    # Expands one keyframe channel with the shared interpolation rule: both
+    # segment endpoints declare the value → interpolate via the block (its two
+    # parameters name the non-nil endpoints; keep them distinct per channel, or
+    # the conditional reassignments union their types), exactly one declares it
+    # → carry that value as a constant, neither → leave the base style value.
+    # One expansion for all five channels so a future channel (or a fix to one)
+    # can't regress the carry — fg/bg used to lack it, silently dropping a
+    # color declared at a stop whose segment partner omitted it.
+    private macro kf_channel(chan, &interp)
+      if ({{interp.args[0]}} = a.{{chan.id}}) && ({{interp.args[1]}} = b.{{chan.id}})
+        st.{{chan.id}} = {{interp.body}}
+      elsif %v = (a.{{chan.id}} || b.{{chan.id}})
+        st.{{chan.id}} = %v
       end
-      if (af = a.fg) && (bf = b.fg)
-        st.fg = lerp_color(af, bf, t)
-      end
-      if (ab = a.bg) && (bb = b.bg)
-        st.bg = lerp_color(ab, bb, t)
-      end
+    end
+
+    # Interpolates a keyframe color channel, keeping the `-1` terminal-default
+    # sentinel intact: boundary fractions return the RAW endpoint (so a stop
+    # declaring `transparent` really settles on the terminal default, not the
+    # configured approximation), mid-frames lerp in resolved RGB space (via
+    # `resolve_anim_color`, since `Colors.mix` reads `-1`'s bits as `0xFFFFFF`
+    # and would wash the tween through white), and an endpoint whose default is
+    # unknown snaps to the nearest raw endpoint instead of lerping.
+    private def kf_lerp_color(af : Int32, bf : Int32, t : Float64, fg : Bool) : Int32
+      return bf if t >= 1.0
+      return af if t <= 0.0
+      ra = resolve_anim_color(af, fg)
+      rb = resolve_anim_color(bf, fg)
+      return (t < 0.5 ? af : bf) if ra.nil? || rb.nil?
+      lerp_color(ra, rb, t)
     end
   end
 end

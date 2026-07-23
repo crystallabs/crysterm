@@ -35,6 +35,16 @@ module Crysterm
       # terminal's measured cell size, unless `css.cell_aspect_ratio` pins it.
       class_property cell_aspect_ratio : Float64 = 2.0
 
+      # `object_id` of the `Screen` whose *measured* cell geometry currently
+      # anchors `divisors`/`cell_aspect_ratio`, or `nil` while no device has
+      # reported. These globals are process-wide but cell geometry is
+      # per-device, so the first device to report claims the anchor (and keeps
+      # refreshing it on its own font/zoom changes); a later, *different*
+      # device must not flip the shared anchor back and forth. Released on the
+      # anchoring device's teardown (`Screen#release_cell_geometry_anchor`) so
+      # a surviving device can take over. See `Screen#apply_cell_pixels`.
+      class_property measured_source : UInt64? = nil
+
       # Anchored on `1 cell ≈ 10px`; the `px` anchor is replaced at startup with
       # the terminal's *measured* cell width when available, unless
       # `css.px_per_cell` pins it. The absolute units are derived from the fixed
@@ -156,8 +166,15 @@ module Crysterm
       VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/i
 
       # Rounds fractional cells to an `Int32`, clamping into range so an absurd
-      # length (`99999999999px`) can't raise `OverflowError`.
+      # length (`99999999999px`) can't raise `OverflowError`. NaN (e.g. a
+      # `calc()` whose finite terms overflow to `Infinity` and are then
+      # multiplied by 0) slips through the comparison-based clamp below — both
+      # comparisons are false for NaN — straight to `.to_i`, which raises;
+      # neutralize it to 0 first (B18-22, same hole as `Dim#resolve`/
+      # `#resolve_viewport`). Also covers `#to_cells` and `#viewport_cells`,
+      # which both round through here.
       def self.to_cell_count(cells : Float64) : Int32
+        return 0 if cells.nan?
         cells.round.clamp(Int32::MIN.to_f64, Int32::MAX.to_f64).to_i
       end
 

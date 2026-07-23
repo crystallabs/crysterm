@@ -92,7 +92,22 @@ module Crysterm
       end
 
       # Whether tabs show a `✕` marker and can be closed.
-      property? tabs_closable : Bool = false
+      #
+      # Not a bare `property?`: the `✕` marker is baked into each bar item's
+      # TEXT only when titles are (re)built (`#display_title`, called from
+      # `#add_tab`/`#rebuild_bar`), while the click/Delete handlers that act on
+      # it read the flag live — so a bare-ivar toggle would desync the display
+      # from the behavior (matching `#tab_height=`/`#tab_position=` above,
+      # converted for the same reason).
+      getter? tabs_closable : Bool = false
+
+      # :ditto:
+      def tabs_closable=(value : Bool) : Bool
+        return value if value == @tabs_closable
+        @tabs_closable = value
+        refresh_bar_titles
+        value
+      end
 
       # Whether the current tab can be reordered with `<`/`>`.
       property? movable : Bool = false
@@ -330,9 +345,15 @@ module Crysterm
         @tab_titles[index] = title
         # A title sets its bar item's width, and hence every later item's offset,
         # so the bar is rebuilt wholesale rather than poking one box's content.
+        refresh_bar_titles
+      end
+
+      # Rebuilds the bar's items (re-deriving each title through
+      # `#display_title`, so a `#tabs_closable=` toggle is picked up too) and
+      # restores the current-tab highlight, which a rebuild resets. Shared by
+      # `#set_tab_text` and `#tabs_closable=`.
+      private def refresh_bar_titles : Nil
         rebuild_bar
-        # Rebuilding resets the bar's own selection, so put the highlight back
-        # on the current tab.
         @switching = true
         tab_bar.current_index = @current_index if @current_index >= 0
         @switching = false

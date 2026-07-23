@@ -36,10 +36,16 @@ module Crysterm
       # the line's length, then repaints.
       def orientation=(v : Tput::Orientation) : Tput::Orientation
         return v if v == @orientation
-        old_size = line_size
+        old_width = @width
+        old_height = @height
         @orientation = v
         style.fill_char = glyph(v.vertical? ? Glyphs::Role::LineVertical : Glyphs::Role::LineHorizontal)
-        self.line_size = old_size if old_size
+        # Swap the axes wholesale: the length moves onto the new axis and the
+        # thickness (usually `nil`, i.e. shrink-to-fit to one cell) onto the
+        # other. Merely copying the length would leave the old axis pinned at
+        # the old length, turning the line into a full-area slab of glyphs.
+        self.width = old_height
+        self.height = old_width
         request_render
         @orientation
       end

@@ -70,13 +70,11 @@ module Crysterm
       # the device — an unchanged frame would emit zero bytes and the raise would
       # be invisible. Poison the old-frame buffer to force a full re-emit.
       window.invalidate_region 0, window.awidth, 0, window.aheight
-      # Re-assert per-window terminal state a sibling may have overwritten on the
-      # shared device. The hardware cursor (DECSCUSR / OSC 12) is pushed only
-      # from `apply_cursor`, so without this the raised window keeps running
-      # under the sibling's cursor indefinitely...
-      window.apply_cursor
-      # ...and the window title (OSC 0), same structural gap.
-      window.title.try { |t| window.tput.title = t }
+      # Re-assert per-window terminal state (hardware cursor, OSC title) a
+      # sibling may have overwritten on the shared device — both are pushed
+      # only on (re)takeover, so without this the raised window keeps running
+      # under the sibling's cursor and title indefinitely.
+      window.reassert_terminal_state
       window.render
       window
     end

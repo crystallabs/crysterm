@@ -90,7 +90,17 @@ module Crysterm
       end
 
       # Columns reserved for the label column (`nil` = auto from the labels).
-      property label_width : Int32?
+      getter label_width : Int32?
+
+      # Assigns `#label_width` and schedules a repaint: the content cache's key
+      # includes `@label_width` so a bare `property` setter's change would only
+      # take effect on some later, unrelated frame.
+      def label_width=(v : Int32?) : Int32?
+        return v if v == @label_width
+        @label_width = v
+        request_render
+        v
+      end
 
       @gauge_items : Array(Item) = [] of Item
 
@@ -105,8 +115,9 @@ module Crysterm
 
       def initialize(@minimum : Number = 0.0, @maximum : Number = 100.0,
                      @label_width : Int32? = nil, **box)
-        @minimum = @minimum.to_f
-        @maximum = @maximum.to_f
+        # A non-finite bound would bypass `#set_range`'s guard and poison
+        # `#percent_of`, crashing the render fiber on `pct.round.to_i`.
+        @minimum, @maximum = sanitize_range(@minimum.to_f, @maximum.to_f)
         super **box
         self.parse_tags = true
       end

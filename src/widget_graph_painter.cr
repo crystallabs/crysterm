@@ -170,6 +170,12 @@ module Crysterm
 
         # Outlines a rectangle (logical x,y = top-left; w,h = size).
         def draw_rect(x : Number, y : Number, w : Number, h : Number) : Nil
+          # A non-finite coordinate/size maps through `to_px` to the far-off-canvas
+          # sentinel, and — like `#draw_line`'s equivalent guard above — the
+          # Bresenham `line` walk plots every pixel between a valid corner and
+          # the sentinel: a visible stray full-height/width ray plus ~10^6
+          # rejected off-canvas plots per edge. Skip the whole rect instead.
+          return unless x.to_f.finite? && y.to_f.finite? && w.to_f.finite? && h.to_f.finite?
           x0, y0, x1, y1 = dx(x), dy(y), dx(x + w), dy(y + h)
           line x0, y0, x1, y0
           line x1, y0, x1, y1

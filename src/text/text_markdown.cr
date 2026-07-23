@@ -119,7 +119,7 @@ module Crysterm
           with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
           end_block
         when .block_quote?
-          separator if top_level?
+          separator if top_level? || quote_break?
           @quote_depth += 1
           walk_children(node)
           @quote_depth -= 1
@@ -140,7 +140,7 @@ module Crysterm
           start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
-          separator if top_level?
+          separator if top_level? || quote_break?
           node.text.chomp.split('\n').each do |line|
             start_block
             append_text line
@@ -183,7 +183,12 @@ module Crysterm
       private def import_paragraph(node : Markd::Node) : Nil
         txt = node_text(node)
         separator if top_level? || quote_break?
-        if TextTable.gfm_table?(txt)
+        # A table-shaped paragraph inside a list item stays ordinary item
+        # content: import_table stamps no list membership, so taking the
+        # table path there would detach it from the list and shift ordered
+        # numbering (the exporter's lead escape keeps the `|` roundtrip
+        # stable).
+        if TextTable.gfm_table?(txt) && @list_stack.empty?
           import_table(txt)
           return
         end
@@ -195,7 +200,7 @@ module Crysterm
       # A list node: pushes its shared `TextListFormat` (instance identity =
       # list identity) for the item walks, then pops it.
       private def import_list(node : Markd::Node) : Nil
-        separator if @list_stack.empty?
+        separator if @list_stack.empty? && (top_level? || quote_break?)
         ordered = node.data["type"]? != "bullet"
         start = (node.data["start"]?.try &.as(Int32)) || 1
         style = if !ordered && task_list?(node)
@@ -527,7 +532,8 @@ module Crysterm
               # hard break — a bare newline would soft-wrap them back into
               # one paragraph on re-import.
               io << '\\' if !blank && pf.quote_level == cf.quote_level &&
-                            plain_body?(blocks[i - 1]) && plain_body?(blocks[i])
+                            plain_body?(blocks[i - 1]) && plain_body?(blocks[i]) &&
+                            !html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i])
               io << '\n'
               io << '\n' if blank
             end
@@ -555,14 +561,15 @@ module Crysterm
                 else
                   0
                 end
-              io << "```\n"
+              ticks = fence_ticks(blocks, first, ql)
+              io << ticks << '\n'
               # The fence run ends at a margin or quote-level boundary —
               # two fences separated by a blank line stay two fences.
               while fence_member?(blocks, i, first, ql)
                 io << prefix << " " * pad << blocks[i].text << '\n'
                 i += 1
               end
-              io << prefix << " " * pad << "```"
+              io << prefix << " " * pad << ticks
             elsif tf = blocks[i].block_format.table_format
               run = [] of TextBlock
               while i < blocks.size && blocks[i].block_format.table_format.same?(tf)
@@ -584,8 +591,9 @@ module Crysterm
         data = run.select { |b| TextTable.data_row?(b.text) }
         return if data.empty?
         prefix = "> " * run.first.block_format.quote_level
-        # A literal `|` in a cell must not read back as a cell boundary.
-        rows = data.map { |b| TextTable.split_data_row(b.text).map(&.gsub("|", "\\|")) }
+        # A literal `|` in a cell must not read back as a cell boundary,
+        # and a literal `&` must not entity-decode on re-import.
+        rows = data.map { |b| TextTable.split_data_row(b.text).map(&.gsub("|", "\\|").gsub("&", "\\&")) }
         io << prefix << "| " << rows[0].join(" | ") << " |"
         io << '\n' << prefix << '|'
         tf.columns.times do |c|
@@ -617,6 +625,24 @@ module Crysterm
             blocks[k - 1].block_format.bottom_margin == 0))
       end
 
+      # The fence delimiter for the code run starting at *first*: one
+      # backtick longer than the longest leading backtick run (≤ 3 spaces
+      # indented — the only position CommonMark lets close a fence) on any
+      # of the run's lines, so content that is itself a backtick run can't
+      # close the fence early on re-import. `wrap_code`'s rule, per line;
+      # minimum the standard 3.
+      private def fence_ticks(blocks : Array(TextBlock), first : Int32, ql : Int32) : String
+        run = 0
+        j = first
+        while fence_member?(blocks, j, first, ql)
+          if len = blocks[j].text[/\A\s{0,3}(`+)/, 1]?.try(&.size)
+            run = len if run < len
+          end
+          j += 1
+        end
+        "`" * Math.max(3, run + 1)
+      end
+
       # Does the contiguous same-`bg`/quote-level run starting at *i* form a
       # fenced code block? A run opens a fence when it holds a real code line
       # (non-empty code fragments) or spans more than one line — so a code
@@ -634,6 +660,16 @@ module Crysterm
           j += 1
         end
         has_code || count > 1
+      end
+
+      # Does *b*'s text open a CommonMark HTML block of types 1-6 — the
+      # kinds that interrupt a paragraph and re-import their lines RAW?
+      # Mirrors markd's own start conditions (type 7, a lone complete tag,
+      # cannot interrupt a paragraph and is excluded).
+      private def html_blockish?(b : TextBlock) : Bool
+        t = b.text
+        t.starts_with?('<') &&
+          Markd::Rule::HTML_BLOCK_OPEN[0, 6].any? { |re| t.matches?(re) }
       end
 
       # A plain paragraph body block — the kind a hard break may join to
@@ -830,8 +866,10 @@ module Crysterm
       end
 
       private def escape_md(text : String, lead : Bool = false) : String
-        if text.matches?(/[\\`*_\[\]~]/)
-          text = text.gsub(/([\\`*_\[\]~])/) { "\\#{$1}" }
+        # `&` is escaped so entity-shaped plain text ("&amp;", "&#65;")
+        # isn't decoded — and thereby mutated — on re-import.
+        if text.matches?(/[\\`*_\[\]~&]/)
+          text = text.gsub(/([\\`*_\[\]~&])/) { "\\#{$1}" }
         end
         return text unless lead
         # Block-leading syntax the inline class above doesn't cover: bullet

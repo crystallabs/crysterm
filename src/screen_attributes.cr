@@ -143,18 +143,27 @@ module Crysterm
           fg = Attr.fg(dfl)
         when 49 # default bg
           bg = Attr.bg(dfl)
-        when 38, 48 # extended fg (38) / bg (48): 256-color or truecolor.
+        when 38, 48, 58 # extended fg (38) / bg (48) / underline color (58): 256-color or truecolor.
           # Sub-parameters may be `;`- or `:`-separated (ISO 8613-6 / ITU T.416):
           # `38;5;n` / `38:5:n`, `38;2;r;g;b` / `38:2:r:g:b`, and the full colon
           # form `38:2:<cs>:r:g:b` with a (usually empty) colorspace-id field.
+          # 58 shares the exact same payload shape (`58;2;r;g;b` / `58:5:n` /
+          # `58:2:<cs>:r:g:b`) but crysterm has no underline-color attribute to
+          # set — its payload is parsed identically to 38/48 solely so `term`
+          # (and `colon`, below) land past it instead of leaking sub-parameters
+          # into the top-level SGR loop as standalone codes.
           if term < finish
             mode, mterm, mcolon = sgr_param_at(src, term + 1, finish)
-            if mode == 5 && mterm < finish # `<38|48>[;:]5[;:]n` (256-color)
-              n, nterm, _ = sgr_param_at(src, mterm + 1, finish)
-              rgb = Colors.palette_to_rgb(n)
-              c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
+            if mode == 5 && mterm < finish # `<38|48|58>[;:]5[;:]n` (256-color)
+              n, nterm, ncolon = sgr_param_at(src, mterm + 1, finish)
+              if c == 38
+                fg = Attr.pack_color(Colors.palette_to_rgb(n))
+              elsif c == 48
+                bg = Attr.pack_color(Colors.palette_to_rgb(n))
+              end
               term = nterm
-            elsif mode == 2 && mterm < finish # `<38|48>[;:]2[;:]r[;:]g[;:]b` (truecolor)
+              colon = ncolon
+            elsif mode == 2 && mterm < finish # `<38|48|58>[;:]2[;:]r[;:]g[;:]b` (truecolor)
               rstart = mterm
               # The colon form may carry a leading colorspace-id field
               # (`38:2::r:g:b` / `38:2:<cs>:r:g:b`). Count the colon-separated
@@ -174,14 +183,20 @@ module Crysterm
               end
               r, rterm, _ = sgr_param_at(src, rstart + 1, finish)
               g, gterm, _ = rterm < finish ? sgr_param_at(src, rterm + 1, finish) : {0, rterm, false}
-              b, bterm, _ = gterm < finish ? sgr_param_at(src, gterm + 1, finish) : {0, gterm, false}
-              rgb = Colors.rgb(r, g, b)
-              c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
+              b, bterm, bcolon = gterm < finish ? sgr_param_at(src, gterm + 1, finish) : {0, gterm, false}
+              if c == 38
+                fg = Attr.pack_color(Colors.rgb(r, g, b))
+              elsif c == 48
+                bg = Attr.pack_color(Colors.rgb(r, g, b))
+              end
               term = bterm
+              colon = bcolon
             else
               term = mterm
+              colon = mcolon
             end
           end
+        when 59 # default underline color — no-op (crysterm has no underline-color attr)
           # 8/16-color fg/bg, including bright variants — stored as native RGB.
         when 40..47   then bg = Attr.pack_color(Colors.palette_to_rgb(c - 40))
         when 100..107 then bg = Attr.pack_color(Colors.palette_to_rgb(c - 100 + 8)) # bright bg (100 = bright black bg, not "default")
@@ -192,8 +207,13 @@ module Crysterm
         # A `:`-terminated parameter we don't consume above carries ISO 8613-6
         # sub-parameters (e.g. `4:3`, curly underline). The base code was already
         # applied by the `case`; skip its sub-params up to the next `;` so the
-        # whole SGR isn't dropped (`4:3` degrades to a plain underline).
-        if colon && c != 38 && c != 48
+        # whole SGR isn't dropped (`4:3` degrades to a plain underline). The
+        # 38/48/58 branch above already reassigns `colon` (and `term`) to the
+        # last sub-parameter it actually consumed — including T.416 trailing
+        # fields (unused/tolerance/tolerance-colorspace) beyond r/g/b that it
+        # doesn't itself understand — so this same skip drains those leftovers
+        # too instead of needing a separate exemption for those codes.
+        if colon
           loop do
             _, term, colon = sgr_param_at(src, term + 1, finish)
             break unless colon

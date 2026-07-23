@@ -59,7 +59,15 @@ module Crysterm
         # Nothing to insert and nothing to replace ⇒ no change, so no event and
         # no repaint (inserting `""` over a selection still deletes it).
         return if str.empty? && !selection?
-        edit_replacing_selection { insert_at_cursor str }
+        # Capped like every other interactive insert path (typing, Ctrl-V,
+        # Ctrl-Y): Qt's `QLineEdit#insert` honors maxLength, and the bracketed
+        # `Event::Paste` handler routes through here.
+        had_selection = selection?
+        before_size = buf_size
+        insert_capped str
+        # A full field with nothing selected inserted nothing: no event, no
+        # repaint (with a selection the text always changed — it was deleted).
+        return if !had_selection && buf_size == before_size
         ensure_cursor_visible
         ensure_cursor_visible_x
         emit Crysterm::Event::TextChanged, buf_text

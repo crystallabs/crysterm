@@ -541,16 +541,35 @@ module Crysterm
         # Not laid out yet — keep defaults; render re-runs with real geometry.
       end
 
+      # The combo drives Up/Down/Enter itself (cycling the closed value or
+      # navigating the open popup) and its own one-row viewport never scrolls,
+      # so the `Mixin::Interactive` viewport-scroll handler must stand down.
+      # Otherwise it consumes Up/Down/PageUp/... as scroll keys even when the
+      # combo took no action (e.g. an empty non-editable combo), starving
+      # ancestors like a Dialog's Up/Enter accelerator. Mirrors
+      # `Mixin::TextEditing#viewer_scroll_keys?`, which stands down while it owns
+      # those keys.
+      def viewer_scroll_keys? : Bool
+        false
+      end
+
       def on_keypress(e)
         return on_keypress_editable(e) if editable?
 
         return if @open
         if e.key == Tput::Key::Down || e.key == Tput::Key::Enter || e.char == ' '
           show_popup
-          e.accept
+          # Accept only when the popup actually opened (`show_popup` no-ops on
+          # an empty non-editable combo): consuming a no-op Enter would starve
+          # an enclosing Dialog's Enter-accept accelerator.
+          e.accept if @open
         elsif e.key == Tput::Key::Up
-          cycle -1
-          e.accept
+          # `cycle` no-ops on empty options — same accept-only-when-acted-on
+          # gate, so the key stays available to ancestors.
+          unless @options.empty?
+            cycle -1
+            e.accept
+          end
         end
       end
 
@@ -577,21 +596,30 @@ module Crysterm
           end
           e.accept
         elsif k == Tput::Key::Escape
-          hide_popup if @open
-          e.accept
+          # Consume Escape only when it actually dismisses the popup — with it
+          # closed the key must bubble (Qt: QComboBox ignores Escape when the
+          # popup is closed), or an enclosing Dialog can never Escape-reject.
+          # Mirrors Mixin::SpinBoxEditing's `editing?` gate and DateEdit's
+          # `@open` gate.
+          if @open
+            hide_popup
+            e.accept
+          end
         elsif k == Tput::Key::Down
           step_open_popup(e, &.down)
         elsif k == Tput::Key::Up
           step_open_popup(e, &.up)
         elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
+          # Accept only when a character was actually erased: Backspace on an
+          # empty filter buffer is a no-op and must stay available to ancestors.
           unless @text.empty?
             @text = @text[0...-1]
             refilter
             refresh_popup
             update_content
             request_render
+            e.accept
           end
-          e.accept
         elsif ch && !k && printable?(ch)
           @text += ch
           refilter

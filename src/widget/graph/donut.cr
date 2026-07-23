@@ -142,8 +142,9 @@ module Crysterm
           glyph_mode : Media::Glyph::Mode = Media::Glyph::Mode::Braille,
           **box,
         )
-          @minimum = @minimum.to_f
-          @maximum = @maximum.to_f
+          # A non-finite bound would bypass `#set_range`'s guard and poison
+          # `#percent_of`, crashing the render fiber on `percent.round.to_i`.
+          @minimum, @maximum = sanitize_range(@minimum.to_f, @maximum.to_f)
           v = value.to_f
           # Non-finite input would survive `clamp` (NaN compares false) and later
           # crash the render fiber on `percent.round.to_i`, so sanitize on entry.

@@ -273,6 +273,13 @@ module Crysterm
       emit ::Crysterm::Event::Changed
     end
 
+    # The `ActionGroup` this action currently belongs to, if any (Qt's
+    # `QAction::actionGroup`). Set by `ActionGroup#add_action`/`#remove_action`;
+    # not meant to be assigned directly. Consulted by `#activate` to suppress
+    # the off-toggle Qt applies when re-triggering an exclusive group's checked
+    # member.
+    protected property group : ActionGroup?
+
     def initialize(@parent : EventHandler? = nil)
     end
 
@@ -324,12 +331,22 @@ module Crysterm
     # A disabled action does not fire `Triggered`; `Hovered` is not gated, so a
     # disabled entry still gives tooltip feedback. A checkable action flips
     # `#checked?` before emitting `Triggered`, which carries the post-toggle
-    # state — presenters must NOT pre-toggle.
+    # state — presenters must NOT pre-toggle. Exception: re-triggering the
+    # already-checked member of an exclusive `ActionGroup` does NOT flip it off
+    # (Qt's `QAction::activate` suppresses exactly this off-toggle so a radio
+    # group always keeps a selection); `#toggle` and `#checked=` are unaffected
+    # and can still uncheck it programmatically.
     def activate(event : ActionEvent = :trigger)
       case event
       in .trigger?
         return unless enabled?
-        self.checked = !checked? if checkable?
+        if checkable?
+          if checked? && (g = @group) && g.exclusive?
+            # Exclusive group, re-triggering the checked member: Qt keeps it checked.
+          else
+            self.checked = !checked?
+          end
+        end
         emit Crysterm::Event::Triggered, checked?
       in .hover?
         emit Crysterm::Event::Hovered

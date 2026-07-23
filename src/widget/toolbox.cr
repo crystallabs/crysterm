@@ -91,8 +91,13 @@ module Crysterm
         # created while the toolbox is hidden would dup that hidden state and
         # never be shown again — `#relayout` only toggles section *content*
         # widgets — leaving a permanently blank, unclickable title row.
+        # `#strip_frame!` clears any border/padding the toolbox's own style
+        # carries: a height-1 header with a border has a negative content
+        # interior, so the title would never paint (only border glyphs would
+        # show on the single row).
         st = style.dup
         st.visible = true
+        st.strip_frame!
         header = Widget::Box.new(
           parent: self,
           left: 0, right: 0, height: 1,

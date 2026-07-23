@@ -3,11 +3,13 @@ module Crysterm
   class Styles
     DEFAULT = new # Default styles for all widgets
 
-    # Returns a copy of the default style
+    # Returns a copy of the default styles. Must be a `deep_dup`: with a
+    # shallow copy every widget would share the `DEFAULT` per-state `Style`
+    # objects, so one widget's in-place state edit (`hide`/`show` writing
+    # `visible`, a `styles.focused.bg = ...`) would bleed into every other
+    # widget — and into `DEFAULT` itself.
     def self.default
-      d = DEFAULT.dup
-      d.normal = d.normal.dup
-      d
+      DEFAULT.deep_dup
     end
 
     property normal : Style = Style.new

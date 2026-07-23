@@ -41,6 +41,18 @@ module Crysterm
           # as flow child 0 would overwrite its pins, consume a slot, and wrap the
           # real children (BUGS15 #20, missed for the whole Flow family).
           next if el.layout_excluded? || el.layout_chrome?
+          # A hidden child gives its space back (`#vacant?`), packing as though
+          # it weren't there — matching `Layout::Box`/`Border`. Mirror the
+          # SkipWidget path: consume its render index, nil its subtree's
+          # `lpos`, and don't advance `@prev_el` — otherwise its assigned
+          # extent inflates the row height, indents successors off the
+          # assigned-geometry chain, and can trip the container's overflow
+          # action for a widget that paints nothing.
+          if vacant? el
+            bump_index el
+            skip_subtree el
+            next
+          end
           # Every child consumes a render index, even one we skip below, to
           # keep z-order bookkeeping consistent.
           bump_index el
@@ -125,14 +137,16 @@ module Crysterm
         # during plane compositing, so from frame 2 on it still holds the
         # PREVIOUS frame's rect — chaining off it would lag successors one
         # frame behind any geometry change. Fall through to the assigned-
-        # geometry branch instead (in steady state both compute the same left).
+        # geometry branch instead (in steady state both compute the same left:
+        # `occupied_width` reads a shrink-to-fit child's drawn width, so even
+        # an auto-sized deferred predecessor chains at its real extent).
         if (last = last_rendered_before container, i) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
           el.left = (llp.xl + last.mright) - xi
           last_drawn = llp.width
         elsif (last = @prev_el)
-          el.left = last.left.as(Int) + last.mleft + last.awidth + last.mright
-          last_drawn = last.awidth
+          last_drawn = occupied_width last
+          el.left = last.left.as(Int) + last.mleft + last_drawn + last.mright
         else
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
@@ -185,14 +199,41 @@ module Crysterm
                 lp.height + el.mvertical
               else
                 # Placed-but-unrendered (scroll-clipped) or deferred to a plane
-                # (stale `lpos`): the assigned height is the truth this frame.
-                el.aheight + el.mvertical
+                # (stale `lpos`): the assigned height is the truth this frame —
+                # via `occupied_height`, since a deferred shrink-to-fit child's
+                # `aheight` reports the stretched remaining interior, which
+                # would advance the row cursor to the container bottom.
+                occupied_height(el) + el.mvertical
               end
             tallest = eh if eh > tallest
           end
           j += 1
         end
         tallest
+      end
+
+      # `el`'s occupied horizontal extent for chain/snap math. Normally the
+      # assigned `awidth` — but a shrink-to-fit (nil-width) child DRAWS at its
+      # shrunk content width while its `awidth` resolves to the full remaining
+      # interior, so for those the drawn rect is the truth (exact in steady
+      # state; one frame stale after a change, which beats a permanently
+      # stretched full-interior extent). Falls back to `awidth` when no drawn
+      # rect exists (frame 1, or scroll-clipped, where `lpos` is nil'd).
+      private def occupied_width(el : Widget) : Int32
+        if el.width.nil? && (lp = rendered_geometry(el))
+          lp.width
+        else
+          el.awidth
+        end
+      end
+
+      # :ditto: for the vertical axis (`aheight` / drawn height).
+      private def occupied_height(el : Widget) : Int32
+        if el.height.nil? && (lp = rendered_geometry(el))
+          lp.height
+        else
+          el.aheight
+        end
       end
 
       # True when `el` will be composited on its own plane this frame — the

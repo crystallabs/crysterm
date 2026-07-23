@@ -160,7 +160,8 @@ describe "Widget CSS transition cancel-before-return" do
     # tween is cancelled first, so nothing keeps advancing.
     st = b.style
     prev = Crysterm::Widget::TransitionFrom.new(
-      fg: st.fg, bg: st.bg, opacity: st.opacity, tint_alpha: st.tint_alpha)
+      fg: st.fg, bg: st.bg, opacity: st.opacity,
+      tint_alpha: st.tint?.try(&.[1]) || 0.0, tint: st.tint?.try(&.[0]))
     b.apply_style_transitions prev
     sleep 0.05.seconds
 

@@ -280,7 +280,8 @@ module Crysterm
         # allocation for its ticks or labels.
         private def refresh_ticks : Nil
           # `label_format` is in the key so a format change re-`format`s the
-          # labels; `title` affects `#margins` via `lm` and keys along for free.
+          # labels; `title` affects `#margins` (`lm`/`bm`) and `#draw_chrome`'s
+          # stamped title text, and keys along for free.
           key = {@xmin, @xmax, @ymin, @ymax,
                  axis_x.tick_count, axis_x.title, axis_x.label_format,
                  axis_y.tick_count, axis_y.title, axis_y.label_format}
@@ -346,18 +347,23 @@ module Crysterm
 
         # --- chrome (terminal text around the plot) ---------------------------
 
-        # Left margin = widest Y label; top = title + legend rows; bottom = 1 (X
-        # labels); right = enough for the last X label's overhang.
+        # Left margin = widest Y label (+1 breathing room, +1 more column for
+        # `axis_y.title` if set); top = title + legend rows; bottom = 1 (X
+        # labels), +1 more row for `axis_x.title` if set; right = enough for
+        # the last X label's overhang.
         private def margins : Tuple(Int32, Int32, Int32, Int32)
           lm = @y_labels.max_of?(&.size) || 0
-          lm += 1 if axis_y.title.empty? # a hair of breathing room
+          lm += 1                            # a hair of breathing room
+          lm += 1 unless axis_y.title.empty? # reserve a column for the title
           lm = lm.clamp(0, Math.max(0, (awidth - ihorizontal) // 2))
 
           tm = (@title.empty? ? 0 : 1) + (show_legend? && !@series.empty? ? 1 : 0)
 
           rm = ((@x_labels.last?.try(&.size) || 0) // 2).clamp(1, 4)
 
-          {lm, tm, rm, 1}
+          bm = axis_x.title.empty? ? 1 : 2
+
+          {lm, tm, rm, bm}
         end
 
         private def draw_chrome(lm : Int32, tm : Int32, rm : Int32, bm : Int32) : Nil
@@ -405,6 +411,20 @@ module Crysterm
             label = @x_labels[i]? || axis_x.format(val)
             x = col - label.size // 2
             put_text x, plot_b, label, overlay_attr(LABEL_COLOR), plot_l, cr
+          end
+
+          # X axis title (centered under the plot, on the last interior row —
+          # `#margins` reserves this extra bottom row only when the title is
+          # set, so the tick labels above stay at `plot_b` either way).
+          put_centered axis_x.title, plot_l, plot_r, cb - 1, overlay_attr(LABEL_COLOR)
+
+          # Y axis title, stamped one character per row in the leftmost
+          # interior column, centered along the plot height (`#margins`
+          # reserves that column only when the title is set).
+          unless axis_y.title.empty?
+            t = axis_y.title
+            y0 = plot_t + Math.max(0, (plot_h - t.size) // 2)
+            t.each_char_with_index { |ch, i| put_cell cl, y0 + i, ch, overlay_attr(LABEL_COLOR), cl, cl + 1 }
           end
         end
       end

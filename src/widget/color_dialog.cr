@@ -156,14 +156,14 @@ module Crysterm
       end
 
       # Shows the dialog and runs *block* with the chosen hex (or `nil` on
-      # cancel). Saves and later restores focus, and installs the modal Enter
+      # cancel). Saves and later restores focus, takes the modal input grab
+      # (Qt's `QColorDialog::getColor` is modal), and installs the modal Enter
       # (accept) / Escape (reject) accelerator.
       def get_color(&block : String? -> Nil) : Nil
         @callback = block
         window.save_focus
         @result = Code::Rejected.to_i
-        show
-        to_front
+        show_modal
         focus
         install_dialog_keys
         request_render
@@ -566,12 +566,15 @@ module Crysterm
       # Arms the eyedropper: the next click anywhere reads the color under it.
       # The modal grab keeps that click from also activating whatever is beneath
       # it; the window-level `Event::Mouse`, emitted before hit-testing, still
-      # delivers the coordinates here.
+      # delivers the coordinates here. While the dialog itself is modal
+      # (`#get_color`/`#open`) it already holds that grab — don't double-add,
+      # or the matching `end_eyedropper` removal would silently drop the
+      # dialog's own modal grab mid-session (add_popup_grab is set-semantics).
       private def begin_eyedropper : Nil
         return if @picking
         scr = window? || return
         @picking = true
-        scr.add_popup_grab self
+        scr.add_popup_grab self unless modal?
         @ev_pick.on(scr, Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           e.accept
@@ -584,7 +587,9 @@ module Crysterm
         return unless @picking
         @picking = false
         @ev_pick.off
-        window?.try &.remove_popup_grab self
+        # See `begin_eyedropper`: while modal the grab is the dialog's own —
+        # it stays until `#done`/`#destroy` release it.
+        window?.try &.remove_popup_grab self unless modal?
         if hex = screen_color_at x, y
           self.current_color = hex
           store_custom

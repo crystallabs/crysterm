@@ -54,6 +54,12 @@ module Crysterm
     # hover in/out transitions.
     @_hover : Widget?
 
+    # Last dispatched pointer position (surface coordinates), so a hover ended
+    # without a live report (`#end_hover`, e.g. from `#disable_mouse`) can hand
+    # the synthetic `MouseLeave` real coordinates.
+    @_last_mouse_x = 0
+    @_last_mouse_y = 0
+
     # The widget currently under the pointer (topmost), or `nil`.
     def hovered : Widget?
       @_hover
@@ -167,7 +173,7 @@ module Crysterm
 
       yield
 
-      @_hover = nil if drop_hover
+      end_hover(notify: false) if drop_hover
       self.mouse_cursor_shape = nil if drop_hover
       @_arm = nil if drop_arm
       @_mouse_captor = nil if drop_captor
@@ -186,13 +192,34 @@ module Crysterm
     pooled_mouse_event mouse_move, MouseMove
     pooled_mouse_event mouse_out, MouseLeave
 
-    # Turns off mouse reporting on the device and drops this surface's hover
-    # state — `Screen#disable_mouse` handles terminal/gpm/cursor teardown; the
-    # `@_hover` reset is the surface's half (no further `MouseLeave` fires once
-    # reporting is off).
-    def disable_mouse : Nil
-      @screen.disable_mouse
+    # Ends the current hover (if any): drops `@_hover` and, when *notify* is
+    # true, emits a synthetic `Event::MouseLeave` on the widget, at the last
+    # known pointer position. The hover-teardown sites share this so they can't
+    # diverge: `#disable_mouse` notifies (the widget stays alive on-screen, so
+    # its visible hover state — tooltip, highlight — must be told to revert),
+    # while `#release_transient_state_for` doesn't (the widget is being
+    # removed; firing events on a dead widget is the hazard it exists to
+    # prevent).
+    private def end_hover(*, notify : Bool) : Nil
+      return unless old = @_hover
       @_hover = nil
+      return unless notify
+      ev = ::Tput::Mouse::Event.new(
+        ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None,
+        @_last_mouse_x, @_last_mouse_y, source: :program)
+      old.emit ::Crysterm::Event::MouseLeave, mouse_out_event(ev, old)
+    end
+
+    # Turns off mouse reporting on the device and ends this surface's hover —
+    # `Screen#disable_mouse` handles terminal/gpm/cursor teardown; the hover
+    # end is the surface's half. Since no further report can ever deliver the
+    # leave once reporting is off, it is synthesized here (before the device
+    # teardown, so leave handlers' terminal writes still land) — otherwise a
+    # hovered widget's visible state (tooltip, hover highlight, status-bar
+    # hint) would stay stale indefinitely.
+    def disable_mouse : Nil
+      end_hover notify: true
+      @screen.disable_mouse
     end
 
     # Inline mode: the device reports rows in physical terminal coordinates,
@@ -234,6 +261,11 @@ module Crysterm
       # Focus in/out reports (mode 1004) share this channel but carry no
       # pointer position; surface on the screen and stop before hit-testing.
       return if ev.focus_event?
+
+      # Every remaining report carries a real position: remember it, so a hover
+      # ended without a report (`#end_hover`) has coordinates to synthesize from.
+      @_last_mouse_x = ev.x
+      @_last_mouse_y = ev.y
 
       # A widget that captured the mouse or an in-flight drag consumes all
       # motion/release regardless of the pointer's position.

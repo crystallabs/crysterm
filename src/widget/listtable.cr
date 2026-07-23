@@ -90,9 +90,14 @@ module Crysterm
       # these key on source-object identity (`same?`).
 
       # Non-CSS even rows: the source is one shared object across every even row,
-      # so a single border-stripped derived style serves them all.
+      # so a single border-stripped derived style serves them all. Guarded by the
+      # source's `attr_fingerprint` too: on the explicit-sub-style path (no
+      # `alternate-background-color`) `Style#alternate_row` returns the same base
+      # object forever, so identity alone would keep a stale derived copy across
+      # in-place mutations of that sub-style.
       @_alt_row_src : Style? = nil
       @_alt_row_derived : Style? = nil
+      @_alt_row_fp : Style::AttrFingerprint? = nil
 
       # CSS-styled rows: each row box carries its own computed `Style`, so these
       # memoize per source-`Style` identity. The whole set is dropped when
@@ -232,14 +237,16 @@ module Crysterm
       end
 
       # Border-stripped `style.alternate_row` for the non-CSS alternating-row
-      # path, memoized by source identity: every even row shares the one
-      # `style.alternate_row` object.
+      # path, memoized by source identity and attribute fingerprint: every even
+      # row shares the one `style.alternate_row` object.
       private def alt_row_style : Style
         src = style.alternate_row
-        if (d = @_alt_row_derived) && @_alt_row_src.same?(src)
+        fp = src.attr_fingerprint
+        if (d = @_alt_row_derived) && @_alt_row_src.same?(src) && @_alt_row_fp == fp
           d
         else
           @_alt_row_src = src
+          @_alt_row_fp = fp
           @_alt_row_derived = without_border(src)
         end
       end

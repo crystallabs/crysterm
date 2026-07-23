@@ -55,8 +55,12 @@ module Crysterm
           **layout,
         )
           @entries = entries
-          # At least one row: the cell math divides by `@rows`.
+          # At least one row: the cell math divides by `@rows`. `@columns` has
+          # no division dependency, but `#build`'s `next if column >= @columns`
+          # guard drops every entry when `@columns <= 0`, silently blanking
+          # the menu — clamp both axes the same way.
           @rows = Math.max(1, @rows)
+          @columns = Math.max(1, @columns)
           super **layout, width: w, height: (h || rows)
           # `spacing: 0` grid: columns abut on integer fences, so the last one reaches
           # the edge even when `columns` doesn't divide the width evenly. Entries
@@ -76,6 +80,10 @@ module Crysterm
         # Re-tiles into a new column count. Both the grid and the cells must be
         # rebuilt: each cell's `Grid::Hint` column depends on `columns`.
         def columns=(value : Int32) : Int32
+          # `#build`'s `next if column >= @columns` guard drops every entry
+          # when `@columns <= 0`, silently blanking the menu; at least one
+          # column, mirroring `#rows=`.
+          value = Math.max(1, value)
           @columns = value
           if g = @layout.as?(Crysterm::Layout::Grid)
             g.columns = value

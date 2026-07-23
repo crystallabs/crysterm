@@ -69,6 +69,10 @@ module Crysterm
           output.close rescue nil
         end
         @screen.stop_input
+        # The old device dies with this migration; release any claim it holds
+        # on the process-global CSS geometry anchor so the NEW device's
+        # `detect_cell_geometry` below can take over.
+        @screen.release_cell_geometry_anchor
         stale_window = @window
       end
       # The spawned emulator window and the IO ownership belong to the OLD
@@ -99,6 +103,11 @@ module Crysterm
       # Re-enter + repaint invalidates descendants' memoized device.
       enter
       realloc
+      # Re-assert per-window terminal state on the new device: `enter` skips
+      # `apply_cursor` for an already-applied cursor, and nothing else pushes
+      # the stored title here — without this a migration loses both until the
+      # next `activate`.
+      reassert_terminal_state
       application.try do |app|
         # Back-link the new device to the dispatcher so its input read fiber
         # routes here.
@@ -220,6 +229,13 @@ module Crysterm
 
     # :ditto:
     def title=(@title : String?)
+      # The title is per-window terminal state: store it always, but write the
+      # OSC 0 escape only while connected AND device-active — a background
+      # window on a shared device must not retitle the terminal showing its
+      # sibling, and a disconnected window's owned fds are closed (the write
+      # would raise). `Application#activate`, `#connect` and the sibling
+      # hand-back re-assert the stored title via `#reassert_terminal_state`.
+      return unless @connected && device_active_window?
       if t = @title
         tput.title = t
       else
@@ -227,6 +243,18 @@ module Crysterm
         # their own default.
         tput.title = ""
       end
+    end
+
+    # Re-asserts this window's per-window terminal state — the hardware cursor
+    # (DECSCUSR / OSC 12) and the OSC 0 title — on its device. The shared
+    # re-assert used whenever this window (re)takes a terminal: on
+    # `Application#activate`, on `#connect`'s reattach, on `#screen=`'s device
+    # migration, and when a departing sibling hands the device back
+    # (`#reassert_sibling_terminal_state`). Writes via `tput` directly, so it
+    # emits even before the caller's activation bookkeeping settles.
+    def reassert_terminal_state : Nil
+      apply_cursor
+      @title.try { |t| tput.title = t }
     end
 
     # Rendering performance figures are not drawn by the window itself; add a
@@ -882,23 +910,26 @@ module Crysterm
       # }
     end
 
-    # Politely closes the window (Qt's `QWindow#close`): emits
-    # `Event::WindowClosed` and then tears it down with `#destroy`. Returns
+    # Politely closes the window (Qt's `QWindow#close`): disconnects, emits
+    # `Event::WindowClosed`, and then tears it down with `#destroy`. Returns
     # whether the window was open (`false` if already destroyed).
     #
     # The counterpart to a hard `#destroy`: handlers get the signal *first*, so
     # they can save state, reattach the surface elsewhere (`Application.open
-    # into: self`), or count it out of a multi-window run. Emitting the signal is
-    # exactly what the terminal-emulator-close watcher does
-    # (`#on_window_closed`), so both close paths look identical to a handler.
+    # into: self`), or count it out of a multi-window run. Disconnecting before
+    # emitting is exactly what the terminal-emulator-close watcher does
+    # (`#on_window_closed`), so both close paths look identical to a handler —
+    # and a handler that reattaches survives: the `#destroy` below is skipped
+    # when the handler re-established a connection.
     #
     # Re-entrancy is safe: a handler that destroys the window itself — as
     # `Application.exec_all` does — just makes the `#destroy` below a no-op, so
     # there is no double teardown.
     def close : Bool
       return false if @destroyed
+      disconnect
       emit Crysterm::Event::WindowClosed, self
-      destroy unless @destroyed
+      destroy unless @destroyed || @connected
       true
     end
 
@@ -1012,6 +1043,10 @@ module Crysterm
       # (accessibility / broken-font workaround) silently reverts to Unicode
       # chrome. An unpinned tier stays unpinned so detection runs as usual.
       replacement.glyph_tier = glyph_tier if @screen.glyph_tier_explicit?
+      # The remaining runtime-settable options the constructor can't take; must
+      # run before `start_input` below so its `enable_mouse(focus: send_focus?)`
+      # sees the carried value.
+      copy_runtime_options_onto replacement
       reparent_onto replacement
       # The deferred device probe (see `probe: false` above), now that no other
       # reader contends for the tty. `Screen#probe` refreshes draw_caps itself;
@@ -1023,6 +1058,27 @@ module Crysterm
       replacement.restyle
       replacement.start_input if was_listening
       replacement
+    end
+
+    # Runtime-settable options the constructor can't take. THE single list —
+    # add new runtime properties here, not as another inline patch (see the
+    # size-pin / inline-knob / glyph-tier comments in `#switch_terminal` for
+    # the history of piecemeal additions). Deliberately excluded: `grab_keys`
+    # (transient grab state managed by the widget grab lifecycle),
+    # `render_row_offset`/`anchor_row` (the replacement re-captures its own
+    # inline anchor by design), and `application` (documented usage re-`exec`s
+    # the returned window, which registers it).
+    private def copy_runtime_options_onto(other : Window) : Nil
+      other.hyperlinks = hyperlinks?
+      other.synchronized_output = synchronized_output?
+      other.send_focus = send_focus?
+      other.frame_interval = frame_interval
+      other.drag_two_click = drag_two_click?
+      other.drag_ghost = drag_ghost?
+      other.overflow = overflow
+      other.default_attr = default_attr
+      other.default_char = default_char
+      other.mouse_cursor_shaping = mouse_cursor_shaping?
     end
 
     # Moves every top-level widget from this screen onto *other*, destroys this

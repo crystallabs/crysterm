@@ -140,7 +140,13 @@ module Crysterm
         m = @menu
         return unless m
         return unless window?
-        m.popup aleft, atop + aheight
+        # Anchor on the button's *painted* rect (`Widget#painted_rect`), not
+        # its layout coords: inside a scrolled/child_base ancestor the two
+        # diverge by the ancestor's scroll base, and the menu (a window child)
+        # is painted exactly where we put it — so layout coords would drop it
+        # detached from the visible button. Mirrors MenuBar#menu_y.
+        x, y, _w, h = painted_rect
+        m.popup x, y + h
       end
 
       def click

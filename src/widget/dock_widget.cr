@@ -68,7 +68,14 @@ module Crysterm
         refresh_buttons
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating? if value.floating? != was_floating
-        window?.try &.update
+        # `#mark_dirty`, not `window?.try &.update`: a pure area move (e.g.
+        # Left→Right) can leave the woken frame with nothing marked dirty
+        # under `DamageTracking` — `#refresh_buttons`' writes may be no-ops
+        # when the glyphs don't change, and `#invalidate_frame_style`
+        # registers no damage on its own — so `#update` alone risks a
+        # no-op frame that never re-lays-out the dock (same class of bug as
+        # B18-62's `#dock_size=`).
+        mark_dirty
         value
       end
 
@@ -83,10 +90,71 @@ module Crysterm
 
       # Extent along the docking axis: width when docked Left/Right, height when
       # docked Top/Bottom. Ignored while `Floating` (the dock keeps its own size).
-      property dock_size : Int32 = 20
+      #
+      # Not a bare `property`: only `MainWindow#relayout` reads it, and only
+      # while a frame is already being built, so a bare-ivar assignment
+      # schedules nothing on an idle UI — the dock stays painted at its old
+      # size until some unrelated event happens to render a frame. `#mark_dirty`
+      # (not `window?.try &.update`) both wakes the render loop and registers
+      # damage, which `#update` alone doesn't — an empty dirty set under
+      # `DamageTracking` would otherwise no-op the woken frame.
+      getter dock_size : Int32 = 20
 
-      property? closable : Bool = true
-      property? floatable : Bool = true
+      def dock_size=(value : Int32) : Int32
+        return value if value == @dock_size
+        @dock_size = value
+        mark_dirty
+        value
+      end
+
+      # Not bare `property?`s: the title-bar chrome they govern (close button,
+      # float button, size grip) is otherwise built once in the constructor
+      # and never revisited, so a runtime toggle would leave a dead-but-visible
+      # button (or vice versa) — the same reason `#area=`/`#title=` above are
+      # live setters instead of bare properties.
+      getter? closable : Bool = true
+      getter? floatable : Bool = true
+
+      def closable=(value : Bool) : Bool
+        return value if value == @closable
+        @closable = value
+        rebuild_titlebuttons
+        window?.try &.update
+        value
+      end
+
+      def floatable=(value : Bool) : Bool
+        return value if value == @floatable
+        @floatable = value
+        rebuild_titlebuttons
+        if value
+          # `#build_size_grip` no-ops (guarded) if a grip somehow still exists;
+          # `#refresh_grip` then shows it immediately if already floating.
+          build_size_grip
+          refresh_grip
+        else
+          @size_grip.try &.remove_from_parent
+          @size_grip = nil
+        end
+        window?.try &.update
+        value
+      end
+
+      # Tears down and rebuilds the close/float buttons after a `#closable=`/
+      # `#floatable=` toggle. Both are rebuilt on either change: the float
+      # button's right offset depends on `#closable?` (see `#build_buttons`).
+      # The ivars must go to `nil`, not just have their boxes removed —
+      # `#build_buttons` only assigns them when the corresponding flag is
+      # true, so leaving a stale ivar would point `#refresh_buttons`/
+      # `#sync_titlebutton` at a detached widget forever.
+      private def rebuild_titlebuttons : Nil
+        @close_button.try &.remove_from_parent
+        @float_button.try &.remove_from_parent
+        @close_button = nil
+        @float_button = nil
+        build_buttons
+        refresh_buttons
+      end
 
       # The contained widget (Qt's `QDockWidget#widget`). Held in `@dock_content`
       # because `@content` is the base `Widget`'s (textual) content.
@@ -242,7 +310,10 @@ module Crysterm
         # style and let it re-sync on the next `#style` read.
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating?
-        window?.try &.update
+        # `#mark_dirty`: usually saved by `#apply_rect`/`#freeze_rect`'s
+        # geometry writes marking dirty on their own, but not guaranteed for
+        # every path (see `#area=` above) — cheap and correct to mark here too.
+        mark_dirty
       end
 
       @prev_area : Area?
@@ -344,7 +415,11 @@ module Crysterm
       end
 
       private def build_buttons
-        @close_button = titlebutton(0, close_glyph) { close } if closable?
+        # `close if closable?` is defense-in-depth (the button doesn't exist at
+        # all when `closable?` is false at build time), matching the click
+        # handler staying gated even though the flag also gates whether the
+        # button is built.
+        @close_button = titlebutton(0, close_glyph) { close if closable? } if closable?
         # The float button sits one cell left of the close button (when present),
         # so its offset reserves the close glyph's measured width plus the gap.
         float_offset = closable? ? Unicode.width(close_glyph) + 1 : 0
@@ -385,6 +460,7 @@ module Crysterm
       # Starts hidden, revealed only while floating.
       private def build_size_grip
         return unless floatable?
+        return if @size_grip # double-build guard: `#floatable=` may call this
         g = SizeGrip.new(
           parent: self, target: self,
           bottom: 0, right: 0, width: 1, height: 1,

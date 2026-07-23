@@ -533,11 +533,13 @@ module Crysterm
       end
 
       bottom = @children.reduce(0) do |current, el|
-        # `fixed` children are chrome (scroll bars, labels), not scrollable
-        # content. Counting them inflated scroll height to ~viewport height,
-        # keeping (e.g.) a `PlainTextEdit`'s vertical bar stuck on after its
-        # content shrank back to a single line.
-        next current if el.fixed?
+        # `fixed` and `layout_chrome?` children are chrome (scroll bars, border
+        # labels), not scrollable content. Counting them inflated scroll height:
+        # a `fixed` bar to ~viewport height (keeping e.g. a `PlainTextEdit`'s
+        # vertical bar stuck on after its content shrank back to a single line),
+        # and the border label — re-glued to `@child_base` every frame — to
+        # `child_base + 1`, which defeated the post-shrink reclamp entirely.
+        next current if el.fixed? || el.layout_chrome?
 
         # `el.aheight` alone doesn't reflect shrunken height; a shrunken box
         # inside a scrollable element won't grow past the scrollable element's
@@ -689,6 +691,24 @@ module Crysterm
       @last_scroll_max = content_max
 
       clamp_child_base
+
+      # Horizontal counterpart (only meaningful without wrapping): pull the column
+      # base back into range after content narrows. Unlike `@child_base` (applied
+      # at paint time), `@child_base_x` is baked into `@_clines` by `_hslice`
+      # during the wrap, and `process_content` records `@_clines.base_x` BEFORE
+      # emitting `ContentParsed` — so a changed base needs `mark_dirty` to
+      # schedule the frame whose cache-key mismatch (`base_x`) re-wraps at the
+      # clamped offset. The change guard makes that converge in one extra frame
+      # instead of looping. The `wrap_content?` guard is load-bearing: ListTable's
+      # column-snapped scrolling deliberately allows `base_x` past
+      # `scroll_width - content_width` (and keeps the default `wrap_content`).
+      unless wrap_content?
+        new_x = Math.min(@child_base_x, Math.max(0, scroll_width - content_width))
+        if new_x != @child_base_x
+          @child_base_x = new_x
+          mark_dirty
+        end
+      end
     end
 
     protected def reclamp_scroll_index
