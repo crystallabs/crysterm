@@ -1,11 +1,25 @@
 module Crysterm
   module Mixin
     module TextEditing
-      def _update_cursor(get = false)
+      # Repositions the hardware caret to the insertion point. Two callers, two
+      # geometry sources:
+      #
+      # * `rendered: false` (default) — an interactive keystroke handler, running
+      #   *before* the next frame, when `@lpos` still holds the PREVIOUS frame's
+      #   box (stale after a content change). Recompute the box fresh via
+      #   `#coords` so the caret lands at the new position without waiting for a
+      #   render.
+      # * `rendered: true` — the post-render pass (`Window#render`, after
+      #   `flush_frame`), when `@lpos` was just written by that render and is the
+      #   authoritative painted box. Reuse it rather than recomputing.
+      #
+      # (The two are NOT interchangeable: using `@lpos` in the interactive path
+      # would place the caret against a stale box — the bug an earlier `# XXX`
+      # here suspected was inverted; it is not.)
+      def _update_cursor(rendered = false)
         return unless focused? # if window.focused != self
 
-        lpos = get ? @lpos : coords
-        # XXX is above a bug and should be vice-versa? `get ? coords : @lpos`
+        lpos = rendered ? @lpos : coords
         return unless lpos
 
         display = window

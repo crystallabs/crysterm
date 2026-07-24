@@ -661,8 +661,10 @@ module Crysterm
 
       t_flush = observed ? Time.instant : t1
 
-      # XXX Workaround for cursor pos before the screen has rendered, when lpos
-      # is stale. Only some elements implement this; others are a noop.
+      # Reposition the caret now that the frame is painted and every focused
+      # widget's `@lpos` is fresh — `rendered: true` reuses that just-painted box
+      # (see `_update_cursor`). Only text-editing widgets implement it; others are
+      # a no-op.
       #
       # Only the cursor is repositioned here. A focus *event* is NOT emitted:
       # `Event::FocusIn` denotes a focus *change*, fired once when focus actually
@@ -671,7 +673,7 @@ module Crysterm
       # `input_on_focus` widget re-entering `read_input`, menu/completer
       # handlers re-running — none of which the cursor workaround needs.
       focused.try do |focused_widget|
-        focused_widget._update_cursor(true)
+        focused_widget._update_cursor(rendered: true)
       end
 
       @renders += 1

@@ -628,30 +628,49 @@ module Crysterm
         when "border-left-color"   then apply_side_color border, Side::Left, value, el_color
         when "border-style"
           apply_border_style border, value, {Side::Left, Side::Top, Side::Right, Side::Bottom}
-        when "border-top"               then apply_border_side border, Side::Top, value, el_color
-        when "border-right"             then apply_border_side border, Side::Right, value, el_color
-        when "border-bottom"            then apply_border_side border, Side::Bottom, value, el_color
-        when "border-left"              then apply_border_side border, Side::Left, value, el_color
-        when "border-top-width"         then border_cells?(value, vertical: true).try { |c| border.top = c }
-        when "border-right-width"       then border_cells?(value).try { |c| border.right = c }
-        when "border-bottom-width"      then border_cells?(value, vertical: true).try { |c| border.bottom = c }
-        when "border-left-width"        then border_cells?(value).try { |c| border.left = c }
-        when "border-top-style"         then apply_border_style border, value, {Side::Top}
-        when "border-right-style"       then apply_border_style border, value, {Side::Right}
-        when "border-bottom-style"      then apply_border_style border, value, {Side::Bottom}
-        when "border-left-style"        then apply_border_style border, value, {Side::Left}
-        when "border-radius"            then apply_border_radius border, value
-        when "border-chars"             then apply_border_chars border, value
-        when "border-top-left-char"     then apply_border_char border, Border::CharPosition::TopLeft, value
-        when "border-top-right-char"    then apply_border_char border, Border::CharPosition::TopRight, value
-        when "border-bottom-left-char"  then apply_border_char border, Border::CharPosition::BottomLeft, value
-        when "border-bottom-right-char" then apply_border_char border, Border::CharPosition::BottomRight, value
-        when "border-horizontal-char"   then apply_border_char border, Border::CharPosition::Horizontal, value
-        when "border-vertical-char"     then apply_border_char border, Border::CharPosition::Vertical, value
-        when "border-corner-char"       then apply_border_char border, Border::CharPosition::Corner, value
+        when "border-top"          then apply_border_side border, Side::Top, value, el_color
+        when "border-right"        then apply_border_side border, Side::Right, value, el_color
+        when "border-bottom"       then apply_border_side border, Side::Bottom, value, el_color
+        when "border-left"         then apply_border_side border, Side::Left, value, el_color
+        when "border-top-width"    then border_cells?(value, vertical: true).try { |c| border.top = c }
+        when "border-right-width"  then border_cells?(value).try { |c| border.right = c }
+        when "border-bottom-width" then border_cells?(value, vertical: true).try { |c| border.bottom = c }
+        when "border-left-width"   then border_cells?(value).try { |c| border.left = c }
+        when "border-top-style"    then apply_border_style border, value, {Side::Top}
+        when "border-right-style"  then apply_border_style border, value, {Side::Right}
+        when "border-bottom-style" then apply_border_style border, value, {Side::Bottom}
+        when "border-left-style"   then apply_border_style border, value, {Side::Left}
+        when "border-radius"       then apply_border_radius border, value
+        when "border-chars"        then apply_border_chars border, value
+        when .ends_with?("-char")  then apply_border_char_longhand border, property, value
         else
           # Unknown border-* property: ignore.
         end
+      end
+
+      # `border-<position>-char` longhand → the position it names. The whole
+      # family is pure data, so one table beats a `when` arm per position.
+      BORDER_CHAR_POSITIONS = {
+        "top-left"     => Border::CharPosition::TopLeft,
+        "top-right"    => Border::CharPosition::TopRight,
+        "bottom-left"  => Border::CharPosition::BottomLeft,
+        "bottom-right" => Border::CharPosition::BottomRight,
+        "top"          => Border::CharPosition::Top,
+        "right"        => Border::CharPosition::Right,
+        "bottom"       => Border::CharPosition::Bottom,
+        "left"         => Border::CharPosition::Left,
+        "horizontal"   => Border::CharPosition::Horizontal,
+        "vertical"     => Border::CharPosition::Vertical,
+        "corner"       => Border::CharPosition::Corner,
+      }
+
+      # Applies a `border-<position>-char` longhand, looking *property*'s middle
+      # segment up in `BORDER_CHAR_POSITIONS` (`border-top-left-char` → the
+      # 8 chars between the `border-` prefix and the `-char` suffix). An
+      # unknown position is an unknown property: ignored.
+      private def self.apply_border_char_longhand(border : Border, property : String, value : String) : Nil
+        position = BORDER_CHAR_POSITIONS[property["border-".size..-("-char".size + 1)]]?
+        apply_border_char border, position, value if position
       end
 
       # The CSS `border-radius` shorthand, mapped honestly onto the cell grid:

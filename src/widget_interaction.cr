@@ -555,8 +555,9 @@ module Crysterm
 
     # :nodoc:
     # no-op in this place. `Mixin::TextEditing` (and `LineEdit`) override it
-    # publicly — placing the caret is part of an editable widget's API.
-    protected def _update_cursor(arg)
+    # publicly — placing the caret is part of an editable widget's API. The
+    # `rendered` parameter (see the overrides) is unused here.
+    protected def _update_cursor(rendered = false)
     end
   end
 end

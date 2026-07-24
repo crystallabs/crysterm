@@ -410,25 +410,33 @@ module Crysterm
         @ev_done_blur = nil
         @__done = nil
 
-        window.hide_cursor
-        window.grab_keys = false
+        # All window-side teardown (cursor, key grab, focus restore) is skipped
+        # when the widget is already detached — e.g. the read is being ended by a
+        # `FocusOut` fired *during* the widget's own destruction/removal, when
+        # `#window` would raise. The read-state cleanup above already ran; the
+        # `Submitted`/`Cancelled`/`Activated` emits and the callback below don't
+        # need a window, so a detached finish still notifies its listeners.
+        if w = window?
+          w.hide_cursor
+          w.grab_keys = false
 
-        # Restore the pre-read focus only when the read ended with focus cleared
-        # (blur-to-nil, hide/detach) — NOT when the user deliberately moved focus
-        # to another widget (Tab to a button, click on a sibling field), which
-        # sets `@_skip_rewind`. Restoring then would yank focus back to the
-        # pre-dialog widget, escaping the still-open modal dialog and, in the
-        # field1→field2 chain, starting a read on a not-actually-focused field.
-        # Otherwise drop the stale saved slot so a later unrelated
-        # `restore_focus` can't replay it.
-        if !focused? && !@_skip_rewind
-          window.restore_focus
-        else
-          window.clear_saved_focus
-        end
+          # Restore the pre-read focus only when the read ended with focus cleared
+          # (blur-to-nil, hide/detach) — NOT when the user deliberately moved focus
+          # to another widget (Tab to a button, click on a sibling field), which
+          # sets `@_skip_rewind`. Restoring then would yank focus back to the
+          # pre-dialog widget, escaping the still-open modal dialog and, in the
+          # field1→field2 chain, starting a read on a not-actually-focused field.
+          # Otherwise drop the stale saved slot so a later unrelated
+          # `restore_focus` can't replay it.
+          if !focused? && !@_skip_rewind
+            w.restore_focus
+          else
+            w.clear_saved_focus
+          end
 
-        if @input_on_focus && !@_skip_rewind && rewind_on_done?
-          window.rewind_focus
+          if @input_on_focus && !@_skip_rewind && rewind_on_done?
+            w.rewind_focus
+          end
         end
 
         if data

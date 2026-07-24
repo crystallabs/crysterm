@@ -80,6 +80,47 @@ describe "border-chars CSS (rounded corners)" do
     b.top_left_char.should eq '@'
     b.top_right_char.should eq '#' # falls to fill_char through the group
   end
+
+  it "gives each side its own run char via the per-side longhands" do
+    s = gmb_screen
+    box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
+    s.stylesheet = <<-CSS
+      Box { border: solid;
+            border-top-char: "T"; border-bottom-char: "B";
+            border-left-char: "L"; border-right-char: "R"; }
+      CSS
+    s.apply_stylesheet
+    s.repaint
+    gmb_ch(s, box.atop, box.aleft + 4).should eq 'T'
+    gmb_ch(s, box.atop + 4, box.aleft + 4).should eq 'B'
+    gmb_ch(s, box.atop + 2, box.aleft).should eq 'L'
+    gmb_ch(s, box.atop + 2, box.aleft + 9).should eq 'R'
+    # Corners still come from the family — a side run is only the run.
+    gmb_ch(s, box.atop, box.aleft).should eq '┌'
+  end
+
+  it "falls a side back to its axis group, then to the family glyph" do
+    s = gmb_screen
+    box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
+    s.stylesheet = <<-CSS
+      Box { border: dotted; border-horizontal-char: "="; border-top-char: "^"; }
+      CSS
+    s.apply_stylesheet
+    s.repaint
+    gmb_ch(s, box.atop, box.aleft + 4).should eq '^'     # own override wins
+    gmb_ch(s, box.atop + 4, box.aleft + 4).should eq '=' # falls to the axis group
+    gmb_ch(s, box.atop + 2, box.aleft).should eq '┊'     # falls to the family
+  end
+
+  it "resolves per-side chars on a Fill border through the same fallbacks" do
+    b = Border.new BorderType::Fill
+    b.fill_char = '#'
+    b.horizontal_char = '-'
+    b.top_char = '^'
+    b.top_char.should eq '^'
+    b.bottom_char.should eq '-' # falls to the horizontal group
+    b.left_char.should eq '#'   # vertical group unset, so down to fill_char
+  end
 end
 
 describe "BorderType::Rounded" do

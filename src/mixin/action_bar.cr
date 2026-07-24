@@ -162,11 +162,17 @@ module Crysterm
         # for every window-level bar and freeze the current index at 0. The public
         # `#last_rendered_position` raises when unrendered, so it can't be used as
         # a predicate here.
-        unless @lpos
-          # Before the first render there's no layout for the horizontal-scroll
-          # math, but the current index (== `@left_base + @left_offset`) must still
-          # move to *index* — otherwise the highlight/`ItemSelected` point at
-          # *index* while Enter (`fire current_index`) fires the old command.
+        #
+        # Also gate on `#window?`: `@lpos` survives detach, so on the teardown
+        # path (a bar removing items while its window is being destroyed) it is
+        # non-nil while the widget is already detached, and the `#awidth` below
+        # would then raise (`#window` `not_nil!`). No window ⇒ no layout to do.
+        unless @lpos && window?
+          # Before the first render (or once detached) there's no layout for the
+          # horizontal-scroll math, but the current index (== `@left_base +
+          # @left_offset`) must still move to *index* — otherwise the highlight/
+          # `ItemSelected` point at *index* while Enter (`fire current_index`)
+          # fires the old command.
           el.try do |e|
             @left_base = 0
             @left_offset = index

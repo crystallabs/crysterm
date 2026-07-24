@@ -58,15 +58,19 @@ module Crysterm
     include SidedGeometry
 
     # Border-char override position (CSS `border-*-char` longhands / the
-    # `border-chars` shorthand): the four corners plus the `horizontal`/
-    # `vertical` run groups, and the `corner` group that seeds all four
-    # corners at once. Distinct from `Side` — a corner override needs its own
-    # axis (`top_left`, ...) that a plain side can't name.
+    # `border-chars` shorthand): the four corners, the four side runs, plus the
+    # `horizontal`/`vertical` run groups and the `corner` group that seed them.
+    # Distinct from `Side` — a corner override needs its own axis (`top_left`,
+    # ...) that a plain side can't name.
     enum CharPosition
       TopLeft
       TopRight
       BottomLeft
       BottomRight
+      Top
+      Right
+      Bottom
+      Left
       Horizontal
       Vertical
       Corner
@@ -200,6 +204,17 @@ module Crysterm
 
     setter horizontal_char, vertical_char, corner_char
 
+    # Per-side run overrides; each falls back to its axis group
+    # (`horizontal_char` for top/bottom, `vertical_char` for left/right). These
+    # are what let one edge differ from its opposite — a solid top rule over a
+    # dotted bottom — which the axis groups alone can't express.
+    @top_char : Char? = nil
+    @right_char : Char? = nil
+    @bottom_char : Char? = nil
+    @left_char : Char? = nil
+
+    setter top_char, right_char, bottom_char, left_char
+
     # Per-corner overrides; each falls back to the `corner_char` group.
     @top_left_char : Char? = nil
     @top_right_char : Char? = nil
@@ -224,6 +239,28 @@ module Crysterm
     # "diagonal" cells) of a `Fill` border. Falls back to `fill_char`.
     def corner_char : Char
       @corner_char || @fill_char
+    end
+
+    # Per-side chars for a `Fill` border: side override → axis group →
+    # `fill_char`. A line border resolves the same overrides against its glyph
+    # family instead (see `#line_glyphs_with_overrides`).
+    def top_char : Char
+      @top_char || horizontal_char
+    end
+
+    # :ditto:
+    def bottom_char : Char
+      @bottom_char || horizontal_char
+    end
+
+    # :ditto:
+    def left_char : Char
+      @left_char || vertical_char
+    end
+
+    # :ditto:
+    def right_char : Char
+      @right_char || vertical_char
     end
 
     # Per-corner chars for a `Fill` border: position override → corner group →
@@ -252,25 +289,33 @@ module Crysterm
     # the override merge entirely for the common untouched border.
     def chars? : Bool
       !SidedGeometry.all_nil?(horizontal_char, vertical_char, corner_char,
+        top_char, right_char, bottom_char, left_char,
         top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end
 
-    # The six glyphs of a line-family border with this border's char overrides
-    # merged in: each position takes its override (corners falling back to the
-    # `corner_char` group), else the `BorderType` family glyph at *tier*.
-    # The no-override fast path returns the family tuple untouched.
+    # The eight glyphs of a line-family border — four corners plus one run per
+    # side — with this border's char overrides merged in: each position takes
+    # its own override, else its group (`corner_char` for the corners,
+    # `horizontal_char`/`vertical_char` for the runs), else the `BorderType`
+    # family glyph at *tier*. The no-override fast path just fans the family's
+    # two run glyphs out over the four sides.
     def line_glyphs_with_overrides(tier : Glyphs::Tier)
       g = @type.line_glyphs(tier)
-      return g unless chars?
+      unless chars?
+        return {tl: g[:tl], tr: g[:tr], bl: g[:bl], br: g[:br],
+                t: g[:h], b: g[:h], l: g[:v], r: g[:v]}
+      end
       {tl: @top_left_char || @corner_char || g[:tl],
        tr: @top_right_char || @corner_char || g[:tr],
        bl: @bottom_left_char || @corner_char || g[:bl],
        br: @bottom_right_char || @corner_char || g[:br],
-       h:  @horizontal_char || g[:h],
-       v:  @vertical_char || g[:v]}
+       t:  @top_char || @horizontal_char || g[:h],
+       b:  @bottom_char || @horizontal_char || g[:h],
+       l:  @left_char || @vertical_char || g[:v],
+       r:  @right_char || @vertical_char || g[:v]}
     end
 
-    # Assigns the per-position corner override for a CSS longhand, keyed by
+    # Assigns the per-position char override for a CSS longhand, keyed by
     # *position*. Only called by `CSS::Properties`, so kept `protected`.
     protected def set_char(position : CharPosition, value : Char?) : Nil
       case position
@@ -278,6 +323,10 @@ module Crysterm
       in .top_right?    then @top_right_char = value
       in .bottom_left?  then @bottom_left_char = value
       in .bottom_right? then @bottom_right_char = value
+      in .top?          then @top_char = value
+      in .right?        then @right_char = value
+      in .bottom?       then @bottom_char = value
+      in .left?         then @left_char = value
       in .horizontal?   then @horizontal_char = value
       in .vertical?     then @vertical_char = value
       in .corner?       then @corner_char = value

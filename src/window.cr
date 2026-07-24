@@ -842,8 +842,13 @@ module Crysterm
         tput.set_scroll_region(0, tput.screen.height - 1)
       end
 
-      # XXX For some reason if alloc/clear() is before this line, it doesn't
-      # work on linux console.
+      # Order matters and is deliberate: `show_cursor` (the DECTCEM `\e[?25h`)
+      # MUST run before `alloc`, whose tail emits the screen clear (`tput.clear`,
+      # `\e[2J`) when this window owns the device. On the Linux VT console,
+      # clearing first and only then re-showing the cursor leaves the cursor
+      # hidden after the return to the normal buffer below — show-then-clear is
+      # the order that reliably restores it there (xterm-family terminals tolerate
+      # either). Do not reorder these two lines.
       show_cursor
       alloc
 
@@ -1002,9 +1007,17 @@ module Crysterm
       # Stop the stylesheet hot-reload monitor thread, if one is running.
       unwatch_stylesheet
 
-      # XXX Needs a small fix before enabling — probably destroyal order needs
-      # to be bottom-up instead of top-down.
-      # @children.each &.destroy
+      # Destroy the widget tree so resource-holding widgets release cleanly (a
+      # `Terminal` PTY, `Media`/animation decode fibers, a `Log` fd) instead of
+      # being dropped for the GC to reclaim whenever. Done BEFORE `disconnect`, so
+      # each `#destroy` still runs against a connected window.
+      #
+      # Iterate a SNAPSHOT: a top-level widget's `#destroy` ends in
+      # `detach_from_tree`, which removes it from `@children` mid-loop — the same
+      # reason `Widget#destroy` dups its own children. The teardown is already
+      # bottom-up: `Widget#destroy` recurses into its children first, then detaches
+      # (this earlier needed "a fix before enabling" — the `.dup` is that fix).
+      @children.dup.each &.destroy
 
       # Tear down the terminal connection (restores the terminal, stops the
       # input fiber, closes owned IO and any spawned window). For the

@@ -246,12 +246,20 @@ module Crysterm
         content = StringIndex.new pcontent
         @_content_index = content
       end
-      ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       bch = style.fill_char
-
-      if coords.base >= @_clines.ci.size
-        ci = content.size
-      end
+      # `ci[base]` is the codepoint offset in the full content where the first
+      # visible wrapped line starts. `coords.base` can transiently sit at or past
+      # the end (a scroll left below the last line by an in-flight resize/reflow):
+      # there the content starts past the end, so clamp to the content length. In
+      # range the lookup is always a valid `Int32` (`ci` is `Array(Int32)`, so the
+      # `[]?` is nil only when out of range — handled above); the `|| 0` is a bare
+      # guard for a non-sensical negative base and never fires in practice.
+      ci =
+        if coords.base >= @_clines.ci.size
+          content.size
+        else
+          @_clines.ci[coords.base]? || 0
+        end
 
       @lpos = coords
 
@@ -913,8 +921,9 @@ module Crysterm
       v_band = in_left || in_right
 
       if border.type.line_family?
-        # Per-type glyph set (solid/dashed/dotted/double), resolved once by the
-        # caller.
+        # Per-type glyph set (solid/dashed/dotted/double) with the border's char
+        # overrides merged in, resolved once by the caller — one glyph per side,
+        # so opposite edges can differ.
         if h_band && v_band
           if in_top
             in_left ? g[:tl] : g[:tr]
@@ -922,14 +931,14 @@ module Crysterm
             in_left ? g[:bl] : g[:br]
           end
         elsif h_band
-          g[:h]
+          in_top ? g[:t] : g[:b]
         else
-          g[:v]
+          in_left ? g[:l] : g[:r]
         end
       else # Bg
-        # Distinct glyphs for horizontal sides, vertical sides and the four
-        # corners, each defaulting through its group to `fill_char` (see
-        # `Border#horizontal_char`/`#vertical_char`/`#top_left_char` …).
+        # Distinct glyphs for each of the four sides and the four corners, each
+        # defaulting through its group to `fill_char` (see `Border#top_char`/
+        # `#horizontal_char`/`#top_left_char` …).
         if h_band && v_band
           if in_top
             in_left ? border.top_left_char : border.top_right_char
@@ -937,9 +946,9 @@ module Crysterm
             in_left ? border.bottom_left_char : border.bottom_right_char
           end
         elsif h_band
-          border.horizontal_char
+          in_top ? border.top_char : border.bottom_char
         else
-          border.vertical_char
+          in_left ? border.left_char : border.right_char
         end
       end
     end

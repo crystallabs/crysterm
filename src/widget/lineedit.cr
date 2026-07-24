@@ -418,10 +418,10 @@ module Crysterm
       # reserved for an end-of-line caret). The inherited version maps
       # `@cursor_pos` onto `@_clines` — here only the re-sliced window — so it
       # would clamp the caret to the window's end instead of the real edit point.
-      def _update_cursor(get = false)
+      def _update_cursor(rendered = false)
         return unless focused?
 
-        lpos = get ? @lpos : coords
+        lpos = rendered ? @lpos : coords
         return unless lpos
 
         display = window
