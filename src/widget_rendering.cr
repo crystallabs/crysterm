@@ -26,6 +26,9 @@ module Crysterm
     def overflow=(value : Overflow?)
       return value if value == @overflow
       @overflow = value
+      # Whether this widget clips its children (overflow: Hidden) changed → its
+      # subtree's nearest clipping ancestor may differ.
+      invalidate_clip_ancestor_cache
       mark_dirty
       value
     end
@@ -290,7 +293,15 @@ module Crysterm
       # Must be computed before the pre-fill, which needs `hsr` to size the
       # bottom band.
       may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
-      hsr = may_scroll ? hscrollbar_rows : 0
+      # Resolve the two bar-visibility predicates once for this frame. Each runs
+      # the overflow tests (`content_width`/`scroll_*` + `awidth` walks), and they
+      # are otherwise recomputed 4-5×/frame (here + twice inside
+      # `update_scrollbar_widget`). Gated on `may_scroll` so a non-scrollable
+      # widget with no bars pays nothing. Threaded into `hscrollbar_rows`'s job
+      # and `update_scrollbar_widget` below.
+      show_v_scrollbar = may_scroll && show_scrollbar?
+      show_h_scrollbar = may_scroll && show_horizontal_scrollbar?
+      hsr = show_h_scrollbar ? scrollbar_height : 0
 
       # Padding/valign make the content loop skip some cells/lines, so fill
       # those ahead of time. On the common opaque-fill path only the padding
@@ -632,7 +643,7 @@ module Crysterm
 
       # Scrollbar: a real `Widget::ScrollBar` child (lazy, fixed at the right
       # edge), styleable/interactive rather than an inline glyph.
-      update_scrollbar_widget if may_scroll
+      update_scrollbar_widget(show_v_scrollbar, show_h_scrollbar) if may_scroll
 
       # Restore the outer box by undoing the effective border+padding insets
       # applied above (same effective widths, so this lands exactly back on the

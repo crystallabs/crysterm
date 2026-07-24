@@ -28,6 +28,22 @@ module Crysterm
     # Transient "ghost" widget floated under the pointer during a transfer drag.
     @_drag_ghost : Widget? = nil
 
+    # Per-Window pooled drag events, reused across the per-motion `Drag`/
+    # `DragOver` emits so streamed motion doesn't heap-allocate a fresh event
+    # each report (as pooled mouse events do for mouse reports). The
+    # once-per-gesture emits (DragStart/End/Drop/Enter/Leave) stay unpooled.
+    # See `Event::DragEvent#reset` for the retention caveat.
+    @_drag_event : ::Crysterm::Event::Drag? = nil
+    @_drag_over_event : ::Crysterm::Event::DragOver? = nil
+
+    private def pooled_drag_event(sess : DragSession) : ::Crysterm::Event::Drag
+      (@_drag_event ||= ::Crysterm::Event::Drag.new(sess)).reset sess
+    end
+
+    private def pooled_drag_over_event(sess : DragSession) : ::Crysterm::Event::DragOver
+      (@_drag_over_event ||= ::Crysterm::Event::DragOver.new(sess)).reset sess
+    end
+
     # Two-click mouse fallback for terminals that do not report motion: a press
     # on a draggable widget lifts it, the next press drops it. Off by default.
     property? drag_two_click : Bool = false
@@ -101,7 +117,7 @@ module Crysterm
       sess.data.action = drag_action_for shift, ctrl, default_supported_action(sess.data.supported)
       sess.x = x
       sess.y = y
-      sess.source.emit ::Crysterm::Event::Drag, sess
+      sess.source.emit ::Crysterm::Event::Drag, pooled_drag_event(sess)
       move_ghost sess
       retarget_over sess, widget_at(x, y, skip: sess.source)
       render
@@ -157,7 +173,7 @@ module Crysterm
     private def over(sess : DragSession) : Nil
       if t = sess.target
         sess.data.reject
-        t.emit ::Crysterm::Event::DragOver, sess
+        t.emit ::Crysterm::Event::DragOver, pooled_drag_over_event(sess)
       end
     end
 

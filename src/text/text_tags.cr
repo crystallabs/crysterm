@@ -112,33 +112,39 @@ module Crysterm
 
     private def self.write_fragment(io : IO, f : TextFragment) : Nil
       fmt = f.format
-      closers = [] of String
+      attrs = fmt.attributes
+      # Openers, outermost first; closers are known literals emitted in
+      # reverse below — no per-fragment `closers` array.
       if url = fmt.anchor_href
         io << "{link=" << url.gsub('{', "%7B").gsub('}', "%7D") << '}'
-        closers << "{/link}"
       end
       # An explicit `-1` ("terminal default") is visually the unset base
       # attr — emit nothing, so it degrades to `nil` on re-parse.
       if (c = fmt.fg) && c >= 0
         io << '{' << Colors.hex(c) << "-fg}"
-        closers << "{/#{Colors.hex(c)}-fg}"
       end
       if (c = fmt.bg) && c >= 0
         io << '{' << Colors.hex(c) << "-bg}"
-        closers << "{/#{Colors.hex(c)}-bg}"
       end
       FLAG_ORDER.each do |(attr, name)|
-        if fmt.attributes.includes?(attr)
-          io << '{' << name << '}'
-          closers << "{/#{name}}"
-        end
+        io << '{' << name << '}' if attrs.includes?(attr)
       end
       text = f.text
       # Single pass: sequential gsubs would re-escape the braces of the
       # `{open}`/`{close}` replacements themselves.
       text = text.gsub(/[{}]/) { |s| s == "{" ? "{open}" : "{close}" } if text.includes?('{') || text.includes?('}')
       io << text
-      closers.reverse_each { |t| io << t }
+      # Closers, innermost first (reverse of the opener order above).
+      FLAG_ORDER.reverse_each do |(attr, name)|
+        io << "{/" << name << '}' if attrs.includes?(attr)
+      end
+      if (c = fmt.bg) && c >= 0
+        io << "{/" << Colors.hex(c) << "-bg}"
+      end
+      if (c = fmt.fg) && c >= 0
+        io << "{/" << Colors.hex(c) << "-fg}"
+      end
+      io << "{/link}" if fmt.anchor_href
     end
 
     # The import state machine. Char-format state is per-category: depth

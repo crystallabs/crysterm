@@ -280,6 +280,47 @@ module Crysterm
       String.build { |outbuf| Screen.write_sgr(outbuf, code, color_count) }
     end
 
+    # Bounded cache of the full SGR set-sequence bytes for an `(attr, ncolors)`
+    # pair — the `write_sgr` output for that attr (`"\e[...m"`, or empty). The
+    # draw loop re-encodes the same handful of concrete-color attrs across every
+    # dirty row of every frame; in truecolor each encode does per-channel `itoa`
+    # + several `io <<` writes. Caching turns a per-transition synthesis into a
+    # hash probe + `memcpy`. Keyed on the packed attr and the frame-constant
+    # color count (both fully determine the bytes), so it is a pure function.
+    @@sgr_bytes_cache = Cache::Bounded({Int64, Int32}, Bytes).new(Cache::COLOR_CAPACITY, "sgr_bytes", register: true)
+
+    # Returns the cached SGR set-sequence bytes for `code` at color count `n`
+    # (identical to what `write_sgr` would write), synthesizing and storing on a
+    # miss. Intended for concrete-color transitions on the draw hot path (see
+    # `#has_concrete_color?`); flag-only/default attrs are cheap enough to synth
+    # directly and skip the lookup.
+    def self.sgr_bytes(code : Int64, n : Int) : Bytes
+      @@sgr_bytes_cache.fetch({code, n.to_i32}) do
+        io = IO::Memory.new 24
+        write_sgr(io, code, n)
+        io.to_slice.dup
+      end
+    end
+
+    # Whether `code` carries at least one concrete (non-default) color — the gate
+    # for using the `sgr_bytes` cache. A flag-only/all-default attr encodes
+    # trivially, so caching it would only add a hash probe.
+    @[AlwaysInline]
+    def self.has_concrete_color?(code : Int64) : Bool
+      Attr.fg(code) != Attr::COLOR_DEFAULT || Attr.bg(code) != Attr::COLOR_DEFAULT
+    end
+
+    # Whether BOTH color channels of `code` are concrete (neither is the terminal
+    # default). Such an attr's SGR spec re-sends both colors, overwriting whatever
+    # colors were previously in effect — the precondition (together with a flag
+    # superset) for safely dropping the standalone `\e[m` reset on a
+    # colored->colored transition (see the draw loop). A default channel would
+    # emit no SGR param, so the previous channel's color would leak through.
+    @[AlwaysInline]
+    def self.has_both_concrete?(code : Int64) : Bool
+      Attr.fg(code) != Attr::COLOR_DEFAULT && Attr.bg(code) != Attr::COLOR_DEFAULT
+    end
+
     # Allocation-free counterpart of `attr_to_sgr`: writes the SGR sequence for
     # `code` straight into `io` instead of returning a fresh `String`. `n` is
     # the terminal's color count (`#color_count`). Emits nothing when `code` carries

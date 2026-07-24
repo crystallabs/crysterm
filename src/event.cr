@@ -634,6 +634,16 @@ module Crysterm
       def initialize(@session)
       end
 
+      # Re-points this (pooled) event at a new *session* and clears any prior
+      # `accept`, so one instance can be reused across the per-motion `Drag`/
+      # `DragOver` emits instead of allocating per report. Mirrors
+      # `Event::Mouse#reset`: a handler that *retains* the event will see its
+      # fields mutate on the next motion — copy anything kept past the handler.
+      def reset(@session : ::Crysterm::DragSession) : self
+        @accepted = false
+        self
+      end
+
       # The drag's typed payload + negotiated action.
       def data : ::Crysterm::DragData
         @session.data

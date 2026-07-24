@@ -140,6 +140,28 @@ module Crysterm
     # Drops this single node's memoized window pointer.
     protected def reset_window_cache : Nil
       @window_cache = nil
+      @top_level_ancestor_cache = nil
+      # A reparent also changes the nearest clipping ancestor of this subtree.
+      reset_clip_ancestor_cache
+    end
+
+    # Memoized nearest clipping ancestor (see `#clip_ancestor`). A separate
+    # `_cached` flag distinguishes a computed `nil` (no clipping ancestor up to
+    # the root) from "not yet computed".
+    @clip_ancestor_cache : ::Crysterm::Widget?
+    @clip_ancestor_cached = false
+
+    # Drops this single node's memoized clipping ancestor.
+    protected def reset_clip_ancestor_cache : Nil
+      @clip_ancestor_cache = nil
+      @clip_ancestor_cached = false
+    end
+
+    # Clears the memoized clipping ancestor on this node and all descendants —
+    # used when a widget's own `scrollable?`/`overflow` (i.e. whether it clips)
+    # changes, which can alter the resolved clip ancestor of its whole subtree.
+    protected def invalidate_clip_ancestor_cache : Nil
+      self_and_each_descendant &.reset_clip_ancestor_cache
     end
 
     # Returns the `Window` (surface) owning this widget, raising if it is not

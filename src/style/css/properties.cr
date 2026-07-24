@@ -738,7 +738,11 @@ module Crysterm
       # resolve to `nil` and *should* reset the color so cascade inheritance can
       # refill it — so only a failed `rgb`/`hsl` function is dropped, told apart by
       # its leading function name.
-      private def self.with_color(value : String, current : Int32?, & : (Int32 | String)? ->) : Nil
+      # NOTE: the block arg type is spelled `(Int32 | String | Nil)` rather than
+      # the equivalent `(Int32 | String)?` — the latter (a `?` on a parenthesized
+      # union in a block/proc type) is valid Crystal that compiles fine but
+      # crashes `crystal tool format`, taking the whole file's format check down.
+      private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil
         return if value.blank?
         resolved = ColorValue.resolve(value, current)
         return if resolved.nil? && color_function?(value)

@@ -120,7 +120,7 @@ module Crysterm
         sel_acc = Hash(String, Array(Entry)).new # key -> selected-state entries
 
         sheets.each do |(sheet, tier)|
-          sheet.rules.each do |rule|
+          sheet.rules.each_with_index do |rule, rule_index|
             next if rule.selector.empty?
             if mq = rule.media
               next unless mq.matches?(media_width, media_height, media_colors, media_glyphs)
@@ -164,8 +164,8 @@ module Crysterm
             # declarations sort at `TIER_AUTHOR_STATE`, while default/UA state
             # rules (and any base rule) stay at their sheet tier. `!important`
             # still outranks all.
-            entries = rule_entries(rule, rule.state ? state_tier(tier) : tier)
-            sel_entries = selection_entries(rule, tier)
+            entries = rule_entries(sheet, rule_index, rule, rule.state ? state_tier(tier) : tier)
+            sel_entries = selection_entries(sheet, rule_index, rule, tier)
             next if entries.empty? && sel_entries.empty?
             nodes.each do |node|
               key = node["data-uid"]?.try(&.val)
@@ -559,7 +559,15 @@ module Crysterm
       # The selected-state entries a rule contributes via its `selection-*`
       # declarations (rewritten to `color`/`background-color`), or an empty array
       # when it has none.
-      private def self.selection_entries(rule : Rule, base_tier : Int32) : Array(Entry)
+      private def self.selection_entries(sheet : Stylesheet, index : Int32, rule : Rule, base_tier : Int32) : Array(Entry)
+        # O4-21: entries are deterministic per `{rule, base_tier}` — compute once
+        # and share across cascades (only ever `concat`-ed, never mutated).
+        sheet.selection_entries_cache.fetch({index, base_tier}) do
+          sheet.selection_entries_cache[{index, base_tier}] = build_selection_entries(rule, base_tier)
+        end
+      end
+
+      private def self.build_selection_entries(rule : Rule, base_tier : Int32) : Array(Entry)
         # Cheap membership test first: most rules have no `selection-*`, so skip
         # without allocating a remap hash.
         has_normal = has_selection?(rule.declarations)
@@ -609,11 +617,15 @@ module Crysterm
 
       # The cascade entries a rule contributes: its normal declarations at
       # *base_tier*, and its `!important` declarations at `TIER_IMPORTANT`.
-      private def self.rule_entries(rule : Rule, base_tier : Int32) : Array(Entry)
-        entries = [] of Entry
-        entries << {base_tier, rule.layer_rank, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
-        entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, rule.order, rule.important} unless rule.important.empty?
-        entries
+      private def self.rule_entries(sheet : Stylesheet, index : Int32, rule : Rule, base_tier : Int32) : Array(Entry)
+        # O4-21: entries are deterministic per `{rule, base_tier}` — compute once
+        # and share across cascades (only ever `concat`-ed, never mutated).
+        sheet.rule_entries_cache.fetch({index, base_tier}) do
+          entries = [] of Entry
+          entries << {base_tier, rule.layer_rank, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
+          entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, rule.order, rule.important} unless rule.important.empty?
+          sheet.rule_entries_cache[{index, base_tier}] = entries
+        end
       end
 
       # Sort key: `{tier, layer_rank, specificity, order}`, ascending — the

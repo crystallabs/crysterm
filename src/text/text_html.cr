@@ -232,36 +232,49 @@ module Crysterm
 
     private def self.write_fragment(io : IO, f : TextFragment) : Nil
       fmt = f.format
-      closers = [] of String
-      if url = fmt.anchor_href
-        io << "<a href=\"" << escape_attr(url) << "\">"
-        closers << "</a>"
+      fg = fmt.fg
+      bg = fmt.bg
+      has_color = (fg && fg >= 0) || (bg && bg >= 0)
+      anchor = fmt.anchor_href
+      # Unstyled fast path (the common fragment): just its escaped text — no
+      # opener/closer tags, no `closers` array, no color-span `String.build`.
+      unless anchor || has_color ||
+             fmt.bold? || fmt.italic? || fmt.underline? || fmt.strike? || fmt.code?
+        io << escape_html(f.text)
+        return
+      end
+      # Openers, outermost first; matching closers are known literals emitted
+      # in reverse below (no array needed).
+      if a = anchor
+        io << "<a href=\"" << escape_attr(a) << "\">"
       end
       {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
-        if fmt.{{ a.id }}?
-          io << "<{{ tag.id }}>"
-          closers << "</{{ tag.id }}>"
-        end
+        io << "<{{ tag.id }}>" if fmt.{{ a.id }}?
       {% end %}
       # Color <span> is emitted innermost (after the flag tags) so that on
       # re-import its explicit fg/bg patch folds after the code element's
       # theme-fallback patch and wins — otherwise a recolored code fragment
       # comes back with the theme's code colors (B17-30).
-      span = String.build do |s|
-        if (c = fmt.fg) && c >= 0
-          s << "color:" << Colors.hex(c)
+      if has_color
+        io << "<span style=\""
+        wrote = false
+        if fg && fg >= 0
+          io << "color:" << Colors.hex(fg)
+          wrote = true
         end
-        if (c = fmt.bg) && c >= 0
-          s << ';' unless s.empty?
-          s << "background-color:" << Colors.hex(c)
+        if bg && bg >= 0
+          io << ';' if wrote
+          io << "background-color:" << Colors.hex(bg)
         end
-      end
-      unless span.empty?
-        io << "<span style=\"" << span << "\">"
-        closers << "</span>"
+        io << "\">"
       end
       io << escape_html(f.text)
-      closers.reverse_each { |t| io << t }
+      # Closers, innermost first (reverse of the opener order above).
+      io << "</span>" if has_color
+      {% for a, tag in {code: "code", strike: "s", underline: "u", italic: "i", bold: "b"} %}
+        io << "</{{ tag.id }}>" if fmt.{{ a.id }}?
+      {% end %}
+      io << "</a>" if anchor
     end
 
     private def self.escape_html(text : String) : String

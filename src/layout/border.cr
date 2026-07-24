@@ -50,6 +50,17 @@ module Crysterm
       @consume_raw = {} of Widget => (Dim | Int32 | String)?
       @consume_assigned = {} of Widget => Int32
 
+      # Reused, cleared-not-reallocated per-region buckets: one bucketing pass
+      # over the children fills these, replacing the five full `region_of`-
+      # filtering scans. Within-region order is preserved (children append in
+      # child order), and the edges are still processed top/bottom→left/right→
+      # center by iterating the buckets in that order.
+      @bucket_top = [] of Widget
+      @bucket_bottom = [] of Widget
+      @bucket_left = [] of Widget
+      @bucket_right = [] of Widget
+      @bucket_center = [] of Widget
+
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         # Prune bookkeeping for children that have left the container.
         prune_managed container, @consume_raw
@@ -61,10 +72,25 @@ module Crysterm
         x1 = interior.width
         y1 = interior.height
 
-        # Five passes filter the live child array by `region_of` rather than
-        # bucketing into five `Array(Widget)` per frame; children keep their
-        # relative order within a region.
-        #
+        # One bucketing pass over the children instead of five full
+        # `region_of`-filtering scans: fill the five reused buckets in child
+        # order (preserving within-region order), then process them top/bottom→
+        # left/right→center below.
+        @bucket_top.clear
+        @bucket_bottom.clear
+        @bucket_left.clear
+        @bucket_right.clear
+        @bucket_center.clear
+        each_occupying container do |el|
+          case region_of el
+          in .top?    then @bucket_top << el
+          in .bottom? then @bucket_bottom << el
+          in .left?   then @bucket_left << el
+          in .right?  then @bucket_right << el
+          in .center? then @bucket_center << el
+          end
+        end
+
         # Each edge consumes only what the working rect has left, clamped to the
         # remaining span: without the clamp, oversized edges would overlap and
         # hand the center a negative extent.
@@ -73,15 +99,13 @@ module Crysterm
         # render pipeline shifts a fixed-size child outward by its near margin
         # without shrinking it, so advancing by size alone (or assigning the full
         # span) would paint a margined child over its neighbor.
-        x0, y0, x1, y1 = consume_edge container, :top, x0, y0, x1, y1
-        x0, y0, x1, y1 = consume_edge container, :bottom, x0, y0, x1, y1
-        x0, y0, x1, y1 = consume_edge container, :left, x0, y0, x1, y1
-        x0, y0, x1, y1 = consume_edge container, :right, x0, y0, x1, y1
-        each_occupying container do |el|
+        x0, y0, x1, y1 = consume_edge @bucket_top, :top, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge @bucket_bottom, :bottom, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge @bucket_left, :left, x0, y0, x1, y1
+        x0, y0, x1, y1 = consume_edge @bucket_right, :right, x0, y0, x1, y1
+        @bucket_center.each do |el|
           # Center: everything not top/bottom/left/right. Consumes neither axis,
           # so it needs no release bookkeeping.
-          r = region_of el
-          next if r.top? || r.bottom? || r.left? || r.right?
           place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), Math.max(0, y1 - y0 - el.mvertical)
         end
       end
@@ -97,11 +121,10 @@ module Crysterm
       # left from the near edge). Each child reserves its *margin* box, clamped to
       # what the rect has left, so an oversized edge can't hand the center a
       # negative extent.
-      private def consume_edge(container : Widget, region : Region, x0 : Int32, y0 : Int32, x1 : Int32, y1 : Int32) : Tuple(Int32, Int32, Int32, Int32)
+      private def consume_edge(bucket : Array(Widget), region : Region, x0 : Int32, y0 : Int32, x1 : Int32, y1 : Int32) : Tuple(Int32, Int32, Int32, Int32)
         vertical = region.top? || region.bottom?
         far = region.bottom? || region.right?
-        each_occupying container do |el|
-          next unless region_of(el) == region
+        bucket.each do |el|
           restore_consume el, vertical
           if vertical
             # Consume height off the near/far edge; span the remaining width.

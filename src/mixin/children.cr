@@ -172,14 +172,23 @@ module Crysterm
         nil
       end
 
+      # Memoized result of `#top_level_ancestor`. Invalidated for the whole
+      # subtree on every reparent via the `#window?` cache path (`reset_window_cache`).
+      @top_level_ancestor_cache : Widget?
+
       # The top-most ancestor of the tree self sits in (self if parentless).
-      # Non-allocating parent-chain walk to the root.
+      # Non-allocating parent-chain walk to the root. Memoized: `damage_mark_dirty`
+      # calls this on every state-changing setter, once per mutation while damage
+      # tracking is on, so a deep tree pays O(depth) per mark without the memo.
       def top_level_ancestor : Widget
+        if cached = @top_level_ancestor_cache
+          return cached
+        end
         root = self
         while p = root.parent
           root = p
         end
-        root
+        @top_level_ancestor_cache = root
       end
 
       # The first descendant named *name*, searched depth-first, or `nil` when

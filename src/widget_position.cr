@@ -273,6 +273,35 @@ module Crysterm
     # computed by `#base_render` just before calling here, to skip re-resolving the
     # identical `awidth`. Only the render path passes it.
     # ameba:disable Metrics/CyclomaticComplexity
+    # Nearest ancestor that clips this widget's rendering: a `scrollable?`
+    # element or one with `overflow.hidden?`. `nil` when none clips up to the
+    # root. `fixed` widgets (labels on a border, bound scroll bars) are exempt
+    # from scroll clipping but not from `overflow: Hidden`.
+    #
+    # Memoized per widget (a `fixed` widget resolves differently, so the cache is
+    # not shared): `coords` resolves this once per widget per frame — a plain
+    # walk climbs to the root every frame for the common no-clip widget.
+    # Invalidated on reparent (via `reset_window_cache`), on this widget's own
+    # `scrollable=`/`overflow=` (subtree), and on `fixed=` (self).
+    protected def clip_ancestor : ::Crysterm::Widget?
+      if @clip_ancestor_cached
+        return @clip_ancestor_cache
+      end
+      el = self
+      fixed = @fixed
+      while el = el.parent
+        if el.scrollable? || el.overflow.hidden?
+          if fixed && el.scrollable?
+            fixed = false
+            next
+          end
+          break
+        end
+      end
+      @clip_ancestor_cached = true
+      @clip_ancestor_cache = el
+    end
+
     def coords(rendered = false, noscroll = false, into : RenderedGeometry? = nil, width_hint : Int32? = nil) : RenderedGeometry?
       unless style.visible?
         return
@@ -321,8 +350,6 @@ module Crysterm
       hidden_bottom = 0
 
       base = @child_base
-      el = self
-      fixed = @fixed
 
       # Attempt to resize the element based on the
       # size of the content and child elements.
@@ -372,21 +399,12 @@ module Crysterm
         yi, yl = shift_margin(yi, yl, @top, @bottom, margin.top, margin.bottom)
       end
 
-      # Find the nearest ancestor that clips its children: a scrollable element
-      # (clips to its scroll viewport) or one with `overflow: Hidden` (clips to
-      # its rectangle without scrolling). A Hidden, non-scrollable parent has
-      # `child_base == 0`, so the scroll-offset math degenerates to a plain clip.
-      while el = el.parent
-        if el.scrollable? || el.overflow.hidden?
-          # `fixed` widgets (e.g. labels on a border) are exempt from scroll
-          # clipping, but not from `overflow: Hidden` clipping.
-          if fixed && el.scrollable?
-            fixed = false
-            next
-          end
-          break
-        end
-      end
+      # Nearest ancestor that clips its children (memoized, see `#clip_ancestor`):
+      # a scrollable element (clips to its scroll viewport) or one with
+      # `overflow: Hidden` (clips to its rectangle without scrolling). A Hidden,
+      # non-scrollable parent has `child_base == 0`, so the scroll-offset math
+      # degenerates to a plain clip.
+      el = clip_ancestor
 
       # Check that we're visible and inside the visible scroll area.
       # Note: Lists have a property where only the list items are obfuscated.

@@ -307,6 +307,15 @@ module Crysterm
         @compiled_selectors.fetch(selector) { ::CSS.compile(selector) rescue nil }
       end
 
+      # Per-rule cascade-entry caches (O4-21), keyed by `{rule index, base_tier}`.
+      # A `Rule` is immutable and the `Cascade::Entry` list it contributes is
+      # fully determined by the rule plus the tier its sheet occupies, so it's
+      # computed once and shared across every cascade for this sheet's lifetime
+      # (the cascade only ever `concat`s these arrays, never mutates them).
+      # `Cascade.rule_entries`/`selection_entries` own the population.
+      getter rule_entries_cache = Hash(Tuple(Int32, Int32), Array(Cascade::Entry)).new
+      getter selection_entries_cache = Hash(Tuple(Int32, Int32), Array(Cascade::Entry)).new
+
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
       # are treated as synonyms. There is no "blurred" state — style the
       # unfocused look with `:not(:focus)`.

@@ -412,8 +412,15 @@ module Crysterm
                 # the leftover SGR would bleed into later cells/rows.
                 @outbuf.print "\e[m" if attr != df
                 attr = desired_attr
-                # Allocation-free SGR emission straight into the line buffer.
-                Screen.write_sgr(@outbuf, attr, ncolors)
+                # Allocation-free SGR emission straight into the line buffer. A
+                # concrete-color attr goes through the bounded byte cache (its
+                # bytes are identical to `write_sgr`'s); flag-only/default attrs
+                # synth directly, cheaper than a cache probe.
+                if Screen.has_concrete_color?(attr)
+                  @outbuf.write Screen.sgr_bytes(attr, ncolors)
+                else
+                  Screen.write_sgr(@outbuf, attr, ncolors)
+                end
               end
 
               # Clear to end of line at (x, y).
@@ -509,22 +516,38 @@ module Crysterm
           end
 
           if desired_attr != attr
-            if attr != df
+            # Standalone `\e[m` reset before re-specifying the target attr. It can
+            # be dropped when the incoming spec fully re-establishes the terminal
+            # state on its own: it turns ON every flag the outgoing attr had (its
+            # flags are a superset — `outgoing & ~desired == 0`) AND re-sends BOTH
+            # colors (both concrete, so they overwrite the outgoing colors). The
+            # reset would then only strip bytes the very next spec re-adds — a
+            # state-identical, byte-fewer transition. Otherwise (a flag the spec
+            # won't clear, or a default color channel that emits nothing and would
+            # let the outgoing color leak through) the reset is still required.
+            if attr != df &&
+               !((Attr.flags(attr) & ~Attr.flags(desired_attr)) == 0 && Screen.has_both_concrete?(desired_attr))
               @outbuf.print "\e[m"
             end
             if desired_attr != df
-              @outbuf.print "\e["
+              if Screen.has_concrete_color?(desired_attr)
+                # Cached set-sequence bytes, byte-identical to the "\e[" + params
+                # + "m" synthesized below but without re-encoding the colors.
+                @outbuf.write Screen.sgr_bytes(desired_attr, ncolors)
+              else
+                @outbuf.print "\e["
 
-              # `sgr_params_to` ends in a ';' if it wrote anything; back over it and
-              # replace it with the terminating 'm'. The "\e[" + "m" is emitted
-              # unconditionally (a bare reset when nothing was written) — unlike
-              # `write_sgr`, this branch is only reached for a non-default attr.
-              if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
-                @outbuf.seek -1, IO::Seek::Current
+                # `sgr_params_to` ends in a ';' if it wrote anything; back over it and
+                # replace it with the terminating 'm'. The "\e[" + "m" is emitted
+                # unconditionally (a bare reset when nothing was written) — unlike
+                # `write_sgr`, this branch is only reached for a non-default attr.
+                if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
+                  @outbuf.seek -1, IO::Seek::Current
+                end
+
+                @outbuf.print 'm'
+                # ::Log.trace { @outbuf.inspect }
               end
-
-              @outbuf.print 'm'
-              # ::Log.trace { @outbuf.inspect }
             end
           end
 
@@ -1108,16 +1131,51 @@ module Crysterm
     # the top half (bottom-edge shadow), `▀` the bottom, `▐` the left half
     # (right-edge shadow), `▌` the right.
     def blend_region(alpha, xi, xl, yi, yl, glyph : Char? = nil)
-      each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, _line|
+      # Hoisted counterpart of the `each_region_cell` walk (like `fill_region`):
+      # fetch each row's backing arrays once and index with `unsafe_*` instead of
+      # a nilable row lookup + per-cell bounds check + `Cell` handle per cell.
+      # Preserves `each_region_cell`'s `clamp: false` semantics: negative origins
+      # are NOT pulled to 0 — off-grid rows/columns are skipped, and the row walk
+      # stops at the first row past the grid.
+      yi.upto(yl - 1) do |y|
+        next if y < 0
+        line = @lines[y]?
+        break unless line
+
+        attrs = line.attrs
+        n = attrs.size
+        xend = xl < n ? xl : n
+        x = xi < 0 ? 0 : xi
         if glyph
-          base = cell.attr
-          shadowed = Colors.blend(base, alpha: alpha)
-          # bg = darkened backdrop (the solid shadow half), fg = untouched backdrop
-          # (the glyph half). Flags cleared so the glyph isn't bold/underlined/etc.
-          cell.set_if_changed Attr.pack(0_i64, Attr.bg(base), Attr.bg(shadowed)), glyph
+          chars = line.chars
+          has_g = line.has_graphemes?
+          has_l = line.has_links?
+          while x < xend
+            base = attrs.unsafe_fetch(x)
+            shadowed = Colors.blend(base, alpha: alpha)
+            # bg = darkened backdrop (the solid shadow half), fg = untouched
+            # backdrop (the glyph half). Flags cleared so the glyph isn't
+            # bold/underlined/etc. Inlined `Cell#set_if_changed`: write + dirty
+            # only on a real change, and (like `Cell#char=`) drop the cluster and
+            # link overlays. A cell carrying a grapheme overlay always counts as
+            # changed.
+            new_attr = Attr.pack(0_i64, Attr.bg(base), Attr.bg(shadowed))
+            if base != new_attr || chars.unsafe_fetch(x) != glyph ||
+               (has_g && !line.grapheme_at?(x).nil?)
+              attrs.unsafe_put(x, new_attr)
+              chars.unsafe_put(x, glyph)
+              line.delete_grapheme(x) if has_g
+              line.delete_link(x) if has_l
+              line.mark_dirty x
+            end
+            x += 1
+          end
         else
-          cell.attr = Colors.blend(cell.attr, alpha: alpha)
-          cell.mark_dirty
+          while x < xend
+            attrs.unsafe_put(x, Colors.blend(attrs.unsafe_fetch(x), alpha: alpha))
+            line.mark_dirty x
+            x += 1
+          end
         end
       end
     end
@@ -1126,9 +1184,23 @@ module Crysterm
     # `1` = fully `color`) — the color overlay behind `style.tint`. Like
     # `#blend_region` but toward an arbitrary color instead of black.
     def tint_region(alpha, color, xi, xl, yi, yl)
-      each_region_cell(xi, xl, yi, yl) do |cell, _line|
-        cell.attr = Colors.tint(cell.attr, color, alpha)
-        cell.mark_dirty
+      # Hoisted like `fill_region`. Uses the default `clamp: true` semantics of
+      # `each_region_cell`: negative origins are pulled back to 0.
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+      yi.upto(yl - 1) do |y|
+        line = @lines[y]?
+        break unless line
+
+        attrs = line.attrs
+        n = attrs.size
+        xend = xl < n ? xl : n
+        x = xi
+        while x < xend
+          attrs.unsafe_put(x, Colors.tint(attrs.unsafe_fetch(x), color, alpha))
+          line.mark_dirty x
+          x += 1
+        end
       end
     end
   end

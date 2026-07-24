@@ -175,31 +175,55 @@ module Crysterm
     # `Widget::Fps` renders as a child — before these are refreshed — so it
     # always shows the previous frame's numbers, as a frame-rate counter wants.
 
+    # Whether anything has read a per-frame metric. Reading any metric getter
+    # below arms this the first time (e.g. a `Widget::Fps` overlay compositing
+    # for the first time). While it stays `false`, `_render_frame` takes a single
+    # `t1`/`t3` frame-clock pair and skips the intermediate split reads and the
+    # rate/throughput divisions; once armed, every frame is fully instrumented.
+    @metrics_observed = false
+
+    # Defines a per-frame metric getter that arms `@metrics_observed` on first
+    # read, so the render loop begins computing the fine-grained figures as soon
+    # as an observer appears (and not before).
+    private macro observed_getter(decl)
+      @{{ decl.var }} : {{ decl.type }} = {{ decl.value }}
+
+      def {{ decl.var }} : {{ decl.type }}
+        @metrics_observed = true
+        @{{ decl.var }}
+      end
+    end
+
     # Frames/sec the render (compositing widgets into the cell buffer) phase
     # could sustain: `1 / render_time`. The "R" in the classic `R/D/FPS`.
-    getter render_rate : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter render_rate : Int32 = 0
 
     # Frames/sec the draw (diffing the buffer and encoding escapes into the
     # frame buffer) phase could sustain: `1 / draw_time`. The "D". Measures only
     # the CPU-bound diff/encode, never a terminal-backpressure stall.
-    getter draw_rate : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter draw_rate : Int32 = 0
 
     # Frames/sec the flush (writing the built frame to the terminal) phase could
     # sustain: `1 / flush_time`. On an unbuffered tty this is a blocking
     # `write()`, so it — not `draw_rate` — is where terminal backpressure lands
     # (the write stalls at the terminal's refresh cadence once the per-frame
     # payload exceeds the pty buffer).
-    getter flush_rate : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter flush_rate : Int32 = 0
 
     # Frames/sec the whole frame could sustain: `1 / (render_time + draw_time)`.
     # The "FPS".
-    getter frame_rate : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter frame_rate : Int32 = 0
 
     # Bytes/sec the draw phase wrote to the terminal this frame:
     # `last_draw_bytes / frame_time`. An instantaneous, per-frame figure (what
     # continuous rendering would sustain), not a wall-clock average;
     # `Widget::Fps` smooths it via its rolling average.
-    getter throughput : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter throughput : Int32 = 0
 
     # Bytes/sec actually sent to the terminal, measured over wall-clock time:
     # `last_draw_bytes / (this_frame_start - previous_frame_start)`. Unlike
@@ -207,7 +231,8 @@ module Crysterm
     # the idle gap while the render loop parks), so it reflects sustained
     # traffic and integrates over time to `bytes_written`. Zero on the first
     # frame (no previous frame to measure against).
-    getter throughput_actual : Int32 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter throughput_actual : Int32 = 0
 
     # Start instant (`t1`) of the previous `repaint`, used to compute the
     # wall-clock interval for `throughput_actual`. Nil before the first frame.
@@ -216,9 +241,12 @@ module Crysterm
     # Raw per-frame durations (nanoseconds) of the most recent `repaint`,
     # exposed for benchmarking harnesses wanting the precise split without the
     # lossy `Int32` frames/sec rounding of `render_rate`/`draw_rate`.
-    getter render_ns_last : Int64 = 0
-    getter draw_ns_last : Int64 = 0
-    getter flush_ns_last : Int64 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter render_ns_last : Int64 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter draw_ns_last : Int64 = 0
+    # ameba:disable Lint/UselessAssign
+    observed_getter flush_ns_last : Int64 = 0
 
     # `numerator / seconds` as an `Int32`, guarding the sub-microsecond case
     # where `seconds` rounds to zero (avoiding a `1 // 0.0`-style overflow) and
@@ -611,20 +639,27 @@ module Crysterm
         damage_full_composite
       end
 
-      t2 = Time.instant
+      # Only split the frame clock into its render/draw/flush parts when someone
+      # actually reads the figures. A `Widget::Fps` overlay (or a benchmark) arms
+      # `@metrics_observed` the first time it reads a metric getter — including
+      # during the composite just above — so from that frame on we take the full
+      # split; otherwise the intermediate `Time.instant` reads (and the divisions
+      # at the end) are skipped, leaving just the `t1`/`t3` pair.
+      observed = @metrics_observed
+      t2 = observed ? Time.instant : t1
 
       # Diff + encode this frame into the output buffers (no terminal write —
       # that's `flush_frame` below, timed separately).
       draw flush: false
 
-      t_draw = Time.instant
+      t_draw = observed ? Time.instant : t1
 
       # Write the built frame to the terminal. Timed separately from `draw` so
       # the CPU-bound diff/encode and the (blocking, backpressure-prone) tty
       # write each get their own figure.
       flush_frame
 
-      t_flush = Time.instant
+      t_flush = observed ? Time.instant : t1
 
       # XXX Workaround for cursor pos before the screen has rendered, when lpos
       # is stale. Only some elements implement this; others are a noop.
@@ -643,25 +678,31 @@ module Crysterm
 
       emit Crysterm::Event::Rendered
 
-      t3 = Time.instant
+      # Record this frame's performance figures — only when observed (see the
+      # split-clock note above). The arithmetic feeds the metric getters, which
+      # nothing reads unless a `Widget::Fps` overlay or benchmark is present.
+      if observed
+        t3 = Time.instant
 
-      # Record this frame's performance figures. Always computed — cheap
-      # arithmetic — but nothing is drawn unless a widget reads them.
-      @render_ns_last = (t2 - t1).total_nanoseconds.to_i64
-      @draw_ns_last = (t_draw - t2).total_nanoseconds.to_i64
-      @flush_ns_last = (t_flush - t_draw).total_nanoseconds.to_i64
-      @render_rate = per_second 1, (t2 - t1).total_seconds
-      @draw_rate = per_second 1, (t_draw - t2).total_seconds
-      @flush_rate = per_second 1, (t_flush - t_draw).total_seconds
-      @frame_rate = per_second 1, (t3 - t1).total_seconds
-      @throughput = per_second @last_draw_bytes, (t3 - t1).total_seconds
+        @render_ns_last = (t2 - t1).total_nanoseconds.to_i64
+        @draw_ns_last = (t_draw - t2).total_nanoseconds.to_i64
+        @flush_ns_last = (t_flush - t_draw).total_nanoseconds.to_i64
+        @render_rate = per_second 1, (t2 - t1).total_seconds
+        @draw_rate = per_second 1, (t_draw - t2).total_seconds
+        @flush_rate = per_second 1, (t_flush - t_draw).total_seconds
+        @frame_rate = per_second 1, (t3 - t1).total_seconds
+        @throughput = per_second @last_draw_bytes, (t3 - t1).total_seconds
 
-      # Sustained, wall-clock throughput: this frame's bytes over the real
-      # interval since the previous frame started (idle gap included). Skipped
-      # on the first frame, with no previous start to measure from.
-      if prev = @last_frame_start
-        @throughput_actual = per_second @last_draw_bytes, (t1 - prev).total_seconds
+        # Sustained, wall-clock throughput: this frame's bytes over the real
+        # interval since the previous frame started (idle gap included). Skipped
+        # on the first frame, with no previous start to measure from.
+        if prev = @last_frame_start
+          @throughput_actual = per_second @last_draw_bytes, (t1 - prev).total_seconds
+        end
       end
+
+      # Always updated (independently of observation) so that when an observer
+      # arms mid-run, the next frame has a valid previous-start to measure from.
       @last_frame_start = t1
     end
 

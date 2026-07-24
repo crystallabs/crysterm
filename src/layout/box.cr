@@ -224,9 +224,17 @@ module Crysterm
         # harmless: it paints nothing while hidden, and showing it re-measures it.
         return if vacant? el
 
-        # Cross axis. A per-child `Hint#alignment` overrides the box's `#align`.
         cross = cross_extent interior
+        main = main_extent interior
+
+        # Cross axis. A per-child `Hint#alignment` overrides the box's `#align`.
+        # `cross_pos` is always assigned; `cross_w` is the Int32 cross size to
+        # write, or `nil` to leave the child's cross size untouched — the
+        # nil-release path writes directly, since it must land before
+        # `a_cross_size` reads it.
         align = align_of el
+        cross_pos = 0
+        cross_w : Int32? = nil
         if align.stretch?
           if cross_flex? el
             # Fill the interior *minus* the child's cross-axis margins: the
@@ -234,11 +242,11 @@ module Crysterm
             # near margin, so a full-extent size would clip by `near + far`.
             cs = cross - cross_margin(el)
             cs = 0 if cs < 0
-            set_cross_size el, cs
+            cross_w = cs
             @filled << el
             @filled_size[el] = cs
           end
-          set_cross_pos el, 0
+          cross_pos = 0
         else
           # Align moved off Stretch (or a per-child `Hint#alignment` overrides
           # a still-Stretch box) — release a cross size this layout previously
@@ -251,6 +259,8 @@ module Crysterm
           # `cross_flex?` membership test), so `nil` is always the correct
           # value to restore; a user-reclaimed explicit size (raw no longer
           # matches `@filled_size`) fails the guard and is left untouched.
+          # Written directly (not coalesced below): the release must land before
+          # `a_cross_size` re-reads the child's cross size.
           if @filled.includes?(el) && cross_size(el) == @filled_size[el]?
             set_cross_size el, nil
             @filled.delete el
@@ -268,45 +278,63 @@ module Crysterm
                 when .end?    then cross - cs - cm
                 else               0
                 end
-          set_cross_pos el, (off < 0 ? 0 : off)
+          cross_pos = (off < 0 ? 0 : off)
         end
 
         # Main axis: explicit size wins; otherwise a stretch-weighted share.
-        main = main_extent interior
+        # `main_w` is the Int32 main size to write for a flex child, or `nil` to
+        # keep the child's fixed size.
+        main_pos = @cursor
+        main_w : Int32? = nil
+        unless @measured.has_key?(el)
+          # Cumulative rounding: each child's size is the difference of
+          # successive cumulative floors, which sums to exactly `@avail`.
+          # Rounding each share independently would floor every child and
+          # strand up to `total_grow - 1` columns at the far edge.
+          s =
+            if @total_grow > 0
+              # `@avail * @grow_seen` overflows `Int32` well before either
+              # factor reaches `Int32::MAX`, so the share math runs in
+              # `Int64`; the result is always within `0..@avail`, so the
+              # narrowing back to `Int32` is safe.
+              avail64 = @avail.to_i64
+              before = (avail64 * @grow_seen) // @total_grow
+              @grow_seen += stretch_of el
+              ((avail64 * @grow_seen) // @total_grow - before).to_i32
+            else
+              0
+            end
+          main_w = s
+          @flex << el
+          @flex_size[el] = s
+        end
+
+        # One coalesced geometry write for both axes: a single `mark_dirty`
+        # (one ancestor-chain walk, at most one Move + one Resize) instead of up
+        # to four independent setter runs. An unwritten size axis passes the
+        # child's current raw size, which no-ops in `set_geometry`'s change
+        # guard. `0` is a real size write (only `nil` means keep).
+        if orientation.horizontal?
+          el.set_geometry main_pos, cross_pos,
+            (main_w || el.width), (cross_w || el.height)
+        else
+          el.set_geometry cross_pos, main_pos,
+            (cross_w || el.width), (main_w || el.height)
+        end
+
+        # Advance by the *clamped* used main size, read after the write: a CSS
+        # min/max size makes the child render at `a_main_size`, so advancing by
+        # the raw share would overlap the next child or leave a gap. An
+        # unconstrained child clamps back to exactly the share. Also clamp
+        # against the main extent (B18-25): a min-size constraint can push
+        # `a_main_size` arbitrarily high regardless of the share/`@avail`.
         size =
-          if !@measured.has_key?(el)
-            # Cumulative rounding: each child's size is the difference of
-            # successive cumulative floors, which sums to exactly `@avail`.
-            # Rounding each share independently would floor every child and
-            # strand up to `total_grow - 1` columns at the far edge.
-            s =
-              if @total_grow > 0
-                # `@avail * @grow_seen` overflows `Int32` well before either
-                # factor reaches `Int32::MAX`, so the share math runs in
-                # `Int64`; the result is always within `0..@avail`, so the
-                # narrowing back to `Int32` is safe.
-                avail64 = @avail.to_i64
-                before = (avail64 * @grow_seen) // @total_grow
-                @grow_seen += stretch_of el
-                ((avail64 * @grow_seen) // @total_grow - before).to_i32
-              else
-                0
-              end
-            set_main_size el, s
-            @flex << el
-            @flex_size[el] = s
-            # Advance by the *clamped* used size, not the raw share `s`: a CSS
-            # min/max size makes the child render at `a_main_size`, so advancing
-            # by `s` would overlap the next child or leave a gap. An
-            # unconstrained child clamps back to exactly `s`. Also clamp against
-            # the main extent (B18-25): a min-size constraint can push
-            # `a_main_size` arbitrarily high regardless of `s`/`@avail`.
+          if main_w
             clamped_size a_main_size(el), main
           else
             @measured[el]? || clamped_size(a_main_size(el), main)
           end
 
-        set_main_pos el, @cursor
         gap_after = justify_before(@just_k + 1) - justify_before(@just_k)
         @just_k += 1
         # Advance past this child's whole *margin* box, plus the base gap and its

@@ -23,6 +23,9 @@ module Crysterm
       # for bound chrome/listeners itself.
       reset_scroll unless value
       @scrollable = value
+      # Whether this widget clips its children changed → its subtree's nearest
+      # clipping ancestor may differ.
+      invalidate_clip_ancestor_cache
       if value
         unless @_scroll_index_wired
           @_scroll_index_wired = true
@@ -36,6 +39,15 @@ module Crysterm
     # Whether the widget position is fixed even in presence of scroll?
     # (Used by labels and the scrollbar widget, which must not scroll away.)
     property? fixed = false
+
+    # :ditto: — overridden to invalidate this widget's memoized clip ancestor,
+    # since `fixed` changes whether scrollable ancestors clip *this* widget.
+    def fixed=(value : Bool) : Bool
+      return value if value == @fixed
+      @fixed = value
+      reset_clip_ancestor_cache
+      value
+    end
 
     # Whether this widget is internal chrome — a border label or a bound scroll
     # bar — that an installed layout engine must *not* arrange (measure/place) as
@@ -170,7 +182,13 @@ module Crysterm
     # Reconciles the scroll bar chrome with the policy each render: create+show+
     # sync when `#show_scrollbar?`, else hide (never destroy) so it can reappear
     # without losing state. Idempotent.
-    protected def update_scrollbar_widget : Nil
+    # *show_v*/*show_h* let `base_render` pass the already-resolved bar-visibility
+    # predicates (`show_scrollbar?`/`show_horizontal_scrollbar?`) so they aren't
+    # recomputed here — each runs the overflow tests + `awidth` walks. Omitted
+    # (`nil`) they are resolved on demand.
+    protected def update_scrollbar_widget(show_v : Bool? = nil, show_h : Bool? = nil) : Nil
+      show_v = show_scrollbar? if show_v.nil?
+      show_h = show_horizontal_scrollbar? if show_h.nil?
       # Reserve the bottom-right corner when both bars show (Qt's
       # `QAbstractScrollArea` corner): shorten the vertical bar by the horizontal
       # bar's row(s) and the horizontal bar by the vertical bar's column(s), so
@@ -179,7 +197,7 @@ module Crysterm
       # truncating its thumb and stealing corner clicks. The size setters are
       # change-guarded, so re-asserting this every frame is cheap. The corner is
       # left to the parent's background fill.
-      if show_scrollbar?
+      if show_v
         sb = ensure_scrollbar_widget
         sb.width = scrollbar_width
         # Build the `Dim` directly instead of interpolating a `"100%-N"` string
@@ -187,16 +205,16 @@ module Crysterm
         # `Dim.from(a_dim)` skips the regex parse, so the change-guarded setter
         # re-asserts unchanged geometry with zero allocation. `Dim.percent(100, -n)`
         # is exactly what `"100%-n"` parses to.
-        sb.height = show_horizontal_scrollbar? ? Dim.percent(100, -scrollbar_height) : Dim.percent(100)
+        sb.height = show_h ? Dim.percent(100, -scrollbar_height) : Dim.percent(100)
         sb.show
       else
         @scrollbar_widget.try &.hide
       end
 
-      if show_horizontal_scrollbar?
+      if show_h
         hb = ensure_horizontal_scrollbar_widget
         hb.height = scrollbar_height
-        hb.width = show_scrollbar? ? Dim.percent(100, -scrollbar_width) : Dim.percent(100)
+        hb.width = show_v ? Dim.percent(100, -scrollbar_width) : Dim.percent(100)
         hb.show
       else
         @horizontal_scrollbar_widget.try &.hide

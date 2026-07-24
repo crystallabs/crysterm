@@ -599,7 +599,6 @@ module Crysterm
           raw = blk.text
           ls = row_start - bp
           le = row_end - bp
-          row_text = (ls == 0 && le == raw.size) ? raw : raw[ls, le - ls]
 
           # Viewport column of the row text's first character: the row's
           # decoration offset, shifted left by the horizontal scroll when not
@@ -611,7 +610,12 @@ module Crysterm
           run_link = 0_u16 # OSC 8 link id of the current run
           run_hi = -1      # `lp` bound the cached `run_attr` is valid below
 
-          each_glyph(row_text, fu) do |ch, cluster, cps|
+          # Iterate the row's codepoint window `[ls, le)` straight out of the
+          # block's `raw` text instead of slicing a fresh per-frame `String`
+          # for every wrapped/scrolled row (O4-27). `ls`/`le` are wrap cut
+          # points, hence grapheme boundaries, so windowing the full walk
+          # yields the exact clusters the substring would have.
+          each_glyph(raw, fu, ls, le) do |ch, cluster, cps|
             break if col >= region_w
 
             if lp >= run_hi
@@ -864,9 +868,17 @@ module Crysterm
       # cluster paints as one cell + continuation), single codepoints
       # otherwise (legacy: one codepoint per cell, width 1 — matching
       # `str_width`'s legacy accounting the layout ran with).
-      private def each_glyph(text : String, fu : Bool, & : (Char, String?, Int32) ->) : Nil
+      # `cp_lo`/`cp_hi` window the walk to the codepoint range `[cp_lo, cp_hi)`
+      # (default: the whole string), so `#paint_document` can drive it straight
+      # from the block's `raw` text without slicing out a per-row substring.
+      private def each_glyph(text : String, fu : Bool, cp_lo : Int32 = 0, cp_hi : Int32 = Int32::MAX, & : (Char, String?, Int32) ->) : Nil
         if fu
-          text.each_grapheme do |g|
+          # Grapheme clustering is context-sensitive, and skipping a prefix by
+          # re-walking it costs more than the slice it would replace — so for a
+          # windowed row still materialize the substring (identical to the old
+          # `raw[ls, le-ls]`), keeping the no-alloc fast path only for a full row.
+          gtext = (cp_lo == 0 && cp_hi >= text.size) ? text : text[cp_lo, cp_hi - cp_lo]
+          gtext.each_grapheme do |g|
             # Read the stdlib-internal `@cluster` (`Char | String`) rather than
             # `g.to_s`, which allocates a fresh String for every (overwhelmingly
             # common) single-`Char` cluster. Output is identical: a `String`
@@ -879,8 +891,13 @@ module Crysterm
             end
           end
         else
+          # Legacy (one codepoint per cell): window the block text directly, no
+          # per-row substring allocation.
+          cp = 0
           text.each_char do |c|
-            yield c, nil, 1
+            break if cp >= cp_hi
+            yield c, nil, 1 if cp >= cp_lo
+            cp += 1
           end
         end
       end
