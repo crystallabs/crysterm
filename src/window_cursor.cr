@@ -115,14 +115,16 @@ module Crysterm
     # :nodoc:
     def _artificial_cursor_attr(cursor, attr : Int64 = @default_attr)
       ch = nil
-      # White-ish foreground keeps the synthetic cursor glyph visible
-      # (palette index 7, mapped to native RGB).
-      white = Attr.pack_color(Colors.palette_to_rgb(7))
 
       if cursor.shape.line?
+        # White-ish foreground keeps the synthetic cursor glyph visible
+        # (palette index 7, mapped to native RGB). Only the bar/underline shapes
+        # recolor the glyph, so compute it lazily here rather than every call.
+        white = Attr.pack_color(Colors.palette_to_rgb(7))
         attr = Attr.pack(Attr.flags(attr), white, Attr.bg(attr))
         ch = Glyphs[Glyphs::Role::CursorBar, glyph_tier]
       elsif cursor.shape.underline?
+        white = Attr.pack_color(Colors.palette_to_rgb(7))
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
         # Reverse-video block, the classic terminal cursor: reads on any

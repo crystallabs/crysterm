@@ -560,8 +560,11 @@ module Crysterm
       # dispatch is single-fiber synchronous, so reusing them is safe.
       @_hit_found = nil
       @_hit_found_key = {0, 0}
+      # Seed the walk with "visible so far, no ancestor z-index". Top-level
+      # widgets are parentless, so this reproduces the old per-candidate walk
+      # that started at the widget and climbed to a nil parent.
       children.each do |el|
-        hit_scan el, x, y, skip
+        hit_scan el, x, y, skip, true, nil
       end
       @_hit_found
     end
@@ -576,31 +579,40 @@ module Crysterm
     # `@children` order), scoring each widget as a hit-test candidate into
     # `@_hit_found`/`@_hit_found_key`. A widget that fails the candidate test
     # still has its subtree scanned.
-    private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?) : Nil
-      if hit_candidate? el, x, y, skip
-        # One self-or-ancestor pass yields BOTH whole-chain visibility and the
-        # compositing layer key, so this hot motion path walks the parent chain
-        # once, not twice. An invisible candidate (a "shown" widget inside a
-        # hidden container) is not a hit.
-        visible, key = hit_visible_and_layer el
+    #
+    # Whole-chain visibility and the outermost-`z_index` layer key are threaded
+    # DOWN the recursion (*anc_visible*, *anc_z* carry the parent's accumulated
+    # answer) instead of re-walking the parent chain per candidate: each node
+    # folds itself in with one `&&`/`||`, turning the old O(candidates x depth)
+    # ancestor walks into O(1) per node. `anc_visible` ANDs `style.visible?`
+    # (order-independent); `anc_z || el.style.z_index` keeps the OUTERMOST
+    # (root-most) z, since a set `anc_z` — including a genuine `0` — wins over a
+    # deeper one, exactly as the old root-most-overwrite walk did.
+    private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?, anc_visible : Bool, anc_z : Int32?) : Nil
+      visible = anc_visible && el.style.visible?
+      z = anc_z || el.style.z_index
+      # An invisible candidate (a "shown" widget inside a hidden container) is
+      # not a hit; skip the candidate test entirely when off-screen.
+      if visible && hit_candidate?(el, x, y, skip)
+        key = z ? {1, z} : {0, 0}
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
-        if visible && (@_hit_found.nil? || key >= @_hit_found_key)
+        if @_hit_found.nil? || key >= @_hit_found_key
           @_hit_found = el
           @_hit_found_key = key
         end
       end
       el.children.each do |c|
-        hit_scan c, x, y, skip
+        hit_scan c, x, y, skip, visible, z
       end
     end
 
     # Whether *el* itself is a hit-test candidate occupying (*x*, *y*) — the
     # per-widget body of the `widget_at` scan; a failing check `return false`s
     # rather than `next`s. Runs the two cheap self-only checks in order (`lpos`
-    # first, then `wants_mouse?`); whole-chain visibility is resolved in the
-    # merged ancestor pass (`#hit_visible_and_layer`) alongside the layer key,
-    # so a passing candidate here is not yet guaranteed on-screen.
+    # first, then `wants_mouse?`); whole-chain visibility is threaded down the
+    # `#hit_scan` walk (not resolved here), so a passing candidate is only tested
+    # once its accumulated ancestor visibility already holds.
     private def hit_candidate?(el : Widget, x : Int32, y : Int32, skip : Widget?) : Bool
       return false if skip && el == skip
       # The transient drag ghost is decorative, never a drop target.
@@ -637,41 +649,10 @@ module Crysterm
       true
     end
 
-    # Single self-or-ancestor pass returning `{displayed?, layer_key}` for a
-    # hit-test candidate — folds what were two separate parent-chain walks
-    # (whole-chain visibility, then outermost-`z_index` layer) into one, since
-    # `#widget_at` runs this on every mouse report (all motion included).
-    #
-    # *displayed?* is false when the widget or ANY ancestor is hidden — its own
-    # `#visible?` flag reflects only itself, so a "shown" widget inside a hidden
-    # container (e.g. a non-current tab page) must not intercept clicks. When
-    # false the layer key is meaningless (the candidate is discarded).
-    #
-    # *layer_key* is the compositing layer the candidate is painted into, as a
-    # sortable `{plane?, z}`: `{0, 0}` is the base layer (no `z-index` on the
-    # widget or an ancestor); a z-indexed subtree resolves to `{1, z}` — above
-    # any base widget (leading `1` beats `0` even for negative `z`, matching
-    # `composite_planes`) and ordered among planes by `z`. The OUTERMOST
-    # self-or-ancestor `z_index` wins (each ancestor's value overwrites): painting
-    # defers only the FIRST z-indexed widget met on the walk down (a nested
-    # z-indexed subtree flattens into its enclosing plane — see
-    # `compositing_layers?`), so a nested z must not let an occluded widget
-    # out-rank the plane it is actually painted into.
-    #
-    # Returned as a value tuple (stack, no heap), keeping this path allocation-free.
-    private def hit_visible_and_layer(el : Widget) : Tuple(Bool, Tuple(Int32, Int32))
-      visible = true
-      z = nil
-      cur : Widget? = el
-      while cur
-        visible = false unless cur.style.visible?
-        if zz = cur.style.z_index
-          z = zz
-        end
-        cur = cur.parent
-      end
-      {visible, z ? {1, z} : {0, 0}}
-    end
+    # (The whole-chain visibility + outermost-`z_index` layer key that a hit-test
+    # candidate needs are now threaded down `#hit_scan` — see its doc for the
+    # layer-key semantics: `{0, 0}` base layer, `{1, z}` for a z-indexed subtree
+    # where the OUTERMOST self-or-ancestor `z_index` wins.)
 
     # Whether *el* and every ancestor are visible — i.e. actually on screen, not
     # merely flagged visible while sitting in a hidden container.

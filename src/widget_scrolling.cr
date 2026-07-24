@@ -182,7 +182,12 @@ module Crysterm
       if show_scrollbar?
         sb = ensure_scrollbar_widget
         sb.width = scrollbar_width
-        sb.height = show_horizontal_scrollbar? ? "100%-#{scrollbar_height}" : "100%"
+        # Build the `Dim` directly instead of interpolating a `"100%-N"` string
+        # and re-parsing it every frame: `Dim` is a struct (no heap alloc) and
+        # `Dim.from(a_dim)` skips the regex parse, so the change-guarded setter
+        # re-asserts unchanged geometry with zero allocation. `Dim.percent(100, -n)`
+        # is exactly what `"100%-n"` parses to.
+        sb.height = show_horizontal_scrollbar? ? Dim.percent(100, -scrollbar_height) : Dim.percent(100)
         sb.show
       else
         @scrollbar_widget.try &.hide
@@ -191,7 +196,7 @@ module Crysterm
       if show_horizontal_scrollbar?
         hb = ensure_horizontal_scrollbar_widget
         hb.height = scrollbar_height
-        hb.width = show_scrollbar? ? "100%-#{scrollbar_width}" : "100%"
+        hb.width = show_scrollbar? ? Dim.percent(100, -scrollbar_width) : Dim.percent(100)
         hb.show
       else
         @horizontal_scrollbar_widget.try &.hide

@@ -65,7 +65,10 @@ module Crysterm
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
-        index = index_tree(window)
+        # Reuse the window's structurally-cached widget index instead of
+        # re-walking the whole tree (and re-interning `uid::slot` strings) every
+        # cascade; `index_tree` rebuilds it only on a structural change.
+        index = window.css_widget_index { index_tree(window) }
 
         # Match each distinct structural selector at most once per cascade (the
         # same selector can recur across tiers, states and `@media` blocks).
@@ -300,8 +303,18 @@ module Crysterm
         # `Cell`/`Cell:nth-child(...)` rule then layers on top. So row slots must
         # be applied *before* cell slots; `acc` is an unordered hash, hence the
         # sort (order among cells, or among rows, is immaterial).
-        subs = acc.to_a.select { |((key, _state), _entries)| key.includes?("::") }
-        subs.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 } if subs.any? { |((key, _state), _entries)| key.includes?("::row:") }
+        # Collect only the sub-element (`::`) keys directly instead of `to_a`-ing
+        # the whole accumulation hash (one entry per touched widget/state) and
+        # discarding the majority. The `::row:`-presence test the sort needs is
+        # folded into the same single pass.
+        subs = [] of Tuple(Tuple(String, WidgetState), Array(Entry))
+        has_row = false
+        acc.each do |key_tuple, entries|
+          next unless key_tuple[0].includes?("::")
+          subs << {key_tuple, entries}
+          has_row = true if key_tuple[0].includes?("::row:")
+        end
+        subs.sort_by! { |((key, _state), _entries)| key.includes?("::row:") ? 0 : 1 } if has_row
         subs.each do |(key, state), entries|
           next unless target = index[key]?
           widget, slot = target

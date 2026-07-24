@@ -265,11 +265,36 @@ module Crysterm
     end
 
     private def self.escape_html(text : String) : String
-      text.gsub('&', "&amp;").gsub('<', "&lt;").gsub('>', "&gt;")
+      # Single pass instead of 3 chained `gsub`s (each a full scan + intermediate
+      # String); returns `text` unchanged (no allocation) when there's nothing to
+      # escape — the common case. Per-char mapping never re-scans an emitted
+      # entity, so it matches the `&`-first gsub ordering's anti-double-escape intent.
+      return text unless text.includes?('&') || text.includes?('<') || text.includes?('>')
+      String.build(text.bytesize + 16) do |io|
+        text.each_char do |c|
+          case c
+          when '&' then io << "&amp;"
+          when '<' then io << "&lt;"
+          when '>' then io << "&gt;"
+          else          io << c
+          end
+        end
+      end
     end
 
     private def self.escape_attr(text : String) : String
-      escape_html(text).gsub('"', "&quot;")
+      return text unless text.includes?('&') || text.includes?('<') || text.includes?('>') || text.includes?('"')
+      String.build(text.bytesize + 16) do |io|
+        text.each_char do |c|
+          case c
+          when '&' then io << "&amp;"
+          when '<' then io << "&lt;"
+          when '>' then io << "&gt;"
+          when '"' then io << "&quot;"
+          else          io << c
+          end
+        end
+      end
     end
 
     # DOM → blocks: a patch stack for inline formats,

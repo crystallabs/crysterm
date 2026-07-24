@@ -20,16 +20,32 @@ module Crysterm
       # it (`0.5turn` → 180°, not 0.5°).
       HUE_RE = /(#{Length::NUM})(deg|grad|rad|turn)?/i
 
+      # Cache for the pure (non-`currentColor`) `resolve` results, keyed by the
+      # stripped value. A cascade re-runs `resolve` for the same color string
+      # once per widget that shares it (40 buttons, one `#223`), and the fold +
+      # `gradient`/`rgb`/`hsl` pre-scan below is otherwise uncached — only the
+      # final `Colors.convert` was memoized. Bounded so a pathological sheet
+      # can't grow it without limit.
+      @@resolve_cache = Cache::Bounded(String, Int32 | String?).new(Cache::COLOR_CAPACITY, "css_color_resolve", register: true)
+
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String?
         v = value.strip
+        # `currentColor` is the only value whose result depends on `current_fg`,
+        # so it must bypass the by-value cache; everything else is a pure
+        # function of the string. Cheap length-gated case-insensitive test,
+        # before the (allocating) keyword fold, keeps it out of the cache.
+        return current_fg if v.bytesize == 12 && v.compare("currentcolor", case_insensitive: true) == 0
+        @@resolve_cache.fetch(v) { resolve_uncached(v) }
+      end
+
+      # The pure, cacheable core of `#resolve` (every case but `currentColor`).
+      private def self.resolve_uncached(v : String) : Int32 | String?
         # CSS function names and keywords are case-insensitive, so dispatch on a
         # folded copy (`RGB(...)`/`LINEAR-GRADIENT(...)` are valid). The parsers
         # harvest numbers regardless of case, so they still get `v`.
         case dv = Case.fold_keyword(v)
         when "transparent"
           -1 # terminal default
-        when "currentcolor"
-          current_fg
         when "inherit"
           # Leave unset; cascade's color-inheritance pass fills it from the parent.
           nil

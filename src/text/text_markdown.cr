@@ -176,14 +176,17 @@ module Crysterm
       # A paragraph node — or a table, when its text has the GFM-table shape:
       # markd hands tables through as a plain paragraph of `|` rows.
       private def import_paragraph(node : Markd::Node) : Nil
-        txt = node_text(node)
         structure_separator
         # A table-shaped paragraph inside a list item stays ordinary item
         # content: import_table stamps no list membership, so taking the
         # table path there would detach it from the list and shift ordered
         # numbering (the exporter's lead escape keeps the `|` roundtrip
-        # stable).
-        if TextTable.gfm_table?(txt) && @list_stack.empty?
+        # stable). Since the table path requires an empty list stack, check that
+        # first and skip the full recursive `node_text` build entirely for the
+        # (common) list-nested paragraph, which can never be a table. `node_text`
+        # is side-effect-free, so hoisting `structure_separator` above it is
+        # behavior-preserving.
+        if @list_stack.empty? && (txt = node_text(node)) && TextTable.gfm_table?(txt)
           import_table(txt)
           return
         end

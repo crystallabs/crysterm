@@ -77,8 +77,10 @@ module Crysterm
           # Every arrangeable child gets an index slot (z-order bookkeeping).
           bump_index el
           if visible == shown
-            el.left = 0
-            el.top = 0
+            # Coalesced position write: one `mark_dirty`/ancestor-walk and a
+            # single Move, vs a walk each from `left=` and `top=`. Size is left
+            # to the child (Stack pages keep their own extent).
+            el.move 0, 0
             render_or_defer el
           else
             skip_subtree el

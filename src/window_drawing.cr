@@ -178,6 +178,11 @@ module Crysterm
       # is constant for the whole call.
       default_bg = Attr.bg(@default_attr)
       default_deco = Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)
+      # Frame-constant default attr hoisted to a local: the compiler can't hoist
+      # the ivar load out of the per-cell transition checks below (no aliasing
+      # guarantee across the calls in the loop body), so each changed cell would
+      # otherwise pay an ivar load where a register read suffices.
+      df = @default_attr
       fu = full_unicode_effective?
       # Output color depth used to reduce SGR colors. NOT the frozen
       # `caps.ncolors`: `#color_count` re-resolves the `colors.depth` config/env
@@ -375,11 +380,19 @@ module Crysterm
               neq = true if changed
             end
 
-            # If the tail wasn't clearable, every column in (x, breaker) shares
-            # `desired_attr` and still sees the offending cell at `breaker`, so
-            # those scans reach the same verdict — skip them. `breaker` itself may
-            # begin a new run, so it stays scannable.
-            bce_skip_until = breaker - 1 unless clr
+            # Advance the skip cursor past everything this look-ahead just proved,
+            # so the trailing cells don't each re-run the same `(x...line_size)`
+            # scan (O(width^2) on a row that's blank-and-unchanged to the edge —
+            # the common dirty-row shape). Two cases:
+            #   * tail not clearable: every column in (x, breaker) shares
+            #     `desired_attr` and still sees the offending cell at `breaker`, so
+            #     those scans reach the same verdict. `breaker` itself may begin a
+            #     new run, so it stays scannable (`breaker - 1`).
+            #   * tail clearable but unchanged (`clr && !neq`): `breaker` stayed at
+            #     `line_size`, so this skips to the row end — every remaining column
+            #     falls through the gate to the ordinary unchanged-cell path.
+            # When `clr && neq` the loop `break`s below, so the value is unused there.
+            bce_skip_until = breaker - 1
 
             # Clear the line if it's not clear but needs to be.
             if clr && neq
@@ -397,7 +410,7 @@ module Crysterm
                 # state and emits nothing for the default attr, so without this the
                 # `el` below would erase the line with a stale background (BCE) and
                 # the leftover SGR would bleed into later cells/rows.
-                @outbuf.print "\e[m" if attr != @default_attr
+                @outbuf.print "\e[m" if attr != df
                 attr = desired_attr
                 # Allocation-free SGR emission straight into the line buffer.
                 Screen.write_sgr(@outbuf, attr, ncolors)
@@ -496,10 +509,10 @@ module Crysterm
           end
 
           if desired_attr != attr
-            if attr != @default_attr
+            if attr != df
               @outbuf.print "\e[m"
             end
-            if desired_attr != @default_attr
+            if desired_attr != df
               @outbuf.print "\e["
 
               # `sgr_params_to` ends in a ';' if it wrote anything; back over it and
@@ -629,7 +642,7 @@ module Crysterm
           ly = y
         end
 
-        if attr != @default_attr
+        if attr != df
           @outbuf.print "\e[m"
         end
 

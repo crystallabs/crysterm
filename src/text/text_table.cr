@@ -330,6 +330,9 @@ module Crysterm
     # `-`/`:`/`|`/spaces containing at least one `-`. The markd parser hands GFM
     # tables through as a plain paragraph, so they must be detected here.
     def self.gfm_table?(text : String) : Bool
+      # A GFM table needs a `|` in its header row, so a pipe-free paragraph is
+      # never one — cheap scan avoids the `lines` array allocation for it.
+      return false unless text.includes?('|')
       lines = text.lines
       return false if lines.size < 2
       lines[0].includes?('|') &&

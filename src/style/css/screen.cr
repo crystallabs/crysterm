@@ -76,6 +76,12 @@ module Crysterm
     @css_parsed_doc : HTML5::Node?
     @css_parsed_doc_string : String?
     @css_node_index : Hash(String, HTML5::Node)?
+    # `data-uid -> {widget, slot}`, the widget-side twin of `@css_node_index`.
+    # Rebuilt on the same structural signal (`@css_structural`) — its uid→widget
+    # /slot mapping is stable while the tree structure is unchanged — so the
+    # cascade stops re-walking the whole widget tree (and re-interning `uid::slot`
+    # strings) on every attribute-only/hover/drag re-cascade.
+    @css_widget_index : Hash(String, Tuple(Widget, String?))?
 
     # Cached parsed *structural* document (the `to_html(structural: true)`
     # variant, which omits sub-element pseudo-nodes) and the string it was
@@ -362,6 +368,25 @@ module Crysterm
         @css_parsed_doc_string = document
       end
       cached
+    end
+
+    # Returns the cached widget index (`data-uid -> {widget, slot}`), rebuilding
+    # via the yielded builder on a structural change or first use. Gated on the
+    # same `@css_structural` flag as `@css_node_index`: the two indexes share an
+    # invalidation condition (a sub-element/slot or tree-shape change stales
+    # both), and a structural change always changes the document identity, so the
+    # skip path in `#apply_stylesheet` can't clear the flag out from under a
+    # pending rebuild. The block is only `yield`ed (never stored), so a cache hit
+    # allocates nothing.
+    def css_widget_index(& : -> Hash(String, Tuple(Widget, String?))) : Hash(String, Tuple(Widget, String?))
+      cached = @css_widget_index
+      if @css_structural || cached.nil?
+        built = yield
+        @css_widget_index = built
+        built
+      else
+        cached
+      end
     end
 
     # The parsed *structural* document (`to_html(structural: true)`), cached

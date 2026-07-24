@@ -233,11 +233,14 @@ module Crysterm
           # pathological `@spacing` still overflows `Int32` in these products,
           # so each offset/size runs in `Int64` and clamps back to the
           # interior it can never legitimately exceed.
-          el.left = (x0.to_i64 + c0.to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32
-          el.top = (y0.to_i64 + r0.to_i64 * @spacing).clamp(0_i64, h.to_i64).to_i32
-          el.width = ((x1.to_i64 - x0.to_i64) + col_gaps.to_i64 * @spacing - el.mhorizontal).clamp(0_i64, w.to_i64).to_i32
-          el.height = ((y1.to_i64 - y0.to_i64) + row_gaps.to_i64 * @spacing - el.mvertical).clamp(0_i64, h.to_i64).to_i32
-          render_child el
+          # One coalesced geometry write (single `mark_dirty` + one ancestor-chain
+          # walk + at most one Move/Resize) instead of four independent setters,
+          # each of which would walk the ancestor chain and damage-mark on its own.
+          left = (x0.to_i64 + c0.to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32
+          top = (y0.to_i64 + r0.to_i64 * @spacing).clamp(0_i64, h.to_i64).to_i32
+          width = ((x1.to_i64 - x0.to_i64) + col_gaps.to_i64 * @spacing - el.mhorizontal).clamp(0_i64, w.to_i64).to_i32
+          height = ((y1.to_i64 - y0.to_i64) + row_gaps.to_i64 * @spacing - el.mvertical).clamp(0_i64, h.to_i64).to_i32
+          place_and_render el, left, top, width, height
         end
       end
 

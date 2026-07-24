@@ -749,8 +749,20 @@ module Crysterm
         # terminal-default instead of dropping the invalid declaration per
         # CSS. `transparent` is a genuine `-1` `Int32` from `resolve`, not a
         # `String`, so it's unaffected; same guard as `valid_side_color?`.
-        return if resolved.is_a?(String) && !Colors.known?(resolved)
-        yield resolved
+        if resolved.is_a?(String)
+          # Convert here (once) rather than validating via `Colors.known?` and
+          # then re-converting inside the `Colorizable` String setter: both go
+          # through `convert_cached`, and yielding the resolved `Int32` lets the
+          # setter take its int overload. `-1` is the unknown-name sentinel (what
+          # `known?` tests), so dropping it preserves the invalid-declaration guard.
+          c = Colors.convert_cached(resolved)
+          return if c == -1
+          yield c
+        else
+          # `Int32` (incl. `transparent`'s genuine `-1`) or `nil` (reset for
+          # cascade inheritance) — passed through unchanged.
+          yield resolved
+        end
       end
 
       # Whether *value* is (an attempt at) an `rgb()`/`hsl()` color function —
