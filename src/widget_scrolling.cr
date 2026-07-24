@@ -577,10 +577,10 @@ module Crysterm
         Math.max current, el_bottom
       end
 
-      # XXX Use this? Makes .scroll_height useless
-      # if bottom < @_clines.size
-      #   bottom = @_clines.size
-      # end
+      # Deliberately NOT clamped up to `@_clines.size`: that would fold a text
+      # view's wrapped-line count into the child-based scroll extent — conflating
+      # two different measures and making `#scroll_height` redundant. The
+      # child-based `bottom` above is the intended one.
 
       @lpos.try do |lpos|
         lpos._scroll_bottom = bottom

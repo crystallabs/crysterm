@@ -18,7 +18,10 @@ module Crysterm
       # toggle, and focus cursor.
       include Mixin::CheckMarker
 
-      # TODO support for changing icons
+      # The `[ ]` / `[x]` marker glyphs are customizable via CSS, per Qt's
+      # `::indicator` convention: a `CheckBox::indicator` rule sets `glyph` /
+      # `glyph-open` / `glyph-close` (and `:checked` addresses the checked mark).
+      # See `Mixin::CheckMarker#marker_line`, which resolves each piece CSS-first.
 
       # Whether the box is in its partially-checked (indeterminate) state. Only
       # reachable when `#tristate?` (Qt's `Qt::PartiallyChecked`). Read-only —

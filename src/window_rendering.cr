@@ -340,12 +340,13 @@ module Crysterm
     # Rendering optimizations.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
-    # XXX move somewhere else?
-    # Default cell attribute
+    # Default cell attribute — the blank-cell fill the buffer/diff use. Lives on
+    # the `Window` because it owns the cell buffer and rendering; the global
+    # fallbacks are the `DEFAULT_ATTR`/`DEFAULT_CHAR` constants, and a per-window
+    # property lets one surface override them.
     property default_attr : Int64 = DEFAULT_ATTR
 
-    # XXX move somewhere else?
-    # Default cell character
+    # Default cell character (see `#default_attr`).
     property default_char : Char = DEFAULT_CHAR
 
     # Automatically "dock" borders with other elements instead of overlapping,

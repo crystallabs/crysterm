@@ -259,8 +259,11 @@ module Crysterm
     # Rendering performance figures are not drawn by the window itself; add a
     # `Widget::Fps` to display them.
 
-    # Optimization flags for rendering/drawing.
-    # XXX TODO: decide default flags dynamically.
+    # Optimization flags for rendering/drawing. Defaults to
+    # `Config.render_optimization` (a static, user-tunable config value). Choosing
+    # them dynamically per terminal (e.g. enabling BCE only where advertised) is a
+    # possible enhancement, deferred: the flags are output-equivalent, so a wrong
+    # static default costs performance, never correctness.
     # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
 
@@ -403,7 +406,12 @@ module Crysterm
       # captured before `_listen_keys` spawns the input fiber.
       capture_inline_anchor unless @alternate
 
-      # XXX Why here instead of in enter/leave?
+      # In `connect`, not `enter`/`leave`: input listening belongs to the
+      # *connection* lifecycle — the fiber is spawned once per connect and must
+      # follow the synchronous `@input` reads above (`report_cursor`,
+      # `capture_inline_anchor`) before it takes over the fd. `enter`/`leave` only
+      # toggle the alt buffer and can cycle on suspend/resume while the connection
+      # (and its listener) persist.
       _listen_keys
 
       enter # Full-screen (alt) or inline, per `@alternate`.

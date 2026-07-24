@@ -404,7 +404,7 @@ module Crysterm
       # content keeps the default foreground (only bg/flags follow inline SGR).
       # Resolved once here instead of re-walking the parent chain per SGR escape.
       keep_selected_fg = parent.try do |parent2|
-        parent2.item_view? && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
+        parent2.item_view? && parent2.interactive? && parent2.item_selected?(self)
       end || false
 
       # Whether a row whose content is exhausted may be painted as one

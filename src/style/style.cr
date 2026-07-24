@@ -415,12 +415,17 @@ module Crysterm
       end
     end
 
-    # XXX Test/document this.
+    # Whether the widget paints its background across the interior (the style's
+    # fill glyph + attrs). `false` leaves whatever is underneath showing through —
+    # e.g. a transparent overlay or a label that draws only its own text. Gated in
+    # the render path (`fill && …` before the `fill_region` sweep).
     property? fill = true
 
-    # Should something render inside/over the border?
-    # Currently used for `Widget::Scrollbar` only.
-    # XXX Rename, or make more general, or otherwise unify.
+    # Whether the widget may paint into its own border band rather than only the
+    # interior — lets a `Widget::Scrollbar` sit *on* the frame instead of inset
+    # from it. Kept as a plain cascadeable `Style` flag: the name is descriptive
+    # and no broader "draw over chrome" abstraction has proven worth the churn, so
+    # it stays scrollbar-scoped.
     property? draw_over_border : Bool = false
 
     # Re-wrap the `fill`/`draw_over_border` setters so an explicit assignment is

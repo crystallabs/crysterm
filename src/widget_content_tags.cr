@@ -231,9 +231,10 @@ module Crysterm
           if text[k]? == '}'
             tag_start = pos
             pos = k + 1
-            # XXX Tags must be specified such as {light-blue-fg}, but are then
-            # parsed here with - being ' '. See why? Can we work with - and skip
-            # this replacement part?
+            # Tags are written dash-delimited (`{light-blue-fg}`) but the
+            # downstream color/attribute name lookup keys on the space-delimited
+            # form (`light blue fg`), so a dash is normalized to a space here.
+            # Removable only if that resolver learned the dash forms directly.
             # Only `gsub` when a dash is present — dash-free tags (`bold`, `red`)
             # reuse the name slice with no scan or allocation.
             param = text[name_start...k]

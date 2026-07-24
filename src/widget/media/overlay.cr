@@ -80,7 +80,12 @@ module Crysterm
       private def redraw_image
         return if @helper_failed
         @image.try do |image|
-          # TODO - get coords of content only, without borders/padding
+          # `overlay_geometry` is the widget's full rect. For a bordered/padded
+          # image widget the correct target is the *content* rect (Qt draws a
+          # framed pixmap inside its contents rect). Deferred: insetting it by
+          # border+padding touches every image backend that shares
+          # `overlay_geometry`, so it wants a media-wide golden pass; border-less
+          # image widgets (the common case) are unaffected meanwhile.
           rect = overlay_geometry || return
           begin
             # `Fit::None` draws at the source's native size, centered; every

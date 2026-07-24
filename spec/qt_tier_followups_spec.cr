@@ -44,3 +44,22 @@ describe "F28 — RadioButton#deselectable" do
     rb.checked?.should be_true
   end
 end
+
+describe "Styles#each / #each_entry" do
+  it "yields only the set states (always normal), with WidgetState in each_entry" do
+    styles = Crysterm::Styles.new(Crysterm::Style.new)
+
+    seen = [] of Crysterm::Style
+    styles.each { |s| seen << s }
+    seen.size.should eq 1 # normal only
+
+    entries = [] of Crysterm::WidgetState
+    styles.each_entry { |st, _| entries << st }
+    entries.should eq [Crysterm::WidgetState::Normal]
+
+    styles.focused = Crysterm::Style.new
+    states = [] of Crysterm::WidgetState
+    styles.each_entry { |st, _| states << st }
+    states.should eq [Crysterm::WidgetState::Normal, Crysterm::WidgetState::Focused]
+  end
+end

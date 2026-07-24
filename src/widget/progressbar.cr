@@ -93,7 +93,10 @@ module Crysterm
       # Assigns `#format` and schedules a repaint (see `#text_visible=`).
       repaint_property format, String
 
-      # XXX Change this to enabled? later.
+      # Separate gates for keyboard vs. mouse interaction (an interactive bar can
+      # be driven by either). Kept as `keys`/`mouse` rather than folded into one
+      # `enabled?`: they toggle independently, and `enabled?` already carries Qt's
+      # distinct widget enabled/disabled meaning.
       property? keys : Bool = true
       property? mouse : Bool = false
 

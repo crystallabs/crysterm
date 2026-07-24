@@ -77,7 +77,26 @@ module Crysterm
       @disabled.try &.visible = value
     end
 
-    # TODO Add each/each_entry iterators
+    # Yields each explicitly-set per-state `Style` — always `normal`, then any of
+    # `focused`/`hovered`/`selected`/`disabled` that were set. Unset states resolve
+    # to `normal` at lookup time and so are not yielded (matching how `#deep_dup`
+    # and `#visible=` walk the set states).
+    def each(& : Style ->) : Nil
+      yield normal
+      @focused.try { |s| yield s }
+      @hovered.try { |s| yield s }
+      @selected.try { |s| yield s }
+      @disabled.try { |s| yield s }
+    end
+
+    # :ditto: — paired with the owning `WidgetState`.
+    def each_entry(& : (WidgetState, Style) ->) : Nil
+      yield WidgetState::Normal, normal
+      @focused.try { |s| yield WidgetState::Focused, s }
+      @hovered.try { |s| yield WidgetState::Hovered, s }
+      @selected.try { |s| yield WidgetState::Selected, s }
+      @disabled.try { |s| yield WidgetState::Disabled, s }
+    end
 
     def initialize(@normal = @normal, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)
     end
