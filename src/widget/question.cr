@@ -12,12 +12,12 @@ module Crysterm
 
       property text : String = ""
 
-      # TODO Positioning is bad for buttons.
-      # Use a layout for buttons.
-      # Also, make unlimited number of buttons/choices possible.
-
-      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button(top: 4, left: 1, width: 6)
-      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button(top: 4, left: 8, width: 8)
+      # The fixed OK/Cancel pair, bottom-right anchored so it adapts to the
+      # dialog size (see `OkCancelDialog.ok_button`). For an arbitrary number of
+      # choices laid out in a row, use `#ask_choices` (which builds a
+      # `DialogButtonBox`).
+      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button
+      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button
 
       # Pending-`ask` state, reachable from `#destroy` so a dialog torn down
       # while an answer is outstanding leaves nothing on the window.

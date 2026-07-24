@@ -1160,9 +1160,6 @@ module Crysterm
         end
       end
 
-      # TODO
-      # pick
-
       def on_keypress(e)
         visible = visible_content_rows
         # Half/page navigation steps by *items*, not rows: with `item_spacing > 0`

@@ -491,17 +491,12 @@ module Crysterm
       # on(AddHandlerEvent) { |wrapper| }
       on(Crysterm::Event::Resize) { process_content }
       on(Crysterm::Event::Attached) { process_content }
-      # on(Crysterm::Event::Detached) { @lpos = nil } # XXX D O or E O?
 
       # `scrollbar: true/false` sugar maps onto `#scrollbar_policy` (`true` ⇒
       # `AsNeeded`, `false` ⇒ `AlwaysOff`); `nil` leaves the default.
       unless scrollbar.nil?
         self.scrollbar = scrollbar
       end
-
-      # # TODO same as above
-      # if @mouse
-      # end
 
       if @scrollable
         @_scroll_index_wired = true

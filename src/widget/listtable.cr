@@ -501,6 +501,14 @@ module Crysterm
         # `#rows=` again, which would see the old width and recurse forever.
         @width = row_width + ihorizontal if @content_sized
 
+        # Stretch the header across the full row so `style.header`'s background
+        # reaches the right border instead of stopping at the (usually shorter)
+        # header text. Content-sized only: the list interior is then exactly
+        # `row_width` wide (`@width - ihorizontal`), and the header sits at
+        # `left: 0` inside it. A fixed-width table's header tracks the viewport
+        # and scrolls with the columns, so it is left to size itself.
+        header.width = row_width if @content_sized
+
         # Index 0 is a spacer that the pinned header overlays.
         items = [""]
         @rows.each_with_index do |row, i|

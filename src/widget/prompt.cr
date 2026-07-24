@@ -15,10 +15,6 @@ module Crysterm
       # the dialog stays open instead of submitting. `nil` accepts anything.
       property validator : Proc(String, Bool)? = nil
 
-      # TODO Positioning is bad for buttons.
-      # Use a layout for buttons.
-      # Also, make unlimited number of buttons/choices possible.
-
       # The text entry field (Qt's `QInputDialog` line edit). Exposed so callers
       # can configure echo mode / placeholder directly, and for testing.
       getter line_edit = LineEdit.new(
@@ -31,8 +27,12 @@ module Crysterm
         input_on_focus: false,
       )
 
-      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button(top: 5, left: 2, width: 6)
-      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button(top: 5, left: 10, width: 8)
+      # Bottom-right anchored (see `OkCancelDialog.ok_button`); the `#line_edit`
+      # above sits at `top: 3`, so on the default height-7 dialog the buttons land
+      # on the last interior row instead of the old `top: 5`, which fell on the
+      # bottom border.
+      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button
+      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button
 
       def initialize(echo_mode : LineEdit::EchoMode? = nil, placeholder_text = nil, validator = nil, **box)
         box["content"]?.try do |c|

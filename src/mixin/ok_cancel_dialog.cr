@@ -33,16 +33,19 @@ module Crysterm
         )
       end
 
-      # Builds the affirmative ("OK") dialog button at *top*/*left* with the
-      # shared single-row, centered, not-focus-on-click style.
-      def self.ok_button(top, left, width = 6) : ::Crysterm::Widget::Button
-        dialog_button "OK", width, top: top, left: left, focus_on_click: false, shrink_to_fit: true
+      # Builds the affirmative ("OK") dialog button, pinned to the bottom row and
+      # anchored from the RIGHT so it sits just left of the Cancel button — the
+      # standard bottom-right cluster (matching `Wizard`'s footer buttons).
+      # Anchoring from the bottom/right, rather than fixed `top`/`left`, keeps the
+      # pair below the content and inside the frame at any dialog size.
+      def self.ok_button(*, bottom = 0, right = 10, width = 6) : ::Crysterm::Widget::Button
+        dialog_button "OK", width, bottom: bottom, right: right, focus_on_click: false, shrink_to_fit: true
       end
 
-      # Builds the negative ("Cancel") dialog button (see `.ok_button` for the
-      # shared style).
-      def self.cancel_button(top, left, width = 8) : ::Crysterm::Widget::Button
-        dialog_button "Cancel", width, top: top, left: left, focus_on_click: false, shrink_to_fit: true
+      # Builds the negative ("Cancel") dialog button at the bottom-right, right of
+      # `.ok_button` (see it for the shared style/anchoring).
+      def self.cancel_button(*, bottom = 0, right = 2, width = 8) : ::Crysterm::Widget::Button
+        dialog_button "Cancel", width, bottom: bottom, right: right, focus_on_click: false, shrink_to_fit: true
       end
 
       # Standard modal teardown: hide, restore the focus saved when opened, and

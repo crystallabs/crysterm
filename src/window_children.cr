@@ -78,8 +78,8 @@ module Crysterm
       element.window = self
       attach element, previous
 
-      # XXX:
-      # - Make sure this is undo-ed if widget is detached
+      # Undone on detach: `#remove` calls `#unregister`, which walks the same
+      # subtree and drops each node from `@keyable`/`@clickable`.
       #
       # The gate mirrors the construction-time focus-registration predicate
       # (`@keys || @input`), plus `keyable?` for a widget moved here already

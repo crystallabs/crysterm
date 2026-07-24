@@ -179,11 +179,6 @@ module Crysterm
             @_pending_rowcol = nil
           end
 
-          # XXX
-          # if @keys && CtrlE
-          #  # return(Invoke editor)
-          # end
-
           # TODO can optimize by writing directly to window buffer
           # here.
           clipboard = Crysterm::Config.input_clipboard_keys
