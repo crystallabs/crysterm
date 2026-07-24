@@ -158,6 +158,11 @@ module Crysterm
     # Until a policy is set explicitly, it is derived from the legacy flags: a
     # key-enabled widget (`keys`/`input`/`keyable`) maps to `Strong` (or `Tab`
     # when `focus_on_click` is off), anything else to `None`.
+    #
+    # `focus_policy` / `#focus_policy=` are the **canonical** focus knob for new
+    # code, mirroring Qt's single `focusPolicy` property; the constructor's
+    # `keys:` / `input:` / `focus_on_click:` flags are the legacy inputs it is
+    # derived from (and kept in sync by the setter), retained for compatibility.
     def focus_policy : FocusPolicy
       @focus_policy || begin
         if keyable? || keys? || input?

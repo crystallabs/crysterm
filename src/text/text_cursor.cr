@@ -208,8 +208,11 @@ module Crysterm
     end
 
     # Ends the current block and starts a new one (Qt `insertBlock`),
-    # optionally formatting the new block.
-    def insert_block(block_format : TextBlockFormat? = nil) : Nil
+    # optionally formatting the new block. When *char_format* is given it becomes
+    # the typing format for text inserted *into* the new block — the two-argument
+    # `insertBlock(blockFormat, charFormat)` Qt overload — applied after the split
+    # so the whole operation is one undo step.
+    def insert_block(block_format : TextBlockFormat? = nil, char_format : TextCharFormat? = nil) : Nil
       if block_format
         @document.begin_edit_block
         insert_text("\n")
@@ -218,6 +221,9 @@ module Crysterm
       else
         insert_text("\n")
       end
+      # Char format applies to text typed in the new block: set it as the pending
+      # typing format after the split (Qt semantics), like `#set_char_format`.
+      @pending_format = char_format if char_format
     end
 
     def remove_selected_text : Nil

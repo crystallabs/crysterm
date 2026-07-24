@@ -49,6 +49,22 @@ module Crysterm
       @windows.last?
     end
 
+    # The device backing the active window ↔ `QGuiApplication::primaryScreen()`.
+    # `nil` when no window is registered. The "primary" device is the app-active
+    # window's `Screen`, consistent with how `#active_window` picks the surface
+    # app-level input routes to; `#screens` still lists every backing device.
+    def primary_screen : Screen?
+      active_window.try &.screen
+    end
+
+    # Crystal-idiomatic setter counterpart of `#active_window` — makes *window*
+    # the active surface. Alias of `#activate` (which also raises it over any
+    # sibling on the same device); provided so the getter/setter read as a pair.
+    def active_window=(window : Window) : Window
+      activate window
+      window
+    end
+
     # Brings *window* to the front of its device and makes it active: becomes the
     # most-recent window (so input routes to it) and is repainted over any
     # sibling sharing the same `Screen`. The toolkit's "raise window" for stacked
@@ -267,6 +283,15 @@ module Crysterm
       # re-entering the loop).
       @quit_requested = false
       status
+    end
+
+    # Array counterpart of `#exec`: renders and runs every window in *windows*
+    # under one shared quit, blocking until the last is gone. So callers reach
+    # for the same verb whether driving one surface or several. Delegates to
+    # `.exec_all`, which owns quit for the managed windows (each is opted out of
+    # the app-global hard-exit hotkey); returns when none remain.
+    def exec(windows : Array(Window)) : Nil
+      self.class.exec_all windows
     end
 
     # Opens a real terminal emulator window and returns a `Window` driving it.

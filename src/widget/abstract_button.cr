@@ -105,6 +105,10 @@ module Crysterm
         @checked = !@checked
         invalidate_css # `checked` attribute selector may now match/unmatch
         emit Crysterm::Event::StateChanged, (@checked ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked)
+        # Plain-`Bool` counterpart of `StateChanged` ↔ Qt's `toggled(bool)`; both
+        # fire (Qt likewise emits `toggled` and `stateChanged`), so a listener may
+        # take whichever payload it wants. `#on_toggle` adapts `StateChanged`.
+        emit Crysterm::Event::Toggled, @checked
         request_render
       end
 
@@ -134,6 +138,7 @@ module Crysterm
         return if checked? && !partial? # already settled on checked
         set_checked true
         emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Checked
+        emit Crysterm::Event::Toggled, true
         request_render
       end
 
@@ -144,6 +149,7 @@ module Crysterm
         return if !checked? && !partial? # already settled on unchecked
         set_checked false
         emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Unchecked
+        emit Crysterm::Event::Toggled, false
         request_render
       end
 

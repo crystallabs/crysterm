@@ -104,6 +104,8 @@ module Crysterm
           invalidate_css
           emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Unchecked if was_checked
           emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::PartiallyChecked
+          # `toggled(bool)` peer of `StateChanged`; partial is not checked.
+          emit Crysterm::Event::Toggled, false
           request_render # repaint the `-` marker
         end
         state
@@ -111,8 +113,15 @@ module Crysterm
 
       # Puts the box in its partially-checked (indeterminate) state. No-op unless
       # `#tristate?`. Qt-style shorthand for `self.check_state = PartiallyChecked`.
-      def partial
+      # Named `set_partial` (an action) so it doesn't read like the `#partial?`
+      # predicate, matching `#check`/`#uncheck`.
+      def set_partial
         self.check_state = ::Crysterm::CheckState::PartiallyChecked
+      end
+
+      # :ditto: — retained shorter alias.
+      def partial
+        set_partial
       end
 
       # Cycles to the next state. With `#tristate?` the order matches Qt:

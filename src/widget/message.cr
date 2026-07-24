@@ -171,6 +171,44 @@ module Crysterm
       def question(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
         display_with(Severity::Question, text, time, &callback)
       end
+
+      # Static one-call helper ↔ `QMessageBox::information`: builds a `Message`
+      # centered on *window*, shows *text* with the info icon, and returns it —
+      # the canonical way to pop a message box in one line. *callback* (optional)
+      # runs on dismissal; any other keyword (`width:`, `height:`, `style:`, …)
+      # is forwarded to `.new`, overriding the centered placement default.
+      #
+      # ```
+      # Crysterm::Widget::Message.information window, "Saved."
+      # ```
+      def self.information(window : ::Crysterm::Window, text, *, time : Time::Span? = Crysterm::Config.message_display_time, callback : Proc(Nil)? = nil, **opts) : Message
+        popup Severity::Information, window, text, time, callback, opts
+      end
+
+      # :ditto: — warning icon ↔ `QMessageBox::warning`.
+      def self.warning(window : ::Crysterm::Window, text, *, time : Time::Span? = Crysterm::Config.message_display_time, callback : Proc(Nil)? = nil, **opts) : Message
+        popup Severity::Warning, window, text, time, callback, opts
+      end
+
+      # :ditto: — critical icon ↔ `QMessageBox::critical`.
+      def self.critical(window : ::Crysterm::Window, text, *, time : Time::Span? = Crysterm::Config.message_display_time, callback : Proc(Nil)? = nil, **opts) : Message
+        popup Severity::Critical, window, text, time, callback, opts
+      end
+
+      # :ditto: — question icon ↔ `QMessageBox::question`.
+      def self.question(window : ::Crysterm::Window, text, *, time : Time::Span? = Crysterm::Config.message_display_time, callback : Proc(Nil)? = nil, **opts) : Message
+        popup Severity::Question, window, text, time, callback, opts
+      end
+
+      # Shared builder for the static severity helpers: centers a fresh `Message`
+      # on *window* (unless *opts* override placement), displays *text* with the
+      # severity prefix, and returns it.
+      private def self.popup(severity : Severity, window : ::Crysterm::Window, text, time : Time::Span?, callback : Proc(Nil)?, opts) : Message
+        merged = {parent: window, top: "center", left: "center"}.merge(opts)
+        msg = new(**merged)
+        msg.display_with(severity, text, time) { callback.try &.call }
+        msg
+      end
     end
   end
 end

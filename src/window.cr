@@ -278,6 +278,12 @@ module Crysterm
     # mode wants an explicit `height:` (the reserved region size).
     getter? alternate : Bool = true
 
+    # Whether this window runs inline in the normal buffer rather than taking
+    # over the alternate screen — the intent-named inverse of `#alternate?`.
+    def inline? : Bool
+      !alternate?
+    end
+
     # Physical terminal row the inline (`alternate: false`) surface is anchored
     # at — added to every rendered row so the whole `[0, aheight)` surface lands
     # at `[offset, offset + aheight)` on the real terminal. `0` in full-screen
@@ -323,7 +329,12 @@ module Crysterm
       @cursor = @cursor,
       optimization : OptimizationFlag | Shorthands = @optimization,
       padding = nil,
-      @alternate : Bool = true,
+      alternate : Bool = true,
+      # Intent-named inverse of `alternate:` ↔ Qt's `showNormal` vs a full-screen
+      # surface. `inline: true` runs the window inline in the normal buffer
+      # (`@alternate = false`) instead of taking over the alternate screen. When
+      # given, it wins over `alternate:` (the low-level knob it derives).
+      inline : Bool = false,
       @auto_grow : Bool = false,
       @max_height : Int32? = nil,
       force_unicode : Bool = Config.screen_force_unicode,
@@ -346,6 +357,9 @@ module Crysterm
       # @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
       # @use_buffer = false,
     )
+      # `inline:` is the intent-named inverse of `alternate:`; when set it wins.
+      @alternate = inline ? false : alternate
+
       # An auto-grow region starts one row tall and pinned, so the first render
       # only ever *adds* rows and never erases real terminal content.
       height = 1 if @auto_grow
@@ -481,6 +495,21 @@ module Crysterm
     # window is run via `Application#exec` (or added to an app).
     property application : Application? = nil
 
+    # Opens a real terminal-emulator window and returns the `Window` driving it —
+    # a discoverable alias for `Application.open` (the factory's result type is a
+    # `Window`, so it reads naturally here too). See `Application.open` for the
+    # arguments.
+    def self.open(**kwargs) : Window
+      Application.open(**kwargs)
+    end
+
+    # Opens *window_count* emulator windows, builds each via the block, then
+    # renders and runs them all under a shared quit — an alias for
+    # `Application.run`. See it for the arguments.
+    def self.run(**kwargs, &block : Window, Int32 -> _) : Nil
+      Application.run(**kwargs) { |w, i| block.call w, i }
+    end
+
     # Renders this window and runs the main loop (the `QApplication::exec()`
     # analogue). Delegates to the current application, creating one if none
     # exists, so a single-window program stays the one-liner
@@ -496,6 +525,19 @@ module Crysterm
     # `#exec` return *status*. See `Application#quit`.
     def quit(status : Int32 = 0) : Nil
       (application || Application.global).quit status
+    end
+
+    # Brings this window to the front of its device and makes it the app-active
+    # surface ↔ `QWindow::requestActivate`. Delegates to the driving application
+    # (the global one when never registered), so a window can raise itself
+    # without the caller reaching for `Application#activate`. Returns `self`.
+    #
+    # (No `#raise` alias: an instance method named `raise` would shadow
+    # Crystal's `raise` inside `Window`'s own code — `activate` is the safe
+    # spelling of Qt's window raise here.)
+    def activate : self
+      (application || Application.global).activate self
+      self
     end
 
     # Writes the current screen to the files named by `CRYSTERM_SHOT` (a still

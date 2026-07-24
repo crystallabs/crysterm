@@ -318,6 +318,13 @@ module Crysterm
         refresh_options was
       end
 
+      # Subscribes *block* to selection changes — the block spelling of
+      # `on(Event::CurrentChanged) { |e| ... }` (Qt's `currentIndexChanged`),
+      # mirroring `AbstractButton#on_click`. The block receives the new index.
+      def on_current_index_change(&block : Int32 ->) : Nil
+        on(::Crysterm::Event::CurrentChanged) { |e| block.call e.index }
+      end
+
       # The `{index, value}` pair a list mutation might move, sampled before it
       # runs so `#refresh_options` can tell whether to report a change.
       private def current_state : Tuple(Int32, String)

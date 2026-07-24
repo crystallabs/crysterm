@@ -109,6 +109,32 @@ module Crysterm
       {((c >> 16) & 0xff).to_i32, ((c >> 8) & 0xff).to_i32, (c & 0xff).to_i32}
     end
 
+    # A lighter shade of *color* ↔ Qt's `QColor::lighter(factor)`. Multiplicative
+    # like Qt: `factor` is a percentage, so `150` scales lightness ×1.5, `100` is
+    # a no-op, and a value below `100` darkens. `factor <= 0` returns *color*
+    # unchanged (Qt leaves it unspecified). Provided for Qt-familiar callers
+    # alongside the additive `#lighten(color, amount)`.
+    #
+    # NOTE the scale is applied to HSL *lightness* (what the underlying color
+    # routines expose), whereas Qt scales HSV *value*; results are visually close
+    # but not bit-identical to Qt.
+    def self.lighter(color : Int, factor : Int = 150) : Int32
+      return color.to_i32 if factor <= 0
+      h, s, l = rgb_to_hsl color.to_i32
+      hsl_to_rgb h, s, (l * factor / 100.0).clamp(0.0, 1.0)
+    end
+
+    # A darker shade of *color* ↔ Qt's `QColor::darker(factor)`. Multiplicative
+    # like Qt: `factor` is a percentage dividing lightness, so `200` scales it
+    # ×0.5, `100` is a no-op. `factor <= 0` returns *color* unchanged. The
+    # additive counterpart is `#darken(color, amount)`. See `#lighter` for the
+    # HSL-vs-HSV caveat.
+    def self.darker(color : Int, factor : Int = 200) : Int32
+      return color.to_i32 if factor <= 0
+      h, s, l = rgb_to_hsl color.to_i32
+      hsl_to_rgb h, s, (l * 100.0 / factor).clamp(0.0, 1.0)
+    end
+
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
     def self.default_fg_rgb : Int32

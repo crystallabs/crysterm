@@ -1334,6 +1334,13 @@ module Crysterm
         self.value = ""
       end
 
+      # Subscribes *block* to text changes — the block spelling of
+      # `on(Event::TextChanged) { |e| ... }`, mirroring `AbstractButton#on_click`.
+      # The block receives the new text.
+      def on_text_change(&block : String ->) : Nil
+        on(::Crysterm::Event::TextChanged) { |e| block.call e.value }
+      end
+
       protected def _read_input
         if !focused?
           window.save_focus

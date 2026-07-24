@@ -222,6 +222,29 @@ module Crysterm
     # `#stack_index=`, `#to_front` and `#to_back`.
     property render_index = -1
 
+    # The topmost visible descendant whose last-laid-out rectangle contains the
+    # absolute point (*x*, *y*) ↔ Qt's `QWidget::childAt`. Returns the deepest
+    # such child (never `self`), or `nil` when no child covers the point.
+    #
+    # Purely geometric, in paint order (later siblings win, matching `#to_front`/
+    # `#to_back`); it does not apply `z_index` compositing or mouse-responsiveness
+    # filtering — for hit-testing an actual pointer event use `Window#widget_at`.
+    def child_at(x : Int32, y : Int32) : Widget?
+      # Reverse paint order so the frontmost sibling is tested first.
+      children.reverse_each do |el|
+        next unless el.style.visible?
+        next unless el.contains_point?(x, y)
+        # Descend for the deepest hit; the child itself is the answer otherwise.
+        return el.child_at(x, y) || el
+      end
+      nil
+    end
+
+    # :ditto: — `Point` form ↔ `QWidget::childAt(QPoint)`.
+    def child_at(point : Point) : Widget?
+      child_at point.x, point.y
+    end
+
     # Sends widget to front
     def to_front
       self.stack_index = -1

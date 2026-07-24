@@ -32,6 +32,19 @@ module Crysterm
         c.call
       end
     end
+
+    # `dispose`/`disposed?` aliases of `#off`/`!active?`, so subscriptions share
+    # the reactive stack's teardown vocabulary (`Reactive::Effect`/`Binding`/
+    # `Computed` all `#dispose`). `#off` stays the canonical spelling (it mirrors
+    # `event_handler`).
+    def dispose : ::Nil
+      off
+    end
+
+    # :ditto: — whether this subscription has been torn down (no handler live).
+    def disposed? : Bool
+      !active?
+    end
   end
 
   # A bag of `Subscription`s that are torn down together. `#on` adds a tracked
@@ -68,6 +81,17 @@ module Crysterm
     def off : ::Nil
       @subs.each &.off
       @subs.clear
+    end
+
+    # `dispose`/`disposed?` aliases of `#off`/`#empty?` — the reactive stack's
+    # teardown vocabulary. See `Subscription#dispose`.
+    def dispose : ::Nil
+      off
+    end
+
+    # :ditto: — whether the bag has been torn down (holds no subscriptions).
+    def disposed? : Bool
+      empty?
     end
 
     # Whether the bag holds no subscriptions.
