@@ -179,8 +179,11 @@ module Crysterm
             @_pending_rowcol = nil
           end
 
-          # TODO can optimize by writing directly to window buffer
-          # here.
+          # (Considered: echoing the edited character straight into the window's
+          # cell buffer to skip a render. Not worth it — a direct write would
+          # have to re-implement the wrapping, horizontal scroll, selection and
+          # attribute handling the normal damage-limited render already does
+          # cheaply, and typing is human-paced.)
           clipboard = Crysterm::Config.input_clipboard_keys
 
           # Track whether one of the editing keys below consumed the keystroke.
@@ -242,19 +245,21 @@ module Crysterm
           handled = true if moved || edited
         end
 
-        if !read_only? && e.char && (!e.key || also_check_char)
-          # XXX can we avoid to_s ?
-          ch = e.char.to_s
-          # Ignore control characters (the TAB and the Enter-newline fall
-          # outside this class and are kept). Deciding this *before* touching the
+        if !read_only? && (c = e.char) && (!e.key || also_check_char)
+          # Ignore control characters, tested straight on the codepoint — no
+          # per-keystroke `to_s` String and no regex/`MatchData`. Equivalent to
+          # the old `/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/`: every C0 control plus
+          # DEL, but NOT TAB (0x09) / LF (0x0a) / CR (0x0d), which fall outside
+          # this class and are kept. Deciding this *before* touching the
           # selection means a stray control keystroke doesn't clobber it. A real
           # character typed over a selection replaces it: drop the selection
           # first, then measure `max_length` against the freed-up length so a
           # replacement in a full field still works.
-          unless ch.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
+          o = c.ord
+          unless o <= 0x08 || o == 0x0b || o == 0x0c || (0x0e <= o <= 0x1f) || o == 0x7f
             edit_replacing_selection do
               at_limit = (ml = @max_length) ? buf_size >= ml : false
-              insert_at_cursor ch unless at_limit
+              insert_at_cursor c.to_s unless at_limit
             end
             # A printable character was consumed (even if the field was full and
             # the insert was suppressed) — don't let it also trigger a hotkey.

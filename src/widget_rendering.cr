@@ -445,7 +445,10 @@ module Crysterm
           next
         end
 
-        # TODO - make cell exist only if there's something to be drawn there?
+        # (Cells stay allocated for the whole row rather than created lazily per
+        # drawn glyph: the frame diff and damage tracking compare against a dense
+        # previous-frame buffer, so a sparse model would complicate both for no
+        # clear win — see the always-allocated `alloc`/`Row` buffers.)
         x = xi - 1
         while x < xl - 1
           x += 1
@@ -495,8 +498,13 @@ module Crysterm
 
           # Handle newlines.
           if ch == '\t'
-            # TODO this should be something like ch = bch * style.tab_size, or just style.tab_char,
-            # (although not as simple as that.)
+            # A literal TAB reaching the render stream is a rare fallback:
+            # content normally has its tabs expanded to `tab_char * tab_size` up
+            # front in `clean_content_chars`, so by here they are already spaces.
+            # Painting a stray one as a single fill cell — rather than expanding
+            # to `tab_size` cells inside this one-cell-per-iteration loop — keeps
+            # the column accounting simple; real tab-width handling lives in that
+            # pre-expansion pass.
             ch = bch
           end
           if ch == '\n'
