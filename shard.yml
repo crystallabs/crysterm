@@ -4,7 +4,7 @@ version: 1.0.0
 authors:
   - Davor Ocelic <docelic@crystallabs.io>
 
-crystal: 1.0.0
+crystal: ">= 1.21.0"
 
 license: AGPLv3
 
