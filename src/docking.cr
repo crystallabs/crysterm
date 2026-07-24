@@ -287,10 +287,10 @@ module Crysterm
     # cheaply rejects the typically many blank/non-box cells.
     @[AlwaysInline]
     private def angle?(c : Char, ascii : Bool = false) : Bool
-      o = c.ord
-      return true if 0x2500 <= o <= 0x253C && GLYPH_BITS_BY_ORD.unsafe_fetch(o - 0x2500) != 0
-      return true if 0x256D <= o <= 0x2570 # arc corners
-      ascii && (c == '+' || c == '-' || c == '|')
+      # "Is an angle" ⟺ "has a non-zero stroke pattern": every glyph `glyph_bits`
+      # recognizes (box-drawing, arc corners, and — with `ascii` — `+`/`-`/`|`)
+      # yields non-zero bits, and everything else yields zero.
+      glyph_bits(c, ascii) != 0
     end
 
     # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its

@@ -86,7 +86,7 @@ module Crysterm
       # but is chrome, not label — `AbstractButton#text`).
       def text : String
         c = content
-        s = indicator_suffix
+        s = dropdown_indicator_suffix
         (!s.empty? && c.ends_with?(s)) ? c[0...-s.size] : c
       end
 
@@ -206,18 +206,10 @@ module Crysterm
         acts[@menu_index].activate
       end
 
-      # The ` ▾` suffix marking an attached popup menu: a space plus the
-      # dropdown glyph — CSS `ToolButton::drop-down { glyph: … }`, then the
-      # registry at the effective tier. Empty when the stylesheet says
-      # `glyph: none` (no popup mark at all).
-      private def indicator_suffix : String
-        arrow = glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
-        arrow ? " #{arrow}" : ""
-      end
-
-      # Appends the popup indicator to *label* when a menu is attached.
+      # Appends the popup indicator (` ▾`, the shared `#dropdown_indicator_suffix`)
+      # to *label* when a menu is attached.
       private def with_indicator(label : String) : String
-        @menu ? "#{label}#{indicator_suffix}" : label
+        @menu ? "#{label}#{dropdown_indicator_suffix}" : label
       end
     end
   end

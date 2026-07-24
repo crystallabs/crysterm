@@ -521,12 +521,19 @@ module Crysterm
     # when the parent is the window (mirrors `drag_origin`).
     protected def drag_max_left : Int32
       c = parent_or_window
-      {c.awidth - c.ihorizontal - awidth, 0}.max
+      drag_max c.awidth, c.ihorizontal, awidth
     end
 
     protected def drag_max_top : Int32
       c = parent_or_window
-      {c.aheight - c.ivertical - aheight, 0}.max
+      drag_max c.aheight, c.ivertical, aheight
+    end
+
+    # Largest in-bounds drag position along one axis: the container's inner
+    # content extent (`extent - inset`) minus this widget's own extent, floored
+    # at 0 so a widget larger than its container can't produce a negative bound.
+    private def drag_max(container_extent, container_inset, own_extent) : Int32
+      {container_extent - container_inset - own_extent, 0}.max
     end
 
     # Whether this widget self-moves while dragged (reposition behavior

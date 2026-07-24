@@ -180,12 +180,12 @@ module Crysterm
         # the invalidated cells.
         if rect.nil?
           overlay_cleared s
-          s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+          invalidate_rect s, last
           @last_drawn = nil
           return
         end
         return if last == rect
-        s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+        invalidate_rect s, last
       end
 
       # The `Rendered` listener body: erase-or-repaint, decided post-frame.
@@ -219,6 +219,12 @@ module Crysterm
       protected def overlay_cleared(s : ::Crysterm::Window)
       end
 
+      # Invalidates the cells covered by a `{xi, yi, w, h}` painted rect on *s*,
+      # converting it to `#invalidate_region`'s `(x0, x1, y0, y1)` bounds.
+      private def invalidate_rect(s, rect)
+        s.invalidate_region(rect[0], rect[0] + rect[2], rect[1], rect[1] + rect[3])
+      end
+
       # Erases the overlay at its last painted position by forcing those cells
       # to be re-emitted, then forgets the position. *on_screen* lets the
       # caller pass the window explicitly (e.g. `Detached`, fired after
@@ -227,7 +233,7 @@ module Crysterm
         last = @last_drawn || return
         s = on_screen || window? || return
         overlay_cleared s
-        s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+        invalidate_rect s, last
         @last_drawn = nil
         s.render
       end

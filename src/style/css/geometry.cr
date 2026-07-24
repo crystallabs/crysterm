@@ -145,7 +145,7 @@ module Crysterm
       # (optionally quoted) value uses its first character. `nil` if empty, an
       # out-of-range code point, or `none` (a mask char can't be omitted).
       private def self.password_char(value : String) : Char?
-        Properties.parse_char(value).try { |c| c unless c == Glyphs::NONE }
+        Properties.char_value(value)
       end
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)

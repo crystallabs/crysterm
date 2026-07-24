@@ -204,10 +204,15 @@ module Crysterm
       to_plain_text
     end
 
+    # Clamps a `[from, to)` position pair to the valid `0..size` range — the
+    # prelude of every range method.
+    private def clamp_range(from : Int32, to : Int32) : {Int32, Int32}
+      {from.clamp(0, size), to.clamp(0, size)}
+    end
+
     # Plain text of `[from, to)`, separators as `'\n'`.
     def plain_text(from : Int32, to : Int32) : String
-      from = from.clamp(0, size)
-      to = to.clamp(0, size)
+      from, to = clamp_range(from, to)
       return "" if to <= from
       String.build do |io|
         first = true
@@ -221,8 +226,7 @@ module Crysterm
 
     # Formatted snapshot of `[from, to)` as detached blocks.
     def copy_fragment(from : Int32, to : Int32) : TextDocumentFragment
-      from = from.clamp(0, size)
-      to = to.clamp(0, size)
+      from, to = clamp_range(from, to)
       return TextDocumentFragment.new([TextBlock.new]) if to <= from
       parts = [] of TextBlock
       each_block_in(from, to) do |bi, lo, hi|
@@ -320,8 +324,7 @@ module Crysterm
     # Applies (`merge: false`) or merges (`merge: true`, see
     # `TextCharFormat#merge`) a character format over `[from, to)`.
     def apply_char_format(from : Int32, to : Int32, format : TextCharFormat, merge : Bool = false) : Nil
-      from = from.clamp(0, size)
-      to = to.clamp(0, size)
+      from, to = clamp_range(from, to)
       return if to <= from
       old_runs = char_format_runs(from, to)
       raw_apply_char_format(from, to, format, merge)
@@ -330,8 +333,7 @@ module Crysterm
 
     # Applies or merges a block format to every block touched by `[from, to]`.
     def apply_block_format(from : Int32, to : Int32, format : TextBlockFormat, merge : Bool = false) : Nil
-      from = from.clamp(0, size)
-      to = to.clamp(0, size)
+      from, to = clamp_range(from, to)
       b1 = block_at(from)[0]
       b2 = block_at(to)[0]
       old_formats = (b1..b2).map { |i| {block_position(i), blocks[i].block_format} }

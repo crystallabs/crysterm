@@ -272,9 +272,9 @@ module Crysterm
         v.empty? ? nil : v
       end
 
-      # `parse_char` for values where `none` has no meaning (fill characters):
-      # the sentinel is dropped like any other invalid value.
-      private def self.char_value(value : String) : Char?
+      # `parse_char` for values where `none` has no meaning (fill characters, a
+      # password mask): the sentinel is dropped like any other invalid value.
+      def self.char_value(value : String) : Char?
         parse_char(value).try { |c| c unless c == Glyphs::NONE }
       end
 
@@ -944,10 +944,7 @@ module Crysterm
             # and marker untouched, per CSS (mirrors the multi-token shorthand).
             cur = current_color_token?(token)
             resolved = ColorValue.resolve(token, el_color)
-            if valid_side_color?(resolved, cur)
-              set_side_color border, side, resolved
-              border.set_current_color side, cur
-            end
+            store_side_color border, side, resolved, cur if valid_side_color?(resolved, cur)
           end
         end
         if explicit_width
@@ -968,9 +965,16 @@ module Crysterm
           # reject an unknown color name (`-1` sentinel) here, keeping the side's
           # prior color, while a genuine `transparent` (`Int32` -1) stays valid.
           next unless valid_side_color?(c, cur)
-          set_side_color border, side, c
-          border.set_current_color side, cur
+          store_side_color border, side, c, cur
         end
+      end
+
+      # Stores an already-validated per-side border color plus its `currentColor`
+      # marker — the two-line tail shared by the `border-<side>` shorthand and the
+      # `border-<side>-color` longhand.
+      private def self.store_side_color(border : Border, side : Side, resolved, cur) : Nil
+        set_side_color border, side, resolved
+        border.set_current_color side, cur
       end
 
       # Sets the per-side border color (`top_fg`/`right_fg`/`bottom_fg`/`left_fg`)

@@ -75,10 +75,7 @@ module Crysterm
       # shows an error string as content instead of raising.
       def load(file : String)
         reset_source_state file
-        @frame_cache.clear
-        clear_frame_derived
-        @rendered_size = nil
-        @sample = nil
+        reset_sample_cache
 
         set_content ""
         png = source(open_stream: true) # load may open the live video decoder

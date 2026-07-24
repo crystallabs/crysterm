@@ -44,12 +44,7 @@ module Crysterm
       # text pass below.
       under, over = graphics_layers(window).partition &.capture_under_text?
 
-      under.each do |w|
-        layer = w.capture_layer(cw, ch)
-        next unless layer
-        bmp, cxi, cyi = layer
-        composite canvas, bmp, (cxi - xi) * cw, (cyi - yi) * ch
-      end
+      composite_layers canvas, under, xi, yi, cw, ch
 
       # Text cells from the rendered buffer.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
@@ -57,14 +52,20 @@ module Crysterm
           font, bold_font, default_fg, default_bg, cell.width
       end
 
-      over.each do |w|
+      composite_layers canvas, over, xi, yi, cw, ch
+
+      canvas
+    end
+
+    # Composites each layer widget's captured bitmap onto `canvas`, offset to the
+    # captured region's top-left cell `(xi, yi)`.
+    private def self.composite_layers(canvas, layers, xi, yi, cw, ch)
+      layers.each do |w|
         layer = w.capture_layer(cw, ch)
         next unless layer
         bmp, cxi, cyi = layer
         composite canvas, bmp, (cxi - xi) * cw, (cyi - yi) * ch
       end
-
-      canvas
     end
 
     # Renders the region and encodes it as a still PNG.

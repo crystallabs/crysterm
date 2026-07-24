@@ -264,6 +264,12 @@ module Crysterm
       Attr.pack(Attr.flags(@default_attr), Attr.fg(@default_attr), Attr.bg(@cur_attr))
     end
 
+    # A single space cell carrying the current (BCE) `#erase_attr` — the erase
+    # blank written to cleared/inserted cells throughout the emulator.
+    private def blank_cell : Cell
+      Cell.new(erase_attr, ' ')
+    end
+
     private def blank_line : Array(Cell)
       ea = erase_attr
       Array(Cell).new(@cols) { Cell.new(ea, ' ') }
@@ -279,7 +285,7 @@ module Crysterm
     # Overwrites every cell of an existing line with the current erase blank,
     # reusing the line's storage so recycling a scrolled-off line allocates nothing.
     private def blank_in_place(line : Array(Cell)) : Nil
-      refill_line line, Cell.new(erase_attr, ' ')
+      refill_line line, blank_cell
     end
 
     # Overwrites an existing line with `cell`, reusing the line's storage and
@@ -1304,7 +1310,7 @@ module Crysterm
       # halves (same repair as `#print_char`), matching xterm.
       blank_split_lead line, from
       blank_split_continuation line, to + 1
-      line.fill(Cell.new(erase_attr, ' '), from, to - from + 1)
+      line.fill(blank_cell, from, to - from + 1)
     end
 
     # IL: open *n* blank lines at the cursor inside the scroll region, pushing the
@@ -1356,7 +1362,7 @@ module Crysterm
       # The gap opens at the cursor: a CONTINUATION there leaves its lead
       # orphaned on the gap's left (same repair as `#print_char`).
       blank_split_lead line, @x
-      blank = Cell.new(erase_attr, ' ')
+      blank = blank_cell
       shift_cells_right line, @x, n
       i = @x + n - 1
       while i >= @x
@@ -1379,7 +1385,7 @@ module Crysterm
     # `#erase_in_line`, `#insert_chars` and `#delete_chars`.
     private def blank_split_lead(line : Array(Cell), i : Int32) : Nil
       if i > 0 && i < line.size && line[i].char == CONTINUATION
-        line[i - 1] = Cell.new(erase_attr, ' ')
+        line[i - 1] = blank_cell
       end
     end
 
@@ -1390,7 +1396,7 @@ module Crysterm
     # is a no-op so callers can pass a computed edge unguarded.
     private def blank_split_continuation(line : Array(Cell), i : Int32) : Nil
       if i < line.size && line[i].char == CONTINUATION
-        line[i] = Cell.new(erase_attr, ' ')
+        line[i] = blank_cell
       end
     end
 
@@ -1403,7 +1409,7 @@ module Crysterm
       last = line.size - 1
       cell = line[last]
       if cell.char != CONTINUATION && ::Crysterm::Unicode.width(cell.char) == 2
-        line[last] = Cell.new(erase_attr, ' ')
+        line[last] = blank_cell
       end
     end
 
@@ -1430,7 +1436,7 @@ module Crysterm
       # Deletion starting on a trailing CONTINUATION leaves its lead orphaned
       # just left of the cursor (same repair as `#print_char`).
       blank_split_lead line, @x
-      blank = Cell.new(erase_attr, ' ')
+      blank = blank_cell
       i = @x
       while i + n < line.size
         line[i] = line[i + n]

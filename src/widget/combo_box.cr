@@ -206,13 +206,6 @@ module Crysterm
         o >= 32 && o != 127
       end
 
-      # The resolved drop-down arrow: CSS `ComboBox::drop-down { glyph: … }`,
-      # then the registry; `nil` when the stylesheet says `glyph: none` (no
-      # arrow is drawn, and its space collapses).
-      private def dropdown_arrow : Char?
-        glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
-      end
-
       # The arrow baked into the current content, so `#render` can notice a
       # restyle and refresh.
       @_arrow : Char? = nil

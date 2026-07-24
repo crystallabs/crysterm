@@ -136,18 +136,22 @@ module Crysterm
         end
         schedule_resize
       elsif e.release?
-        ev = Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
-        emit ev
-        emit Crysterm::Event::Key, ev if has_handlers?(Crysterm::Event::Key)
+        emit_key_transition Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
       else
         # Return the emitted `KeyPress` so the caller can apply the default quit
         # keys as a *fallback*, only when no widget/handler `#accept`ed the key.
         press = Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
-        emit press
-        emit Crysterm::Event::Key, press if has_handlers?(Crysterm::Event::Key)
+        emit_key_transition press
         return press
       end
       nil
+    end
+
+    # Emits a key-transition event (`KeyPress`/`KeyRelease`) followed by the
+    # generic `Event::Key` fan-out when anyone is listening for it.
+    private def emit_key_transition(ev) : Nil
+      emit ev
+      emit Crysterm::Event::Key, ev if has_handlers?(Crysterm::Event::Key)
     end
 
     # Registers `el` as a widget that wants to receive keyboard input. Once

@@ -68,17 +68,6 @@ module Crysterm
       protected def emit_range_change : Nil
       end
 
-      # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
-      def read_only? : Bool
-        !editable?
-      end
-
-      # :ditto:
-      def read_only=(value : Bool) : Bool
-        self.editable = !value
-        value
-      end
-
       # The value formatted to `#decimals` places.
       def formatted_value : String
         @fmt % @value

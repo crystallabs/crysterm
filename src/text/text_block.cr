@@ -119,10 +119,14 @@ module Crysterm
       TextBlock.new(frags, @block_format)
     end
 
+    # Clamps a `[from, to)` position pair to the valid `0..size` range.
+    private def clamp_range(from : Int32, to : Int32) : {Int32, Int32}
+      {from.clamp(0, size), to.clamp(0, size)}
+    end
+
     # Applies (or merges) `format` over `[from, to)`.
     def apply_char_format(from : Int32, to : Int32, format : TextCharFormat, merge : Bool = false) : Nil
-      from = from.clamp(0, size)
-      to = to.clamp(0, size)
+      from, to = clamp_range(from, to)
       return if to <= from
       i1 = split_fragment_at(from)
       i2 = split_fragment_at(to)

@@ -60,6 +60,17 @@ module Crysterm
       # inverted). When false the box only responds to stepping.
       property? editable : Bool = true
 
+      # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
+      def read_only? : Bool
+        !editable?
+      end
+
+      # :ditto:
+      def read_only=(value : Bool) : Bool
+        self.editable = !value
+        value
+      end
+
       # Refresh the displayed number whenever the value changes. Overrides
       # `RangedValue`'s no-op hook, so this mixin must be included *after*
       # `Mixin::RangedValue`.

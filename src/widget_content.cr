@@ -1613,6 +1613,20 @@ module Crysterm
       Glyphs[role, tier]
     end
 
+    # The resolved drop-down arrow affordance: CSS `::drop-down { glyph: … }`,
+    # then the registry `DropdownArrow` role; `nil` when the stylesheet says
+    # `glyph: none`. Shared by `ComboBox` (which memoizes it for restyle
+    # detection) and `ToolButton`'s popup indicator.
+    protected def dropdown_arrow : Char?
+      glyph?(Glyphs::Role::DropdownArrow, style.raw_sub_style("drop-down"))
+    end
+
+    # `#dropdown_arrow` as a leading-space suffix (`" ▾"`), or `""` when the
+    # arrow is omitted so its cell collapses.
+    protected def dropdown_indicator_suffix : String
+      (a = dropdown_arrow) ? " #{a}" : ""
+    end
+
     # Run-role, grapheme-returning companion to `#glyph(role, slot)`: the
     # slot's CSS glyph *whole* (a multi-codepoint `⚠️` survives) when set and
     # not `none`, else the registry grapheme. For measured inline runs where a

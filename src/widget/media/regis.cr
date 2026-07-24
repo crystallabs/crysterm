@@ -89,20 +89,27 @@ module Crysterm
       # Map the cell box into ReGIS' logical window (a fraction of the whole
       # terminal). One bitmap pixel per logical unit keeps spans aligned.
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
-        sc = window.awidth
-        sr = window.aheight
-        pw = sc > 0 ? (cols * @regis_width / sc).to_i : cols
-        ph = sr > 0 ? (rows * @regis_height / sr).to_i : rows
+        pw = to_logical_x(cols)
+        ph = to_logical_y(rows)
         {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
       # Logical origin of the content box within the ReGIS window.
       protected def origin_pixels(xi : Int32, yi : Int32) : Tuple(Int32, Int32)
+        {to_logical_x(xi), to_logical_y(yi)}
+      end
+
+      # Scales a horizontal cell coordinate into the ReGIS logical window
+      # (`@regis_width` units across `window.awidth`); pass-through if unknown.
+      private def to_logical_x(v : Int32) : Int32
         sc = window.awidth
+        sc > 0 ? (v * @regis_width / sc).to_i : v
+      end
+
+      # Vertical counterpart of `#to_logical_x`.
+      private def to_logical_y(v : Int32) : Int32
         sr = window.aheight
-        ox = sc > 0 ? (xi * @regis_width / sc).to_i : xi
-        oy = sr > 0 ? (yi * @regis_height / sr).to_i : yi
-        {ox, oy}
+        sr > 0 ? (v * @regis_height / sr).to_i : v
       end
 
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,

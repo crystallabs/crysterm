@@ -61,12 +61,18 @@ module Crysterm
       @saved_focus = focused
     end
 
-    # Whether `el` is a valid focus target on this screen right now: attached
-    # to THIS screen, actually on screen (not hidden nor inside a hidden
-    # container), and not disabled. `rewind_focus`'s check is deliberately
-    # narrower — no `disabled?` term — and does not use this helper.
+    # Whether `el` is attached to THIS screen and actually on screen (not hidden
+    # nor inside a hidden container, and not layout-suppressed). This is the
+    # trailing-history prune predicate that `rewind_focus`/`focus_pop` share; it
+    # deliberately omits any `disabled?` term.
+    private def on_screen_here?(el)
+      el.window? == self && displayed_in_tree?(el) && !el.layout_suppressed?
+    end
+
+    # Whether `el` is a valid focus target on this screen right now: on screen
+    # (`#on_screen_here?`) *and* not disabled.
     private def focusable_here?(el)
-      el.window? == self && displayed_in_tree?(el) && !el.disabled? && !el.layout_suppressed?
+      on_screen_here?(el) && !el.disabled?
     end
 
     # Restores focus to the previously saved focused element.
@@ -109,7 +115,7 @@ module Crysterm
       # accepts a widget moved to another screen; `@history` entries are never
       # pruned). `displayed_in_tree?`, not `style.visible?`, so a widget whose
       # own flag is visible inside a hidden container is not re-focused.
-      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e) && !e.layout_suppressed?)
+      while (e = @history.last?) && !on_screen_here?(e)
         @history.pop
       end
       el = @history.last?
@@ -163,7 +169,7 @@ module Crysterm
       # widget, route keys off-screen, and — if it has a scrollable ancestor —
       # crash in the scroll-into-view guard (`el.window` = `window?.not_nil!`).
       # Same predicate as `rewind_focus` so a valid older entry still survives.
-      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e) && !e.layout_suppressed?)
+      while (e = @history.last?) && !on_screen_here?(e)
         @history.pop
       end
 

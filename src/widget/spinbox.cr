@@ -43,17 +43,6 @@ module Crysterm
         setup_spinbox_editing value, wrapping
       end
 
-      # Qt's `QAbstractSpinBox#readOnly` — the exact inverse of `#editable?`.
-      def read_only? : Bool
-        !editable?
-      end
-
-      # :ditto:
-      def read_only=(value : Bool) : Bool
-        self.editable = !value
-        value
-      end
-
       # The committed value as shown in the box (`Mixin::SpinBoxEditing` hook).
       protected def body_text : String
         @value.to_s

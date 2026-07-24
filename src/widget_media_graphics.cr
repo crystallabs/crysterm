@@ -224,10 +224,7 @@ module Crysterm
       # re-decodes. Sizing itself is lazy (done at draw time for the current box).
       def load(file : String)
         reset_source_state file
-        @raw = nil
-        @raw_failed = false
-        @anim_checked = false
-        reset_payload_cache
+        reset_graphic_source_state
         request_render
       end
 
@@ -235,6 +232,12 @@ module Crysterm
       def clear_image
         clear_overlay
         super # stop + drop file/source/frames
+        reset_graphic_source_state
+      end
+
+      # Drops the cached undecoded bytes + animation-probe latch and the decoded
+      # payload cache, so the next draw re-decodes from the current source.
+      private def reset_graphic_source_state : Nil
         @raw = nil
         @raw_failed = false
         @anim_checked = false

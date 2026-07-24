@@ -108,12 +108,26 @@ module Crysterm
       # came back un-`accepted?` and no widget is grabbing the keyboard.
       ev = win.handle_input e
 
-      if ev && win.default_quit_keys? && !win.grab_keys? && !ev.accepted? && quit_key?(ev.char, ev.key)
+      if ev && win.default_quit_keys? && quit_gesture?(win, ev)
         # Through `#quit`, not a bare `exit`: handlers get `Event::AboutToQuit`
         # (their only chance to save state), and *every* window this app drives
         # is torn down, not just the one the key arrived on.
         quit
       end
+    end
+
+    # Whether `ev` is a quit-eligible key gesture on window `w`: an unconsumed
+    # (`!accepted?`) quit key that no keyboard grab is intercepting — so typing
+    # `q` into a reading `LineEdit`/`TextEdit` never quits. Callers add any
+    # further gate (e.g. `w.default_quit_keys?`) themselves. Shared by the
+    # class-method graceful-close path (`.exec_all`) and instance `#route_input`.
+    def self.quit_gesture?(w, ev) : Bool
+      !ev.accepted? && !w.grab_keys? && quit_key?(ev.char, ev.key)
+    end
+
+    # :ditto:
+    private def quit_gesture?(w, ev) : Bool
+      self.class.quit_gesture? w, ev
     end
 
     # Channel `#quit` uses to hand its exit status to the `#exec` loop.
@@ -342,8 +356,7 @@ module Crysterm
           # Quit only when no widget consumed the key and nothing is grabbing
           # the keyboard — the same guards `#route_input` applies. Without them,
           # typing `q` into a reading `LineEdit`/`TextEdit` closes every window.
-          next if e.accepted? || w.grab_keys?
-          windows.each { |o| o.destroy unless o.destroyed? } if quit_key? e.char, e.key
+          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e)
         end
         w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
       end

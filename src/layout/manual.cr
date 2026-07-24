@@ -24,8 +24,10 @@ module Crysterm
         container.children.each { |el| render_child el }
       end
 
+      # Unreachable for `Manual` (it overrides `render_children`, which is the
+      # sole caller of `arrange`); delegates so the child-render loop lives once.
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
-        container.children.each { |el| render_child el }
+        render_children container
       end
     end
   end
