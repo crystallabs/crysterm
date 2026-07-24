@@ -404,7 +404,6 @@ module Crysterm
 
         @_callback = nil
         @_done = nil
-        # XXX off Crysterm::Event::KeyPress, @__listener.wrapper
         @__listener = nil
         @ev_done_blur.try { |w| off Crysterm::Event::FocusOut, w }
         @ev_done_blur = nil

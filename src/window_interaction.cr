@@ -27,9 +27,15 @@ module Crysterm
     # whether keys are propagate.
     property always_propagated_keys = Array(Tput::Key).new
 
-    # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
-    # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
-    # sequences of chars and keys).
+    # Companion to `#always_propagated_keys` for ordinary character keys (e.g.
+    # `'q'`): those arrive as a `#char` with a nil `#key`, which a special-key
+    # list alone can't name. A key always bubbles when its `#key` is in
+    # `#always_propagated_keys` OR its `#char` is here.
+    #
+    # (Arbitrary multi-key *sequences* — e.g. `g` then `g` — remain future work.
+    # The rich per-event data this note once wanted — modifiers, produced text,
+    # auto-repeat — already rides on `Event::Key#key_event` / `Tput::KeyEvent`.)
+    property always_propagated_chars = Array(Char).new
 
     # Sets up IO listeners for keyboard and mouse input.
     def start_input
@@ -211,9 +217,11 @@ module Crysterm
         # anything else so a drag fully owns the keyboard while it is in flight.
         next if _drag_key_handled e
 
-        # Whether this key is on the always-propagate list — scanned once and
-        # reused across the three checks below.
-        always_propagate = @always_propagated_keys.includes?(e.key)
+        # Whether this key is on either always-propagate list (special `#key` or
+        # ordinary `#char`) — scanned once and reused across the three checks
+        # below.
+        always_propagate = @always_propagated_keys.includes?(e.key) ||
+                           @always_propagated_chars.includes?(e.char)
 
         # Not propagating and key isn't on the always-propagate list: done.
         if !@propagate_keys && !always_propagate

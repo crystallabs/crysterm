@@ -184,9 +184,18 @@ module Crysterm
 
   GlobalEvents = GlobalEventHub.new
 
-  # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
-  # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
-  # are unordered)
+  # Runs the shared pre-exit sequence, then terminates. Emits
+  # `Event::AboutToQuit` on every live `Application` first — the "save your state
+  # now" step a bare `exit` skips (≈ Qt's `QCoreApplication::aboutToQuit`) — then
+  # exits, so the `at_exit` net still restores each terminal. The signal traps
+  # below use this instead of a raw `exit`.
+  #
+  # Best-effort per app: a save-state handler that raises must not block the
+  # terminal-restoring exit.
+  def self.shutdown(status : Int32 = 0) : NoReturn
+    Application.instances.dup.each { |app| app.emit(Event::AboutToQuit) rescue nil }
+    exit status
+  end
 
   # SIGINT (Ctrl+C) must be trapped: Crystal's default action terminates without
   # running `at_exit`, skipping the terminal-restore chain. Routing it through
@@ -196,10 +205,10 @@ module Crysterm
   # interrupting there would strand the terminal in the alt buffer. Once raw mode
   # is active ISIG is off, Ctrl+C is a keystroke, and this trap is dormant.
   Process.on_terminate do
-    exit
+    Crysterm.shutdown
   end
   Signal::QUIT.trap do
-    exit
+    Crysterm.shutdown
   end
   # NOTE No `Signal::KILL.trap`: SIGKILL (like SIGSTOP) is uncatchable — the
   # kernel never delivers it to a handler, so `sigaction` for it just fails

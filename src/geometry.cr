@@ -184,7 +184,11 @@ module Crysterm
   # allocation per widget per frame off the render hot path. Read the values;
   # never retain the object past the current frame.
   class RenderedGeometry
-    # TODO Can almost be replaced with a struct; see tech-demo example.
+    # Deliberately a class, not a `struct`: instances are reused and mutated in
+    # place across a frame and shared by reference (see the "reused across
+    # frames" note above), which a value-type `struct` — copied on every
+    # assignment — would break. The value-type geometry analogue (Qt's `QRect`)
+    # is the `Rectangle` struct; this is the per-frame mutable backing store.
 
     None = new
 

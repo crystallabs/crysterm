@@ -270,8 +270,9 @@ module Crysterm
 
     # Puts current widget in focus. No-op while detached.
     def focus
-      # XXX Prevents multiple `Event::FocusIn`es. TBD whether repeated `#focus`
-      # calls should always re-fire instead.
+      # Re-`#focus`ing an already-focused widget is a no-op: focus events denote
+      # a *change*, so `Event::FocusIn` is not re-fired — matching Qt, where
+      # `setFocus()` on the already-focused widget sends no focus-in event.
       return if focused?
       window?.try &.focus self
     end

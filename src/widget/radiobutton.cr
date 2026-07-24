@@ -17,13 +17,22 @@ module Crysterm
       include Mixin::CheckMarker
       include Mixin::ExclusiveGroup
 
-      # TODO: option for changing icons.
-      # TODO: support real toggling, so a set can have exactly one *unchecked*
-      # member rather than exactly one checked.
+      # The marker glyphs (`( )` / `(*)`) are customizable per Qt's `::indicator`
+      # stylesheet convention: a `RadioButton::indicator` rule sets `glyph` /
+      # `glyph-open` / `glyph-close` (and `:checked` addresses the checked mark).
+      # See `Mixin::CheckMarker#marker_line`, which resolves each piece CSS-first
+      # before the glyph registry.
 
-      def initialize(checked : Bool = false, **input)
+      # Whether activating the already-checked radio may *un*check it, letting the
+      # exclusive set become empty. Default `false` — Qt keeps one selected, and
+      # `#toggle` only ever checks; set `true` for a real toggle. This is the flag
+      # form of Qt's `nextCheckState` seam.
+      property? deselectable : Bool = false
+
+      def initialize(checked : Bool = false, deselectable : Bool = false, **input)
         super **input
 
+        @deselectable = deselectable
         setup_marker_control checked, input["content"]?
         handle Crysterm::Event::StateChanged
       end
@@ -35,11 +44,17 @@ module Crysterm
         initialize(**{content: text}.merge(opts))
       end
 
-      # A radio button only ever *checks* itself when toggled; the containing
-      # group unchecks the others. Overrides `AbstractButton#toggle`, which would
-      # let Space/Enter uncheck the selection and leave the group empty.
+      # A radio button only ever *checks* itself when toggled, so the containing
+      # group's "exactly one checked" invariant holds and Space/Enter/click can't
+      # empty it. Overrides `AbstractButton#toggle` (which would uncheck). With
+      # `#deselectable?` it becomes a real toggle: activating the checked one
+      # unchecks it, leaving the set empty (Qt's non-default behavior).
       def toggle
-        check
+        if deselectable? && checked?
+          uncheck
+        else
+          check
+        end
       end
 
       def render(with_children = true)

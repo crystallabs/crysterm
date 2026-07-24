@@ -141,10 +141,8 @@ module Crysterm
         # items and clip its last column. Its style must be border-stripped —
         # the table draws the frame and `│` separators itself, and an inherited
         # border would give the header box insets that clip the last column.
-        #
-        # TODO: when content-sized (no explicit `width:`) the header collapses to
-        # its text width instead of stretching to the row width, so
-        # `style.header`'s background stops short of the right border.
+        # (Its width is stretched to the full row in `#rows=` when content-sized,
+        # so `style.header`'s background reaches the right border.)
         @header = Box.new(
           parent: self,
           left: 0,
