@@ -43,9 +43,12 @@ module Crysterm
         render_if_active
       else
         c.shape.try { |shape| apply_hardware_cursor_shape shape, blink: c.blink }
-        # XXX consider a simpler structure than Style for cursor color?
-        # Native color is an int (`-1` = terminal default); device formats it
-        # to `#rrggbb` for `Tput#cursor_color`.
+        # A full `Style` (not a bare color) is the right structure here: the
+        # *artificial* cursor path renders a styled cell from the same object —
+        # fill glyph, fg/bg, bold/underline/… — so both cursor modes share one
+        # appearance source. This hardware path just reads its color (`style.fg`):
+        # a native int (`-1` = terminal default) the device formats to `#rrggbb`
+        # for `Tput#cursor_color`.
         push_hardware_cursor_color c
       end
 

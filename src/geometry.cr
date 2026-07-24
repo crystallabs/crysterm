@@ -264,8 +264,11 @@ module Crysterm
     property awidth : Int32? = nil
     property aheight : Int32? = nil
 
-    # XXX Verify: should be allowed to be just 0 since offsets are likely
-    # already included in a* properties.
+    # The inner insets (border + padding, per edge) — distinct from the `a*`
+    # absolute-position fields above. The `0` default is a pre-render placeholder:
+    # `Widget#_render` overwrites all six every frame from the widget's resolved
+    # `#ileft`/`#itop`/… (`pos.ileft = ileft`, …), so a freshly-`reset` geometry
+    # reads `0` only until the next render.
     property ileft : Int32 = 0
     property itop : Int32 = 0
     property iright : Int32 = 0

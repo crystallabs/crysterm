@@ -238,8 +238,10 @@ module Crysterm
           ind = style.indicator
           default_attr = style_to_attr ind, ind.bg, ind.fg
 
-          # TODO Is this approach with using drawing routines valid, or it would be
-          # better that we do this in-memory only here?
+          # Filling via `window.fill_region` is the standard bar/meter draw path,
+          # shared with `Slider` / `ScrollBar` / `Dial` / `Gradient`: it writes
+          # straight into the window cell buffer the frame diff already tracks, so
+          # there is no separate in-memory step to add.
           # Fill glyph: registry `ProgressFill` (a space, showing as a solid bar
           # via the fg/bg inversion above), overridable per-widget with
           # `ProgressBar::indicator { glyph: "▓" }`.

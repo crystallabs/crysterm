@@ -52,9 +52,10 @@ module Crysterm
     Selected
     Disabled # Does not react to keyboard input
 
-    # XXX Does state Hidden belong here?
-    # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
-    # doing state transitions on it?
+    # `Hidden` and `Unmanaged` deliberately stay OUT of this enum: as in Qt (where
+    # visibility is a `QWidget` property, not a `QStyle::State` flag), visibility
+    # and layout-suppression are separate concerns from these render/interaction
+    # states — a hidden widget isn't a *style* state, it's simply not drawn.
 
     # CSS `state-*` class for this state. Each branch is a string literal
     # (allocation-free), unlike `to_s.downcase`.
@@ -398,7 +399,9 @@ module Crysterm
       @horizontal_scrollbar_policy = @horizontal_scrollbar_policy,
       # TODO Make it configurable which side it appears on etc.
       @track = @track,
-      # XXX Should this whole section of 5 properties be in Style?
+      # These scroll/track properties stay on the widget, not in `Style`: Qt keeps
+      # scroll-bar policy on the widget too (`QAbstractScrollArea`, not `QStyle`),
+      # and they drive behavior/layout rather than the appearance the CSS cascade owns.
 
       content = "",
       @parse_tags = @parse_tags,

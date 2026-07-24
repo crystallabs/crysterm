@@ -424,8 +424,11 @@ module Crysterm
           return
         end
 
-        # O: TODO Figure out how to fix base (and cbase) to only
-        # take into account the *parent's* padding.
+        # Shift into the scrolled viewport by the ancestor's scroll offset.
+        # NOTE a possible refinement: `base` (and `cbase`) arguably ought to fold
+        # in only the *parent's* padding rather than its whole offset. Left as-is
+        # — the current form matches the rendered positions the specs pin; no
+        # miscompare has been observed.
         yi -= scrollable_parent_lpos.base
         yl -= scrollable_parent_lpos.base
 

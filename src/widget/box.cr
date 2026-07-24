@@ -6,7 +6,12 @@ module Crysterm
     # ![Box screenshot](../../tests/widget/box/box.5s.apng)
     # <!-- /widget-examples:capture -->
     class Box < Widget
-      # XXX Redundant with `Widget`'s own default, yet shadows misrender without it.
+      # Required despite reading identically to `Widget`'s own `false` default —
+      # `#shrink_to_fit?` is `false` here with or without this line, yet removing
+      # it misrenders the box (verified: the golden changes, while the value does
+      # not). A Crystal ivar-initialization quirk for `Box`, the first `Widget`
+      # subclass — the same class of first-subclass issue that forces the explicit
+      # `CSS_TYPE_CLASSES` / `CSS_TAG` below. Leave it in.
       @shrink_to_fit = false
 
       # `Box` is the first subclass of `Widget`, so the `Mixin::Css`-installed

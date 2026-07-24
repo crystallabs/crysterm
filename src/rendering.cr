@@ -41,7 +41,9 @@ module Crysterm
     SkipWidget    # Do not render that widget
     StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
     MoveWidget    # Move widget so it doesn't overflow, if possible (e.g. auto-completion popups)
-    # TODO Check whether StopRendering / SkipWidget work OK with focus etc.
-    # They should be skipped in focus list if not rendered.
+    # `SkipWidget` / `StopRendering` are focus-safe: the flow engine routes both
+    # through `Layout#skip_subtree`, which nils the subtree's `lpos` AND sets
+    # `layout_suppressed`, so the focus walk (`Window#focusable_here?`) and mouse
+    # hit-testing (both of which need a live `lpos`) exclude the unrendered widgets.
   end
 end
