@@ -761,7 +761,9 @@ module Crysterm
       # the equivalent `(Int32 | String)?` — the latter (a `?` on a parenthesized
       # union in a block/proc type) is valid Crystal that compiles fine but
       # crashes `crystal tool format`, taking the whole file's format check down.
-      private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil
+      # `Style/VerboseNilType` (ameba >= 1.7) asks for exactly that spelling, so
+      # it is suppressed here: applying its autocorrect breaks the format check.
+      private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil # ameba:disable Style/VerboseNilType
         return if value.blank?
         resolved = ColorValue.resolve(value, current)
         return if resolved.nil? && color_function?(value)

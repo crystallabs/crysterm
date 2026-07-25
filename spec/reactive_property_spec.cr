@@ -8,8 +8,8 @@ include Crysterm
 # `obj.prop_signal` is the bindable Signal. See REACTIVE.md.
 
 private class RPBox < Crysterm::Widget::Box
-  reactive_property caption : String = "untitled" # ameba:disable Lint/UselessAssign
-  reactive_property count : Int32 = 0, Changed    # ameba:disable Lint/UselessAssign
+  reactive_property caption : String = "untitled"
+  reactive_property count : Int32 = 0, Changed
 end
 
 private def rx_screen

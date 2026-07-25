@@ -277,8 +277,9 @@ module Crysterm
 
       # Not useless: the only real assignment is inside the `ensure`, and Crystal
       # requires this initializer for the read after the block to compile
-      # ("read before assignment to local variable 'result'").
-      result = nil
+      # ("read before assignment to local variable 'result'"). Ameba (>= 1.7)
+      # flags it anyway, so the directive is load-bearing, not decoration.
+      result = nil # ameba:disable Lint/UselessAssign
       begin
         yield proc.input
       ensure

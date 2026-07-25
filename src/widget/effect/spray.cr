@@ -96,7 +96,7 @@ module Crysterm
         # the render fiber (`recompute` reads `@grow[…][0]`, and `""[0]` raises
         # `IndexError`). Drop empty entries and fall back to the default if nothing
         # usable remains.
-        nonempty_property grow : Array(String) = DEFAULT_GROW, reject_empty_entries: true # ameba:disable Lint/UselessAssign
+        nonempty_property grow : Array(String) = DEFAULT_GROW, reject_empty_entries: true
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.
         getter origin : Tuple(Int32, Int32)?
@@ -139,7 +139,7 @@ module Crysterm
         # An empty list would crash the render fiber (`% @spark_colors.size` is a
         # division by zero), so an empty assignment is rejected in favour of the
         # default.
-        nonempty_property spark_colors : Array(Int32) = DEFAULT_SPARK_COLORS # ameba:disable Lint/UselessAssign
+        nonempty_property spark_colors : Array(Int32) = DEFAULT_SPARK_COLORS
 
         # Backwards compatibility: accept `"#rrggbb"`/named color strings. Converts
         # to native ints, then routes through the empty-guarded `Int32` setter above.

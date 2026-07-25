@@ -121,6 +121,11 @@ module Crysterm
       # table's edge won't join a neighbor block into a border row. Motion,
       # copy and undo always pass through. Returns whether the key was
       # consumed.
+      #
+      # One flat guard on purpose: it is the single place the "does this key
+      # touch a table?" rule lives, and splitting it would let the in-table and
+      # at-the-edge cases drift apart.
+      # ameba:disable Metrics/CyclomaticComplexity
       private def table_guard(e) : Bool
         k = e.key
         typing = k.nil? && (c0 = e.char) && !c0.to_s.matches?(/\A[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]\z/)

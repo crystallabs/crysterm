@@ -91,6 +91,13 @@ Style/NegatedConditionsInUnless:
 
 # TUI rendering, damage calculation and event dispatch are legitimately branchy.
 # Keep the rule active to catch genuine monsters, but raise the floor above the
-# normal-but-busy methods (most reports sat in the 11-20 range).
+# normal-but-busy methods (most reports sit in the 11-24 range).
+#
+# NOTE: the score is a property of ameba's counting model, not of the code.
+# Ameba 1.7 counts more constructs than 1.6, so on an unchanged tree the busiest
+# methods moved 29/28/29 -> 40/31/32. The floor deliberately stayed at 30: the
+# handful of methods above it carry an inline `# ameba:disable` with a reason
+# each, so every genuinely complex method stays individually auditable instead
+# of being waved through by a threshold raised to clear the worst offender.
 Metrics/CyclomaticComplexity:
   MaxComplexity: 30

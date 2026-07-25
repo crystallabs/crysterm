@@ -22,7 +22,7 @@ module Crysterm
 
     # Alignment of contained text. (The `align`-consuming reads live in
     # `widget_content_tags.cr`, after the content-file split.)
-    Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left # ameba:disable Lint/UselessAssign
+    Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # `wrap_content`/`parse_tags`/`align` all change wrap output, so their setters
     # must invalidate the wrap cache and mark dirty, like `set_content`/`width=`.
