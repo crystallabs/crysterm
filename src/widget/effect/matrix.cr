@@ -38,7 +38,6 @@ module Crysterm
         #
         # An empty pool would crash the render fiber (`@pool.sample` raises), so an
         # empty assignment is rejected in favour of the default.
-        # ameba:disable Lint/UselessAssign
         nonempty_property pool : Array(Char) = DEFAULT_POOL
 
         # Color of the leading ("head") glyph of every drop (a native `0xRRGGBB`

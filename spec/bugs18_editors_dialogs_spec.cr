@@ -235,9 +235,9 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
     cd = Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 50, height: 18
     cd.get_color { }
     s.repaint
-    pick = cd.children.find! { |c|
+    pick = cd.children.find! do |c|
       c.is_a?(Widget::Button) && c.content.includes?("Pick")
-    }
+    end
     pick.emit Crysterm::Event::Pressed # arms the eyedropper
     s.popup_grab_active?.should be_true
 

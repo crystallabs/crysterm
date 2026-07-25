@@ -218,10 +218,10 @@ module Crysterm
     # can't regress the carry — fg/bg used to lack it, silently dropping a
     # color declared at a stop whose segment partner omitted it.
     private macro kf_channel(chan, &interp)
-      if ({{interp.args[0]}} = a.{{chan.id}}) && ({{interp.args[1]}} = b.{{chan.id}})
-        st.{{chan.id}} = {{interp.body}}
-      elsif %v = (a.{{chan.id}} || b.{{chan.id}})
-        st.{{chan.id}} = %v
+      if ({{ interp.args[0] }} = a.{{ chan.id }}) && ({{ interp.args[1] }} = b.{{ chan.id }})
+        st.{{ chan.id }} = {{ interp.body }}
+      elsif %v = (a.{{ chan.id }} || b.{{ chan.id }})
+        st.{{ chan.id }} = %v
       end
     end
 

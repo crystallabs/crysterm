@@ -114,8 +114,8 @@ end
 describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
   it "restores auto (nil) height once align moves off Stretch, tracking a shrunk container" do
     s = headless_screen
-    box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20,
-      layout: (l = Layout::HBox.new)
+    l = Layout::HBox.new
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20, layout: l
     child = Widget::Box.new parent: box, width: 10 # height nil (auto)
 
     s.repaint
@@ -134,8 +134,8 @@ describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
 
   it "re-manages the child cleanly if align switches back to Stretch" do
     s = headless_screen
-    box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20,
-      layout: (l = Layout::HBox.new)
+    l = Layout::HBox.new
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20, layout: l
     child = Widget::Box.new parent: box, width: 10
 
     s.repaint

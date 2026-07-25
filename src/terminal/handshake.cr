@@ -77,8 +77,9 @@ module Crysterm
       # Whether the socket file was handed to a live `Window`, which unlinks it on
       # close. On every failure path the `ensure` deletes it instead, so a failed
       # spawn leaks no dead `.sock`. Not useless: when the `begin` raises before
-      # `success = true`, this initial value is what the `ensure` reads.
-      success = false
+      # `success = true`, this initial value is what the `ensure` reads — ameba's
+      # liveness analyzer only walks the body linearly, so it misses that edge.
+      success = false # ameba:disable Lint/UselessAssign
       begin
         # Inline the handshake env var (and any user env) into the command, so it
         # reaches the helper even through a multiplexer server that doesn't

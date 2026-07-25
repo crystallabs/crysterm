@@ -266,8 +266,10 @@ module Crysterm
       end
 
       # Not useless: the only real assignment is inside the `ensure`, and Crystal
-      # requires this initializer for the read after the block to compile.
-      result = nil
+      # requires this initializer for the read after the block to compile
+      # ("read before assignment to local variable 'result'"). Ameba's liveness
+      # analyzer only walks the body linearly, so it misses the `ensure` edge.
+      result = nil # ameba:disable Lint/UselessAssign
       begin
         yield proc.input
       ensure

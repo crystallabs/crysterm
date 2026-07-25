@@ -233,7 +233,6 @@ module Crysterm
         # nil-release path writes directly, since it must land before
         # `a_cross_size` reads it.
         align = align_of el
-        cross_pos = 0
         cross_w : Int32? = nil
         if align.stretch?
           if cross_flex? el
