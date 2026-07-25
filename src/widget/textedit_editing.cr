@@ -90,7 +90,7 @@ module Crysterm
         ensure
           document.end_edit_block
         end
-        emit Crysterm::Event::TextChanged, buf_text
+        emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
         request_render
         _update_cursor
       end
@@ -156,7 +156,10 @@ module Crysterm
         return true if selection?
 
         info = tbl.cell_at(@cursor_pos)
-        before = buf_text
+        # The before/after pair only gates the emit — the repaint below always
+        # runs — so skip both serializations when nothing observes the event.
+        want = text_change_observed?
+        before = want ? buf_text : nil
         case k
         when Tput::Key::Tab      then table_tab(tbl, info, 1)
         when Tput::Key::ShiftTab then table_tab(tbl, info, -1)
@@ -172,8 +175,9 @@ module Crysterm
         else
           # Kill/yank/cut/paste inside a table: absorbed.
         end
-        after = buf_text
-        emit Crysterm::Event::TextChanged, after if after != before
+        if want && (after = buf_text) != before
+          emit Crysterm::Event::TextChanged, after
+        end
         request_render
         _update_cursor
         true

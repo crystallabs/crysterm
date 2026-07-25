@@ -570,7 +570,7 @@ module Crysterm
       def local_x : Int32
         t = @target
         return x unless t
-        x - ((t.lpos.try(&.xi) || t.aleft) + t.ileft)
+        x - t.painted_content_origin[0]
       end
 
       # 0-based row relative to the target widget's content origin; see
@@ -578,7 +578,7 @@ module Crysterm
       def local_y : Int32
         t = @target
         return y unless t
-        y - ((t.lpos.try(&.yi) || t.atop) + t.itop)
+        y - t.painted_content_origin[1]
       end
 
       def shift? : Bool

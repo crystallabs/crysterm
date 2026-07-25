@@ -3,6 +3,7 @@ module Crysterm
     # module Interaction
 
     include Mixin::KeyShortcuts
+    include Mixin::ActionShortcutHost
 
     property? interactive = false
 
@@ -83,16 +84,14 @@ module Crysterm
     private def wire_actions : Nil
       return if @_actions_wired
       @_actions_wired = true
-      on(Crysterm::Event::Attached) do
-        window?.try { |w| @_actions.try &.each(&.install_shortcut(w, self)) }
-      end
-      # `@window` is already nulled when `Detached` fires; the window being
-      # left rides in the event payload (same contract `ToolBar` relies on).
-      on(Crysterm::Event::Detached) do |e|
-        e.object.as?(::Crysterm::Window).try do |w|
-          @_actions.try &.each(&.uninstall_shortcut(w))
-        end
-      end
+      wire_action_shortcuts
+    end
+
+    # A plain widget's shortcut-owning actions are the ones `#add_action`
+    # installed. Subclasses that also *present* actions (`ToolBar`, `MenuBar`)
+    # override this and chain `super`.
+    private def each_shortcut_action(&block : Action ->) : Nil
+      @_actions.try &.each(&block)
     end
 
     # Is element clickable?
@@ -329,7 +328,7 @@ module Crysterm
       # contained). Fall back to the computed rectangle only before the first
       # render; `aleft` may raise pre-layout, hence the rescue.
       if lp = lpos
-        return lp.xi <= x < lp.xl && lp.yi <= y < lp.yl
+        return lp.contains? x, y
       end
       l = aleft
       t = atop

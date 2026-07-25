@@ -325,12 +325,31 @@ module Crysterm
     # earlier line colors later ones too. `default_attr` is `style_to_attr(style)`, passed
     # in so callers compute it once.
     private def _attr_after(line : String, attr : Int64, default_attr : Int64) : Int64
-      line.each_char_with_index do |char, i|
-        if char == '\e'
-          if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
-            attr = window.sgr_to_attr(c[0], attr, default_attr)
+      # Byte scan rather than an anchored `SGR_REGEX.match(line, i)` per `\e`:
+      # that allocated a `Regex::MatchData` plus a substring per escape, and its
+      # `pos` is a *char* index, re-walked from the string start on every call
+      # for a non-ASCII line (O(n·k) for k escapes). `\e`, `[`, `;`, `m` and the
+      # digits are all ASCII, so none can appear as a byte of a multi-byte
+      # codepoint — the byte scan recognizes exactly `SGR_REGEX`'s
+      # `\e\[[\d;]*m` (grammar held by `#sgr_terminator`, shared with
+      # `base_render`) and, like the regex form, silently skips an `\e` that
+      # does not open a valid run.
+      bytes = line.to_slice
+      size = bytes.size
+      i = 0
+      while i < size
+        if bytes.unsafe_fetch(i) == 0x1b_u8 && i + 1 < size && bytes.unsafe_fetch(i + 1) == 0x5b_u8
+          if m = sgr_terminator(bytes, i + 2)
+            # Parameters read straight out of the line's bytes as a zero-copy
+            # sub-slice, so no bridging `"\e[…m"` `String` per sequence. The
+            # conversion is pure (`Window` merely forwards to this class
+            # method), so it needs no attached window.
+            attr = Screen.sgr_params_to_attr(bytes[i + 2, m - i - 2], attr, default_attr)
+            i = m + 1
+            next
           end
         end
+        i += 1
       end
       attr
     end
@@ -474,7 +493,10 @@ module Crysterm
         # is plain "keep what fits, cut the rest" truncation.
         unless @wrap_content
           outbuf.full_width = Math.max(outbuf.full_width, str_width(line))
-          push_real_line outbuf, ftor, rtof, no, _align(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
+          # Take the aligned width `aligned_with_width` already computed rather
+          # than re-measuring the padded result in `push_real_line`.
+          text, w = aligned_with_width(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
+          push_real_line outbuf, ftor, rtof, no, text, w
           next
         end
 
@@ -526,7 +548,8 @@ module Crysterm
           # rather than the O(remaining) a `str_width(line)` gate would.
           remaining_width -= str_width(part)
 
-          push_real_line outbuf, ftor, rtof, no, _align(part, colwidth, align, align_left_too)
+          part_text, part_w = aligned_with_width(part, colwidth, align, align_left_too)
+          push_real_line outbuf, ftor, rtof, no, part_text, part_w
 
           # Make sure we didn't wrap the line at the very end, otherwise
           # we'd get an extra empty line after a newline.
@@ -545,7 +568,8 @@ module Crysterm
         # dead — `next`/falling through both advance to the next fake line.
         next if loop_ret == :main
 
-        push_real_line outbuf, ftor, rtof, no, _align(line, colwidth, align, align_left_too)
+        tail_text, tail_w = aligned_with_width(line, colwidth, align, align_left_too)
+        push_real_line outbuf, ftor, rtof, no, tail_text, tail_w
       end
 
       # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above).

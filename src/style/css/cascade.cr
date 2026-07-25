@@ -62,7 +62,6 @@ module Crysterm
       # Deliberately one flat resolver walk (the benchmarked cascade hot path);
       # splitting it to satisfy the metric would spread cascade state across
       # helpers.
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
@@ -394,6 +393,18 @@ module Crysterm
         nodes = cache.fetch(rule.selector) do
           cache[rule.selector] = select_nodes(sheet, doc, rule.selector)
         end
+        apply_relational_filters sheet, doc, rule, nodes, cache
+      end
+
+      # The relational `:has`/ancestor-`:has` post-filters shared by
+      # `matched_nodes` and `slot_subject_nodes` (the engine has no native
+      # `:has`).
+      #
+      # Both filters are **non-destructive** (`select`, never `select!`):
+      # `matched_nodes` hands in the array stored in *cache*, and mutating it in
+      # place would corrupt the per-cascade selector cache for every later rule
+      # sharing that selector.
+      private def self.apply_relational_filters(sheet : Stylesheet, doc : HTML5::Node, rule : Rule, nodes : Array(HTML5::Node), cache : Hash(String, Array(HTML5::Node))) : Array(HTML5::Node)
         # `:has(...)` — keep only nodes with a descendant matching the inner
         # selector.
         if has = rule.has
@@ -492,16 +503,7 @@ module Crysterm
           next false unless host = hosts[key[0, sep]]?
           prefix_set.includes?(host) || (comb == ' ' && descends_from?(host, prefix_set))
         end
-        if has = rule.has
-          nodes.select! { |node| has_descendant?(node, has) }
-        end
-        if anc = rule.ancestor_has
-          anc.each do |(qualifier, inner)|
-            qualified = qualified_ancestors(sheet, doc, qualifier, inner, cache)
-            nodes = qualified.empty? ? [] of HTML5::Node : nodes.select { |node| descends_from?(node, qualified) }
-          end
-        end
-        nodes
+        apply_relational_filters sheet, doc, rule, nodes, cache
       end
 
       # `data-uid -> node` over the structural document, for the slot-subject
@@ -642,6 +644,17 @@ module Crysterm
         {entry[0], layer, entry[2], entry[3]}
       end
 
+      # Sorts *entries* into cascade order, in place.
+      #
+      # Guarded on `size > 1`: `Array#sort_by!` unconditionally heap-allocates
+      # an intermediate `{element, key}` array before doing any work, even for
+      # sizes 0 and 1 — and the great majority of touched (widget, state) pairs
+      # carry exactly one entry, once per pair per cascade. The guard also keeps
+      # the shared `EMPTY_ENTRIES` constant out of a mutating `sort_by!`.
+      private def self.sort_entries!(entries : Array(Entry)) : Nil
+        entries.sort_by! { |entry| entry_key entry } if entries.size > 1
+      end
+
       # Resolves *value*'s `var(...)` references against *variables*, memoizing
       # in *resolved* (one entry per distinct value, valid for the whole
       # cascade). `var()`-free values cost only a hash lookup.
@@ -651,9 +664,12 @@ module Crysterm
 
       # Folds *entries* onto *style* in place, in cascade order (so the winning
       # declaration applies last). `var(...)` is resolved against *variables*.
+      #
+      # The no-inline case of `apply_entries_with_inline`: with a `nil` inline
+      # style its two loops cover the same entries in the same order and the
+      # `fold_inline` step between them is skipped.
       private def self.apply_entries(style : Style, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
-        entries.sort_by! { |entry| entry_key entry }
-        entries.each { |entry| apply_decls style, entry[4], variables, resolved }
+        apply_entries_with_inline style, entries, variables, resolved, nil
       end
 
       # Like `apply_entries`, but interleaves the inline `@style` at
@@ -661,7 +677,7 @@ module Crysterm
       # then the inline style, then entries at/above it (`!important`). So inline
       # outranks normal author rules but `!important` outranks inline.
       private def self.apply_entries_with_inline(style : Style, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String), inline : Style?) : Nil
-        entries.sort_by! { |entry| entry_key entry }
+        sort_entries! entries
         i = 0
         while i < entries.size && entries[i][0] < TIER_INLINE
           apply_decls style, entries[i][4], variables, resolved

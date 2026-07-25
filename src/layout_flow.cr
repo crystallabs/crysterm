@@ -25,12 +25,26 @@ module Crysterm
       # would break the chain and collapse every later child to the interior
       # origin; the immediate predecessor lets it continue off assigned geometry.
       @prev_el : Widget? = nil
+      # The most recently *rendered* child this frame — the one `#flow_place`
+      # chains the next child's left edge off. Maintained incrementally instead
+      # of rescanning `children` backwards per child (which re-walked any run of
+      # non-rendering predecessors, making the pass O(n²) for a `SkipWidget` run
+      # or a fully scroll-clipped flow).
+      #
+      # Only children this engine actually arranged and that produced a
+      # non-empty rectangle land here, so out-of-band chrome is excluded for
+      # free: a `background-image` layer (`layout_excluded?`) or a border label /
+      # bound scroll bar (`layout_chrome?`) carries a real full-interior or
+      # pinned `lpos` yet is never arranged, and chaining a flow child off its
+      # rect instead of the row's left edge is exactly the bug this excludes.
+      @last_rendered : Widget? = nil
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         @row_offset = 0
         @row_index = 0
         @last_row_index = 0
         @prev_el = nil
+        @last_rendered = nil
         before_flow container
 
         children = container.children
@@ -102,6 +116,10 @@ module Crysterm
           # won't see its `lpos` this frame.
           render_or_defer el
           @prev_el = el
+          # A deferred child's `lpos` still holds the previous frame's rect, so
+          # it *is* recorded here (as the backwards rescan used to find it) and
+          # is rejected by `#flow_place`'s `deferred_this_frame?` term instead.
+          @last_rendered = el if rendered? el
         end
       end
 
@@ -112,7 +130,26 @@ module Crysterm
 
       # Positions the `i`-th child within `interior` (setting `left`/`top`) and
       # returns an `Overflow` action if it does not fit, or nil to render it.
-      protected abstract def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
+      #
+      # The default is plain wrapping flow at this engine's `#column_width`
+      # pitch — what `Wrap` and `UniformGrid` are, in full. Override only to
+      # splice something between the placement and the overflow test, as
+      # `Masonry` does with its upward gravitation.
+      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
+        flow_place container, el, i, interior, column_width
+        overflow_action container, el, interior
+      end
+
+      # Uniform column pitch every child snaps to, or 0 (the default) for
+      # natural-width packing. `UniformGrid` overrides it with the widest child's
+      # width, computed in `#before_flow` — which runs before the arrange loop,
+      # so the value is ready by the first `#place_one`.
+      #
+      # NOTE: because `#place_one` is concrete, a new engine that overrides
+      # neither hook silently behaves as `Wrap` rather than failing to compile.
+      protected def column_width : Int32
+        0
+      end
 
       # Places `el` in the current row, wrapping to a new row when it would
       # overflow `interior`'s width. When `high_width > 0` (grid mode) each child
@@ -142,7 +179,7 @@ module Crysterm
         # geometry branch instead (in steady state both compute the same left:
         # `occupied_width` reads a shrink-to-fit child's drawn width, so even
         # an auto-sized deferred predecessor chains at its real extent).
-        if (last = last_rendered_before container, i) && !deferred_this_frame?(last) &&
+        if (last = @last_rendered) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
           el.left = (llp.xl + last.mright) - xi
           last_drawn = llp.width

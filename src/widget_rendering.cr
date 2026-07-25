@@ -200,7 +200,7 @@ module Crysterm
         # rects. Layout-excluded chrome renders out-of-band with its own live
         # `lpos`, so leave it untouched.
         @lpos = nil
-        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
+        clear_children_lpos
         return
       end
 
@@ -208,13 +208,13 @@ module Crysterm
         coords.xl = Math.max(coords.xl, coords.xi)
         # Our own zero-width rect is un-hittable, but descendants would keep the
         # previous frame's rects (see above).
-        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
+        clear_children_lpos
         return
       end
 
       if coords.yl - coords.yi <= 0
         coords.yl = Math.max(coords.yl, coords.yi)
-        children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
+        clear_children_lpos
         return
       end
 
@@ -701,10 +701,12 @@ module Crysterm
         left_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Left, el_fg), border_bg
         right_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Right, el_fg), border_bg
 
-        # The glyph family with any per-position char overrides (CSS
-        # `border-chars`/`border-top-left-char` …) merged over it, resolved once
-        # rather than per cell.
-        glyphs = border.line_glyphs_with_overrides(glyph_tier)
+        # The eight border glyphs with any per-position char overrides (CSS
+        # `border-chars`/`border-top-left-char` …) merged over them, resolved
+        # once for the whole box rather than per cell — and for the border's own
+        # family only, so a `Fill` border no longer builds (and discards) the
+        # line-family octet.
+        glyphs = border.glyph_octet(glyph_tier)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's *visible* thickness (a clipped edge's hidden band rows are
@@ -754,7 +756,7 @@ module Crysterm
               next
             end
 
-            ch = border_char border, glyphs, in_top, in_bot, in_left, in_right
+            ch = border_char glyphs, in_top, in_bot, in_left, in_right
             # Horizontal (top/bottom) cells — including corners — take the
             # top/bottom color; a purely vertical cell takes left/right.
             battr = if in_top || in_bot
@@ -924,58 +926,65 @@ module Crysterm
     # the corner block with the corner glyph. A side with 0 thickness never sets
     # its flag (`in_top` is `y < yi + 0`, always false at the edge), so a
     # corner degrades to the crossing run glyph.
-    protected def border_char(border, g, in_top, in_bot, in_left, in_right)
+    #
+    # *g* is the border's `Border#glyph_octet` — one glyph per side and per
+    # corner, with the border's char overrides already merged in through its
+    # family's fall-back chain, resolved once by the caller. So this is a pure
+    # 8-way select with no per-cell family dispatch.
+    protected def border_char(g, in_top, in_bot, in_left, in_right)
       h_band = in_top || in_bot
       v_band = in_left || in_right
 
-      if border.type.line_family?
-        # Per-type glyph set (solid/dashed/dotted/double) with the border's char
-        # overrides merged in, resolved once by the caller — one glyph per side,
-        # so opposite edges can differ.
-        if h_band && v_band
-          if in_top
-            in_left ? g[:tl] : g[:tr]
-          else
-            in_left ? g[:bl] : g[:br]
-          end
-        elsif h_band
-          in_top ? g[:t] : g[:b]
+      if h_band && v_band
+        if in_top
+          in_left ? g[:tl] : g[:tr]
         else
-          in_left ? g[:l] : g[:r]
+          in_left ? g[:bl] : g[:br]
         end
-      else # Bg
-        # Distinct glyphs for each of the four sides and the four corners, each
-        # defaulting through its group to `fill_char` (see `Border#top_char`/
-        # `#horizontal_char`/`#top_left_char` …).
-        if h_band && v_band
-          if in_top
-            in_left ? border.top_left_char : border.top_right_char
-          else
-            in_left ? border.bottom_left_char : border.bottom_right_char
-          end
-        elsif h_band
-          in_top ? border.top_char : border.bottom_char
-        else
-          in_left ? border.left_char : border.right_char
-        end
+      elsif h_band
+        in_top ? g[:t] : g[:b]
+      else
+        in_left ? g[:l] : g[:r]
       end
     end
 
-    # Returns the codepoint index of the `m` terminating an SGR sequence whose
-    # parameter run starts at `i` (first codepoint after `\e[`), or `nil` if the
-    # run is not `[\d;]* m`. Lets `base_render` recognize SGR sequences without
-    # allocating a `Regex::MatchData`/substring per escape.
-    private def sgr_terminator(content : StringIndex, i : Int32) : Int32?
-      while ch = content[i]?
-        if ch == 'm'
+    # Returns the index of the `m` terminating an SGR sequence whose parameter
+    # run starts at `i` (the first element after `\e[`), or `nil` if the run is
+    # not `[\d;]* m`. Lets callers recognize SGR sequences without allocating a
+    # `Regex::MatchData`/substring per escape.
+    #
+    # *content* is any source with an `#sgr_elem_at` overload: a `StringIndex`
+    # (codepoint indices — `base_render`'s scan) or a `Bytes` view of a line's
+    # UTF-8 (byte indices — `_attr_after`'s scan). SGR is pure ASCII, so within a
+    # valid sequence the two index spaces coincide. Keeping both callers here
+    # keeps `SGR_REGEX`'s `\e\[[\d;]*m` grammar in one place.
+    private def sgr_terminator(content, i : Int32) : Int32?
+      while ch = sgr_elem_at(content, i)
+        if ch == 0x6d_u8 # 'm'
           return i
-        elsif ch == ';' || (ch >= '0' && ch <= '9')
+        elsif ch == 0x3b_u8 || (ch >= 0x30_u8 && ch <= 0x39_u8) # ';' or '0'..'9'
           i += 1
         else
           return
         end
       end
       nil
+    end
+
+    # The ASCII byte at *i* of an SGR scan source, or `nil` past its end. A
+    # non-ASCII codepoint maps to a byte that is neither a digit, `;` nor `m`, so
+    # it ends the run exactly as `SGR_REGEX`'s `[\d;]*` would.
+    @[AlwaysInline]
+    private def sgr_elem_at(content : StringIndex, i : Int32) : UInt8?
+      ch = content[i]?
+      return unless ch
+      ch.ascii? ? ch.ord.to_u8 : 0_u8
+    end
+
+    # :ditto: (`Bytes` form — already the byte itself).
+    @[AlwaysInline]
+    private def sgr_elem_at(content : Bytes, i : Int32) : UInt8?
+      content[i]?
     end
 
     # Paints this widget synchronously into the window's cell buffer. This is

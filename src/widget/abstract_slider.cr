@@ -59,6 +59,31 @@ module Crysterm
         true
       end
 
+      # The prologue every linear track widget's `Event::Mouse` handler shares:
+      # the wheel step, the untracked-drag commit on release, and the test for
+      # "is this a press, or motion with a button held". Returns `true` only when
+      # the caller should go on and resolve the pointer against the track; a
+      # `false` means the event was consumed (wheel), already dealt with
+      # (release), or simply isn't part of a drag gesture — so a handler block
+      # spells it `next unless drag_gesture? e`.
+      #
+      # This is the "an untracked drag released off the bar must still commit"
+      # contract; a track widget whose mouse handler only calls `#ranged_wheel`
+      # silently has no release-commit path.
+      #
+      # *wheel_invert* flips the wheel's direction (a scroll bar's wheel-up moves
+      # toward the smaller value).
+      protected def drag_gesture?(e : ::Crysterm::Event::Mouse, *, wheel_invert : Bool = false) : Bool
+        return false if ranged_wheel e, invert: wheel_invert
+
+        if e.action.up?
+          e.accept if commit_slider_position
+          return false
+        end
+
+        e.action.down? || (e.action.move? && !e.button.none?)
+      end
+
       # A committed value supersedes any pending untracked drag (`RangedValue`
       # hook).
       protected def on_value_changed

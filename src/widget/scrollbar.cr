@@ -147,16 +147,9 @@ module Crysterm
 
         on(Crysterm::Event::Mouse) do |e|
           # Wheel steps the value, inverted: wheel-up scrolls toward the top, i.e.
-          # a smaller value.
-          next if ranged_wheel e, invert: true
+          # a smaller value. A release commits an untracked drag.
+          next unless drag_gesture? e, wheel_invert: true
 
-          # Commit an untracked drag on release.
-          if e.action.up?
-            e.accept if commit_slider_position
-            next
-          end
-
-          next unless e.action.down? || (e.action.move? && !e.button.none?)
           # Resolve the pointer against the *painted* track when rendered. Mouse
           # events are dispatched by painted geometry, which inside a scrolled
           # container is shifted from the layout coords by the ancestor's scroll

@@ -44,11 +44,6 @@ module Crysterm
         Right
       end
 
-      def text=(@text : String)
-        rebuild_scroll_columns @text
-        mark_dirty
-      end
-
       def initialize(
         @text = "",
         @interval = 0.07.seconds,

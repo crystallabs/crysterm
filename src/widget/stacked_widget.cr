@@ -74,13 +74,9 @@ module Crysterm
       # below is already false and it does the work itself (mirrors
       # `Splitter#remove_widget`); non-page children pass straight through.
       def remove(element)
-        i = @pages.index element
-        cur = current_widget
+        snap = page_removal_snapshot element
         super
-        if i
-          @pages.delete_at i
-          reclamp_after_removal i, cur
-        end
+        finish_page_removal snap
       end
 
       # Operator alias for `#add_widget`, e.g. `stack << page`. Deliberately

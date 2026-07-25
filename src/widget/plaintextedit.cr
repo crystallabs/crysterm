@@ -50,21 +50,11 @@ module Crysterm
         document : TextDocument? = nil,
         **input,
       )
-        if document
-          # An explicit (possibly shared) document wins over `content:`.
-          @document = document
-          @max_length = max_length
-          @read_only = read_only
-          @cursor_pos = document.size
-        else
-          setup_text_buffer(input["content"]? || "", max_length, read_only)
-        end
+        adopt_document document, input["content"]? || "", max_length, read_only
 
         super **(input.merge({keys: true}))
 
-        setup_text_editing input_on_focus: input_on_focus, install_enter: !!input["keys"]?
-
-        wire_document
+        finish_document_setup input_on_focus: input_on_focus, install_enter: !!input["keys"]?
       end
 
       # The document's plain text (Qt's `toPlainText`). A synonym for `#value` /
@@ -89,13 +79,6 @@ module Crysterm
         self.cursor_pos = buf_size
         clear_selection
         insert_text(buf_size.zero? ? text : "\n" + text)
-      end
-
-      # Replaces the edited document (Qt `setDocument`), e.g. to share one
-      # document between several views. The caret rewinds to the start.
-      def document=(doc : TextDocument)
-        return if doc.same?(@document)
-        swap_document(doc)
       end
 
       protected def reset_document_caches : Nil

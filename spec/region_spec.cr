@@ -6,9 +6,10 @@ private def headless_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-# Behavior lock for the region writers after `fill_region`/`blend_region` were
-# routed through the shared `each_region_cell` helper. They differ only in
-# whether a negative origin is clamped to 0 (`fill` clamps; `blend` does not).
+# Behavior lock for the region writers, which share the `each_region_row` row
+# walk. A negative origin never wraps around to the opposite edge: `fill_region`
+# clamps it to 0, and `blend_region` skips whatever falls off the grid (which
+# over this region amounts to the same cells).
 describe "Window#fill_region / #blend_region" do
   it "fills the half-open region and marks the line dirty" do
     s = headless_screen

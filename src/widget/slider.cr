@@ -99,16 +99,10 @@ module Crysterm
         # press sets the value, and held-button motion events keep updating it.
         # A free move (no button) is ignored.
         on(Crysterm::Event::Mouse) do |e|
-          # Wheel nudges the value by one step (up = increase).
-          next if ranged_wheel e
+          # Wheel nudges the value by one step (up = increase); a release commits
+          # an untracked drag (no-op while `#tracking?`).
+          next unless drag_gesture? e
 
-          # Commit an untracked drag on release (no-op while `#tracking?`).
-          if e.action.up?
-            e.accept if commit_slider_position
-            next
-          end
-
-          next unless e.action.down? || (e.action.move? && !e.button.none?)
           # A vertical slider runs bottom (min) to top (max), hence `invert`;
           # `#inverted_appearance?` flips that (and, below, the horizontal axis,
           # which `#pointer_offset` never inverts).

@@ -210,7 +210,7 @@ module Crysterm
             end
           # Replace a cached buffer that no longer matches @w×@h, keeping the
           # in-place fill valid.
-          if bmp.size != @h || (bmp[0]?.try(&.size) || 0) != @w
+          unless Media.grid_fits?(bmp, @w, @h)
             bmp = VideoSource.blank_bitmap(@w, @h)
             @ppong_toggle ? (@ppong_a = bmp) : (@ppong_b = bmp)
           end

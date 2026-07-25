@@ -252,7 +252,6 @@ module Crysterm
     #
     # Deliberately one flat dispatcher over every mouse action kind; splitting
     # it to satisfy the metric would scatter the event-routing rules.
-    # ameba:disable Metrics/CyclomaticComplexity
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       ev = translate_inline_mouse ev
 
@@ -579,7 +578,8 @@ module Crysterm
     # Pre-order depth-first walk (visit *el*, then recurse into its children in
     # `@children` order), scoring each widget as a hit-test candidate into
     # `@_hit_found`/`@_hit_found_key`. A widget that fails the candidate test
-    # still has its subtree scanned.
+    # still has its subtree scanned; a widget that is not *visible* does not,
+    # see below.
     #
     # Whole-chain visibility and the outermost-`z_index` layer key are threaded
     # DOWN the recursion (*anc_visible*, *anc_z* carry the parent's accumulated
@@ -589,12 +589,22 @@ module Crysterm
     # (order-independent); `anc_z || el.style.z_index` keeps the OUTERMOST
     # (root-most) z, since a set `anc_z` — including a genuine `0` — wins over a
     # deeper one, exactly as the old root-most-overwrite walk did.
+    #
+    # An invisible node ends the walk of its subtree, and this prune is EXACT,
+    # not a heuristic: unlike z-index — which deliberately escapes a subtree by
+    # promoting it to a higher layer — visibility is a pure AND with no escape
+    # hatch, so once it is false no descendant can turn it back on and none can
+    # pass the candidate gate. Nothing else is skipped: `#hit_candidate?` only
+    # reads `lpos`/`wants_mouse?`, so an unvisited node had no side effect to
+    # contribute. Worth doing because hidden subtrees are routine and large
+    # (non-current `TabWidget`/`StackedWidget`/`ToolBox` pages, closed
+    # `Menu`/`ComboBox` popups, hidden dialogs) while `#widget_at` runs on every
+    # mouse report, motion included.
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?, anc_visible : Bool, anc_z : Int32?) : Nil
       visible = anc_visible && el.style.visible?
+      return unless visible
       z = anc_z || el.style.z_index
-      # An invisible candidate (a "shown" widget inside a hidden container) is
-      # not a hit; skip the candidate test entirely when off-screen.
-      if visible && hit_candidate?(el, x, y, skip)
+      if hit_candidate?(el, x, y, skip)
         key = z ? {1, z} : {0, 0}
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
@@ -631,8 +641,7 @@ module Crysterm
       # is current once the window has painted.
       lp = el.lpos
       if lp
-        return false unless x >= lp.xi && x < lp.xl
-        return false unless y >= lp.yi && y < lp.yl
+        return false unless lp.contains? x, y
       elsif renders > 0
         # The window has painted but this widget laid down nothing — scrolled or
         # clipped out of view (or not yet rendered since being added). Not a hit.

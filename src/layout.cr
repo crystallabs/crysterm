@@ -59,23 +59,44 @@ module Crysterm
       container.try &.mark_dirty
     end
 
+    # Declares a shape-changing layout knob: the `@name : type` ivar, its getter,
+    # and a change-guarded setter that `#invalidate`s (repaints the container) on
+    # a real change. Every layout property is exactly this — `#spacing` here, and
+    # `justify`/`align`/`columns`/`rows`/`current_index`/`label_width`/
+    # `horizontal_spacing`/`vertical_spacing` in the engines — so it lives here
+    # once. The widget-side sibling is `Macros.repaint_property` (src/macros.cr),
+    # including its convention of putting the property's doc comment immediately
+    # above the macro call.
+    #
+    # *default* is optional: omit it for a property the subclass's `initialize`
+    # assigns (`def initialize(@columns : Int32 = 2)`), which leaves the ivar
+    # declared but unassigned — exactly what a plain `@columns : Int32` line did.
+    # Macros defined in a class are visible in its subclasses, so an engine calls
+    # this directly in its own body.
+    macro layout_property(name, type, default = nil)
+      {% if default != nil %}
+        @{{ name.id }} : {{ type }} = {{ default }}
+      {% else %}
+        @{{ name.id }} : {{ type }}
+      {% end %}
+
+      def {{ name.id }} : {{ type }}
+        @{{ name.id }}
+      end
+
+      def {{ name.id }}=(value : {{ type }}) : {{ type }}
+        return value if value == @{{ name.id }}
+        @{{ name.id }} = value
+        invalidate
+        value
+      end
+    end
+
     # Spacing between adjacent children, in cells — Qt's layout `spacing` under
     # its CSS name. Honored by the box/grid engines; the flow engines ignore it,
     # and `Form` uses its own `#horizontal_spacing`/`#vertical_spacing` instead.
-    @spacing : Int32 = 0
-
-    # :ditto:
-    def spacing : Int32
-      @spacing
-    end
-
-    # :ditto: — change-guarded; a real change repaints the container.
-    def spacing=(value : Int32) : Int32
-      return value if value == @spacing
-      @spacing = value
-      invalidate
-      value
-    end
+    # Change-guarded; a real change repaints the container.
+    layout_property spacing, Int32, 0
 
     # Sanitizes an inter-child spacing/gap against the axis extent it is laid
     # into: a negative value (which would overlap children) maps to 0, and any
@@ -97,6 +118,17 @@ module Crysterm
     # fixed-size sum/cursor accumulation in `Box#measure`/`#place` (B18-25).
     protected def clamped_size(v : Int32, extent : Int32) : Int32
       v.clamp(0, extent)
+    end
+
+    # The extent left for a child's *border* box after reserving its *margin*
+    # box: `extent - margin`, floored at 0. Every packing engine needs this,
+    # because the render pipeline shifts a fixed-size child outward by its near
+    # margin without shrinking it — so handing the child the full `extent` would
+    # make it paint `near + far` cells past its slot, over its neighbour. The
+    # floor matters when the margins alone exceed the slot: a negative size is
+    # not a size, and the child simply gets nothing.
+    protected def margin_box(extent : Int32, margin : Int32) : Int32
+      extent > margin ? extent - margin : 0
     end
 
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
@@ -240,8 +272,8 @@ module Crysterm
     # All three are allocation-free — the blocks are `yield`ed, never captured.
 
     # Drops bookkeeping entries for children that have left `container`.
-    # Hash-shaped maps only (two-arg block); a `Set`-backed tracker prunes with
-    # a one-arg `select!` inline.
+    # Hash-shaped maps (two-arg block); `Widget#child?` is O(1), so this stays
+    # linear in the tracked entries rather than `tracked × children`.
     protected def prune_managed(container : Widget, map) : Nil
       map.select! { |el, _| container.child? el }
     end
@@ -380,25 +412,6 @@ module Crysterm
     # Whether `el` produced a non-empty rendered rectangle on the last frame.
     protected def rendered?(el : Widget) : Bool
       !rendered_geometry(el).nil?
-    end
-
-    # The most recently *rendered* child before index `i` (skipping children
-    # that collapsed to nothing last frame), or nil if none.
-    #
-    # Layout-excluded and `layout_chrome?` chrome are skipped too: a
-    # `background-image` layer (`layout_excluded?`) or a border label / bound
-    # scroll bar (`layout_chrome?`) is rendered out-of-band (with a full-interior
-    # or pinned `lpos`) yet still lives in `children`. Without this guard a flow
-    # child appended after such chrome would chain its left edge off the chrome's
-    # rect instead of off the previous flow child.
-    protected def last_rendered_before(container : Widget, i : Int32) : Widget?
-      while i > 0
-        i -= 1
-        el = container.children[i]
-        next unless arrangeable?(el)
-        return el if rendered? el
-      end
-      nil
     end
   end
 end

@@ -108,18 +108,16 @@ module Crysterm
         dispatch_mouse m
       elsif pasted = e.paste
         # Route the paste to the focused widget and up its parent chain until a
-        # handler `#accept`s it — the same path a key press takes — so the
-        # focused text field / terminal receives it. Only unaccepted does it
-        # fall back to the window-level emit, for app-level listeners.
+        # handler `#accept`s it — literally the same walk a key press takes
+        # (`#each_focus_chain`) — so the focused text field / terminal receives
+        # it. Only unaccepted does it fall back to the window-level emit, for
+        # app-level listeners.
         ev = Crysterm::Event::Paste.new pasted
-        focused.try do |el2|
-          while el2 && el2.is_a? Widget
-            if el2.has_handlers?(Crysterm::Event::Paste) && !el2.disabled?
-              el2.emit ev
-            end
-            break if ev.accepted?
-            el2 = el2.parent
-          end
+        each_focus_chain do |el2|
+          # A disabled widget does not react to a paste, but the paste still
+          # propagates up to its (possibly enabled) ancestors.
+          el2.emit ev if el2.has_handlers?(Crysterm::Event::Paste) && !el2.disabled?
+          break if ev.accepted?
         end
         emit ev unless ev.accepted?
       elsif clip = e.clipboard
@@ -151,6 +149,24 @@ module Crysterm
         return press
       end
       nil
+    end
+
+    # Yields the focused widget, then each of its ancestors up to the toplevel —
+    # the bubbling path an input event takes when it is offered to the focused
+    # widget first and then to whoever encloses it. A no-op when nothing is
+    # focused; `break` out of the block to stop the ascent (which is how a
+    # consumer signals the event was handled).
+    #
+    # The per-widget gate (does this widget want a paste? is it keyable?) and the
+    # stop condition belong in the caller's block, since they differ per event
+    # kind; only the walk is shared. There is no `is_a? Widget` test: both
+    # `#focused` and `Widget#parent` are already `Widget?`.
+    private def each_focus_chain(& : Widget ->) : Nil
+      el = focused
+      while el
+        yield el
+        el = el.parent
+      end
     end
 
     # Emits a key-transition event (`KeyPress`/`KeyRelease`) followed by the
@@ -244,23 +260,17 @@ module Crysterm
         # the deliberate exception: they still bubble so the form can navigate.
         grabbed = @grab_keys && !always_propagate
 
-        focused.try do |el2|
-          while el2 && el2.is_a? Widget
-            # A disabled widget does not react to keys, but keys still
-            # propagate up to its (possibly enabled) ancestors.
-            if el2.keyable? && !el2.disabled?
-              emit_key el2, e
-            end
-
-            if e.accepted?
-              break
-            end
-
-            # Stop at the focused widget while keys are grabbed.
-            break if grabbed
-
-            el2 = el2.parent
+        each_focus_chain do |el2|
+          # A disabled widget does not react to keys, but keys still
+          # propagate up to its (possibly enabled) ancestors.
+          if el2.keyable? && !el2.disabled?
+            emit_key el2, e
           end
+
+          break if e.accepted?
+
+          # Stop at the focused widget while keys are grabbed.
+          break if grabbed
         end
 
         # Default focus navigation: if no widget consumed the key, `Tab`/

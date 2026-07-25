@@ -430,14 +430,49 @@ module Crysterm
       # borders; reserving it here rather than insetting the text lets
       # `#size_rows` lay rows across the content box with padding falling outside.
       private def fit_width : Int32
-        # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
-        # emoji label is wider than its `.size`, and undersizing here would clip
-        # the label.
-        w = @ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
+        rows = @ritems.size
+        fu = full_unicode?
+        w = @_fit_text_width
+        if w.nil? || @_fit_text_width_for != {rows, fu}
+          # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
+          # emoji label is wider than its `.size`, and undersizing here would clip
+          # the label.
+          w = @ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
+          @_fit_text_width = w
+          @_fit_text_width_for = {rows, fu}
+        end
         # A scrolling menu reserves a right-edge column for the vertical scroll
         # bar; unaccounted for, the widest row is one column too wide for the
         # drawable area and `#size_rows` wraps it onto a clipped second line.
         w + ihorizontal + content_margin_x
+      end
+
+      # Memoized widest row-text width — the per-row `str_width` scan `#fit_width`
+      # would otherwise redo on every frame an auto-sized menu is visible, purely
+      # to feed a change-guarded `self.width =` that is almost always a no-op.
+      # `nil` means "re-measure".
+      @_fit_text_width : Int32? = nil
+
+      # What `@_fit_text_width` was measured against: the row count and the
+      # grapheme-width mode `str_width` branches on (`#full_unicode?`, which flips
+      # on the post-probe tier upgrade). `#sync_items` — the single structural
+      # change point — and `#refresh_glyphs` drop the memo outright; this guard
+      # additionally catches the inherited `ItemView#add_item`/`#insert_item`/
+      # `#items=`, which can rewrite `@ritems` without passing through either.
+      @_fit_text_width_for : Tuple(Int32, Bool) = {-1, false}
+
+      # Drops the widest-row memo so the next `#fit_width` re-measures.
+      private def invalidate_fit_width : Nil
+        @_fit_text_width = nil
+      end
+
+      # `Mixin::ItemView` calls this from every site that writes `@ritems`, which
+      # makes it the exact hook for the widest-row memo — including the in-place
+      # `#set_item` and a same-size `#items=`, neither of which the row-count
+      # guard in `#fit_width` can see.
+      private def invalidate_item_index
+        super
+        invalidate_fit_width
       end
 
       # The height that fits the rows: one row per visible action plus the menu's
@@ -591,7 +626,11 @@ module Crysterm
       # Rebuilds the row texts when the resolved glyphs changed out from under
       # them (see `#row_glyph_key`); a no-op on the steady-state frame.
       private def refresh_glyphs : Nil
-        sync_items if @_glyph_key != row_glyph_key
+        return if @_glyph_key == row_glyph_key
+        # A glyph/tier change moves display widths too (`str_width` branches on
+        # `#full_unicode?`), so the widest-row memo goes with the row texts.
+        invalidate_fit_width
+        sync_items
       end
 
       # The currently highlighted action, or `nil` when the menu is empty.
@@ -794,6 +833,11 @@ module Crysterm
         ensure
           @syncing_items = false
         end
+
+        # After `items=` has rewritten `@ritems`, not before it: measuring off a
+        # half-updated `@ritems` could cache old widths under a row count that
+        # happens to match the new one.
+        invalidate_fit_width
 
         # Rebuild the separator-row lookup from the just-built rows: `#items=`
         # leaves `@item_boxes[i]` corresponding to `acts[i]`, so a separator action's

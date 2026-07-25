@@ -17,7 +17,73 @@ module Crysterm
   # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`.
   # `#right`/`#bottom` are exclusive too, *unlike* Qt's `QRect#right`, which
   # returns the inclusive `x + width - 1`. There is no inclusive variant here.
+  # The derived readers shared by every half-open `xi/xl/yi/yl` box — `Rectangle`
+  # (the immutable value type) and `RenderedGeometry` (the per-frame mutable
+  # backing store). Both carry identical edge semantics, so the size/edge/
+  # containment math lives here once.
+  #
+  # Written against the `#xi`/`#xl`/`#yi`/`#yl` **getters**, never the ivars, so
+  # it applies unchanged to a `struct` with `getter` and a `class` with
+  # `property`. Only the scalar/derived readers belong here; the
+  # `Rectangle`-valued API (`#center`, `#contains?(Rectangle)`, `#intersects?`,
+  # `#translated`, `#&`, `#|`, corner points) stays on `Rectangle`.
+  module RectEdges
+    # Width in cells. The x range is half-open (`xi...xl`).
+    def width : Int32
+      xl - xi
+    end
+
+    # Height in cells. The y range is half-open (`yi...yl`).
+    def height : Int32
+      yl - yi
+    end
+
+    # `#xi` under its QRect name.
+    def x : Int32
+      xi
+    end
+
+    # `#yi` under its QRect name.
+    def y : Int32
+      yi
+    end
+
+    # Left edge (inclusive) — alias of `#xi`.
+    def left : Int32
+      xi
+    end
+
+    # Top edge (inclusive) — alias of `#yi`.
+    def top : Int32
+      yi
+    end
+
+    # Right edge, **exclusive** — alias of `#xl`. One past the last covered
+    # column, *not* Qt's inclusive `x + width - 1`.
+    def right : Int32
+      xl
+    end
+
+    # Bottom edge, **exclusive** — alias of `#yl`. One past the last covered
+    # row; see `#right`.
+    def bottom : Int32
+      yl
+    end
+
+    # Whether the box covers no cells (either axis collapsed or inverted).
+    def empty? : Bool
+      xl <= xi || yl <= yi
+    end
+
+    # Whether the absolute cell (*x*, *y*) falls inside this box.
+    def contains?(x : Int32, y : Int32) : Bool
+      x >= xi && x < xl && y >= yi && y < yl
+    end
+  end
+
   struct Rectangle
+    include RectEdges
+
     # Start column (inclusive).
     getter xi : Int32
 
@@ -41,53 +107,6 @@ module Crysterm
     # `top...bottom`) rather than an origin + size.
     def self.of_edges(left : Int32, top : Int32, right : Int32, bottom : Int32) : Rectangle
       new left, top, right - left, bottom - top
-    end
-
-    # Width in cells. The x range is half-open (`xi...xl`).
-    def width : Int32
-      @xl - @xi
-    end
-
-    # Height in cells. The y range is half-open (`yi...yl`).
-    def height : Int32
-      @yl - @yi
-    end
-
-    # :ditto: — `#xi` under its QRect name.
-    def x : Int32
-      @xi
-    end
-
-    # :ditto: — `#yi` under its QRect name.
-    def y : Int32
-      @yi
-    end
-
-    # Left edge (inclusive) — alias of `#xi`.
-    def left : Int32
-      @xi
-    end
-
-    # Top edge (inclusive) — alias of `#yi`.
-    def top : Int32
-      @yi
-    end
-
-    # Right edge, **exclusive** — alias of `#xl`. One past the last covered
-    # column, *not* Qt's inclusive `x + width - 1`.
-    def right : Int32
-      @xl
-    end
-
-    # Bottom edge, **exclusive** — alias of `#yl`. One past the last covered
-    # row; see `#right`.
-    def bottom : Int32
-      @yl
-    end
-
-    # Whether the rectangle covers no cells (either axis collapsed or inverted).
-    def empty? : Bool
-      @xl <= @xi || @yl <= @yi
     end
 
     # Center cell, rounded down (the exact center of an even-sized side falls
@@ -127,12 +146,7 @@ module Crysterm
       Size.new width, height
     end
 
-    # Whether the absolute cell (*x*, *y*) falls inside this rectangle.
-    def contains?(x : Int32, y : Int32) : Bool
-      x >= @xi && x < @xl && y >= @yi && y < @yl
-    end
-
-    # :ditto: — *point* form.
+    # Whether the absolute cell of *point* falls inside this rectangle.
     def contains?(point : Point) : Bool
       contains? point.x, point.y
     end
@@ -184,6 +198,11 @@ module Crysterm
   # allocation per widget per frame off the render hot path. Read the values;
   # never retain the object past the current frame.
   class RenderedGeometry
+    # The half-open box's derived readers (`#width`/`#height`/`#x`/`#y`/`#left`/
+    # `#top`/`#right`/`#bottom`/`#empty?`/`#contains?`) come from the shared
+    # module rather than being restated here — the edge semantics are `Rectangle`'s.
+    include RectEdges
+
     # Deliberately a class, not a `struct`: instances are reused and mutated in
     # place across a frame and shared by reference (see the "reused across
     # frames" note above), which a value-type `struct` — copied on every
@@ -205,38 +224,6 @@ module Crysterm
     property yl : Int32 = 0
 
     property base : Int32 = 0
-
-    # Width in cells (`xl - xi`); the x range is half-open (`xi...xl`), matching
-    # `Rectangle#width`.
-    def width : Int32
-      @xl - @xi
-    end
-
-    # Height in cells (`yl - yi`); the y range is half-open (`yi...yl`), matching
-    # `Rectangle#height`.
-    def height : Int32
-      @yl - @yi
-    end
-
-    # Left/start column (`#xi`), under `Rectangle`'s vocabulary.
-    def x : Int32
-      @xi
-    end
-
-    # :ditto: — alias of `#x`.
-    def left : Int32
-      @xi
-    end
-
-    # Top/start row (`#yi`), under `Rectangle`'s vocabulary.
-    def y : Int32
-      @yi
-    end
-
-    # :ditto: — alias of `#y`.
-    def top : Int32
-      @yi
-    end
 
     # Which side is partly hidden by an enclosing (scrollable) parent.
     property? no_left : Bool = false

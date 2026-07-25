@@ -41,7 +41,7 @@ module Crysterm
         #
         # An empty ramp would crash the render fiber (`@ramp[0]` / `clamp`), so an
         # empty assignment is rejected in favour of the default.
-        nonempty_property ramp : Array(Char) = DEFAULT_RAMP
+        nonempty_property ramp : Array(Char) = DEFAULT_RAMP # ameba:disable Lint/UselessAssign
 
         # Fraction of heat that survives each upward step (`0.0..1.0`); the flame
         # decays by this factor per row, so higher = taller flames, lower = a

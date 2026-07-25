@@ -14,16 +14,23 @@ module Crysterm
       # its neighbor. The table loops modulo its own display width (trailing
       # spaces become the inter-repeat gap), advancing one column per `#step`,
       # optionally tinting each glyph with a cycling hue. The including widget
-      # supplies its own `#render` compositing (via `#scroll_column`) and
-      # `text=` repaint policy.
+      # supplies its own `#render` compositing (via `#scroll_column`); the
+      # message itself, and the `#text=` that rebuilds the tables behind it, are
+      # shared here.
       module TextScroll
         # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
         include Animated
 
         # The message scrolled across the widget. Reassigning it is safe at any
-        # time; each widget defines its own `text=` (rebuilding `@chars`) since
-        # they differ in repaint policy.
+        # time — `#text=` rebuilds the decomposition (`@chars`/`@widths` and the
+        # column tables) and marks the widget dirty.
         getter text : String
+
+        # :ditto:
+        def text=(@text : String)
+          rebuild_scroll_columns @text
+          mark_dirty
+        end
 
         # `text` decomposed into its characters once, so the per-column paint can
         # index it in O(1). `String#[]` is O(n) for non-ASCII strings, which would

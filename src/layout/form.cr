@@ -16,55 +16,16 @@ module Crysterm
     class Form < Layout
       # Width of the (left) label column, or `nil` to auto-measure the widest
       # label's content each arrange. Change-guarded so a real change repaints.
-      @label_width : Int32?
-
-      # :ditto:
-      def label_width : Int32?
-        @label_width
-      end
-
-      # :ditto:
-      def label_width=(value : Int32?) : Int32?
-        return value if value == @label_width
-        @label_width = value
-        invalidate
-        value
-      end
+      layout_property label_width, Int32?
 
       # Horizontal gap between a row's label and its field, in cells. Named for
       # symmetry with `#vertical_spacing`; the inherited `Layout#spacing` is
       # unused here. Change-guarded so a real change repaints.
-      @horizontal_spacing : Int32
-
-      # :ditto:
-      def horizontal_spacing : Int32
-        @horizontal_spacing
-      end
-
-      # :ditto:
-      def horizontal_spacing=(value : Int32) : Int32
-        return value if value == @horizontal_spacing
-        @horizontal_spacing = value
-        invalidate
-        value
-      end
+      layout_property horizontal_spacing, Int32
 
       # Vertical gap between rows, in cells. Change-guarded so a real change
       # repaints.
-      @vertical_spacing : Int32
-
-      # :ditto:
-      def vertical_spacing : Int32
-        @vertical_spacing
-      end
-
-      # :ditto:
-      def vertical_spacing=(value : Int32) : Int32
-        return value if value == @vertical_spacing
-        @vertical_spacing = value
-        invalidate
-        value
-      end
+      layout_property vertical_spacing, Int32
 
       # Reused list of arranged children, refilled each frame instead of
       # allocating a `reject` array per render.
@@ -143,8 +104,8 @@ module Crysterm
             # otherwise overflow the sum (B18-25). Beyond the interior "fills
             # everything visible", so clamping is behavior-preserving.
             rh = clamped_size(Math.max(row_height(label), row_height(field)), interior.height)
-            lc = Math.max(0, lw - label.mhorizontal)
-            fc = Math.max(0, fw - field.mhorizontal)
+            lc = margin_box lw, label.mhorizontal
+            fc = margin_box fw, field.mhorizontal
             place_child label, 0, y, lc, rh
             place_child field, lw + hs, y, fc, rh
             record_managed label, @assigned, rh
@@ -160,7 +121,7 @@ module Crysterm
           else
             # Trailing odd child spans the full width, less its margin box.
             rh = clamped_size(row_height(label), interior.height)
-            lc = Math.max(0, w - label.mhorizontal)
+            lc = margin_box w, label.mhorizontal
             place_and_render label, 0, y, lc, rh
             record_managed label, @assigned, rh
             record_managed label, @assigned_width, lc

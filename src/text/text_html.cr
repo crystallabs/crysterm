@@ -277,37 +277,35 @@ module Crysterm
       io << "</a>" if anchor
     end
 
-    private def self.escape_html(text : String) : String
-      # Single pass instead of 3 chained `gsub`s (each a full scan + intermediate
-      # String); returns `text` unchanged (no allocation) when there's nothing to
-      # escape — the common case. Per-char mapping never re-scans an emitted
-      # entity, so it matches the `&`-first gsub ordering's anti-double-escape intent.
-      return text unless text.includes?('&') || text.includes?('<') || text.includes?('>')
+    # Escapes *text* for HTML text content, or — with *quotes* — for a
+    # double-quoted attribute value, which additionally needs `"`.
+    #
+    # Single pass instead of chained `gsub`s (each a full scan + intermediate
+    # String); returns `text` unchanged (no allocation) when there's nothing to
+    # escape — the common case, decided by one scan rather than one per
+    # character of interest. Per-char mapping never re-scans an emitted entity,
+    # so it matches the `&`-first gsub ordering's anti-double-escape intent.
+    private def self.escape_html(text : String, quotes : Bool = false) : String
+      return text unless text.each_char.any? { |c| c == '&' || c == '<' || c == '>' || (quotes && c == '"') }
       String.build(text.bytesize + 16) do |io|
         text.each_char do |c|
           case c
           when '&' then io << "&amp;"
           when '<' then io << "&lt;"
           when '>' then io << "&gt;"
+          when '"' then quotes ? (io << "&quot;") : (io << c)
           else          io << c
           end
         end
       end
     end
 
+    # :ditto:
+    #
+    # Kept as a named method: it reads as intent at the attribute-writing call
+    # sites.
     private def self.escape_attr(text : String) : String
-      return text unless text.includes?('&') || text.includes?('<') || text.includes?('>') || text.includes?('"')
-      String.build(text.bytesize + 16) do |io|
-        text.each_char do |c|
-          case c
-          when '&' then io << "&amp;"
-          when '<' then io << "&lt;"
-          when '>' then io << "&gt;"
-          when '"' then io << "&quot;"
-          else          io << c
-          end
-        end
-      end
+      escape_html text, quotes: true
     end
 
     # DOM → blocks: a patch stack for inline formats,

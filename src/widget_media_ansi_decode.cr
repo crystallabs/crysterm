@@ -389,11 +389,22 @@ module Crysterm
           end
         end
 
-        # Round-trip through `encode_png` rather than the frames constructor:
-        # the latter leaves `frames` non-nil, which cell backends read as
-        # "animated" and then render nothing (no frame loop). A decoded still
-        # has `frames == nil`, the single-image path every backend expects.
-        PNGGIF::PNG.new(PNGGIF.encode_png(bmp))
+        # Wrap the bitmap we already hold instead of round-tripping it through
+        # `encode_png` + a full re-decode (a zlib compress of every RGBA scanline
+        # immediately followed by an inflate/unfilter/rebuild — art reaches
+        # 2002x16000 under the clamps above, and a routine 80-column `.ans` is
+        # already ~1 MB of RGBA each way). `#bitmap=` takes this same route.
+        #
+        # This leaves `frames` non-nil with a single entry, which is fine: every
+        # consumer of `png.frames` gates on `size > 1` — `Media::Cells#load`
+        # (widget_media_cells.cr), `Media::Base#play` (widget_media_base.cr), and
+        # `Media::Graphics#ensure_animation`, which defers to that same `#play`
+        # guard. A future consumer must keep that invariant; treating
+        # `frames != nil` as "animated" would spin a one-frame loop here.
+        #
+        # `pw`/`ph` are always positive (`cols`/`rows` are floored at 1 above), so
+        # the constructor's empty-list / non-positive-canvas guards cannot fire.
+        PNGGIF::PNG.from_frames([{bmp, 0}], pw, ph)
       end
     end
   end

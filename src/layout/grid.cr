@@ -33,37 +33,11 @@ module Crysterm
       end
 
       # Number of columns; change-guarded so a real change repaints the container.
-      @columns : Int32
-
-      # :ditto:
-      def columns : Int32
-        @columns
-      end
-
-      # :ditto:
-      def columns=(value : Int32) : Int32
-        return value if value == @columns
-        @columns = value
-        invalidate
-        value
-      end
+      layout_property columns, Int32
 
       # Fixed row count, or `nil` to infer from placement; change-guarded so a real
       # change repaints the container.
-      @rows : Int32?
-
-      # :ditto:
-      def rows : Int32?
-        @rows
-      end
-
-      # :ditto:
-      def rows=(value : Int32?) : Int32?
-        return value if value == @rows
-        @rows = value
-        invalidate
-        value
-      end
+      layout_property rows, Int32?
 
       # `#spacing` (inter-cell spacing) is inherited from `Layout`.
 

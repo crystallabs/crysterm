@@ -19,9 +19,10 @@ module Crysterm
     #
     # A hidden child releases its slot: siblings pack as though it weren't there.
     #
-    # Assigned sizes are remembered (`@flex`/`@filled`) so a sized child stays
-    # recognised as managed, and reassigned through the normal setters (no-op
-    # when unchanged) so a stable layout emits no events after the first frame.
+    # Assigned sizes are remembered (`@flex_size`/`@filled_size`) so a sized child
+    # stays recognised as managed, and reassigned through the normal setters
+    # (no-op when unchanged) so a stable layout emits no events after the first
+    # frame.
     class Box < Layout
       enum Justify
         Start
@@ -55,37 +56,11 @@ module Crysterm
 
       # Leftover-space distribution along the main axis when nothing stretches;
       # change-guarded so a real change repaints the container.
-      @justify : Justify
-
-      # :ditto:
-      def justify : Justify
-        @justify
-      end
-
-      # :ditto:
-      def justify=(value : Justify) : Justify
-        return value if value == @justify
-        @justify = value
-        invalidate
-        value
-      end
+      layout_property justify, Justify
 
       # Cross-axis placement of children without an explicit cross size;
       # change-guarded so a real change repaints the container.
-      @align : Align
-
-      # :ditto:
-      def align : Align
-        @align
-      end
-
-      # :ditto:
-      def align=(value : Align) : Align
-        return value if value == @align
-        @align = value
-        invalidate
-        value
-      end
+      layout_property align, Align
 
       @cursor = 0
       @avail = 0
@@ -110,12 +85,11 @@ module Crysterm
       @just_n = 0
       @just_around = false
       @just_k = 0
-      @flex = Set(Widget).new
-      @filled = Set(Widget).new
       # Last main/cross size this layout *assigned* to a flex/filled child.
-      # `@flex`/`@filled` alone can't tell a layout-assigned size from a fresh
-      # user-set one, so a member counts as managed only while its raw size still
+      # Membership alone can't tell a layout-assigned size from a fresh user-set
+      # one, so a tracked child counts as managed only while its raw size still
       # equals what was last put there; a mismatch means the user reclaimed it.
+      # The key set *is* the tracked set — no separate membership collection.
       @flex_size = {} of Widget => Int32
       @filled_size = {} of Widget => Int32
       # Per-arrange cache of fixed children's resolved main-axis size, so the
@@ -142,10 +116,6 @@ module Crysterm
       # Measures the main axis: total fixed size, total grow weight, the leftover
       # to distribute, and (when nothing grows) the `justify` lead/extra-gap.
       private def measure(container : Widget, interior : RenderedGeometry) : Nil
-        # `child?` is O(1); a linear membership test here would make pruning
-        # O(tracked × children) per arrange.
-        @flex.select! { |el| container.child? el }
-        @filled.select! { |el| container.child? el }
         prune_managed container, @flex_size
         prune_managed container, @filled_size
 
@@ -239,10 +209,8 @@ module Crysterm
             # Fill the interior *minus* the child's cross-axis margins: the
             # assigned size is fixed and the render shift pushes it out by the
             # near margin, so a full-extent size would clip by `near + far`.
-            cs = cross - cross_margin(el)
-            cs = 0 if cs < 0
+            cs = margin_box cross, cross_margin(el)
             cross_w = cs
-            @filled << el
             @filled_size[el] = cs
           end
           cross_pos = 0
@@ -254,15 +222,20 @@ module Crysterm
           # stays frozen at whatever cross extent the Stretch branch last
           # wrote forever: it stops tracking container resizes and the user's
           # raw `nil` (auto) is destroyed for good (B18-23). Safe: a child only
-          # ever enters `@filled` when its raw cross size was `nil` (the
-          # `cross_flex?` membership test), so `nil` is always the correct
+          # ever enters `@filled_size` when its raw cross size was `nil` (the
+          # `cross_flex?` test above), so `nil` is always the correct
           # value to restore; a user-reclaimed explicit size (raw no longer
           # matches `@filled_size`) fails the guard and is left untouched.
           # Written directly (not coalesced below): the release must land before
           # `a_cross_size` re-reads the child's cross size.
-          if @filled.includes?(el) && cross_size(el) == @filled_size[el]?
+          #
+          # Binding `fs` is what keeps this scoped to *tracked* children: an
+          # untracked child has no `@filled_size` entry, and a bare
+          # `cross_size(el) == @filled_size[el]?` would match it whenever its raw
+          # cross size is also nil — releasing (and so nilling) a size this
+          # layout never assigned.
+          if (fs = @filled_size[el]?) && cross_size(el) == fs
             set_cross_size el, nil
-            @filled.delete el
             @filled_size.delete el
           end
 
@@ -304,7 +277,6 @@ module Crysterm
               0
             end
           main_w = s
-          @flex << el
           @flex_size[el] = s
         end
 
@@ -418,14 +390,17 @@ module Crysterm
       # raw size is unset (`nil`), or we assigned it and it still holds that
       # value. If the raw size no longer matches what we last assigned, the user
       # reclaimed the child (`child.width = 20`), so it reverts to fixed.
+      # An untracked child needs no membership term: its `@flex_size` lookup is
+      # nil, which a non-nil raw size never equals, and a nil raw size already
+      # short-circuits on the first disjunct.
       private def main_flex?(el : Widget) : Bool
-        main_size(el).nil? || (@flex.includes?(el) && main_size(el) == @flex_size[el]?)
+        (ms = main_size(el)).nil? || ms == @flex_size[el]?
       end
 
       # Whether the child's cross-axis size is decided (stretched) by this layout;
       # released the same way as `main_flex?` when the user sets an explicit size.
       private def cross_flex?(el : Widget) : Bool
-        cross_size(el).nil? || (@filled.includes?(el) && cross_size(el) == @filled_size[el]?)
+        (cs = cross_size(el)).nil? || cs == @filled_size[el]?
       end
 
       private def main_extent(interior : RenderedGeometry) : Int32

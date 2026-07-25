@@ -232,12 +232,9 @@ module Crysterm
       # Returns whether anything was killed, so the caller can record the kill for
       # the consecutive-kill run.
       private def kill_backward_to(start) : Bool
-        return false unless start < @cursor_pos
-        @goal_col = nil
-        kill_ring.kill buf_slice(start, @cursor_pos), prepend: true
-        buf_delete(start, @cursor_pos)
+        return false unless kill_range(start, @cursor_pos, prepend: true)
+        # Only on an actual kill: the text ahead of *start* has moved onto it.
         @cursor_pos = start
-        clear_selection
         true
       end
 
@@ -245,10 +242,24 @@ module Crysterm
       # cursor): push it onto the kill ring, leaving the cursor put. Returns
       # whether anything was killed.
       private def kill_forward_to(stop) : Bool
-        return false unless stop > @cursor_pos
+        kill_range(@cursor_pos, stop, prepend: false)
+      end
+
+      # Shared body of the two directional kills: ring the `lo...hi` text, delete
+      # it, drop the goal column and the selection. Returns whether the range was
+      # non-empty (nothing happens when it wasn't).
+      #
+      # *prepend* is the kill ring's accumulation direction for a consecutive-kill
+      # run, and belongs to the *direction*, not to the range: only backward kills
+      # prepend, so `C-w C-w` reads back in forward order (emacs semantics).
+      #
+      # The slice must be read *before* the delete, and callers must not move the
+      # caret until this has returned.
+      private def kill_range(lo : Int32, hi : Int32, prepend : Bool) : Bool
+        return false unless lo < hi
         @goal_col = nil
-        kill_ring.kill buf_slice(@cursor_pos, stop)
-        buf_delete(@cursor_pos, stop)
+        kill_ring.kill buf_slice(lo, hi), prepend: prepend
+        buf_delete(lo, hi)
         clear_selection
         true
       end
@@ -671,11 +682,28 @@ module Crysterm
       # with a negative `begin`, which the per-cell `includes?` check in `base_render`
       # handles correctly.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
-        return unless range = selection_range
+        return unless selection_range
         return if rl < 0 || rl >= @_clines.size
 
-        line_start = pos_from_rowcol(rl, 0)
-        line_end = pos_from_rowcol(rl, line_display_width(rl))
+        selection_columns_for_row rl, pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl))
+      end
+
+      # :ditto:
+      #
+      # Entry point for a caller that has *already* computed row *rl*'s buffer
+      # bounds (the painter does, one line earlier): `pos_from_rowcol` walks the
+      # fake line's piece list and `line_display_width` slices the whole logical
+      # line out of the buffer, so recomputing them per painted row per frame is
+      # the dominant cost of a live drag-selection.
+      #
+      # NOTE: call this only from `Widget::TextEdit`'s own painter.
+      # `Widget::LineEdit` overrides the *1-arg* form above with entirely
+      # different visible-window math, and the generic painter
+      # (`Widget#base_render`) calls that 1-arg form — routing generic painting
+      # here would silently bypass the override.
+      protected def selection_columns_for_row(rl : Int32, line_start : Int32, line_end : Int32) : Range(Int32, Int32)?
+        return unless range = selection_range
+        return if rl < 0 || rl >= @_clines.size
 
         lo = Math.max(range.begin, line_start)
         hi = Math.min(range.end, line_end)

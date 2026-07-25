@@ -130,6 +130,20 @@ module Crysterm
       (!o.nil? || o_opp.nil?) && !center_expr?(o)
     end
 
+    # Whether an axis is anchored by its *far* edge only: *near* unset and *far*
+    # set. Such a box keeps its far edge fixed and grows/shifts toward the near
+    # one, which is why so many sites branch on it — but what each branch then
+    # does genuinely differs (`- iright` vs `+ iright` vs `- ihorizontal`), so
+    # only the test is shared.
+    #
+    # Deliberately untyped: the edges are `Dim | Int32 | String?`, and the
+    # mirrored (`aright`/`abottom`) form calls this with its arguments swapped to
+    # ask the opposite question.
+    @[AlwaysInline]
+    private def far_anchored?(near, far) : Bool
+      near.nil? && !far.nil?
+    end
+
     # `aleft`/`atop`: computed absolute near-edge position, the mechanical axis
     # mirror of each other (left→top, right→bottom, awidth→aheight, ileft→itop).
     # Generated from one body — like the `aright`/`abottom` loop below and the
@@ -159,7 +173,7 @@ module Crysterm
         # its own far margin. Included so hit-test geometry matches where `coords`
         # paints it; `coords` and the anchoring callers below pass
         # `with_margin: false` so the shift is applied exactly once.
-        if o{{ axis[:near].id }}.nil? && !o{{ axis[:far].id }}.nil?
+        if far_anchored?(o{{ axis[:near].id }}, o{{ axis[:far].id }})
           m_far = (with_margin && mg.any?) ? mg.{{ axis[:far].id }} : 0
           return window.a{{ axis[:dim].id }} - ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered)) - a{{ axis[:far].id }}(rendered) - m_far
         end
@@ -205,7 +219,9 @@ module Crysterm
 
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
 
-        if o{{ axis[:far].id }}.nil? && !o{{ axis[:near].id }}.nil?
+        # Arguments swapped relative to `#a{{ axis[:near].id }}`: here the
+        # *near*-anchored-only case is the special one.
+        if far_anchored?(o{{ axis[:far].id }}, o{{ axis[:near].id }})
           # Base geometry: `coords` composes in the margin, so this far-edge
           # offset must not double-count it.
           {{ axis[:far].id }} = window.a{{ axis[:dim].id }} - (a{{ axis[:near].id }}(rendered, with_margin: false) + a{{ axis[:dim].id }}(rendered))
@@ -235,7 +251,7 @@ module Crysterm
     # `@left`/`@right` (or `@top`/`@bottom`) values. An unconditional shift, not a
     # bounds clamp — unlike `translate_into_bounds` below.
     private def shift_margin(lo : Int32, hi : Int32, near_anchor, far_anchor, near : Int32, far : Int32) : {Int32, Int32}
-      if near_anchor.nil? && !far_anchor.nil?
+      if far_anchored?(near_anchor, far_anchor)
         {lo - far, hi - far}
       else
         {lo + near, hi + near}
@@ -371,7 +387,7 @@ module Crysterm
         cw = clamp_awidth(sw)
         if cw != sw
           cw = 0 if cw < 0
-          if @left.nil? && !@right.nil?
+          if far_anchored?(@left, @right)
             xi = xl - cw
           else
             xl = xi + cw
@@ -381,7 +397,7 @@ module Crysterm
         ch = clamp_aheight(sh)
         if ch != sh
           ch = 0 if ch < 0
-          if @top.nil? && !@bottom.nil?
+          if far_anchored?(@top, @bottom)
             yi = yl - ch
           else
             yl = yi + ch
@@ -562,40 +578,27 @@ module Crysterm
       # (the render hot path passes `@lpos`), turning a per-frame heap allocation
       # into an in-place update. All early returns above precede this, so `into`
       # is never mutated on a path that yields no coords.
-      if v = into
-        v.reset \
-          xi: xi,
-          xl: xl,
-          yi: yi,
-          yl: yl,
-          base: base,
-          no_left: no_left,
-          no_right: no_right,
-          no_top: no_top,
-          no_bottom: no_bottom,
-          renders: window.renders,
-          hidden_left: hidden_left,
-          hidden_right: hidden_right,
-          hidden_top: hidden_top,
-          hidden_bottom: hidden_bottom
-      else
-        v = RenderedGeometry.new \
-          xi: xi,
-          xl: xl,
-          yi: yi,
-          yl: yl,
-          base: base,
-          no_left: no_left,
-          no_right: no_right,
-          no_top: no_top,
-          no_bottom: no_bottom,
-          renders: window.renders,
-          hidden_left: hidden_left,
-          hidden_right: hidden_right,
-          hidden_top: hidden_top,
-          hidden_bottom: hidden_bottom
-      end
-      v
+      #
+      # `||` short-circuits, so the hot path allocates nothing. `#reset` sets
+      # exactly the fields below and additionally zeroes the lazy `a*`/`i*`
+      # caches — which a freshly-`new`ed instance already holds as defaults — so
+      # `RenderedGeometry.new.reset(...)` is state-identical to
+      # `RenderedGeometry.new(...)`, and one argument list serves both paths.
+      (into || RenderedGeometry.new).reset \
+        xi: xi,
+        xl: xl,
+        yi: yi,
+        yl: yl,
+        base: base,
+        no_left: no_left,
+        no_right: no_right,
+        no_top: no_top,
+        no_bottom: no_bottom,
+        renders: window.renders,
+        hidden_left: hidden_left,
+        hidden_right: hidden_right,
+        hidden_top: hidden_top,
+        hidden_bottom: hidden_bottom
     end
 
     # The widget's *painted* outer rect `{x, y, w, h}` from

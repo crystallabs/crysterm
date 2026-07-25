@@ -32,16 +32,23 @@ module Crysterm
       protected def build_payload(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
         bytes = raw_bytes || return
-        b64 = Base64.strict_encode bytes
         # iTerm2 letterboxes within the width×height cell box when
         # preserveAspectRatio=1; Stretch wants it off. Cover/crop isn't
         # expressible in the protocol, so it falls back to preserving aspect.
         par = @fit.stretch? ? 0 : 1
-        String.build do |io|
-          io << "\e]1337;File=inline=1;size=" << bytes.size \
-            << ";width=" << cols << ";height=" << rows \
-            << ";preserveAspectRatio=" << par << ':' << b64 << '\a'
-        end
+        # Pre-size the builder to the payload's known final size and stream the
+        # base64 straight into it (as `Media::Kitty#encode` does), instead of
+        # materializing a 4/3-sized `String` first and then copying it in while
+        # the builder grows from its 64-byte default in doublings — for a
+        # multi-megabyte inline GIF that was two extra full-size copies.
+        # `bytes.size` is still read for the `size=` field, before the encode.
+        io = String::Builder.new(((bytes.size + 2) // 3) * 4 + 96)
+        io << "\e]1337;File=inline=1;size=" << bytes.size \
+          << ";width=" << cols << ";height=" << rows \
+          << ";preserveAspectRatio=" << par << ':'
+        Base64.strict_encode bytes, io
+        io << '\a'
+        io.to_s
       end
 
       # iTerm2 animates an inline GIF itself, so the whole file is transmitted

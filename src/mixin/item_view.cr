@@ -600,7 +600,7 @@ module Crysterm
           # Default: click selects, clicking the already-selected one activates.
           # `#activate_on_click?` makes a single click both select and activate.
           item.on(::Crysterm::Event::Click) do
-            if (i = @item_boxes.index item) && !@nonselectable.includes?(i)
+            if (i = item_index_of item) && !@nonselectable.includes?(i)
               # Honor the list's own `#focus_on_click?` opt-out, as automatic
               # click-to-focus does. A focus-declining list (e.g. a `Completer`
               # drop-down, whose owning text box must keep focus so typing keeps
@@ -637,7 +637,7 @@ module Crysterm
           # overridable `#hover_item`.
           if hover_select?
             item.on(::Crysterm::Event::MouseEnter) do
-              if i = @item_boxes.index item
+              if i = item_index_of item
                 hover_item i
                 request_render
               end
@@ -815,7 +815,7 @@ module Crysterm
 
       # :ditto: — accepts any `Widget`, not only `Widget::Box`.
       def index_of(child : Widget) : Int32?
-        @item_boxes.index child
+        item_index_of child
       end
 
       # Hook invoked when the pointer moves onto item *i* and `#hover_select?` is

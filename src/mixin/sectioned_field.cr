@@ -60,10 +60,10 @@ module Crysterm
       private def section_from_columns(x : Int32, ends : Array(Int32)) : Int32?
         # *x* is the mouse event's painted screen coordinate (dispatch
         # hit-tests against the painted rect), so resolve it against the
-        # *painted* origin, not the layout coords — the two diverge when the
-        # painted rect is shifted (overflow MoveWidget, edge clipping). Same
+        # *painted content* origin, not the layout coords — the two diverge when
+        # the painted rect is shifted (overflow MoveWidget, edge clipping). Same
         # rule as `Mixin::TrackGeometry#pointer_offset` / `Mixin::CheckMarker`.
-        col = x - painted_origin[0] - ileft
+        col = x - painted_content_origin[0]
         return if col < 0 || col > ends[-1]
         ends.index { |e| col <= e }
       rescue

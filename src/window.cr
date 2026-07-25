@@ -264,7 +264,7 @@ module Crysterm
     # them dynamically per terminal (e.g. enabling BCE only where advertised) is a
     # possible enhancement, deferred: the flags are output-equivalent, so a wrong
     # static default costs performance, never correctness.
-    Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
+    Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization # ameba:disable Lint/UselessAssign
 
     # What to do with "overflowing" (too large) widgets. `Overflow::Ignore`
     # (default) renders only the parts in view.

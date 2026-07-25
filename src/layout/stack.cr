@@ -17,20 +17,7 @@ module Crysterm
     class Stack < Layout
       # Index of the child to show. Clamped to the available children at render.
       # Change-guarded so switching pages repaints the container.
-      @current_index : Int32
-
-      # :ditto:
-      def current_index : Int32
-        @current_index
-      end
-
-      # :ditto:
-      def current_index=(value : Int32) : Int32
-        return value if value == @current_index
-        @current_index = value
-        invalidate
-        value
-      end
+      layout_property current_index, Int32
 
       def initialize(@current_index : Int32 = 0)
       end

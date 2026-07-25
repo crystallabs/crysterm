@@ -186,13 +186,17 @@ module Crysterm
     # fixed `1/fps` wall-clock grid, piping raw RGBA to ffmpeg.
     private def capture_animation(xi, xl, yi, yl, fmt, path, duration, fps, loops,
                                   font, bold_font, default_fg, default_bg, ffmpeg_args) : Bytes?
+      # This render is not just a measurement: it is handed to
+      # `#feed_animation_frames` as frame 0, which would otherwise render the
+      # identical region a second time immediately afterwards (a full
+      # `ph × pw` RGBA canvas plus a glyph blit per cell, twice back-to-back).
       first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
       vw = first[0]?.try(&.size) || 0
       vh = first.size
 
       run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args) do |input|
         feed_animation_frames(input, xi, xl, yi, yl, duration, fps,
-          font, bold_font, default_fg, default_bg)
+          font, bold_font, default_fg, default_bg, first)
       end
     end
 
@@ -204,15 +208,21 @@ module Crysterm
     # All writes are serialized: the initial frame completes on this fiber
     # before the clock fiber starts. Public (`:nodoc:`) so the sampling cadence
     # is testable without ffmpeg.
+    #
+    # *first* is the already-rendered frame 0. `#capture_animation` has to render
+    # the region anyway to learn the video's pixel dimensions, so it passes that
+    # bitmap through instead of letting it be rendered a second time; reached
+    # directly (without one) this renders its own.
     def feed_animation_frames(input : IO, xi, xl, yi, yl, duration : Time::Span, fps : Int32,
                               font : BitmapFont = BitmapFont.default_normal,
                               bold_font : BitmapFont = BitmapFont.default_bold,
                               default_fg : Int32 = Capture::DEFAULT_FG,
-                              default_bg : Int32 = Capture::DEFAULT_BG) : Nil
+                              default_bg : Int32 = Capture::DEFAULT_BG,
+                              first : PNGGIF::Bitmap? = nil) : Nil
       # Floor the rate here too: a directly-reached public entry point must not
       # build an `Infinity`/negative clock interval from a non-positive `fps`.
       fps = 1 if fps < 1
-      first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+      first ||= Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
       input.write Capture.rgba(first) rescue nil
       # `FrameClock` invokes the tick block immediately on start, before its
       # first sleep — but the t=0 frame was already written above (on this
@@ -267,9 +277,8 @@ module Crysterm
 
       # Not useless: the only real assignment is inside the `ensure`, and Crystal
       # requires this initializer for the read after the block to compile
-      # ("read before assignment to local variable 'result'"). Ameba's liveness
-      # analyzer only walks the body linearly, so it misses the `ensure` edge.
-      result = nil # ameba:disable Lint/UselessAssign
+      # ("read before assignment to local variable 'result'").
+      result = nil
       begin
         yield proc.input
       ensure

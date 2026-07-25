@@ -110,25 +110,33 @@ module Crysterm
         # emits on a mouse press over any hit-tested widget; registering it also
         # makes the widget mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
-          h = widget.on(::Crysterm::Event::Pressed) { block.call "press", nil }
-          -> { widget.off(::Crysterm::Event::Pressed, h); nil }
+          wire(widget, ::Crysterm::Event::Pressed) { block.call "press", nil }
         else
-          h = widget.on(::Crysterm::Event::Click) { block.call "click", nil }
-          -> { widget.off(::Crysterm::Event::Click, h); nil }
+          wire(widget, ::Crysterm::Event::Click) { block.call "click", nil }
         end
       when "submit"
-        h = widget.on(::Crysterm::Event::Submitted) { |e| block.call "submit", e.value }
-        -> { widget.off(::Crysterm::Event::Submitted, h); nil }
+        wire(widget, ::Crysterm::Event::Submitted) { |e| block.call "submit", e.value }
       when "focus"
-        h = widget.on(::Crysterm::Event::FocusIn) { block.call "focus", nil }
-        -> { widget.off(::Crysterm::Event::FocusIn, h); nil }
+        wire(widget, ::Crysterm::Event::FocusIn) { block.call "focus", nil }
       when "blur"
-        h = widget.on(::Crysterm::Event::FocusOut) { block.call "blur", nil }
-        -> { widget.off(::Crysterm::Event::FocusOut, h); nil }
+        wire(widget, ::Crysterm::Event::FocusOut) { block.call "blur", nil }
       when "select", "change"
-        h = widget.on(::Crysterm::Event::ItemSelected) { |e| block.call event_name, e.index.to_s }
-        -> { widget.off(::Crysterm::Event::ItemSelected, h); nil }
+        # Pass `event_name`, not a literal: both names map to `ItemSelected`, and
+        # the caller must get back the name it subscribed under.
+        wire(widget, ::Crysterm::Event::ItemSelected) { |e| block.call event_name, e.index.to_s }
       end
+      # No `else`: an unknown name yields `nil` (nothing wired), which is what
+      # `known_event?` / `forward_event`'s `if detacher` gate keys off.
+    end
+
+    # Subscribes *block* to *type* on *widget* and returns the `Proc` that
+    # detaches exactly that handler. Spelling the event class once (instead of
+    # once to subscribe and once to detach) is what keeps a forwarder
+    # detachable — `HTTPBridge#unsubscribe`/`#prune_wiring` rely on these
+    # detachers actually removing the handler they paired with.
+    private def self.wire(widget : Widget, type : T.class, &block : T -> ::Nil) : Proc(Nil) forall T
+      handler = widget.on(type, &block)
+      -> { widget.off(type, handler); nil }
     end
 
     # Declarative action interpreter: lets simple behavior live entirely in the

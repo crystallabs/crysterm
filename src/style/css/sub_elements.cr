@@ -1,5 +1,5 @@
 module Crysterm
-  # Per-widget `#css_sub_elements` overrides: each widget that draws with named
+  # Per-widget `#build_css_sub_elements` overrides: each widget that draws with named
   # sub-styles exposes them as pseudo-element nodes in the CSS document, so they
   # can be targeted by their capitalized name (e.g. `Table Cell { ... }`,
   # `ListBar Prefix { ... }`, `ProgressBar Indicator { ... }`).
@@ -9,13 +9,13 @@ module Crysterm
   # scrollbar/track slots.
   class Widget
     class List
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["item"]
       end
     end
 
     class ListBar
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["prefix"]
       end
     end
@@ -23,7 +23,7 @@ module Crysterm
     class Menu
       # `indicator` is the submenu arrow (`Menu::indicator { glyph: "▶" }`);
       # the check-column marks of checkable rows follow the registry directly.
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["separator", "indicator"]
       end
     end
@@ -31,7 +31,7 @@ module Crysterm
     class TabWidget
       # `close-button` carries the closable-tab `✕` glyph
       # (`TabWidget::close-button { glyph: "x" }`).
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["tab", "pane", "close-button"]
       end
     end
@@ -42,13 +42,13 @@ module Crysterm
     # per-state mark (`CheckBox::indicator:checked { glyph: "x" }`, since the
     # `[checked]` attribute is emitted on the sub-element node too).
     class CheckBox
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["indicator"]
       end
     end
 
     class RadioButton
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["indicator"]
       end
     end
@@ -57,25 +57,25 @@ module Crysterm
     # sub-control (Qt's `QComboBox::drop-down`), e.g.
     # `ComboBox::drop-down { glyph: "▾" }`.
     class ComboBox
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["drop-down"]
       end
     end
 
     class ToolButton
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["drop-down"]
       end
     end
 
     class GroupBox
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["title"]
       end
     end
 
     class DockWidget
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["title", "close-button", "float-button"]
       end
     end
@@ -85,19 +85,19 @@ module Crysterm
     # alternate slots.
 
     class ProgressBar
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["indicator"]
       end
     end
 
     class Dial
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["indicator"]
       end
     end
 
     class Slider
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["indicator"]
       end
     end
@@ -108,7 +108,7 @@ module Crysterm
     # sub-controls — stepper buttons, arrow glyphs, and trough regions
     # before/after the handle.
     class ScrollBar
-      def css_sub_elements : Array(String)
+      def build_css_sub_elements : Array(String)
         super + ["track", "indicator",
                  "sub-line", "add-line", "sub-page", "add-page",
                  "up-arrow", "down-arrow", "left-arrow", "right-arrow"]

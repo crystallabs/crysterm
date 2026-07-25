@@ -315,6 +315,24 @@ module Crysterm
        r:  @right_char || @vertical_char || g[:v]}
     end
 
+    # The eight glyphs of one border's cells — four corners plus one run per
+    # side — for *either* family, so the renderer resolves them once per widget
+    # instead of re-dispatching the family (and re-walking the fall-back chains)
+    # on every border cell. Also spares a `Fill` border the line-family glyph
+    # build it would otherwise discard.
+    #
+    # The two families keep their own, distinct fall-back chains: a line border
+    # resolves position → group → `BorderType` family glyph at *tier* (see
+    # `#line_glyphs_with_overrides`), a `Fill` border position → group →
+    # `#fill_char` (see `#top_char`/`#horizontal_char`/`#top_left_char` …). Both
+    # produce the same `NamedTuple` shape, so the render call site stays
+    # monomorphic.
+    def glyph_octet(tier : Glyphs::Tier)
+      return line_glyphs_with_overrides(tier) if @type.line_family?
+      {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
+       t: top_char, b: bottom_char, l: left_char, r: right_char}
+    end
+
     # Assigns the per-position char override for a CSS longhand, keyed by
     # *position*. Only called by `CSS::Properties`, so kept `protected`.
     protected def set_char(position : CharPosition, value : Char?) : Nil
@@ -351,14 +369,10 @@ module Crysterm
         Border.new value
       in Border
         value
-      in Side
-        # A side (`Side::Right`, `Side::Horizontal`, ...) — one cell on the
-        # named side(s).
+      in Side, Symbol
+        # A side (`Side::Right`, `Side::Horizontal`, ...) or its symbol alias
+        # (`:right`, `:horizontal`, ...) — one cell on the named side(s).
         SidedGeometry.new_from_side value
-      in Symbol
-        # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
-        # named side(s).
-        SidedGeometry.new_from_symbol value
       in Int
         Border.new value, value, value, value
       end

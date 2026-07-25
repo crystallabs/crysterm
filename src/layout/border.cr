@@ -106,7 +106,7 @@ module Crysterm
         @bucket_center.each do |el|
           # Center: everything not top/bottom/left/right. Consumes neither axis,
           # so it needs no release bookkeeping.
-          place_and_render el, x0, y0, Math.max(0, x1 - x0 - el.mhorizontal), Math.max(0, y1 - y0 - el.mvertical)
+          place_and_render el, x0, y0, margin_box(x1 - x0, el.mhorizontal), margin_box(y1 - y0, el.mvertical)
         end
       end
 
@@ -129,16 +129,16 @@ module Crysterm
           if vertical
             # Consume height off the near/far edge; span the remaining width.
             mh = el.mvertical
-            ch = el.aheight.clamp(0, Math.max(0, y1 - y0 - mh))
-            cw = Math.max(0, x1 - x0 - el.mhorizontal)
+            ch = el.aheight.clamp(0, margin_box(y1 - y0, mh))
+            cw = margin_box(x1 - x0, el.mhorizontal)
             place_and_render el, x0, (far ? y1 - ch - mh : y0), cw, ch
             record_managed el, @consume_assigned, ch
             far ? (y1 -= ch + mh) : (y0 += ch + mh)
           else
             # Consume width off the near/far edge; span the remaining height.
             mw = el.mhorizontal
-            cw = el.awidth.clamp(0, Math.max(0, x1 - x0 - mw))
-            ch = Math.max(0, y1 - y0 - el.mvertical)
+            cw = el.awidth.clamp(0, margin_box(x1 - x0, mw))
+            ch = margin_box(y1 - y0, el.mvertical)
             place_and_render el, (far ? x1 - cw - mw : x0), y0, cw, ch
             record_managed el, @consume_assigned, cw
             far ? (x1 -= cw + mw) : (x0 += cw + mw)

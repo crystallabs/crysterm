@@ -104,7 +104,11 @@ module Crysterm
           row_end = pos_from_rowcol(rl, line_display_width(rl))
           next if row_end < row_start
 
-          sel_cols = selection_columns_for_row(rl)
+          # 3-arg form: `row_start`/`row_end` are exactly the bounds the 1-arg
+          # form would recompute. Safe here because `TextEdit` does not override
+          # `selection_columns_for_row` (`LineEdit` does, but has its own paint
+          # path through `Widget#base_render`, which keeps calling the 1-arg form).
+          sel_cols = selection_columns_for_row(rl, row_start, row_end)
           # `offset` (the row's decoration inset) must be hoisted above the call:
           # ranged extra selections are viewport columns and need it, matching
           # `selection_columns_for_row`'s `off + rendered_column(...)` convention.

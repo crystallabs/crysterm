@@ -31,9 +31,9 @@ module Crysterm
         @high_width = hw
       end
 
-      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
-        flow_place container, el, i, interior, @high_width
-        overflow_action container, el, interior
+      # Snap every child to the widest child's width, measured in `#before_flow`.
+      protected def column_width : Int32
+        @high_width
       end
     end
   end

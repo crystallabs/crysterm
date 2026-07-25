@@ -114,6 +114,44 @@ module Crysterm
         end
       end
 
+      # The two samples a `#remove` override must take *before* it calls `super`:
+      # the index *element* occupies in `#pages` (`nil` when the detached child
+      # isn't a page at all — a tab bar, a header row) and the page that is
+      # current right now. Both readings are only valid before `super` detaches
+      # the child; pair with `#finish_page_removal` after it.
+      protected def page_removal_snapshot(element) : Tuple(Int32?, Widget?)
+        {@pages.index(element), current_widget}
+      end
+
+      # The other half of a `#remove` override, run *after* `super` with the
+      # `#page_removal_snapshot` taken before it. A non-page child (`nil` index)
+      # passes straight through. Otherwise the page is dropped from `#pages`, the
+      # block is yielded its index for whatever per-widget teardown rides
+      # alongside (parallel arrays, bar/header rows, re-pointing captured
+      # indices), and `#reclamp_after_removal` restores a valid selection.
+      # Returns whether a page was actually removed, so the caller can keep any
+      # announcement (`Event::ItemRemoved`) *after* the reclamp, where it was.
+      #
+      # The block deliberately runs *after* `@pages.delete_at`: the parallel
+      # arrays are independent of `#pages`, so the relative order of the two
+      # deletes is immaterial, but re-entrancy is not — a teardown that detaches
+      # another child of this same container (`ToolBox` removing the section's
+      # header row) re-enters `#remove`, and that nested call must see `#pages`
+      # already shrunk.
+      protected def finish_page_removal(snapshot : Tuple(Int32?, Widget?), &) : Bool
+        idx, kept = snapshot
+        return false unless idx
+        @pages.delete_at idx
+        yield idx
+        reclamp_after_removal idx, kept
+        true
+      end
+
+      # :ditto: — for a container with no per-widget teardown to do.
+      protected def finish_page_removal(snapshot : Tuple(Int32?, Widget?)) : Bool
+        finish_page_removal(snapshot) { }
+      end
+
       # Hook for per-widget work after the visible page changes. Default: nothing.
       protected def after_show_index(index : Int) : Nil
       end

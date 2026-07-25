@@ -199,7 +199,13 @@ module Crysterm
           x1 = Math.min(x1, @width - 1)
           y1 = Math.min(y1, @height - 1)
           return if x0 > x1 || y0 > y1
-          (y0..y1).each { |py| (x0..x1).each { |px| plot px, py } }
+          # Bounds are clamped above, so the per-pixel re-check and the
+          # per-column re-lookup of `@bmp[py]` that `#plot` would do are both
+          # redundant here; resolve the row once per scanline instead.
+          (y0..y1).each do |py|
+            row = @bmp[py]
+            (x0..x1).each { |px| plot_in row, px }
+          end
         end
 
         # Draws an axis-aligned ellipse outline centered at logical (cx, cy) with
@@ -299,11 +305,22 @@ module Crysterm
 
         private def plot(x : Int32, y : Int32) : Nil
           return if x < 0 || y < 0 || x >= @width || y >= @height
+          plot_in @bmp[y], x
+        end
+
+        # Writes one pixel into an already-resolved bitmap row. Callers that
+        # have clamped `x`/`y` themselves (`#fill_rect`) hoist the row lookup out
+        # of the inner loop and come here directly; scattered writers (`#line`,
+        # `#four_way`, `#fill_ring`, `#draw_marker`) keep going through `#plot`.
+        # Indexing stays **checked**: `#initialize` measures `@width` from
+        # `@bmp[0].size` only, so a caller-supplied ragged bitmap must raise here
+        # exactly as it did when `#plot` wrote `@bmp[y][x]` — never `unsafe_put`.
+        private def plot_in(row : Array(PNGGIF::Pixel), x : Int32) : Nil
           if @pen_alpha >= 255
-            @bmp[y][x] = @pen_px
+            row[x] = @pen_px
           else
-            old = @bmp[y][x]
-            @bmp[y][x] = PNGGIF::Pixel.new(
+            old = row[x]
+            row[x] = PNGGIF::Pixel.new(
               (@pen_px.r * @pen_af + old.r * @pen_ia).round.to_i,
               (@pen_px.g * @pen_af + old.g * @pen_ia).round.to_i,
               (@pen_px.b * @pen_af + old.b * @pen_ia).round.to_i,

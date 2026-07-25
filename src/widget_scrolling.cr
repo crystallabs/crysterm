@@ -290,22 +290,47 @@ module Crysterm
       base.clamp(0, Math.max(0, extent - visible))
     end
 
-    # Qt's `ensureVisible(y, margin)`: scroll the minimum amount so content line
-    # *y* sits within the viewport, keeping *margin* lines of context. No-op when
-    # already visible. Returns whether the viewport moved.
-    def ensure_visible(y : Int32, margin : Int32 = 0) : Bool
-      return false unless scrollable?
-      visible = visible_content_rows
-      return false if visible <= 0
+    # `ensure_visible`/`ensure_visible_x`: the two axis mirrors of the same
+    # minimum-scroll operation, generated from one body (as the `a*` geometry
+    # families in widget_position.cr / widget_size.cr are) so the windowing,
+    # change guard and event emission can never drift between the axes.
+    #
+    # Every token that differs is listed per axis, and the viewport sources are
+    # deliberately **not** interchangeable: the vertical axis measures with
+    # `visible_content_rows` (which subtracts the horizontal scrollbar's rows),
+    # the horizontal one with `content_width` (which subtracts
+    # `content_margin_x`). Only the horizontal axis passes an orientation to
+    # `Event::Scroll`; the vertical one keeps the default (vertical) form.
+    {% for axis in [
+                     {name: "ensure_visible", coord: "y", base: "child_base",
+                      visible: "visible_content_rows", extent: "scroll_height",
+                      orientation: nil, orient: "vertical", unit: "line"},
+                     {name: "ensure_visible_x", coord: "x", base: "child_base_x",
+                      visible: "content_width", extent: "scroll_width",
+                      orientation: "Tput::Orientation::Horizontal", orient: "horizontal", unit: "column"},
+                   ] %}
+      # Qt's `ensureVisible` on the {{ axis[:orient].id }} axis: scrolls the minimum
+      # amount so content {{ axis[:unit].id }} *{{ axis[:coord].id }}* sits within the
+      # viewport, keeping *margin* {{ axis[:unit].id }}s of context. No-op when already
+      # visible. Returns whether the viewport moved.
+      def {{ axis[:name].id }}({{ axis[:coord].id }} : Int32, margin : Int32 = 0) : Bool
+        return false unless scrollable?
+        visible = {{ axis[:visible].id }}
+        return false if visible <= 0
 
-      base = @child_base
-      @child_base = windowed_base(y, @child_base, margin, visible, scroll_height)
+        base = @{{ axis[:base].id }}
+        @{{ axis[:base].id }} = windowed_base({{ axis[:coord].id }}, @{{ axis[:base].id }}, margin, visible, {{ axis[:extent].id }})
 
-      return false if @child_base == base
-      mark_dirty
-      emit Crysterm::Event::Scroll, @child_base - base
-      true
-    end
+        return false if @{{ axis[:base].id }} == base
+        mark_dirty
+        {% if axis[:orientation] %}
+          emit Crysterm::Event::Scroll, @{{ axis[:base].id }} - base, {{ axis[:orientation].id }}
+        {% else %}
+          emit Crysterm::Event::Scroll, @{{ axis[:base].id }} - base
+        {% end %}
+        true
+      end
+    {% end %}
 
     # Qt's `ensureWidgetVisible(child, margin)`: scroll so descendant *child* is
     # within the viewport. Reveals the bottom edge first, then the top, so the
@@ -320,22 +345,6 @@ module Crysterm
       top = (child.atop || 0) - (atop || 0) - itop
       moved = ensure_visible(top + child.aheight - 1, margin)
       ensure_visible(top, margin) || moved
-    end
-
-    # Horizontal counterpart of `#ensure_visible`: scroll so content column *x*
-    # sits within the viewport. Returns whether the view moved.
-    def ensure_visible_x(x : Int32, margin : Int32 = 0) : Bool
-      return false unless scrollable?
-      visible = content_width
-      return false if visible <= 0
-
-      base = @child_base_x
-      @child_base_x = windowed_base(x, @child_base_x, margin, visible, scroll_width)
-
-      return false if @child_base_x == base
-      mark_dirty
-      emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
-      true
     end
 
     # ------------------------------------------------------------------------

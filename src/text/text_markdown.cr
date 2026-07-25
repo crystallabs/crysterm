@@ -335,9 +335,14 @@ module Crysterm
       # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker, which
       # markd tokenizes as plain text.
       private def task_marker(item : Markd::Node) : Symbol?
-        s = node_text item
+        # Cheap source-position check first: it rejects `\[x\]` without touching
+        # the item's content at all.
         return if md_escaped_marker?(item)
-        if md = s.match(/\A\[([ xX])\]\s/)
+        # The regex only ever looks at the first four characters, so serialize
+        # only those — `node_text` would build the item's *entire* subtree
+        # (nested paragraphs, sublists and their items) into a String and throw
+        # it away, once per item of every bullet list in the document.
+        if md = leading_text(item, 4).match(/\A\[([ xX])\]\s/)
           md[1].downcase == "x" ? :done : :todo
         end
       end
@@ -357,6 +362,48 @@ module Crysterm
 
       private def node_text(node : Markd::Node) : String
         String.build { |io| collect_text node, io }
+      end
+
+      # The first *limit* **codepoints** of what `#collect_text` would produce
+      # for *node* — same traversal, same emission order, same `|` → `\|` remap
+      # — stopping as soon as that many are accumulated. For a caller that only
+      # inspects a fixed-length prefix this avoids serializing the whole
+      # subtree. The result may be shorter than *limit* (short subtree), never
+      # longer, and is always a prefix of `#node_text`'s output.
+      private def leading_text(node : Markd::Node, limit : Int32) : String
+        String.build { |io| collect_leading_text node, io, limit, 0 }
+      end
+
+      # `#collect_text`'s bounded twin. *n* is the number of codepoints written
+      # so far; returns the updated count so sibling and parent loops can stop.
+      private def collect_leading_text(node : Markd::Node, io : IO, limit : Int32, n : Int32) : Int32
+        child = node.first_child?
+        while child && n < limit
+          case child.type
+          when .text?
+            t = child.text
+            t = "\\|" if t == "|"
+            n = append_bounded io, t, limit, n
+          when .code?
+            n = append_bounded io, child.text, limit, n
+          when .soft_break?, .line_break?
+            io << '\n'
+            n += 1
+          else
+            n = collect_leading_text child, io, limit, n
+          end
+          child = child.next?
+        end
+        n
+      end
+
+      # Writes at most `limit - n` codepoints of *s* to *io*, returning the new
+      # total.
+      private def append_bounded(io : IO, s : String, limit : Int32, n : Int32) : Int32
+        room = limit - n
+        s = s[0, room] if s.size > room
+        io << s
+        n + s.size
       end
 
       private def collect_text(node : Markd::Node, io : IO) : Nil

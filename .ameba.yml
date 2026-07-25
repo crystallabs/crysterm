@@ -37,6 +37,22 @@ Lint/NotNil:
   Excluded:
     - spec/**/*.cr
 
+# A macro call whose argument is a type declaration with a default —
+# `event Attached, object : EventHandler`, `enum_property align : T = ...`,
+# `nonempty_property pool : Array(Char) = DEFAULT_POOL`, `reactive_property
+# caption : String = "untitled"` — parses as a typed local assignment, so the
+# rule reports the *declaration* as a useless assignment. Ameba cannot expand
+# macros, so this misfires by construction.
+#
+# The rule is genuinely useful otherwise (it catches real dead stores elsewhere
+# in the tree), so it stays on and the handful of scattered macro call sites
+# carry an inline `# ameba:disable Lint/UselessAssign` instead. `src/event.cr`
+# is excluded wholesale only because it is the event catalog: 81 `event`
+# declarations, 68 of which misfire, would need 68 inline directives.
+Lint/UselessAssign:
+  Excluded:
+    - src/event.cr
+
 # --- Deliberate, pervasive project conventions --------------------------------
 
 # Short single-letter block parameters (|w|, |c|, |s|) are the house style,

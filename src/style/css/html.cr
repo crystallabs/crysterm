@@ -74,10 +74,7 @@ module Crysterm
         io << CSS.escape_attr(cls)
       end
       io << ' ' << state.css_class << '"'
-      css_attributes.each do |key, value|
-        io << ' ' << key
-        value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
-      end
+      emit_css_attributes io
       io << '>'
       # Child widgets first, so they occupy clean `:nth-child` positions
       # (1..N) — important for list items / table rows styled positionally.
@@ -99,10 +96,7 @@ module Crysterm
         css_sub_elements.each do |slot|
           io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
           io << " class=\"" << slot.capitalize << '"'
-          css_attributes.each do |key, value|
-            io << ' ' << key
-            value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
-          end
+          emit_css_attributes io
           io << "></w-" << slot << '>'
         end
       end
@@ -153,10 +147,7 @@ module Crysterm
     def css_sub_node_attributes(slot : String) : Array(HTML5::Attribute)
       attrs = [HTML5::Attribute.new("", "data-uid", "#{uid_s}::#{slot}"),
                HTML5::Attribute.new("", "class", slot.capitalize)]
-      css_attributes.each do |key, value|
-        attrs << HTML5::Attribute.new("", key, value || "")
-      end
-      attrs
+      append_css_attributes attrs
     end
 
     # This widget's current attributes as parsed-node `HTML5::Attribute`s, matching
@@ -168,6 +159,27 @@ module Crysterm
         attrs << HTML5::Attribute.new("", "id", id)
       end
       attrs << HTML5::Attribute.new("", "class", "#{css_all_classes.join(' ')} #{state.css_class}")
+      append_css_attributes attrs
+    end
+
+    # Serializes `#css_attributes` into *io*, as `#to_html` emits them: always
+    # last, after `class`. A `nil` value emits a bare boolean attribute.
+    #
+    # Shared by the widget node and its sub-element pseudo-nodes (which repeat
+    # the host's intrinsic attributes), and kept in lock-step with
+    # `#append_css_attributes` — `css_patch_nodes` patches parsed nodes from
+    # that form and must reproduce exactly what this serialized, or attribute
+    # selectors match stale state.
+    private def emit_css_attributes(io : IO) : Nil
+      css_attributes.each do |key, value|
+        io << ' ' << key
+        value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
+      end
+    end
+
+    # `#emit_css_attributes` in parsed-node form: appends `#css_attributes` to
+    # *attrs* (last, after `class`) and returns it.
+    private def append_css_attributes(attrs : Array(HTML5::Attribute)) : Array(HTML5::Attribute)
       css_attributes.each do |key, value|
         attrs << HTML5::Attribute.new("", key, value || "")
       end
@@ -195,7 +207,29 @@ module Crysterm
     # corresponding `Style` sub-style). Base widget exposes scrollbar/track (while
     # scrolling is enabled) and `label` (when set); others override (e.g. a
     # table's `cell`/`header`).
+    #
+    # Memoized, because this runs once per widget per cascade (from `#to_html`,
+    # the cascade index and the attribute patch path) and every override
+    # allocates via `super + [...]`. The memo key is the only dynamic input:
+    # every override appends a *static* literal list, so the base's two booleans
+    # fully determine the result.
+    #
+    # **The returned array is shared and must be treated as read-only** — the
+    # contract `EMPTY_CSS_SLOTS` already documented, now extended to every
+    # widget. Subclasses override `#build_css_sub_elements`, never this.
     def css_sub_elements : Array(String)
+      key = {scrollbar?, !@label_widget.nil?}
+      if (slots = @_css_sub_slots) && @_css_sub_slots_key == key
+        return slots
+      end
+      @_css_sub_slots_key = key
+      @_css_sub_slots = build_css_sub_elements
+    end
+
+    # Computes this widget's sub-element slots. Overridden by subclasses (each
+    # appending its own static slots to `super`); call `#css_sub_elements`
+    # instead, which memoizes this.
+    def build_css_sub_elements : Array(String)
       # Common case (no scrollbar, no label) reuses the shared empty list.
       return EMPTY_CSS_SLOTS unless scrollbar? || @label_widget
       slots = [] of String

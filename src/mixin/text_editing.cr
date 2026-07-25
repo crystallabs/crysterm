@@ -50,6 +50,24 @@ module Crysterm
         self.value = text
       end
 
+      # Whether anyone is listening for `Event::TextChanged`, used to skip
+      # building the event's payload when nobody would read it.
+      #
+      # The payload is `#buf_text` — for a document-backed buffer that is a full
+      # `String` rebuild of the document on every content-changing keystroke, so
+      # the guard is worth having. Call sites must keep `request_render` and
+      # `_update_cursor` *outside* the guard: rendering does not depend on
+      # anyone observing the event.
+      #
+      # Caveat: `has_handlers?` inspects only the concrete `TextChanged` handler
+      # list, not the `AnyEvent` list that `emit` also consults, so a listener
+      # registered *purely* via `AnyEvent` stops seeing `TextChanged` at guarded
+      # sites. That is the same trade-off already accepted for `Event::Key` at
+      # `Window#emit_key_transition` (src/window_interaction.cr).
+      private def text_change_observed? : Bool
+        has_handlers?(Crysterm::Event::TextChanged)
+      end
+
       # Inserts *str* at the cursor, replacing the selection if there is one —
       # exactly what typing the characters would do (Qt's `QLineEdit#insert`).
       #
@@ -70,7 +88,7 @@ module Crysterm
         return if !had_selection && buf_size == before_size
         ensure_cursor_visible
         ensure_cursor_visible_x
-        emit Crysterm::Event::TextChanged, buf_text
+        emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
         request_render
         _update_cursor
       end

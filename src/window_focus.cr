@@ -96,47 +96,60 @@ module Crysterm
       @saved_focus = nil
     end
 
-    # "Rewinds" focus to the most recent visible and attached element.
+    # Pops the focus history, prunes the invalid trailing entries it uncovers,
+    # and hands focus to whatever is left on top. Returns `{new_top, popped}`:
+    # the widget that now holds focus (`nil` when the history ran out) and the
+    # widget that was popped off it. The shared body of `#rewind_focus` and
+    # `#focus_pop`, which differ only in which half of that pair they return.
     #
-    # As a side-effect, prunes the focus history list.
-    def rewind_focus
+    # Prunes only the invalid *trailing* entries, popping back-to-front until the
+    # top is a still-valid target (or the history empties). Clearing the whole
+    # history would discard older-but-still-valid entries, so a second
+    # `rewind_focus` (Tab A→B→C, hide C rewinds to B, then hide B) would blur
+    # focus entirely instead of falling back to the still-visible A. The prune is
+    # mandatory before restoring: `@history` is never pruned on widget removal,
+    # so the new top may be a detached/hidden widget, and `_focus`ing it would
+    # set `state = :focused` off-window, route keys off-screen, and — with a
+    # scrollable ancestor — crash in the scroll-into-view guard
+    # (`el.window` = `window?.not_nil!`).
+    #
+    # Per-entry validity (`#on_screen_here?`): `window? == self`, not the raising
+    # `screen` (a destroyed/detached widget has none) nor a bare truthy `window?`
+    # (which accepts a widget moved to another screen). `displayed_in_tree?`, not
+    # `style.visible?`, so a widget whose own flag is visible inside a hidden
+    # container is not re-focused.
+    private def pop_and_refocus : {Widget?, Widget?}
       # `pop?` (not `pop`) so a re-entrant or otherwise empty-history call
       # degrades to a no-op instead of raising IndexError.
       old = @history.pop?
 
-      # Prune only the invalid *trailing* entries, popping back-to-front until
-      # the top is a still-valid target (or the history empties). Clearing the
-      # whole history would discard older-but-still-valid entries, so a second
-      # `rewind_focus` (Tab A→B→C, hide C rewinds to B, then hide B) would blur
-      # focus entirely instead of falling back to the still-visible A.
-      #
-      # Per-entry validity: `window? == self`, not the raising `screen` (a
-      # destroyed/detached widget has none) nor a bare truthy `window?` (which
-      # accepts a widget moved to another screen; `@history` entries are never
-      # pruned). `displayed_in_tree?`, not `style.visible?`, so a widget whose
-      # own flag is visible inside a hidden container is not re-focused.
       while (e = @history.last?) && !on_screen_here?(e)
         @history.pop
       end
-      el = @history.last?
 
-      unless el
+      if el = @history.last?
+        # `el` is already on top of `@history` (the surviving entry after the
+        # trailing tail was pruned), so it must NOT be pushed again. Emitting
+        # `Event::FocusOut` on `old` is likewise left to `_focus`, which is the
+        # single site that does it — doing it here too would double-fire.
+        _focus el, old
+      elsif old
         # No valid prior target remains, so `focused` already returns nil — but
         # the just-popped `old` must still be *blurred*, or the detached/hidden
         # widget lingers in `WidgetState::Focused` (reappearing visually focused
         # on `#show`) with no listener ever seeing focus leave it. `nil` payload:
         # no widget is taking over focus.
-        old.try do |o|
-          o.emit Crysterm::Event::FocusOut, nil if blur_state_reset o
-        end
-        return
+        old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
       end
 
-      # `el` is already on top of `@history` (the surviving entry after the
-      # trailing tail was pruned), so it must NOT be pushed again. `_focus`
-      # already emits `Event::FocusOut` on `old`; emitting it here too would
-      # double-fire FocusOut.
-      _focus el, old
+      {el, old}
+    end
+
+    # "Rewinds" focus to the most recent visible and attached element.
+    #
+    # As a side-effect, prunes the focus history list.
+    def rewind_focus
+      el, _ = pop_and_refocus
       el
     end
 
@@ -160,27 +173,7 @@ module Crysterm
 
     # Removes focus from the current element and focuses the element that was previously in focus.
     def focus_pop
-      # Non-raising pop: `focus_pop` is public API and the history may be empty.
-      old = @history.pop?
-
-      # Prune invalid *trailing* entries before restoring focus. `@history` is
-      # never pruned on widget removal, so the new top may be a detached/hidden
-      # widget: `_focus`ing it would set `state = :focused` on an off-window
-      # widget, route keys off-screen, and — if it has a scrollable ancestor —
-      # crash in the scroll-into-view guard (`el.window` = `window?.not_nil!`).
-      # Same predicate as `rewind_focus` so a valid older entry still survives.
-      while (e = @history.last?) && !on_screen_here?(e)
-        @history.pop
-      end
-
-      if el = @history.last?
-        _focus el, old
-      elsif old
-        # No prior target remains, but the just-popped widget must still be
-        # blurred, or it lingers in `WidgetState::Focused` with no listener
-        # seeing focus leave it.
-        old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
-      end
+      _, old = pop_and_refocus
       old
     end
 

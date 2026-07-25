@@ -66,13 +66,18 @@ module Crysterm
       # `@css_cells` by the earlier row-slot pass), that row style is the base
       # instead, so `Row` + `Cell` rules cascade together (cell wins).
       def css_extra_base_style(slot : String) : Style
-        unless slot.starts_with?("row:")
+        # Parsed once: the `row:`/`cell:` gate picks the form, and the row index
+        # the fall-back below needs comes out of the same parse. (The gate must
+        # stay ahead of `parse_css_cell`, which has no `col` field to read on a
+        # `row:<row>` slot.)
+        if slot.starts_with?("row:")
+          row = css_slot_row(slot)
+        else
           row, col = parse_css_cell(slot)
           if existing = @css_cells.try &.[{row, col}]?
             return existing
           end
         end
-        row = css_slot_row(slot)
         if row == 0
           style.header
         elsif alternate_rows? && row.even?
@@ -100,15 +105,45 @@ module Crysterm
         @css_cells.try &.clear
       end
 
+      # The `{row, col}` of a `cell:<row>:<col>` slot. Raises on a `row:<row>`
+      # slot, which carries no column — callers gate on `starts_with?("row:")`.
       private def parse_css_cell(slot : String) : Tuple(Int32, Int32)
-        parts = slot.split(':') # "cell:<row>:<col>"
-        {parts[1].to_i, parts[2].to_i}
+        row, col = css_slot_indices(slot)
+        raise ArgumentError.new("Not a table cell CSS slot: #{slot}") unless col
+        {row, col}
       end
 
       # The row index encoded in a slot, from either `row:<row>` or
       # `cell:<row>:<col>` — the second `:`-delimited field in both.
       private def css_slot_row(slot : String) : Int32
-        slot.split(':')[1].to_i
+        css_slot_indices(slot)[0]
+      end
+
+      # The indices encoded in an extra slot: `{row, nil}` for `row:<row>`,
+      # `{row, col}` for `cell:<row>:<col>`.
+      #
+      # Scanned in place rather than via `split(':')`, so neither the parts
+      # array nor the substrings are allocated — the cascade visits every extra
+      # slot of every rule-matched table on every hover/drag event.
+      private def css_slot_indices(slot : String) : Tuple(Int32, Int32?)
+        first = slot.byte_index(':')
+        raise ArgumentError.new("Malformed table CSS slot: #{slot}") unless first
+        second = slot.byte_index(':', first + 1)
+        row = css_slot_int(slot, first + 1, second || slot.bytesize)
+        {row, second ? css_slot_int(slot, second + 1, slot.bytesize) : nil}
+      end
+
+      # Decimal digits of *slot* in byte range `[from, to)` as an `Int32`. The
+      # indices are widget-generated, so only ASCII digits can appear.
+      private def css_slot_int(slot : String, from : Int32, to : Int32) : Int32
+        raise ArgumentError.new("Malformed table CSS slot: #{slot}") if from >= to
+        value = 0
+        (from...to).each do |i|
+          digit = slot.byte_at(i) &- 48_u8
+          raise ArgumentError.new("Malformed table CSS slot: #{slot}") if digit > 9
+          value = value * 10 + digit
+        end
+        value
       end
     end
   end

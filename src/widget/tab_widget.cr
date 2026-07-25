@@ -420,21 +420,21 @@ module Crysterm
       # does the work itself (mirrors `Splitter#remove_widget`); the tab bar and
       # any other non-page child pass straight through.
       def remove(element)
-        idx = @pages.index element
-        # Snapshot the current page before the delete so the reclamp can keep it
-        # current when it wasn't the one removed.
-        cur = current_widget
+        # Snapshot the index and the current page before `super` detaches the
+        # child, so the reclamp can keep it current when it wasn't the one
+        # removed.
+        snap = page_removal_snapshot element
         super
-        if idx
+        removed = finish_page_removal(snap) do |idx|
           @tab_titles.delete_at idx
-          @pages.delete_at idx
           @switching = true
           tab_bar.remove_item idx
           # Surviving commands' captured indices go stale after removal; re-point
           # them or Enter on a later tab jumps to the wrong page.
           repoint_tab_callbacks
           @switching = false
-          reclamp_after_removal idx, cur
+        end
+        if removed
           emit ::Crysterm::Event::ItemRemoved
           request_render
         end

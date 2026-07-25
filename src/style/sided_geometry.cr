@@ -71,18 +71,16 @@ module Crysterm
       end
     end
 
-    # The `in Side` arm of the integer `.from` constructors: resolves a side
-    # into per-side amounts and splats them into the enclosing type's
+    # The `in Side, Symbol` arm of the integer `.from` constructors: resolves a
+    # side *spec* — either a `Side` member or one of the symbol aliases — into
+    # per-side amounts and splats them into the enclosing type's
     # four-positional integer constructor. `new` binds to the type at the
     # expansion site, so each `.from` builds its own type.
+    #
+    # Both forms take the same path: `SidedGeometry.sides` has a `Side` and a
+    # `Symbol` overload, so a `Side | Symbol` value resolves by union dispatch
+    # and one arm can serve both.
     macro new_from_side(value)
-      %s = SidedGeometry.sides {{ value }}
-      new %s[:left], %s[:top], %s[:right], %s[:bottom]
-    end
-
-    # The `in Symbol` arm of the integer `.from` constructors: same as
-    # `new_from_side`, resolving through the `Symbol` delegator overload above.
-    macro new_from_symbol(value)
       %s = SidedGeometry.sides {{ value }}
       new %s[:left], %s[:top], %s[:right], %s[:bottom]
     end
@@ -131,12 +129,9 @@ module Crysterm
           default
         in {{ @type }}
           value
-        in Side
+        in Side, Symbol
           # One cell on the named side(s).
           SidedGeometry.new_from_side value
-        in Symbol
-          # One cell on the named side(s).
-          SidedGeometry.new_from_symbol value
         in Int
           new value, value, value, value
         in Tuple(Int32, Int32)

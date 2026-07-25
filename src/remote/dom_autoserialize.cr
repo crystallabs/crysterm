@@ -107,39 +107,24 @@ macro dom_autoserialize_body(mode)
         # `property` setter is equivalent to the ivar write, so this is safe as a
         # blanket rule; only ivars with no setter fall back to `@ivar =`.
         {% setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == n + "=" } } %}
+        # Resolve the assignment target once and splice it into each value kind,
+        # instead of repeating the two-arm conditional per kind.
+        {% tgt = (setter ? "self.#{n.id} =" : "@#{n.id} =").id %}
         when {{ key }}
           {% if kind == "bool" %}
-            {% if setter %}
-              self.{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics
-            {% else %}
-              @{{ n.id }} = dom_coerce_bool(value) # HTML boolean-attr semantics
-            {% end %}
+            {{ tgt }} dom_coerce_bool(value) # HTML boolean-attr semantics
           {% elsif kind == "dim" %}
-            {% if setter %}
-              self.{{ n.id }} = dom_coerce_dimension(value)
-            {% else %}
-              @{{ n.id }} = dom_coerce_dimension(value)
-            {% end %}
+            {{ tgt }} dom_coerce_dimension(value)
           {% elsif kind == "int" %}
             {% if nilable %}
-              {% if setter %}
-                self.{{ n.id }} = value.try(&.to_i?)
-              {% else %}
-                @{{ n.id }} = value.try(&.to_i?)
-              {% end %}
+              {{ tgt }} value.try(&.to_i?)
             {% else %}
-              {% if setter %}
-                value.try(&.to_i?).try { |i| self.{{ n.id }} = i }
-              {% else %}
-                value.try(&.to_i?).try { |i| @{{ n.id }} = i }
-              {% end %}
+              # Assign *inside* the `try`, so an unparseable value leaves the
+              # non-nilable ivar alone rather than writing `nil`.
+              value.try(&.to_i?).try { |i| {{ tgt }} i }
             {% end %}
           {% else %} # str
-            {% if setter %}
-              self.{{ n.id }} = {% if nilable %}value{% else %}value || ""{% end %}
-            {% else %}
-              @{{ n.id }} = {% if nilable %}value{% else %}value || ""{% end %}
-            {% end %}
+            {{ tgt }} {% if nilable %}value{% else %}value || ""{% end %}
           {% end %}
       {% end %}
       else

@@ -199,40 +199,36 @@ end
 
 describe "BUGS18 B18-10: switch_terminal carries runtime-set options" do
   it "copies runtime-settable options onto the replacement" do
-    # Force headless so the replacement binds in-memory IO even when specs
-    # run on a real terminal.
-    Crysterm::Config.set "screen.headless", Crysterm::Headless::Always
-    begin
-      w = b18rw_window
-      w.hyperlinks = false
-      w.synchronized_output = false
-      w.send_focus = true
-      w.frame_interval = 250.milliseconds
-      w.drag_two_click = true
-      w.drag_ghost = false
-      w.overflow = Crysterm::Overflow::SkipWidget
-      w.default_attr = 12345_i64
-      w.default_char = '#'
-      w.mouse_cursor_shaping = true
+    # The replacement binds in-memory IO because `spec_helper` pins
+    # `screen.headless` to `Always` — `switch_terminal` gives the new window
+    # fresh *default* IO, so nothing here can pass it explicitly.
+    w = b18rw_window
+    w.hyperlinks = false
+    w.synchronized_output = false
+    w.send_focus = true
+    w.frame_interval = 250.milliseconds
+    w.drag_two_click = true
+    w.drag_ghost = false
+    w.overflow = Crysterm::Overflow::SkipWidget
+    w.default_attr = 12345_i64
+    w.default_char = '#'
+    w.mouse_cursor_shaping = true
 
-      w2 = w.switch_terminal "xterm"
-      begin
-        # Pre-fix each of these silently reverted to its config default.
-        w2.hyperlinks?.should be_false
-        w2.synchronized_output?.should be_false
-        w2.send_focus?.should be_true
-        w2.frame_interval.should eq 250.milliseconds
-        w2.drag_two_click?.should be_true
-        w2.drag_ghost?.should be_false
-        w2.overflow.should eq Crysterm::Overflow::SkipWidget
-        w2.default_attr.should eq 12345_i64
-        w2.default_char.should eq '#'
-        w2.mouse_cursor_shaping?.should be_true
-      ensure
-        w2.destroy
-      end
+    w2 = w.switch_terminal "xterm"
+    begin
+      # Pre-fix each of these silently reverted to its config default.
+      w2.hyperlinks?.should be_false
+      w2.synchronized_output?.should be_false
+      w2.send_focus?.should be_true
+      w2.frame_interval.should eq 250.milliseconds
+      w2.drag_two_click?.should be_true
+      w2.drag_ghost?.should be_false
+      w2.overflow.should eq Crysterm::Overflow::SkipWidget
+      w2.default_attr.should eq 12345_i64
+      w2.default_char.should eq '#'
+      w2.mouse_cursor_shaping?.should be_true
     ensure
-      Crysterm::Config.set "screen.headless", Crysterm::Headless::Auto
+      w2.destroy
     end
   end
 end

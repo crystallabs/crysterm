@@ -161,6 +161,25 @@ module Crysterm
       end
     {% end %}
 
+    # Whether the x axis shrinks to its content: no explicit width, and at least
+    # one horizontal edge left unanchored (both anchored pins the width instead).
+    #
+    # `#minimal_children_rectangle` and `#minimal_content_rectangle` must agree on
+    # what "shrinks on this axis" means, or the children-derived and
+    # content-derived rectangles silently disagree — hence the single definition.
+    private def shrink_width? : Bool
+      @width.nil? && (@left.nil? || @right.nil?)
+    end
+
+    # Whether the y axis shrinks to its content — the `#shrink_width?` mirror,
+    # plus the non-obvious `(!@scrollable || item_view?)` term: a scrollable
+    # widget keeps its given height (its content is meant to overflow and
+    # scroll), *except* an item view, whose height is derived from its item
+    # count.
+    private def shrink_height? : Bool
+      @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
+    end
+
     # Returns minimum widget size based on bounding box
     private def minimal_children_rectangle(xi, xl, yi, yl, rendered)
       if @children.empty?
@@ -230,8 +249,8 @@ module Crysterm
         @lpos = _lpos
       end
 
-      if @width.nil? && (@left.nil? || @right.nil?)
-        if @left.nil? && !@right.nil?
+      if shrink_width?
+        if far_anchored?(@left, @right)
           xi = xl - (mxl - mxi)
           # `mxl - mxi` already bakes in the *near* (left) inset: children sit at
           # `parent.ileft` while `mxi` is seeded to the parent's own left edge, so
@@ -245,7 +264,7 @@ module Crysterm
           xl += iright
         end
       end
-      if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
+      if shrink_height?
         # Shrunken lists assume all items should be showing; height can be
         # calculated from item count.
         if item_view?
@@ -263,7 +282,7 @@ module Crysterm
           # branch's span (`myl - myi == items + itop`) unchanged.
           myl = yi + item_box_count + itop
         end
-        if @top.nil? && !@bottom.nil?
+        if far_anchored?(@top, @bottom)
           yi = yl - (myl - myi)
           # `myl - myi` already bakes in the *near* (top) inset (see the x-axis
           # branch above), so pull the top edge back by the *far* (bottom) inset to
@@ -291,17 +310,16 @@ module Crysterm
       # The border box is sized to exactly the content (`w`/`h` + inner insets);
       # an outward margin shifts this box rather than shrinking it (see
       # `coords`), so no margin room is reserved here.
-      if @width.nil? && (@left.nil? || @right.nil?)
-        if @left.nil? && !@right.nil?
+      if shrink_width?
+        if far_anchored?(@left, @right)
           xi = xl - w - ihorizontal
         else
           xl = xi + w + ihorizontal
         end
       end
 
-      if @height.nil? && (@top.nil? || @bottom.nil?) &&
-         (!@scrollable || item_view?)
-        if @top.nil? && !@bottom.nil?
+      if shrink_height?
+        if far_anchored?(@top, @bottom)
           yi = yl - h - ivertical
         else
           yl = yi + h + ivertical

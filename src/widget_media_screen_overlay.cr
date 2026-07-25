@@ -10,8 +10,9 @@ module Crysterm
     # Shared by `Media::Graphics` (in-band sixel/ReGIS/Kitty/iTerm) and
     # `Media::Overlay` (w3m):
     #
-    # * the listener-wrapper ivars (`@listener_screen`, `@ev_prerender`,
-    #   `@ev_rendered`) and the `@last_drawn` cell rectangle,
+    # * the listener-wrapper ivars (`@listener_screen` and `@ev_rendered` from
+    #   `Media::WindowListener`, plus `@ev_prerender`) and the `@last_drawn`
+    #   cell rectangle,
     # * `#register_overlay_listeners`/`#teardown_overlay_listeners`, adding and
     #   removing the `PreRender` (erase-on-move) and `Rendered`
     #   (repaint-on-top) listeners in a fixed order,
@@ -27,22 +28,22 @@ module Crysterm
     # The über-zug and Tek backends are deliberately not mixed in: they register
     # a single `Rendered` listener (no erase-on-move), don't track `@last_drawn`,
     # and dispatch to their own paint method. Their smaller shared
-    # register/teardown lives in `Media::RenderHook` instead.
+    # register/teardown lives in `Media::RenderHook` instead — the sibling
+    # variant of the same `Media::WindowListener` spine both build on.
     module Media::ScreenOverlay
-      # Window the listeners below were registered on, kept so they can be
-      # removed on destroy even after the widget is detached (`#window?` nil).
-      @listener_screen : ::Crysterm::Window?
+      # `@listener_screen`, `@ev_rendered`, the one-shot wiring guard, the
+      # `Attached`/`Reparented`/`Detached` triple and the deferred
+      # re-registration all come from here; this module adds the erase-on-move
+      # (`PreRender`) half, the `@last_drawn` rectangle, and the extra
+      # `Hide`/`Show`/`Destroy` hooks on top via the module's three seams.
+      include Media::WindowListener
+
+      # The erase-on-move wrapper — the half `Media::RenderHook` does not have.
       @ev_prerender : ::Crysterm::Event::PreRender::Wrapper?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
       # Cell rectangle (`{xi, yi, w, h}`) the overlay was last painted at, used to
       # detect movement/resize so the old position can be cleared.
       @last_drawn : Tuple(Int32, Int32, Int32, Int32)?
-
-      # One-shot guard for the self lifecycle hooks (`#wire_overlay_lifecycle_hooks`),
-      # so re-registering the window listeners after a cross-window move doesn't
-      # stack duplicate `Hide`/`Detached`/... handlers on this widget.
-      @overlay_hooks_wired = false
 
       # Scratch `RenderedGeometry` reused by `#invalidate_old_position` and
       # `#overlay_rendered`, since `coords` with no `into:` allocates a fresh one
@@ -59,37 +60,32 @@ module Crysterm
         @listener_screen = s
         @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
         @ev_rendered = s.on(::Crysterm::Event::Rendered) { overlay_rendered }
-        wire_overlay_lifecycle_hooks
+        wire_listener_lifecycle
       end
 
-      # Wires this widget's own lifecycle hooks, exactly once per widget.
+      # `Media::WindowListener` seam: the extra hooks on this widget itself,
+      # beyond the shared `Attached`/`Reparented`/`Detached` triple.
       #
-      # The overlay lives outside the cell buffer, so hiding/detaching would
-      # leave it on window: clear it on hide/detach, repaint on show
-      # (`#redraw_image` runs every render but skips while hidden). Tear down
-      # window listeners on destroy so they don't leak `self`.
-      private def wire_overlay_lifecycle_hooks
-        return if @overlay_hooks_wired
-        @overlay_hooks_wired = true
+      # The overlay lives outside the cell buffer, so hiding would leave it on
+      # window: clear it on hide, repaint on show (`#redraw_image` runs every
+      # render but skips while hidden). Tear down the window listeners on
+      # destroy so they don't leak `self`.
+      protected def wire_extra_listener_hooks : Nil
         on(::Crysterm::Event::Hide) { clear_overlay }
-        # A cross-window reparent emits `Detach(previous)` then `Attach(new)`:
-        # drop the old window's listeners, then clear the graphic off it; the
-        # `Attached` hook re-registers on the new window. Teardown must come FIRST —
-        # `#clear_overlay` ends with a render of the old window, which with the
-        # `Rendered` listener still registered would repaint the graphic (via the
-        # already-linked new window) mid-move.
-        on(::Crysterm::Event::Detached) do |e|
-          teardown_overlay_listeners
-          clear_overlay e.object.as?(::Crysterm::Window)
-        end
         on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
-        # (Re)attach hooks — wired unconditionally, not only when built detached,
-        # so a widget constructed already-attached still migrates its listeners
-        # when later moved to another window. The `@listener_screen` guard in
-        # `#try_register_overlay_deferred` makes a same-window `Reparented` a no-op.
-        on(::Crysterm::Event::Attached) { try_register_overlay_deferred }
-        on(::Crysterm::Event::Reparented) { try_register_overlay_deferred }
+      end
+
+      # `Media::WindowListener` seam: a cross-window reparent emits
+      # `Detach(previous)` then `Attach(new)`: drop the old window's listeners,
+      # then clear the graphic off it; the `Attached` hook re-registers on the
+      # new window. Teardown must come FIRST — `#clear_overlay` ends with a
+      # render of the old window, which with the `Rendered` listener still
+      # registered would repaint the graphic (via the already-linked new window)
+      # mid-move.
+      protected def on_listener_detached(e : ::Crysterm::Event::Detached) : Nil
+        teardown_overlay_listeners
+        clear_overlay e.object.as?(::Crysterm::Window)
       end
 
       # Registers the overlay listeners now when a window is resolvable, else
@@ -100,15 +96,13 @@ module Crysterm
         if s = window?
           on_overlay_window s
         else
-          wire_overlay_lifecycle_hooks
+          wire_listener_lifecycle
         end
       end
 
-      # Fires from the deferred `Attached`/`Reparented` hook: registers once a window
-      # exists, guarded on `@listener_screen` so a re-attach doesn't double-register.
-      private def try_register_overlay_deferred
-        return if @listener_screen
-        s = window? || return
+      # `Media::WindowListener` seam: route the deferred `Attached`/`Reparented`
+      # registration to the overlay-specific hook backends already override.
+      protected def on_listener_window(s : ::Crysterm::Window) : Nil
         on_overlay_window s
       end
 
@@ -119,14 +113,15 @@ module Crysterm
         register_overlay_listeners s
       end
 
-      # Removes the listeners registered above and forgets the window.
+      # Removes the listeners registered above and forgets the window: the
+      # erase-on-move half here, then the shared `Rendered`/`@listener_screen`
+      # tail. Nothing observes `@ev_prerender` in between, so clearing it before
+      # rather than after the `Rendered` `off` is immaterial.
       protected def teardown_overlay_listeners
         s = @listener_screen || return
         @ev_prerender.try { |w| s.off ::Crysterm::Event::PreRender, w }
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
         @ev_prerender = nil
-        @ev_rendered = nil
-        @listener_screen = nil
+        forget_listener_screen
       end
 
       # The cell rectangle (`{xi, yi, w, h}`) this widget currently occupies, for

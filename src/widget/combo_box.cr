@@ -521,21 +521,24 @@ module Crysterm
         # combo. Mirrors Menu#open_submenu (also anchored on the painted rect).
         if last_rendered_position?
           @popup_anchored = true
-          # `painted_rect` re-calls `last_rendered_position?` here — redundant but
-          # cheap (it's memoized: `return pos if pos.aleft`), so don't "optimize"
-          # it back into a hand-spelled `{lp.xi, lp.yi, …}` tuple literal.
-          Overlay.place_child(pop, painted_rect, {w, want}, Overlay::BELOW_ABOVE)
         elsif @popup_anchored
           # Was anchored on a painted rect before, but the combo has no painted
           # rect this frame — it scrolled fully out of view. Re-anchoring on
           # layout coords would drop the list somewhere unrelated, so dismiss it.
           hide_popup
+          return
         else
           # Not yet rendered while open — anchor on layout coords; the next
           # frame re-runs with the real painted rect. (`last_rendered_position?`
           # is nil in this arm, so `painted_rect` yields the layout fallback.)
-          Overlay.place_child(pop, painted_rect, {w, want}, Overlay::BELOW_ABOVE)
         end
+        # One placement for both the painted-rect and the layout-fallback arm:
+        # `painted_rect` deliberately yields the right anchor in either case.
+        # It re-calls `last_rendered_position?` — redundant but cheap (it's
+        # memoized: `return pos if pos.aleft`), so don't "optimize" it back into
+        # a hand-spelled `{lp.xi, lp.yi, …}` tuple literal or hoist it into a
+        # local.
+        Overlay.place_child(pop, painted_rect, {w, want}, Overlay::BELOW_ABOVE)
       rescue
         # Not laid out yet — keep defaults; render re-runs with real geometry.
       end

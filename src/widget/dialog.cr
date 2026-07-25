@@ -175,10 +175,17 @@ module Crysterm
         return if e.accepted?
         return unless dialog_keys_active? e
         case e.key
-        when Tput::Key::Enter  then accept; e.accept
+        when Tput::Key::Enter  then dialog_enter_gesture; e.accept
         when Tput::Key::Escape then reject; e.accept
         end
         request_render if e.accepted?
+      end
+
+      # What the accelerator's Enter does. A plain dialog accepts; `Wizard`
+      # remaps it to "next page" by overriding this alone, rather than the
+      # `#accept` contract or the whole accelerator body.
+      protected def dialog_enter_gesture : Nil
+        accept
       end
 
       # Whether the accelerator should act on *e*. Overridden to also stand down

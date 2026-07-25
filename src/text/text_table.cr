@@ -121,9 +121,13 @@ module Crysterm
     # '|' (the rebuild funnels through `sanitize_cell`, matching the import
     # path). Returns whether the cell existed.
     def set_cell_text(row : Int32, column : Int32, text : String) : Bool
-      return false unless row >= 0 && row < rows && column >= 0 && column < columns
+      return false unless row >= 0 && column >= 0 && column < columns
+      # `grid` already recovers every data row, so the row bound comes out of
+      # its result — asking `#rows` first would scan the document once more.
       header, body = grid
-      (row == 0 ? header : body[row - 1])[column] = text
+      cells = row == 0 ? header : body[row - 1]?
+      return false unless cells && column < cells.size
+      cells[column] = text
       rebuild_content(header, body)
       true
     end
@@ -215,10 +219,13 @@ module Crysterm
       bars
     end
 
-    # The char format of the borders (recovered from the top border row, so
-    # a rebuild keeps the theme the table was imported with).
-    private def border_char_format : TextCharFormat
-      blocks.first?.try(&.fragments.first?.try(&.format)) || TextCharFormat.default
+    # The char format of the borders, recovered from *first_block* — the
+    # table's first block, i.e. its top border row — so a rebuild keeps the
+    # theme the table was imported with. The block is a parameter because the
+    # only caller has already located it; deriving it here would re-scan the
+    # whole document.
+    private def border_char_format(first_block : TextBlock) : TextCharFormat
+      first_block.fragments.first?.try(&.format) || TextCharFormat.default
     end
 
     # Replaces the table's rendered blocks with a fresh rendering of the
@@ -238,9 +245,10 @@ module Crysterm
       end
       return unless first_bi
       tf = new_format || @format
-      base_bf = doc.blocks[first_bi].block_format
+      first_block = doc.blocks[first_bi]
+      base_bf = first_block.block_format
       bf = new_format ? base_bf.merge(TextBlockFormat.new(table_format: tf)) : base_bf
-      fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, border_char_format)
+      fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, border_char_format(first_block))
       doc.begin_edit_block
       begin
         common = Math.min(old_count, fresh.size)
@@ -287,8 +295,11 @@ module Crysterm
       end
     end
 
+    # The data-row blocks, in document order. Shares `#data_row_indexed`'s
+    # single pass rather than filtering `#blocks` (itself a full document
+    # scan) a second time with the same predicate.
     private def data_blocks : Array(TextBlock)
-      blocks.select { |b| TextTable.data_row?(b.text) }
+      data_row_indexed.map { |(_, b)| b }
     end
 
     # === Rendering / recovery helpers (module-level, so importers/exporters

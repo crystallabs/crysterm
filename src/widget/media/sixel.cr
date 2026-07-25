@@ -87,7 +87,7 @@ module Crysterm
         # persist across frames under reuse, so each band must leave its
         # `scratch` rows re-zeroed below.
         if reuse && (rs = @row_scratch) && (ss = @seen_scratch) && (bs = @band_of_scratch) &&
-           rs.size == PALETTE.size && (rs[0]?.try(&.size) || 0) == pw
+           Media.grid_fits?(rs, pw, PALETTE.size)
           scratch = rs
           seen = ss
           band_of = bs
@@ -162,7 +162,7 @@ module Crysterm
         if reuse
           qs = @quant_scratch
           qs = @quant_scratch = Array(Array(Int32)).new(ph) { Array(Int32).new(pw, -1) } \
-            if qs.nil? || qs.size != ph || (qs[0]?.try(&.size) || 0) != pw
+            if qs.nil? || !Media.grid_fits?(qs, pw, ph)
           into = qs
         end
         Media.dither_rgb(bmp, pw, ph, @dither, frames_ready?, -1, into) do |r, g, b, t|

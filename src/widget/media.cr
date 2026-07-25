@@ -106,7 +106,7 @@ module Crysterm
         cur_r = Array(Float64).new(dsize, 0.0); cur_g = Array(Float64).new(dsize, 0.0); cur_b = Array(Float64).new(dsize, 0.0)
         nxt_r = Array(Float64).new(dsize, 0.0); nxt_g = Array(Float64).new(dsize, 0.0); nxt_b = Array(Float64).new(dsize, 0.0)
 
-        reuse = !into.nil? && into.size == ph && (into[0]?.try(&.size) || 0) == pw
+        reuse = !into.nil? && Media.grid_fits?(into, pw, ph)
         out = (reuse ? into : nil) || Array(Array(V)).new(ph)
         ph.times do |y|
           rin = bmp[y]
@@ -201,6 +201,16 @@ module Crysterm
         h = bmp.size
         w = h > 0 ? bmp[0].size : 0
         {w, h}
+      end
+
+      # Whether *grid* already measures exactly *w*×*h*. The canonical spelling of
+      # the "can I reuse this scratch buffer?" guard used by the per-frame encode
+      # fast paths (`.dither_rgb`'s `into`, `Fitting`'s sample/place scratches,
+      # the Sixel row/quantize scratches, the video ping-pong buffers) — a
+      # hand-written copy with the wrong polarity either silently disables reuse
+      # or fills an undersized grid in place.
+      def self.grid_fits?(grid : Array(Array(T)), w : Int32, h : Int32) : Bool forall T
+        grid.size == h && (grid[0]?.try(&.size) || 0) == w
       end
 
       # Unpacks a packed `0xRRGGBB` color into its `{r, g, b}` byte channels.
@@ -501,9 +511,16 @@ module Crysterm
         paths.any? { |p| p && File.exists?(p) }
       end
 
-      # Whether an `ueberzug`/`ueberzugpp` helper is on `PATH`.
+      # Whether an `ueberzug`/`ueberzugpp` helper is on `PATH`. Defers to
+      # `Media::Ueberzug.binary`, the single owner of the binary-name list and
+      # the `$PATH` probe, rather than re-sweeping `PATH` on every call — this is
+      # reached from `.available?`, the gate a UI uses to enumerate backends.
+      # The reference is resolved lazily, inside the body, so media.cr does not
+      # need to require the backend. Consequence: the answer is memoized
+      # process-wide, so a helper installed mid-run is not picked up — which is
+      # already true of `Media::Ueberzug` itself, so the two now agree.
       def self.ueberzug_available? : Bool
-        {"ueberzug", "ueberzugpp", "ueberzug++"}.any? { |n| Process.find_executable(n) }
+        !Media::Ueberzug.binary.nil?
       end
 
       # Builds the concrete image/media widget for *type*, forwarding all

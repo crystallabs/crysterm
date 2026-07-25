@@ -41,11 +41,7 @@ module Crysterm
         @item_gap = 0
         # Install/withdraw keyboard accelerators with the bar's attach lifecycle,
         # so e.g. `Ctrl+B` fires whenever the bar is on a window, not only on click.
-        on(::Crysterm::Event::Attached) { install_action_shortcuts }
-        # Uninstall from the window carried on the event: `parent`/`window` are
-        # nulled before `Event::Detached` is emitted, so `window?` is already nil
-        # here — the previous window comes via the payload.
-        on(::Crysterm::Event::Detached) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
+        wire_action_shortcuts
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action
@@ -91,17 +87,11 @@ module Crysterm
         refresh
       end
 
-      # Installs every backing action's keyboard accelerator on the bar's window.
-      private def install_action_shortcuts : Nil
-        w = window? || return
-        @item_actions.each_value(&.install_shortcut(w, self))
-      end
-
-      # Withdraws every backing action's accelerator from *w* (the window the bar
-      # is leaving, supplied via the `Detached` event payload).
-      private def uninstall_action_shortcuts(w : ::Crysterm::Window?) : Nil
-        return unless w
-        @item_actions.each_value(&.uninstall_shortcut(w))
+      # The bar owns its buttons' backing actions, on top of any installed with
+      # `Widget#add_action`.
+      private def each_shortcut_action(&block : Action ->) : Nil
+        super(&block)
+        @item_actions.each_value(&block)
       end
 
       # A tool bar has no persistent cursor: only checkable buttons stay lit, so

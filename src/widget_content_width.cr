@@ -213,15 +213,64 @@ module Crysterm
 
       if from_col > 0
         cut = wrap_cut_index(line, from_col)
-        prefix_sgr = line[0...cut].scan(/\e\[[^m]*m/).join # SGR active at the cut
+        # Byte end of the `line[0...cut]` prefix the SGR-active scan covers.
+        cut_b = line.char_index_to_byte_index(cut) || line.bytesize
         rest = line[cut..]
       else
-        prefix_sgr = ""
+        cut_b = 0
         rest = line
       end
       keep = wrap_cut_index(rest, width)
-      trailing_sgr = rest[keep..].scan(/\e\[[^m]*m/).join
-      prefix_sgr + rest[0...keep] + trailing_sgr
+      keep_b = rest.char_index_to_byte_index(keep) || rest.bytesize
+
+      line_bytes = line.to_slice
+      rest_bytes = rest.to_slice
+      # One builder instead of two `scan(Regex)` calls (each an `Array(MatchData)`
+      # plus a `String` per match plus a join) and two more substrings: the runs
+      # are copied straight out of the source bytes.
+      String.build(cut_b + rest.bytesize) do |io|
+        # SGR active at the cut, re-emitted as a prefix.
+        each_sgr_run(line, 0, cut_b) { |st, len| io.write line_bytes[st, len] }
+        io.write rest_bytes[0, keep_b]
+        # Escapes past the window, carried as a zero-width suffix.
+        each_sgr_run(rest, keep_b, rest.bytesize) { |st, len| io.write rest_bytes[st, len] }
+      end
+    end
+
+    # Yields `{byte_start, byte_count}` for each SGR run of *s* lying wholly
+    # inside the byte window `[from, to)`, in order — the allocation-free
+    # equivalent of `s[from...to].scan(SGR_RE)`. Byte-level scanning is exact
+    # here: `\e`, `[` and `m` are ASCII and so can never occur as a byte of a
+    # multi-byte codepoint.
+    #
+    # NOTE the grammar is `/\e\[[^m]*m/` — deliberately reproduced as-is from
+    # `#_hslice`'s previous regexes, and **looser** than the module-wide
+    # `SGR_REGEX` (`/\e\[[\d;]*m/`) that `#str_width`/`#wrap_cut_index` measure
+    # against. A non-SGR CSI sequence (e.g. `\e[2K`) is therefore captured and
+    # re-emitted here but not treated as zero-width by the column math. That
+    # divergence is pre-existing and is left for a deliberate separate call
+    # rather than silently changed by an allocation fix.
+    private def each_sgr_run(s : String, from : Int32, to : Int32, & : Int32, Int32 ->) : Nil
+      bytes = s.to_slice
+      i = from
+      while i < to
+        if bytes.unsafe_fetch(i) == 0x1b_u8 && i + 1 < to && bytes.unsafe_fetch(i + 1) == 0x5b_u8
+          # `[^m]*` cannot match `m`, so the run ends at the first `m` — and
+          # since it *can* match `\e`, a `\e[` with no following `m` in the
+          # window yields nothing and the scan simply resumes one byte on, just
+          # as `String#scan` retries from the next position.
+          j = i + 2
+          while j < to && bytes.unsafe_fetch(j) != 0x6d_u8 # 'm'
+            j += 1
+          end
+          if j < to
+            yield i, j - i + 1
+            i = j + 1
+            next
+          end
+        end
+        i += 1
+      end
     end
   end
 end

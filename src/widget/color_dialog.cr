@@ -727,7 +727,7 @@ module Crysterm
       # parent-clipped dialog) must be dropped: a negative index would wrap to
       # the far side of the screen buffer.
       private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry) : Nil
-        return if x < clip.xi || x >= clip.xl || y < clip.yi || y >= clip.yl
+        return unless clip.contains? x, y
         return if x < 0 || y < 0
         window.lines[y]?.try do |line|
           line[x]?.try do |cell|

@@ -108,27 +108,23 @@ describe "BUGS16 B16-04: switch_terminal input-fiber handover" do
   end
 
   it "carries the listening state to the replacement window" do
-    # Force headless so the replacement (and its restored input fiber) binds
-    # in-memory IO even when specs run on a real terminal.
-    Crysterm::Config.set "screen.headless", Crysterm::Headless::Always
-    begin
-      w = Crysterm::Window.new(
-        input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-        width: 30, height: 8, default_quit_keys: false)
-      w.start_input
-      w.screen.listening?.should be_true
+    # The replacement (and its restored input fiber) binds in-memory IO because
+    # `spec_helper` pins `screen.headless` to `Always` — `switch_terminal` gives
+    # the new window fresh *default* IO, so nothing here can pass it explicitly.
+    w = Crysterm::Window.new(
+      input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+      width: 30, height: 8, default_quit_keys: false)
+    w.start_input
+    w.screen.listening?.should be_true
 
-      w2 = w.switch_terminal "xterm"
-      begin
-        # Pre-fix nothing restored input on the replacement — the old fiber
-        # was left racing the constructor probe and the new window came up
-        # deaf until an explicit `start_input`.
-        w2.screen.listening?.should be_true
-      ensure
-        w2.destroy
-      end
+    w2 = w.switch_terminal "xterm"
+    begin
+      # Pre-fix nothing restored input on the replacement — the old fiber
+      # was left racing the constructor probe and the new window came up
+      # deaf until an explicit `start_input`.
+      w2.screen.listening?.should be_true
     ensure
-      Crysterm::Config.set "screen.headless", Crysterm::Headless::Auto
+      w2.destroy
     end
   end
 

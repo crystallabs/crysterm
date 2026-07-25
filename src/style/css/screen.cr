@@ -300,27 +300,44 @@ module Crysterm
         return
       end
       document = to_html
-      # The serialized document encodes uids/classes/attributes but *not* the
-      # terminal size, so an `@media`-guarded cascade is byte-identical before
-      # and after a resize and would be wrongly skipped. When any active sheet
-      # has `@media` rules, the terminal size joins the skip identity so a
-      # resize re-evaluates the media conditions.
-      @css_last_size = {width, height}
-      @css_last_glyph_tier = glyph_tier
-      @css_last_default_generation = CSS.default_stylesheet_generation
-      identity = document
-      # The glyph tier joins the size in the identity: an `@media (glyphs: …)`
-      # cascade is byte-identical across a tier switch and would be skipped.
-      identity = "#{width}x#{height}@#{glyph_tier.value}\n#{document}" if css_media_active?
-      # The default-sheet generation joins it too: a runtime theme swap leaves
-      # the document byte-identical, and even an explicit `restyle` would
-      # otherwise be swallowed by this skip.
-      identity = "g#{CSS.default_stylesheet_generation}\n#{identity}"
-      if identity == @css_last_document
+      # The skip identity is compared field-wise against the previous run's
+      # values, not folded into one string: prefixing the scalars onto the
+      # serialized document would allocate and memcpy a whole extra copy of it
+      # on every cascade — i.e. on every hover/drag/focus event. So snapshot the
+      # previous values before the eager assignments below overwrite them.
+      media = css_media_active?
+      size = {width, height}
+      tier = glyph_tier
+      generation = CSS.default_stylesheet_generation
+      prev_document = @css_last_document
+      prev_size = @css_last_size
+      prev_tier = @css_last_glyph_tier
+      prev_generation = @css_last_default_generation
+      @css_last_size = size
+      @css_last_glyph_tier = tier
+      @css_last_default_generation = generation
+      # Skip only when every input the cascade's outcome depends on is
+      # unchanged:
+      #
+      # * the document text, always;
+      # * the default-sheet generation, always — a runtime theme swap leaves the
+      #   document byte-identical, and even an explicit `restyle` would
+      #   otherwise be swallowed by this skip;
+      # * the terminal size and glyph tier, only while media rules are active.
+      #   The document encodes uids/classes/attributes but *not* the size or
+      #   tier, so an `@media`-guarded cascade is byte-identical across a resize
+      #   or an `@media (glyphs: …)` tier switch and would be wrongly skipped.
+      #
+      # A mid-run change of `css_media_active?` itself only happens via a
+      # stylesheet change: the `stylesheet=` setters nil `@css_last_document`
+      # and a default-sheet swap bumps the generation, so either way this
+      # doesn't skip.
+      if document == prev_document && generation == prev_generation &&
+         (!media || (prev_size == size && prev_tier == tier))
         clear_css_dirty
         return
       end
-      @css_last_document = identity
+      @css_last_document = document
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       # `Cascade.apply` folds the default stylesheet in beneath the author one;

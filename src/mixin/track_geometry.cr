@@ -12,15 +12,16 @@ module Crysterm
       # axis is flipped so the low end sits at the *bottom*, matching a track
       # that fills bottom→top.
       protected def pointer_offset(e, invert : Bool = false) : {Int32, Int32}
-        # Resolve against the *painted* origin (`painted_origin`, i.e. `@lpos`
-        # with a pre-render fallback), not the layout coords: inside a scrolled
-        # container the two differ by the scroll base, and `e.x`/`e.y` are
-        # painted coords.
+        # Resolve against the *painted content* origin
+        # (`painted_content_origin`, i.e. `@lpos` + the inner inset, with a
+        # pre-render fallback to layout coords), not the layout coords: inside a
+        # scrolled container the two differ by the scroll base, and `e.x`/`e.y`
+        # are painted coords.
         if @orientation.horizontal?
-          {e.x - painted_origin[0] - ileft, awidth - ihorizontal - 1}
+          {e.x - painted_content_origin[0], awidth - ihorizontal - 1}
         else
           span = aheight - ivertical - 1
-          pos = e.y - painted_origin[1] - itop
+          pos = e.y - painted_content_origin[1]
           {invert ? span - pos : pos, span}
         end
       end

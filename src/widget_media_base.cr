@@ -625,6 +625,104 @@ module Crysterm
       end
     end
 
+    # Common spine of the two *deferred window-listener* lifecycles used by the
+    # out-of-cell-buffer image backends: `Media::RenderHook` (below) and
+    # `Media::ScreenOverlay` (widget_media_screen_overlay.cr). Both must survive
+    # being constructed detached (the standard compose-then-attach pattern) and
+    # must migrate their window listeners across a cross-window reparent, and
+    # both derived exactly the same four pieces independently:
+    #
+    # * the `@listener_screen` + `@ev_rendered` wrapper pair — **declared here
+    #   once**, so a class including both modules can't double-declare them,
+    # * a one-shot guard so re-registering after a move doesn't stack duplicate
+    #   handlers on the widget itself,
+    # * `#wire_listener_lifecycle`, whose core is the identical
+    #   `Attached`/`Reparented`/`Detached` triple,
+    # * `#try_register_listener_deferred`, the `@listener_screen`-guarded
+    #   re-registration that a same-window `Reparented` no-ops.
+    #
+    # The two siblings diverge deliberately, via three seams:
+    #
+    # * `#on_listener_window` — how registration actually happens.
+    #   `Media::RenderHook` re-registers its stored paint block;
+    #   `Media::ScreenOverlay` routes to its own `#on_overlay_window`, which
+    #   `Media::Graphics` overrides to first re-resolve the cell pixel size.
+    # * `#on_listener_detached` — `Media::RenderHook` just drops the listener;
+    #   `Media::ScreenOverlay` tears down **first** and only then erases the
+    #   graphic off the old window (reversing that repaints it mid-move).
+    # * `#wire_extra_listener_hooks` — `Media::ScreenOverlay` adds
+    #   `Hide`/`Show`/`Destroy`; `Media::RenderHook` needs none. The hooks are
+    #   separate event registries, so the order between them is irrelevant.
+    module Media::WindowListener
+      # Window the listener(s) were registered on, kept so they can be removed
+      # on destroy even after the widget is detached (`#window?` is nil).
+      @listener_screen : ::Crysterm::Window?
+
+      # The post-render wrapper both siblings register. Owned here so it is
+      # declared exactly once across the two.
+      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+
+      # One-shot guard for this widget's own lifecycle hooks, so re-registering
+      # the window listener(s) after a cross-window move doesn't stack duplicate
+      # `Attached`/`Reparented`/`Detached`/... handlers on this widget.
+      @listener_hooks_wired = false
+
+      # Wires this widget's own lifecycle hooks, exactly once per widget:
+      #
+      # * `Attached`/`Reparented` — wired unconditionally, not only for a
+      #   detached construction, so a widget built already-attached still
+      #   migrates its listener(s) when later moved to a different window. The
+      #   `@listener_screen` guard in `#try_register_listener_deferred` makes a
+      #   same-window `Reparented` a no-op.
+      # * `Detached` — a cross-window reparent emits `Detach(previous)` then
+      #   `Attach(new)`: the old window's listener(s) must go, so the paint
+      #   stops firing off a window the widget no longer lives on and the old
+      #   window stops referencing `self`.
+      private def wire_listener_lifecycle
+        return if @listener_hooks_wired
+        @listener_hooks_wired = true
+        on(::Crysterm::Event::Attached) { try_register_listener_deferred }
+        on(::Crysterm::Event::Reparented) { try_register_listener_deferred }
+        on(::Crysterm::Event::Detached) { |e| on_listener_detached e }
+        wire_extra_listener_hooks
+      end
+
+      # What `Detached` does. Default is the plain teardown; a sibling that must
+      # also erase something off the departing window (carried on `e.object`)
+      # overrides — see `Media::ScreenOverlay`, where the ordering is load-bearing.
+      protected def on_listener_detached(e : ::Crysterm::Event::Detached) : Nil
+        forget_listener_screen
+      end
+
+      # Extra hooks on the widget itself, wired alongside the triple above and
+      # under the same one-shot guard. No-op by default.
+      protected def wire_extra_listener_hooks : Nil
+      end
+
+      # Fires from the deferred `Attached`/`Reparented` hooks: registers once a
+      # window exists, guarded on `@listener_screen` so a re-attach doesn't
+      # double-register.
+      private def try_register_listener_deferred
+        return if @listener_screen
+        s = window? || return
+        on_listener_window s
+      end
+
+      # NOTE: the including module must define
+      # `#on_listener_window(s : ::Crysterm::Window)` — register on *s* and
+      # record it in `@listener_screen`. Duck-typed, not `abstract def`, which
+      # trips a codegen crash when a module is included by more than one widget.
+
+      # Removes the `Rendered` listener and forgets the window. Siblings holding
+      # extra wrappers off theirs first and then call this as the tail.
+      protected def forget_listener_screen : Nil
+        s = @listener_screen || return
+        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
+        @ev_rendered = nil
+        @listener_screen = nil
+      end
+    end
+
     # Minimal *single post-render listener* lifecycle for image backends whose
     # pixels live outside Crysterm's cell buffer but — unlike `Media::ScreenOverlay`
     # — don't need the erase-on-move (`PreRender`) half or `@last_drawn`
@@ -635,24 +733,18 @@ module Crysterm
     # * `Media::Tek` — a separate Tektronix window driven by its own PAGE-clear
     #   redraw, not by re-emitting cells.
     #
-    # Both register a single `Rendered` listener and tear it down on destroy;
-    # the shared listener-wrapper ivars and add/remove dance live here. Each
-    # backend supplies just the paint block and any extra teardown.
+    # Both register a single `Rendered` listener and tear it down on destroy.
+    # The listener-wrapper ivars, the `Attached`/`Reparented`/`Detached` triple
+    # and the deferred re-registration come from `Media::WindowListener`; what
+    # is left here is only what makes this variant a *render hook*: the retained
+    # paint block. Each backend supplies just that block and any extra teardown.
     module Media::RenderHook
-      # Window the listener was registered on, kept so it can be removed on
-      # destroy even after the widget is detached (`#window?` is nil).
-      @listener_screen : ::Crysterm::Window?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+      include Media::WindowListener
 
       # The paint block, kept for the widget's whole life (not one-shot): a
       # cross-window reparent needs it again to re-register the `Rendered`
       # listener on the new window.
       @render_hook_block : (::Crysterm::Event::Rendered ->)?
-
-      # One-shot guard for the self lifecycle hooks, so re-registering the
-      # window listener after a move doesn't stack duplicate
-      # `Attached`/`Reparented`/`Detached` handlers on this widget.
-      @render_hook_wired = false
 
       # Registers *block* to run after every window render on *s*, remembering
       # *s* and the wrapper so it can be removed later.
@@ -660,7 +752,7 @@ module Crysterm
         @render_hook_block = block
         @listener_screen = s
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &block)
-        wire_render_hook_lifecycle
+        wire_listener_lifecycle
       end
 
       # Registers *block* now when a window is resolvable, else defers to the
@@ -672,46 +764,30 @@ module Crysterm
           register_render_hook(s, &block)
         else
           @render_hook_block = block
-          wire_render_hook_lifecycle
+          wire_listener_lifecycle
         end
       end
 
-      # Wires this widget's own lifecycle hooks, exactly once per widget:
-      #
-      # * `Attached`/`Reparented` — wired unconditionally, not only for a detached
-      #   construction, so a widget built already-attached still migrates its
-      #   listener when later moved to a different window. The
-      #   `@listener_screen` guard makes a same-window `Reparented` a no-op.
-      # * `Detached` — a cross-window reparent emits `Detach(previous)` then
-      #   `Attach(new)`: drop the old window's `Rendered` listener so the paint
-      #   block stops firing off a window the widget no longer lives on, and the
-      #   old window stops referencing `self`.
-      private def wire_render_hook_lifecycle
-        return if @render_hook_wired
-        @render_hook_wired = true
-        on(::Crysterm::Event::Attached) { try_register_render_hook_deferred }
-        on(::Crysterm::Event::Reparented) { try_register_render_hook_deferred }
-        on(::Crysterm::Event::Detached) { teardown_render_hook }
-      end
-
-      # Registers the retained block on the current window, guarded on
-      # `@listener_screen` so a re-attach to the same window doesn't
-      # double-register.
-      private def try_register_render_hook_deferred
-        return if @listener_screen
-        s = window? || return
+      # `Media::WindowListener` seam: re-register the retained block on the
+      # window the widget has (finally) landed on.
+      protected def on_listener_window(s : ::Crysterm::Window) : Nil
         blk = @render_hook_block || return
         @listener_screen = s
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &blk)
       end
 
+      # `Media::WindowListener` seam: nothing to erase off the departing window
+      # (this variant tracks no painted rectangle), so `Detached` is exactly the
+      # plain teardown — routed through the named method so a backend override
+      # of it is still honoured.
+      protected def on_listener_detached(e : ::Crysterm::Event::Detached) : Nil
+        teardown_render_hook
+      end
+
       # Removes the listener and forgets the window. The paint block is retained
       # so an `Attached` to another window can re-register it.
       protected def teardown_render_hook
-        s = @listener_screen || return
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
-        @ev_rendered = nil
-        @listener_screen = nil
+        forget_listener_screen
       end
     end
   end

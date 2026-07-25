@@ -228,12 +228,17 @@ module Crysterm
               e.accept
               # A non-kill action ends the consecutive-kill run (emacs semantics).
               kill_ring.interrupt if Crysterm::Config.input_readline_keys
-              before = buf_text
+              # Both snapshots exist *only* to decide whether to emit — the
+              # repaint below is unconditional — so with nobody listening we
+              # skip two full document serializations per undo/redo.
+              want = text_change_observed?
+              before = want ? buf_text : nil
               if k == Tput::Key::CtrlZ ? undo : redo
                 ensure_cursor_visible
                 ensure_cursor_visible_x
-                after = buf_text
-                emit Crysterm::Event::TextChanged, after if after != before
+                if want && (after = buf_text) != before
+                  emit Crysterm::Event::TextChanged, after
+                end
                 request_render
                 _update_cursor
               end
@@ -261,6 +266,14 @@ module Crysterm
           wire_document
           mark_dirty
           request_render if window?
+        end
+
+        # Replaces the edited document (Qt `setDocument`), e.g. to share one
+        # document between several views. The caret rewinds to the start and
+        # the widget's display caches drop (`#reset_document_caches`).
+        def document=(doc : TextDocument)
+          return if doc.same?(@document)
+          swap_document(doc)
         end
 
         # Widget-specific display cache reset run by `#swap_document` between the
@@ -328,6 +341,30 @@ module Crysterm
           @read_only = read_only
           document.set_plain_text(content) unless content.empty?
           @cursor_pos = buf_size
+        end
+
+        # Pre-`super` half of a document-backed widget's constructor: adopts an
+        # explicit (possibly shared) *doc* — which wins over `content:` — or
+        # else seeds a fresh document from *content*. Must run *before* `super`
+        # (see `#setup_text_buffer`'s contract); pair with
+        # `#finish_document_setup` after it.
+        protected def adopt_document(doc : TextDocument?, content : String, max_length, read_only) : Nil
+          if doc
+            @document = doc
+            @max_length = max_length
+            @read_only = read_only
+            @cursor_pos = doc.size
+          else
+            setup_text_buffer(content, max_length, read_only)
+          end
+        end
+
+        # Post-`super` half of a document-backed widget's constructor: installs
+        # the shared editing keys and then this view's document
+        # `ContentsChanged` handler (`#wire_document`, defined by the includer).
+        protected def finish_document_setup(input_on_focus, install_enter) : Nil
+          setup_text_editing input_on_focus: input_on_focus, install_enter: install_enter
+          wire_document
         end
       end
     end

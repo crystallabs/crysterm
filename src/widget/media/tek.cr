@@ -209,8 +209,7 @@ module Crysterm
       # reusable per animation frame), drawn at offset *ox*/*oy* with bounds
       # clipping so a `Cover` overflow doesn't wrap the 10-bit coordinates.
       private def build_frame(bmp : PNGGIF::Bitmap, ox : Int32, oy : Int32) : String
-        ph = bmp.size
-        pw = bmp[0]?.try(&.size) || 0
+        pw, ph = Media.dims bmp
         return "\e\u{0c}" if pw == 0 || ph == 0
         bits = to_bits bmp, pw, ph
 

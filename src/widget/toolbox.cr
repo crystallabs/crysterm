@@ -156,23 +156,23 @@ module Crysterm
       # Header rows and any other non-section child pass straight through (the
       # `remove item.header` below re-enters here and is a no-op for them).
       def remove(element)
-        idx = @pages.index element
-        # Snapshot the current section before the delete so the reclamp can keep
-        # it current when it wasn't the one removed.
-        cur = current_widget
+        # Snapshot the index and the current section before `super` detaches the
+        # child, so the reclamp can keep it current when it wasn't the one
+        # removed. The teardown block then runs with `#pages` already shrunk,
+        # which is what makes the re-entrant `remove item.header` below a no-op.
+        # `#finish_page_removal` reclamps last — its `current_index=` runs
+        # `#after_show_index`, which re-marks and re-stacks the headers
+        # (relayout) for free.
+        snap = page_removal_snapshot element
         super
-        if idx
+        removed = finish_page_removal(snap) do |idx|
           item = @sections.delete_at idx
-          @pages.delete_at idx
           item.click.off # drop the header's captured-index click handler
           remove item.header
           # Surviving headers capture an absolute index; re-point after the shift.
           repoint_headers
-          # Reclamp — its `current_index=` runs `#after_show_index`, which
-          # re-marks and re-stacks the headers (relayout) for free.
-          reclamp_after_removal idx, cur
-          emit ::Crysterm::Event::ItemRemoved
         end
+        emit ::Crysterm::Event::ItemRemoved if removed
       end
 
       # Re-points every header's click handler at its current index: the handlers

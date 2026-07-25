@@ -53,6 +53,16 @@ module Crysterm
       el.children.each { |c| clear_subtree_lpos c }
     end
 
+    # Clears the last-rendered rects of every non-excluded child subtree — what
+    # each of `#base_render`'s "this widget paints nowhere this frame" early
+    # returns owes its descendants, or `Window#widget_at` keeps routing
+    # clicks/hovers to stale subtree rects. Holds the load-bearing
+    # `layout_excluded?` filter (see `#clear_subtree_lpos`) once, so a future
+    # fourth early-out cannot silently omit it.
+    protected def clear_children_lpos : Nil
+      children.each { |c| clear_subtree_lpos c unless c.layout_excluded? }
+    end
+
     # The internal `Widget::Media` layer rendering `style.background_image`, or
     # `nil` when no image is set / no background-capable backend is available.
     getter background_media : Media::Base?

@@ -51,15 +51,9 @@ module Crysterm
 
         # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
         # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action
-        # shortcuts). Menus must be rehomed first, so they open on the bar's window.
-        on(::Crysterm::Event::Attached) do
-          rehome_menus
-          install_menu_shortcuts
-        end
-        # Uninstall from the window carried on the event: `Widget#remove` nulls
-        # `parent`/`window` before `Window#detach` emits `Event::Detached`, so
-        # `window?` is already nil here — the previous window comes via the payload.
-        on(::Crysterm::Event::Detached) { |e| uninstall_menu_shortcuts e.object.as?(::Crysterm::Window) }
+        # shortcuts). Menus must be rehomed first, so they open on the bar's window
+        # — that is what `#before_install_action_shortcuts` below is for.
+        wire_action_shortcuts
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with
@@ -106,24 +100,25 @@ module Crysterm
         menu
       end
 
-      # Installs every menu action's accelerator (descending into submenus).
-      # Idempotent per window.
-      private def install_menu_shortcuts : Nil
-        w = window? || return
-        @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
+      # The bar owns every action in every pop-up (descending into submenus), on
+      # top of any installed with `Widget#add_action`.
+      private def each_shortcut_action(&block : Action ->) : Nil
+        super(&block)
+        @menus.each { |m| visit_actions(m, &block) }
       end
 
-      # :ditto: — for a single *menu* only.
+      # The pop-ups must sit on the bar's *current* window before their actions'
+      # accelerators are (re)installed there.
+      private def before_install_action_shortcuts : Nil
+        rehome_menus
+      end
+
+      # Installs a single *menu*'s action accelerators (descending into
+      # submenus). Idempotent per window; used for the incremental `ItemsChanged`
+      # refresh, where re-walking every menu would be quadratic.
       private def install_menu_shortcuts(menu : Menu) : Nil
         w = window? || return
         visit_actions(menu, &.install_shortcut(w, self))
-      end
-
-      # Withdraws every menu action's accelerator from *w* (the window the bar
-      # is leaving, supplied via the `Detached` event payload).
-      private def uninstall_menu_shortcuts(w : ::Crysterm::Window?) : Nil
-        return unless w
-        @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
       end
 
       # Moves any pop-up menu still hosted on a previous window over to the
@@ -256,7 +251,7 @@ module Crysterm
         # during `super`'s teardown runs the uninstall handler over an
         # already-cleared collection, leaving every action's shortcut registered
         # on the window forever.
-        uninstall_menu_shortcuts window?
+        uninstall_action_shortcuts window?
         @menus.each { |m| Widget.destroy_satellite m }
         @menus.clear
         super

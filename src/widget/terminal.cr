@@ -252,13 +252,7 @@ module Crysterm
           em.reset_scroll if em.ydisp != em.ybase
         end
 
-        if handler = @handler
-          handler.call data
-        elsif pty = @pty
-          pty.write data
-        else
-          return
-        end
+        return unless forward_to_child data
 
         e.accept
         request_render
@@ -276,13 +270,7 @@ module Crysterm
           data = "\e[200~#{data}\e[201~"
         end
 
-        if handler = @handler
-          handler.call data
-        elsif pty = @pty
-          pty.write data
-        else
-          return
-        end
+        return unless forward_to_child data
 
         # Like a keystroke, input snaps the view back to the live bottom.
         @emulator.try { |em| em.reset_scroll if em.ydisp != em.ybase }
@@ -405,13 +393,19 @@ module Crysterm
         cb
       end
 
-      # Sends raw bytes to the child (PTY, or the external handler as a String).
-      private def forward_to_child(data : Bytes) : Nil
+      # Sends input to the child (PTY, or the external handler as a String).
+      # Returns `false` when there is no sink at all, so callers that must not
+      # consume the event (`e.accept`/`request_render`) when the data went
+      # nowhere can bail out; callers that don't care ignore the result.
+      private def forward_to_child(data : Bytes | String) : Bool
         if handler = @handler
-          handler.call String.new(data)
+          handler.call(data.is_a?(String) ? data : String.new(data))
         elsif pty = @pty
           pty.write data
+        else
+          return false
         end
+        true
       end
 
       # Renders via the base implementation, then overlays the emulator grid and
@@ -499,6 +493,17 @@ module Crysterm
               attr, ch = apply_cursor attr, ch
             end
 
+            # Both wide-glyph branches below need the glyph's column count and
+            # the following window cell; derive each once per cell. Folding
+            # `full_unicode` into `cw` (a window without full-unicode support
+            # treats every cell as one column) reproduces the previous
+            # `full_unicode && Unicode.width(ch) == 2` guards exactly, while
+            # sparing every interior cell a second `Unicode.width` walk and a
+            # second bounds-checked row lookup. Safe to hoist `nxt` above the
+            # write below: that write targets `line[x]`, never `line[x + 1]`.
+            cw = full_unicode ? ::Crysterm::Unicode.width(ch) : 1
+            nxt = line[x + 1]?
+
             # A wide (2-column) glyph whose continuation cell cannot be claimed —
             # past the content region or absent from the window row — is blanked
             # to a space, upholding the invariant "a width-2 cell is always
@@ -509,9 +514,11 @@ module Crysterm
             # a column-shrink resize — would over-claim and paint across the
             # widget's edge into the neighbouring cell. Must stay the exact
             # complement of the continuation-claim block below.
-            if full_unicode && ::Crysterm::Unicode.width(ch) == 2 &&
-               (x + 1 >= xl || line[x + 1]?.nil?)
+            if cw == 2 && (x + 1 >= xl || nxt.nil?)
               ch = ' '
+              # Load-bearing: the blanked lead is now one column wide, so the
+              # claim block below must not also consume the next column.
+              cw = 1
             end
 
             if cell != {attr, ch}
@@ -524,8 +531,7 @@ module Crysterm
             # the window grid stays 1 cell == 1 terminal column. This holds even
             # when the cursor sits on the lead half — `attr` already carries the
             # cursor styling — so both columns are still consumed.
-            if full_unicode && (nxt = line[x + 1]?) &&
-               x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2
+            if cw == 2 && nxt && x + 1 < xl
               nxt_attr = attr
               # With the cursor on the TRAILING half of a wide glyph, `x += 2`
               # would skip its column and leave it invisible; carry the cursor

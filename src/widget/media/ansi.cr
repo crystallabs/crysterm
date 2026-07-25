@@ -111,8 +111,7 @@ module Crysterm
         # resampled down by `ihorizontal`/`ivertical` cells (and aspect-shifted
         # on non-uniform insets). Guarded so an empty cellmap doesn't produce a
         # bare border shell.
-        cols = native[0]?.try(&.size) || 0
-        rows = native.size
+        cols, rows = Media.dims native
         self.width = (cols > 0 ? cols + ihorizontal : 0) if @width.nil?
         self.height = (rows > 0 ? rows + ivertical : 0) if @height.nil?
       end
@@ -190,8 +189,7 @@ module Crysterm
       # Builds a palette-quantized, dithered color plane for the whole sample:
       # one packed RGB per pixel (`-1` for fully transparent).
       private def dither_plane(bmp : PNGGIF::Bitmap) : Array(Array(Int32))
-        ph = bmp.size
-        pw = bmp[0]?.try(&.size) || 0
+        pw, ph = Media.dims bmp
         Media.dither_rgb(bmp, pw, ph, @dither, @animated, -1) do |r, g, b, t|
           rgb = quantize_dither r, g, b, t
           dr, dg, db = Media.rgb24(rgb)

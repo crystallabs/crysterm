@@ -176,8 +176,16 @@ module Crysterm
 
       # The value for *key*; raises `KeyError` if absent (like `Hash#[]`).
       def [](key : K) : V
-        raise KeyError.new("Missing cache key: #{key.inspect}") unless @store.has_key? key
-        touch key
+        # As in `[]?`: FIFO needs no reorder-on-read, so a single `Hash#fetch`
+        # with a raising block does one lookup where `has_key?` + `touch` does
+        # two — and still tells a cached `nil` from absence. LRU must promote on
+        # a hit and keeps the two-step path.
+        if @lru
+          raise KeyError.new("Missing cache key: #{key.inspect}") unless @store.has_key? key
+          touch key
+        else
+          @store.fetch(key) { raise KeyError.new("Missing cache key: #{key.inspect}") }
+        end
       end
 
       # Stores *value* under *key* and returns it, evicting if over capacity.
@@ -190,10 +198,15 @@ module Crysterm
       # Returns the cached value for *key*, or computes it via the block, stores
       # it, and returns it. The block's result is cached even when `nil`.
       def fetch(key : K, & : -> V) : V
-        if @store.has_key? key
-          touch key
+        # Same FIFO-vs-LRU split as `[]?`: `Hash#fetch(key, &)` resolves a hit in
+        # one lookup and, unlike `@store[key]?`, still distinguishes a cached
+        # `nil` value from an absent key — which is what makes negative caching
+        # (`compiled_selector`, `Media.decode`) work. LRU promotes on a hit and
+        # so keeps `has_key?` + `touch`.
+        if @lru
+          @store.has_key?(key) ? touch(key) : (self[key] = yield)
         else
-          self[key] = yield
+          @store.fetch(key) { self[key] = yield }
         end
       end
 

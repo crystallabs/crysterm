@@ -80,27 +80,12 @@ module Crysterm
 
       # Enter **advances** rather than accepting outright — a wizard's Enter means
       # "next page", and only on the last page does it finish. The remap lives in
-      # the accelerator, not in an `#accept` override, which would break the
+      # this one hook, not in an `#accept` override, which would break the
       # `Dialog#accept` contract: Enter → `#advance` (which calls `#accept`
-      # itself once there's nothing left to advance to), Escape → `#reject`.
-      protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
-        return if e.accepted?
-        return unless dialog_keys_active? e
-        case e.key
-        when Tput::Key::Enter  then advance; e.accept
-        when Tput::Key::Escape then reject; e.accept
-        end
-        request_render if e.accepted?
-      end
-
-      # The window routes keys to the focused widget first, so `e.accepted?`
-      # means a field's Enter or a footer button already handled it and the
-      # accelerator must stand down. A hidden wizard (e.g. on a non-current
-      # stack page) keeps the accelerator installed while attached, so it must
-      # also stand down while invisible — otherwise it steals every unconsumed
-      # Enter/Escape, advancing pages and emitting Complete/Cancel invisibly.
-      protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
-        !e.accepted? && visible_in_tree?
+      # itself once there's nothing left to advance to). Escape (→ `#reject`) and
+      # the gating in `Dialog#dialog_keys_active?` are inherited unchanged.
+      protected def dialog_enter_gesture : Nil
+        advance
       end
 
       # Builds one of the wizard's footer buttons: a centered `Button` pinned to

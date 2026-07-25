@@ -850,20 +850,6 @@ module Crysterm
       shift_lines_down n, y, bottom
     end
 
-    # Inserts lines into the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
-    #
-    # This is how ncurses does it.
-    # Scroll down (up cursor-wise).
-    # This will only work for top line deletion as opposed to arbitrary lines.
-    protected def insert_line_nc(n, y, top, bottom)
-      return unless with_scroll_region(top, bottom) do
-                      tput.cup(top + render_row_offset, 0)
-                      tput.dl(n)
-                    end
-
-      shift_lines_down n, y, bottom
-    end
-
     # Deletes lines from the screen. (If CSR is used, it bypasses the output buffer.)
     def delete_line(n, y, top, bottom)
       # Only emits `dl`, so it must not require `il`: on a terminal advertising CSR
@@ -872,21 +858,6 @@ module Crysterm
       return unless with_scroll_region(top, bottom) do
                       tput.cup(y + render_row_offset, 0)
                       tput.dl(n)
-                    end
-
-      shift_lines_up n, y, bottom
-    end
-
-    # Deletes lines from the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
-    #
-    # This is how ncurses does it.
-    # Scroll down (up cursor-wise).
-    # This will only work for top line deletion as opposed to arbitrary lines.
-    protected def delete_line_nc(n, y, top, bottom)
-      return unless with_scroll_region(top, bottom) do |ret|
-                      tput.cup(bottom + render_row_offset, 0)
-                      # Emit `n` newlines without materializing a `"\n" * n` String.
-                      n.times { ret << '\n' }
                     end
 
       shift_lines_up n, y, bottom
@@ -1005,44 +976,46 @@ module Crysterm
       end
     end
 
-    # Walks every existing cell of the rectangular region `[xi, xl) × [yi, yl)` in
-    # `@lines`, yielding each cell together with its line. A row's scan stops at
-    # the first missing cell and the whole walk stops at the first missing row.
-    # With `clamp` (the default) a negative `xi`/`yi` origin is pulled back to 0.
+    # Walks the rows of the rectangular region `[xi, xl) × [yi, yl)` in `@lines`,
+    # yielding each existing row together with its hoisted `attrs` array and the
+    # half-open column range `[x_start, x_end)` that actually exists in it. The
+    # walk stops at the first missing row.
     #
-    # A negative index is treated as off the top/left of the grid and SKIPPED. This
-    # must be explicit: Crystal's `Indexable#[]?` counts a negative index *from the
-    # end* (`@lines[-1]?` is the last row, not `nil`), so a `clamp: false` caller
-    # passing a negative origin would otherwise wrap around and paint onto the
+    # Shared scaffolding of the per-frame region writers (`#fill_region`,
+    # `#blend_region`, `#tint_region`): hoisting the row's backing array and its
+    # width once lets the block index with `unsafe_fetch`/`unsafe_put` instead of
+    # paying a nilable row lookup, a per-cell bounds check and a `Cell` handle.
+    # Because the origins are clamped to >= 0 here and a row's cells are
+    # contiguous, a cell is "missing" only past the row end (`x_end`) — so every
+    # `unsafe_*` a block performs within the yielded range is provably in range.
+    # Blocks add whatever further per-row hoists they need (`line.chars`, the
+    # grapheme/link overlay flags).
+    #
+    # A negative origin is treated as off the top/left of the grid and pulled
+    # back to 0. This must be explicit: Crystal's `Indexable#[]?` counts a
+    # negative index *from the end* (`@lines[-1]?` is the last row, not `nil`),
+    # so an unclamped negative origin would wrap around and paint onto the
     # OPPOSITE edge. Off the bottom/right (index >= size) correctly yields `nil`.
-    private def each_region_cell(xi, xl, yi, yl, clamp = true, &)
-      if clamp
-        xi = 0 if xi < 0
-        yi = 0 if yi < 0
-      end
+    private def each_region_row(xi, xl, yi, yl, &)
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
 
       yi.upto(yl - 1) do |y|
-        next if y < 0
         line = @lines[y]?
         break unless line
 
-        xi.upto(xl - 1) do |x|
-          next if x < 0
-          cell = line[x]?
-          break unless cell
-
-          yield cell, line
-        end
+        attrs = line.attrs
+        n = attrs.size
+        xend = xl < n ? xl : n
+        yield line, attrs, xi, xend
       end
     end
 
     # Fills any chosen region on the screen with chosen character and attributes.
     #
-    # This is the per-frame full-screen clear path, so unlike `each_region_cell` it
-    # hoists each row's backing arrays and width and indexes with
-    # `unsafe_fetch`/`unsafe_put`. `xi`/`yi` are clamped to >= 0 and cells are
-    # contiguous, so a cell is "missing" only past the row end (`xend`) — every
-    # `unsafe_*` is provably in range.
+    # This is the per-frame full-screen clear path: rows come from
+    # `#each_region_row` (origins clamped, `attrs` and the row width hoisted) and
+    # cells are written with `unsafe_fetch`/`unsafe_put`.
     #
     # For a *scattered* single cell (a dial pointer, a spaced slider tick) with no
     # contiguous run to batch, pass a 1x1 region
@@ -1052,17 +1025,8 @@ module Crysterm
     # The region is half-open: `[xi, xl) × [yi, yl)` — `xl`/`yl` are one PAST
     # the last column/row filled.
     def fill_region(attr, ch, xi, xl, yi, yl, *, force : Bool = false)
-      xi = 0 if xi < 0
-      yi = 0 if yi < 0
-
-      yi.upto(yl - 1) do |y|
-        line = @lines[y]?
-        break unless line
-
-        attrs = line.attrs
+      each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         chars = line.chars
-        n = attrs.size
-        xend = xl < n ? xl : n
         # Whether this row carries ANY grapheme overlay, hoisted once: most rows in
         # this per-frame clear path have none, and the per-cell overlay calls
         # otherwise dominate the render profile.
@@ -1073,7 +1037,6 @@ module Crysterm
         # as invisible clickable regions, with the row permanently `has_links?`.
         has_l = line.has_links?
 
-        x = xi
         while x < xend
           # Equivalent to `cell != {attr, ch}`: a cell carrying a grapheme overlay
           # is never equal to a single-char tuple, so it must be rewritten, and so
@@ -1114,9 +1077,12 @@ module Crysterm
     end
 
     # Alpha-blends every cell in a region toward black (shadow compositing).
-    # Unlike `fill_region` this does NOT clamp `xi`/`yi` to 0: shadow callers pass
-    # intentionally unclamped bounds and rely on the lookups skipping whatever
-    # falls off the grid.
+    # Shadow callers pass intentionally unclamped bounds and rely on whatever
+    # falls off the grid being skipped — which is exactly what
+    # `#each_region_row`'s clamping does here: the previous unclamped walk ran
+    # `yi.upto(yl - 1)` with a `next if y < 0` and started each row at
+    # `xi < 0 ? 0 : xi`, so it visited precisely the rows and columns clamping
+    # the origins to 0 visits.
     #
     # With *glyph* set (a half-block such as `▀`/`▄`/`▌`/`▐`), the band is painted
     # with that character instead of darkening the whole cell, so only part of the
@@ -1131,21 +1097,7 @@ module Crysterm
     # the top half (bottom-edge shadow), `▀` the bottom, `▐` the left half
     # (right-edge shadow), `▌` the right.
     def blend_region(alpha, xi, xl, yi, yl, glyph : Char? = nil)
-      # Hoisted counterpart of the `each_region_cell` walk (like `fill_region`):
-      # fetch each row's backing arrays once and index with `unsafe_*` instead of
-      # a nilable row lookup + per-cell bounds check + `Cell` handle per cell.
-      # Preserves `each_region_cell`'s `clamp: false` semantics: negative origins
-      # are NOT pulled to 0 — off-grid rows/columns are skipped, and the row walk
-      # stops at the first row past the grid.
-      yi.upto(yl - 1) do |y|
-        next if y < 0
-        line = @lines[y]?
-        break unless line
-
-        attrs = line.attrs
-        n = attrs.size
-        xend = xl < n ? xl : n
-        x = xi < 0 ? 0 : xi
+      each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         if glyph
           chars = line.chars
           has_g = line.has_graphemes?
@@ -1184,18 +1136,7 @@ module Crysterm
     # `1` = fully `color`) — the color overlay behind `style.tint`. Like
     # `#blend_region` but toward an arbitrary color instead of black.
     def tint_region(alpha, color, xi, xl, yi, yl)
-      # Hoisted like `fill_region`. Uses the default `clamp: true` semantics of
-      # `each_region_cell`: negative origins are pulled back to 0.
-      xi = 0 if xi < 0
-      yi = 0 if yi < 0
-      yi.upto(yl - 1) do |y|
-        line = @lines[y]?
-        break unless line
-
-        attrs = line.attrs
-        n = attrs.size
-        xend = xl < n ? xl : n
-        x = xi
+      each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         while x < xend
           attrs.unsafe_put(x, Colors.tint(attrs.unsafe_fetch(x), color, alpha))
           line.mark_dirty x

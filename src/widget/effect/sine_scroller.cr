@@ -38,11 +38,6 @@ module Crysterm
       class SineScroller < Box
         include TextScroll
 
-        def text=(@text : String)
-          rebuild_scroll_columns @text
-          mark_dirty
-        end
-
         # Radians of the vertical wave added per column (its spatial frequency).
         property wave_frequency : Float64
 

@@ -6,6 +6,7 @@ require "./mixin/pos"
 require "./mixin/uid"
 require "./mixin/data"
 require "./mixin/css"
+require "./mixin/action_shortcuts"
 
 require "./widget_children"
 require "./widget_position"
@@ -163,6 +164,16 @@ module Crysterm
       @clip_ancestor_cache = nil
       @clip_ancestor_cached = false
     end
+
+    # Memoized `#css_sub_elements` list and the key it was computed for (see
+    # `#css_sub_elements` in src/style/css/html.cr). Every override appends a
+    # static literal list to the base's, so `{scrollbar?, label_widget?}` fully
+    # determines the result and no explicit invalidation hook is needed.
+    #
+    # The cached array is shared with every caller and must be treated as
+    # read-only.
+    @_css_sub_slots : Array(String)?
+    @_css_sub_slots_key : Tuple(Bool, Bool)?
 
     # Clears the memoized clipping ancestor on this node and all descendants —
     # used when a widget's own `scrollable?`/`overflow` (i.e. whether it clips)
@@ -591,6 +602,22 @@ module Crysterm
     # pointer hit-tests that must ignore (not mis-map) an unrendered widget.
     protected def painted_content_origin? : {Int32, Int32}?
       (lp = @lpos) ? {lp.xi + ileft, lp.yi + itop} : nil
+    end
+
+    # The widget's *painted content* origin `{x, y}` — `#painted_origin` plus the
+    # `ileft`/`itop` inset — with `#painted_origin`'s fallback to the layout
+    # coords before the first render. The fallback sibling of
+    # `#painted_content_origin?`: use this one for pointer math that must still
+    # produce an answer for an unrendered widget (`Event::Mouse#local_x`,
+    # `Mixin::TrackGeometry`, `Mixin::SectionedField`), and the `?` one for
+    # hit-tests that must *ignore* an unrendered widget rather than mis-map it.
+    #
+    # Public where its two siblings are protected, because `Event::Mouse` derives
+    # `#local_x`/`#local_y` from it and an event is not a `Widget`. It exposes
+    # nothing the public `lpos`/`aleft`/`atop`/`ileft`/`itop` don't already.
+    def painted_content_origin : {Int32, Int32}
+      o = painted_origin
+      {o[0] + ileft, o[1] + itop}
     end
 
     # Resolves this widget's on-window box from `@lpos`, applying the

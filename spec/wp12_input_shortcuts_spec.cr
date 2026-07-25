@@ -10,7 +10,14 @@ require "./spec_helper"
 #   * `Window#layout=` auto-managed full-screen root box (D12)
 
 private def wp12_window
-  Crysterm::Window.new(width: 40, height: 12, default_quit_keys: false)
+  # Explicit in-memory IO: these windows are driven by a real `Application#exec`
+  # loop below, so on default IO the input fiber would park on the tester's own
+  # STDIN and never return.
+  Crysterm::Window.new(
+    input: IO::Memory.new,
+    output: IO::Memory.new,
+    error: IO::Memory.new,
+    width: 40, height: 12, default_quit_keys: false)
 end
 
 # Spawns `app.exec(window)` on its own fiber and waits until the loop is

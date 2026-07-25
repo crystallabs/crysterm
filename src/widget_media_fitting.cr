@@ -181,7 +181,7 @@ module Crysterm
         # any fit whose laid-out size equals the box with no offset): there is no
         # letterbox margin to add, so hand back the sample as-is instead of
         # copying it into a same-size transparent canvas.
-        if ox == 0 && oy == 0 && sampled.size == bh && (sampled[0]?.try(&.size) || 0) == bw
+        if ox == 0 && oy == 0 && Media.grid_fits?(sampled, bw, bh)
           return sampled
         end
 

@@ -7,14 +7,13 @@ module Crysterm
     # like `Masonry` but *without* the upward gravitation, so every child on a
     # row shares that row's top edge.
     #
+    # Plain wrapping at a zero column pitch *is* `Flow`'s default `#place_one` /
+    # `#column_width`, so this engine adds no behavior of its own.
+    #
     # <!-- widget-examples:capture v1 -->
     # ![Wrap screenshot](../../tests/layout/wrap/wrap.5s.apng)
     # <!-- /widget-examples:capture -->
     class Wrap < Flow
-      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
-        flow_place container, el, i, interior, 0
-        overflow_action container, el, interior
-      end
     end
   end
 end
