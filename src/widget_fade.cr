@@ -1,5 +1,12 @@
+require "./mixin/visibility_paused_clock"
+
 module Crysterm
   class Widget
+    # Shared pause-while-invisible / resume-when-visible core for the
+    # self-driven `FrameClock`s on a widget (`#pulse` below,
+    # `Effect::Animated`).
+    include ::Crysterm::Mixin::VisibilityPausedClock
+
     # Opacity animation — fades and pulses — built on the tween side of
     # `FrameClock`. Each frame eases `style.opacity` and requests a render; the
     # per-cell alpha blend turns that into translucency over whatever is behind
@@ -166,35 +173,28 @@ module Crysterm
     # Stops `@pulse_clock` for visibility (called from the one-time
     # `Event::Hide`/`Event::Detached` hooks installed by `#pulse`), unlike a
     # plain `#stop_fade` this leaves `@pulse_paused` set so it resumes
-    # automatically once the widget is visible again. Guarded on `@fade` still
-    # being this exact pulse clock — a `#fade_to`/`#fade_in`/`#fade_out` call
-    # made after `#pulse` replaces `@fade` with its own tween, which must not
-    # be paused/resumed here (see `@pulse_clock`'s doc). A no-op if the pulse
-    # isn't currently running (idempotent against `Event::Hide`'s broadcast to
-    # every descendant regardless of their own visibility).
+    # automatically once the widget is visible again (see
+    # `Mixin::VisibilityPausedClock`). Guarded on `@fade` still being this
+    # exact pulse clock — a `#fade_to`/`#fade_in`/`#fade_out` call made after
+    # `#pulse` replaces `@fade` with its own tween, which must not be
+    # paused/resumed here (see `@pulse_clock`'s doc).
     private def pause_pulse : Nil
       clock = @pulse_clock
-      return unless clock && @fade.same?(clock) && clock.running?
-      @pulse_paused = true
-      clock.stop
+      @pulse_paused = true if visibility_pause(clock, eligible: @fade.same?(clock))
     end
 
     # Resumes a pulse previously stopped by `#pause_pulse` (called from the
-    # one-time `Event::Show`/`Event::Attached` hooks). Gated on actual
-    # visibility — `Event::Show`/`Event::Attached` broadcast to every
-    # descendant unconditionally, so a still-hidden widget inside a
-    # newly-shown container (or a widget shown but not yet attached to a
-    # window) must not resume; the flag stays set for a later show/attach that
-    # does make it visible. Resumes the *same* `FrameClock` (rather than
-    # rebuilding one via `#pulse`) — its tick block computes opacity from
-    # wall-clock elapsed since a captured `start_at`, so restarting it stays
-    # phase-continuous instead of jumping back to the start of the breathe
-    # cycle.
+    # one-time `Event::Show`/`Event::Attached` hooks), subject to the same
+    # this-is-still-our-clock guard as `#pause_pulse` and to the visibility
+    # gate in `Mixin::VisibilityPausedClock#visibility_resume?`. Resumes the
+    # *same* `FrameClock` (rather than rebuilding one via `#pulse`) — its tick
+    # block computes opacity from wall-clock elapsed since a captured
+    # `start_at`, so restarting it stays phase-continuous instead of jumping
+    # back to the start of the breathe cycle.
     private def resume_pulse : Nil
-      return unless @pulse_paused
       clock = @pulse_clock
       return unless clock && @fade.same?(clock)
-      return unless visible_in_tree? && window?
+      return unless visibility_resume?(@pulse_paused)
       @pulse_paused = false
       clock.start
     end

@@ -105,12 +105,22 @@ module Crysterm
       # Returns true if `other` is found in the list of children, recursively
       # (Qt's `QWidget#isAncestorOf`). Strict: `self` is not its own ancestor —
       # see `#covers?` for the self-inclusive form.
+      #
+      # Answered by walking *other*'s parent chain **up** (O(depth), no
+      # allocation) instead of recursing over `self`'s whole subtree **down**
+      # (O(subtree)) — the hit-test/focus/detach hot paths probe this several
+      # times per event on containers with many descendants.
+      #
+      # The two formulations are equivalent because the parent/children links
+      # always mirror each other: `Widget#insert` sets `element.parent_ivar` in
+      # the same step that adds to `children`, and `Widget#remove` clears it in
+      # the same step that removes, so no widget is ever reachable through a
+      # `children` list without the matching `#parent` back-link. (A *top-level*
+      # widget sits in a `Window`'s children with a nil `#parent` by design, but
+      # a `Window` is not a `Widget` and is never an argument to, or receiver of,
+      # these predicates.)
       def ancestor_of?(other : Widget?) : Bool
-        @children.each do |el|
-          return true if el.same? other
-          return true if el.ancestor_of? other
-        end
-        false
+        !!other.try(&.descendant_of?(self))
       end
 
       # Self-inclusive `#ancestor_of?`: true if `other` *is* `self` or sits

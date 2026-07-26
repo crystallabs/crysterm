@@ -226,17 +226,13 @@ module Crysterm
       input.write Capture.rgba(first) rescue nil
       # `FrameClock` invokes the tick block immediately on start, before its
       # first sleep — but the t=0 frame was already written above (on this
-      # fiber, for write serialization), so the immediate tick is skipped to
-      # keep the documented one-frame-per-1/fps cadence: including it would
-      # duplicate frame 0 and stretch the clip by one frame period. Skipping
-      # doesn't disturb the clock's phase-lock (`next_at` is computed from the
-      # start time regardless).
-      first_tick = true
-      clock = FrameClock.new((1.0 / fps).seconds) do
-        if first_tick
-          first_tick = false
-          next
-        end
+      # fiber, for write serialization), so `immediate: false` moves the
+      # clock's own first tick to t≈1/fps, keeping the documented
+      # one-frame-per-1/fps cadence: an immediate tick here would duplicate
+      # frame 0 and stretch the clip by one frame period. This doesn't disturb
+      # the clock's phase-lock (`next_at` is computed from the start time
+      # regardless).
+      clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do
         begin
           bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
           input.write Capture.rgba(bmp)

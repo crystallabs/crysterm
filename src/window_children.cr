@@ -79,26 +79,19 @@ module Crysterm
       attach element, previous
 
       # Undone on detach: `#remove` calls `#unregister`, which walks the same
-      # subtree and drops each node from `@keyable`/`@clickable`.
-      #
-      # The gate mirrors the construction-time focus-registration predicate
-      # (`@keys || @input`), plus `keyable?` for a widget moved here already
-      # registered. A widget built with `keys: true` reaches this `insert` (via
-      # `Widget#initialize`'s `append`) before that registration runs, so a bare
-      # `keyable?` would never register it. The whole subtree is walked: a
-      # container moved here from another screen must re-register its keyable/
-      # clickable descendants too. `register_*` no-op on dupes.
+      # subtree and drops each node from `@keyable`/`@clickable`. The whole
+      # subtree is walked: a container moved here from another screen must
+      # re-register its keyable/clickable descendants too. `register_*` no-op on
+      # dupes. Gate: `#wants_key_registration?`.
       register_subtree element
 
       # Auto-focus on insert, but only when the inserted widget can itself take
       # focus. An unconditional `focus_next` would let non-interactive chrome (a
       # decorative box, a `Line`, a transient drag ghost) yank focus onto an
       # unrelated pre-existing keyable widget that merely happens to be
-      # unfocused. The predicate must match the registration gate above, not a
-      # bare `keyable?`, for the `keys: true` case described there.
-      if (element.keys? || element.input? || element.keyable?) && !focused
-        focus_next
-      end
+      # unfocused. Shares `#wants_key_registration?` with the registration gate
+      # above — the two must agree, so they are spelled once.
+      focus_next if wants_key_registration?(element) && !focused
     end
 
     # :ditto:
@@ -141,8 +134,10 @@ module Crysterm
       # this screen and rewind focus. The teardown samples the stale hover/arm/
       # captor/drag/grab pointers into the subtree and drops them after the
       # detach, so a removed widget can't leave the window pointing at it.
-      # `covers?` walks the element's own children, so it is invariant across
-      # the unlink and can be sampled here.
+      # `covers?` walks the *related* widget's parent chain up to `element`, and
+      # the unlink only drops `element`'s own window reference — never a link
+      # inside its subtree — so the relation is invariant across it and can be
+      # sampled here.
       previous = element.window?
       element.window = nil
       release_transient_state_for(element) do
@@ -151,13 +146,26 @@ module Crysterm
       end
     end
 
+    # Whether *el* should be entered into this window's keyboard registry (and
+    # may therefore attract auto-focus on insert).
+    #
+    # Mirrors the construction-time focus-registration predicate (`@keys` ||
+    # `@input`), plus `keyable?` for a widget moved here already registered. A
+    # widget built with `keys: true` reaches `#insert` (via `Widget#initialize`'s
+    # `append`) before that registration runs, so a bare `keyable?` would never
+    # register it.
+    @[AlwaysInline]
+    private def wants_key_registration?(el : Widget) : Bool
+      el.keys? || el.input? || el.keyable?
+    end
+
     # Re-registers `element` and its descendants in the keyboard/mouse
     # registries (`@keyable`/`@clickable`). The whole subtree is re-registered,
     # not just the root, or descendants stay stranded out of the registries.
     # `register_keyable`/`register_clickable` no-op on dupes.
     def register_subtree(element) : Nil
       element.self_and_each_descendant do |e|
-        register_keyable e if e.keys? || e.input? || e.keyable?
+        register_keyable e if wants_key_registration?(e)
         register_clickable e if e.clickable?
       end
     end

@@ -559,22 +559,14 @@ module Crysterm
     # *span* has elapsed, then stops itself. Returns the `FrameClock` driving
     # it, so the caller can `#stop` it to cancel before it fires.
     #
-    # Built on the same ticker `FrameClock` shape `#every` uses, which invokes
-    # its block immediately on `#start` and then every *interval* thereafter
-    # (see `FrameClock`). A bare ticker with `interval: span` would therefore
-    # fire at t≈0, not after the delay — so the first (immediate) tick is
-    # swallowed and only the second, at t≈span, calls *block*, stops the
-    # clock, and renders.
+    # Built on the same ticker `FrameClock` shape `#every` uses, but with
+    # `immediate: false` so the first (and only) tick lands at t≈span instead
+    # of t≈0 (see `FrameClock#initialize`).
     def after(span : Time::Span, &block : ->) : FrameClock
-      fired = false
-      FrameClock.new(span) do |clock|
-        if fired
-          clock.stop
-          block.call
-          render
-        else
-          fired = true
-        end
+      FrameClock.new(span, immediate: false) do |clock|
+        clock.stop
+        block.call
+        render
       end.start
     end
 

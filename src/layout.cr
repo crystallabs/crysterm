@@ -229,16 +229,17 @@ module Crysterm
     # Marks `el`'s whole subtree as not rendered this frame. The whole subtree,
     # because hit-testing matches every widget independently against its own
     # `lpos`, so a stale grandchild rect would still take clicks even with the
-    # parent's cleared. Explicit recursion (no captured block) keeps this
-    # allocation-free.
+    # parent's cleared. Also marks it suppressed, so focus/Tab navigation skips
+    # the subtree (a non-current `Stack` page must not be a focus target).
+    # Distinct from a scrolled-out widget, which is rendered (clearing the
+    # flag) even when it lands off-viewport.
+    #
+    # Delegates to `Widget#suppress_subtree`, which prunes a subtree that is
+    # already wholly suppressed (see the invariant documented there) — so
+    # skipping the same hidden page on every arrange costs O(1), not a
+    # re-walk of the page's entire subtree per rendered frame.
     protected def skip_subtree(el : Widget) : Nil
-      el.lpos = nil
-      # Suppressed, so focus/Tab navigation skips the subtree (a non-current
-      # `Stack` page must not be a focus target). Distinct from a scrolled-out
-      # widget, which is rendered (clearing the flag) even when it lands
-      # off-viewport.
-      el.layout_suppressed = true
-      el.children.each { |c| skip_subtree c }
+      el.suppress_subtree
     end
 
     # Assigns `el`'s full rectangle (left/top/width/height) in one call. Does not

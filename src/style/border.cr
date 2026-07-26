@@ -86,6 +86,33 @@ module Crysterm
         " expects a single side (Left/Top/Right/Bottom), got #{ {{ side }} }"
     end
 
+    # Reads one side's `@<side><suffix>` ivar, keyed by *side*. *side* must be
+    # a single side (`Left`/`Top`/`Right`/`Bottom`); `Horizontal`/`Vertical`/
+    # `All` don't apply and raise (see `#raise_multi_side`). Shared skeleton
+    # behind `#width_of` and (write-direction) `#set_width`/`#set_color`/
+    # `#set_current_color` below.
+    private macro side_read(side, suffix)
+      case {{ side }}
+      in .top?                           then @top{{ suffix.id }}
+      in .right?                         then @right{{ suffix.id }}
+      in .bottom?                        then @bottom{{ suffix.id }}
+      in .left?                          then @left{{ suffix.id }}
+      in .horizontal?, .vertical?, .all? then raise_multi_side {{ side }}
+      end
+    end
+
+    # Writes *value* into one side's `@<side><suffix>` ivar, keyed by *side*.
+    # Same single-side-only contract as `#side_read`.
+    private macro side_write(side, suffix, value)
+      case {{ side }}
+      in .top?                           then @top{{ suffix.id }} = {{ value }}
+      in .right?                         then @right{{ suffix.id }} = {{ value }}
+      in .bottom?                        then @bottom{{ suffix.id }} = {{ value }}
+      in .left?                          then @left{{ suffix.id }} = {{ value }}
+      in .horizontal?, .vertical?, .all? then raise_multi_side {{ side }}
+      end
+    end
+
     property type = BorderType::Solid
 
     # Border colors, as a `0xRRGGBB` int (`-1` = terminal default, `nil` =
@@ -141,13 +168,7 @@ module Crysterm
     # Sets/clears one side's `currentColor` marker (the marker analog of
     # `set_color`).
     protected def set_current_color(side : Side, value : Bool) : Nil
-      case side
-      in .top?                           then @top_fg_current_color = value
-      in .right?                         then @right_fg_current_color = value
-      in .bottom?                        then @bottom_fg_current_color = value
-      in .left?                          then @left_fg_current_color = value
-      in .horizontal?, .vertical?, .all? then raise_multi_side side
-      end
+      side_write side, "_fg_current_color", value
     end
 
     # Clears every per-side `currentColor` marker (used when the whole-border
@@ -403,39 +424,21 @@ module Crysterm
     # side (`Left`/`Top`/`Right`/`Bottom`); `Horizontal`/`Vertical`/`All` don't
     # apply to a single-side setter and raise.
     protected def set_width(side : Side, value : Int32) : Nil
-      case side
-      in .top?                           then @top = value
-      in .right?                         then @right = value
-      in .bottom?                        then @bottom = value
-      in .left?                          then @left = value
-      in .horizontal?, .vertical?, .all? then raise_multi_side side
-      end
+      side_write side, "", value
     end
 
     # Sets one side's `<side>_fg` override slot, not the whole-border `#fg`.
     # Only called by `CSS::Properties`, so kept `protected`. *side* must
     # be a single side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
     protected def set_color(side : Side, value : Int32?) : Nil
-      case side
-      in .top?                           then @top_fg = value
-      in .right?                         then @right_fg = value
-      in .bottom?                        then @bottom_fg = value
-      in .left?                          then @left_fg = value
-      in .horizontal?, .vertical?, .all? then raise_multi_side side
-      end
+      side_write side, "_fg", value
     end
 
     # Current width of one side, keyed by *side*. Only called by
     # `CSS::Properties`, so kept `protected`. *side* must be a single
     # side; `Horizontal`/`Vertical`/`All` raise (see `#set_width`).
     protected def width_of(side : Side) : Int32
-      case side
-      in .top?                           then @top
-      in .right?                         then @right
-      in .left?                          then @left
-      in .bottom?                        then @bottom
-      in .horizontal?, .vertical?, .all? then raise_multi_side side
-      end
+      side_read side, ""
     end
   end
 end

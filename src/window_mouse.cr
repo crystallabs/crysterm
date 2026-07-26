@@ -379,10 +379,23 @@ module Crysterm
         end
         # A draggable widget defers its click to release (handled above).
         w.emit ::Crysterm::Event::Click unless w.draggable?
-      elsif ev.action.wheel_up?
-        scroll_under w, -1, horizontal: ev.shift?
+      elsif d = wheel_delta(ev)
+        scroll_under w, d, horizontal: ev.shift?
+      end
+    end
+
+    # The scroll delta a wheel report carries — `-1` for a wheel-up, `1` for a
+    # wheel-down — or `nil` when *ev* is not a wheel report at all. The single
+    # spelling of both the "is this a wheel?" test and the direction→delta
+    # mapping, shared by every member of the wheel-dispatch family
+    # (`#dispatch_mouse`, `#wheel_focuses`, `#handle_disabled_wheel`) so they
+    # cannot disagree on either.
+    @[AlwaysInline]
+    private def wheel_delta(ev : ::Tput::Mouse::Event) : Int32?
+      if ev.action.wheel_up?
+        -1
       elsif ev.action.wheel_down?
-        scroll_under w, 1, horizontal: ev.shift?
+        1
       end
     end
 
@@ -405,7 +418,7 @@ module Crysterm
     # itself (e.g. `Dial`/`SpinBox`/`Slider`) or via a focusable scrollable
     # ancestor (e.g. a `List`).
     private def wheel_focuses(w : Widget, ev : ::Tput::Mouse::Event) : Nil
-      return unless ev.action.wheel_up? || ev.action.wheel_down?
+      return unless wheel_delta(ev)
       if target = focusable_at w
         target.focus
         render
@@ -418,8 +431,8 @@ module Crysterm
     # Only a scrollable *ancestor* may take the wheel, so route the scroll from
     # the parent up. Returns whether the wheel was consumed here.
     private def handle_disabled_wheel(w : Widget, ev : ::Tput::Mouse::Event) : Bool
-      return false unless w.disabled? && (ev.action.wheel_up? || ev.action.wheel_down?)
-      w.parent.try { |p| scroll_under p, ev.action.wheel_up? ? -1 : 1, horizontal: ev.shift? }
+      return false unless w.disabled? && (d = wheel_delta(ev))
+      w.parent.try { |p| scroll_under p, d, horizontal: ev.shift? }
       true
     end
 

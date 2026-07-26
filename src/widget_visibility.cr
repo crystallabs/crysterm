@@ -28,7 +28,7 @@ module Crysterm
         # Rewind focus out of this subtree when it (or a descendant) holds
         # focus: a hidden container must not leave a focused child still
         # receiving keyboard input.
-        if (f = s.focused) && (f == self || ancestor_of? f)
+        if (f = s.focused) && covers?(f)
           s.rewind_focus
         end
       end

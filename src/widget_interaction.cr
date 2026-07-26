@@ -489,9 +489,13 @@ module Crysterm
           # parent.ileft + left`). Subtract that origin so a nested draggable
           # widget tracks the pointer instead of jumping by its parent's absolute
           # position. For a top-level widget with no insets, origin is (0, 0).
+          #
+          # Both axes go through the coalescing `#move` primitive rather than
+          # the two individual setters, so one drag-motion costs a single
+          # `mark_dirty` and a single `Move` emit instead of two of each.
           ox, oy = drag_origin
-          self.left = (e.x - @_drag_dx - ox).clamp(0, drag_max_left)
-          self.top = (e.y - @_drag_dy - oy).clamp(0, drag_max_top)
+          move (e.x - @_drag_dx - ox).clamp(0, drag_max_left),
+            (e.y - @_drag_dy - oy).clamp(0, drag_max_top)
         end
       end
 

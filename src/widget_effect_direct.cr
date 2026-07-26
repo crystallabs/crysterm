@@ -1,5 +1,6 @@
 require "./widget/box"
 require "./colors"
+require "./mixin/visibility_paused_clock"
 
 module Crysterm
   class Widget
@@ -19,6 +20,10 @@ module Crysterm
       # through the `#done?` / `#on_done` hooks; an endless one leaves them at
       # their defaults and runs until `#stop`.
       module Animated
+        # Pause-while-invisible / resume-when-visible core, shared with
+        # `Widget#pulse`.
+        include ::Crysterm::Mixin::VisibilityPausedClock
+
         # Delay between frames.
         getter interval : Time::Span = 0.07.seconds
 
@@ -123,25 +128,20 @@ module Crysterm
         # Stops the clock for visibility (called from the one-time
         # `Event::Hide`/`Event::Detached` hooks installed by `#start`), unlike
         # a plain `#stop` this leaves `@animation_paused` set so it resumes
-        # automatically once the widget is visible again. A no-op if not
-        # currently running (idempotent against `Event::Hide`'s broadcast to
-        # every descendant regardless of their own visibility).
+        # automatically once the widget is visible again — see
+        # `Mixin::VisibilityPausedClock`.
         private def pause_animation : Nil
-          return unless running?
-          @animation_paused = true
-          @animation.try &.stop
+          @animation_paused = true if visibility_pause(@animation)
         end
 
         # Resumes a clock previously stopped by `#pause_animation` (called
-        # from the one-time `Event::Show`/`Event::Attached` hooks). Gated on
-        # actual visibility — `Event::Show`/`Event::Attached` broadcast to
-        # every descendant unconditionally, so a still-hidden widget inside a
-        # newly-shown container (or a widget shown but not yet attached to a
-        # window) must not resume; the flag stays set for a later show/attach
-        # that does make it visible.
+        # from the one-time `Event::Show`/`Event::Attached` hooks), subject to
+        # the visibility gate in
+        # `Mixin::VisibilityPausedClock#visibility_resume?`. Rebuilds the
+        # clock through `#start` (rather than restarting the stopped one), so
+        # the run resumes with the current `#interval` and a fresh tick block.
         private def resume_animation : Nil
-          return unless @animation_paused
-          return unless visible_in_tree? && window?
+          return unless visibility_resume?(@animation_paused)
           @animation_paused = false
           start
         end
@@ -279,12 +279,12 @@ module Crysterm
               next unless c
               ch, color = cell fx, fy, full_w, full_h
               fgf = color < 0 ? deff : Attr.pack_color(color)
-              a = Attr.with_fg(da, fgf)
-              if c.attr != a || c.char != ch
-                c.attr = a
-                c.char = ch
-                line.dirty = true
-              end
+              # `Cell#set_if_changed` does the same compare/write/skip, but
+              # also treats a grapheme-cluster overlay as differing (so a cell
+              # left holding a cluster is correctly overwritten and the
+              # cluster/link overlays invalidated), and narrows the dirty range
+              # to this column instead of widening it to the whole row.
+              c.set_if_changed Attr.with_fg(da, fgf), ch
             end
           end
         end

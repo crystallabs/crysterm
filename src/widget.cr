@@ -296,29 +296,22 @@ module Crysterm
     # Assigns `left`/`top` in one shot — the move-only counterpart to
     # `#set_geometry`: a single `mark_dirty` and only a `Move` emit, and a full
     # no-op when the position doesn't change ↔ Qt's `QWidget::move()`.
+    #
+    # Delegates to `#set_geometry` with the size pair unchanged: `Dim.from` is
+    # the identity on an already-normalized ivar, so `resized` computes false
+    # and no `Resize` is emitted.
     def move(left : Int32, top : Int32) : Nil
-      moved = (@left != left) || (@top != top)
-      return unless moved
-
-      @left = left
-      @top = top
-
-      mark_dirty
-      emit ::Crysterm::Event::Move
+      set_geometry left, top, @width, @height
     end
 
     # Assigns `width`/`height` in one shot — the resize-only counterpart to
     # `#set_geometry`: a single `mark_dirty` and only a `Resize` emit, and a full
     # no-op when the size doesn't change ↔ Qt's `QWidget::resize()`.
+    #
+    # Delegates to `#set_geometry` with the position pair unchanged (see
+    # `#move` for why that never emits a spurious `Move`).
     def resize(width : Int32, height : Int32) : Nil
-      resized = (@width != width) || (@height != height)
-      return unless resized
-
-      @width = width
-      @height = height
-
-      mark_dirty
-      emit ::Crysterm::Event::Resize
+      set_geometry @left, @top, width, height
     end
 
     # This widget's last-rendered box in absolute window coordinates ↔ Qt's

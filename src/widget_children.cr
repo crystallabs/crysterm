@@ -138,6 +138,25 @@ module Crysterm
       element.window = nil
       element.parent_ivar = self
 
+      # A reparented subtree arrives with the last-rendered rects of its OLD
+      # home, which hit-testing would keep matching until the next render pass
+      # reaches it — or never, if this parent's branch is currently
+      # layout-suppressed (a hidden `Stack` page), whose pruned skip walk (see
+      # `Widget#suppress_subtree`) does not descend into an already-final
+      # subtree. Clear them now; and under a suppressed parent, mark the
+      # incoming subtree suppressed too, re-establishing the "nil `lpos` +
+      # suppressed ⇒ whole subtree likewise" invariant the prune rests on at
+      # mutation time (which also keeps a keyable arrival out of focus/Tab
+      # reach while the page is hidden). A same-parent reorder (`old_i`) never
+      # moved, so its rects stay live and its flags correct.
+      if old_i.nil?
+        if layout_suppressed?
+          element.suppress_subtree
+        else
+          clear_subtree_lpos element
+        end
+      end
+
       window?.try &.attach(element, previous)
 
       # Re-register in the window's keyboard/mouse registries: the unlink above

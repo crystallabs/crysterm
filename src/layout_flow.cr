@@ -189,29 +189,43 @@ module Crysterm
         # geometry branch instead (in steady state both compute the same left:
         # `occupied_width` reads a shrink-to-fit child's drawn width, so even
         # an auto-sized deferred predecessor chains at its real extent).
+        # O7-14: the x position is threaded as a LOCAL through the chain and the
+        # grid snap, so the intermediate values never reach the change-guarded
+        # `left=` setter — each such write costs a full `mark_dirty` ancestor
+        # walk plus a `Move` emit. Every branch commits through the coalescing
+        # `Widget#move` primitive instead (one walk, one emit for both axes).
         if (last = @last_rendered) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
-          el.left = (llp.xl + last.mright) - xi
+          left = (llp.xl + last.mright) - xi
           last_drawn = llp.width
         elsif (last = @prev_el)
           last_drawn = occupied_width last
           # B18-25: widen the chain sum to Int64 and clamp to the interior so a
           # pathological predecessor extent can't overflow the checked Int32
           # accumulation (`occupied_width` returns raw `awidth`).
-          el.left = (last.left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
+          left = (last.left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
         else
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
           # chain break can't fold later rows back onto row 0.
-          el.left = 0
-          el.top = @row_offset
+          el.move 0, @row_offset
           return
         end
 
         # Snap to the uniform column width in grid mode.
         if high_width > 0
-          el.left = el.left.as(Int) + high_width - last_drawn
+          left = left + high_width - last_drawn
         end
+
+        # Commit the chained position before the fit test, NOT after it: for a
+        # nil-width (shrink-to-fit) child `cached_awidth` resolves `el.awidth`,
+        # whose auto branch reads the child's own `@left` (widget_size.cr) — so
+        # the fit test only means what it means once `left` is assigned. This is
+        # also what makes such a child never wrap (`left + awidth` collapses to
+        # the interior width), the horizontal twin of `#overflow_action`'s NOTE;
+        # testing against a local would resolve `awidth` from the *previous*
+        # frame's `left` and wrap every auto-width child onto its own row.
+        el.move left, @row_offset
 
         # Include the child's own left margin: render shifts the drawn box right
         # by `mleft` without shrinking a fixed width, so the child occupies
@@ -219,18 +233,17 @@ module Crysterm
         # child paint past the interior instead of wrapping.
         # B18-25: run the fit comparison in Int64 so a margin+width beyond the
         # Int32 range can't overflow the sum.
-        if el.left.as(Int).to_i64 + el.mleft + cached_awidth(el) <= width
-          el.top = @row_offset
-        else
+        unless left.to_i64 + el.mleft + cached_awidth(el) <= width
           # Doesn't fit on this row: advance the row offset by the tallest child
-          # on the row we're leaving, and start a new row.
+          # on the row we're leaving, and start a new row. `row_tallest` scans
+          # `[@row_index, i)` — strictly `el`'s predecessors — so the commit
+          # above can't feed back into the row height it measures.
           # B18-25: clamp the row height to the interior so a pathological child
           # can't overflow the checked Int32 `@row_offset` accumulation.
           @row_offset += clamped_size(row_tallest(container, @row_index, i), interior.height)
           @last_row_index = @row_index
           @row_index = i
-          el.left = 0
-          el.top = @row_offset
+          el.move 0, @row_offset
         end
       end
 
@@ -319,6 +332,15 @@ module Crysterm
       # child height, the vertical analogue of the explicit width flow already
       # requires.
       protected def overflow_action(container : Widget, el : Widget, interior : RenderedGeometry) : Overflow?
+        # O7-15: by the NOTE above, an unconstrained auto-height child can never
+        # be reported as overflowing — so skip resolving `aheight` for it at all
+        # (its auto branch climbs the whole ancestor chain). The `min_height`
+        # term is load-bearing: `aheight`'s auto branch ends in `clamp_aheight`,
+        # and a `min_height` above the remaining interior pushes the resolved
+        # height past the fill, making a nil-height child genuinely overflowable.
+        # `max_height` needs no term — it can only lower the result.
+        return nil if el.height.nil? && el.min_height.nil?
+
         height = interior.height
         # Include the top margin: render shifts a fixed-size box down by `mtop`
         # without shrinking it, so its real bottom edge is `top + mtop + aheight`.

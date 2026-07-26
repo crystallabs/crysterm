@@ -91,6 +91,25 @@ module Crysterm
     @css_structural_doc : HTML5::Node?
     @css_structural_doc_string : String?
 
+    # Whether the cached widget index holds any sub-element/extra slot key
+    # (`uid::slot`). Computed when the index is (re)built and invalidated with
+    # it, so the cascade's backward-structural-pseudo path doesn't rescan every
+    # index key on every re-cascade.
+    @css_widget_index_has_slots = false
+
+    # Cross-cascade `var()` caches (O7-20): the custom properties merged across
+    # the default and author stylesheets, and the per-value `var()` resolution
+    # memo built against them. Both are a pure function of those two sheets — a
+    # `Stylesheet`'s `variables` hash is populated only at parse time — so they
+    # are rebuilt only when the author sheet object changes or the default
+    # sheet's generation moves. The author sheet is remembered by *reference*
+    # rather than `object_id` so a collected sheet's address can't be reused and
+    # alias as a cache hit.
+    @css_var_cache_sheet : CSS::Stylesheet?
+    @css_var_cache_generation : Int32?
+    @css_variables : Hash(String, String)?
+    @css_resolved : Hash(String, String)?
+
     # Whether the widget tree *structure* changed (insert/remove) since the last
     # parse — if so the cached parse can't be patched and must be rebuilt.
     @css_structural = false
@@ -342,13 +361,44 @@ module Crysterm
       doc = css_parsed_document(document)
       # `Cascade.apply` folds the default stylesheet in beneath the author one;
       # with no author sheet, the default (theme) runs by itself.
+      variables, resolved = css_var_caches(author, default, generation)
       if author
-        CSS::Cascade.apply author, self, doc, scope
+        CSS::Cascade.apply author, self, doc, scope, variables, resolved
       else
-        CSS::Cascade.apply_sheets [{default, CSS::Cascade::TIER_DEFAULT}], self, doc, scope
+        CSS::Cascade.apply_sheets [{default, CSS::Cascade::TIER_DEFAULT}], self, doc, scope, variables, resolved
       end
       @css_widgets_styled = true
       clear_css_dirty
+    end
+
+    # The `{merged variables, var() resolution memo}` pair the cascade resolves
+    # `var(...)` with, cached across cascades and rebuilt only when the sheets
+    # they derive from change (see `@css_variables`). The merge order mirrors the
+    # tier order `Cascade.apply` feeds — default first, author over it — so a
+    # later sheet's custom properties win.
+    private def css_var_caches(author : CSS::Stylesheet?, default : CSS::Stylesheet, generation : Int32) : Tuple(Hash(String, String), Hash(String, String))
+      variables = @css_variables
+      resolved = @css_resolved
+      if variables && resolved && generation == @css_var_cache_generation && css_var_cache_built_from?(author)
+        return {variables, resolved}
+      end
+      variables = {} of String => String
+      variables.merge! default.variables
+      author.try { |sheet| variables.merge! sheet.variables }
+      resolved = {} of String => String
+      @css_variables = variables
+      @css_resolved = resolved
+      @css_var_cache_sheet = author
+      @css_var_cache_generation = generation
+      {variables, resolved}
+    end
+
+    # Whether the cached `var()` tables were built from *author* (reference
+    # identity; a `nil` author matches only a `nil` cached sheet).
+    private def css_var_cache_built_from?(author : CSS::Stylesheet?) : Bool
+      cached = @css_var_cache_sheet
+      return cached.nil? if author.nil?
+      !cached.nil? && cached.same?(author)
     end
 
     # Builds the "no theme" `CSS::Theme` for this screen from its terminal's
@@ -400,10 +450,21 @@ module Crysterm
       if @css_structural || cached.nil?
         built = yield
         @css_widget_index = built
+        # Slot keys can only appear/disappear with the index itself, so the
+        # cascade's "does this tree have sub-elements at all?" test is answered
+        # once here instead of rescanning every key on every cascade.
+        @css_widget_index_has_slots = built.any? { |key, _| key.includes?("::") }
         built
       else
         cached
       end
+    end
+
+    # Whether the widget index holds any sub-element/extra slot (`uid::slot`)
+    # key. Valid once `#css_widget_index` has been called (which the cascade
+    # does before reading this).
+    def css_widget_index_has_slots? : Bool
+      @css_widget_index_has_slots
     end
 
     # The parsed *structural* document (`to_html(structural: true)`), cached

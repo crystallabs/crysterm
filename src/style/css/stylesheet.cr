@@ -253,6 +253,13 @@ module Crysterm
       # screen must re-run the cascade on a terminal resize.
       @has_media : Bool = false
 
+      # Whether any rule declares a geometry/layout property (`width`, `top`,
+      # `text-align`, …) — the ones the cascade writes onto the *widget* rather
+      # than its `Style`. Hardly any sheet has one, yet finding them costs a
+      # re-walk of every winning declaration of every touched widget, so the
+      # cascade skips that walk entirely when this is clear.
+      @has_geometry : Bool = false
+
       def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
                      @keyframes = {} of String => Array(KeyframeDef))
         # A rule participates in state-driven restyling if a `.state-*` class
@@ -266,6 +273,11 @@ module Crysterm
         end
         @has_relational = @rules.any? { |r| r.has || r.ancestor_has }
         @has_media = @rules.any?(&.media)
+        # Property names are lower-cased at parse, matching `Geometry::PROPERTIES`.
+        @has_geometry = @rules.any? do |r|
+          r.declarations.any? { |property, _| Geometry.handles?(property) } ||
+            r.important.any? { |property, _| Geometry.handles?(property) }
+        end
       end
 
       # :ditto:
@@ -281,6 +293,11 @@ module Crysterm
       # :ditto:
       def has_media? : Bool
         @has_media
+      end
+
+      # :ditto:
+      def has_geometry? : Bool
+        @has_geometry
       end
 
       # The stops of `@keyframes` *name* on a terminal of *width*×*height*

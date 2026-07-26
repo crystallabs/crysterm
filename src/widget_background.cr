@@ -46,11 +46,52 @@ module Crysterm
     end
 
     # Clears the last-rendered rect of *el*'s whole subtree. Explicit recursion,
-    # allocation-free. Callers must filter out `layout_excluded?` chrome, which
-    # renders out-of-band with its own live `lpos`.
+    # allocation-free. Per-frame callers must filter out `layout_excluded?`
+    # chrome, which renders out-of-band with its own live `lpos` (a
+    # mutation-time caller like `Widget#insert` clears it too: on a reparent
+    # nothing in the subtree is painting at its new place yet, and the chrome
+    # refreshes its own `lpos` on the owner's next render).
     protected def clear_subtree_lpos(el : Widget) : Nil
       el.lpos = nil
       el.children.each { |c| clear_subtree_lpos c }
+    end
+
+    # Marks this widget's whole subtree layout-suppressed with no rendered rect
+    # — the state `Layout#skip_subtree` gives a branch the engines omit this
+    # frame (a non-current `Layout::Stack` page): `lpos = nil` so hit-testing
+    # can't route clicks/hovers into it, and `layout_suppressed = true` so
+    # focus/Tab navigation skips it (`Window`'s `on_screen_here?` tests each
+    # widget's OWN flag, so every descendant needs it set, not just the root).
+    #
+    # Prunes on the subtree invariant "a node with `lpos.nil? &&
+    # layout_suppressed?` has its whole subtree in that same state": such a
+    # node is already final, so the walk returns without recursing. A hidden
+    # page's subtree is thus walked once when it leaves the screen and costs
+    # O(1) per frame thereafter, instead of an O(subtree) re-walk on every
+    # arrange. The invariant holds because:
+    #
+    # * `layout_suppressed` is only ever set true here, always together with
+    #   `lpos = nil` and always over the whole (non-final) subtree;
+    # * a live `lpos` is only (re)acquired in `base_render`, which resolves
+    #   against the parent's *rendered* position — impossible under an
+    #   ancestor with nil `lpos` — and renders top-down, clearing each
+    #   visited widget's own flag on entry, so a re-shown branch is wholly
+    #   non-final again by the time a later skip walk meets it;
+    # * `Widget#insert` re-establishes the state on a subtree attached under
+    #   a suppressed parent at mutation time (see there).
+    #
+    # (Residual, pre-existing edge: directly `#render`/`#repaint`-ing a
+    # *visible* widget strictly inside a suppressed subtree raises out of
+    # `coords` — its parent has no rendered position — but only after
+    # `base_render` already cleared that widget's own flag. Code that swallows
+    # the exception leaves the widget focus-eligible (nil `lpos`, flag false)
+    # until its branch next renders; the pre-prune full walk instead
+    # re-suppressed it on the next frame.)
+    def suppress_subtree : Nil
+      return if @lpos.nil? && layout_suppressed?
+      @lpos = nil
+      self.layout_suppressed = true
+      children.each &.suppress_subtree
     end
 
     # Clears the last-rendered rects of every non-excluded child subtree — what

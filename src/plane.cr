@@ -91,7 +91,23 @@ module Crysterm
         pr_has_l = pr.has_links?
         br_has_l = br.has_links?
         x = xi < 0 ? 0 : xi
-        while x < cols
+        # Bound the scan to the row's painted span. INVARIANT: `#clear` resets a
+        # dirty row to the transparent sentinel wholesale, and every writer that
+        # then paints into a plane row (the plane is installed as the window's
+        # `@lines` while its layer renders) marks the column it wrote — either
+        # narrowly via `Row#mark_dirty`/`Cell#set_if_changed`/`Cell#link=`, or
+        # conservatively via `dirty = true` (which widens the range to the whole
+        # row, so it degrades to the previous full-width scan). `Docking.dock`,
+        # the only writer reaching into `pl.cells` directly, marks each column it
+        # rewrites too. So every cell outside `[dirty_min, dirty_max]` is still
+        # the sentinel and could only have been skipped anyway.
+        lo = pr.dirty_min
+        hi = pr.dirty_max
+        x = lo if lo > x
+        # `dirty = true` stores `Int32::MAX` as `dirty_max`; compare rather than
+        # `hi + 1` so that can't overflow.
+        xend = hi < cols - 1 ? hi + 1 : cols
+        while x < xend
           patt = pa.unsafe_fetch(x)
           ch = pc.unsafe_fetch(x)
           unless patt == CLEAR_ATTR && ch == ' ' # skip unpainted (transparent) cells

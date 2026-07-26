@@ -48,8 +48,13 @@ module Crysterm
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
       # against the tree rooted at *window*, matching against the prebuilt CSS
       # document *doc*.
-      def self.apply(stylesheet : Stylesheet, window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], window, doc, scope)
+      #
+      # *cached_variables*/*cached_resolved* are the window's cross-cascade
+      # `var()` caches; both are rebuilt here when omitted (see `apply_sheets`).
+      def self.apply(stylesheet : Stylesheet, window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
+                     cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil) : Nil
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], window, doc, scope,
+          cached_variables, cached_resolved)
       end
 
       # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
@@ -59,11 +64,18 @@ module Crysterm
       # (incremental update); selector matching is still over the whole document
       # so ancestor/sibling context is correct.
       #
+      # *cached_variables* (the custom properties merged across *sheets*) and
+      # *cached_resolved* (the per-value `var()` resolution memo) are a pure
+      # function of *sheets*, so the window hands in copies it keeps across
+      # cascades (O7-20). Both are rebuilt here when omitted, keeping this
+      # callable standalone.
+      #
       # Deliberately one flat resolver walk (the benchmarked cascade hot path);
       # splitting it to satisfy the metric would spread cascade state across
       # helpers.
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
+                            cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
         # Reuse the window's structurally-cached widget index instead of
@@ -81,7 +93,9 @@ module Crysterm
         # match those rules against a *structural* document (built lazily, once)
         # that omits the pseudo-nodes; slot nodes still match against the full
         # document.
-        has_slots = index.any? { |key, _| key.includes?("::") }
+        # Cached alongside the index above (it can only change with it), so this
+        # isn't a fresh scan of every key on every cascade.
+        has_slots = window.css_widget_index_has_slots?
         structural_doc : HTML5::Node? = nil
         structural_cache = Hash(String, Array(HTML5::Node)).new
         # `data-uid -> structural node`, for the slot-subject split's host
@@ -99,14 +113,21 @@ module Crysterm
         media_glyphs = window.glyph_tier.value.to_i32
 
         # Variables merge across sheets in order, so a later (higher-priority)
-        # sheet's custom properties win.
-        variables = {} of String => String
-        sheets.each { |entry| variables.merge!(entry[0].variables) }
+        # sheet's custom properties win. A `Stylesheet`'s `variables` hash is
+        # only ever populated at parse time, so the merge is fixed for as long as
+        # the sheets are — the window hands in the merge (and the resolution memo
+        # below) it built once, and only a standalone call rebuilds them here.
+        variables = cached_variables || begin
+          merged = {} of String => String
+          sheets.each { |entry| merged.merge!(entry[0].variables) }
+          merged
+        end
         # `variables` is fixed for the whole cascade, so each distinct property
         # *value* resolves to the same string every time; memoizing keeps the
         # theme's handful of `var(--surface)`-style values from being re-resolved
-        # thousands of times.
-        resolved = {} of String => String
+        # thousands of times. Keyed by the raw value string against a fixed
+        # `variables`, so the memo stays valid across cascades too.
+        resolved = cached_resolved || {} of String => String
 
         # Match each rule against the document exactly once: state is carried on
         # the rules, not the nodes, so no need to re-run a selector per state.
@@ -232,7 +253,7 @@ module Crysterm
         end
 
         touched = Set(Tuple(String, WidgetState)).new
-        acc.each_key { |(key, state)| touched << {key.partition("::")[0], state} }
+        acc.each_key { |(key, state)| touched << {uid_of(key), state} }
 
         # Reset every recomputed widget to its pristine pre-CSS styles before
         # (re)applying rules. This is what makes the cascade non-stale: a widget
@@ -240,6 +261,11 @@ module Crysterm
         # clean rather than building on its previous computed styles.
         # (Inherited-into widgets aren't `css_styled`, so every candidate is
         # reset, not just matched ones.)
+        #
+        # The roots of a scoped recompute (a scoped widget whose parent isn't
+        # scoped) are collected in the same walk, for the scoped inheritance
+        # pass at the end. Unused — and left empty — on a full cascade.
+        scoped_roots = [] of Widget
         each_recompute_candidate(index, scope) do |widget|
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
@@ -265,33 +291,49 @@ module Crysterm
           if inl = widget.inline_style
             fold_inline widget.styles.normal, inl
           end
-        end
 
-        # Give every touched (widget, state) its own `Style` up front (fresh
-        # pristine dup). A state that otherwise falls back to `normal` would, if
-        # mutated in place by a sub-element rule, leak into `normal`.
-        touched.each do |(uid, state)|
-          if target = index[uid]?
-            next unless scope.nil? || scope.includes?(target[0])
-            set_state_style target[0], state, base_state_style(target[0], state)
+          if s = scope
+            parent = widget.parent
+            scoped_roots << widget unless parent && s.includes?(parent)
           end
         end
 
-        # Apply each touched widget's main style: author/default declarations,
-        # then inline `@style` (tier 2), then `!important` (tier 3). Every
-        # touched widget is processed (even one matched only via a sub-element)
-        # so its inline style still folds in, and is marked `css_styled` so
-        # `#style` returns the computed result. Out-of-scope widgets keep their
-        # already-computed styles (incremental update).
+        # Give every touched (widget, state) its own `Style` (fresh pristine
+        # dup) and apply its declarations, in one walk. A state that otherwise
+        # falls back to `normal` would, if mutated in place by a sub-element
+        # rule, leak into `normal` — so materialization must still happen for
+        # every touched pair before the *sub-element* pass below, which this
+        # single walk (running wholly before it) satisfies.
+        #
+        # O7-21: geometry declarations are rare, but finding them costs a re-walk
+        # of every winning declaration of every touched widget. Hoist the
+        # per-sheet flag so a sheet without any skips that walk outright. (The
+        # inline `@style` is a `Style`, which can't carry geometry, so the
+        # stylesheets are the only source.)
+        any_geometry = sheets.any?(&.[0].has_geometry?)
+        # O7-22: materializing and applying were two identical walks over
+        # `touched`. Merging them is sound because the apply body reads only the
+        # pair's own just-stored `Style`, the widget's own inline `@style` and
+        # the widget's geometry — never another pair's state style — so no pair
+        # depends on a later one having been materialized first.
+        #
+        # Apply order within a pair: author/default declarations, then inline
+        # `@style` (tier 2), then `!important` (tier 3). Every touched widget is
+        # processed (even one matched only via a sub-element) so its inline style
+        # still folds in, and is marked `css_styled` so `#style` returns the
+        # computed result. Out-of-scope widgets keep their already-computed
+        # styles (incremental update).
         touched.each do |(uid, state)|
           next unless target = index[uid]?
           widget = target[0]
           next unless scope.nil? || scope.includes?(widget)
+          style = base_state_style(widget, state)
+          set_state_style widget, state, style
           entries = acc[{uid, state}]? || EMPTY_ENTRIES
-          apply_entries_with_inline get_state_style(widget, state), entries, variables, resolved, widget.inline_style
+          apply_entries_with_inline style, entries, variables, resolved, widget.inline_style
           # Geometry/layout is per-widget, not per-state: apply once from the
           # (now sorted) normal-state entries.
-          apply_geometry widget, entries, variables, resolved if state.normal?
+          apply_geometry widget, entries, variables, resolved if any_geometry && state.normal?
           widget.css_styled = true
         end
 
@@ -344,7 +386,28 @@ module Crysterm
           end
         end
 
-        inherit window
+        # O7-19: a scoped cascade only reset and recomputed the widgets in
+        # *scope*, so inheritance only has to re-run over those subtrees — not
+        # the whole tree. Correctness rests on two properties of the scope:
+        #
+        # * it is subtree-closed (`Window#css_scope_widgets` expands every dirty
+        #   root with `collect_css_subtree`), so no out-of-scope widget has an
+        #   in-scope parent — i.e. `scoped_roots` covers every scoped widget,
+        #   and each root's parent style is final for this cascade; and
+        # * an out-of-scope widget's own style and its parent's are both
+        #   untouched this cascade, so its inherited values are exactly what a
+        #   previous cascade already wrote — and `inherit_props` only writes
+        #   where the target leaves the property unspecified, making the visit a
+        #   no-op.
+        #
+        # `scoped_roots` is drawn from the index-filtered reset walk, so a stale
+        # dirty root that has since moved to another window can't drag a foreign
+        # subtree into this window's inheritance pass.
+        if scope
+          scoped_roots.each { |root| inherit_into root, root.parent.try(&.styles.normal) }
+        else
+          inherit window
+        end
       end
 
       EMPTY_ENTRIES = [] of Entry
@@ -610,13 +673,22 @@ module Crysterm
         base_tier == TIER_AUTHOR ? TIER_AUTHOR_STATE : base_tier
       end
 
+      # The widget-uid part of an index key: everything before `::` in a
+      # `uid::slot` sub-element key, or — allocation-free, and returning the very
+      # same `String` — the whole of a plain widget key. (`String#partition`
+      # would build a 3-tuple plus two throwaway strings for the same answer.)
+      private def self.uid_of(key : String) : String
+        (sep = key.index("::")) ? key[0, sep] : key
+      end
+
       # When a state rule lands on a sub-element key (`uid::slot`), records the
       # same state under the *parent* uid so the parent's base rules fold into
-      # that state's materialized style. A no-op for a top-level (`::`-free) key.
+      # that state's materialized style. A no-op for a top-level (`::`-free) key
+      # — which `uid_of` reports by handing back *key* itself.
       private def self.mark_parent_stated(stated_keys : Hash(String, Set(WidgetState)), key : String, state : WidgetState) : Nil
-        if sep = key.index("::")
-          (stated_keys[key[0, sep]] ||= Set(WidgetState).new) << state
-        end
+        uid = uid_of(key)
+        return if uid.same?(key)
+        (stated_keys[uid] ||= Set(WidgetState).new) << state
       end
 
       # The cascade entries a rule contributes: its normal declarations at

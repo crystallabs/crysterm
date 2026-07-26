@@ -141,6 +141,45 @@ module Crysterm
       end
     end
 
+    # Emits the SGR bytes that move the terminal from attr *from* to attr *to*.
+    #
+    # The single implementation of "transition the terminal's SGR state", shared
+    # by the two sites in `#draw` that need it: the BCE clear-to-EOL branch
+    # (which must establish the target bg before `el` erases with it) and the
+    # per-cell attribute change. *df* is the frame's default attr (the state a
+    # bare `\e[m` leaves the terminal in) and *ncolors* the output color depth.
+    #
+    # The standalone `\e[m` reset is dropped when the incoming spec fully
+    # re-establishes the terminal state on its own: it turns ON every flag the
+    # outgoing attr had (the incoming flags are a superset — `from & ~to == 0`)
+    # AND re-sends BOTH colors (both concrete, so they overwrite the outgoing
+    # colors). The reset would then only strip bytes the very next spec re-adds
+    # — a state-identical, byte-fewer transition. Otherwise (a flag the spec
+    # won't clear, or a default color channel that emits nothing and would let
+    # the outgoing color leak through) the reset is still required.
+    #
+    # The set-spec needs no `to == df` guard: both emitters below already write
+    # nothing for an all-default, flag-less attr (`Screen.write_sgr`'s early
+    # return), and `Attr.flags` masks to the 7 style bits, so the alpha-mode
+    # bits — which in any case never survive into `@lines` (`Colors.composite`
+    # clears them at fold time, and `Plane::CLEAR_ATTR` is the only producer)
+    # — cannot make an SGR-empty attr look non-default.
+    private def emit_sgr_transition(io : IO::Memory, from : Int64, to : Int64, df : Int64, ncolors : Int32) : Nil
+      unless from == df ||
+             ((Attr.flags(from) & ~Attr.flags(to)) == 0 && Screen.has_both_concrete?(to))
+        io.print "\e[m"
+      end
+      # Allocation-free SGR emission straight into the frame buffer. A
+      # concrete-color attr goes through the bounded byte cache (its bytes are
+      # identical to `write_sgr`'s); flag-only/default attrs synth directly,
+      # cheaper than a cache probe.
+      if Screen.has_concrete_color?(to)
+        io.write Screen.sgr_bytes(to, ncolors)
+      else
+        Screen.write_sgr(io, to, ncolors)
+      end
+    end
+
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     #
     # Diffs `@lines` against `@flushed_lines` and encodes the needed escapes into the
@@ -405,22 +444,14 @@ module Crysterm
                 cur_link = 0_u16
               end
               if attr != desired_attr
-                # Reset first when any non-default attribute is active:
-                # `Screen.write_sgr` writes the target attr from a *blank* SGR
-                # state and emits nothing for the default attr, so without this the
-                # `el` below would erase the line with a stale background (BCE) and
-                # the leftover SGR would bleed into later cells/rows.
-                @outbuf.print "\e[m" if attr != df
+                # Establish the target attr before `el`: the set sequence is
+                # written from a *blank* SGR state, so without the transition the
+                # `el` below would erase the line with a stale background (BCE)
+                # and the leftover SGR would bleed into later cells/rows. The
+                # reset-elision is safe here too — it is state-identical, and the
+                # `el` then fills with the just-sent concrete bg.
+                emit_sgr_transition(@outbuf, attr, desired_attr, df, ncolors)
                 attr = desired_attr
-                # Allocation-free SGR emission straight into the line buffer. A
-                # concrete-color attr goes through the bounded byte cache (its
-                # bytes are identical to `write_sgr`'s); flag-only/default attrs
-                # synth directly, cheaper than a cache probe.
-                if Screen.has_concrete_color?(attr)
-                  @outbuf.write Screen.sgr_bytes(attr, ncolors)
-                else
-                  Screen.write_sgr(@outbuf, attr, ncolors)
-                end
               end
 
               # Clear to end of line at (x, y).
@@ -516,39 +547,9 @@ module Crysterm
           end
 
           if desired_attr != attr
-            # Standalone `\e[m` reset before re-specifying the target attr. It can
-            # be dropped when the incoming spec fully re-establishes the terminal
-            # state on its own: it turns ON every flag the outgoing attr had (its
-            # flags are a superset — `outgoing & ~desired == 0`) AND re-sends BOTH
-            # colors (both concrete, so they overwrite the outgoing colors). The
-            # reset would then only strip bytes the very next spec re-adds — a
-            # state-identical, byte-fewer transition. Otherwise (a flag the spec
-            # won't clear, or a default color channel that emits nothing and would
-            # let the outgoing color leak through) the reset is still required.
-            if attr != df &&
-               !((Attr.flags(attr) & ~Attr.flags(desired_attr)) == 0 && Screen.has_both_concrete?(desired_attr))
-              @outbuf.print "\e[m"
-            end
-            if desired_attr != df
-              if Screen.has_concrete_color?(desired_attr)
-                # Cached set-sequence bytes, byte-identical to the "\e[" + params
-                # + "m" synthesized below but without re-encoding the colors.
-                @outbuf.write Screen.sgr_bytes(desired_attr, ncolors)
-              else
-                @outbuf.print "\e["
-
-                # `sgr_params_to` ends in a ';' if it wrote anything; back over it and
-                # replace it with the terminating 'm'. The "\e[" + "m" is emitted
-                # unconditionally (a bare reset when nothing was written) — unlike
-                # `write_sgr`, this branch is only reached for a non-default attr.
-                if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
-                  @outbuf.seek -1, IO::Seek::Current
-                end
-
-                @outbuf.print 'm'
-                # ::Log.trace { @outbuf.inspect }
-              end
-            end
+            # `attr` is re-synced with `desired_attr` at the end of this cell's
+            # body, so no assignment is needed here.
+            emit_sgr_transition(@outbuf, attr, desired_attr, df, ncolors)
           end
 
           # Switch the terminal's "current hyperlink" (OSC 8) when this printed
@@ -965,14 +966,35 @@ module Crysterm
           x0 -= 1
         end
 
-        x0.upto(xl - 1) do |x|
-          ocell = oline[x]?
-          break unless ocell
+        # Poison through the row's backing array, in the same hoisted style as
+        # `#each_region_row`'s consumers (that helper walks `@lines`; this walks
+        # `@flushed_lines`, so the hoist is local). Origins are clamped to >= 0
+        # above — Crystal's `Indexable#[]?` counts a negative index from the END,
+        # so an unclamped one would wrap onto the opposite edge — and a row's
+        # cells are contiguous, so a cell is "missing" only past `xe`.
+        chars = oline.chars
+        o_size = oline.size
+        xe = xl < o_size ? xl : o_size
+        # `Cell#char=` also drops the cluster/link overlays; mirror that, but
+        # probe the (usually absent) overlays once per row instead of per cell.
+        has_g = oline.has_graphemes?
+        has_l = oline.has_links?
+        x = x0
+        while x < xe
           # A sentinel the real cell content can never equal, so `draw` re-emits.
-          ocell.char = '\u{0}'
+          chars.unsafe_put(x, '\u{0}')
+          oline.delete_grapheme(x) if has_g
+          oline.delete_link(x) if has_l
+          x += 1
         end
 
-        line.try(&.dirty=(true))
+        # Mark only the poisoned span on the desired row: a plain `dirty = true`
+        # would widen to full width and defeat `draw`'s scan-bounding for every
+        # row an overlay touches.
+        if xe > x0 && (l = line)
+          l.mark_dirty x0
+          l.mark_dirty(xe - 1)
+        end
       end
     end
 

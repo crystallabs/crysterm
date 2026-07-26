@@ -522,6 +522,18 @@ module Crysterm
             # row.
             if bg_cells || !fill
               x = xl
+            elsif sel_cols.nil? && style_opacity.nil?
+              # Plain row tail: with no selection `highlighted_attr` is `attr`
+              # itself and with no opacity every remaining cell is written the
+              # same constant `{attr, ch}` (`ch` is `bch` here) — exactly
+              # `fill_region`'s contract, and the same sweep the
+              # content-exhausted fast path above already takes. `fill_region`
+              # clamps a negative origin and stops at the row's end, matching
+              # the per-cell loop's `x < 0` skip and its break on the first
+              # missing cell; `x = xl` then ends the row as the loop's own
+              # run-to-`xl` does, with the content index untouched either way.
+              scr.fill_region(attr, ch, Math.max(x, 0), xl, y, y + 1) if draw_row
+              x = xl
             else
               while x < xl
                 # Off-window columns (`x < 0`) advance to keep the fill aligned

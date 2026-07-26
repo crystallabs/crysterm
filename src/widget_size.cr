@@ -249,6 +249,15 @@ module Crysterm
         return Rectangle.of_edges left: xi, top: yi, right: xi + 1, bottom: yi + 1
       end
 
+      # Neither axis shrinks (both width and height are pinned/anchored), so the
+      # loop below can't change `xi/xl/yi/yl`: those locals are mutated only
+      # inside the `shrink_width?`/`shrink_height?` blocks further down. Skip
+      # walking every child's full `coords` — a full-subtree layout pass — for a
+      # result that's already known.
+      unless shrink_width? || shrink_height?
+        return Rectangle.of_edges left: xi, top: yi, right: xl, bottom: yl
+      end
+
       mxi = xi
       mxl = xi + 1
       myi = yi

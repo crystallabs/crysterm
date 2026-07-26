@@ -50,6 +50,7 @@ module Crysterm
     @generation : Int32 = 0
     @duration : Time::Span?
     @easing : Easing
+    @immediate : Bool = true
     @on_tick : FrameClock ->
     @on_stop : (->)?
 
@@ -60,10 +61,22 @@ module Crysterm
     # The block is handed the `FrameClock` itself, so it can drive its own cadence
     # (`clock.interval = …`), end the run early (`clock.stop`), or read
     # `clock.value`. A block needing none of that can omit the parameter.
+    #
+    # By default (*immediate* true) the block also fires once at t≈0, before the
+    # first sleep — the usual "tick now, then every interval" ticker shape. Pass
+    # *immediate: false* for a "first tick at t≈interval" shape instead (a
+    # one-shot delay, or a feeder whose t=0 frame is produced some other way):
+    # the loop performs its `next_at += interval; sleep` phase step once, up
+    # front, before the first tick fires — phase-lock is unaffected, since
+    # `next_at` derives from the start time regardless. Ticker-shaped clocks
+    # only: a *duration* (tween) always needs its immediate tick to seed
+    # `#value` at `raw == 0`, so `immediate: false` with a *duration* raises.
     def initialize(@interval : Time::Span, *, duration : Time::Span? = nil,
-                   easing : Easing | Symbol = Easing::Linear, &@on_tick : FrameClock ->)
+                   easing : Easing | Symbol = Easing::Linear, @immediate : Bool = true,
+                   &@on_tick : FrameClock ->)
       @duration = duration
       @easing = easing.is_a?(Symbol) ? Easing.parse(easing.to_s) : easing
+      raise ArgumentError.new("FrameClock: immediate: false is only supported for tickers (no duration)") if @duration && !@immediate
     end
 
     # Registers a callback fired once when the loop ends, for any reason (a
@@ -104,6 +117,21 @@ module Crysterm
       next_at = start_at
 
       f = Fiber.new do
+        unless @immediate
+          # First tick at t≈interval instead of t≈0: take the phase step (see
+          # `#initialize`) before entering the loop below, which otherwise
+          # always ticks first and sleeps second. `@duration` is nil here
+          # (guarded in `#initialize`), so this only ever runs for tickers.
+          next_at += @interval
+          delay = next_at - Time.instant
+          if delay > Time::Span.zero
+            sleep delay
+          else
+            next_at = Time.instant
+            Fiber.yield
+          end
+        end
+
         loop do
           break unless @running && @generation == gen
 
