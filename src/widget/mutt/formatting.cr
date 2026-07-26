@@ -13,6 +13,13 @@ module Crysterm
           "%.1fM" % (n / 1_000_000.0)
         end
       end
+
+      # Truncates *str* to *len* characters, adding a `~` when cut. Pine's flat
+      # `MessageIndex` shares this deliberately (same truncation rule).
+      def self.truncate(str : String, len : Int32) : String
+        return str if str.size <= len
+        "#{str[0, len - 1]}~"
+      end
     end
   end
 end

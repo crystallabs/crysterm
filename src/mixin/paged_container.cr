@@ -31,6 +31,20 @@ module Crysterm
         @pages.size
       end
 
+      # The page at *index*, or `nil` when out of range (Qt's every
+      # multi-child container's `widget(index)`, e.g. `QTabWidget#widget`).
+      # `Splitter` already re-implements this (panes aren't `#pages`-backed).
+      def widget(index : Int) : Widget?
+        @pages[index]?
+      end
+
+      # Index of *page* among the pages, or `nil` when it is not one (Qt's
+      # `indexOf`, which returns `-1`; this returns the idiomatic `nil`).
+      # `Splitter` already re-implements this.
+      def index_of(page : Widget) : Int32?
+        @pages.index page
+      end
+
       # The currently visible page, or `nil` when there are none (Qt's
       # `currentWidget`).
       def current_widget : Widget?

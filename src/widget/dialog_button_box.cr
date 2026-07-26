@@ -149,6 +149,31 @@ module Crysterm
         b
       end
 
+      # Adds a *standard* button (Qt's
+      # `QDialogButtonBox#addButton(StandardButton)`). Routed through
+      # `#standard_buttons=` so the rebuilt standard set stays in
+      # `DISPLAY_ORDER` and any custom (`#add_button(text, role)`) buttons keep
+      # their place ahead of it — the same invariant `#standard_buttons=`
+      # already maintains. A no-op (beyond returning the existing button) if
+      # *standard* is already present.
+      def add_button(standard : StandardButton) : Button
+        self.standard_buttons = @standard_buttons | standard
+        @standard.key_for(standard)
+      end
+
+      # Removes *button* — standard or custom — detaching it (not destroying,
+      # matching Qt's `QDialogButtonBox#removeButton`) and keeping
+      # `#standard_buttons`/`#standard_button` coherent. Re-runs the row layout.
+      # A button this box doesn't hold is a no-op.
+      def remove_button(button : Button) : Nil
+        return unless @buttons.delete button
+        if sb = @standard.delete button
+          @standard_buttons &= ~sb
+        end
+        remove button
+        relayout
+      end
+
       # Builds one button, appends it, and wires its `Pressed` to the box-level
       # accept/reject signal implied by *role*.
       private def make_button(text : String, role : Role) : Button

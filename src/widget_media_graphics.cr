@@ -73,6 +73,38 @@ module Crysterm
       protected def on_double_buffer_changed(v : Bool)
       end
 
+      # Shared `dither=` for the in-band graphics backends that expose a
+      # settable `dither` (`Media::Sixel`, `Media::Regis` — byte-identical
+      # bodies in both): `dither` is not part of the payload cache key
+      # (`#payload_for` keys on geometry only), so a plain assignment would
+      # silently keep re-emitting the stale cached payload. Drop it and request
+      # a render, but only on an actual change.
+      #
+      # Routes the actual write through `#store_dither`, a one-line hook each
+      # subclass implements against its own `@dither` ivar, rather than writing
+      # `@dither` directly here: `Media::Graphics` never declares/initializes
+      # that ivar itself (only its subclasses do, at differing defaults —
+      # `Auto` for Sixel, `None` for Regis), so a direct `@dither =` here would
+      # make Crystal infer the ivar as nilable in this class and conflict with
+      # the subclasses' non-nilable `getter dither : Media::Dither = ...`
+      # declarations. Not `abstract def`: other `Media::Graphics` subclasses
+      # (`Kitty`, `Iterm`) have no `dither` at all and must not be forced to
+      # implement it.
+      #
+      # `Media::Ansi` (a `Media::Cells`, not a `Media::Graphics`) carries the
+      # same shape but a different invalidation hook (`clear_frame_derived`, not
+      # `reset_sample_cache` — a dithered *cell* plane, not an encoded payload)
+      # and sits in a sibling hierarchy with no common ancestor closer than
+      # `Media::Base`, so it keeps its own `dither=` rather than sharing this one.
+      def dither=(v : Media::Dither) : Media::Dither
+        unless v == dither
+          store_dither v
+          reset_sample_cache
+          request_render
+        end
+        v
+      end
+
       # Original (undecoded) bytes cache, for backends that transmit the file
       # as-is (iTerm2). The decoded `@source`/frames live in `Media::Base`.
       @raw : Bytes?

@@ -18,6 +18,13 @@ module Crysterm
     class UniformGrid < Flow
       @high_width = 0
 
+      # Per-child `awidth` resolved by this frame's `#before_flow` scan, reused
+      # by `#cached_awidth` at the placement fit check instead of resolving
+      # `awidth` a second time for the same child (O4-16). Per-arrange scratch:
+      # cleared and rebuilt at the top of every `#before_flow` call, mirroring
+      # how `Flow#arrange` resets its own row-cursor ivars each frame.
+      @awidth_cache = {} of Widget => Int32
+
       # Widest child becomes the uniform column width. Layout-excluded chrome
       # (e.g. a full-width `background-image` layer) and `layout_chrome?` chrome
       # (a border label / bound scroll bar) are skipped; either would otherwise
@@ -26,9 +33,25 @@ module Crysterm
       # though they weren't there, and a hidden wide child must not set the
       # column pitch for the visible ones.
       protected def before_flow(container : Widget) : Nil
+        @awidth_cache.clear
         hw = 0
-        each_occupying(container) { |el| hw = Math.max hw, el.awidth }
+        each_occupying(container) do |el|
+          w = el.awidth
+          @awidth_cache[el] = w
+          hw = Math.max hw, w
+        end
         @high_width = hw
+      end
+
+      # Reuses the `awidth` this frame's `#before_flow` scan already resolved
+      # for `el`, instead of resolving it again for the placement fit check
+      # (O4-16). Falls back to a fresh `el.awidth` when `el` isn't in the
+      # cache — a `Flow#arrange` child that isn't `#each_occupying` (e.g. a
+      # `#vacant?` one skipped before `#place_one` runs) never reaches
+      # `#flow_place`, so this should be unreachable in practice, but stays
+      # nil-safe rather than raising on a missing key.
+      protected def cached_awidth(el : Widget) : Int32
+        @awidth_cache[el]? || el.awidth
       end
 
       # Snap every child to the widest child's width, measured in `#before_flow`.

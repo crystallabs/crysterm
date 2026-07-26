@@ -1,4 +1,9 @@
 require "./abstract_slider"
+# For `Macros.pinnable_glyph` (O5-27) and `Event::SliderMoved` (A4-62),
+# defined in `slider.cr`: explicit `require` (rather than relying on
+# `./widget/**`'s directory-walk order) guarantees both are parsed before
+# this file uses them.
+require "./slider"
 
 module Crysterm
   class Widget
@@ -42,17 +47,17 @@ module Crysterm
         v
       end
 
-      # Glyphs for the thumb and the trough. Unset (`nil`) resolves the CSS
-      # `glyph` on the matching sub-control (`ScrollBar::handle`/`::indicator`
-      # for the thumb, `::add-page`/`::groove`/`track` for the trough), then
-      # the `Glyphs` registry at the effective tier; assigning a `Char` pins it.
-      setter thumb_char : Char? = nil
-      setter trough_char : Char? = nil
+      # Glyph used for the thumb. Unset (`nil`) resolves the CSS `glyph` on
+      # the matching sub-control (`ScrollBar::handle`/`::indicator`), then the
+      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      pinnable_glyph thumb, ScrollThumb, "indicator"
 
-      # :ditto:
-      def thumb_char : Char
-        @thumb_char || glyph(Glyphs::Role::ScrollThumb, style.raw_sub_style("indicator"))
-      end
+      # Glyph used for the trough (track on either side of the thumb). Unset
+      # (`nil`) resolves the CSS `glyph` on `::add-page`/`::groove`/`track`
+      # (in that fallback order), then the `Glyphs` registry at the effective
+      # tier; assigning a `Char` pins it. Two-slot CSS fallback, so hand-rolled
+      # rather than `pinnable_glyph` (O5-27).
+      setter trough_char : Char? = nil
 
       # :ditto:
       def trough_char : Char
@@ -84,30 +89,16 @@ module Crysterm
       # `#orientation` is vertical, left/right when horizontal. Unset (`nil`)
       # resolves the CSS `glyph` on the matching `::up-arrow`/… slot, then the
       # `Glyphs` registry at the effective tier.
-      setter up_arrow_char : Char? = nil
-      setter down_arrow_char : Char? = nil
-      setter left_arrow_char : Char? = nil
-      setter right_arrow_char : Char? = nil
+      pinnable_glyph up_arrow, ArrowUp, "up-arrow"
 
       # :ditto:
-      def up_arrow_char : Char
-        @up_arrow_char || glyph(Glyphs::Role::ArrowUp, style.raw_sub_style("up-arrow"))
-      end
+      pinnable_glyph down_arrow, ArrowDown, "down-arrow"
 
       # :ditto:
-      def down_arrow_char : Char
-        @down_arrow_char || glyph(Glyphs::Role::ArrowDown, style.raw_sub_style("down-arrow"))
-      end
+      pinnable_glyph left_arrow, ArrowLeft, "left-arrow"
 
       # :ditto:
-      def left_arrow_char : Char
-        @left_arrow_char || glyph(Glyphs::Role::ArrowLeft, style.raw_sub_style("left-arrow"))
-      end
-
-      # :ditto:
-      def right_arrow_char : Char
-        @right_arrow_char || glyph(Glyphs::Role::ArrowRight, style.raw_sub_style("right-arrow"))
-      end
+      pinnable_glyph right_arrow, ArrowRight, "right-arrow"
 
       # The scrollable widget this bar is bound to (see `#attach`), if any.
       getter target : Widget?
@@ -198,7 +189,12 @@ module Crysterm
           next if span <= 0
           # `pos` is clamped: a scroll bar sizes a thumb and must not seek past
           # the ends.
-          self.slider_position = value_at pos.clamp(0, span), span
+          v = (value_at pos.clamp(0, span), span).clamp(@minimum, @maximum)
+          self.slider_position = v
+          # `Event::SliderMoved` on every drag motion (A4-62), independent of
+          # `#tracking?` — `#slider_position=` already emits `ValueChanged`
+          # per move when tracking, so this never duplicates that.
+          emit Crysterm::Event::SliderMoved, v
           # Capture the mouse so a drag that leaves the bar's (often 1-column)
           # bounds keeps delivering motion/release here instead of freezing the
           # thumb, and so an untracked drag's pending `@slider_position` can't

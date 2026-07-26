@@ -81,18 +81,12 @@ module Crysterm
             s << "  "
             s << m.date.ljust(7)
             s << "  "
-            s << truncate(m.from, 20).ljust(20)
+            s << Mutt.truncate(m.from, 20).ljust(20)
             s << " ("
             s << group_digits(m.size).rjust(7)
             s << ") "
             s << m.subject
           end
-        end
-
-        # Truncates *str* to *len* characters, adding an ellipsis when cut.
-        private def truncate(str : String, len : Int32) : String
-          return str if str.size <= len
-          "#{str[0, len - 1]}~"
         end
 
         # Formats an integer with thousands separators, e.g. `1234 => "1,234"`.

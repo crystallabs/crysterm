@@ -136,16 +136,48 @@ module Crysterm
       # appends *label* and *field* as a fresh pair, and returns *field*. Raises
       # when the layout isn't installed on a container yet.
       def add_row(label : String, field : Widget) : Widget
-        c = container
-        raise ArgumentError.new "Layout::Form#add_row: layout not installed on a container" unless c
-        # Pairing is positional over the *arrangeable* children. When the form
-        # currently ends with a blessed trailing odd child (a separator/button
-        # row), a plain append would split the new pair across rows: the
-        # trailing child would consume the new label as its "field" and the
-        # field would land alone full-width. Insert the pair BEFORE the
-        # trailing child so it stays trailing — appending a filler instead
-        # would pull the separator into the label column, destroying its
-        # documented full-width span.
+        c = require_container
+        label_box = Widget::Box.new height: 1, content: label
+        append_row c, label_box, field
+        field
+      end
+
+      # `Widget` overload of `#add_row`: pairs an already-built *label* widget
+      # with *field* instead of wrapping a `String` in a fresh `Box` — for a
+      # custom label (an icon + text box, a styled heading, ...). Same
+      # insert-before-trailing placement as the `String` overload.
+      def add_row(label : Widget, field : Widget) : Widget
+        c = require_container
+        append_row c, label, field
+        field
+      end
+
+      # Full-span overload: adds *w* as a trailing, unpaired row spanning the
+      # whole width — Qt's `QFormLayout::addRow(QWidget*)`. Reuses the same
+      # insert-before-trailing placement, so a full-span row added after
+      # another one doesn't get paired into a label/field row.
+      def add_row(w : Widget) : Widget
+        c = require_container
+        append_row c, w
+        w
+      end
+
+      # `#container`, or raises when the layout isn't installed on one yet —
+      # shared guard for every `#add_row` overload.
+      private def require_container : Widget
+        container || raise ArgumentError.new "Layout::Form#add_row: layout not installed on a container"
+      end
+
+      # Appends *widgets* as a fresh trailing group. Pairing (and full-span
+      # placement) is positional over the *arrangeable* children: when the
+      # form currently ends with a blessed trailing odd child (a
+      # separator/button row), a plain append would fold the new group into
+      # it — a paired label would be consumed as that child's "field", or a
+      # new full-span child would land after it instead of taking its slot.
+      # Insert the group BEFORE the trailing child so it stays trailing —
+      # appending a filler instead would pull the separator into the label
+      # column, destroying its documented full-width span.
+      private def append_row(c : Widget, *widgets : Widget) : Nil
         count = 0
         trailing = nil.as(Widget?)
         each_arrangeable(c) do |el|
@@ -153,14 +185,10 @@ module Crysterm
           trailing = el
         end
         if count.odd? && (t = trailing)
-          label_box = Widget::Box.new height: 1, content: label
-          c.insert_before label_box, t
-          c.insert_before field, t
+          widgets.each { |w| c.insert_before w, t }
         else
-          Widget::Box.new parent: c, height: 1, content: label
-          c.append field
+          widgets.each { |w| c.append w }
         end
-        field
       end
 
       # The label column width: the fixed `#label_width` when set, else the widest

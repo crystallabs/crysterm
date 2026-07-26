@@ -68,10 +68,11 @@ module Crysterm
         # tag-parsed. That only matters if existing raw content has a brace: kept
         # literal so far, it would now be dropped by the drop-malformed policy,
         # changing already-rendered lines. Brace-free existing content is
-        # unaffected by the flip, so it stays on the fast path. Testing
-        # `@_content_has_tags` alone would bail here forever rather than once: the
-        # rebuild re-derives that flag from POST-parse text, where tags have
-        # already become SGR, so it lands back on false after every fallback.
+        # unaffected by the flip, so it stays on the fast path. The slow path's
+        # `raw_fake_lines` capture escapes those never-parsed braces
+        # (`{` → `{open}`) so they keep rendering literally, and its rebuild
+        # re-derives `@_content_has_tags` from the raw (tag-carrying) content —
+        # true from then on, so this bails at most once.
         return false if !@_content_has_tags && @_content_has_braces
         # A full reparse carries raw `@content`'s tag stacks (and `{escape}` mode)
         # across the append boundary; the fast path parses the segment standalone,
@@ -192,12 +193,17 @@ module Crysterm
 
       i = Math.max(index, 0)
 
-      while @_clines.fake.size < i
-        @_clines.fake.push("")
+      # The editors splice RAW logical lines (see `#raw_fake_lines`); `fake`
+      # and everything else derived from content is re-built from them by the
+      # full reparse in `rebuild_content_from_raw`.
+      raw = raw_fake_lines
+
+      while raw.size < i
+        raw.push("")
+        # Mirror the padding into the wrapped lines so the `start`/`diff` math
+        # below counts the padded rows as pre-existing content, not as part of
+        # the insert (the rebuild's reparse replaces them anyway).
         @_clines.ftor.push([@_clines.push("").size - 1])
-        # Discarded read kept only for parity with the port; the safe `[]?` so it
-        # cannot raise when `rtof` is shorter than `fake`.
-        @_clines.rtof[@_clines.fake.size - 1]?
       end
 
       # NOTE: Could possibly compare the first and last ftor line numbers to see
@@ -220,13 +226,12 @@ module Crysterm
       end
 
       lines.size.times do |j|
-        # Pre-parse each incoming line into the POST-parse form `fake` holds, so
-        # the reparse-suppressed rebuild below still expands this line's tags
-        # without re-running (and corrupting) the other lines.
-        @_clines.fake.insert(i + j, parse_fake_line(lines[j]))
+        # Splice the RAW line; tags in it are expanded by the rebuild's full
+        # reparse, exactly as a `set_content` of the same total text would.
+        raw.insert(i + j, lines[j])
       end
 
-      rebuild_content_from_fake
+      rebuild_content_from_raw raw
 
       diff = @_clines.size - start
 
@@ -271,22 +276,26 @@ module Crysterm
     end
 
     def delete_line(index : Int32, n : Int32 = 1) : Nil
+      # The editors splice RAW logical lines, kept index-aligned with `fake`
+      # (see `#raw_fake_lines`).
+      raw = raw_fake_lines
+
       # Nothing to delete when there are no logical lines yet (freshly built
       # widget, or content cleared to empty); without this guard the deletes below
       # raise on such a widget. Blessed's `deleteLine` is a no-op here.
-      return if @_clines.fake.empty?
+      return if raw.empty?
 
-      # Clamp against the array actually spliced below (`fake`), NOT `ftor`: with
-      # content seeded before attach, `fake` is non-empty while `ftor` is still
-      # empty, so `ftor.size - 1 == -1` and Crystal's two-arg `clamp` (which
-      # returns `max` when `min > max`) would make `i` be `-1`, deleting the LAST
-      # line.
-      i = index.clamp(0, @_clines.fake.size - 1)
+      # Clamp against the array actually spliced below (`raw`), NOT `ftor`: with
+      # content seeded before attach, the lines are non-empty while `ftor` is
+      # still empty, so `ftor.size - 1 == -1` and Crystal's two-arg `clamp`
+      # (which returns `max` when `min > max`) would make `i` be `-1`, deleting
+      # the LAST line.
+      i = index.clamp(0, raw.size - 1)
 
       # Clamp count to lines actually available from `i`, or deleting more than
-      # remain runs `delete_at` off the end of `fake`. JS `splice(i, n)` clamps,
-      # so this matches the ported Blessed semantics.
-      n = Math.min(n, @_clines.fake.size - i)
+      # remain runs `delete_at` off the end. JS `splice(i, n)` clamps, so this
+      # matches the ported Blessed semantics.
+      n = Math.min(n, raw.size - i)
       return if n <= 0
 
       # NOTE: Could possibly compare the first and last ftor line numbers to see
@@ -294,13 +303,13 @@ module Crysterm
       start = @_clines.size
       # `ftor` is empty when content was seeded before attach (`fake` gets filled
       # but `process_content` bails until the widget has a window), so `ftor[i]`
-      # would raise despite `fake` being non-empty. Fall back to real line 0; the
-      # fake splice + rebuild below still works.
+      # would raise despite the content being non-empty. Fall back to real line
+      # 0; the raw splice + rebuild below still works.
       real = @_clines.ftor[i]?.try(&.[0]?) || 0
 
-      n.times { @_clines.fake.delete_at i }
+      n.times { raw.delete_at i }
 
-      rebuild_content_from_fake
+      rebuild_content_from_raw raw
 
       diff = start - @_clines.size
 
@@ -352,16 +361,19 @@ module Crysterm
 
     def replace_line(i, line)
       i = Math.max(i, 0)
+      # The editors splice RAW logical lines, kept index-aligned with `fake`
+      # (see `#raw_fake_lines`).
+      raw = raw_fake_lines
       # Pad up to and including index `i` (`<=`, not `<`). Blessed relies on JS
-      # auto-extending arrays; Crystal's `fake[i] = line` raises when `i ==
-      # fake.size`, so the slot must exist first.
-      while @_clines.fake.size <= i
-        @_clines.fake.push("")
+      # auto-extending arrays; Crystal's `raw[i] = line` raises when `i ==
+      # raw.size`, so the slot must exist first.
+      while raw.size <= i
+        raw.push("")
       end
-      # Pre-parse into `fake`'s POST-parse form so the reparse-suppressed rebuild
-      # keeps the other lines intact.
-      @_clines.fake[i] = parse_fake_line(line)
-      rebuild_content_from_fake
+      # Splice the RAW line; the rebuild's full reparse expands any tags in it,
+      # exactly as a `set_content` of the same total text would.
+      raw[i] = line
+      rebuild_content_from_raw raw
     end
 
     def replace_base_line(i, line)

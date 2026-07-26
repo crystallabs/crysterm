@@ -70,6 +70,23 @@ module Crysterm
         add_item(text) { block.call }
       end
 
+      # Creates an `Action` labeled *text*, appends it, and returns its button
+      # box — also connecting *block* to the action's `Event::Triggered` (Qt's
+      # `QToolBar#addAction(text, receiver, slot)`; the text-based counterpart
+      # to the `Action`-based overload above).
+      def add_action(text : String, &block : ->) : Widget::Box
+        action = Action.new text
+        action.on(::Crysterm::Event::Triggered) { block.call }
+        add_action action
+      end
+
+      # Appends every action in *actions*, in order (Qt's
+      # `QToolBar#addActions`).
+      def add_actions(actions : Enumerable(Action)) : self
+        actions.each { |a| add_action a }
+        self
+      end
+
       # Operator alias for `#add_action`, e.g. `toolbar << action`. `Action` is
       # not a `Widget`, so this doesn't collide with `Mixin::Children#<<(Widget)`
       # (which still appends a raw child). `#add_action` stays the primary,

@@ -98,11 +98,14 @@ module Crysterm
         @selected
       end
 
-      # :ditto:
-      def current_index=(index : Int) : Nil
-        return if @options.empty?
+      # :ditto: — returns the clamped index that was actually selected (`@selected`
+      # unchanged when there are no options), Crystal setter idiom, since the
+      # value is already computed inside.
+      def current_index=(index : Int) : Int32
+        return @selected if @options.empty?
         i = index.clamp(0, @options.size - 1)
         set_value @options[i], i
+        i
       end
 
       @value : String = ""
@@ -117,12 +120,13 @@ module Crysterm
       # such option, an `#editable?` box takes *text* as its free-text value —
       # exactly as if it had been typed and committed — and a non-editable one is
       # left alone, since it has no way to show a value that isn't an option.
-      def current_text=(text : String) : Nil
+      def current_text=(text : String) : String
         if i = @options.index text
           set_value text, i
         elsif editable?
           set_value text
         end
+        current_text
       end
 
       # Whether the box accepts free-text entry that filters the options
@@ -267,6 +271,22 @@ module Crysterm
       # Appends an option (Qt's `addItem`). Returns its index.
       def add_item(text : String) : Int32
         insert_item @options.size, text
+      end
+
+      # Bulk-appends *texts* (Qt's `addItems`), one `Event::CurrentChanged`
+      # emission for the whole batch rather than one per item — same first-item
+      # arrival logic as `#add_item`/`#insert_item`, applied to every element
+      # before the single `#refresh_options` at the end.
+      def add_items(texts : Enumerable(String)) : Nil
+        arr = texts.to_a
+        return if arr.empty?
+        was = current_state
+        arr.each do |text|
+          @options.push text
+          @selected = 0 if @options.size == 1
+        end
+        @value = @options[@selected]
+        refresh_options was
       end
 
       # Inserts an option at *index* (clamped to the end), like Qt's

@@ -280,7 +280,8 @@ module Crysterm
       end
 
       # Appends a tab titled *title* whose body is *page*, sized to fill the
-      # area beside the tab bar. The first tab added becomes current.
+      # area beside the tab bar. The first tab added becomes current. Emits
+      # `Event::ItemAdded`.
       def add_tab(title : String, page : Widget) : self
         @tab_titles << title
         @pages << page
@@ -299,12 +300,18 @@ module Crysterm
         tab_bar.item_boxes.last?.try { |it| wire_close it }
 
         register_page page
+        emit ::Crysterm::Event::ItemAdded
         self
       end
 
       # Inserts a tab titled *title* whose body is *page* at *index* (clamped to
       # the end), like Qt's `insertTab`; returns the index it landed at. The page
       # that was current stays current, following its shift.
+      #
+      # Return contract across the add/insert family: `insert_tab` returns the
+      # landing `Int32` (Qt-faithful, `insertTab` returns int), while `add_tab`
+      # and the `StackedWidget`/`Splitter` `insert_widget` siblings return `self`
+      # for chaining — a deliberate toolkit deviation, not an oversight.
       def insert_tab(index : Int, title : String, page : Widget) : Int32
         i = index.clamp(0, @pages.size)
         cur = current_widget

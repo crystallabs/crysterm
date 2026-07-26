@@ -92,6 +92,24 @@ module Crysterm
       # pause/stop/destroy instead of leaving the shared clock poking a dead widget.
       @clock_sub : ::Crysterm::Event::Tick::Wrapper? = nil
 
+      # Set by `#pause_playback_for_visibility` when playback is stopped for
+      # visibility (as opposed to an explicit `#pause`/`#stop`), so the
+      # Show/Attached hook knows to resume it — and so an explicit
+      # `#pause`/`#stop` issued while hidden/detached isn't silently undone
+      # by the next show. Only meaningful for the PRIVATE playback drivers
+      # (`@animation`'s solo `FrameClock` from `#animate_loop`, or a
+      # streaming video's own pull fiber from `#stream_loop`) — a *shared*
+      # `animate: <Timer>` clock (`@clock`) is left alone here, the same
+      # split as `Widget::Gradient`'s `animate:`: it belongs to the caller,
+      # and other widgets riding the same clock may depend on it staying
+      # live.
+      @playback_paused = false
+
+      # Whether the one-time `Event::Hide`/`Event::Detached` pause and
+      # `Event::Show`/`Event::Attached` resume hooks have been installed
+      # (lazily, on first `#play`), so they aren't registered on every play.
+      @playback_hooks_installed = false
+
       # Live streaming video decoder (Tier 2), when the source is a video
       # resolved to `VideoSource::Mode::Stream`; `nil` for eager sources.
       @stream : Media::VideoSource::Stream? = nil
@@ -316,6 +334,25 @@ module Crysterm
 
         @playing = true
 
+        # Stop the private playback driver when the widget is hidden or
+        # detached, or the fiber (`@animation`'s `FrameClock`, or the
+        # streaming pull loop) keeps advancing frames and ringing
+        # `request_render` forever on a widget that is never painted — a
+        # hidden widget's `coords` is nil so `render` never runs, and a
+        # detached-but-alive widget's `request_render` no-ops while the
+        # driver still burns CPU. Mirrors the `Effect::Animated`/
+        # `Widget#pulse`/`Widget::Gradient` fix (BUGS18 B18-90). The pause
+        # leaves `@playback_paused` set, so the Show/Attached hook resumes
+        # playback on the next show/re-attach. Installed once, on first
+        # genuine `#play`.
+        unless @playback_hooks_installed
+          @playback_hooks_installed = true
+          on(::Crysterm::Event::Hide) { pause_playback_for_visibility }
+          on(::Crysterm::Event::Detached) { pause_playback_for_visibility }
+          on(::Crysterm::Event::Show) { resume_playback_for_visibility }
+          on(::Crysterm::Event::Attached) { resume_playback_for_visibility }
+        end
+
         if @stream
           # Streaming video: pull frames into a single reused slot. On a shared
           # clock the clock pulls one frame per tick in lockstep; otherwise a
@@ -414,8 +451,12 @@ module Crysterm
       end
 
       # Pauses playback on the current frame. A streaming decoder is left open
-      # (ffmpeg blocks on the full pipe) so `#play` resumes promptly.
+      # (ffmpeg blocks on the full pipe) so `#play` resumes promptly. Also
+      # clears `@playback_paused`, so an explicit `#pause` issued while
+      # hidden/detached sticks — the next `Event::Show`/`Event::Attached`
+      # must not silently resume playback the caller deliberately paused.
       def pause
+        @playback_paused = false
         @playing = false
         @stream_gen += 1 # retire any running stream loop
         @animation.try &.stop
@@ -424,8 +465,9 @@ module Crysterm
 
       # Stops playback and resets to the first frame. A streaming decoder is
       # closed and dropped (reaping ffmpeg); the next `#play` re-opens it via
-      # `#source`.
+      # `#source`. Also clears `@playback_paused` (see `#pause`).
       def stop
+        @playback_paused = false
         @playing = false
         @stream_gen += 1 # retire any running stream loop
         @animation.try &.stop
@@ -437,6 +479,41 @@ module Crysterm
           @source = nil # force `#source` to re-open the stream on next play
           st.close
         end
+      end
+
+      # Stops the private playback driver for visibility (called from the
+      # one-time `Event::Hide`/`Event::Detached` hooks installed by
+      # `#play`), unlike a plain `#pause`/`#stop` this leaves
+      # `@playback_paused` set so playback resumes automatically once the
+      # widget is visible again. A no-op for a *shared* `animate: <Timer>`
+      # clock (`@clock`) — it belongs to the caller, same split as
+      # `Widget::Gradient`'s `animate:` — or if playback isn't currently
+      # running (idempotent against `Event::Hide`'s broadcast to every
+      # descendant regardless of their own visibility).
+      private def pause_playback_for_visibility : Nil
+        return if @clock
+        return unless @playing
+        @playback_paused = true
+        @playing = false
+        @stream_gen += 1 # retire any running stream-pull loop
+        @animation.try &.stop
+      end
+
+      # Resumes playback previously stopped by `#pause_playback_for_visibility`
+      # (called from the one-time `Event::Show`/`Event::Attached` hooks).
+      # Gated on actual visibility — `Event::Show`/`Event::Attached`
+      # broadcast to every descendant unconditionally, so a still-hidden
+      # widget inside a newly-shown container (or one shown but not yet
+      # attached to a window) must not resume; the flag stays set for a
+      # later show/attach that does make it visible. Resumes via the public
+      # `#play`, which correctly re-derives the right driver (rewind a
+      # finished animation, re-open a streaming decoder, or restart the
+      # frame clock/shared-clock subscription).
+      private def resume_playback_for_visibility : Nil
+        return unless @playback_paused
+        return unless visible_in_tree? && window?
+        @playback_paused = false
+        play
       end
 
       # Frame clock: advance the frame index over time and trigger a render.

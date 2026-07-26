@@ -29,18 +29,15 @@ module Crysterm
       # `Dither::Auto`: Floyd–Steinberg error diffusion for a still (best
       # quality), ordered (Bayer) for an animation (frame-stable, so the gradient
       # noise doesn't shimmer between frames).
+      #
+      # `dither=` (invalidating the payload cache and requesting a render on an
+      # actual change) is shared with `Media::Regis` — see `Media::Graphics#dither=`.
       getter dither : Media::Dither = Media::Dither::Auto
 
-      # `dither` is not part of the payload cache key (`Media::Graphics#payload_for`
-      # keys on geometry only), so a plain setter would silently keep re-emitting
-      # the stale cached payload. Drop it and request a render.
-      def dither=(v : Media::Dither) : Media::Dither
-        unless v == @dither
-          @dither = v
-          reset_sample_cache
-          request_render
-        end
-        v
+      # `Media::Graphics#dither=`'s write hook — see there for why this can't
+      # just be a direct `@dither =` in the shared setter.
+      protected def store_dither(v : Media::Dither) : Nil
+        @dither = v
       end
 
       def initialize(*args, dither : Media::Dither = Media::Dither::Auto, **opts)

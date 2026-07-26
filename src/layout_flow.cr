@@ -151,6 +151,16 @@ module Crysterm
         0
       end
 
+      # `el`'s resolved `awidth`, as seen by `#flow_place`'s fit check. Default:
+      # resolve it fresh — what `Wrap`/`Masonry` do, since neither runs a
+      # `#before_flow` pre-scan. `UniformGrid` overrides this to return the
+      # value its widest-child scan already resolved for `el`, so the same
+      # child's `awidth` (a recursive resolution, not a cheap getter) isn't
+      # computed twice per frame (O4-16).
+      protected def cached_awidth(el : Widget) : Int32
+        el.awidth
+      end
+
       # Places `el` in the current row, wrapping to a new row when it would
       # overflow `interior`'s width. When `high_width > 0` (grid mode) each child
       # is snapped to a uniform column of that width.
@@ -209,7 +219,7 @@ module Crysterm
         # child paint past the interior instead of wrapping.
         # B18-25: run the fit comparison in Int64 so a margin+width beyond the
         # Int32 range can't overflow the sum.
-        if el.left.as(Int).to_i64 + el.mleft + el.awidth <= width
+        if el.left.as(Int).to_i64 + el.mleft + cached_awidth(el) <= width
           el.top = @row_offset
         else
           # Doesn't fit on this row: advance the row offset by the tallest child

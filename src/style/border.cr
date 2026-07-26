@@ -26,28 +26,29 @@ module Crysterm
     # four corners (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical
     # (`v`) runs. Values come from the central `Glyphs` registry, so `Glyphs.set`
     # retunes borders toolkit-wide.
+    # One `when`-arm body per line-family `BorderType`, keyed by the `Glyphs::Role`
+    # name family prefix (`BorderDouble*`, `BorderLine*` for `Solid`, ...): all
+    # five arms build the identical `{tl:,tr:,bl:,br:,h:,v:}` tuple shape,
+    # differing only by that prefix, so a macro fans it out instead of five
+    # hand-written copies.
+    private macro border_glyph_tuple(family)
+      {tl: Glyphs[Glyphs::Role::{{ family.id }}TL, tier], tr: Glyphs[Glyphs::Role::{{ family.id }}TR, tier],
+       bl: Glyphs[Glyphs::Role::{{ family.id }}BL, tier], br: Glyphs[Glyphs::Role::{{ family.id }}BR, tier],
+       h: Glyphs[Glyphs::Role::{{ family.id }}H, tier], v: Glyphs[Glyphs::Role::{{ family.id }}V, tier]}
+    end
+
     def line_glyphs(tier : Glyphs::Tier = Glyphs::Tier::Unicode)
       case self
       when Double
-        {tl: Glyphs[Glyphs::Role::BorderDoubleTL, tier], tr: Glyphs[Glyphs::Role::BorderDoubleTR, tier],
-         bl: Glyphs[Glyphs::Role::BorderDoubleBL, tier], br: Glyphs[Glyphs::Role::BorderDoubleBR, tier],
-         h: Glyphs[Glyphs::Role::BorderDoubleH, tier], v: Glyphs[Glyphs::Role::BorderDoubleV, tier]}
+        border_glyph_tuple BorderDouble
       when Dashed
-        {tl: Glyphs[Glyphs::Role::BorderDashedTL, tier], tr: Glyphs[Glyphs::Role::BorderDashedTR, tier],
-         bl: Glyphs[Glyphs::Role::BorderDashedBL, tier], br: Glyphs[Glyphs::Role::BorderDashedBR, tier],
-         h: Glyphs[Glyphs::Role::BorderDashedH, tier], v: Glyphs[Glyphs::Role::BorderDashedV, tier]}
+        border_glyph_tuple BorderDashed
       when Dotted
-        {tl: Glyphs[Glyphs::Role::BorderDottedTL, tier], tr: Glyphs[Glyphs::Role::BorderDottedTR, tier],
-         bl: Glyphs[Glyphs::Role::BorderDottedBL, tier], br: Glyphs[Glyphs::Role::BorderDottedBR, tier],
-         h: Glyphs[Glyphs::Role::BorderDottedH, tier], v: Glyphs[Glyphs::Role::BorderDottedV, tier]}
+        border_glyph_tuple BorderDotted
       when Rounded
-        {tl: Glyphs[Glyphs::Role::BorderRoundedTL, tier], tr: Glyphs[Glyphs::Role::BorderRoundedTR, tier],
-         bl: Glyphs[Glyphs::Role::BorderRoundedBL, tier], br: Glyphs[Glyphs::Role::BorderRoundedBR, tier],
-         h: Glyphs[Glyphs::Role::BorderRoundedH, tier], v: Glyphs[Glyphs::Role::BorderRoundedV, tier]}
+        border_glyph_tuple BorderRounded
       else # Solid (and any non-solid type, defensively)
-        {tl: Glyphs[Glyphs::Role::BorderLineTL, tier], tr: Glyphs[Glyphs::Role::BorderLineTR, tier],
-         bl: Glyphs[Glyphs::Role::BorderLineBL, tier], br: Glyphs[Glyphs::Role::BorderLineBR, tier],
-         h: Glyphs[Glyphs::Role::BorderLineH, tier], v: Glyphs[Glyphs::Role::BorderLineV, tier]}
+        border_glyph_tuple BorderLine
       end
     end
   end

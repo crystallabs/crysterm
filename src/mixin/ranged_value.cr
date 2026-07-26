@@ -1,5 +1,68 @@
 module Crysterm
   module Mixin
+    # Shared carry-up/down body for `#minimum=`/`#maximum=` (Qt's
+    # `setMinimum`/`setMaximum`): written purely against the includer's own
+    # `#minimum`/`#maximum` getters and `#set_range`, so the identical body
+    # works unmodified whether the includer is generic (`RangedValue(T)`) or
+    # not (`PercentRange`) — plain duck typing, no cross-generic module
+    # trickery needed (O5-10).
+    module RangeBounds
+      # Sets the lower bound (Qt's `setMinimum`), re-clamping the value into
+      # range and emitting the range-change signal on an actual change (via
+      # the includer's own `#set_range`).
+      #
+      # As in Qt, a new minimum above the current maximum carries the maximum
+      # up with it (range collapses to the single value `v`) rather than
+      # inverting.
+      def minimum=(v)
+        set_range v, Math.max(v, maximum)
+        minimum
+      end
+
+      # Sets the upper bound (Qt's `setMaximum`), re-clamping the value into
+      # range and emitting the range-change signal on an actual change (via
+      # the includer's own `#set_range`).
+      #
+      # As in Qt, a new maximum below the current minimum carries the minimum
+      # down with it (range collapses to the single value `v`) rather than
+      # inverting.
+      def maximum=(v)
+        set_range Math.min(v, minimum), v
+        maximum
+      end
+    end
+
+    # `#range=`/`#span`: the two `RangedValue`-generic fragments shared with
+    # `Widget::ProgressBar` (O5-26), which can't include the rest of
+    # `RangedValue` (its `complete:`-gated `Event::Completed` doesn't fit
+    # `#value=`'s single clamp-and-emit body) but includes this narrower
+    # module directly for these two. Written purely against the includer's
+    # own `#minimum`/`#maximum`/`#set_range`.
+    module RangeSpan(T)
+      # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
+      # `setRange`). An exclusive range (`begin...end`) covers `begin..end -
+      # 1`, matching Crystal's own `Range` semantics. A degenerate empty
+      # exclusive range (`n...n`) collapses to the single value `n` instead of
+      # inverting.
+      def range=(r : ::Range(T, T)) : ::Range(T, T)
+        max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
+        set_range r.begin, max
+        r
+      end
+
+      # Size of the value range (`maximum - minimum`), never negative.
+      protected def span : T
+        {% if T == Int32 %}
+          # A full-span integer range (e.g. `Int32::MIN..Int32::MAX`)
+          # overflows `maximum - minimum` in Int32, so widen the subtraction
+          # and clamp back into range.
+          (maximum.to_i64 - minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
+        {% else %}
+          Math.max(T.zero, maximum - minimum)
+        {% end %}
+      end
+    end
+
     # Shared bounded-range value behavior for numeric controls: a `#value` kept
     # within `[#minimum, #maximum]` (clamped, or wrapped when `#wrapping?`),
     # stepped by `#single_step`, emitting a value-change signal only on an actual change.
@@ -10,6 +73,9 @@ module Crysterm
     # `#emit_value_change`/`#emit_range_change` hooks, defaulting to the `Int32`
     # `Event::ValueChanged`/`Event::RangeChanged`.
     module RangedValue(T)
+      include RangeBounds
+      include RangeSpan(T)
+
       @minimum : T = T.zero
       @maximum : T = T.zero
       @value : T = T.zero
@@ -25,27 +91,8 @@ module Crysterm
         @maximum
       end
 
-      # Sets the lower bound (Qt's `setMinimum`), re-clamping the value and
-      # emitting the range-change signal on an actual change. See `#set_range`.
-      #
-      # As in Qt, a new minimum above the current maximum carries the maximum
-      # up with it (range collapses to the single value `v`) rather than
-      # inverting.
-      def minimum=(v : T) : T
-        set_range v, Math.max(v, @maximum)
-        @minimum
-      end
-
-      # Sets the upper bound (Qt's `setMaximum`), re-clamping the value and
-      # emitting the range-change signal on an actual change. See `#set_range`.
-      #
-      # As in Qt, a new maximum below the current minimum carries the minimum
-      # down with it (range collapses to the single value `v`) rather than
-      # inverting.
-      def maximum=(v : T) : T
-        set_range Math.min(v, @minimum), v
-        @maximum
-      end
+      # `#minimum=`/`#maximum=` (the Qt carry-up/down setters) come from
+      # `RangeBounds`, included above.
 
       # Qt's `singleStep`: the amount a single line-step (arrow key, wheel notch)
       # moves the value by.
@@ -146,16 +193,10 @@ module Crysterm
         end
       end
 
-      # Size of the value range (`maximum - minimum`), never negative.
+      # Size of the value range (`maximum - minimum`), never negative. Public
+      # spelling of the (protected) `RangeSpan#span` this mixin includes.
       def value_span : T
-        {% if T == Int32 %}
-          # A full-span integer range (e.g. `Int32::MIN..Int32::MAX`) overflows
-          # `@maximum - @minimum` in Int32, so widen the subtraction and clamp
-          # back into range.
-          (@maximum.to_i64 - @minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
-        {% else %}
-          Math.max(T.zero, @maximum - @minimum)
-        {% end %}
+        span
       end
 
       # Constructor-time range+value initialiser: stores a non-inverted range and a
@@ -257,15 +298,8 @@ module Crysterm
         request_render
       end
 
-      # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
-      # `setRange`). An exclusive range (`begin...end`) covers `begin..end - 1`,
-      # matching Crystal's own `Range` semantics. A degenerate empty exclusive
-      # range (`n...n`) collapses to the single value `n` instead of inverting.
-      def range=(r : ::Range(T, T)) : ::Range(T, T)
-        max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
-        set_range r.begin, max
-        r
-      end
+      # `#range=` (the `Range`-based `#set_range` sugar) comes from
+      # `RangeSpan(T)`, included above.
 
       # Overridable hook run (before the range-change signal) whenever `#minimum`
       # or `#maximum` actually changes. No-op by default.
@@ -292,6 +326,27 @@ module Crysterm
       protected def emit_range_change : Nil
         emit Crysterm::Event::RangeChanged, @minimum, @maximum
       end
+
+      # Subscribes *block* to the value-change signal (Qt-style block-signal
+      # sugar, mirroring `AbstractButton#on_click`/`ComboBox#on_current_index_change`).
+      # Routes to whichever event this instantiation actually emits —
+      # `Event::ValueChanged` (`Int32`) by default, `Event::DoubleValueChanged`
+      # (`Float64`) for a `Float64` includer such as `DoubleSpinBox` (which
+      # overrides `#emit_value_change` accordingly) — mirroring
+      # `#emit_value_change`'s own per-instantiation routing so the block
+      # always receives *T*, never a mismatched payload type (A4-61b).
+      def on_value_change(&block : T ->) : Nil
+        # Rebind to a plain local first: a nested block closing directly over
+        # the `&block`-declared parameter, inside a top-level `{% if %}` that
+        # spans the whole method body, trips a Crystal macro-expansion bug
+        # ("undefined local variable 'block'") — the rebind sidesteps it.
+        blk = block
+        {% if T == Float64 %}
+          on(::Crysterm::Event::DoubleValueChanged) { |e| blk.call e.value }
+        {% else %}
+          on(::Crysterm::Event::ValueChanged) { |e| blk.call e.value }
+        {% end %}
+      end
     end
 
     # Float-valued range helpers for read-only meter widgets, which keep a
@@ -300,6 +355,11 @@ module Crysterm
     # `#percent_of` that maps a value onto a `0..100` percentage of that range,
     # and the shared `#value=` body `#assign_completable`.
     module PercentRange
+      # `#minimum=`/`#maximum=` (the Qt carry-up/down setters) come from
+      # `RangeBounds` (O5-10) — identical body to `RangedValue(T)`'s, since
+      # both are written purely against `#minimum`/`#maximum`/`#set_range`.
+      include RangeBounds
+
       # Size of the value range (`maximum - minimum`), never zero.
       def span : Float64
         s = maximum - minimum
@@ -309,22 +369,6 @@ module Crysterm
       # *value*'s position in `[minimum, maximum]` as a `0..100` percentage.
       def percent_of(value : Float64) : Float64
         ((value - minimum) / span * 100).clamp(0.0, 100.0)
-      end
-
-      # Sets the lower bound, re-clamping the value(s) and the upper bound (which
-      # is carried up rather than inverted) into range via the includer's own
-      # `#set_range`. Qt's `setMinimum`.
-      def minimum=(v : Float64) : Float64
-        set_range v, Math.max(v, maximum)
-        minimum
-      end
-
-      # Sets the upper bound, re-clamping the value(s) and the lower bound (which
-      # is carried down rather than inverted) into range via the includer's own
-      # `#set_range`. Qt's `setMaximum`.
-      def maximum=(v : Float64) : Float64
-        set_range Math.min(v, minimum), v
-        maximum
       end
 
       # Sanitizes a `#set_range` request against the current range, centralizing

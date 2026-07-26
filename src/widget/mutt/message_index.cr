@@ -118,7 +118,7 @@ module Crysterm
             s << ' '
             s << item.date.ljust(6)
             s << "  "
-            s << truncate(item.from, 16).ljust(16)
+            s << Mutt.truncate(item.from, 16).ljust(16)
             s << " ("
             s << Mutt.human_size(item.size).rjust(5)
             s << ") "
@@ -165,12 +165,6 @@ module Crysterm
             return true if dj == level
           end
           false
-        end
-
-        # Truncates *str* to *len* characters, adding a `~` when cut (Mutt style).
-        private def truncate(str : String, len : Int32) : String
-          return str if str.size <= len
-          "#{str[0, len - 1]}~"
         end
       end
     end

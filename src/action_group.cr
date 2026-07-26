@@ -89,6 +89,14 @@ module Crysterm
       action
     end
 
+    # Creates a checkable `Action` labeled *text*, adds it to the group, and
+    # returns it (Qt's `QActionGroup#addAction(QString)`) — a one-call
+    # counterpart to the `Action`-based overload above. Qt's overload always
+    # creates a checkable action, regardless of `#exclusive?`.
+    def add_action(text : String) : Action
+      add_action Action.new(text, checkable: true)
+    end
+
     # :ditto:
     def <<(action : Action) : self
       add_action action

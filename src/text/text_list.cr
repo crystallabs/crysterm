@@ -60,6 +60,12 @@ module Crysterm
       set_block_membership(block, nil)
     end
 
+    # Removes the item at the 0-based *index*, if any (Qt `removeItem(int)`);
+    # out of range is a no-op.
+    def remove_item(index : Int32) : Nil
+      item(index).try { |b| remove(b) }
+    end
+
     # Replaces the list's format for every member (undoable). Membership
     # identity moves to *fmt*'s instance: this view follows it, but other views
     # over the old instance see an empty list, and an undo restores the old

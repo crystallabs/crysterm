@@ -124,6 +124,17 @@ module Crysterm
       value.nil? || value.empty? || value == "true"
     end
 
+    # Whether this widget's children are *derived from a model* (rows, commands)
+    # rather than being independent, reconstructable widgets. When `true`, the
+    # serializer does not descend into `#children` (the model is serialized as an
+    # attribute instead, e.g. `items`) and the loader does not append serialized
+    # child nodes (the model attribute rebuilds them through the widget's own
+    # API). Base: `false`; `Mixin::ItemView` and `Mixin::ActionBar` return
+    # `true` (see `dom_widgets.cr`).
+    def dom_owns_children? : Bool
+      false
+    end
+
     # Serializes this widget and its subtree as layout DOM. Unlike `#to_html`,
     # the sub-element pseudo-nodes (scrollbar, list item, table cells) are *not*
     # emitted: they are styling slots, not reconstructable widgets.
@@ -141,11 +152,13 @@ module Crysterm
         io << ' ' << key
         value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
       end
-      # Item views reconstruct their rows from serialized state, not from child
-      # nodes: their `children` *are* the backing item boxes. Emitting those as
-      # `<w-box>` children would duplicate the rows on load — once via the
-      # attribute, once as re-appended boxes — so an item view is childless here.
-      if children.empty? || is_a?(Mixin::ItemView)
+      # Model-owned widgets (item views, action bars) reconstruct their rows/
+      # commands from serialized state, not from child nodes: their `children`
+      # *are* the backing item boxes. Emitting those as `<w-box>` children would
+      # duplicate the rows on load — once via the attribute, once as re-appended
+      # boxes (dead lookalikes with none of the model wiring) — so such a widget
+      # is childless here.
+      if children.empty? || dom_owns_children?
         io << "></" << tag << ">\n"
       else
         io << ">\n"

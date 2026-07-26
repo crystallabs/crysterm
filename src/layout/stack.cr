@@ -51,6 +51,23 @@ module Crysterm
         nil
       end
 
+      # Sets the page currently shown to *w* — Qt's
+      # `QStackedLayout::setCurrentWidget`. Finds *w*'s page index among the
+      # arrangeable children and sets `#current_index` to it; a no-op when *w*
+      # isn't one of them (or the layout isn't installed on a container).
+      def current_widget=(w : Widget) : Nil
+        c = container
+        return unless c
+        i = 0
+        each_arrangeable(c) do |el|
+          if el == w
+            self.current_index = i
+            return
+          end
+          i += 1
+        end
+      end
+
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         # `#current_index` indexes the *pages* this engine arranges, not the raw
         # child array: layout-excluded chrome must not occupy a page slot, or page

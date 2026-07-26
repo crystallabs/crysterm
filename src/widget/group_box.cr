@@ -65,9 +65,13 @@ module Crysterm
       @checkable_wired = false
 
       # Memo for the `::title` sub-style push: the last `style.title` object
-      # seen and the border-stripped copy derived from it.
+      # seen (by identity + `Style::AttrFingerprint`) and the border-stripped
+      # copy derived from it, via `Style.memo_derive` (the O3-21 `memo_derive`
+      # family) so an in-place mutation of `t` (no object swap) still refreshes
+      # the copy, not just a cascade swapping the `::title` object itself.
       @_title_style_src : ::Crysterm::Style?
       @_title_style_copy : ::Crysterm::Style?
+      @_title_style_fp : ::Crysterm::Style::AttrFingerprint?
 
       # Checked state of a `#checkable?` group; when false the children render
       # disabled.
@@ -115,20 +119,18 @@ module Crysterm
           unless t.same?(style)
             # The title is an inline label, not a framed box, but the `title`
             # sub-style inherits the group's own border — which would draw a full
-            # box around the title text. Strip it on an own copy.
+            # box around the title text. Strip only the border (padding/label
+            # styling on `t` are kept) on an own copy, via `Style#without_border`.
             #
-            # Cache the stripped copy: the cascade replaces the `::title`
-            # sub-`Style` object on recompute (never mutates it), so refresh only
-            # when `style.title` returns a different object.
-            unless t.same?(@_title_style_src)
-              @_title_style_src = t
-              c = t.dup
-              c.border = false
-              @_title_style_copy = c
-            end
-            if c = @_title_style_copy
-              @label_widget.try(&.styles.normal = c)
-            end
+            # Memoized: the cascade replaces the `::title` sub-`Style` object on
+            # recompute (never mutates it), so the common case is a same-object
+            # skip; `Style.memo_derive`'s fingerprint compare also catches an
+            # in-place mutation of `t` itself (no object swap).
+            c, @_title_style_src, @_title_style_copy, @_title_style_fp =
+              ::Crysterm::Style.memo_derive(t, @_title_style_src, @_title_style_copy, @_title_style_fp) do |s|
+                s.without_border
+              end
+            @label_widget.try(&.styles.normal = c)
           end
         end
 

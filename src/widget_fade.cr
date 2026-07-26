@@ -17,6 +17,26 @@ module Crysterm
     # animations never fight over `style.opacity`.
     @fade : FrameClock?
 
+    # The `FrameClock` created by the *current* `#pulse` call, if any —
+    # distinct from `@fade` so the Hide/Detached/Show/Attached hooks below can
+    # tell "the running fade is this pulse" (safe to pause/resume) from "the
+    # running fade is a `#fade_to`/`#fade_in`/`#fade_out` tween that has since
+    # superseded the pulse" (must not be touched: pausing an interrupted tween
+    # and resuming it later would re-fire its `on_done`, e.g. `#fade_out`'s
+    # `#hide` + callback, unexpectedly).
+    @pulse_clock : FrameClock?
+
+    # Set by `#pause_pulse` when `@pulse_clock` is stopped for visibility (as
+    # opposed to an explicit `#stop_fade`), so the Show/Attached hook knows to
+    # resume it — and so an explicit `#stop_fade` issued while hidden isn't
+    # silently undone by the next show.
+    @pulse_paused = false
+
+    # Whether the one-time `Event::Hide`/`Event::Detached` pause and
+    # `Event::Show`/`Event::Attached` resume hooks have been installed
+    # (lazily, on first `#pulse`), so they aren't registered on every call.
+    @fade_hooks_installed = false
+
     # Default fade length, shared by `#fade_in`/`#fade_out`/`#fade_to`.
     FADE_DURATION = 0.3.seconds
 
@@ -93,6 +113,20 @@ module Crysterm
     def pulse(min : Float64 = 0.3, max : Float64 = 1.0,
               period : Time::Span = 0.8.seconds, fps : Int32 = FADE_FPS) : FrameClock
       @fade.try &.stop
+      @pulse_paused = false
+      # Stop the ticker when the widget is hidden or detached, or the fiber
+      # keeps ticking `set_opacity` + `request_render` forever on a widget
+      # that is never painted — mirrors the CSS-animation/Effect::Animated
+      # fix. The pause leaves `@pulse_paused` set, so the Show/Attached hook
+      # resumes it on the first render after `show`/re-attach. Installed
+      # once, on first `#pulse`.
+      unless @fade_hooks_installed
+        @fade_hooks_installed = true
+        on(::Crysterm::Event::Hide) { pause_pulse }
+        on(::Crysterm::Event::Detached) { pause_pulse }
+        on(::Crysterm::Event::Show) { resume_pulse }
+        on(::Crysterm::Event::Attached) { resume_pulse }
+      end
       interval = (1.0 / fps).seconds
       # A ticker (not a tween): maps elapsed time through a triangle + sine so
       # the value eases at both ends and runs until stopped.
@@ -115,13 +149,54 @@ module Crysterm
         request_render
       end
       @fade = anim
+      @pulse_clock = anim
       anim.start
     end
 
-    # Stops any running fade/pulse, leaving `style.opacity` at its current value.
+    # Stops any running fade/pulse, leaving `style.opacity` at its current
+    # value. Also clears `@pulse_paused`, so an explicit `#stop_fade` issued
+    # while hidden/detached sticks — the next `Event::Show`/`Event::Attached`
+    # must not silently resume a pulse the caller deliberately ended.
     def stop_fade : Nil
+      @pulse_paused = false
       @fade.try &.stop
       @fade = nil
+    end
+
+    # Stops `@pulse_clock` for visibility (called from the one-time
+    # `Event::Hide`/`Event::Detached` hooks installed by `#pulse`), unlike a
+    # plain `#stop_fade` this leaves `@pulse_paused` set so it resumes
+    # automatically once the widget is visible again. Guarded on `@fade` still
+    # being this exact pulse clock — a `#fade_to`/`#fade_in`/`#fade_out` call
+    # made after `#pulse` replaces `@fade` with its own tween, which must not
+    # be paused/resumed here (see `@pulse_clock`'s doc). A no-op if the pulse
+    # isn't currently running (idempotent against `Event::Hide`'s broadcast to
+    # every descendant regardless of their own visibility).
+    private def pause_pulse : Nil
+      clock = @pulse_clock
+      return unless clock && @fade.same?(clock) && clock.running?
+      @pulse_paused = true
+      clock.stop
+    end
+
+    # Resumes a pulse previously stopped by `#pause_pulse` (called from the
+    # one-time `Event::Show`/`Event::Attached` hooks). Gated on actual
+    # visibility — `Event::Show`/`Event::Attached` broadcast to every
+    # descendant unconditionally, so a still-hidden widget inside a
+    # newly-shown container (or a widget shown but not yet attached to a
+    # window) must not resume; the flag stays set for a later show/attach that
+    # does make it visible. Resumes the *same* `FrameClock` (rather than
+    # rebuilding one via `#pulse`) — its tick block computes opacity from
+    # wall-clock elapsed since a captured `start_at`, so restarting it stays
+    # phase-continuous instead of jumping back to the start of the breathe
+    # cycle.
+    private def resume_pulse : Nil
+      return unless @pulse_paused
+      clock = @pulse_clock
+      return unless clock && @fade.same?(clock)
+      return unless visible_in_tree? && window?
+      @pulse_paused = false
+      clock.start
     end
 
     # The running tint animation, if any. Separate from `@fade` so a widget can

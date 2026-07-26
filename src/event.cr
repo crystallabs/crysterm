@@ -201,7 +201,9 @@ module Crysterm
     # `chars_removed == chars_added` over the affected range. Mirrors Qt's
     # `QTextDocument#contentsChange(int, int, int)`, plus `kind`, which says how
     # positions moved — a view holding its own `Int32` carets must adjust them by
-    # it, as registered `TextCursor`s are adjusted automatically.
+    # it, as registered `TextCursor`s are adjusted automatically. Also stands in
+    # for Qt's parameterless `contentsChanged()` — both of Qt's post-edit
+    # signals collapse onto this one unified event.
     event ContentsChanged, position : Int32, chars_removed : Int32, chars_added : Int32, kind : Crysterm::TextDocument::ChangeKind = :edit
 
     # Emitted by a `TextDocument` when its number of blocks (paragraphs)

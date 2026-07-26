@@ -274,6 +274,18 @@ module Crysterm
       # only), and — when the block carries a background or a full-width
       # overlay — the fill between them. Gap cells without either are left
       # to the base fill.
+      # `TextTheme` (allowed for import/export theming, not for this widget's
+      # own painting) carries no per-alert-kind colors, so the GFM alert
+      # accents are a small local table instead — chosen to echo github.com's
+      # own alert border colors (blue/green/purple/yellow/red).
+      ALERT_COLORS = {
+        TextBlockFormat::AlertKind::Note      => 0x58A6FF,
+        TextBlockFormat::AlertKind::Tip       => 0x3FB950,
+        TextBlockFormat::AlertKind::Important => 0xA371F7,
+        TextBlockFormat::AlertKind::Warning   => 0xD29922,
+        TextBlockFormat::AlertKind::Caution   => 0xF85149,
+      }
+
       private def paint_decorations(line, xi : Int32, region_w : Int32, meta : RowMeta, bfmt : TextBlockFormat, base_attr : Int64, full_fmt : TextCharFormat?, bch : Char) : Nil
         off = meta.offset
         block_bg = bfmt.bg
@@ -281,8 +293,15 @@ module Crysterm
         mw = marker ? str_width(marker) : 0
         qcols = bfmt.quote_level * 2
         bar = glyph(Glyphs::Role::LineVertical)
-        bar_attr = deco_attr(theme.quote_color, base_attr, block_bg, full_fmt)
-        marker_attr = deco_attr(theme.heading_color, base_attr, block_bg, full_fmt)
+        # An alert block's bar and title chip both take the kind's accent
+        # color in place of the ordinary quote/marker colors — the "distinct
+        # color per kind" GitHub's alert admonitions use.
+        alert_color = (k = bfmt.alert_kind) ? ALERT_COLORS[k] : nil
+        bar_attr = deco_attr(alert_color || theme.quote_color, base_attr, block_bg, full_fmt)
+        marker_attr = deco_attr(alert_color || theme.heading_color, base_attr, block_bg, full_fmt)
+        if alert_color
+          marker_attr = Attr.pack(Attr.flags(marker_attr) | Attr::BOLD, Attr.fg(marker_attr), Attr.bg(marker_attr))
+        end
         gap_attr = full_fmt ? merge_format_attr(pack_char_attr(nil, base_attr, block_bg, false), full_fmt) : pack_char_attr(nil, base_attr, block_bg, false)
         fill_gaps = block_bg || full_fmt
         # Columns left of the screen (negative `xi + vc`) must be skipped, not

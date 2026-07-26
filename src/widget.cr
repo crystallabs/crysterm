@@ -329,6 +329,55 @@ module Crysterm
       Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
     end
 
+    # `Rectangle` property-idiom setter, delegating straight to `#set_geometry`
+    # — Qt's `geometry WRITE setGeometry`. `#set_geometry` itself stays the
+    # canonical coalescing primitive; this is the Crystal property spelling.
+    def geometry=(r : Rectangle) : Nil
+      set_geometry r
+    end
+
+    # Alias of `#geometry` ↔ Qt's `QWidget::frameGeometry()`. A terminal
+    # widget has no external window-manager frame the way a decorated
+    # top-level Qt window does, so its frame and client geometry always
+    # coincide — the two are identical here.
+    def frame_geometry : Rectangle?
+      geometry
+    end
+
+    # Alias of `#to_back` ↔ Qt's `QWidget::lower()`. (`#to_front` stays the
+    # canonical raise-to-top call — a method literally named `raise` would
+    # shadow Crystal's own `raise`.)
+    def lower : Nil
+      to_back
+    end
+
+    # Moves this widget to *sibling*'s stacking slot ↔ Qt's
+    # `QWidget::stackUnder`. A no-op when *sibling* isn't attached anywhere
+    # (has no `#stack_index`).
+    def stack_under(sibling : Widget) : Nil
+      return unless idx = sibling.stack_index
+      self.stack_index = idx
+    end
+
+    # The side `#label_widget` is anchored to — a first-class accessor for the
+    # `@label_side` `#set_label` remembers, so a labeled widget's side can be
+    # read without going through the two-arg `#set_label(text, side)`.
+    def label_side : LabelSide
+      @label_side
+    end
+
+    # Moves the existing label to *side* and re-runs its placement. A no-op
+    # when unchanged; when no label is set yet, just remembers *side* for the
+    # next `#set_label`/`#label=`.
+    def label_side=(side : LabelSide) : Nil
+      return if @label_side == side
+      if lbl = @label_widget
+        set_label lbl.content, side
+      else
+        @label_side = side
+      end
+    end
+
     # Unconditionally schedules a render of the owning `Window`. No-op when
     # detached.
     #

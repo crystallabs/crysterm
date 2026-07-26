@@ -58,5 +58,19 @@ module Crysterm
         @effect.dispose
       end
     end
+
+    # Creates a `Computed` deriving its value from *block*. Factory beside
+    # `Reactive.signal`/`Reactive.effect`, completing the family — and, unlike
+    # `Computed(T).new`, infers `T` from the block's return type instead of
+    # requiring it spelled out at the call site.
+    #
+    # ```
+    # n = Crysterm::Reactive.signal 2
+    # doubled = Crysterm::Reactive.computed { n.value * 2 }
+    # doubled.value # => 4
+    # ```
+    def self.computed(&block : -> U) : Computed(U) forall U
+      Computed(U).new(&block)
+    end
   end
 end

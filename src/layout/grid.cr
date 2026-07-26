@@ -30,6 +30,13 @@ module Crysterm
 
         def initialize(@row : Int32, @column : Int32, @row_span : Int32 = 1, @column_span : Int32 = 1)
         end
+
+        # Named-constructor spelling of `.new`, for `Grid#add_widget` and any
+        # call site that reads better as "the hint at (row, column)" than a
+        # bare positional `.new`.
+        def self.at(row : Int32, column : Int32, row_span : Int32 = 1, column_span : Int32 = 1) : Hint
+          new row, column, row_span, column_span
+        end
       end
 
       # Number of columns; change-guarded so a real change repaints the container.
@@ -47,6 +54,18 @@ module Crysterm
       @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
 
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @spacing : Int32 = 0)
+      end
+
+      # Appends *w* to `#container` and pins it at (*row*, *col*) — Qt's
+      # `QGridLayout::addWidget(QWidget*, int, int, int, int)`. Raises when
+      # the layout isn't installed on a container yet, matching
+      # `Layout::Form#add_row`.
+      def add_widget(w : Widget, row : Int32, col : Int32, row_span : Int32 = 1, col_span : Int32 = 1) : Widget
+        c = container
+        raise ArgumentError.new "Layout::Grid#add_widget: layout not installed on a container" unless c
+        c.append w
+        w.layout_hint = Hint.at(row, col, row_span, col_span)
+        w
       end
 
       # Caps for degenerate `Grid::Hint` values. A row origin is clamped to

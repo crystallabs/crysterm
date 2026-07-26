@@ -267,6 +267,22 @@ module Crysterm
         action
       end
 
+      # Appends an existing *action* and returns it (Qt's
+      # `QMenu#addAction(QAction*)`) — the `Action`-based counterpart to the
+      # text-based overloads above; `#<<` is the same operation returning
+      # `self` instead.
+      def add_action(action : Action) : Action
+        self << action
+        action
+      end
+
+      # Appends every action in *actions*, in order (Qt's `QMenu#addActions`) —
+      # distinct from `#actions=`, which clears the menu first.
+      def add_actions(actions : Enumerable(Action)) : self
+        actions.each { |a| self << a }
+        self
+      end
+
       # Creates a submenu action labeled *text* holding *actions* (empty by
       # default — fill it later through the returned action's `#menu`), appends
       # it, and returns it.
@@ -303,6 +319,31 @@ module Crysterm
         watch_action(action) { |_e| refresh_rows; nil }
         sync_items
         self
+      end
+
+      # Inserts a non-selectable separator rule at *index* (Qt's
+      # `QMenu#insertSeparator`), returning the separator action — parity with
+      # the index-less `#add_separator` and with `#insert_action`, so it too can
+      # be hidden or removed by reference later.
+      def insert_separator(index : Int) : Action
+        sep = Action.separator
+        @actions.insert index.to_i.clamp(0, @actions.size), sep
+        sep.associate self
+        sync_items
+        sep
+      end
+
+      # Inserts a submenu action labeled *text* holding *actions* at *index*
+      # (Qt's `QMenu#insertMenu`) — parity with the index-less `#add_submenu`
+      # and with `#insert_action`. See `#add_submenu` for why this isn't named
+      # `insert_menu`.
+      def insert_submenu(index : Int, text : String, actions : Array(Action) = [] of Action) : Action
+        action = Action.new text
+        action.menu = actions
+        @actions.insert index.to_i.clamp(0, @actions.size), action
+        watch_action(action) { |_e| refresh_rows; nil }
+        sync_items
+        action
       end
 
       # Removes *action* from the menu (Qt's `QMenu#removeAction`), dropping its

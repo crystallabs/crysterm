@@ -10,9 +10,16 @@ module Crysterm
     # (`Int32`), a `Dim` (`Dim.percent(50)`), `:half`, or the string micro-DSL
     # (`"50%"`, `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once,
     # at assignment (malformed raises `ArgumentError` there); `nil` stretches.
+    #
+    # NOTE Returns the **unresolved spec**, not a cell count — by design, so
+    # `Widget.new(width: "50%")` round-trips through `#width`. For the
+    # resolved size in cells see `#awidth` (and the `#size` bundle below).
     getter width : Dim | Int32 | String?
 
     # User-defined height (setter is defined below); forms as for `#width`.
+    #
+    # NOTE Same caveat as `#width`: unresolved spec, not cells. See `#aheight`
+    # (and `#size`).
     getter height : Dim | Int32 | String?
 
     # Whether the widget sizes itself to its content and children rather than to
@@ -60,6 +67,37 @@ module Crysterm
     {% for dim in %w[min_width max_width min_height max_height] %}
       change_guarded_setter {{ dim.id }}, Resize, Int32?
     {% end %}
+
+    # Bundled `(#min_width, #min_height)` — Qt's `QWidget::minimumSize`. `nil`
+    # when either constraint is unset (a *partial* pair has no single `Size` to
+    # report), not just when both are — a reader that returned a zero-filled
+    # `Size` for the unset half would be indistinguishable from an explicit
+    # `min_width: 0`.
+    def minimum_size : Size?
+      return unless (w = @min_width) && (h = @min_height)
+      Size.new w, h
+    end
+
+    # Sets `#min_width`/`#min_height` together; `nil` clears both. Mechanical —
+    # each half goes through its own change-guarded setter, so this emits
+    # `Resize` per axis that actually changed, same as setting them separately.
+    def minimum_size=(size : Size?) : Nil
+      self.min_width = size.try &.width
+      self.min_height = size.try &.height
+    end
+
+    # Bundled `(#max_width, #max_height)` — Qt's `QWidget::maximumSize`. See
+    # `#minimum_size` for the nil-when-partial rule.
+    def maximum_size : Size?
+      return unless (w = @max_width) && (h = @max_height)
+      Size.new w, h
+    end
+
+    # :ditto: setter — see `#minimum_size=`.
+    def maximum_size=(size : Size?) : Nil
+      self.max_width = size.try &.width
+      self.max_height = size.try &.height
+    end
 
     # Clamps a computed dimension to `[min, max]`. `max` is applied before `min`
     # so `min` wins a `min > max` conflict, per CSS.
@@ -160,6 +198,31 @@ module Crysterm
         clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32))
       end
     {% end %}
+
+    # `(#awidth, #aheight)` bundled as a `Size` — Qt's `QWidget::size()`.
+    def size : Size
+      Size.new awidth, aheight
+    end
+
+    # `Size` overload of `#resize` — Qt's `QWidget::resize(QSize)`. Pure
+    # delegation to the `Int32` form.
+    def resize(size : Size) : Nil
+      resize size.width, size.height
+    end
+
+    # `size WRITE resize` — Qt property-idiom setter delegating to `#resize`.
+    def size=(size : Size) : Nil
+      resize size.width, size.height
+    end
+
+    # This widget's own rectangle in local coordinates, i.e. always
+    # `(0, 0, #awidth, #aheight)` — Qt's `QWidget::rect()`. Unlike `#geometry`
+    # (absolute window coordinates), `#rect` is where the widget sees itself:
+    # the frame passed to content/paint math that doesn't care where on the
+    # window it ultimately lands.
+    def rect : Rectangle
+      Rectangle.new 0, 0, awidth, aheight
+    end
 
     # Whether the x axis shrinks to its content: no explicit width, and at least
     # one horizontal edge left unanchored (both anchored pins the width instead).

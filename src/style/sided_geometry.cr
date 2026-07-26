@@ -121,6 +121,28 @@ module Crysterm
 
       SidedGeometry.sided_properties
 
+      # Named constructors spelling out the coercion order at the call site —
+      # an explicit alternative to the positional 4-`Int` constructor (LTRB)
+      # and to `.from`'s TRBL/VH tuple forms, for callers who'd rather name the
+      # order than remember it.
+
+      # LTRB — the same order as the positional 4-`Int` constructor; a named
+      # spelling of `new(l, t, r, b)`.
+      def self.ltrb(left : Int, top : Int, right : Int, bottom : Int) : self
+        new left, top, right, bottom
+      end
+
+      # TRBL — CSS's clockwise-from-top 4-value shorthand order.
+      def self.trbl(top : Int, right : Int, bottom : Int, left : Int) : self
+        new left, top, right, bottom
+      end
+
+      # VH — CSS's 2-value shorthand order: *v* for top/bottom, *h* for
+      # left/right.
+      def self.vh(v : Int, h : Int) : self
+        new h, v, h, v
+      end
+
       def self.from(value)
         case value
         in true
@@ -200,6 +222,22 @@ module Crysterm
     # allocates nothing.
     def adjust(xi : Int32, xl : Int32, yi : Int32, yl : Int32, sign = 1)
       {xi + sign * @left, xl - sign * @right, yi + sign * @top, yl - sign * @bottom}
+    end
+
+    # *r* shrunk inward by these per-side amounts — the by-value, `Rectangle`-
+    # returning counterpart of `#adjust(sign: 1)` that hides its opaque sign
+    # flag. Qt's `QRect::marginsRemoved(QMargins)`; backs `Rectangle#-`.
+    def inset(r : Rectangle) : Rectangle
+      xi, xl, yi, yl = adjust r.xi, r.xl, r.yi, r.yl, 1
+      Rectangle.of_edges xi, yi, xl, yl
+    end
+
+    # *r* grown outward by these per-side amounts — the by-value counterpart of
+    # `#adjust(sign: -1)`. Qt's `QRect::marginsAdded(QMargins)`; backs
+    # `Rectangle#+`.
+    def outset(r : Rectangle) : Rectangle
+      xi, xl, yi, yl = adjust r.xi, r.xl, r.yi, r.yl, -1
+      Rectangle.of_edges xi, yi, xl, yl
     end
   end
 end

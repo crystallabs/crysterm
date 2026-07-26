@@ -78,6 +78,10 @@ module Crysterm
 
     # Returns whether widget is visible. Does not check whether the ancestors are
     # visible too; see `#visible_in_tree?`.
+    #
+    # Qt mapping: this is `isVisibleTo(parentWidget())` — the widget's own flag.
+    # Qt's plain `isVisible()` (ancestor-aware) is `#visible_in_tree?`; porters
+    # reaching for `visible?` usually want that one.
     def visible?
       state_style.visible?
     end

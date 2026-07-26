@@ -254,6 +254,15 @@ module Crysterm
       end
     end
 
+    # A copy of this style with only its `#border` cleared — unlike
+    # `#stripped_frame`/`#strip_frame!`, `#padding` is left untouched. For a
+    # site that inherits a container's own style via sub-style (a
+    # `Widget::GroupBox` title) but must render as inline text with no framing
+    # box drawn around it, while keeping any padding/label styling intact.
+    def without_border : Style
+      dup.tap(&.border=(false))
+    end
+
     # Whether this style carries a visible distinction of its own — an explicit
     # `fg`/`bg` color, or reverse-video — as opposed to being fully unstyled.
     def visibly_styled? : Bool
@@ -808,10 +817,15 @@ module Crysterm
       strike.try { |v| self.strike = v }
       visible.try { |v| self.visible = v }
       opacity.try { |v| self.opacity = self.class.opacity_from(v) }
-      border.try { |v| self.border = Border.from(v) }
-      padding.try { |v| self.padding = Padding.from(v) }
-      margin.try { |v| self.margin = Margin.from(v) }
-      shadow.try { |v| self.shadow = Shadow.from(v) }
+      # The `border=`/`padding=`/`margin=`/`shadow=` setters already coerce
+      # their argument through `X.from` (and record `specified_mask`), so route
+      # the raw ctor argument straight to the setter instead of pre-coercing it
+      # here — coercing twice is redundant (each `X.from` is idempotent on an
+      # already-typed `X`, so behavior is unchanged either way).
+      border.try { |v| self.border = v }
+      padding.try { |v| self.padding = v }
+      margin.try { |v| self.margin = v }
+      shadow.try { |v| self.shadow = v }
       # Only record an explicitly-passed fill character as `specified`.
       fill_char.try { |v| self.fill_char = v }
       # Only record an explicitly-passed `draw_over_border` as `specified`.

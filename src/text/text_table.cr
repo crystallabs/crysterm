@@ -26,6 +26,14 @@ module Crysterm
   class TextTable < TextBlockGroup
     getter format : TextTableFormat
 
+    # `data_row_indexed`'s memo, valid while the document — fixed per
+    # instance (`TextObject`) — still reports `@data_rows_revision`. Any
+    # mutation bumps `TextDocument#revision`, so a stale memo can never be
+    # served: the editing ops' own rebuilds invalidate it, and so do
+    # external document edits by a holder of this (public API) view.
+    @data_rows : Array({Int32, TextBlock})?
+    @data_rows_revision : Int64 = -1
+
     def initialize(document : TextDocument, @format : TextTableFormat)
       super(document)
     end
@@ -202,13 +210,21 @@ module Crysterm
       {header, texts.size > 1 ? texts[1..] : [] of Array(String)}
     end
 
-    # `{block index, block}` of each data row, in document order.
+    # `{block index, block}` of each data row, in document order. Memoized
+    # on `TextDocument#revision`, so the repeated cell lookups of one
+    # keystroke (`cell_at`, `cell_text_range` ×2, `grid`) share a single
+    # document scan. Callers must not mutate the returned array.
     private def data_row_indexed : Array({Int32, TextBlock})
+      rev = document.revision
+      if (memo = @data_rows) && @data_rows_revision == rev
+        return memo
+      end
       res = [] of {Int32, TextBlock}
       document.blocks.each_with_index do |b, i|
         res << {i, b} if member?(b) && TextTable.data_row?(b.text)
       end
-      res
+      @data_rows_revision = rev
+      @data_rows = res
     end
 
     # Codepoint indexes of the border glyphs in a data row's text.

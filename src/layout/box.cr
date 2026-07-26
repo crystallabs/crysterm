@@ -105,6 +105,43 @@ module Crysterm
       )
       end
 
+      # Appends a fixed, inert *size*-cell gap to the box — Qt's
+      # `QBoxLayout::addSpacing`. The gap is a real `Widget::Spacer` child
+      # (non-focusable, invisible to hit-testing, paints nothing) whose
+      # explicit size makes it a fixed main-axis slot in `#measure`. Lives on
+      # the layout engine — like `Grid#add_widget`, `Form#add_row` and
+      # `Stack#current_widget=`, the established home for container-addressing
+      # layout mutators — and, like those, raises when the layout isn't
+      # installed on a container yet. Returns the spacer (the `Grid#add_widget`
+      # convention of returning the added widget), so a caller can remove or
+      # resize it later.
+      def add_spacing(size : Int32) : Widget::Spacer
+        c = require_container "add_spacing"
+        sp = Widget::Spacer.new size
+        c.append sp
+        sp
+      end
+
+      # Appends a growing, inert gap taking *factor* shares of the leftover
+      # main-axis space — Qt's `QBoxLayout::addStretch`. The gap is a real
+      # `Widget::Spacer` child with no explicit size and a `Hint` carrying the
+      # factor, so it participates in the box's normal grow distribution
+      # (`#stretch_of`) alongside any other flex children — no parallel
+      # mechanism. Returns the spacer; see `#add_spacing` for the design notes.
+      def add_stretch(factor : Int32 = 1) : Widget::Spacer
+        c = require_container "add_stretch"
+        sp = Widget::Spacer.stretch factor
+        c.append sp
+        sp
+      end
+
+      # `#container`, or raises when the layout isn't installed on one yet —
+      # shared guard for `#add_spacing`/`#add_stretch` (the `Form#add_row`
+      # pattern, with the calling method named in the message).
+      private def require_container(method : String) : Widget
+        container || raise ArgumentError.new "Layout::Box##{method}: layout not installed on a container"
+      end
+
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         measure container, interior
         each_arrangeable container do |el|
@@ -303,6 +340,13 @@ module Crysterm
           if main_w
             clamped_size a_main_size(el), main
           else
+            # Defensive-only: `main_w` is nil exactly when `@measured.has_key?(el)`
+            # is true — the `unless @measured.has_key?(el)` block above is the
+            # only place that sets `main_w`, so reaching here with `main_w` nil
+            # means `el` was already in `@measured` (populated for every fixed
+            # child during the earlier measure pass). A vacant child returned
+            # above before either path, so `@measured[el]?` never actually
+            # misses here and the `clamped_size` fallback never fires.
             @measured[el]? || clamped_size(a_main_size(el), main)
           end
 

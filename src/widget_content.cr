@@ -14,6 +14,12 @@ module Crysterm
     # :ditto:
     SGR_REGEX_AT_BEGINNING = /^#{SGR_REGEX}/
 
+    # Logical-line boundaries of RAW content: the same separators
+    # `clean_content_chars` normalizes to `\n` (`\r\n` and bare `\r` included),
+    # so splitting raw text on this stays index-for-index aligned with the
+    # parsed `@_clines.fake` lines. See `#raw_fake_lines`.
+    RAW_LINE_REGEX = /\r\n|\r|\n/
+
     # Can element's content be word-wrapped?
     property? wrap_content = true
 
@@ -138,16 +144,6 @@ module Crysterm
     # `set_content` of the same string but a different tag mode still reparses.
     @_content_no_tags = false
 
-    # Transient guard set only for the duration of `rebuild_content_from_fake`'s
-    # `set_content` call. `@_clines.fake` holds POST-parse lines, so re-feeding
-    # them through `set_content` would run `_parse_tags` a SECOND time — dropping
-    # escaped braces or re-interpreting a literal tag-looking token as live SGR.
-    # Honored by `process_content` like a one-shot `no_tags = true` WITHOUT
-    # flipping the persistent `@_content_no_tags`. Fresh line contents are
-    # pre-parsed by the line editors before splicing into `fake`, so tags in newly
-    # inserted/set lines still work — see `#insert_line`/`#replace_line`.
-    @_rebuilding_from_fake = false
-
     # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
     # from the raw text independent of `@parse_tags`/`no_tags` mode, so a later
     # `parse_tags = true` flip still finds the flag set. When false,
@@ -226,17 +222,20 @@ module Crysterm
 
       process_content(no_tags)
       # Detached: `process_content` bailed (no window), leaving `@_clines.fake`
-      # describing the PREVIOUS content. The fake-splicing line editors
+      # describing the PREVIOUS content. The line editors
       # (`insert_line`/`delete_line`/`replace_line`/... and their index math)
-      # trust `fake` unconditionally, so a stale copy would resurrect the old
-      # text via `rebuild_content_from_fake`. Resync `fake` to the new raw lines
-      # and drop the line maps — the "content seeded before attach" shape the
-      # editors already handle. `content_version` is deliberately left stale so
-      # the `Event::Attached` reparse still fires. Skipped during
-      # `rebuild_content_from_fake` (an identity resync of its own source).
-      if window?.nil? && !@_rebuilding_from_fake
+      # trust `fake` unconditionally, so a stale copy would desync them from the
+      # raw lines they splice (see `#raw_fake_lines`) and resurrect the old
+      # text. Resync `fake` to the new raw lines (split at the same boundaries
+      # `raw_fake_lines` uses, so the two stay index-aligned) and drop the line
+      # maps — the "content seeded before attach" shape the editors already
+      # handle. `content_version` is deliberately left stale so the
+      # `Event::Attached` reparse still fires. During a line editor's
+      # `rebuild_content_from_raw` this is an identity resync (fake is
+      # re-derived from the raw lines the editor just spliced).
+      if window?.nil?
         @_clines.fake.clear
-        @_clines.fake.concat(content.split('\n')) unless content.empty?
+        @_clines.fake.concat(content.split(RAW_LINE_REGEX)) unless content.empty?
         @_clines.ftor.clear
         @_clines.rtof.clear
       end

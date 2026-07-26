@@ -15,6 +15,14 @@ module Crysterm
       include Mixin::RangeText
       include Mixin::TrackGeometry
 
+      # `#range=`/`#span` (O5-26): ProgressBar can't include the rest of
+      # `Mixin::RangedValue` — its `complete:`-gated `Event::Completed` doesn't
+      # fit that mixin's single clamp-and-emit `#value=` — but these two are
+      # pure fragments written only against `#minimum`/`#maximum`/`#set_range`,
+      # so it includes the narrower `RangeSpan(Int32)` for them directly
+      # (dispatch through `#set_range` below still runs ProgressBar's own).
+      include Mixin::RangeSpan(Int32)
+
       # Lower/upper bounds of the value range (inclusive), like Qt's
       # `minimum`/`maximum`. With the defaults (0..100) a value equals its
       # percentage. Setting `maximum == minimum` yields a "busy"/empty bar.
@@ -56,19 +64,8 @@ module Crysterm
         request_render
       end
 
-      # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
-      # `setRange`), so a bar takes one the same way a `Slider`/`Dial` does. An
-      # exclusive range (`begin...end`) covers `begin..end - 1`, matching
-      # Crystal's own `Range` semantics; a degenerate empty exclusive range
-      # (`n...n`) collapses to the single value `n` instead of inverting.
-      #
-      # Must stay byte-identical to `Mixin::RangedValue#range=`; ProgressBar can't
-      # include that mixin, so update the two in lockstep.
-      def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
-        max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
-        set_range r.begin, max
-        r
-      end
+      # `#range=` (the `Range`-based `#set_range` sugar, Qt's `setRange`) comes
+      # from `Mixin::RangeSpan(Int32)`, included above.
 
       # Amount a single key press moves the value by, in domain units. Qt's
       # `QAbstractSlider#singleStep`.
@@ -155,16 +152,8 @@ module Crysterm
         end
       end
 
-      # Size of the value range (`maximum - minimum`), never negative.
-      #
-      # ProgressBar is intentionally *not* built on `Mixin::RangedValue` — its
-      # `complete:`-gated `Event::Completed` can't be expressed through that
-      # mixin's `#value=`/`#set_range`. This must stay byte-identical to
-      # `RangedValue(Int32)#value_span`'s Int32 branch; update the two in lockstep.
-      private def span : Int32
-        # Widen the subtraction: a range wider than `Int32::MAX` would overflow.
-        (@maximum.to_i64 - @minimum).clamp(0_i64, Int32::MAX.to_i64).to_i
-      end
+      # `#span` (size of the value range, never negative) comes from
+      # `Mixin::RangeSpan(Int32)`, included above.
 
       # Current fill as a 0..100 percentage, derived from `#value`'s position in
       # the range. An empty range (`maximum == minimum`) reads as 0. `#percent=`

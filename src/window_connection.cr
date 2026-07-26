@@ -114,6 +114,27 @@ module Crysterm
         return
       end
 
+      teardown_device_if_last
+
+      @window.try &.close
+      @window = nil
+    end
+
+    # Tears down THIS window's device: restores the terminal (best-effort),
+    # closes any IO it owns, stops the input fiber, and releases the
+    # process-global CSS geometry-anchor claim. Shared by `#disconnect` and
+    # `Window#screen=` for the identical ordered sequence they both run when
+    # this window is the device's LAST live window — callers must have
+    # already established that (see `#other_live_window_on_device?`); a live
+    # sibling keeps the device alive via `#reassert_sibling_terminal_state`
+    # instead and never reaches here.
+    #
+    # Deliberately does NOT touch the spawned emulator window (`@window`) or
+    # `@owns_io`/`@window` bookkeeping — the two callers differ there:
+    # `#disconnect` closes and nils `@window` immediately after; `#screen=`
+    # defers the close past the device swap (its stale emulator's watcher
+    # must not fire against the new device).
+    private def teardown_device_if_last : Nil
       restore_terminal
 
       # Closing the input unblocks and ends the key fiber; drop its handle on
@@ -126,9 +147,6 @@ module Crysterm
       # The device dies with this window; release any claim it holds on the
       # process-global CSS geometry anchor so a surviving device can take over.
       @screen.release_cell_geometry_anchor
-
-      @window.try &.close
-      @window = nil
     end
 
     # Brings a `#destroy`ed window back to life so `#connect` can rebind it,

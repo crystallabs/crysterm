@@ -69,6 +69,22 @@ module Crysterm
       rtop
     end
 
+    # `(#x, #y)` bundled as a `Point` — Qt's `QWidget::pos()`.
+    def pos : Point
+      Point.new x, y
+    end
+
+    # `Point` overload of `#move` — Qt's `QWidget::move(QPoint)`. Pure
+    # delegation to the `Int32` form.
+    def move(point : Point) : Nil
+      move point.x, point.y
+    end
+
+    # `pos WRITE move` — Qt property-idiom setter delegating to `#move`.
+    def pos=(point : Point) : Nil
+      move point.x, point.y
+    end
+
     # `#lpos` (from `Mixin::Pos`) under Qt's `QWidget::geometry()`-adjacent
     # vocabulary — the widget's last rendered box. Same object every frame (see
     # `RenderedGeometry`); read it, don't retain it past the current frame.

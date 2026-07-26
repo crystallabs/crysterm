@@ -199,15 +199,24 @@ module Crysterm
         yi = coords.yi + itop
         yl = coords.yl - ibottom
 
-        # Resize support: (re)sample to the current content box when it changes.
-        # For animation, only the *currently shown* frame is sampled (and
-        # cached per size), so resizing doesn't regenerate every frame.
+        # Resize support: (re)sample to the FULL (unclipped) interior box, not
+        # the visible slice `xi..xl`/`yi..yl` above. An ancestor clip (a
+        # scrolled or `overflow: Hidden` container) shrinks that slice per
+        # scroll step; sizing/composing the sample from it would squash the
+        # whole source into whatever's currently visible (wrong geometry) and
+        # thrash `@frame_cache`/`@sample` on every step. Composing at the full
+        # size instead keeps the cache stable across scrolling; the visible
+        # sub-rectangle is blitted out of it below, mirroring the
+        # `coords.base` + unclipped-origin convention `Widget::Terminal#draw`
+        # and `Effect::Direct#paint` use. Unclipped, `full_cols/full_rows`
+        # equal the visible `cols/rows` exactly, so unclipped rendering is
+        # byte-for-byte unchanged.
+        full_cols = Math.max(0, awidth - ihorizontal)
+        full_rows = Math.max(0, aheight - ivertical)
         if (img = source)
-          cols = xl - xi
-          rows = yl - yi
-          if cols > 0 && rows > 0
-            if @rendered_size != {cols, rows}
-              @rendered_size = {cols, rows}
+          if full_cols > 0 && full_rows > 0
+            if @rendered_size != {full_cols, full_rows}
+              @rendered_size = {full_cols, full_rows}
               @frame_cache.clear
               clear_frame_derived
               # Drop the sample on resize unless real animation frames exist:
@@ -224,7 +233,7 @@ module Crysterm
               if (src = @src_frames) && (sf = src[@anim_index]?)
                 frame = @frame_cache[@anim_index]?
                 if frame.nil?
-                  frame = compose(img, cols, rows, sf[0])
+                  frame = compose(img, full_cols, full_rows, sf[0])
                   @frame_cache[@anim_index] = frame if frame
                 end
                 @sample = frame if frame
@@ -233,17 +242,61 @@ module Crysterm
               # the first one is ready show frame 1 (`png.bmp`, via a nil frame)
               # instead of a blank box. `||=` so a real frame, once present,
               # wins and this never re-composes per tick.
-              @sample ||= compose(img, cols, rows, nil)
+              @sample ||= compose(img, full_cols, full_rows, nil)
             elsif @sample.nil?
-              @sample = compose(img, cols, rows, nil)
+              @sample = compose(img, full_cols, full_rows, nil)
             end
           end
         end
 
         bmp = @sample
         return coords unless bmp
-        draw_sample bmp, xi, xl, yi, yl
+        return coords if xl <= xi || yl <= yi
+
+        draw_sample visible_sample(bmp, full_cols, full_rows, xi, xl, yi, yl, coords.base), xi, xl, yi, yl
         coords
+      end
+
+      # The sub-rectangle of the full-field *bmp* (sized to `@rendered_size`,
+      # in whatever native units the backend composes at — 1 pixel/cell for
+      # `Media::Ansi`, its sub-grid for `Media::Glyph`) that is actually
+      # visible, cropped so `#draw_sample` — indexed relative to the *visible*
+      # `xi`/`yi` it receives — paints the region under the clip window
+      # instead of the field's top-left corner.
+      #
+      # The hidden column/row counts are in CELL units (`col_off` past the
+      # unclipped interior origin, `row_off` = `coords.base`, the scrolled-off
+      # content rows); they're converted to the bitmap's native units by the
+      # ratio between its measured pixel size and `full_cols`/`full_rows` — the
+      # cell size it was composed at — rather than asking the subclass for its
+      # sub-grid, so no backend hook is needed here.
+      #
+      # Returns *bmp* itself, unchanged, when nothing is clipped (by far the
+      # common case), so an unclipped render never pays for a copy.
+      private def visible_sample(bmp : PNGGIF::Bitmap, full_cols : Int32, full_rows : Int32,
+                                 xi : Int32, xl : Int32, yi : Int32, yl : Int32, base : Int32) : PNGGIF::Bitmap
+        col_off = Math.max(0, xi - (aleft + ileft))
+        row_off = base
+        vis_cols = xl - xi
+        vis_rows = yl - yi
+        return bmp if col_off == 0 && row_off == 0 && vis_cols == full_cols && vis_rows == full_rows
+
+        bw, bh = Media.dims(bmp)
+        sx = full_cols > 0 ? bw // full_cols : 1
+        sy = full_rows > 0 ? bh // full_rows : 1
+        px0 = row_off * sy
+        fx0 = col_off * sx
+        pw = vis_cols * sx
+        ph = vis_rows * sy
+        blank = PNGGIF::Pixel.new(0, 0, 0, 0)
+        Array(Array(PNGGIF::Pixel)).new(ph) do |ry|
+          srow = bmp[px0 + ry]?
+          if srow
+            Array(PNGGIF::Pixel).new(pw) { |rx| srow[fx0 + rx]? || blank }
+          else
+            Array(PNGGIF::Pixel).new(pw, blank)
+          end
+        end
       end
     end
   end

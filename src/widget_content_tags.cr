@@ -52,7 +52,7 @@ module Crysterm
         # the mode content was set with (e.g. via `#set_text`), so a later
         # cache-miss reparse (width change, resize, scroll, attach — all calling
         # with the default `no_tags = false`) keeps tags literal.
-        if !no_tags && !@_content_no_tags && !@_rebuilding_from_fake && @_content_has_tags
+        if !no_tags && !@_content_no_tags && @_content_has_tags
           content = _parse_tags content
           # This parse consumed the whole raw content, so its end state IS the
           # boundary state a future append would splice at.
@@ -733,37 +733,53 @@ module Crysterm
       "#{lpart0}#{pad}#{lpart2}"
     end
 
-    # Rebuilds widget content from the in-place-mutated `@_clines.fake` lines
-    # (re-joining and reparsing). `no_clear` is set so `@_clines` is refreshed
-    # rather than wiped.
-    private def rebuild_content_from_fake
-      # The third positional arg MUST carry the widget's tag mode: letting
-      # `no_tags` default to false permanently flips a literal-tags widget back
-      # into tag-parsing mode.
-      #
-      # `fake` holds POST-parse text, so the reparse `set_content` triggers would
-      # corrupt it (escaped braces dropped, literal tags re-interpreted). Suppress
-      # just this reparse via the transient flag rather than flipping the
-      # persistent `@_content_no_tags`; freshly edited lines are already parsed at
-      # their entry points. `ensure` so a raise can't leave the guard latched,
-      # silently disabling tag parsing for the widget.
-      @_rebuilding_from_fake = true
-      begin
-        set_content(@_clines.fake.join("\n"), true, @_content_no_tags)
-      ensure
-        @_rebuilding_from_fake = false
+    # The RAW (pre-parse) logical lines backing the fake-line editors
+    # (`insert_line`/`delete_line`/`replace_line`/...): raw `#content` split at
+    # the same line boundaries `clean_content_chars` normalizes
+    # (`RAW_LINE_REGEX`), so index `i` here addresses the same logical line as
+    # the parsed `@_clines.fake[i]`. The editors splice THESE lines and rebuild
+    # via `#rebuild_content_from_raw`; `@content` therefore never holds
+    # post-parse text, and any later cache-miss reparse (width change, resize,
+    # scroll, re-attach, style change) re-runs `_parse_tags` over true raw
+    # source — escaped braces (`{open}`/`{close}`, `{escape}` bodies) survive
+    # every reparse instead of only the first (BUGS15 #18 / B17-04).
+    #
+    # Empty `@_clines.fake` means the widget currently renders no logical lines
+    # (no content at all, or content whose cleaned/parsed form is empty). The
+    # editors index off `fake`, so mirror that here as "no raw lines"; an edit
+    # then discards such invisible content, exactly as the old fake-join
+    # rebuild did.
+    #
+    # Never-parsed literal braces: with tag parsing on but no recognized tag in
+    # the content (`@_content_has_tags` false), stray braces render literally
+    # because `process_content` skips `_parse_tags`. An edit may splice in a
+    # line WITH tags, flipping that gate on — reparsing the plain raw text
+    # would then drop the old braces (drop-malformed policy), silently
+    # rewriting already-rendered lines (pinned by
+    # spec/bugs12_append_content_tags_spec.cr). Escape them (`{` → `{open}`,
+    # `}` → `{close}`) at capture time, so they reparse to the same literal
+    # braces no matter what the edit adds. Self-limiting: the escaped form IS
+    # tagged, so `@_content_has_tags` lands true after the first such edit and
+    # the regime is never re-entered (no double escaping).
+    private def raw_fake_lines : Array(String)
+      return [] of String if @_clines.fake.empty?
+      lines = content.split(RAW_LINE_REGEX)
+      if @parse_tags && !@_content_no_tags && !@_content_has_tags && @_content_has_braces
+        lines.map! { |l| Helpers.escape(l) }
       end
+      lines
     end
 
-    # Brings a caller-supplied line into the POST-parse form `@_clines.fake`
-    # stores, so a freshly inserted/set line is spliced in the same shape a full
-    # reparse would produce (`clean_content_chars` then `_parse_tags`) — a tag in
-    # the new line still expands, while the reparse-suppressing rebuild leaves the
-    # rest of `fake` untouched. A no-op for tag-disabled widgets / `no_tags`
-    # content, matching their literal storage.
-    private def parse_fake_line(line : String) : String
-      return line unless @parse_tags && !@_content_no_tags
-      _parse_tags clean_content_chars line
+    # Rebuilds widget content from the raw logical lines a line editor has just
+    # spliced (see `#raw_fake_lines`), by re-setting them as the widget's raw
+    # content and running a NORMAL full reparse — *raw* is pre-parse source
+    # text, so nothing here needs to suppress `_parse_tags`, and repeated later
+    # reparses of the same content stay byte-identical.
+    private def rebuild_content_from_raw(raw : Array(String)) : Nil
+      # The third positional arg MUST carry the widget's tag mode: letting
+      # `no_tags` default to false would permanently flip a literal-tags widget
+      # back into tag-parsing mode.
+      set_content(raw.join('\n'), true, @_content_no_tags)
     end
   end
 end

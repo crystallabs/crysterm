@@ -45,6 +45,17 @@ module Crysterm
 
     getter undo_stack : TextUndoStack
 
+    # Monotonic content revision (Qt `QTextDocument::revision`): increases on
+    # every mutation — content edits, format-only changes, undo/redo replay
+    # and whole-content replacement alike — and never on reads. Every
+    # mutation funnels through the single `finish_edit` tail, so no edit
+    # path can miss the bump; two equal readings therefore guarantee
+    # identical content *and* formatting, making the value safe as a cache
+    # key (see `TextTable`'s grid memo). Only monotonicity is guaranteed:
+    # one logical operation may bump it several times (e.g. a table
+    # rebuild), so compare revisions for equality — don't count increments.
+    getter revision : Int64 = 0
+
     # Root frame owning the block list. Lazy so it can capture `self`.
     getter root_frame : TextFrame { TextFrame.new(self) }
 
@@ -202,6 +213,24 @@ module Crysterm
     # Alias for `#to_plain_text`. Overloads `#plain_text(from, to)`.
     def plain_text : String
       to_plain_text
+    end
+
+    # Alias for `#to_markdown`, completing the `markdown`/`markdown=`/
+    # `to_markdown`/`set_markdown` quartet mirroring `plain_text`'s.
+    def markdown : String
+      to_markdown
+    end
+
+    # Alias for `#to_html`, completing the `html`/`html=`/`to_html`/
+    # `set_html` quartet mirroring `plain_text`'s.
+    def html : String
+      to_html
+    end
+
+    # Alias for `#to_tags`, completing the `tags`/`tags=`/`to_tags`/
+    # `set_tags` quartet mirroring `plain_text`'s.
+    def tags : String
+      to_tags
     end
 
     # Clamps a `[from, to)` position pair to the valid `0..size` range — the
@@ -616,6 +645,7 @@ module Crysterm
     # `Replace` has already rewound them. The kind rides on `ContentsChanged`
     # so views can mirror the adjustment on their own carets.
     private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
+      @revision += 1
       @block_offsets = nil
       @plain_cache = nil
       if kind.edit? && (removed > 0 || added > 0)

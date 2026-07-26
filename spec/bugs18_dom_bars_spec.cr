@@ -1,0 +1,125 @@
+require "./spec_helper"
+
+# Regression specs for BUGS18 B18-105: the layout-DOM serializer/loader treated
+# ActionBar-family bars (ListBar / MenuBar / ToolBar) as ordinary containers —
+# a snapshot serialized their macro-built item boxes as `<w-box>` children, and
+# a reload rebuilt those as plain dead widgets with an empty command model (a
+# lookalike but completely dead bar). Fixed via `Widget#dom_owns_children?`:
+# the serializer skips descending into model-owned children and emits the
+# command model as an `items` attribute instead; the loader rebuilds through
+# `#add_item` and skips serialized child nodes (including the ghost `<w-box>`
+# children of pre-fix snapshots). Guarded by -Dremote like the other layout-DOM
+# specs; run with:
+#   crystal spec -Dremote spec/bugs18_dom_bars_spec.cr
+{% if flag?(:remote) %}
+  include Crysterm
+
+  private def b18_105_screen
+    Crysterm::Window.new(
+      input: IO::Memory.new,
+      output: IO::Memory.new,
+      error: IO::Memory.new,
+      width: 80,
+      height: 24)
+  end
+
+  describe "BUGS18 B18-105 layout-DOM round-trip for ActionBar bars" do
+    it "serializes a ListBar's command model as an items attribute, not <w-box> children" do
+      s = b18_105_screen
+      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar.add_item("Open") { }
+      bar.add_item("Save") { }
+      bar.add_item("Quit") { }
+
+      html = s.to_layout_html
+      html.should contain %(<w-listbar)
+      html.should contain %(items="Open\nSave\nQuit")
+      # The bar is childless in the markup — its item boxes are model-owned,
+      # not reconstructable children. Before the fix each command leaked out as
+      # a dead <w-box content="…1…:Open"> child.
+      html.should_not contain "<w-box"
+    end
+
+    it "reloads a ListBar with a live command model and no orphan dead child boxes" do
+      s = b18_105_screen
+      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar.add_item("Open") { }
+      bar.add_item("Save") { }
+      bar.add_item("Quit") { }
+
+      s2 = b18_105_screen
+      s2.load_layout s.to_layout_html
+      bar2 = s2.children.first.as(Widget::ListBar)
+
+      # Live model, not ghosts: before the fix commands/item_boxes were empty
+      # while two dead plain Boxes carried the old labels.
+      bar2.items.size.should eq 3
+      bar2.item_texts.should eq %w[Open Save Quit]
+      bar2.item_boxes.size.should eq 3
+      # Every child is a model-backed item box — no extra dead boxes.
+      bar2.children.size.should eq 3
+      bar2.children.should eq bar2.item_boxes.map &.as(Widget)
+
+      # Activation is wired: selecting/firing routes through the rebuilt model
+      # (before the fix activate_item was a silent no-op on empty @commands).
+      activated = [] of Int32
+      bar2.on(Crysterm::Event::ItemActivated) { |e| activated << e.index }
+      bar2.activate_item 1
+      activated.should eq [1]
+      bar2.current_index.should eq 1
+    end
+
+    it "keeps the round-trip idempotent: serialize -> load -> serialize" do
+      s = b18_105_screen
+      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar.add_item("Open") { }
+      bar.add_item("Quit") { }
+
+      first = s.to_layout_html
+      s2 = b18_105_screen
+      s2.load_layout first
+      s2.to_layout_html.should eq first
+    end
+
+    it "gracefully drops the ghost <w-box> children of a pre-fix snapshot" do
+      s = b18_105_screen
+      # Shape of an old snapshot: item boxes serialized as children alongside
+      # nothing else. The loader must not attach them as dead children.
+      s.load_layout <<-HTML
+        <w-window>
+          <w-listbar id="bar" width="60" height="1" items="Open\nQuit">
+            <w-box content="1:Open"></w-box>
+            <w-box content="2:Quit"></w-box>
+          </w-listbar>
+        </w-window>
+        HTML
+
+      bar = s.find_by_id("bar").not_nil!.as(Widget::ListBar)
+      bar.item_texts.should eq %w[Open Quit]
+      # Only the two model-backed item boxes — the ghost <w-box> nodes were
+      # skipped, not appended on top.
+      bar.children.size.should eq 2
+      bar.children.should eq bar.item_boxes.map &.as(Widget)
+    end
+
+    it "round-trips a MenuBar's titles as a live model too" do
+      s = b18_105_screen
+      bar = Widget::MenuBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar.add_item("File") { }
+      bar.add_item("Edit") { }
+
+      html = s.to_layout_html
+      html.should contain %(<w-menubar)
+      html.should contain %(items="File\nEdit")
+      html.should_not contain "<w-box"
+
+      s2 = b18_105_screen
+      s2.load_layout html
+      bar2 = s2.children.first.as(Widget::MenuBar)
+      bar2.item_texts.should eq %w[File Edit]
+      bar2.items.size.should eq 2
+      bar2.children.size.should eq 2
+      s2.to_layout_html.should eq html
+    end
+  end
+{% end %}

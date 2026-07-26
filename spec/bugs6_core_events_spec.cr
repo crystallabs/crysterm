@@ -4,8 +4,8 @@ include Crysterm
 
 # Regression specs for the BUGS6 "Core Infrastructure & Events" fixes:
 #
-#  1. `ToolBar#uninstall_action_shortcuts` / `MenuBar#uninstall_menu_shortcuts`
-#     guarded on `window?`, which is already nil inside the `Event::Detached`
+#  1. `Mixin::ActionShortcuts#uninstall_action_shortcuts` (shared by `ToolBar`
+#     and `MenuBar`) guarded on `window?`, which is already nil inside the `Event::Detached`
 #     handler (`Widget#remove` nulls `parent`/`window` before `Window#detach`
 #     emits `Detached`). So detaching a bar never withdrew its window-level
 #     accelerators — stale handlers kept firing and the `Window` leaked as a hash

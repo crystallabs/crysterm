@@ -263,8 +263,10 @@ describe Crysterm::Layout::Wrap do
     wp = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::Wrap.new, overflow: :ignore
     # A background-image layer is layout_excluded but carries a real
-    # (out-of-band-rendered) lpos. `last_rendered_before` must skip it: otherwise the next
-    # flow child chains off the layer's rect (xl=10) instead of the row's left edge.
+    # (out-of-band-rendered) lpos. `arrangeable?` filters it out of the arrange
+    # loop, so `Flow`'s `@last_rendered` chain cursor never gets set to it:
+    # otherwise the next flow child would chain off the layer's rect (xl=10)
+    # instead of the row's left edge.
     bg = Widget::Box.new parent: wp, width: 10, height: 2
     bg.layout_excluded = true
     bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 10, yi: 0, yl: 2)

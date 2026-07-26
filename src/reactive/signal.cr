@@ -22,6 +22,24 @@ module Crysterm
       protected def register_read : Nil
         Reactive.current?.try &.track(self)
       end
+
+      # Subscribes *block* to this signal's `Event::Changed` — sugar over
+      # `on(Event::Changed) { ... }`, hiding the internal event class. Inherited
+      # by `Signal`/`Computed`, so either can be watched without touching `on`
+      # directly.
+      #
+      # `Event::Changed` carries no payload (unlike e.g. `Event::TextChanged`),
+      # so *block* takes none — call `#value`/`#peek` inside it for the new
+      # value.
+      #
+      # ```
+      # count = Crysterm::Reactive::Signal.new 0
+      # count.on_change { puts "now #{count.value}" }
+      # count.value = 5 # => "now 5"
+      # ```
+      def on_change(&block : ->) : Nil
+        on(::Crysterm::Event::Changed) { block.call }
+      end
     end
 
     # An observable value cell. Reading `#value` returns the current value;
@@ -78,6 +96,17 @@ module Crysterm
       def update(& : T -> T) : T
         self.value = yield @value
       end
+    end
+
+    # Creates a `Signal` seeded with *value*. Factory beside `Reactive.effect`/
+    # `Reactive.bind`, so the `signal`/`computed`/`effect` family reads
+    # consistently instead of spelling out `Signal(T).new` on its own.
+    #
+    # ```
+    # count = Crysterm::Reactive.signal 0
+    # ```
+    def self.signal(value : T) : Signal(T) forall T
+      Signal.new value
     end
   end
 end

@@ -107,6 +107,12 @@ module Crysterm
         stack.count
       end
 
+      # Alias of `#page_count`, matching the toolkit-wide `count` convention
+      # (`PagedContainer`/`Splitter`/`Menu`).
+      def count : Int32
+        page_count
+      end
+
       # Appends *page* titled *title* and refreshes the buttons. Title-first
       # argument order, matching every other container add-verb in the toolkit (a
       # deliberate, uniform deviation from Qt's widget-first `addPage`). Returns `self`.

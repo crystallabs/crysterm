@@ -35,4 +35,54 @@ module Crysterm
       end
     end
   end
+
+  module Mixin
+    # Item views build their rows from a serialized attribute (`items`), never
+    # from child nodes — the backing boxes ARE the children. See
+    # `Widget#dom_owns_children?`.
+    module ItemView
+      def dom_owns_children? : Bool
+        true
+      end
+    end
+
+    # Action bars (ListBar / MenuBar / ToolBar) own their children the same way
+    # item views do: `#add_item` macro-builds one `Box` per command, so
+    # serializing those boxes as `<w-box>` children would reload them as dead
+    # lookalikes with an empty command model. Instead the command *model* is
+    # serialized as a newline-joined `items` attribute and rebuilt through
+    # `#add_item`, mirroring `Widget::List` above.
+    #
+    # Defined on the module, these handlers do NOT opt the bar classes out of
+    # the autoserialize sweep (its guard checks class-body methods only): each
+    # bar still gets a generated per-class wrapper whose `super` reaches these,
+    # so `items` plus the scanned per-class options all serialize, without
+    # duplication.
+    #
+    # Deliberately lossy, matching `List`: callbacks/hotkeys are code and stay
+    # behind; separators reload as ordinary items (`item_texts` carries clean
+    # text only).
+    module ActionBar
+      def dom_owns_children? : Bool
+        true
+      end
+
+      def dom_attributes : Hash(String, String?)
+        attrs = super
+        attrs["items"] = item_texts.join('\n') unless item_texts.empty?
+        attrs
+      end
+
+      def dom_apply(key : String, value : String?) : Bool
+        case key
+        when "items"
+          # Replace-not-append and empty-clears semantics, as for `List` above.
+          clear
+          value.try { |v| v.split('\n').each { |item| add_item item } unless v.empty? }
+        else return super
+        end
+        true
+      end
+    end
+  end
 end

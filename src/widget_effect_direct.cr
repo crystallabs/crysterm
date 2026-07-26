@@ -35,9 +35,17 @@ module Crysterm
         # The frame clock; non-nil while running.
         @animation : FrameClock?
 
-        # Whether the one-time `Event::Destroy` teardown hook has been installed
-        # (lazily, on first `#start`), so it isn't registered on every start.
+        # Whether the one-time `Event::Destroy` teardown hook (plus the
+        # Hide/Detached pause and Show/Attached resume hooks) has been
+        # installed (lazily, on first `#start`), so it isn't registered on
+        # every start.
         @animation_hooks_installed = false
+
+        # Set by `#pause_animation` when the clock is stopped for visibility
+        # (as opposed to an explicit `#stop`), so the Show/Attached hook knows
+        # to resume it — and so an explicit `#stop` (which clears this) isn't
+        # silently undone by the next show.
+        @animation_paused = false
 
         # Whether the effect is currently animating.
         def running? : Bool
@@ -67,10 +75,24 @@ module Crysterm
           return if running?
           # Stop the frame clock when the widget is destroyed, or the fiber keeps
           # ticking `step` + `request_render` on the dead widget for the process
-          # lifetime. Installed once, on first start.
+          # lifetime. Also stop it (instead) when the widget is hidden or
+          # detached, or the fiber keeps ticking `step` + `request_render`
+          # forever on a widget that is never painted — a hidden widget's
+          # `coords` is nil so `render` never runs, and a detached-but-alive
+          # widget's `request_render` no-ops while the clock still burns CPU.
+          # The pause leaves `@animation_paused` set, so the Show/Attached hook
+          # resumes it on the first render after `show`/re-attach. `Event::Hide`
+          # and `Event::Attached` both propagate to descendants (via
+          # `emit_descendants`/subtree notification), covering effects nested
+          # inside a hidden/reattached container. Installed once, on first
+          # start.
           unless @animation_hooks_installed
             @animation_hooks_installed = true
             on(::Crysterm::Event::Destroy) { stop }
+            on(::Crysterm::Event::Hide) { pause_animation }
+            on(::Crysterm::Event::Detached) { pause_animation }
+            on(::Crysterm::Event::Show) { resume_animation }
+            on(::Crysterm::Event::Attached) { resume_animation }
           end
           @animation = FrameClock.new(@interval) do
             step
@@ -85,13 +107,43 @@ module Crysterm
           @animation.try &.start
         end
 
-        # Stop the animation. The fiber exits on its next iteration.
+        # Stop the animation. The fiber exits on its next iteration. Also
+        # clears `@animation_paused`, so an explicit `#stop` issued while
+        # hidden/detached sticks — the next `Event::Show`/`Event::Attached`
+        # must not silently resume a run the caller deliberately ended.
         def stop
+          @animation_paused = false
           @animation.try &.stop
         end
 
         def toggle
           running? ? stop : start
+        end
+
+        # Stops the clock for visibility (called from the one-time
+        # `Event::Hide`/`Event::Detached` hooks installed by `#start`), unlike
+        # a plain `#stop` this leaves `@animation_paused` set so it resumes
+        # automatically once the widget is visible again. A no-op if not
+        # currently running (idempotent against `Event::Hide`'s broadcast to
+        # every descendant regardless of their own visibility).
+        private def pause_animation : Nil
+          return unless running?
+          @animation_paused = true
+          @animation.try &.stop
+        end
+
+        # Resumes a clock previously stopped by `#pause_animation` (called
+        # from the one-time `Event::Show`/`Event::Attached` hooks). Gated on
+        # actual visibility — `Event::Show`/`Event::Attached` broadcast to
+        # every descendant unconditionally, so a still-hidden widget inside a
+        # newly-shown container (or a widget shown but not yet attached to a
+        # window) must not resume; the flag stays set for a later show/attach
+        # that does make it visible.
+        private def resume_animation : Nil
+          return unless @animation_paused
+          return unless visible_in_tree? && window?
+          @animation_paused = false
+          start
         end
 
         # `{columns, rows}` of this widget's interior hidden by an ancestor clip

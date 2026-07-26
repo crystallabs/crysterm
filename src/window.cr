@@ -61,18 +61,11 @@ module Crysterm
         reassert_sibling_terminal_state
         stale_window = nil
       else
-        restore_terminal
-        # The old device dies with this migration; its owned fds (spawned-window
-        # IO) would otherwise leak — nothing else ever closes them.
-        if @owns_io
-          input.close rescue nil
-          output.close rescue nil
-        end
-        @screen.stop_input
-        # The old device dies with this migration; release any claim it holds
-        # on the process-global CSS geometry anchor so the NEW device's
-        # `detect_cell_geometry` below can take over.
-        @screen.release_cell_geometry_anchor
+        # The old device dies with this migration; its owned fds (spawned-
+        # window IO) would otherwise leak, and the NEW device's
+        # `detect_cell_geometry` below needs the CSS geometry anchor released
+        # — see `#teardown_device_if_last` (shared with `#disconnect`).
+        teardown_device_if_last
         stale_window = @window
       end
       # The spawned emulator window and the IO ownership belong to the OLD
@@ -95,10 +88,17 @@ module Crysterm
       # Pixel mouse (DEC 1016) and CSS `px` lengths read the cell geometry, and
       # a fresh `Screen` starts at 0. Must run before `start_input` below: the
       # fallback query is a synchronous read that would race the input fiber.
-      new_screen.reprobe_and_detect_geometry
+      # Skipped when adopting a device that already ran its live negotiation —
+      # i.e. moving onto a shared device with a live sibling (B17-01): the
+      # re-probe would be redundant, its reply reads would race the sibling's
+      # input fiber for the same bytes, and its query/cleanup writes would
+      # paint over the sibling's frame.
+      new_screen.reprobe_and_detect_geometry unless new_screen.probed?
       # An inline surface re-anchors at the NEW terminal's cursor row. Safe
-      # here for the same no-input-fiber-yet reason.
-      capture_inline_anchor unless @alternate
+      # here for the same no-input-fiber-yet reason — so skipped when the
+      # adopted device's input fiber is already live (B17-01): the synchronous
+      # read would race it; the anchor keeps its row-0 fallback instead.
+      capture_inline_anchor unless @alternate || new_screen.listening?
       # Re-enter + repaint invalidates descendants' memoized device.
       enter
       realloc
@@ -395,15 +395,32 @@ module Crysterm
 
       register_instance
 
+      # Only a device that has not yet run its live negotiation is probed here
+      # (B17-01). A device adopted via `screen:` that was already probed by its
+      # first window's constructor must not be re-probed: the result is already
+      # known, and on a device whose input fiber is live the probe's
+      # synchronous reply reads would race that fiber for the same bytes —
+      # replies stolen by the parked reader arrive as garbage key events while
+      # the probe times out into degraded capabilities, and the probe's
+      # query/cleanup writes paint over the sibling's frame. `listening?` also
+      # covers the unprobed-but-live edge (first window built with
+      # `probe: false`, input started): a reader already parked in a blocking
+      # read on the fd would swallow reply bytes even if cooperatively
+      # stopped, so skipping is the only sound choice there too. Computed once
+      # so `probe` and `detect_cell_geometry` (below) stay paired.
+      probe_device = probe && !@screen.probed? && !@screen.listening?
+
       # Must run after `register_instance` (an interrupted probe needs this screen registered
       # for `at_exit` to cook the tty back) and before `_listen_keys` (the probe
       # round-trips queries in raw mode and would race the input fiber for reply
       # bytes). No-op on a non-tty.
-      @screen.probe if probe
+      @screen.probe if probe_device
 
       # `report_cursor` reads `@input` synchronously, so the anchor must be
-      # captured before `_listen_keys` spawns the input fiber.
-      capture_inline_anchor unless @alternate
+      # captured before `_listen_keys` spawns the input fiber — and never on a
+      # device whose input fiber is already live (a sibling's reader would race
+      # it for the reply; the anchor keeps its row-0 fallback instead, B17-01).
+      capture_inline_anchor unless @alternate || @screen.listening?
 
       # In `connect`, not `enter`/`leave`: input listening belongs to the
       # *connection* lifecycle — the fiber is spawned once per connect and must
@@ -426,9 +443,11 @@ module Crysterm
       # restyle resolves unit'd geometry: config first (can pin the ratio),
       # then the terminal's measured cell size (won't override a pinned ratio).
       CSS::Length.apply_config
-      # Deferred along with the probe: the fallback cell-size query is a
-      # synchronous read the tty's previous reader could swallow.
-      @screen.detect_cell_geometry if probe
+      # Deferred along with the probe (and gated with it): the fallback
+      # cell-size query is a synchronous read the tty's previous reader could
+      # swallow, and an already-probed shared device detected its geometry
+      # when its first window was constructed (B17-01).
+      @screen.detect_cell_geometry if probe_device
       restyle
 
       # The loop doesn't render until the first `#render`, so spawning here is fine.
@@ -858,6 +877,12 @@ module Crysterm
       # the order that reliably restores it there (xterm-family terminals tolerate
       # either). Do not reorder these two lines.
       show_cursor
+      # `show_cursor` dispatches on the active cursor and its artificial branch
+      # never reaches the terminal (it only records `_hidden`), while
+      # `apply_cursor`'s artificial branch emits civis — and `tput.reset_cursor`
+      # below resets only shape/color, not DECTCEM. Re-show the hardware cursor
+      # directly so the tty isn't left cursorless after exit.
+      show_hardware_cursor
       alloc
 
       # Disabling here clears the device's `mouse_enabled` flag, so a
@@ -889,6 +914,10 @@ module Crysterm
       tput.set_scroll_region(0, tput.screen.height - 1)
 
       show_cursor
+      # Same as in `#leave`: the artificial branch of `show_cursor` never emits
+      # cnorm, so directly undo the civis `apply_cursor`'s artificial branch
+      # emitted (or any other stray hide) before handing the tty back.
+      show_hardware_cursor
       # Park below the region's *actual* on-screen footprint (which, under
       # auto-grow, may be smaller than `aheight`).
       tput.cursor_pos render_row_offset + @inline_visible, 0

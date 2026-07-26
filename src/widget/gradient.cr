@@ -87,6 +87,16 @@ module Crysterm
       # closure would otherwise keep mutating a destroyed widget and pin it.
       @tick_sub = ::Crysterm::Subscription.new
 
+      # Set by `#pause_gradient_animation` when the private `@own_timer`
+      # (`animate: true`) is stopped for visibility (as opposed to an
+      # explicit `#stop_animation`), so the Show/Attached hook knows to
+      # resume it — and so an explicit `#stop_animation` issued while
+      # hidden/detached isn't silently undone by the next show. A *shared*
+      # `animate: <Timer>` clock is never paused/resumed here — it belongs to
+      # the caller, and other widgets riding the same clock may depend on it
+      # staying live.
+      @gradient_paused = false
+
       def initialize(
         stops : Array(Int32 | String) = [] of Int32 | String,
         @direction : Direction = Direction::Horizontal,
@@ -111,6 +121,64 @@ module Crysterm
             request_render
           end
         end
+
+        # Stop the private timer when the widget is hidden or detached, or
+        # the fiber keeps ticking `phase += speed` + `request_render`
+        # forever on a widget that is never painted — a hidden widget's
+        # `coords` is nil so `render` never runs, and a detached-but-alive
+        # widget's `request_render` no-ops while the timer still burns CPU.
+        # Mirrors the `Effect::Animated`/`Widget#pulse` fix (BUGS18 B18-90).
+        # The pause leaves `@gradient_paused` set, so the Show/Attached hook
+        # resumes it on the next show/re-attach. Only wired for a privately
+        # owned timer (`animate: true`) — a *shared* `animate: <Timer>` clock
+        # is left alone, since it belongs to the caller.
+        if @own_timer
+          on(::Crysterm::Event::Hide) { pause_gradient_animation }
+          on(::Crysterm::Event::Detached) { pause_gradient_animation }
+          on(::Crysterm::Event::Show) { resume_gradient_animation }
+          on(::Crysterm::Event::Attached) { resume_gradient_animation }
+        end
+      end
+
+      # Stops `@own_timer` for visibility (called from the one-time
+      # `Event::Hide`/`Event::Detached` hooks installed in `#initialize`),
+      # unlike `#stop_animation` this leaves `@gradient_paused` set so it
+      # resumes automatically once the widget is visible again. A no-op if
+      # not currently running (idempotent against `Event::Hide`'s broadcast
+      # to every descendant regardless of their own visibility).
+      private def pause_gradient_animation : Nil
+        t = @own_timer
+        return unless t && t.running?
+        @gradient_paused = true
+        t.stop
+      end
+
+      # Resumes a timer previously stopped by `#pause_gradient_animation`
+      # (called from the one-time `Event::Show`/`Event::Attached` hooks).
+      # Gated on actual visibility — `Event::Show`/`Event::Attached`
+      # broadcast to every descendant unconditionally, so a still-hidden
+      # widget inside a newly-shown container (or one shown but not yet
+      # attached to a window) must not resume; the flag stays set for a
+      # later show/attach that does make it visible.
+      private def resume_gradient_animation : Nil
+        return unless @gradient_paused
+        return unless visible_in_tree? && window?
+        t = @own_timer
+        return unless t
+        @gradient_paused = false
+        t.start
+      end
+
+      # Stops the privately-owned animation timer (`animate: true`), leaving
+      # `phase` at its current value. A no-op for a *shared* `animate:
+      # <Timer>` clock, which belongs to the caller — stop it directly
+      # instead. Also clears `@gradient_paused`, so an explicit
+      # `#stop_animation` issued while hidden/detached sticks — the next
+      # `Event::Show`/`Event::Attached` must not silently resume a run the
+      # caller deliberately ended.
+      def stop_animation : Nil
+        @gradient_paused = false
+        @own_timer.try &.stop
       end
 
       # Unsubscribes from the (possibly shared) clock and stops the
@@ -118,7 +186,7 @@ module Crysterm
       # belongs to the caller and is left running.
       def destroy
         @tick_sub.off
-        @own_timer.try &.stop
+        stop_animation
         super
       end
 

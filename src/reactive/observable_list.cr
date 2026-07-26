@@ -145,6 +145,16 @@ module Crysterm
         item
       end
 
+      # Removes the first occurrence of *item*, if present — delete-by-value
+      # parity with `Array#delete`, emitting the granular `ListOp::Remove` at
+      # the resolved index (via `#delete_at`). Returns the removed item, or
+      # `nil` when *item* is not present (no emit).
+      def delete(item : T) : T?
+        i = @array.index(item)
+        return unless i
+        delete_at i
+      end
+
       # Removes and returns the last item (`nil` if empty).
       def pop : T?
         return if @array.empty?

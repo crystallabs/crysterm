@@ -253,6 +253,14 @@ module Crysterm
       height.try { |h| @explicit_height = true; @height = h }
     end
 
+    # Whether `#probe` has completed on this device. Constructing a sibling
+    # `Window` on an already-probed shared device (`Window.new(screen: dev)`)
+    # checks this to skip the redundant re-probe: the probe's synchronous
+    # reply reads would race the device's live input fiber for the same bytes
+    # — replies stolen by the parked reader arrive as garbage key events while
+    # the probe times out into degraded capabilities (B17-01).
+    getter? probed = false
+
     # Runs the deferred live terminal probe that the constructor skipped. No-op
     # on a non-tty.
     #
@@ -264,6 +272,10 @@ module Crysterm
     def probe : Nil
       return unless ::Superconf.tput_probe
       @tput.probe!
+      # The live negotiation for this device has run (a no-op on a non-tty,
+      # but re-running it would learn nothing more). A sibling `Window`
+      # constructed on this device later must not repeat it (B17-01).
+      @probed = true
       @draw_caps = compute_draw_caps
       # The probe's XTVERSION reply refines the emulator identity — confirming
       # or revoking an env-detected modern-font terminal — so re-resolve the
@@ -384,14 +396,23 @@ module Crysterm
 
     # Re-probes the device and re-detects cell geometry, in that order, for the
     # device-swap sites (`Window#screen=`, `Window#switch_terminal`) that adopt
-    # a fresh/replacement terminal. This ordered pair MUST run before
-    # `start_input`: `detect_cell_geometry`'s fallback is a synchronous read
-    # that would race the input fiber. The constructor deliberately does NOT use
-    # this helper — it splits the same two calls around theme/stylesheet setup
-    # (unit'd styles derive from probe results), so they can't run adjacently.
+    # a fresh/replacement terminal. This ordered pair MUST NOT run while the
+    # input fiber reads the fd (both the probe and `detect_cell_geometry`'s
+    # fallback are synchronous reads that would race it), so a listening device
+    # is serialized here: stop old input → probe → detect_cell_geometry →
+    # start_input. Best-effort only — cooperative `stop_input` cannot reclaim a
+    # read the old fiber is already parked in, and that reader may still
+    # swallow the first reply bytes — so a caller adopting an already-`probed?`
+    # device must skip this entirely rather than lean on the serialization
+    # (B17-01). The constructor deliberately does NOT use this helper — it
+    # splits the same two calls around theme/stylesheet setup (unit'd styles
+    # derive from probe results), so they can't run adjacently.
     def reprobe_and_detect_geometry : Nil
+      was_listening = listening?
+      stop_input if was_listening
       probe
       detect_cell_geometry
+      start_input if was_listening
     end
 
     # Re-reads the terminal's cell pixel size on resize, catching font/zoom

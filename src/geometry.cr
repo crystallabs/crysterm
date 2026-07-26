@@ -1,9 +1,41 @@
 module Crysterm
   # A single cell position — Qt's `QPoint`.
-  record Point, x : Int32, y : Int32
+  record Point, x : Int32, y : Int32 do
+    # Componentwise sum — Qt's `QPoint::operator+`.
+    def +(other : Point) : Point
+      Point.new @x + other.x, @y + other.y
+    end
+
+    # Componentwise difference — Qt's `QPoint::operator-`.
+    def -(other : Point) : Point
+      Point.new @x - other.x, @y - other.y
+    end
+  end
 
   # A cell extent — Qt's `QSize`.
-  record Size, width : Int32, height : Int32
+  record Size, width : Int32, height : Int32 do
+    # Whether either dimension is non-positive — Qt's `QSize::isEmpty()`.
+    def empty? : Bool
+      @width <= 0 || @height <= 0
+    end
+
+    # Cell count covered — `#width * #height`.
+    def area : Int32
+      @width * @height
+    end
+
+    # Shrunk to fit within *other* on both axes independently — Qt's
+    # `QSize::boundedTo`.
+    def bounded_to(other : Size) : Size
+      Size.new Math.min(@width, other.width), Math.min(@height, other.height)
+    end
+
+    # Grown to cover *other* on both axes independently — Qt's
+    # `QSize::expandedTo`.
+    def expanded_to(other : Size) : Size
+      Size.new Math.max(@width, other.width), Math.max(@height, other.height)
+    end
+  end
 
   # An axis-aligned rectangle of terminal cells (Qt's `QRect`), returned from
   # position-calculating methods — most visibly `Widget#contents_rect`.
@@ -103,10 +135,30 @@ module Crysterm
       @yl = y + height
     end
 
+    # `top_left` + `size` overload — Qt's `QRect(QPoint, QSize)`.
+    def initialize(top_left : Point, size : Size)
+      initialize top_left.x, top_left.y, size.width, size.height
+    end
+
+    # `top_left` + `bottom_right` overload — Qt's `QRect(QPoint, QPoint)`.
+    # *bottom_right* is the half-open exclusive corner (see the class docs
+    # above), matching `#bottom_right`/`.of_edges`, NOT Qt's inclusive corner.
+    def initialize(top_left : Point, bottom_right : Point)
+      initialize top_left.x, top_left.y, bottom_right.x - top_left.x, bottom_right.y - top_left.y
+    end
+
     # Alternate constructor taking half-open edges directly (`left...right`,
     # `top...bottom`) rather than an origin + size.
     def self.of_edges(left : Int32, top : Int32, right : Int32, bottom : Int32) : Rectangle
       new left, top, right - left, bottom - top
+    end
+
+    # `.from`-named alias of `.of_edges`, matching the `.from` naming this
+    # codebase otherwise uses for edge/tuple constructors (e.g.
+    # `SidedGeometry.from`) — `.of_edges` predates that convention and stays
+    # for compatibility.
+    def self.from_edges(left : Int32, top : Int32, right : Int32, bottom : Int32) : Rectangle
+      of_edges left, top, right, bottom
     end
 
     # Center cell, rounded down (the exact center of an even-sized side falls
@@ -166,6 +218,56 @@ module Crysterm
     # This rectangle shifted by (*dx*, *dy*), keeping its size.
     def translated(dx : Int32, dy : Int32) : Rectangle
       Rectangle.of_edges @xi + dx, @yi + dy, @xl + dx, @yl + dy
+    end
+
+    # `Point` overload of `#translated` — Qt's `QRect::translated(QPoint)`.
+    def translated(point : Point) : Rectangle
+      translated point.x, point.y
+    end
+
+    # Each edge nudged independently by (*dl*, *dt*, *dr*, *db*) — Qt's
+    # `QRect::adjusted(dx1, dy1, dx2, dy2)`. `dr`/`db` move the (exclusive)
+    # `#right`/`#bottom` edge, so `adjusted(0, 0, 1, 1)` grows the rectangle by
+    # one cell on the far edges, matching Qt's inclusive-corner `adjusted`
+    # despite the different edge convention.
+    def adjusted(dl : Int32, dt : Int32, dr : Int32, db : Int32) : Rectangle
+      Rectangle.of_edges @xi + dl, @yi + dt, @xl + dr, @yl + db
+    end
+
+    # This rectangle repositioned so its top-left is (*x*, *y*), keeping its
+    # size — Qt's `QRect::moveTo`.
+    def move_to(x : Int32, y : Int32) : Rectangle
+      Rectangle.new x, y, width, height
+    end
+
+    # `Point` overload of `#move_to`.
+    def move_to(point : Point) : Rectangle
+      move_to point.x, point.y
+    end
+
+    # This rectangle with its extent replaced by (*w*, *h*), keeping its
+    # top-left — Qt's `QRect::setSize`.
+    def with_size(w : Int32, h : Int32) : Rectangle
+      Rectangle.new @xi, @yi, w, h
+    end
+
+    # `Size` overload of `#with_size`.
+    def with_size(size : Size) : Rectangle
+      with_size size.width, size.height
+    end
+
+    # This rectangle grown outward by *other* (margins) — Qt's
+    # `QRect::marginsAdded`. The by-value counterpart of
+    # `SidedGeometry#adjust(sign: -1)`.
+    def +(other : SidedGeometry) : Rectangle
+      other.outset self
+    end
+
+    # This rectangle shrunk inward by *other* (margins) — Qt's
+    # `QRect::marginsRemoved`. The by-value counterpart of
+    # `SidedGeometry#adjust(sign: 1)`.
+    def -(other : SidedGeometry) : Rectangle
+      other.inset self
     end
 
     # Intersection with *other* — the cells in both. `#empty?` when they don't
@@ -265,6 +367,23 @@ module Crysterm
 
     property _scroll_bottom : Int32 = 0
     property _clean_sides : Bool? = nil
+
+    # This box's extent — `Rectangle#size` parity, Qt's `QRect::size()`.
+    def size : Size
+      Size.new width, height
+    end
+
+    # Top-left corner, i.e. `(x, y)` — `Rectangle#top_left` parity, Qt's
+    # `QRect::topLeft()`.
+    def top_left : Point
+      Point.new xi, yi
+    end
+
+    # Center cell, rounded down — `Rectangle#center` parity (same rounding:
+    # the lower cell wins on an even-sized side).
+    def center : Point
+      Point.new xi + width // 2, yi + height // 2
+    end
 
     def initialize(
       @xi = @xi,

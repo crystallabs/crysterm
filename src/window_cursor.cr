@@ -39,6 +39,14 @@ module Crysterm
       c.artificial = c.shape.none? || (wants_cursor_styling?(c) && !hardware_cursor_styling?)
 
       if c.artificial?
+        # The active cursor is drawn by Crysterm, so the terminal's own cursor
+        # must not show next to (or on top of) it: hide it here, in the one
+        # place every path funnels through (`enter`, focus switches,
+        # `Application`'s raise path, `reassert_sibling_terminal_state`, runtime
+        # shape changes). Idempotent — `tput.hide_cursor` records
+        # `cursor_hidden`, so the per-frame cursor bracket in `#draw` also
+        # stops re-showing it. `#leave`/`#leave_inline` undo this at teardown.
+        hide_hardware_cursor
         # Artificial cursor is painted by `Window#draw`; re-render to reflect.
         render_if_active
       else
@@ -50,6 +58,18 @@ module Crysterm
         # a native int (`-1` = terminal default) the device formats to `#rrggbb`
         # for `Tput#cursor_color`.
         push_hardware_cursor_color c
+        # An artificial-cursor glyph painted by a previous frame stays in
+        # `@flushed_lines` until a draw's `@_acur` repair runs — which, on an
+        # idle UI, is never. Schedule that draw, keyed off the WINDOW's
+        # painted-glyph tracker (not `c`'s own previous mode, which misses the
+        # cross-cursor transition: window-default artificial cursor → focus
+        # moves to a widget with its own fresh hardware cursor). `@_acur_y >= 0`
+        # is exactly "a glyph is currently painted" and self-limits: the next
+        # draw resets it. Hardware visibility is deliberately NOT touched here:
+        # `_hidden` defaults to true on every fresh `Cursor`, so pushing it
+        # would civis the terminal whenever focus lands on a widget whose
+        # cursor never had show/hide called.
+        render_if_active if @_acur_y >= 0
       end
 
       c._set = true

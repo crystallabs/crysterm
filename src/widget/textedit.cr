@@ -45,6 +45,28 @@ module Crysterm
       # levels deep) — the terminal stand-in for Qt's per-level pixel indent.
       LIST_INDENT_CELLS = 2
 
+      # Per-kind icon glyph for a GFM alert block's title chip (see
+      # `#alert_chip`) — the "distinct per kind" look GitHub's alert
+      # admonitions use, expressed through the existing `Glyphs::Role` icon
+      # palette rather than new literal characters.
+      ALERT_ICON_ROLES = {
+        TextBlockFormat::AlertKind::Note      => Glyphs::Role::IconInfo,
+        TextBlockFormat::AlertKind::Tip       => Glyphs::Role::IconLightning,
+        TextBlockFormat::AlertKind::Important => Glyphs::Role::IconCritical,
+        TextBlockFormat::AlertKind::Warning   => Glyphs::Role::IconWarning,
+        TextBlockFormat::AlertKind::Caution   => Glyphs::Role::IconWarningSign,
+      }
+
+      # The title chip painted at a GFM alert block's text start on its first
+      # row — `"ℹ NOTE "` and so on — using the exact same decoration-marker
+      # mechanism (`RowMeta#marker` / `#block_deco_cells`) a list uses for its
+      # bullet/number, so it's mutually exclusive with `list_format` (an alert
+      # block is never also a list item) and needs no layout changes of its
+      # own.
+      private def alert_chip(kind : TextBlockFormat::AlertKind, tier : Glyphs::Tier) : String
+        "#{Glyphs[ALERT_ICON_ROLES[kind], tier]} #{kind.to_s.upcase} "
+      end
+
       # Which marker patterns typed at the start of a block auto-convert it
       # into a list item (see `#auto_formatting`). Qt's `AutoFormattingFlag`
       # has only `AutoBulletList`; `NumberedList` (`"1. "`, `"1) "`) is an
@@ -287,6 +309,8 @@ module Crysterm
             n = list_items[lf.object_id]? || 0
             list_items[lf.object_id] = n + 1
             marker = lf.marker(n, tier, bf.checked?)
+          elsif kind = bf.alert_kind
+            marker = alert_chip(kind, tier)
           end
           deco = block_deco_cells(bf, marker)
           rdeco = frame_inset(bf)

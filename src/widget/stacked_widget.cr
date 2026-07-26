@@ -23,12 +23,14 @@ module Crysterm
       include Mixin::PagedContainer
 
       # Appends *page*, sized to fill the widget (Qt's `QStackedWidget#addWidget`).
-      # The first page added becomes current; later ones come up hidden.
+      # The first page added becomes current; later ones come up hidden. Emits
+      # `Event::ItemAdded`.
       def add_widget(page : Widget) : self
         stretch_child page
         @pages << page
         append page
         register_page page
+        emit ::Crysterm::Event::ItemAdded
         self
       end
 
@@ -55,7 +57,7 @@ module Crysterm
 
       # Removes *page* from the stack, detaching (not destroying) it, and returns
       # it — or `nil` when it is not in this stack (Qt's `QStackedWidget#removeWidget`).
-      # Keeps a valid current page visible.
+      # Keeps a valid current page visible and emits `Event::ItemRemoved`.
       def remove_widget(page : Widget) : Widget?
         i = @pages.index page
         return unless i
@@ -63,6 +65,7 @@ module Crysterm
         @pages.delete_at i
         remove page
         reclamp_after_removal i, cur
+        emit ::Crysterm::Event::ItemRemoved
         page
       end
 
@@ -76,7 +79,8 @@ module Crysterm
       def remove(element)
         snap = page_removal_snapshot element
         super
-        finish_page_removal snap
+        removed = finish_page_removal snap
+        emit ::Crysterm::Event::ItemRemoved if removed
       end
 
       # Operator alias for `#add_widget`, e.g. `stack << page`. Deliberately

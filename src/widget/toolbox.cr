@@ -91,7 +91,7 @@ module Crysterm
       # Appends a section titled *title* with body *widget*. Title-first argument
       # order, matching every other container add-verb in the toolkit (a
       # deliberate, uniform deviation from Qt's widget-first `addItem`). The first
-      # item added becomes current. Returns `self`.
+      # item added becomes current. Emits `Event::ItemAdded`. Returns `self`.
       def add_item(title : String, widget : Widget) : self
         # The header must start visible regardless of the toolbox's own state:
         # `Widget#hide` persists `visible = false` into `style`, so a header
@@ -124,6 +124,8 @@ module Crysterm
         # `#relayout` then gives the expanded one its rows.
         register_page widget
         relayout
+
+        emit ::Crysterm::Event::ItemAdded
 
         self
       end

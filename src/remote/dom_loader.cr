@@ -141,10 +141,23 @@ module Crysterm
       end
       value_attr.try { |a| widget.dom_apply(a.key, a.val) }
       content_attr.try { |a| widget.dom_apply(a.key, a.val) }
-      # Item views rebuild their rows from replayed state, so their children are
-      # *not* reconstructable box nodes: re-appending serialized `<w-box>`
-      # children would double the rows. Mirrors the save-side skip.
-      unless widget.is_a?(Mixin::ItemView)
+      # Hand-written markup can carry content as inner text (`<w-box>hi</w-box>`)
+      # instead of the `content` attribute the serializer emits. Apply it with
+      # attribute-`content` semantics (last, so it survives value/format
+      # setters), attribute winning over inner text when both are present.
+      if content_attr.nil?
+        text = String.build do |io|
+          each_child(node) { |child| io << child.data if child.text? }
+        end
+        widget.dom_apply("content", text) unless text.empty?
+      end
+      # Model-owned widgets (item views, action bars) rebuild their rows/
+      # commands from replayed state, so their children are *not* reconstructable
+      # box nodes: re-appending serialized `<w-box>` children would double the
+      # rows — or, for a bar, attach dead ghost boxes bypassing the command
+      # model. Mirrors the save-side skip; also gracefully drops the ghost
+      # children present in snapshots taken before bars serialized `items`.
+      unless widget.dom_owns_children?
         each_element_child(node) do |child|
           build(child, window).try { |c| widget.append c }
         end

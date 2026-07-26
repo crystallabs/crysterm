@@ -101,10 +101,20 @@ module Crysterm
       normalize!
     end
 
-    # Non-destructive copy of the `[from, to)` range as a new block, with the
-    # same block format.
-    def slice(from : Int32, to : Int32) : TextBlock
-      frags = [] of TextFragment
+    # Iterates the fragments overlapping block-local range `[from, to)`,
+    # yielding each overlapping fragment *f*, its own block-local start
+    # `fstart`, and its bounds clamped to the range — `clip_from`/`clip_to`,
+    # still in block-local (not fragment-local) coordinates. Shared walk behind
+    # `#slice` and `#format_runs`, mirroring `TextDocument#each_block_in`:
+    # skips a fragment ending at-or-before `from` (`fend <= from`, no overlap)
+    # and stops at the first fragment starting at-or-after `to` (`fstart >=
+    # to`) — fragments are visited in ascending order, so this is a genuine
+    # early exit once the range is exhausted, not a filter. `from > to` yields
+    # nothing (every fragment's `fstart >= to` immediately, since `to` clamps
+    # nothing here — callers are expected to pass an already-ordered range);
+    # `from == to` yields any fragment straddling that point with
+    # `clip_from == clip_to` (an empty clip).
+    private def each_fragment_overlap(from : Int32, to : Int32, &)
       acc = 0
       @fragments.each do |f|
         fstart = acc
@@ -112,8 +122,17 @@ module Crysterm
         acc = fend
         next if fend <= from
         break if fstart >= to
-        s = Math.max(from - fstart, 0)
-        e = Math.min(to - fstart, f.size)
+        yield f, fstart, Math.max(fstart, from), Math.min(fend, to)
+      end
+    end
+
+    # Non-destructive copy of the `[from, to)` range as a new block, with the
+    # same block format.
+    def slice(from : Int32, to : Int32) : TextBlock
+      frags = [] of TextFragment
+      each_fragment_overlap(from, to) do |f, fstart, clip_from, clip_to|
+        s = clip_from - fstart
+        e = clip_to - fstart
         frags << TextFragment.new(f.text[s, e - s], f.format)
       end
       TextBlock.new(frags, @block_format)
@@ -141,14 +160,8 @@ module Crysterm
     # to the range.
     def format_runs(from : Int32, to : Int32) : Array({Int32, Int32, TextCharFormat})
       runs = [] of {Int32, Int32, TextCharFormat}
-      acc = 0
-      @fragments.each do |f|
-        fstart = acc
-        fend = acc + f.size
-        acc = fend
-        next if fend <= from
-        break if fstart >= to
-        runs << {Math.max(fstart, from), Math.min(fend, to), f.format}
+      each_fragment_overlap(from, to) do |f, _fstart, clip_from, clip_to|
+        runs << {clip_from, clip_to, f.format}
       end
       runs
     end

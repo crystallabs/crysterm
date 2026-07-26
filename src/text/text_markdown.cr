@@ -43,6 +43,15 @@ module Crysterm
       "#{Glyphs[Glyphs::Role::LineVertical, Glyphs::Tier::Unicode]} "
     end
 
+    # The literal marker text a GFM alert's title line renders as/reads back
+    # from — `"[!NOTE]"`, `"[!TIP]"`, … (the github.com blockquote extension:
+    # https://github.github.com/gfm/, as used on github.com). The single
+    # source both the importer (matching) and exporter (emitting) key off, so
+    # the two stay in lockstep.
+    def self.alert_marker(kind : TextBlockFormat::AlertKind) : String
+      "[!#{kind.to_s.upcase}]"
+    end
+
     # Parses markdown into detached blocks.
     def self.parse(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
       # `source_pos` records each block's source line/column so the importer
@@ -73,6 +82,18 @@ module Crysterm
 
       # Chars of a task-list `[x] ` marker still to strip from upcoming text.
       @strip_task = 0
+      # Chars of a GFM alert `[!NOTE] ` marker (plus the space its trailing
+      # soft/hard break renders as) still to strip from upcoming text — same
+      # idiom as `@strip_task`, set when a blockquote's first line is
+      # recognized as an alert marker (`#detect_alert_kind`).
+      @strip_alert = 0
+      # One entry per currently-open blockquote (parallel to `@quote_depth`):
+      # the alert kind that blockquote's own first line declared, or — for a
+      # blockquote with no marker of its own — the enclosing alert's kind
+      # inherited from the entry below it (nested content stays part of the
+      # enclosing alert unless it opens its own). `nil` at every level means
+      # "not inside an alert".
+      @alert_stack = [] of TextBlockFormat::AlertKind?
       # Whether any block was emitted (suppresses spacing before the first).
       @emitted = false
       # Top-level spacing owed to the next emitted block (its `top_margin`).
@@ -116,7 +137,11 @@ module Crysterm
         when .block_quote?
           structure_separator
           @quote_depth += 1
+          own_kind = detect_alert_kind(node)
+          @alert_stack << (own_kind || @alert_stack.last?)
+          @strip_alert = TextMarkdown.alert_marker(own_kind).size + 1 if own_kind
           walk_children(node)
+          @alert_stack.pop
           @quote_depth -= 1
         when .list?
           import_list(node)
@@ -268,6 +293,9 @@ module Crysterm
           @pending_margin = true
         else
           bf = @quote_depth > 0 ? TextBlockFormat.new(quote_level: @quote_depth) : TextBlockFormat.default
+          if @quote_depth > 0 && (kind = @alert_stack.last?)
+            bf = bf.merge(TextBlockFormat.new(alert_kind: kind))
+          end
           @blocks << TextBlock.new("", block_format: bf)
         end
       end
@@ -289,6 +317,14 @@ module Crysterm
       # strike reset (an unbalanced `~~` span ends with its block) and the
       # `@emitted` latch that suppresses spacing before the first block.
       private def end_block : Nil
+        if kind = @alert_stack.last?
+          @block_format = @block_format.merge(TextBlockFormat.new(alert_kind: kind))
+        end
+        # A marker consumed by this block (if any) never bleeds into the
+        # next: a marker with no soft break after it (an alert whose first
+        # line is a hard break, vanishingly rare) would otherwise leave a
+        # stray count on `@strip_alert`.
+        @strip_alert = 0
         commit_block
         if @strike # unbalanced `~~`: the strike span ends with its block
           @strike = false
@@ -303,6 +339,10 @@ module Crysterm
       private def import_table(txt : String) : Nil
         bs = TextTable.build_from_gfm(txt, @theme) || return
         adopt_table_blocks(bs)
+        if kind = @alert_stack.last?
+          q = TextBlockFormat.new(alert_kind: kind)
+          bs.each { |b| b.block_format = b.block_format.merge(q) }
+        end
         @emitted = true
       end
 
@@ -355,9 +395,38 @@ module Crysterm
       private def md_escaped_marker?(item : Markd::Node) : Bool
         para = item.first_child?
         return false unless para
-        line, col = para.source_pos[0]
+        md_escaped_at?(para)
+      end
+
+      # Whether *node*'s leading character is backslash-escaped in the
+      # source — the shared position check behind `#md_escaped_marker?`
+      # (task-list `\[x\]`) and `#detect_alert_kind` (alert `\[!NOTE]`).
+      private def md_escaped_at?(node : Markd::Node) : Bool
+        line, col = node.source_pos[0]
         return false unless (l = @source[line - 1]?)
         l[col - 1]? == '\\'
+      end
+
+      # The GFM alert marker constants a blockquote's first line matches
+      # exactly (github.com's blockquote extension) — case-sensitive, the
+      # whole line, nothing else.
+      ALERT_MARKER = /\A\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\z/
+
+      # The alert kind *bq* (a `block_quote` node) opens, or `nil` if it's an
+      # ordinary quote: its first child must be a paragraph whose first
+      # inline node is plain text (not emphasis/code — GitHub's marker is
+      # unformatted) and whose first *line* matches `ALERT_MARKER` exactly,
+      # and not backslash-escaped (`\[!NOTE]` stays a plain quote, same
+      # `md_escaped_marker?` idiom as task-list markers, B17-31).
+      private def detect_alert_kind(bq : Markd::Node) : TextBlockFormat::AlertKind?
+        para = bq.first_child?
+        return unless para && para.type.paragraph?
+        first = para.first_child?
+        return unless first && first.type.text?
+        return if md_escaped_at?(para)
+        first_line = node_text(para).split('\n', 2)[0]
+        return unless md = first_line.match(ALERT_MARKER)
+        TextBlockFormat::AlertKind.parse(md[1])
       end
 
       private def node_text(node : Markd::Node) : String
@@ -446,6 +515,11 @@ module Crysterm
         if @strip_task > 0
           drop = Math.min(@strip_task, str.size)
           @strip_task -= drop
+          str = str[drop..]
+        end
+        if @strip_alert > 0
+          drop = Math.min(@strip_alert, str.size)
+          @strip_alert -= drop
           str = str[drop..]
         end
         return if str.empty?
@@ -626,7 +700,7 @@ module Crysterm
               end
               write_table(io, run, tf)
             else
-              write_block(io, blocks[i])
+              write_block(io, blocks[i], alert_open?(blocks, i))
               i += 1
             end
           end
@@ -764,9 +838,31 @@ module Crysterm
         col
       end
 
-      private def write_block(io : IO, b : TextBlock) : Nil
+      # Whether `blocks[i]` opens a new GFM alert run — the block `#write_block`
+      # must prefix with the `[!KIND]` title line: it carries an alert kind,
+      # and either sits first or follows a block whose kind or quote level
+      # differs (a fresh alert, not a continuation of the one above it, e.g.
+      # the blank quote-interior separator between two alert paragraphs).
+      private def alert_open?(blocks : Array(TextBlock), i : Int32) : Bool
+        cf = blocks[i].block_format
+        return false unless cf.alert_kind
+        return true if i == 0
+        pf = blocks[i - 1].block_format
+        pf.alert_kind != cf.alert_kind || pf.quote_level != cf.quote_level
+      end
+
+      private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil
         bf = b.block_format
         io << "> " * bf.quote_level if bf.quote_level > 0
+
+        if open_alert && (kind = bf.alert_kind)
+          io << TextMarkdown.alert_marker(kind)
+          # Nothing else to write on a marker-only block (an alert whose
+          # quote holds no other content) — the title line is the block.
+          has_body = !b.fragments.empty? || bf.horizontal_rule? || bf.heading_level > 0 || bf.list_format
+          return unless has_body
+          io << '\n' << "> " * bf.quote_level
+        end
 
         if bf.horizontal_rule?
           io << "---"

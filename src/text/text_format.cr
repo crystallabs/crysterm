@@ -129,6 +129,19 @@ module Crysterm
   # readers get the effective default. Margins are whole blank rows — the
   # cell grid has no sub-row spacing.
   class TextBlockFormat < TextFormat
+    # GFM alert kind (a blockquote whose first line is `[!NOTE]`/`[!TIP]`/
+    # `[!IMPORTANT]`/`[!WARNING]`/`[!CAUTION]`, the github.com blockquote
+    # extension). Carried alongside `quote_level` — an alert block is always
+    # also quoted — so painting can pick a distinct color/title chip per kind
+    # while the quote bar/indent machinery stays untouched.
+    enum AlertKind
+      Note
+      Tip
+      Important
+      Warning
+      Caution
+    end
+
     # Horizontal alignment; `nil` = default (left).
     getter alignment : Tput::AlignFlag?
 
@@ -152,6 +165,10 @@ module Crysterm
     # outermost first; nil/empty means the block sits directly in the root
     # frame. Same shared-instance identity convention as `list_format`.
     getter frame_formats : Array(TextFrameFormat)?
+
+    # The GFM alert kind this block belongs to, or `nil` for an ordinary
+    # block/quote. See `AlertKind`.
+    getter alert_kind : AlertKind?
 
     # Shared all-defaults instance.
     class_getter default : TextBlockFormat { new }
@@ -183,6 +200,7 @@ module Crysterm
       list_format : TextListFormat? = nil,
       table_format : TextTableFormat? = nil,
       frame_formats : Array(TextFrameFormat)? = nil,
+      @alert_kind : AlertKind? = nil,
     )
       @indent = indent
       @top_margin = top_margin
@@ -264,6 +282,7 @@ module Crysterm
         list_format: patch.list_format || @list_format,
         table_format: patch.table_format || @table_format,
         frame_formats: patch.frame_formats || @frame_formats,
+        alert_kind: patch.alert_kind || @alert_kind,
       )
     end
 
@@ -276,7 +295,7 @@ module Crysterm
         bottom_margin: bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
-        table_format: @table_format, frame_formats: frame_formats)
+        table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind)
     end
 
     # A copy with the list reference replaced, or cleared with `nil` — which
@@ -310,7 +329,7 @@ module Crysterm
       copy_with(bottom_margin: margin)
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering

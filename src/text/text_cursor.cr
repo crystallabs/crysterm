@@ -156,6 +156,12 @@ module Crysterm
       @document.block_at(@position)[1]
     end
 
+    # Alias of `#position_in_block` (Qt exposes both `positionInBlock` and
+    # `columnNumber` for the same value).
+    def column_number : Int32
+      position_in_block
+    end
+
     def block : TextBlock
       @document.blocks[block_number]
     end
@@ -205,6 +211,23 @@ module Crysterm
       else
         @document.insert_fragment(@position, frag)
       end
+    end
+
+    # Inserts *html* at the cursor as a formatted fragment, replacing any
+    # selection — one undo step (Qt `insertHtml`). Wraps `#insert_fragment`
+    # over `TextDocumentFragment.from_html`; *theme* defaults the same way
+    # `TextDocumentFragment.from_html`/`TextDocument#set_html` do.
+    def insert_html(html : String, theme : TextTheme = TextTheme.default) : Nil
+      insert_fragment(TextDocumentFragment.from_html(html, theme))
+    end
+
+    # Inserts *markdown* at the cursor as a formatted fragment, replacing any
+    # selection — one undo step (Qt has no direct analogue; mirrors
+    # `#insert_html`). Wraps `#insert_fragment` over
+    # `TextDocumentFragment.from_markdown`; *theme* defaults the same way
+    # `TextDocumentFragment.from_markdown`/`TextDocument#set_markdown` do.
+    def insert_markdown(markdown : String, theme : TextTheme = TextTheme.default) : Nil
+      insert_fragment(TextDocumentFragment.from_markdown(markdown, theme))
     end
 
     # Ends the current block and starts a new one (Qt `insertBlock`),

@@ -129,6 +129,22 @@ module Crysterm
         remove dock
       end
 
+      # Qt-name alias of `#add_dock`, symmetric with `#add_tool_bar` (Qt's
+      # `QMainWindow#addDockWidget(area, dockwidget)`).
+      def add_dock_widget(area : DockWidget::Area, dock : DockWidget) : DockWidget
+        add_dock area, dock
+      end
+
+      # :ditto: — keeping the dock's own `#area`.
+      def add_dock_widget(dock : DockWidget) : DockWidget
+        add_dock dock
+      end
+
+      # Qt-name alias of `#remove_dock` (Qt's `QMainWindow#removeDockWidget`).
+      def remove_dock_widget(dock : DockWidget) : Nil
+        remove_dock dock
+      end
+
       def render(with_children = true)
         relayout
         super

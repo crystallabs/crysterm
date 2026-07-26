@@ -40,18 +40,15 @@ module Crysterm
       # How colors are dithered down to ReGIS' 8-color palette. `Dither::None`
       # by default: dithering looks noisy and explodes the vector count, since
       # per-pixel color changes break up the run-length horizontal spans.
+      #
+      # `dither=` (invalidating the payload cache and requesting a render on an
+      # actual change) is shared with `Media::Sixel` — see `Media::Graphics#dither=`.
       getter dither : Media::Dither = Media::Dither::None
 
-      # `dither` is not part of the payload cache key (`Media::Graphics#payload_for`
-      # keys on geometry only), so a plain setter would silently keep re-emitting
-      # the stale cached payload. Drop it and request a render.
-      def dither=(v : Media::Dither) : Media::Dither
-        unless v == @dither
-          @dither = v
-          reset_sample_cache
-          request_render
-        end
-        v
+      # `Media::Graphics#dither=`'s write hook — see there for why this can't
+      # just be a direct `@dither =` in the shared setter.
+      protected def store_dither(v : Media::Dither) : Nil
+        @dither = v
       end
 
       # ReGIS addresses a *fixed logical window* (not raw window pixels): xterm
@@ -101,14 +98,17 @@ module Crysterm
 
       # Scales a horizontal cell coordinate into the ReGIS logical window
       # (`@regis_width` units across `window.awidth`); pass-through if unknown.
+      # Uses `window?` (not the raising `window`) so a detached widget's public
+      # `#target_pixels` stays pure arithmetic instead of raising, matching
+      # every sibling backend — same 80×24 fallback as the constructor above.
       private def to_logical_x(v : Int32) : Int32
-        sc = window.awidth
+        sc = window?.try(&.awidth) || 80
         sc > 0 ? (v * @regis_width / sc).to_i : v
       end
 
       # Vertical counterpart of `#to_logical_x`.
       private def to_logical_y(v : Int32) : Int32
-        sr = window.aheight
+        sr = window?.try(&.aheight) || 24
         sr > 0 ? (v * @regis_height / sr).to_i : v
       end
 
