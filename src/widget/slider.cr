@@ -2,36 +2,8 @@ require "./abstract_slider"
 require "../mixin/track_geometry"
 
 module Crysterm
-  module Macros
-    # Declares a pinnable, CSS-overridable single-char glyph accessor
-    # (O5-27): a `setter <name>_char : Char? = nil` paired with a
-    # `#<name>_char : Char` getter that returns the pinned char when assigned,
-    # else resolves *role* through the CSS *sub* sub-style slot, then the
-    # `Glyphs` registry at the effective tier. Precedent:
-    # `repaint_property`/`reactive_property`. Shared home: both `ScrollBar`
-    # and `Slider` see `Crysterm::Macros` via `Widget`'s `include Macros`.
-    # Two-slot fallbacks (a glyph resolved from more than one CSS sub-style,
-    # e.g. `ScrollBar#trough_char`'s `::add-page`/`::groove` pair) stay
-    # hand-rolled — this macro covers only the single-slot family.
-    macro pinnable_glyph(name, role, sub)
-      setter {{ name.id }}_char : Char? = nil
-
-      # :ditto:
-      def {{ name.id }}_char : Char
-        @{{ name.id }}_char || glyph(Glyphs::Role::{{ role.id }}, style.raw_sub_style({{ sub }}))
-      end
-    end
-  end
-
-  module Event
-    # Emitted on every drag motion of a `Widget::Slider`/`Widget::ScrollBar`
-    # handle, carrying the candidate position (already clamped into
-    # `[minimum, maximum]`) — Qt's `QAbstractSlider#sliderMoved(int)`. Fires
-    # on every move regardless of `#tracking?` (Qt fires it unconditionally);
-    # `Event::ValueChanged` already covers the tracking-on per-move case, and
-    # `SliderMoved` never also emits it (A4-62).
-    event SliderMoved, position : Int32
-  end
+  # `Macros.pinnable_glyph` and `Event::SliderMoved`, formerly defined here,
+  # now live in their toolkit-wide homes (src/macros.cr, src/event.cr).
 
   class Widget
     # Slider element, modeled after Qt's `QSlider`.

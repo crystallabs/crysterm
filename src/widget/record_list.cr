@@ -1,8 +1,7 @@
-require "./widget/list"
+require "./list"
 
 module Crysterm
   class Widget
-    module Pine
       # Shared scaffolding for the Pine/Alpine selectable lists (`FolderList`,
       # `AddressBook`, `MessageIndex`, `MainMenu` and `Setup`).
       #
@@ -27,7 +26,7 @@ module Crysterm
       # * optionally overrides `#activate` (what Enter does), `#selected_index`
       #   (when visible rows don't map 1:1 to records) or `#rows` (to inject
       #   extra rows, e.g. spacers).
-      abstract class SelectableList(T) < Widget::List
+      abstract class RecordList(T) < Widget::List
         # The records currently displayed, parallel to the visible rows.
         # Named `records`, not `data`, to avoid colliding with `Widget#data`
         # (the unrelated `UserData?` slot from `Mixin::Data`).
@@ -133,6 +132,15 @@ module Crysterm
           super
         end
       end
+  end
+end
+
+module Crysterm
+  class Widget
+    module Pine
+      # Back-compat name: the generic record list began life Pine-branded, and
+      # both suites' widgets still subclass it under this name.
+      alias SelectableList = RecordList
     end
   end
 end

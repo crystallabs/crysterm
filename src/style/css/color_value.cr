@@ -8,18 +8,6 @@ module Crysterm
     # Handles the CSS color functions `rgb()/rgba()/hsl()/hsla()` and the
     # keywords `transparent`, `currentColor`, `inherit`, `initial`, `unset`.
     module ColorValue
-      # A signed number, as used by `hsl()`'s arguments. The sign is load-bearing:
-      # a negative hue angle is valid CSS (`hsl(-120, …)`) and must wrap
-      # (`-120 ≡ 240`) rather than read as its magnitude; a negative `s`/`l`
-      # clamps to 0. A leading-dot decimal (`.5`) is a whole number.
-      RGB_RE = /(#{Length::NUM})/
-
-      # The hue argument of `hsl()`, with its optional CSS angle unit. The hue is
-      # an `<angle>`, so CSS allows `deg`/`grad`/`rad`/`turn` (`hsl(0.5turn, …)`);
-      # a bare number is degrees. Capturing the unit lets `#hue_degrees` convert
-      # it (`0.5turn` → 180°, not 0.5°).
-      HUE_RE = /(#{Length::NUM})(deg|grad|rad|turn)?/i
-
       # Cache for the pure (non-`currentColor`) `resolve` results, keyed by the
       # stripped value. A cascade re-runs `resolve` for the same color string
       # once per widget that shares it (40 buttons, one `#223`), and the fold +
@@ -113,72 +101,17 @@ module Crysterm
         rgb r // n, g // n, b // n
       end
 
-      # The numeric arguments of a color function, in source order
-      # (`rgb(10, 20, 30)` ⇒ `[10.0, 20.0, 30.0]`). Used by the `hsl` parser;
-      # `rgb` handles per-component `%` itself.
-      private def self.numbers(value : String) : Array(Float64)
-        # `to_f?` (not strict `to_f`): an out-of-Float64-range literal must not
-        # raise out of the cascade. `compact_map` drops such a token, so
-        # `parse_hsl` bails to `nil` when fewer than 3 numbers remain.
-        value.scan(RGB_RE).compact_map(&.[1].to_f?)
-      end
-
-      # A single `rgb()` component: an optionally-signed number with an optional
-      # trailing `%`. The sign is load-bearing: CSS clamps a negative channel to
-      # 0, so it must be read as negative rather than as its magnitude
-      # (`rgb(-10, …)` is `0`, not `10`).
-      RGB_COMPONENT = /(#{Length::NUM})(%)?/
-
-      # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Each channel may
-      # be a `0..255` number or a `0%..100%` percentage (CSS allows either form);
-      # a `%` component is scaled to `0..255`. An out-of-range or negative channel
-      # is clamped to `0..255`. Alpha is ignored.
+      # `rgb()`/`hsl()` function parsing lives in the term_colors shard now
+      # (`parse_rgb_function`/`parse_hsl_function` — generic CSS color-function
+      # grammar, not stylesheet policy); these wrappers keep the local names
+      # the dispatch below uses.
       private def self.parse_rgb(value : String) : Int32?
-        comps = value.scan(RGB_COMPONENT)
-        return if comps.size < 3
-        rgb component(comps[0]), component(comps[1]), component(comps[2])
+        Colors.parse_rgb_function value
       end
 
-      # One `rgb()` channel → a `0..255` int, scaling a `%` form from `0..100`.
-      private def self.component(m : Regex::MatchData) : Int32
-        # `to_f?`: an out-of-Float64-range channel literal clamps to 0 rather
-        # than raising out of the cascade.
-        n = m[1].to_f? || return 0
-        n = n * 255.0 / 100.0 if m[2]?
-        clamp n
-      end
-
-      # `hsl(h, s%, l%)` / `hsla(...)`. h is a CSS `<angle>`, s/l in percent.
+      # :ditto:
       private def self.parse_hsl(value : String) : Int32?
-        nums = numbers(value)
-        return if nums.size < 3
-        h = hue_degrees(value) % 360.0
-        s = (nums[1] / 100.0).clamp(0.0, 1.0)
-        l = (nums[2] / 100.0).clamp(0.0, 1.0)
-        Colors.hsl_to_rgb(h, s, l)
-      end
-
-      # The `hsl()` hue in degrees, honoring the optional CSS angle unit on the
-      # first argument: `turn` (1turn = 360°), `grad` (400grad = 360°), `rad`
-      # (2π rad = 360°), or `deg`/unitless (already degrees). Caller wraps the
-      # result into `0..360`.
-      private def self.hue_degrees(value : String) : Float64
-        return 0.0 unless m = value.match(HUE_RE)
-        # `to_f?`: an out-of-Float64-range hue literal falls back to 0°.
-        n = m[1].to_f? || return 0.0
-        case m[2]?.try(&.downcase)
-        when "turn" then n * 360.0
-        when "grad" then n * 0.9 # 400grad == 360deg
-        when "rad"  then n * 180.0 / Math::PI
-        else             n # deg or unitless
-        end
-      end
-
-      private def self.clamp(value : Float64) : Int32
-        # Clamp as a Float *before* `#to_i`: a wildly out-of-range channel
-        # (`rgb(99999999999, 0, 0)`) would overflow Int32 and raise in `#to_i`
-        # if converted first, instead of being clamped to 255.
-        value.round.clamp(0.0, 255.0).to_i
+        Colors.parse_hsl_function value
       end
 
       private def self.rgb(r : Int32, g : Int32, b : Int32) : Int32

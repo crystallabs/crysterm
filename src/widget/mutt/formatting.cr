@@ -15,10 +15,10 @@ module Crysterm
       end
 
       # Truncates *str* to *len* characters, adding a `~` when cut. Pine's flat
-      # `MessageIndex` shares this deliberately (same truncation rule).
+      # `MessageIndex` shares this deliberately (same truncation rule). The
+      # generic implementation lives in the crystallabs-helpers shard.
       def self.truncate(str : String, len : Int32) : String
-        return str if str.size <= len
-        "#{str[0, len - 1]}~"
+        Crystallabs::Helpers::Format.truncate str, len, '~'
       end
     end
   end

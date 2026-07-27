@@ -1,5 +1,5 @@
 require "../box"
-require "../../widget_effect_direct"
+require "./animated"
 require "../../colors"
 
 module Crysterm

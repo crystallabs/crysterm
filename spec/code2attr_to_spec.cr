@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Screen.write_sgr` (packed Int64 attr -> SGR sequence
+# Behavior lock for `SGR.write` (packed Int64 attr -> SGR sequence
 # written straight into an IO, allocation-free). Pins its output against an
 # independent reference reproducing the old String-building `attr_to_sgr`, across
 # the full matrix of flags / colors / color depths.
 #
 # `write_sgr` is a pure class method (takes the color count directly), so no
 # Window is needed.
-describe "Screen.write_sgr" do
+describe "SGR.write" do
   # Oracle: the old String-building attr_to_sgr semantics, expressed via the
   # already-tested `Colors.sgr_color`.
   oracle = ->(code : Int64, n : Int32) do
@@ -37,7 +37,7 @@ describe "Screen.write_sgr" do
 
   emit = ->(code : Int64, n : Int32) do
     io = IO::Memory.new
-    Crysterm::Screen.write_sgr(io, code, n)
+    Crysterm::SGR.write(io, code, n)
     io.to_s
   end
 
@@ -70,14 +70,14 @@ describe "Screen.write_sgr" do
     io = IO::Memory.new
     io << "PRE"
     code = Attr.pack(Attr::BOLD, Attr.pack_color(0xff8800), Attr::COLOR_DEFAULT)
-    Crysterm::Screen.write_sgr(io, code, 0x1000000)
+    Crysterm::SGR.write(io, code, 0x1000000)
     io.to_s.should eq "PRE" + oracle.call(code, 0x1000000)
   end
 
   it "writes nothing (not even \\e[) into a buffer for the default attr" do
     io = IO::Memory.new
     io << "PRE"
-    Crysterm::Screen.write_sgr(io, dfl, 0x1000000)
+    Crysterm::SGR.write(io, dfl, 0x1000000)
     io.to_s.should eq "PRE"
   end
 end

@@ -3,8 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `Mixin::ItemView`/`Mixin::ActionBar` alias `#<<` to `#add_item` and `#>>` to
-# `#remove_item` via `alias_previous`, which expands to an *unrestricted*
-# `def <<(*args)`. Every `Widget` separately includes `Mixin::Children`, whose
+# `#remove_item` via `Crystallabs::Helpers::Alias_Methods#alias_method`, which
+# defines one restriction-copying forwarder per overload.
+# Every `Widget` separately includes `Mixin::Children`, whose
 # `#<<(Widget)` appends a child widget — and the mixin sits ahead of `Widget` in
 # the ancestor chain.
 #

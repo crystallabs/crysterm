@@ -983,18 +983,12 @@ module Crysterm
     # Heuristic tier suggestion: `Extended` when the environment identifies a
     # terminal that ships with (or is overwhelmingly configured with) a
     # modern, well-covered font — kitty, WezTerm, Ghostty, iTerm2 — else
-    # `Unicode`. Font coverage itself can't be probed, so this is identity
-    # knowledge, not a probe. The env-only overload is a standalone helper;
-    # the `Tput` overload below is the one `Screen` consults automatically.
+    # `Unicode`. The identity knowledge itself lives in tput
+    # (`Tput::Emulator.modern_font_env?`), so this can't drift from the
+    # emulator detection; the `Tput` overload below is the sharper form
+    # `Screen` consults automatically.
     def self.detected_tier(env = ENV) : Tier
-      return Tier::Extended if env.has_key?("KITTY_WINDOW_ID") ||
-                               env.has_key?("WEZTERM_EXECUTABLE") ||
-                               env.has_key?("GHOSTTY_RESOURCES_DIR")
-      program = env["TERM_PROGRAM"]?.try(&.downcase) || ""
-      return Tier::Extended if {"kitty", "wezterm", "ghostty", "iterm.app"}.includes?(program)
-      term = env["TERM"]?.try(&.downcase) || ""
-      return Tier::Extended if term.includes?("kitty") || term.includes?("wezterm") || term.includes?("ghostty")
-      Tier::Unicode
+      ::Tput::Emulator.modern_font_env?(env) ? Tier::Extended : Tier::Unicode
     end
 
     # Tier suggestion from a live `Tput`'s feature/emulator detection:

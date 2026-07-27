@@ -1,4 +1,4 @@
-require "../../widget_media_cells"
+require "./cells"
 
 module Crysterm
   class Widget
@@ -109,10 +109,6 @@ module Crysterm
         else
           request_render
         end
-      end
-
-      def self.fetch(url : String) : Bytes
-        Widget::Media::Ansi.fetch url
       end
 
       # Sample at the current mode's sub-cell resolution (cells × sub-grid).

@@ -138,9 +138,9 @@ module Crysterm
     # file. Off by default; set to `true` *before* loading to enable.
     property? auto_reload_stylesheet = false
 
-    # Path being watched for hot-reload. No live watcher is held while
-    # file-watching is disabled.
+    # Path being watched for hot-reload, and the live watch handle.
     @css_watched_path : String?
+    @css_watch : CSS::FileWatcher::Watch?
 
     # Raw text of the stylesheet last read from a file. Used to skip redundant
     # reparse/recascade/re-render on reload when the file content is unchanged.
@@ -192,16 +192,26 @@ module Crysterm
       self.stylesheet = CSS::Stylesheet.parse(css, base_path: path)
     end
 
-    # Starts stylesheet hot-reload for *path*. Currently disabled: hot-reload
-    # is not yet implemented. This method records the path for future use, but
-    # call `#reload_stylesheet` manually to update the stylesheet.
+    # Starts stylesheet hot-reload for *path*: on each mtime change the file is
+    # re-read and re-applied (`#reload_stylesheet` skips unchanged content), and
+    # a repaint is scheduled. Any previous watch is stopped first.
     def watch_stylesheet(path : String? = @css_stylesheet_path) : Nil
-      @css_watched_path = path || raise "no stylesheet path to watch (call load_stylesheet first)"
+      p = path || raise "no stylesheet path to watch (call load_stylesheet first)"
+      unwatch_stylesheet
+      @css_watched_path = p
+      @css_watch = CSS::FileWatcher.watch(p) do
+        # Runs in the watcher fiber; reload errors (partial saves, transient
+        # read races) are swallowed by the watcher so the watch survives them.
+        reload_stylesheet
+        update
+      end
       nil
     end
 
-    # Stops stylesheet hot-reload. No-op while file-watching is disabled.
+    # Stops stylesheet hot-reload.
     def unwatch_stylesheet : Nil
+      @css_watch.try &.stop
+      @css_watch = nil
       @css_watched_path = nil
     end
 

@@ -186,17 +186,10 @@ module Crysterm
         end
       end
 
-      # Formats a byte count with the largest binary unit that keeps it >= 1,
-      # so small values stay in plain bytes and large ones shrink to KiB/MiB/…
+      # Formats a byte count with the largest binary unit that keeps it >= 1;
+      # the generic implementation lives in the crystallabs-helpers shard.
       private def humanize(bytes : Int) : String
-        units = {"B", "KiB", "MiB", "GiB", "TiB", "PiB"}
-        value = bytes.to_f
-        unit = 0
-        while value >= 1024 && unit < units.size - 1
-          value /= 1024
-          unit += 1
-        end
-        unit == 0 ? "#{bytes}#{units[0]}" : "%.1f%s" % {value, units[unit]}
+        Crystallabs::Helpers::Format.humanize_bytes bytes
       end
     end
   end

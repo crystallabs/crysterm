@@ -1,5 +1,106 @@
 module Crysterm
   class Widget
+    # Word-wrapped, ready-to-render content lines plus the bookkeeping needed
+    # to map between the original ("fake") and wrapped ("real") line numbers.
+    #
+    # Wraps rather than subclasses `Array(String)`: subclassing a stdlib generic
+    # promotes every `Array(String)` in the program to the virtual type
+    # `Array(String)+`, causing confusing compile errors elsewhere (issue #30).
+    class CLines
+      property string = ""
+      property max_width = 0
+      property width = 0
+
+      # Right-edge columns (`Widget#content_margin_x`) these lines were wrapped to
+      # avoid — the vertical scroll bar's reservation at wrap time. Part of the
+      # convergence check in `Widget#process_content`.
+      property margin = 0
+
+      # Horizontal scroll offset (display columns) these lines were sliced for —
+      # part of the wrap cache key, so scrolling forces a reparse like a width
+      # change does. Only meaningful when `wrap_content` is off.
+      property base_x = 0
+
+      # Style inputs baked into the wrapped line text — TAB expansion
+      # (`tab_char * tab_size`, `clean_content_chars`) and alignment padding
+      # (`fill_char`, `_align`/`split_right_align`). Part of the wrap cache key
+      # so a style change (direct mutation + `mark_dirty`, or a CSS cascade)
+      # forces a rewrap; types match `Style#tab_char` (String) and
+      # `Style#fill_char` (Char).
+      property tab_size = 4
+      property tab_char = " "
+      property fill_char = ' '
+
+      # Widest unclipped line in display columns (before horizontal viewport
+      # slice). Drives `Widget#scroll_width` and the horizontal scroll bar's
+      # range. `0` for wrapped content.
+      property full_width = 0
+
+      property content : String = ""
+
+      # Version of the owning widget's `@content` that produced these wrapped
+      # lines. Defaults to -1 so a fresh `CLines` never matches a real (>= 0)
+      # version, forcing the first parse. `Int64` in lockstep with the widget's
+      # `@_content_version`. See `Widget#process_content`.
+      property content_version : Int64 = -1
+
+      property real : CLines? = nil
+
+      property fake = [] of String
+
+      property ftor = [] of Array(Int32)
+      property rtof = [] of Int32
+      property ci = [] of Int32
+
+      # Pool of recycled `ftor` sub-arrays, so steady-state reparsing reuses the
+      # same `Array(Int32)` objects instead of allocating one per line per frame.
+      # `#reset` drains rows here; `#take_ftor_row` hands them back out.
+      @ftor_pool = [] of Array(Int32)
+
+      # Defaults to `nil`, not an empty array: `process_content` always replaces
+      # this with `_parse_attr`'s result on reparse. Readers go through
+      # `attr.try(...)`.
+      property attr : Array(Int64)? = nil
+
+      # Backing store of wrapped lines. Array API (`push`, `[]`, `size`, `each`,
+      # `join`, `reduce`, ...) is forwarded to it below.
+      getter lines : Array(String)
+
+      def initialize(@lines = [] of String)
+      end
+
+      # Clears the arrays a reparse refills in place, so this `CLines` is reused by
+      # the next `_wrap_content` instead of allocating fresh. `clear` keeps each
+      # array's backing buffer, so steady-state reparsing reallocates nothing here.
+      # `fake`/`attr`/`real` and scalar fields are overwritten wholesale by the
+      # reparse, so they are untouched.
+      def reset : Nil
+        @lines.clear
+        @rtof.clear
+        # Recycle per-line `ftor` sub-arrays instead of dropping them.
+        @ftor.each do |row|
+          row.clear
+          @ftor_pool << row
+        end
+        @ftor.clear
+        @ci.clear
+      end
+
+      # A cleared per-line `ftor` sub-array: recycled from the pool (see
+      # `#reset`) when available, otherwise a fresh allocation.
+      def take_ftor_row : Array(Int32)
+        @ftor_pool.pop? || [] of Int32
+      end
+
+      # A fresh, independent copy of the lines, without the extra bookkeeping.
+      # Defined explicitly since `dup` exists on `Object` and isn't forwarded.
+      def dup
+        @lines.dup
+      end
+
+      forward_missing_to @lines
+    end
+
     # Scratch `CLines` reused across `append_content` calls so wrapping just the
     # appended line never allocates a fresh bookkeeping object.
     @_append_scratch : CLines? = nil
@@ -180,6 +281,55 @@ module Crysterm
       emit Crysterm::Event::ContentParsed
       emit Crysterm::Event::ContentChanged
       true
+    end
+
+    # The RAW (pre-parse) logical lines backing the fake-line editors
+    # (`insert_line`/`delete_line`/`replace_line`/...): raw `#content` split at
+    # the same line boundaries `clean_content_chars` normalizes
+    # (`RAW_LINE_REGEX`), so index `i` here addresses the same logical line as
+    # the parsed `@_clines.fake[i]`. The editors splice THESE lines and rebuild
+    # via `#rebuild_content_from_raw`; `@content` therefore never holds
+    # post-parse text, and any later cache-miss reparse (width change, resize,
+    # scroll, re-attach, style change) re-runs `_parse_tags` over true raw
+    # source — escaped braces (`{open}`/`{close}`, `{escape}` bodies) survive
+    # every reparse instead of only the first (BUGS15 #18 / B17-04).
+    #
+    # Empty `@_clines.fake` means the widget currently renders no logical lines
+    # (no content at all, or content whose cleaned/parsed form is empty). The
+    # editors index off `fake`, so mirror that here as "no raw lines"; an edit
+    # then discards such invisible content, exactly as the old fake-join
+    # rebuild did.
+    #
+    # Never-parsed literal braces: with tag parsing on but no recognized tag in
+    # the content (`@_content_has_tags` false), stray braces render literally
+    # because `process_content` skips `_parse_tags`. An edit may splice in a
+    # line WITH tags, flipping that gate on — reparsing the plain raw text
+    # would then drop the old braces (drop-malformed policy), silently
+    # rewriting already-rendered lines (pinned by
+    # spec/bugs12_append_content_tags_spec.cr). Escape them (`{` → `{open}`,
+    # `}` → `{close}`) at capture time, so they reparse to the same literal
+    # braces no matter what the edit adds. Self-limiting: the escaped form IS
+    # tagged, so `@_content_has_tags` lands true after the first such edit and
+    # the regime is never re-entered (no double escaping).
+    private def raw_fake_lines : Array(String)
+      return [] of String if @_clines.fake.empty?
+      lines = content.split(RAW_LINE_REGEX)
+      if @parse_tags && !@_content_no_tags && !@_content_has_tags && @_content_has_braces
+        lines.map! { |l| Helpers.escape(l) }
+      end
+      lines
+    end
+
+    # Rebuilds widget content from the raw logical lines a line editor has just
+    # spliced (see `#raw_fake_lines`), by re-setting them as the widget's raw
+    # content and running a NORMAL full reparse — *raw* is pre-parse source
+    # text, so nothing here needs to suppress `_parse_tags`, and repeated later
+    # reparses of the same content stay byte-identical.
+    private def rebuild_content_from_raw(raw : Array(String)) : Nil
+      # The third positional arg MUST carry the widget's tag mode: letting
+      # `no_tags` default to false would permanently flip a literal-tags widget
+      # back into tag-parsing mode.
+      set_content(raw.join('\n'), true, @_content_no_tags)
     end
 
     # Appends *line* after the last logical line. Splits on `\n` for multi-line

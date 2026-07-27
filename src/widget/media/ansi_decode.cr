@@ -1,5 +1,5 @@
-require "./font"
-require "./widget/media"
+require "../../font"
+require "../media"
 
 module Crysterm
   class Widget
@@ -117,25 +117,14 @@ module Crysterm
         end
       end
 
-      # RGB of an xterm-256 palette index (0..255): the 16 system colours, then
-      # the 6×6×6 colour cube, then the 24-step grayscale ramp.
+      # RGB of an xterm-256 palette index (0..255). Indices below 16 map through
+      # this decoder's own VGA `ANSI_PALETTE` (art was authored against VGA, not
+      # xterm system colours); the cube + grayscale range comes from the
+      # term_colors shard's `HI2RGB` table (identical to the standard xterm
+      # 95/135/175/215/255 ramp math this used to duplicate).
       private def self.xterm256_rgb(n : Int32) : Tuple(Int32, Int32, Int32)
         n = n.clamp(0, 255)
-        if n < 16
-          rgb24(ANSI_PALETTE[n])
-        elsif n < 232
-          m = n - 16
-          {cube_level(m // 36), cube_level((m // 6) % 6), cube_level(m % 6)}
-        else
-          gr = (n - 232) * 10 + 8
-          {gr, gr, gr}
-        end
-      end
-
-      # One channel of the xterm-256 6×6×6 cube: 0 maps to 0, levels 1..5 to
-      # `55 + level*40` (the standard xterm ramp 95,135,175,215,255).
-      private def self.cube_level(c : Int32) : Int32
-        c == 0 ? 0 : 55 + c * 40
+        n < 16 ? rgb24(ANSI_PALETTE[n]) : ::TermColors::HI2RGB[n]
       end
 
       # Ink fraction (0..1) of the sub-region of glyph *g* (sized *gw*x*gh*) that
@@ -404,7 +393,7 @@ module Crysterm
         #
         # This leaves `frames` non-nil with a single entry, which is fine: every
         # consumer of `png.frames` gates on `size > 1` — `Media::Cells#load`
-        # (widget_media_cells.cr), `Media::Base#play` (widget_media_base.cr), and
+        # (widget/media/cells.cr), `Media::Base#play` (widget/media/base.cr), and
         # `Media::Graphics#ensure_animation`, which defers to that same `#play`
         # guard. A future consumer must keep that invariant; treating
         # `frames != nil` as "animated" would spin a one-frame loop here.

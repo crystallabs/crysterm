@@ -15,7 +15,7 @@ describe Crysterm::Helpers do
         target = File.join(root, "a", "b", "needle.txt")
         File.write target, "x"
 
-        Crysterm::Helpers.find_file(root, "needle.txt").should eq target
+        Crystallabs::Helpers::Files.find_file(root, "needle.txt").should eq target
       ensure
         FileUtils.rm_rf root
       end
@@ -28,7 +28,7 @@ describe Crysterm::Helpers do
         # The rescue path yielding a nil `stat` must not crash the directory walk.
         File.write File.join(root, "plain.txt"), "y"
 
-        Crysterm::Helpers.find_file(root, "missing.txt").should be_nil
+        Crystallabs::Helpers::Files.find_file(root, "missing.txt").should be_nil
       ensure
         FileUtils.rm_rf root
       end

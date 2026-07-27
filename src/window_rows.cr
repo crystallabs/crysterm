@@ -408,5 +408,134 @@ module Crysterm
         @chars.pop
       end
     end
+
+    # Whether the cell buffers already match the device's current size, i.e.
+    # `alloc`/`realloc` would be a no-op. The `|| 0` keeps an unallocated
+    # window (empty `@lines`) comparing as a mismatch so it still reallocs.
+    def buffers_match_device? : Bool
+      @lines.size == aheight && (@lines[0]?.try(&.size) || 0) == awidth
+    end
+
+    # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
+    #
+    # `dirty` means lines must be redrawn: re-creates the cell grid from
+    # scratch rather than adjusting the size of the existing one.
+    def alloc(dirty = false)
+      # NOTE dirty=true is mostly used during resize to empty all cells, because
+      # `clear_last_rendered_pos` doesn't clear the correct area on resize (it
+      # sees the resized values by the time it runs). This may mask an
+      # underlying bug rather than be the real fix.
+      old_height = @lines.size
+      new_height = aheight
+
+      old_width = @lines[0]?.try(&.size) || 0
+      new_width = awidth
+
+      if !dirty
+        do_clear = false
+      else
+        do_clear = true
+        # BOTH buffers must be reset: `add_row` below pushes to both, so
+        # resetting one alone leaves them misaligned and corrupts the frame diff.
+        @lines = Array(Row).new aheight
+        @flushed_lines = Array(Row).new aheight
+        old_height = 0
+        old_width = 0
+      end
+
+      # If nr. of columns has changed, adjust width in existing rows
+      if old_width != new_width
+        do_clear = true
+
+        Math.min(old_height, new_height).times do |i|
+          adjust_width @lines[i], old_width, new_width, dirty
+          adjust_width @flushed_lines[i], old_width, new_width, dirty
+          @lines[i].dirty = dirty
+          @flushed_lines[i].dirty = dirty
+        end
+      end
+
+      # If nr. of rows has changed, add or remove rows as appropriate. New rows
+      # have their columns created from scratch.
+      if (diff = new_height - old_height) != 0
+        do_clear = true
+        if diff > 0
+          diff.times do
+            add_row dirty
+          end
+        elsif diff < 0
+          (diff * -1).times do
+            remove_row
+          end
+        end
+      end
+
+      # A full-screen clear is only correct when we own the whole screen; an
+      # inline window must never wipe the terminal. It must still erase its own
+      # region, though: `@flushed_lines` is now blank, so blank new cells compare equal
+      # and the frame diff skips them, leaving whatever the terminal physically
+      # shows there in place.
+      #
+      # On a shared device, only the device-active window may touch the
+      # physical terminal: a non-active sibling's realloc (each window drains
+      # its own debounced resize fiber) would wipe the active window's freshly
+      # painted frame, whose `@flushed_lines` still claims the content is on
+      # screen — so its next frame diff emits nothing and the terminal stays
+      # blank. A non-active window is fully repainted via `Application#activate`
+      # anyway, so it never needs the physical clear; the buffer resets above
+      # stay unconditional.
+      if do_clear && device_active_window?
+        if @alternate
+          tput.clear
+        else
+          erase_physical_rows render_row_offset, render_row_offset + aheight
+        end
+      end
+    end
+
+    @[AlwaysInline]
+    private def add_row(dirty)
+      push_row @lines, dirty
+      push_row @flushed_lines, dirty
+    end
+
+    # Appends one fresh, width-adjusted row to *buf*, marked `dirty`.
+    @[AlwaysInline]
+    private def push_row(buf, dirty)
+      col = Row.new awidth
+      adjust_width col, 0, awidth, dirty
+      buf.push col
+      buf[-1].dirty = dirty
+    end
+
+    @[AlwaysInline]
+    private def remove_row
+      @lines.pop
+      @flushed_lines.pop
+    end
+
+    @[AlwaysInline]
+    private def adjust_width(line, old_width, new_width, dirty)
+      diff = new_width - old_width
+      if diff > 0
+        diff.times do
+          line.push
+        end
+      elsif diff < 0
+        (diff * -1).times do
+          line.pop
+        end
+      end
+    end
+
+    # Reallocates screen buffers and clear the screen.
+    def realloc
+      alloc dirty: true
+      # Both cell buffers are now blank, so the in-memory frame model matches
+      # nothing: a selective composite with an empty dirty set would "succeed"
+      # while repainting nothing, leaving the next render a blank-vs-blank
+      # no-op. Force a full re-composite (no-op when damage tracking is off).
+      damage_force_full
+    end
   end
 end

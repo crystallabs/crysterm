@@ -1,4 +1,4 @@
-require "../layout_flow"
+require "./flow"
 
 module Crysterm
   class Layout

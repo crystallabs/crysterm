@@ -1,7 +1,7 @@
 require "../box"
 require "./canvas"
-require "../../widget_graph_painter"
-require "../../widget_graph_scale"
+require "./painter"
+require "./scale"
 
 module Crysterm
   class Widget

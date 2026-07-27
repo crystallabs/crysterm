@@ -98,15 +98,11 @@ module Crysterm
         end
       end
 
-      # Codepoint count of a grapheme cluster, read from the stdlib-internal
-      # `@cluster` ivar (`Char | String`) so the common single-`Char` cluster
-      # costs no `to_s` allocation. Identical to `g.to_s.size` (a `String`-backed
-      # cluster is always multi-codepoint; a `Char` one is exactly 1).
+      # Codepoint count of a grapheme cluster; the `@cluster`-reading
+      # implementation lives in `Unicode.cluster_size`, next to the width
+      # reader that shares (and pins) the same stdlib-internal layout.
       private def grapheme_cps(g : String::Grapheme) : Int32
-        case cluster = g.@cluster
-        in Char   then 1
-        in String then cluster.size
-        end
+        Unicode.cluster_size g
       end
 
       # Number of codepoints in the grapheme cluster immediately *before* the

@@ -191,10 +191,6 @@ describe "API4 value-type / layout additions" do
       r.width.should eq 3
       r.height.should eq 4
     end
-
-    it ".from_edges aliases .of_edges" do
-      Rectangle.from_edges(1, 2, 4, 6).should eq Rectangle.of_edges(1, 2, 4, 6)
-    end
   end
 
   describe "Rectangle#translated(Point) (A4-24)" do

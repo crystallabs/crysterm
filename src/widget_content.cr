@@ -8,8 +8,10 @@ module Crysterm
     # Convenience regex for matching line-alignment tags (`{center}`, `{/right}`, ...).
     ALIGN_TAG_REGEX = /\{\/?(?:left|center|right)\}/
 
-    # Convenience regex for matching SGR sequences.
-    SGR_REGEX = /\e\[[\d;]*m/
+    # Convenience regex for matching SGR sequences — an alias of the canonical
+    # grammar constant in `Crysterm::SGR` (kept here because the name is
+    # long-standing public Widget API).
+    SGR_REGEX = ::Crysterm::SGR::REGEX
 
     # :ditto:
     SGR_REGEX_AT_BEGINNING = /^#{SGR_REGEX}/
@@ -27,7 +29,7 @@ module Crysterm
     property? parse_tags = false
 
     # Alignment of contained text. (The `align`-consuming reads live in
-    # `widget_content_tags.cr`, after the content-file split.)
+    # `widget_content_wrap.cr`, after the content-file split.)
     Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # `wrap_content`/`parse_tags`/`align` all change wrap output, so their setters
@@ -266,180 +268,6 @@ module Crysterm
     # a user sees on screen, without the attributes it is drawn with.
     def rendered_text : String
       rendered_content.gsub SGR_REGEX, ""
-    end
-
-    # Word-wrapped, ready-to-render content lines plus the bookkeeping needed
-    # to map between the original ("fake") and wrapped ("real") line numbers.
-    #
-    # Wraps rather than subclasses `Array(String)`: subclassing a stdlib generic
-    # promotes every `Array(String)` in the program to the virtual type
-    # `Array(String)+`, causing confusing compile errors elsewhere (issue #30).
-    class CLines
-      property string = ""
-      property max_width = 0
-      property width = 0
-
-      # Right-edge columns (`Widget#content_margin_x`) these lines were wrapped to
-      # avoid — the vertical scroll bar's reservation at wrap time. Part of the
-      # convergence check in `Widget#process_content`.
-      property margin = 0
-
-      # Horizontal scroll offset (display columns) these lines were sliced for —
-      # part of the wrap cache key, so scrolling forces a reparse like a width
-      # change does. Only meaningful when `wrap_content` is off.
-      property base_x = 0
-
-      # Style inputs baked into the wrapped line text — TAB expansion
-      # (`tab_char * tab_size`, `clean_content_chars`) and alignment padding
-      # (`fill_char`, `_align`/`split_right_align`). Part of the wrap cache key
-      # so a style change (direct mutation + `mark_dirty`, or a CSS cascade)
-      # forces a rewrap; types match `Style#tab_char` (String) and
-      # `Style#fill_char` (Char).
-      property tab_size = 4
-      property tab_char = " "
-      property fill_char = ' '
-
-      # Widest unclipped line in display columns (before horizontal viewport
-      # slice). Drives `Widget#scroll_width` and the horizontal scroll bar's
-      # range. `0` for wrapped content.
-      property full_width = 0
-
-      property content : String = ""
-
-      # Version of the owning widget's `@content` that produced these wrapped
-      # lines. Defaults to -1 so a fresh `CLines` never matches a real (>= 0)
-      # version, forcing the first parse. `Int64` in lockstep with the widget's
-      # `@_content_version`. See `Widget#process_content`.
-      property content_version : Int64 = -1
-
-      property real : CLines? = nil
-
-      property fake = [] of String
-
-      property ftor = [] of Array(Int32)
-      property rtof = [] of Int32
-      property ci = [] of Int32
-
-      # Pool of recycled `ftor` sub-arrays, so steady-state reparsing reuses the
-      # same `Array(Int32)` objects instead of allocating one per line per frame.
-      # `#reset` drains rows here; `#take_ftor_row` hands them back out.
-      @ftor_pool = [] of Array(Int32)
-
-      # Defaults to `nil`, not an empty array: `process_content` always replaces
-      # this with `_parse_attr`'s result on reparse. Readers go through
-      # `attr.try(...)`.
-      property attr : Array(Int64)? = nil
-
-      # Backing store of wrapped lines. Array API (`push`, `[]`, `size`, `each`,
-      # `join`, `reduce`, ...) is forwarded to it below.
-      getter lines : Array(String)
-
-      def initialize(@lines = [] of String)
-      end
-
-      # Clears the arrays a reparse refills in place, so this `CLines` is reused by
-      # the next `_wrap_content` instead of allocating fresh. `clear` keeps each
-      # array's backing buffer, so steady-state reparsing reallocates nothing here.
-      # `fake`/`attr`/`real` and scalar fields are overwritten wholesale by the
-      # reparse, so they are untouched.
-      def reset : Nil
-        @lines.clear
-        @rtof.clear
-        # Recycle per-line `ftor` sub-arrays instead of dropping them.
-        @ftor.each do |row|
-          row.clear
-          @ftor_pool << row
-        end
-        @ftor.clear
-        @ci.clear
-      end
-
-      # A cleared per-line `ftor` sub-array: recycled from the pool (see
-      # `#reset`) when available, otherwise a fresh allocation.
-      def take_ftor_row : Array(Int32)
-        @ftor_pool.pop? || [] of Int32
-      end
-
-      # A fresh, independent copy of the lines, without the extra bookkeeping.
-      # Defined explicitly since `dup` exists on `Object` and isn't forwarded.
-      def dup
-        @lines.dup
-      end
-
-      forward_missing_to @lines
-    end
-  end
-
-  # A wrapper around indexable objects that returns nil on [-idx] rather than
-  # [idx] counted from the back.
-  #
-  # It is needed in drawing routines where index is often offset by a certain
-  # value and expected that all indexes < 0 will return nil.
-  struct StringIndex
-    getter object : String
-    # Non-ASCII path: codepoints materialized once. nil for ASCII content.
-    @chars : Array(Char)?
-    # ASCII fast path: a zero-copy byte view of `@object`. For ASCII a byte is
-    # its codepoint, so indexing bytes directly avoids `String#[]?(Int)`
-    # (recomputes size, decodes a char per call — this dominated the render CPU
-    # profile per cell). nil for non-ASCII content (uses `@chars`).
-    @bytes : Bytes?
-    # Codepoint count, cached so `#size` and the per-cell bounds check are field
-    # reads, not `String#size` calls.
-    @size : Int32
-
-    def initialize(@object : String)
-      if @object.ascii_only?
-        @chars = nil
-        @bytes = @object.to_slice
-        @size = @object.bytesize # == codepoint count for ASCII
-      else
-        # Materialize chars once (O(n)) so per-cell indexing is O(1) instead of
-        # `String#[](Int)`'s O(n) walk (which made drawing Unicode lines O(n²)).
-        chars = @object.chars
-        @chars = chars
-        @bytes = nil
-        @size = chars.size
-      end
-    end
-
-    # Whether this index was built from `s` (the same `String` object). The
-    # render loop builds one `StringIndex` per widget per frame from
-    # `@_pcontent`; lets callers reuse a cached index across frames instead of
-    # rebuilding `chars` every frame.
-    def built_from?(s : String) : Bool
-      @object.same? s
-    end
-
-    # Per-cell hot path: a negative or out-of-range index yields nil; otherwise
-    # an ASCII byte fetch (the common case) or an `unsafe_fetch` into the cached
-    # `chars` array — neither calls `String#[]?`/`String#size`.
-    @[AlwaysInline]
-    def []?(i : Int) : Char?
-      return if i < 0 || i >= @size
-      if bytes = @bytes
-        bytes.unsafe_fetch(i).unsafe_chr
-      else
-        @chars.not_nil!.unsafe_fetch(i) # ameba:disable Lint/NotNil
-      end
-    end
-
-    def [](i : Int) : Char?
-      return if i < 0
-      raise IndexError.new if i >= @size
-      if bytes = @bytes
-        bytes.unsafe_fetch(i).unsafe_chr
-      else
-        @chars.not_nil!.unsafe_fetch(i) # ameba:disable Lint/NotNil
-      end
-    end
-
-    def [](range : Range)
-      @object[range]
-    end
-
-    def size
-      @size
     end
   end
 end

@@ -153,7 +153,9 @@ module Crysterm
             key = {avail, text}
             if @_trunc_key != key
               @_trunc_key = key
-              @_trunc = truncate_left text, avail
+              # `tail_within` (the toolkit-wide helper): longest suffix fitting
+              # `avail` cells, never splitting a grapheme.
+              @_trunc = tail_within text, avail
             end
             text = @_trunc
             tw = str_width text
@@ -162,20 +164,6 @@ module Crysterm
         end
       end
 
-      # Drops graphemes off the left of *text* until its display width fits
-      # *avail* cells (never splitting a grapheme — dropping a straddling wide
-      # char makes the result one cell narrower rather than corrupt).
-      private def truncate_left(text : String, avail : Int32) : String
-        drop = str_width(text) - avail
-        start_byte = 0
-        text.each_grapheme do |g|
-          break if drop <= 0
-          s = g.to_s
-          drop -= str_width s
-          start_byte += s.bytesize
-        end
-        text.byte_slice(start_byte)
-      end
     end
   end
 end

@@ -124,12 +124,11 @@ module Crysterm
         end
       end
 
-      # Whether a config option carries a non-default value. Compared as the
-      # rendered string so it works for any option type; a default-equal value
-      # is treated as unconfigured so it never overrides a programmatic tweak.
+      # Whether a config option carries a non-default value, so a default-equal
+      # value never overrides a programmatic tweak. The generic test lives in
+      # the superconf shard now (`Superconf.configured?`).
       private def self.config_set?(key : String) : Bool
-        opt = Superconf[key]
-        opt.stringify != opt.default_string
+        Superconf.configured? key
       end
 
       # Parses a `"px=10,pt=7.5,cm=none"` map and merges onto `divisors`: a

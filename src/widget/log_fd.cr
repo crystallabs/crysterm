@@ -97,28 +97,13 @@ module Crysterm
         start if window?
       end
 
-      # Splits *carry* + *chunk* on the newline byte into complete lines, stripping
-      # a trailing `\r` (CRLF streams), and returns the extracted lines plus the
-      # leftover partial line to carry into the next call. Pure and side-effect free.
+      # Splits *carry* + *chunk* on the newline byte into complete lines,
+      # stripping a trailing `\r` (CRLF streams), and returns the extracted
+      # lines plus the leftover partial line to carry into the next call. The
+      # generic implementation lives in the crystallabs-helpers shard; kept as
+      # a named entry point because it is this widget's documented API.
       def self.extract_lines(carry : Bytes, chunk : Bytes) : {Array(String), Bytes}
-        buf = Bytes.new(carry.size + chunk.size)
-        carry.copy_to(buf) unless carry.empty?
-        chunk.copy_to(buf[carry.size, chunk.size]) unless chunk.empty?
-
-        lines = [] of String
-        start = 0
-        buf.each_with_index do |b, i|
-          next unless b == 0x0A_u8 # '\n'
-          stop = i
-          stop -= 1 if stop > start && buf[stop - 1] == 0x0D_u8 # trailing '\r'
-          lines << String.new(buf[start, stop - start])
-          start = i + 1
-        end
-
-        rem = buf.size - start
-        new_carry = Bytes.new(rem)
-        buf[start, rem].copy_to(new_carry) if rem > 0
-        {lines, new_carry}
+        Crystallabs::Helpers::Streams.extract_lines carry, chunk
       end
 
       # Feed a raw chunk (bytes or string) into the plane: split into complete

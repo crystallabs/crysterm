@@ -350,7 +350,7 @@ module Crysterm
         if alert_color
           marker_attr = Attr.pack(Attr.flags(marker_attr) | Attr::BOLD, Attr.fg(marker_attr), Attr.bg(marker_attr))
         end
-        gap_attr = full_fmt ? merge_format_attr(pack_char_attr(nil, base_attr, block_bg, false), full_fmt) : pack_char_attr(nil, base_attr, block_bg, false)
+        gap_attr = full_fmt ? full_fmt.merge_onto(pack_char_attr(nil, base_attr, block_bg, false)) : pack_char_attr(nil, base_attr, block_bg, false)
         fill_gaps = block_bg || full_fmt
         # Columns left of the screen (negative `xi + vc`) must be skipped, not
         # wrapped to the row's right end (see `#paint_document`'s `min_col`).
@@ -468,7 +468,7 @@ module Crysterm
       private def deco_attr(color : Int32, base_attr : Int64, block_bg : Int32?, full_fmt : TextCharFormat?) : Int64
         bg = (b = block_bg) ? Attr.pack_color(b) : Attr.bg(base_attr)
         a = Attr.pack(Attr.flags(base_attr), Attr.pack_color(color), bg)
-        full_fmt ? merge_format_attr(a, full_fmt) : a
+        full_fmt ? full_fmt.merge_onto(a) : a
       end
 
       # Yields the row's paint units: `{lead char, cluster string or nil,
@@ -539,8 +539,8 @@ module Crysterm
       end
 
       # The packed attr of one char: widget base attr + block background/
-      # heading + the char format's SGR set. `dim` has no packed flag in the
-      # cell model and is not rendered; anchors render underlined and carry
+      # heading + the char format's SGR set (via
+      # `TextCharFormat#apply_to_attr`). Anchors render underlined and carry
       # their target as a cell hyperlink (`run_link` above), which the draw
       # loop wraps in OSC 8 on supporting terminals — click *activation*
       # inside the TUI stays `TextBrowser` behavior.
@@ -549,21 +549,8 @@ module Crysterm
         fg = Attr.fg(base_attr)
         bg = (bbg = block_bg) ? Attr.pack_color(bbg) : Attr.bg(base_attr)
         flags |= Attr::BOLD if heading
-        if fmt
-          flags |= Attr::BOLD if fmt.bold?
-          flags |= Attr::ITALIC if fmt.italic?
-          flags |= Attr::UNDERLINE if fmt.underline? || fmt.anchor?
-          flags |= Attr::STRIKE if fmt.strike?
-          flags |= Attr::REVERSE if fmt.inverse?
-          flags |= Attr::BLINK if fmt.blink?
-          if c = fmt.fg
-            fg = Attr.pack_color(c)
-          end
-          if c = fmt.bg
-            bg = Attr.pack_color(c)
-          end
-        end
-        Attr.pack(flags, fg, bg)
+        attr = Attr.pack(flags, fg, bg)
+        fmt ? fmt.apply_to_attr(attr) : attr
       end
 
       # *attr* with this cell's overlays applied: extra selections (format
@@ -571,32 +558,12 @@ module Crysterm
       # (reverse video, same as the base render's `highlighted_attr`).
       private def overlay_attr(attr : Int64, col : Int32, sel_cols : Range(Int32, Int32)?, row_xsels : Array(Tuple(Range(Int32, Int32), TextCharFormat))?, full_fmt : TextCharFormat?) : Int64
         if f = full_fmt
-          attr = merge_format_attr(attr, f)
+          attr = f.merge_onto(attr)
         end
         row_xsels.try &.each do |(cols, f)|
-          attr = merge_format_attr(attr, f) if cols.includes?(col)
+          attr = f.merge_onto(attr) if cols.includes?(col)
         end
         highlighted_attr(attr, sel_cols, col)
-      end
-
-      # Applies a `TextCharFormat` as a patch over a packed attr (Qt merge
-      # semantics: only attributes the format's mask specifies change; colors
-      # apply when set).
-      private def merge_format_attr(attr : Int64, fmt : TextCharFormat) : Int64
-        flags = Attr.flags(attr)
-        mask = fmt.attr_mask
-        {% for a, flag in {bold: "BOLD", italic: "ITALIC", underline: "UNDERLINE", strike: "STRIKE", inverse: "REVERSE", blink: "BLINK"} %}
-          if mask.{{ a.id }}?
-            if fmt.{{ a.id }}?
-              flags |= Attr::{{ flag.id }}
-            else
-              flags &= ~Attr::{{ flag.id }}.to_i64
-            end
-          end
-        {% end %}
-        fg = (c = fmt.fg) ? Attr.pack_color(c) : Attr.fg(attr)
-        bg = (c = fmt.bg) ? Attr.pack_color(c) : Attr.bg(attr)
-        Attr.pack(flags, fg, bg)
       end
     end
   end

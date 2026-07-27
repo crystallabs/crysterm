@@ -190,10 +190,10 @@ Benchmark.ips do |x|
   # OLD allocation source: the split that NEW removes (rest of sgr_to_attr is
   # int/Attr math that allocates nothing in either version).
   x.report("OLD  code[2...-1].split(';')") { codes.each { |c| c[2...-1].split(';') } }
-  x.report("NEW  Screen.sgr_to_attr (full)") { codes.each { |c| Crysterm::Screen.sgr_to_attr(c, dfl, dfl) } }
+  x.report("NEW  SGR.to_attr (full)") { codes.each { |c| Crysterm::SGR.to_attr(c, dfl, dfl) } }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { codes.each { |c| c[2...-1].split(';') } }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { codes.each { |c| Crysterm::Screen.sgr_to_attr(c, dfl, dfl) } }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { codes.each { |c| Crysterm::SGR.to_attr(c, dfl, dfl) } }.round(2)} MB" \
      "  (#{ROUNDS} x #{codes.size} codes)  [NEW does the FULL conversion]"
 
 # ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { stops.keys.map(&.to_i).sort! }.round(2)}
 # ---------------------------------------------------------------------------
 # #11  write_sgr — SGR emission on the draw BCE line-clear (per cleared line,
 #      every frame). OLD built and returned a fresh `String`; NEW writes the
-#      same sequence straight into the line buffer (`Screen.write_sgr`), so
+#      same sequence straight into the line buffer (`SGR.write`), so
 #      clearing N lines no longer produces N throwaway strings.
 section "#11  write_sgr  (BCE line-clear, per cleared line)"
 attr_code = Crysterm::Attr.pack(Crysterm::Attr::BOLD, Crysterm::Attr.pack_color(0xff8800), Crysterm::Attr.pack_color(0x102030))
@@ -242,10 +242,10 @@ old_attr_to_sgr = -> do
 end
 Benchmark.ips do |x|
   x.report("OLD  String.build attr_to_sgr") { old_attr_to_sgr.call }
-  x.report("NEW  write_sgr(io, ...)") { cio.clear; Crysterm::Screen.write_sgr(cio, attr_code, 0x1000000) }
+  x.report("NEW  write_sgr(io, ...)") { cio.clear; Crysterm::SGR.write(cio, attr_code, 0x1000000) }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_attr_to_sgr.call }.round(2)} MB" \
-     "  vs  NEW #{alloc_mb(ROUNDS) { cio.clear; Crysterm::Screen.write_sgr(cio, attr_code, 0x1000000) }.round(2)} MB  (#{ROUNDS} cleared lines)"
+     "  vs  NEW #{alloc_mb(ROUNDS) { cio.clear; Crysterm::SGR.write(cio, attr_code, 0x1000000) }.round(2)} MB  (#{ROUNDS} cleared lines)"
 
 # ---------------------------------------------------------------------------
 # #convert  Colors.convert(String) — color-string parsing in `style_to_attr`, run per

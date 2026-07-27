@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS18 findings #33, #36 — both in `Screen.sgr_to_attr_impl` (src/screen_attributes.cr),
+# BUGS18 findings #33, #36 — both in `SGR.to_attr_impl` (src/sgr.cr),
 # the shared SGR parameter-state-machine used by Widget::Terminal's apply_sgr,
 # widget_rendering.cr, and widget_content.cr alike.
 #
@@ -23,11 +23,11 @@ include Crysterm
 #         resets the very attribute the sequence just set).
 describe "BUGS18 SGR 58/38/48 sub-parameter consumption (#33/#36)" do
   dfl = Crysterm::Window::DEFAULT_ATTR
-  apply = ->(code : String) { Crysterm::Screen.sgr_to_attr(code, dfl, dfl) }
+  apply = ->(code : String) { Crysterm::SGR.to_attr(code, dfl, dfl) }
   # Same as `apply` but starting from an attribute that already has bold set
   # and a distinctive fg/bg, so a stray reset/recolor is observable.
   fixture = Attr.pack(Attr::BOLD, Attr.pack_color(0xFF0000_i64), Attr.pack_color(0x00FF00_i64))
-  apply_on = ->(code : String) { Crysterm::Screen.sgr_to_attr(code, fixture, dfl) }
+  apply_on = ->(code : String) { Crysterm::SGR.to_attr(code, fixture, dfl) }
 
   describe "#33 SGR 58 (underline color)" do
     it "does not reset attributes for the truecolor semicolon form (58;2;r;g;b)" do

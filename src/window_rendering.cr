@@ -1,4 +1,52 @@
 module Crysterm
+  # Rendering and drawing optimization flags.
+  #
+  # Smart CSR: Perform CSR optimization on all elements, not just full-width
+  # ones (uniform cells to their sides). Known to cause flickering with
+  # non-full-width elements, but more optimal for terminal rendering.
+  #
+  # Fast CSR: Enable CSR on any element within 20 columns of the window edges.
+  # Faster than smart_csr, but may flicker depending on what's on each side.
+  #
+  # BCE: Perform back_color_erase optimizations for terminals that support it.
+  # Also works on terminals that don't, but only on lines with the default
+  # background color.
+  #
+  # DamageTracking: Per-widget damage tracking — **on by default**. Re-composites
+  # only the changed subtrees (clearing their old footprint first) and keeps the
+  # rest of the previous frame's buffer, making a 1-of-N update cost ~O(changed)
+  # instead of O(N). Falls back to a full re-composite for cases it can't track
+  # (multi-plane, nested layers, border docking, out-of-cell-model writes), so
+  # it is always output-equivalent.
+  #
+  # NOTE: damage tracking only observes mutations made through the tracked
+  # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child
+  # add/remove) or `Widget#mark_dirty`/`#request_render`. Mutating a `Style`
+  # object in place (e.g. `widget.style.bg = ...`) is NOT observed; call
+  # `widget.mark_dirty` after such a change, or opt out via
+  # `render.optimization = OptimizationFlag::None`.
+  @[Flags]
+  enum OptimizationFlag
+    FastCSR
+    SmartCSR
+    BCE
+    DamageTracking
+  end
+
+  # Overflow behavior when rendering and drawing elements.
+  enum Overflow
+    Ignore        # Render without changes (part goes out of window and is not visible)
+    Hidden        # Clip children to this widget's rectangle (like CSS `overflow: hidden`), even when not scrollable
+    ShrinkWidget  # Make the Widget smaller to fit
+    SkipWidget    # Do not render that widget
+    StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
+    MoveWidget    # Move widget so it doesn't overflow, if possible (e.g. auto-completion popups)
+    # `SkipWidget` / `StopRendering` are focus-safe: the flow engine routes both
+    # through `Layout#skip_subtree`, which nils the subtree's `lpos` AND sets
+    # `layout_suppressed`, so the focus walk (`Window#focusable_here?`) and mouse
+    # hit-testing (both of which need a live `lpos`) exclude the unrendered widgets.
+  end
+
   class Window
     # Things related to rendering (setting up memory state for display)
 
@@ -142,31 +190,9 @@ module Crysterm
     end
 
     # Fixed-size ring buffer yielding the running average of the last
-    # `capacity` values pushed into it.
-    #
-    # Wraps a deque rather than subclassing `Deque(Int32)`: subclassing a stdlib
-    # generic is deprecated and promotes every `Deque(Int32)` in the program
-    # (including unrelated shards) to the virtual type `Deque(Int32)+`, causing
-    # confusing compile errors elsewhere.
-    class Average
-      def initialize(@capacity : Int32)
-        @deque = Deque(Int32).new @capacity
-        # Running sum, kept in sync on every push/shift so `avg` is O(1)
-        # instead of re-summing each call. `Int64` because pushed values can be
-        # as large as `Int32::MAX`, and `capacity` of them would overflow an
-        # `Int32` sum.
-        @sum = 0_i64
-      end
-
-      def avg(value : Int32) : Int64
-        if @deque.size == @capacity
-          @sum -= @deque.shift
-        end
-        @deque.push value
-        @sum += value
-        @sum // @deque.size
-      end
-    end
+    # `capacity` values pushed into it. The generic implementation lives in
+    # the crystallabs-helpers shard.
+    alias Average = Crystallabs::Helpers::RunningAverage
 
     # ---- Per-frame performance measurements --------------------------------
     #

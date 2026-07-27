@@ -1,100 +1,4 @@
 module Crysterm
-  # Text counterpart to `Capture`: serializes a region of the rendered cell
-  # buffer into a deterministic, human-readable, diffable form — the exact
-  # glyphs plus a run-length summary of non-default cell attributes.
-  #
-  # Enables golden testing without a comparison engine: commit a `.dump` next
-  # to the example's `.png`/`.apng` and later changes show up as a localized
-  # diff. The cell buffer is fully deterministic, so identical behavior
-  # reproduces byte-for-byte identical text.
-  module Dump
-    # Serializes cells in the region `[xi,xl) x [yi,yl)` of *window*'s composited
-    # buffer. Two sections:
-    #
-    #   * **text** — one line per row, each wrapped in `|...|` so trailing spaces
-    #     and width changes are visible in a diff. Wide (2-column) graphemes emit
-    #     their cluster once; their continuation cell is skipped.
-    #   * **attrs** — for each row that has any non-default cell, a run-length
-    #     list `col0-colN:fg/bg+flags` (columns relative to `xi`). Rows that are
-    #     entirely the window default attribute are omitted, so a plain
-    #     monochrome widget has an empty attrs section.
-    def self.text(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
-      w = xl - xi
-      h = yl - yi
-      String.build do |io|
-        io << "w=" << w << " h=" << h << '\n'
-        io << '+' << ("-" * w) << "+\n"
-
-        rows = Array(String::Builder).new(h) { String::Builder.new }
-        window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
-          g = cell.grapheme
-          # The artificial cursor lives only in the flushed output stream, so
-          # overlay its glyph here or a dump would silently omit it.
-          if (ov = window.capture_cursor_overlay(rx + xi, ry + yi)) && (och = ov[1])
-            g = och.to_s
-          end
-          rows[ry] << (g.empty? ? " " : g)
-        end
-        rows.each { |rb| io << '|' << rb.to_s << "|\n" }
-        io << '+' << ("-" * w) << "+\n"
-
-        dfl = window.default_attr
-        attr_lines = String.build do |a|
-          (yi...yl).each do |y|
-            line = window.lines[y]
-            runs = String.build do |r|
-              x = xi
-              while x < xl
-                attr = attr_at(window, line, x, y)
-                start = x
-                x += 1
-                while x < xl && attr_at(window, line, x, y) == attr
-                  x += 1
-                end
-                next if attr == dfl
-                r << ' ' unless r.empty?
-                r << (start - xi) << '-' << (x - 1 - xi) << ':' << attr_s(attr)
-              end
-            end
-            next if runs.empty?
-            a << 'y' << (y - yi) << ": " << runs << '\n'
-          end
-        end
-        unless attr_lines.empty?
-          io << "attrs:\n" << attr_lines
-        end
-      end
-    end
-
-    # Cell attr with the artificial-cursor overlay applied (see
-    # `Window#capture_cursor_overlay`), so the attrs section shows the cursor
-    # cell exactly as the terminal does.
-    private def self.attr_at(window : Window, line, x : Int32, y : Int32) : Int64
-      window.capture_cursor_overlay(x, y).try(&.[0]) || line[x].attr
-    end
-
-    # `fg/bg` plus a `+flag` suffix for each set style flag, e.g. `#c0caf5/def+b`.
-    def self.attr_s(attr : Int64) : String
-      String.build do |io|
-        io << color_s(Attr.fg(attr)) << '/' << color_s(Attr.bg(attr))
-        flags = Attr.flags(attr)
-        io << "+b" if flags & Attr::BOLD != 0
-        io << "+u" if flags & Attr::UNDERLINE != 0
-        io << "+k" if flags & Attr::BLINK != 0
-        io << "+r" if flags & Attr::REVERSE != 0
-        io << "+x" if flags & Attr::INVISIBLE != 0
-        io << "+i" if flags & Attr::ITALIC != 0
-        io << "+s" if flags & Attr::STRIKE != 0
-      end
-    end
-
-    # `def` for the terminal default, else `#rrggbb`.
-    private def self.color_s(field : Int64) : String
-      c = Attr.unpack_color(field)
-      c < 0 ? "def" : ("#%06x" % c)
-    end
-  end
-
   class Window
     # Normalizes a capture/dump region to the screen: floors the origin at 0,
     # caps the far edge at the screen size, and collapses an inverted region
@@ -194,24 +98,6 @@ module Crysterm
       end
     end
 
-    # Records the region for *duration*, sampling the current cell buffer on a
-    # fixed `1/fps` wall-clock grid, piping raw RGBA to ffmpeg.
-    private def capture_animation(xi, xl, yi, yl, fmt, path, duration, fps, loops,
-                                  font, bold_font, default_fg, default_bg, ffmpeg_args) : Bytes?
-      # This render is not just a measurement: it is handed to
-      # `#feed_animation_frames` as frame 0, which would otherwise render the
-      # identical region a second time immediately afterwards (a full
-      # `ph × pw` RGBA canvas plus a glyph blit per cell, twice back-to-back).
-      first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
-      vw = first[0]?.try(&.size) || 0
-      vh = first.size
-
-      run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args) do |input|
-        feed_animation_frames(input, xi, xl, yi, yl, duration, fps,
-          font, bold_font, default_fg, default_bg, first)
-      end
-    end
-
     # :nodoc:
     # Feeds an animation's raw RGBA frames to *input*: one frame immediately,
     # then one per `1/fps` tick of a `FrameClock` until *duration* elapses, so
@@ -253,51 +139,6 @@ module Crysterm
       clock.start
       sleep duration
       clock.stop
-    end
-
-    # Spawns ffmpeg for the given output, yields its stdin for frame writing, then
-    # finalizes: closes stdin, collects stdout bytes (when no *path*), and reaps
-    # the process. Returns the encoded bytes (no path) or nil (wrote to path).
-    private def run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args, &) : Bytes?
-      raise "Crysterm capture: empty frame (#{vw}x#{vh})" if vw <= 0 || vh <= 0
-      args = Capture.ffmpeg_args(vw, vh, fps, fmt, path, loops, ffmpeg_args)
-      devnull = File.open(File::NULL, "w")
-      proc =
-        begin
-          Process.new("ffmpeg", args,
-            input: Process::Redirect::Pipe,
-            output: path ? devnull : Process::Redirect::Pipe,
-            error: devnull)
-        rescue ex
-          devnull.close
-          raise "Crysterm capture: ffmpeg required for format #{fmt.inspect} (#{ex.message})"
-        end
-
-      # Drain stdout concurrently (when capturing bytes) so a full pipe can't
-      # deadlock against our frame writes.
-      out_ch = nil
-      if path.nil?
-        out_ch = Channel(Bytes).new
-        spawn { out_ch.try &.send(proc.output.getb_to_end) }
-      end
-
-      # Not useless: the only real assignment is inside the `ensure`, and Crystal
-      # requires this initializer for the read after the block to compile
-      # ("read before assignment to local variable 'result'"). Ameba (>= 1.7)
-      # flags it anyway, so the directive is load-bearing, not decoration.
-      result = nil # ameba:disable Lint/UselessAssign
-      begin
-        yield proc.input
-      ensure
-        # Reap the process and close fds even if the frame-writing block raised,
-        # else an exception leaves a zombie ffmpeg and an open `/dev/null` fd.
-        # Closing stdin first sends EOF so ffmpeg exits and the drain completes.
-        proc.input.close rescue nil
-        result = out_ch.try &.receive
-        proc.wait
-        devnull.close
-      end
-      result
     end
 
     # The artificial cursor's contribution to the cell at (*x*, *y*), for the

@@ -1,5 +1,5 @@
 require "option_parser"
-require "../../crysterm"
+require "../crysterm"
 
 # `crysterm` CLI — run a terminal GUI defined entirely in HTML + CSS, with
 # behavior supplied by a handler process in any language over the HTTP bridge.
@@ -62,7 +62,7 @@ require "../../crysterm"
       bridge = HTTPBridge.new screen, host: host, port: port, token: token
 
       if watch
-        # File-watching is disabled: `CSS::FileWatcher.watch` is a no-op.
+        # Hot-reload: re-parse and re-apply the layout when the file changes.
         CSS::FileWatcher.watch(lp) { bridge.reload_layout File.read(lp) rescue nil }
       end
 

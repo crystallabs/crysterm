@@ -454,11 +454,12 @@ module Crysterm
       # The child's resolved (`a*`) main / cross size in cells.
       axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32
 
-      # Writes `v` as the child's main / cross size.
-      axis_pair_set set_main_size, set_cross_size, (el.width = v), (el.height = v)
-
-      # Writes `v` as the child's main / cross position.
-      axis_pair_set set_main_pos, set_cross_pos, (el.left = v), (el.top = v), Int32
+      # Writes `v` as the child's cross size (placement itself goes through
+      # `el.set_geometry`, so only the cross-size writer is needed; the main-size
+      # and position twins this used to generate had no callers).
+      private def set_cross_size(el : Widget, v) : Nil
+        orientation.horizontal? ? (el.height = v) : (el.width = v)
+      end
     end
   end
 end

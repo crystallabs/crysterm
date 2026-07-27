@@ -1,5 +1,5 @@
 require "./box"
-require "../widget_graph_scale"
+require "./graph/scale"
 require "../mixin/ranged_value"
 
 module Crysterm

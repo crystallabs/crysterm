@@ -390,7 +390,7 @@ module Crysterm
     # listen loop spawns — the fallback is a synchronous read that would race it.
     # Leaves the CSS default untouched when the terminal reports nothing.
     def detect_cell_geometry : Nil
-      cp = Widget::Media::Graphics.terminal_cell_pixels(self) || query_cell_pixels
+      cp = terminal_cell_pixels || query_cell_pixels
       apply_cell_pixels(cp[0], cp[1]) if cp
     end
 
@@ -420,7 +420,7 @@ module Crysterm
     # input listen loop is active by now, so the escape-sequence fallback would
     # race it and must never run here.
     def refresh_cell_geometry : Nil
-      if cp = Widget::Media::Graphics.terminal_cell_pixels(self)
+      if cp = terminal_cell_pixels
         apply_cell_pixels(cp[0], cp[1])
       end
     end
@@ -473,6 +473,26 @@ module Crysterm
     # device.
     def release_cell_geometry_anchor : Nil
       CSS::Length.measured_source = nil if CSS::Length.measured_source == object_id
+    end
+
+    # The terminal's real cell size in pixels, read from `TIOCGWINSZ`
+    # (`ws_xpixel`/`ws_ypixel` ÷ columns/rows), or `nil` when the terminal
+    # doesn't report pixel dimensions or the output isn't a tty. `struct
+    # winsize`, `ioctl` and `TIOCGWINSZ` are already bound on `LibC` by the
+    # term-window shard — reused here as `LibC::Winsize`.
+    private def terminal_cell_pixels : Tuple(Int32, Int32)?
+      tty = output
+      return unless tty.is_a?(IO::FileDescriptor)
+      ws = LibC::Winsize.new
+      return unless LibC.ioctl(tty.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
+      xp = ws.ws_xpixel.to_i
+      yp = ws.ws_ypixel.to_i
+      c = ws.ws_col.to_i
+      r = ws.ws_row.to_i
+      return unless xp > 0 && yp > 0 && c > 0 && r > 0
+      {xp // c, yp // r}
+    rescue
+      nil
     end
 
     # Cell pixel size `{width, height}` queried from the terminal itself, for

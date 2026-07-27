@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. Pure (depends
-# only on `Attr` and `Screen.sgr_to_attr`), so exercised directly with no `Window`/PTY.
+# only on `Attr` and `SGR.to_attr`), so exercised directly with no `Window`/PTY.
 
 describe Crysterm::TerminalEmulator do
   describe "printing & cursor" do

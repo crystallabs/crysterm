@@ -1,5 +1,5 @@
-require "../../widget_media_base"
-require "../../widget_media_screen_overlay"
+require "./base"
+require "./screen_overlay"
 require "w3m_image_display"
 
 module Crysterm

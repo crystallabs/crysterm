@@ -1,5 +1,5 @@
-require "../widget_terminal_pty"
-require "../widget_terminal_emulator"
+require "../terminal/pty"
+require "../terminal/emulator"
 
 module Crysterm
   class Widget
@@ -346,51 +346,22 @@ module Crysterm
       # Encodes a normalized `Event::Mouse` into an xterm mouse report, in the
       # child's selected encoding. Returns raw bytes: legacy/normal encoding
       # packs values that may exceed 0x7f, which a UTF-8 `String` would corrupt.
+      # The wire encoder itself is `Tput::Mouse.encode` — the generation-side
+      # twin of tput's report parsers, kept with them so the two directions of
+      # one wire format can't drift; this method only maps the emulator's
+      # DECSET-tracked encoding onto tput's and reuses the scratch buffer.
       private def encode_mouse(em : TerminalEmulator, e : ::Crysterm::Event::Mouse, col : Int32, row : Int32) : Bytes
-        sgr = em.mouse_encoding.sgr?
-        cb = mouse_cb e, sgr
-        x1 = col + 1
-        y1 = row + 1
-        released = e.action.up?
-
+        encoding = case em.mouse_encoding
+                   in .sgr?    then ::Tput::Mouse::Encoding::Sgr
+                   in .urxvt?  then ::Tput::Mouse::Encoding::Urxvt
+                   in .utf8?   then ::Tput::Mouse::Encoding::Utf8
+                   in .normal? then ::Tput::Mouse::Encoding::Normal
+                   end
         io = @mouse_buf
         io.clear
-        case em.mouse_encoding
-        in .sgr?
-          io << "\e[<" << cb << ';' << x1 << ';' << y1 << (released ? 'm' : 'M')
-        in .urxvt?
-          io << "\e[" << (cb + 32) << ';' << x1 << ';' << y1 << 'M'
-        in .normal?, .utf8? # utf8 handled as normal, best-effort
-          io << "\e[M"
-          io.write_byte (cb + 32).clamp(0, 255).to_u8
-          io.write_byte (x1 + 32).clamp(0, 255).to_u8
-          io.write_byte (y1 + 32).clamp(0, 255).to_u8
-        end
+        ::Tput::Mouse.encode(io, encoding, e.action, e.button, col + 1, row + 1,
+          shift: e.shift?, meta: e.meta?, ctrl: e.ctrl?)
         io.to_slice
-      end
-
-      # Reconstructs the xterm "Cb" button byte. In SGR the button is preserved
-      # on release (trailing `m` signals it); legacy encoding uses generic "button 3".
-      private def mouse_cb(e : ::Crysterm::Event::Mouse, sgr : Bool) : Int32
-        bits = case e.button
-               when ::Tput::Mouse::Button::Left   then 0
-               when ::Tput::Mouse::Button::Middle then 1
-               when ::Tput::Mouse::Button::Right  then 2
-               else                                    3
-               end
-
-        cb = case e.action
-             when ::Tput::Mouse::Action::WheelUp   then 64
-             when ::Tput::Mouse::Action::WheelDown then 65
-             when ::Tput::Mouse::Action::Move      then 32 + bits
-             when ::Tput::Mouse::Action::Up        then sgr ? bits : 3
-             else                                       bits # Down
-             end
-
-        cb += 4 if e.shift?
-        cb += 8 if e.meta?
-        cb += 16 if e.ctrl?
-        cb
       end
 
       # Sends input to the child (PTY, or the external handler as a String).

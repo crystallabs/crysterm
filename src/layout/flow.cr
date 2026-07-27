@@ -1,4 +1,4 @@
-require "./layout"
+require "../layout"
 
 module Crysterm
   class Layout

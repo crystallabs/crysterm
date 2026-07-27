@@ -1,4 +1,4 @@
-require "../../widget_media_base"
+require "./base"
 require "json"
 
 module Crysterm
@@ -237,7 +237,7 @@ module Crysterm
       # Fetches *file*'s bytes over the network. Kept as a seam so tests can
       # exercise the temp-file lifecycle without network access.
       protected def fetch_bytes(file : String) : Bytes
-        Widget::Media::Ansi.fetch file
+        Widget::Media.fetch file
       end
 
       # Path of the temp file the most recent URL fetch wrote to, if any.

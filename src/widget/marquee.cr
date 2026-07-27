@@ -1,6 +1,6 @@
 require "./box"
 require "./effect/text_scroll"
-require "../widget_effect_direct"
+require "./effect/animated"
 require "../colors"
 
 module Crysterm

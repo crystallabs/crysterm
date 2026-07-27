@@ -132,7 +132,7 @@ module Crysterm
     ) : self
       code = build_code fg, bg, bold, italic, underline, blink, reverse, strike, invisible
       @sgr_buf.clear
-      Screen.write_sgr @sgr_buf, code, color_count
+      SGR.write @sgr_buf, code, color_count
       @screen.output.write @sgr_buf.to_slice
       self
     end
@@ -271,14 +271,8 @@ module Crysterm
     # Packs *fg*/*bg* + attribute flags into the `Int64` attr word the SGR
     # pipeline consumes. Colors are resolved to native RGB (or the `-1` default).
     private def build_code(fg, bg, bold, italic, underline, blink, reverse, strike, invisible) : Int64
-      flags = 0_i64
-      flags |= Attr::BOLD if bold
-      flags |= Attr::ITALIC if italic
-      flags |= Attr::UNDERLINE if underline
-      flags |= Attr::BLINK if blink
-      flags |= Attr::REVERSE if reverse
-      flags |= Attr::STRIKE if strike
-      flags |= Attr::INVISIBLE if invisible
+      flags = Attr.flags_of(bold: bold, italic: italic, underline: underline, blink: blink,
+        reverse: reverse, strike: strike, invisible: invisible)
       Attr.pack flags, Attr.pack_color(Colors.convert_cached(fg)), Attr.pack_color(Colors.convert_cached(bg))
     end
 
@@ -304,7 +298,7 @@ module Crysterm
     private def emit_styled(code : Int64, & : IO -> Nil) : Nil
       dest = @screen.output
       @sgr_buf.clear
-      Screen.write_sgr @sgr_buf, code, color_count
+      SGR.write @sgr_buf, code, color_count
       styled = @sgr_buf.size > 0
       dest.write @sgr_buf.to_slice if styled
       yield dest

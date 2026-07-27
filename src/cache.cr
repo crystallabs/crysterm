@@ -104,34 +104,19 @@ module Crysterm
       end
     end
 
-    # A size-bounded memoization cache: a `Hash` that evicts entries once it
-    # grows past *capacity*.
-    #
-    # Drop-in for a plain `Hash` used as a memo (`[]`, `[]?`, `[]=`, `has_key?`,
-    # `delete`, `clear`, `fetch`), with two additions:
-    #
-    # * **Eviction.** When adding an entry would exceed *capacity*, the oldest
-    #   entry is dropped (FIFO by default; strict LRU with `lru: true`). A
-    #   *capacity* of `0` or less means unbounded.
-    # * **Memoizing `fetch`.** `fetch(key) { compute }` stores and returns the
-    #   computed value on a miss (and correctly caches a `nil` value, so it works
-    #   for negative caching). This differs from `Hash#fetch`, which does *not*
-    #   store.
-    #
-    # FIFO is the default because it keeps reads as pure `Hash` lookups, with no
-    # reordering. Pass `lru: true` when recency-of-use should decide what survives
-    # (e.g. an image decode cache) and the read cost is affordable.
+    # A size-bounded memoization cache. The generic implementation
+    # (FIFO/LRU eviction, memoizing `fetch` that caches `nil`, `by_identity`
+    # keying) lives in the crystallabs-helpers shard as
+    # `Crystallabs::Helpers::BoundedCache`; this subclass adds only what is
+    # crysterm-specific — the `Cache.stats`/`clear_all` registry integration.
     #
     # Not thread-safe: Crysterm's caches are touched from the single event loop.
-    class Bounded(K, V)
+    class Bounded(K, V) < Crystallabs::Helpers::BoundedCache(K, V)
       include Registered
 
       # A human-readable name (shown by `Cache.stats`); `"(anonymous)"` when
       # constructed without one.
       getter name : String
-
-      # Maximum entries kept; `<= 0` means unbounded.
-      property capacity : Int32
 
       # Creates a cache holding at most *capacity* entries.
       #
@@ -142,108 +127,10 @@ module Crysterm
       # on object identity (`same?`) instead of value equality — for caches
       # memoizing per-object results (e.g. a `Style` instance → its rendered
       # output), mirroring `Hash#compare_by_identity`.
-      def initialize(@capacity : Int32, name : String? = nil, *, register : Bool = false, @lru : Bool = false, by_identity : Bool = false)
-        @store = {} of K => V
-        @store.compare_by_identity if by_identity
+      def initialize(capacity : Int32, name : String? = nil, *, register : Bool = false, lru : Bool = false, by_identity : Bool = false)
+        super(capacity, lru: lru, by_identity: by_identity)
         @name = name || "(anonymous)"
         Cache.register(self) if register
-      end
-
-      # Current number of entries.
-      def size : Int32
-        @store.size
-      end
-
-      # Whether *key* is present (distinguishes a cached `nil` value from absence).
-      def has_key?(key : K) : Bool
-        @store.has_key? key
-      end
-
-      # The value for *key*, or `nil` if absent. In `lru` mode a hit is promoted
-      # to most-recently-used.
-      def []?(key : K) : V?
-        # FIFO has no reorder-on-read, and an absent key and a cached `nil` both
-        # return `nil`, so one `[]?` is observably identical to `has_key?` +
-        # `touch` at half the lookups. LRU must promote on a hit — and so must
-        # tell a cached `nil` from absence — and keeps the two-step path.
-        if @lru
-          return unless @store.has_key? key
-          touch key
-        else
-          @store[key]?
-        end
-      end
-
-      # The value for *key*; raises `KeyError` if absent (like `Hash#[]`).
-      def [](key : K) : V
-        # As in `[]?`: FIFO needs no reorder-on-read, so a single `Hash#fetch`
-        # with a raising block does one lookup where `has_key?` + `touch` does
-        # two — and still tells a cached `nil` from absence. LRU must promote on
-        # a hit and keeps the two-step path.
-        if @lru
-          raise KeyError.new("Missing cache key: #{key.inspect}") unless @store.has_key? key
-          touch key
-        else
-          @store.fetch(key) { raise KeyError.new("Missing cache key: #{key.inspect}") }
-        end
-      end
-
-      # Stores *value* under *key* and returns it, evicting if over capacity.
-      def []=(key : K, value : V) : V
-        @store[key] = value
-        evict!
-        value
-      end
-
-      # Returns the cached value for *key*, or computes it via the block, stores
-      # it, and returns it. The block's result is cached even when `nil`.
-      def fetch(key : K, & : -> V) : V
-        # Same FIFO-vs-LRU split as `[]?`: `Hash#fetch(key, &)` resolves a hit in
-        # one lookup and, unlike `@store[key]?`, still distinguishes a cached
-        # `nil` value from an absent key — which is what makes negative caching
-        # (`compiled_selector`, `Media.decode`) work. LRU promotes on a hit and
-        # so keeps `has_key?` + `touch`.
-        if @lru
-          @store.has_key?(key) ? touch(key) : (self[key] = yield)
-        else
-          @store.fetch(key) { self[key] = yield }
-        end
-      end
-
-      # Removes *key*, returning its value or `nil`.
-      def delete(key : K) : V?
-        @store.delete key
-      end
-
-      # Empties the cache.
-      def clear : Nil
-        @store.clear
-      end
-
-      # Yields each `{key, value}` pair (insertion order).
-      def each(& : Tuple(K, V) -> _) : Nil
-        @store.each { |k, v| yield({k, v}) }
-      end
-
-      # Reads *key*'s value, promoting it in `lru` mode. Caller guarantees the
-      # key is present.
-      private def touch(key : K) : V
-        value = @store[key]
-        if @lru
-          @store.delete key
-          @store[key] = value
-        end
-        value
-      end
-
-      # Drops oldest entries until within capacity.
-      private def evict! : Nil
-        return unless @capacity > 0
-        while @store.size > @capacity
-          oldest = @store.first_key?
-          break if oldest.nil?
-          @store.delete oldest
-        end
       end
     end
   end

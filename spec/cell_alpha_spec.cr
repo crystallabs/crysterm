@@ -45,8 +45,8 @@ describe "SGR conversion ignores alpha modes" do
     with_alpha = Attr.with_fg_alpha(a, Attr::Alpha::Blend)
     plain = IO::Memory.new
     alpha = IO::Memory.new
-    Crysterm::Screen.write_sgr(plain, a, 0x1000000)
-    Crysterm::Screen.write_sgr(alpha, with_alpha, 0x1000000)
+    Crysterm::SGR.write(plain, a, 0x1000000)
+    Crysterm::SGR.write(alpha, with_alpha, 0x1000000)
     alpha.to_s.should eq plain.to_s
   end
 end

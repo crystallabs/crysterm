@@ -1,55 +1,11 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-    # Finds a file with name 'target' inside toplevel directory 'start'.
-    # XXX Possibly replace with github: mlobl/finder
-    #
-    # Class method only — this is a generic filesystem lookup, not per-instance
-    # state, so it needn't pollute every `Helpers`-including instance's surface.
-    def self.find_file(start : String, target : String) : String?
-      return if %w[/dev /sys /proc /net].includes?(start)
-
-      files = begin
-        # https://github.com/crystal-lang/crystal/issues/4807
-        Dir.children start
-      rescue Exception
-        [] of String
-      end
-
-      files.each do |file|
-        full = File.join start, file
-
-        return full if file == target
-
-        stat = begin
-          File.info full, follow_symlinks: false
-        rescue Exception
-          nil
-        end
-
-        # `stat` is `File::Info?` — the `rescue` above yields `nil` for a dangling
-        # symlink, a races-away entry, or EACCES — so it must be guarded before
-        # `directory?`/`symlink?`.
-        if stat && stat.directory? && !stat.symlink?
-          found = find_file full, target
-          return found if found
-        end
-      end
-
-      nil
-    end
+    # (Generic filesystem search moved to the crystallabs-helpers shard:
+    # `Crystallabs::Helpers::Files.find_file`.)
 
     # NOTE The content-related functions below belong here rather than on Widget:
     # they are generic functions, not instance methods.
-
-    # Replaces any >U+FFFF (astral-plane) characters in the text with "??".
-    #
-    # Class method only, like `.find_file` — a generic string transform, not
-    # per-instance state. Typed non-nilable: a nilable caller must `.try` it.
-    def self.replace_astral(text : String) : String
-      return "" if text.size == 0
-      text.gsub(::Crysterm::Unicode::AllRegex, "??")
-    end
 
     # Escapes text for tag-enabled elements where one does not want the tags enclosed in {...} to be treated specially, but literally.
     #

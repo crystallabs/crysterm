@@ -1,9 +1,5 @@
-require "./widget_media_base"
-require "./widget_media_screen_overlay"
-
-# `struct winsize` (`ws_xpixel`/`ws_ypixel` from `TIOCGWINSZ`, giving the real
-# cell pixel size), `ioctl` and `TIOCGWINSZ` are already bound on `LibC` by the
-# term-window shard — reused here as `LibC::Winsize`.
+require "./base"
+require "./screen_overlay"
 
 module Crysterm
   class Widget
@@ -194,25 +190,6 @@ module Crysterm
         register_overlay_listeners s
       end
 
-      # The terminal's real cell size in pixels, read from `TIOCGWINSZ`
-      # (`ws_xpixel`/`ws_ypixel` ÷ columns/rows), or `nil` when the terminal
-      # doesn't report pixel dimensions or the output isn't a tty.
-      def self.terminal_cell_pixels(window : ::Crysterm::Screen?) : Tuple(Int32, Int32)?
-        s = window || return
-        tty = s.output
-        return unless tty.is_a?(IO::FileDescriptor)
-        ws = LibC::Winsize.new
-        return unless LibC.ioctl(tty.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
-        xp = ws.ws_xpixel.to_i
-        yp = ws.ws_ypixel.to_i
-        c = ws.ws_col.to_i
-        r = ws.ws_row.to_i
-        return unless xp > 0 && yp > 0 && c > 0 && r > 0
-        {xp // c, yp // r}
-      rescue
-        nil
-      end
-
       # Pixel resolution to decode and draw the image at, for a *cols* × *rows*
       # cell box. Subclasses may clamp to a device-specific maximum.
       abstract def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
@@ -286,7 +263,7 @@ module Crysterm
         file = @file || return
         @raw =
           if file =~ /^https?:/
-            Widget::Media::Ansi.fetch file
+            Widget::Media.fetch file
           else
             File.read(file).to_slice
           end

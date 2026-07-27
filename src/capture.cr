@@ -81,24 +81,11 @@ module Crysterm
       PNGGIF.encode_png render(window, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
     end
 
-    # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the format ffmpeg
-    # ingests as `-f rawvideo -pixel_format rgba` — the per-frame payload for an
-    # `ffmpeg` stdin stream.
+    # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the per-frame
+    # payload for an `ffmpeg` stdin stream. The generic implementation lives in
+    # pnggif (`PNGGIF::Raster.rgba`).
     def self.rgba(bmp : PNGGIF::Bitmap) : Bytes
-      h = bmp.size
-      w = h > 0 ? bmp[0].size : 0
-      buf = Bytes.new(w * h * 4)
-      i = 0
-      bmp.each do |row|
-        row.each do |px|
-          buf[i] = px.r.to_u8!
-          buf[i + 1] = px.g.to_u8!
-          buf[i + 2] = px.b.to_u8!
-          buf[i + 3] = px.a.to_u8!
-          i += 4
-        end
-      end
-      buf
+      PNGGIF::Raster.rgba bmp
     end
 
     # Builds the `ffmpeg` argv that reads rawvideo (rgba, *vw*×*vh*, at *fps*) from
@@ -216,34 +203,10 @@ module Crysterm
     end
 
     # Alpha-blends *bmp* onto *canvas* with its top-left at pixel (*ox*,*oy*),
-    # clipping to the canvas bounds.
+    # clipping to the canvas bounds. The generic implementation lives in pnggif
+    # (`PNGGIF::Raster.composite`).
     private def self.composite(canvas, bmp : PNGGIF::Bitmap, ox : Int32, oy : Int32)
-      ph = canvas.size
-      pw = ph > 0 ? canvas[0].size : 0
-      bmp.size.times do |y|
-        cy = oy + y
-        next if cy < 0 || cy >= ph
-        srow = bmp[y]
-        drow = canvas[cy]
-        srow.size.times do |x|
-          cx = ox + x
-          next if cx < 0 || cx >= pw
-          sp = srow.unsafe_fetch(x)
-          a = sp.a
-          next if a <= 0
-          if a >= 255
-            drow[cx] = PNGGIF::Pixel.new(sp.r, sp.g, sp.b, 255)
-          else
-            dp = drow.unsafe_fetch(cx)
-            ia = 255 - a
-            drow[cx] = PNGGIF::Pixel.new(
-              (sp.r * a + dp.r * ia) // 255,
-              (sp.g * a + dp.g * ia) // 255,
-              (sp.b * a + dp.b * ia) // 255,
-              255)
-          end
-        end
-      end
+      PNGGIF::Raster.composite canvas, bmp, ox, oy
     end
 
     # All terminal-native graphics widgets under *node* (depth-first) that opt in
@@ -265,6 +228,73 @@ module Crysterm
         acc << child if child.is_a?(Widget::Media::Base) && child.capture_pixels?
         collect_graphics child, acc
       end
+    end
+  end
+
+  # The ffmpeg process plumbing behind `Window#capture`, kept beside
+  # `Capture.ffmpeg_args`/`.render`/`.rgba` (the encoder pieces it drives).
+  class Window
+    # Records the region for *duration*, sampling the current cell buffer on a
+    # fixed `1/fps` wall-clock grid, piping raw RGBA to ffmpeg.
+    private def capture_animation(xi, xl, yi, yl, fmt, path, duration, fps, loops,
+                                  font, bold_font, default_fg, default_bg, ffmpeg_args) : Bytes?
+      # This render is not just a measurement: it is handed to
+      # `#feed_animation_frames` as frame 0, which would otherwise render the
+      # identical region a second time immediately afterwards (a full
+      # `ph × pw` RGBA canvas plus a glyph blit per cell, twice back-to-back).
+      first = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+      vw = first[0]?.try(&.size) || 0
+      vh = first.size
+
+      run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args) do |input|
+        feed_animation_frames(input, xi, xl, yi, yl, duration, fps,
+          font, bold_font, default_fg, default_bg, first)
+      end
+    end
+
+    # Spawns ffmpeg for the given output, yields its stdin for frame writing, then
+    # finalizes: closes stdin, collects stdout bytes (when no *path*), and reaps
+    # the process. Returns the encoded bytes (no path) or nil (wrote to path).
+    private def run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args, &) : Bytes?
+      raise "Crysterm capture: empty frame (#{vw}x#{vh})" if vw <= 0 || vh <= 0
+      args = Capture.ffmpeg_args(vw, vh, fps, fmt, path, loops, ffmpeg_args)
+      devnull = File.open(File::NULL, "w")
+      proc =
+        begin
+          Process.new("ffmpeg", args,
+            input: Process::Redirect::Pipe,
+            output: path ? devnull : Process::Redirect::Pipe,
+            error: devnull)
+        rescue ex
+          devnull.close
+          raise "Crysterm capture: ffmpeg required for format #{fmt.inspect} (#{ex.message})"
+        end
+
+      # Drain stdout concurrently (when capturing bytes) so a full pipe can't
+      # deadlock against our frame writes.
+      out_ch = nil
+      if path.nil?
+        out_ch = Channel(Bytes).new
+        spawn { out_ch.try &.send(proc.output.getb_to_end) }
+      end
+
+      # Not useless: the only real assignment is inside the `ensure`, and Crystal
+      # requires this initializer for the read after the block to compile
+      # ("read before assignment to local variable 'result'"). Ameba (>= 1.7)
+      # flags it anyway, so the directive is load-bearing, not decoration.
+      result = nil # ameba:disable Lint/UselessAssign
+      begin
+        yield proc.input
+      ensure
+        # Reap the process and close fds even if the frame-writing block raised,
+        # else an exception leaves a zombie ffmpeg and an open `/dev/null` fd.
+        # Closing stdin first sends EOF so ffmpeg exits and the drain completes.
+        proc.input.close rescue nil
+        result = out_ch.try &.receive
+        proc.wait
+        devnull.close
+      end
+      result
     end
   end
 end

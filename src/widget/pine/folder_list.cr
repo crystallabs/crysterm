@@ -1,4 +1,4 @@
-require "../../widget_pine_selectable_list"
+require "../record_list"
 
 module Crysterm
   class Widget

@@ -153,14 +153,6 @@ module Crysterm
       new left, top, right - left, bottom - top
     end
 
-    # `.from`-named alias of `.of_edges`, matching the `.from` naming this
-    # codebase otherwise uses for edge/tuple constructors (e.g.
-    # `SidedGeometry.from`) — `.of_edges` predates that convention and stays
-    # for compatibility.
-    def self.from_edges(left : Int32, top : Int32, right : Int32, bottom : Int32) : Rectangle
-      of_edges left, top, right, bottom
-    end
-
     # Center cell, rounded down (the exact center of an even-sized side falls
     # between two cells; the lower one is taken).
     def center : Point

@@ -1,6 +1,6 @@
 require "./abstract_item_view"
 require "../mixin/item_view"
-require "../widget_table_layout"
+require "./table_layout"
 
 module Crysterm
   class Widget

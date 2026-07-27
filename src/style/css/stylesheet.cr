@@ -1,208 +1,11 @@
+# The alphabetical `css/**` glob happens to load these before this file, but
+# the dependency is structural (`Rule`/`MediaQuery` appear in this file's type
+# grammar), so pin the order explicitly.
+require "./media_query"
+require "./rule"
+
 module Crysterm
   module CSS
-    # A parsed `@media` condition: a logical **OR** of comma-separated queries,
-    # each a **conjunction** (AND) of feature tests, evaluated against the
-    # terminal's size, color depth and glyph support tier. Only width/height,
-    # `min-colors`/`max-colors` and `glyphs`/`min-glyphs`/`max-glyphs` features
-    # are supported.
-    #
-    # A comma in a media query is an OR of full queries (`@media (max-width: 40),
-    # (min-width: 100)` matches a narrow *or* a wide terminal), so each
-    # comma-separated group is stored and evaluated independently — AND-ing them
-    # all would make such a list unsatisfiable.
-    struct MediaQuery
-      # One entry per comma-separated query: its AND-ed feature conditions paired
-      # with whether that query is satisfiable at all. A non-empty query that
-      # yields no recognizable numeric feature — a media type (`print`), an
-      # unknown or non-integer feature (`(prefers-color-scheme: dark)`,
-      # `(orientation: portrait)`) — is *unmatchable* rather than vacuously true.
-      # Without this, the empty conjunction (`[].all?` is `true`) would apply the
-      # guarded rule at every terminal, inverting the author's intent.
-      getter groups : Array(Tuple(Array(Tuple(String, Int32)), Bool))
-
-      def initialize(@groups)
-      end
-
-      # All feature conditions across every comma-separated group, flattened.
-      def conditions : Array(Tuple(String, Int32))
-        groups.flat_map { |(conds, _)| conds }
-      end
-
-      # Whether the query is satisfiable at all — true when *any* group is
-      # (comma-separated queries are OR-ed).
-      def matchable? : Bool
-        groups.any? { |(_, ok)| ok }
-      end
-
-      # The conjunction of this query with *other*: matches exactly when both
-      # do. Used for nested `@media` (per CSS Conditional Rules the inner query
-      # ANDs with the enclosing one). Each query is an OR of AND-groups, so the
-      # conjunction is the cross-product: every pairing of an outer group with
-      # an inner group concatenates their conditions into one group, satisfiable
-      # only when both sides are (an unmatchable side — `not`, `print`, an
-      # unknown feature — poisons every group it appears in, matching
-      # `A AND false = false`). Identical repeated conditions are dropped.
-      def and(other : MediaQuery) : MediaQuery
-        combined = groups.flat_map do |(conds, ok)|
-          other.groups.map { |(oconds, ook)| {(conds + oconds).uniq, ok && ook} }
-        end
-        MediaQuery.new combined
-      end
-
-      # The numeric media features crysterm understands (cell counts / color
-      # depth / glyph-tier ordinals). Any other `(feature: …)` group marks the
-      # whole query unmatchable.
-      FEATURES = {"min-width", "max-width", "min-height", "max-height", "min-colors", "max-colors",
-                  "glyphs", "min-glyphs", "max-glyphs"}
-
-      # Matches one `(feature: value)` group. Feature names fold to lowercase
-      # (CSS media features are case-insensitive), and a trailing unit
-      # (`px`, `em`, `%`, …) on the integer value is tolerated and ignored:
-      # crysterm features are in cell counts, but authors porting CSS habits
-      # write `(max-width: 40px)`.
-      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)[a-z%]*\s*\)/i
-
-      # Matches any parenthesized group, so an unrecognized feature (one that
-      # `FEATURE_RE` can't parse) can be detected and mark the query unmatchable.
-      GROUP_RE = /\([^()]*\)/
-
-      # Matches a `(glyphs: <tier>)` / `(min-glyphs: …)` / `(max-glyphs: …)`
-      # group whose value is a support-tier keyword. The tier is stored as its
-      # ordinal (ascii 0 < unicode 1 < extended 2), so the conditions ride the
-      # same `{feature, Int32}` tuples as the numeric features; a bare ordinal
-      # via `FEATURE_RE` works too.
-      GLYPHS_FEATURE_RE = /\(\s*((?:min-|max-)?glyphs)\s*:\s*(ascii|unicode|extended)\s*\)/i
-
-      # Parses a condition string such as `(min-width: 80) and (max-width: 120)`,
-      # or a comma-separated OR list like `(max-width: 40), (min-width: 100)`.
-      # Media feature values are integers, so a top-level comma only ever
-      # separates whole queries — never appears inside a `(feature: value)`.
-      def self.parse(condition : String) : MediaQuery
-        groups = condition.split(',').map do |query|
-          conditions = [] of Tuple(String, Int32)
-          matchable = true
-          query.scan(GROUP_RE) do |group|
-            if m = group[0].match(FEATURE_RE)
-              feature = m[1].downcase
-              # `to_i?` (not `to_i`): a value beyond Int32 range would raise
-              # `OverflowError` out of a parse that never raises. It falls
-              # through to the unmatchable path below instead.
-              if FEATURES.includes?(feature) && (value = m[2].to_i?)
-                conditions << {feature, value}
-                next
-              end
-            end
-            # A glyph-tier feature with a keyword value (`(glyphs: ascii)`),
-            # stored as the tier's ordinal.
-            if (m = group[0].match(GLYPHS_FEATURE_RE)) && (tier = Glyphs::Tier.parse?(m[2]))
-              conditions << {m[1].downcase, tier.value.to_i32}
-              next
-            end
-            # A `(...)` group that isn't a known numeric feature (e.g.
-            # `(orientation: portrait)`) makes this query unmatchable.
-            matchable = false
-          end
-          # Scan the text *outside* the `(...)` groups: the media type and
-          # logical keywords. A featureless query must be decided here, not
-          # rejected above — `@media screen`/`@media all` is legitimate and a
-          # terminal satisfies it. `not` inverts the whole query, which crysterm
-          # can't represent, so it is unmatchable rather than applying the
-          # un-negated (inverted) meaning. An unsupported media type
-          # (`print`/`speech`/…) never matches a terminal either.
-          query.gsub(GROUP_RE, ' ').split.each do |word|
-            case word.downcase
-            when "and", "only", "screen", "all"
-              # connector, or a media type a terminal satisfies: no effect
-            else
-              # `not`, or a media type we don't match (`print`/`speech`/…)
-              matchable = false
-            end
-          end
-          {conditions, matchable}
-        end
-        new groups
-      end
-
-      # Whether this query matches a terminal of *width*×*height* cells with
-      # *colors* available at glyph-tier ordinal *glyphs* (defaults to Unicode,
-      # the toolkit default tier) — true when **any** comma-separated group
-      # matches (OR), each group requiring **all** its conditions (AND).
-      # `glyphs:` is an exact tier match; `min-`/`max-` range over the tier
-      # ordering ascii(0) < unicode(1) < extended(2).
-      def matches?(width : Int32, height : Int32, colors : Int32, glyphs : Int32 = 1) : Bool
-        groups.any? do |(conditions, matchable)|
-          next false unless matchable
-          conditions.all? do |(feature, value)|
-            case feature
-            when "min-width"  then width >= value
-            when "max-width"  then width <= value
-            when "min-height" then height >= value
-            when "max-height" then height <= value
-            when "min-colors" then colors >= value
-            when "max-colors" then colors <= value
-            when "glyphs"     then glyphs == value
-            when "min-glyphs" then glyphs >= value
-            when "max-glyphs" then glyphs <= value
-            else                   true
-            end
-          end
-        end
-      end
-    end
-
-    # A single parsed CSS rule: one selector paired with its declaration block.
-    #
-    # A comma-separated selector list in the source becomes one `Rule` per
-    # selector, so each carries its own specificity and (peeled) state.
-    struct Rule
-      # The *structural* selector handed to the `html5` matcher — the source
-      # selector with any state pseudo-class (`:focus`, ...) removed.
-      getter selector : String
-
-      # Normal (non-`!important`) declarations: property => value, property
-      # names lower-cased.
-      getter declarations : Hash(String, String)
-
-      # Declarations flagged `!important`; outrank everything else in the cascade.
-      getter important : Hash(String, String)
-
-      # The widget state this rule applies to, peeled from a trailing
-      # pseudo-class. `nil` means the rule applies in *every* state (a base rule).
-      getter state : WidgetState?
-
-      # CSS specificity as `{ids, classes+attrs+pseudos, types}`, compared
-      # lexicographically; computed from the *original* selector so a
-      # `:focus` rule outranks its base.
-      getter specificity : Tuple(Int32, Int32, Int32)
-
-      # Source order; breaks specificity ties (later wins).
-      getter order : Int32
-
-      # The `@media` condition guarding this rule, or `nil` if unconditional.
-      getter media : MediaQuery?
-
-      # A `:has(...)` relational condition on the subject (already type-expanded),
-      # or `nil`. Matched nodes are kept only if `node.css(has)` is non-empty.
-      # Implemented here since the `html5` selector engine lacks `:has`.
-      getter has : String?
-
-      # `:has(...)` relational conditions borne by an *ancestor* compound (e.g.
-      # `Form:has(.error) Button` — the `:has` is on `Form`, not the subject
-      # `Button`), or `nil`. Each entry is `{qualifier, inner}`: *qualifier* is
-      # the type-expanded selector for the ancestor up to the has-bearing
-      # compound (with `:has(...)` removed), *inner* is the type-expanded
-      # relative selector. A matched subject is kept only if it descends from a
-      # node matching *qualifier* that has an *inner* descendant.
-      getter ancestor_has : Array(Tuple(String, String))?
-
-      # The `@layer` rank this rule belongs to (lower = declared earlier = lower
-      # priority). Unlayered rules use `UNLAYERED`, which outranks every layer.
-      getter layer_rank : Int32
-
-      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil, @layer_rank = UNLAYERED, @ancestor_has = nil)
-      end
-    end
-
     # Layer rank for rules outside any `@layer`. Larger than any real layer rank
     # so unlayered declarations win over layered ones (per the CSS cascade).
     UNLAYERED = 1_000_000
@@ -590,7 +393,7 @@ module Crysterm
           # state pseudo / `:has` are peeled, ancestor state pseudos lowered, and
           # types rewritten to classes — per combined selector.
           spec = Specificity.calculate(selector)
-          prefix, subject = split_subject(selector)
+          prefix, subject = Selectors.split_subject(selector)
           state, subject = peel_state(subject)
           has, subject = peel_has(subject)
           # `:has(...)` borne by an ancestor compound (`Form:has(.error) Button`)
@@ -673,10 +476,10 @@ module Crysterm
         idx = value.index(Case::VAR_CALL)
         return value unless idx
         open = idx + 3 # index of the '('
-        close = matching_paren(value, open)
+        close = Selectors.matching_paren(value, open)
         return value unless close
         inner = value[(open + 1)...close]
-        comma = top_level_comma(inner)
+        comma = Selectors.top_level_comma(inner)
         name = (comma ? inner[0...comma] : inner).strip
         fallback = comma ? inner[(comma + 1)..].strip : nil
         replacement = if defined = variables[name]?
@@ -687,26 +490,6 @@ module Crysterm
                         ""
                       end
         value[0...idx] + replacement + replace_vars(value[(close + 1)..], variables)
-      end
-
-      # Index of the first top-level (paren-depth-0) comma in *value*, or `nil` —
-      # the separator between a `var()`'s name and its fallback, skipping commas
-      # inside a nested function's parens.
-      private def self.top_level_comma(value : String) : Int32?
-        depth = 0
-        i = 0
-        while i < value.size
-          case value[i]
-          when '"', '\''
-            i = Selectors.skip_string(value, i) # a comma inside a quoted string isn't the separator
-            next
-          when '(' then depth += 1
-          when ')' then depth -= 1
-          when ',' then return i if depth == 0
-          end
-          i += 1
-        end
-        nil
       end
 
       # Parses a stylesheet from a `.css` file (its path is used to resolve
@@ -858,32 +641,6 @@ module Crysterm
         char ? Selectors.ident?(char) : false
       end
 
-      # Splits a selector into `{prefix, subject}`, where *subject* is the
-      # rightmost compound (after the last top-level combinator) and *prefix* is
-      # everything up to and including that combinator (so `prefix + subject`
-      # reconstructs the selector). Combinators inside `[...]`/`(...)` are ignored.
-      private def self.split_subject(selector : String) : Tuple(String, String)
-        depth = 0
-        cut = -1
-        i = 0
-        while i < selector.size
-          char = selector[i]
-          if char == '"' || char == '\''
-            i = Selectors.skip_string(selector, i) # a combinator inside a quoted value is not structural
-            next
-          end
-          case char
-          when '[', '(' then depth += 1
-          when ']', ')' then depth -= 1
-          when ' ', '>', '+', '~'
-            cut = i + 1 if depth == 0
-          end
-          i += 1
-        end
-        return {"", selector} if cut < 0
-        {selector[0...cut], selector[cut..].strip}
-      end
-
       # The `:has(...)` inner (relative) selector carried between *open* (the
       # `(`) and *close* (the `)`) in *source*: the trimmed body, anchored at
       # `:scope` when it leads with a combinator (`> .x` / `+ .x` / `~ .x`) so
@@ -902,7 +659,7 @@ module Crysterm
         idx = selector.index(HAS_OPEN)
         return {nil, selector} unless idx
         open = idx + 4 # index of '('
-        close = matching_paren(selector, open)
+        close = Selectors.matching_paren(selector, open)
         return {nil, selector} unless close
 
         inner = has_inner(selector, open, close)
@@ -927,13 +684,13 @@ module Crysterm
         search = 0
         while idx = prefix.index(HAS_OPEN, search)
           open = idx + 4 # index of '('
-          close = matching_paren(prefix, open)
+          close = Selectors.matching_paren(prefix, open)
           break unless close
           inner = has_inner(prefix, open, close)
           # The qualifier matches the ancestor: everything up to the end of the
           # compound bearing this `:has`, with `:has(...)` removed and types
           # lowered as the structural selector is.
-          compound_end = compound_end_index(prefix, close + 1)
+          compound_end = Selectors.compound_end_index(prefix, close + 1)
           qualifier = Selectors.expand_types(lower_state_pseudos(strip_has(prefix[0...compound_end]))).strip
           # Lower state pseudos in the inner too: the engine can't parse
           # `:focus`, but the document carries `.state-*`.
@@ -943,58 +700,17 @@ module Crysterm
         {conditions.empty? ? nil : conditions, strip_has(prefix)}
       end
 
-      # Index of the end of the compound that begins at/contains *from* — the
-      # first top-level combinator (space/`>`/`+`/`~`) at or after *from*, or the
-      # end of *selector*. Combinators inside `[...]`/`(...)` are ignored.
-      private def self.compound_end_index(selector : String, from : Int32) : Int32
-        depth = 0
-        i = from
-        while i < selector.size
-          case selector[i]
-          when '"', '\''
-            i = Selectors.skip_string(selector, i) # a combinator inside a quoted value isn't structural
-            next
-          when '[', '(' then depth += 1
-          when ']', ')' then depth -= 1
-          when ' ', '>', '+', '~'
-            return i if depth == 0
-          end
-          i += 1
-        end
-        selector.size
-      end
-
       # Removes every `:has(...)` span from *selector* (the `html5` engine can't
       # parse `:has`; it's evaluated relationally in the cascade instead).
       private def self.strip_has(selector : String) : String
         result = selector
         while idx = result.index(HAS_OPEN)
           open = idx + 4
-          close = matching_paren(result, open)
+          close = Selectors.matching_paren(result, open)
           break unless close
           result = result[0...idx] + result[(close + 1)..]
         end
         result
-      end
-
-      # Index of the `)` matching the `(` at *open*, honoring nesting; `nil` if
-      # unbalanced.
-      private def self.matching_paren(selector : String, open : Int32) : Int32?
-        depth = 0
-        i = open
-        while i < selector.size
-          case selector[i]
-          when '"', '\''
-            i = Selectors.skip_string(selector, i) # a paren inside a quoted value doesn't nest
-            next
-          when '(' then depth += 1
-          when ')'
-            depth -= 1
-            return i if depth == 0
-          end
-          i += 1
-        end
-        nil
       end
 
       # Lowers state pseudo-classes still present in *selector* (ancestor ones in

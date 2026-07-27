@@ -229,17 +229,13 @@ module Crysterm
     end
 
     # Assigns the child its z-order/render index for this frame. Every child
-    # must consume an index, even one later `#skip`ped, or the ordering drifts.
+    # must consume an index, even one later `#skip_subtree`d, or the ordering
+    # drifts.
     protected def bump_index(el : Widget) : Nil
       if el.window.render_index_cursor != -1
         el.render_index = el.window.render_index_cursor
         el.window.render_index_cursor += 1
       end
-    end
-
-    # Marks `el` as not rendered this frame (clears its last position).
-    protected def skip(el : Widget) : Nil
-      el.lpos = nil
     end
 
     # Marks `el`'s whole subtree as not rendered this frame. The whole subtree,
@@ -453,4 +449,3 @@ end
 # The abstract `Flow` strategy base subclasses `Layout`, so it's required after
 # the base above is defined; its concrete engines (Masonry, UniformGrid, Wrap)
 # live under `src/layout/`.
-require "./layout_flow"

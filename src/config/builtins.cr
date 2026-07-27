@@ -53,10 +53,8 @@ module Crysterm
 end
 
 module Superconf
-  # Parser for a `String?`-valued option: the built-in casts cover `String` but
-  # not the `String | Nil` union, so these options pass this proc explicitly. A
-  # present value is taken verbatim.
-  ENV_STRING = ->(s : String) { s.as(String?) }
+  # (`ENV_STRING`, the parser proc for `String?`-valued options, is provided
+  # by the superconf shard itself now.)
 
   # -- Screen ----------------------------------------------------------------
   option "window.resize_interval", 0.2.seconds,

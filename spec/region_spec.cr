@@ -71,14 +71,14 @@ describe "Window#fill_region / #blend_region" do
   end
 end
 
-# The inline SGR emission in the draw loop relies on `sgr_params_to`'s return
+# The inline SGR emission in the draw loop relies on `SGR.params_to`'s return
 # value to decide whether to back over a trailing ';' before the terminating
 # 'm'. Lock the contract: nothing written (false) for the all-default attr,
 # something written (true) otherwise.
-describe "Screen.sgr_params_to" do
+describe "SGR.params_to" do
   it "writes nothing and returns false for the default attribute" do
     io = IO::Memory.new
-    wrote = Crysterm::Screen.sgr_params_to io, Crysterm::Window::DEFAULT_ATTR, 256
+    wrote = Crysterm::SGR.params_to io, Crysterm::Window::DEFAULT_ATTR, 256
     wrote.should be_false
     io.size.should eq 0
   end
@@ -86,7 +86,7 @@ describe "Screen.sgr_params_to" do
   it "writes ';'-terminated params and returns true when there is styling" do
     io = IO::Memory.new
     code = Attr.pack Attr::BOLD, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT
-    wrote = Crysterm::Screen.sgr_params_to io, code, 256
+    wrote = Crysterm::SGR.params_to io, code, 256
     wrote.should be_true
     io.to_s.should end_with(";")
   end

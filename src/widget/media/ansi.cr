@@ -1,4 +1,4 @@
-require "../../widget_media_cells"
+require "./cells"
 require "term_colors"
 
 module Crysterm
@@ -244,17 +244,6 @@ module Crysterm
         pal[Media.nearest_index(pal, r, g, b)]
       end
 
-      # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
-      def self.fetch(url : String) : Bytes
-        [{"curl", ["-s", "-A", "", url]}, {"wget", ["-U", "", "-O", "-", url]}].each do |cmd, args|
-          io = IO::Memory.new
-          status = Process.run(cmd, args, output: io, error: Process::Redirect::Close)
-          return io.to_slice if status.success?
-        rescue
-          # Try the next downloader.
-        end
-        raise "curl or wget failed."
-      end
     end
 
     # ---- single-colormode ASCII backends -------------------------------

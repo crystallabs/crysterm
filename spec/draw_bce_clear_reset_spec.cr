@@ -8,7 +8,7 @@ include Crysterm
 # When a line is "colored/styled content followed by a default-attribute space
 # tail", the draw loop emits the leading content (leaving the terminal's SGR set
 # to that content's attribute) and then clears the tail with `el`. Setting up
-# the clear used `Screen.write_sgr`, which writes an attribute from a
+# the clear used `SGR.write`, which writes an attribute from a
 # *blank* SGR state and emits nothing for the default attribute — so the
 # transition from the non-default leading attribute to the default clear
 # attribute emitted no bytes, the `el` erased the tail under the stale

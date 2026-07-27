@@ -293,5 +293,115 @@ module Crysterm
     def destroyed? : Bool
       @destroyed
     end
+
+    # Rebuilds this screen on a different terminal type and returns the **new**
+    # screen, carrying every top-level widget across. Crysterm loads terminfo
+    # once per `Screen`, so changing the terminal at runtime (Blessed's
+    # `screen.terminal = '...'`) means a *new* `Screen` with the same widgets.
+    # Constructs a new screen on *term*'s terminfo (copying this screen's
+    # salient options, but not its IO — the new screen opens fresh, since
+    # `#destroy` closes this one's), reparents every widget onto it, destroys
+    # this screen, and returns the new one. Re-`render`/`exec` the returned
+    # screen.
+    #
+    # ```
+    # screen = screen.switch_terminal "vt100"
+    # ```
+    def switch_terminal(term : String) : Window
+      # Stop the old input fiber FIRST: it is parked in a read on the very tty
+      # the replacement opens (fresh default IO — the same STDIN/STDOUT), so it
+      # would win the race for probe reply bytes and dispatch them as garbage
+      # key events. A reader on unowned STDIN can't be joined (it only wakes on
+      # the next bytes), so stopping alone isn't enough — the replacement is
+      # also built unprobed (`probe: false`) and probed below, once the old
+      # window and its claim on the tty are gone.
+      was_listening = @screen.listening?
+      @screen.stop_input
+      # The replacement gets its own copy of the cursor (incl. its `Style`):
+      # `#reparent_onto`'s destroy of THIS window runs `reset_cursor` on its
+      # cursor object during `leave`, which would clobber a shared one back to
+      # a default block. `_set` is cleared so the new window's `enter` applies
+      # the carried shape/blink/color to the NEW terminal.
+      carried_cursor = @cursor.dup
+      carried_cursor.style = @cursor.style.dup
+      carried_cursor._set = false
+      replacement = Window.new(
+        probe: false,
+        terminfo: Unibilium.from_terminal(term),
+        title: @title,
+        # Carry the pin STATE, not the current size as unconditional pins:
+        # passing plain Int32s set `explicit_width/height` on the new device,
+        # so `adopt_terminal_size`/`refresh_size` no-op'd forever and the
+        # replacement window stopped tracking terminal resizes, frozen at the
+        # moment-of-switch size. Only an axis that was pinned stays pinned.
+        width: (@screen.explicit_width? ? width : nil),
+        height: (@screen.explicit_height? ? height : nil),
+        # Surface mode/geometry knobs: without these an inline (`alternate:
+        # false`) window came back as a full-screen alt-buffer window with
+        # default padding and cursor. The new window re-captures its own inline
+        # anchor for `alternate: false` in its initializer.
+        alternate: @alternate, auto_grow: @auto_grow, max_height: @max_height,
+        padding: @padding, cursor: carried_cursor,
+        dock_borders: @dock_borders, dock_contrast: @dock_contrast,
+        always_propagated_keys: @always_propagated_keys, always_propagated_chars: @always_propagated_chars,
+        propagate_keys: @propagate_keys,
+        default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,
+        optimization: @optimization,
+        force_unicode: force_unicode?, full_unicode: @screen.full_unicode?,
+        resize_interval: @resize_interval,
+      )
+      # Carry an explicit runtime glyph-tier pin, like the size pins above:
+      # without it the replacement device re-auto-detects and e.g. an Ascii pin
+      # (accessibility / broken-font workaround) silently reverts to Unicode
+      # chrome. An unpinned tier stays unpinned so detection runs as usual.
+      replacement.glyph_tier = glyph_tier if @screen.glyph_tier_explicit?
+      # The remaining runtime-settable options the constructor can't take; must
+      # run before `start_input` below so its `enable_mouse(focus: send_focus?)`
+      # sees the carried value.
+      copy_runtime_options_onto replacement
+      reparent_onto replacement
+      # The deferred device probe (see `probe: false` above), now that no other
+      # reader contends for the tty. `Screen#probe` refreshes draw_caps itself;
+      # cell geometry (the CSS `px` anchor) and unit'd styles derive from probe
+      # results, so re-run those too. Mirrors the ordering `#screen=` uses:
+      # stop old input → probe → detect_cell_geometry → start_input.
+      replacement.screen.reprobe_and_detect_geometry
+      replacement.restyle
+      replacement.start_input if was_listening
+      replacement
+    end
+
+    # Runtime-settable options the constructor can't take. THE single list —
+    # add new runtime properties here, not as another inline patch (see the
+    # size-pin / inline-knob / glyph-tier comments in `#switch_terminal` for
+    # the history of piecemeal additions). Deliberately excluded: `grab_keys`
+    # (transient grab state managed by the widget grab lifecycle),
+    # `render_row_offset`/`anchor_row` (the replacement re-captures its own
+    # inline anchor by design), and `application` (documented usage re-`exec`s
+    # the returned window, which registers it).
+    private def copy_runtime_options_onto(other : Window) : Nil
+      other.hyperlinks = hyperlinks?
+      other.synchronized_output = synchronized_output?
+      other.send_focus = send_focus?
+      other.frame_interval = frame_interval
+      other.drag_two_click = drag_two_click?
+      other.drag_ghost = drag_ghost?
+      other.overflow = overflow
+      other.default_attr = default_attr
+      other.default_char = default_char
+      other.mouse_cursor_shaping = mouse_cursor_shaping?
+    end
+
+    # Moves every top-level widget from this screen onto *other*, destroys this
+    # screen, and returns *other*. The migration half of `#switch_terminal`;
+    # also usable on its own to move a whole UI between two existing screens.
+    def reparent_onto(other : Window) : Window
+      children.dup.each do |child|
+        remove child
+        other.append child
+      end
+      destroy
+      other
+    end
   end
 end

@@ -1,9 +1,4 @@
 require "./abstract_slider"
-# For `Macros.pinnable_glyph` (O5-27) and `Event::SliderMoved` (A4-62),
-# defined in `slider.cr`: explicit `require` (rather than relying on
-# `./widget/**`'s directory-walk order) guarantees both are parsed before
-# this file uses them.
-require "./slider"
 
 module Crysterm
   class Widget
@@ -370,12 +365,6 @@ module Crysterm
         else
           window.fill_region attr, ch, xi, xl, lo, hi
         end
-      end
-
-      # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*;
-      # single-cell counterpart of `#paint_cross_span`.
-      private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
-        paint_cross_span horizontal, m, m + 1, xi, xl, yi, yl, attr, ch
       end
 
       # Up/Left (and `k`/`h`) step toward the top/start, Down/Right (and `j`/`l`)

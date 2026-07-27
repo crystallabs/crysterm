@@ -505,6 +505,13 @@ module Crysterm
       # bracket-aware). Returns nil — caller falls back to the plain
       # full-document match — when the subject isn't a slot compound, the final
       # combinator is a sibling one, or there is no prefix at all.
+      #
+      # Kin of `Selectors.split_subject`, built on the same shared skip
+      # primitives (`Selectors.skip_string`/`skip_balanced`) — but not
+      # replaceable by it: this scan must also report *which* combinator ends
+      # the prefix (`' '` vs `'>'`, to pick descendant vs child host matching)
+      # and the prefix *without* its trailing combinator run, which
+      # `split_subject`'s `{prefix-incl-combinator, subject}` shape drops.
       private def self.split_slot_selector(selector : String) : Tuple(String, Char, String)?
         n = selector.size
         i = 0

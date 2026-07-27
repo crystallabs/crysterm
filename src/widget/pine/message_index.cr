@@ -1,4 +1,4 @@
-require "../../widget_pine_selectable_list"
+require "../record_list"
 
 module Crysterm
   class Widget
@@ -83,19 +83,11 @@ module Crysterm
             s << "  "
             s << Mutt.truncate(m.from, 20).ljust(20)
             s << " ("
-            s << group_digits(m.size).rjust(7)
+            # Stdlib thousands grouping, e.g. `1234 => "1,234"`.
+            s << m.size.format.rjust(7)
             s << ") "
             s << m.subject
           end
-        end
-
-        # Formats an integer with thousands separators, e.g. `1234 => "1,234"`.
-        private def group_digits(n : Int32) : String
-          s = n.to_s
-          neg = s.starts_with?('-')
-          digits = neg ? s[1..] : s
-          grouped = digits.reverse.gsub(/(\d{3})(?=\d)/, "\\1,").reverse
-          neg ? "-#{grouped}" : grouped
         end
       end
     end

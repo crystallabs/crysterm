@@ -159,24 +159,24 @@ module Crysterm
     # the outgoing color leak through) the reset is still required.
     #
     # The set-spec needs no `to == df` guard: both emitters below already write
-    # nothing for an all-default, flag-less attr (`Screen.write_sgr`'s early
+    # nothing for an all-default, flag-less attr (`SGR.write`'s early
     # return), and `Attr.flags` masks to the 7 style bits, so the alpha-mode
     # bits — which in any case never survive into `@lines` (`Colors.composite`
     # clears them at fold time, and `Plane::CLEAR_ATTR` is the only producer)
     # — cannot make an SGR-empty attr look non-default.
     private def emit_sgr_transition(io : IO::Memory, from : Int64, to : Int64, df : Int64, ncolors : Int32) : Nil
       unless from == df ||
-             ((Attr.flags(from) & ~Attr.flags(to)) == 0 && Screen.has_both_concrete?(to))
+             ((Attr.flags(from) & ~Attr.flags(to)) == 0 && SGR.has_both_concrete?(to))
         io.print "\e[m"
       end
       # Allocation-free SGR emission straight into the frame buffer. A
       # concrete-color attr goes through the bounded byte cache (its bytes are
-      # identical to `write_sgr`'s); flag-only/default attrs synth directly,
+      # identical to `SGR.write`'s); flag-only/default attrs synth directly,
       # cheaper than a cache probe.
-      if Screen.has_concrete_color?(to)
-        io.write Screen.sgr_bytes(to, ncolors)
+      if SGR.has_concrete_color?(to)
+        io.write SGR.bytes(to, ncolors)
       else
-        Screen.write_sgr(io, to, ncolors)
+        SGR.write(io, to, ncolors)
       end
     end
 

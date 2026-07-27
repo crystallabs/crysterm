@@ -1,37 +1,9 @@
 module Crysterm
   module Macros
-    # Defines new_method as an alias of old_method.
-    #
-    # Creates a new method new_method that invokes old_method. Due to current
-    # language limitations this only works when neither named arguments nor
-    # blocks are involved.
-    #
-    # ```
-    # class Person
-    #   getter name
-    #
-    #   def initialize(@name)
-    #   end
-    #
-    #   alias_method full_name, name
-    # end
-    #
-    # person = Person.new "John"
-    # person.name      # => "John"
-    # person.full_name # => "John"
-    # ```
-    macro alias_method(new_method, old_method)
-      def {{ new_method.id }}(*args)
-        {{ old_method.id }}(*args)
-      end
-    end
-
-    # Defines new_method as an alias of last (most recently defined) method.
-    macro alias_previous(*new_methods)
-      {% for new_method in new_methods %}
-        alias_method {{ new_method }}, {{ @type.methods.last.name }}
-      {% end %}
-    end
+    # NOTE: method aliasing is provided by `Crystallabs::Helpers::Alias_Methods`
+    # (included into `Widget` and the mixins that alias) — it copies every
+    # overload's restrictions, so it is safe next to inherited same-name methods.
+    # The unsafe `(*args)` forwarder that used to live here is gone.
 
     # Defines a change-guarded property setter: bail if unchanged, otherwise
     # assign, mark the widget dirty, then emit *event*. The assign happens
@@ -217,11 +189,11 @@ module Crysterm
     #   several glyphs (Mutt's `├─` tee) or of no glyph at all (its blank gap
     #   column). *role* is then omitted.
     #
-    # The `pinnable_glyph` sibling (src/widget/slider.cr, O5-27) covers the
-    # *CSS-slot* family instead: it names the accessor `<name>_char` and resolves a
-    # sub-control's `glyph` property before the registry. Use that one whenever the
-    # glyph has a sub-control to be styled through, this one for plain
-    # registry-backed chrome.
+    # The `pinnable_glyph` sibling (below, O5-27) covers the *CSS-slot* family
+    # instead: it names the accessor `<name>_char` and resolves a sub-control's
+    # `glyph` property before the registry. Use that one whenever the glyph has
+    # a sub-control to be styled through, this one for plain registry-backed
+    # chrome.
     #
     # Like `repaint_property`, document the property with a doc comment above the
     # call. Assumes the including type is a `Widget` (uses `#glyph`).
@@ -236,6 +208,25 @@ module Crysterm
         {% else %}
           glyph(::Crysterm::Glyphs::Role::{{ role.id }}){% if type.stringify == "String" %}.to_s{% end %}
         {% end %}
+      end
+    end
+
+    # Declares a pinnable, CSS-overridable single-char glyph accessor
+    # (O5-27): a `setter <name>_char : Char? = nil` paired with a
+    # `#<name>_char : Char` getter that returns the pinned char when assigned,
+    # else resolves *role* through the CSS *sub* sub-style slot, then the
+    # `Glyphs` registry at the effective tier. Precedent:
+    # `repaint_property`/`reactive_property`. The CSS-slot sibling of
+    # `pinnable_registry_glyph` above — see the comparison there.
+    # Two-slot fallbacks (a glyph resolved from more than one CSS sub-style,
+    # e.g. `ScrollBar#trough_char`'s `::add-page`/`::groove` pair) stay
+    # hand-rolled — this macro covers only the single-slot family.
+    macro pinnable_glyph(name, role, sub)
+      setter {{ name.id }}_char : Char? = nil
+
+      # :ditto:
+      def {{ name.id }}_char : Char
+        @{{ name.id }}_char || glyph(Glyphs::Role::{{ role.id }}, style.raw_sub_style({{ sub }}))
       end
     end
 

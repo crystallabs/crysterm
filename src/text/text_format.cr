@@ -121,6 +121,45 @@ module Crysterm
         @bg == other.bg && @anchor_href == other.anchor_href
     end
 
+    # Applies this format over a packed cell-attr word (`::Crysterm::Attr` —
+    # the enum above shadows that name here) with unconditional *set*
+    # semantics: every true boolean turns its flag on (anchors render
+    # underlined); colors apply when set (`-1` maps to the terminal default).
+    # `dim` has no packed flag in the cell model and `code` is semantic-only;
+    # neither is rendered. The mask is ignored — for mask-aware Qt patch
+    # semantics use `#merge_onto`.
+    def apply_to_attr(attr : Int64) : Int64
+      flags = ::Crysterm::Attr.flags(attr)
+      flags |= ::Crysterm::Attr::BOLD if bold?
+      flags |= ::Crysterm::Attr::ITALIC if italic?
+      flags |= ::Crysterm::Attr::UNDERLINE if underline? || anchor?
+      flags |= ::Crysterm::Attr::STRIKE if strike?
+      flags |= ::Crysterm::Attr::REVERSE if inverse?
+      flags |= ::Crysterm::Attr::BLINK if blink?
+      fg = (c = @fg) ? ::Crysterm::Attr.pack_color(c) : ::Crysterm::Attr.fg(attr)
+      bg = (c = @bg) ? ::Crysterm::Attr.pack_color(c) : ::Crysterm::Attr.bg(attr)
+      ::Crysterm::Attr.pack(flags, fg, bg)
+    end
+
+    # Applies this format as a *patch* over a packed cell-attr word (Qt merge
+    # semantics: only attributes the format's mask specifies change — set or
+    # cleared per their value; colors apply when set).
+    def merge_onto(attr : Int64) : Int64
+      flags = ::Crysterm::Attr.flags(attr)
+      {% for a, flag in {bold: "BOLD", italic: "ITALIC", underline: "UNDERLINE", strike: "STRIKE", inverse: "REVERSE", blink: "BLINK"} %}
+        if attr_mask.{{ a.id }}?
+          if {{ a.id }}?
+            flags |= ::Crysterm::Attr::{{ flag.id }}
+          else
+            flags &= ~::Crysterm::Attr::{{ flag.id }}.to_i64
+          end
+        end
+      {% end %}
+      fg = (c = @fg) ? ::Crysterm::Attr.pack_color(c) : ::Crysterm::Attr.fg(attr)
+      bg = (c = @bg) ? ::Crysterm::Attr.pack_color(c) : ::Crysterm::Attr.bg(attr)
+      ::Crysterm::Attr.pack(flags, fg, bg)
+    end
+
     def_equals_and_hash @attributes, @attr_mask, @fg, @bg, @anchor_href
   end
 

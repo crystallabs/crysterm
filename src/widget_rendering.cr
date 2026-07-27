@@ -480,10 +480,10 @@ module Crysterm
             # directly rather than by regex, which allocates per escape. `ci - 1`
             # is the `\e` just consumed; `ci` should be `[`, then digits/`;`,
             # then `m`.
-            if content[ci]? == '[' && (m = sgr_terminator(content, ci + 1))
+            if content[ci]? == '[' && (m = SGR.terminator(content, ci + 1))
               # `m` is the index of the trailing 'm'. Parse params straight out of
               # `content` (no substring), then advance past the 'm'.
-              attr = scr.sgr_to_attr(content, ci - 1, m, attr, default_attr)
+              attr = SGR.to_attr(content, ci - 1, m, attr, default_attr)
               ci = m + 1
               # Selected items keep the default fg; the rest of the attr changes.
               if keep_selected_fg
@@ -960,45 +960,6 @@ module Crysterm
       end
     end
 
-    # Returns the index of the `m` terminating an SGR sequence whose parameter
-    # run starts at `i` (the first element after `\e[`), or `nil` if the run is
-    # not `[\d;]* m`. Lets callers recognize SGR sequences without allocating a
-    # `Regex::MatchData`/substring per escape.
-    #
-    # *content* is any source with an `#sgr_elem_at` overload: a `StringIndex`
-    # (codepoint indices — `base_render`'s scan) or a `Bytes` view of a line's
-    # UTF-8 (byte indices — `_attr_after`'s scan). SGR is pure ASCII, so within a
-    # valid sequence the two index spaces coincide. Keeping both callers here
-    # keeps `SGR_REGEX`'s `\e\[[\d;]*m` grammar in one place.
-    private def sgr_terminator(content, i : Int32) : Int32?
-      while ch = sgr_elem_at(content, i)
-        if ch == 0x6d_u8 # 'm'
-          return i
-        elsif ch == 0x3b_u8 || (ch >= 0x30_u8 && ch <= 0x39_u8) # ';' or '0'..'9'
-          i += 1
-        else
-          return
-        end
-      end
-      nil
-    end
-
-    # The ASCII byte at *i* of an SGR scan source, or `nil` past its end. A
-    # non-ASCII codepoint maps to a byte that is neither a digit, `;` nor `m`, so
-    # it ends the run exactly as `SGR_REGEX`'s `[\d;]*` would.
-    @[AlwaysInline]
-    private def sgr_elem_at(content : StringIndex, i : Int32) : UInt8?
-      ch = content[i]?
-      return unless ch
-      ch.ascii? ? ch.ord.to_u8 : 0_u8
-    end
-
-    # :ditto: (`Bytes` form — already the byte itself).
-    @[AlwaysInline]
-    private def sgr_elem_at(content : Bytes, i : Int32) : UInt8?
-      content[i]?
-    end
-
     # Paints this widget synchronously into the window's cell buffer. This is
     # the polymorphic paint entry — subclasses override it (keeping the
     # `(with_children = true)` signature, or the call is an overload rather
@@ -1077,24 +1038,21 @@ module Crysterm
     # which all share `border` as the style object) can compute this once and
     # reuse it via `#pack_attr`, instead of paying for the predicate calls
     # again on every combination.
-    def self.style_to_attr_flags(style) : Int32
+    def self.style_to_attr_flags(style) : Int64
       # TODO support style.* being Procs ?
       # `visible` lives on `Style` proper, not the shared SGR mixin: a `Border`
       # passed here (a widget's four sides share it as the style object) has no
       # `visible?` and is always drawn. `responds_to?` resolves at compile time.
-      ((style.responds_to?(:visible?) && !style.visible?) ? Attr::INVISIBLE : 0) |
-        (style.reverse? ? Attr::REVERSE : 0) |
-        (style.blink? ? Attr::BLINK : 0) |
-        (style.underline? ? Attr::UNDERLINE : 0) |
-        (style.italic? ? Attr::ITALIC : 0) |
-        (style.strike? ? Attr::STRIKE : 0) |
-        (style.bold? ? Attr::BOLD : 0)
+      Attr.flags_of(
+        bold: style.bold?, italic: style.italic?, underline: style.underline?,
+        blink: style.blink?, reverse: style.reverse?, strike: style.strike?,
+        invisible: style.responds_to?(:visible?) && !style.visible?)
     end
 
     # Packs a precomputed flag word (see `#style_to_attr_flags`) together with
     # *fg*/*bg* into a full attr, applying the same "both unset falls back to
     # the style's own fg/bg" rule as `#style_to_attr`.
-    def self.pack_attr(flags : Int32, style, fg = nil, bg = nil) : Int64
+    def self.pack_attr(flags : Int64, style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg

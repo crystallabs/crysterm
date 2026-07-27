@@ -93,9 +93,9 @@ module Crysterm
 
     private def apply_sgr : Nil
       # Parse the bare parameter list (`@csi_buf`) directly instead of rebuilding
-      # a framed `"\e[" + @csi_buf + "m"` string for `sgr_to_attr` to re-scan — one
+      # a framed `"\e[" + @csi_buf + "m"` string for the SGR parser to re-scan — one
       # fewer `String` allocation per SGR sequence.
-      @cur_attr = Crysterm::Screen.sgr_params_to_attr(@csi_buf.to_slice, @cur_attr, @default_attr)
+      @cur_attr = Crysterm::SGR.params_to_attr(@csi_buf.to_slice, @cur_attr, @default_attr)
     end
 
     # ───────────────────────── editing primitives ─────────────────────────

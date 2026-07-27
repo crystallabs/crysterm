@@ -1,5 +1,5 @@
-require "./widget/media"
-require "./widget/box"
+require "../media"
+require "../box"
 
 module Crysterm
   class Widget
@@ -704,7 +704,7 @@ module Crysterm
 
     # Common spine of the two *deferred window-listener* lifecycles used by the
     # out-of-cell-buffer image backends: `Media::RenderHook` (below) and
-    # `Media::ScreenOverlay` (widget_media_screen_overlay.cr). Both must survive
+    # `Media::ScreenOverlay` (widget/media/screen_overlay.cr). Both must survive
     # being constructed detached (the standard compose-then-attach pattern) and
     # must migrate their window listeners across a cross-window reparent, and
     # both derived exactly the same four pieces independently:
