@@ -223,13 +223,16 @@ s = Window.new title: "CRYSTERM quicktro", optimization: OptimizationFlag::None
 scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 
 # Live performance overlay — kept as a real widget so it reports the window's
-# genuine per-frame figures. Added last, so it paints on top of the scene.
+# genuine per-frame figures: render/draw/flush rates (R/D/F) plus the actual
+# terminal bandwidth (TX: bytes/s actually written after diffing; Σ: running
+# total). Added last, so it paints on top of the scene.
 Widget::Fps.new \
   parent: s, top: 0, left: 0,
-  format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
+  format: " FPS %s (avg %s)  R/D/F %s/%s/%s  TX %s/s  Σ %s ",
   args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,
          Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw,
-         Widget::Fps::Metric::Flush],
+         Widget::Fps::Metric::Flush, Widget::Fps::Metric::ThroughputActualH,
+         Widget::Fps::Metric::TotalH],
   style: Style.new(fg: "white", bg: "black")
 
 # One master clock advances the frame; the render right after it repaints the

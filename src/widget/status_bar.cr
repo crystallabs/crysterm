@@ -88,11 +88,23 @@ module Crysterm
       end
 
       # Appends a permanent right-aligned section (Qt's `addPermanentWidget`,
-      # specialized to a text label).
-      def add_permanent(text : String) : Nil
+      # specialized to a text label). Returns the section's index, usable with
+      # `#set_permanent` to update it in place.
+      def add_permanent(text : String) : Int32
         @permanent << text
-        @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
-        request_render
+        rebuild_permanent
+        @permanent.size - 1
+      end
+
+      # Replaces the permanent section at *index* (as returned by
+      # `#add_permanent`) with *text* — the idiom for live sections like a
+      # `Ln, Col` readout. A no-op when *index* is out of range or the text is
+      # unchanged.
+      def set_permanent(index : Int32, text : String) : Nil
+        return unless 0 <= index < @permanent.size
+        return if @permanent[index] == text
+        @permanent[index] = text
+        rebuild_permanent
       end
 
       # Removes the first permanent section equal to *text* (Qt's
@@ -101,14 +113,18 @@ module Crysterm
         idx = @permanent.index text
         return unless idx
         @permanent.delete_at idx
-        @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
-        request_render
+        rebuild_permanent
       end
 
       # Removes all permanent sections.
       def clear_permanent : Nil
         @permanent.clear
-        @permanent_text = ""
+        rebuild_permanent
+      end
+
+      # Rebuilds the cached joined render string after any section change.
+      private def rebuild_permanent : Nil
+        @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
         request_render
       end
 

@@ -81,13 +81,15 @@ module Crysterm
       @tmp_path : String? = nil
 
       # `fit`/`animate`/`speed` are accepted so the `Media` factory can forward
-      # them uniformly, but are advisory here: überzug does its own scaling
-      # (`scaler`) and can't animate.
+      # them uniformly (including a shared `animate: <Timer>`, like every other
+      # backend), but are advisory here: überzug does its own scaling
+      # (`scaler`) and can't animate — `#play` routes through `#unsupported`.
       def initialize(@file = nil, @scaler : Scaler = Scaler::ForcedCover,
                      @fit : Media::Fit = Media::Fit::Stretch,
-                     @animate : Bool = false,
+                     animate : Bool | Timer = false,
                      speed : Float64 = 1.0, **box)
         super **box
+        setup_animate animate
         @@counter += 1
         @id = "crysterm_#{@@counter}"
         # Route through the validating setter so speed: 0/NaN/Infinity is clamped

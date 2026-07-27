@@ -279,7 +279,22 @@ module Crysterm
                 # `array.pop()` returns `undefined` and falls through to the tag's
                 # "off" SGR; `pop?` reproduces that.
                 state.pop?
-                outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
+                if state.same?(flag)
+                  # Attribute flags ACCUMULATE (bold+underline are active at
+                  # once), so closing one must emit its OFF code — blessed's
+                  # "restore prior" (re-emit the previous flag's ON code) leaves
+                  # the closed flag set forever, leaking it into the rest of the
+                  # content. The remaining open flags are then re-asserted: a
+                  # no-op for unrelated ones, but it restores a same-flag outer
+                  # nesting (`{bold}a{bold}b{/bold}c`) the OFF code just cleared.
+                  outbuf << window.tput._attr(param, false)
+                  state.each { |p| outbuf << window.tput._attr(p) }
+                else
+                  # Colors REPLACE rather than accumulate, so the previous stack
+                  # entry (or the tag's off/default code on an empty stack) is
+                  # the right restore target.
+                  outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
+                end
               end
               # else: unrecognized closing tag -> dropped
             else

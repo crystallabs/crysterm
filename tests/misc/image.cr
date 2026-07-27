@@ -22,7 +22,7 @@ Widget::Box.new \
   style: Style.new(fg: "cyan")
 MediaAnsi.new \
   parent: s, top: 3, left: 2, width: 34, height: 12,
-  file: "#{__DIR__}/assets/sample.png"
+  file: "#{__DIR__}/../../data/image/matterhorn.png"
 
 Widget::Box.new \
   parent: s, top: 1, left: 42, width: 34, height: 2,
@@ -30,7 +30,7 @@ Widget::Box.new \
   style: Style.new(fg: "magenta")
 MediaAnsi.new \
   parent: s, top: 3, left: 42, width: 34, height: 12,
-  file: "#{__DIR__}/assets/spin.gif"
+  file: "#{__DIR__}/../../data/image/netscape.gif"
 
 # Keep the screen refreshing so the animated GIF advances on the recording.
 s.every(0.08.seconds) { }

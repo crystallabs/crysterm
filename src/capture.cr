@@ -46,10 +46,14 @@ module Crysterm
 
       composite_layers canvas, under, xi, yi, cw, ch
 
-      # Text cells from the rendered buffer.
+      # Text cells from the rendered buffer. The artificial cursor lives only
+      # in the flushed output stream, so overlay its cell here or a capture
+      # would silently omit it.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
+        ov = window.capture_cursor_overlay(rx + xi, ry + yi)
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
-          font, bold_font, default_fg, default_bg, cell.width
+          font, bold_font, default_fg, default_bg, cell.width,
+          attr_override: ov.try(&.[0]), char_override: ov.try(&.[1])
       end
 
       composite_layers canvas, over, xi, yi, cw, ch
@@ -145,8 +149,8 @@ module Crysterm
     # can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
                                font : BitmapFont, bold_font : BitmapFont, default_fg : Int32, default_bg : Int32,
-                               cols : Int32 = 1)
-      code = cell.attr
+                               cols : Int32 = 1, attr_override : Int64? = nil, char_override : Char? = nil)
+      code = attr_override || cell.attr
       flags = Attr.flags(code)
       raw_fg = Attr.unpack_color(Attr.fg(code))
       raw_bg = Attr.unpack_color(Attr.bg(code))
@@ -190,7 +194,7 @@ module Crysterm
       # glyph: a drawn underline/strikethrough would reveal the hidden text's
       # presence and width (e.g. a masked password field).
       if (flags & Attr::INVISIBLE) == 0
-        glyph = ((flags & Attr::BOLD) != 0 ? bold_font : font).glyph(cell.char.to_s)
+        glyph = ((flags & Attr::BOLD) != 0 ? bold_font : font).glyph((char_override || cell.char).to_s)
         gh = Math.min(ch, glyph.size)
         gh.times do |gy|
           grow = glyph[gy]

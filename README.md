@@ -2,6 +2,9 @@ Crysterm is a console/terminal toolkit for Crystal, inspired by
 [Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and
 [Qt](https://doc.qt.io/).
 
+A visual tour of the major features — every animation backed by a runnable
+demo program — is in [FEATURES.md](FEATURES.md).
+
 Advanced features:
 
 ![](tests/misc/truecolor.5s.apng)

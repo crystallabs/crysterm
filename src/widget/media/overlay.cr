@@ -21,15 +21,17 @@ module Crysterm
         @file = nil,
         # w3m can only fill the given rect (aspect lost) or draw at native
         # size; `#fit` maps onto those two — see `#redraw_image`. `Contain`/
-        # `Cover` degrade to a rect fill. `animate:` is accepted so the
-        # `Media` factory can forward it uniformly, but an external helper
-        # can't animate.
+        # `Cover` degrade to a rect fill. `animate:` (including a shared
+        # `Timer`, like every other backend) is accepted so the `Media`
+        # factory can forward it uniformly, but an external helper can't
+        # animate — `#play` routes through `#unsupported`.
         @fit : Media::Fit = Media::Fit::Stretch,
-        @animate : Bool = false,
+        animate : Bool | Timer = false,
         speed : Float64 = 1.0,
         **box,
       )
         super **box
+        setup_animate animate
         # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
         self.speed = speed
 

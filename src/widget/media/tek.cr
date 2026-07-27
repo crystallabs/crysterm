@@ -89,11 +89,16 @@ module Crysterm
         @dither : Media::Dither = Media::Dither::Auto,
         @invert : Bool = false,
         @fit : Media::Fit = Media::Fit::Contain,
-        @animate : Bool = true,
+        # A shared `Timer` is accepted (so the `Media` factory can forward
+        # `animate:` uniformly) but only enables playback: Tek's PAGE-clear
+        # redraw loop is self-paced, so lockstep with other widgets on the
+        # clock is not provided.
+        animate : Bool | Timer = true,
         speed : Float64 = 1.0,
         **box,
       )
         super **box
+        setup_animate animate
         # Route through the validating setter so speed: 0/NaN/Infinity is clamped to 1.0.
         self.speed = speed
 

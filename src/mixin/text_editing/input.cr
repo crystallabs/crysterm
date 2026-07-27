@@ -41,6 +41,15 @@ module Crysterm
           @ev_read_input_on_focus = on(Crysterm::Event::FocusIn) do # |e|
             read_input
           end
+
+          # The widget may be focused *already* — `Window#insert` auto-focuses
+          # the first keyable widget during construction, i.e. before this
+          # handler exists, so that `FocusIn` was emitted into the void and no
+          # later one is coming (re-focusing an already-focused widget is a
+          # no-op). Start the read now, or a first-created input field ignores
+          # all keys until focus leaves and returns. Mirrors `Completer#attach`
+          # (`install_filter widget if widget.focused?`).
+          read_input if focused?
         end
 
         value

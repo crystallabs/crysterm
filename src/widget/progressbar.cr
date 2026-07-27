@@ -242,7 +242,7 @@ module Crysterm
           # Text to overlay: the Qt-style indicator when enabled, otherwise any
           # pre-parsed content (via `#pcontent`).
           if text_visible?
-            draw_overlay_text formatted_text
+            draw_overlay_text xi, xl, yi, yl, formatted_text
           elsif !(pc = pcontent).empty?
             # Overlay on the stable top interior row (`yi`), not `fill_yi` — for a
             # vertical bar that is the moving top edge of the fill, so the label
@@ -252,17 +252,19 @@ module Crysterm
         end
       end
 
-      # Draws `text` centered over the whole inner region, so the indicator stays
-      # readable regardless of fill amount.
-      private def draw_overlay_text(text : String) : Nil
+      # Draws `text` centered over the whole inner region (passed in from
+      # `#render`'s own `with_inner_coords` block), so the indicator stays
+      # readable regardless of fill amount. Takes the coords as arguments
+      # rather than re-entering `with_inner_coords`: that helper re-runs
+      # `base_render`, whose interior repaint would erase the fill drawn just
+      # before the overlay.
+      private def draw_overlay_text(xi : Int32, xl : Int32, yi : Int32, yl : Int32, text : String) : Nil
         return if text.empty?
-        with_inner_coords do |xi, xl, yi, yl|
-          inner_w = xl - xi
-          inner_h = yl - yi
-          return if inner_w <= 0 || inner_h <= 0
-          cy = yi + (inner_h - 1) // 2
-          draw_centered_text cy, xi, xl, text
-        end
+        inner_w = xl - xi
+        inner_h = yl - yi
+        return if inner_w <= 0 || inner_h <= 0
+        cy = yi + (inner_h - 1) // 2
+        draw_centered_text cy, xi, xl, text
       end
 
       def reset

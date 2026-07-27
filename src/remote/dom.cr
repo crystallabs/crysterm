@@ -57,6 +57,9 @@ module Crysterm
       attrs["wrap-content"] = wrap_content? ? "true" : "false"
       c = content
       attrs["content"] = c unless c.empty?
+      # A border label round-trips as an attribute; its backing helper box is a
+      # non-reconstructable chrome child, skipped by `#to_layout_html`.
+      (l = label.try &.presence) && (attrs["label"] = l)
       # Named-action bindings (`onclick="save"`), so they survive a round-trip
       # and the HTTP bridge can re-wire them.
       dom_events.each { |event, action| attrs["on#{event}"] = action }
@@ -81,6 +84,7 @@ module Crysterm
       when "right"        then self.right = dom_coerce_dimension(value)
       when "bottom"       then self.bottom = dom_coerce_dimension(value)
       when "name"         then self.name = value
+      when "label"        then self.label = value
       when "parse-tags"   then self.parse_tags = dom_coerce_bool(value)
       when "wrap-content" then self.wrap_content = dom_coerce_bool(value)
       when "content"      then set_content(value || "")
@@ -157,12 +161,14 @@ module Crysterm
       # *are* the backing item boxes. Emitting those as `<w-box>` children would
       # duplicate the rows on load — once via the attribute, once as re-appended
       # boxes (dead lookalikes with none of the model wiring) — so such a widget
-      # is childless here.
-      if children.empty? || dom_owns_children?
+      # is childless here. A border label's helper box is likewise chrome
+      # (already emitted as the `label` attribute), not a reconstructable child.
+      kids = children.reject(&._is_label?)
+      if kids.empty? || dom_owns_children?
         io << "></" << tag << ">\n"
       else
         io << ">\n"
-        children.each &.to_layout_html(io, indent + 2)
+        kids.each &.to_layout_html(io, indent + 2)
         io << pad << "</" << tag << ">\n"
       end
     end

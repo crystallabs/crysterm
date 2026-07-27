@@ -612,7 +612,15 @@ module Crysterm
       tput.alternate_buffer if @alternate
       tput.enable_keypad
       tput.set_scroll_region(0, aheight - 1) if @alternate
-      hide_cursor
+      # Hide the terminal's own cursor for the setup/first paint (the per-frame
+      # cursor bracket in `#draw` re-shows it when appropriate). This must be
+      # the HARDWARE hide, not `hide_cursor`: the latter dispatches on the
+      # active cursor and, on the artificial branch, records `_hidden = true` —
+      # clobbering a visibility the app (or a focused input's `_read_input`)
+      # already established before `exec`, so an artificial cursor would enter
+      # the first frame invisible. Mirrors `#leave`, which pairs `show_cursor`
+      # with a direct `show_hardware_cursor` for the same reason.
+      hide_hardware_cursor
       if @alternate
         tput.cursor_pos 0, 0
       else

@@ -522,7 +522,9 @@ module Crysterm
         # A scrolling menu reserves a right-edge column for the vertical scroll
         # bar; unaccounted for, the widest row is one column too wide for the
         # drawable area and `#size_rows` wraps it onto a clipped second line.
-        w + ihorizontal + content_margin_x
+        # `@item_pad_x` re-adds the theme's `Menu::item` horizontal padding
+        # stripped from the rows themselves (see `#strip_item_box_model`).
+        w + ihorizontal + content_margin_x + @item_pad_x
       end
 
       # Memoized widest row-text width — the per-row `str_width` scan `#fit_width`
@@ -648,13 +650,45 @@ module Crysterm
       # full width, so text — the `[x] ` prefix, label, right-aligned shortcut/▶ —
       # sits flush against the borders; those columns are realized by row text,
       # not literal padding. Colors (`background`, `:selected`) stay.
+      #
+      # The stripped horizontal padding is not lost: its widest value is
+      # recorded in `@item_pad_x` and re-added by `#fit_width`, so a theme's
+      # `Menu::item { padding: … }` still widens the popup (Qt's roomy menu
+      # look — without it a border-less themed menu collapses to bare text and
+      # reads as transparent against what's underneath). `#size_rows` realizes
+      # the room as the gap between the flush-left label and the right-aligned
+      # shortcut column. Item styles are stable objects between cascades and
+      # this strip zeroes them in place, so the measurement is only trusted
+      # when the cascade has minted fresh styles (identity change on the probe
+      # row); vertical item padding stays collapsed — sub-cell in practice.
       private def strip_item_box_model : Nil
+        probe = @item_boxes.find { |it| !@separator_items.includes? it }
+        fresh = if probe
+                  gen = probe.styles.normal.object_id
+                  changed = gen != @item_pad_for
+                  @item_pad_for = gen
+                  changed
+                else
+                  false
+                end
+        pad = 0
         @item_boxes.each do |it|
           next if @separator_items.includes? it
-          strip_box_model it.styles.normal
+          st = it.styles.normal
+          pad = Math.max pad, st.padding.left + st.padding.right
+          strip_box_model st
           strip_box_model it.styles.selected if it.styles.own_selected?
         end
+        @item_pad_x = pad if fresh
       end
+
+      # Widest horizontal `Menu::item` padding of the current item styles,
+      # reserved back into `#fit_width` (see `#strip_item_box_model`).
+      @item_pad_x = 0
+
+      # Identity of the probe row's style the reserve was measured from; a
+      # cascade re-run (or theme switch) mints new style objects, changing it.
+      @item_pad_for : UInt64 = 0_u64
 
       private def strip_box_model(st : Style) : Nil
         st.padding = Padding.new(0) if st.padding.any?

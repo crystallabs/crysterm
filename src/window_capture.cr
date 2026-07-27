@@ -26,8 +26,13 @@ module Crysterm
         io << '+' << ("-" * w) << "+\n"
 
         rows = Array(String::Builder).new(h) { String::Builder.new }
-        window.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
+        window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
           g = cell.grapheme
+          # The artificial cursor lives only in the flushed output stream, so
+          # overlay its glyph here or a dump would silently omit it.
+          if (ov = window.capture_cursor_overlay(rx + xi, ry + yi)) && (och = ov[1])
+            g = och.to_s
+          end
           rows[ry] << (g.empty? ? " " : g)
         end
         rows.each { |rb| io << '|' << rb.to_s << "|\n" }
@@ -40,10 +45,10 @@ module Crysterm
             runs = String.build do |r|
               x = xi
               while x < xl
-                attr = line[x].attr
+                attr = attr_at(window, line, x, y)
                 start = x
                 x += 1
-                while x < xl && line[x].attr == attr
+                while x < xl && attr_at(window, line, x, y) == attr
                   x += 1
                 end
                 next if attr == dfl
@@ -59,6 +64,13 @@ module Crysterm
           io << "attrs:\n" << attr_lines
         end
       end
+    end
+
+    # Cell attr with the artificial-cursor overlay applied (see
+    # `Window#capture_cursor_overlay`), so the attrs section shows the cursor
+    # cell exactly as the terminal does.
+    private def self.attr_at(window : Window, line, x : Int32, y : Int32) : Int64
+      window.capture_cursor_overlay(x, y).try(&.[0]) || line[x].attr
     end
 
     # `fg/bg` plus a `+flag` suffix for each set style flag, e.g. `#c0caf5/def+b`.
@@ -286,6 +298,24 @@ module Crysterm
         devnull.close
       end
       result
+    end
+
+    # The artificial cursor's contribution to the cell at (*x*, *y*), for the
+    # capture/dump readers. `#draw` composites the artificial cursor into the
+    # terminal byte stream only — never into `#lines`, where it would become
+    # content and corrupt the next diff — so a capture reading the cell buffer
+    # would silently omit it, despite "shows even in captures" being the
+    # artificial cursor's signature ability. Returns the composited
+    # `{attr, char}` (char `nil` = keep the cell's own glyph, as for the
+    # block/underline shapes), or `nil` when no artificial cursor glyph is
+    # currently painted at that position (per the last `#draw`).
+    def capture_cursor_overlay(x : Int32, y : Int32) : {Int64, Char?}?
+      return unless @_acur_y >= 0 && x == @_acur_x && y == @_acur_y
+      c = active_cursor
+      return unless c.artificial? && !c._hidden && c._state != 0
+      attr = lines[y]?.try &.[x]?.try &.attr
+      return unless attr
+      _artificial_cursor_attr c, attr
     end
 
     # Walks the composited buffer over region `[xi,xl) x [yi,yl)`, yielding each

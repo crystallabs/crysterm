@@ -366,6 +366,17 @@ module Crysterm
     # so a widget docking its own line art honors the same contrast policy.
     getter dock_contrast : DockContrast = Config.render_dock_contrast
 
+    # Runtime-settable: the docking pass re-evaluates every stop row each
+    # frame, so a mode change takes effect on the next render. The repaint is
+    # requested here — junction cells whose mode-dependent char/blend changed
+    # sit on rows no widget marked dirty this frame.
+    def dock_contrast=(value : DockContrast) : DockContrast
+      return value if @dock_contrast == value
+      @dock_contrast = value
+      render if @renders > 0
+      value
+    end
+
     # Grid of desired cell contents (the "framebuffer"). Written only through the
     # ivar by the render/alloc path, so the accessor is getter-only.
     getter lines = Array(Row).new
