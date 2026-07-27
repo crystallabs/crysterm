@@ -16,25 +16,11 @@ include Crysterm
 #  #12 ListTable horizontal scroll floor-snapped the reachable column, leaving
 #      the table's right edge permanently unreachable. Fixed with a ceil bump.
 
-private def i15_row(s, y, x0, x1) : String
-  String.build { |io| (x0...x1).each { |x| io << s.lines[y][x].char } }
-end
-
-private def i15_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 30,
-    default_quit_keys: false)
-end
-
 # ── #9 Calendar painted-coord hit-test ──────────────────────────────────────
 
 describe "BUGS15 9: Calendar hit-tests through the painted position, not layout coords" do
   it "selects the day under the painted cell when inside a scrolled container" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 20, scrollable: true
     # Tall spacer so the container has room to scroll past its viewport.
     Widget::Box.new parent: outer, top: 25, left: 0, width: 1, height: 10
@@ -71,7 +57,7 @@ end
 
 describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-span range" do
   it "renders a Slider with minimum Int32::MIN and value 0 without overflowing" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 40, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0
     # `handle_offset` did `(@value - @minimum)` in Int32 -> OverflowError.
@@ -80,7 +66,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
   end
 
   it "renders a Slider's ticks across a full-span range without overflowing" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 40, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0,
       tick_position: Widget::Slider::TickPosition::Both
@@ -89,7 +75,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
   end
 
   it "renders a standalone ScrollBar with minimum Int32::MIN without overflowing" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 12,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0
     # `thumb_offset` did `(slider_position - @minimum)` in Int32 -> OverflowError.
@@ -98,7 +84,7 @@ describe "BUGS15 43: Slider/ScrollBar/Dial render math survives a full Int32-spa
   end
 
   it "renders a Dial with minimum Int32::MIN without overflowing" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     dial = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
       minimum: Int32::MIN, maximum: Int32::MAX, value: 0, text_visible: false
     # `pointer` did `(@value - @minimum)` in Int32 -> OverflowError.
@@ -111,7 +97,7 @@ end
 
 describe "BUGS15 44: Slider paints its track in the content region (padding respected)" do
   it "does not paint the track over the horizontal padding cells" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     # padding: 0 2 (top/bottom 0, left/right 2) — Padding.new(left, top, right, bottom).
     # Set via the constructor style so it survives the per-frame style resolution.
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 24, height: 1,
@@ -143,7 +129,7 @@ end
 
 describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edge" do
   it "scrolls to expose the last column when no column starts exactly at max_left" do
-    s = i15_screen
+    s = headless_screen(80, 30)
     lt = Widget::ListTable.new parent: s, top: 0, left: 0, width: 16, height: 8,
       rows: [["Name", "City"], ["aaaaaaaaaa", "bbbbbbbbbb"]]
     s.repaint
@@ -160,7 +146,7 @@ describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edg
     s.repaint
     lt.child_base_x.should eq 13
     # The right-edge column (data row 1) is now on screen — previously dead.
-    i15_row(s, 1, 0, 12).should contain "bbbbbbbbbb"
+    row_text(s, 1, 0...12).should contain "bbbbbbbbbb"
 
     # And it can scroll back to the origin.
     lt.scroll_by_x -1

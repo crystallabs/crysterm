@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def gb_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def gb_mouse_down(x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(
     Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y))
@@ -22,7 +12,7 @@ end
 # click on the title row toggles the group.
 describe Crysterm::Widget::GroupBox do
   it "disables a child added after the group is unchecked" do
-    s = gb_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true, width: 30, height: 8
     gb.toggle # uncheck first
     gb.checked?.should be_false
@@ -32,7 +22,7 @@ describe Crysterm::Widget::GroupBox do
   end
 
   it "toggles when the title row is clicked, but not when the body is clicked" do
-    s = gb_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
     s.repaint
@@ -48,7 +38,7 @@ describe Crysterm::Widget::GroupBox do
   end
 
   it "restores only the children it disabled when re-checked" do
-    s = gb_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true, width: 30, height: 8
     child = Crysterm::Widget::CheckBox.new parent: gb, top: 0, content: "Wrap"
 
@@ -59,7 +49,7 @@ describe Crysterm::Widget::GroupBox do
   end
 
   it "draws the checkable marker from the Glyphs registry at the effective tier" do
-    s = gb_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
     s.repaint

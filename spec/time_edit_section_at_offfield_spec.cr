@@ -9,16 +9,6 @@ include Crysterm
 # through `(col // 3).clamp` to the last section, wrongly selecting seconds —
 # easily hit since fixed-width controls (`@shrink_to_fit = false`) have trailing
 # space. Fix: bound the right edge to the text width.
-private def te_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def te_down(s, te, col)
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left,
@@ -27,7 +17,7 @@ end
 
 describe "TimeEdit#section_at off-field clicks" do
   it "ignores a click past the text instead of selecting the last section" do
-    s = te_screen
+    s = headless_screen(80, 24)
     # Width 20 leaves trailing space after the 8-column "HH:MM:SS" text.
     te = Crysterm::Widget::TimeEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
       time: Time.utc(2020, 1, 1, 10, 20, 30)

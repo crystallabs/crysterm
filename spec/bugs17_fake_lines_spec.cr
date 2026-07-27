@@ -16,12 +16,6 @@ include Crysterm
 # rebuild via a NORMAL full reparse (`rebuild_content_from_raw`) — `@content`
 # never holds post-parse text, so every later reparse is byte-identical.
 
-private def sized_screen(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Forces the full reparse a resize/attach would run: invalidates the wrap
 # cache's content version so `process_content` re-parses raw `@content`.
 private def force_full_reparse(box)
@@ -31,7 +25,7 @@ end
 
 describe "BUGS17 04: line edits keep raw content authoritative" do
   it "escaped {open}/{close} braces survive insert_line PLUS a later cache-miss reparse" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}"
     w.rendered_content.should eq "brace: {literal}"
 
@@ -50,7 +44,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "{escape}-protected literal tag text survives an edit plus reparse" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "{escape}{bold}{/escape}"
     w.rendered_content.should eq "{bold}"
 
@@ -64,7 +58,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "keeps raw (un-expanded) source in #content after an edit" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}"
     w.insert_line 0, "header"
 
@@ -75,7 +69,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "escaped braces survive delete_line and replace_line edits plus reparse" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\nsecond\nthird"
 
     w.delete_line index: 2
@@ -87,11 +81,11 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "still applies tag styling for genuinely tagged content after an edit" do
-    ref = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    ref = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     ref.set_content "{bold}z{/bold}"
     reference_line = ref.rendered_content
 
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "plain"
     w.insert_line 0, "{bold}z{/bold}"
 
@@ -109,7 +103,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "keeps never-parsed stray braces literal when an edit introduces the first tag" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     # No recognized tag -> `_parse_tags` never ran; the brace renders literally.
     w.set_content "a { b"
     w.rendered_content.should eq "a { b"
@@ -125,7 +119,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "keeps no_tags (set_text) content literal across an edit plus reparse" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5
     w.parse_tags = true
     w.set_text "{bold}a{/bold}\nplain"
 
@@ -140,7 +134,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   # raw-lines redesign — content set while detached is not resurrected by a
   # later fake-splicing edit.
   it "does not resurrect pre-detach content on a detached edit (B18-14)" do
-    s = sized_screen
+    s = headless_screen(40, 10)
     w = Widget::Box.new parent: s, width: 20, height: 5, content: "A\nB"
     s.repaint
 
@@ -157,7 +151,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
   end
 
   it "escaped braces set while detached survive a detached edit and the attach reparse" do
-    s = sized_screen
+    s = headless_screen(40, 10)
     w = Widget::Box.new parent: s, width: 20, height: 5, parse_tags: true
     s.repaint
     s.remove w

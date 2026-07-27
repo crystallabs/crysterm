@@ -55,6 +55,29 @@ module Crysterm
           ramp[(eighths * last / 8.0).round.to_i]
         end
 
+        # Fills `cols` cells of a horizontal bar, starting at slot *at*, with the
+        # sub-cell ramp glyphs for `filled_eighths` (as produced by `#eighths`
+        # over the same `cols`), tagging each non-blank cell with *tag*.
+        #
+        # A blank (`' '`) glyph is written with a `nil` color so coalesced color
+        # runs in `#tagged_row` stay tight — the convention `Gauge` gets for free
+        # by pre-filling its arrays with `' '`/`nil` and skipping blanks. Callers
+        # must therefore pre-size `cells`/`colors` (a `Char`/`String?` slot per
+        # column); writes past `cells.size` are dropped rather than growing the
+        # row, so a mis-sized caller can't widen it into a wrap.
+        def self.fill_ramp(cells : Array(Char), colors : Array(String?), ramp : Array(Char),
+                           filled_eighths : Int32, tag : String?, at : Int32, cols : Int32) : Nil
+          n = cells.size
+          cols.times do |c|
+            x = at + c
+            next if x < 0
+            break if x >= n
+            glyph = ramp_glyph(ramp, filled_eighths, c)
+            cells[x] = glyph
+            colors[x] = (glyph == ' ' ? nil : tag)
+          end
+        end
+
         # Serializes a single row of `cells` into tagged content, wrapping each
         # run of same-colored cells in `{color-fg}…{/}`. A `nil` color emits the
         # characters as-is (default style). Coalescing runs keeps the produced
@@ -75,6 +98,13 @@ module Crysterm
             io << "{/}" if color
             i = j
           end
+        end
+
+        # `#tagged_row` as a `String`, for the callers that build one row at a
+        # time (`Gauge`, `GaugeList`) rather than streaming a whole widget into
+        # one builder.
+        def self.tagged_row(cells : Array(Char), colors : Array(String?)) : String
+          String.build { |io| tagged_row io, cells, colors }
         end
 
         # Centers `text` within a field of `width` cells (truncating if longer),
@@ -184,7 +214,7 @@ module Crysterm
         # by border only), or `nil` when the widget isn't positioned yet.
         private def interior_coords : Tuple(Int32, Int32, Int32, Int32)?
           lp = @lpos || return
-          {lp.xi + ileft, lp.xl - iright, lp.yi + itop, lp.yl - ibottom}
+          content_edges lp
         end
       end
 

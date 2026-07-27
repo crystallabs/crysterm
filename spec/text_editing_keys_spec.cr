@@ -17,36 +17,17 @@ include Crysterm
 # `Mixin::TextEditing#text_clipboard`). Any global Config mutated here is
 # restored in an `ensure` so examples don't leak state.
 
-private def sel_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
-private def mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
-  ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
-end
-
-private def press(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Down, x, y)
-end
-
+# A drag-to-select motion with the (left) button still held. Distinct from
+# `drag_spec.cr`'s `move` helper, which sends `Button::None` (that spec drives
+# the drag-and-drop sensor, which tracks its own armed state instead of
+# reading the reported button).
 private def drag_move(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Move, x, y, ::Tput::Mouse::Button::Left)
-end
-
-# A keystroke as it really arrives: `char` set for printables, `key` set for
-# control sequences (matching how the input layer builds `Event::KeyPress`).
-private def key(char : Char, k : ::Tput::Key? = nil)
-  Crysterm::Event::KeyPress.new char, k
+  mouse_move(s, x, y, ::Tput::Mouse::Button::Left)
 end
 
 # A named control key (no meaningful char).
 private def ctl(k : ::Tput::Key)
-  Crysterm::Event::KeyPress.new '\0', k
+  kp key: k
 end
 
 private def new_lineedit(s, content = "hello world")
@@ -65,14 +46,14 @@ end
 describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
   describe "edit replaces or deletes a selection" do
     it "LineEdit: typing a character over a selection replaces the selected range" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s
       # Select "hello" (indices 0...5) via a press+drag.
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0
       le.selected_text.should eq "hello"
 
-      le._listener key('X')
+      le._listener kp('X')
 
       le.value.should eq "X world"
       le.cursor_pos.should eq 1
@@ -80,13 +61,13 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "PlainTextEdit: typing a character over a selection replaces the selected range" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = new_pte s
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0
       pte.selected_text.should eq "hello"
 
-      pte._listener key('Z')
+      pte._listener kp('Z')
 
       pte.value.should eq "Z world"
       pte.cursor_pos.should eq 1
@@ -94,9 +75,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "LineEdit: Backspace with a selection deletes the whole selection, cursor at its start" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s
-      press s, 6, 0 # cursor + anchor at 6 (start of "world")
+      mouse_down s, 6, 0 # cursor + anchor at 6 (start of "world")
       drag_move s, 11, 0
       le.selected_text.should eq "world"
 
@@ -108,9 +89,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "LineEdit: Delete with a selection deletes the whole selection, cursor at its start" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 6, 0 # select "hello " (0...6)
       le.selected_text.should eq "hello "
 
@@ -122,9 +103,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "PlainTextEdit: Backspace with a selection deletes the whole selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = new_pte s
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0 # select "hello"
       pte._listener ctl(Tput::Key::Backspace)
       pte.value.should eq " world"
@@ -133,7 +114,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "Backspace with NO selection still removes one grapheme before the cursor" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "abc"
       le.cursor_pos.should eq 3 # value= parks at end
       le.selection?.should be_false
@@ -144,7 +125,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "Delete with NO selection still removes one grapheme at the cursor" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "abc"
       le.cursor_pos = 0
       le.selection?.should be_false
@@ -157,7 +138,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
   describe "keyboard selection (Shift+movement)" do
     it "ShiftRight extends the selection one grapheme from the cursor" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 0
 
@@ -168,7 +149,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "the anchor persists across multiple shift-moves (ShiftRight twice = 2 chars)" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 0
 
@@ -181,7 +162,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "ShiftLeft after ShiftRight shrinks the selection back toward the anchor" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 0
 
@@ -195,7 +176,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "ShiftLeft from the anchor reverses direction into a normalized range" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 3
 
@@ -207,7 +188,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "ShiftHome selects from the cursor to the start of the line" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 3
 
@@ -219,7 +200,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "ShiftEnd selects from the cursor to the end of the line" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 2
 
@@ -231,7 +212,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "a plain (non-shift) arrow after a shift-selection clears the selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
       le.cursor_pos = 0
 
@@ -244,7 +225,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "PlainTextEdit: ShiftDown extends the selection across a visual row" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = new_pte s, "line one\nline two"
       pte.cursor_pos = 0
 
@@ -262,7 +243,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
       old = Crysterm::Config.input_readline_keys
       begin
         Crysterm::Config.input_readline_keys = false
-        s = sel_screen
+        s = headless_screen(80, 24, default_quit_keys: true)
         le = new_lineedit s, "hello world"
         le.cursor_pos = 3
 
@@ -277,7 +258,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
     it "moves to line start (no selection) when readline keys are ON (the default)" do
       Crysterm::Config.input_readline_keys.should be_true # sanity: default
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
       le.cursor_pos = 5
 
@@ -289,9 +270,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
   describe "cut / copy / paste (Config.input_clipboard_keys)" do
     it "Ctrl-C copies the selection to the clipboard, leaving value and selection intact" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
-      press s, 6, 0
+      mouse_down s, 6, 0
       drag_move s, 11, 0
       le.selected_text.should eq "world"
 
@@ -303,9 +284,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "Ctrl-X cuts: copies to the clipboard AND deletes the selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 6, 0 # "hello "
       le.selected_text.should eq "hello "
 
@@ -319,7 +300,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
     it "Ctrl-V pastes the clipboard text at the cursor" do
       Crysterm::Application.global.clipboard.text = "XYZ"
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "ab"
       le.cursor_pos = 1 # between 'a' and 'b'
 
@@ -331,9 +312,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
     it "Ctrl-V replaces an active selection with the clipboard text" do
       Crysterm::Application.global.clipboard.text = "QQ"
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0 # select "hello"
       le.selected_text.should eq "hello"
 
@@ -347,12 +328,12 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
   describe "double / triple click (Window#click_count)" do
     it "two DOWN presses at the same cell count as a double-click and select the word" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
 
-      press s, 8, 0 # within "world" (index 8 == 'r')
+      mouse_down s, 8, 0 # within "world" (index 8 == 'r')
       s.click_count.should eq 1
-      press s, 8, 0 # same spot, immediately after -> double
+      mouse_down s, 8, 0 # same spot, immediately after -> double
       s.click_count.should eq 2
 
       le.selected_text.should eq "world"
@@ -360,14 +341,14 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "three DOWN presses at the same cell count as a triple-click and select the whole line" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
 
-      press s, 3, 0
+      mouse_down s, 3, 0
       s.click_count.should eq 1
-      press s, 3, 0
+      mouse_down s, 3, 0
       s.click_count.should eq 2
-      press s, 3, 0
+      mouse_down s, 3, 0
       s.click_count.should eq 3
 
       le.selected_text.should eq "hello world"
@@ -375,12 +356,12 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "presses at DIFFERENT cells each reset the count to 1 (no multi-click)" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello world"
 
-      press s, 2, 0
+      mouse_down s, 2, 0
       s.click_count.should eq 1
-      press s, 8, 0 # different cell -> reset
+      mouse_down s, 8, 0 # different cell -> reset
       s.click_count.should eq 1
 
       # A single click leaves no selection (just cursor positioning).
@@ -389,13 +370,13 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     end
 
     it "PlainTextEdit: triple-click selects only the clicked logical line" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = new_pte s, "line one\nline two"
 
       # Row 1, col 2 -> within "line two".
-      press s, 2, 1
-      press s, 2, 1
-      press s, 2, 1
+      mouse_down s, 2, 1
+      mouse_down s, 2, 1
+      mouse_down s, 2, 1
       s.click_count.should eq 3
 
       pte.selected_text.should eq "line two"
@@ -404,9 +385,9 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
 
   describe "external value= clears an active selection (regression)" do
     it "LineEdit: assigning .value= drops the selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = new_lineedit s, "hello"
-      press s, 1, 0
+      mouse_down s, 1, 0
       drag_move s, 3, 0
       le.selection?.should be_true
 

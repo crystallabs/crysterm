@@ -15,12 +15,6 @@ include Crysterm
 # Headless harness: a `Window` over in-memory IOs, a handler-mode terminal
 # (no PTY), rendering driven synchronously with `repaint`.
 
-private def tio_screen(width = 60, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 private def em_row_text(em, row, len)
   String.build do |io|
     len.times { |x| io << (em.lines[row]?.try(&.[x]?).try(&.char) || ' ') }
@@ -30,7 +24,7 @@ end
 # A focused handler-mode terminal whose child-bound bytes are captured into
 # *got*. Yields {window, terminal}.
 private def tio_terminal(got : Array(String), width = 20, height = 5)
-  s = tio_screen
+  s = headless_screen(60, 24)
   term = Crysterm::Widget::Terminal.new(
     parent: s, top: 0, left: 0, width: width, height: height,
     handler: ->(d : String) { got << d; nil })
@@ -177,7 +171,7 @@ end
 # ── #89: pre-bootstrap writes are buffered, not dropped ──────────────────────
 describe "BUGS15 89: Widget::Terminal#write before the first render" do
   it "replays bytes written before bootstrap into the emulator, in order" do
-    s = tio_screen
+    s = headless_screen(60, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(_d : String) { })
@@ -196,7 +190,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
 
   it "routes solicited replies from replayed bytes to the handler" do
     got = [] of String
-    s = tio_screen
+    s = headless_screen(60, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(d : String) { got << d; nil })
@@ -211,7 +205,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
   end
 
   it "still feeds the emulator directly once bootstrapped" do
-    s = tio_screen
+    s = headless_screen(60, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(_d : String) { })

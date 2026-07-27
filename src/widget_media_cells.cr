@@ -172,7 +172,22 @@ module Crysterm
                                      frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
 
       # Paints the sampled *bmp* into the content cells `xi...xl`×`yi...yl`.
-      protected abstract def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
+      #
+      # *bmp* is always the FULL sample (`@rendered_size` cells worth), never a
+      # crop: when an ancestor clips this widget, `xi...xl`/`yi...yl` is only the
+      # visible slice and *col_off*/*row_off* say how many content **cells** of
+      # the field are hidden past its left/top edge. An implementation therefore
+      # maps a cell at window column *x*, row *y* to field cell
+      # `(x - xi + col_off, y - yi + row_off)` and scales that by its own
+      # sub-grid. Both are 0 when nothing is clipped.
+      #
+      # Keeping the full bitmap (rather than materializing the visible
+      # sub-rectangle) matters beyond the copy itself: the whole-bitmap
+      # derivations the backends memoize in a `FrameMemo` are identity-validated
+      # against the bitmap they were computed for, so a per-frame crop object
+      # would miss the memo on every single frame while clipped.
+      protected abstract def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+                                         col_off : Int32, row_off : Int32)
 
       # Composites *char*/*attr* into *cell*, honouring the cell's aggregate
       # alpha *a*: `<= 0` leaves the cell untouched (fully transparent, e.g. a
@@ -194,10 +209,7 @@ module Crysterm
         coords = base_render with_children
         return unless coords
 
-        xi = coords.xi + ileft
-        xl = coords.xl - iright
-        yi = coords.yi + itop
-        yl = coords.yl - ibottom
+        xi, xl, yi, yl = content_edges coords
 
         # Resize support: (re)sample to the FULL (unclipped) interior box, not
         # the visible slice `xi..xl`/`yi..yl` above. An ancestor clip (a
@@ -206,11 +218,12 @@ module Crysterm
         # whole source into whatever's currently visible (wrong geometry) and
         # thrash `@frame_cache`/`@sample` on every step. Composing at the full
         # size instead keeps the cache stable across scrolling; the visible
-        # sub-rectangle is blitted out of it below, mirroring the
-        # `coords.base` + unclipped-origin convention `Widget::Terminal#draw`
-        # and `Effect::Direct#paint` use. Unclipped, `full_cols/full_rows`
-        # equal the visible `cols/rows` exactly, so unclipped rendering is
-        # byte-for-byte unchanged.
+        # sub-rectangle is addressed *inside* it below via the cell offsets
+        # handed to `#draw_sample`, mirroring the `coords.base` +
+        # unclipped-origin convention `Widget::Terminal#draw` and
+        # `Effect::Direct#paint` use. Unclipped, `full_cols/full_rows` equal the
+        # visible `cols/rows` exactly and both offsets are 0, so unclipped
+        # rendering is byte-for-byte unchanged.
         full_cols = Math.max(0, awidth - ihorizontal)
         full_rows = Math.max(0, aheight - ivertical)
         if (img = source)
@@ -253,50 +266,13 @@ module Crysterm
         return coords unless bmp
         return coords if xl <= xi || yl <= yi
 
-        draw_sample visible_sample(bmp, full_cols, full_rows, xi, xl, yi, yl, coords.base), xi, xl, yi, yl
-        coords
-      end
-
-      # The sub-rectangle of the full-field *bmp* (sized to `@rendered_size`,
-      # in whatever native units the backend composes at — 1 pixel/cell for
-      # `Media::Ansi`, its sub-grid for `Media::Glyph`) that is actually
-      # visible, cropped so `#draw_sample` — indexed relative to the *visible*
-      # `xi`/`yi` it receives — paints the region under the clip window
-      # instead of the field's top-left corner.
-      #
-      # The hidden column/row counts are in CELL units (`col_off` past the
-      # unclipped interior origin, `row_off` = `coords.base`, the scrolled-off
-      # content rows); they're converted to the bitmap's native units by the
-      # ratio between its measured pixel size and `full_cols`/`full_rows` — the
-      # cell size it was composed at — rather than asking the subclass for its
-      # sub-grid, so no backend hook is needed here.
-      #
-      # Returns *bmp* itself, unchanged, when nothing is clipped (by far the
-      # common case), so an unclipped render never pays for a copy.
-      private def visible_sample(bmp : PNGGIF::Bitmap, full_cols : Int32, full_rows : Int32,
-                                 xi : Int32, xl : Int32, yi : Int32, yl : Int32, base : Int32) : PNGGIF::Bitmap
+        # Cell-unit offsets of the visible slice within the full field: columns
+        # hidden past the clip's left edge (measured against the *unclipped*
+        # interior origin, since horizontal clipping has no `base`), and rows
+        # scrolled off the top, which `coords.base` already counts.
         col_off = Math.max(0, xi - (aleft + ileft))
-        row_off = base
-        vis_cols = xl - xi
-        vis_rows = yl - yi
-        return bmp if col_off == 0 && row_off == 0 && vis_cols == full_cols && vis_rows == full_rows
-
-        bw, bh = Media.dims(bmp)
-        sx = full_cols > 0 ? bw // full_cols : 1
-        sy = full_rows > 0 ? bh // full_rows : 1
-        px0 = row_off * sy
-        fx0 = col_off * sx
-        pw = vis_cols * sx
-        ph = vis_rows * sy
-        blank = PNGGIF::Pixel.new(0, 0, 0, 0)
-        Array(Array(PNGGIF::Pixel)).new(ph) do |ry|
-          srow = bmp[px0 + ry]?
-          if srow
-            Array(PNGGIF::Pixel).new(pw) { |rx| srow[fx0 + rx]? || blank }
-          else
-            Array(PNGGIF::Pixel).new(pw, blank)
-          end
-        end
+        draw_sample bmp, xi, xl, yi, yl, col_off, coords.base
+        coords
       end
     end
   end

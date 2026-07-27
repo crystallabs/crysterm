@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def tbm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def wheel(dir : Tput::Mouse::Action, x = 0, y = 0)
   Crysterm::Event::Mouse.new(Tput::Mouse::Event.new(dir, Tput::Mouse::Button::Left, x, y))
 end
@@ -27,7 +17,7 @@ end
 describe Crysterm::Widget::ToolButton do
   describe "#menu=" do
     it "appends the ▾ indicator to the label when a menu is attached" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       m.add_action "One"
       tb = Crysterm::Widget::ToolButton.new parent: s, content: "Tools"
@@ -37,7 +27,7 @@ describe Crysterm::Widget::ToolButton do
     end
 
     it "is idempotent — re-assigning the same menu leaves the label unchanged" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       tb = Crysterm::Widget::ToolButton.new parent: s, content: "T", menu: m
       tb.content.should eq "T ▾"
@@ -48,7 +38,7 @@ describe Crysterm::Widget::ToolButton do
 
   describe "#press with InstantPopup" do
     it "opens the menu instead of emitting Press" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       m.add_action "Only"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m,
@@ -64,7 +54,7 @@ describe Crysterm::Widget::ToolButton do
 
   describe "MenuButtonPopup (default)" do
     it "presses on activation and opens the menu on the Down key" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       m.add_action "Item"
       tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
@@ -84,7 +74,7 @@ describe Crysterm::Widget::ToolButton do
 
   describe "#on_click" do
     it "opens the menu when the button is menu-only (no bound action)" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       m.add_action "Item"
       m.hide # stays hidden until summoned (as in real usage)
@@ -99,7 +89,7 @@ describe Crysterm::Widget::ToolButton do
     end
 
     it "opens the menu on a click even when an action is bound" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new parent: s
       m.add_action "Item"
       m.hide
@@ -122,7 +112,7 @@ describe Crysterm::Widget::ToolButton do
   # and the same click reopened it).
   describe "click toggles the menu" do
     it "opens on the body and closes on a second body click" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
       m.add_action "Rename"
       m.add_action "Delete"
@@ -139,7 +129,7 @@ describe Crysterm::Widget::ToolButton do
     end
 
     it "opens on the ▾ arrow and closes on a second arrow click" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
       m.add_action "Rename"
       m.hide
@@ -157,7 +147,7 @@ describe Crysterm::Widget::ToolButton do
 
   describe "wheel cycling" do
     it "triggers the menu's activatable actions in turn, skipping separators/disabled" do
-      s = tbm_screen
+      s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
       fired = [] of String
       m.add_action("A") { fired << "A" }

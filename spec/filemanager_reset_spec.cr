@@ -8,20 +8,13 @@ include Crysterm
 # entry and can be a navigated-into subdirectory (or a regular file, whose
 # `Dir.children` listing would fail and leave the reset a silent no-op).
 
-private def fm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::FileManager do
   it "#reset returns to the initial directory, not the last-navigated one" do
     base = File.tempname("crysterm-fm")
     Dir.mkdir_p File.join(base, "sub")
 
     begin
-      s = fm_screen
+      s = headless_screen(default_quit_keys: true)
       fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
       fm.cwd.should eq base

@@ -17,16 +17,10 @@ include Crysterm
 # `awidth`/`aheight` report the full parent slot, not the shrunk content box. The
 # specs below assert both the simple margin equality and those two harder cases.
 
-private def mht_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 60, height: 24, default_quit_keys: false)
-end
-
 describe "margin hit-testing" do
   it "keeps a margined widget's hit rectangle equal to its rendered rectangle" do
     {0, 1, 2}.each do |m|
-      s = mht_screen
+      s = headless_screen(60, 24)
       box = Widget::Box.new parent: s, top: 3, left: 2, width: 30, height: 10,
         style: Style.new(border: true, margin: Margin.new(m, m, m, m))
       s.repaint
@@ -40,7 +34,7 @@ describe "margin hit-testing" do
   end
 
   it "places a child of a margined container at its painted position" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     # Group-box-like container with a top margin (the qtmodern case) and a child.
     gb = Widget::Box.new parent: s, top: 1, left: 1, width: 30, height: 12,
       style: Style.new(border: true, margin: Margin.new(0, 2, 0, 0))
@@ -54,7 +48,7 @@ describe "margin hit-testing" do
   end
 
   it "returns the right widget from widget_at over a margined container's child" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     gb = Widget::Box.new parent: s, top: 1, left: 1, width: 30, height: 12,
       style: Style.new(border: true, margin: Margin.new(0, 2, 0, 0))
     # Click handler makes the child mouse-responsive / hit-testable.
@@ -68,7 +62,7 @@ describe "margin hit-testing" do
   end
 
   it "keeps a right/bottom-anchored margined widget's hit rectangle at its paint" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     # Right- and bottom-anchored: the NEAR margins are right/bottom, so the box
     # is pushed inward from those edges. Getter geometry must still equal `lpos`.
     box = Widget::Box.new parent: s, right: 2, bottom: 3, width: 10, height: 4,
@@ -84,7 +78,7 @@ describe "margin hit-testing" do
   end
 
   it "keeps a centered margined widget's hit rectangle at its paint" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: "center", left: "center", width: 10, height: 4,
       style: Style.new(margin: 1)
     box.on(Crysterm::Event::Click) { }
@@ -98,7 +92,7 @@ describe "margin hit-testing" do
   end
 
   it "hit-tests a shrink_to_fit margined widget by its painted content box, not its slot" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     # A shrink-to-content widget in a wide slot: `awidth`/`aheight` report the
     # full slot, but it PAINTS only the 5x1 content box (shifted by margin 1).
     # Hit-testing must follow the painted box.
@@ -123,7 +117,7 @@ end
 # scrolled-in one is clickable where it lands, not at its unscrolled coordinates.
 describe "scroll/clip hit-testing" do
   it "does not hit a child scrolled out of its container's viewport" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     c = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5, scrollable: true
     # Child below the 5-row viewport → painted nothing (`lpos == nil`).
     child = Widget::Box.new parent: c, top: 10, left: 0, width: 10, height: 1, content: "x"
@@ -135,7 +129,7 @@ describe "scroll/clip hit-testing" do
   end
 
   it "hits a scrolled-in child at its painted position, not its unscrolled one" do
-    s = mht_screen
+    s = headless_screen(60, 24)
     c = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5, scrollable: true
     child = Widget::Box.new parent: c, top: 10, left: 0, width: 10, height: 1, content: "x"
     child.on(Crysterm::Event::Click) { }

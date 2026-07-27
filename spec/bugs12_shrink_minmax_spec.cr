@@ -10,12 +10,6 @@ include Crysterm
 # respect the anchored edge: a right/bottom-anchored shrink keeps its far edge
 # and moves `xi`/`yi`; every other anchoring keeps the near edge.
 
-private def headless_screen(w = 60, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def rendered_rect(widget, s)
   s.repaint
   l = widget.lpos.not_nil!
@@ -24,7 +18,7 @@ end
 
 describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   it "caps a left-anchored shrink_to_fit widget's content-derived width at max_width" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "x" * 30
     b.max_width = 12
@@ -34,14 +28,14 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "caps a right-anchored shrink_to_fit widget's width by moving xi, keeping xl" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     # Unconstrained reference: shrink keeps the far (right) edge.
     r0 = Widget::Box.new parent: s, top: 0, right: 0, shrink_to_fit: true,
       content: "x" * 30
     xi0, xl0, _, _ = rendered_rect(r0, s)
     (xl0 - xi0).should eq 30
 
-    s2 = headless_screen
+    s2 = headless_screen(60, 20)
     b = Widget::Box.new parent: s2, top: 0, right: 0, shrink_to_fit: true,
       content: "x" * 30
     b.max_width = 12
@@ -51,7 +45,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "expands a shrink_to_fit widget's content-derived width up to min_width" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "hi"
     b.min_width = 15
@@ -61,7 +55,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "caps a top-anchored shrink_to_fit widget's content-derived height at max_height" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
@@ -71,13 +65,13 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "caps a bottom-anchored shrink_to_fit widget's height by moving yi, keeping yl" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     r0 = Widget::Box.new parent: s, left: 0, bottom: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     _, _, yi0, yl0 = rendered_rect(r0, s)
     (yl0 - yi0).should eq 6
 
-    s2 = headless_screen
+    s2 = headless_screen(60, 20)
     b = Widget::Box.new parent: s2, left: 0, bottom: 0, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
@@ -87,7 +81,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "expands a shrink_to_fit widget's content-derived height up to min_height" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "one line"
     b.min_height = 5
@@ -97,7 +91,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "clamps each axis independently (fixed width, shrunk height)" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, shrink_to_fit: true,
       content: "a\nb\nc\nd\ne\nf"
     b.max_height = 3
@@ -107,7 +101,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "leaves an unconstrained shrink_to_fit widget's shrink result unchanged" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "x" * 30
     xi, xl, yi, yl = rendered_rect(b, s)
@@ -116,7 +110,7 @@ describe "BUGS12 #16 shrink-to-content respects min/max size constraints" do
   end
 
   it "leaves a non-shrink_to_fit widget's clamped size unchanged" do
-    s = headless_screen
+    s = headless_screen(60, 20)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 30,
       content: "x" * 30
     b.max_width = 12

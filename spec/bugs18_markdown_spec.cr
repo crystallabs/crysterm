@@ -121,7 +121,9 @@ describe "BUGS18 B18-70 quoted blank kept before nested quote and HTML block" do
     doc = Crysterm::TextDocument.from_markdown("> a\n>\n> > b")
     quote_shapes(doc).should eq [{"a", 1}, {"", 1}, {"b", 2}]
     exported = doc.to_markdown
-    exported.should eq "> a\n> \n> > b"
+    # The blank separator re-exports as a bare ">" line (no trailing space),
+    # so the round-trip is byte-stable with the input.
+    exported.should eq "> a\n>\n> > b"
     Crysterm::TextDocument.from_markdown(exported).to_markdown.should eq exported
   end
 

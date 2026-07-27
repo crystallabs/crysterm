@@ -8,11 +8,6 @@ include Crysterm
 # the decorations were not, so a concealed cell still leaked its text's presence
 # and width through a drawn underline/strike. All foreground marks must share
 # the guard. Driven headlessly over in-memory IOs.
-private def cap_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 2, height: 1)
-end
-
 private def fg_pixels(bmp, r, g, b)
   n = 0
   bmp.each do |row|
@@ -28,7 +23,7 @@ describe "Capture INVISIBLE decorations" do
   fb = fg & 0xff
 
   it "draws no foreground pixels for a concealed underlined cell" do
-    s = cap_screen
+    s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
     s.lines[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::UNDERLINE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))
@@ -38,7 +33,7 @@ describe "Capture INVISIBLE decorations" do
   end
 
   it "draws no foreground pixels for a concealed struck-through cell" do
-    s = cap_screen
+    s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
     s.lines[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::STRIKE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))
@@ -48,7 +43,7 @@ describe "Capture INVISIBLE decorations" do
   end
 
   it "still draws the underline for a VISIBLE cell (no regression)" do
-    s = cap_screen
+    s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
     s.lines[0][0].attr = Attr.pack(Attr::UNDERLINE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))

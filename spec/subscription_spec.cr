@@ -9,14 +9,9 @@ include Crysterm
 # *target types* (a `Widget` and a `Window`), because the concern the doc flags
 # is codegen across that heterogeneity, not any one behavior.
 
-private def sub_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 describe Crysterm::Subscription do
   it "fires while active and stops after #off" do
-    s = sub_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s
 
     fired = 0
@@ -35,7 +30,7 @@ describe Crysterm::Subscription do
   end
 
   it "has an idempotent #off" do
-    s = sub_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s
     sub = Crysterm::Subscription.new
     sub.on(w, Crysterm::Event::FocusOut) { }
@@ -45,7 +40,7 @@ describe Crysterm::Subscription do
   end
 
   it "cancels the previous handler when re-armed on the same slot" do
-    s = sub_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s
 
     old = 0
@@ -62,7 +57,7 @@ describe Crysterm::Subscription do
   it "removes from the exact target it subscribed on (captured, not re-fetched)" do
     # The window/window? hazard: subscribe on the window directly; teardown must
     # reach that same emitter via the captured reference, not a re-fetch.
-    s = sub_screen
+    s = headless_screen(80, 24)
 
     fired = 0
     sub = Crysterm::Subscription.new
@@ -78,7 +73,7 @@ end
 
 describe Crysterm::Subscriptions do
   it "tracks heterogeneous subscriptions and tears them all down together" do
-    s = sub_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s
 
     focus = 0
@@ -108,7 +103,7 @@ describe Crysterm::Subscriptions do
   end
 
   it "returns each Subscription so one can be cancelled individually" do
-    s = sub_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s
 
     a = 0

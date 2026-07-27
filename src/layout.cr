@@ -51,6 +51,16 @@ module Crysterm
     # backs the container-addressing API (`Stack#current_widget`, `Form#add_row`).
     property container : Widget? = nil
 
+    # `#container`, or raises when the layout isn't installed on one yet.
+    # Every container-addressing mutator (`Box#add_spacing`/`#add_stretch`,
+    # `Form#add_row`, `Grid#add_widget`) needs this same guard; *context* is
+    # the raising call's own identity (e.g. `"Layout::Grid#add_widget"`),
+    # interpolated into the one shared message so each site's exception text
+    # stays whatever it already was.
+    protected def require_container(context : String) : Widget
+      container || raise ArgumentError.new "#{context}: layout not installed on a container"
+    end
+
     # Schedules a repaint of the container, when installed. Called by the
     # shape-changing setters (`#spacing`, and the per-engine `justify`/`columns`/
     # ... below) so mutating a layout after the first frame re-arranges its
@@ -105,8 +115,12 @@ module Crysterm
     # (e.g. `Int32::MAX`) from overflowing the checked `Int32` gap products and
     # cursor accumulations in `#arrange`. Shared by `Box` and `Form`; `Grid`
     # clamps its own spacing internally against its `Int64` fence math.
+    # Identical body to `#clamped_size` below (a spacing and a fixed size are
+    # both just "a value clamped into the live extent") — kept as a separate,
+    # differently-named entry point since the two read very differently at
+    # each call site.
     protected def clamped_spacing(value : Int32, extent : Int32) : Int32
-      value.clamp(0, extent)
+      clamped_size value, extent
     end
 
     # Sanitizes a child's resolved fixed main-axis size against the axis
@@ -116,6 +130,8 @@ module Crysterm
     # crashing), so clamping is behavior-preserving. Keeps a pathological
     # (e.g. `Int32::MAX`) child size from overflowing the checked `Int32`
     # fixed-size sum/cursor accumulation in `Box#measure`/`#place` (B18-25).
+    # Same clamp as `#clamped_spacing` above, under the name callers reach for
+    # when the value in hand is a size rather than a spacing/gap.
     protected def clamped_size(v : Int32, extent : Int32) : Int32
       v.clamp(0, extent)
     end
@@ -297,6 +313,23 @@ module Crysterm
     # can tell a layout-owned size from a user-reclaimed one.
     protected def record_managed(el : Widget, assigned_map, v : Int32) : Nil
       assigned_map[el] = v
+    end
+
+    # Places `el`'s full rectangle (`#place_child`) and records the resolved
+    # width/height into `assigned_w`/`assigned_h` (`#record_managed`, called
+    # for both) — the "place child, then remember what got assigned on *both*
+    # axes" step Border's edge/center placement and Form's row placement each
+    # repeat. Both axes are recorded even though an engine may only *consume*
+    # one of them (a Border edge, a Form row's shared height): the other axis
+    # still gets overwritten with a resolved `Int32` span/row value every
+    # frame, so tracking just the consumed axis would let a later re-dock or
+    # re-pair read the other axis's stale resolved value back as if it were
+    # the user's own raw size. Does not render — callers still choose their
+    # own render order/timing via `#render_child`, same as `#place_child`.
+    protected def place_recorded(el : Widget, x : Int32, y : Int32, w : Int32, h : Int32, assigned_w : Hash(Widget, Int32), assigned_h : Hash(Widget, Int32)) : Nil
+      place_child el, x, y, w, h
+      record_managed el, assigned_w, w
+      record_managed el, assigned_h, h
     end
 
     # Cumulative offset of fence line `i` when `total` is divided into `n`

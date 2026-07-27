@@ -11,17 +11,9 @@ include Crysterm
 # Before the fix, `widget_at` returned the last tree-order match ignoring
 # z-index, so a non-z-indexed widget added after (and overlapping) a
 # z-indexed one would steal the click.
-private def waz_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40, height: 20)
-end
-
 describe "Window#widget_at (z-index)" do
   it "hits the z-indexed widget painted on top, not the later tree-order one" do
-    s = waz_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
 
     # `top` is added first but carries a z-index, so it composites above the
     # base layer. `base` is added later and overlaps it; tree order alone
@@ -37,7 +29,7 @@ describe "Window#widget_at (z-index)" do
   end
 
   it "still breaks ties within the same layer by tree order (last wins)" do
-    s = waz_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     a.clickable = true
     b = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6

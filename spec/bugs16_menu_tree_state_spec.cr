@@ -13,18 +13,9 @@ include Crysterm
 # two places at once and #rebuild's flatten (src/widget/tree.cr) rendered it
 # on two rows.
 
-private def add_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 describe Crysterm::Widget::Menu do
   it "does not open a disabled action's submenu on Right" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     m = Widget::Menu.new parent: s, top: 0, left: 0, width: 20, height: 8
 
     pdf = Action.new "PDF"
@@ -44,7 +35,7 @@ describe Crysterm::Widget::Menu do
   end
 
   it "still opens an enabled action's submenu on Right" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     m = Widget::Menu.new parent: s, top: 0, left: 0, width: 20, height: 8
 
     export = m.add_submenu "Export", [Action.new("PDF"), Action.new("CSV")]
@@ -64,7 +55,7 @@ end
 
 describe Crysterm::Widget::Tree do
   it "detaches a node from its old parent before re-parenting under a new node" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
     src = tree.add "src"
@@ -91,7 +82,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "detaches a root node from Tree#roots before re-adding it as a child" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
     top = tree.add "top"
@@ -112,7 +103,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "no-ops re-adding a node that is already a child of the receiver" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
     src = tree.add "src"
@@ -126,7 +117,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "no-ops re-adding an existing root to the tree" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
     top = tree.add "top"

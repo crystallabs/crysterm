@@ -149,10 +149,7 @@ module Crysterm
         return coords if @ratio.width <= 0 || @ratio.height <= 0
 
         lines = window.lines
-        left = coords.xi + ileft
-        top = coords.yi + itop
-        right = coords.xl - iright
-        bottom = coords.yl - ibottom
+        left, right, top, bottom = content_edges coords
 
         default_attr = style_to_attr style
         # Swap fg/bg so the "lit" glyph pixels invert the base colors.

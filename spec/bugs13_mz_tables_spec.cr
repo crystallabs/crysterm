@@ -12,18 +12,6 @@ include Crysterm
 #   A9  — ListTable#sortable is honored when toggled at runtime, both ways.
 #   A18 — set_data([]) must clear the view along with the model.
 
-private def tbl_screen(width = 30, height = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
-private def row_chars(s, y)
-  String.build do |io|
-    s.lines[y].each { |cell| io << cell.char }
-  end
-end
-
 private def mouse_down(x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(
     Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y))
@@ -31,20 +19,20 @@ end
 
 describe "BUGS13 M3: Table#draw_borders row/column clamping" do
   it "does not stamp a junction row above the widget when border-top is 0" do
-    s = tbl_screen
+    s = headless_screen(30, 12, default_quit_keys: true)
     Widget::Table.new(parent: s, top: 3, left: 2,
       rows: [["Name", "Email"], ["a", "b"]],
       style: Style.new(border: Border.new(top: 0)))
     s.repaint
     # The row just above the table (y == 2) must stay untouched; the bug
     # stamped `│` at `yi + border.top - 1 == yi - 1` when border-top was 0.
-    row_chars(s, 2).strip.should eq ""
+    row_text(s, 2).strip.should eq ""
   ensure
     s.try &.destroy
   end
 
   it "does not wrap junction/run rows to the bottom of the screen for a table scrolled above it" do
-    s = tbl_screen
+    s = headless_screen(30, 12, default_quit_keys: true)
     Widget::Table.new(parent: s, top: -3, left: 0,
       rows: [["Name", "Email"], ["a", "b"], ["c", "d"]],
       style: Style.new(border: true))
@@ -52,7 +40,7 @@ describe "BUGS13 M3: Table#draw_borders row/column clamping" do
     # Grid rows -3..-1 used to wrap (`lines[-3]?` == `lines[9]`) and stamp
     # border glyphs onto the bottom rows of the screen buffer.
     (9..11).each do |y|
-      row_chars(s, y).strip.should eq ""
+      row_text(s, y).strip.should eq ""
     end
   ensure
     s.try &.destroy
@@ -61,7 +49,7 @@ end
 
 describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
   it "clips junctions/separators to the content edge (no stamp one column outside)" do
-    s = tbl_screen(20, 8)
+    s = headless_screen(20, 8, default_quit_keys: true)
     Widget::ListTable.new(parent: s, top: 0, left: 0, width: 8, height: 6,
       rows: [["Hdr01", "Hdr02"], ["abcde", "fghij"], ["klmno", "pqrst"]],
       style: Style.new(border: Border.new(right: 0)))
@@ -77,14 +65,14 @@ describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
   end
 
   it "does not stamp junctions one row below a table with border-bottom: 0" do
-    s = tbl_screen(20, 10)
+    s = headless_screen(20, 10, default_quit_keys: true)
     Widget::ListTable.new(parent: s, top: 0, left: 0, height: 5,
       rows: [["AA", "BB"], ["a", "b"], ["c", "d"]],
       style: Style.new(border: Border.new(bottom: 0)))
     s.repaint
     # With no bottom border, the `ry == height` junction row is
     # `yl - ibottom == yl` — the row just BELOW the widget (rows 0..4).
-    row_chars(s, 5).strip.should eq ""
+    row_text(s, 5).strip.should eq ""
   ensure
     s.try &.destroy
   end
@@ -92,7 +80,7 @@ end
 
 describe "BUGS13 A9: ListTable runtime sortable toggle" do
   it "honors sortable enabled and disabled after construction" do
-    s = tbl_screen(30, 10)
+    s = headless_screen(30, 10, default_quit_keys: true)
     lt = Widget::ListTable.new(parent: s, top: 0, left: 0,
       rows: [["N", "V"], ["b", "2"], ["a", "1"]])
     s.repaint
@@ -119,7 +107,7 @@ end
 
 describe "BUGS13 A18: set_data([]) clears the view along with the model" do
   it "ListTable: empties items and header" do
-    s = tbl_screen(30, 10)
+    s = headless_screen(30, 10, default_quit_keys: true)
     lt = Widget::ListTable.new(parent: s, top: 0, left: 0,
       rows: [["N", "V"], ["b", "2"], ["a", "1"]])
     lt.items.size.should eq 3 # header spacer + 2 body rows
@@ -133,7 +121,7 @@ describe "BUGS13 A18: set_data([]) clears the view along with the model" do
   end
 
   it "ListTable: constructing without rows stays item-less" do
-    s = tbl_screen(30, 10)
+    s = headless_screen(30, 10, default_quit_keys: true)
     lt = Widget::ListTable.new(parent: s, top: 0, left: 0)
     lt.items.size.should eq 0
     lt.rows = [] of Array(String)
@@ -143,7 +131,7 @@ describe "BUGS13 A18: set_data([]) clears the view along with the model" do
   end
 
   it "Table: clears the rendered content" do
-    s = tbl_screen(30, 10)
+    s = headless_screen(30, 10, default_quit_keys: true)
     t = Widget::Table.new(parent: s, top: 0, left: 0,
       rows: [["N", "V"], ["a", "1"]])
     t.rows = [] of Array(String)

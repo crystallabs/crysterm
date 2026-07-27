@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def sized_screen(width, height)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 # BUGS12 #12 — `delete_line` clamped the index against `ftor` and, when `ftor`
 # was empty but `fake` non-empty (content seeded before attach), landed on `-1`
 # and deleted the LAST line (Crystal's two-arg `clamp` returns `max` when
@@ -20,7 +10,7 @@ end
 # `ftor` empty. `set_content` fills both; clearing `ftor` just before the delete
 # mimics content that was seeded before the widget could wrap it.
 private def box_with_empty_ftor
-  box = Widget::Box.new parent: headless_screen, width: 20, height: 5
+  box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 5
   box.set_content "one\ntwo\nthree"
   box.lines.should eq ["one", "two", "three"] # precondition
   box.@_clines.ftor.clear
@@ -54,7 +44,7 @@ end
 # widget back into tag-parsing mode. It now forwards `@_content_no_tags`.
 describe "Widget#rebuild_content_from_fake preserves no_tags mode" do
   it "keeps tags literal after a fake-array rebuild (delete_line)" do
-    box = Widget::Box.new parent: headless_screen, width: 20, height: 5
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 5
     box.parse_tags = true
     box.set_text("{bold}a{/bold}\nplain")
 
@@ -70,7 +60,7 @@ describe "Widget#rebuild_content_from_fake preserves no_tags mode" do
   end
 
   it "keeps tags literal after replace_line" do
-    box = Widget::Box.new parent: headless_screen, width: 20, height: 5
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 5
     box.parse_tags = true
     box.set_text("{bold}a{/bold}")
 
@@ -88,7 +78,7 @@ end
 # of the terminal. The loops now start past the offscreen band.
 describe "Effect::Direct#paint clips the off-top/left band" do
   it "does not paint wrapped bottom/right rows when partly off the top-left" do
-    s = sized_screen 12, 12
+    s = headless_screen(12, 12)
     s.alloc
 
     # Positioned so xi/yi are negative — part of the box is off the top-left.
@@ -115,7 +105,7 @@ end
 # mirroring the `bg_cells` branch, so a transparent widget stays transparent.
 describe "Widget newline row-fill honors fill: false" do
   it "leaves the newline tail transparent over a backdrop" do
-    s = sized_screen 20, 8
+    s = headless_screen(20, 8)
 
     # Solid red backdrop.
     Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,

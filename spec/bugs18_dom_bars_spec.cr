@@ -14,18 +14,9 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def b18_105_screen
-    Crysterm::Window.new(
-      input: IO::Memory.new,
-      output: IO::Memory.new,
-      error: IO::Memory.new,
-      width: 80,
-      height: 24)
-  end
-
   describe "BUGS18 B18-105 layout-DOM round-trip for ActionBar bars" do
     it "serializes a ListBar's command model as an items attribute, not <w-box> children" do
-      s = b18_105_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Save") { }
@@ -41,13 +32,13 @@ require "./spec_helper"
     end
 
     it "reloads a ListBar with a live command model and no orphan dead child boxes" do
-      s = b18_105_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Save") { }
       bar.add_item("Quit") { }
 
-      s2 = b18_105_screen
+      s2 = headless_screen(80, 24, default_quit_keys: true)
       s2.load_layout s.to_layout_html
       bar2 = s2.children.first.as(Widget::ListBar)
 
@@ -70,19 +61,19 @@ require "./spec_helper"
     end
 
     it "keeps the round-trip idempotent: serialize -> load -> serialize" do
-      s = b18_105_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Quit") { }
 
       first = s.to_layout_html
-      s2 = b18_105_screen
+      s2 = headless_screen(80, 24, default_quit_keys: true)
       s2.load_layout first
       s2.to_layout_html.should eq first
     end
 
     it "gracefully drops the ghost <w-box> children of a pre-fix snapshot" do
-      s = b18_105_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       # Shape of an old snapshot: item boxes serialized as children alongside
       # nothing else. The loader must not attach them as dead children.
       s.load_layout <<-HTML
@@ -103,7 +94,7 @@ require "./spec_helper"
     end
 
     it "round-trips a MenuBar's titles as a live model too" do
-      s = b18_105_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       bar = Widget::MenuBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("File") { }
       bar.add_item("Edit") { }
@@ -113,7 +104,7 @@ require "./spec_helper"
       html.should contain %(items="File\nEdit")
       html.should_not contain "<w-box"
 
-      s2 = b18_105_screen
+      s2 = headless_screen(80, 24, default_quit_keys: true)
       s2.load_layout html
       bar2 = s2.children.first.as(Widget::MenuBar)
       bar2.item_texts.should eq %w[File Edit]

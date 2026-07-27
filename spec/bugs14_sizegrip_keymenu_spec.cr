@@ -5,21 +5,13 @@ include Crysterm
 # Regression spec for BUGS14 M2 (KeyMenu rows: 0 DivisionByZeroError) and
 # BUGS14 M4 (SizeGrip drag math assumes an outer-corner placement).
 
-private def bugs14_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 # M2 — `KeyMenu.new(entries: [...], rows: 0)` (and `menu.rows = 0` after entries
 # exist) fed `i // @rows` / `i % @rows` a zero divisor in `#build`, raising
 # `DivisionByZeroError` during construction/rebuild. The setter and constructor
 # now clamp `@rows` to at least 1.
 describe "BUGS14 M2 KeyMenu rows clamped to >= 1" do
   it "does not raise DivisionByZeroError when constructed with rows: 0 and entries" do
-    s = bugs14_screen
+    s = headless_screen(80, 24)
     entries = [
       Crysterm::Widget::Pine::KeyMenu::Entry.new("?", "Help"),
       Crysterm::Widget::Pine::KeyMenu::Entry.new("O", "Other"),
@@ -31,7 +23,7 @@ describe "BUGS14 M2 KeyMenu rows clamped to >= 1" do
   end
 
   it "clamps rows to >= 1 when set to 0 after entries exist" do
-    s = bugs14_screen
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Pine::KeyMenu.new(parent: s, bottom: 0, entries: [
       Crysterm::Widget::Pine::KeyMenu::Entry.new("?", "Help"),
       Crysterm::Widget::Pine::KeyMenu::Entry.new("O", "Other"),
@@ -48,7 +40,7 @@ end
 # The fix folds in the grip's own offset from the target's outer edge.
 describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
   it "keeps the outer edge under the pointer for a bordered target" do
-    s = bugs14_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new(
       parent: s, top: 2, left: 2, width: 30, height: 10,
       style: Crysterm::Style.new(border: true))

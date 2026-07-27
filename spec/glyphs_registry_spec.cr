@@ -7,12 +7,6 @@ include Crysterm
 # `Screen#glyph_tier` picks the set (default `Unicode` — byte-identical with
 # the historically hardcoded literals), and widgets resolve through
 # `Widget#glyph`/`BorderType#line_glyphs(tier)`/`Docking.dock(..., ascii)`.
-private def screen(width, height)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 private def rows(s)
   (0...s.lines.size).map do |y|
     row = s.lines[y]
@@ -128,7 +122,7 @@ end
 
 describe "Screen#glyph_tier" do
   it "defaults to Unicode and is settable through the window" do
-    s = screen 4, 4
+    s = headless_screen(4, 4, default_quit_keys: true)
     begin
       s.glyph_tier.should eq Glyphs::Tier::Unicode
       s.glyph_tier = Glyphs::Tier::Ascii
@@ -151,7 +145,7 @@ describe "tier-aware rendering" do
   it "draws a Line border with box glyphs at Unicode and + - | at Ascii" do
     { {Glyphs::Tier::Unicode, "┌──┐", "│  │", "└──┘"},
      {Glyphs::Tier::Ascii, "+--+", "|  |", "+--+"} }.each do |(tier, top, mid, bot)|
-      s = screen 4, 3
+      s = headless_screen(4, 3, default_quit_keys: true)
       s.glyph_tier = tier
       s.alloc
       b = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 3, content: "")
@@ -169,7 +163,7 @@ describe "tier-aware rendering" do
 
   it "keeps CheckBox / RadioButton markers identical across Ascii and Unicode tiers" do
     {Glyphs::Tier::Unicode, Glyphs::Tier::Ascii}.each do |tier|
-      s = screen 10, 2
+      s = headless_screen(10, 2, default_quit_keys: true)
       s.glyph_tier = tier
       s.alloc
       cb = Crysterm::Widget::CheckBox.new(checked: true, content: "c", left: 0, top: 0, width: 10, height: 1)

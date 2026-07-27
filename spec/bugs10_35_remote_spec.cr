@@ -12,17 +12,26 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 80, height: 24, default_quit_keys: false)
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   # Waits for one `data:` payload from the SSE stream, or nil on timeout.
   private def next_event(port, wait, &) : String?
     events = Channel(String).new(1)
+    subscribed = false
     spawn do
       HTTP::Client.get("http://127.0.0.1:#{port}/events") do |response|
         while line = response.body_io.gets
+          subscribed = true # `: connected` is flushed after the subscriber is registered
           if line.starts_with?("data: ")
             events.send line["data: ".size..]
             break
@@ -31,7 +40,7 @@ require "http/client"
       end
     rescue
     end
-    sleep 100.milliseconds
+    wait_until { subscribed }
     yield
     select
     when msg = events.receive
@@ -43,11 +52,11 @@ require "http/client"
 
   describe "BUGS10 #35 unsubscribe keeps forwarders shared with live subscriptions" do
     it "still delivers to the surviving subscription after the overlapping one unsubscribes" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="save" class="btn"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7404)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7404
       base = "http://127.0.0.1:7404/rpc"
       begin
         # Both selectors match the same widget: one shared forwarder, two
@@ -69,11 +78,11 @@ require "http/client"
     end
 
     it "detaches the forwarder once the last referencing subscription unsubscribes" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="save" class="btn"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7405)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7405
       base = "http://127.0.0.1:7405/rpc"
       begin
         HTTP::Client.post(base,

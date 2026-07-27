@@ -82,10 +82,20 @@ module Crysterm
             return if bi >= document.block_count - 1
             document.block_position(bi) + document.blocks[bi].size
           else
-            (from...size).each do |i|
-              return i if document.char_at(i) == ch
+            # One block lookup for the whole scan (`each_char_forward`), not
+            # one `char_at` binary search + codepoint index per position.
+            i = from
+            found = nil
+            document.each_char_forward(from) do |c|
+              if c == ch
+                found = i
+                false
+              else
+                i += 1
+                true
+              end
             end
-            nil
+            found
           end
         end
 
@@ -100,10 +110,21 @@ module Crysterm
             return from if off == document.blocks[bi].size && bi < document.block_count - 1
             bi > 0 ? document.block_position(bi) - 1 : nil
           else
-            from.downto(0) do |i|
-              return i if document.char_at(i) == ch
+            # `from` is inclusive, and `each_char_backward`'s start is
+            # exclusive, so the scan begins at `from + 1` (<= document size,
+            # since `from` was clamped to `buf_size - 1`).
+            i = from
+            found = nil
+            document.each_char_backward(from + 1) do |c|
+              if c == ch
+                found = i
+                false
+              else
+                i -= 1
+                true
+              end
             end
-            nil
+            found
           end
         end
 
@@ -149,10 +170,70 @@ module Crysterm
         # O(log) override of the mixin's flat prefix scan: the block index IS the
         # logical-line index and the column is measured line-locally (from the
         # block start to *c*), so no `0..c` document prefix is materialized.
+        #
+        # The tab-free line — overwhelmingly the common one, and the one every
+        # keystroke re-measures — needs no prefix String at all: `expanded_width`
+        # is a codepoint count, so with nothing to expand it IS the block-local
+        # offset `block_at` already returned (true regardless of `full_unicode?`,
+        # which this column space deliberately does not consult).
         private def cursor_line_col(c : Int32) : Tuple(Int32, Int32)
-          bi, _ = document.block_at(c)
-          base = document.block_position(bi)
-          {bi, expanded_width(buf_slice(base, c))}
+          bi, off = document.block_at(c)
+          t = document.blocks[bi].text
+          {bi, t.includes?('\t') ? expanded_width(t[0, off]) : off}
+        end
+
+        # Document-backed overrides of the mixin's two-phase word scans (which
+        # classify one position at a time through `buf_char`, i.e. a `block_at`
+        # binary search plus O(offset) codepoint indexing *per character*).
+        # Same phase order — separator run first, then the non-separator run —
+        # driven by one `TextDocument` block lookup for the whole scan.
+        private def scan_word_left(&) : Int32
+          p = @cursor_pos
+          in_sep = true
+          document.each_char_backward(p) do |c|
+            sep = yield c
+            in_sep = false unless sep
+            if in_sep || !sep
+              p -= 1
+              true
+            else
+              false
+            end
+          end
+          p
+        end
+
+        # :ditto: (forward; bounded by the document end, as `buf_size` bounds
+        # the mixin's version).
+        private def scan_word_right(&) : Int32
+          p = @cursor_pos
+          in_sep = true
+          document.each_char_forward(p) do |c|
+            sep = yield c
+            in_sep = false unless sep
+            if in_sep || !sep
+              p += 1
+              true
+            else
+              false
+            end
+          end
+          p
+        end
+
+        # Word-run bounds around *pos* (double-click word select), scanned out
+        # in both directions with the same primitives instead of a per-position
+        # `buf_char`.
+        private def word_bounds_at(pos : Int32) : Tuple(Int32, Int32)
+          s = pos
+          document.each_char_backward(pos) do |c|
+            word_char?(c) ? (s -= 1; true) : false
+          end
+          e = pos
+          document.each_char_forward(pos) do |c|
+            word_char?(c) ? (e += 1; true) : false
+          end
+          {s, e}
         end
 
         # A logical line is exactly one block; check its (cached) text for a TAB
@@ -170,6 +251,21 @@ module Crysterm
           k = fake_line.clamp(0, document.block_count - 1)
           bp = document.block_position(k)
           {bp, bp + document.blocks[k].size}
+        end
+
+        # A logical line IS a block, whose `text` the block already holds — so
+        # the whole-line reads in the geometry (`line_display_width`,
+        # `position_at`, the TAB arm of `unexpand_col_in`) borrow that cached
+        # String instead of `String.build`ing a copy per row per frame.
+        def buf_line_text(fake_line : Int32) : String
+          document.blocks[fake_line.clamp(0, document.block_count - 1)].text
+        end
+
+        # :ditto: — *from* is a logical line start, i.e. a block position, so
+        # the block it falls in is that whole line (see the protocol's contract
+        # on this overload).
+        def buf_line_text_at(from : Int32, to : Int32) : String
+          document.blocks[document.block_at(from)[0]].text
         end
 
         def value : String

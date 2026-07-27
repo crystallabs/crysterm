@@ -9,18 +9,12 @@ include Crysterm
 # through to the app-global default-quit-key fallback (KeyPrompt) or to
 # ancestor/window-level handlers (Compose).
 
-private def pkp_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS17 B17-21: Pine::KeyPrompt accepts its handled choice keys" do
   # Window built with the DEFAULT `default_quit_keys` (true, per B17-21's
   # failure scenario) — unlike spec/pine_key_prompt_spec.cr, which sidesteps
   # the interaction entirely by passing `default_quit_keys: false`.
   it "a 'q'-keyed choice answers the prompt and accepts the key" do
-    s = pkp_window
+    s = headless_screen(40, 10, default_quit_keys: true)
     ran = nil.as(String?)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Save before leaving?",
@@ -44,7 +38,7 @@ describe "BUGS17 B17-21: Pine::KeyPrompt accepts its handled choice keys" do
   # fix, the un-accepted 'q' would also trip the quit fallback and every
   # window would be torn down.
   it "answering with a 'q'-keyed choice does not let the quit fallback destroy the window" do
-    s = pkp_window
+    s = headless_screen(40, 10, default_quit_keys: true)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Save before leaving?",
       [
@@ -66,7 +60,7 @@ describe "BUGS17 B17-21: Pine::KeyPrompt accepts its handled choice keys" do
   end
 
   it "still ignores keys that match no choice (nothing accepted, nothing answered)" do
-    s = pkp_window
+    s = headless_screen(40, 10, default_quit_keys: true)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Save?",
       [Crysterm::Widget::Pine::KeyPrompt::Choice.new("Y", "Yes")],
@@ -81,16 +75,9 @@ describe "BUGS17 B17-21: Pine::KeyPrompt accepts its handled choice keys" do
   end
 end
 
-private def pc_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS17 B17-25: Pine::Compose field navigation accepts its handled keys" do
   it "Down in a field moves focus to the next field and accepts the key" do
-    s = pc_window
+    s = headless_screen(80, 24)
     compose = Crysterm::Widget::Pine::Compose.new parent: s, top: 0, bottom: 0, left: 0, width: "100%"
     compose.focus_field "to"
 
@@ -102,7 +89,7 @@ describe "BUGS17 B17-25: Pine::Compose field navigation accepts its handled keys
   end
 
   it "Up in a field moves focus to the previous field and accepts the key" do
-    s = pc_window
+    s = headless_screen(80, 24)
     compose = Crysterm::Widget::Pine::Compose.new parent: s, top: 0, bottom: 0, left: 0, width: "100%"
     compose.focus_field "cc"
 
@@ -114,7 +101,7 @@ describe "BUGS17 B17-25: Pine::Compose field navigation accepts its handled keys
   end
 
   it "Up at the top of the body returns to the previous field and accepts the key" do
-    s = pc_window
+    s = headless_screen(80, 24)
     compose = Crysterm::Widget::Pine::Compose.new parent: s, top: 0, bottom: 0, left: 0, width: "100%"
     compose.body.focus
 
@@ -128,7 +115,7 @@ describe "BUGS17 B17-25: Pine::Compose field navigation accepts its handled keys
   # A key the navigation handler does not act on must stay un-accepted, so
   # typing and other keys still reach the field's own editor.
   it "leaves a non-navigation key un-accepted" do
-    s = pc_window
+    s = headless_screen(80, 24)
     compose = Crysterm::Widget::Pine::Compose.new parent: s, top: 0, bottom: 0, left: 0, width: "100%"
 
     e = Crysterm::Event::KeyPress.new '\0', Tput::Key::F1

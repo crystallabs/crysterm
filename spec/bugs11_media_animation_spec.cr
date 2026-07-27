@@ -19,12 +19,6 @@ include Crysterm
 # one being displayed) and the clock interval must be frame 0's own delay
 # (2000ms), NOT frame 1's (50ms).
 
-private def headless_window(w = 10, h = 5)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Builds an APNG with explicit per-frame delays (ms). These values round-trip
 # exactly through the APNG encoder/decoder (delay_num = ms, delay_den = 1000).
 private def write_apng_delays(path : String, delays : Array(Int32),
@@ -52,7 +46,7 @@ describe "Widget::Media::Base animate_loop per-frame delay (BUGS11 #12)" do
     # would immediately jump to frame 1 and hold it for frame 0's 2000ms.
     write_apng_delays path, [2000, 50, 50], num_plays: 0
     begin
-      s = headless_window
+      s = headless_screen(10, 5)
       img = ProbeSixel.new file: path, parent: s, width: 4, height: 3
       img.play
 
@@ -90,7 +84,7 @@ describe "Widget::Media::Base animate_loop per-frame delay (BUGS11 #12)" do
     # Short uniform-ish delays so the whole cycle plays quickly; infinite loop.
     write_apng_delays path, [30, 30, 30], num_plays: 0
     begin
-      s = headless_window
+      s = headless_screen(10, 5)
       img = ProbeSixel.new file: path, parent: s, width: 4, height: 3
       img.play
 

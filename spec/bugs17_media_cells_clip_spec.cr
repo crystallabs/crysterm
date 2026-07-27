@@ -94,9 +94,9 @@ describe "BUGS17 B17-33 Media::Cells#render clip base/origin" do
   it "renders an unclipped image identically to a direct same-size compose (no distortion)" do
     s = clip_window
     # No scrollable ancestor and no overflow: the widget's own box is exactly
-    # its content size, so it is never clipped — `col_off`/`row_off` are both
-    # 0 and `full_cols/full_rows` equal the visible `cols/rows` exactly, the
-    # fast (no-copy, no-crop) path in `#visible_sample`.
+    # its content size, so it is never clipped — the `col_off`/`row_off`
+    # offsets threaded into `#draw_sample` are both 0 and `full_cols/full_rows`
+    # equal the visible `cols/rows` exactly.
     img = SpyAnsi.new(parent: s, top: 0, left: 0, width: 8, height: 10,
       animate: false, fit: Crysterm::Widget::Media::Fit::Stretch)
     img.bitmap = stripe_bmp(8, 10)

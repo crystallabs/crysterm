@@ -20,12 +20,6 @@ include Crysterm
 #         modal input grab `Dialog#open` takes — widgets beneath stayed
 #         clickable.
 
-private def b18ed_window(w = 60, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b18ed_key(k : ::Tput::Key, ch = '\0')
   Crysterm::Event::KeyPress.new ch, k
 end
@@ -41,7 +35,7 @@ end
 
 describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
   it "compiles and honors the explicit 2-arg themed set_markdown" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     explicit = TextTheme.new(code_color: 0x654321)
     te.set_markdown "`c`", explicit
@@ -49,7 +43,7 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
   end
 
   it "1-arg set_markdown imports with the widget's #theme, not the default" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.theme = TextTheme.new(code_color: 0x123456)
     te.set_markdown "`c`"
@@ -57,7 +51,7 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
   end
 
   it "set_html and the =-spellings use the widget's #theme too" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.theme = TextTheme.new(link_color: 0xABCDEF)
     te.set_html %(<a href="x">l</a>)
@@ -73,7 +67,7 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
   end
 
   it "a wholesale markdown/html replace rewinds the caret" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8,
       content: "hello"
     te.cursor_position = 5
@@ -88,7 +82,7 @@ end
 
 describe "BUGS18 B18-42: bracketed paste honors max_length" do
   it "caps an Event::Paste to max_length like Ctrl-V does" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
       max_length: 8
     le.emit Crysterm::Event::Paste.new("a" * 100)
@@ -96,7 +90,7 @@ describe "BUGS18 B18-42: bracketed paste honors max_length" do
   end
 
   it "caps against the room left by existing content" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
       max_length: 8
     le.value = "abcd"
@@ -105,14 +99,14 @@ describe "BUGS18 B18-42: bracketed paste honors max_length" do
   end
 
   it "pastes in full when no max_length is set" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1
     le.emit Crysterm::Event::Paste.new("hello world")
     le.value.should eq "hello world"
   end
 
   it "a paste into a full field changes nothing and emits no TextChanged" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
       max_length: 4
     le.value = "abcd"
@@ -126,7 +120,7 @@ end
 
 describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   it "a closed editable combo lets Escape bubble" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     combo = Widget::ComboBox.new %w[one two], parent: s, top: 0, left: 0,
       width: 12, height: 1, editable: true
     e = b18ed_key ::Tput::Key::Escape
@@ -135,7 +129,7 @@ describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   end
 
   it "an open editable combo still consumes Escape to dismiss" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     combo = Widget::ComboBox.new %w[one two], parent: s, top: 0, left: 0,
       width: 12, height: 1, editable: true
     combo.show_popup
@@ -147,7 +141,7 @@ describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   end
 
   it "Escape rejects a modal dialog while its closed editable combo is focused" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     d = B18edDialog.new parent: s, top: 0, left: 0, width: 30, height: 8
     combo = Widget::ComboBox.new %w[one two], parent: d, top: 1, left: 1,
       width: 12, height: 1, editable: true
@@ -160,7 +154,7 @@ describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   end
 
   it "an empty non-editable combo lets Enter and Up bubble" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     combo = Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1
     e = b18ed_key ::Tput::Key::Enter, '\r'
     combo.emit e
@@ -172,7 +166,7 @@ describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   end
 
   it "a populated non-editable combo still opens on Enter and cycles on Up" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     combo = Widget::ComboBox.new %w[a b c], parent: s, top: 0, left: 0,
       width: 12, height: 1
     e = b18ed_key ::Tput::Key::Up
@@ -187,7 +181,7 @@ describe "BUGS18 B18-43: ComboBox accepts only keys it acts on" do
   end
 
   it "editable Backspace is consumed only when it erases" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     combo = Widget::ComboBox.new %w[one two], parent: s, top: 0, left: 0,
       width: 12, height: 1, editable: true
     e = b18ed_key ::Tput::Key::Backspace
@@ -203,7 +197,7 @@ end
 
 describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   it "get_color grabs the pointer: outside clicks are blocked until close" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     btn = Widget::Button.new parent: s, top: 22, left: 0, width: 10, height: 1,
       content: "Outside"
     clicked = 0
@@ -231,7 +225,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   end
 
   it "an eyedropper round-trip does not drop the dialog's modal grab" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     cd = Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 50, height: 18
     cd.get_color { }
     s.repaint
@@ -252,7 +246,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   end
 
   it "Question#ask holds the grab until answered" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     q = Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     q.ask("Sure?") { }
     q.modal?.should be_true
@@ -263,7 +257,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   end
 
   it "Question#ask_choices holds the grab until dismissed" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     q = Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     q.ask_choices("Pick one", choices: ["A", "B"]) { }
     q.modal?.should be_true
@@ -274,7 +268,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   end
 
   it "Prompt#read_input takes the grab and #done releases it" do
-    s = b18ed_window
+    s = headless_screen(60, 24)
     p = Widget::Prompt.new parent: s, content: "Name?"
     p.read_input { }
     p.modal?.should be_true

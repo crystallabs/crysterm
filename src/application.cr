@@ -70,8 +70,7 @@ module Crysterm
     # sibling sharing the same `Screen`. The toolkit's "raise window" for stacked
     # surfaces. No-op if not registered.
     def activate(window : Window) : Window?
-      return unless @windows.includes? window
-      @windows.delete window
+      return unless @windows.delete window
       @windows << window
       # A device resize while this window was non-active may not have reached
       # it yet (its debounced resize loop can still be pending); compositing
@@ -214,12 +213,19 @@ module Crysterm
       nil
     end
 
+    # Whether any registered window is currently backed by *screen* — a
+    # cheaper, allocation-free membership test than building the deduped
+    # `#screens` array just to call `#includes?` on it.
+    private def device_in_use?(screen : Screen) : Bool
+      @windows.any?(&.screen.same?(screen))
+    end
+
     # Registers *window* with this application (idempotent), back-links it, and
     # emits `ScreenAdded` the first time a new device appears ↔
     # `QGuiApplication::screenAdded`.
     def add(window : Window) : Window
       return window if @windows.includes? window
-      new_device = !screens.includes?(window.screen)
+      new_device = !device_in_use?(window.screen)
       @windows << window
       window.application = self
       # Back-link the device so its input read fiber can route up to this
@@ -234,7 +240,7 @@ module Crysterm
     def remove(window : Window) : Nil
       return unless @windows.delete window
       device = window.screen
-      emit ::Crysterm::Event::ScreenRemoved, device unless screens.includes? device
+      emit ::Crysterm::Event::ScreenRemoved, device unless device_in_use?(device)
       # Losing the last window ends a blocked `#exec` loop (Qt's
       # `quitOnLastWindowClosed`), so `window.destroy` alone unblocks a program
       # instead of leaving `exec` waiting on a quit that can no longer arrive.

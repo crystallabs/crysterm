@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS18 flow/grid findings: B18-19, B18-20, B18-21,
 # B18-24.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # B18-19 — a deferred (z-indexed) shrink-to-fit flow child DRAWS at its shrunk
 # content extent, but its `awidth`/`aheight` resolve to the full remaining
 # interior. The assigned-geometry fallback for a deferred predecessor used
@@ -20,7 +14,7 @@ end
 # nil-size axis.
 describe "BUGS18 B18-19: Flow uses a deferred auto-sized child's drawn extent" do
   it "chains the successor off a deferred auto-width child's drawn width" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       layout: Layout::Wrap.new
     a = Widget::Box.new parent: box, content: "hi", height: 1
@@ -43,7 +37,7 @@ describe "BUGS18 B18-19: Flow uses a deferred auto-sized child's drawn extent" d
   end
 
   it "advances the row cursor by a deferred auto-height child's drawn height" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       layout: Layout::Wrap.new
     a = Widget::Box.new parent: box, content: "hi", width: 12
@@ -71,7 +65,7 @@ end
 # there, matching Layout::Box/Border.
 describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
   it "does not let a hidden child inflate the row height" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 20,
       layout: Layout::Wrap.new
     Widget::Box.new parent: box, width: 8, height: 2
@@ -95,7 +89,7 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
   end
 
   it "starts the row at the origin when the first child is hidden" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 20,
       layout: Layout::Wrap.new
     b = Widget::Box.new parent: box, width: 8, height: 2
@@ -112,7 +106,7 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
   end
 
   it "does not let a hidden wide child set UniformGrid's column pitch" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::UniformGrid.new
     Widget::Box.new parent: box, width: 4, height: 2
@@ -133,7 +127,7 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
   end
 
   it "does not let a hidden overflowing child stop rendering visible successors" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 4,
       layout: Layout::Wrap.new, overflow: Overflow::StopRendering
     Widget::Box.new parent: box, width: 8, height: 2
@@ -161,7 +155,7 @@ end
 # last row, like the declared-rows branch and the column axis.
 describe "BUGS18 B18-21: Grid inferred rows clamp an off-grid hint origin" do
   it "keeps auto-flow siblings visible alongside an off-grid hinted child" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 10,
       layout: Layout::Grid.new(columns: 2)
     bad = Widget::Box.new parent: box,
@@ -195,7 +189,7 @@ end
 # children into the last row.
 describe "BUGS18 B18-24: Grid auto-flow past declared rows stays visible" do
   it "renders the overflowing auto-flow child in the last row" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Grid.new(columns: 2, rows: 2)
     kids = Array.new(5) { Widget::Box.new parent: box }

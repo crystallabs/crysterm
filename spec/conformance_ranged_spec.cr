@@ -11,17 +11,9 @@ include Crysterm
 # fails here. Would have caught the live B0.2 (inverted range) / B0.3 (missing
 # vi-keys) drift the family already suffered.
 
-private def mem_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def kp(char : Char, key : ::Tput::Key? = nil)
-  Crysterm::Event::KeyPress.new char, key
-end
-
 private def wheel_event(down : Bool)
   act = down ? ::Tput::Mouse::Action::WheelDown : ::Tput::Mouse::Action::WheelUp
-  Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(act, ::Tput::Mouse::Button::None, 0, 0, source: :test))
+  Crysterm::Event::Mouse.new(mouse_ev(act, 0, 0, ::Tput::Mouse::Button::None))
 end
 
 # One family member's adapter. `build` makes a fresh widget with a given
@@ -41,7 +33,7 @@ private record RangedCase,
 private def it_behaves_like_a_ranged_widget(c : RangedCase)
   describe c.name do
     it "clamps the value into [minimum, maximum]" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s, 0, 10, 5
       c.set_value.call w, 999
       c.value.call(w).should eq 10
@@ -50,13 +42,13 @@ private def it_behaves_like_a_ranged_widget(c : RangedCase)
     end
 
     it "never stores an inverted range (max below min collapses to min)" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s, 100, 0, 50
       (c.minimum.call(w) <= c.maximum.call(w)).should be_true
     end
 
     it "emits Event::ValueChanged once on a real change and not on a no-op" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s, 0, 100, 50
       changes = 0
       w.on(Crysterm::Event::ValueChanged) { changes += 1 }
@@ -67,7 +59,7 @@ private def it_behaves_like_a_ranged_widget(c : RangedCase)
     end
 
     it "steps down on 'h' and up on 'l', round-tripping to the start" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s, 0, 100, 50
       v0 = c.value.call w
       c.send_key.call w, 'l', nil
@@ -78,7 +70,7 @@ private def it_behaves_like_a_ranged_widget(c : RangedCase)
 
     if c.home_end
       it "jumps to minimum on Home and maximum on End" do
-        s = mem_screen
+        s = headless_screen(default_quit_keys: true)
         w = c.build.call s, 0, 100, 50
         c.send_key.call w, '\0', ::Tput::Key::Home
         c.value.call(w).should eq 0
@@ -89,7 +81,7 @@ private def it_behaves_like_a_ranged_widget(c : RangedCase)
 
     if wheel = c.wheel
       it "moves on the wheel and reverses back" do
-        s = mem_screen
+        s = headless_screen(default_quit_keys: true)
         w = c.build.call s, 0, 100, 50
         v0 = c.value.call w
         wheel.call w, false # one notch

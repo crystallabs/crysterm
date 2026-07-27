@@ -15,10 +15,6 @@ include Crysterm
 #     encoded three ways in the tree (B5.7): `ButtonGroup` (explicit group) and a
 #     `RadioSet` of `RadioButton`s (tree-scoped) must keep exactly one member set.
 
-private def mem_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private record CheckableCase,
   name : String,
   build : Proc(Crysterm::Window, Crysterm::Widget::AbstractButton)
@@ -26,7 +22,7 @@ private record CheckableCase,
 private def it_behaves_like_a_checkable(c : CheckableCase)
   describe c.name do
     it "checks once and is idempotent" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       b = c.build.call s
       checks = 0
       b.on(Crysterm::Event::StateChanged) { |e| checks += 1 if e.state.checked? }
@@ -38,7 +34,7 @@ private def it_behaves_like_a_checkable(c : CheckableCase)
     end
 
     it "unchecks once and is idempotent" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       b = c.build.call s
       b.check
       unchecks = 0
@@ -51,7 +47,7 @@ private def it_behaves_like_a_checkable(c : CheckableCase)
     end
 
     it "emits exactly one event on a toggle from unchecked and ends checked" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       b = c.build.call s
       events = 0
       b.on(Crysterm::Event::StateChanged) { events += 1 }
@@ -69,7 +65,7 @@ private record GroupCase,
 private def it_behaves_like_an_exclusive_group(c : GroupCase)
   describe c.name do
     it "keeps exactly one member selected" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       members = c.setup.call s
       members[0].check
       members[1].check
@@ -135,7 +131,7 @@ describe "Checkable conformance (B8)" do
   # drift B0/B5.7 flags): if either side's policy changes, one of these fails.
   describe "exclusive-group non-empty policy (intended divergence)" do
     it "ButtonGroup forbids unchecking the sole selected member (reverts)" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       g = Crysterm::ButtonGroup.new exclusive: true
       a = Crysterm::Widget::Button.new parent: s
       b = Crysterm::Widget::Button.new parent: s
@@ -148,7 +144,7 @@ describe "Checkable conformance (B8)" do
     end
 
     it "RadioSet permits a programmatic uncheck to empty the group" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       rs = Crysterm::Widget::RadioSet.new parent: s
       a = Crysterm::Widget::RadioButton.new parent: rs
       b = Crysterm::Widget::RadioButton.new parent: rs

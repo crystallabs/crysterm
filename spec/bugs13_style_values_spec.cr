@@ -18,10 +18,6 @@ include Crysterm
 #   it built an immortal 30fps FrameClock pinned at the from-value).
 # * S15 — comment stripping honors quoted strings (`url("/a/*x*/b.png")`).
 
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 describe "BUGS13 S5 url(...) is matched case-insensitively" do
   it "parses URL(...) / Url(...) like url(...)" do
     s = Style.new

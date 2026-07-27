@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def riss_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `ItemView#remove_item` must keep the single-selection cursor on the same
 # logical item when an *earlier* row is removed — rows below the deletion
 # (including the selected one) shift down by one, so the cursor must slide
@@ -20,7 +10,7 @@ end
 # or (if selection was the last row) a phantom index past the end.
 describe "ItemView#remove_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is removed" do
-    s = riss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c", "d"]
     list.current_index = 2 # "c"
     list.current_text.should eq "c"
@@ -32,7 +22,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   end
 
   it "keeps the last selected row valid after removing an earlier one" do
-    s = riss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 2 # "c" (the last row)
 
@@ -44,7 +34,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   end
 
   it "leaves the cursor untouched when a later row is removed" do
-    s = riss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 0 # "a"
 
@@ -54,7 +44,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   end
 
   it "still selects the prior row when the selected row itself is removed" do
-    s = riss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 2 # "c"
 
@@ -64,7 +54,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
   end
 
   it "refreshes value when the selected first row is removed" do
-    s = riss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     # Cursor stays at index 0 (default selection).
     list.current_text.should eq "a"

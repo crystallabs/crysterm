@@ -62,7 +62,9 @@ module Crysterm
         # `parent: window` appends the pop-up to the render tree so it actually
         # draws (a bare `window:` would leave it visible-flagged but undrawn).
         menu = Menu.new(parent: window, style: @menu_style)
-        actions.each { |a| menu << a }
+        # Batched: one row rebuild for the whole pre-fill instead of one per
+        # action (see `Menu#begin_update`).
+        menu.batch_update { actions.each { |a| menu << a } }
         # The bar is normally already attached, so wire accelerators now; a later
         # re-attach re-covers them.
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }

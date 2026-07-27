@@ -16,17 +16,11 @@ include Crysterm
 #     overflowing list left it off-screen. (`src/mixin/item_view.cr` +
 #     `_scroll_bottom` spaced extent)
 
-private def bugs5_screen(w = 40, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS5 scrolling & item-view fixes" do
   # BUG 1: percentage round-trip must be idempotent for an @always_scroll widget.
   describe "Log#scroll_percent round-trip is idempotent (set inverts get)" do
     it "does not move child_base when re-applying the current percentage" do
-      s = bugs5_screen 30, 24
+      s = headless_screen(30, 24)
       log = Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 20
       # Sticky-bottom would clamp/yank the base; disable it so we test a fixed
       # mid-content position.
@@ -51,7 +45,7 @@ describe "BUGS5 scrolling & item-view fixes" do
   # header spacer at index 0.
   describe "ListTable#current_index= clamps a negative index to the first data row" do
     it "does not select the header spacer on page-up near the top" do
-      s = bugs5_screen 40, 24
+      s = headless_screen(40, 24)
       rows = [["Name", "Age"]]
       (1..20).each { |i| rows << ["person#{i}", i.to_s] }
       lt = Widget::ListTable.new parent: s, top: 0, left: 0, width: 24, height: 6, rows: rows
@@ -72,7 +66,7 @@ describe "BUGS5 scrolling & item-view fixes" do
   # scroll so the item's *spaced* content row is visible.
   describe "ItemView selection honors item_spacing when scrolling" do
     it "keeps the selected item on-screen in a spaced, overflowing list" do
-      s = bugs5_screen 40, 24
+      s = headless_screen(40, 24)
       items = (0...20).map { |i| "item#{i}" }
       list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5, items: items
       list.item_spacing = 1

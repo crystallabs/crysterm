@@ -21,12 +21,6 @@ include Crysterm
 # constructed `Tput::InputEvent`s via `Window#handle_input`; emitted escape
 # sequences are asserted via `Tput#capture`.
 
-private def ppf_screen(width = 60, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 private def paste_event(text : String)
   Tput::InputEvent.new '\0', paste: text
 end
@@ -34,7 +28,7 @@ end
 # ── #6/#7: bare enable_mouse must not downgrade SGR-Pixels ───────────────────
 describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   it "keeps the cached cell size across a bare re-assert (sticky request)" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     scr = s.screen
     scr.apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
@@ -48,7 +42,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   end
 
   it "does not emit DECRST 1016 on a bare re-assert of an active pixel session" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     scr = s.screen
     scr.apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
@@ -59,7 +53,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   end
 
   it "an explicit :off downgrades in sync: DECRST 1016 and cache cleared" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     scr = s.screen
     scr.apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
@@ -71,7 +65,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   end
 
   it "disable_mouse after a pixel session resets 1016 at the terminal" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     scr = s.screen
     scr.apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
@@ -87,7 +81,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   end
 
   it "tput: enable_mouse(pixels: nil) preserves, false downgrades only when active" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     tput = s.screen.tput
     tput.enable_mouse(pixels: {8, 16})
     tput.enable_mouse
@@ -106,7 +100,7 @@ end
 # ── #63: Window#send_focus wires DEC 1004 ────────────────────────────────────
 describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
   it "enable_mouse with send_focus set turns 1004 on" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     s.send_focus = true
     seq = s.screen.tput.capture { s.enable_mouse }
     seq.should contain "\e[?1004h"
@@ -116,7 +110,7 @@ describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
   end
 
   it "setting send_focus while mouse reporting is live re-asserts immediately" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     s.enable_mouse
     s.screen.tput.mouse_focus_enabled?.should be_false
     seq = s.screen.tput.capture { s.send_focus = true }
@@ -127,7 +121,7 @@ describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
   end
 
   it "a bare device re-assert preserves active focus reporting" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     s.send_focus = true
     s.enable_mouse
     seq = s.screen.tput.capture { s.screen.enable_mouse }
@@ -138,7 +132,7 @@ describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
   end
 
   it "send_focus=false turns 1004 back off" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     s.send_focus = true
     s.enable_mouse
     seq = s.screen.tput.capture { s.send_focus = false }
@@ -149,7 +143,7 @@ describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
   end
 
   it "disable_mouse resets 1004 when it was enabled" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     s.send_focus = true
     s.enable_mouse
     seq = s.screen.tput.capture { s.screen.disable_mouse }
@@ -162,7 +156,7 @@ end
 # ── #16: Event::Paste routing ────────────────────────────────────────────────
 describe "BUGS15 16: Event::Paste routes to the focused widget" do
   it "delivers to the focused widget; an accepted paste skips the window fallback" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     got = [] of String
     fallback = 0
@@ -177,7 +171,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   end
 
   it "bubbles up the parent chain until a handler accepts" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10
     inner = Widget::Box.new parent: outer, top: 1, left: 1, width: 5, height: 3
     got = [] of String
@@ -190,7 +184,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   end
 
   it "falls back to the window-level emit when nothing accepts" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     got = [] of String
     s.on(Crysterm::Event::Paste) { |e| got << e.content }
@@ -202,7 +196,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   end
 
   it "LineEdit inserts pasted text at the cursor" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
     s.repaint
     le.focus
@@ -213,7 +207,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   end
 
   it "LineEdit flattens pasted newlines (single-line semantics)" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
     s.repaint
     le.focus
@@ -226,7 +220,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
   end
 
   it "a read-only text widget leaves the paste unaccepted (fallback fires)" do
-    s = ppf_screen
+    s = headless_screen(60, 24)
     le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1,
       read_only: true
     fallback = 0
@@ -242,7 +236,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
 
   it "Terminal forwards a paste to the child raw when 2004 is off in the child" do
     got = [] of String
-    s = ppf_screen
+    s = headless_screen(60, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(d : String) { got << d; nil })
@@ -256,7 +250,7 @@ describe "BUGS15 16: Event::Paste routes to the focused widget" do
 
   it "Terminal wraps the paste in bracketed-paste markers when the child enabled 2004" do
     got = [] of String
-    s = ppf_screen
+    s = headless_screen(60, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 20, height: 5,
       handler: ->(d : String) { got << d; nil })

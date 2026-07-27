@@ -10,12 +10,6 @@ include Crysterm
 # `#before_flow` scan) never override, so they still resolve `el.awidth` fresh
 # at the fit check exactly as before.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Counts calls to `#awidth` made with the default (un-rendered) argument — the
 # form both `UniformGrid#before_flow`'s scan and `Flow#flow_place`'s fit check
 # use (`el.awidth`). `#base_render` also calls `awidth(true)` on every widget
@@ -33,7 +27,7 @@ end
 
 describe "OPT4 O4-16: UniformGrid awidth caching" do
   it "positions children identically to a hand-computed uniform-column layout" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::UniformGrid.new
     a = Widget::Box.new parent: box, width: 6, height: 2
@@ -60,7 +54,7 @@ describe "OPT4 O4-16: UniformGrid awidth caching" do
   end
 
   it "resolves each child's un-rendered awidth fewer than twice per frame" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::UniformGrid.new
     children = [
@@ -85,7 +79,7 @@ end
 
 describe "OPT4 O4-16: Wrap/Masonry fallback (no before_flow cache)" do
   it "Wrap still wraps children onto rows at their natural widths" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Wrap.new
     a = Widget::Box.new parent: box, width: 12, height: 2
@@ -115,7 +109,7 @@ describe "OPT4 O4-16: Wrap/Masonry fallback (no before_flow cache)" do
   end
 
   it "Masonry still lays out a small run of children correctly" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Masonry.new
     a = Widget::Box.new parent: box, width: 12, height: 3

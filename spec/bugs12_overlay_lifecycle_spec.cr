@@ -18,16 +18,6 @@ include Crysterm
 # window's listeners down and the next Attach must re-register on the new one,
 # also for widgets constructed already attached.
 
-private def overlay_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 20, height: 10)
-end
-
-private def red_bitmap(w = 8, h = 8)
-  red = PNGGIF::Pixel.new(255, 0, 0, 255)
-  Array(Array(PNGGIF::Pixel)).new(h) { Array(PNGGIF::Pixel).new(w, red) }
-end
-
 # Sixel spy exposing the shared lifecycle's private state and counting the
 # erase (`overlay_cleared`) and repaint (`redraw_image`) hook invocations.
 private class SpySixel < Crysterm::Widget::Media::Sixel
@@ -57,7 +47,7 @@ end
 
 describe "BUGS12 9: overlay cleared when scrolled out of a scrollable ancestor" do
   it "clears exactly once on scroll-out and repaints on scroll-in" do
-    s = overlay_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true
     # Tall spacer so the container has plenty to scroll.
     Widget::Box.new parent: outer, top: 0, left: 10, width: 1, height: 30
@@ -93,8 +83,8 @@ end
 
 describe "BUGS12 26: overlay listeners migrate on a cross-window move" do
   it "re-registers on the new window and drops the old one, even when constructed attached" do
-    s1 = overlay_screen
-    s2 = overlay_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
     b = Widget::Box.new parent: s2, width: "100%", height: "100%"
 
@@ -126,7 +116,7 @@ describe "BUGS12 26: overlay listeners migrate on a cross-window move" do
   end
 
   it "keeps a single registration across a same-window reparent" do
-    s = overlay_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: "100%", height: "100%"
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
     img = SpySixel.new parent: a, top: 0, left: 0, width: 6, height: 4

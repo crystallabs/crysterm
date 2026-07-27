@@ -58,47 +58,34 @@ module Crysterm
         # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Mutt::Message
 
-        # Thread-tree glyphs (Mutt's `$ascii_chars` off). Each falls back to the
-        # central `Glyphs` registry at this widget's `#glyph_tier` unless
-        # explicitly set, so `Glyphs.set`/an ASCII glyph tier retunes the tree
-        # toolkit-wide. Explicit setter + falling-back getter (mirrors
-        # `Shadow`'s per-field scheme), so override for a custom look, e.g.
+        # Thread-tree glyphs (Mutt's `$ascii_chars` off), declared with `Macros`'
+        # `pinnable_registry_glyph`: each falls back to the central `Glyphs`
+        # registry at this widget's `#glyph_tier` unless explicitly set, so
+        # `Glyphs.set`/an ASCII glyph tier retunes the tree toolkit-wide while an
+        # assignment pins one for a custom look, e.g.
         # `tree_vline = "| "; tree_tee = "|-"; tree_corner = "\`-"`.
-        @tree_vline : String? = nil
-        @tree_gap : String? = nil
-        @tree_tee : String? = nil
-        @tree_corner : String? = nil
-        @tree_arrow : String? = nil
-
-        setter tree_vline, tree_gap, tree_tee, tree_corner, tree_arrow
-
-        # Continuation line before an ancestor column that still has a later
-        # sibling, plus the one-column gap after it (registry `LineVertical`).
-        def tree_vline : String
-          @tree_vline || "#{Glyphs[Glyphs::Role::LineVertical, glyph_tier]} "
-        end
+        #
+        # This one is the continuation line before an ancestor column that still
+        # has a later sibling, plus the one-column gap after it (registry
+        # `LineVertical`).
+        pinnable_registry_glyph tree_vline, type: String,
+          fallback: "#{glyph(Glyphs::Role::LineVertical)} "
 
         # Blank ancestor column (no further sibling at that level below).
-        def tree_gap : String
-          @tree_gap || "  "
-        end
+        pinnable_registry_glyph tree_gap, type: String, fallback: "  "
 
         # A reply with a later sibling at the same depth (registry
         # `JunctionTeeLeft` + `LineHorizontal`).
-        def tree_tee : String
-          @tree_tee || "#{Glyphs[Glyphs::Role::JunctionTeeLeft, glyph_tier]}#{Glyphs[Glyphs::Role::LineHorizontal, glyph_tier]}"
-        end
+        pinnable_registry_glyph tree_tee, type: String,
+          fallback: "#{glyph(Glyphs::Role::JunctionTeeLeft)}#{glyph(Glyphs::Role::LineHorizontal)}"
 
         # The last reply at its depth (registry `BorderLineBL` — the same
         # square-corner glyph a `Solid` border draws — + `LineHorizontal`).
-        def tree_corner : String
-          @tree_corner || "#{Glyphs[Glyphs::Role::BorderLineBL, glyph_tier]}#{Glyphs[Glyphs::Role::LineHorizontal, glyph_tier]}"
-        end
+        pinnable_registry_glyph tree_corner, type: String,
+          fallback: "#{glyph(Glyphs::Role::BorderLineBL)}#{glyph(Glyphs::Role::LineHorizontal)}"
 
         # Points from the tee/corner at the reply's subject (registry `ArrowRight`).
-        def tree_arrow : String
-          @tree_arrow || Glyphs[Glyphs::Role::ArrowRight, glyph_tier].to_s
-        end
+        pinnable_registry_glyph tree_arrow, ArrowRight, type: String
 
         def initialize(
           messages : Array(Message) = [] of Message,
@@ -127,11 +114,84 @@ module Crysterm
           end
         end
 
+        # The thread-tree prefix of every row, precomputed by `#rows` in one
+        # reverse pass and reused by `#thread_prefix` (which would otherwise scan
+        # forward to the end of the list once per ancestor level of every row).
+        # Rebuilt — hence invalidated — on each `#records=`, which is the only
+        # thing that (re)builds the rows.
+        @thread_prefixes : Array(String)? = nil
+
+        # Precomputes the thread-tree prefixes for *data* before the per-row
+        # `#format_row` pass reads them back.
+        protected def rows(data : Array(Message)) : Array(String)
+          @thread_prefixes = build_thread_prefixes data
+          super
+        end
+
+        # Builds every row's thread prefix in a single pass from the *last* message
+        # backwards, replacing the two forward scans `#thread_prefix` used to run
+        # per ancestor level (O(n²·depth) for the whole list, O(n + depth changes)
+        # here).
+        #
+        # Both scans answer the same question — "is the first later message at a
+        # depth ≤ *L* exactly at depth *L*?" — with opposite polarity:
+        # `#ancestor_continues?` returns that predicate, `#last_at_level?` returns
+        # its negation. So one `active` bitmap suffices: walking `j` downwards,
+        # `active[L]` holds that predicate for row `j`, i.e. it is computed over
+        # rows `j+1..n-1` only. Stepping from `j` to `j-1` folds row `j` (at depth
+        # `dj`) in: for `L < dj` row `j` is skipped by both scans, so the entry is
+        # unchanged; for `L == dj` the scan now stops there with `dj == L`, so it
+        # becomes true; for `L > dj` it stops there with `dj < L`, so it becomes
+        # false. `top` bounds the clearing loop (everything above it is already
+        # false), so the whole pass stays amortized rather than O(n·max_depth).
+        private def build_thread_prefixes(data : Array(Message)) : Array(String)
+          prefixes = Array(String).new(data.size, "")
+          # Hoisted: the glyphs can't change mid-pass, and each getter is a
+          # registry lookup plus (for the composed ones) a string build.
+          vline, gap, tee, corner, arrow = tree_vline, tree_gap, tree_tee, tree_corner, tree_arrow
+
+          active = [] of Bool
+          top = -1 # highest level index that may still be true
+
+          (data.size - 1).downto 0 do |j|
+            dj = data[j].depth
+
+            if dj > 0
+              prefixes[j] = String.build do |s|
+                # Ancestor columns: depth 1 .. dj-1.
+                (1...dj).each do |level|
+                  s << (active[level]? ? vline : gap)
+                end
+                # A later sibling at this depth draws a tee, else the corner that
+                # closes the branch.
+                s << (active[dj]? ? tee : corner)
+                s << arrow
+              end
+            end
+
+            ((dj + 1)..top).each { |l| active[l] = false }
+            top = dj
+            while active.size <= dj
+              active << false
+            end
+            active[dj] = true
+          end
+
+          prefixes
+        end
+
         # Builds the thread-tree prefix for the message at *index* from the depths
         # of the surrounding messages: a tee (`├─`), or a corner (`└─`) when it is
         # the last reply at its level, preceded by one continuation line (`│`) or
         # gap per ancestor level.
+        #
+        # Answered from the precomputed table when `#rows` filled one for the
+        # current record set; the forward-scanning fallback below covers a direct
+        # `#format_row` call outside a `#rows` pass.
         private def thread_prefix(index : Int32) : String
+          if (p = @thread_prefixes) && p.size == records.size && (cached = p[index]?)
+            return cached
+          end
           d = records[index].depth
           return "" if d <= 0
           String.build do |s|

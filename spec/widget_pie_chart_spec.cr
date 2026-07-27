@@ -2,17 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def hscreen(w = 40, h = 14)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
-end
-
 private def text_of(s) : String
   (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 describe Crysterm::Widget::Graph::PieChart do
   it "draws slices as braille wedges and a legend with percentages" do
-    s = hscreen
+    s = headless_screen(40, 14, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -42,7 +38,7 @@ describe Crysterm::Widget::Graph::PieChart do
   end
 
   it "draws nothing when the total is not positive" do
-    s = hscreen(20, 11)
+    s = headless_screen(20, 11, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin

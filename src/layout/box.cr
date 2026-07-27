@@ -116,7 +116,7 @@ module Crysterm
       # convention of returning the added widget), so a caller can remove or
       # resize it later.
       def add_spacing(size : Int32) : Widget::Spacer
-        c = require_container "add_spacing"
+        c = require_container "Layout::Box#add_spacing"
         sp = Widget::Spacer.new size
         c.append sp
         sp
@@ -129,17 +129,10 @@ module Crysterm
       # (`#stretch_of`) alongside any other flex children — no parallel
       # mechanism. Returns the spacer; see `#add_spacing` for the design notes.
       def add_stretch(factor : Int32 = 1) : Widget::Spacer
-        c = require_container "add_stretch"
+        c = require_container "Layout::Box#add_stretch"
         sp = Widget::Spacer.stretch factor
         c.append sp
         sp
-      end
-
-      # `#container`, or raises when the layout isn't installed on one yet —
-      # shared guard for `#add_spacing`/`#add_stretch` (the `Form#add_row`
-      # pattern, with the calling method named in the message).
-      private def require_container(method : String) : Widget
-        container || raise ArgumentError.new "Layout::Box##{method}: layout not installed on a container"
       end
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil

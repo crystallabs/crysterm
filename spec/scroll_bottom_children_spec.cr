@@ -9,13 +9,9 @@ include Crysterm
 # computed scroll height must be identical to the pre-fix behavior: it reflects
 # the bottom-most extent of the (non-fixed) children.
 
-private def sb_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 describe "Widget#_scroll_bottom with children" do
   it "computes scroll height from the bottom-most child extent" do
-    s = sb_screen
+    s = headless_screen(default_quit_keys: true)
     box = Widget.new parent: s, top: 0, left: 0, width: 20, height: 5,
       scrollable: true
 
@@ -35,7 +31,7 @@ describe "Widget#_scroll_bottom with children" do
   end
 
   it "grows scroll height when a deeper child is added" do
-    s = sb_screen
+    s = headless_screen(default_quit_keys: true)
     box = Widget.new parent: s, top: 0, left: 0, width: 20, height: 5,
       scrollable: true
     Widget.new parent: box, top: 2, left: 0, width: 10, height: 2

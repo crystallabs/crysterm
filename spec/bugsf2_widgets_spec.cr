@@ -37,15 +37,6 @@ include Crysterm
 #  42 (group_box.cr / dock_widget.cr) runtime `title=` never updated the rendered
 #                         title.
 
-private def f2_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private def f2_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y, source: :test))
 end
@@ -57,7 +48,7 @@ end
 # ── 16 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 16: ComboBox options= refreshes the open drop-down" do
   it "re-fills the open popup so a click commits a value the user can see" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 3, left: 5, width: 16, height: 1,
       options: ["Apple", "Banana"]
     cb.focus
@@ -78,7 +69,7 @@ end
 # ── 17 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 17: DateEdit calendar popup placement" do
   it "flips the calendar above the field when it would overflow off the bottom" do
-    s = f2_screen 80, 14
+    s = headless_screen(80, 14)
     de = Crysterm::Widget::DateEdit.new parent: s, top: 11, left: 5, width: 12, height: 1,
       date: Time.utc(2024, 6, 15)
     de.focus
@@ -93,7 +84,7 @@ describe "BUGS-F2 17: DateEdit calendar popup placement" do
   end
 
   it "opens the calendar directly below the field when there is room" do
-    s = f2_screen 80, 24
+    s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, top: 3, left: 5, width: 12, height: 1,
       date: Time.utc(2024, 6, 15)
     de.focus
@@ -109,7 +100,7 @@ end
 # ── 20 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 20: Window#insert reorders an existing top-level child" do
   it "insert_before moves an existing child before another" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     b1 = Widget::Box.new width: 4, height: 2
     b2 = Widget::Box.new width: 4, height: 2
     s << b1
@@ -125,7 +116,7 @@ describe "BUGS-F2 20: Window#insert reorders an existing top-level child" do
   end
 
   it "insert_after moves an existing child after another" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     b1 = Widget::Box.new width: 4, height: 2
     b2 = Widget::Box.new width: 4, height: 2
     s << b2
@@ -139,7 +130,7 @@ describe "BUGS-F2 20: Window#insert reorders an existing top-level child" do
   end
 
   it "keeps focus on a reordered child (no rewind churn)" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     b1 = Widget::Box.new width: 4, height: 2, keys: true
     b2 = Widget::Box.new width: 4, height: 2, keys: true
     s << b1
@@ -157,7 +148,7 @@ end
 # ── 21 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style change" do
   it "recomputes the packed attr array when the default style changes" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, scrollable: true, scrollbar: false,
       width: 10, height: 3, content: "hi"
     s.render
@@ -178,7 +169,7 @@ end
 # ── 28 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 28: set_content honors a no_tags mode change on identical content" do
   it "reparses literal when re-set with no_tags after being parsed" do
-    box = Widget::Box.new parent: f2_screen, width: 20, height: 3
+    box = Widget::Box.new parent: headless_screen(80, 24), width: 20, height: 3
     box.parse_tags = true
     box.set_content("{bold}hi{/bold}")
     box.pcontent.should contain "\e[" # parsed
@@ -189,7 +180,7 @@ describe "BUGS-F2 28: set_content honors a no_tags mode change on identical cont
   end
 
   it "reparses parsed when re-set without no_tags after being literal" do
-    box = Widget::Box.new parent: f2_screen, width: 20, height: 3
+    box = Widget::Box.new parent: headless_screen(80, 24), width: 20, height: 3
     box.parse_tags = true
     box.set_text("{bold}hi{/bold}") # literal
     box.pcontent.should contain "{bold}"
@@ -202,7 +193,7 @@ end
 # ── 29 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spaced" do
   it "moves fewer items per page with item_spacing than without" do
-    s = f2_screen
+    s = headless_screen(80, 24)
 
     plain = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 20,
       items: (0...60).map(&.to_s)
@@ -225,7 +216,7 @@ end
 # ── 31 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
   it "does not move the date or emit DateChanged on an arrow key" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
     cal.selection_mode = Widget::Calendar::SelectionMode::NoSelection
@@ -242,7 +233,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
   end
 
   it "still moves the date under SingleSelection (control)" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
     s.render
@@ -257,7 +248,7 @@ end
 # ── 32 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 32: Calendar closes one nav dropdown before opening the other" do
   it "hides the month menu when the year menu opens" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
     cal.focus
@@ -299,7 +290,7 @@ describe "BUGS-F2 36: FileManager rolls back entering an unreadable directory" d
     end
 
     begin
-      s = f2_screen
+      s = headless_screen(80, 24)
       fm = Crysterm::Widget::FileManager.new parent: s, cwd: base
       fm.refresh
       fm.cwd.should eq base
@@ -329,7 +320,7 @@ end
 # ── 37 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 37: SpinBox wheel cancels an active edit first" do
   it "does not commit the typed buffer when the wheel steps the value" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: 100
     sb.focus
@@ -349,7 +340,7 @@ end
 # ── 38 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 38: ColorDialog wheel only acts over the field/hue" do
   it "ignores a wheel on empty dialog chrome but nudges value over the field" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new parent: s
     cd.show # the dialog starts hidden; must be laid out for on_mouse to hit-test
     s.render
@@ -372,7 +363,7 @@ end
 # ── 39 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 39: BigText auto-width sums per-glyph widths" do
   it "sizes a CJK string by its full-width glyphs, not codepoint count" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     bt = Crysterm::Widget::BigText.new parent: s, content: "日本語"
     s.render
     bt.render # BigText#render (0-arg) is what runs the shrink-to-content width
@@ -386,7 +377,7 @@ end
 # ── 40 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 40: Form submits and resets every item view, not just List" do
   it "collects a ListTable value and resets its selection" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new parent: s, width: 40, height: 12
     lt = Crysterm::Widget::ListTable.new parent: form, name: "grid", width: 20, height: 8
     lt.rows = ([["H"], ["r1"], ["r2"], ["r3"]]) # row 0 is the header
@@ -405,7 +396,7 @@ end
 # ── 41 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 41: CheckBox#partial emits StateChanged(Unchecked) when leaving a checked box" do
   it "announces the dropped checked state" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s, tristate: true, checked: true
     cb.checked?.should be_true
 
@@ -423,7 +414,7 @@ describe "BUGS-F2 41: CheckBox#partial emits StateChanged(Unchecked) when leavin
   end
 
   it "does not emit StateChanged(Unchecked) when partial is called on an unchecked box" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s, tristate: true, checked: false
 
     unchecked = false
@@ -439,7 +430,7 @@ end
 # ── 42 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 42: runtime title= updates the rendered title" do
   it "GroupBox#title= re-labels the border" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Old", width: 30, height: 8
     s.render
 
@@ -449,7 +440,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
   end
 
   it "GroupBox#checkable= adds the marker and click handling post-construction" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: false,
       top: 0, left: 0, width: 30, height: 8
     # `repaint` (not `update`, which only rings the async doorbell) so the
@@ -467,7 +458,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
   end
 
   it "DockWidget#title= re-labels the title bar" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "Old", dock_size: 20
     s.render
 

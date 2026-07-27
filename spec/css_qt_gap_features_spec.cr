@@ -8,16 +8,6 @@ include Crysterm
 #     with their own box-drawing glyph sets),
 #   * `lineedit-password-character` (Qt) -> `LineEdit#password_character`.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private def screen_has_char?(screen, char : Char) : Bool
   (0...screen.height).any? do |y|
     next false unless screen.lines[y]?
@@ -27,7 +17,7 @@ end
 
 # Applies *css* to a fresh headless `Box` and returns its computed normal style.
 private def box_normal_style(css : String) : Style
-  screen = headless_screen
+  screen = headless_screen(default_quit_keys: true)
   box = Widget::Box.new parent: screen
   screen.stylesheet = css
   screen.apply_stylesheet
@@ -37,7 +27,7 @@ end
 # Renders one bordered `Box` styled by *css* and returns the screen so callers
 # can inspect which border glyphs were painted.
 private def render_bordered_box(css : String)
-  screen = render_screen
+  screen = headless_screen(80, 24, default_quit_keys: true)
   Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 5
   screen.stylesheet = css
   screen.repaint
@@ -56,7 +46,7 @@ describe "text-decoration: line-through" do
   end
 
   it "is shorthand: an absent line-through clears strike" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: screen
     box.styles.normal.strike = true
     screen.stylesheet = "Box { text-decoration: underline; }"
@@ -127,7 +117,7 @@ describe "lineedit-password-character" do
   end
 
   it "sets the mask char from a numeric Unicode code point (Qt style)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     input = Widget::LineEdit.new parent: screen
     screen.stylesheet = "LineEdit { lineedit-password-character: 9679; }"
     screen.apply_stylesheet
@@ -136,7 +126,7 @@ describe "lineedit-password-character" do
   end
 
   it "sets the mask char from a literal value" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     input = Widget::LineEdit.new parent: screen
     screen.stylesheet = "LineEdit { lineedit-password-character: #; }"
     screen.apply_stylesheet
@@ -145,7 +135,7 @@ describe "lineedit-password-character" do
   end
 
   it "masks the displayed value with the custom char when censored" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     input = Widget::LineEdit.new parent: screen, echo_mode: :password
     input.password_character = '#'
     input.value = "abc"
@@ -159,7 +149,7 @@ describe "lineedit-password-character" do
   end
 
   it "is a no-op on a non-LineEdit widget (does not raise)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: screen
     screen.stylesheet = "Box { lineedit-password-character: 9679; }"
     screen.apply_stylesheet # should simply ignore it

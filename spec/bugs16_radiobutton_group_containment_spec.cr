@@ -15,18 +15,9 @@ include Crysterm
 # (the `group` back-reference) when one owns the button -- matching Qt, where
 # per-parent autoExclusive behavior applies only to ungrouped radios.
 
-private def add_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 describe Crysterm::Widget::RadioButton do
   it "does not let containment-based exclusivity cross ButtonGroup boundaries" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s
 
     r1a = Widget::RadioButton.new parent: box
@@ -56,7 +47,7 @@ describe Crysterm::Widget::RadioButton do
   end
 
   it "still applies containment exclusivity to ungrouped radios sharing a parent" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s
 
     r1 = Widget::RadioButton.new parent: box

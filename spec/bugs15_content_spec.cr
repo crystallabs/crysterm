@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def sized_screen(width = 40, height = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 # BUGS15 #18 — `rebuild_content_from_fake` re-fed `@_clines.fake` (POST-parse
 # lines) through `set_content`, running `_parse_tags` a SECOND time. Under the
 # drop-malformed policy that silently destroyed escaped literal braces
@@ -16,7 +10,7 @@ end
 # transient no-reparse flag plus pre-parsing freshly edited lines.
 describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   it "keeps escaped literal braces after insert_line" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}"
     # `{open}`/`{close}` emit literal braces: content renders "brace: {literal}".
     w.rendered_content.should eq "brace: {literal}"
@@ -28,7 +22,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   end
 
   it "keeps {escape}-protected literal tag text after insert_line" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "{escape}{bold}{/escape}"
     # `{escape}…{/escape}` emits its body verbatim: renders literal "{bold}".
     w.rendered_content.should eq "{bold}"
@@ -41,7 +35,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   end
 
   it "does not corrupt an unrelated escaped-brace row when replace_line edits another row" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\nsecond"
     w.rendered_content.should eq "brace: {literal}\nsecond"
 
@@ -51,7 +45,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   end
 
   it "keeps escaped literal braces after delete_line of another row" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "brace: {open}literal{close}\ndrop me"
     w.delete_line index: 1
     w.rendered_content.should eq "brace: {literal}"
@@ -59,11 +53,11 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
 
   it "still expands a tag in a freshly inserted line (round-trip idempotence)" do
     # A tag in newly inserted text must work exactly as a full set_content would.
-    ref = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    ref = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     ref.set_content "{bold}z{/bold}"
     reference_line = ref.rendered_content
 
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5, parse_tags: true
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
     w.set_content "plain"
     w.insert_line 0, "{bold}z{/bold}"
     lines = w.rendered_content.split('\n')
@@ -74,7 +68,7 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   end
 
   it "keeps no_tags (set_text) content literal across a line edit" do
-    w = Widget::Box.new parent: sized_screen, width: 30, height: 5
+    w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5
     w.parse_tags = true
     w.set_text "{bold}a{/bold}\nplain"
     # set_text stores literally; a line edit must not start parsing it.
@@ -97,8 +91,8 @@ end
 
 describe "Widget hover tooltip re-homes after a cross-window reparent (BUGS15 #49)" do
   it "creates the tooltip on the widget's current window, not the original one" do
-    a = sized_screen
-    b = sized_screen
+    a = headless_screen(40, 10)
+    b = headless_screen(40, 10)
 
     box = Widget::Box.new parent: a, top: 1, left: 1, width: 10, height: 3
     box.tool_tip = "help"

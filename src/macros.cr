@@ -194,6 +194,51 @@ module Crysterm
       end
     end
 
+    # Declares a *pinnable registry glyph* accessor pair: a nilable ivar with its
+    # plain `setter`, plus a getter that answers the pinned value when one was
+    # assigned and otherwise resolves from the central `Glyphs` registry at the
+    # widget's effective tier. Given `pinnable_registry_glyph expanded_char,
+    # TreeExpanded` it generates:
+    #
+    # ```
+    # setter expanded_char : Char? = nil
+    #
+    # def expanded_char : Char
+    #   @expanded_char || glyph(Glyphs::Role::TreeExpanded)
+    # end
+    # ```
+    #
+    # so `Glyphs.set`/an ASCII glyph tier retunes the unset ones toolkit-wide while
+    # an explicit assignment pins that one marker. Two shapes:
+    #
+    # * **Registry role** (*role* given): the fallback is `glyph(Glyphs::Role::role)`,
+    #   `.to_s`-ed when *type* is `String` (a one-`Char` role rendered as text).
+    # * **Expression** (*fallback* given): any expression, for a marker composed of
+    #   several glyphs (Mutt's `├─` tee) or of no glyph at all (its blank gap
+    #   column). *role* is then omitted.
+    #
+    # The `pinnable_glyph` sibling (src/widget/slider.cr, O5-27) covers the
+    # *CSS-slot* family instead: it names the accessor `<name>_char` and resolves a
+    # sub-control's `glyph` property before the registry. Use that one whenever the
+    # glyph has a sub-control to be styled through, this one for plain
+    # registry-backed chrome.
+    #
+    # Like `repaint_property`, document the property with a doc comment above the
+    # call. Assumes the including type is a `Widget` (uses `#glyph`).
+    macro pinnable_registry_glyph(name, role = nil, type = Char, fallback = nil)
+      {% raise "pinnable_registry_glyph #{name} needs a role or a fallback expression" if role == nil && fallback == nil %}
+
+      setter {{ name.id }} : {{ type.id }}? = nil
+
+      def {{ name.id }} : {{ type.id }}
+        @{{ name.id }} || {% if fallback %}
+          ({{ fallback }})
+        {% else %}
+          glyph(::Crysterm::Glyphs::Role::{{ role.id }}){% if type.stringify == "String" %}.to_s{% end %}
+        {% end %}
+      end
+    end
+
     # Registers a handler for the event, named after the event itself.
     #
     # E.g.:

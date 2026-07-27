@@ -5,16 +5,9 @@ include Crysterm
 # Keyboard focus navigation (`Window#focus_offset` and friends). Driven
 # headlessly over in-memory IOs; no real terminal is touched.
 
-private def focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#focus_offset" do
   it "moves focus between attached keyable widgets" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 
@@ -31,7 +24,7 @@ describe "Window#focus_offset" do
   # first focusable widget, `focus_previous` onto the last. The old `-1`
   # sentinel only got the forward case right; `focus_previous` landed mid-list.
   it "enters from the correct end when nothing is focused" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     Widget::Box.new parent: s, keys: true
     c = Widget::Box.new parent: s, keys: true
@@ -53,7 +46,7 @@ describe "Window#focus_offset" do
   # hold detached widgets (`@screen` nil). `focus_offset` must treat those as
   # "not attached" via `screen?` rather than crashing on the raising `screen`.
   it "does not crash when a removed widget lingers in the keyable list" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     stale = Widget::Box.new parent: s, keys: true
     Widget::Box.new parent: s, keys: true
@@ -70,7 +63,7 @@ describe "Window#focus_offset" do
   # Shift+Tab must step over it. Landing on it would route through `_focus`,
   # which sets `state = :focused` and would silently clear `Disabled`.
   it "skips a disabled keyable widget" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
     c = Widget::Box.new parent: s, keys: true
@@ -94,7 +87,7 @@ describe "Window#focus_offset" do
   # When the only keyable widget is disabled there is no valid target, so
   # navigation is a no-op rather than focusing it (or looping forever).
   it "does not focus the sole keyable widget when it is disabled" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     a.state = Crysterm::WidgetState::Disabled
     s.@history.clear
@@ -108,8 +101,8 @@ describe "Window#focus_offset" do
   # — now with `screen?` pointing at the new screen. A bare truthy `screen?`
   # guard would accept it; the guard must require `screen? == self`.
   it "does not focus a widget that was moved to another screen" do
-    s1 = focus_screen
-    s2 = focus_screen
+    s1 = headless_screen(default_quit_keys: true)
+    s2 = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s1, keys: true
     b = Widget::Box.new parent: s1, keys: true
 
@@ -133,7 +126,7 @@ describe "Window#focus_offset" do
   # widget whose own `style.visible?` is true but whose container is hidden
   # isn't actually on screen, so navigation must skip it.
   it "skips a keyable widget whose ancestor is hidden" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     container = Widget::Box.new parent: s
     inner = Widget::Box.new parent: container, keys: true
@@ -155,7 +148,7 @@ describe "Window#focus (re-focus of the already-focused widget)" do
   # used to set `:focused` then `:normal`, clobbering the highlight and
   # emitting a spurious `FocusOut` on the widget being focused.
   it "keeps the widget focused and emits no Blur on itself" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
 
     s.focus a
@@ -173,7 +166,7 @@ describe "Window#focus (re-focus of the already-focused widget)" do
   # The same hazard via keyboard navigation: with a single focusable widget,
   # `focus_next` wraps the index back onto it, re-focusing it.
   it "leaves the sole focusable widget focused after Tab wraps onto it" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
 
     a.focus
@@ -187,7 +180,7 @@ describe "Window#rewind_focus" do
   # Regression: `_focus` already emits `Event::FocusOut` on the previously-focused
   # widget, so `rewind_focus` must not emit it a second time (it used to).
   it "emits Blur on the old widget exactly once" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 
@@ -208,7 +201,7 @@ describe "Window#rewind_focus" do
   # widget is blurred (state dropped, `Event::FocusOut` emitted), instead of
   # lingering in `WidgetState::Focused` with no Blur fired.
   it "blurs and clears focus when no valid prior target remains" do
-    s = focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
 
     a.focus

@@ -10,16 +10,10 @@ include Crysterm
 # `ActionGroup#add_action(text)` (A4-42), `Menu#insert_separator`/
 # `#insert_submenu` (A4-43), and `MainWindow#add_dock_widget`/
 # `#remove_dock_widget` (A4-44).
-private def headless_window(width = 40, height = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe "API4 container/menu additions" do
   describe "Widget::Menu" do
     it "#add_action(Action) appends an existing action and it fires (A4-35)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       menu = Widget::Menu.new parent: win
       action = Action.new "Save"
       fired = false
@@ -33,7 +27,7 @@ describe "API4 container/menu additions" do
     end
 
     it "#add_actions bulk-appends without clearing (distinct from #actions=) (A4-45)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       menu = Widget::Menu.new parent: win
       first = Action.new "First"
       menu << first
@@ -44,7 +38,7 @@ describe "API4 container/menu additions" do
     end
 
     it "#insert_separator inserts a separator action at the given index (A4-43)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       menu = Widget::Menu.new parent: win
       a = Action.new "A"
       b = Action.new "B"
@@ -57,7 +51,7 @@ describe "API4 container/menu additions" do
     end
 
     it "#insert_submenu inserts a submenu action at the given index (A4-43)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       menu = Widget::Menu.new parent: win
       a = Action.new "A"
       b = Action.new "B"
@@ -74,7 +68,7 @@ describe "API4 container/menu additions" do
 
   describe "Widget::ToolBar" do
     it "#add_action(text, &block) creates and fires an action, returning its box (A4-35)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       tb = Widget::ToolBar.new parent: win, top: 0, left: 0, width: "100%", height: 1
       fired = false
 
@@ -86,7 +80,7 @@ describe "API4 container/menu additions" do
     end
 
     it "#add_actions loops #add_action for every action (A4-38a / A4-45)" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       tb = Widget::ToolBar.new parent: win, top: 0, left: 0, width: "100%", height: 1
       actions = [Action.new("One"), Action.new("Two")]
       fired = [] of String
@@ -102,7 +96,7 @@ describe "API4 container/menu additions" do
 
   describe "Mixin::PagedContainer (via TabWidget) (A4-36)" do
     it "#widget(index) and #index_of(widget) read through the page bookkeeping" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       tabs = Widget::TabWidget.new parent: win, top: 0, left: 0, width: 30, height: 10
       p0 = Widget::Box.new content: "zero"
       p1 = Widget::Box.new content: "one"
@@ -121,7 +115,7 @@ describe "API4 container/menu additions" do
 
   describe "Widget::Wizard#count (A4-40)" do
     it "is an alias of #page_count" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       wiz = Widget::Wizard.new parent: win, width: 50, height: 16
       wiz.count.should eq wiz.page_count
       wiz.count.should eq 0
@@ -135,7 +129,7 @@ describe "API4 container/menu additions" do
 
   describe "Widget::DialogButtonBox (A4-41)" do
     it "#add_button(StandardButton) keeps @standard/DISPLAY_ORDER coherent" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       bb = Widget::DialogButtonBox.new(parent: win, buttons: Widget::DialogButtonBox::StandardButton::Cancel)
 
       ok = bb.add_button Widget::DialogButtonBox::StandardButton::Ok
@@ -155,7 +149,7 @@ describe "API4 container/menu additions" do
     end
 
     it "#remove_button detaches a button and keeps @standard coherent" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       bb = Widget::DialogButtonBox.new(parent: win,
         buttons: Widget::DialogButtonBox::StandardButton::Ok | Widget::DialogButtonBox::StandardButton::Cancel)
       ok = bb.button(Widget::DialogButtonBox::StandardButton::Ok).not_nil!
@@ -193,7 +187,7 @@ describe "API4 container/menu additions" do
 
   describe "Widget::MainWindow dock aliases (A4-44)" do
     it "#add_dock_widget/#remove_dock_widget alias #add_dock/#remove_dock" do
-      win = headless_window
+      win = headless_screen(40, 20, default_quit_keys: true)
       main = Widget::MainWindow.new parent: win, top: 0, left: 0, width: 40, height: 20
       dock = Widget::DockWidget.new title: "Files"
 

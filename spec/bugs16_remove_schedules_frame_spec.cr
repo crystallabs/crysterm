@@ -10,16 +10,6 @@ include Crysterm
 # (`_damage_invalidate_structure` on both Widget and Window), which every
 # add/remove/reparent already funnels through.
 
-private def b16_08_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Non-blocking receive on the render doorbell: true iff a frame is pending.
 # Consumes one token.
 private def frame_scheduled?(w) : Bool
@@ -46,7 +36,7 @@ end
 
 describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   it "parent.remove(child) rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
     s.repaint
@@ -57,7 +47,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   end
 
   it "child.parent = nil rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
     s.repaint
@@ -68,7 +58,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   end
 
   it "child.destroy rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Crysterm::Widget::Box.new parent: box, top: 0, left: 0, width: 5, height: 2
     s.repaint
@@ -79,7 +69,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   end
 
   it "removing a top-level widget from the window rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.repaint
     drain_frames s
@@ -89,7 +79,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   end
 
   it "destroying a top-level widget rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.repaint
     drain_frames s
@@ -99,7 +89,7 @@ describe "Removing/destroying a widget schedules a frame (#B16-08)" do
   end
 
   it "a runtime append (the same structural hook) rings the render doorbell" do
-    s = b16_08_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.repaint
     drain_frames s

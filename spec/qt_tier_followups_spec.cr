@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 6)
-end
-
 # Behavioral coverage for the Qt-informed follow-ups (E22 char propagation,
 # F28 deselectable radio).
 describe "E22 — always_propagated_chars" do
@@ -19,7 +13,7 @@ describe "E22 — always_propagated_chars" do
   end
 
   it "defaults to an empty list, leaving always_propagated_keys untouched" do
-    win = headless_window
+    win = headless_screen(20, 6, default_quit_keys: true)
     win.always_propagated_chars.empty?.should be_true
     win.always_propagated_keys.empty?.should be_true
   end
@@ -27,7 +21,7 @@ end
 
 describe "F28 — RadioButton#deselectable" do
   it "a plain radio stays checked when toggled (Qt default: one stays selected)" do
-    win = headless_window
+    win = headless_screen(20, 6, default_quit_keys: true)
     rb = Crysterm::Widget::RadioButton.new(checked: true, parent: win)
     rb.deselectable?.should be_false
     rb.toggle
@@ -35,7 +29,7 @@ describe "F28 — RadioButton#deselectable" do
   end
 
   it "a deselectable radio unchecks when toggled, so the set can go empty" do
-    win = headless_window
+    win = headless_screen(20, 6, default_quit_keys: true)
     rb = Crysterm::Widget::RadioButton.new(checked: true, deselectable: true, parent: win)
     rb.checked?.should be_true
     rb.toggle

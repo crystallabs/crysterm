@@ -2,16 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-private def render_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 80, height: 24)
-end
-
 # CSS length units → terminal cells via the settable `Geometry.unit_divisors`
 # table: `cells = round(value / divisor)`.
 describe "CSS geometry units" do
   it "converts a unit'd length to cells through the divisor table" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 200px; left: 12px; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -21,7 +16,7 @@ describe "CSS geometry units" do
   end
 
   it "passes percentage / keyword forms straight through" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { top: 50%; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -30,7 +25,7 @@ describe "CSS geometry units" do
   end
 
   it "ignores a unit mapped to nil (physical units), leaving geometry untouched" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 7; height: 3cm; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -40,7 +35,7 @@ describe "CSS geometry units" do
   end
 
   it "scales units in non-geometry lengths (padding/margin) too" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { padding: 200px; margin-left: 1em; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -51,7 +46,7 @@ describe "CSS geometry units" do
   end
 
   it "caps a stretched/percentage width at max-width" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 100%; max-width: 10; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -61,7 +56,7 @@ describe "CSS geometry units" do
   end
 
   it "raises a too-small width to min-width" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 4; min-width: 8; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -70,7 +65,7 @@ describe "CSS geometry units" do
   end
 
   it "lets min-width win when it exceeds max-width (per CSS)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 100%; max-width: 5; min-width: 10; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -79,7 +74,7 @@ describe "CSS geometry units" do
   end
 
   it "scales unit'd size constraints through the divisor table (and ignores %)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { height: 100%; max-height: 200px; min-height: 50%; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -90,7 +85,7 @@ describe "CSS geometry units" do
   end
 
   it "resolves a viewport unit against the screen size, reactively on resize" do
-    s = render_screen # 80 x 24
+    s = headless_screen(80, 24, default_quit_keys: true) # 80 x 24
     s.stylesheet = "Box#a { width: 50vw; height: 100vh; top: 25vmin; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -112,7 +107,7 @@ describe "CSS geometry units" do
   end
 
   it "resolves an uppercased viewport unit (units are case-insensitive)" do
-    s = render_screen # 80 x 24
+    s = headless_screen(80, 24, default_quit_keys: true) # 80 x 24
     # CSS units are case-insensitive: `50VW`/`100VH` must behave like their
     # lowercase forms, and an uppercased size constraint must resolve (not be
     # silently dropped).
@@ -127,7 +122,7 @@ describe "CSS geometry units" do
   end
 
   it "evaluates calc() to cells when every term resolves" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: calc(200px + 2em); left: calc(8px - 2px); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -146,7 +141,7 @@ describe "CSS geometry units" do
   end
 
   it "ignores a calc() that needs layout context (a percentage term)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 7; height: calc(50% - 10px); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -156,7 +151,7 @@ describe "CSS geometry units" do
   end
 
   it "clamps a sub-cell border width up to 1 so it stays visible" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border-width: 2px; border-left-width: 0; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -168,7 +163,7 @@ describe "CSS geometry units" do
   it "scales the border-width longhand's top/bottom edges by the cell aspect ratio" do
     # A cell is taller than wide, so an absolute width on top/bottom resolves to
     # fewer cells than on left/right; the shorthand must agree with the longhands.
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border-width: 200px; } " \
                    "Box#b { border-top-width: 200px; border-left-width: 200px; }"
     a = Widget::Box.new parent: s, content: "x"
@@ -188,7 +183,7 @@ describe "CSS geometry units" do
   it "clamps a negative border width to 0 rather than a negative cell count" do
     # A negative `border-width` must clamp to 0, not a negative count — a
     # negative side would shrink the widget via `SidedGeometry#adjust`.
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border-width: -20px; } " \
                    "Box#b { border-top-width: -3; }"
     a = Widget::Box.new parent: s, content: "x"
@@ -205,7 +200,7 @@ describe "CSS geometry units" do
     # Qt stylesheets put hairline widths in the `border`/`border-<side>`
     # shorthand. In a cell grid these round to 0; only the explicit
     # `border-width` longhand clamps up to 1 — the shorthand honors 0.
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border: 0.04em solid #cccccc; } " \
                    "Box#b { border: 1px solid #cccccc; } " \
                    "Box#c { border: solid #cccccc; } " \
@@ -226,7 +221,7 @@ describe "CSS geometry units" do
   end
 
   it "clamps an absurd length instead of overflowing (never raises)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 99999999999px; height: calc(99999999999px * 99); }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -238,7 +233,7 @@ describe "CSS geometry units" do
   it "seeds the px divisor from the css.px_per_cell config option" do
     Superconf.css_px_per_cell = 5.0
     begin
-      s = render_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.stylesheet = "Box#a { width: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
@@ -254,7 +249,7 @@ describe "CSS geometry units" do
     Superconf.css_unit_divisors = "px=4,em=2,cm=none,junk"
     Superconf.css_px_per_cell = 8.0
     begin
-      s = render_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.stylesheet = "Box#a { width: 200px; height: 4em; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
@@ -270,7 +265,7 @@ describe "CSS geometry units" do
   end
 
   it "maps the same absolute length to fewer cells vertically (cell aspect ratio)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # Same px length on both axes; vertical resolves to fewer cells (default 2:1
     # aspect ratio).
     s.stylesheet = "Box#a { width: 200px; height: 200px; }"
@@ -282,7 +277,7 @@ describe "CSS geometry units" do
   end
 
   it "leaves relative units (em/ch) isotropic regardless of axis" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { width: 4em; height: 4em; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -294,7 +289,7 @@ describe "CSS geometry units" do
   it "honors an explicit css.cell_aspect_ratio override" do
     Superconf.css_cell_aspect_ratio = 4.0
     begin
-      s = render_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.stylesheet = "Box#a { width: 200px; height: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
@@ -311,7 +306,7 @@ describe "CSS geometry units" do
     original = Crysterm::CSS::Geometry.unit_divisors["px"]
     begin
       Crysterm::CSS::Geometry.unit_divisors["px"] = 20.0
-      s = render_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.stylesheet = "Box#a { width: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"

@@ -26,12 +26,6 @@ include Crysterm
 #   reciprocating neighbor (e.g. a border `+` directly above) was silently
 #   rewritten to `|`/`-`.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Window::Row)
   rows.map do |s|
     row = Crysterm::Window::Row.new
@@ -42,7 +36,7 @@ end
 
 describe "BUGS18 B18-22: Dim#resolve / #resolve_viewport / Length.to_cell_count NaN guard" do
   it "does not raise when a huge string-percentage child resolves against a 0 content width" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     # Bordered parent: border-box width 2, content width 2 - 1 - 1 = 0.
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 2, height: 5,
       style: Style.new(border: true)
@@ -66,7 +60,7 @@ describe "BUGS18 B18-22: Dim#resolve / #resolve_viewport / Length.to_cell_count 
   end
 
   it "does not raise when a widget is sized with Dim.vw(NaN)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     Widget::Box.new parent: s, width: Dim.vw(Float64::NAN), height: 1
     s.repaint
   end
@@ -88,14 +82,14 @@ end
 
 describe "BUGS18 B18-26: Dim typed offset overflow guard" do
   it "does not raise when left is Dim.percent(50, Int32::MAX)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     Widget::Box.new parent: s, left: Dim.percent(50, Int32::MAX), top: 0,
       width: 5, height: 1
     s.repaint # pre-fix: v.to_i + Int32::MAX overflows checked Int32
   end
 
   it "does not raise when left is Dim.center(Int32::MAX)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     Widget::Box.new parent: s, left: Dim.center(Int32::MAX), top: 0,
       width: 5, height: 1
     s.repaint
@@ -113,7 +107,7 @@ end
 
 describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
   it "restores auto (nil) height once align moves off Stretch, tracking a shrunk container" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     l = Layout::HBox.new
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20, layout: l
     child = Widget::Box.new parent: box, width: 10 # height nil (auto)
@@ -133,7 +127,7 @@ describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
   end
 
   it "re-manages the child cleanly if align switches back to Stretch" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     l = Layout::HBox.new
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 20, layout: l
     child = Widget::Box.new parent: box, width: 10
@@ -155,7 +149,7 @@ end
 
 describe "BUGS18 B18-25: Box/Form clamp a child's fixed main size; coords saturates" do
   it "does not raise with a 10-wide and an Int32::MAX-wide child under HBox" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new
     Widget::Box.new parent: box, width: 10, height: 1
@@ -164,7 +158,7 @@ describe "BUGS18 B18-25: Box/Form clamp a child's fixed main size; coords satura
   end
 
   it "does not raise with an Int32::MAX-tall child under VBox" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 5, height: 30,
       layout: Layout::VBox.new
     Widget::Box.new parent: box, width: 1, height: 10
@@ -173,14 +167,14 @@ describe "BUGS18 B18-25: Box/Form clamp a child's fixed main size; coords satura
   end
 
   it "does not raise for a Manual (no-layout) container at a nonzero left with a MAX-width child" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     parent = Widget::Box.new parent: s, left: 5, top: 0, width: 40, height: 5
     Widget::Box.new parent: parent, left: 0, top: 0, width: Int32::MAX, height: 1
     s.repaint # pre-fix: OverflowError at widget_position.cr's `xl = xi + w`
   end
 
   it "does not raise for a plain Manual child at left: 1 with a MAX-width size" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     Widget::Box.new parent: s, left: 1, top: 0, width: Int32::MAX, height: 1
     s.repaint
   end

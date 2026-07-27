@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def blank_bitmap(w, h) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
-end
-
 describe Crysterm::Widget::Graph::Painter do
   it "rasterizes a line in device coordinates" do
     bmp = blank_bitmap(4, 4)
@@ -45,7 +35,7 @@ end
 
 describe Crysterm::Widget::Graph::Canvas do
   it "sizes its bitmap to the braille backend's native resolution (2x4)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 10, height: 4,
       type: Crysterm::Widget::Media::Type::Glyph
     cv.device.should be_a Crysterm::Widget::Media::Glyph
@@ -53,7 +43,7 @@ describe Crysterm::Widget::Graph::Canvas do
   end
 
   it "fills only the interior of a bordered canvas (no overrun past the border)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # Neutralize the config-driven default theme (it would drop the inline
     # border in this headless run); a real terminal keeps the border, which
     # is the condition under test.
@@ -85,7 +75,7 @@ describe Crysterm::Widget::Graph::Canvas do
   end
 
   it "paints through the braille backend into screen cells" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 6, height: 3,
       type: Crysterm::Widget::Media::Type::Glyph
     cv.on_paint do |p|
@@ -104,7 +94,7 @@ describe Crysterm::Widget::Graph::Canvas do
   # --- M1: content-dirty flag skips the re-raster/resample/encode when clean ---
 
   it "runs the paint callback once for a static chart, skipping unchanged re-renders" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     paints = 0
     frac = 0.5
     cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 10, height: 5,
@@ -127,7 +117,7 @@ describe Crysterm::Widget::Graph::Canvas do
   end
 
   it "repaints after #refresh (and reflects the mutated state)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     paints = 0
     frac = 0.25
     cv = Crysterm::Widget::Graph::Canvas.new parent: s, top: 0, left: 0, width: 10, height: 5,
@@ -153,7 +143,7 @@ describe Crysterm::Widget::Graph::Donut do
   # A container widget that owns a Canvas must repaint it when its own state
   # changes (value=), even though the Canvas's paint-dirty flag is otherwise off.
   it "repaints the ring when #value changes; stays byte-identical when static" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 18, height: 9,
       value: 20, type: Crysterm::Widget::Media::Type::Glyph
     s.repaint

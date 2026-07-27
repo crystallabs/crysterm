@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def splash_screen_win
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def splash_mouse_down
   Crysterm::Event::Mouse.new(
     Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, 0, 0))
@@ -21,7 +11,7 @@ end
 # idempotency, the `dismiss_on_event?` input-dismissal, and content replacement.
 describe Crysterm::Widget::SplashScreen do
   it "emits Complete only once even if finished twice" do
-    s = splash_screen_win
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8
     count = 0
     sp.on(Crysterm::Event::Completed) { count += 1 }
@@ -31,7 +21,7 @@ describe Crysterm::Widget::SplashScreen do
   end
 
   it "dismisses on a mouse press when dismiss_on_event? (default)" do
-    s = splash_screen_win
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8
     sp.dismiss_on_event?.should be_true
     done = false
@@ -42,7 +32,7 @@ describe Crysterm::Widget::SplashScreen do
   end
 
   it "does not dismiss on input when dismiss_on_event? is off" do
-    s = splash_screen_win
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8, dismiss_on_event: false
     done = false
     sp.on(Crysterm::Event::Completed) { done = true }
@@ -52,7 +42,7 @@ describe Crysterm::Widget::SplashScreen do
   end
 
   it "replaces a previously set content widget" do
-    s = splash_screen_win
+    s = headless_screen(80, 24)
     first = Crysterm::Widget::Box.new content: "old"
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8, content: first
     sp.content_widget.should be(first)

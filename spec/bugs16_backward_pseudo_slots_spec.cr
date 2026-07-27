@@ -15,29 +15,9 @@ include Crysterm
 # document, joined by host uid (is-or-descends-from, matching the descendant
 # combinator the `::slot` lowering inserts).
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it, so asserting `fg == nil` isn't foiled by the auto-installed theme.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-25)" do
   it "matches A > B:last-child::slot (child-then-descendant shape the engine can't compile)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new(scrollbar: true)
     screen.append parent
     c1 = Widget::Box.new(parent: parent, scrollbar: true)
@@ -52,7 +32,7 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
   end
 
   it "matches Host:last-child::slot despite the host parent's trailing pseudo-nodes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     # The parent's own scrollbar emits trailing <w-scrollbar>/<w-track> nodes
     # after the real children, which used to steal the last-child slot in the
     # full document (the only place slot subjects were matched).
@@ -72,7 +52,7 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
   end
 
   it "matches :nth-last-child on a slot subject counting only real siblings" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new(scrollbar: true)
     screen.append parent
     c1 = Widget::Box.new(parent: parent, scrollbar: true)
@@ -87,7 +67,7 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
   end
 
   it "reaches slots of widgets nested under the matched host (descendant semantics)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     wrap = Widget::Box.new(scrollbar: true)
     screen.append wrap
     a = Widget::Box.new(parent: wrap, scrollbar: true)
@@ -107,7 +87,7 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
   end
 
   it "keeps widget-subject backward pseudos and slot-subject rules independent" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new(scrollbar: true)
     screen.append parent
     c1 = Widget::Box.new(parent: parent, scrollbar: true)

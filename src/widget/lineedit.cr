@@ -252,17 +252,11 @@ module Crysterm
             n = full_unicode? ? grapheme_count(@value) : @value.size
             String.build(n) { |io| n.times { io << @password_character } }
           else
-            val = expanded_value
-            # Visible width (`awidth - ihorizontal - 1`; -1 leaves room for the caret).
-            # `cols` is a *display*-column budget.
-            cols = Math.max 0, awidth - ihorizontal - 1
             # `@view_start` is a codepoint index into `val`, but the slide must be
             # measured in *display* columns so wide (CJK/emoji) glyphs count as 2;
             # a codepoint index against a column budget under-scrolls and leaves
             # the caret off-screen. `column_index` converts back for the slice.
-            caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-            caret_col = str_width val, 0, caret_cp
-            view_col = str_width val, 0, @view_start
+            val, caret_cp, caret_col, view_col, cols = caret_window_metrics
             # Slide the window to keep the caret inside `[view_col, view_col+cols]`.
             if caret_col < view_col
               @view_start = caret_cp
@@ -369,7 +363,7 @@ module Crysterm
             seen = 0
             @value.each_grapheme do |g|
               break if seen >= disp_idx
-              offset += g.to_s.size
+              offset += grapheme_cps(g)
               seen += 1
             end
             offset
@@ -407,8 +401,11 @@ module Crysterm
           return cp unless full_unicode?
           return grapheme_count(@value[0...cp])
         end
-        val = expanded_value
-        caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
+        # Only `val`/`caret_cp` are needed here; `caret_col`/`view_col` computed
+        # by the shared helper are discarded in favor of a direct `str_width`
+        # over `[@view_start, caret_cp)` — not `caret_col - view_col` — since a
+        # window edge that splits a grapheme cluster can make the two disagree.
+        val, caret_cp, _caret_col, _view_col, _cols = caret_window_metrics
         return 0 if caret_cp <= @view_start
         str_width val, @view_start, caret_cp
       end
@@ -441,12 +438,30 @@ module Crysterm
         return false unless effective_echo_mode.normal?
         # Compare in display columns (matching `#compute_display`), so a wide
         # glyph pushing the caret past the visible width still flags a scroll.
-        cols = Math.max 0, awidth - ihorizontal - 1
+        _val, _caret_cp, caret_col, view_col, cols = caret_window_metrics
+        caret_col < view_col || caret_col > view_col + cols
+      end
+
+      # Shared caret/view-column quadruple (plus the tab-expanded value itself)
+      # used by `#compute_display`'s windowed (`Normal`-echo) branch,
+      # `#caret_view_col`, and `#ensure_cursor_visible_x`. Returns
+      # `{val, caret_cp, caret_col, view_col, cols}`:
+      # - `val`: `#expanded_value` (tab-expanded value the columns are measured
+      #   against).
+      # - `caret_cp`: codepoint index of the caret into `val`.
+      # - `caret_col`, `view_col`: display columns of the caret and of
+      #   `@view_start`, each measured from `val`'s start (so a caller that
+      #   needs the delta between two arbitrary points — not from the start —
+      #   should not simply subtract these; see `#caret_view_col`).
+      # - `cols`: the visible display-column budget (`awidth - ihorizontal - 1`;
+      #   -1 leaves room for the caret).
+      private def caret_window_metrics : {String, Int32, Int32, Int32, Int32}
         val = expanded_value
+        cols = Math.max 0, awidth - ihorizontal - 1
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
         caret_col = str_width val, 0, caret_cp
         view_col = str_width val, 0, @view_start
-        caret_col < view_col || caret_col > view_col + cols
+        {val, caret_cp, caret_col, view_col, cols}
       end
     end
   end

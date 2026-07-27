@@ -10,15 +10,9 @@ include Crysterm
 #  #48 A `tint`-only keyframe animation must carry the tint *color* (not just the
 #      strength), else `Style#tint?` stays nil and the overlay is invisible.
 
-private def anim_window(w = 10, h = 3)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS15 #47 animation-iteration-count 0" do
   it "keeps the base style (does not stamp the final keyframe) for count 0" do
-    s = anim_window
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "zero"
     # `to { opacity: 0 }` — a bug would settle the box at opacity 0 on tick 1.
@@ -40,7 +34,7 @@ end
 
 describe "BUGS15 #48 tint-only keyframe animation" do
   it "carries the tint color so the overlay is actually applied" do
-    s = anim_window
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "flash"
     # Tint-only animation: no other rule sets a tint color. Without the fix the

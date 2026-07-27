@@ -11,19 +11,15 @@ include Crysterm
 #   M14 — a MenuBar moved to another window must re-home its pop-up menus
 #         (window children) onto the new window.
 
-private def bar_screen(width = 40, height = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
+# A named control key (no meaningful char), as a `kp` alias local to this file's
+# `s.emit press(...)` call sites.
 private def press(key : ::Tput::Key)
-  Crysterm::Event::KeyPress.new '\0', key
+  kp key: key
 end
 
 describe "BUGS13 M9: destroy withdraws accelerators" do
   it "MenuBar#destroy uninstalls its menu actions' shortcuts" do
-    s = bar_screen
+    s = headless_screen(40, 10, default_quit_keys: true)
     bar = Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     a = Action.new "Cut", shortcut: Tput::Key::CtrlX
     fired = 0
@@ -43,7 +39,7 @@ describe "BUGS13 M9: destroy withdraws accelerators" do
   end
 
   it "ToolBar#destroy uninstalls its actions' shortcuts" do
-    s = bar_screen
+    s = headless_screen(40, 10, default_quit_keys: true)
     tb = Widget::ToolBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     a = Action.new "Bold", shortcut: Tput::Key::CtrlB
     fired = 0
@@ -63,7 +59,7 @@ end
 
 describe "BUGS13 M10: action added after add_menu gets its accelerator" do
   it "installs the shortcut of an action added to an attached bar's menu" do
-    s = bar_screen
+    s = headless_screen(40, 10, default_quit_keys: true)
     bar = Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     file = bar.add_menu "File"
 
@@ -81,8 +77,8 @@ end
 
 describe "BUGS13 M14: menus re-home on a cross-window move" do
   it "moves the pop-up menus to the bar's new window on re-attach" do
-    s1 = bar_screen
-    s2 = bar_screen
+    s1 = headless_screen(40, 10, default_quit_keys: true)
+    s2 = headless_screen(40, 10, default_quit_keys: true)
     bar = Widget::MenuBar.new parent: s1, top: 0, left: 0, width: 40, height: 1
     menu = bar.add_menu "File"
     menu.add_action("New") { }
@@ -100,8 +96,8 @@ describe "BUGS13 M14: menus re-home on a cross-window move" do
   end
 
   it "keeps accelerators working on the new window after the move" do
-    s1 = bar_screen
-    s2 = bar_screen
+    s1 = headless_screen(40, 10, default_quit_keys: true)
+    s2 = headless_screen(40, 10, default_quit_keys: true)
     bar = Widget::MenuBar.new parent: s1, top: 0, left: 0, width: 40, height: 1
     a = Action.new "Cut", shortcut: Tput::Key::CtrlX
     fired = 0

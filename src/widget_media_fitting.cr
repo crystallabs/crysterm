@@ -229,15 +229,30 @@ module Crysterm
         else
           canvas = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
         end
-        src.each_with_index do |srow, y|
-          ty = y + oy
-          next if ty < 0 || ty >= bh
-          orow = canvas[ty]
-          srow.each_with_index do |px, x|
-            tx = x + ox
-            next if tx < 0 || tx >= bw
-            orow[tx] = px
-          end
+        sh = src.size
+        return canvas if sh <= 0
+
+        # Overlap rectangle between src (placed at ox,oy) and the bw×bh canvas
+        # is loop-invariant — compute it once instead of per-pixel bounds
+        # checks, then blit each overlapping row with a single pointer copy.
+        # `Pixel` is a value struct and the src/canvas buffers are always
+        # distinct (see the *into* doc above), so this is a plain memcpy.
+        dst_y0 = Math.max(0, oy)
+        src_y0 = dst_y0 - oy
+        ny = Math.min(sh - src_y0, bh - dst_y0)
+        return canvas if ny <= 0
+
+        dst_x0 = Math.max(0, ox)
+        src_x0 = dst_x0 - ox
+        max_n = bw - dst_x0
+        return canvas if max_n <= 0
+
+        ny.times do |i|
+          srow = src[src_y0 + i]
+          n = Math.min(srow.size - src_x0, max_n)
+          next if n <= 0
+          orow = canvas[dst_y0 + i]
+          (orow.to_unsafe + dst_x0).copy_from(srow.to_unsafe + src_x0, n)
         end
         canvas
       end

@@ -15,15 +15,9 @@ include Crysterm
 private class BareDialog < Crysterm::Widget::Dialog
 end
 
-private def bd_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    default_quit_keys: false)
-end
-
 describe "Dialog Enter/Escape accelerator disarms on close (B16-40)" do
   it "does not re-emit Accepted/Finished on a later Enter after the dialog closed" do
-    w = bd_window
+    w = headless_screen
     d = BareDialog.new parent: w, width: 20, height: 5
     log = [] of String
     d.on(Crysterm::Event::Accepted) { log << "accepted" }
@@ -41,7 +35,7 @@ describe "Dialog Enter/Escape accelerator disarms on close (B16-40)" do
   end
 
   it "leaves a later Enter unaccepted, so it reaches the rest of the UI" do
-    w = bd_window
+    w = headless_screen
     d = BareDialog.new parent: w, width: 20, height: 5
 
     d.open
@@ -54,7 +48,7 @@ describe "Dialog Enter/Escape accelerator disarms on close (B16-40)" do
   end
 
   it "re-arms on reopen: the accelerator works again after a second #open" do
-    w = bd_window
+    w = headless_screen
     d = BareDialog.new parent: w, width: 20, height: 5
     log = [] of String
     d.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }

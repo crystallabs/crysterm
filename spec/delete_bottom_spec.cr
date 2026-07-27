@@ -2,17 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `Window#delete_bottom(top, bottom)` clears row `bottom`. Was a no-op:
 # `clear_region`/`fill_region` are half-open in `y` (`yi.upto(yl - 1)`), so
 # `clear_region(0, awidth, bottom, bottom)` iterated zero rows. Far edge must be
 # `bottom + 1`.
 describe "Window#delete_bottom" do
   it "clears exactly the bottom row (was a no-op)" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     w = s.awidth
     h = s.aheight
     bottom = h - 1

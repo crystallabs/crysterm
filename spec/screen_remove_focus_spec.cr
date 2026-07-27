@@ -9,16 +9,9 @@ include Crysterm
 # descendant is still recognisable as belonging to the removed subtree
 # (exercises `Window#remove`, separate from `Widget#remove`).
 
-private def remove_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#remove" do
   it "rewinds focus when the removed top-level widget itself is focused" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
 
@@ -31,7 +24,7 @@ describe "Window#remove" do
   end
 
   it "rewinds focus when a focused descendant is removed with its container" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     container = Widget::Box.new parent: panel, keys: true
@@ -48,7 +41,7 @@ describe "Window#remove" do
   end
 
   it "leaves focus alone when an unrelated top-level widget is removed" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     Widget::Box.new parent: panel, keys: true

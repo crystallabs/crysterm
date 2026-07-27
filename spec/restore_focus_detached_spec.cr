@@ -9,16 +9,9 @@ include Crysterm
 # `Widget#focus` unconditionally, dereferencing `screen` (`screen?.not_nil!`)
 # and crashing — it must instead skip a saved widget no longer attached.
 
-private def restore_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#restore_focus" do
   it "does not crash when the saved-focus widget was removed" do
-    s = restore_focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 
@@ -36,7 +29,7 @@ describe "Window#restore_focus" do
   end
 
   it "restores focus to the saved widget when it is still attached" do
-    s = restore_focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 

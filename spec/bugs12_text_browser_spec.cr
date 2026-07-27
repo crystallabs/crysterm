@@ -7,15 +7,6 @@ include Crysterm
 #   #34 — First Shift-Tab from the unfocused state must select the last link.
 #   #35 — #back/#forward must not lose a history entry when the loader declines.
 
-private def tb_screen(width = 40, height = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
 private def new_tb(s)
   tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
   s.repaint
@@ -32,7 +23,7 @@ end
 
 describe "BUGS12 #33 Enter without a focused link" do
   it "does not activate any link when @focused_link is -1" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     tb.focused_link.should eq -1
@@ -46,7 +37,7 @@ describe "BUGS12 #33 Enter without a focused link" do
   end
 
   it "still activates the focused link once Tab selects one" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     clicked = [] of String
@@ -60,7 +51,7 @@ end
 
 describe "BUGS12 #34 First Shift-Tab from unfocused state" do
   it "selects the last link, not the second-to-last" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     tb.focused_link.should eq -1
@@ -70,7 +61,7 @@ describe "BUGS12 #34 First Shift-Tab from unfocused state" do
   end
 
   it "first Tab from unfocused state selects the first link" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     tb.focus_link(1).should be_true
@@ -80,7 +71,7 @@ end
 
 describe "BUGS12 #35 back/forward preserve history on a declining loader" do
   it "keeps the history entry when the loader declines during #back" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     available = {"a", "b"}
     tb.loader = ->(url : String) do
@@ -106,7 +97,7 @@ describe "BUGS12 #35 back/forward preserve history on a declining loader" do
   end
 
   it "keeps the future entry when the loader declines during #forward" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     available = {"a", "b"}
     tb.loader = ->(url : String) do

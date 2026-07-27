@@ -13,15 +13,9 @@ include Crysterm
 # @raw_height/@assigned_height), restored and recorded for every managed
 # child -- edges and center alike -- every frame.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   it "recovers a re-docked child's explicit consume-axis size instead of a stale full-span value" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
       layout: Layout::Border.new
     panel = Widget::Box.new parent: box, width: 30, height: 3,
@@ -46,7 +40,7 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   end
 
   it "round-trips :top -> :left -> :top, restoring the original raw height" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
       layout: Layout::Border.new
     panel = Widget::Box.new parent: box, width: 30, height: 3,
@@ -69,7 +63,7 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   end
 
   it "leaves a plain single-region layout unchanged (sizes/positions pinned)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
       layout: Layout::Border.new
     header = Widget::Box.new parent: box, height: 2,

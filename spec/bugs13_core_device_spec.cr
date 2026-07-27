@@ -20,12 +20,6 @@ include Crysterm
 #       mouse decoding / CSS px lengths read it); folded into the C12 fix in
 #       `#screen=`, before any input listening starts.
 
-private def b13d_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Records `detect_cell_geometry` invocations (C25) without touching a tty.
 private class B13GeomProbeScreen < Crysterm::Screen
   getter geom_calls = 0
@@ -37,7 +31,7 @@ end
 
 describe "BUGS13 C12: Window#screen= sizes an adopted fresh device" do
   it "adopts the terminal size instead of rendering 1x1" do
-    w = b13d_window
+    w = headless_screen(40, 10)
     fresh = Crysterm::Screen.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
     # A fresh Screen defers sizing: it is 1x1 until told otherwise.
@@ -58,7 +52,7 @@ describe "BUGS13 C12: Window#screen= sizes an adopted fresh device" do
   end
 
   it "honors pinned axes on the adopted device" do
-    w = b13d_window
+    w = headless_screen(40, 10)
     pinned = Crysterm::Screen.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 33, height: 7)
@@ -71,7 +65,7 @@ end
 
 describe "BUGS13 C25: reattach re-detects cell pixel geometry" do
   it "screen= calls detect_cell_geometry on the adopted device" do
-    w = b13d_window
+    w = headless_screen(40, 10)
     probe = B13GeomProbeScreen.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 40, height: 10)
@@ -83,7 +77,7 @@ end
 
 describe "BUGS13 C8: reconnect keeps explicit-size pins" do
   it "a reattached pinned window keeps its size (inline contract)" do
-    w = b13d_window(40, 5)
+    w = headless_screen(40, 5)
     w.screen.explicit_width?.should be_true
     w.screen.explicit_height?.should be_true
 
@@ -114,7 +108,7 @@ end
 
 describe "BUGS13 C6: switch_terminal carries pin state" do
   it "keeps explicitly-pinned sizes pinned" do
-    w = b13d_window(40, 10)
+    w = headless_screen(40, 10)
     w2 = w.switch_terminal "xterm"
     begin
       w2.screen.explicit_width?.should be_true

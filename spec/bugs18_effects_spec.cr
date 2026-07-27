@@ -35,16 +35,6 @@ include Crysterm
 # Everything is driven headlessly over in-memory IOs; `#render`/`#advance` are
 # synchronous, and the one `#start` below never yields to its fiber.
 
-private def fx_win(w = 30, h = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
-private def cell_char(s, y, x)
-  s.lines[y][x].char
-end
-
 # Minimal `Effect::Direct` includer instrumenting the module's contract calls
 # (`resize`/`cell`), so the shared paint path can be asserted without a full
 # simulation. `cell` encodes the FULL-FIELD row into the glyph (`'A' + y`), so
@@ -85,7 +75,7 @@ end
 
 describe "BUGS18 B18-84: Spray degenerate cycle" do
   it "runs a spacing=0/travel=0/hold=0 spray without raising and renders the landed pattern" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = Widget::Effect::Spray.new parent: s, top: 0, left: 0, width: 6, height: 4,
       spacing: 0, travel: 0, hold: 0
     sp.resize 6, 4
@@ -101,7 +91,7 @@ describe "BUGS18 B18-84: Spray degenerate cycle" do
   end
 
   it "does not raise on a negative hold driving the cycle below zero" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = Widget::Effect::Spray.new parent: s, top: 0, left: 0, width: 4, height: 3,
       spacing: 1, travel: 1, hold: -100
     sp.resize 4, 3
@@ -115,7 +105,7 @@ end
 
 describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" do
   it "sizes the simulation from the unclipped interior and maps visible cells through the clip" do
-    s = fx_win 20, 12
+    s = headless_screen(20, 12)
     par = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4,
       scrollable: true
     eff = ProbeEffect.new parent: par, top: 0, left: 0, width: 10, height: 8
@@ -132,13 +122,13 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
     eff.cell_rows.max.should eq 5
     # Screen row 0 shows field row 2.
     cell_char(s, 0, 0).should eq 'C'
-    cell_char(s, 3, 9).should eq 'F'
+    cell_char(s, 9, 3).should eq 'F'
   ensure
     s.try &.destroy
   end
 
   it "does not resize (wipe) the simulation as the ancestor scrolls" do
-    s = fx_win 20, 12
+    s = headless_screen(20, 12)
     par = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4,
       scrollable: true
     eff = ProbeEffect.new parent: par, top: 0, left: 0, width: 10, height: 8
@@ -165,7 +155,7 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
   end
 
   it "keeps the SineScroller wave geometry of the full inner field while clipped" do
-    s = fx_win 30, 12
+    s = headless_screen(30, 12)
     par = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       scrollable: true
     sc = Widget::Effect::SineScroller.new parent: par, top: 0, left: 0,
@@ -180,7 +170,7 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
       # the FULL height 8, not the visible 4 (pre-fix: amp squashed to 1.5 and
       # every row re-mapped into the slice).
       r = (3.5 * (1.0 + Math.sin(x * 0.32))).round.to_i.clamp(0, 7)
-      col = (0...4).map { |sy| cell_char(s, sy, x) }
+      col = (0...4).map { |sy| cell_char(s, x, sy) }
       if 2 <= r < 6
         col[r - 2].should eq 'A'
         hits += 1
@@ -197,7 +187,7 @@ end
 
 describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
   it "respells the existing slots on pattern= without waiting for a resize" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = ProbeSpray.new parent: s, top: 0, left: 0, width: 6, height: 3, fill: :rows
     s.repaint # paints once, building the slots at the interior size
     sp.slots.first[2].should eq '▒'
@@ -213,7 +203,7 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
   end
 
   it "rebuilds the visit order on fill=" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = ProbeSpray.new parent: s, top: 0, left: 0, width: 6, height: 3, fill: :rows
     s.repaint
     sp.slots[1][0..1].should eq({1, 0}) # row-major
@@ -226,7 +216,7 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
   end
 
   it "re-sorts a Fill::Radial order around a new origin=" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = ProbeSpray.new parent: s, top: 0, left: 0, width: 6, height: 3,
       fill: :radial, origin: {0, 0}
     s.repaint
@@ -241,7 +231,7 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
   end
 
   it "keeps an origin-independent order intact on origin= and is safe before the first paint" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     sp = ProbeSpray.new parent: s, top: 0, left: 0, width: 6, height: 3, fill: :random
     s.repaint
     before = sp.slots.dup
@@ -263,7 +253,7 @@ end
 
 describe "BUGS18 B18-88: Animated#interval= forwards to the running clock" do
   it "updates the running FrameClock's cadence live" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     eff = ProbeEffect.new parent: s, top: 0, left: 0, width: 6, height: 3
     eff.start
     begin
@@ -282,7 +272,7 @@ describe "BUGS18 B18-88: Animated#interval= forwards to the running clock" do
   end
 
   it "still works as a plain assignment on a stopped effect" do
-    s = fx_win 12, 6
+    s = headless_screen(12, 6)
     eff = ProbeEffect.new parent: s, top: 0, left: 0, width: 6, height: 3
     eff.interval = 0.01.seconds
     eff.interval.should eq 0.01.seconds

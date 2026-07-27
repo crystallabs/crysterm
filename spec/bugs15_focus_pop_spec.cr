@@ -14,16 +14,9 @@ include Crysterm
 #     window).
 # `focus_pop` now prunes invalid trailing entries with the same predicate as
 # `rewind_focus` before restoring focus. Headless, no real terminal.
-private def pop_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#focus_pop with stale history entries" do
   it "does not raise or focus a detached entry when its scrollable ancestor was removed" do
-    s = pop_screen
+    s = headless_screen(default_quit_keys: true)
     # Scrollable container A holding focusable input B; C is focusable elsewhere.
     a = Widget::Box.new parent: s, scrollable: true, width: 10, height: 5
     b = Widget::Box.new parent: a, keys: true, width: 5, height: 1
@@ -50,7 +43,7 @@ describe "Window#focus_pop with stale history entries" do
   end
 
   it "falls back to a still-valid older entry when the top is a detached entry" do
-    s = pop_screen
+    s = headless_screen(default_quit_keys: true)
     # D is a valid on-window target that predates the removed subtree.
     d = Widget::Box.new parent: s, keys: true, width: 5, height: 1
     a = Widget::Box.new parent: s, scrollable: true, width: 10, height: 5
@@ -69,7 +62,7 @@ describe "Window#focus_pop with stale history entries" do
   end
 
   it "skips a hidden stale entry and restores focus to the next valid one" do
-    s = pop_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true, width: 5, height: 1
     b = Widget::Box.new parent: s, keys: true, width: 5, height: 1
     c = Widget::Box.new parent: s, keys: true, width: 5, height: 1
@@ -86,7 +79,7 @@ describe "Window#focus_pop with stale history entries" do
   end
 
   it "leaves normal focus_pop behavior unchanged when all entries are valid" do
-    s = pop_screen
+    s = headless_screen(default_quit_keys: true)
     # First keyable widget auto-focuses, seeding the history with a base entry.
     Widget::Box.new parent: s, keys: true, width: 5, height: 1
     b = Widget::Box.new parent: s, keys: true, width: 5, height: 1

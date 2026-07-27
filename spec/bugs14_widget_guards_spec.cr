@@ -15,19 +15,9 @@ include Crysterm
 #     on `off * 10` (OverflowError) in the per-frame render path. The accumulator
 #     is now clamped.
 
-private def guard_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS14 widget guards (W1/W2/W3)" do
   it "W1: Media#speed= clamps 0 to native (1.0), no divide-by-zero" do
-    s = guard_screen
+    s = headless_screen(80, 24)
     media = Crysterm::Widget::Media::Ansi.new parent: s, top: 0, left: 0, width: 8, height: 4
     media.speed = 0.0
     media.speed.should eq 1.0
@@ -44,7 +34,7 @@ describe "BUGS14 widget guards (W1/W2/W3)" do
   end
 
   it "W2: Box#pulse(period: 0.seconds) does not raise DivisionByZeroError" do
-    s = guard_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     anim = box.pulse(period: 0.seconds) # must not raise
     anim.should_not be_nil
@@ -52,7 +42,7 @@ describe "BUGS14 widget guards (W1/W2/W3)" do
   end
 
   it "W3: huge string-position offsets render without OverflowError" do
-    s = guard_screen
+    s = headless_screen(80, 24)
     Widget::Box.new parent: s, left: "50%+9999999999", top: "center+3000000000",
       width: 4, height: 2
     s.repaint # the Dim offset parser saturates; resolving must not raise OverflowError

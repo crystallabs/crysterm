@@ -26,12 +26,6 @@ include Crysterm
 # a Window over in-memory IOs and a synchronous `Window#repaint` (so painted-line
 # and geometry caches exist) before dispatching synthetic mouse events.
 
-private def f1_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 private def f1_key(char : Char, k : ::Tput::Key? = nil)
   Crysterm::Event::KeyPress.new char, k
 end
@@ -57,7 +51,7 @@ end
 
 describe "BUGS-F1 #4 triple-click on an empty line plants no dangling anchor" do
   it "leaves the selection anchor nil after triple-clicking an empty LineEdit" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 40, height: 1, content: ""
     s.repaint
 
@@ -71,7 +65,7 @@ describe "BUGS-F1 #4 triple-click on an empty line plants no dangling anchor" do
   end
 
   it "keeps every typed character after triple-clicking an empty line" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 40, height: 1, content: ""
     s.repaint
 
@@ -88,7 +82,7 @@ end
 
 describe "BUGS-F1 #5 collapsed selection anchor is cleared so it can't swallow a keystroke" do
   it "Shift+Right then Shift+Left leaves no phantom selection" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 40, height: 1, content: "z"
     s.repaint
     le.cursor_pos = 0
@@ -105,7 +99,7 @@ end
 
 describe "BUGS-F1 #18 reading PlainTextEdit does not double-handle viewer scroll keys" do
   it "viewer_scroll_keys? is true when not reading and false while reading" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 5
     pte.value = (0...12).map { |i| "line#{i}" }.join("\n")
     s.repaint
@@ -117,7 +111,7 @@ describe "BUGS-F1 #18 reading PlainTextEdit does not double-handle viewer scroll
   end
 
   it "Down while reading moves only the caret, not the viewport" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 5
     pte.value = (0...12).map { |i| "line#{i}" }.join("\n")
     s.repaint
@@ -136,7 +130,7 @@ describe "BUGS-F1 #18 reading PlainTextEdit does not double-handle viewer scroll
   end
 
   it "LineEdit is unaffected (not scrollable)" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 40, height: 1, content: "hi"
     s.repaint
     le.scrollable?.should be_false
@@ -145,7 +139,7 @@ end
 
 describe "BUGS-F1 #27 non-wrap caret/selection use full line width, not the viewport slice" do
   it "Up/Down preserves a column that lies beyond the viewport width" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
     pte.wrap_content = false
     pte.value = ("a" * 100) + "\n" + ("b" * 100)
@@ -160,7 +154,7 @@ describe "BUGS-F1 #27 non-wrap caret/selection use full line width, not the view
   end
 
   it "a selection entirely right of the viewport still yields a highlight range" do
-    s = f1_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
     pte.wrap_content = false
     pte.value = "a" * 100

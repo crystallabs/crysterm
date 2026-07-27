@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for the BUGS15 layout-margin fixes (#66 Form, #67 Grid,
 # #73 Flow MoveWidget). Headless harness mirrors spec/bugs15_layout_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def margin(left = 0, top = 0, right = 0, bottom = 0)
   Style.new(margin: Margin.new(left: left, top: top, right: right, bottom: bottom))
 end
@@ -22,7 +16,7 @@ end
 # box).
 describe "BUGS15 form reserves child margin boxes (fix #66)" do
   it "keeps a left-margined label out of its field's column" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::Form.new(label_width: 12, horizontal_spacing: 1)
     label = Widget::Box.new parent: form, height: 1, style: margin(left: 2)
@@ -39,7 +33,7 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
   end
 
   it "keeps a top-margined row from bleeding into the next row" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::Form.new(label_width: 12, horizontal_spacing: 1)
     # First row: a label with a top margin.
@@ -60,7 +54,7 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
   end
 
   it "reserves the trailing full-width child's horizontal margin" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::Form.new(label_width: 12, horizontal_spacing: 1)
     Widget::Box.new parent: form, height: 1
@@ -85,7 +79,7 @@ end
 # sums from the assigned cell size.
 describe "BUGS15 grid reserves child margin boxes (fix #67)" do
   it "keeps a left-margined cell child out of the neighbouring cell" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Grid.new(columns: 2, spacing: 0)
     a = Widget::Box.new parent: box,
@@ -103,7 +97,7 @@ describe "BUGS15 grid reserves child margin boxes (fix #67)" do
   end
 
   it "keeps a top-margined last-row child inside the container's bottom edge" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       layout: Layout::Grid.new(columns: 1, rows: 1, spacing: 0)
     child = Widget::Box.new parent: box,
@@ -126,7 +120,7 @@ end
 # the overflow (vertical) axis.
 describe "BUGS15 flow MoveWidget moves an overflowing child back in (fix #73)" do
   it "pulls a bottom-overflowing child up into the container interior" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4,
       layout: Layout::Wrap.new, overflow: :move_widget
     # Two 8x3 children: the second wraps to a new row that would overflow the

@@ -13,15 +13,6 @@ private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::W
   end
 end
 
-private def bugs15_dock_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40, height: 20,
-    default_quit_keys: false)
-end
-
 # #2 — `Docking.dock` resolved each stop row with `lines[y]?`, whose negative
 # index counts from the END of the array. A negative stop (an off-top widget's
 # unclamped `coords.yi`) therefore borrowed and corrupted a row near the bottom
@@ -90,7 +81,7 @@ end
 # docked against base content below it. The fix routes through the same gate.
 describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
   it "routes an overlay Line's rows to the plane stops, not the base" do
-    s = bugs15_dock_screen
+    s = headless_screen(40, 20)
     s.alloc
 
     # A z-indexed (layer) container holding a horizontal separator Line. The
@@ -107,7 +98,7 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
   end
 
   it "routes a base-layer Line's rows to the base stops" do
-    s = bugs15_dock_screen
+    s = headless_screen(40, 20)
     s.alloc
 
     Widget::HLine.new(parent: s, top: 3, left: 2, width: 8)

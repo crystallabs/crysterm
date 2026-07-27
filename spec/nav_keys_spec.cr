@@ -12,19 +12,9 @@ include Crysterm
 # ItemView side against the *same* table, so an accidental divergence in either
 # family fails.
 
-private def nk_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40,
-    height: 10,
-    default_quit_keys: false)
-end
-
 # A List tall enough that a page step differs from a single step.
 private def nk_list(vi_keys = false)
-  s = nk_screen
+  s = headless_screen(40, 10)
   list = Crysterm::Widget::List.new(
     parent: s, vi_keys: vi_keys,
     top: 0, left: 0, width: 20, height: 6,

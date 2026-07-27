@@ -7,18 +7,9 @@ include Crysterm
 # (standard buttons + accept/reject roles), `ColorDialog`, and `Completer`
 # (autocompletion filtering).
 
-private def add_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 describe Crysterm::ButtonGroup do
   it "enforces exclusivity: checking one member unchecks the others" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     b = Crysterm::Widget::CheckBox.new parent: s
     c = Crysterm::Widget::CheckBox.new parent: s
@@ -38,7 +29,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "exclusive: re-clicking the sole checked member keeps it checked (radio behaviour)" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     b = Crysterm::Widget::CheckBox.new parent: s
 
@@ -61,7 +52,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "exclusive: reverting the uncheck does not emit a spurious ButtonClick" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new
     g.add_button a
@@ -75,7 +66,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "non-exclusive: a member can be unchecked freely" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new exclusive: false
     g.add_button a
@@ -85,7 +76,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "allows multiple checked when non-exclusive" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     b = Crysterm::Widget::CheckBox.new parent: s
 
@@ -99,7 +90,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "emits ButtonClick carrying the checked button" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     g = Crysterm::ButtonGroup.new
     g.add_button a, 7
@@ -110,7 +101,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "makes a plain Button checkable on add and maps ids" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     btn = Crysterm::Widget::Button.new parent: s
     g = Crysterm::ButtonGroup.new
     g.add_button btn, 42
@@ -120,7 +111,7 @@ describe Crysterm::ButtonGroup do
   end
 
   it "reconciles down to one checked member when exclusivity is turned on at runtime" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     b = Crysterm::Widget::CheckBox.new parent: s
 
@@ -146,7 +137,7 @@ end
 
 describe Crysterm::Widget::ToolButton do
   it "mirrors the default action's text and triggers it on press" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     act = Crysterm::Action.new "Save"
     triggered = false
     act.on(Crysterm::Event::Triggered) { triggered = true }
@@ -158,7 +149,7 @@ describe Crysterm::Widget::ToolButton do
   end
 
   it "does not trigger a disabled action" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     act = Crysterm::Action.new "Nope"
     act.enabled = false
     triggered = false
@@ -172,7 +163,7 @@ end
 
 describe Crysterm::Widget::DialogButtonBox do
   it "creates the requested standard buttons with correct labels" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     bb = Crysterm::Widget::DialogButtonBox.new(
       parent: s,
       buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok |
@@ -185,7 +176,7 @@ describe Crysterm::Widget::DialogButtonBox do
   end
 
   it "emits Accepted for accept-role and Rejected for reject-role buttons" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     bb = Crysterm::Widget::DialogButtonBox.new(
       parent: s,
       buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok |
@@ -204,7 +195,7 @@ describe Crysterm::Widget::DialogButtonBox do
   end
 
   it "adds custom buttons via add_button" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     bb = Crysterm::Widget::DialogButtonBox.new parent: s
     b = bb.add_button "Custom", Crysterm::Widget::DialogButtonBox::Role::Accept
     bb.buttons.includes?(b).should be_true
@@ -213,7 +204,7 @@ end
 
 describe Crysterm::Widget::ColorDialog do
   it "converts hex colors to an HSV state and back to hex (round-trips)" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
     cd.current_color = "#ff0000"
     cd.current_color.should eq "#ff0000"
@@ -224,7 +215,7 @@ describe Crysterm::Widget::ColorDialog do
   end
 
   it "emits Action+Accepted on accept and Rejected on cancel" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
     cd.current_color = "#0000ff"
     chosen = nil
@@ -262,7 +253,7 @@ describe Crysterm::Completer do
   end
 
   it "attaches to a text box without raising" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::LineEdit.new parent: s, width: 20, height: 1
     c = Crysterm::Completer.new %w[apple apricot]
     c.attach box
@@ -275,7 +266,7 @@ describe Crysterm::Completer do
   # mouse wheel. `List`'s per-item wheel handler calls `move ±2`, so
   # `Popup#move` funnels the raw ±2 into a single-row step.
   it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pop = Crysterm::Completer::Popup.new(window: s, width: 16, height: 6)
     pop.items = %w[apple apricot banana blueberry]
 
@@ -302,7 +293,7 @@ describe Crysterm::Completer do
   # open, so the first Down advances to the *second* entry. Driving the box's
   # actual KeyPress flow, [Down(open), Down, Enter] must commit the second match.
   it "opens with the first candidate highlighted; the first Down advances to the second" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::LineEdit.new parent: s, width: 20, height: 1
     c = Crysterm::Completer.new %w[apple apricot banana]
     c.attach box
@@ -327,7 +318,7 @@ describe Crysterm::Completer do
   # phantom rows below the viewport. Open with enough candidates to overflow,
   # drag straight down, assert selection == visible row, clamped at the bottom.
   it "keeps the hover highlight under the pointer row and clamps below the list" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 2, left: 2, width: 30, height: 1
     c = Crysterm::Completer.new (1..20).map { |i| "item#{i.to_s.rjust(2, '0')}" }
     c.attach box

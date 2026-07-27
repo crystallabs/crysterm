@@ -315,7 +315,7 @@ module Crysterm
 
         # First logical (fake) content line of the entry at *index*.
         private def start_line_of(index : Int32) : Int32
-          @rendered.first(index).sum(&.size)
+          (0...index).sum { |i| @rendered.unsafe_fetch(i).size }
         end
 
         # Re-renders just the entry at *index*, splicing its new lines over

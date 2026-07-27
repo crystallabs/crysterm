@@ -8,16 +8,9 @@ include Crysterm
 # with no animation fiber or real terminal. A single-char `pool` makes the
 # sampled glyph deterministic so colors can be asserted.
 
-private def matrix_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::Effect::Matrix do
   it "paints heads, fading green trails, and blanks elsewhere" do
-    s = matrix_screen
+    s = headless_screen(default_quit_keys: true)
     m = Crysterm::Widget::Effect::Matrix.new parent: s, width: 8, height: 8,
       pool: ['X'], head_color: "#ccffcc"
     m.resize 8, 8
@@ -55,7 +48,7 @@ describe Crysterm::Widget::Effect::Matrix do
   end
 
   it "rebuilds per-column state on resize without raising" do
-    s = matrix_screen
+    s = headless_screen(default_quit_keys: true)
     m = Crysterm::Widget::Effect::Matrix.new parent: s, width: 8, height: 8, pool: ['X']
     m.resize 8, 8
     m.advance 8, 8

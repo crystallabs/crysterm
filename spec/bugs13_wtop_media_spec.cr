@@ -19,15 +19,6 @@ include Crysterm
 #   (`\e[0;…H`) or malformed (`\e[-1;…H`) CUP and `@last_drawn` never records
 #   a negative rect for the erase pass to mistarget.
 
-private def media_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 40, height: 12)
-end
-
-private def solid_bitmap(r = 10, g = 20, b = 30, w = 4, h = 4) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(r, g, b, 255) } }
-end
-
 # Exposes the protected `#source` and the stream/failure latches for W5.
 private class SourceProbe < Crysterm::Widget::Media::Ansi
   def probe_set_file(f : String)
@@ -76,7 +67,7 @@ describe "BUGS13 W5: streaming decoder only opens on explicit request" do
     orig = Crysterm::Config.media_video_decode
     Crysterm::Config.media_video_decode = Crysterm::Widget::Media::VideoDecode::Stream
     begin
-      s = media_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       img = SourceProbe.new parent: s, top: 0, left: 0, width: 8, height: 4
       img.probe_set_file "/nonexistent/bugs13-w5-clip.mp4"
 
@@ -103,7 +94,7 @@ describe "BUGS13 W5: streaming decoder only opens on explicit request" do
   end
 
   it "an eager (non-stream) source still decodes from the render path" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = SourceProbe.new parent: s, top: 0, left: 0, width: 8, height: 4
     img.probe_set_file "#{__DIR__}/../data/image/matterhorn.png"
     img.probe_source.should_not be_nil
@@ -116,7 +107,7 @@ describe "BUGS13 W7: stale composite fiber does not clobber a newer source" do
   it "a bitmap= during the composite keeps the new source's state" do
     gif = "#{__DIR__}/../data/image/netscape.gif"
     pending! "no animated test fixture" unless File.exists?(gif)
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new file: gif, parent: s
     img.play
     img.playing?.should be_true
@@ -144,7 +135,7 @@ describe "BUGS13 W7: stale composite fiber does not clobber a newer source" do
   it "an undisturbed play still commits its frames" do
     gif = "#{__DIR__}/../data/image/netscape.gif"
     pending! "no animated test fixture" unless File.exists?(gif)
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new file: gif, parent: s
     img.play
     50.times do
@@ -161,8 +152,8 @@ end
 
 describe "BUGS13 W9: Media::RenderHook migrates across windows" do
   it "re-registers on the new window and drops the old one (constructed attached)" do
-    s1 = media_screen
-    s2 = media_screen
+    s1 = headless_screen(40, 12, default_quit_keys: true)
+    s2 = headless_screen(40, 12, default_quit_keys: true)
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
     b = Widget::Box.new parent: s2, width: "100%", height: "100%"
 
@@ -187,8 +178,8 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
   end
 
   it "retains the paint block across repeated moves (not a fire-once slot)" do
-    s1 = media_screen
-    s2 = media_screen
+    s1 = headless_screen(40, 12, default_quit_keys: true)
+    s2 = headless_screen(40, 12, default_quit_keys: true)
     probe = HookProbe.new top: 0, left: 0, width: 4, height: 2
 
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
@@ -212,7 +203,7 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
   end
 
   it "keeps a single registration across a same-window reparent" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: "100%", height: "100%"
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
     probe = HookProbe.new parent: a, top: 0, left: 0, width: 4, height: 2
@@ -227,7 +218,7 @@ describe "BUGS13 W9: Media::RenderHook migrates across windows" do
   end
 
   it "teardown_render_hook on destroy leaves nothing firing" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     probe = HookProbe.new parent: s, top: 0, left: 0, width: 4, height: 2
     s.repaint
     probe.paints.should eq 1
@@ -241,7 +232,7 @@ end
 
 describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget" do
   it "content_rect is nil when the widget pokes above the screen" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = RectProbe.new parent: s, top: -2, left: 0, width: 8, height: 6
     img.bitmap = solid_bitmap
     s.repaint
@@ -253,7 +244,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
   end
 
   it "content_rect is nil for the one-row-off (yi == -1) clamped case too" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = RectProbe.new parent: s, top: -1, left: 0, width: 8, height: 6
     img.bitmap = solid_bitmap
     s.repaint
@@ -263,7 +254,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
   end
 
   it "content_rect is nil when the widget pokes off the left edge" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = RectProbe.new parent: s, top: 1, left: -3, width: 8, height: 6
     img.bitmap = solid_bitmap
     s.repaint
@@ -290,7 +281,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
   end
 
   it "a fully on-screen graphic still reports its content rect" do
-    s = media_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = RectProbe.new parent: s, top: 1, left: 2, width: 4, height: 3
     img.bitmap = solid_bitmap
     s.repaint

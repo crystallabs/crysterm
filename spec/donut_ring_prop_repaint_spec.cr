@@ -10,19 +10,9 @@ include Crysterm
 # neither — so e.g. `donut.thickness = 0.9` left the *old* ring on window until
 # an unrelated repaint. They now invalidate the paint and schedule a render.
 
-private def drp_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40,
-    height: 20,
-    default_quit_keys: false)
-end
-
 describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
   it "marks the Canvas paint dirty when thickness changes" do
-    s = drp_screen
+    s = headless_screen(40, 20)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, thickness: 0.45
     s.repaint
@@ -36,7 +26,7 @@ describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
   end
 
   it "marks the Canvas paint dirty when the fill color changes" do
-    s = drp_screen
+    s = headless_screen(40, 20)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, fill_color: 0x40E0D0
     s.repaint
@@ -48,7 +38,7 @@ describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
   end
 
   it "does not mark dirty on a no-op assignment (unchanged value)" do
-    s = drp_screen
+    s = headless_screen(40, 20)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 18, height: 9, value: 50, thickness: 0.45
     s.repaint

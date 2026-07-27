@@ -15,16 +15,10 @@ include Crysterm
 #  A19: Completer never tore down on its LineEdit's destroy — the popup leaked
 #     as a permanent window child.
 
-private def pl_screen(w = 60, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
   it "rebuilds the ComboBox popup on the new window" do
-    w1 = pl_screen
-    w2 = pl_screen
+    w1 = headless_screen(60, 20)
+    w2 = headless_screen(60, 20)
     combo = Widget::ComboBox.new parent: w1, options: %w[a b c],
       top: 0, left: 0, width: 12, height: 1
     w1.repaint
@@ -45,8 +39,8 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
   end
 
   it "rebuilds the DateEdit calendar on the new window" do
-    w1 = pl_screen
-    w2 = pl_screen
+    w1 = headless_screen(60, 20)
+    w2 = headless_screen(60, 20)
     de = Widget::DateEdit.new parent: w1, top: 0, left: 0, width: 12, height: 1
     w1.repaint
 
@@ -66,8 +60,8 @@ describe "BUGS13 A15: cached popups migrate on cross-window reparent" do
   end
 
   it "rebuilds the Completer popup on the box's new window" do
-    w1 = pl_screen
-    w2 = pl_screen
+    w1 = headless_screen(60, 20)
+    w2 = headless_screen(60, 20)
     box = Widget::LineEdit.new parent: w1, top: 0, left: 0, width: 20, height: 1
     comp = Completer.new %w[apple apricot banana]
     comp.attach box
@@ -92,7 +86,7 @@ end
 
 describe "BUGS13 A17: Tab-away from an open ComboBox" do
   it "editable: closes without stealing focus back" do
-    s = pl_screen
+    s = headless_screen(60, 20)
     combo = Widget::ComboBox.new parent: s, options: %w[a b c], editable: true,
       top: 0, left: 0, width: 12, height: 1
     other = Widget::Box.new parent: s, input: true, top: 5, left: 0, width: 5, height: 1
@@ -111,7 +105,7 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
   end
 
   it "non-editable: dismisses the popup (and grab) when focus leaves the pair" do
-    s = pl_screen
+    s = headless_screen(60, 20)
     combo = Widget::ComboBox.new parent: s, options: %w[a b c],
       top: 0, left: 0, width: 12, height: 1
     other = Widget::Box.new parent: s, input: true, top: 5, left: 0, width: 5, height: 1
@@ -132,7 +126,7 @@ end
 
 describe "BUGS13 A19: Completer tears down when its LineEdit is destroyed" do
   it "detaches and destroys the popup on the box's Destroy" do
-    s = pl_screen
+    s = headless_screen(60, 20)
     box = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 20, height: 1
     comp = Completer.new %w[apple apricot banana]
     comp.attach box

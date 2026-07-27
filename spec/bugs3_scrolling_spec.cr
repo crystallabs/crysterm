@@ -5,15 +5,6 @@ include Crysterm
 # Regression specs for the scrolling / scrollbar bug fixes documented in BUGS3.md
 # (applied in `src/widget_scrolling.cr` and `src/widget/scrollbar.cr`).
 
-private def bugs3_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w,
-    height: h)
-end
-
 private def bugs3_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -24,7 +15,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
   # (ivertical >= aheight, so `visible_content_rows == 0`).
   describe "collapsed viewport (visible_content_rows == 0)" do
     it "does not advance child_base when scrolling a fully-collapsed box" do
-      s = bugs3_screen
+      s = headless_screen(40, 20, default_quit_keys: true)
       # A bordered box only 2 rows tall: border eats both rows, so
       # ivertical (2) >= aheight (2) and there are 0 visible content rows.
       st = Widget::ScrollableText.new(
@@ -46,7 +37,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
     end
 
     it "restores top-of-content visibility after the viewport is enlarged" do
-      s = bugs3_screen
+      s = headless_screen(40, 20, default_quit_keys: true)
       st = Widget::ScrollableText.new(
         parent: s, top: 0, left: 0, width: 20, height: 2,
         style: Style.new(border: true))
@@ -78,7 +69,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
   # report claimed to prevent. This spec locks in the correct behavior.
   describe "reset_scroll keeps a follow-tail view at the top" do
     it "does not yank a follow-tail Log to the bottom after a reset-to-top" do
-      s = bugs3_screen 20, 5
+      s = headless_screen(20, 5, default_quit_keys: true)
       log = Widget::Log.new parent: s, top: 0, left: 0, width: 20, height: 5
       log.follow_tail?.should be_true
 
@@ -106,7 +97,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
   # on an untracked seek, so a release *off* the bar still commits `@value`.
   describe "standalone ScrollBar untracked drag committed off-bar" do
     it "commits @value on a release that lands outside the bar's rect" do
-      s = bugs3_screen 40, 20
+      s = headless_screen(40, 20, default_quit_keys: true)
       bar = Widget::ScrollBar.new(
         parent: s, orientation: :vertical,
         top: 0, left: 0, width: 1, height: 10,

@@ -11,13 +11,6 @@ include Crysterm
 #   * a file ending in `@` would have it stripped as symlink decoration,
 # both yielding a wrong target.
 
-private def fm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::FileManager do
   it "navigates into a directory whose name contains a {...} tag-like sequence" do
     base = File.tempname("crysterm-fm-tag")
@@ -25,7 +18,7 @@ describe Crysterm::Widget::FileManager do
     Dir.mkdir_p dir
 
     begin
-      s = fm_screen
+      s = headless_screen(default_quit_keys: true)
       fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
 
@@ -48,7 +41,7 @@ describe Crysterm::Widget::FileManager do
     File.write target, "x"
 
     begin
-      s = fm_screen
+      s = headless_screen(default_quit_keys: true)
       fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base)
       fm.refresh
 

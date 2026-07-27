@@ -19,12 +19,6 @@ private def b17_emu(cols = 6, rows = 4)
   Crysterm::TerminalEmulator.new(cols, rows, DFL)
 end
 
-private def b17_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def b17_mouse(action, button, x, y)
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y, source: :test))
 end
@@ -32,7 +26,7 @@ end
 # ── B17-32: block cursor stays visible on an already-reversed cell. ──
 describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
   it "clears REVERSE on a cell the child rendered reversed, so the cursor shows" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :block,
@@ -58,7 +52,7 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
   end
 
   it "still sets REVERSE on a normal (non-reversed) cell (no regression)" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,
       cursor_shape: :block,
@@ -108,7 +102,7 @@ end
 describe "Widget::Terminal#on_mouse row mapping in a scrolled container (B17-34)" do
   it "reports the emulator row under the pointer, not one offset by the scroll base" do
     captured = [] of String
-    s = b17_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 8, scrollable: true
     term = Crysterm::Widget::Terminal.new(
       parent: outer, top: 0, left: 0, width: 10, height: 6,

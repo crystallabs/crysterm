@@ -234,21 +234,11 @@ describe Crysterm::Action do
   end
 end
 
-private def headless_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `ToolBar`/`MenuBar` install their actions' keyboard accelerators on the owning
 # window, so a shortcut fires the action without clicking it.
 describe "Action shortcut dispatch" do
   it "fires a ToolBar action when its shortcut is pressed on the window" do
-    s = headless_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     bold = Action.new "Bold", checkable: true, shortcut: Tput::Key::CtrlB
     fired = [] of Bool
@@ -261,7 +251,7 @@ describe "Action shortcut dispatch" do
   end
 
   it "stops firing after the action is uninstalled (bar detached)" do
-    s = headless_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Run", shortcut: Tput::Key::CtrlR
     fired = 0
@@ -277,7 +267,7 @@ describe "Action shortcut dispatch" do
   end
 
   it "fires a MenuBar menu action without opening the menu" do
-    s = headless_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     copy = Action.new "Copy", shortcut: Tput::Key::CtrlC
     fired = 0
@@ -290,7 +280,7 @@ describe "Action shortcut dispatch" do
 
   # Multi-keystroke chord: fires only once the whole sequence is entered, in order.
   it "fires a chord shortcut only after the full sequence" do
-    s = headless_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]]
     fired = 0
@@ -304,7 +294,7 @@ describe "Action shortcut dispatch" do
   end
 
   it "resets a half-entered chord when a non-matching key interrupts it" do
-    s = headless_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]]
     fired = 0
@@ -345,7 +335,7 @@ describe "Action#associated_widgets" do
   end
 
   it "records each host the action is added to, and the same action can have several" do
-    s = headless_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold"
@@ -359,7 +349,7 @@ describe "Action#associated_widgets" do
   end
 
   it "does not double-register on repeated add" do
-    s = headless_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
     a = Action.new "Bold"
     menu << a
@@ -369,7 +359,7 @@ describe "Action#associated_widgets" do
   end
 
   it "drops the host when the action is removed (Menu#remove_action)" do
-    s = headless_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
     a = Action.new "Bold"
     menu << a
@@ -379,7 +369,7 @@ describe "Action#associated_widgets" do
   end
 
   it "removes via the #>> operator alias, like #remove_action" do
-    s = headless_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
     a = Action.new "Bold"
     menu << a

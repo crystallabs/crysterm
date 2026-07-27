@@ -20,23 +20,13 @@ include Crysterm
 #  tops (`cur.atop - el.atop - el.itop`). This is a guard spec: the fix was
 #  already present in the working tree.
 
-private def bugs5_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def keypress(char : Char, key : ::Tput::Key? = nil)
   Crysterm::Event::KeyPress.new char, key
 end
 
 describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
   it "responds immediately to a reversing arrow after being pinned at the left edge" do
-    s = bugs5_screen
+    s = headless_screen(80, 24)
     # Placed flush against the left edge; nudging Left keeps it pinned at 0.
     box = Crysterm::Widget::Box.new parent: s, left: 0, top: 5,
       width: 8, height: 4, draggable: true, keys: true
@@ -55,7 +45,7 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
   end
 
   it "responds immediately to a reversing arrow after being pinned at the top edge" do
-    s = bugs5_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, left: 5, top: 0,
       width: 8, height: 4, draggable: true, keys: true
     box.focus
@@ -69,7 +59,7 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
   end
 
   it "keeps the session anchor in lockstep with the pinned widget" do
-    s = bugs5_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, left: 0, top: 5,
       width: 8, height: 4, draggable: true, keys: true
     box.focus
@@ -87,7 +77,7 @@ end
 
 describe "BUGS5 focus scroll-into-view through a non-scrollable container (guard #2)" do
   it "scrolls a deep descendant into the scrollable ancestor's viewport on focus" do
-    s = bugs5_screen
+    s = headless_screen(80, 24)
     scroll = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0,
       width: 20, height: 8
     # A plain, non-scrollable container sitting at a non-zero offset between the

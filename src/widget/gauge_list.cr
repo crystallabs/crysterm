@@ -35,6 +35,19 @@ module Crysterm
         # `list[i] = …` would.
         protected property owner : GaugeList? = nil
 
+        # This row's last built tagged-content string, and the `{value, color,
+        # label}` it was built for. Lives on the *item* (not in a list-indexed
+        # array) so a removal/reorder can't hand one row's cache to another item:
+        # the cache travels with the identity it describes.
+        #
+        # `label` is compared by VALUE because `#label`/`#color` are plain
+        # settable properties that don't notify the list. The remaining
+        # `gauge_line` inputs are list-wide (label-column width, bar width,
+        # range, fill ramp, unicode mode) and are keyed by `GaugeList`'s
+        # `@row_list_key`, which clears every item's cache when it changes.
+        protected property row_cache : String? = nil
+        protected property row_key : Tuple(Float64, Int32, String)? = nil
+
         def initialize(@label, value : Number, @color : Int32)
           @value = value.to_f
         end
@@ -176,6 +189,14 @@ module Crysterm
       # `glyphs:` hot-reload rebuilds instead of keeping a stale ramp.
       @content_key : Tuple(Int32, Int32, Int32, Int32, Int32?, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
+      # Everything `#gauge_line` reads that is *not* per-item: the label-column
+      # and bar widths, the shared range, the unicode mode the label is fitted
+      # with, and the fill-ramp inputs. While this holds, a row whose
+      # `{value, color, label}` is unchanged renders byte-identically, so its
+      # `Item#row_cache` can be reused instead of rebuilt — a value change on
+      # one gauge no longer rebuilds every other row's tagged string.
+      @row_list_key : Tuple(Int32, Int32, Float64, Float64, Bool, {String?, Glyphs::Tier, UInt64})? = nil
+
       def render(with_children = true)
         key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
                glyph_key(style)}
@@ -201,55 +222,83 @@ module Crysterm
         bar_cols = cols - lw - 1 - pct_w
         return "" if bar_cols <= 0
 
+        # The fill ramp resolves CSS-first (`glyphs:`), then the registry — one
+        # resolution for the whole list rather than one per row.
+        ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
+
+        # A change to any list-wide `#gauge_line` input invalidates every row's
+        # memo; per-item changes are caught by the `{value, color, label}` key.
+        list_key = {lw, bar_cols, @minimum, @maximum, full_unicode?, glyph_key(style)}
+        if @row_list_key != list_key
+          @row_list_key = list_key
+          @gauge_items.each(&.row_key=(nil))
+        end
+
         shown = @gauge_items.first(rows)
-        shown.map { |item| gauge_line item, lw, bar_cols, pct_w }.join('\n')
+        shown.map { |item| row_for item, lw, bar_cols, pct_w, ramp }.join('\n')
       end
 
-      private def gauge_line(item : Item, lw : Int32, bar_cols : Int32, pct_w : Int32) : String
+      # `#gauge_line` memoized on the item: rebuilds only when this row's own
+      # `{value, color, label}` changed (list-wide inputs having been checked by
+      # the caller).
+      private def row_for(item : Item, lw : Int32, bar_cols : Int32, pct_w : Int32, ramp : Array(Char)) : String
+        key = {item.value, item.color, item.label}
+        if item.row_key == key && (cached = item.row_cache)
+          return cached
+        end
+        row = gauge_line item, lw, bar_cols, pct_w, ramp
+        item.row_key = key
+        item.row_cache = row
+        row
+      end
+
+      private def gauge_line(item : Item, lw : Int32, bar_cols : Int32, pct_w : Int32, ramp : Array(Char)) : String
         pct = percent_of item.value
-        # Row is exactly `lw + 1 (gap) + bar_cols + pct_w` cells wide; reserve
-        # up front since these are rebuilt every gauge every animated frame.
+        # Row is exactly `lw + 1 (gap) + bar_cols + pct_w` display columns wide;
+        # size it up front (these are rebuilt every animated frame) and write by
+        # index — the blanks of the label padding and the inter-column gap are
+        # already in place. A wide (CJK/emoji) label grapheme spans 2 columns but
+        # occupies only ONE slot, so the row can end up that much SHORTER than
+        # `cap` in slots while keeping its column width; the unused tail is
+        # truncated below.
         cap = lw + 1 + bar_cols + pct_w
-        cells = Array(Char).new(cap)
-        colors = Array(String?).new(cap)
+        cells = Array(Char).new(cap, ' ')
+        colors = Array(String?).new(cap, nil)
 
         # Label (default style), fit to exactly `lw` *display columns* so a wide
         # grapheme (1 codepoint, 2 columns) doesn't push the bar/percentage past
         # the border and wrap the row.
+        i = 0
         used = 0
         item.label.each_char do |ch|
           cw = str_width(ch.to_s)
           break if used + cw > lw
-          cells << ch
-          colors << nil
+          cells[i] = ch
+          i += 1
           used += cw
         end
-        (lw - used).times do
-          cells << ' '
-          colors << nil
-        end
-        cells << ' '
-        colors << nil
+        # Label padding (`lw - used` blanks) plus the one-column gap: already
+        # `' '`/`nil`, so only the cursor moves.
+        i += lw - used + 1
 
-        # Bar: sub-cell horizontal block fill in the row's color. The ramp
-        # resolves CSS-first (`glyphs:`), then the registry.
-        hexcolor = Colors.hex(item.color)
-        ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
+        # Bar: sub-cell horizontal block fill in the row's color.
         eighths = Graph::Scale.eighths(item.value, @minimum, @maximum, bar_cols)
-        bar_cols.times do |c|
-          glyph = Graph::Scale.ramp_glyph(ramp, eighths, c)
-          cells << glyph
-          colors << (glyph == ' ' ? nil : hexcolor)
+        Graph::Scale.fill_ramp cells, colors, ramp, eighths, Colors.hex(item.color), i, bar_cols
+        i += bar_cols
+
+        # Percentage (default style), right-aligned in its field. `percent_of`
+        # clamps to `0..100`, so the text never exceeds `pct_w` columns.
+        "#{pct.round.to_i}%".rjust(pct_w).each_char do |ch|
+          break if i >= cap
+          cells[i] = ch
+          i += 1
         end
 
-        # Percentage (default style), right-aligned in its field.
-        text = "#{pct.round.to_i}%".rjust(pct_w)
-        text.each_char do |ch|
-          cells << ch
-          colors << nil
+        if i < cap
+          cells.truncate 0, i
+          colors.truncate 0, i
         end
-
-        String.build { |io| Graph::Scale.tagged_row(io, cells, colors) }
+        Graph::Scale.tagged_row(cells, colors)
       end
     end
   end

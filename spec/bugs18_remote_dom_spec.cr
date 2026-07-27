@@ -7,16 +7,11 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 80, height: 24, default_quit_keys: false)
-  end
-
   # ---- B18-106: set-content's selector split respects pseudo-classes -------
 
   describe "BUGS18 #106 DOM::Actions set-content splits selector/text at the compile boundary" do
     it "keeps a :nth-child(...) pseudo-class as part of the selector, not the text" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window>) +
                     %(<w-box class="item">one</w-box>) +
                     %(<w-box class="item">two</w-box>) +
@@ -38,7 +33,7 @@ require "./spec_helper"
     end
 
     it "keeps a colon inside the free-text argument, splitting on the selector's own boundary" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window>) +
                     %(<w-box id="msg" content="before"></w-box>) +
                     %(<w-button id="b" onclick="set-content:#msg:Warning: disk full"></w-button>) +
@@ -54,7 +49,7 @@ require "./spec_helper"
     end
 
     it "still handles a colon-free selector and the bare/@self forms unchanged" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window>) +
                     %(<w-box id="out" content="before"></w-box>) +
                     %(<w-button id="b" onclick="set-content:#out:after"></w-button>) +
@@ -77,7 +72,7 @@ require "./spec_helper"
 
   describe "BUGS18 #108 Window#wire_dom_actions dedups across repeated calls" do
     it "does not double-wire an existing binding on a second call (toggle-class stays a single toggle)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window>) +
                     %(<w-box id="panel"></w-box>) +
                     %(<w-button id="b" onclick="toggle-class:#panel:open"></w-button>) +
@@ -101,7 +96,7 @@ require "./spec_helper"
     end
 
     it "wires a binding added by a later DOM.load append without re-wiring the old ones" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window>) +
                     %(<w-box id="panel"></w-box>) +
                     %(<w-button id="b" onclick="toggle-class:#panel:open"></w-button>) +
@@ -126,7 +121,7 @@ require "./spec_helper"
     end
 
     it "updates on_quit for already-wired bindings on a later call" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="b" onclick="quit"></w-button></w-window>)
 
       first_called = false

@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def pls_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def pls_items
   ["Apricot", "Banana", "Cherry"]
 end
@@ -26,7 +16,7 @@ end
 
 describe "Pine::ListSelect" do
   it "toggles a row into #checked with the space bar (multi mode)" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s
 
@@ -38,7 +28,7 @@ describe "Pine::ListSelect" do
   end
 
   it "returns checked items from #selection (multi mode)" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s
 
@@ -50,7 +40,7 @@ describe "Pine::ListSelect" do
   end
 
   it "runs on_confirm with the selection on #confirm (multi mode)" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     confirmed = [] of String
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s,
@@ -63,7 +53,7 @@ describe "Pine::ListSelect" do
   end
 
   it "returns the highlighted item from #selection (single mode)" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: false, parent: s
 
@@ -73,7 +63,7 @@ describe "Pine::ListSelect" do
   end
 
   it "select_all / clear_selection affect #checked (multi mode)" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s
 
@@ -84,7 +74,7 @@ describe "Pine::ListSelect" do
   end
 
   it "preselects items via #checked= (multi mode), ignoring unknown items" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s
 
@@ -95,7 +85,7 @@ describe "Pine::ListSelect" do
   # In multi mode, activation (via activate_on_click) toggles the row rather
   # than confirming. `#confirm` is the explicit apply.
   it "toggles (not confirms) on activate in multi mode; #confirm applies" do
-    s = pls_screen
+    s = headless_screen(80, 24)
     confirmed = nil.as(Array(String)?)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s,

@@ -46,20 +46,15 @@ module Crysterm
       # The sections, in insertion order. Read-only — add via `#add_item`.
       getter sections = [] of Item
 
-      # Markers drawn before a header's title. Unset (`nil`) resolves from the
-      # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
-      setter expanded_char : Char? = nil
-      setter collapsed_char : Char? = nil
+      # Marker drawn before the expanded header's title. Unset (`nil`) resolves
+      # from the `Glyphs` registry at the effective tier; assigning a `Char` pins
+      # it.
+      pinnable_registry_glyph expanded_char, TreeExpanded
 
-      # :ditto:
-      def expanded_char : Char
-        @expanded_char || glyph(Glyphs::Role::TreeExpanded)
-      end
-
-      # :ditto:
-      def collapsed_char : Char
-        @collapsed_char || glyph(Glyphs::Role::TreeCollapsed)
-      end
+      # Marker drawn before a collapsed header's title. Unset (`nil`) resolves
+      # from the `Glyphs` registry at the effective tier; assigning a `Char` pins
+      # it.
+      pinnable_registry_glyph collapsed_char, TreeCollapsed
 
       def initialize(**box)
         super **box

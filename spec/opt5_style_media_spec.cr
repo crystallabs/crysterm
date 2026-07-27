@@ -43,7 +43,11 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_setter = Crysterm::Style.new
       via_setter.border = v
       border_fields(via_ctor.border).should eq border_fields(via_setter.border)
-      via_ctor.specified?(:border).should eq via_setter.specified?(:border)
+      # A ctor named-arg `nil` means "omitted" (the same convention as the
+      # ctor's boolean args), so it leaves the property unspecified — unlike
+      # the setter, where an explicit `nil` assignment stamps the mask.
+      via_ctor.specified?(:border).should eq !v.nil?
+      via_setter.specified?(:border).should be_true
     end
     # An already-typed `Border` passed through the ctor keeps its identity —
     # a single coercion (`Border.from` on a `Border` is the identity arm)
@@ -60,7 +64,9 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_setter = Crysterm::Style.new
       via_setter.padding = v
       padding_fields(via_ctor.padding).should eq padding_fields(via_setter.padding)
-      via_ctor.specified?(:padding).should eq via_setter.specified?(:padding)
+      # `nil` in the ctor = omitted (unspecified); see the `border:` example.
+      via_ctor.specified?(:padding).should eq !v.nil?
+      via_setter.specified?(:padding).should be_true
     end
     p = Crysterm::Padding.new(1, 2, 3, 4)
     Crysterm::Style.new(padding: p).padding.same?(p).should be_true
@@ -74,7 +80,9 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_setter = Crysterm::Style.new
       via_setter.margin = v
       margin_fields(via_ctor.margin).should eq margin_fields(via_setter.margin)
-      via_ctor.specified?(:margin).should eq via_setter.specified?(:margin)
+      # `nil` in the ctor = omitted (unspecified); see the `border:` example.
+      via_ctor.specified?(:margin).should eq !v.nil?
+      via_setter.specified?(:margin).should be_true
     end
     m = Crysterm::Margin.new(1, 2, 3, 4)
     Crysterm::Style.new(margin: m).margin.same?(m).should be_true
@@ -88,7 +96,9 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_setter = Crysterm::Style.new
       via_setter.shadow = v
       shadow_fields(via_ctor.shadow).should eq shadow_fields(via_setter.shadow)
-      via_ctor.specified?(:shadow).should eq via_setter.specified?(:shadow)
+      # `nil` in the ctor = omitted (unspecified); see the `border:` example.
+      via_ctor.specified?(:shadow).should eq !v.nil?
+      via_setter.specified?(:shadow).should be_true
     end
     sh = Crysterm::Shadow.new(1, 1, 1, 1)
     Crysterm::Style.new(shadow: sh).shadow.same?(sh).should be_true
@@ -131,7 +141,11 @@ describe "O5-29: Style#without_border / GroupBox title-style memo" do
     # An in-place mutation of `style.title` (no object swap) still refreshes
     # the memo — this is exactly what routing through `Style.memo_derive`
     # (rather than a plain `same?` check) buys over the old hand-rolled memo.
-    gb.style.title.fg = "#00ff00"
+    # The mutation itself is invisible to damage tracking (no setter fires),
+    # so route it through `#restyle`, which marks the widget dirty after the
+    # in-place write; the fingerprint then catches the change when the widget
+    # re-renders.
+    gb.restyle &.title.fg = "#00ff00"
     s.repaint
     c2 = gb.@_title_style_copy.not_nil!
     c2.same?(c1).should be_false
@@ -141,11 +155,6 @@ describe "O5-29: Style#without_border / GroupBox title-style memo" do
   ensure
     s.try &.destroy
   end
-end
-
-private def dither_window(w = 20, h = 10)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
 end
 
 # A left-to-right red gradient — sensitive enough to the dither mode that
@@ -180,7 +189,7 @@ end
 
 describe "O5-34: Media::Graphics#dither= (shared by Sixel and Regis)" do
   it "Sixel: drops the payload cache on a real dither change, no-ops on the same value" do
-    s = dither_window
+    s = headless_screen(20, 10)
     img = SixelDitherProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = dither_gradient_bitmap(40, 60)
     s.repaint
@@ -202,7 +211,7 @@ describe "O5-34: Media::Graphics#dither= (shared by Sixel and Regis)" do
   end
 
   it "Regis: drops the payload cache on a real dither change, no-ops on the same value" do
-    s = dither_window
+    s = headless_screen(20, 10)
     img = RegisDitherProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = dither_gradient_bitmap(40, 60)
     s.repaint

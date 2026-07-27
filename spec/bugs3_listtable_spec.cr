@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def bugs3_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # The body cell values of a `ListTable`'s given column, in visible order
 # (skipping the header at row 0). `rows` holds the ingested/sorted data.
 private def body_column(lt : Crysterm::Widget::ListTable, col : Int32) : Array(String)
@@ -23,7 +13,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
   # `sort_by_column` is also shown sorted, not in raw ingest order.
   describe "sort is re-applied on data change" do
     it "sorts the initial body and keeps new data sorted (ascending)" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -47,7 +37,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
     end
 
     it "keeps new data sorted descending" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -70,7 +60,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
     end
 
     it "sorts a numeric column numerically, not lexically" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -94,7 +84,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
     end
 
     it "records sort state so re-ingest via rows= keeps sorting" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -118,7 +108,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
   # so it never lands on the header spacer (row 0 == "") or a wrong duplicate.
   describe "selection restore on same-count re-ingest" do
     it "restores selection to the same numeric row (not the header spacer)" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -149,7 +139,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
     end
 
     it "does not land on a wrong duplicate row on same-count re-ingest" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -179,7 +169,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
   # crash and must record the sort state harmlessly.
   describe "sort on a small (<=2 row) table" do
     it "does not crash with a header and a single body row" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -201,7 +191,7 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
     end
 
     it "does not crash with a header-only table" do
-      s = bugs3_screen
+      s = headless_screen(80, 24)
       lt = Crysterm::Widget::ListTable.new(
         parent: s,
         rows: [
@@ -227,7 +217,7 @@ describe "ListTable alternate_rows parity after scroll (OPT W2)" do
   # the header spacer (index 0), and the pinned header do not — and this holds
   # after a vertical scroll moves `@child_base`/`header.top`.
   it "styles even body rows and never the header, before and after scroll" do
-    s = bugs3_screen
+    s = headless_screen(80, 24)
     lt = Crysterm::Widget::ListTable.new(
       parent: s,
       alternate_rows: true,
@@ -285,7 +275,7 @@ end
 
 describe "ListTable Resize rebuild skip (OPT W10)" do
   it "skips the rows= rebuild on Resize when content-sized" do
-    s = bugs3_screen
+    s = headless_screen(80, 24)
     lt = CountingListTable.new(parent: s, rows: [["A", "B"], ["1", "2"], ["3", "4"]])
     lt.rebuild_calls = 0
     lt.emit Crysterm::Event::Resize.new
@@ -293,7 +283,7 @@ describe "ListTable Resize rebuild skip (OPT W10)" do
   end
 
   it "still rebuilds on Resize for a percent-width table" do
-    s = bugs3_screen
+    s = headless_screen(80, 24)
     lt = CountingListTable.new(parent: s, width: "50%", rows: [["A", "B"], ["1", "2"], ["3", "4"]])
     lt.rebuild_calls = 0
     lt.emit Crysterm::Event::Resize.new

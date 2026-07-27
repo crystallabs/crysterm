@@ -12,10 +12,6 @@ include Crysterm
 # never the *last* element — which is the live B0.1 drift (`ToolBox` used to
 # return the last section for an empty toolbox).
 
-private def mem_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `current_widget` / `set_current` are nil for `Wizard` (no per-index widget
 # getter and no direct index setter — it navigates via `advance`/`back`).
 private record PagedCase,
@@ -33,7 +29,7 @@ end
 private def it_behaves_like_a_paged_container(c : PagedCase)
   describe c.name do
     it "reports an empty container as index -1 with no current widget (not the last)" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s
       c.current_index.call(w).should eq -1
       if cw = c.current_widget
@@ -42,7 +38,7 @@ private def it_behaves_like_a_paged_container(c : PagedCase)
     end
 
     it "makes the first added page current" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s
       p1 = new_page
       c.add.call w, p1
@@ -53,7 +49,7 @@ private def it_behaves_like_a_paged_container(c : PagedCase)
     end
 
     it "keeps the first page current when more are added" do
-      s = mem_screen
+      s = headless_screen(default_quit_keys: true)
       w = c.build.call s
       p1 = new_page
       p2 = new_page
@@ -64,7 +60,7 @@ private def it_behaves_like_a_paged_container(c : PagedCase)
 
     if setter = c.set_current
       it "switches the current page on demand" do
-        s = mem_screen
+        s = headless_screen(default_quit_keys: true)
         w = c.build.call s
         c.add.call w, new_page
         c.add.call w, new_page

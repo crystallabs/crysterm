@@ -35,27 +35,13 @@ private def b18_floor_screen(width = 40, height = 12)
   s
 end
 
-private def b18_screen(width = 80, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
-private def b18_cell_fg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
-end
-
-private def b18_cell_bg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(screen.lines[y][x].attr))
-end
-
 # Count cells that carry BOTH the given foreground and background.
 private def b18_count_cells_fg_bg(screen, fg, bg)
   n = 0
   (0...screen.height).each do |y|
     next unless screen.lines[y]?
     (0...screen.width).each do |x|
-      n += 1 if b18_cell_fg(screen, y, x) == fg && b18_cell_bg(screen, y, x) == bg
+      n += 1 if cell_fg(screen, x, y) == fg && cell_bg(screen, x, y) == bg
     end
   end
   n
@@ -263,7 +249,7 @@ describe "BUGS18 B18-38 in-place box mutations count as user-set" do
   end
 
   it "folds an in-place inline padding mutation into the computed style under CSS" do
-    s = b18_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     inline = Style.new
     w.style = inline

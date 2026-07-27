@@ -16,17 +16,9 @@ include Crysterm
 # border rows leaked onto the base `_dock_stops`, joining the child's border to
 # content under the overlay. Fix gates on `compositing_layers?` instead, true
 # for the whole subtree.
-private def pds_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40, height: 20)
-end
-
 describe "Widget#register_dock_stops (layer descendants)" do
   it "routes a bordered descendant of a z-indexed widget to the plane, not the base" do
-    s = pds_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     s.alloc
 
     # A z-indexed (layer) container with a line border, holding a bordered

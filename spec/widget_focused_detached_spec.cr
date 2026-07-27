@@ -8,16 +8,9 @@ include Crysterm
 # rather than crash with `NilAssertionError` (what the old raising `#screen`
 # produced).
 
-private def detached_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Widget#focused?" do
   it "reflects focus state while attached" do
-    s = detached_focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 
@@ -27,7 +20,7 @@ describe "Widget#focused?" do
   end
 
   it "returns false (does not raise) for a detached widget" do
-    s = detached_focus_screen
+    s = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: s, keys: true
     w = Widget::Box.new parent: s, keys: true
 

@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def tab_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Behavioral specs for `Widget::TabWidget`'s tab-collection management
 # (rendering/switching is covered elsewhere): add/remove/close/move and the
 # wrapping next/previous, plus the closable `✕` marker.
 describe Crysterm::Widget::TabWidget do
   describe "#add_tab" do
     it "tracks titles/pages, makes the first tab current, and hides the rest" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       p1 = Crysterm::Widget::Box.new content: "one"
       p2 = Crysterm::Widget::Box.new content: "two"
@@ -36,7 +26,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#insert_tab" do
     it "inserts at an index (clamped) and keeps the current page current" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       pa = Crysterm::Widget::Box.new
       pc = Crysterm::Widget::Box.new
@@ -59,7 +49,7 @@ describe Crysterm::Widget::TabWidget do
     end
 
     it "makes the first tab inserted current" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       p0 = Crysterm::Widget::Box.new
       tabs.insert_tab 0, "Only", p0
@@ -71,7 +61,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#tab_text / #set_tab_text" do
     it "reads and rewrites a tab's title, refreshing the bar" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       tabs.add_tab "A", Crysterm::Widget::Box.new
       tabs.add_tab "B", Crysterm::Widget::Box.new
@@ -90,7 +80,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#current_widget=" do
     it "raises the given page" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       p1 = Crysterm::Widget::Box.new
       p2 = Crysterm::Widget::Box.new
@@ -108,7 +98,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "Event::CurrentChanged" do
     it "reports every switch, and -1 once the last tab is gone" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       seen = [] of Int32
       tabs.on(Crysterm::Event::CurrentChanged) { |e| seen << e.index }
@@ -124,7 +114,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#next_page / #previous_page" do
     it "wraps around both ends" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
       3.times { |i| tabs.add_tab "T#{i}", Crysterm::Widget::Box.new }
       tabs.current_index.should eq 0
@@ -140,7 +130,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#remove_tab" do
     it "detaches (does not destroy) the page and keeps a valid current tab" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
       p0 = Crysterm::Widget::Box.new content: "a"
       p1 = Crysterm::Widget::Box.new content: "b"
@@ -162,7 +152,7 @@ describe Crysterm::Widget::TabWidget do
     end
 
     it "returns nil for an out-of-range index" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
       tabs.add_tab "A", Crysterm::Widget::Box.new
       tabs.remove_tab(5).should be_nil
@@ -172,7 +162,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#close_tab" do
     it "removes and destroys the page" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
       p0 = Crysterm::Widget::Box.new
       tabs.add_tab "A", p0
@@ -188,7 +178,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "#move_tab" do
     it "reorders titles/pages while keeping the same page current" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, movable: true, width: 40, height: 10
       p0 = Crysterm::Widget::Box.new
       p1 = Crysterm::Widget::Box.new
@@ -207,7 +197,7 @@ describe Crysterm::Widget::TabWidget do
     end
 
     it "clamps the destination and no-ops when unchanged" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, movable: true, width: 40, height: 10
       tabs.add_tab "A", Crysterm::Widget::Box.new
       tabs.add_tab "B", Crysterm::Widget::Box.new
@@ -218,7 +208,7 @@ describe Crysterm::Widget::TabWidget do
 
   describe "closable tabs" do
     it "shows a ✕ marker in the bar item titles" do
-      s = tab_screen
+      s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, tabs_closable: true, width: 40, height: 10
       tabs.add_tab "Files", Crysterm::Widget::Box.new
       # ListBar prefixes each item with its command number ("1:"); the tab's

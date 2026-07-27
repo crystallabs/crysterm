@@ -131,26 +131,28 @@ module Crysterm
         invalidate_css
       end
 
+      # Settles `#checked?` to *to* (only when `#checkable?`), emitting
+      # `Event::StateChanged`/`Event::Toggled` if it changed. Shared body of
+      # `#check`/`#uncheck`, which differ only in polarity.
+      private def settle_checked(to : Bool) : Nil
+        return unless checkable?
+        return if checked? == to && !partial? # already settled on `to`
+        set_checked to
+        emit Crysterm::Event::StateChanged, (to ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked)
+        emit Crysterm::Event::Toggled, to
+        request_render
+      end
+
       # Sets the checked state (only when `#checkable?`), emitting
       # `Event::StateChanged` if it changed.
       def check
-        return unless checkable?
-        return if checked? && !partial? # already settled on checked
-        set_checked true
-        emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Checked
-        emit Crysterm::Event::Toggled, true
-        request_render
+        settle_checked true
       end
 
       # Clears the checked state (only when `#checkable?`), emitting
       # `Event::StateChanged` if it changed. Counterpart to `#check`.
       def uncheck
-        return unless checkable?
-        return if !checked? && !partial? # already settled on unchecked
-        set_checked false
-        emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::Unchecked
-        emit Crysterm::Event::Toggled, false
-        request_render
+        settle_checked false
       end
 
       # Indicates focus via reverse-video at the unstyled floor.

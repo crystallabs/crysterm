@@ -11,15 +11,9 @@ include Crysterm
 # columns too wide. The fix also keys the cache on `{@width, ihorizontal,
 # @column_spacing}` so it recomputes exactly when a dependency moved.
 
-private def headless_window(width = 60, height = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 describe "BUGS16 B16-34 table column-width cache invalidation on inset change" do
   it "keeps a fixed-width Table honoring its width after CSS adds a border" do
-    s = headless_window
+    s = headless_screen(60, 20)
     t = Crysterm::Widget::Table.new(
       parent: s, top: 0, left: 0,
       width: 40, rows: [["Name", "Score"], ["Alice", "10"]])
@@ -47,7 +41,7 @@ describe "BUGS16 B16-34 table column-width cache invalidation on inset change" d
   end
 
   it "sizes a fixed-width ListTable's rows to the post-cascade interior" do
-    s = headless_window
+    s = headless_screen(60, 20)
     lt = Crysterm::Widget::ListTable.new(
       parent: s, top: 0, left: 0, height: 6,
       width: 40, rows: [["Name", "Score"], ["Alice", "10"]])

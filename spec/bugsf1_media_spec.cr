@@ -19,12 +19,6 @@ include Crysterm
 # Finding 41 — `Media::Ueberzug` must reap a dead helper `Process` (not abandon a
 #   zombie) and respawn/retry.
 
-private def headless_window(w = 20, h = 5)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def default_attr : Int64
   Attr.pack(0_i64, -1, -1)
 end
@@ -86,7 +80,7 @@ describe "Media streaming generation token (F1 #3)" do
   # stream loop by bumping the generation, and a captured generation must go
   # stale after such a call (exactly the condition `#stream_loop` exits on).
   it "bumps stream_gen on pause and stop so a captured generation goes stale" do
-    s = headless_window
+    s = headless_screen(20, 5, default_quit_keys: true)
     img = Crysterm::Widget::Media::Ansi.new parent: s, top: 0, left: 0, width: 8, height: 4
 
     g0 = img.stream_gen
@@ -114,7 +108,7 @@ describe "Media streaming generation token (F1 #3)" do
     prev = Crysterm::Config.media_video_decode
     Crysterm::Config.media_video_decode = Crysterm::Widget::Media::VideoDecode::Stream
 
-    s = headless_window 80, 24
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Ansi.new(
       file: tmp.path, parent: s, top: 0, left: 0, width: 8, height: 4)
 
@@ -146,7 +140,7 @@ end
 
 describe "Media::Tek bad source graceful failure (F1 #19)" do
   it "does not raise out of draw_tek for a missing file; flags decode_failed" do
-    s = headless_window
+    s = headless_screen(20, 5, default_quit_keys: true)
     tek = Crysterm::Widget::Media::Tek.new file: "/nonexistent/typo-#{Process.pid}.png", parent: s
 
     tek.decode_failed?.should be_false
@@ -165,7 +159,7 @@ describe "Media::Tek bad source graceful failure (F1 #19)" do
   end
 
   it "does not raise for an unfetchable URL source" do
-    s = headless_window
+    s = headless_screen(20, 5, default_quit_keys: true)
     tek = Crysterm::Widget::Media::Tek.new(
       file: "http://127.0.0.1:1/nope-#{Process.pid}.png", parent: s)
     tek.draw_tek # must not raise (fetch failure caught)
@@ -176,7 +170,7 @@ describe "Media::Tek bad source graceful failure (F1 #19)" do
   end
 
   it "clears decode_failed on load so a corrected source can retry" do
-    s = headless_window
+    s = headless_screen(20, 5, default_quit_keys: true)
     tek = Crysterm::Widget::Media::Tek.new file: "/nonexistent/typo.png", parent: s
     tek.draw_tek
     tek.decode_failed?.should be_true
@@ -227,7 +221,7 @@ describe "Media::Ueberzug helper reaping (F1 #41)" do
   # of the render hook.
   it "does not raise when no helper binary is available" do
     pending! "ueberzug present; skip the no-binary path" if Crysterm::Widget::Media::Ueberzug.binary
-    s = headless_window
+    s = headless_screen(20, 5, default_quit_keys: true)
     uz = Crysterm::Widget::Media::Ueberzug.new(
       file: "/nonexistent/pic-#{Process.pid}.png", parent: s, width: 8, height: 4)
     # A render fires the `Rendered` hook -> redraw_image -> send; with no helper

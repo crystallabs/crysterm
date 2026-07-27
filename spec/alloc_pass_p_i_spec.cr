@@ -8,12 +8,6 @@ include Crysterm
 # caching (I1). Each verifies the observable output is unchanged after the
 # allocation optimization.
 
-private def api_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Extracts the weekday-header line from a calendar's rendered content (line 1
 # when the nav bar is visible, else line 0).
 private def cal_header_line(cal : Crysterm::Widget::Calendar) : String
@@ -24,7 +18,7 @@ end
 describe "ALLOCS Group P/I behaviour preservation" do
   describe "P1 — Calendar weekday header caching" do
     it "keeps the header correct across format / first-day / grid changes" do
-      s = api_screen
+      s = headless_screen(40, 20)
       cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12
 
       # Default: ShortDayNames, Sunday-first, no grid.
@@ -49,7 +43,7 @@ describe "ALLOCS Group P/I behaviour preservation" do
     end
 
     it "renders day cells with two-column right-justified numbers" do
-      s = api_screen
+      s = headless_screen(40, 20)
       cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
         date: Time.utc(2024, 1, 15)
       # Day numbers 1..9 are space-padded to width 2; the selected day (15) is
@@ -62,7 +56,7 @@ describe "ALLOCS Group P/I behaviour preservation" do
 
   describe "P7 — Tree indent memoization" do
     it "indents each row by depth * indent and rebuilds when indent changes" do
-      s = api_screen
+      s = headless_screen(40, 20)
       tree = Widget::Tree.new parent: s, top: 0, left: 0, width: 30, height: 12
       root = tree.add "root"
       child = root.add "child"
@@ -85,7 +79,7 @@ describe "ALLOCS Group P/I behaviour preservation" do
 
   describe "P6 — ScrollBar sync early-return" do
     it "keeps tracking the target's scroll position (idempotent syncs)" do
-      s = api_screen 40, 10
+      s = headless_screen(40, 10)
       content = (1..40).map { |i| "line #{i}" }.join('\n')
       box = Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 8,
         content: content

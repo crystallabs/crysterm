@@ -19,15 +19,35 @@ module Crysterm
       getter? disposed = false
 
       def initialize(&@block : -> T)
-        # Primed untracked, so initialization creates no dependency on the
-        # enclosing scope; the effect below does the real tracked computation.
-        @value = Reactive.untracked { @block.call }
+        # No untracked prime: the effect's *own* first run both discovers the
+        # dependencies and produces the value, so priming would only run the
+        # derivation a second time for nothing.
+        #
+        # Leaving the slot uninitialized until that run is safe: `Effect.new`
+        # performs its initial run synchronously (from its own `initialize`),
+        # so on the success path `@value` is assigned before this constructor
+        # returns, and nothing can observe it earlier — the first run does not
+        # `emit`, so there are no listeners to re-enter through, and no
+        # reference to `self` has escaped yet. If the first run raises, the
+        # constructor raises too: `Effect#run`'s transactional rescue has
+        # already cancelled every subscription that run added (on a first run
+        # that is all of them), and the half-built `Computed` is unreachable.
+        # A conservatively-scanned slot that never held a real reference costs
+        # at worst transient over-retention, never a crash (and Crystal's
+        # allocator hands back zeroed memory anyway).
+        @value = uninitialized T
+        # `primed` exists so `@value != v` is only ever reached from the second
+        # run on — the uninitialized slot must never be compared.
+        primed = false
         # Eager: recomputes synchronously the instant an upstream changes, so
         # this value has settled before any dependent leaf effect (deferred to
         # the wave's flush) reads it. That ordering keeps a diamond glitch-free.
         @effect = Effect.new(eager: true) do
           v = @block.call
-          if @value != v
+          if !primed
+            primed = true
+            @value = v
+          elsif @value != v
             @value = v
             # Tracking suspended: the internal effect is the active scope, so
             # listeners' signal reads would otherwise register as dependencies

@@ -7,12 +7,16 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-  end
-
-  private def rgb(name)
-    Crysterm::Colors.convert(name).to_i32
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   # Exposes the private, render-fiber-marshaling `#on_ui` so a spec can drive a
@@ -29,7 +33,7 @@ require "http/client"
     # requesting fiber and must not kill the render fiber.
     describe "UI-job exception handling" do
       it "re-raises a raising on_ui job on the requesting fiber (no hang)" do
-        s = headless_screen
+        s = headless_screen(default_quit_keys: true)
         bridge = ProbeBridge.new(s, port: 7200)
 
         # Before the fix this would block forever on `result.receive` (the job
@@ -40,7 +44,7 @@ require "http/client"
       end
 
       it "keeps the render fiber alive after an on_ui job raises" do
-        s = headless_screen
+        s = headless_screen(default_quit_keys: true)
         bridge = ProbeBridge.new(s, port: 7201)
 
         bridge.pub_on_ui { raise "boom" } rescue nil
@@ -49,7 +53,7 @@ require "http/client"
       end
 
       it "does not let a raising posted job kill the render fiber (drain_ui_queue)" do
-        s = headless_screen
+        s = headless_screen(default_quit_keys: true)
         done = Channel(Nil).new
         s.post { raise "boom in a bare posted job" }
         s.post { done.send nil }
@@ -67,12 +71,12 @@ require "http/client"
     # to a layout that carries no <style>.
     it "clears stale inline <style> CSS on a hot-reload to a style-less layout" do
       # Baseline: the default fg for #x with no matching rule.
-      control = headless_screen
+      control = headless_screen(default_quit_keys: true)
       control.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       control.apply_stylesheet
       default_fg = control.find_by_id("x").not_nil!.styles.normal.fg
 
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7202)
       bridge.start
@@ -89,10 +93,10 @@ require "http/client"
     # JSON-RPC errors, not an uncaught 500 / broken socket.
     describe "malformed JSON-RPC bodies" do
       it "returns -32700 for unparseable JSON and -32600 for non-object JSON" do
-        s = headless_screen
+        s = headless_screen(default_quit_keys: true)
         s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
         Crysterm::HTTPBridge.new(s, port: 7203).start
-        sleep 100.milliseconds
+        wait_for_bind 7203
         base = "http://127.0.0.1:7203/rpc"
 
         bad_json = HTTP::Client.post(base, body: "{ this is not json")
@@ -110,10 +114,10 @@ require "http/client"
     # Bug 4 (Low): setAttribute("class", …) must REPLACE the class list (browser
     # semantics), not accumulate.
     it "replaces the class list on setAttribute(\"class\", …)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="x" class="a b"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7204).start
-      sleep 100.milliseconds
+      wait_for_bind 7204
       base = "http://127.0.0.1:7204/rpc"
 
       HTTP::Client.post(base,
@@ -126,10 +130,10 @@ require "http/client"
     # up front with a JSON-RPC -32602 error rather than being silently recorded
     # and re-attempted (always a no-op) on every future rewire.
     it "rejects an unknown event name with a -32602 error" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7205).start
-      sleep 100.milliseconds
+      wait_for_bind 7205
       base = "http://127.0.0.1:7205/rpc"
 
       unknown = HTTP::Client.post(base,
@@ -146,10 +150,10 @@ require "http/client"
     # never a query param.
     describe "token hardening" do
       it "accepts the header token but rejects a query-param token" do
-        s = headless_screen
+        s = headless_screen(default_quit_keys: true)
         s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
         Crysterm::HTTPBridge.new(s, port: 7206, token: "s3cret").start
-        sleep 100.milliseconds
+        wait_for_bind 7206
         body = %({"jsonrpc":"2.0","method":"render"})
 
         # Correct header: authorized.

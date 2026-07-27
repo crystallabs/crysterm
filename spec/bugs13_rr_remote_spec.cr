@@ -21,14 +21,21 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 80, height: 24, default_quit_keys: false)
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   describe "BUGS13 R7 — ranged value round-trips through the layout DOM" do
     it "applies a serialized value after minimum/maximum (attribute order)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       begin
         # `value` serialized before `maximum` (initializer-arg order) — the
         # exact shape that used to clamp 500 against the default (0, 100).
@@ -42,8 +49,8 @@ require "http/client"
     end
 
     it "round-trips a ProgressBar's out-of-default-range value (serialize -> load)" do
-      src = headless_screen
-      dst = headless_screen
+      src = headless_screen(80, 24)
+      dst = headless_screen(80, 24)
       begin
         pb = Crysterm::Widget::ProgressBar.new(parent: src, value: 500, maximum: 1000)
         html = pb.to_layout_html
@@ -57,7 +64,7 @@ require "http/client"
     end
 
     it "still lets serialized content win over a value-driven text refresh" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       begin
         # SpinBox rebuilds its displayed text from `value=`; the deferred
         # `value` must be applied *before* `content` so explicit serialized
@@ -74,11 +81,11 @@ require "http/client"
 
   describe "BUGS13 R8 — HTTPBridge fails fast instead of hanging when the window is destroyed" do
     it "answers an RPC with -32600 instead of blocking the HTTP fiber forever" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-box id="status" content="hi"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7461)
       bridge.start
-      sleep 100.milliseconds # let the server bind
+      wait_for_bind 7461
       begin
         # Destroy the window out from under the bridge (embedder shape): the
         # render loop exits, so a posted `on_ui` block would never execute.

@@ -114,17 +114,19 @@ module Crysterm
     # `nil` if the bytes back to the `\e` aren't a valid `\e[[\d;]*m` run. `line[k]`
     # is O(k) for multibyte content, but the run is short and this only fires on a
     # candidate `'m'` within the ~10-char word-wrap lookback window.
+    #
+    # The backwards mirror of `#sgr_run_len` and held to the same strict
+    # `SGR_REGEX` grammar: only digits and `;` may precede the `m`, and the `[`
+    # must be the opener immediately after the `\e`. (`\e[[1m` is therefore *not*
+    # a run — matching what `#str_width` and `#wrap_cut_index` measure.)
     def sgr_run_start(line : String, mi : Int32) : Int32?
       k = mi - 1
       while k >= 0
-        c = line[k]
-        case c
-        when '\e'
-          # Need the `[` immediately after the `\e` (i.e. at `k + 1`).
-          return k if k + 1 < mi && line[k + 1] == '['
-          return
-        when '[', ';', '0'..'9'
+        case line[k]
+        when ';', '0'..'9'
           k -= 1
+        when '['
+          return (k >= 1 && line[k - 1] == '\e') ? k - 1 : nil
         else
           return
         end
@@ -132,9 +134,35 @@ module Crysterm
       nil
     end
 
+    # Byte length of the SGR sequence beginning at byte *i* of *bytes* and ending
+    # before *to*, or `nil` when no sequence starts there (*i* need not hold an
+    # `\e`). Byte-level scanning is exact: `\e`, `[`, `;`, `m` and the digits are
+    # all ASCII, so none can occur as a byte of a multi-byte codepoint.
+    #
+    # This is the single zero-width grammar of the wrap/width pipeline: exactly
+    # `SGR_REGEX`'s `\e\[[\d;]*m` (the run end is delegated to `#sgr_terminator`,
+    # shared with `#_attr_after`/`base_render`). Anything else an `\e` may start —
+    # a non-SGR CSI such as `\e[2K`, an unterminated `\e[1`, a lone `\e` — is
+    # *not* a run, and every caller here must treat it as ordinary visible text,
+    # since that is what `#str_width` does with it (`SGR_REGEX` leaves it in
+    # place). Historically `#wrap_cut_index` and `#each_sgr_run` each used a
+    # looser grammar, so column math, cut positions and re-emitted escapes could
+    # disagree on malformed input and silently mis-wrap.
+    @[AlwaysInline]
+    private def sgr_run_len(bytes : Bytes, i : Int32, to : Int32) : Int32?
+      return unless i + 1 < to &&
+                    bytes.unsafe_fetch(i) == 0x1b_u8 &&  # '\e'
+                    bytes.unsafe_fetch(i + 1) == 0x5b_u8 # '['
+      # Bound the parameter scan to the window; `Slice#[]` is a view, not a copy.
+      m = sgr_terminator(bytes[0, to], i + 2)
+      m ? m - i + 1 : nil
+    end
+
     # Character index in `line` (which may contain inline SGR) at which to cut so
     # the kept prefix fits within `colwidth` columns. SGR sequences consume no
-    # columns. Under `#full_unicode?` widths are grapheme/East-Asian and
+    # columns — strictly those `#sgr_run_len` recognizes, so an `\e` that opens
+    # no valid run counts as visible text, exactly as `#str_width` counts it.
+    # Under `#full_unicode?` widths are grapheme/East-Asian and
     # clusters are never split; otherwise one column per codepoint (legacy).
     # Returns `line.size` when the whole line fits; a single grapheme wider than
     # `colwidth` is kept whole rather than looping forever.
@@ -144,23 +172,26 @@ module Crysterm
       # Single forward walk via `Char::Reader`; a char-by-char scan would be O(n²),
       # since `String#[](Int)` is O(index) for multibyte content. `cp` tracks the
       # codepoint index of the reader's current char (what callers slice by);
-      # `reader.pos` is the byte offset, used for grapheme segmentation.
+      # `reader.pos` is the byte offset, used for grapheme segmentation (and for
+      # the byte-level SGR scan, which needs no decoding at all).
       bytesize = line.bytesize
+      bytes = line.to_slice
       reader = Char::Reader.new line
       cp = 0
       while reader.pos < bytesize
-        if reader.current_char == '\e'
-          reader.next_char; cp += 1
-          while reader.pos < bytesize && reader.current_char != 'm'
-            reader.next_char; cp += 1
-          end
-          if reader.pos < bytesize # consume the terminating 'm'
-            reader.next_char; cp += 1
-          end
+        if len = sgr_run_len(bytes, reader.pos, bytesize)
+          # Zero-width: skip the run whole. It is pure ASCII, so its byte length
+          # is also its codepoint length, and `pos=` reseeks in O(1).
+          reader.pos = reader.pos + len
+          cp += len
           next
         end
 
-        # Contiguous run of visible text up to the next SGR (or end of line).
+        # Contiguous run of visible text up to the next SGR run (or end of line).
+        # A non-conforming `\e` does not end the run: it is visible text, and the
+        # width metrics below treat it as `#str_width` would (0 columns under
+        # `full_unicode?`, since it is a control character; 1 codepoint in the
+        # legacy count).
         if full
           # Grapheme/East-Asian widths: segment the run's bytes as clusters. This
           # path must measure the whole run — presentation selectors like VS16/VS15
@@ -168,7 +199,7 @@ module Crysterm
           # byte-identical.
           run_byte_start = reader.pos
           run_cp_start = cp
-          while reader.pos < bytesize && reader.current_char != '\e'
+          while reader.pos < bytesize && sgr_run_len(bytes, reader.pos, bytesize).nil?
             reader.next_char; cp += 1
           end
           pos = run_cp_start
@@ -184,7 +215,7 @@ module Crysterm
           # One column per visible codepoint (legacy). Walk only until the column
           # budget is met rather than to the end of the run. Before reading the
           # char at codepoint index `c`, `cp == c`; after advancing, `cp == c + 1`.
-          while reader.pos < bytesize && reader.current_char != '\e'
+          while reader.pos < bytesize && sgr_run_len(bytes, reader.pos, bytesize).nil?
             reader.next_char
             cp += 1
             total += 1
@@ -239,37 +270,26 @@ module Crysterm
 
     # Yields `{byte_start, byte_count}` for each SGR run of *s* lying wholly
     # inside the byte window `[from, to)`, in order — the allocation-free
-    # equivalent of `s[from...to].scan(SGR_RE)`. Byte-level scanning is exact
-    # here: `\e`, `[` and `m` are ASCII and so can never occur as a byte of a
-    # multi-byte codepoint.
+    # equivalent of `s[from...to].scan(SGR_REGEX)`.
     #
-    # NOTE the grammar is `/\e\[[^m]*m/` — deliberately reproduced as-is from
-    # `#_hslice`'s previous regexes, and **looser** than the module-wide
-    # `SGR_REGEX` (`/\e\[[\d;]*m/`) that `#str_width`/`#wrap_cut_index` measure
-    # against. A non-SGR CSI sequence (e.g. `\e[2K`) is therefore captured and
-    # re-emitted here but not treated as zero-width by the column math. That
-    # divergence is pre-existing and is left for a deliberate separate call
-    # rather than silently changed by an allocation fix.
+    # The grammar is `#sgr_run_len`'s, i.e. `SGR_REGEX`'s exactly, so `#_hslice`
+    # re-emits precisely the runs `#wrap_cut_index`/`#str_width` treated as
+    # zero-width. A non-conforming escape (e.g. the CSI `\e[2K`) is *not* a run:
+    # it counts as visible text for the column math and so must not be carried
+    # across the window as an extra zero-width prefix/suffix. On a failed match
+    # the scan resumes one byte on, just as `String#scan` retries from the next
+    # position — so a later run nested inside the failed attempt (`\e[1\e[2m`)
+    # is still found.
     private def each_sgr_run(s : String, from : Int32, to : Int32, & : Int32, Int32 ->) : Nil
       bytes = s.to_slice
       i = from
       while i < to
-        if bytes.unsafe_fetch(i) == 0x1b_u8 && i + 1 < to && bytes.unsafe_fetch(i + 1) == 0x5b_u8
-          # `[^m]*` cannot match `m`, so the run ends at the first `m` — and
-          # since it *can* match `\e`, a `\e[` with no following `m` in the
-          # window yields nothing and the scan simply resumes one byte on, just
-          # as `String#scan` retries from the next position.
-          j = i + 2
-          while j < to && bytes.unsafe_fetch(j) != 0x6d_u8 # 'm'
-            j += 1
-          end
-          if j < to
-            yield i, j - i + 1
-            i = j + 1
-            next
-          end
+        if len = sgr_run_len(bytes, i, to)
+          yield i, len
+          i += len
+        else
+          i += 1
         end
-        i += 1
       end
     end
   end

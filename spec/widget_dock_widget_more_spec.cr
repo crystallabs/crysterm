@@ -2,21 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-private def dock_win
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Complements the existing DockWidget specs (content/close/float/grip): the
 # non-floatable no-op, content replacement, and the per-area floor border.
 describe Crysterm::Widget::DockWidget do
   it "ignores toggle_floating on a non-floatable dock" do
-    s = dock_win
+    s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "X",
       area: Crysterm::Widget::DockWidget::Area::Left, floatable: false
     floats = 0
@@ -27,7 +17,7 @@ describe Crysterm::Widget::DockWidget do
   end
 
   it "replaces a previously set content widget" do
-    s = dock_win
+    s = headless_screen(80, 24)
     first = Crysterm::Widget::Box.new content: "old"
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "D",
       area: Crysterm::Widget::DockWidget::Area::Right
@@ -42,7 +32,7 @@ describe Crysterm::Widget::DockWidget do
   end
 
   it "gives a floating dock a full frame and a docked one only its content-facing border" do
-    s = dock_win
+    s = headless_screen(80, 24)
     floating = Crysterm::Widget::DockWidget.new parent: s, title: "F",
       area: Crysterm::Widget::DockWidget::Area::Floating
     floating.floor_border_value.should be_true # full frame

@@ -2,15 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-private def tree_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 40, height: 16)
-end
-
 describe Crysterm::Widget::Tree do
   it "adopts a detached subtree on attach (later edits refresh the view)" do
-    s = tree_screen
+    s = headless_screen(40, 16, default_quit_keys: true)
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
     # Multi-level subtree built before attaching: owning tree unknown, so

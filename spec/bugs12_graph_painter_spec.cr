@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def blank_bitmap(w, h) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
-end
-
-private def overlay_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 6)
-end
-
 # Re-exposes the private `TextOverlay` stamping helpers so they can be exercised
 # directly against a real `window.lines` grid.
 private class OverlayProbe < Crysterm::Widget
@@ -88,7 +78,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
   # --- Finding #15 -------------------------------------------------------------
   describe "off-top / off-left label stamping (#15)" do
     it "put_text does not stamp onto the wrapped bottom row for a negative y" do
-      s = overlay_screen
+      s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       last = s.lines.size - 1
       # Snapshot the bottom row before the (negative-row) stamp attempt.
@@ -99,7 +89,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
     end
 
     it "put_text does not wrap a negative column to the right end of the row" do
-      s = overlay_screen
+      s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       right = s.lines[0].size - 1
       before = s.lines[0][right].char
@@ -110,7 +100,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
     end
 
     it "put_cell does not stamp onto the wrapped bottom row for a negative y" do
-      s = overlay_screen
+      s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       last = s.lines.size - 1
       before = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
@@ -120,7 +110,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
     end
 
     it "put_cell rejects a negative column even with a negative clip floor" do
-      s = overlay_screen
+      s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       right = s.lines[0].size - 1
       before = s.lines[0][right].char
@@ -129,7 +119,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
     end
 
     it "put_text still stamps a normal in-range label" do
-      s = overlay_screen
+      s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       probe.stamp_text 1, 0, "OK", 0_i64, 0, 20
       s.lines[0][1].char.should eq 'O'

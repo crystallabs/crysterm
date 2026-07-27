@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def bugs11_ci_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # BUGS11 #27 — `Colors.safe_convert(String)` (reached via the public, cached
 # `Colors.convert_cached`) folds case for named CSS/QSS colors. The shard's
 # `ColorNames` table has only lowercase keys, so a capitalized keyword
@@ -46,7 +36,7 @@ end
 # dropped; here we assert the item is actually built 1 row tall.
 describe "BUGS11 #36 ItemView#create_item builds 1-high items" do
   it "creates each item Box with height 1" do
-    s = bugs11_ci_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["one", "two", "three"]
     list.items.size.should eq 3
     list.item_boxes.each do |item|

@@ -2,10 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def hmscreen(w = 40, h = 16)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
-end
-
 private def hm_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -108,7 +104,7 @@ describe Crysterm::Widget::Graph::HeatMap do
   end
 
   it "renders a grid of colored cells without raising" do
-    s = hmscreen
+    s = headless_screen(40, 16, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -132,7 +128,7 @@ describe Crysterm::Widget::Graph::HeatMap do
   end
 
   it "skips NaN cells when painting (leaves them transparent)" do
-    s = hmscreen
+    s = headless_screen(40, 16, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -150,7 +146,7 @@ describe Crysterm::Widget::Graph::HeatMap do
   end
 
   it "emits CellHover with the (row, col, value) under the pointer" do
-    s = hmscreen
+    s = headless_screen(40, 16, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -176,7 +172,7 @@ describe Crysterm::Widget::Graph::HeatMap do
   end
 
   it "emits CellHover only when the cell changes" do
-    s = hmscreen
+    s = headless_screen(40, 16, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin

@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def hwindow(w = 60, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Reads the rendered characters of screen row *y* across the table's interior
 # columns [xi, xl).
 private def row_chars(s, lp, y)
@@ -28,7 +22,7 @@ private GRID_GLYPHS = "─│┬┴├┤┼┌┐└┘"
 # actual top/bottom border rows.
 describe "BUGS11 #20 Table#draw_borders honors vertical padding" do
   it "does not paint gridlines over padded cell text" do
-    s = hwindow
+    s = headless_screen(60, 24)
     s.alloc
     t = Crysterm::Widget::Table.new(parent: s, left: 0, top: 0,
       rows: [["Name", "Email"], ["Alice", "a@x"]],
@@ -69,7 +63,7 @@ end
 # rendered coords.
 describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
   it "paints no gridlines below the clipping container's bottom" do
-    s = hwindow
+    s = headless_screen(60, 24)
     s.alloc
     # A short `overflow: Hidden` container clips the taller table.
     box = Crysterm::Widget::Box.new(parent: s, left: 0, top: 0,

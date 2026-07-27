@@ -15,15 +15,9 @@ include Crysterm
 # * `Window#widget_at` over the gap reports the container, not the spacer
 #   (`Spacer#wants_mouse?` is hard-wired false).
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   it "add_stretch between two fixed buttons pins them to the edges" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     hbox = Layout::HBox.new
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 3,
       layout: hbox
@@ -40,7 +34,7 @@ describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   end
 
   it "add_spacing(5) leaves an exact 5-cell gap between two buttons" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     hbox = Layout::HBox.new
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 3,
       layout: hbox
@@ -56,7 +50,7 @@ describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   end
 
   it "stretch factors 1 and 2 divide the leftover 1:2" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     hbox = Layout::HBox.new
     # 33 wide - 3 x 5-wide buttons = 18 leftover, divided 1:2 -> 6 and 12.
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 33, height: 3,
@@ -76,7 +70,7 @@ describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   end
 
   it "works on the vertical axis too (VBox add_spacing gaps rows)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     vbox = Layout::VBox.new
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 10, height: 12,
       layout: vbox
@@ -91,7 +85,7 @@ describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   end
 
   it "focus traversal from button1 reaches button2, skipping the spacer" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     hbox = Layout::HBox.new
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 3,
       layout: hbox
@@ -116,7 +110,7 @@ describe "API4 A4-30 Layout::Box#add_stretch / #add_spacing" do
   end
 
   it "widget_at over the gap returns the container, not the spacer" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     hbox = Layout::HBox.new
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 3,
       layout: hbox

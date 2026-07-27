@@ -48,17 +48,17 @@ describe "BUGS13 R4 — Changed emits run outside the emitter's tracking scope" 
       computes += 1
       n.value * 2
     end
-    computes.should eq 2 # untracked prime + the internal effect's first run
+    computes.should eq 1 # the internal effect's first (tracked) run primes the value
 
     # Listener reading an unrelated signal during the computed's Changed emit.
     c.on(Crysterm::Event::Changed) { other.value }
 
     n.value = 2 # recompute + emit; listener reads `other`
-    computes.should eq 3
+    computes.should eq 2
     c.value.should eq 4
 
     other.value = 42 # unrelated write — must NOT recompute
-    computes.should eq 3
+    computes.should eq 2
   end
 end
 

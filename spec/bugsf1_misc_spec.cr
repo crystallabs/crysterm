@@ -17,22 +17,13 @@ include Crysterm
 #                            exclusivity.
 #  52 (widget_label.cr)      the update path ignored padding, shifting the label.
 
-private def f1_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private def f1_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
 
 describe "BUGS-F1 finding 20: alias_previous defines the requested alias" do
   it "supports Widget::Message#display block-less overload" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Message.new parent: s
     # `-1.seconds` selects the keypress-dismissal path (no timer fiber).
     m.display("saved", -1.seconds)
@@ -40,7 +31,7 @@ describe "BUGS-F1 finding 20: alias_previous defines the requested alias" do
   end
 
   it "creates Window#reset_cursor" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     # Real method now (was a no-op junk `new_method` before the fix); calling it
     # must not raise.
     s.reset_cursor
@@ -49,7 +40,7 @@ end
 
 describe "BUGS-F1 finding 30: a disabled draggable widget cannot be dragged" do
   it "does not move on press+motion when disabled" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4,
       draggable: true
     box.state = Crysterm::WidgetState::Disabled
@@ -64,7 +55,7 @@ describe "BUGS-F1 finding 30: a disabled draggable widget cannot be dragged" do
   end
 
   it "still drags when enabled (harness sanity)" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4,
       draggable: true
     s.repaint
@@ -78,7 +69,7 @@ end
 
 describe "BUGS-F1 finding 36: pre-seeded LineEdit history is reachable via Up" do
   it "Up recalls the most recent entry first; Down returns to the draft" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     le = Widget::LineEdit.new parent: s
     le.history << "one"
     le.history << "two"
@@ -100,7 +91,7 @@ end
 
 describe "BUGS-F1 finding 37: a stale message timer does not dismiss a later message" do
   it "no-ops end_it from a superseded generation" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Message.new parent: s
 
     calls = [] of Int32
@@ -124,7 +115,7 @@ end
 
 describe "BUGS-F1 finding 38: ScrollBar keeps tracking a drag that leaves the bar" do
   it "delivers off-bar motion to the captured bar (tracking mode)" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 12,
       minimum: 0, maximum: 100
     s.repaint
@@ -144,7 +135,7 @@ end
 
 describe "BUGS-F1 finding 39: Donut caption is not stamped onto the bottom border" do
   it "skips the caption when the interior is 1 row, but draws it when there is room" do
-    s = f1_screen
+    s = headless_screen(80, 24)
 
     # Height 3 + border -> a single interior row: the caption row would fall on
     # the bottom border and must be skipped.
@@ -169,7 +160,7 @@ end
 
 describe "BUGS-F1 finding 49: ButtonGroup exclusivity survives a raising handler" do
   it "resets @suppress even when a StateChanged handler raises" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     a = Widget::CheckBox.new parent: s
     b = Widget::CheckBox.new parent: s
 
@@ -203,7 +194,7 @@ end
 
 describe "BUGS-F1 finding 52: set_label update path honors padding" do
   it "keeps the label position stable across a second set_label" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6,
       style: Style.new(border: true, padding: Padding.new(2, 0, 2, 0))
 

@@ -18,19 +18,13 @@ include Crysterm
 #     and `Widget#enable_drag`) and grabs against `aleft(with_margin: false)` /
 #     `atop(with_margin: false)`.
 
-private def lcd_screen(w = 100, h = 40)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def lcd_mouse(action : Tput::Mouse::Action, x : Int32, y : Int32)
   Tput::Mouse::Event.new(action, Tput::Mouse::Button::Left, x, y)
 end
 
 describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" do
   it "stores content when assigned via `content=`" do
-    s = lcd_screen
+    s = headless_screen(100, 40)
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     log.content = "hello world"
@@ -40,7 +34,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
   end
 
   it "stores content when set via a 1-arg set_content call" do
-    s = lcd_screen
+    s = headless_screen(100, 40)
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     log.set_content "second"
@@ -48,7 +42,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
   end
 
   it "still re-renders on a ContentChanged event via the renamed handler" do
-    s = lcd_screen
+    s = headless_screen(100, 40)
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
     # The renamed handler is what ContentChanged is wired to; invoking it directly
     # must not raise and must be a plain (event-arg) method, distinct from the
@@ -59,7 +53,7 @@ end
 
 describe "BUGS12 finding 31: ColorDialog window-move uses parent-relative coords" do
   it "moves by the pointer delta in parent-relative left/top, not absolute" do
-    s = lcd_screen
+    s = headless_screen(100, 40)
     # A parent with a non-zero content origin so absolute-vs-relative differ.
     parent = Crysterm::Widget::Box.new(
       parent: s, left: 10, top: 5, width: 80, height: 30)

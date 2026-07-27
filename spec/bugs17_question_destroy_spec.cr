@@ -18,15 +18,9 @@ include Crysterm
 # runs the OK/Cancel teardown while the window is still valid, and nils the
 # pending callbacks so nothing can fire post-destroy.
 
-private def b17_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   it "destroy while an ask is pending leaves no stale window handler" do
-    w = b17_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = :unset.as(Symbol | Bool)
     q.ask("Delete file?") { |yes| answer = yes }
@@ -47,7 +41,7 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   end
 
   it "does not permanently swallow keys on the window after destroy" do
-    w = b17_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     q.ask("Sure?") { }
     q.destroy
@@ -65,7 +59,7 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   end
 
   it "a fresh ask on a new dialog still answers normally after an earlier one was destroyed" do
-    w = b17_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     stale = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     stale.ask("First?") { }
     stale.destroy
@@ -81,7 +75,7 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   end
 
   it "destroy after a normal answer is a no-op (idempotent, does not raise)" do
-    w = b17_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = :unset.as(Symbol | Bool)
     q.ask("Sure?") { |yes| answer = yes }
@@ -100,7 +94,7 @@ end
 
 describe "BUGS17 B17-17: Question#ask_choices tears down its accelerator on destroy" do
   it "destroy while an ask_choices is pending leaves no stale window handler" do
-    w = b17_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     picked = :unset.as(Symbol | Int32?)
     q.ask_choices("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }

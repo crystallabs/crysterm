@@ -5,18 +5,12 @@ include Crysterm
 # Regression specs for BUGS16 wave-3 interactive-widget findings:
 # B16-35, B16-36, B16-37.
 
-private def headless_screen(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # B16-35 — the constructor accepted `checked: true` on a non-checkable button,
 # creating a stuck state: `checked?` true while `#uncheck`/`#toggle` no-op on
 # the `checkable?` guard, so no API could clear it.
 describe "BUGS16 B16-35: checked: true requires checkable" do
   it "ignores checked: true on a non-checkable button" do
-    s = headless_screen
+    s = headless_screen(40, 10)
     btn = Widget::Button.new parent: s, text: "Save", checked: true
     btn.checkable?.should be_false
     btn.checked?.should be_false
@@ -25,7 +19,7 @@ describe "BUGS16 B16-35: checked: true requires checkable" do
   end
 
   it "honors checked: true on a checkable button" do
-    s = headless_screen
+    s = headless_screen(40, 10)
     btn = Widget::Button.new parent: s, text: "Save", checkable: true, checked: true
     btn.checked?.should be_true
     btn.checked = false
@@ -41,7 +35,7 @@ end
 # construction-time `Time.local`. They now delegate to `date`/`time`.
 describe "BUGS16 B16-36: DateEdit/TimeEdit date_time delegation" do
   it "TimeEdit#date_time= updates the time and fires one DateChanged" do
-    s = headless_screen
+    s = headless_screen(40, 10)
     te = Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 10, 30, 0)
     events = [] of Time
     te.on(Crysterm::Event::DateChanged) { |e| events << e.date }
@@ -59,7 +53,7 @@ describe "BUGS16 B16-36: DateEdit/TimeEdit date_time delegation" do
   end
 
   it "DateEdit#date_time reflects the configured date (day-normalized)" do
-    s = headless_screen
+    s = headless_screen(40, 10)
     de = Widget::DateEdit.new parent: s, date: Time.local(2024, 3, 10)
     de.date_time.should eq de.date
 
@@ -77,7 +71,7 @@ end
 # `Int32::MIN`, raising OverflowError inside render.
 describe "BUGS16 B16-37: slider tick guard near Int32::MIN" do
   it "renders ticks for a range hugging Int32::MIN without raising" do
-    s = headless_screen
+    s = headless_screen(40, 10)
     Widget::Slider.new parent: s, top: 0, left: 0, width: 30, height: 2,
       minimum: Int32::MIN, maximum: Int32::MIN + 5,
       tick_position: Widget::Slider::TickPosition::Below

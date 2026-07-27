@@ -2,17 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `render_style_for` is the polymorphic hook a parent uses to dictate a child's
 # render style; the base returns the child's own style, container widgets
 # (List, ...) override it to highlight the selected row (see todoc Q10). This
 # replaced the `_is_list`/`is_a?` type-check formerly in `#repaint`.
 describe "Widget#render_style_for" do
   it "returns the child's own style by default" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new parent: s
     child = Widget::Box.new parent: parent
 
@@ -20,7 +16,7 @@ describe "Widget#render_style_for" do
   end
 
   it "resolves the selected row to the selected style in a List" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     list = Widget::List.new parent: s, items: ["a", "b", "c"]
     list.style.item = Style.new
     # A visibly-styled selection (real selection color) resolves verbatim — no
@@ -36,7 +32,7 @@ describe "Widget#render_style_for" do
     # Unstyled floor: no theme/author CSS colors the selection, so the cursor row
     # must still be visible via reverse-video — the one highlight needing no
     # color that reads on any terminal background.
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     list = Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 1
 
@@ -56,7 +52,7 @@ end
 # report a pre-mutation index and mis-highlight rows.
 describe "Mixin::ItemView multi-select index map" do
   it "tracks the same item widget's index after appending" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     list = Widget::List.new parent: s, selection_mode: :multi_selection, items: ["a", "b", "c"]
     b = list.item_boxes[1]
     list.add_to_selection 1
@@ -69,7 +65,7 @@ describe "Mixin::ItemView multi-select index map" do
   end
 
   it "resolves an item's shifted index after inserting before it" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     list = Widget::List.new parent: s, selection_mode: :multi_selection, items: ["a", "b", "c"]
     b = list.item_boxes[1]
     list.add_to_selection 1 # marks index 1 (b)
@@ -87,7 +83,7 @@ describe "Mixin::ItemView multi-select index map" do
   end
 
   it "resolves an item's shifted index after removing before it" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     list = Widget::List.new parent: s, selection_mode: :multi_selection, items: ["a", "b", "c", "d"]
     c = list.item_boxes[2]
     list.add_to_selection 2 # marks index 2 (c)

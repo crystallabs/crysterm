@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def abst_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def separator(text = "|")
   cmd = Crysterm::Mixin::ActionBar::Command.new text
   cmd.separator = true
@@ -25,7 +15,7 @@ end
 # treats a separator index like an out-of-range one — a no-op.
 describe "Mixin::ActionBar#select_item separator guard" do
   it "is a no-op when the target tab is a separator" do
-    s = abst_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                  Crysterm::Mixin::ActionBar::Command.new("b")]

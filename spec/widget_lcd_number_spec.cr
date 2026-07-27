@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def lcd_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Behavioral specs for `Widget::LCDNumber` — the seven-segment display had no
 # coverage. The interesting logic is `#display`'s per-mode integer formatting
 # (dec/hex/oct/bin), the string form, and the three-row segment rendering
 # (right-alignment within `digit_count`, unknown chars → blank, one-cell gaps).
 describe Crysterm::Widget::LCDNumber do
   it "formats an integer per its mode into #text" do
-    s = lcd_mem_screen
+    s = headless_screen(80, 24)
     Crysterm::Widget::LCDNumber.new(parent: s).tap(&.display(42)).text.should eq "42"
 
     hex = Crysterm::Widget::LCDNumber.new parent: s, mode: Crysterm::Widget::LCDNumber::Mode::Hex
@@ -35,7 +25,7 @@ describe Crysterm::Widget::LCDNumber do
   end
 
   it "shows floats and literal strings as-is" do
-    s = lcd_mem_screen
+    s = headless_screen(80, 24)
     lcd = Crysterm::Widget::LCDNumber.new parent: s
     lcd.display 3.5
     lcd.text.should eq "3.5"
@@ -44,13 +34,13 @@ describe Crysterm::Widget::LCDNumber do
   end
 
   it "accepts an initial value through the constructor" do
-    s = lcd_mem_screen
+    s = headless_screen(80, 24)
     Crysterm::Widget::LCDNumber.new(1234, parent: s).text.should eq "1234"
     Crysterm::Widget::LCDNumber.new("A", parent: s).text.should eq "A"
   end
 
   it "renders three rows, right-aligned within digit_count" do
-    s = lcd_mem_screen
+    s = headless_screen(80, 24)
     lcd = Crysterm::Widget::LCDNumber.new parent: s, digit_count: 3
     lcd.display 1
     rows = lcd.content.split('\n')
@@ -65,7 +55,7 @@ describe Crysterm::Widget::LCDNumber do
   end
 
   it "renders unknown characters as blank glyphs" do
-    s = lcd_mem_screen
+    s = headless_screen(80, 24)
     lcd = Crysterm::Widget::LCDNumber.new parent: s, digit_count: 1
     lcd.display "?"
     # '?' has no SEGMENTS entry → EMPTY (all spaces), one 3-wide glyph, no gap.

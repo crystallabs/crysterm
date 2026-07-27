@@ -246,17 +246,12 @@ module Crysterm
         end
 
         if !read_only? && (c = e.char) && (!e.key || also_check_char)
-          # Ignore control characters, tested straight on the codepoint — no
-          # per-keystroke `to_s` String and no regex/`MatchData`. Equivalent to
-          # the old `/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/`: every C0 control plus
-          # DEL, but NOT TAB (0x09) / LF (0x0a) / CR (0x0d), which fall outside
-          # this class and are kept. Deciding this *before* touching the
+          # Ignore control characters. Deciding this *before* touching the
           # selection means a stray control keystroke doesn't clobber it. A real
           # character typed over a selection replaces it: drop the selection
           # first, then measure `max_length` against the freed-up length so a
           # replacement in a full field still works.
-          o = c.ord
-          unless o <= 0x08 || o == 0x0b || o == 0x0c || (0x0e <= o <= 0x1f) || o == 0x7f
+          unless control_char?(c)
             edit_replacing_selection do
               at_limit = (ml = @max_length) ? buf_size >= ml : false
               insert_at_cursor c.to_s unless at_limit
@@ -289,6 +284,19 @@ module Crysterm
         # Consume the event so window-level accelerators don't double-act on a
         # key this reading field already handled.
         e.accept if handled
+      end
+
+      # Whether *c* is a control character that should never be typed into the
+      # buffer: tested straight on the codepoint — no per-keystroke `to_s`
+      # `String` and no regex/`MatchData`. Equivalent to the old
+      # `/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/`: every C0 control plus DEL, but
+      # NOT TAB (0x09) / LF (0x0a) / CR (0x0d), which fall outside this class
+      # and are kept. Shared with `Widget::TextEdit#table_guard`, whose
+      # per-keystroke `typing` classification is the same rule (there
+      # applied to a synthesized event's `#char` to gate table-cell typing).
+      private def control_char?(c : Char) : Bool
+        o = c.ord
+        o <= 0x08 || o == 0x0b || o == 0x0c || (0x0e <= o <= 0x1f) || o == 0x7f
       end
 
       protected def _type_scroll

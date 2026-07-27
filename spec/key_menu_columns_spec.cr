@@ -18,23 +18,13 @@ include Crysterm
 # Driven headlessly over in-memory IOs: after one synchronous `repaint` the cell
 # boxes carry resolved absolute geometry to inspect.
 
-private def km_screen(width = 80)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def km_entries(n)
   (1..n).map { |i| Crysterm::Widget::Pine::KeyMenu::Entry.new(i.to_s, "Cmd#{i}") }
 end
 
 describe Crysterm::Widget::Pine::KeyMenu do
   it "tiles its columns across the full width with no gaps (columns not dividing 100)" do
-    s = km_screen 80
+    s = headless_screen(80, 24)
     # 6 columns, one row: 100 // 6 == 16% each used to total only 96%.
     km = Crysterm::Widget::Pine::KeyMenu.new(
       parent: s, bottom: 0, left: 0, width: "100%",
@@ -59,7 +49,7 @@ describe Crysterm::Widget::Pine::KeyMenu do
   end
 
   it "still tiles exactly when the width does not divide evenly by columns" do
-    s = km_screen 37 # 37 cells over 4 columns: not an even split
+    s = headless_screen(37, 24) # 37 cells over 4 columns: not an even split
     km = Crysterm::Widget::Pine::KeyMenu.new(
       parent: s, bottom: 0, left: 0, width: "100%",
       entries: km_entries(8), columns: 4, rows: 2)

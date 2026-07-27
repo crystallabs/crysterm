@@ -7,62 +7,31 @@ include Crysterm
 # synchronous render (`Window#repaint`) on an in-memory screen, inspect the
 # resulting cell buffer, and feed real mouse events through `#dispatch_mouse`.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
-private def mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
-  ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
-end
-
-private def press(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Down, x, y)
-end
-
-private def move(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Move, x, y, ::Tput::Mouse::Button::None)
-end
-
-private def release(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Up, x, y, ::Tput::Mouse::Button::None)
-end
-
-# Characters of a screen row, as a String, over the column range.
-private def row_chars(s, y, x0, x1)
-  line = s.lines[y]
-  (x0...x1).map { |x| line[x].char }.join
-end
-
 describe "Slider rendering" do
   it "draws the track and places the handle at the value's position" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     sl = Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 10, value: 0, handle_char: '#', track_char: '-'
     s.repaint
     # value 0 -> handle at the far left.
-    row_chars(s, 0, 0, 11).should eq "#----------"
+    row_text(s, 0, 0...11).should eq "#----------"
 
     sl.value = 10
     s.repaint
     # value max -> handle at the far right (11 cells, 10 steps).
-    row_chars(s, 0, 0, 11).should eq "----------#"
+    row_text(s, 0, 0...11).should eq "----------#"
 
     sl.value = 5
     s.repaint
     # value mid -> handle in the middle.
-    row_chars(s, 0, 0, 11).should eq "-----#-----"
+    row_text(s, 0, 0...11).should eq "-----#-----"
   end
 
   it "draws the value readout in a uniform attr, even where it overlaps the handle" do
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
-      s = render_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       st = Crysterm::Style.new(fg: "white", bg: "black")
       # Distinct handle style: if the readout inherited it at the overlapping
       # cell, that digit would differ from the rest.
@@ -87,17 +56,17 @@ end
 
 describe "SpinBox rendering" do
   it "renders prefix + value + suffix" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::SpinBox.new parent: s, top: 0, left: 0, width: 6, height: 1,
       value: 7, prefix: "$", suffix: "%"
     s.repaint
-    row_chars(s, 0, 0, 4).should eq "$7% "
+    row_text(s, 0, 0...4).should eq "$7% "
   end
 end
 
 describe "Table alternating rows rendering" do
   it "paints every other body row with the alternate background" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: true,
       style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
@@ -109,7 +78,7 @@ describe "Table alternating rows rendering" do
   end
 
   it "uses no alternate background when the option is off" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: false,
       style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
@@ -123,11 +92,11 @@ end
 
 describe "GroupBox rendering" do
   it "draws a border with the title in it" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::GroupBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       title: "Opts"
     s.repaint
-    top = row_chars(s, 0, 0, 20)
+    top = row_text(s, 0, 0...20)
     # Box-drawing corners + the title text somewhere on the top edge.
     top.includes?("Opts").should be_true
     "┌╭".chars.any? { |c| top.includes? c }.should be_true
@@ -136,11 +105,11 @@ end
 
 describe "ComboBox interaction" do
   it "shows the value with a marker and opens a popup below itself" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
     s.repaint
-    row_chars(s, 0, 0, 6).should eq "Red ▾ "
+    row_text(s, 0, 0...6).should eq "Red ▾ "
 
     cb.show_popup
     s.repaint
@@ -150,7 +119,7 @@ describe "ComboBox interaction" do
   end
 
   it "commits a row on a single click" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
     s.repaint
@@ -161,15 +130,15 @@ describe "ComboBox interaction" do
     # First item row: one row inside the popup's top border.
     row = pop.atop + 1
     col = pop.aleft + 1
-    press s, col, row
-    release s, col, row
+    mouse_down s, col, row
+    mouse_up s, col, row
 
     cb.current_text.should eq "Red"
     cb.open?.should be_false
   end
 
   it "closes when clicking outside the popup" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["Red", "Green", "Blue"]
     s.repaint
@@ -177,8 +146,8 @@ describe "ComboBox interaction" do
     s.repaint
     cb.open?.should be_true
 
-    press s, 70, 20 # far away
-    release s, 70, 20
+    mouse_down s, 70, 20 # far away
+    mouse_up s, 70, 20
     cb.open?.should be_false
     cb.current_text.should eq "Red" # unchanged
   end
@@ -186,7 +155,7 @@ end
 
 describe "TabWidget with layout" do
   it "keeps the tab bar selection in sync with the shown page" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     tabs = Crysterm::Widget::TabWidget.new parent: s, top: 0, left: 0, width: 40, height: 10
     tabs.add_tab "A", Crysterm::Widget::Box.new(content: "one")
     tabs.add_tab "B", Crysterm::Widget::Box.new(content: "two")
@@ -207,7 +176,7 @@ end
 
 describe "Splitter mouse drag" do
   it "resizes the panes when the divider is dragged" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     sp = Crysterm::Widget::Splitter.new parent: s, top: 0, left: 0, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -218,18 +187,18 @@ describe "Splitter mouse drag" do
 
     sp.divider_position(0).should eq 20
     # Grab the divider (a vertical bar at column 20) and drag it left to 12.
-    press s, 20, 3
-    move s, 12, 3
+    mouse_down s, 20, 3
+    mouse_move s, 12, 3
     sp.divider_position(0).should eq 12
     a.width.should eq 12
     b.left.should eq 13
-    release s, 12, 3
+    mouse_up s, 12, 3
   end
 end
 
 describe "List multi-select rendering" do
   it "underlines checked (non-cursor) items" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 6,
       selection_mode: :multi_selection, items: ["a", "b", "c"]
     list.current_index = 0  # cursor on row 0
@@ -249,7 +218,7 @@ end
 
 describe "List scroll-bar column reservation" do
   it "reserves the vertical bar's column for items even when they grow into overflow" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # Two items: fits in height 4, no vertical overflow, no bar yet.
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 4,
       scrollbar: true, items: ["AAAAAAAAAA", "BBBBBBBBBB"]
@@ -270,7 +239,7 @@ end
 
 describe "Question#ask_choices" do
   it "invokes the block with the chosen button index and restores OK/Cancel" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
     q.ask_choices("Pick one", ["Yes", "No", "Maybe"]) { |i| chosen = i }
@@ -288,7 +257,7 @@ describe "Question#ask_choices" do
   end
 
   it "survives an arrow key with an empty choice list (no division-by-zero)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
     q.ask_choices("Pick one", [] of String) { |i| chosen = i }
@@ -307,7 +276,7 @@ end
 
 describe "Prompt validation" do
   it "re-prompts on an invalid value and commits only a valid one" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     pr = Crysterm::Widget::Prompt.new parent: s, top: 0, left: 0, width: 40, height: 8
     pr.validator = ->(v : String) { v == "good" }
 
@@ -330,7 +299,7 @@ end
 
 describe "Dial rendering" do
   it "draws a compass pointer reflecting the value" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     d = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 7, height: 5,
       minimum: 0, maximum: 8, value: 0
     s.repaint
@@ -345,7 +314,7 @@ end
 
 describe "Menu submenus" do
   it "marks, opens on Right, and routes a leaf activation back to the parent" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     m = Crysterm::Widget::Menu.new parent: s, top: 0, left: 0, width: 20, height: 8
     file = Crysterm::Action.new "File"
     new_a = Crysterm::Action.new "New"
@@ -358,7 +327,7 @@ describe "Menu submenus" do
     m.item_texts[0].includes?("▶").should be_true
 
     m.current_index = 0
-    m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
+    m.on_keypress(kp key: Tput::Key::Right)
     s.repaint
 
     child = s.focused
@@ -375,7 +344,7 @@ end
 
 describe "wheel implicitly focuses" do
   it "focuses the widget under the wheel (like a click)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     btn = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "B"
     dial = Crysterm::Widget::Dial.new parent: s, top: 2, left: 0, width: 7, height: 3,
       minimum: 0, maximum: 100, value: 50
@@ -384,43 +353,43 @@ describe "wheel implicitly focuses" do
     btn.focus
     s.repaint
 
-    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, dial.aleft + 3, dial.atop + 1, ::Tput::Mouse::Button::None)
+    s.dispatch_mouse mouse_ev(::Tput::Mouse::Action::WheelUp, dial.aleft + 3, dial.atop + 1, ::Tput::Mouse::Button::None)
     dial.focused?.should be_true
 
     # Wheeling an item focuses its scrollable list ancestor, not the item.
     btn.focus
-    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelDown, list.aleft + 2, list.atop + 1, ::Tput::Mouse::Button::None)
+    s.dispatch_mouse mouse_ev(::Tput::Mouse::Action::WheelDown, list.aleft + 2, list.atop + 1, ::Tput::Mouse::Button::None)
     list.focused?.should be_true
   end
 end
 
 describe "CheckBox marker-only click" do
   it "toggles only when the [ ] marker is clicked, not the text" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1,
       content: "Enable feature"
     s.repaint
     cb.checked?.should be_false
     # Click on the text label -> no toggle.
-    press s, cb.aleft + 10, cb.atop
-    release s, cb.aleft + 10, cb.atop
+    mouse_down s, cb.aleft + 10, cb.atop
+    mouse_up s, cb.aleft + 10, cb.atop
     cb.checked?.should be_false
     # Click on the marker -> toggles.
-    press s, cb.aleft + 1, cb.atop
-    release s, cb.aleft + 1, cb.atop
+    mouse_down s, cb.aleft + 1, cb.atop
+    mouse_up s, cb.aleft + 1, cb.atop
     cb.checked?.should be_true
   end
 end
 
 describe "Slider mouse wheel" do
   it "nudges the value by a step" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     sl = Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 16, height: 1,
       minimum: 0, maximum: 100, value: 50
     s.repaint
-    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
+    s.dispatch_mouse mouse_ev(::Tput::Mouse::Action::WheelUp, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
     sl.value.should eq 51
-    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelDown, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
+    s.dispatch_mouse mouse_ev(::Tput::Mouse::Action::WheelDown, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
     sl.value.should eq 50
   end
 end
@@ -432,7 +401,7 @@ end
 
 describe "ScrollBar rendering" do
   it "omits stepper buttons by default, splitting the trough around the thumb" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0
     s.repaint
@@ -441,7 +410,7 @@ describe "ScrollBar rendering" do
   end
 
   it "draws only the thumb when the trough is hidden (blessed-style)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, show_trough: false
     s.repaint
@@ -450,7 +419,7 @@ describe "ScrollBar rendering" do
   end
 
   it "draws stepper buttons at the trough ends when enabled" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
     s.repaint
@@ -459,27 +428,27 @@ describe "ScrollBar rendering" do
   end
 
   it "draws left/right arrows for a horizontal bar with steppers" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 7, height: 1,
       orientation: Tput::Orientation::Horizontal,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
     s.repaint
-    row_chars(s, 0, 0, 7).should eq "◀█░░░░▶"
+    row_text(s, 0, 0...7).should eq "◀█░░░░▶"
   end
 
   it "steps the value when a stepper button is clicked" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 5, step: 1, stepper_buttons: true
     s.repaint
-    press(s, 0, 6) # the bottom (add-line) button -> increment
+    mouse_down(s, 0, 6) # the bottom (add-line) button -> increment
     sb.value.should eq 6
-    press(s, 0, 0) # the top (sub-line) button -> decrement
+    mouse_down(s, 0, 0) # the top (sub-line) button -> decrement
     sb.value.should eq 5
   end
 
   it "paints the sub-control CSS slots into the rendered cells" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # A focusable sibling holds focus, so the bar renders unfocused — the
     # state the unprefixed rules target.
     Crysterm::Widget::LineEdit.new parent: s, top: 10, left: 0, width: 10, height: 1
@@ -501,7 +470,7 @@ end
 
 describe "Horizontal scrolling" do
   it "shifts non-wrapped content by column and tracks the bar" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
@@ -511,13 +480,13 @@ describe "Horizontal scrolling" do
     box.scroll_width.should eq 20 # widest unclipped line
     box.overflows_x?.should be_true
     box.show_horizontal_scrollbar?.should be_true
-    row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ" # columns [0,10)
+    row_text(s, 0, 0...10).should eq "ABCDEFGHIJ" # columns [0,10)
 
     box.scroll_by_x 5
     s.repaint
     box.child_base_x.should eq 5
-    row_chars(s, 0, 0, 10).should eq "FGHIJKLMNO" # columns [5,15)
-    row_chars(s, 1, 0, 10).should eq "56789abcde"
+    row_text(s, 0, 0...10).should eq "FGHIJKLMNO" # columns [5,15)
+    row_text(s, 1, 0...10).should eq "56789abcde"
 
     # The bound horizontal bar mirrors and drives the column window.
     hb = box.horizontal_scrollbar_widget.not_nil!
@@ -528,11 +497,11 @@ describe "Horizontal scrolling" do
     hb.value = 10 # drag the bar fully right
     s.repaint
     box.child_base_x.should eq 10
-    row_chars(s, 0, 0, 10).should eq "KLMNOPQRST" # columns [10,20)
+    row_text(s, 0, 0...10).should eq "KLMNOPQRST" # columns [10,20)
   end
 
   it "reserves a bottom row for the horizontal bar instead of overlaying content" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
@@ -543,21 +512,21 @@ describe "Horizontal scrolling" do
     # Both bars show, so the horizontal one stops one column short of the right
     # edge: the last cell is the reserved bottom-right corner (Qt's
     # `QAbstractScrollArea` corner), left to the parent's background fill.
-    bar_glyphs = ->(y : Int32) { row_chars(s, y, 0, 11).chars.all? { |c| c == '█' || c == '░' } }
+    bar_glyphs = ->(y : Int32) { row_text(s, y, 0...11).chars.all? { |c| c == '█' || c == '░' } }
     bar_glyphs.call(4).should be_true      # the bottom row is the bar, not content
-    row_chars(s, 4, 11, 12).should eq " "  # …except the corner
-    row_chars(s, 0, 0, 4).should eq "L1-A" # content sits in the rows above it
+    row_text(s, 4, 11...12).should eq " "  # …except the corner
+    row_text(s, 0, 0...4).should eq "L1-A" # content sits in the rows above it
 
     # The last line stays reachable above the bar (not permanently hidden under it).
     box.scroll_to box.scroll_height
     s.repaint
-    row_chars(s, 3, 0, 4).should eq "L8-A"
+    row_text(s, 3, 0...4).should eq "L8-A"
     bar_glyphs.call(4).should be_true
-    row_chars(s, 4, 11, 12).should eq " "
+    row_text(s, 4, 11...12).should eq " "
   end
 
   it "draws the bottom border below a shown horizontal bar, not over it" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 6,
       wrap_content: false,
       style: Style.new(border: Crysterm::BorderType::Solid),
@@ -570,38 +539,38 @@ describe "Horizontal scrolling" do
     # the widget's true bottom edge (row 5) instead of being painted one row up.
     # Interior columns are [1,11); the bar runs to column 10, which is the
     # reserved corner cell under the vertical bar (see the sibling example).
-    row_chars(s, 4, 1, 10).chars.all? { |c| c == '█' || c == '░' }.should be_true
-    row_chars(s, 4, 10, 11).should eq " "
-    row_chars(s, 5, 0, 12).should eq "└──────────┘"
+    row_text(s, 4, 1...10).chars.all? { |c| c == '█' || c == '░' }.should be_true
+    row_text(s, 4, 10...11).should eq " "
+    row_text(s, 5, 0...12).should eq "└──────────┘"
   end
 
   it "leaves wrapped content unscrolled horizontally (no overflow)" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,
       content: "ABCDEFGHIJKLMNOPQRST" # wraps by default
     s.repaint
     box.overflows_x?.should be_false # wrapped → never horizontally scrollable
     box.scroll_by_x 5                # no-op
     box.child_base_x.should eq 0
-    row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ"
-    row_chars(s, 1, 0, 10).should eq "KLMNOPQRST" # wrapped onto the next row
+    row_text(s, 0, 0...10).should eq "ABCDEFGHIJ"
+    row_text(s, 1, 0...10).should eq "KLMNOPQRST" # wrapped onto the next row
   end
 
   it "scrolls horizontally on Shift + wheel" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST"
     s.repaint
     # Shift + wheel-down scrolls right; plain wheel would scroll vertically.
-    down = mouse(::Tput::Mouse::Action::WheelDown, 2, 0, ::Tput::Mouse::Button::None)
+    down = mouse_ev(::Tput::Mouse::Action::WheelDown, 2, 0, ::Tput::Mouse::Button::None)
     down.shift = true
     s.dispatch_mouse down
     box.child_base_x.should be > 0
     base = box.child_base_x
 
-    up = mouse(::Tput::Mouse::Action::WheelUp, 2, 0, ::Tput::Mouse::Button::None)
+    up = mouse_ev(::Tput::Mouse::Action::WheelUp, 2, 0, ::Tput::Mouse::Button::None)
     up.shift = true
     s.dispatch_mouse up
     box.child_base_x.should be < base
@@ -610,7 +579,7 @@ end
 
 describe "ListTable column-level horizontal scrolling" do
   it "scrolls a fixed-width table by whole columns" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"], ["Bob", "Rome", "25"]]
     s.repaint
@@ -618,12 +587,12 @@ describe "ListTable column-level horizontal scrolling" do
     lt.overflows_x?.should be_true
     lt.show_horizontal_scrollbar?.should be_true
     lt.column_start_offsets.should eq [0, 8, 16]
-    row_chars(s, 0, 0, 14).should eq " Name    City " # header: col0 + col1 partial
+    row_text(s, 0, 0...14).should eq " Name    City " # header: col0 + col1 partial
 
     lt.scroll_by_x 1 # advance one whole column
     s.repaint
     lt.child_base_x.should eq 8 # snapped to column 1's offset
-    row_chars(s, 0, 0, 14).should eq " City    Age  "
+    row_text(s, 0, 0...14).should eq " City    Age  "
 
     lt.scroll_by_x 1 # already at the last column — clamps
     s.repaint
@@ -632,11 +601,11 @@ describe "ListTable column-level horizontal scrolling" do
     lt.scroll_by_x -1
     s.repaint
     lt.child_base_x.should eq 0
-    row_chars(s, 0, 0, 14).should eq " Name    City "
+    row_text(s, 0, 0...14).should eq " Name    City "
   end
 
   it "binds the horizontal bar to the column offset" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
     s.repaint
@@ -648,24 +617,24 @@ describe "ListTable column-level horizontal scrolling" do
     hb.value = hb.maximum # drag fully right
     s.repaint
     lt.child_base_x.should eq 8
-    row_chars(s, 0, 0, 14).should eq " City    Age  "
+    row_text(s, 0, 0...14).should eq " City    Age  "
   end
 
   it "keeps cell borders aligned with the scrolled columns" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 16, height: 8,
       style: Crysterm::Style.new(border: true),
       rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
     s.repaint
     # Header is row 1 (inside the top border); the `│` separator tracks the columns.
-    row_chars(s, 1, 0, 16).should eq "│ Name  │ City │"
+    row_text(s, 1, 0...16).should eq "│ Name  │ City │"
     lt.scroll_by_x 1
     s.repaint
-    row_chars(s, 1, 0, 16).should eq "│ City  │ Age  │"
+    row_text(s, 1, 0...16).should eq "│ City  │ Age  │"
   end
 
   it "does not horizontally scroll a content-sized table" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 6,
       rows: [["Name", "City"], ["Alice", "Paris"]] # no width: → content-sized
     s.repaint
@@ -676,7 +645,7 @@ describe "ListTable column-level horizontal scrolling" do
   end
 
   it "reserves the vertical bar's column for the pinned header too" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # Content-sized table with enough rows to overflow height 5 -> vertical bar.
     rows = [["Name", "Status"]]
     8.times { |i| rows << ["item#{i}", "okay#{i}"] }
@@ -695,7 +664,7 @@ end
 
 describe "Horizontal scroll reaches the last column past the reserved margin" do
   it "scrolls a PlainTextEdit fully right despite its caret-column margin" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
@@ -710,6 +679,6 @@ describe "Horizontal scroll reaches the last column past the reserved margin" do
     s.repaint
     ta.child_base_x.should eq 15
     # The trailing 'Z' is now visible — previously the margin left it unreachable.
-    row_chars(s, 0, 0, 11).should eq "PQRSTUVWXYZ"
+    row_text(s, 0, 0...11).should eq "PQRSTUVWXYZ"
   end
 end

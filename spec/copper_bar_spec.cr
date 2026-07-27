@@ -6,16 +6,9 @@ include Crysterm
 # IOs. `#step` is pure (only repaints `style.bg`, no render/sleep), so it can
 # be exercised directly without the animation fiber.
 
-private def copper_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::Effect::CopperBar do
   it "paints style.bg from the hue formula and advances each step" do
-    s = copper_screen
+    s = headless_screen(default_quit_keys: true)
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, top: 0, left: 0,
       width: 10, height: 1, hue_offset: 0, hue_speed: 9
 
@@ -28,7 +21,7 @@ describe Crysterm::Widget::Effect::CopperBar do
   end
 
   it "staggers bars by hue_offset" do
-    s = copper_screen
+    s = headless_screen(default_quit_keys: true)
     a = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1,
       hue_offset: 0, hue_speed: 9
     b = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1,
@@ -41,7 +34,7 @@ describe Crysterm::Widget::Effect::CopperBar do
   end
 
   it "wraps the hue around the color wheel" do
-    s = copper_screen
+    s = headless_screen(default_quit_keys: true)
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1,
       hue_offset: 350, hue_speed: 20
     bar.step # 350
@@ -50,7 +43,7 @@ describe Crysterm::Widget::Effect::CopperBar do
   end
 
   it "honors saturation and brightness" do
-    s = copper_screen
+    s = headless_screen(default_quit_keys: true)
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1,
       hue_offset: 120, hue_speed: 0, saturation: 0.5, brightness: 0.25
     bar.step

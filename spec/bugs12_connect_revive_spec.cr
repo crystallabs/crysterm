@@ -15,29 +15,9 @@ include Crysterm
 # flags before respawning both loops (generation-tagged, so a not-yet-exited
 # old fiber can't race its replacement) and re-registers the window.
 
-private def revive_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
-# Spins the event loop until *block* is truthy or the deadline passes (raising
-# so a never-satisfied condition fails loudly rather than hanging forever).
-private def wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
 describe "BUGS12 #5 connect() revives a destroyed Window" do
   it "respawns the render loop: a render after destroy + connect completes" do
-    w = revive_window
+    w = headless_screen(80, 24)
     rendered = 0
     w.on(Crysterm::Event::Rendered) { rendered += 1 }
 
@@ -61,7 +41,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
   end
 
   it "respawns the render loop even when connect races destroy (no yield between)" do
-    w = revive_window
+    w = headless_screen(80, 24)
     rendered = 0
     w.on(Crysterm::Event::Rendered) { rendered += 1 }
 
@@ -82,7 +62,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
   end
 
   it "respawns the resize loop: a resize after destroy + connect is processed" do
-    w = revive_window
+    w = headless_screen(80, 24)
     w.resize_interval = 10.milliseconds
 
     w.destroy
@@ -102,7 +82,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
   end
 
   it "re-registers the revived window in Window.instances (at_exit restore registry)" do
-    w = revive_window
+    w = headless_screen(80, 24)
     Window.instances.includes?(w).should be_true
 
     w.destroy
@@ -159,7 +139,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
   end
 
   it "destroy still works on a revived window (revival is symmetric)" do
-    w = revive_window
+    w = headless_screen(80, 24)
     w.destroy
     sleep 20.milliseconds
     w.connect(IO::Memory.new, IO::Memory.new)

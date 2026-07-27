@@ -198,14 +198,10 @@ module Crysterm
     private def prune_wiring(uids : Set(Int32)) : Nil
       removed = ->(key : String) { uids.includes? DOM.wiring_key_owner(key) }
       DOM.detach_and_drop(@declarative_wired) { |key| removed.call key }
-      @forwarders.reject! do |key, detacher|
-        next false unless removed.call key
-        detacher.call # detach the live forwarder
-        true
-      end
-      @event_wired.select { |key| removed.call key }.each { |key| @event_wired.delete key }
+      DOM.detach_and_drop(@forwarders) { |key| removed.call key } # detaches each live forwarder
+      DOM.drop_keys(@event_wired) { |key| removed.call key }
       @wired_keys.each_value do |keys|
-        keys.select { |key| removed.call key }.each { |key| keys.delete key }
+        DOM.drop_keys(keys) { |key| removed.call key }
       end
     end
 

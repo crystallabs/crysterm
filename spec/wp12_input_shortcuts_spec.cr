@@ -9,17 +9,6 @@ require "./spec_helper"
 #   * `Event::Mouse#local_x`/`#local_y` (widget-content-relative coordinates)
 #   * `Window#layout=` auto-managed full-screen root box (D12)
 
-private def wp12_window
-  # Explicit in-memory IO: these windows are driven by a real `Application#exec`
-  # loop below, so on default IO the input fiber would park on the tester's own
-  # STDIN and never return.
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40, height: 12, default_quit_keys: false)
-end
-
 # Spawns `app.exec(window)` on its own fiber and waits until the loop is
 # entered (the window is registered), returning the status channel.
 private def wp12_exec(app, s)
@@ -34,7 +23,7 @@ end
 describe "WP-12 app loop, input, shortcuts" do
   describe "Application#exec / #quit (D3)" do
     it "exec blocks until quit and returns its status" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       app = Crysterm::Application.new
       done = wp12_exec app, s
       app.quit 7
@@ -43,7 +32,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "destroying the last window ends exec with status 0" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       app = Crysterm::Application.new
       done = wp12_exec app, s
       s.destroy
@@ -51,7 +40,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "Window#quit is the canonical spelling and carries the status" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       app = Crysterm::Application.new
       done = wp12_exec app, s
       s.quit 3
@@ -59,7 +48,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "emits AboutToQuit before teardown" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       app = Crysterm::Application.new
       done = wp12_exec app, s
       about = false
@@ -72,7 +61,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "on_key shortcut sugar" do
     it "fires on char and symbol keys, accepting the press" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       fired = 0
       s.on_key('x', :escape) { fired += 1 }
 
@@ -92,7 +81,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "does not fire on an already-accepted press" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       fired = 0
       s.on_key('x') { fired += 1 }
       e = Crysterm::Event::KeyPress.new 'x'
@@ -102,7 +91,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "works on a focused widget" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       b = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
       fired = 0
       b.on_key('z') { fired += 1 }
@@ -118,7 +107,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "Widget grab façades" do
     it "grab_mouse captures via the window; release is self-guarded" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       a = Crysterm::Widget::Box.new parent: s, width: 5, height: 3
       b = Crysterm::Widget::Box.new parent: s, left: 10, width: 5, height: 3
       a.grab_mouse
@@ -130,7 +119,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "grab_keyboard focuses and sets the window grab; release is focus-guarded" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       a = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
       b = Crysterm::Widget::Box.new parent: s, left: 10, keys: true, width: 5, height: 3
       a.grab_keyboard
@@ -145,7 +134,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "FocusPolicy (D5)" do
     it "derives from the legacy flags until set explicitly" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       plain = Crysterm::Widget::Box.new parent: s, width: 5, height: 3
       plain.focus_policy.none?.should be_true
 
@@ -157,7 +146,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "explicit assignment syncs the legacy flags" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       b = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
 
       b.focus_policy = :none
@@ -178,7 +167,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "Tab navigation skips Click-policy widgets" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       w1 = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
       w2 = Crysterm::Widget::Box.new parent: s, left: 6, keys: true, width: 5, height: 3
       w3 = Crysterm::Widget::Box.new parent: s, left: 12, keys: true, width: 5, height: 3
@@ -194,7 +183,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "interactive constructors are key-enabled by default, caller wins" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       Crysterm::Widget::Button.new(parent: s).keys?.should be_true
       Crysterm::Widget::Checkbox.new(parent: s).keys?.should be_true
       Crysterm::Widget::Slider.new(parent: s).keys?.should be_true
@@ -207,7 +196,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "Widget#add_action" do
     it "installs a window-wide accelerator; remove_action withdraws it" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       b = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
       act = Crysterm::Action.new "bold", shortcut: Tput::Key::CtrlB
       triggered = 0
@@ -224,7 +213,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "gates Widget-context shortcuts on the host holding focus" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       host = Crysterm::Widget::Box.new parent: s, keys: true, width: 5, height: 3
       other = Crysterm::Widget::Box.new parent: s, left: 10, keys: true, width: 5, height: 3
       act = Crysterm::Action.new "ctx", shortcut: Tput::Key::CtrlG,
@@ -245,7 +234,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "Event::Mouse local coordinates" do
     it "delivers content-relative local_x/local_y to the widget target" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       b = Crysterm::Widget::Box.new parent: s, left: 5, top: 2, width: 10, height: 5,
         style: Crysterm::Style.new(border: true)
       got = nil
@@ -258,7 +247,7 @@ describe "WP-12 app loop, input, shortcuts" do
     end
 
     it "window-level emit has no target and falls back to absolute" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       got = nil
       s.on(Crysterm::Event::Mouse) { |e| got = {e.local_x, e.local_y, e.target} }
       s.dispatch_mouse ::Tput::Mouse::Event.new(
@@ -269,7 +258,7 @@ describe "WP-12 app loop, input, shortcuts" do
 
   describe "Window#layout= (D12)" do
     it "lazily creates one full-screen root box and swaps engines on it" do
-      s = wp12_window
+      s = headless_screen(40, 12)
       s.layout_root.should be_nil
 
       eng = Crysterm::Layout::Box.new :vertical

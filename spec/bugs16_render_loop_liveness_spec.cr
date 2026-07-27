@@ -24,12 +24,6 @@ private def win_on(dev : Crysterm::Screen)
   Crysterm::Window.new(screen: dev, default_quit_keys: false)
 end
 
-private def io_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 40, height: 10, default_quit_keys: false)
-end
-
 describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
   it "paints no frame over a surviving sibling when destroy lands during the throttle sleep" do
     app = Crysterm::Application.new
@@ -45,7 +39,7 @@ describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
     # First render: `@last_render_at` is nil, so it paints immediately and arms
     # the throttle.
     w2.render
-    sleep 0.05.seconds
+    wait_until { w2.renders == 1 }
     w2.renders.should eq 1
 
     # Second render: the fiber wakes, passes the pre-sleep checks and parks in
@@ -68,11 +62,11 @@ describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
   end
 
   it "dumps no frame into the restored output when a single window is destroyed mid-throttle" do
-    w = io_window
+    w = headless_screen(40, 10)
     w.frame_interval = 0.5.seconds
 
     w.render
-    sleep 0.05.seconds
+    wait_until { w.renders == 1 }
     w.renders.should eq 1
 
     w.render

@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def popup_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `Mixin::Popup#teardown_popup_on_destroy` must release the screen's modal grab
 # when a popup-owning widget is destroyed while still open. Otherwise the dead
 # widget lingers in `Window#@grabs`, keeping `#grabbing?` true forever and
 # routing later mouse presses through `grab_contains?` on a destroyed widget.
 describe Crysterm::Mixin::Popup do
   it "releases the modal grab when destroyed while open" do
-    s = popup_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.show_popup
     cb.open?.should be_true
@@ -31,7 +21,7 @@ describe Crysterm::Mixin::Popup do
   end
 
   it "leaves the grab untouched when destroyed while closed" do
-    s = popup_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.open?.should be_false
     s.popup_grab_active?.should be_false

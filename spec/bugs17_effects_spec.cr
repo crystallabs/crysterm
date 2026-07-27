@@ -15,22 +15,6 @@ include Crysterm
 # Everything is driven headlessly over in-memory IOs; `#step`/`#render` are
 # synchronous so no animation fiber is needed.
 
-private def effects_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
-private def cell_char(screen, y, x)
-  screen.lines[y][x].char
-end
-
-# Top content row, rendered, as a String.
-private def row0(screen, w)
-  String.build { |io| (0...w).each { |x| io << cell_char(screen, 0, x) } }
-end
-
 # A frame value large enough that `frame * speed` blows past Int32::MAX for any
 # of the default hue speeds (6/8/9), reproducing the pre-fix OverflowError.
 private BIG_FRAME = Int32::MAX.to_i64
@@ -63,26 +47,26 @@ end
 describe "BUGS17 effects" do
   describe "B17-24 Marquee#text=" do
     it "reflects a runtime text= on the next render of a non-running marquee" do
-      s = effects_screen
+      s = headless_screen(default_quit_keys: true)
       m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0,
         width: 9, height: 1, text: "OLD"
       w = m.awidth
 
       s.repaint # frame 0
-      old = row0(s, w)
+      old = row_text(s, 0, 0...w)
       old.should eq String.build { |io| (0...w).each { |x| io << "OLD"[x % 3] } }
 
       m.text = "NEW"
       m.text.should eq "NEW"
       s.repaint
-      row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "NEW"[x % 3] } }
-      row0(s, w).should_not eq old
+      row_text(s, 0, 0...w).should eq String.build { |io| (0...w).each { |x| io << "NEW"[x % 3] } }
+      row_text(s, 0, 0...w).should_not eq old
     end
   end
 
   describe "B17-38 effect color-math overflow" do
     it "does not raise rendering a rainbow marquee past the Int32 frame horizon" do
-      s = effects_screen
+      s = headless_screen(default_quit_keys: true)
       m = FrameMarquee.new parent: s, top: 0, left: 0,
         width: 8, height: 1, text: "AB", rainbow: true, hue_speed: 8, hue_spread: 7
       m.frame = BIG_FRAME
@@ -92,7 +76,7 @@ describe "BUGS17 effects" do
     end
 
     it "does not raise scrolling a :right marquee past the Int32 frame horizon" do
-      s = effects_screen
+      s = headless_screen(default_quit_keys: true)
       # `:right` computes `-f + x`; the pre-fix `x - f` overflowed Int32 once
       # f exceeded Int32::MAX in magnitude.
       m = FrameMarquee.new parent: s, top: 0, left: 0,
@@ -102,7 +86,7 @@ describe "BUGS17 effects" do
     end
 
     it "does not raise computing a CopperBar color past the Int32 frame horizon" do
-      s = effects_screen
+      s = headless_screen(default_quit_keys: true)
       bar = FrameCopperBar.new parent: s, top: 0, left: 0,
         width: 10, height: 1, hue_offset: 0, hue_speed: 9
       bar.frame = BIG_FRAME
@@ -115,7 +99,7 @@ describe "BUGS17 effects" do
     end
 
     it "does not raise computing Spray flight/landed colors past the Int32 frame horizon" do
-      s = effects_screen
+      s = headless_screen(default_quit_keys: true)
       spray = FrameSpray.new parent: s, top: 0, left: 0, width: 10, height: 3
       spray.frame = BIG_FRAME
 

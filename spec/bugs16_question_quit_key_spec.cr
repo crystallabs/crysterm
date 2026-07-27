@@ -14,15 +14,9 @@ include Crysterm
 # `ask_choices`'s Left/Right/Escape arms and in `Message#display`'s
 # no-timeout any-key-dismiss handler.
 
-private def b16_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   it "'q' answers No and does not reach the default-quit-key fallback" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     q.ask("Sure?") { |data| answer = data }
@@ -35,7 +29,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   end
 
   it "'y' answers Yes and accepts the key" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     q.ask("Sure?") { |data| answer = data }
@@ -48,7 +42,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   end
 
   it "'n' answers No and accepts the key" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     q.ask("Sure?") { |data| answer = data }
@@ -61,7 +55,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   end
 
   it "Enter/Escape also accept the key" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     q.ask("Sure?") { }
     e1 = Crysterm::Event::KeyPress.new '\r', ::Tput::Key::Enter
@@ -76,7 +70,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   end
 
   it "answering 'q' does not let Application.exec_all's quit fallback destroy the window" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     # Installed before `exec_all` runs, exactly like a real app builds its UI
@@ -95,7 +89,7 @@ describe "BUGS16 B16-39: Question#ask accepts its handled keys" do
   end
 
   it "ask_choices accepts Left/Right/Escape so they don't fall through" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     picked = :unset.as(Symbol | Int32?)
     q.ask_choices("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }
@@ -117,7 +111,7 @@ end
 
 describe "BUGS16 B16-39: Message#display accepts its dismiss key" do
   it "any key dismisses the message and is accepted, not left to quit the app" do
-    w = b16_window
+    w = headless_screen(40, 10, default_quit_keys: true)
     m = Widget::Message.new parent: w, top: 0, left: 0, width: 40, height: 5
     called = false
     m.display("hi", Time::Span.zero) { called = true }

@@ -10,19 +10,9 @@ include Crysterm
 # grid left the *old* grid state painted on window until an unrelated repaint.
 # `show_grid=` now invalidates the plot raster and schedules a render.
 
-private def lcg_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 60,
-    height: 20,
-    default_quit_keys: false)
-end
-
 describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
   it "marks the plot Canvas dirty when the grid is toggled" do
-    s = lcg_screen
+    s = headless_screen(60, 20)
     c = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 50, height: 16, show_grid: true
     c.add_line "a", [{0.0, 0.0}, {1.0, 1.0}, {2.0, 0.5}]
@@ -37,7 +27,7 @@ describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
   end
 
   it "does not mark dirty on a no-op assignment (unchanged value)" do
-    s = lcg_screen
+    s = headless_screen(60, 20)
     c = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 50, height: 16, show_grid: true
     c.add_line "a", [{0.0, 0.0}, {1.0, 1.0}]

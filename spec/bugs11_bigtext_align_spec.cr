@@ -12,24 +12,10 @@ include Crysterm
 # go negative. `lines[y]?.try(&.[x + mx]?)` then wrapped negative indices to the
 # end of the row, painting outside the widget / into other widgets.
 
-private def bt_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w,
-    height: h,
-    default_quit_keys: false)
-end
-
-private def bt_cell_char(screen, y, x)
-  screen.lines[y][x].char
-end
-
 describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds" do
   it "never paints outside [left, right) — no negative/far-right wrapped cells" do
     screen_w = 80
-    s = bt_screen screen_w, 24
+    s = headless_screen(screen_w, 24)
 
     left = 0
     width = 20
@@ -46,7 +32,7 @@ describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds
     lit = [] of Tuple(Int32, Int32) # {y, x}
     (0...24).each do |y|
       (0...screen_w).each do |x|
-        lit << {y, x} if bt_cell_char(s, y, x) == '#'
+        lit << {y, x} if cell_char(s, x, y) == '#'
       end
     end
 
@@ -68,7 +54,7 @@ describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds
     # The last columns of the screen row must be untouched.
     (right...screen_w).each do |x|
       (0...24).each do |y|
-        bt_cell_char(s, y, x).should_not eq '#'
+        cell_char(s, x, y).should_not eq '#'
       end
     end
   end

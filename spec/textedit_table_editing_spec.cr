@@ -10,15 +10,6 @@ include Crysterm
 
 private GFM = "| Name | N |\n| --- | ---: |\n| ab | 1 |\n| c | 22 |"
 
-private def te_screen(width = 40, height = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
 private def table_te(s, md = GFM)
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 12
   te.set_markdown md
@@ -38,7 +29,7 @@ end
 describe Widget::TextEdit do
   describe "in-table editing" do
     it "types into the caret's cell, caret following" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       r = tbl.cell_text_range(1, 0).not_nil!
       te.cursor_pos = r.end # after "ab"
@@ -55,7 +46,7 @@ describe Widget::TextEdit do
     end
 
     it "Backspace/Delete stay within the cell" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       r = tbl.cell_text_range(2, 1).not_nil! # "22"
       te.cursor_pos = r.end
@@ -74,7 +65,7 @@ describe Widget::TextEdit do
     end
 
     it "Tab and Shift-Tab move between cells, wrapping rows" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       te.cursor_pos = tbl.cell_text_range(0, 0).not_nil!.begin
       key te, ::Tput::Key::Tab
@@ -86,7 +77,7 @@ describe Widget::TextEdit do
     end
 
     it "Tab past the last cell appends a row (Qt behavior)" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       te.cursor_pos = tbl.cell_text_range(2, 1).not_nil!.end
       key te, ::Tput::Key::Tab
@@ -95,7 +86,7 @@ describe Widget::TextEdit do
     end
 
     it "Enter inserts a row below the caret's" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       te.cursor_pos = tbl.cell_text_range(1, 1).not_nil!.begin
       key te, ::Tput::Key::Enter
@@ -106,7 +97,7 @@ describe Widget::TextEdit do
     end
 
     it "absorbs kill/yank/paste keys inside a table" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       before = te.value
       te.cursor_pos = tbl.cell_text_range(1, 0).not_nil!.end
@@ -118,7 +109,7 @@ describe Widget::TextEdit do
     end
 
     it "undo reverts one cell keystroke" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       before = te.value
       te.cursor_pos = tbl.cell_text_range(1, 0).not_nil!.end
@@ -131,7 +122,7 @@ describe Widget::TextEdit do
 
   describe "table guards from outside" do
     it "Backspace right below a table does not join into the border" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, _ = table_te s, GFM + "\n\nafter"
       # Caret at the start of the trailing "after" block.
       bi = te.document.block_count - 1
@@ -142,7 +133,7 @@ describe Widget::TextEdit do
     end
 
     it "blocks typing over a selection that overlaps the table" do
-      s = te_screen
+      s = headless_screen(40, 12, default_quit_keys: true)
       te, tbl = table_te s
       r = tbl.cell_text_range(1, 0).not_nil!
       te.selection_anchor = 0

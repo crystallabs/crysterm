@@ -2,35 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it. The auto-installed default theme would otherwise materialize
-# extra state styles/base colors and break specs asserting cascade mechanics in
-# isolation. Must run after the screen exists (auto-install would override an
-# earlier reset).
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # End-to-end behavior lock for the CSS cascade: parsing a stylesheet, matching it
 # against the widget tree, and folding declarations into each widget's per-state
 # `Style`/`Styles`.
 describe "CSS cascade" do
   it "applies base declarations onto the normal style" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     screen.append button
 
@@ -43,7 +20,7 @@ describe "CSS cascade" do
   end
 
   it "layers :focus rules on top of base rules for the focused state" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     screen.append button
 
@@ -59,7 +36,7 @@ describe "CSS cascade" do
   end
 
   it "matches the type chain so a base-class rule styles subclasses" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new  # Button < Input
     check = Widget::CheckBox.new # CheckBox < Input
     screen.append button
@@ -73,7 +50,7 @@ describe "CSS cascade" do
   end
 
   it "honors specificity (#id beats .class)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     button.css_id = "ok"
     screen.append button
@@ -88,7 +65,7 @@ describe "CSS cascade" do
   end
 
   it "inherits color down the tree where unset" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new # no rule of its own
     form.append inner
@@ -102,7 +79,7 @@ describe "CSS cascade" do
   end
 
   it "does not override colors that are explicitly set" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new
     form.append inner
@@ -118,7 +95,7 @@ describe "CSS cascade" do
   end
 
   it "routes sub-element rules into the matching sub-style without leaking" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     box.scrollbar = true
     screen.append box
@@ -134,7 +111,7 @@ describe "CSS cascade" do
   end
 
   it "lets an inline sub-style outrank a sub-element rule (inline beats author/default)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     bar = Widget::ProgressBar.new style: Style.new(indicator: Style.new(fg: rgb("green")))
     screen.append bar
 
@@ -146,7 +123,7 @@ describe "CSS cascade" do
   end
 
   it "folds a base sub-element rule into a state the parent widget materializes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     bar = Widget::ProgressBar.new
     screen.append bar
     bar.state = WidgetState::Focused
@@ -165,7 +142,7 @@ describe "CSS cascade" do
   end
 
   it "parses padding and border shorthands" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -182,7 +159,7 @@ describe "CSS cascade" do
   end
 
   it "only materializes states that have their own rules (others fall back to normal)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     base_only = Widget::Button.new # matched only by a base rule
     stateful = Widget::Button.new  # matched by a :focus rule
     base_only.css_id = "a"
@@ -205,7 +182,7 @@ describe "CSS cascade" do
   end
 
   it "styles the unfocused look via :not(:focus)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     focused = Widget::Button.new
     unfocused = Widget::Button.new
     screen.append focused
@@ -223,7 +200,7 @@ describe "CSS cascade" do
   end
 
   it "maps opacity, tab-size and box-shadow" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -238,7 +215,7 @@ describe "CSS cascade" do
   end
 
   it "clamps an out-of-range opacity into [0, 1]" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     hi = Widget::Box.new
     lo = Widget::Box.new
     hi.css_id = "hi"
@@ -255,7 +232,7 @@ describe "CSS cascade" do
   end
 
   it "keeps a real box-shadow visible when its offset is 0" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -269,7 +246,7 @@ describe "CSS cascade" do
   end
 
   it "disables the shadow with box-shadow: none" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -280,7 +257,7 @@ describe "CSS cascade" do
   end
 
   it "styles widgets via attribute selectors on intrinsic state" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     on = Widget::CheckBox.new checked: true
     off = Widget::CheckBox.new checked: false
     screen.append on
@@ -297,7 +274,7 @@ describe "CSS cascade" do
   end
 
   it "auto-invalidates styling when intrinsic state changes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     cb = Widget::CheckBox.new
     screen.append cb
     screen.stylesheet = "CheckBox[checked] { color: red; }"
@@ -312,7 +289,7 @@ describe "CSS cascade" do
   end
 
   it "auto-invalidates styling when classes, id or the tree change" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
     screen.stylesheet = ".tagged { color: red; } #named { color: blue; }"
@@ -336,7 +313,7 @@ describe "CSS cascade" do
   end
 
   it "supports sibling combinators and type-name selectors" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     a = Widget::Box.new
     b = Widget::Button.new
     screen.append a
@@ -351,7 +328,7 @@ describe "CSS cascade" do
   end
 
   it "lets !important override a more specific normal rule" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     button.css_id = "x"
     screen.append button
@@ -366,7 +343,7 @@ describe "CSS cascade" do
   end
 
   it "resolves custom properties and var() with fallbacks" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -381,7 +358,7 @@ describe "CSS cascade" do
   end
 
   it "resolves a defined var() whose fallback holds a nested var()" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -398,7 +375,7 @@ describe "CSS cascade" do
   end
 
   it "applies the default stylesheet beneath author rules" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -418,7 +395,7 @@ describe "CSS cascade" do
   end
 
   it "folds inline @style above author rules but below !important" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new style: Style.new(fg: "lime")
     screen.append button
 
@@ -432,7 +409,7 @@ describe "CSS cascade" do
   end
 
   it "lets !important beat inline @style" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new style: Style.new(fg: "lime")
     screen.append button
 
@@ -443,7 +420,7 @@ describe "CSS cascade" do
   end
 
   it "carries inline-only Style fields (tab_size/tab_char/fill/draw_over_border) through the cascade" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     inline = Style.new(fg: "lime")
     inline.tab_size = 8
     inline.tab_char = ">"
@@ -466,7 +443,7 @@ describe "CSS cascade" do
   end
 
   it "lets a CSS tab-size beat an inline tab_size, but inline beats author" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     inline = Style.new
     inline.tab_size = 8
     box = Widget::Box.new style: inline
@@ -484,7 +461,7 @@ describe "CSS cascade" do
   end
 
   it "applies geometry and layout via CSS (onto the widget, not the style)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -499,7 +476,7 @@ describe "CSS cascade" do
   end
 
   it "matches text-align case-insensitively (CSS keyword values fold)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -514,7 +491,7 @@ describe "CSS cascade" do
   end
 
   it "hides a widget with display: none" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -525,7 +502,7 @@ describe "CSS cascade" do
   end
 
   it "styles list items individually, including :nth-child" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     list = Widget::List.new
     screen.append list
     list.items = ["a", "b", "c", "d"]
@@ -544,7 +521,7 @@ describe "CSS cascade" do
   end
 
   it "applies @media rules conditionally on terminal size" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     screen.width = 100
     screen.height = 30
     box = Widget::Box.new
@@ -562,7 +539,7 @@ describe "CSS cascade" do
   end
 
   it "skips @media rules that do not match" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     screen.width = 40
     box = Widget::Box.new
     screen.append box
@@ -577,7 +554,7 @@ describe "CSS cascade" do
   end
 
   it "supports per-side border longhands" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -592,7 +569,7 @@ describe "CSS cascade" do
   end
 
   it "resolves rgb(), hsl() and color keywords" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -612,7 +589,7 @@ describe "CSS cascade" do
   end
 
   it "supports ancestor-state pseudo-classes (Form:focus Button)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     button = Widget::Button.new
     form.append button
@@ -638,7 +615,7 @@ describe "CSS cascade" do
   end
 
   it "lets inline @style force a boolean off over a stylesheet" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new style: Style.new(bold: false)
     screen.append button
 
@@ -650,7 +627,7 @@ describe "CSS cascade" do
   end
 
   it "inherits font-weight, font-style and visibility down the tree" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new # no rule of its own
     form.append inner
@@ -665,7 +642,7 @@ describe "CSS cascade" do
   end
 
   it "does not inherit a property the child explicitly sets" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new
     form.append inner
@@ -681,7 +658,7 @@ describe "CSS cascade" do
   end
 
   it "wires the indicator sub-element slot for bar widgets" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     pb = Widget::ProgressBar.new
     slider = Widget::Slider.new
     screen.append pb
@@ -703,7 +680,7 @@ describe "CSS cascade" do
                      "QCheckBox:unchecked { color: green; }\n" \
                      "QCheckBox:indeterminate { color: blue; }\n")
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       on = Widget::CheckBox.new checked: true
       off = Widget::CheckBox.new checked: false
       tri = Widget::CheckBox.new tristate: true
@@ -723,7 +700,7 @@ describe "CSS cascade" do
 
   it "styles checkable widgets by native :checked/:indeterminate (plain author CSS, no .qss)" do
     # Standard Selectors-L4 pseudos must work in ordinary CSS, not only via Qt translation.
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     on = Widget::CheckBox.new checked: true
     off = Widget::CheckBox.new checked: false
     tri = Widget::CheckBox.new tristate: true
@@ -740,7 +717,7 @@ describe "CSS cascade" do
   end
 
   it "styles widgets by native :enabled (lowers to :not(:disabled)) in plain author CSS" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     on = Widget::Button.new
     off = Widget::Button.new
     off.state = Crysterm::WidgetState::Disabled
@@ -758,7 +735,7 @@ describe "CSS cascade" do
                      "QSlider:vertical { color: green; }\n" \
                      "QComboBox:editable { color: blue; }\n")
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       h = Widget::Slider.new orientation: Tput::Orientation::Horizontal
       v = Widget::Slider.new orientation: Tput::Orientation::Vertical
       c = Widget::ComboBox.new ["a", "b"], editable: true
@@ -781,7 +758,7 @@ describe "CSS cascade" do
                      "QPushButton:default { color: blue; }\n" \
                      "QGroupBox:flat { color: green; }\n")
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       without_default_theme do
         flat = Widget::Button.new flat: true
         deflt = Widget::Button.new default: true
@@ -804,7 +781,7 @@ describe "CSS cascade" do
   end
 
   it "strips a flat GroupBox's border via a [flat] { border: none } rule" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     without_default_theme do
       framed = Widget::GroupBox.new title: "A"
       flat = Widget::GroupBox.new title: "B", flat: true
@@ -822,7 +799,7 @@ describe "CSS cascade" do
     path = File.tempname("crysterm-qss", ".qss")
     File.write(path, "QProgressBar::chunk { color: red; }\nQSlider::handle { color: green; }\n")
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       pb = Widget::ProgressBar.new
       slider = Widget::Slider.new
       screen.append pb
@@ -838,7 +815,7 @@ describe "CSS cascade" do
 
   it "routes a native ::slot pseudo-element to its sub-style (plain author CSS, no .qss)" do
     # The idiomatic `Type::slot` spelling must resolve without Qt translation.
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     pb = Widget::ProgressBar.new
     slider = Widget::Slider.new
     screen.append pb
@@ -850,7 +827,7 @@ describe "CSS cascade" do
   end
 
   it "routes Menu::separator to the menu's separator sub-style" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     menu = Widget::Menu.new
     menu.add_action "Open"
     menu.add_separator
@@ -862,7 +839,7 @@ describe "CSS cascade" do
   end
 
   it "routes TabWidget::tab onto the bar's tabs (PreRender bridge)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     tabs = Widget::TabWidget.new width: 40, height: 10
     tabs.add_tab "One", Widget::Box.new
     tabs.add_tab "Two", Widget::Box.new
@@ -875,7 +852,7 @@ describe "CSS cascade" do
   end
 
   it "leaves tabs at their default style when no TabWidget::tab rule matches" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     tabs = Widget::TabWidget.new width: 40, height: 10
     tabs.add_tab "One", Widget::Box.new
     screen.append tabs
@@ -887,7 +864,7 @@ describe "CSS cascade" do
   end
 
   it "routes GroupBox::title onto the title label (PreRender bridge)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     gb = Widget::GroupBox.new title: "Opts", width: 30, height: 8
     screen.append gb
     screen.stylesheet = "GroupBox::title { color: red; }"
@@ -898,7 +875,7 @@ describe "CSS cascade" do
   end
 
   it "routes DockWidget::title onto the title bar" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     dock = Widget::DockWidget.new title: "Files"
     screen.append dock
     screen.stylesheet = "DockWidget::title { color: red; }"
@@ -909,7 +886,7 @@ describe "CSS cascade" do
   end
 
   it "routes TabWidget::pane onto the current page" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     tabs = Widget::TabWidget.new width: 40, height: 10
     page = Widget::Box.new
     tabs.add_tab "One", page
@@ -922,7 +899,7 @@ describe "CSS cascade" do
   end
 
   it "routes DockWidget::close-button / ::float-button onto the title-bar buttons" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     dock = Widget::DockWidget.new title: "Files"
     screen.append dock
     screen.stylesheet = "DockWidget::close-button { color: red; }\n" \
@@ -939,7 +916,7 @@ describe "CSS cascade" do
     path = File.tempname("crysterm-css", ".css")
     File.write(path, "Box { color: red; }")
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       box = Widget::Box.new
       screen.append box
 
@@ -957,7 +934,7 @@ describe "CSS cascade" do
   end
 
   it "skips re-applying when the document is unchanged" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
     screen.stylesheet = "Box { color: red; }"
@@ -977,7 +954,7 @@ describe "CSS cascade" do
   end
 
   it "wires the label sub-element slot" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new label: "hi"
     screen.append box
 
@@ -988,7 +965,7 @@ describe "CSS cascade" do
   end
 
   it "recomputes only the affected subtree (incremental invalidation)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form1 = Widget::Form.new
     form2 = Widget::Form.new
     a = Widget::Box.new
@@ -1018,7 +995,7 @@ describe "CSS cascade" do
   end
 
   it "does not leave a removed rule's value stale on re-cascade" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
     screen.stylesheet = ".hot { color: red; }"
@@ -1032,7 +1009,7 @@ describe "CSS cascade" do
   end
 
   it "updates an inherited value when the ancestor's value changes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new
     form.append inner
@@ -1051,7 +1028,7 @@ describe "CSS cascade" do
   end
 
   it "supports per-side border colors" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -1065,7 +1042,7 @@ describe "CSS cascade" do
   end
 
   it "supports structural pseudo-classes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     a = Widget::Box.new
     b = Widget::Box.new
@@ -1094,7 +1071,7 @@ describe "CSS cascade" do
   # doc would keep styling the old last/nth-last child. A child carries a `label`
   # so the tree has a sub-element node, forcing the structural-document path.
   it "keeps :last-child / :nth-last-child correct after adding children (structural-doc cache)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     a = Widget::Box.new
     b = Widget::Box.new
@@ -1127,7 +1104,7 @@ describe "CSS cascade" do
   end
 
   it "keeps :last-child / :nth-last-child correct after removing children (structural-doc cache)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     a = Widget::Box.new
     b = Widget::Box.new
@@ -1159,7 +1136,7 @@ describe "CSS cascade" do
   end
 
   it "reuses the cached structural document when the tree is unchanged, rebuilds on change" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     a = Widget::Box.new
     a.label = "x"
@@ -1178,7 +1155,7 @@ describe "CSS cascade" do
   end
 
   it "supports attribute operators including quoted values" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     box.add_css_class "danger"
     screen.append box
@@ -1194,8 +1171,8 @@ describe "CSS cascade" do
   end
 
   it "keeps styling independent across multiple screens" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(default_quit_keys: true)
+    s2 = headless_screen(default_quit_keys: true)
     b1 = Widget::Box.new parent: s1
     b2 = Widget::Box.new parent: s2
 
@@ -1215,7 +1192,7 @@ describe "CSS cascade" do
   end
 
   it "handles CSS operations on a detached widget without crashing" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new parent: screen
     child = Widget::Box.new parent: parent
 
@@ -1239,7 +1216,7 @@ describe "CSS cascade" do
   end
 
   it "supports :has() (evaluated in the cascade, not html5)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     f1 = Widget::Form.new
     f2 = Widget::Form.new
     f1.append Widget::CheckBox.new # f1 has a checkbox descendant
@@ -1255,7 +1232,7 @@ describe "CSS cascade" do
   end
 
   it "stays consistent across attribute toggles (node patching, no re-parse)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     cb = Widget::CheckBox.new
     screen.append cb
 
@@ -1283,7 +1260,7 @@ describe "CSS cascade" do
   end
 
   it "supports :has() with a child combinator" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     f1 = Widget::Form.new # direct CheckBox child
     f2 = Widget::Form.new # CheckBox nested one level deeper
     f1.append Widget::CheckBox.new
@@ -1302,7 +1279,7 @@ describe "CSS cascade" do
 
   it "applies an ancestor-position :has() rule to the right widget" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       # f1's Button matches (Form ancestor has an .error descendant); f2's doesn't.
       f1 = Widget::Form.new
       err = Widget::Box.new
@@ -1325,7 +1302,7 @@ describe "CSS cascade" do
   end
 
   it "computes per-cell styles for a table (Cell / Header / :nth-child)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
 
     screen.stylesheet = <<-CSS
@@ -1342,7 +1319,7 @@ describe "CSS cascade" do
   end
 
   it "supports :has() with sibling combinators (via :scope)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     a = Widget::Box.new
     b = Widget::CheckBox.new
@@ -1365,7 +1342,7 @@ describe "CSS cascade" do
   end
 
   it "addresses ListTable rows individually" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     lt = Widget::ListTable.new parent: screen, rows: [["H1", "H2"], ["a", "b"], ["c", "d"]]
 
     screen.stylesheet = <<-CSS
@@ -1380,7 +1357,7 @@ describe "CSS cascade" do
   end
 
   it "supports font and background shorthands" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -1394,7 +1371,7 @@ describe "CSS cascade" do
   end
 
   it "supports native nesting (descendant and &)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     button = Widget::Button.new
     form.append button
@@ -1416,7 +1393,7 @@ describe "CSS cascade" do
   end
 
   it "orders rules by @layer (later layers win, unlayered wins over all)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -1444,7 +1421,7 @@ describe "CSS cascade" do
     main = File.join(dir, "main.css")
     File.write main, %(@import "base.css";\nBox { color: blue; })
     begin
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       box = Widget::Box.new
       screen.append box
 
@@ -1461,7 +1438,7 @@ describe "CSS cascade" do
   end
 
   it "computes per-cell styles for a ListTable" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     lt = Widget::ListTable.new parent: screen, rows: [["H1", "H2"], ["a", "b"], ["c", "d"]]
 
     screen.stylesheet = <<-CSS
@@ -1480,7 +1457,7 @@ describe "CSS cascade" do
     # Regression: a widget hidden at construction must stay hidden once CSS
     # takes over. The cascade used to rebuild from a `visible: true` snapshot
     # and `fold_inline` didn't carry `visible`.
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: screen, style: Style.new(border: true)
     box.hide
     box.visible?.should be_false
@@ -1495,7 +1472,7 @@ describe "CSS cascade" do
   it "keeps an imperative show/hide across a recascade" do
     # Once `css_styled`, show/hide persist onto the inline style so a later
     # cascade (reset to base snapshot + fold inline) doesn't revert it.
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: screen, style: Style.new(border: true)
     box.hide
 
@@ -1513,7 +1490,7 @@ describe "CSS cascade" do
   end
 
   it "leaves widgets untouched when no stylesheet is set" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
     before = box.styles.normal.fg
@@ -1524,7 +1501,7 @@ describe "CSS cascade" do
   end
 
   it "maps alternate-background-color onto the alternate_row sub-style" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     table = Widget::ListTable.new
     screen.append table
 
@@ -1541,7 +1518,7 @@ describe "CSS cascade" do
   end
 
   it "maps selection-color/-background-color onto the selected state" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     list = Widget::List.new
     screen.append list
 
@@ -1562,7 +1539,7 @@ describe "CSS cascade" do
   end
 
   it "lets an explicit higher-specificity :selected rule win over selection-*" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     list = Widget::List.new
     list.css_id = "lst"
     screen.append list
@@ -1723,7 +1700,7 @@ describe "CSS::ColorValue" do
   end
 
   it "peels a state pseudo-class case-insensitively (:FOCUS == :focus)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     screen.append button
     without_default_theme do
@@ -1738,7 +1715,7 @@ describe "CSS::ColorValue" do
   end
 
   it "keeps type selectors case-sensitive (lowercase `button` does not match a Button)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     button = Widget::Button.new
     screen.append button
     without_default_theme do

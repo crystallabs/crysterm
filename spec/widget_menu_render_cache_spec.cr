@@ -18,16 +18,6 @@ include Crysterm
 # (a) the content is laid out correctly and (b) the cached arrays/styles are the
 # *same objects* on the second render, i.e. nothing was rebuilt.
 
-private def menu_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def sample_menu(s)
   m = Crysterm::Widget::Menu.new(parent: s)
   m.add_action "Open"
@@ -39,7 +29,7 @@ end
 
 describe "Menu render caches (ALLOCS Group J)" do
   it "lays out rows and separators correctly across two renders" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = sample_menu s
     s.repaint
 
@@ -64,7 +54,7 @@ describe "Menu render caches (ALLOCS Group J)" do
   end
 
   it "reuses the cached visible-actions and column arrays when unchanged" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = sample_menu s
     s.repaint
 
@@ -81,7 +71,7 @@ describe "Menu render caches (ALLOCS Group J)" do
   end
 
   it "skips re-laying rows when neither width nor rows changed" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = sample_menu s
     s.repaint
 
@@ -95,7 +85,7 @@ describe "Menu render caches (ALLOCS Group J)" do
   end
 
   it "reuses the derived separator render style across frames" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = sample_menu s
     s.repaint
 
@@ -107,7 +97,7 @@ describe "Menu render caches (ALLOCS Group J)" do
   end
 
   it "rebuilds the caches when an action is added" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = sample_menu s
     s.repaint
 

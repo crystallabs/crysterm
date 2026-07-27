@@ -5,11 +5,6 @@ include Crysterm
 # Regression specs for BUGS16 wave-3 media/terminal/capture findings:
 # B16-55, B16-56, B16-57, B16-58, B16-59.
 
-private def mc3_screen(w = 40, h = 12)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
 private def mc3_bitmap(w = 8, h = 8) : PNGGIF::Bitmap
   Array(Array(PNGGIF::Pixel)).new(h) do |y|
     Array(PNGGIF::Pixel).new(w) do |x|
@@ -56,7 +51,7 @@ describe "BUGS16 B16-55: Media::Ansi auto-size compensates border/padding insets
     path = File.tempname("mc3_ansi", ".png")
     File.write path, PNGGIF.encode_png(mc3_bitmap)
     begin
-      s = mc3_screen
+      s = headless_screen(40, 12)
       plain = Widget::Media::Ansi.new file: path, parent: s
       bordered = Widget::Media::Ansi.new file: path, parent: s,
         style: Crysterm::Style.new(border: true)
@@ -78,7 +73,7 @@ end
 # render, or the stale bytes keep being re-emitted.
 describe "BUGS16 B16-56: Media::Regis#dither= invalidates the cached payload" do
   it "drops the payload cache on a real change and no-ops on a same-value assignment" do
-    s = mc3_screen
+    s = headless_screen(40, 12)
     img = RegisProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = mc3_bitmap(40, 60)
     s.repaint
@@ -100,7 +95,7 @@ end
 # `#load`) so the next redraw re-sends.
 describe "BUGS16 B16-57: Media::Ueberzug#scaler= forces a placement re-send" do
   it "nils the remembered rect on a real change, keeps it on a no-op" do
-    s = mc3_screen
+    s = headless_screen(40, 12)
     img = UeberzugProbe.new parent: s, top: 0, left: 0, width: 10, height: 5
     img.probe_last = {0, 0, 10, 5}
 
@@ -143,7 +138,7 @@ end
 # stretching the clip by one frame period. The immediate tick is now skipped.
 describe "BUGS16 B16-59: feed_animation_frames writes frame 0 exactly once" do
   it "emits only the manual first frame within a sub-interval duration" do
-    w = mc3_screen 6, 2
+    w = headless_screen(6, 2)
     begin
       io = IO::Memory.new
       fsize = Crysterm::Capture.rgba(

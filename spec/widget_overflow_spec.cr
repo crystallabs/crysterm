@@ -2,17 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen(width = 80, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 # Per-widget `overflow` override falls back to the screen's default when unset
 # (see todoc Q2); setting it to `nil` re-inherits.
 describe "Widget#overflow inheritance" do
   it "inherits the screen's overflow when the widget has no override" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s
 
     box.own_overflow.should be_nil
@@ -20,7 +14,7 @@ describe "Widget#overflow inheritance" do
   end
 
   it "tracks the screen default when it changes" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s
 
     s.overflow = Crysterm::Overflow::Hidden
@@ -28,7 +22,7 @@ describe "Widget#overflow inheritance" do
   end
 
   it "lets a per-widget override win over the screen default" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.overflow = Crysterm::Overflow::Hidden
     box = Widget::Box.new parent: s
 
@@ -38,7 +32,7 @@ describe "Widget#overflow inheritance" do
   end
 
   it "re-inherits when the override is cleared with nil" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     s.overflow = Crysterm::Overflow::Hidden
     box = Widget::Box.new parent: s, overflow: Crysterm::Overflow::ShrinkWidget
 
@@ -48,7 +42,7 @@ describe "Widget#overflow inheritance" do
   end
 
   it "accepts a string/symbol shorthand" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s
 
     box.overflow = "shrink_widget"
@@ -67,7 +61,7 @@ end
 # policy — the widget declares it for itself (see todoc Q8).
 describe "Overflow::MoveWidget" do
   it "slides a bottom/right-overflowing widget back on screen" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s,
       top: 22, left: 78, width: 6, height: 5,
       overflow: Crysterm::Overflow::MoveWidget
@@ -83,7 +77,7 @@ describe "Overflow::MoveWidget" do
   end
 
   it "leaves a widget that already fits untouched" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s,
       top: 2, left: 2, width: 6, height: 5,
       overflow: Crysterm::Overflow::MoveWidget
@@ -94,7 +88,7 @@ describe "Overflow::MoveWidget" do
   end
 
   it "does not move a widget that uses the default (inherited) overflow" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 22, left: 2, width: 6, height: 5
 
     coords = box.coords.not_nil!

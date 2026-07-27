@@ -339,7 +339,7 @@ module Crysterm
         # and a `min_height` above the remaining interior pushes the resolved
         # height past the fill, making a nil-height child genuinely overflowable.
         # `max_height` needs no term — it can only lower the result.
-        return nil if el.height.nil? && el.min_height.nil?
+        return if el.height.nil? && el.min_height.nil?
 
         height = interior.height
         # Include the top margin: render shifts a fixed-size box down by `mtop`

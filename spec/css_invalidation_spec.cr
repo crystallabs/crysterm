@@ -8,29 +8,11 @@ include Crysterm
 # default (theme) stylesheet at runtime recascades live windows; and a
 # recascade mid-transition doesn't orphan the tween.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h)
-end
-
-# Empties the global default (user-agent) stylesheet for the block, then
-# restores it. Must run after the screen exists — window creation auto-installs
-# the config-driven theme, which would override an earlier reset.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
 describe "CSS invalidation" do
   # #28 — geometry declarations bypass `Style`, so they need their own
   # pristine snapshot/restore in the cascade's reset pass.
   it "reverts geometry when its rule stops matching (class removed)" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     b = Widget::Box.new parent: s, width: "100%"
     b.add_css_class "wide"
     s.stylesheet = ".wide { width: 40; min-width: 12; text-align: center; }"
@@ -47,7 +29,7 @@ describe "CSS invalidation" do
   end
 
   it "reverts geometry when the stylesheet no longer carries the rule" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     b = Widget::Box.new parent: s
     s.stylesheet = "Box { width: 40; height: 7; }"
     s.apply_stylesheet
@@ -64,7 +46,7 @@ describe "CSS invalidation" do
   # assigning one restyles everything; previously the no-active-rules early
   # exit left every widget stuck `css_styled` with the old computed styles.
   it "reverts widgets to pristine when the stylesheet is cleared with no default rules" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     without_default_theme do
       b = Widget::Button.new
       s.append b
@@ -85,7 +67,7 @@ describe "CSS invalidation" do
   end
 
   it "recascades a stylesheet assigned after a clear" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     without_default_theme do
       b = Widget::Button.new
       s.append b
@@ -107,7 +89,7 @@ describe "CSS invalidation" do
   # existing windows; previously nothing marked them dirty and the
   # document-identity cache swallowed even an explicit restyle.
   it "recascades an existing window when the default stylesheet changes at runtime" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     b = Widget::Button.new
     s.append b
     saved = Crysterm::CSS.default_stylesheet
@@ -129,7 +111,7 @@ describe "CSS invalidation" do
   # in-flight transition must keep affecting the *live* style, not a captured
   # (now orphaned) one.
   it "keeps a transition tweening the rendered style across a recascade" do
-    s = headless_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "btn"
     s.stylesheet = ".btn { background-color: #000000; transition: background-color 0.4s linear; } " \
@@ -149,7 +131,7 @@ describe "CSS invalidation" do
     mid = b.style.bg.not_nil!
     (0x202020 <= mid <= 0xe0e0e0).should be_true # still mid-grey, not snapped to white
 
-    sleep 0.4.seconds
+    wait_until { b.style.bg == 0xffffff }
     b.style.bg.should eq 0xffffff # landed on target
   end
 end

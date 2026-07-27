@@ -127,23 +127,29 @@ module Crysterm
         Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, am, sx, sy)
       end
 
-      protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
+      protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+                                col_off : Int32, row_off : Int32)
         lines = window.lines
         sx, sy = @mode.subgrid
 
         # Braille is one color per cell, so it needs a single global on/off
-        # threshold; a per-cell one would just produce ~50% noise.
+        # threshold; a per-cell one would just produce ~50% noise. Keyed on the
+        # full sample, so a clipped widget still hits the memo (and thresholds
+        # exactly as the same frame does unclipped).
         thr = (@mode.braille? && !alpha_key?) ? @threshold_memo.get(anim_index, bmp) { global_threshold bmp } : 0.0
 
         # Clamp the walks to the screen: `Indexable#[]?` wraps negative indices,
         # so a widget partially off the top/left edge would paint rows/columns
-        # at the far end of the buffer.
+        # at the far end of the buffer. `*_off` (cell units, 0 unless an ancestor
+        # clips) fold straight into the field cell coords `#paint` scales by the
+        # sub-grid, so a clipped widget reads the region under the clip window
+        # instead of the field's top-left corner.
         (Math.max(yi, 0)...yl).each do |y|
-          cy = y - yi
+          cy = (y - yi) + row_off
           row = lines[y]?
           next unless row
           (Math.max(xi, 0)...xl).each do |x|
-            cx = x - xi
+            cx = (x - xi) + col_off
             cell = row[x]?
             next unless cell
             paint cell, bmp, cx, cy, sx, sy, thr

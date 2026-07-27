@@ -21,19 +21,9 @@ include Crysterm
 #     spec would need ffmpeg and a live render loop, so this is guarded with a
 #     source-order assertion instead (see note in that describe block).
 
-private def lifecycle_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS5 z-order reorder invalidation (fix #1)" do
   it "#to_front on a nested widget marks it dirty and invalidates the CSS tree" do
-    s = lifecycle_screen
+    s = headless_screen(80, 24)
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     a = Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
@@ -52,7 +42,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   end
 
   it "#to_back on a nested widget reorders it and invalidates" do
-    s = lifecycle_screen
+    s = headless_screen(80, 24)
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
@@ -69,7 +59,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   end
 
   it "#to_front on a top-level widget (window parent) reorders and invalidates" do
-    s = lifecycle_screen
+    s = headless_screen(80, 24)
     a = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 5, height: 1)
     Crysterm::Widget::Box.new(parent: s, top: 1, left: 0, width: 5, height: 1)
 
@@ -85,7 +75,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   end
 
   it "#to_front is a no-op (no reorder) when already at the front slot" do
-    s = lifecycle_screen
+    s = headless_screen(80, 24)
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)

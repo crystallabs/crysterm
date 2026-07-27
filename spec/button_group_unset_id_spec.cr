@@ -7,18 +7,9 @@ include Crysterm
 # explicit id). Otherwise `button(checked_id)` with nothing checked would
 # return the first un-id'd member instead of nil.
 
-private def add_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 describe Crysterm::ButtonGroup do
   it "never addresses an un-id'd member through the -1 sentinel" do
-    s = add_mem_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     a = Crysterm::Widget::CheckBox.new parent: s
     b = Crysterm::Widget::CheckBox.new parent: s
 

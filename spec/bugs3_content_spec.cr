@@ -21,16 +21,10 @@ include Crysterm
 # the resulting wrapped rows (`@_clines`) inspected. Headless harness: a `Window`
 # over in-memory IOs plus the synchronous `Window#repaint` (like the other specs).
 
-private def sized_screen(w, h)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # A wrap box whose `_wrap_content` we call directly with an explicit column
 # width (border/margin math kept out of the assertion). Non-`full_unicode`.
 private def wc_box
-  s = sized_screen 200, 50
+  s = headless_screen(200, 50, default_quit_keys: true)
   Widget::Box.new(
     parent: s, top: 0, left: 0, width: 100, height: 40,
     parse_tags: false, wrap_content: true)
@@ -77,7 +71,7 @@ describe "widget_content SGR word-wrap (bugs3)" do
 
   describe "wrapping never splits an inline escape" do
     it "wraps 'word \\e[31mmore text here' in a narrow box with no truncated escapes" do
-      s = sized_screen 40, 10
+      s = headless_screen(40, 10, default_quit_keys: true)
       # Box interior 6 columns wide (10 - borders/padding is not in play here;
       # give it a small content width to force wrapping of the words).
       b = wrapped_box s, "word \e[31mmore text here", 8, 8
@@ -90,7 +84,7 @@ describe "widget_content SGR word-wrap (bugs3)" do
     end
 
     it "keeps every wrapped row's escapes well-formed for longer colored text" do
-      s = sized_screen 40, 20
+      s = headless_screen(40, 20, default_quit_keys: true)
       content = "the quick \e[31mbrown fox \e[32mjumps over \e[0mthe lazy dog"
       b = wrapped_box s, content, 10, 15
       lines = wrapped_lines b
@@ -100,7 +94,7 @@ describe "widget_content SGR word-wrap (bugs3)" do
     end
 
     it "preserves the visible words across the wrap (SGR stripped)" do
-      s = sized_screen 40, 20
+      s = headless_screen(40, 20, default_quit_keys: true)
       b = wrapped_box s, "alpha \e[31mbeta gamma \e[0mdelta", 8, 15
       lines = wrapped_lines b
 

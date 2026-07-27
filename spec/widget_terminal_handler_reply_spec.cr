@@ -12,16 +12,10 @@ include Crysterm
 # it nil in handler mode: `respond` silently dropped every reply and a child
 # probing the terminal at startup (vim/htop querying DA/CPR) waited forever.
 
-private def screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 describe "Widget::Terminal handler-mode replies" do
   it "routes emulator DSR/DA replies back to the handler" do
     captured = [] of String
-    s = screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,
       handler: ->(data : String) { captured << data; nil })

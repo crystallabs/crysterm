@@ -343,34 +343,39 @@ module Crysterm
           trough_ch = show_trough? ? trough_char : ' '
           thumb_ch = thumb_char
 
-          (main_lo...main_hi).each do |m|
-            attr, ch =
-              if steppers && m == main_lo
-                stepper_cell true, base
-              elsif steppers && m == main_hi - 1
-                stepper_cell false, base
-              elsif m < thumb_lo
-                {sub_page_attr, trough_ch}
-              elsif m >= thumb_hi
-                {add_page_attr, trough_ch}
-              else
-                {thumb_attr, thumb_ch}
-              end
-            paint_cross horizontal, m, xi, xl, yi, yl, attr, ch
+          # The track is three (or five, with steppers) contiguous zones along
+          # the main axis — `thumb_offset`/`thumb_size` clamp so the thumb never
+          # overlaps or escapes `[trough_lo, trough_hi)` — so each zone is one
+          # batched `fill_region` run instead of a per-cell call.
+          if steppers
+            dec_attr, dec_ch = stepper_cell true, base
+            paint_cross_span horizontal, main_lo, main_lo + 1, xi, xl, yi, yl, dec_attr, dec_ch
+            inc_attr, inc_ch = stepper_cell false, base
+            paint_cross_span horizontal, main_hi - 1, main_hi, xi, xl, yi, yl, inc_attr, inc_ch
           end
+          paint_cross_span horizontal, trough_lo, thumb_lo, xi, xl, yi, yl, sub_page_attr, trough_ch
+          paint_cross_span horizontal, thumb_lo, thumb_hi, xi, xl, yi, yl, thumb_attr, thumb_ch
+          paint_cross_span horizontal, thumb_hi, trough_hi, xi, xl, yi, yl, add_page_attr, trough_ch
         end
       end
 
-      # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*:
-      # for a vertical bar *m* is a row (fill columns `xi...xl`); for a
-      # horizontal bar *m* is a column (fill rows `yi...yl`). A contiguous run, so
-      # it goes through the batched `fill_region`, not a per-cell loop.
-      private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
+      # Fills the cross-axis extent across main-axis span `[lo, hi)` with
+      # *attr*/*ch*: for a vertical bar `[lo, hi)` is a row range (fill columns
+      # `xi...xl` for each); for a horizontal bar it's a column range (fill rows
+      # `yi...yl` for each). A contiguous run, so it goes through the batched
+      # `fill_region`, not a per-cell loop. A no-op when `lo >= hi`.
+      private def paint_cross_span(horizontal, lo, hi, xi, xl, yi, yl, attr, ch) : Nil
         if horizontal
-          window.fill_region attr, ch, m, m + 1, yi, yl
+          window.fill_region attr, ch, lo, hi, yi, yl
         else
-          window.fill_region attr, ch, xi, xl, m, m + 1
+          window.fill_region attr, ch, xi, xl, lo, hi
         end
+      end
+
+      # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*;
+      # single-cell counterpart of `#paint_cross_span`.
+      private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
+        paint_cross_span horizontal, m, m + 1, xi, xl, yi, yl, attr, ch
       end
 
       # Up/Left (and `k`/`h`) step toward the top/start, Down/Right (and `j`/`l`)

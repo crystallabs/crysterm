@@ -15,16 +15,6 @@ include Crysterm
 #  4. `DateEdit#section_at` maps the separator columns consistently with
 #     `DateTimeEdit#section_at` (col 4 -> year, col 7 -> month).
 
-private def form_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Dispatch a left-button press at absolute column *col* of a widget's top row.
 private def click_col(s, w, col)
   s.dispatch_mouse ::Tput::Mouse::Event.new(
@@ -34,7 +24,7 @@ end
 
 describe "BUGS3 Form field collection (fix #1)" do
   it "#submit collects SpinBox, ComboBox and DateEdit values" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
 
     sb = Crysterm::Widget::SpinBox.new(
@@ -63,7 +53,7 @@ describe "BUGS3 Form field collection (fix #1)" do
   end
 
   it "#submit collects a DoubleSpinBox's native Float64 value" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     Crysterm::Widget::DoubleSpinBox.new(
       parent: form, name: "ratio", top: 0, left: 0, width: 10, height: 1,
@@ -77,7 +67,7 @@ end
 
 describe "BUGS3 Form reset (fix #2)" do
   it "resets SpinBox to its minimum and ComboBox to its first option" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
 
     sb = Crysterm::Widget::SpinBox.new(
@@ -101,7 +91,7 @@ describe "BUGS3 Form reset (fix #2)" do
   end
 
   it "resets a DoubleSpinBox to its minimum" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     dsb = Crysterm::Widget::DoubleSpinBox.new(
       parent: form, name: "ratio", top: 0, left: 0, width: 10, height: 1,
@@ -116,7 +106,7 @@ end
 
 describe "BUGS3 SpinBox inverted-range constructor (fix #3)" do
   it "normalizes an inverted minimum/maximum and keeps stepping working" do
-    s = form_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new(
       parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 50, maximum: 10)
@@ -142,7 +132,7 @@ end
 
 describe "BUGS3 DoubleSpinBox inverted-range constructor (fix #3)" do
   it "normalizes an inverted minimum/maximum and keeps stepping working" do
-    s = form_screen
+    s = headless_screen(80, 24)
     dsb = Crysterm::Widget::DoubleSpinBox.new(
       parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 50.0, maximum: 10.0)
@@ -164,7 +154,7 @@ end
 
 describe "BUGS3 DateEdit#section_at consistency (fix #4)" do
   it "maps the first dash (col 4) to the year section, like DateTimeEdit" do
-    s = form_screen
+    s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new(
       parent: s, top: 0, left: 0, width: 20, height: 1,
       date: Time.utc(2021, 3, 14), calendar_popup: false)
@@ -184,7 +174,7 @@ describe "BUGS3 DateEdit#section_at consistency (fix #4)" do
   end
 
   it "matches DateTimeEdit's section for the shared columns 4 and 7" do
-    s = form_screen
+    s = headless_screen(80, 24)
     dte = Crysterm::Widget::DateTimeEdit.new(
       parent: s, top: 0, left: 0, width: 24, height: 1,
       date_time: Time.utc(2021, 3, 14, 9, 8, 7))

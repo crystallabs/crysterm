@@ -2,11 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 # A real PNG shipped in the repo, decoded by the pure-Crystal PNGGIF reader.
 private def bg_image_path
   "#{__DIR__}/../data/image/matterhorn.png"
@@ -27,7 +22,7 @@ end
 describe "multi-line content over a cells background" do
   it "renders each line on its own row (newline terminates the row)" do
     with_media_exclude("kitty") do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
       box.style.background_image = bg_image_path
       s.repaint
@@ -50,7 +45,7 @@ describe "multi-line content over a cells background" do
 
   it "keeps the image showing in the row remainder after a newline" do
     with_media_exclude("kitty") do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
       box.style.background_image = bg_image_path
       s.repaint
@@ -62,7 +57,7 @@ describe "multi-line content over a cells background" do
   end
 
   it "leaves multi-line rendering without a cells background unchanged" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5, content: "ab\ncd"
     s.repaint
 

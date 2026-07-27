@@ -8,15 +8,6 @@ include Crysterm
 # shifts the other views' carets and selections exactly like the document
 # adjusts its registered cursors — instead of merely clamping them.
 
-private def te_screen(width = 40, height = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
 private def new_te(s, doc, top = 0)
   te = Widget::TextEdit.new parent: s, left: 0, top: top, width: 40, height: 4, document: doc
   s.repaint
@@ -30,7 +21,7 @@ end
 describe Widget::TextEdit do
   describe "shared-document caret adjustment" do
     it "shifts the other view's caret right on an insert before it" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello world")
       a = new_te s, doc
       b = new_te s, doc, top: 4
@@ -42,7 +33,7 @@ describe Widget::TextEdit do
     end
 
     it "leaves the other view's caret put on an insert after it" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello")
       new_te s, doc
       b = new_te s, doc, top: 4
@@ -52,7 +43,7 @@ describe Widget::TextEdit do
     end
 
     it "collapses a caret inside a removed range to the range start" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello world")
       new_te s, doc
       b = new_te s, doc, top: 4
@@ -62,7 +53,7 @@ describe Widget::TextEdit do
     end
 
     it "shifts the other view's selection, dropping it when it collapses" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello world")
       new_te s, doc
       b = new_te s, doc, top: 4
@@ -80,7 +71,7 @@ describe Widget::TextEdit do
     end
 
     it "does not move carets on a format-only change" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello world")
       new_te s, doc
       b = new_te s, doc, top: 4
@@ -90,7 +81,7 @@ describe Widget::TextEdit do
     end
 
     it "rewinds the other view's caret on a whole-content replace" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello world")
       new_te s, doc
       b = new_te s, doc, top: 4
@@ -100,7 +91,7 @@ describe Widget::TextEdit do
     end
 
     it "keeps the editing view's own caret semantics (no double shift)" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("abc")
       a = new_te s, doc
       a.cursor_pos = 1
@@ -114,7 +105,7 @@ describe Widget::TextEdit do
     end
 
     it "adjusts the other view's caret across undo/redo replays" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("hello")
       a = new_te s, doc
       b = new_te s, doc, top: 4
@@ -130,7 +121,7 @@ describe Widget::TextEdit do
     end
 
     it "renders both views correctly after a cross-view edit" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       doc = TextDocument.new("one")
       a = new_te s, doc
       new_te s, doc, top: 4

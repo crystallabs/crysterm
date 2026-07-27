@@ -27,12 +27,6 @@ include Crysterm
 #          attr/char, mouse_cursor_shaping) onto the replacement instead of
 #          silently reverting them to config defaults.
 
-private def b18rw_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b18rw_shared_screen(w = 40, h = 10)
   Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -125,7 +119,7 @@ describe "BUGS18 B18-05: title= writes only when connected and device-active" do
   end
 
   it "does not write on a disconnected window and re-asserts on reconnect" do
-    w = b18rw_window
+    w = headless_screen(40, 10)
     w.disconnect
     out = w.output.as(IO::Memory)
     out.clear
@@ -146,7 +140,7 @@ describe "BUGS18 B18-05: title= writes only when connected and device-active" do
   end
 
   it "screen= migration re-applies the stored title on the new device" do
-    w = b18rw_window
+    w = headless_screen(40, 10)
     w.title = "CARRY"
     dev2 = b18rw_shared_screen
     w.screen = dev2
@@ -161,7 +155,7 @@ end
 
 describe "BUGS18 B18-07: close honors a handler's reattach" do
   it "destroys the window when no handler reattaches" do
-    w = b18rw_window
+    w = headless_screen(40, 10)
     w.close.should be_true
     w.destroyed?.should be_true
     w.connected?.should be_false
@@ -170,7 +164,7 @@ describe "BUGS18 B18-07: close honors a handler's reattach" do
   end
 
   it "leaves a handler-reattached window alive and connected" do
-    w = b18rw_window
+    w = headless_screen(40, 10)
     new_input = IO::Memory.new
     new_out = IO::Memory.new
     saw_disconnected = false
@@ -202,7 +196,7 @@ describe "BUGS18 B18-10: switch_terminal carries runtime-set options" do
     # The replacement binds in-memory IO because `spec_helper` pins
     # `screen.headless` to `Always` — `switch_terminal` gives the new window
     # fresh *default* IO, so nothing here can pass it explicitly.
-    w = b18rw_window
+    w = headless_screen(40, 10)
     w.hyperlinks = false
     w.synchronized_output = false
     w.send_focus = true

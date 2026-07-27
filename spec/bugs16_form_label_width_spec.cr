@@ -11,12 +11,6 @@ include Crysterm
 # (@raw_width/@assigned_width), restoring each child's raw width *before* the
 # column is measured.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def rendered_width(el)
   l = el.lpos.not_nil!
   l.xl - l.xi
@@ -24,7 +18,7 @@ end
 
 describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
   it "widens the auto column when a label's content grows" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     label = Widget::Box.new parent: form, height: 1, content: "Name"
@@ -40,7 +34,7 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
   end
 
   it "shrinks the auto column when a label's content shrinks" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     label = Widget::Box.new parent: form, height: 1, content: "A much longer label"
@@ -56,7 +50,7 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
   end
 
   it "keeps a label's non-Int32 raw width from freezing the column to an Int" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     # A String width is not the explicit-Int32 case, so the column tracks the
@@ -74,7 +68,7 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
   end
 
   it "still honours an explicit Int32 label width every frame (no regression)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     label = Widget::Box.new parent: form, height: 1, width: 10, content: "Name"

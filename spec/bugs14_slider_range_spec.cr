@@ -12,16 +12,6 @@ include Crysterm
 # the arithmetic and clamp, and iterate ticks over track cells rather than value
 # space.
 
-private def range_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Exposes the protected pointer->value mapping so the off-track case (which the
 # window's hit-testing never delivers to an out-of-bounds pointer) can be driven
 # directly, exactly as `Slider`'s drag handler feeds it a raw, unclamped offset.
@@ -35,7 +25,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # A2 — Mixin::RangedValue#value_span computed `@maximum - @minimum` in Int32,
   # overflowing for any range wider than Int32::MAX.
   it "computes value_span for a full Int32-span range without overflowing (A2)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 1,
       minimum: Int32::MIN, maximum: Int32::MAX
     # `@maximum - @minimum` (== 2**32 - 1) overflowed Int32 here; the fix widens
@@ -46,7 +36,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # A1 — AbstractSlider#value_at raised OverflowError on an off-track drag with a
   # large value range (Slider passes the raw, unclamped pointer offset).
   it "maps an off-track offset on a narrow large-range Slider without overflowing (A1)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     sl = ExposedSlider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 300_000_000, value: 0
     # An offset far past the track end (pos 110, span 10) with a large range made
@@ -59,7 +49,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # M1 — ProgressBar#percent= evaluated `percent * span` as Int32 × Int32 before
   # the `/ 100.0`, overflowing for a span above ~21M.
   it "sets ProgressBar#percent on a large-range bar without raising (M1)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     # `bar.percent = 50` runs during construction here; `50 * 50_000_000` (Int32)
     # overflowed. The fix coerces to Float64 before multiplying.
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
@@ -73,7 +63,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # M1 (span) — ProgressBar#span subtracted `@maximum - @minimum` in Int32,
   # overflowing for a range wider than Int32::MAX. #percent derives from #span.
   it "derives ProgressBar#percent across an Int32-wide range without raising (M1 span)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       minimum: -1_500_000_000, maximum: 1_500_000_000, value: 0
     # `@maximum - @minimum` (== 3e9) overflowed Int32 in #span; the fix widens the
@@ -89,7 +79,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # hanging for large ranges and overflowing the `tv += interval` counter when
   # `@maximum` sat within `interval` of Int32::MAX.
   it "renders ticks on a Slider whose maximum is near Int32::MAX without hanging/raising (M3)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 3,
       minimum: 0, maximum: Int32::MAX, value: 1_000_000,
       tick_position: Widget::Slider::TickPosition::Both
@@ -99,7 +89,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
 
   # M3 — same guard on the vertical tick path.
   it "renders a vertical large-range Slider with ticks without raising (M3 vertical)" do
-    s = range_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 3, height: 20,
       orientation: Tput::Orientation::Vertical,
       minimum: 0, maximum: Int32::MAX, value: 2_000_000_000,

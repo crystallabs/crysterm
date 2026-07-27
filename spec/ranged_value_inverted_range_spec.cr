@@ -2,16 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `Mixin::RangedValue` must never store an inverted `minimum > maximum` range:
 # the value clamp and `#value_span`/percent helpers assume `min <= max`. Mirrors
 # Qt, where bounds adjust to stay ordered.
 describe "Crysterm::Mixin::RangedValue inverted-range guard" do
   it "carries the maximum up when the new minimum exceeds it (Qt setMinimum)" do
-    s = mem_screen
+    s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 50
 
     sb.minimum = 150
@@ -23,7 +19,7 @@ describe "Crysterm::Mixin::RangedValue inverted-range guard" do
   end
 
   it "carries the minimum down when the new maximum is below it (Qt setMaximum)" do
-    s = mem_screen
+    s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 50, maximum: 100, value: 80
 
     sb.maximum = 10
@@ -34,7 +30,7 @@ describe "Crysterm::Mixin::RangedValue inverted-range guard" do
   end
 
   it "collapses an inverted range passed straight to #set_range" do
-    s = mem_screen
+    s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 40
 
     sb.set_range 80, 20
@@ -45,7 +41,7 @@ describe "Crysterm::Mixin::RangedValue inverted-range guard" do
   end
 
   it "keeps a valid range and value usable after the bounds were re-ordered" do
-    s = mem_screen
+    s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 50
 
     # Bounds set in the "wrong" order (min before max).

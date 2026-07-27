@@ -11,15 +11,9 @@ include Crysterm
 # subtree to invalidate the screen cache), so without the guard these examples
 # crash rather than fail.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Widget#insert cycle guard" do
   it "refuses to make a widget a child of itself" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: 4, height: 2
 
     a.append a # would create a self-cycle
@@ -31,7 +25,7 @@ describe "Widget#insert cycle guard" do
   end
 
   it "refuses to make a widget a child of its own descendant" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: 10, height: 5
     b = Widget::Box.new width: 4, height: 2
     a.append b
@@ -48,7 +42,7 @@ describe "Widget#insert cycle guard" do
   end
 
   it "still allows reordering an existing child (no false positive)" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     parent = Widget::Box.new parent: s, width: 10, height: 5
     c1 = Widget::Box.new width: 2, height: 1
     c2 = Widget::Box.new width: 2, height: 1

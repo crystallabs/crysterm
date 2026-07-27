@@ -8,16 +8,6 @@ include Crysterm
 # `Window` over in-memory IOs driven by the synchronous `Window#repaint`, with
 # cells asserted straight off `Window#lines`.
 
-private def bt_screen(width = 60, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
-private def row_text(s, y, len)
-  String.build { |io| len.times { |x| io << s.lines[y][x].char } }
-end
-
 private def em_row_text(em, row, len)
   String.build do |io|
     len.times { |x| io << (em.lines[row]?.try(&.[x]?).try(&.char) || ' ') }
@@ -27,7 +17,7 @@ end
 # ── #17: TERM is exported to the PTY child ───────────────────────────────────
 describe "BUGS15 17: Widget::Terminal exports term_name as TERM to the child" do
   it "advertises the configured term_name to the spawned shell" do
-    s = bt_screen 80, 24
+    s = headless_screen(80, 24)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 40, height: 4,
       shell: "sh", args: ["-c", "printf 'TERM=[%s]' \"$TERM\"; sleep 5"],
@@ -48,7 +38,7 @@ describe "BUGS15 17: Widget::Terminal exports term_name as TERM to the child" do
   end
 
   it "does not override an explicit TERM already present in the env" do
-    s = bt_screen 80, 24
+    s = headless_screen(80, 24)
     env = {} of String => String?
     env["TERM"] = "myterm-explicit"
     term = Crysterm::Widget::Terminal.new(
@@ -73,7 +63,7 @@ end
 # ── #36: text-editor caret/click honor the ancestor-clip offset ───────────────
 describe "BUGS15 36: text editor click/caret map through the clip-aware base" do
   it "position_at maps a click to the buffer line actually painted there" do
-    s = bt_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 6, scrollable: true
     pte = Widget::PlainTextEdit.new parent: outer, top: 0, left: 0, width: 20, height: 10,
       content: "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9"
@@ -97,7 +87,7 @@ describe "BUGS15 36: text editor click/caret map through the clip-aware base" do
   end
 
   it "_update_cursor places the caret at the row where its line is painted" do
-    s = bt_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 6, scrollable: true
     pte = Widget::PlainTextEdit.new parent: outer, top: 0, left: 0, width: 20, height: 10,
       content: "line0\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9"
@@ -122,7 +112,7 @@ end
 # ── #45: Terminal#draw maps the clipped grid region correctly ─────────────────
 describe "BUGS15 45: clipped Widget::Terminal shows the correct grid region" do
   it "paints the scrolled-into-view emulator rows, not the top-left corner" do
-    s = bt_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 6, scrollable: true
     term = Crysterm::Widget::Terminal.new(
       parent: outer, top: 0, left: 0, width: 20, height: 10,
@@ -166,13 +156,13 @@ end
 # ── #46: ranged extra selections honor the row's decoration offset ────────────
 describe "BUGS15 46: ranged extra selections use the row decoration offset" do
   it "highlights the selected text on a decorated (list) row, not the marker" do
-    s = bt_screen 40, 8
+    s = headless_screen(40, 8)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
     "- one".each_char { |c| te._listener Crysterm::Event::KeyPress.new(c) }
     s.repaint
     # Row renders as "• one": marker at cols 0-1, text "one" at cols 2-4.
-    row_text(s, 0, 5).should eq "• one"
+    row_text(s, 0, 0...5).should eq "• one"
 
     # A ranged extra selection over the whole word "one" (document 0..3).
     cur = TextCursor.new(te.document, 0)

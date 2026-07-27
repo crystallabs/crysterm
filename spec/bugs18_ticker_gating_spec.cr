@@ -21,12 +21,6 @@ include Crysterm
 # a later show). A *shared* `animate: <Timer>` clock is left alone in both
 # cases — it belongs to the caller.
 
-private def headless_screen(w = 20, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Exposes the private pause flag for assertions.
 private class GradientProbe < Crysterm::Widget::Gradient
   def paused?
@@ -61,7 +55,7 @@ end
 describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
   describe "Widget::Gradient animate: true" do
     it "stops the private timer when hidden, and resumes on show" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       g = GradientProbe.new parent: s, top: 0, left: 0, width: 8, height: 3,
         animate: true, interval: 0.05.seconds
       begin
@@ -87,7 +81,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
     end
 
     it "stops the timer when detached, and resumes on re-attach" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       g = GradientProbe.new parent: s, top: 0, left: 0, width: 8, height: 3, animate: true
 
       begin
@@ -104,7 +98,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
     end
 
     it "does not resume on show if #stop_animation was called explicitly while hidden" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       g = GradientProbe.new parent: s, top: 0, left: 0, width: 8, height: 3, animate: true
 
       begin
@@ -123,7 +117,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
     end
 
     it "leaves a shared animate: Timer clock running when the widget hides" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       clock = Crysterm::Timer.new 0.05.seconds
       g = GradientProbe.new parent: s, top: 0, left: 0, width: 8, height: 3, animate: clock
 
@@ -145,7 +139,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
       path = File.tempname("bugs18_ticker_media", ".png")
       write_apng_delays path, [20, 20, 20], num_plays: 0
       begin
-        s = headless_screen
+        s = headless_screen(20, 10)
         img = MediaProbe.new file: path, parent: s, top: 0, left: 0, width: 4, height: 3
         img.play
 
@@ -183,7 +177,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
       path = File.tempname("bugs18_ticker_media_detach", ".png")
       write_apng_delays path, [20, 20, 20], num_plays: 0
       begin
-        s = headless_screen
+        s = headless_screen(20, 10)
         img = MediaProbe.new file: path, parent: s, top: 0, left: 0, width: 4, height: 3
         img.play
 
@@ -212,7 +206,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
       path = File.tempname("bugs18_ticker_media_stop", ".png")
       write_apng_delays path, [20, 20, 20], num_plays: 0
       begin
-        s = headless_screen
+        s = headless_screen(20, 10)
         img = MediaProbe.new file: path, parent: s, top: 0, left: 0, width: 4, height: 3
         img.play
 

@@ -7,12 +7,16 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: 80, height: 24)
-  end
-
-  private def rgb(name)
-    Crysterm::Colors.convert(name).to_i32
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   # ---- Finding 24: registry leaf-name collision ----------------------------
@@ -20,14 +24,14 @@ require "http/client"
   describe "BUGS-F1 #24 <w-progressbar> registry key collision (ProgressBar vs Pine::ProgressBar)" do
     it "registers progressbar to the standard Widget::ProgressBar (shallowest namespace wins)" do
       factory = Crysterm::DOM.registry["progressbar"]?.not_nil!
-      w = factory.call(headless_screen)
+      w = factory.call(headless_screen(80, 24, default_quit_keys: true))
       # Exact class, not the Pine subclass — before the fix, `all_subclasses`
       # order decided non-deterministically which one shadowed the key.
       w.class.should eq Crysterm::Widget::ProgressBar
     end
 
     it "loads <w-progressbar> as the standard widget, not the Pine subclass" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><w-progressbar id="p"></w-progressbar></w-window>)
       pb = s.find_by_id("p").not_nil!
       pb.class.should eq Crysterm::Widget::ProgressBar
@@ -38,7 +42,7 @@ require "http/client"
 
   describe "BUGS-F1 #25 top-level append keeps the page's inline <style> rules" do
     it "a selector-less append of a <style>-less fragment does NOT wipe inline CSS" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
       s.apply_stylesheet
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("red")
@@ -52,7 +56,7 @@ require "http/client"
     end
 
     it "a top-level append carrying its own <style> merges rather than replaces" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
       Crysterm::DOM.load(%(<style>#y{color:blue}</style><w-box id="y"></w-box>), s)
       s.apply_stylesheet
@@ -61,7 +65,7 @@ require "http/client"
     end
 
     it "load_layout still REPLACES inline CSS (hot-reload semantics preserved)" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>) # no <style>
       s.apply_stylesheet
@@ -73,7 +77,7 @@ require "http/client"
 
   describe "BUGS-F1 #43 HTTPBridge start/quit server lifecycle" do
     it "does not latch running? when bind fails, and closes the server on quit" do
-      a = Crysterm::HTTPBridge.new(headless_screen, port: 7310)
+      a = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7310)
       a.start
       sleep 100.milliseconds # let the listen fiber schedule before we quit it
       a.running?.should be_true
@@ -81,7 +85,7 @@ require "http/client"
       # Second bridge on the same live port: bind_tcp raises. running? must stay
       # false so a retry is possible (before the fix it latched true BEFORE the
       # bind, permanently no-op'ing every later start in the process).
-      b = Crysterm::HTTPBridge.new(headless_screen, port: 7310)
+      b = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7310)
       expect_raises(Socket::BindError) { b.start }
       b.running?.should be_false
 
@@ -91,7 +95,7 @@ require "http/client"
       a.running?.should be_false
 
       # The port is reusable now — proof the server was actually closed.
-      c = Crysterm::HTTPBridge.new(headless_screen, port: 7310)
+      c = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7310)
       c.start
       c.running?.should be_true
       c.quit
@@ -102,9 +106,9 @@ require "http/client"
 
   describe "BUGS-F1 #44 JSON-RPC responses always include id (null on parse error)" do
     it "emits id:null on a parse error" do
-      bridge = Crysterm::HTTPBridge.new(headless_screen, port: 7320)
+      bridge = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7320)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7320
       begin
         resp = HTTP::Client.post("http://127.0.0.1:7320/rpc", body: "{ this is not json")
         body = JSON.parse(resp.body)
@@ -118,11 +122,11 @@ require "http/client"
     end
 
     it "echoes the request id on a normal response" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="x" content="v"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7321)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7321
       begin
         resp = HTTP::Client.post("http://127.0.0.1:7321/rpc",
           body: %({"jsonrpc":"2.0","id":7,"method":"getContent","params":{"selector":"#x"}}))
@@ -139,7 +143,7 @@ require "http/client"
 
   describe "BUGS-F1 #53 bare boolean layout attributes parse as true (HTML semantics)" do
     it "treats a valueless / empty parse-tags as true, explicit false as false" do
-      box = Widget::Box.new parent: headless_screen, width: 10, height: 3
+      box = Widget::Box.new parent: headless_screen(80, 24, default_quit_keys: true), width: 10, height: 3
       box.parse_tags = false
       box.dom_apply "parse-tags", nil # bare boolean attribute
       box.parse_tags?.should be_true
@@ -150,7 +154,7 @@ require "http/client"
     end
 
     it "keeps wrap-content bare == true and explicit false == false" do
-      box = Widget::Box.new parent: headless_screen, width: 10, height: 3
+      box = Widget::Box.new parent: headless_screen(80, 24, default_quit_keys: true), width: 10, height: 3
       box.dom_apply "wrap-content", nil
       box.wrap_content?.should be_true
       box.dom_apply "wrap-content", "false"
@@ -158,13 +162,13 @@ require "http/client"
     end
 
     it "loads a bare <w-box parse-tags> as parse_tags? == true" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="b" parse-tags></w-box></w-window>)
       s.find_by_id("b").not_nil!.parse_tags?.should be_true
     end
 
     it "auto-generated bool branch also treats a bare attribute as true" do
-      pb = Widget::ProgressBar.new window: headless_screen, width: 20, height: 1
+      pb = Widget::ProgressBar.new window: headless_screen(80, 24, default_quit_keys: true), width: 20, height: 1
       pb.text_visible?.should be_false
       pb.dom_apply "text-visible", nil # generated branch (dom_autoserialize.cr)
       pb.text_visible?.should be_true
@@ -177,7 +181,7 @@ require "http/client"
 
   describe %(BUGS-F1 #54 List#dom_apply("items", "") clears instead of adding an empty row) do
     it "leaves the list empty for an empty-string value (no phantom empty row)" do
-      list = Widget::List.new parent: headless_screen, width: 10, height: 5
+      list = Widget::List.new parent: headless_screen(80, 24, default_quit_keys: true), width: 10, height: 5
       list.dom_apply "items", "a\nb\nc"
       list.item_texts.should eq %w[a b c]
 
@@ -191,9 +195,9 @@ require "http/client"
 
   describe "BUGS-F1 #55 SSE /events flushes headers on connect" do
     it "delivers the stream open (: connected) immediately, not after the 15s ping" do
-      bridge = Crysterm::HTTPBridge.new(headless_screen, port: 7330)
+      bridge = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7330)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7330
 
       got = Channel(String).new(1)
       spawn do

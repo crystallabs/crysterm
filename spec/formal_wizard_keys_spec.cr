@@ -8,11 +8,6 @@ include Crysterm
 # only via the button. The keys are guarded so a focused text editor still gets
 # them.
 
-private def mem_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 60, height: 20, default_quit_keys: false)
-end
-
 private def three_page_wizard(s)
   wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
   wiz.add_page "One", Crysterm::Widget::Box.new(content: "1")
@@ -23,7 +18,7 @@ end
 
 describe "Wizard Enter/Escape keys (B0.4)" do
   it "Escape cancels the wizard" do
-    s = mem_screen
+    s = headless_screen(60, 20)
     wiz = three_page_wizard s
     cancelled = false
     wiz.on(Crysterm::Event::Cancelled) { cancelled = true }
@@ -33,7 +28,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
   end
 
   it "Enter advances pages, then finishes on the last page" do
-    s = mem_screen
+    s = headless_screen(60, 20)
     wiz = three_page_wizard s
     completed = false
     wiz.on(Crysterm::Event::Completed) { completed = true }
@@ -49,7 +44,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
   end
 
   it "does not advance on Enter while a text editor on a page is focused" do
-    s = mem_screen
+    s = headless_screen(60, 20)
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
     page = Crysterm::Widget::Box.new
     wiz.add_page "Form", page
@@ -64,7 +59,7 @@ describe "Wizard Enter/Escape keys (B0.4)" do
   end
 
   it "stops intercepting keys after destroy" do
-    s = mem_screen
+    s = headless_screen(60, 20)
     wiz = three_page_wizard s
     cancelled = 0
     wiz.on(Crysterm::Event::Cancelled) { cancelled += 1 }

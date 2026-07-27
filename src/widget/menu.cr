@@ -66,8 +66,10 @@ module Crysterm
       # Replaces the whole action set, rewiring the `Changed` watchers and
       # rebuilding the rows.
       def actions=(actions : Array(Action)) : Array(Action)
-        clear
-        actions.each { |a| self << a }
+        batch_update do
+          clear
+          actions.each { |a| self << a }
+        end
         @actions
       end
 
@@ -229,6 +231,41 @@ module Crysterm
       # `#popup`), so it dismisses itself on outside click / after a leaf fires.
       @popup_mode = false
 
+      # Depth of the active `#begin_update`/`#end_update` batch (nestable), and
+      # whether a `#sync_items` was requested while batching.
+      @sync_depth : Int32 = 0
+      @sync_pending : Bool = false
+
+      # Suspends row rebuilds until the matching `#end_update`. Every structural
+      # edit in between coalesces into a single `#sync_items`, turning an O(A²)
+      # bulk load (each `#<<` rebuilding all rows) into O(A). Nestable; a lone
+      # `#<<` outside a batch still rebuilds immediately.
+      def begin_update : Nil
+        @sync_depth += 1
+      end
+
+      # Ends a `#begin_update` batch, running the single deferred row rebuild
+      # once the outermost batch closes (and only if something requested one).
+      def end_update : Nil
+        @sync_depth -= 1 if @sync_depth > 0
+        if @sync_depth == 0 && @sync_pending
+          @sync_pending = false
+          sync_items
+        end
+      end
+
+      # Runs *block* inside a `#begin_update`/`#end_update` batch, flushing even
+      # if it raises. (Named `batch_update`, like `Tree`'s, so the plain
+      # `Widget#update` repaint-scheduler keeps its Qt meaning on menus too.)
+      def batch_update(&) : Nil
+        begin_update
+        begin
+          yield
+        ensure
+          end_update
+        end
+      end
+
       # Adds *action* to the menu (no-op if already present). `#watch_action`
       # associates it and re-renders whenever its display state changes,
       # mirroring a Qt menu tracking its `QAction`s' `changed()` signal — that is
@@ -279,7 +316,7 @@ module Crysterm
       # Appends every action in *actions*, in order (Qt's `QMenu#addActions`) —
       # distinct from `#actions=`, which clears the menu first.
       def add_actions(actions : Enumerable(Action)) : self
-        actions.each { |a| self << a }
+        batch_update { actions.each { |a| self << a } }
         self
       end
 
@@ -842,6 +879,13 @@ module Crysterm
       # `#size_rows` stretches it to the final width at render. Separators are a
       # placeholder here, sized by `#size_separators`.
       private def sync_items
+        # Batched (`#begin_update`): record that a rebuild is owed and let the
+        # matching `#end_update` run it once, instead of once per edit.
+        if @sync_depth > 0
+          @sync_pending = true
+          return
+        end
+
         # This is the single structural-change point, so the cached
         # visible-action snapshot and per-row text columns refresh here and the
         # per-frame render path reads them without recomputing. The row layout is
@@ -1089,7 +1133,9 @@ module Crysterm
         # borderless copy during rapid reopening. Falls back to the theme when
         # this menu has no inline style.
         child = Menu.new(window: window, style: inline_style.try(&.dup))
-        subs.each { |a| child << a }
+        # One row rebuild for the whole submenu, not one per action: this runs on
+        # *every* open, so the per-add `#sync_items` made opening O(A²).
+        child.batch_update { subs.each { |a| child << a } }
         child.parent_menu = self
 
         # Add to the tree and resolve its themed box model *now*, before sizing

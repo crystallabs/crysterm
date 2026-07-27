@@ -14,26 +14,6 @@ include Crysterm
 #   13 (src/window_connection.cr, — a stale input fiber must stop dispatching to
 #       src/screen_input.cr)        a detached screen after `stop_input`.
 
-private def f1_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
-# Spins the event loop until *block* is truthy or the deadline passes (raising so
-# a never-satisfied condition fails loudly rather than hanging forever).
-private def wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
 # Drives the *real* device input fiber (`Screen#start_input` -> `tput.listen`)
 # over an in-process pipe, so the per-event/stop-flag behavior is exercised end
 # to end instead of asserted structurally. Yields {reader, writer, window, seen}.
@@ -103,9 +83,9 @@ end
 
 describe "BUGS-F1 #8 at_exit destroys every window despite registry mutation" do
   it "dup-iterating the registry destroys all windows (delete-during-each safe)" do
-    w1 = f1_window
-    w2 = f1_window
-    w3 = f1_window
+    w1 = headless_screen(80, 24)
+    w2 = headless_screen(80, 24)
+    w3 = headless_screen(80, 24)
 
     Window.instances.includes?(w1).should be_true
     Window.instances.includes?(w2).should be_true
@@ -132,7 +112,7 @@ end
 
 describe "BUGS-F1 #12 destroy stops the resize fiber" do
   it "does not run #refresh_size on a destroyed window for a resize pending at destroy" do
-    w = f1_window
+    w = headless_screen(80, 24)
     # Large debounce so the resize fiber is parked in its drain wait when we
     # destroy, exercising the pending-notification path.
     w.resize_interval = 300.milliseconds

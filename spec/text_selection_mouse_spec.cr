@@ -17,93 +17,72 @@ include Crysterm
 # construction (and after any `.value =` that changes wrapping) in every test
 # below.
 
-private def sel_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
-private def mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
-  ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
-end
-
-private def press(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Down, x, y)
-end
-
 # Motion with the (left) button still held — what a drag-to-select reports.
 # Distinct from `drag_spec.cr`'s `move` helper, which sends `Button::None`
 # (that spec drives the drag-and-drop sensor, which tracks its own armed
 # state instead of reading the reported button).
 private def drag_move(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Move, x, y, ::Tput::Mouse::Button::Left)
-end
-
-private def release(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Up, x, y, ::Tput::Mouse::Button::None)
+  mouse_move(s, x, y, ::Tput::Mouse::Button::Left)
 end
 
 describe "Mixin::TextEditing mouse cursor positioning / selection" do
   describe Widget::LineEdit do
     it "moves the cursor to the clicked codepoint index (start/middle/end)" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       le.cursor_pos.should eq 0
 
-      press s, 2, 0
+      mouse_down s, 2, 0
       le.cursor_pos.should eq 2
 
-      press s, 5, 0
+      mouse_down s, 5, 0
       le.cursor_pos.should eq 5
     end
 
     it "clicking past the end of the content lands the cursor at the end, not out of bounds" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 999, 0
+      mouse_down s, 999, 0
       le.cursor_pos.should eq le.value.size
       le.cursor_pos.should eq 5
     end
 
     it "clicking at x=0/y=0 lands at position 0" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       le.cursor_pos.should eq 0
     end
 
     it "a plain click with no drag leaves no selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
       # Down with no subsequent move.
-      press s, 2, 0
+      mouse_down s, 2, 0
       le.selection?.should be_false
 
       # Down then up at the same position.
-      press s, 3, 0
-      release s, 3, 0
+      mouse_down s, 3, 0
+      mouse_up s, 3, 0
       le.selection?.should be_false
     end
 
     it "press then drag-move extends the selection to the new position" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 2, 0     # cursor_pos = 2, anchor = 2
-      drag_move s, 4, 0 # cursor_pos = 4
+      mouse_down s, 2, 0 # cursor_pos = 2, anchor = 2
+      drag_move s, 4, 0  # cursor_pos = 4
 
       le.cursor_pos.should eq 4
       le.selection_anchor.should eq 2
@@ -113,11 +92,11 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "dragging backward (right-to-left) still produces a normalized [lo, hi) range" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 4, 0
+      mouse_down s, 4, 0
       drag_move s, 1, 0
 
       le.cursor_pos.should eq 1
@@ -127,37 +106,37 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "typing a character after a selection clears it" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 1, 0
+      mouse_down s, 1, 0
       drag_move s, 3, 0
       le.selection?.should be_true
 
-      le._listener Crysterm::Event::KeyPress.new 'X'
+      le._listener kp 'X'
       le.selection?.should be_false
     end
 
     it "any keyboard interaction (e.g. arrow key) clears an active selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 1, 0
+      mouse_down s, 1, 0
       drag_move s, 3, 0
       le.selection?.should be_true
 
-      le._listener Crysterm::Event::KeyPress.new '\0', Tput::Key::Right
+      le._listener kp '\0', Tput::Key::Right
       le.selection?.should be_false
     end
 
     it "setting .value= externally clears an active selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s.repaint
 
-      press s, 1, 0
+      mouse_down s, 1, 0
       drag_move s, 3, 0
       le.selection?.should be_true
 
@@ -168,63 +147,63 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
 
   describe Widget::PlainTextEdit do
     it "moves the cursor to the clicked codepoint index (start/middle/end) on a single line" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       pte.cursor_pos.should eq 0
 
-      press s, 6, 0
+      mouse_down s, 6, 0
       pte.cursor_pos.should eq 6
 
-      press s, 11, 0
+      mouse_down s, 11, 0
       pte.cursor_pos.should eq 11
     end
 
     it "clicking past the end of the content lands the cursor at the end, not out of bounds" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 999, 0
+      mouse_down s, 999, 0
       pte.cursor_pos.should eq pte.value.size
       pte.cursor_pos.should eq 11
     end
 
     it "clicking at x=0/y=0 lands at position 0" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       pte.cursor_pos.should eq 0
     end
 
     it "a plain click with no drag leaves no selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 4, 0
+      mouse_down s, 4, 0
       pte.selection?.should be_false
 
-      press s, 6, 0
-      release s, 6, 0
+      mouse_down s, 6, 0
+      mouse_up s, 6, 0
       pte.selection?.should be_false
     end
 
     it "press then drag-move extends the selection to the new position" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0
 
       pte.cursor_pos.should eq 5
@@ -233,26 +212,26 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "typing a character after a selection clears it" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0
       pte.selection?.should be_true
 
-      pte._listener Crysterm::Event::KeyPress.new 'X'
+      pte._listener kp 'X'
       pte.selection?.should be_false
     end
 
     it "setting .value= externally clears an active selection" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "hello world"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 5, 0
       pte.selection?.should be_true
 
@@ -261,14 +240,14 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "a selection spanning two logical (newline-separated) lines includes the embedded \\n" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "line one\nline two"
       s.repaint
 
       # Row 0 col 5 -> index 5 ("line one"[5] == 'o' of "one", start of "one").
       # Row 1 col 5 -> index 9 (after "line one\n") + 5 == 14.
-      press s, 5, 0
+      mouse_down s, 5, 0
       drag_move s, 5, 1
 
       pte.cursor_pos.should eq 14
@@ -278,7 +257,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "a selection spanning a wrapped (soft-wrapped) single line matches the expected substring" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       # width 12 minus the 1-column caret margin (`content_margin_x`) leaves an
       # 11-column wrap width, so a 16-char line with no spaces wraps at 11:
       # row 0 = "abcdefghijk", row 1 = "lmnop".
@@ -287,8 +266,8 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       s.repaint
       pte.content_width.should eq 11
 
-      press s, 0, 0     # row 0, col 0 -> index 0
-      drag_move s, 2, 1 # row 1, col 2 -> index 11 + 2 = 13
+      mouse_down s, 0, 0 # row 0, col 0 -> index 0
+      drag_move s, 2, 1  # row 1, col 2 -> index 11 + 2 = 13
 
       pte.cursor_pos.should eq 13
       pte.selection_range.should eq(0...13)
@@ -302,7 +281,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     # `#position_at` (mouse mapping) / Up-Down (`#pos_from_rowcol`) surface: a
     # wrong or stale offset table lands the caret on the wrong logical line.
     it "maps a click on a later logical line past a TAB-containing line to the right index" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       # Line 0 "\tab" holds a TAB (renders as 4 columns) but is only 3 chars in
       # `@value`; line 1 "xy" starts at raw index 4. `#fake_line_bounds(1)` must
@@ -310,15 +289,15 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       pte.value = "\tab\nxy"
       s.repaint
 
-      press s, 1, 1 # row 1, col 1 -> "xy"[1] -> raw index 4 + 1 = 5
+      mouse_down s, 1, 1 # row 1, col 1 -> "xy"[1] -> raw index 4 + 1 = 5
       pte.cursor_pos.should eq 5
 
-      press s, 0, 1 # row 1, col 0 -> raw index 4
+      mouse_down s, 0, 1 # row 1, col 0 -> raw index 4
       pte.cursor_pos.should eq 4
     end
 
     it "rebuilds the line-offset cache after the buffer changes (no stale mapping)" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "\tab\nxy"
       s.repaint
@@ -337,12 +316,12 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     it "keeps a selection's highlight stable across repeated renders (warm cache)" do
-      s = sel_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 20, height: 5
       pte.value = "a\tb\ncde\nfgh"
       s.repaint
 
-      press s, 0, 0
+      mouse_down s, 0, 0
       drag_move s, 2, 2 # extend down two rows
 
       first = pte.selected_text

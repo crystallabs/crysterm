@@ -18,14 +18,9 @@ include Crysterm
 #   (non-finite falls back to the finite data range) with a belt-and-braces
 #   `t = 0.0 unless t.finite?` guard in `color_for`.
 
-private def bugs14_screen(w = 40, h = 20)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS14 A3: Calendar ISO week numbers at December 9999" do
   it "does not raise when the shown page is December 9999" do
-    s = bugs14_screen
+    s = headless_screen(40, 20)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(9999, 12, 15)
     # Turning on the ISO-week gutter reruns `build_content` for the Dec 9999
@@ -39,7 +34,7 @@ describe "BUGS14 A3: Calendar ISO week numbers at December 9999" do
   end
 
   it "renders normal months with ISO week numbers as before (no regression)" do
-    s = bugs14_screen
+    s = headless_screen(40, 20)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 1, 15)
     cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
@@ -90,7 +85,7 @@ end
 
 describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" do
   it "does not raise on render when minimum is Infinity" do
-    s = bugs14_screen
+    s = headless_screen(40, 20)
     hm = Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
       values: [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
     hm.minimum = Float64::INFINITY
@@ -105,7 +100,7 @@ describe "BUGS14 A5: HeatMap tolerates a non-finite explicit color-scale bound" 
   end
 
   it "does not raise when maximum is NaN" do
-    s = bugs14_screen
+    s = headless_screen(40, 20)
     hm = Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
       values: [[10.0, 20.0], [30.0, 40.0]]
     hm.maximum = Float64::NAN

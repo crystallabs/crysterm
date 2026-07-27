@@ -14,16 +14,6 @@ include Crysterm
 # assertions, the same technique `bugs5_lifecycle_spec.cr` uses for its
 # ffmpeg-only invariant.
 
-private def leak_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def read_src(rel : String) : String
   File.read(File.join(__DIR__, "..", "src", rel))
 end
@@ -34,7 +24,7 @@ end
 
 describe "Menu per-action handler/association cleanup (F2 #10)" do
   it "removes every action's Changed handler and dissociates on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
 
     a = menu.add_action "One"
@@ -62,7 +52,7 @@ end
 
 describe "ToolBar per-action handler/association cleanup (F2 #10)" do
   it "removes each backing action's Changed handler and dissociates on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: 40, height: 1
 
     bold = Crysterm::Action.new "Bold"
@@ -87,7 +77,7 @@ end
 
 describe "Effect widgets stop their animation on destroy (F2 #11)" do
   it "CopperBar (Animated) stops on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1
     bar.start
     bar.running?.should be_true
@@ -98,7 +88,7 @@ describe "Effect widgets stop their animation on destroy (F2 #11)" do
   end
 
   it "Matrix (Direct) stops on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Effect::Matrix.new parent: s, width: 10, height: 5
     m.start
     m.running?.should be_true
@@ -109,7 +99,7 @@ describe "Effect widgets stop their animation on destroy (F2 #11)" do
   end
 
   it "Spray (Direct) stops on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Effect::Spray.new parent: s, width: 10, height: 5
     sp.start
     sp.running?.should be_true
@@ -120,7 +110,7 @@ describe "Effect widgets stop their animation on destroy (F2 #11)" do
   end
 
   it "SineScroller (Animated) stops on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     sc = Crysterm::Widget::Effect::SineScroller.new parent: s, width: 20, height: 6, text: "HI"
     sc.start
     sc.running?.should be_true
@@ -131,7 +121,7 @@ describe "Effect widgets stop their animation on destroy (F2 #11)" do
   end
 
   it "Marquee (Animated) stops on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     mq = Crysterm::Widget::Marquee.new parent: s, width: 20, height: 1, text: "NEWS  "
     mq.start
     mq.running?.should be_true
@@ -142,7 +132,7 @@ describe "Effect widgets stop their animation on destroy (F2 #11)" do
   end
 
   it "the Destroy hook is installed once, not per start/stop cycle" do
-    s = leak_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1
     bar.start
     bar.stop
@@ -164,7 +154,7 @@ end
 
 describe "Gradient shared-clock subscription cleanup (F2 #33)" do
   it "removes its Tick handler from a shared clock on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     clock = Crysterm::Timer.new(0.1.seconds, autostart: false)
     clock.handlers(Crysterm::Event::Tick).size.should eq 0
 
@@ -179,7 +169,7 @@ describe "Gradient shared-clock subscription cleanup (F2 #33)" do
   end
 
   it "creating/destroying many gradients against one clock doesn't accumulate handlers" do
-    s = leak_window
+    s = headless_screen(80, 24)
     clock = Crysterm::Timer.new(0.1.seconds, autostart: false)
     5.times do
       g = Crysterm::Widget::Gradient.new parent: s, width: 20, height: 2, animate: clock
@@ -197,7 +187,7 @@ end
 
 describe "Message keypress-dismiss subscription cleanup (F2 #44)" do
   it "removes the window keypress handler on destroy" do
-    s = leak_window
+    s = headless_screen(80, 24)
     msg = Crysterm::Widget::Message.new parent: s, width: 20, height: 3
 
     before = s.handlers(Crysterm::Event::KeyPress).size

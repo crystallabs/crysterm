@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def pkp_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def press(widget, char : Char)
   widget.on_keypress Crysterm::Event::KeyPress.new(char, nil)
 end
 
 describe "Pine::KeyPrompt" do
   it "records the answer and runs the choice's callback on a matching key" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     ran = nil.as(String?)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Save?",
@@ -35,7 +25,7 @@ describe "Pine::KeyPrompt" do
   end
 
   it "matches keys case-insensitively" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Pick",
       [Crysterm::Widget::Pine::KeyPrompt::Choice.new("C", "Cancel")],
@@ -46,7 +36,7 @@ describe "Pine::KeyPrompt" do
   end
 
   it "ignores keys that match no choice" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new(
       "Save?",
       [Crysterm::Widget::Pine::KeyPrompt::Choice.new("Y", "Yes")],
@@ -57,7 +47,7 @@ describe "Pine::KeyPrompt" do
   end
 
   it "emits Event::Activated with the chosen key" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     prompt = Crysterm::Widget::Pine::KeyPrompt.yes_no("Quit?", parent: s)
     got = nil.as(String?)
     prompt.on(Crysterm::Event::Activated) { |e| got = e.value }
@@ -70,7 +60,7 @@ describe "Pine::KeyPrompt" do
   # A plain Box does not receive key events; the prompt must register as
   # keyable so the screen dispatches choice keys to it once focused.
   it "is keyable so it receives key presses when focused" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     prompt = Crysterm::Widget::Pine::KeyPrompt.yes_no("Quit?", parent: s)
     prompt.keyable?.should be_true
   end
@@ -78,7 +68,7 @@ describe "Pine::KeyPrompt" do
   # Each choice is a clickable child box, so the prompt can be answered by
   # mouse too.
   it "answers when a choice box is clicked" do
-    s = pkp_screen
+    s = headless_screen(80, 24)
     ran = nil.as(String?)
     prompt = Crysterm::Widget::Pine::KeyPrompt.new("Quit?", [
       Crysterm::Widget::Pine::KeyPrompt::Choice.new("Y", "Yes", -> { ran = "yes"; nil }),

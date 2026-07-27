@@ -11,12 +11,6 @@ include Crysterm
 #   whose `@keyframes` body changed (or vanished) restarts/stops the running
 #   animation instead of ticking the stale stops forever.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Exposes the CSS-animation internals for assertions.
 private class AnimProbe < Crysterm::Widget::Box
   def anim_clock
@@ -93,7 +87,7 @@ end
 
 describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
   it "picks up a changed @keyframes body when the animation: declaration is unchanged" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = AnimProbe.new parent: screen, width: 5, height: 3
     box.add_css_class "anim"
     begin
@@ -122,7 +116,7 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
   end
 
   it "does not churn the clock when nothing changed" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = AnimProbe.new parent: screen, width: 5, height: 3
     box.add_css_class "anim"
     begin
@@ -141,7 +135,7 @@ describe "BUGS13 S8 stylesheet swap refreshes a running CSS animation" do
   end
 
   it "stops the clock when the @keyframes definition is removed" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = AnimProbe.new parent: screen, width: 5, height: 3
     box.add_css_class "anim"
     begin

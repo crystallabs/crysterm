@@ -5,28 +5,6 @@ include Crysterm
 
 # Regression specs for the BUGS-F1 CSS findings (21, 22, 23, 42, 45, 46, 47, 48).
 
-private def headless_screen(width = 80, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it, so asserting on computed colors isn't foiled by the theme.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # --- Finding 45: per-side padding/margin longhands drop invalid values --------
 
 describe "BUGS-F1 #45 per-side padding/margin longhands drop invalid/blank values" do
@@ -90,7 +68,7 @@ end
 
 describe "BUGS-F1 #47 nested rule wins an equal-specificity tie over the parent declaration" do
   it "lets a nested @media override the parent declaration on a wide terminal" do
-    screen = headless_screen(80, 24)
+    screen = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: screen
 
     without_default_theme do
@@ -101,7 +79,7 @@ describe "BUGS-F1 #47 nested rule wins an equal-specificity tie over the parent 
   end
 
   it "lets a nested `&` block override the parent declaration on a tie" do
-    screen = headless_screen(80, 24)
+    screen = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: screen
 
     without_default_theme do
@@ -129,7 +107,7 @@ describe "BUGS-F1 #22 state pseudo-classes inside :has() are lowered to .state-*
   end
 
   it "matches Form:has(Input:focus) once the input is focused (end-to-end)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     form = Widget::Form.new
     input = Widget::Input.new
     form.append input
@@ -158,7 +136,7 @@ end
 
 describe "BUGS-F1 #23 an attribute change updates a :has() ancestor subject outside its subtree" do
   it "restyles a Form matched by Form:has(.error) when a deep descendant gains .error" do
-    screen = headless_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     form = Widget::Form.new
     mid = Widget::Box.new # intermediate ancestor, so the input's parent subtree excludes the form
     deep = Widget::Box.new
@@ -187,7 +165,7 @@ end
 
 describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" do
   it "re-applies a media rule when the size folds into the cascade-skip identity" do
-    screen = headless_screen(100, 24)
+    screen = headless_screen(100, 24, default_quit_keys: true)
     box = Widget::Box.new parent: screen
 
     without_default_theme do
@@ -205,7 +183,7 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
   end
 
   it "re-evaluates @media through the render path after a resize (end-to-end)" do
-    screen = headless_screen(100, 24)
+    screen = headless_screen(100, 24, default_quit_keys: true)
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 3
 
     begin
@@ -239,7 +217,7 @@ end
 
 describe "BUGS-F1 #42 swapping animation: to a missing @keyframes stops the old clock" do
   it "freezes the old animation instead of ticking it forever" do
-    screen = headless_screen(20, 5)
+    screen = headless_screen(20, 5, default_quit_keys: true)
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 3
 
     begin
@@ -276,7 +254,7 @@ end
 
 describe "BUGS-F1 #48 state-specific rules on table-cell extra slots" do
   it "applies the base Cell rule deterministically and drops Cell:hover" do
-    screen = headless_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"]]
 
     without_default_theme do
@@ -294,7 +272,7 @@ describe "BUGS-F1 #48 state-specific rules on table-cell extra slots" do
   end
 
   it "does not let a lone Cell:hover rule apply in every state" do
-    screen = headless_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"]]
 
     without_default_theme do

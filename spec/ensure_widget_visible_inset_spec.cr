@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Regression: `ensure_widget_visible` must map the descendant's outer-relative
 # top (`child.rtop`, which folds in the scroll area's near inset `itop`) down to
 # a content-row index before calling `ensure_visible`. The old code passed
@@ -19,7 +9,7 @@ end
 # 1`) it scrolled one row too far, failing to reveal a child above the viewport.
 describe "Widget#ensure_widget_visible with a bordered scroll area" do
   it "reveals a descendant above the viewport, accounting for the top inset" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0,
       width: 20, height: 8, style: Crysterm::Style.new(border: true),
       content: (1..40).map { |i| "line#{i}" }.join("\n")

@@ -9,9 +9,24 @@ module Crysterm
     end
 
     # The owning widget's uid encoded in a `wiring_key`. Inverse of `wiring_key`:
-    # the uid is numeric and precedes the first colon.
+    # the uid is numeric and precedes the first colon. That guarantee is what
+    # lets this parse the leading digits in place (`strict: false`) instead of
+    # splitting off a throwaway `Array`+`String` per key — `prune_wiring` calls
+    # this once per wiring entry per pruned subtree.
     def self.wiring_key_owner(key : String) : Int32
-      key.split(':', 2).first.to_i
+      key.to_i strict: false
+    end
+
+    # Drops from a key `Set` every entry the block selects, collecting the
+    # doomed keys once rather than materializing a filtered `Set` per call (and
+    # allocating nothing at all when nothing matches).
+    def self.drop_keys(keys : Set(String), & : String -> Bool) : Nil
+      doomed = nil
+      keys.each do |key|
+        next unless yield key
+        (doomed ||= [] of String) << key
+      end
+      doomed.try { |d| keys.subtract d }
     end
 
     # Drops entries from a `(action, detacher)` wiring map whose key the block
@@ -22,6 +37,16 @@ module Crysterm
       wired.reject! do |key, entry|
         next false unless yield key
         entry[1].call
+        true
+      end
+    end
+
+    # Same contract for a wiring map whose value *is* the detacher (the HTTP
+    # bridge's `@forwarders`), so both wiring maps prune through one shape.
+    def self.detach_and_drop(wired : Hash(String, Proc(Nil)), & : String -> Bool) : Nil
+      wired.reject! do |key, detacher|
+        next false unless yield key
+        detacher.call
         true
       end
     end

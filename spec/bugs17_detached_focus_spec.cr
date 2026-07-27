@@ -8,16 +8,9 @@ include Crysterm
 # The old `return if focused?; window.focus self` fell through to the
 # raising `#window` accessor and crashed with `NilAssertionError`.
 
-private def detached_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Widget#focus" do
   it "no-ops (does not raise) on a detached widget" do
-    s = detached_focus_screen
+    s = headless_screen(default_quit_keys: true)
     w = Widget::Box.new parent: s, keys: true
 
     s.remove w

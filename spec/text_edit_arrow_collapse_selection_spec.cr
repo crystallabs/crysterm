@@ -9,16 +9,6 @@ include Crysterm
 # `Mixin::TextEditing#_listener` always did `@cursor_pos ± width`, so Right after
 # selecting "he" (caret already at index 2) skipped to index 3 — swallowing a
 # character — instead of settling at the selection end (2).
-private def arrow_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def new_lineedit(s, value : String)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
@@ -32,7 +22,7 @@ end
 
 describe "Mixin::TextEditing plain arrow collapses an active selection" do
   it "Right collapses the caret to the selection's end (not one past it)" do
-    s = arrow_screen
+    s = headless_screen(80, 24)
     le = new_lineedit s, "hello"
     le.cursor_pos = 0
     le._listener ctl(Tput::Key::ShiftRight)
@@ -46,7 +36,7 @@ describe "Mixin::TextEditing plain arrow collapses an active selection" do
   end
 
   it "Left collapses the caret to the selection's start (not one before it)" do
-    s = arrow_screen
+    s = headless_screen(80, 24)
     le = new_lineedit s, "hello"
     le.cursor_pos = 0
     le._listener ctl(Tput::Key::ShiftRight)
@@ -59,7 +49,7 @@ describe "Mixin::TextEditing plain arrow collapses an active selection" do
   end
 
   it "a plain Left/Right with no selection still steps one grapheme" do
-    s = arrow_screen
+    s = headless_screen(80, 24)
     le = new_lineedit s, "hello"
     le.cursor_pos = 2
 

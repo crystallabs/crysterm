@@ -8,23 +8,13 @@ include Crysterm
 # which refreshed rows without re-sizing — stale height once the filter
 # narrowed or widened. `#refresh_popup` must re-run `#position_popup`.
 
-private def combo_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def cb_key(ch : Char)
   Crysterm::Event::KeyPress.new ch, nil
 end
 
 describe "ComboBox editable popup resize" do
   it "resizes the drop-down as the filter narrows and widens" do
-    s = combo_mem_screen
+    s = headless_screen(80, 24)
     # Six options match 'a' (== default max_visible_items); only two also match 'l'.
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, width: 12,
       options: ["alpha", "alabama", "beta", "gamma", "delta", "zeta"]

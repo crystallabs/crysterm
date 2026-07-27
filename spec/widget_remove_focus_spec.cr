@@ -10,16 +10,9 @@ include Crysterm
 # (`Widget::Box.new(parent: panel, ...)` exercises `Widget#remove`, not the
 # separate `Window#remove`).
 
-private def remove_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Widget#remove" do
   it "rewinds focus when the removed widget itself is focused" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     container = Widget::Box.new parent: panel, keys: true
@@ -33,7 +26,7 @@ describe "Widget#remove" do
   end
 
   it "rewinds focus when a focused descendant is removed with its container" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     container = Widget::Box.new parent: panel, keys: true
@@ -50,7 +43,7 @@ describe "Widget#remove" do
   end
 
   it "leaves focus alone when an unrelated widget is removed" do
-    s = remove_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     container = Widget::Box.new parent: panel, keys: true

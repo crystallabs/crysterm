@@ -8,15 +8,9 @@ include Crysterm
 private alias Transcript = Crysterm::Widget::Chat::Transcript
 private alias ChatGlyphs = Crysterm::Chat::Glyphs
 
-private def chat_screen(width = 60, height = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe Crysterm::Widget::Chat::Transcript do
   it "append renders the prefix glyph and the text" do
-    s = chat_screen
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Transcript.new parent: s, top: 0, left: 0, width: 50, height: 10
 
     t.append Transcript::Entry.new(:prose, "Hello world")
@@ -31,7 +25,7 @@ describe Crysterm::Widget::Chat::Transcript do
   end
 
   it "update_last mutates the tail entry in place without growing the entry list" do
-    s = chat_screen
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Transcript.new parent: s, top: 0, left: 0, width: 50, height: 10
 
     e = Transcript::Entry.new(:tool_call, "Bash(npm test)", state: :running)
@@ -57,7 +51,7 @@ describe Crysterm::Widget::Chat::Transcript do
   end
 
   it "collapses over-threshold bodies behind a marker and expands losslessly" do
-    s = chat_screen
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Transcript.new parent: s, top: 0, left: 0, width: 50, height: 10
 
     body = (1..15).map { |i| "row #{i}" }.join('\n')
@@ -83,7 +77,7 @@ describe Crysterm::Widget::Chat::Transcript do
   end
 
   it "indents nested tool results by depth" do
-    s = chat_screen
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Transcript.new parent: s, top: 0, left: 0, width: 50, height: 10
 
     t.append :tool_result, "top-level result"
@@ -94,7 +88,7 @@ describe Crysterm::Widget::Chat::Transcript do
   end
 
   it "sticks to the bottom when at the bottom, and does not yank a scrolled-up view" do
-    s = chat_screen
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Transcript.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     20.times { |i| t.append :prose, "line #{i}" }

@@ -17,12 +17,6 @@ include Crysterm
 # #65      — a discrete (two-click) drag commits only on the ARMING button's
 #            press; a stray other-button tap is swallowed, not committed.
 
-private def bm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    default_quit_keys: false)
-end
-
 private def bm_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -45,7 +39,7 @@ end
 
 describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
   it "does not deliver a wheel to a disabled widget's own Event::Mouse handler" do
-    s = bm_screen
+    s = headless_screen
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 4
     w.clickable = true
     wheeled = 0
@@ -63,7 +57,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
   end
 
   it "does not scroll a disabled scrollable widget itself on the wheel" do
-    s = bm_screen
+    s = headless_screen
     panel = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 10
     # Scrollable child whose content extends well past its viewport (a tall
     # inner spacer), so a delivered wheel WOULD scroll it.
@@ -80,7 +74,7 @@ describe "BUGS15 #28: disabled widget takes no wheel Event::Mouse" do
   end
 
   it "still lets a scrollable ancestor take the wheel over a disabled child" do
-    s = bm_screen
+    s = headless_screen
     # Scrollable ancestor with content past its viewport.
     panel = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6, scrollable: true
     Widget::Box.new parent: panel, left: 0, top: 50, width: 2, height: 2
@@ -102,7 +96,7 @@ end
 
 describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
   it "ends a live keyboard drag (DragEnd + target DragLeave) when a mouse drag starts" do
-    s = bm_screen
+    s = headless_screen
     a = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3, draggable: true, keys: true
     b = Widget::Box.new parent: s, left: 20, top: 0, width: 6, height: 3, draggable: true
     a.focus
@@ -132,7 +126,7 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     # drag_cancel nils @_drag_button; start_drag must snapshot/restore it so a
     # stray non-arming button can't commit the new drop (gesture_end_button?
     # treats a nil armed button as matching anything).
-    s = bm_screen
+    s = headless_screen
     a = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3, draggable: true, keys: true
     b = Widget::Box.new parent: s, left: 20, top: 0, width: 6, height: 3, draggable: true
     a.focus
@@ -154,7 +148,7 @@ end
 
 describe "BUGS15 #62: keyboard drag sensor refuses a disabled widget" do
   it "does not lift a focused-but-disabled draggable on Space" do
-    s = bm_screen
+    s = headless_screen
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true, keys: true
     box.focus
     box.state = Crysterm::WidgetState::Disabled # disabled while focused (stays focused)
@@ -166,7 +160,7 @@ end
 
 describe "BUGS15 #65: discrete drag commits only on the arming button" do
   it "swallows a stray other-button press and drops only on the arming button" do
-    s = bm_screen
+    s = headless_screen
     s.drag_two_click = true
 
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3

@@ -2,20 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def make_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 80, height: 24)
-end
-
-# A screen whose size is not pinned at construction, so it tracks the
-# terminal's reported size. Over an `IO::Memory` (non-tty) output the ioctl
-# probe falls back to 80x24, letting us tell an in-band-driven size apart
-# from an ioctl-driven one.
-private def make_dynamic_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 # An in-band resize report carries the new window size in pixels; the screen
 # refreshes its cell pixel size and the CSS cell aspect ratio straight from it.
 describe "Window cell geometry" do
@@ -26,7 +12,7 @@ describe "Window cell geometry" do
   before_each { Crysterm::CSS::Length.measured_source = nil }
   after_each { Crysterm::CSS::Length.measured_source = nil }
   it "refreshes cell pixel size and CSS aspect ratio from an in-band resize report" do
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     begin
       # 960x720 px over 80x24 cells -> 12x30 px cell -> aspect 2.5.
       ev = ::Tput::InputEvent.new('\0',
@@ -42,7 +28,7 @@ describe "Window cell geometry" do
   end
 
   it "ignores a zero-pixel resize report (terminal reports no pixel size)" do
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::CSS::Length.cell_aspect_ratio = 2.0
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 0, pixel_width: 0))
@@ -53,7 +39,10 @@ describe "Window cell geometry" do
   end
 
   it "drives the screen dimensions from the in-band report, not the ioctl re-probe" do
-    s = make_dynamic_screen
+    # Size deliberately not pinned at construction, so the screen tracks the
+    # terminal's reported size; over an `IO::Memory` (non-tty) output the ioctl
+    # probe falls back to 80x24.
+    s = headless_screen(default_quit_keys: true)
     # The report's 120x40 differs from the 80x24 ioctl fallback, so observing
     # 120x40 proves the report drove the resize, not a `reset_screen_size` re-probe.
     ev = ::Tput::InputEvent.new('\0',
@@ -68,7 +57,7 @@ describe "Window cell geometry" do
   end
 
   it "leaves an explicitly-sized (headless/fixed) screen's dimensions untouched" do
-    s = make_screen # pinned 80×24 (@explicit_size)
+    s = headless_screen(80, 24, default_quit_keys: true) # pinned 80×24 (@explicit_size)
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
     s.handle_input ev
@@ -78,7 +67,7 @@ describe "Window cell geometry" do
   end
 
   it "feeds the measured cell width into the CSS px divisor" do
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     begin
       # 960x720 px over 80x24 cells -> 12px cell width.
       ev = ::Tput::InputEvent.new('\0',
@@ -96,7 +85,7 @@ describe "Window cell geometry" do
   end
 
   it "re-derives pt/pc from the measured px anchor (fixed CSS ratios)" do
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     begin
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
@@ -118,7 +107,7 @@ describe "Window cell geometry" do
   it "leaves a css.unit_divisors-configured unit alone when re-deriving" do
     Superconf.css_unit_divisors = "pt=6"
     begin
-      s = make_screen # apply_config merges pt=6 at construction
+      s = headless_screen(80, 24, default_quit_keys: true) # apply_config merges pt=6 at construction
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
       s.handle_input ev
@@ -138,7 +127,7 @@ describe "Window cell geometry" do
     Superconf.css_px_per_cell = 8.0
     begin
       # apply_config (at construction) pins px=8 from the config option.
-      s = make_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       Crysterm::CSS::Length.divisors["px"].should eq 8.0
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
@@ -156,7 +145,7 @@ describe "Window cell geometry" do
   end
 
   it "leaves px at the 10.0 default when the terminal reports no pixel size" do
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::CSS::Length.divisors["px"] = 10.0
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 0, pixel_width: 0))
@@ -166,7 +155,7 @@ describe "Window cell geometry" do
 
   it "records pixels but does not override a config-pinned aspect ratio" do
     Superconf.css_cell_aspect_ratio = 3.0
-    s = make_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     begin
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))

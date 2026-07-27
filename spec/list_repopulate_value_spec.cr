@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def lrv_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `ItemView#current_index=` latches `@_list_initialized` so the first selection of index
 # 0 runs even though `@selected` is already 0. Emptying the list must clear that
 # latch, or re-populating lands on the unchanged-index short-circuit
@@ -19,7 +9,7 @@ end
 # `#value` stays stale and no `ItemSelected` fires.
 describe "ItemView#current_index= value after re-populating an emptied list" do
   it "refreshes #value when the first row is appended to an emptied list" do
-    s = lrv_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"]
     list.current_index = 1
     list.current_text.should eq "b"
@@ -37,7 +27,7 @@ describe "ItemView#current_index= value after re-populating an emptied list" do
   end
 
   it "refreshes #value after the list is emptied via clear" do
-    s = lrv_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"]
     list.current_index = 1
     list.current_text.should eq "b"

@@ -61,8 +61,7 @@ module Crysterm
       # the layout isn't installed on a container yet, matching
       # `Layout::Form#add_row`.
       def add_widget(w : Widget, row : Int32, col : Int32, row_span : Int32 = 1, col_span : Int32 = 1) : Widget
-        c = container
-        raise ArgumentError.new "Layout::Grid#add_widget: layout not installed on a container" unless c
+        c = require_container "Layout::Grid#add_widget"
         c.append w
         w.layout_hint = Hint.at(row, col, row_span, col_span)
         w

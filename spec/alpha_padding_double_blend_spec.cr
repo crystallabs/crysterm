@@ -2,20 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40,
-    height: 12,
-    default_quit_keys: false)
-end
-
 # Blends blue (alpha 0.5) over a solid red backdrop and returns the resulting
 # background color of a cell well inside the box's content region.
 private def alpha_content_bg(padding : Int32)
-  s = mem_screen
+  s = headless_screen(40, 12)
   Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 12,
     style: Crysterm::Style.new(bg: "red")
 

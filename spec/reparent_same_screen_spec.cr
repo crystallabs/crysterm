@@ -10,15 +10,9 @@ include Crysterm
 # (`Widget#insert`/`#remove`, src/widget_children.cr). A genuine cross-screen
 # move must still fire both.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Widget reparenting within the same screen" do
   it "does not emit Attach/Detach when a child moves between containers on one screen" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: "100%", height: "100%"
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
     child = Widget::Box.new width: 4, height: 2
@@ -38,7 +32,7 @@ describe "Widget reparenting within the same screen" do
   end
 
   it "still emits the Reparent sequence on a same-screen move" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: "100%", height: "100%"
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
     child = Widget::Box.new width: 4, height: 2
@@ -55,8 +49,8 @@ describe "Widget reparenting within the same screen" do
   end
 
   it "still emits Attach/Detach for a genuine cross-screen move" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
     b = Widget::Box.new parent: s2, width: "100%", height: "100%"
     child = Widget::Box.new width: 4, height: 2

@@ -549,49 +549,56 @@ module Crysterm
         return unless window?
         menu = Menu.new window: window
         menu.add_css_class "popup"
-        yield menu
+        # Batch: the year dropdown alone adds 2 * YEAR_MENU_RADIUS + 1 actions,
+        # and each unbatched `add_action` would rebuild every row.
+        menu.batch_update { yield menu }
         menu
       end
 
       # Years listed on each side of the shown year in the year dropdown.
       YEAR_MENU_RADIUS = 100
 
+      # Closes *sibling* and destroys *stale*, then builds (via `#new_nav_menu`,
+      # populated by the block) and pops up a fresh nav dropdown under column
+      # *col*, selecting *index*. *max_rows*, when given, clamps visible rows
+      # before the popup is shown (see `#popup_nav_menu`'s select-before-show
+      # note — sizing happens on `#popup`, so the clamp must land first).
+      #
+      # Close the sibling first: the nav bar is part of each open menu's grab
+      # region, so a click on the year field while the month menu is open
+      # passes through rather than dismissing it, and both dropdowns would end
+      # up open with two stacked modal grabs.
+      private def open_nav_dropdown(sibling : Menu?, stale : Menu?, col : Int32, index : Int32, max_rows : Int32? = nil, & : Menu ->) : Menu?
+        sibling.try &.hide_popup
+        stale.try &.destroy
+        return unless menu = new_nav_menu { |m| yield m }
+        max_rows.try { |r| menu.max_visible_rows = r }
+        popup_nav_menu menu, col, index
+        menu
+      end
+
       private def open_month_menu(col : Int32) : Nil
-        # Close the sibling first: the nav bar is part of each open menu's grab
-        # region, so a click on the year field while the month menu is open
-        # passes through rather than dismissing it, and both dropdowns would end
-        # up open with two stacked modal grabs.
-        @year_menu.try &.hide_popup
-        @month_menu.try &.destroy
-        return unless menu = new_nav_menu do |m|
-                        MONTHS.each_with_index do |name, i|
-                          mo = i + 1
-                          # Zero-padded month number ("01: January"), so the
-                          # dropdown carries the same numbering the fields do.
-                          m.add_action("#{mo.to_s.rjust(2, '0')}: #{name}") { set_current_page @shown_year, mo; focus }
-                        end
-                      end
-        @month_menu = menu
-        popup_nav_menu menu, col, @shown_month - 1
+        @month_menu = open_nav_dropdown(@year_menu, @month_menu, col, @shown_month - 1) do |m|
+          MONTHS.each_with_index do |name, i|
+            mo = i + 1
+            # Zero-padded month number ("01: January"), so the dropdown carries
+            # the same numbering the fields do.
+            m.add_action("#{mo.to_s.rjust(2, '0')}: #{name}") { set_current_page @shown_year, mo; focus }
+          end
+        end
       end
 
       private def open_year_menu(col : Int32) : Nil
-        # Close the sibling first, so opening one nav dropdown never leaves the
-        # other open with a second modal grab.
-        @month_menu.try &.hide_popup
-        @year_menu.try &.destroy
-        return unless menu = new_nav_menu do |m|
-                        base = @shown_year
-                        (base - YEAR_MENU_RADIUS..base + YEAR_MENU_RADIUS).each do |yr|
-                          m.add_action(yr.to_s) { set_current_page yr, @shown_month; focus }
-                        end
-                      end
-        @year_menu = menu
         # The full list is far taller than the window; cap visible rows to the
         # space below the nav bar so the dropdown scrolls in-window.
-        menu.max_visible_rows = Math.max(1, Math.min(12, (window?.try(&.aheight) || 24) - 3))
+        max_rows = Math.max(1, Math.min(12, (window?.try(&.aheight) || 24) - 3))
         # The shown year sits `YEAR_MENU_RADIUS` rows down.
-        popup_nav_menu menu, col, YEAR_MENU_RADIUS
+        @year_menu = open_nav_dropdown(@month_menu, @year_menu, col, YEAR_MENU_RADIUS, max_rows) do |m|
+          base = @shown_year
+          (base - YEAR_MENU_RADIUS..base + YEAR_MENU_RADIUS).each do |yr|
+            m.add_action(yr.to_s) { set_current_page yr, @shown_month; focus }
+          end
+        end
       end
 
       # Floats *menu* under nav column *col* and selects (scrolls to) *index*.

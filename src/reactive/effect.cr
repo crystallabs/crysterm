@@ -151,10 +151,7 @@ module Crysterm
         # survived — subs added earlier in this same run before re-clearing, or
         # re-adds from a nested run — instead of re-tracking a dead effect.
         if disposed?
-          @subs_by_id.each_value &.off
-          @subs_by_id.clear
-          @tracked.clear
-          @added.clear
+          release_tracking
           return
         end
         # Drop subscriptions for deps not read this run. Fast path: matching
@@ -174,12 +171,17 @@ module Crysterm
       def dispose : Nil
         return if disposed?
         @disposed = true
+        release_tracking
+        @owner_sub.try &.off
+        @owner_sub = nil
+      end
+
+      # Releases all tracked subscriptions and clears tracking collections.
+      private def release_tracking : Nil
         @subs_by_id.each_value &.off
         @subs_by_id.clear
         @tracked.clear
         @added.clear
-        @owner_sub.try &.off
-        @owner_sub = nil
       end
     end
 

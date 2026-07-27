@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def down(s, x, y)
   s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test))
 end
@@ -26,7 +16,7 @@ private def click(s, x, y)
 end
 
 private def build
-  s = mem_screen
+  s = headless_screen(80, 24)
   other = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 8, height: 1, content: "Other"
   langbox = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 10, width: 18, height: 1
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl]

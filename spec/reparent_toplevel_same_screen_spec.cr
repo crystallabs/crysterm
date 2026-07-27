@@ -12,15 +12,9 @@ include Crysterm
 # genuine cross-window move, and a plain `Window#remove`, must keep the full
 # detach/rewind behavior.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Reparenting a top-level widget within the same window" do
   it "emits no window Detach/Attach when pulled into a container on the same window" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s, width: 10, height: 5
     child = Widget::Box.new parent: s, width: 4, height: 2
 
@@ -39,7 +33,7 @@ describe "Reparenting a top-level widget within the same window" do
   end
 
   it "keeps focus on a focused top-level widget pulled into a container on the same window" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s, width: 10, height: 5
     child = Widget::Box.new parent: s, width: 4, height: 2, input: true
 
@@ -56,7 +50,7 @@ describe "Reparenting a top-level widget within the same window" do
   end
 
   it "keeps the widget Tab-reachable after the same-window move" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s, width: 10, height: 5
     other = Widget::Box.new parent: s, width: 4, height: 2, input: true
     child = Widget::Box.new parent: s, width: 4, height: 2, input: true
@@ -71,8 +65,8 @@ describe "Reparenting a top-level widget within the same window" do
   end
 
   it "still emits Detach/Attach when a top-level widget moves into a container on another window" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s2, width: 10, height: 5
     child = Widget::Box.new parent: s1, width: 4, height: 2
 
@@ -88,8 +82,8 @@ describe "Reparenting a top-level widget within the same window" do
   end
 
   it "still rewinds focus off a focused top-level widget moved to another window" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s2, width: 10, height: 5
     child = Widget::Box.new parent: s1, width: 4, height: 2, input: true
 
@@ -104,7 +98,7 @@ describe "Reparenting a top-level widget within the same window" do
   end
 
   it "plain Window#remove (no reparent) still emits Detach and rewinds focus" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     other = Widget::Box.new parent: s, width: 4, height: 2, input: true
     child = Widget::Box.new parent: s, width: 4, height: 2, input: true
 

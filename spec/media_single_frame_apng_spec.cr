@@ -11,25 +11,15 @@ include Crysterm
 # so the cell backends entered the animation branch, found no `@src_frames`,
 # and drew nothing. Fix: gate `@animated` on `frames.size > 1`, matching `#play`.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def solid_bitmap(r, g, b, w = 4, h = 4) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(r, g, b, 255) } }
-end
-
 describe "Media::Cells single-frame APNG" do
   it "renders a 1-frame APNG as a still (not a blank animated widget)" do
     # Real single-frame APNG: acTL numFrames=1 + one fcTL + IDAT, so the
     # decoder yields `frames` non-nil with size 1.
-    apng = PNGGIF.encode_apng([{solid_bitmap(10, 20, 30), 100}])
+    apng = PNGGIF.encode_apng([{solid_bitmap(r: 10, g: 20, b: 30), 100}])
     tmp = File.tempfile("crysterm_apng", ".png")
     File.write(tmp.path, apng)
 
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Ansi.new(
       file: tmp.path, parent: s, top: 0, left: 0, width: 4, height: 4)
 

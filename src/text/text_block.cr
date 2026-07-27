@@ -32,6 +32,7 @@ module Crysterm
     end
 
     @text_cache : String?
+    @size_cache : Int32?
     @render_runs_cache : Array({Int32, Int32, TextCharFormat})?
 
     def initialize(
@@ -49,7 +50,7 @@ module Crysterm
 
     # Length in codepoints (without the trailing block separator).
     def size : Int32
-      @fragments.sum(0, &.size)
+      @size_cache ||= @fragments.sum(0, &.size)
     end
 
     def empty? : Bool
@@ -274,6 +275,7 @@ module Crysterm
 
     private def invalidate! : Nil
       @text_cache = nil
+      @size_cache = nil
       @render_runs_cache = nil
     end
   end

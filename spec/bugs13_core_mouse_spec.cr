@@ -18,12 +18,6 @@ include Crysterm
 # C21 — the drag ghost is sized by terminal COLUMNS (`Unicode.width`), not
 #       codepoints, so a CJK/emoji label isn't clipped mid-glyph.
 
-private def b13m_window(w = 60, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b13m_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -46,7 +40,7 @@ end
 
 describe "BUGS13 C2: hit-test ranks by the OUTERMOST z-indexed ancestor" do
   it "an occluded child's high nested z-index cannot steal the click from the plane above" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       # r1 (z 1) is painted into the z=1 plane; c1 nests INSIDE r1 with z 9 —
       # painting flattens it into r1's plane (only the first z-indexed widget
@@ -80,7 +74,7 @@ end
 
 describe "BUGS13 C4: double-click detection is per-button" do
   it "a right-then-left pair at the same cell is NOT a double left click" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
       box.clickable = true
@@ -105,7 +99,7 @@ end
 
 describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mouse drag" do
   it "an RMB tap mid-LMB-drag neither commits the Drop nor ends the drag" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
       source.drag_mode = :transfer; source.draggable = true
@@ -140,7 +134,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
   end
 
   it "Escape cancels a mouse-sensor drag (no Drop, DragEnd not dropped)" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
       source.drag_mode = :transfer; source.draggable = true
@@ -167,7 +161,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
   end
 
   it "a mouse capture ends only on the arming button's release" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       w = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
       w.clickable = true
@@ -201,7 +195,7 @@ end
 
 describe "BUGS13 C21: drag ghost sized by terminal columns, not codepoints" do
   it "gives a CJK drag label a double-width-aware ghost" do
-    s = b13m_window
+    s = headless_screen(60, 20)
     begin
       label = "日本語.txt" # 7 codepoints, 10 columns
       source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3

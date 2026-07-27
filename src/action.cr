@@ -249,6 +249,13 @@ module Crysterm
       # more multi-stroke shortcuts. Empty between chords.
       property pending : KeySequence = KeySequence.new
 
+      # Reusable buffer for the candidate sequence built on every keypress by
+      # `Action.dispatch_shortcut`/`.advance_shortcut`, so matching a shortcut
+      # allocates nothing per keystroke. Distinct from `#pending` — `pending`
+      # is only ever updated by copying this buffer's contents into it, never
+      # by aliasing it, so reusing it across calls is safe.
+      getter scratch = KeySequence.new
+
       # The one window-level `KeyPress` subscription driving
       # `Action.dispatch_shortcut` for this window.
       getter subscription = ::Crysterm::Subscription.new
@@ -469,14 +476,20 @@ module Crysterm
         map.pending.clear
         return
       end
+      s = map.scratch
       unless map.pending.empty?
         # A chord in progress owns the stroke: try it as a continuation first.
-        return if advance_shortcut(window, map, e, map.pending + [k])
+        s.clear
+        s.concat map.pending
+        s << k
+        return if advance_shortcut(window, map, e, s)
         # The stroke broke the chord: drop the prefix and re-try the same
         # stroke as a fresh first stroke below.
         map.pending.clear
       end
-      advance_shortcut window, map, e, [k]
+      s.clear
+      s << k
+      advance_shortcut window, map, e, s
     end
 
     # Matches *candidate* (the strokes entered so far) against every installed
@@ -500,7 +513,8 @@ module Crysterm
         holds ||= prefix
       end
       if holds
-        map.pending = candidate # a proper prefix — await the rest
+        map.pending.clear
+        map.pending.concat candidate # a proper prefix — await the rest
         e.accept
       end
       holds

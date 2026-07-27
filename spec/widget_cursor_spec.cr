@@ -6,18 +6,9 @@ include Crysterm
 # is actually used/drawn is resolved by `Window#active_cursor` — the focused
 # widget's cursor if it has one, otherwise the screen's default `Window#cursor`.
 
-# A `Window` backed by in-memory IOs, so constructing one neither writes escape
-# sequences to the real test terminal nor reads from it (see `cursor_spec.cr`).
-def cursor_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "per-widget cursor" do
   it "defaults to no override, falling back to the screen cursor" do
-    s = cursor_mem_screen
+    s = headless_screen(default_quit_keys: true)
     w = Crysterm::Widget::Box.new parent: s, keys: true
     w.focus
 
@@ -28,7 +19,7 @@ describe "per-widget cursor" do
   end
 
   it "uses the focused widget's own cursor once it defines one" do
-    s = cursor_mem_screen
+    s = headless_screen(default_quit_keys: true)
     w = Crysterm::Widget::Box.new parent: s, keys: true
     w.focus
 
@@ -41,7 +32,7 @@ describe "per-widget cursor" do
   end
 
   it "reverts to the screen default after reset_cursor" do
-    s = cursor_mem_screen
+    s = headless_screen(default_quit_keys: true)
     w = Crysterm::Widget::Box.new parent: s, keys: true
     w.focus
 
@@ -54,7 +45,7 @@ describe "per-widget cursor" do
   end
 
   it "keeps independent cursors per widget; the active one tracks focus" do
-    s = cursor_mem_screen
+    s = headless_screen(default_quit_keys: true)
     a = Crysterm::Widget::Box.new parent: s, keys: true
     b = Crysterm::Widget::Box.new parent: s, keys: true
 

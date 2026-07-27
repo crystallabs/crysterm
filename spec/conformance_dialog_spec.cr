@@ -13,10 +13,6 @@ include Crysterm
 # save/restore focus, so that example is only run for the three that do. Would
 # have caught the B0.4 drift (Wizard had no Escape-to-cancel at all).
 
-private def dlg_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, default_quit_keys: false)
-end
-
 private record DialogHandle,
   accept : Proc(Nil),
   cancel : Proc(Nil),
@@ -58,7 +54,7 @@ end
 
 describe "Modal dialog conformance (B8)" do
   it_behaves_like_a_modal_dialog "ColorDialog", saves_focus: true do
-    s = dlg_screen
+    s = headless_screen
     victim = Crysterm::Widget::Box.new parent: s
     s.focus victim
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
@@ -75,7 +71,7 @@ describe "Modal dialog conformance (B8)" do
   end
 
   it_behaves_like_a_modal_dialog "Question", saves_focus: true do
-    s = dlg_screen
+    s = headless_screen
     victim = Crysterm::Widget::Box.new parent: s
     s.focus victim
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
@@ -92,7 +88,7 @@ describe "Modal dialog conformance (B8)" do
   end
 
   it_behaves_like_a_modal_dialog "Prompt", saves_focus: true do
-    s = dlg_screen
+    s = headless_screen
     victim = Crysterm::Widget::Box.new parent: s
     s.focus victim
     pr = Crysterm::Widget::Prompt.new parent: s, top: 0, left: 0, width: 40, height: 8
@@ -111,7 +107,7 @@ describe "Modal dialog conformance (B8)" do
   end
 
   it_behaves_like_a_modal_dialog "Wizard", saves_focus: false do
-    s = dlg_screen
+    s = headless_screen
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
     wiz.add_page "One", Crysterm::Widget::Box.new
     accepted = false

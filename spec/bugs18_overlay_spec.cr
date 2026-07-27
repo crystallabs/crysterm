@@ -24,16 +24,6 @@ include Crysterm
 # `remove` when the geometry is not drawable, taking the always-on-top helper
 # window down on a CSS-driven hide.
 
-private def overlay_screen(w = 20, h = 10)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
-private def red_bitmap(w = 8, h = 8)
-  red = PNGGIF::Pixel.new(255, 0, 0, 255)
-  Array(Array(PNGGIF::Pixel)).new(h) { Array(PNGGIF::Pixel).new(w, red) }
-end
-
 private HIDE_CSS = <<-CSS
   .hidden { visibility: hidden; }
   CSS
@@ -74,7 +64,7 @@ end
 
 describe "BUGS18 B18-80 CSS-driven hide erases the window overlay" do
   it "clears the graphic when the widget itself is hidden via CSS visibility, and repaints on re-show" do
-    s = overlay_screen
+    s = headless_screen(20, 10)
     s.stylesheet = HIDE_CSS
     img = SpySixel.new parent: s, top: 0, left: 0, width: 6, height: 4
     img.bitmap = red_bitmap
@@ -105,7 +95,7 @@ describe "BUGS18 B18-80 CSS-driven hide erases the window overlay" do
   end
 
   it "clears the graphic when an ANCESTOR is hidden via CSS (self visible? stays true)" do
-    s = overlay_screen
+    s = headless_screen(20, 10)
     s.stylesheet = HIDE_CSS
     pane = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8
     img = SpySixel.new parent: pane, top: 0, left: 0, width: 6, height: 4
@@ -128,7 +118,7 @@ describe "BUGS18 B18-80 CSS-driven hide erases the window overlay" do
   end
 
   it "keeps the Event::Hide fast path working (widget.hide clears immediately)" do
-    s = overlay_screen
+    s = headless_screen(20, 10)
     img = SpySixel.new parent: s, top: 0, left: 0, width: 6, height: 4
     img.bitmap = red_bitmap
 
@@ -147,7 +137,7 @@ end
 
 describe "BUGS18 B18-80 sibling: Ueberzug removes its placement on a CSS-driven hide" do
   it "sends remove when the widget becomes CSS-hidden, and re-adds on re-show" do
-    s = overlay_screen
+    s = headless_screen(20, 10)
     s.stylesheet = HIDE_CSS
     img = SpyUeberzug.new parent: s, top: 0, left: 0, width: 6, height: 4
     img.force_path "/nonexistent/spec.png"

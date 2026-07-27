@@ -14,16 +14,9 @@ include Crysterm
 # Companion `focus_refocus_emission_spec` covers the event side (no spurious
 # `Event::FocusIn` on re-focus); this covers the history side. Headless, no real
 # terminal.
-private def history_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#focus_push history on re-focus" do
   it "keeps focus_pop anchored to the prior widget after a redundant re-focus" do
-    s = history_screen
+    s = headless_screen(default_quit_keys: true)
     # First focusable widget auto-focuses on insert, so `a` holds focus.
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
@@ -42,7 +35,7 @@ describe "Window#focus_push history on re-focus" do
   end
 
   it "does not stack history when Tab wraps onto the sole focusable widget" do
-    s = history_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     s.focused.should eq a
 

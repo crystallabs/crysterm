@@ -2,15 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `center±N` (positions) and `half±N` (sizes) used to crash (`Invalid Float64`)
 # because the offset form bypassed the alias->"50%" mapping.
 describe "center±N / half±N position & size offsets" do
   it "offsets a centered top/left by the trailing amount" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     base = Widget::Box.new parent: s, top: "center", left: "center", width: 14, height: 4
     plus = Widget::Box.new parent: s, top: "center+5", left: "center+2", width: 14, height: 4
     minus = Widget::Box.new parent: s, top: "center-3", left: "center", width: 14, height: 4
@@ -21,7 +17,7 @@ describe "center±N / half±N position & size offsets" do
   end
 
   it "keeps the trailing offset when a centered widget shrinks to content" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     base = Widget::Box.new parent: s, top: "center", left: "center", content: "hi", shrink_to_fit: true
     plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", shrink_to_fit: true
     s.render
@@ -35,7 +31,7 @@ describe "center±N / half±N position & size offsets" do
   end
 
   it "offsets a half size by the trailing amount" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     half = Widget::Box.new parent: s, width: "half", height: "half"
     plus = Widget::Box.new parent: s, width: "half+2", height: "half-1"
 

@@ -59,10 +59,20 @@ module Crysterm
       getter unicode : String?
       getter extended : String?
 
+      # `#for(tier).to_s` per tier, precomputed once at construction so the
+      # 1-column *cell*-role fast lane (`Glyphs.cell_str`) never allocates a
+      # fresh String per call. Order matches `Tier`: {ascii, unicode, extended}.
+      @cell_strs : {String, String, String}
+
       def initialize(@ascii : Char, unicode : Char | String? = nil,
                      extended : Char | String? = nil)
         @unicode = unicode.is_a?(Char) ? unicode.to_s : unicode
         @extended = extended.is_a?(Char) ? extended.to_s : extended
+        @cell_strs = {
+          for(Tier::Ascii).to_s,
+          for(Tier::Unicode).to_s,
+          for(Tier::Extended).to_s,
+        }
       end
 
       # The full grapheme to use at *tier* (String), falling down to lower
@@ -102,6 +112,14 @@ module Crysterm
         in .unicode?  then lone(@unicode) || @ascii
         in .ascii?    then @ascii
         end
+      end
+
+      # `#for(tier).to_s`, precomputed — the allocation-free String form of the
+      # cell-role fast lane, for callers that need `#for`'s reject-to-fallback
+      # `Char` boxed as a `String` (e.g. a CSS-override site that must return
+      # `String?` alongside the registry fallback).
+      def cell_str(tier : Tier) : String
+        @cell_strs[tier.value]
       end
 
       private def lone(s : String?) : Char?
@@ -834,6 +852,15 @@ module Crysterm
     @[AlwaysInline]
     def self.str(role : Role, tier : Tier) : String
       @@table.unsafe_fetch(role.value).str(tier)
+    end
+
+    # `Glyphs[role, tier].to_s`, allocation-free: the precomputed String form
+    # of the cell-role fast lane (`#[]`'s reject-to-fallback `Char`), for
+    # callers that need a `String` — e.g. a CSS-override site whose override
+    # slot is `String?` — without boxing a fresh String per call.
+    @[AlwaysInline]
+    def self.cell_str(role : Role, tier : Tier) : String
+      @@table.unsafe_fetch(role.value).cell_str(tier)
     end
 
     # The single Char for *role* at *tier* when the glyph is one codepoint,

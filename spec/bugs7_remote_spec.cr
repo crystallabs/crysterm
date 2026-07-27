@@ -12,15 +12,9 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def rem_window(w = 20, h = 6)
-    Crysterm::Window.new(
-      input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: w, height: h)
-  end
-
   describe "BUGS7 declarative *-class verbs keep a pseudo-class in the selector" do
     it "toggles the right class when the selector carries a pseudo-class" do
-      s = rem_window
+      s = headless_screen(20, 6, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
       box.add_css_class "tab"
       s.repaint
@@ -34,7 +28,7 @@ require "./spec_helper"
     end
 
     it "still handles a colon-free selector (no regression)" do
-      s = rem_window
+      s = headless_screen(20, 6, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
       box.add_css_class "tab"
       s.repaint

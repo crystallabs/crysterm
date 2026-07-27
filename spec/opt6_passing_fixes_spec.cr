@@ -16,15 +16,9 @@ include Crysterm
 #  4. `Layout::UniformGrid` positions must stay unchanged after documenting
 #     the (intentionally left alone) O4-16 double-`awidth`-resolution note.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "StackedWidget ItemAdded/ItemRemoved" do
   it "emits ItemAdded from #add_widget" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     sw = Widget::StackedWidget.new parent: s, width: 20, height: 6
     added = 0
     sw.on(::Crysterm::Event::ItemAdded) { added += 1 }
@@ -39,7 +33,7 @@ describe "StackedWidget ItemAdded/ItemRemoved" do
   end
 
   it "emits ItemRemoved from #remove_widget" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     sw = Widget::StackedWidget.new parent: s, width: 20, height: 6
     p1 = Widget::Box.new(content: "page 1")
     sw.add_widget p1
@@ -55,7 +49,7 @@ describe "StackedWidget ItemAdded/ItemRemoved" do
   end
 
   it "emits ItemRemoved from a bare #remove (direct detach path)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     sw = Widget::StackedWidget.new parent: s, width: 20, height: 6
     p1 = Widget::Box.new(content: "page 1")
     sw.add_widget p1
@@ -76,7 +70,7 @@ end
 
 describe "Paged containers emit ItemAdded on add" do
   it "TabWidget#add_tab emits ItemAdded" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     tw = Widget::TabWidget.new parent: s, width: 40, height: 12
     added = 0
     tw.on(::Crysterm::Event::ItemAdded) { added += 1 }
@@ -91,7 +85,7 @@ describe "Paged containers emit ItemAdded on add" do
   end
 
   it "ToolBox#add_item emits ItemAdded" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     tb = Widget::ToolBox.new parent: s, width: 30, height: 16
     added = 0
     tb.on(::Crysterm::Event::ItemAdded) { added += 1 }
@@ -111,7 +105,7 @@ describe "Media::Regis detached #target_pixels" do
     # A parentless construction falls back to the global window
     # (`Widget#determine_window`), so build attached and then detach — the
     # same pattern `bugs13_wtop_cursor_spec.cr`'s `detached_box` uses.
-    s = headless_screen
+    s = headless_screen(80, 24)
     img = Widget::Media::Regis.new parent: s, width: 10, height: 5
     s.remove img
     img.window?.should be_nil
@@ -128,7 +122,7 @@ end
 
 describe "UniformGrid layout positions" do
   it "positions children at a uniform column pitch unchanged by the O4-16 note" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::UniformGrid.new
     a = Widget::Box.new parent: box, width: 6, height: 2

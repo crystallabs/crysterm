@@ -7,16 +7,6 @@ include Crysterm
 # 51 (action-bar tag-markup width), 14 (same-parent reorder index), and
 # 31 (Window#remove of a non-direct-child).
 
-private def f1_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Whole rendered screen as one string (all rows joined), for text-presence checks.
 private def f1_screen_text(s) : String
   String.build do |io|
@@ -30,7 +20,7 @@ end
 
 describe "BUGS-F1 #7 Calendar month dropdown renders (not invisible)" do
   it "attaches the nav menu to the window and paints its rows" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     # Shown month is June, so the nav bar shows 'June' — 'January' can only
     # appear on screen if the (all-months) dropdown actually rendered.
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0,
@@ -63,7 +53,7 @@ end
 
 describe "BUGS-F1 #9 ActionBar items don't share one mutable Style" do
   it "keeps scrolled-off items hidden when the bar overflows" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 20
     bar.items = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
     s.repaint
@@ -85,7 +75,7 @@ end
 
 describe "BUGS-F1 #51 ActionBar command width ignores tag markup" do
   it "sizes a tagged command to its rendered width, not its markup length" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 40
     bar.auto_prefix = false
     plain = bar.add_item "File"
@@ -99,7 +89,7 @@ end
 
 describe "BUGS-F1 #14 same-parent insert_before/insert_after index" do
   it "insert_before places the widget just before the target" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s
     a = Crysterm::Widget::Box.new parent: box
     b = Crysterm::Widget::Box.new parent: box
@@ -112,7 +102,7 @@ describe "BUGS-F1 #14 same-parent insert_before/insert_after index" do
   end
 
   it "insert_after places the widget just after the target" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s
     a = Crysterm::Widget::Box.new parent: box
     b = Crysterm::Widget::Box.new parent: box
@@ -127,7 +117,7 @@ end
 
 describe "BUGS-F1 #31 Window#remove of a non-direct-child is a no-op" do
   it "leaves a nested widget attached and keeps its focus" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s
     inner = Crysterm::Widget::Box.new parent: box, keys: true
     s.repaint

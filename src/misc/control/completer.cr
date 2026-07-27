@@ -427,7 +427,12 @@ module Crysterm
 
     private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
       rows = Math.min(Math.max(@matches.size, 1), @max_visible_items)
-      h = rows + 2 # border
+      # Outer height = visible rows plus the popup's own border/padding
+      # (`#ivertical`), so a themed/padded popup sizes correctly — mirrors
+      # ComboBox#place_popup's `pop.visible_rows + pop.ivertical`. `ivertical`
+      # is 2 for the default `Style.new(border: true)` popup (1-cell top/bottom
+      # border, no padding), matching the `+ 2` this replaces.
+      h = rows + pop.ivertical
       pop.height = h
       w = Math.max(widget.awidth, 8)
       pop.width = w

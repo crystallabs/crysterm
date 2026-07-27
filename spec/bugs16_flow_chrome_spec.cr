@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS16 #16. Headless harness mirrors
 # spec/bugs15_scrolling_chrome_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS16 #16 — the whole `Layout::Flow` family (Wrap/Masonry/UniformGrid) only
 # guarded `layout_excluded?`, not `layout_chrome?`, so a border label or bound
 # scroll bar was arranged as flow child 0: `flow_place` overwrote its pinned
@@ -19,7 +13,7 @@ end
 # This is BUGS15 #20 fixed for the `each_arrangeable` engines but missed here.
 describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" do
   it "keeps a Wrap-container's border label on the border row, not in a slot" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       layout: Layout::Wrap.new, style: Style.new(border: true)
     box.set_label "Settings"
@@ -52,7 +46,7 @@ describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" 
   end
 
   it "does not let a border label inflate a UniformGrid's column width" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       layout: Layout::UniformGrid.new, style: Style.new(border: true)
     box.set_label "A very very long settings label"
@@ -70,7 +64,7 @@ describe "BUGS16 16: Flow engines do not arrange border-label/scrollbar chrome" 
   end
 
   it "keeps a Masonry-container's border label on the border row, not in a slot" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       layout: Layout::Masonry.new, style: Style.new(border: true)
     box.set_label "Settings"

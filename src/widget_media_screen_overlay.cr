@@ -45,12 +45,11 @@ module Crysterm
       # detect movement/resize so the old position can be cleared.
       @last_drawn : Tuple(Int32, Int32, Int32, Int32)?
 
-      # Scratch `RenderedGeometry` reused by `#invalidate_old_position` and
-      # `#overlay_rendered`, since `coords` with no `into:` allocates a fresh one
-      # every window render. Safe to share one buffer: within a render pass
-      # `PreRender` fires and fully returns (consuming its coords synchronously
-      # into a plain `Tuple`) before `Rendered` fires, so neither holds the value
-      # across a yield point or clobbers the other's.
+      # Scratch `RenderedGeometry` reused by `#invalidate_old_position`, since
+      # `coords` with no `into:` allocates a fresh one every window render. Safe
+      # to reuse: `PreRender` fires and fully returns (consuming its coords
+      # synchronously into a plain `Tuple`) before the next pass, so the value is
+      # never held across a yield point.
       @overlay_lpos : RenderedGeometry = RenderedGeometry.new
 
       # Registers the erase-on-move (`PreRender`) and repaint-on-top (`Rendered`)
@@ -59,7 +58,25 @@ module Crysterm
       protected def register_overlay_listeners(s : ::Crysterm::Window)
         @listener_screen = s
         @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { overlay_rendered }
+        # `#redraw_image` is the whole `Rendered` half: erase-or-repaint, decided
+        # post-frame from ONE coords resolution.
+        #
+        # After the frame's cells are flushed the layout is final — a scrolled
+        # ancestor's `lpos` now carries THIS frame's scroll base, whereas
+        # `PreRender` still saw the previous frame's and resolves coords for a
+        # widget that just scrolled out. So the "no longer drawable" case is
+        # decided there: a painted graphic with no drawable rect is cleared
+        # (`#clear_overlay` schedules the render re-emitting the invalidated
+        # cells; a Kitty layer is deleted via `#overlay_cleared`), and the very
+        # same rect that survives the check is what gets painted — a separate
+        # pre-check could (and did) resolve a different one.
+        #
+        # Deliberately NOT gated on `visible?`: a CSS restyle (`visibility:
+        # hidden`/`display: none`, on this widget or an ancestor) flips the
+        # computed style without emitting `Event::Hide`, so the `Hide` hook's
+        # `#clear_overlay` fast path never runs — the "not drawable" decision
+        # must catch that case too, or the graphic floats over the UI.
+        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
         wire_listener_lifecycle
       end
 
@@ -181,31 +198,6 @@ module Crysterm
         end
         return if last == rect
         invalidate_rect s, last
-      end
-
-      # The `Rendered` listener body: erase-or-repaint, decided post-frame.
-      #
-      # After the frame's cells are flushed the layout is final — a scrolled
-      # ancestor's `lpos` now carries THIS frame's scroll base, whereas
-      # `PreRender` still saw the previous frame's and resolves coords for a
-      # widget that just scrolled out. So the "no longer drawable" case is decided
-      # here: a painted graphic with no drawable rect is cleared (`#clear_overlay`
-      # schedules the render re-emitting the invalidated cells; a Kitty layer is
-      # deleted via `#overlay_cleared`). Otherwise repaint via the backend.
-      #
-      # Deliberately NOT gated on `visible?`: a CSS restyle (`visibility:
-      # hidden`/`display: none`, on this widget or an ancestor) flips the
-      # computed style without emitting `Event::Hide`, so the `Hide` hook's
-      # `#clear_overlay` fast path never runs — the "not drawable" decision
-      # here must catch that case too, or the graphic floats over the UI.
-      private def overlay_rendered
-        if @last_drawn && overlay_visible?
-          unless overlay_drawable_rect
-            clear_overlay
-            return
-          end
-        end
-        redraw_image
       end
 
       # Hook run by `#clear_overlay` before cells are invalidated, for backends

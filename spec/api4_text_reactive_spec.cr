@@ -16,16 +16,6 @@ private def doc_and_cursor(text = "", pos = 0)
   {doc, Crysterm::TextCursor.new(doc, pos)}
 end
 
-private def api4t_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "Reactive.computed" do
   it "infers T from the block and stays reactive" do
     n = Crysterm::Reactive::Signal.new 3
@@ -154,7 +144,7 @@ end
 
 describe "ComboBox setter return values" do
   it "current_index= returns the clamped index" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["A", "B", "C"]
 
@@ -165,7 +155,7 @@ describe "ComboBox setter return values" do
   end
 
   it "current_index= on an empty box returns the unchanged selected index" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: [] of String
 
@@ -173,7 +163,7 @@ describe "ComboBox setter return values" do
   end
 
   it "current_text= returns the resulting current text" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["A", "B", "C"]
 
@@ -184,7 +174,7 @@ end
 
 describe "ComboBox#add_items" do
   it "bulk-appends, emitting exactly one CurrentChanged for the whole batch" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: [] of String
 
@@ -199,7 +189,7 @@ describe "ComboBox#add_items" do
   end
 
   it "does not emit CurrentChanged when appending to a non-empty box (selection unmoved)" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["a"]
 
@@ -213,7 +203,7 @@ describe "ComboBox#add_items" do
   end
 
   it "is a no-op for an empty batch" do
-    s = api4t_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["a"]
 

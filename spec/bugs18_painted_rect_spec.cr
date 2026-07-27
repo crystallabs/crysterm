@@ -23,16 +23,10 @@ include Crysterm
 #           fallback builder behind step_time_field / Calendar#local_date, so
 #           stepping a date/time editor cannot raise in a headless context.
 
-private def b18_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # ── B18-02: WidgetCursorAnchor maps the cursor through the painted rect. ──
 describe "BUGS18 B18-02: WidgetCursorAnchor in a scrolled container" do
   it "anchors on the painted cursor row, not offset by the scroll base" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 10, scrollable: true
     term = Crysterm::Widget::Terminal.new(
       parent: outer, top: 4, left: 2, width: 30, height: 5,
@@ -67,7 +61,7 @@ describe "BUGS18 B18-02: WidgetCursorAnchor in a scrolled container" do
   end
 
   it "subtracts the clipped-top base, matching where #draw paints the cursor" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 8, scrollable: true
     term = Crysterm::Widget::Terminal.new(
       parent: outer, top: 0, left: 0, width: 10, height: 6,
@@ -98,7 +92,7 @@ end
 # ── B18-40: MenuBar / ToolButton pop-ups anchor on the painted rect. ──
 describe "BUGS18 B18-40: MenuBar#open in a scrolled container" do
   it "drops the menu directly below the painted bar, not its layout row" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 10, scrollable: true
     bar = Widget::MenuBar.new parent: outer, top: 5, left: 0, width: 30, height: 1
     file = bar.add_menu "File"
@@ -128,7 +122,7 @@ end
 
 describe "BUGS18 B18-40: ToolButton#show_menu in a scrolled container" do
   it "drops the menu directly below the painted button, not its layout row" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 10, scrollable: true
     m = Widget::Menu.new parent: s
     m.add_action("One") { }
@@ -156,7 +150,7 @@ end
 # ── B18-101: Completer drop-down anchors on the painted rect. ──
 describe "BUGS18 B18-101: Completer drop-down in a scrolled container" do
   it "opens flush below the painted field, not its layout row" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 12, scrollable: true
     box = Widget::LineEdit.new parent: outer, top: 8, left: 5, width: 18, height: 1
     completer = Crysterm::Completer.new %w[Crystal Ruby Rust]
@@ -187,7 +181,7 @@ end
 # ── B18-104: section hit-test resolves against the painted origin. ──
 describe "BUGS18 B18-104: SectionedField click mapping under a moved painted rect" do
   it "selects the section under the painted pointer when MoveWidget shifted the field" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     # The box overflows the 80-col window's right edge, so MoveWidget
     # translates its painted rect left: painted xi 60, layout aleft 75.
     box = Widget::Box.new parent: s, top: 2, left: 75, width: 20, height: 3,
@@ -227,7 +221,7 @@ describe "BUGS18 B18-48: SectionedField.build_time" do
   end
 
   it "steps a TimeEdit section through the guarded builder" do
-    s = b18_screen
+    s = headless_screen(80, 24)
     te = Widget::TimeEdit.new parent: s, top: 0, left: 0, width: 8, height: 1,
       time: Time.utc(2020, 1, 1, 10, 20, 30)
     s.render

@@ -361,9 +361,14 @@ module Crysterm
         black = PNGGIF::Pixel.new(0, 0, 0)
         bmp = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, black) }
 
-        # Memoize the decoded glyph per distinct `Char` across all cells, so the
-        # `char.to_s` key allocation happens once per glyph, not once per cell.
-        glyph_cache = {} of Char => Array(Array(Int32))
+        # Memoize the per-sub-pixel ink coverage per distinct `Char` across all
+        # cells. `subcoverage` is a pure function of (glyph bitmap, cw, ch) —
+        # colours enter only afterwards via `blend` — and `cw`/`ch` are fixed
+        # for the whole raster loop, so the coverage grid for a given char
+        # need only be computed once, not once per art cell (this also folds
+        # in the former per-glyph memoization: `char.to_s` + `font.glyph`
+        # still run only on first sight of a char).
+        cov_cache = {} of Char => Array(Float64)
 
         rows.times do |cy|
           cols.times do |cx|
@@ -377,13 +382,15 @@ module Crysterm
             # Reverse video (SGR 7): swap ink/paper. Resolved here (after defaults)
             # so a reversed default cell becomes black-on-white, as on a real VT.
             fg_rgb, bg_rgb = bg_rgb, fg_rgb if crev
-            g = glyph_cache[char] ||= font.glyph(char.to_s)
-            gw, gh = dims(g)
+            cov = cov_cache[char] ||= begin
+              g = font.glyph(char.to_s)
+              gw, gh = dims(g)
+              Array(Float64).new(cw * ch) { |k| subcoverage(g, gw, gh, k % cw, cw, k // cw, ch) }
+            end
             ch.times do |dy|
               drow = bmp[cy * ch + dy]
               cw.times do |dx|
-                cov = subcoverage(g, gw, gh, dx, cw, dy, ch)
-                drow[cx * cw + dx] = blend(fg_rgb, bg_rgb, cov)
+                drow[cx * cw + dx] = blend(fg_rgb, bg_rgb, cov[dy * cw + dx])
               end
             end
           end

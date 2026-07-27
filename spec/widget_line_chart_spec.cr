@@ -2,19 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def chart_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 50, height: 16)
-end
-
 private def rows(s) : Array(String)
   (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }
 end
 
 describe Crysterm::Widget::Graph::LineChart do
   it "renders title, legend, axis labels (text) and a braille plot" do
-    s = chart_screen
+    s = headless_screen(50, 16, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -43,7 +37,7 @@ describe Crysterm::Widget::Graph::LineChart do
   end
 
   it "auto-assigns palette colors and supports scatter/area kinds" do
-    s = chart_screen
+    s = headless_screen(50, 16, default_quit_keys: true)
     c = Crysterm::Widget::Graph::LineChart.new parent: s, width: 40, height: 10,
       type: Crysterm::Widget::Media::Type::Glyph
     a = c.add_line "a", [{0.0, 0.0}, {1.0, 1.0}]

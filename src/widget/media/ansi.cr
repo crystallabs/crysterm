@@ -122,28 +122,36 @@ module Crysterm
         Media::Fitting.compose(img, frame, cols, rows, @fit, @cell_aspect)
       end
 
-      protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
+      protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+                                col_off : Int32, row_off : Int32)
         lines = window.lines
         # In a reduced-color mode, dither the whole sample to the palette up
         # front: error diffusion needs neighbours, so it can't be done per cell.
+        # Keyed on the full sample, so a clipped widget still hits the memo (and
+        # its dithering matches what the same frame shows unclipped).
         plane = @color_mode.true_color? ? nil : @dither_plane_memo.get(anim_index, bmp) { dither_plane bmp }
         # Clamp the walks to the screen: `Indexable#[]?` wraps negative indices,
         # so a widget partially off the top/left edge would paint rows/columns
-        # at the far end of the buffer.
+        # at the far end of the buffer. `*_off` shift the read into the field so
+        # a clipped widget shows the region under the clip window rather than
+        # the field's top-left corner; one sample pixel is one cell here, so the
+        # cell-unit offsets apply to the bitmap directly.
         (Math.max(yi, 0)...yl).each do |y|
-          cmrow = bmp[y - yi]?
+          sy = (y - yi) + row_off
+          cmrow = bmp[sy]?
           next unless cmrow
-          prow = plane.try &.[y - yi]?
+          prow = plane.try &.[sy]?
           row = lines[y]?
           next unless row
           (Math.max(xi, 0)...xl).each do |x|
-            px = cmrow[x - xi]?
+            sx = (x - xi) + col_off
+            px = cmrow[sx]?
             next unless px
             cell = row[x]?
             next unless cell
             a = px.a / 255.0
             next if a == 0.0 # fully transparent: leave the cell as-is
-            rgb = prow ? prow[x - xi] : Colors.rgb(px.r, px.g, px.b)
+            rgb = prow ? prow[sx] : Colors.rgb(px.r, px.g, px.b)
             paint_cell cell, px, a, rgb
           end
           row.dirty = true

@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS16 #19. Headless harness mirrors
 # spec/bugs16_flow_chrome_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS16 #19 — when `place_one` wraps a child to a new row and then decides it
 # overflows vertically (SkipWidget), the child never renders but `flow_place`
 # had already advanced `@row_offset`/`@row_index`. Without un-consuming that
@@ -20,7 +14,7 @@ end
 # child's height.
 describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand later children" do
   it "places the next child at the wrap origin the skipped child vacated (row-0 continuation)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       layout: Layout::Wrap.new, overflow: Overflow::SkipWidget
 
@@ -51,7 +45,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
   end
 
   it "still renders a later child once its own wrap fits, ignoring a taller skipped child's height" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Wrap.new, overflow: Overflow::SkipWidget
 
@@ -78,7 +72,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
   end
 
   it "leaves the whole later flow correctly placed for Masonry too" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       layout: Layout::Masonry.new, overflow: Overflow::SkipWidget
 

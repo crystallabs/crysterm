@@ -4,12 +4,6 @@ include Crysterm
 
 # Regression specs for BUGS16 wave-3 layout findings: B16-21, B16-22, B16-24.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # B16-21 — `Form#add_row` appended unconditionally, assuming an even child
 # count. With a blessed trailing odd child (a separator/button row) the new
 # pair was split across rows: the separator consumed the new label as its
@@ -17,7 +11,7 @@ end
 # BEFORE the trailing child, which stays trailing.
 describe "BUGS16 B16-21: Form#add_row with a trailing odd child" do
   it "inserts the new pair before the separator, keeping it trailing and full-width" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form_layout = Layout::Form.new
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: form_layout
@@ -47,7 +41,7 @@ describe "BUGS16 B16-21: Form#add_row with a trailing odd child" do
   end
 
   it "keeps the plain append path for an even form" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form_layout = Layout::Form.new
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: form_layout
@@ -66,7 +60,7 @@ end
 # clamps an off-grid origin to the last column and stays visible.
 describe "BUGS16 B16-22: Grid clamps an off-grid row origin like the column axis" do
   it "renders a row-overflowing hinted child in the last row" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 9,
       layout: Layout::Grid.new(columns: 3, rows: 3)
     child = Widget::Box.new parent: box,
@@ -96,7 +90,7 @@ end
 # predecessor.
 describe "BUGS16 B16-24: Flow does not chain off a deferred child's stale lpos" do
   it "places the successor against the deferred child's CURRENT size" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 8,
       layout: Layout::Wrap.new
     a = Widget::Box.new parent: box, width: 5, height: 2

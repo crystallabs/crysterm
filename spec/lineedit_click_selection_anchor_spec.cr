@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def down(s, x, y)
   s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test))
 end
@@ -36,7 +26,7 @@ end
 # fiber on the *next* edit with an IndexError. See mixin/text_editing.cr.
 describe "LineEdit selection anchor after a plain click" do
   it "does not leave a phantom selection that crashes a later Backspace (via Completer)" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     langbox = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 10, width: 18, height: 1
     other = Crysterm::Widget::Button.new parent: s, top: 10, left: 10, width: 8, height: 1, content: "High"
     completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
@@ -74,7 +64,7 @@ describe "LineEdit selection anchor after a plain click" do
   end
 
   it "does not select the just-typed character after a plain click" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "hello"
     s.repaint
     box.read_input

@@ -10,13 +10,9 @@ include Crysterm
 # the content end, valign gap painting, alpha blending (which must NOT take the
 # bulk path), and wide fill chars under full_unicode (ditto).
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 describe "content-exhausted fill tail" do
   it "fills the tail with the fill char and leaves content intact" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: "hello"
     w.style.fill_char = '.'
@@ -27,7 +23,7 @@ describe "content-exhausted fill tail" do
   end
 
   it "keeps a dangling SGR attribute across the filled tail" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       content: "\e[41mx" # red bg opened, never closed
     s.repaint
@@ -39,7 +35,7 @@ describe "content-exhausted fill tail" do
   end
 
   it "paints the valign gap and the padding bands" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6,
       content: "x", align: Tput::AlignFlag::Bottom,
       style: Style.new(padding: 1, fill_char: '.')
@@ -51,7 +47,7 @@ describe "content-exhausted fill tail" do
   end
 
   it "still blends per cell for an alpha widget's tail" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       style: Style.new(bg: 0x0000ff)
     Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,

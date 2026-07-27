@@ -13,15 +13,6 @@ include Crysterm
 # * #7  — `FrameClock#start` stores the fiber before enqueueing (functional
 #   regression: the clock still ticks and stops cleanly).
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def solid_bitmap(r = 10, g = 20, b = 30, w = 4, h = 4) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(r, g, b, 255) } }
-end
-
 # Subclass exposing the protected keyframe progress helper for #18.
 private class FracProbe < Crysterm::Widget::Box
   def probe(cycles : Float64, alt : Bool) : Float64
@@ -33,7 +24,7 @@ describe "BUGS12 #11 Media::Base#bitmap= stops playback" do
   it "stops an in-progress animation before swapping in a still bitmap" do
     gif = "#{__DIR__}/../data/image/netscape.gif"
     pending! "no animated test fixture" unless File.exists?(gif)
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new file: gif, parent: s
     img.play
     img.playing?.should be_true
@@ -51,7 +42,7 @@ describe "BUGS12 #11 Media::Base#bitmap= stops playback" do
   end
 
   it "is a safe no-op for a never-playing single-frame device" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new parent: s
     img.playing?.should be_false
     img.bitmap = solid_bitmap # must not raise
@@ -67,7 +58,7 @@ describe "BUGS12 #20 background-size re-asserted after layer exists" do
     orig = Crysterm::Config.media_exclude
     Crysterm::Config.media_exclude = "kitty" # force the cell-grid backend
     begin
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6
       box.style.background_image = "#{__DIR__}/../data/image/matterhorn.png"
       box.style.background_size = Style::BackgroundSize::Contain
@@ -90,7 +81,7 @@ end
 
 describe "BUGS12 #20 Media::Base#fit=" do
   it "changes the fit and returns the new value" do
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new parent: s
     img.fit = Widget::Media::Fit::Cover
     img.fit.should eq Widget::Media::Fit::Cover

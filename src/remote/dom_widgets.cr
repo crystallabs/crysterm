@@ -1,3 +1,40 @@
+# The `items` attribute emitter/applier shared by `Crysterm::Widget::List` and
+# `Crysterm::Mixin::ActionBar`: rows are loadable state but don't fit the
+# generic scan (no scalar `items=`), so they serialize as a newline-joined
+# `items` attribute and restore via `#add_item`.
+#
+# A macro, deliberately — do NOT "clean this up" into an included module: the
+# autoserialize sweep opts a type out only when `dom_attributes`/`dom_apply` are
+# among the type's *own* methods (`dom_autoserialize.cr`'s `t.methods.any?`
+# guard), and only macro expansion puts real methods in the invoking class body.
+# Hosting these on a module would silently re-enroll `Widget::List` in the
+# generated scan. Top-level like `dom_autoserialize_body`, since macro lookup
+# does not walk the enclosing namespace chain.
+macro dom_items_serialization
+  def dom_attributes : Hash(String, String?)
+    attrs = super
+    attrs["items"] = item_texts.join('\n') unless item_texts.empty?
+    attrs
+  end
+
+  def dom_apply(key : String, value : String?) : Bool
+    case key
+    when "items"
+      # Replace, don't append: `setAttribute` has replace semantics, and at
+      # load time the list is empty so clearing first is a no-op. Without the
+      # clear, a repeated `setAttribute("items", …)` would grow the list on
+      # every call.
+      clear
+      # An empty value skips the append: `"".split('\n') == [""]`, so
+      # `setAttribute("items", "")` — the natural way a client clears the rows —
+      # would otherwise add one empty item.
+      value.try { |v| v.split('\n').each { |item| add_item item } unless v.empty? }
+    else return super
+    end
+    true
+  end
+end
+
 module Crysterm
   # Per-widget layout-DOM overrides.
   #
@@ -8,31 +45,9 @@ module Crysterm
   # which also opts it out of that scan.
   class Widget
     class List
-      # Rows are loadable state but don't fit the generic scan (no scalar
-      # `items=`): serialized as a newline-joined `items` attribute, restored
-      # via `#add_item`.
-      def dom_attributes : Hash(String, String?)
-        attrs = super
-        attrs["items"] = item_texts.join('\n') unless item_texts.empty?
-        attrs
-      end
-
-      def dom_apply(key : String, value : String?) : Bool
-        case key
-        when "items"
-          # Replace, don't append: `setAttribute` has replace semantics, and at
-          # load time the list is empty so clearing first is a no-op. Without the
-          # clear, a repeated `setAttribute("items", …)` would grow the list on
-          # every call.
-          clear
-          # An empty value skips the append: `"".split('\n') == [""]`, so
-          # `setAttribute("items", "")` — the natural way a client clears the
-          # rows — would otherwise add one empty item.
-          value.try { |v| v.split('\n').each { |item| add_item item } unless v.empty? }
-        else return super
-        end
-        true
-      end
+      # Expanded into the class body, so `List` stays opted out of the
+      # autoserialize sweep (see the macro's note).
+      dom_items_serialization
     end
   end
 
@@ -67,22 +82,10 @@ module Crysterm
         true
       end
 
-      def dom_attributes : Hash(String, String?)
-        attrs = super
-        attrs["items"] = item_texts.join('\n') unless item_texts.empty?
-        attrs
-      end
-
-      def dom_apply(key : String, value : String?) : Bool
-        case key
-        when "items"
-          # Replace-not-append and empty-clears semantics, as for `List` above.
-          clear
-          value.try { |v| v.split('\n').each { |item| add_item item } unless v.empty? }
-        else return super
-        end
-        true
-      end
+      # Same emitter/applier as `Widget::List`. Expanded here into the *module*
+      # body, which — unlike `List`'s class-body expansion — leaves the bar
+      # classes enrolled in the autoserialize sweep, as described above.
+      dom_items_serialization
     end
   end
 end

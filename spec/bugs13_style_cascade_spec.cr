@@ -16,28 +16,6 @@ include Crysterm
 # * S9 — a widget reparented from a styled window to a rule-less window is
 #   reverted to pristine (the arrival arms the target's reset pass).
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it, so computed-style asserts aren't foiled by a theme.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # A plain box that carries a floor border (like Menu/Dialog/ToolTip overlays).
 private class FloorBox < Crysterm::Widget::Box
   def floor_border? : Bool
@@ -72,7 +50,7 @@ describe "BUGS13 S1 fold_specified_onto copies mutable box props" do
 
   it "an !important border longhand does not corrupt the widget's inline @style" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       inline = Style.new
       inline.border = true
       box = Widget::Box.new parent: screen, width: 10, height: 5, style: inline
@@ -87,7 +65,7 @@ describe "BUGS13 S1 fold_specified_onto copies mutable box props" do
 
   it "state materialization doesn't leak border edits across states" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       inline = Style.new
       inline.border = true
       box = Widget::Box.new parent: screen, width: 10, height: 5, style: inline
@@ -104,7 +82,7 @@ end
 describe "BUGS13 S3 cascade reset reinstalls the floor border" do
   it "keeps the floor border after a cascade that doesn't match the widget" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = FloorBox.new parent: screen, width: 10, height: 5
       screen.repaint
       box.style.border.left.should eq 1 # floor border installed at the unstyled floor
@@ -118,7 +96,7 @@ describe "BUGS13 S3 cascade reset reinstalls the floor border" do
 
   it "keeps the floor border after CSS is cleared again" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = FloorBox.new parent: screen, width: 10, height: 5
       screen.repaint
       screen.stylesheet = "Box { color: red; }" # matches: cascade owns the border
@@ -136,7 +114,7 @@ end
 describe "BUGS13 S4 programmatic hide survives a recascade for unmatched widgets" do
   it "keeps a hidden rule-unmatched widget hidden across a restyle" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = Widget::Box.new parent: screen, width: 10, height: 5
       screen.stylesheet = "Label { color: red; }" # active CSS; box matches nothing
       screen.repaint
@@ -152,7 +130,7 @@ describe "BUGS13 S4 programmatic hide survives a recascade for unmatched widgets
 
   it "show() is persisted symmetrically" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = Widget::Box.new parent: screen, width: 10, height: 5
       screen.stylesheet = "Label { color: red; }"
       screen.repaint
@@ -169,7 +147,7 @@ describe "BUGS13 S4 programmatic hide survives a recascade for unmatched widgets
 
   it "hide on a never-cascaded widget still works (no snapshot side effects)" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = Widget::Box.new parent: screen, width: 10, height: 5
       box.hide
       box.visible?.should be_false
@@ -182,7 +160,7 @@ end
 describe "BUGS13 S6 cascade reset invalidates the pushed-substyle memo" do
   it "nils Widget#_substyle_src when the cascade resets the widget" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = Widget::Box.new parent: screen, width: 5, height: 3
       box._substyle_src = Style.new
       screen.stylesheet = "Box { color: red; }"
@@ -193,7 +171,7 @@ describe "BUGS13 S6 cascade reset invalidates the pushed-substyle memo" do
 
   it "nils the memo on the revert-to-pristine (stylesheet cleared) pass too" do
     without_default_theme do
-      screen = headless_screen
+      screen = headless_screen(80, 24)
       box = Widget::Box.new parent: screen, width: 5, height: 3
       screen.stylesheet = "Box { color: red; }"
       screen.repaint
@@ -208,8 +186,8 @@ end
 describe "BUGS13 S9 reparenting a styled widget to a rule-less window reverts it" do
   it "drops the old window's computed styles and css_styled flag" do
     without_default_theme do
-      a = headless_screen
-      b = headless_screen
+      a = headless_screen(80, 24)
+      b = headless_screen(80, 24)
       a.stylesheet = "Box { color: red; }"
       box = Widget::Box.new parent: a, width: 5, height: 3
       a.repaint
@@ -225,8 +203,8 @@ describe "BUGS13 S9 reparenting a styled widget to a rule-less window reverts it
 
   it "re-enables the inline @style short-circuit on the rule-less window" do
     without_default_theme do
-      a = headless_screen
-      b = headless_screen
+      a = headless_screen(80, 24)
+      b = headless_screen(80, 24)
       a.stylesheet = "Box { color: red; }"
       inline = Style.new
       inline.fg = "cyan"

@@ -9,16 +9,6 @@ require "./spec_helper"
 # `#toggle`. This pins that a Space/Enter keypress, delivered through the base
 # handler, reaches the right activation for every member.
 
-private def fba_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def space_key
   Crysterm::Event::KeyPress.new ' ', nil
 end
@@ -29,7 +19,7 @@ end
 
 describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   it "Button activates on Space via the base handler (#press)" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, content: "Go"
     pressed = 0
     b.on(Crysterm::Event::Pressed) { pressed += 1 }
@@ -38,7 +28,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   end
 
   it "checkable Button toggles on Enter via the base handler" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, content: "Go", checkable: true
     b.emit enter_key
     b.checked?.should be_true
@@ -47,7 +37,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   end
 
   it "ToolButton activates on Space (#press) through its on_keypress super-chain" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolButton.new parent: s, content: "T"
     pressed = 0
     tb.on(Crysterm::Event::Pressed) { pressed += 1 }
@@ -56,7 +46,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   end
 
   it "CheckBox toggles on Space via the shared #activate hook (#toggle)" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s, content: "X"
     checks = 0
     cb.on(Crysterm::Event::StateChanged) { |e| checks += 1 if e.state.checked? }
@@ -66,7 +56,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   end
 
   it "RadioButton checks (never unchecks) on Enter via #activate → #toggle → #check" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     rb = Crysterm::Widget::RadioButton.new parent: s, content: "R"
     rb.emit enter_key
     rb.checked?.should be_true
@@ -75,7 +65,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
   end
 
   it "a non-activating key does not activate any member" do
-    s = fba_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, content: "Go"
     pressed = 0
     b.on(Crysterm::Event::Pressed) { pressed += 1 }

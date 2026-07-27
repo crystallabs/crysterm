@@ -6,32 +6,18 @@ include Crysterm
 # the box border; `spacing` (Qt's layout spacing) sets the inter-child gap.
 # These drive the full CSS pipeline and inspect rendered cells / positions.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def cell_fg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
-end
-
 private def count_cells_fg(screen, color)
   n = 0
   (0...screen.height).each do |y|
     next unless screen.lines[y]?
-    (0...screen.width).each { |x| n += 1 if cell_fg(screen, y, x) == color }
+    (0...screen.width).each { |x| n += 1 if cell_fg(screen, x, y) == color }
   end
   n
 end
 
 describe "gridline-color" do
   it "parses onto the style" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     table = Widget::Table.new rows: [["a", "b"], ["c", "d"]]
     screen.append table
 
@@ -46,7 +32,7 @@ describe "gridline-color" do
   end
 
   it "paints the table's internal gridlines in the requested color" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["aa", "bb"], ["11", "22"]]
     # Border enables gridline drawing; gridline-color recolors them.
@@ -57,7 +43,7 @@ describe "gridline-color" do
   end
 
   it "defaults gridlines to the border color when unset" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["aa", "bb"], ["11", "22"]]
     screen.stylesheet = "Table { border: solid; border-color: #00ff00; }"
@@ -75,7 +61,7 @@ describe "spacing" do
   end
 
   it "sets the layout gap from CSS" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: screen,
       layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
     screen.stylesheet = "Box { spacing: 3; }"
@@ -85,7 +71,7 @@ describe "spacing" do
   end
 
   it "separates HBox children by the CSS spacing" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 40, height: 6,
       layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
     Widget::Box.new parent: box, width: 6, height: 4

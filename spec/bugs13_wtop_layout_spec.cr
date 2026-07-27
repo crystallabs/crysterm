@@ -17,11 +17,6 @@ include Crysterm
 #   folded through the `*10 +` accumulator, producing garbage coordinates
 #   ("50%+1.5" → 135, "50% + 5" → -155).
 
-private def layout_screen(w = 40, h = 12)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
 private def lpos_size(widget)
   l = widget.lpos.not_nil!
   {l.xl - l.xi, l.yl - l.yi}
@@ -29,7 +24,7 @@ end
 
 describe "BUGS13 W8: shrink-to-content skips layout_excluded chrome" do
   it "a full-slot excluded child does not balloon the shrink size across renders" do
-    s = layout_screen
+    s = headless_screen(40, 12)
     shrink = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true
     Widget::Box.new parent: shrink, top: 0, left: 0, width: 6, height: 2,
       content: "hi"
@@ -74,7 +69,7 @@ describe "BUGS13 W19: malformed +/- offsets are rejected" do
   end
 
   it "center±N with a malformed offset raises at assignment" do
-    s = layout_screen
+    s = headless_screen(40, 12)
     clean = Widget::Box.new parent: s, left: "center", top: 0, width: 10, height: 1
     off = Widget::Box.new parent: s, left: "center-3", top: 6, width: 10, height: 1
     expect_raises(ArgumentError) { Widget::Box.new parent: s, left: "center+abc", top: 2, width: 10, height: 1 }
@@ -87,7 +82,7 @@ describe "BUGS13 W19: malformed +/- offsets are rejected" do
   end
 
   it "percentage sizes with malformed offsets raise at assignment" do
-    s = layout_screen
+    s = headless_screen(40, 12)
     clean = Widget::Box.new parent: s, left: 0, top: 0, width: "50%", height: 1
     off = Widget::Box.new parent: s, left: 0, top: 4, width: "50%+5", height: 1
     expect_raises(ArgumentError) { Widget::Box.new parent: s, left: 0, top: 2, width: "50%+1.5", height: 1 }

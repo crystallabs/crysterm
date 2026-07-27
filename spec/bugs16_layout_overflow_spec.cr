@@ -12,15 +12,9 @@ include Crysterm
 #   extent, and runs the spacing/fence math in `Int64`, so a pathological
 #   `columns`/`rows`/`spacing` value can't raise `OverflowError` mid-render.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS16 B16-20 Box clamps extreme stretch factors" do
   it "does not raise OverflowError with two near-MAX/large stretch factors" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new
     Widget::Box.new parent: box, layout_hint: Layout::Box::Hint.new(stretch: Int32::MAX)
@@ -29,7 +23,7 @@ describe "BUGS16 B16-20 Box clamps extreme stretch factors" do
   end
 
   it "does not raise OverflowError with a single Int32::MAX stretch factor" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new
     Widget::Box.new parent: box, layout_hint: Layout::Box::Hint.new(stretch: Int32::MAX)
@@ -37,7 +31,7 @@ describe "BUGS16 B16-20 Box clamps extreme stretch factors" do
   end
 
   it "treats a negative stretch as zero share, not the 1-default" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, layout_hint: Layout::Box::Hint.new(stretch: -5)
@@ -48,7 +42,7 @@ describe "BUGS16 B16-20 Box clamps extreme stretch factors" do
   end
 
   it "keeps an ordinary stretch distribution intact (no regression)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, layout_hint: Layout::Box::Hint.new(stretch: 1)
@@ -61,7 +55,7 @@ end
 
 describe "BUGS16 B16-23 Grid clamps extreme columns/rows/spacing" do
   it "does not raise OverflowError for columns: Int32::MAX plus an off-grid hint" do
-    screen = headless_screen w: 30, h: 9
+    screen = headless_screen(30, 9)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 9,
       layout: Layout::Grid.new(columns: Int32::MAX)
     Widget::Box.new parent: g,
@@ -70,7 +64,7 @@ describe "BUGS16 B16-23 Grid clamps extreme columns/rows/spacing" do
   end
 
   it "does not raise OverflowError for rows: Int32::MAX with spacing" do
-    screen = headless_screen w: 30, h: 9
+    screen = headless_screen(30, 9)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 9,
       layout: Layout::Grid.new(columns: 2, rows: Int32::MAX, spacing: 2)
     Widget::Box.new parent: g
@@ -78,7 +72,7 @@ describe "BUGS16 B16-23 Grid clamps extreme columns/rows/spacing" do
   end
 
   it "does not raise OverflowError for huge columns, rows, and spacing together" do
-    screen = headless_screen w: 30, h: 9
+    screen = headless_screen(30, 9)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 9,
       layout: Layout::Grid.new(columns: Int32::MAX, rows: Int32::MAX, spacing: Int32::MAX)
     Widget::Box.new parent: g
@@ -86,7 +80,7 @@ describe "BUGS16 B16-23 Grid clamps extreme columns/rows/spacing" do
   end
 
   it "keeps an ordinary grid layout intact (no regression)" do
-    screen = headless_screen w: 30, h: 9
+    screen = headless_screen(30, 9)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 9,
       layout: Layout::Grid.new(columns: 3)
     a = Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, column: 0)

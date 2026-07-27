@@ -9,16 +9,9 @@ include Crysterm
 # shown in the tree, as `rewind_focus`/`focus_offset` do — else focus (and the
 # cursor) lands on an off-screen widget.
 
-private def restore_focus_hidden_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#restore_focus with a hidden saved widget" do
   it "does not restore focus to a saved widget whose container is hidden" do
-    s = restore_focus_hidden_screen
+    s = headless_screen(default_quit_keys: true)
     container = Widget::Box.new parent: s
     a = Widget::Box.new parent: container, keys: true
     b = Widget::Box.new parent: s, keys: true
@@ -40,7 +33,7 @@ describe "Window#restore_focus with a hidden saved widget" do
   end
 
   it "still restores focus to a saved widget that is shown" do
-    s = restore_focus_hidden_screen
+    s = headless_screen(default_quit_keys: true)
     container = Widget::Box.new parent: s
     a = Widget::Box.new parent: container, keys: true
     b = Widget::Box.new parent: s, keys: true

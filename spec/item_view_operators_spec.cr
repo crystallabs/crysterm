@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def ivo_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `Mixin::ItemView`/`Mixin::ActionBar` alias `#<<` to `#add_item` and `#>>` to
 # `#remove_item` via `alias_previous`, which expands to an *unrestricted*
 # `def <<(*args)`. Every `Widget` separately includes `Mixin::Children`, whose
@@ -24,7 +14,7 @@ end
 # item-append. That is a behavior change no compiler error would catch.
 describe "Mixin::ItemView operator aliases" do
   it "appends an item via #<< with a String" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, width: 20, height: 10
     list << "one"
     list << "two"
@@ -34,7 +24,7 @@ describe "Mixin::ItemView operator aliases" do
   end
 
   it "removes an item via #>> with its text" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, width: 20, height: 10
     list << "one"
     list << "two"
@@ -45,7 +35,7 @@ describe "Mixin::ItemView operator aliases" do
 
   # The load-bearing one: `<<` with a Widget must NOT become add_item.
   it "still appends a *child widget* via #<<(Widget), not an item" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, width: 20, height: 10
     before = list.count
     box = Crysterm::Widget::Box.new width: 5, height: 1, content: "child"
@@ -58,7 +48,7 @@ end
 
 describe "Mixin::ActionBar operator aliases" do
   it "appends a command via #<< with a String" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
     bar << "one"
     bar << "two"
@@ -66,7 +56,7 @@ describe "Mixin::ActionBar operator aliases" do
   end
 
   it "removes a command via #>> with its index" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
     bar << "one"
     bar << "two"
@@ -75,7 +65,7 @@ describe "Mixin::ActionBar operator aliases" do
   end
 
   it "still appends a *child widget* via #<<(Widget), not a command" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
     before = bar.count
     box = Crysterm::Widget::Box.new width: 5, height: 1, content: "child"
@@ -88,7 +78,7 @@ end
 
 describe "Widget::Menu operator aliases" do
   it "adds via #<< and removes via #>>, mirroring #remove_action" do
-    s = ivo_window
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Menu.new parent: s
     a = Action.new "Bold"
     menu << a

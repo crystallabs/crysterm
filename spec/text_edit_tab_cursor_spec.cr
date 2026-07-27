@@ -7,13 +7,9 @@ include Crysterm
 # The caret model maps between the two; treating rendered columns as raw
 # `@value` codepoints shifts the caret left by `tab_size - 1` per TAB, enough
 # to land Up/Down on the wrong character or logical line.
-private def te_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 describe "PlainTextEdit caret with TABs" do
   it "moves Up onto the visually-aligned position of the line above (across a TAB)" do
-    s = te_screen
+    s = headless_screen(default_quit_keys: true)
     pte = Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 10
     # Line 0 "ab\tcd" renders as "ab    cd" (8 cols); line 1 "XYZWVUT" (7 cols).
     pte.value = "ab\tcd\nXYZWVUT"

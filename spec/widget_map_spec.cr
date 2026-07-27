@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def map_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 78, height: 22)
-end
-
 private def cells_text(s) : String
   (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
@@ -19,7 +13,7 @@ describe Crysterm::Widget::Graph::Map do
   end
 
   it "draws coastlines (braille) and coordinate markers (glyphs)" do
-    s = map_screen
+    s = headless_screen(78, 22, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -45,7 +39,7 @@ describe Crysterm::Widget::Graph::Map do
     # `look_at(lat, lon, 0, 0)` collapses the window to a point (min_lon ==
     # max_lon, min_lat == max_lat). A marker there used to divide by that zero
     # span, producing NaN, and `NaN.to_i` raised `OverflowError`.
-    s = map_screen
+    s = headless_screen(78, 22, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -61,7 +55,7 @@ describe Crysterm::Widget::Graph::Map do
   end
 
   it "projects markers to the correct hemisphere" do
-    s = map_screen
+    s = headless_screen(78, 22, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin

@@ -12,11 +12,6 @@ include Crysterm
 # examples pin the grab *lifecycle* the session now owns — the thing
 # `DismissSession` exists to get right.
 
-private def menu_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def press_at(s, x, y)
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test)
@@ -32,7 +27,7 @@ end
 
 describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
   it "takes a modal grab on #popup and releases it on #hide_popup" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     menu = popup_menu s
 
     s.popup_grab_active?.should be_false
@@ -46,7 +41,7 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
   end
 
   it "dismisses (and releases the grab) on a press outside the menu" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     menu = popup_menu s
 
     menu.popup 2, 2
@@ -59,7 +54,7 @@ describe "Menu DismissSession adoption (FORMAL-WIDGETS Part A)" do
   end
 
   it "a press on a #treat_as_inside region is not a click-away" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     menu = popup_menu s
     # An extra region (e.g. an owning MenuBar title / ToolButton / Calendar nav
     # bar) counts as inside the grab, so a press there does not dismiss.

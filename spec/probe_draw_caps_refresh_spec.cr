@@ -24,12 +24,6 @@ include Crysterm
 # post-construction capability upgrade a live probe performs. The point under
 # test is that `Screen#probe` re-snapshots `DrawCaps` from the now-current
 # depth, which is what the truecolor probe relies on.
-private def probe_screen(width = 8, height = 2)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe "Screen#probe draw_caps refresh" do
   saved_force = Crysterm::ColorForce::None
   prev_depth = Crysterm::ColorDepth::Auto
@@ -49,7 +43,7 @@ describe "Screen#probe draw_caps refresh" do
   end
 
   it "re-snapshots ncolors after the effective depth widens (as a probe would)" do
-    s = probe_screen
+    s = headless_screen(8, 2, default_quit_keys: true)
     screen = s.screen
 
     # Baseline: the constructor's snapshot agrees with the live count.
@@ -67,7 +61,7 @@ describe "Screen#probe draw_caps refresh" do
   end
 
   it "emits truecolor SGR when rendering after the probe refresh" do
-    s = probe_screen
+    s = headless_screen(8, 2, default_quit_keys: true)
     screen = s.screen
     s.alloc
 

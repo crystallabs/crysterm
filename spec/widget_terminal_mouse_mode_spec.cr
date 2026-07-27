@@ -11,12 +11,6 @@ include Crysterm
 # adds free motion. Previously the widget forwarded every `Event::Mouse` while
 # any tracking was active, flooding normal-mode children with motion reports.
 
-private def screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 private def mouse(action : ::Tput::Mouse::Action, button : ::Tput::Mouse::Button, x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y))
 end
@@ -24,7 +18,7 @@ end
 describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
   it "drops motion in normal mode but forwards presses, and honours button-event motion" do
     captured = [] of String
-    s = screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     term = Crysterm::Widget::Terminal.new(
       parent: s, top: 0, left: 0, width: 10, height: 4,
       handler: ->(data : String) { captured << data; nil })

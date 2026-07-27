@@ -2,11 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 # A real PNG shipped in the repo, decoded by the pure-Crystal PNGGIF reader.
 private def bg_image_path
   "#{__DIR__}/../data/image/matterhorn.png"
@@ -104,7 +99,7 @@ describe "CSS background-image" do
 
   describe "Media::Kitty background placement" do
     it "maps `background=` onto a negative z and back" do
-      k = Widget::Media::Kitty.new file: "x.png", parent: headless_screen
+      k = Widget::Media::Kitty.new file: "x.png", parent: headless_screen(80, 24, default_quit_keys: true)
       k.background?.should be_false
       k.z.should be_nil
 
@@ -120,7 +115,7 @@ describe "CSS background-image" do
 
   describe "backend resolution" do
     it "resolves a background to a cell-grid backend, honoring image.exclude" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       with_media_exclude("kitty,glyph") do
         Widget::Media.resolve(Widget::Media::Content::Background, s.tput)
           .should eq Widget::Media::Type::Ansi
@@ -131,7 +126,7 @@ describe "CSS background-image" do
   describe "rendering with a cell-grid backend" do
     it "paints the image into empty cells with the text drawn on top" do
       with_media_exclude("kitty") do
-        s = headless_screen
+        s = headless_screen(80, 24, default_quit_keys: true)
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6, content: "Hi"
         box.style.background_image = bg_image_path
         s.repaint
@@ -160,7 +155,7 @@ describe "CSS background-image" do
 
     it "grades the content over the background with style.opacity" do
       with_media_exclude("kitty") do
-        s = headless_screen
+        s = headless_screen(80, 24, default_quit_keys: true)
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6, content: "Hi"
         box.style.background_image = bg_image_path
         box.style.opacity = 0.5
@@ -175,7 +170,7 @@ describe "CSS background-image" do
     end
 
     it "creates no background layer when no background-image is set" do
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 3, content: "hi"
       s.repaint
 
@@ -187,7 +182,7 @@ describe "CSS background-image" do
 
     it "tears the background layer down when the image is cleared" do
       with_media_exclude("kitty") do
-        s = headless_screen
+        s = headless_screen(80, 24, default_quit_keys: true)
         box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 3, content: "hi"
         box.style.background_image = bg_image_path
         s.repaint

@@ -13,17 +13,9 @@ include Crysterm
 # (`aleft(with_margin: false)` / `atop(with_margin: false)`) so the round-trip
 # through `left=`/`top=` + `coords` is exact.
 
-private def bugs11_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 describe "BUGS11 #8 dragging a margined widget tracks the pointer" do
   it "does not jump right/down by its margin on the first drag motion" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new(
       parent: s, left: 5, top: 4, width: 10, height: 4,
       draggable: true,

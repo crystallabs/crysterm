@@ -8,20 +8,23 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 80, height: 24, default_quit_keys: false)
-  end
-
-  private def rgb(name)
-    Crysterm::Colors.convert(name).to_i32
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   # ---- Finding 6: generated dom_apply goes through real setters ------------
 
   describe "BUGS-F2 #6 generated dom_apply uses the public setter (side effects preserved)" do
     it "clamps a ProgressBar value set via dom_apply instead of storing it raw" do
-      pb = Widget::ProgressBar.new window: headless_screen, width: 20, height: 1
+      pb = Widget::ProgressBar.new window: headless_screen(80, 24), width: 20, height: 1
       pb.maximum.should eq 100
 
       # Runtime setAttribute routes through dom_apply. Before the fix this wrote
@@ -35,7 +38,7 @@ require "http/client"
     end
 
     it "re-clamps the value through maximum= when the range shrinks" do
-      pb = Widget::ProgressBar.new window: headless_screen, width: 20, height: 1
+      pb = Widget::ProgressBar.new window: headless_screen(80, 24), width: 20, height: 1
       pb.dom_apply "value", "80"
       pb.value.should eq 80
 
@@ -50,7 +53,7 @@ require "http/client"
 
   describe "BUGS-F2 #23 declarative binding wiring reacts to a changed action" do
     it "replaces a changed on* action (detaches the stale binding)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       btn = Widget::Button.new window: s, width: 6, height: 1
       s.append btn
       btn.dom_events["click"] = "save"
@@ -72,7 +75,7 @@ require "http/client"
     end
 
     it "wires a brand-new binding on the next each_binding pass" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       btn = Widget::Button.new window: s, width: 6, height: 1
       s.append btn
 
@@ -93,20 +96,22 @@ require "http/client"
     end
 
     it "wires a setAttribute(onclick) over the HTTP bridge" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7401)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7401
       base = "http://127.0.0.1:7401"
       begin
         HTTP::Client.post("#{base}/rpc",
           body: %({"jsonrpc":"2.0","id":1,"method":"setAttribute","params":{"selector":"#ok","name":"onclick","value":"save"}}))
 
         events = Channel(String).new
+        subscribed = false
         spawn do
           HTTP::Client.get("#{base}/events") do |response|
             while line = response.body_io.gets
+              subscribed = true # `: connected` is flushed after the subscriber is registered
               if line.starts_with?("data: ")
                 events.send line["data: ".size..]
                 break
@@ -115,7 +120,7 @@ require "http/client"
           end
         rescue
         end
-        sleep 100.milliseconds
+        wait_until { subscribed }
 
         s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
         select
@@ -137,7 +142,7 @@ require "http/client"
 
   describe "BUGS-F2 #52 an object-assigned stylesheet survives load_layout" do
     it "keeps a CSS::Stylesheet assigned before a load_layout with no <style>" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.stylesheet = Crysterm::CSS::Stylesheet.parse("#x { color: red; }")
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       s.apply_stylesheet
@@ -147,7 +152,7 @@ require "http/client"
     end
 
     it "merges the object sheet with a layout's inline <style>" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.stylesheet = Crysterm::CSS::Stylesheet.parse("#x { color: red; }")
       s.load_layout %(<w-window><style>#y { color: green; }</style><w-box id="x"></w-box><w-box id="y"></w-box></w-window>)
       s.apply_stylesheet
@@ -156,7 +161,7 @@ require "http/client"
     end
 
     it "still clears rules when everything is cleared" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.stylesheet = Crysterm::CSS::Stylesheet.parse("#x { color: red; }")
       s.stylesheet = nil # explicit object clear
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
@@ -169,11 +174,11 @@ require "http/client"
 
   describe "BUGS-F2 #53 unsubscribe stops delivery for a widget that stopped matching" do
     it "detaches the forwarder recorded at subscribe time, not the current match" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="ok" class="hot"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7402)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7402
       base = "http://127.0.0.1:7402/rpc"
       begin
         HTTP::Client.post(base,
@@ -185,9 +190,11 @@ require "http/client"
           body: %({"jsonrpc":"2.0","id":3,"method":"unsubscribe","params":{"selector":".hot","event":"press"}}))
 
         events = Channel(String).new(1)
+        subscribed = false
         spawn do
           HTTP::Client.get("http://127.0.0.1:7402/events") do |response|
             while line = response.body_io.gets
+              subscribed = true # `: connected` is flushed after the subscriber is registered
               if line.starts_with?("data: ")
                 events.send line["data: ".size..]
                 break
@@ -196,7 +203,7 @@ require "http/client"
           end
         rescue
         end
-        sleep 100.milliseconds
+        wait_until { subscribed }
 
         s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
         select
@@ -215,14 +222,14 @@ require "http/client"
 
   describe "BUGS-F2 #54 base dom_attributes emits parse-tags and wrap-content explicitly" do
     it "always emits both booleans, regardless of value" do
-      box = Widget::Box.new parent: headless_screen, width: 10, height: 3
+      box = Widget::Box.new parent: headless_screen(80, 24), width: 10, height: 3
       attrs = box.dom_attributes
       attrs.has_key?("parse-tags").should be_true
       attrs.has_key?("wrap-content").should be_true
     end
 
     it "round-trips wrap_content=true on a subclass whose default is false (Table)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       t = Widget::Table.new window: s, width: 20, height: 5, wrap_content: true
       s.append t
       t.wrap_content?.should be_true
@@ -232,18 +239,18 @@ require "http/client"
 
       # Reload the serialized markup: the flipped value must survive rather than
       # reverting to Table's `false` constructor default.
-      s2 = headless_screen
+      s2 = headless_screen(80, 24)
       s2.load_layout %(<w-window>#{html}</w-window>)
       s2.children.first.wrap_content?.should be_true
     end
 
     it "round-trips a default Table's wrap_content=false" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       t = Widget::Table.new window: s, width: 20, height: 5
       s.append t
       t.wrap_content?.should be_false
 
-      s2 = headless_screen
+      s2 = headless_screen(80, 24)
       s2.load_layout %(<w-window>#{t.to_layout_html}</w-window>)
       s2.children.first.wrap_content?.should be_false
     end
@@ -253,11 +260,11 @@ require "http/client"
 
   describe "BUGS-F2 #55 subscribe rejects an unknown event with BadParams" do
     it "returns a JSON-RPC -32602 and does not record the subscription" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7403)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7403
       base = "http://127.0.0.1:7403/rpc"
       begin
         resp = HTTP::Client.post(base,

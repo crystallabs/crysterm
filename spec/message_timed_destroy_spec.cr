@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def msg_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # A *timed* Message spawns a fiber that calls `end_it gen` after its sleep.
 # Destroying the message before the timeout must invalidate that pending fiber
 # (via the generation bump), so the stale timeout can't dismiss/callback against
 # the torn-down widget — the timed counterpart of the keypress-dismiss cleanup.
 describe Crysterm::Widget::Message do
   it "invalidates a pending timed-dismissal after destroy" do
-    s = msg_window
+    s = headless_screen(80, 24)
     msg = Crysterm::Widget::Message.new parent: s, width: 20, height: 3
 
     ran = false

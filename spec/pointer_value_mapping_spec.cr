@@ -14,16 +14,6 @@ include Crysterm
 # value span 110 → 10/cell), keeping the assertions exact. Mouse hit-testing reads
 # the painted `lpos`, so each widget is rendered before the synthetic press.
 
-private def pvm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def press(s, x, y)
   s.repaint
   s.dispatch_mouse ::Tput::Mouse::Event.new(
@@ -32,7 +22,7 @@ end
 
 describe "pointer→value mapping (FORMAL-WIDGETS B1.3)" do
   it "maps a press along a horizontal Slider to the value at that cell" do
-    s = pvm_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 12, height: 1,
       minimum: 0, maximum: 110, value: 0
     press s, 0, 0
@@ -44,7 +34,7 @@ describe "pointer→value mapping (FORMAL-WIDGETS B1.3)" do
   end
 
   it "inverts the vertical Slider axis (top = maximum, bottom = minimum)" do
-    s = pvm_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 1, height: 12,
       minimum: 0, maximum: 110, value: 0, orientation: :vertical
     press s, 0, 0
@@ -54,7 +44,7 @@ describe "pointer→value mapping (FORMAL-WIDGETS B1.3)" do
   end
 
   it "maps a press along a horizontal ScrollBar with the shared formula (no inversion)" do
-    s = pvm_screen
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 12, height: 1,
       minimum: 0, maximum: 110, value: 0, orientation: :horizontal
     press s, 0, 0
@@ -64,7 +54,7 @@ describe "pointer→value mapping (FORMAL-WIDGETS B1.3)" do
   end
 
   it "maps a press along a horizontal ProgressBar to a fill percentage" do
-    s = pvm_screen
+    s = headless_screen(80, 24)
     pb = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 12, height: 1,
       minimum: 0, maximum: 100, value: 0, mouse: true
     press s, 11, 0

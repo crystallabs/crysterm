@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 30,
-    height: 15,
-    default_quit_keys: false)
-end
-
 # Regression: `minimal_children_rectangle`'s list branch anchored the extent
 # at absolute row 0 (`myi = 0; myl = items + itop`) while `myi`/`myl` are
 # absolute window coordinates seeded from the widget's own top (`yi`). That is
@@ -20,7 +10,7 @@ end
 # discarded it, and the box collapsed — clipping the list's items.
 describe "Widget::List shrink-to-content height at a non-zero top offset" do
   it "sizes to fit all items plus both insets when top is non-zero" do
-    s = mem_screen
+    s = headless_screen(30, 15)
     l = Crysterm::Widget::List.new parent: s, top: 5, left: 0, shrink_to_fit: true,
       style: Crysterm::Style.new(border: true)
     l.items = ["one", "two", "three"]
@@ -41,7 +31,7 @@ describe "Widget::List shrink-to-content height at a non-zero top offset" do
   end
 
   it "sizes correctly when nested inside a positioned parent" do
-    s = mem_screen
+    s = headless_screen(30, 15)
     box = Crysterm::Widget::Box.new parent: s, top: 2, left: 1, width: 25, height: 12
     l = Crysterm::Widget::List.new parent: box, top: 3, left: 0, shrink_to_fit: true,
       style: Crysterm::Style.new(border: true)

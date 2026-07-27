@@ -9,19 +9,9 @@ include Crysterm
 # which returns the first matching index, so cycling/committing onto a later
 # duplicate resolved back to the first twin — later duplicates were unreachable.
 
-private def cbdup_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "ComboBox with duplicate option labels" do
   it "cycles onto a later duplicate rather than bouncing off its earlier twin" do
-    s = cbdup_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["A", "B", "A"]
 
@@ -44,7 +34,7 @@ describe "ComboBox with duplicate option labels" do
   end
 
   it "commits the duplicate row actually picked from the drop-down" do
-    s = cbdup_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 12, height: 1,
       options: ["A", "B", "A"]
 

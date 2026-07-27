@@ -13,18 +13,6 @@ include Crysterm
 # A faithful capture must mirror what the terminal displays, so a hidden
 # subtree's graphics must be excluded.
 
-private def graphics_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 20, height: 10)
-end
-
-# A small solid-red RGBA bitmap — a color that never occurs among the capture
-# defaults (black bg, silver fg), so its presence is unambiguous.
-private def red_bitmap(w = 8, h = 8)
-  red = PNGGIF::Pixel.new(255, 0, 0, 255)
-  Array(Array(PNGGIF::Pixel)).new(h) { Array(PNGGIF::Pixel).new(w, red) }
-end
-
 private def capture_has_red?(bmp)
   bmp.any? do |row|
     row.any? { |px| px.r == 255 && px.g == 0 && px.b == 0 }
@@ -33,7 +21,7 @@ end
 
 describe "Capture of in-band graphics inside a hidden subtree" do
   it "excludes a graphics widget whose container is hidden" do
-    s = graphics_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     parent = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 6
     img = Widget::Media::Sixel.new parent: parent, top: 0, left: 0, width: 6, height: 4
     img.bitmap = red_bitmap

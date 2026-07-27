@@ -8,16 +8,10 @@ include Crysterm
 # double-parented: listed in both the old container's and new screen's `children`,
 # rendered twice.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Window#insert reparenting an existing widget onto the screen" do
   it "removes a top-level widget from its previous screen (no double-parenting across screens)" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
 
     w = Widget::Box.new parent: s1, width: 4, height: 2
     s1.children.includes?(w).should be_true
@@ -32,7 +26,7 @@ describe "Window#insert reparenting an existing widget onto the screen" do
   end
 
   it "removes a nested widget from its widget parent when inserted onto the screen" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s, width: 10, height: 5
     child = Widget::Box.new parent: container, width: 4, height: 2
     container.children.includes?(child).should be_true

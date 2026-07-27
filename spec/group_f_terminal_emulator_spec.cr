@@ -10,33 +10,23 @@ include Crysterm
 #
 # Pure emulator, no `Window`/PTY.
 
-private DFL = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
-
-private def emu(cols = 10, rows = 4)
-  Crysterm::TerminalEmulator.new(cols, rows, DFL)
-end
-
-private def row(em, y)
-  em.lines[em.ydisp + y].map(&.char).join.delete('\0').rstrip
-end
-
 describe "TerminalEmulator Group F" do
   describe "F1 — multibyte UTF-8 output" do
     it "renders non-Latin (2- and 3-byte) glyphs from a UTF-8 chunk" do
       em = emu
       em.feed "héllo" # 'é' is 2-byte UTF-8
-      row(em, 0).should eq "héllo"
+      emu_row(em, 0).should eq "héllo"
       em.cursor_x.should eq 5
 
       em = emu
       em.feed "αβγ" # Greek, 2-byte each
-      row(em, 0).should eq "αβγ"
+      emu_row(em, 0).should eq "αβγ"
     end
 
     it "renders 3-byte box-drawing glyphs written directly (not via charset)" do
       em = emu
       em.feed "─┼─" # U+2500 / U+253C, 3-byte UTF-8
-      row(em, 0).should eq "─┼─"
+      emu_row(em, 0).should eq "─┼─"
     end
 
     it "renders a 4-byte glyph (emoji, wide) and advances two columns" do
@@ -51,29 +41,29 @@ describe "TerminalEmulator Group F" do
     it "resumes the ASCII fast loop after each multibyte glyph" do
       em = emu(20, 2)
       em.feed "a→b→c" # ASCII / 3-byte / ASCII interleaved
-      row(em, 0).should eq "a→b→c"
+      emu_row(em, 0).should eq "a→b→c"
     end
 
     it "handles a multibyte glyph split across two feeds (leftover reassembly)" do
       em = emu
       bytes = "€".to_slice # U+20AC, 3 bytes
       em.feed bytes[0, 2]  # incomplete
-      row(em, 0).should eq ""
+      emu_row(em, 0).should eq ""
       em.feed bytes[2, 1] # completes the glyph
-      row(em, 0).should eq "€"
+      emu_row(em, 0).should eq "€"
     end
 
     it "processes a control byte immediately after a multibyte glyph" do
       em = emu
       em.feed "é\r\nx" # CR/LF must still be seen as controls after 'é'
-      row(em, 0).should eq "é"
-      row(em, 1).should eq "x"
+      emu_row(em, 0).should eq "é"
+      emu_row(em, 1).should eq "x"
     end
 
     it "emits U+FFFD for a stray continuation byte and keeps decoding" do
       em = emu
       em.feed Bytes[0x41, 0x80, 0x42] # 'A', lone continuation, 'B'
-      row(em, 0).should eq "A�B"
+      emu_row(em, 0).should eq "A�B"
     end
   end
 
@@ -81,23 +71,23 @@ describe "TerminalEmulator Group F" do
     it "designates G0 special via ESC ( 0 (index 0)" do
       em = emu
       em.feed "\e(0q\e(BX" # G0=special: 'q'->'─', then ASCII
-      row(em, 0).should eq "─X"
+      emu_row(em, 0).should eq "─X"
     end
 
     it "designates G1 special via ESC ) 0 (index 1), invoked with SO" do
       em = emu
       em.feed "\e)0\x0Eq" # G1=special, SO invokes G1
-      row(em, 0).should eq "─"
+      emu_row(em, 0).should eq "─"
     end
 
     it "routes ESC * (index 2) and ESC + (index 3) without affecting G0/G1 rendering" do
       # G2/G3 are tracked-but-unused; designating them must not turn G0 special.
       em = emu
       em.feed "\e*0q" # designate G2 special, GL still G0(ASCII)
-      row(em, 0).should eq "q"
+      emu_row(em, 0).should eq "q"
       em = emu
       em.feed "\e+0q" # designate G3 special, GL still G0(ASCII)
-      row(em, 0).should eq "q"
+      emu_row(em, 0).should eq "q"
     end
   end
 
@@ -159,17 +149,17 @@ describe "TerminalEmulator Group F" do
       # Produce scrollback by scrolling past the window height.
       em.feed "L0\nL1\nL2\nL3\nL4"
       em.ybase.should be > 0
-      visible0 = row(em, 0)
-      visible1 = row(em, 1)
-      visible2 = row(em, 2)
+      visible0 = emu_row(em, 0)
+      visible1 = emu_row(em, 1)
+      visible2 = emu_row(em, 2)
 
       em.feed "\e[3J" # ED 3
       em.ybase.should eq 0
       em.ydisp.should eq 0
       em.lines.size.should eq 3 # exactly the visible page
-      row(em, 0).should eq visible0
-      row(em, 1).should eq visible1
-      row(em, 2).should eq visible2
+      emu_row(em, 0).should eq visible0
+      emu_row(em, 1).should eq visible1
+      emu_row(em, 2).should eq visible2
     end
   end
 end

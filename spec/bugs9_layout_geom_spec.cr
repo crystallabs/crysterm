@@ -5,17 +5,11 @@ include Crysterm
 # Regression specs for the BUGS9 Layout & Geometry fixes. Headless harness
 # mirrors `spec/bugs8_layout_spec.cr` / `spec/bugs6_layout_spec.cr`.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # A shrink-to-content (`shrink_to_fit`) box holding one fixed child, anchored to
 # *near* (left/top) or *far* (right/bottom), with the given padding. Returns the
 # rendered outer rectangle `{xi, xl, yi, yl}`.
 private def shrink_box_rect(anchor : Symbol, pad : Crysterm::Padding, child_w = 6, child_h = 3)
-  s = headless_screen
+  s = headless_screen(80, 24)
   st = Style.new(padding: pad)
   sh =
     case anchor

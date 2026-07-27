@@ -15,15 +15,6 @@ include Crysterm
 # the open calendar). `#grab_contains?` now also counts the calendar's open nav
 # dropdowns as "inside".
 
-private def denp_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80, height: 24,
-    default_quit_keys: false)
-end
-
 private def denp_down(s, x, y)
   s.dispatch_mouse Tput::Mouse::Event.new(
     Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test)
@@ -49,7 +40,7 @@ end
 
 describe "DateEdit keeps the calendar open when picking a nav-dropdown row that overhangs it" do
   it "closes only the month dropdown, not the calendar" do
-    s = denp_screen
+    s = headless_screen(80, 24)
     de, cal = denp_open s
     de.open?.should be_true
 
@@ -70,7 +61,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
   end
 
   it "closes only the year dropdown, not the calendar" do
-    s = denp_screen
+    s = headless_screen(80, 24)
     de, cal = denp_open s
     ax = cal.aleft + cal.ileft
     ay = cal.atop + cal.itop
@@ -86,7 +77,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
   end
 
   it "renders the year dropdown's scroll handle the same size as a Completer's (not a 1-cell nub)" do
-    s = denp_screen
+    s = headless_screen(80, 24)
     _de, cal = denp_open s
     denp_down s, cal.aleft + cal.ileft + cal.@nav_year_range.begin, cal.atop + cal.itop
     menu = cal.year_menu.not_nil!
@@ -103,7 +94,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
   end
 
   it "still dismisses the calendar on a press truly outside it and its dropdowns" do
-    s = denp_screen
+    s = headless_screen(80, 24)
     de, cal = denp_open s
     denp_down s, cal.aleft + cal.ileft + cal.@nav_month_range.begin, cal.atop + cal.itop
     cal.month_menu.not_nil!

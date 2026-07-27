@@ -5,16 +5,9 @@ include Crysterm
 # Hiding a widget must move keyboard focus out of the hidden subtree, even when
 # a *descendant* (not the widget itself) holds focus.
 
-private def hide_focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Widget#hide" do
   it "rewinds focus when the hidden widget itself is focused" do
-    s = hide_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
 
@@ -27,7 +20,7 @@ describe "Widget#hide" do
   end
 
   it "rewinds focus when a focused descendant is hidden with its container" do
-    s = hide_focus_screen
+    s = headless_screen(default_quit_keys: true)
     other = Widget::Box.new parent: s, keys: true
     panel = Widget::Box.new parent: s, keys: true
     child = Widget::Box.new parent: panel, keys: true
@@ -43,7 +36,7 @@ describe "Widget#hide" do
   end
 
   it "leaves focus alone when an unrelated widget is hidden" do
-    s = hide_focus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
 

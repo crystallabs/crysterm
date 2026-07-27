@@ -11,21 +11,13 @@ include Crysterm
 #          with the right coords/button; the object is reused across reports).
 #   * B4 — Widget-context shortcut activation still gates on host focus.
 
-private def gb_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def gb_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
 
 describe "ALLOCS Group B1 — widget_at traversal" do
   it "returns the topmost (last-in-tree) overlapping widget" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     a.clickable = true
     b = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
@@ -35,7 +27,7 @@ describe "ALLOCS Group B1 — widget_at traversal" do
   end
 
   it "honors z-index over tree order" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     top = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     top.clickable = true
     top.style.z_index = 10
@@ -46,7 +38,7 @@ describe "ALLOCS Group B1 — widget_at traversal" do
   end
 
   it "skips the given widget and falls through to the one below" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     a.clickable = true
     b = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
@@ -59,14 +51,14 @@ describe "ALLOCS Group B1 — widget_at traversal" do
   end
 
   it "returns nil when the sole candidate is skipped" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     a.clickable = true
     s.widget_at(8, 7, skip: a).should be_nil
   end
 
   it "recurses into a skipped widget's subtree (skip is per-widget, not per-subtree)" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     outer = Widget::Box.new parent: s, left: 5, top: 5, width: 10, height: 6
     outer.clickable = true
     inner = Widget::Box.new parent: outer, left: 0, top: 0, width: 10, height: 6
@@ -78,7 +70,7 @@ describe "ALLOCS Group B1 — widget_at traversal" do
   end
 
   it "returns nil when no widget covers the point" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 5, top: 5, width: 4, height: 4
     a.clickable = true
     s.widget_at(30, 15).should be_nil
@@ -87,7 +79,7 @@ end
 
 describe "ALLOCS Group B2 — pooled mouse events" do
   it "delivers the correct coords/button to a screen-level listener" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     got_x = got_y = -1
     got_button = ::Tput::Mouse::Button::None
     s.on(Crysterm::Event::Mouse) do |e|
@@ -103,7 +95,7 @@ describe "ALLOCS Group B2 — pooled mouse events" do
   end
 
   it "reuses one pooled Event::Mouse object across reports (no per-report alloc)" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     seen = [] of Crysterm::Event::Mouse
     s.on(Crysterm::Event::Mouse) { |e| seen << e }
 
@@ -119,7 +111,7 @@ describe "ALLOCS Group B2 — pooled mouse events" do
   end
 
   it "resets `accepted` between reports on the reused object" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     w.clickable = true
     accept_next = true
@@ -139,7 +131,7 @@ describe "ALLOCS Group B2 — pooled mouse events" do
   end
 
   it "delivers hover MouseEnter/MouseLeave via pooled events" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     a = Widget::Box.new parent: s, left: 0, top: 0, width: 5, height: 5
     a.clickable = true
     b = Widget::Box.new parent: s, left: 10, top: 0, width: 5, height: 5
@@ -159,7 +151,7 @@ end
 
 describe "ALLOCS Group B4 — shortcut host-focus gating" do
   it "fires a Widget-context shortcut only while its host is focused" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     other = Crysterm::Widget::Box.new parent: s, top: 2, left: 0, width: 5, height: 1, keys: true
 
@@ -181,7 +173,7 @@ describe "ALLOCS Group B4 — shortcut host-focus gating" do
   end
 
   it "does not fire on a non-matching key even while the host is focused" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcut: Tput::Key::CtrlB,
       shortcut_context: Action::ShortcutContext::Widget
@@ -197,7 +189,7 @@ describe "ALLOCS Group B4 — shortcut host-focus gating" do
   end
 
   it "still completes a two-stroke chord while the host stays focused" do
-    s = gb_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]],
       shortcut_context: Action::ShortcutContext::Widget

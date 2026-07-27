@@ -9,15 +9,6 @@ include Crysterm
 # the fragment is the freshest copy. Headless harness like
 # `text_editing_keys_spec.cr`: keystrokes fed straight through `#_listener`.
 
-private def clip_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 private def ctl(k : ::Tput::Key)
   Crysterm::Event::KeyPress.new '\0', k
 end
@@ -40,7 +31,7 @@ end
 
 describe "rich clipboard" do
   it "rich-copies a TextEdit selection: fragment + plain text" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     te = new_te s, "hello world"
     te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
     select_range te, 0, 7
@@ -54,7 +45,7 @@ describe "rich clipboard" do
   end
 
   it "pastes the fragment into another TextEdit with formats intact, as one undo step" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "styled"
     src.document.apply_char_format(0, 6, TextCharFormat.new(italic: true, fg: 0x00FF00))
     select_range src, 0, 6
@@ -74,7 +65,7 @@ describe "rich clipboard" do
   end
 
   it "replaces a selection on rich paste as a single undo step" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "NEW"
     select_range src, 0, 3
     src._listener ctl(::Tput::Key::CtrlC)
@@ -89,7 +80,7 @@ describe "rich clipboard" do
   end
 
   it "degrades to plain text when pasting into a flat buffer" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "styled"
     src.document.apply_char_format(0, 6, TextCharFormat.new(bold: true))
     select_range src, 0, 6
@@ -102,7 +93,7 @@ describe "rich clipboard" do
   end
 
   it "a fresher plain copy invalidates the fragment" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "rich"
     src.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
     select_range src, 0, 4
@@ -124,7 +115,7 @@ describe "rich clipboard" do
   end
 
   it "an external OSC-52 reply invalidates the fragment; our own echo does not" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     te = new_te s, "mine"
     select_range te, 0, 4
     te._listener ctl(::Tput::Key::CtrlC)
@@ -139,7 +130,7 @@ describe "rich clipboard" do
   end
 
   it "pastes multi-block fragments across blocks" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "one\ntwo"
     src.document.apply_char_format(0, 3, TextCharFormat.new(underline: true))
     select_range src, 0, 7
@@ -153,7 +144,7 @@ describe "rich clipboard" do
   end
 
   it "falls back to the truncating plain path when max_length is exceeded" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "abcdefgh"
     src.document.apply_char_format(0, 8, TextCharFormat.new(bold: true))
     select_range src, 0, 8
@@ -171,7 +162,7 @@ describe "rich clipboard" do
   end
 
   it "rich copy round-trips through the tags serialization of the fragment" do
-    s = clip_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     te = new_te s, "tagged text"
     te.document.apply_char_format(0, 6, TextCharFormat.new(bold: true))
     select_range te, 0, 11

@@ -17,16 +17,12 @@ include Crysterm
 # asserts a re-draw while animating issues a NEW generation, so the previous
 # loop detects staleness and exits instead of running alongside the new one.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 describe "Widget::Media::Tek animation supersession" do
   it "issues a new generation on re-draw so a superseded loop exits" do
     gif = "data/image/netscape.gif"
     pending! "no animated test fixture" unless File.exists?(gif)
 
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     tek = Crysterm::Widget::Media::Tek.new file: gif, parent: s
 
     tek.draw_tek # starts the animation loop (idempotent via @drawn)

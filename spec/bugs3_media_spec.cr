@@ -13,12 +13,6 @@ include Crysterm
 #      their early returns (nil / equal target), so a stale tween is stopped.
 #   4. `Effect::Fire#decay=` clamps to `0.0..1.0` (constructor routed through it).
 
-private def headless_window(w = 10, h = 5)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # A tiny in-memory APNG with *nframes* solid frames and the given loop count
 # (`num_plays`; 0 = forever). Written to *path* so a `Media` backend can load it.
 private def write_apng(path : String, nframes : Int32, num_plays : Int32,
@@ -32,10 +26,6 @@ private def write_apng(path : String, nframes : Int32, num_plays : Int32,
   File.write path, PNGGIF.encode_apng(frames, num_plays: num_plays)
 end
 
-private def solid_bitmap(w = 4, h = 4) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(1u8, 2u8, 3u8, 255u8) } }
-end
-
 # The Kitty transmit id (`i=<n>`) of an emit's control block.
 private def kitty_id(encoded : String) : String?
   encoded[/i=(\d+)/, 1]
@@ -45,7 +35,7 @@ end
 
 describe Crysterm::Widget::Effect::Fire do
   it "clamps an over-range constructor decay to 1.0" do
-    s = headless_window
+    s = headless_screen(10, 5, default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 8, height: 8, decay: 2.0
     f.decay.should eq 1.0
   ensure
@@ -53,7 +43,7 @@ describe Crysterm::Widget::Effect::Fire do
   end
 
   it "clamps a negative decay to 0.0 and keeps an in-range value" do
-    s = headless_window
+    s = headless_screen(10, 5, default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 8, height: 8
     f.decay = -1.0
     f.decay.should eq 0.0
@@ -73,12 +63,12 @@ describe "Widget::Media::Base finite animation" do
     path = File.tempname("bugs3_finite", ".png")
     write_apng path, 3, 1 # 3 frames, play once
     begin
-      s = headless_window
+      s = headless_screen(10, 5, default_quit_keys: true)
       img = Crysterm::Widget::Media::Sixel.new file: path, parent: s, width: 4, height: 3
       img.play
       # Let the compose fiber build frames and the frame clock run to the end of
       # the single play (3 frames * 20ms, plus compose latency).
-      40.times { sleep 0.03.seconds }
+      wait_until { !img.playing? }
 
       img.playing?.should be_false   # finite loop finished
       img.anim_index.should eq 3 - 1 # holds src.size - 1, not snapped to 0
@@ -95,12 +85,12 @@ end
 
 describe Crysterm::Widget::Media::Kitty do
   it "alternates double-buffer ids across emits even with anim_index pinned at 0" do
-    s = headless_window
+    s = headless_screen(10, 5, default_quit_keys: true)
     k = Crysterm::Widget::Media::Kitty.new parent: s, width: 4, height: 3
     # A single-frame (bitmap-injected) source keeps anim_index at 0, mimicking a
     # streaming video: the OLD parity-by-anim_index logic would pick the same
     # buffer every time. The fix toggles per emit.
-    bmp = solid_bitmap
+    bmp = solid_bitmap(r: 1, g: 2, b: 3)
     k.bitmap = bmp
     k.anim_index.should eq 0
     k.double_buffer?.should be_true
@@ -124,9 +114,9 @@ describe Crysterm::Widget::Media::Kitty do
   end
 
   it "reuses a single buffer id when double-buffering is off" do
-    s = headless_window
+    s = headless_screen(10, 5, default_quit_keys: true)
     k = Crysterm::Widget::Media::Kitty.new parent: s, width: 4, height: 3, double_buffer: false
-    bmp = solid_bitmap
+    bmp = solid_bitmap(r: 1, g: 2, b: 3)
     k.bitmap = bmp
 
     cached = k.encode(bmp, 4, 4, 0, 0, 4, 3)
@@ -143,7 +133,7 @@ end
 
 describe "Widget CSS transition cancel-before-return" do
   it "stops an in-flight color tween when the new target equals the source" do
-    s = headless_window 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "btn"
     # A long (2s) tween so it is comfortably still running when we re-apply.

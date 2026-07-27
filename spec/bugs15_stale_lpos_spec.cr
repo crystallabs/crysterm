@@ -9,15 +9,9 @@ include Crysterm
 # grandchild kept stealing clicks/hovers at the previous frame's position — the
 # same invariant `Layout#skip_subtree` and the Flow `StopRendering` fix enforce.
 
-private def b15_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 60, height: 24, default_quit_keys: false)
-end
-
 describe "BUGS15 25: early-return base_render clears descendants' hit rects" do
   it "a scrolled-away descendant is no longer hit-testable" do
-    s = b15_screen
+    s = headless_screen(60, 24)
     # Manual placement (the default) scrollable container.
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true
     # Tall spacer so the container has plenty to scroll past the viewport.
@@ -45,7 +39,7 @@ describe "BUGS15 25: early-return base_render clears descendants' hit rects" do
   end
 
   it "descendants render again when scrolled back into view" do
-    s = b15_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true
     Widget::Box.new parent: outer, top: 6, left: 0, width: 1, height: 40
     w = Widget::Box.new parent: outer, top: 0, left: 0, width: 18, height: 4
@@ -64,7 +58,7 @@ describe "BUGS15 25: early-return base_render clears descendants' hit rects" do
   end
 
   it "a degenerate zero-height container clears its descendants' hit rects" do
-    s = b15_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     grand = Widget::Box.new parent: box, top: 1, left: 1, width: 6, height: 1
     grand.on(Crysterm::Event::Click) { }

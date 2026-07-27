@@ -12,16 +12,6 @@ include Crysterm
 # Fix: exclude the popup from the wheel-focus path for editable combos
 # (`#focus_on_click = false`) and ignore blur that merely moves into the popup.
 
-private def cbw_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def cbw_combo(s, editable)
   Crysterm::Widget::ComboBox.new parent: s, top: 5, left: 5, width: 16, height: 1,
     editable: editable, options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"]
@@ -36,7 +26,7 @@ end
 
 describe "ComboBox popup wheel scrolling" do
   it "keeps an editable drop-down open and moves the selection on the wheel" do
-    s = cbw_screen
+    s = headless_screen(80, 24)
     cb = cbw_combo s, editable: true
     cb.focus
     cb.show_popup
@@ -56,7 +46,7 @@ describe "ComboBox popup wheel scrolling" do
   end
 
   it "keeps a non-editable drop-down open and moves the selection on the wheel" do
-    s = cbw_screen
+    s = headless_screen(80, 24)
     cb = cbw_combo s, editable: false
     cb.focus
     cb.show_popup

@@ -11,15 +11,9 @@ include Crysterm
 # 2. `pulse` drives its phase from real wall-clock elapsed, so the eased breathe
 #    stays within `[min, max]` and advances with time.
 
-private def anim_window(w = 10, h = 3)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS7 @keyframes opacity clamp for partial-range stops" do
   it "never extrapolates alpha above 1.0 when no 100% stop is declared" do
-    s = anim_window
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "partial"
     # No `100%` stop: progress past 0.5 would extrapolate `t > 1` -> alpha > 1.0
@@ -45,7 +39,7 @@ end
 
 describe "BUGS7 pulse breathe stays within [min, max]" do
   it "keeps the eased alpha bounded and advancing over time" do
-    s = anim_window
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.pulse min: 0.3, max: 1.0, period: 0.12.seconds
 

@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def lph_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # A fixed-width `ListTable` whose columns fit but that overflows *vertically*
 # (so a vertical scroll bar shows) must NOT report a horizontal overflow. The
 # vertical bar reserves one column via `content_margin_x`, and `content_width`
@@ -20,7 +10,7 @@ end
 # spurious horizontal scroll bar across the bottom viewport row.
 describe Crysterm::Widget::ListTable do
   it "does not report horizontal overflow when only the vertical bar is present" do
-    s = lph_window
+    s = headless_screen(80, 24)
     rows = [["Name"]] of Array(String)
     (1..20).each { |i| rows << ["Row#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, rows: rows
@@ -39,7 +29,7 @@ describe Crysterm::Widget::ListTable do
   end
 
   it "still reports horizontal overflow when columns genuinely exceed the interior" do
-    s = lph_window
+    s = headless_screen(80, 24)
     wide = [["AAAAA", "BBBBB", "CCCCC", "DDDDD"], ["1", "2", "3", "4"], ["5", "6", "7", "8"]]
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 5, rows: wide
     s.repaint

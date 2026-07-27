@@ -14,27 +14,13 @@ include Crysterm
 #      alternate rows. The old code froze the cell/self style at declaration
 #      time, leaving alternate rows without the color.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def cell_fg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
-end
-
-private def cell_bg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(screen.lines[y][x].attr))
-end
-
 # Count cells that carry BOTH the given foreground and background.
 private def count_cells_fg_bg(screen, fg, bg)
   n = 0
   (0...screen.height).each do |y|
     next unless screen.lines[y]?
     (0...screen.width).each do |x|
-      n += 1 if cell_fg(screen, y, x) == fg && cell_bg(screen, y, x) == bg
+      n += 1 if cell_fg(screen, x, y) == fg && cell_bg(screen, x, y) == bg
     end
   end
   n
@@ -129,7 +115,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
 
   # End-to-end through the real cascade + render.
   it "renders alternate Table rows with red text on the #333 background (bg before color)" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "Table { alternate-background-color: #333333; color: #ff0000; }"
@@ -139,7 +125,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
   end
 
   it "renders the same result with the declaration order reversed" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
     screen.stylesheet = "Table { color: #ff0000; alternate-background-color: #333333; }"
@@ -149,7 +135,7 @@ describe "BUGS15 #76 alternate-background-color changes only the background" do
   end
 
   it "lets a color inherited from a parent-scope rule reach alternate rows" do
-    screen = render_screen
+    screen = headless_screen(80, 24, default_quit_keys: true)
     wrap = Widget::Box.new parent: screen, top: 0, left: 0, width: 24, height: 12
     wrap.css_id = "wrap"
     Widget::Table.new parent: wrap, top: 0, left: 0, width: 24,

@@ -8,14 +8,9 @@ include Crysterm
 # `each_content_cell`, so the right half of the glyph and background was never
 # painted. Driven headlessly over in-memory IOs.
 
-private def wide_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 4, height: 1)
-end
-
 describe "Capture wide-glyph rendering" do
   it "paints the right half of a 2-column glyph into the continuation column" do
-    s = wide_screen
+    s = headless_screen(4, 1, default_quit_keys: true)
     line = s.lines[0]
     line[0].attr = Crysterm::Window::DEFAULT_ATTR
     line[0].grapheme = "中" # full-width: occupies 2 columns

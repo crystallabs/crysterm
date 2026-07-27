@@ -14,19 +14,9 @@ include Crysterm
 #      an entry did nothing. It must highlight the entry under the pointer, like
 #      the `Completer` popup and a desktop combo box.
 
-private def cbph_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "ComboBox popup border sizing" do
   it "fits the visible rows for ANY border, deriving from ivertical not a hardcoded +2" do
-    s = cbph_screen
+    s = headless_screen(80, 24)
     # Borderless, padding-less drop-down: interior insets are 0, so a hardcoded
     # `+ 2` would over-size it by two phantom rows.
     s.stylesheet = ".popup { border: none; padding: 0; }"
@@ -50,7 +40,7 @@ describe "ComboBox popup border sizing" do
   end
 
   it "still sizes a default 1-cell-border popup as rows + 2 (visually identical)" do
-    s = cbph_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, width: 12,
       options: ["red", "green", "blue"]
     cb.show_popup
@@ -63,7 +53,7 @@ end
 
 describe "ComboBox popup hover-select" do
   it "highlights the entry under the pointer on mouse-move" do
-    s = cbph_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 1, left: 1, width: 12,
       options: ["red", "green", "blue"], current_index: 0
     cb.show_popup

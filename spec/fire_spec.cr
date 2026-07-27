@@ -6,16 +6,9 @@ include Crysterm
 # attrs (no tagged-content round-trip). Simulation (`#resize`/`#advance`/`#cell`)
 # is exercised directly, headlessly, with no animation fiber or real terminal.
 
-private def fire_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::Effect::Fire do
   it "lights the bottom and lets the flame fade to dark near the top" do
-    s = fire_screen
+    s = headless_screen(default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 16, height: 40
     f.resize 16, 40
     f.advance 16, 40
@@ -30,7 +23,7 @@ describe Crysterm::Widget::Effect::Fire do
   end
 
   it "burns a band of lit rows above the source" do
-    s = fire_screen
+    s = headless_screen(default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 16, height: 40
     f.resize 16, 40
     f.advance 16, 40
@@ -41,7 +34,7 @@ describe Crysterm::Widget::Effect::Fire do
   end
 
   it "renders an unsimulated cell as blank with the default fg" do
-    s = fire_screen
+    s = headless_screen(default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 4, height: 4
     f.resize 4, 4
 
@@ -49,7 +42,7 @@ describe Crysterm::Widget::Effect::Fire do
   end
 
   it "honors a custom integer color override" do
-    s = fire_screen
+    s = headless_screen(default_quit_keys: true)
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 8, height: 4,
       color: ->(_heat : Float64) { 0x123456 }
     f.resize 8, 4

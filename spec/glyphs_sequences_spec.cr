@@ -7,12 +7,6 @@ include Crysterm
 # frames, Dial pointer ring, the chart fill ramps), and the opt-in
 # `Glyphs.detected_tier` Extended heuristic.
 
-private def gs_screen(width = 40, height = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 describe "Glyphs sequence registry" do
   it "answers the historical defaults per tier" do
     Glyphs.chars(Glyphs::SeqRole::SpinnerFrames, Glyphs::Tier::Unicode).should eq ['|', '/', '-', '\\']
@@ -55,7 +49,7 @@ end
 
 describe "Loading spinner frames" do
   it "cycles the CSS-supplied frames" do
-    s = gs_screen
+    s = headless_screen(40, 12)
     l = Widget::Loading.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.stylesheet = %(Loading { glyphs: "◐◓◑◒"; })
     s.apply_stylesheet
@@ -66,7 +60,7 @@ describe "Loading spinner frames" do
   end
 
   it "keeps the classic default and pins explicit frames/spinner" do
-    s = gs_screen
+    s = headless_screen(40, 12)
     l = Widget::Loading.new parent: s, top: 0, left: 0, width: 20, height: 5
     l.frames.should eq ["|", "/", "-", "\\"]
 
@@ -81,7 +75,7 @@ end
 
 describe "Dial pointer ring" do
   it "sweeps a CSS-supplied ring and falls back to the registry arrows" do
-    s = gs_screen
+    s = headless_screen(40, 12)
     d = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3, value: 0, text_visible: false
     s.repaint
     # Value at minimum: pointer is "north" (↑) centered in the middle row.
@@ -100,7 +94,7 @@ end
 
 describe "Chart fill ramps" do
   it "fills a Gauge with a CSS-supplied ramp" do
-    s = gs_screen
+    s = headless_screen(40, 12)
     g = Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1, value: 50.0
     s.stylesheet = %(Gauge { glyphs: " -=#"; })
     s.apply_stylesheet
@@ -111,7 +105,7 @@ describe "Chart fill ramps" do
   end
 
   it "rejects a ramp with wide characters (cell fills) and uses the registry" do
-    s = gs_screen
+    s = headless_screen(40, 12)
     g = Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1, value: 50.0
     s.stylesheet = %(Gauge { glyphs: " 🚀"; })
     s.apply_stylesheet

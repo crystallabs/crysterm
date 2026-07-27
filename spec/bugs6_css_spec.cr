@@ -29,33 +29,13 @@ include Crysterm
 #     skipping quoted spans, so a bracket/paren inside a quoted value corrupted
 #     their depth. They now skip quoted strings via `skip_string`.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it, so asserting `fg == nil` isn't foiled by the auto-installed theme.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 private def parse(css : String)
   Crysterm::CSS::Stylesheet.parse(css)
 end
 
 describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" do
   it "matches :last-child on real list items despite the trailing <w-item> slot" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     list = Widget::List.new
     screen.append list
     list.items = ["a", "b", "c"]
@@ -75,7 +55,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   end
 
   it "matches :nth-last-child counting only real children" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     list = Widget::List.new
     screen.append list
     list.items = ["a", "b", "c"]
@@ -93,7 +73,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   end
 
   it "matches :only-child on the sole real child of a scrollable box" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     box.scrollbar = true # emits trailing <w-scrollbar>/<w-track> nodes
     only = Widget::Button.new
@@ -109,7 +89,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   end
 
   it "keeps :last-child working while slot rules still target the pseudo-nodes" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     box.scrollbar = true
     b1 = Widget::Button.new
@@ -136,7 +116,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   end
 
   it "does not regress forward :nth-child positions" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     box.scrollbar = true
     a = Widget::Button.new
@@ -193,12 +173,12 @@ describe "BUGS6 @media feature parsing (fix #2)" do
   end
 
   it "applies a unit'd @media block only at the matching width (end-to-end)" do
-    narrow = headless_screen
+    narrow = headless_screen(default_quit_keys: true)
     narrow.width = 40
     b1 = Widget::Box.new
     narrow.append b1
 
-    wide = headless_screen
+    wide = headless_screen(default_quit_keys: true)
     wide.width = 100
     b2 = Widget::Box.new
     wide.append b2
@@ -219,7 +199,7 @@ describe "BUGS6 @media feature parsing (fix #2)" do
   end
 
   it "skips an @media print block on a terminal (end-to-end)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     screen.width = 100
     box = Widget::Box.new
     screen.append box

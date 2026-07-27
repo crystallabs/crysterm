@@ -12,13 +12,6 @@ include Crysterm
 #   * `@_drag`   — an in-flight drag whose source is removed stays modal forever
 #                  (every later pointer event is swallowed by `#dispatch_mouse`).
 
-private def ris_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 private def ris_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -37,7 +30,7 @@ end
 
 describe "Window#remove (mouse-interaction state)" do
   it "clears the hover pointer when the hovered widget is removed" do
-    s = ris_screen
+    s = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4
     box.on(Crysterm::Event::MouseEnter) { } # makes it mouse-responsive / hoverable
 
@@ -49,7 +42,7 @@ describe "Window#remove (mouse-interaction state)" do
   end
 
   it "discards a pending (armed) press so a later move can't drag a detached widget" do
-    s = ris_screen
+    s = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
 
     ris_press s, 12, 6 # arms the drag, but does not start it yet
@@ -62,7 +55,7 @@ describe "Window#remove (mouse-interaction state)" do
   end
 
   it "tears down an in-flight drag when its source is removed" do
-    s = ris_screen
+    s = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
     ended = false
     box.on(Crysterm::Event::DragEnd) { ended = true }
@@ -77,7 +70,7 @@ describe "Window#remove (mouse-interaction state)" do
   end
 
   it "clears the drop target (and never Drops on it) when the target is removed mid-drag" do
-    s = ris_screen
+    s = headless_screen(default_quit_keys: true)
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
     source.drag_mode = :transfer; source.draggable = true
     source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
@@ -108,7 +101,7 @@ describe "Window#remove (mouse-interaction state)" do
   end
 
   it "releases an input grab when the grabbing widget is removed" do
-    s = ris_screen
+    s = headless_screen(default_quit_keys: true)
     # A modal pop-up that has grabbed input, plus another widget elsewhere.
     popup = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
     other = Widget::Box.new parent: s, left: 40, top: 0, width: 8, height: 4

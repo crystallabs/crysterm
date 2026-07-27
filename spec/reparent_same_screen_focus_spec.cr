@@ -9,15 +9,9 @@ include Crysterm
 # suppression for a same-screen move must likewise leave focus untouched; a
 # genuine *cross-screen* move must still rewind.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Focus on same-screen reparent" do
   it "keeps focus on a widget moved between containers on one screen" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s, width: "100%", height: "100%"
     b = Widget::Box.new parent: s, width: "100%", height: "100%"
     child = Widget::Box.new width: 4, height: 2, input: true
@@ -36,8 +30,8 @@ describe "Focus on same-screen reparent" do
   end
 
   it "still rewinds focus off a widget moved to a different screen" do
-    s1 = headless_screen
-    s2 = headless_screen
+    s1 = headless_screen(20, 10, default_quit_keys: true)
+    s2 = headless_screen(20, 10, default_quit_keys: true)
     a = Widget::Box.new parent: s1, width: "100%", height: "100%"
     b = Widget::Box.new parent: s2, width: "100%", height: "100%"
     child = Widget::Box.new width: 4, height: 2, input: true

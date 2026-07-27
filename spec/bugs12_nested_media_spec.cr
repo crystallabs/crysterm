@@ -9,14 +9,6 @@ include Crysterm
 # combines outer and inner queries via `MediaQuery#and` — the cross-product of
 # their OR-groups, each pairing AND-ing (concatenating) its conditions.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # The media condition of the single guarded rule in *css* (the parse must
 # produce exactly one rule carrying a query).
 private def guarded_media(css)
@@ -98,7 +90,7 @@ describe "BUGS12 #38 nested @media ANDs with the enclosing condition" do
       {50, 10, "white"},  # width guard fails (pre-fix: green)
       {50, 30, "white"},  # both fail
     }.each do |(w, h, expected)|
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       screen.width = w
       screen.height = h
       box = Widget::Box.new

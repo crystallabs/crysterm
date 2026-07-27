@@ -10,12 +10,6 @@ include Crysterm
 # bg), NOT a packed `0_i64` — which decodes to fg=0x000000 on bg=0x000000, i.e.
 # black-on-black (invisible text).
 
-private def headless(w, h)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "BUGS3: scrollable text box per-line attr fallback" do
   # Lock in the invariant the fix relies on: the DEFAULT_ATTR the fallback now
   # uses is *not* a packed zero, and the two decode to different colors.
@@ -39,7 +33,7 @@ describe "BUGS3: scrollable text box per-line attr fallback" do
   # End-to-end: a scrolled text box whose per-line attr cache is missing must
   # render its lines with the default attr (default fg/bg), never black-on-black.
   it "renders a scrolled line with the default attr, not black-on-black" do
-    s = headless 20, 5
+    s = headless_screen(20, 5, default_quit_keys: true)
     # Content taller than the box, so it wraps/scrolls and `ci > 0` for the
     # rendered lines (the branch guarding the line-194 fallback).
     lines = (1..20).map { |i| "line #{i}" }.join('\n')

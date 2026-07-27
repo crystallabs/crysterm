@@ -12,19 +12,9 @@ include Crysterm
 # projection painted on window. They now invalidate the raster and schedule a
 # render. (Markers are a separate text overlay and keep their own path.)
 
-private def mcp_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "Widget::Graph::Map coastline setters schedule a repaint" do
   it "marks the Canvas dirty when a viewport bound changes" do
-    s = mcp_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 70, height: 20
     s.repaint
     m.canvas.@paint_dirty.should be_false
@@ -35,7 +25,7 @@ describe "Widget::Graph::Map coastline setters schedule a repaint" do
   end
 
   it "marks the Canvas dirty when the coastline color or graticule changes" do
-    s = mcp_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 70, height: 20
     s.repaint
     m.canvas.@paint_dirty.should be_false
@@ -49,7 +39,7 @@ describe "Widget::Graph::Map coastline setters schedule a repaint" do
   end
 
   it "does not mark dirty on a no-op assignment (unchanged value)" do
-    s = mcp_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 70, height: 20
     s.repaint
     m.canvas.@paint_dirty.should be_false

@@ -8,12 +8,6 @@ include Crysterm
 # pie, an unguarded Painter primitive, and LineChart's never-rendered axis
 # titles.
 
-private def g18_screen(w = 78, h = 22)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def g18_text(s) : String
   (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
@@ -40,10 +34,6 @@ private def g18_drain_frames(w) : Nil
   end
 end
 
-private def blank_bitmap(w, h) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
-end
-
 # --- B18-78: Map#draw_markers / non-finite viewport bounds --------------------
 
 describe "Widget::Graph::Map non-finite viewport guards (B18-78)" do
@@ -51,7 +41,7 @@ describe "Widget::Graph::Map non-finite viewport guards (B18-78)" do
     # `#initialize`'s constructor params bypass the `finite_bound_prop`
     # setters, so a directly-constructed non-finite bound is the one way to
     # reach `#draw_markers`'s own guard in isolation.
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -66,7 +56,7 @@ describe "Widget::Graph::Map non-finite viewport guards (B18-78)" do
   end
 
   it "does not crash rendering a marker when constructed with a -Infinity min_lon" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -123,7 +113,7 @@ end
 
 describe "Widget::Graph::Map graticule non-finite/huge-bound guard (B18-82)" do
   it "does not hang rendering with show_graticule and a -Infinity min_lon (constructor bypass)" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -144,7 +134,7 @@ describe "Widget::Graph::Map graticule non-finite/huge-bound guard (B18-82)" do
     # At min_lon = 2**58 the float ulp exceeds a 30-degree step, so
     # `lon += step` can round back to the same value — an accumulation-driven
     # loop stalls even though every bound is finite and the span is small.
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -168,7 +158,7 @@ describe "Widget::Graph::PieChart decoration setters schedule a render (B18-79)"
     # a more specific overload than the hand-written invalidating
     # `(Number)` one, so a plain Float64 assignment used to dispatch to the
     # silent generated setter and never schedule a frame.
-    s = g18_screen
+    s = headless_screen(78, 22)
     pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 24, height: 12
     pie.add_slice "a", 50.0
     pie.add_slice "b", 50.0
@@ -187,7 +177,7 @@ describe "Widget::Graph::PieChart decoration setters schedule a render (B18-79)"
   end
 
   it "show_legend= rings the render doorbell" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 24, height: 12
     pie.add_slice "a", 50.0
     pie.add_slice "b", 50.0
@@ -200,7 +190,7 @@ describe "Widget::Graph::PieChart decoration setters schedule a render (B18-79)"
   end
 
   it "show_percentages= rings the render doorbell" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 24, height: 12
     pie.add_slice "a", 50.0
     pie.add_slice "b", 50.0
@@ -217,7 +207,7 @@ end
 
 describe "Widget::Graph::PieChart non-finite slice guard (B18-81)" do
   it "a NaN slice value does not blank the other, finite slices" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -243,7 +233,7 @@ describe "Widget::Graph::PieChart non-finite slice guard (B18-81)" do
   end
 
   it "an Infinity slice value does not blank the slices ahead of it" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -299,7 +289,7 @@ end
 
 describe "Widget::Graph::StackedBar non-finite segment guard (B18-81 sibling)" do
   it "does not raise when one segment of a bar is NaN" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10, segment_labels: ["x", "y"]
     sb.values = [[3.0, Float64::NAN], [1.0, 4.0]]
@@ -310,7 +300,7 @@ describe "Widget::Graph::StackedBar non-finite segment guard (B18-81 sibling)" d
   end
 
   it "still renders a normal, all-finite bar" do
-    s = g18_screen
+    s = headless_screen(78, 22)
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10, segment_labels: ["x", "y"]
     sb.values = [[3.0, 2.0], [1.0, 4.0]]
@@ -323,7 +313,7 @@ end
 
 describe "Widget::Graph::LineChart axis titles (B18-87)" do
   it "renders the X axis title on the bottom row" do
-    s = g18_screen(60, 20)
+    s = headless_screen(60, 20)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -340,7 +330,7 @@ describe "Widget::Graph::LineChart axis titles (B18-87)" do
   end
 
   it "renders the Y axis title stacked in the leftmost interior column" do
-    s = g18_screen(60, 20)
+    s = headless_screen(60, 20)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -357,7 +347,7 @@ describe "Widget::Graph::LineChart axis titles (B18-87)" do
   end
 
   it "an empty axis title does not perturb the left margin (no breathing-room regression)" do
-    s = g18_screen(60, 20)
+    s = headless_screen(60, 20)
     chart = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0, width: 60, height: 18
     chart.add_line "sin", [{0.0, -1.0}, {1.0, 1.0}]
     chart.refresh

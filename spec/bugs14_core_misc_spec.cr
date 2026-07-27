@@ -19,12 +19,6 @@ include Crysterm
 #      event flag), so a target that accepted then `ignore`d still received a
 #      Drop (the drop gate reads `session.data.accepted?`).
 
-private def b14_window(w = 40, h = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b14_mouse(action, x, y, button = ::Tput::Mouse::Button::None)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -33,7 +27,7 @@ end
 
 describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
   it "feed_animation_frames with fps: 0 does not raise (no Infinity clock)" do
-    s = b14_window
+    s = headless_screen(40, 12)
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
     s.repaint
     io = IO::Memory.new
@@ -43,7 +37,7 @@ describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
   end
 
   it "feed_animation_frames with a negative fps does not raise either" do
-    s = b14_window
+    s = headless_screen(40, 12)
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
     s.repaint
     io = IO::Memory.new
@@ -55,7 +49,7 @@ end
 
 describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
   it "clears @_hover when the hovered NESTED widget is removed" do
-    s = b14_window
+    s = headless_screen(40, 12)
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
@@ -72,7 +66,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
   end
 
   it "clears @_hover when the hovered nested widget is destroyed" do
-    s = b14_window
+    s = headless_screen(40, 12)
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
@@ -87,7 +81,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
   end
 
   it "clears @_mouse_captor when the capturing nested widget is removed" do
-    s = b14_window
+    s = headless_screen(40, 12)
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     inner.clickable = true
@@ -101,7 +95,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
   end
 
   it "releases a modal grab held by a removed nested widget" do
-    s = b14_window
+    s = headless_screen(40, 12)
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     inner = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 3
     s.repaint
@@ -114,7 +108,7 @@ describe "BUGS14 C2: nested-widget removal tears down window mouse-state" do
   end
 
   it "leaves the window mouse-state untouched for an UNRELATED removal" do
-    s = b14_window
+    s = headless_screen(40, 12)
     outer = Widget::Box.new parent: s, left: 2, top: 2, width: 20, height: 6
     a = Widget::Box.new parent: outer, left: 1, top: 1, width: 6, height: 2
     b = Widget::Box.new parent: outer, left: 1, top: 3, width: 6, height: 2
@@ -165,7 +159,7 @@ end
 
 describe "BUGS14 R3: DragEvent#ignore withdraws the session's acceptance" do
   it "accept then ignore leaves session.data.accepted? false" do
-    s = b14_window
+    s = headless_screen(40, 12)
     src = Widget::Box.new parent: s, left: 0, top: 0, width: 4, height: 2
     data = Crysterm::DragData.new(src)
     session = Crysterm::DragSession.new(src, data, 0, 0, Crysterm::DragSensor::Mouse)

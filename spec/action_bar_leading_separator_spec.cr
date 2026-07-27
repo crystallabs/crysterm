@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def abls_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def separator(text = "|")
   cmd = Crysterm::Mixin::ActionBar::Command.new text
   cmd.separator = true
@@ -25,7 +15,7 @@ end
 # regardless of how many separators precede it, keeping all commands visible.
 describe "Mixin::ActionBar leading-separator auto-selection" do
   it "selects the first real command when the bar opens with a separator" do
-    s = abls_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = [separator, Crysterm::Mixin::ActionBar::Command.new("a"),
                  Crysterm::Mixin::ActionBar::Command.new("b")]
@@ -43,7 +33,7 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
   end
 
   it "still selects index 0 for an ordinary leading command" do
-    s = abls_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
 
@@ -52,7 +42,7 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
   end
 
   it "does not re-select on a separator added after the first command" do
-    s = abls_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                  Crysterm::Mixin::ActionBar::Command.new("b")]

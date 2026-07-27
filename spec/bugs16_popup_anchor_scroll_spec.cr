@@ -12,18 +12,9 @@ include Crysterm
 # anchor on the *painted* rect (`last_rendered_position?`), mirroring
 # Menu#open_submenu.
 
-private def pas_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
   it "opens the ComboBox drop-down below the PAINTED combo, not its layout row" do
-    s = pas_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       scrollable: true
     cb = Widget::ComboBox.new parent: box, top: 8, left: 2, width: 16, height: 1,
@@ -50,7 +41,7 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
   end
 
   it "keeps unscrolled placement directly below the combo (no regression)" do
-    s = pas_screen
+    s = headless_screen(80, 24)
     cb = Widget::ComboBox.new parent: s, top: 5, left: 5, width: 16, height: 1,
       options: ["Red", "Green", "Blue", "Cyan"]
     cb.focus
@@ -64,7 +55,7 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
   end
 
   it "opens the DateEdit calendar against the PAINTED field inside a scroll" do
-    s = pas_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       scrollable: true
     de = Widget::DateEdit.new parent: box, top: 8, left: 2, width: 12, height: 1,

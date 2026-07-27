@@ -121,9 +121,8 @@ module Crysterm
           restore_size el
           cw = margin_box(x1 - x0, el.mhorizontal)
           ch = margin_box(y1 - y0, el.mvertical)
-          place_and_render el, x0, y0, cw, ch
-          record_managed el, @assigned_width, cw
-          record_managed el, @assigned_height, ch
+          place_recorded el, x0, y0, cw, ch, @assigned_width, @assigned_height
+          render_child el
         end
       end
 
@@ -148,18 +147,16 @@ module Crysterm
             mh = el.mvertical
             ch = el.aheight.clamp(0, margin_box(y1 - y0, mh))
             cw = margin_box(x1 - x0, el.mhorizontal)
-            place_and_render el, x0, (far ? y1 - ch - mh : y0), cw, ch
-            record_managed el, @assigned_height, ch
-            record_managed el, @assigned_width, cw
+            place_recorded el, x0, (far ? y1 - ch - mh : y0), cw, ch, @assigned_width, @assigned_height
+            render_child el
             far ? (y1 -= ch + mh) : (y0 += ch + mh)
           else
             # Consume width off the near/far edge; span the remaining height.
             mw = el.mhorizontal
             cw = el.awidth.clamp(0, margin_box(x1 - x0, mw))
             ch = margin_box(y1 - y0, el.mvertical)
-            place_and_render el, (far ? x1 - cw - mw : x0), y0, cw, ch
-            record_managed el, @assigned_width, cw
-            record_managed el, @assigned_height, ch
+            place_recorded el, (far ? x1 - cw - mw : x0), y0, cw, ch, @assigned_width, @assigned_height
+            render_child el
             far ? (x1 -= cw + mw) : (x0 += cw + mw)
           end
         end

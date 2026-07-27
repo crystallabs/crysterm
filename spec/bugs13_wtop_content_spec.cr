@@ -18,11 +18,6 @@ include Crysterm
 #   falling into the unterminated-escape bail that dumped the remainder
 #   verbatim (literal `{/escape}` on screen, later tags unparsed).
 
-private def content_screen(w = 40, h = 20)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
 private def wrapped_lines(widget)
   widget._clines.lines.map(&.to_s)
 end
@@ -40,7 +35,7 @@ end
 
 describe "BUGS13 W6: AsNeeded scrollbar margin isn't seeded from the stale wrap" do
   it "a width round-trip converges back to the fresh no-bar layout" do
-    s = content_screen
+    s = headless_screen(40, 20)
     # Interior width 12, viewport 9 rows. Eight 12-column lines fit exactly
     # without a bar; at width 11 each wraps to two (16 lines) and the bar
     # shows.
@@ -77,7 +72,7 @@ describe "BUGS13 W6: AsNeeded scrollbar margin isn't seeded from the stale wrap"
   end
 
   it "AlwaysOn keeps its reservation through the empty-lines seed" do
-    s = content_screen
+    s = headless_screen(40, 20)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 9,
       scrollable: true, scrollbar_policy: Widget::ScrollBarPolicy::AlwaysOn
     box.content = "y" * 12
@@ -92,7 +87,7 @@ end
 
 describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
   it "bumps past Int32::MAX without raising and still invalidates the cache" do
-    s = content_screen
+    s = headless_screen(40, 20)
     w = VersionProbe.new parent: s, top: 0, left: 0, width: 10, height: 3
     w.content = "one"
     w.process_content
@@ -114,7 +109,7 @@ describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
   end
 
   it "append_content keeps bumping in Int64 territory" do
-    s = content_screen
+    s = headless_screen(40, 20)
     w = VersionProbe.new parent: s, top: 0, left: 0, width: 10, height: 5
     w.content = "one"
     w.process_content
@@ -130,7 +125,7 @@ end
 
 describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
   it "parses content after an empty escape pair (later tags still work)" do
-    s = content_screen
+    s = headless_screen(40, 20)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
       parse_tags: true
     box.content = "a{escape}{/escape}b{bold}c{/bold}"
@@ -144,7 +139,7 @@ describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
   end
 
   it "renders the characters around the empty pair, with the tag applied" do
-    s = content_screen
+    s = headless_screen(40, 20)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 1,
       parse_tags: true
     box.content = "a{escape}{/escape}b{bold}c{/bold}"
@@ -157,7 +152,7 @@ describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
   end
 
   it "the untrusted-empty interpolation idiom yields just the surroundings" do
-    s = content_screen
+    s = headless_screen(40, 20)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
       parse_tags: true
     untrusted = ""
@@ -167,7 +162,7 @@ describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
   end
 
   it "a non-empty escape body still passes through verbatim" do
-    s = content_screen
+    s = headless_screen(40, 20)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
       parse_tags: true
     box.content = "x{escape}{bold}{/escape}y"

@@ -5,12 +5,6 @@ include Crysterm
 # Regression spec for BUGS16 #18. Headless harness mirrors
 # spec/bugs15_layout_margins_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def margin(left = 0, top = 0, right = 0, bottom = 0)
   Style.new(margin: Margin.new(left: left, top: top, right: right, bottom: bottom))
 end
@@ -22,7 +16,7 @@ end
 # then overwrote that margin-correct top, collapsing the margin to zero.
 describe "BUGS16 18: Masonry gravitation respects the above child's bottom margin" do
   it "keeps a wrapped child below the above child's bottom margin, not glued to it" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 12,
       layout: Layout::Masonry.new
     a = Widget::Box.new parent: box, width: 12, height: 3, style: margin(bottom: 2)
@@ -43,7 +37,7 @@ describe "BUGS16 18: Masonry gravitation respects the above child's bottom margi
   end
 
   it "still gravitates flush when the above child has no bottom margin" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 12,
       layout: Layout::Masonry.new
     a = Widget::Box.new parent: box, width: 12, height: 3

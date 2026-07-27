@@ -8,15 +8,9 @@ include Crysterm
 # the TUI. Qt saturates; so do we now (`Mixin::RangedValue#increment/decrement`
 # rescue OverflowError, and the PageUp delta saturates too).
 
-private def ro_screen(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   it "saturates Up at maximum: Int32::MAX" do
-    s = ro_screen
+    s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: Int32::MAX, value: Int32::MAX
     spin.step_up # raised OverflowError before the fix
@@ -24,7 +18,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   end
 
   it "saturates Down at minimum: Int32::MIN" do
-    s = ro_screen
+    s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: Int32::MIN, maximum: 0, value: Int32::MIN
     spin.step_down
@@ -32,7 +26,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   end
 
   it "wraps to the opposite bound on overflow when wrapping: true" do
-    s = ro_screen
+    s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 5, maximum: Int32::MAX, value: Int32::MAX, wrapping: true
     spin.step_up
@@ -40,7 +34,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   end
 
   it "survives PageUp when step * 10 overflows Int32" do
-    s = ro_screen
+    s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: Int32::MAX, value: 0, step: Int32::MAX // 2
     # `@step * 10` overflowed before the fix; now the delta saturates and the
@@ -50,7 +44,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   end
 
   it "survives Up-key stepping at the bound (handler path)" do
-    s = ro_screen
+    s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: Int32::MAX, value: Int32::MAX
     spin.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Up)

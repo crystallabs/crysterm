@@ -13,12 +13,6 @@ include Crysterm
 # each subclass's block-based convenience form (`#ask`, `#read_input`,
 # `#display`, `#pick`) now agrees with the signals, so the two can't drift.
 
-private def dr_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    default_quit_keys: false)
-end
-
 # The minimal concrete dialog: the base class is abstract, so the base-level
 # protocol needs a subclass that adds nothing.
 private class PlainDialog < Crysterm::Widget::Dialog
@@ -27,7 +21,7 @@ end
 describe Crysterm::Widget::Dialog do
   describe "result protocol" do
     it "defaults to Rejected, so an unanswered dialog never reads as accepted" do
-      d = PlainDialog.new parent: dr_window, width: 20, height: 5
+      d = PlainDialog.new parent: headless_screen, width: 20, height: 5
       d.result.should eq Crysterm::Widget::Dialog::Code::Rejected.to_i
       d.accepted?.should be_false
     end
@@ -38,7 +32,7 @@ describe Crysterm::Widget::Dialog do
     end
 
     it "#accept records the result and emits Accepted then Finished" do
-      d = PlainDialog.new parent: dr_window, width: 20, height: 5
+      d = PlainDialog.new parent: headless_screen, width: 20, height: 5
       d.show
       log = [] of String
       d.on(Crysterm::Event::Accepted) { log << "accepted" }
@@ -54,7 +48,7 @@ describe Crysterm::Widget::Dialog do
     end
 
     it "#reject records the result and emits Rejected then Finished" do
-      d = PlainDialog.new parent: dr_window, width: 20, height: 5
+      d = PlainDialog.new parent: headless_screen, width: 20, height: 5
       d.show
       log = [] of String
       d.on(Crysterm::Event::Accepted) { log << "accepted" }
@@ -69,7 +63,7 @@ describe Crysterm::Widget::Dialog do
     end
 
     it "#done carries an application-defined code on Finished, emitting neither Accepted nor Rejected" do
-      d = PlainDialog.new parent: dr_window, width: 20, height: 5
+      d = PlainDialog.new parent: headless_screen, width: 20, height: 5
       standard = 0
       finished = nil.as(Int32?)
       d.on(Crysterm::Event::Accepted) { standard += 1 }
@@ -86,7 +80,7 @@ describe Crysterm::Widget::Dialog do
 
   describe "modality" do
     it "#open grabs the window, and closing releases it" do
-      w = dr_window
+      w = headless_screen
       d = PlainDialog.new parent: w, width: 20, height: 5
 
       d.modal?.should be_false
@@ -103,7 +97,7 @@ describe Crysterm::Widget::Dialog do
     end
 
     it "#destroy releases a modal grab, so it can't outlive the dialog" do
-      w = dr_window
+      w = headless_screen
       d = PlainDialog.new parent: w, width: 20, height: 5
       d.open
       w.popup_grab_active?.should be_true
@@ -117,7 +111,7 @@ end
 
 describe "Dialog subclasses report their outcome" do
   it "Question#ask emits Accepted/Finished alongside its block" do
-    w = dr_window
+    w = headless_screen
     q = Crysterm::Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     log = [] of String
@@ -133,7 +127,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Question#ask emits Rejected/Finished on a negative answer" do
-    w = dr_window
+    w = headless_screen
     q = Crysterm::Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
     log = [] of String
     q.on(Crysterm::Event::Rejected) { log << "rejected" }
@@ -147,7 +141,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Prompt#read_input reports Accepted with the submitted value" do
-    w = dr_window
+    w = headless_screen
     p = Crysterm::Widget::Prompt.new parent: w, top: 0, left: 0, width: 40, height: 8
     value = nil.as(String?)
     finished = nil.as(Int32?)
@@ -165,7 +159,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Prompt#reject reports Rejected and a nil value" do
-    w = dr_window
+    w = headless_screen
     p = Crysterm::Widget::Prompt.new parent: w, top: 0, left: 0, width: 40, height: 8
     called = false
     value = "unset".as(String?)
@@ -180,7 +174,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Message reports Accepted once dismissed, and #accept runs the display callback" do
-    w = dr_window
+    w = headless_screen
     m = Crysterm::Widget::Message.new parent: w, top: 0, left: 0, width: 40, height: 5
     ran = false
     finished = nil.as(Int32?)
@@ -198,7 +192,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "ColorDialog#pick reports Accepted after Action, and Rejected on cancel" do
-    w = dr_window
+    w = headless_screen
     cd = Crysterm::Widget::ColorDialog.new parent: w, top: 0, left: 0, width: 56, height: 20
     cd.current_color = "#0000ff"
     log = [] of String
@@ -215,7 +209,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Wizard Finish accepts, Cancel rejects — and Enter still advances rather than accepting" do
-    w = dr_window
+    w = headless_screen
     wiz = Crysterm::Widget::Wizard.new parent: w, width: 50, height: 16
     wiz.add_page "One", Crysterm::Widget::Box.new
     wiz.add_page "Two", Crysterm::Widget::Box.new
@@ -237,7 +231,7 @@ describe "Dialog subclasses report their outcome" do
   end
 
   it "Wizard#reject emits Cancel on top of the standard rejection" do
-    w = dr_window
+    w = headless_screen
     wiz = Crysterm::Widget::Wizard.new parent: w, width: 50, height: 16
     wiz.add_page "One", Crysterm::Widget::Box.new
     log = [] of String
@@ -261,7 +255,7 @@ describe Crysterm::Widget::DialogButtonBox do
   end
 
   it "emits box-level ButtonClick for every button, whatever its role" do
-    w = dr_window
+    w = headless_screen
     bb = Crysterm::Widget::DialogButtonBox.new parent: w,
       buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok |
                Crysterm::Widget::DialogButtonBox::StandardButton::Help
@@ -279,7 +273,7 @@ describe Crysterm::Widget::DialogButtonBox do
   end
 
   it "#standard_button returns nil for a custom button" do
-    w = dr_window
+    w = headless_screen
     bb = Crysterm::Widget::DialogButtonBox.new parent: w,
       buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok
     custom = bb.add_button "Custom"
@@ -287,7 +281,7 @@ describe Crysterm::Widget::DialogButtonBox do
   end
 
   it "#standard_buttons= rebuilds the row after construction" do
-    w = dr_window
+    w = headless_screen
     bb = Crysterm::Widget::DialogButtonBox.new parent: w,
       buttons: Crysterm::Widget::DialogButtonBox::StandardButton::Ok
     bb.buttons.size.should eq 1

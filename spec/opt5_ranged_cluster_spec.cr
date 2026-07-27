@@ -36,12 +36,6 @@ include Crysterm
 #   `ValueChanged` fires only on release; with tracking on, `ValueChanged`
 #   fires per move without being double-fired by the `SliderMoved` wiring.
 
-private def o5rng_window(width = 80, height = 24) : Crysterm::Window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
 private def o5rng_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -64,16 +58,21 @@ end
 
 describe "O5-10: RangeBounds shared by RangedValue(T) and PercentRange" do
   it "carries identically on Slider (RangedValue(Int32)) and Gauge (PercentRange, Float64)" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0, maximum: 10, value: 5
+
+    # A new maximum still above the current minimum shrinks the range only.
+    sl.maximum = 3
+    sl.minimum.should eq 0
+    sl.maximum.should eq 3
 
     # Qt's setMaximum: a new maximum below the current minimum carries the
     # minimum DOWN with it (collapses to the single value) rather than
     # inverting.
-    sl.maximum = 3
-    sl.minimum.should eq 3
-    sl.maximum.should eq 3
+    sl.maximum = -5
+    sl.minimum.should eq(-5)
+    sl.maximum.should eq(-5)
 
     # Qt's setMinimum: a new minimum above the current maximum carries the
     # maximum UP with it.
@@ -85,8 +84,12 @@ describe "O5-10: RangeBounds shared by RangedValue(T) and PercentRange" do
       minimum: 0.0, maximum: 10.0, value: 5.0
 
     g.maximum = 3.0
-    g.minimum.should eq 3.0
+    g.minimum.should eq 0.0
     g.maximum.should eq 3.0
+
+    g.maximum = -5.0
+    g.minimum.should eq(-5.0)
+    g.maximum.should eq(-5.0)
 
     g.minimum = 20.0
     g.minimum.should eq 20.0
@@ -96,7 +99,7 @@ end
 
 describe "O5-26: ProgressBar#range=/#span via Mixin::RangeSpan(Int32)" do
   it "collapses an exclusive range the same way RangedValue's does" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0, maximum: 100, value: 0
 
@@ -110,7 +113,7 @@ describe "O5-26: ProgressBar#range=/#span via Mixin::RangeSpan(Int32)" do
   end
 
   it "dispatches #range=/#set_range through ProgressBar's own #set_range, preserving the Completed-suppression on a range-triggered re-clamp" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0, maximum: 100, value: 0
 
@@ -130,7 +133,7 @@ describe "O5-26: ProgressBar#range=/#span via Mixin::RangeSpan(Int32)" do
   end
 
   it "#span stays overflow-safe at a full Int32 range (percent doesn't raise)" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0, maximum: Int32::MAX, value: Int32::MAX
     bar.percent.should eq 100
@@ -139,7 +142,7 @@ end
 
 describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
   it "Slider's macro-converted handle/track stay pinnable via constructor keyword" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 10, value: 0, handle_char: '#', track_char: '-'
     s.repaint
@@ -147,7 +150,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
   end
 
   it "Slider's handle is CSS-overridable when unpinned" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 10, value: 0
     s.stylesheet = %(Slider::handle { glyph: "◆"; })
@@ -157,7 +160,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
   end
 
   it "ScrollBar's macro-converted thumb/arrows stay pinnable" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 5,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true, thumb_char: '#'
     # `up_arrow_char=`/`down_arrow_char=` aren't constructor keywords (only
@@ -171,7 +174,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
   end
 
   it "ScrollBar's up-arrow is CSS-overridable when unpinned" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 5,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
     s.stylesheet = %(ScrollBar::up-arrow { glyph: "^"; })
@@ -183,7 +186,7 @@ end
 
 describe "A4-61b: RangedValue#on_value_change per-instantiation routing" do
   it "hands Slider's block an Int32 via Event::ValueChanged" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0, maximum: 100, value: 0
     got = [] of Int32
@@ -194,7 +197,7 @@ describe "A4-61b: RangedValue#on_value_change per-instantiation routing" do
   end
 
   it "hands DoubleSpinBox's block a Float64 via Event::DoubleValueChanged" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     dsb = Widget::DoubleSpinBox.new parent: s, top: 0, left: 0, width: 20, height: 1,
       minimum: 0.0, maximum: 100.0, value: 0.0
     got = [] of Float64
@@ -206,7 +209,7 @@ end
 
 describe "A4-62: Event::SliderMoved" do
   it "fires on every drag motion with tracking off, while ValueChanged fires only on release" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 21, height: 1,
       minimum: 0, maximum: 20, value: 0
     sl.tracking = false
@@ -233,7 +236,7 @@ describe "A4-62: Event::SliderMoved" do
   end
 
   it "fires alongside a per-move ValueChanged with tracking on, without double-firing ValueChanged" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 21, height: 1,
       minimum: 0, maximum: 20, value: 0
     # `#tracking?` defaults to `true`.
@@ -258,7 +261,7 @@ describe "A4-62: Event::SliderMoved" do
   end
 
   it "ScrollBar emits SliderMoved on drag too (shared gesture)" do
-    s = o5rng_window
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 21,
       minimum: 0, maximum: 20, value: 0
     sb.tracking = false

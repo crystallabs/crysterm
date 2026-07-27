@@ -28,21 +28,11 @@ include Crysterm
 #     gating the click dispatch on `!selection_mode.no_selection?`, matching
 #     the keyboard path and Qt's `QCalendarWidget`.
 
-private def b18ic_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # ── B18-46 ──────────────────────────────────────────────────────────────────
 
 describe "ItemView non_selectable_rows realignment (B18-46)" do
   it "slides a divider marker down when a row before it is removed" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["Open", "----", "Quit"]
     list.non_selectable_rows = [1]
 
@@ -60,7 +50,7 @@ describe "ItemView non_selectable_rows realignment (B18-46)" do
   end
 
   it "slides a divider marker up when a row is inserted before it" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["----", "Quit"]
     list.non_selectable_rows = [0]
 
@@ -73,7 +63,7 @@ describe "ItemView non_selectable_rows realignment (B18-46)" do
   end
 
   it "drops a divider marker that sits exactly on the removed row" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "----", "c"]
     list.non_selectable_rows = [1]
 
@@ -82,7 +72,7 @@ describe "ItemView non_selectable_rows realignment (B18-46)" do
   end
 
   it "keeps @selected_indices and @nonselectable in lock-step across a mixed sequence" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "----", "d", "e"]
     list.non_selectable_rows = [2]
@@ -102,7 +92,7 @@ end
 
 describe "Calendar#minimum_date=/#maximum_date= carry semantics (B18-47)" do
   it "carries the maximum up when a new minimum crosses it, instead of swapping" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s
 
     cal.maximum_date = Time.utc(2020, 1, 1)
@@ -116,7 +106,7 @@ describe "Calendar#minimum_date=/#maximum_date= carry semantics (B18-47)" do
   end
 
   it "carries the minimum down when a new maximum crosses it, instead of swapping" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s
 
     cal.minimum_date = Time.utc(2030, 1, 1)
@@ -127,7 +117,7 @@ describe "Calendar#minimum_date=/#maximum_date= carry semantics (B18-47)" do
   end
 
   it "leaves a non-crossing assignment ordered normally" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s
 
     cal.minimum_date = Time.utc(2020, 1, 1)
@@ -142,7 +132,7 @@ end
 
 describe "Calendar display-only (NoSelection) click suppression (B18-49)" do
   it "does not emit DateActivated on a click when selection_mode is NoSelection" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 1, 15)
     cal.selection_mode = :no_selection
@@ -165,7 +155,7 @@ describe "Calendar display-only (NoSelection) click suppression (B18-49)" do
   end
 
   it "still emits DateActivated on a click in the default SingleSelection mode" do
-    s = b18ic_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 1, 15)
     s.repaint

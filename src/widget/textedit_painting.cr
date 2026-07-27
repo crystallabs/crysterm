@@ -71,6 +71,33 @@ module Crysterm
         last_bi = -1
         runs = [] of Tuple(Int32, Int32, TextCharFormat)
 
+        # Incremental row-bounds state, carried from the previously *measured*
+        # row: `{block, real row, that row's `row_end`, its tab-expanded width
+        # from the block start}`. The next row reuses it iff it is the very next
+        # real row of the SAME block, in which case `row_start == carry_end`.
+        #
+        # Why that is exact — `#rebuild_layout` pushes one block's wrapped text
+        # rows in a single tight loop (`bl.lines.each`), so they are contiguous
+        # in `rl` AND in the order `ftor[bi]` lists them; every other row it
+        # pushes (frame border rows, top/bottom block margins) is flagged
+        # `RowMeta#margin` and is absent from `ftor`. Margin rows therefore
+        # never sit *between* two text rows of one block, and the loop below
+        # `next`s on them (at `meta.margin`) before any bounds are measured, so
+        # they never update the carry either. Every other early `next`
+        # (`y < 0`, a missing `lines_buf[y]`, `rl` out of range, an unmapped
+        # `rtof`/`blocks` lookup) likewise leaves the carry alone, and the
+        # `rl == carry_rl + 1` test then fails on the row after it, forcing the
+        # exact re-seed. So a carry hit means both rows are text rows of `bi`,
+        # adjacent in `ftor[bi]` — exactly the case where the old
+        # `pos_from_rowcol(rl, 0)` re-summed the same piece widths the previous
+        # iteration's `row_end` already accounted for. TABs need no special
+        # case: the carry passes *expanded* widths, the same units
+        # `pos_from_rowcol` accumulated, and `unexpand_col_in` maps them back.
+        carry_bi = -1
+        carry_rl = -1
+        carry_end = 0
+        carry_exp = 0
+
         (yi...yl).each do |y|
           next if y < 0
           break if y >= scr.aheight
@@ -100,8 +127,29 @@ module Crysterm
           heading = bfmt.heading?
 
           bp = document.block_position(bi)
-          row_start = pos_from_rowcol(rl, 0)
-          row_end = pos_from_rowcol(rl, line_display_width(rl))
+          # `{bp, blk_end}` IS `buf_line_bounds(bi)` — a logical line is exactly
+          # one block — already in hand, so the bounds below inline
+          # `pos_from_rowcol`'s tail (`base + unexpand_col_in(...)`, clamped by
+          # construction into `bp..blk_end`) around the carried prefix width.
+          blk_end = bp + blk.size
+          if carry_bi == bi && carry_rl == rl - 1
+            exp_prefix = carry_exp
+            row_start = carry_end
+          else
+            # Re-seed: one walk over the block's pieces preceding `rl` (what
+            # `pos_from_rowcol` did per bound, per row).
+            exp_prefix = 0
+            if reals = @_clines.ftor[bi]?
+              reals.each do |r|
+                break if r >= rl
+                exp_prefix += (@_clines[r]? || "").size
+              end
+            end
+            row_start = bp + unexpand_col_in(bp, blk_end, exp_prefix)
+          end
+          exp_next = exp_prefix + line_display_width(rl)
+          row_end = bp + unexpand_col_in(bp, blk_end, exp_next)
+          carry_bi, carry_rl, carry_end, carry_exp = bi, rl, row_end, exp_next
           next if row_end < row_start
 
           # 3-arg form: `row_start`/`row_end` are exactly the bounds the 1-arg

@@ -4,19 +4,13 @@ include Crysterm
 
 # Regression specs for BUGS16 wave-3 container findings: B16-45, B16-46.
 
-private def cw3_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # B16-45 — `DockWidget#area=` to `Floating` skipped `toggle_floating`'s
 # bookkeeping: the docked anchors (`right`/`bottom`) survived and fought the
 # drag handler, `@prev_area` was never recorded (a later re-dock went to
 # `Left` regardless of origin), and no `Event::Float` fired.
 describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeeping" do
   it "pins geometry, records prev_area, and emits Float" do
-    s = cw3_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Widget::DockWidget.new title: "D", area: Widget::DockWidget::Area::Right
     win.add_dock dock
@@ -40,7 +34,7 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
   end
 
   it "still works programmatically on a floatable: false dock" do
-    s = cw3_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Widget::DockWidget.new title: "D",
       area: Widget::DockWidget::Area::Left, floatable: false
@@ -54,7 +48,7 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
   end
 
   it "saves the float geometry on a programmatic re-dock" do
-    s = cw3_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Widget::DockWidget.new title: "D", area: Widget::DockWidget::Area::Right
     win.add_dock dock
@@ -76,7 +70,7 @@ end
 # layout.
 describe "BUGS16 B16-46: TabWidget tab_position/tab_height runtime changes" do
   it "moves the bar and re-insets existing pages on tab_position=" do
-    s = cw3_screen
+    s = headless_screen(80, 24)
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: 30, height: 8
     pa = Widget::Box.new content: "A"
     tw.add_tab "A", pa
@@ -101,7 +95,7 @@ describe "BUGS16 B16-46: TabWidget tab_position/tab_height runtime changes" do
   end
 
   it "re-insets pages on tab_height=" do
-    s = cw3_screen
+    s = headless_screen(80, 24)
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: 30, height: 8
     pa = Widget::Box.new content: "A"
     tw.add_tab "A", pa

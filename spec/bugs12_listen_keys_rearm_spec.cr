@@ -17,28 +17,6 @@ include Crysterm
 # (exactly-once, in order, at most one event dropped by the exiting zombie) and
 # a structural spec pins the generation mechanism itself.
 
-# Spins the event loop until *block* is truthy or the deadline passes (raising
-# so a never-satisfied condition fails loudly rather than hanging forever).
-private def wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
-# Like `wait_until` but non-raising: returns whether the condition was met
-# within *timeout*. For outcomes that are legitimately racy (the zombie may or
-# may not consume — and drop — the event).
-private def became?(timeout = 200.milliseconds, &) : Bool
-  deadline = Time.instant + timeout
-  until yield
-    return false if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-  true
-end
-
 # Drives the *real* device input fiber (`Screen#start_input` -> `tput.listen`)
 # over an in-process pipe (same harness as bugsf1_lifecycle_spec.cr).
 private def with_live_input(&)

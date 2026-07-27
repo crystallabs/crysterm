@@ -123,7 +123,7 @@ module Crysterm
         text = String.build do |str|
           @rows.each_with_index do |row, ri|
             is_footer = ri == @rows.size - 1
-            str << render_row(row)
+            str << render_row(row, 0, ri)
             str << "\n\n" unless is_footer
           end
         end

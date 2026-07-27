@@ -8,16 +8,6 @@ include Crysterm
 # omitted the glyph-ramp inputs; LineChart axis mutations updated the tick
 # chrome but never re-rasterized the plot Canvas).
 
-private def g15c_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Non-blocking receive on the render doorbell: true iff a frame is pending.
 # The setters under test must ring this doorbell (via `mark_dirty` ->
 # `request_frame`) so an idle screen actually repaints. Consumes one token.
@@ -57,7 +47,7 @@ end
 
 describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
   it "bar_width= (a chart_prop setter) rings the render doorbell" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
@@ -69,7 +59,7 @@ describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
   end
 
   it "labels= (a chart_prop setter) rings the render doorbell" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
@@ -81,7 +71,7 @@ describe "Widget::Graph::Bar decoration setters schedule a render (#70)" do
   end
 
   it "show_values= rings the render doorbell" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [1.0, 2.0, 3.0]
@@ -95,7 +85,7 @@ end
 
 describe "Widget::Graph::StackedBar decoration setters schedule a render (#70)" do
   it "show_legend= rings the render doorbell" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10, segment_labels: ["x", "y"]
     sb.values = [[3.0, 2.0], [1.0, 4.0]]
@@ -107,7 +97,7 @@ describe "Widget::Graph::StackedBar decoration setters schedule a render (#70)" 
   end
 
   it "max= (a chart_prop setter) rings the render doorbell" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10
     sb.values = [[3.0, 2.0], [1.0, 4.0]]
@@ -121,7 +111,7 @@ end
 
 describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
   it "title= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12
     lc.add_line "s", [{0.0, 1.0}, {1.0, 3.0}, {2.0, 2.0}]
@@ -133,7 +123,7 @@ describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
   end
 
   it "title= is a no-op (no frame) when the value is unchanged" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12, title: "same"
     s.repaint
@@ -144,7 +134,7 @@ describe "Widget::Graph::LineChart chrome setters schedule a render (#77)" do
   end
 
   it "show_legend= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12, show_legend: false
     lc.add_line "s", [{0.0, 1.0}, {1.0, 3.0}]
@@ -158,7 +148,7 @@ end
 
 describe "Widget::Graph::Bar content cache tracks the glyph ramp (#78)" do
   it "rebuilds the tagged content when style.glyphs changes (same size/data)" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 20, height: 8
     bar.values = [1.0, 2.0, 3.0, 4.0]
@@ -179,7 +169,7 @@ end
 
 describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
   it "label= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
     s.repaint
@@ -190,7 +180,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
   end
 
   it "format= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
     s.repaint
@@ -201,7 +191,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
   end
 
   it "show_label= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72
     s.repaint
@@ -212,7 +202,7 @@ describe "Widget::Graph::Donut overlay setters schedule a render (#87)" do
   end
 
   it "show_label= is a no-op (no frame) when unchanged" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0,
       width: 20, height: 10, value: 72, show_label: true
     s.repaint
@@ -225,7 +215,7 @@ end
 
 describe "Widget::Graph::HeatMap overlay setters schedule a render (#87)" do
   it "show_legend= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     h = Crysterm::Widget::Graph::HeatMap.new parent: s, top: 0, left: 0,
       width: 30, height: 12, values: [[1.0, 2.0], [3.0, 4.0]]
     s.repaint
@@ -236,7 +226,7 @@ describe "Widget::Graph::HeatMap overlay setters schedule a render (#87)" do
   end
 
   it "show_labels= rings the render doorbell on an actual change" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     h = Crysterm::Widget::Graph::HeatMap.new parent: s, top: 0, left: 0,
       width: 30, height: 12, values: [[1.0, 2.0], [3.0, 4.0]]
     s.repaint
@@ -249,7 +239,7 @@ end
 
 describe "Widget::Graph::LineChart axis mutation re-rasterizes the plot (#88)" do
   it "repaints the plot Canvas when axis_y.maximum changes (non-resizing render)" do
-    s = g15c_screen
+    s = headless_screen(80, 24)
     lc = Crysterm::Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 40, height: 12
     lc.add_line "s", [{0.0, 1.0}, {1.0, 5.0}, {2.0, 3.0}]

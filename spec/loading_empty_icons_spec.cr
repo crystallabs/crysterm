@@ -8,19 +8,9 @@ include Crysterm
 # a step). An empty array now falls back to the default frames, so the widget
 # constructs and animates instead of crashing.
 
-private def lei_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 20,
-    height: 10,
-    default_quit_keys: false)
-end
-
 describe "Widget::Loading with an empty frames array" do
   it "constructs without IndexError (falls back to the default frames)" do
-    s = lei_screen
+    s = headless_screen(20, 10)
     # Before the fix this raised IndexError from `@frames[0]`.
     loading = Crysterm::Widget::Loading.new(parent: s, frames: [] of String)
     loading.frames.should_not be_empty
@@ -28,7 +18,7 @@ describe "Widget::Loading with an empty frames array" do
   end
 
   it "steps without dividing by zero" do
-    s = lei_screen
+    s = headless_screen(20, 10)
     loading = Crysterm::Widget::Loading.new(parent: s, frames: [] of String)
     n = loading.frames.size
     loading.step # `% frames.size` would be `% 0` on an empty array

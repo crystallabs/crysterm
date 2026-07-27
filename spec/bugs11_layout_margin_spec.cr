@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for the BUGS11 layout-margin fixes. Headless harness mirrors
 # spec/bugs5_layout_spec.cr / spec/bugs8_layout_spec.cr / spec/bugs9_layout_geom_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS11 #25 — Flow wrap fit-check omits the child's own left margin, so a
 # margined child whose margin box straddles the right edge is kept on the row and
 # painted past the interior instead of wrapping. The render pipeline shifts the
@@ -18,7 +12,7 @@ end
 # fit test must include `mleft`.
 describe "BUGS11 flow wrap fit-check includes the child's left margin (fix #25)" do
   it "wraps a left-margined Wrap child instead of painting it past the right edge" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 9, height: 6,
       layout: Layout::Wrap.new, overflow: Overflow::Ignore
 
@@ -48,7 +42,7 @@ end
 # overlapped the neighboring region. The carve must reserve the child's margin box.
 describe "BUGS11 border layout reserves the edge child's margin box (fix #26)" do
   it "keeps a top-margined header from overlapping the center region" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Border.new
 

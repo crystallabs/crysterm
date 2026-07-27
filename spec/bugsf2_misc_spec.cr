@@ -19,15 +19,6 @@ include Crysterm
 #  47 (widget_terminal_emulator.cr) discarded DCS/SOS/PM/APC payloads were still
 #                           appended to the OSC buffer, retaining capacity.
 
-private def f2_window(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private DFL2 = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
 
 private def f2_emu(cols = 12, rows = 6)
@@ -47,7 +38,7 @@ end
 # ─────────────────────────── Finding 18 ───────────────────────────
 describe "BUGS-F2 finding 18: Window#reset_cursor resets shape/blink" do
   it "restores shape==Block and blink==false (was aliased to cursor_color)" do
-    s = f2_window
+    s = headless_screen(80, 24)
 
     s.set_cursor_shape Tput::CursorShape::Underline, blink: true
     s.cursor.shape.underline?.should be_true
@@ -64,7 +55,7 @@ end
 # ─────────────────────────── Finding 19 ───────────────────────────
 describe "BUGS-F2 finding 19: a plain character clears a pending chord prefix" do
   it "does not complete a chord when ordinary text is typed between its strokes" do
-    s = f2_window
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]]
     fired = 0
@@ -191,7 +182,7 @@ end
 describe "BUGS-F2 finding 13: overlay media backends construct detached without raising" do
   it "constructs an in-band graphics backend (Sixel) detached, then attaches" do
     sixel = Crysterm::Widget::Media::Sixel.new file: "does-not-exist.png"
-    s = f2_window
+    s = headless_screen(80, 24)
     s << sixel
     s.repaint # exercises the deferred Rendered listener + cell-pixel re-resolve
 
@@ -207,7 +198,7 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
   it "constructs a graphics backend under a detached parent, then attaches the subtree" do
     box = Crysterm::Widget::Box.new
     Crysterm::Widget::Media::Sixel.new file: "does-not-exist.png", parent: box
-    s = f2_window
+    s = headless_screen(80, 24)
     s << box
     s.repaint
   end
@@ -215,7 +206,7 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
   it "constructs the RenderHook backends (Tek/Ueberzug) detached, then attaches" do
     tek = Crysterm::Widget::Media::Tek.new file: "does-not-exist.png"
     uz = Crysterm::Widget::Media::Ueberzug.new file: "does-not-exist.png"
-    s = f2_window
+    s = headless_screen(80, 24)
     s << tek
     s << uz
     s.repaint
@@ -223,7 +214,7 @@ describe "BUGS-F2 finding 13: overlay media backends construct detached without 
 
   it "constructs the external Overlay (w3m) backend detached, then attaches" do
     ov = Crysterm::Widget::Media::Overlay.new file: "does-not-exist.png"
-    s = f2_window
+    s = headless_screen(80, 24)
     s << ov
     s.repaint
   end

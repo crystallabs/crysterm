@@ -2,12 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private def tagged_box
-  box = Widget::Box.new parent: headless_screen
+  box = Widget::Box.new parent: headless_screen(default_quit_keys: true)
   box.parse_tags = true
   box
 end
@@ -96,7 +92,7 @@ describe "Widget#_parse_tags alignment tags" do
   end
 
   it "actually centers content set with {center}…{/center}" do
-    box = Widget::Box.new parent: headless_screen, width: 20, height: 3
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 3
     box.parse_tags = true
     box.set_content "{center}Hi{/center}"
     # 20-column interior: "Hi" centered -> 9 cells + "Hi" + 9 cells.
@@ -104,14 +100,14 @@ describe "Widget#_parse_tags alignment tags" do
   end
 
   it "right-aligns content set with {right}…{/right}" do
-    box = Widget::Box.new parent: headless_screen, width: 12, height: 2
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 12, height: 2
     box.parse_tags = true
     box.set_content "{right}R{/right}"
     box._clines.lines.should eq ["           R"]
   end
 
   it "centers every row of multi-line {center} content" do
-    box = Widget::Box.new parent: headless_screen, width: 12, height: 4
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 12, height: 4
     box.parse_tags = true
     box.set_content "{center}A\nBB{/center}"
     box._clines.lines.should eq ["     A      ", "     BB     "]
@@ -124,7 +120,7 @@ describe "Widget#_parse_tags alignment tags" do
   # rendered left-aligned with the literal `{center}`/`{/center}` text leaking
   # into output. It must center identically to the un-nested form.
   it "centers content when {center} is nested inside an attribute tag" do
-    box = Widget::Box.new parent: headless_screen, width: 12, height: 3
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 12, height: 3
     box.parse_tags = true
     box.set_content "{bold}{center}Hi{/center}{/bold}"
     # 12-col interior, "Hi" centered -> 5 + Hi + 5, SGR kept around it, no
@@ -133,7 +129,7 @@ describe "Widget#_parse_tags alignment tags" do
   end
 
   it "right-aligns content when {right} is nested inside an attribute tag" do
-    box = Widget::Box.new parent: headless_screen, width: 12, height: 2
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 12, height: 2
     box.parse_tags = true
     box.set_content "{bold}{right}R{/right}{/bold}"
     box._clines.lines.should eq ["           \e[1mR\e[22m"]

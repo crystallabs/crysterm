@@ -149,7 +149,7 @@ module Crysterm
           return if s == Glyphs::NONE_STR
           return s
         end
-        Glyphs[role, tier].to_s
+        Glyphs.cell_str(role, tier)
       end
 
       # Columns a piece occupies: 0 when omitted, else its terminal width (a

@@ -853,7 +853,17 @@ module Crysterm
 
       private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil
         bf = b.block_format
-        io << "> " * bf.quote_level if bf.quote_level > 0
+        if bf.quote_level > 0
+          # A content-less quote block — the blank separator line between two
+          # quoted paragraphs — emits bare ">" lines with no trailing space:
+          # the canonical GFM form the importer consumed, so round-trips stay
+          # byte-stable. Mirrors the rstripped ">"-only continuation line in
+          # `write_blocks`.
+          blank = !open_alert && b.fragments.empty? && !bf.horizontal_rule? &&
+                  bf.heading_level == 0 && !bf.list_format
+          prefix = "> " * bf.quote_level
+          io << (blank ? prefix.rstrip : prefix)
+        end
 
         if open_alert && (kind = bf.alert_kind)
           io << TextMarkdown.alert_marker(kind)

@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def lth_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # A `ListTable` pins its header at screen row 0 (overlaying the spacer). When the
 # selection jumps to the first data row from a scrolled position (Home / PageUp),
 # the row must scroll *below* the header, not land under it (hidden). The `current_index=`
@@ -19,7 +9,7 @@ end
 # right back under the header.
 describe Crysterm::Widget::ListTable do
   it "keeps the first data row visible below the header after jumping to top" do
-    s = lth_window
+    s = headless_screen(80, 24)
     rows = [["Name"]] of Array(String)
     (1..20).each { |i| rows << ["Row#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 20, height: 6, rows: rows

@@ -11,16 +11,6 @@ include Crysterm
 # raised OverflowError during a render or a track click. The fix promotes the
 # first multiplicand to Float64 so the whole computation runs in Float64.
 
-private def overflow_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def press(s, x, y)
   s.repaint
   s.dispatch_mouse ::Tput::Mouse::Event.new(
@@ -29,7 +19,7 @@ end
 
 describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
   it "renders a ScrollBar with a huge range without raising (thumb_offset)" do
-    s = overflow_screen
+    s = headless_screen(80, 24)
     sb = Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 25,
       minimum: 0, maximum: 200_000_000, value: 150_000_000
     # (slider_position - minimum) * room overflowed Int32 here.
@@ -38,7 +28,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
   end
 
   it "maps a track click on a large-range Slider without raising (value_at)" do
-    s = overflow_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 1,
       minimum: 0, maximum: 100_000_000, value: 0
     # pos * value_span at a large pos overflowed Int32 in value_at.
@@ -49,7 +39,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
   end
 
   it "renders a large-range Slider with the handle in range (handle_offset)" do
-    s = overflow_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 1,
       minimum: 0, maximum: 100_000_000, value: 90_000_000
     s.repaint # handle_offset: (value - minimum) * avail must not overflow
@@ -57,7 +47,7 @@ describe "slider/scrollbar large-range overflow (BUGS11 #18)" do
   end
 
   it "renders a large-range Slider with tick marks without raising (draw_ticks)" do
-    s = overflow_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 3,
       minimum: 0, maximum: 100_000_000, value: 50_000_000,
       tick_position: Widget::Slider::TickPosition::Both,

@@ -94,12 +94,24 @@ module Crysterm
     # last frame, bare `awidth` recomputes now), which disagree mid-resize.
     def contents_rect : Rectangle?
       lp = @lpos || return
-      xi = lp.xi + ileft
-      xl = lp.xl - iright
-      yi = lp.yi + itop
-      yl = lp.yl - ibottom
+      xi, xl, yi, yl = content_edges lp
       return if xl <= xi || yl <= yi
       Rectangle.of_edges xi, yi, xl, yl
+    end
+
+    # The content-box edges `{xi, xl, yi, yl}` of *pos* — the same
+    # border+padding inset `#contents_rect` applies, but against an arbitrary
+    # positioned rectangle and without the `Rectangle` wrapper or the
+    # degenerate-box check.
+    #
+    # *pos* is duck-typed on `xi`/`xl`/`yi`/`yl`, so it takes either the
+    # per-frame `RenderedGeometry` a `#render` receives from `#base_render`
+    # (the clip-adjusted one, when an ancestor clips) or the stored `@lpos`.
+    # Painting code inside `#render` wants the former; anything asking after
+    # the fact wants `#contents_rect`.
+    @[AlwaysInline]
+    protected def content_edges(pos) : Tuple(Int32, Int32, Int32, Int32)
+      {pos.xi + ileft, pos.xl - iright, pos.yi + itop, pos.yl - ibottom}
     end
 
     # Outer (margin) offsets — counterpart to the inner `i*` offsets above,

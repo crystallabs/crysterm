@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def pol_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def pol_options
   [
     Crysterm::Widget::Pine::OptionList::Option.new("line-wrap",
@@ -35,7 +25,7 @@ end
 
 describe "Pine::OptionList" do
   it "toggles a Toggle option and fires the callback" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     fired = [] of String
     opts = pol_options
     opts[0].callback = ->(v : String) { fired << v; nil }
@@ -54,7 +44,7 @@ describe "Pine::OptionList" do
   end
 
   it "advances a Choice option through its allowed values, wrapping" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
     ol.current_index = 3
@@ -68,7 +58,7 @@ describe "Pine::OptionList" do
   end
 
   it "edits a Text option inline and commits on Enter" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     fired = [] of String
     opts = pol_options
     opts[1].callback = ->(v : String) { fired << v; nil }
@@ -85,7 +75,7 @@ describe "Pine::OptionList" do
   end
 
   it "rejects non-digits while editing a Number and cancels on Esc" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
     ol.current_index = 2
@@ -101,7 +91,7 @@ describe "Pine::OptionList" do
   # A mouse click selects the clicked row before activating it, so an edit in
   # progress must commit to the row where it began, not the clicked row.
   it "commits an in-progress edit to its own row when another row is activated" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
     ol.current_index = 1
@@ -118,7 +108,7 @@ describe "Pine::OptionList" do
   end
 
   it "#value returns the current value and nil for unknown names" do
-    s = pol_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
 
     ol.value("line-wrap").should eq "true"

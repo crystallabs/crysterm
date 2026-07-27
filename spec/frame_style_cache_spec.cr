@@ -10,15 +10,11 @@ include Crysterm
 # change must be reflected no later than the next render — and same-frame for
 # the eager hooks.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # A window at the unstyled floor (no theme, empty default stylesheet), where
 # `#style` semantics are purely programmatic: inline `@style` wins wholesale
 # and the floor highlight fallbacks are live. See `unstyled_floor_spec.cr`.
 private def floor_screen
-  s = headless_screen
+  s = headless_screen(default_quit_keys: true)
   Crysterm::CSS.theme = nil
   s
 end
@@ -36,7 +32,7 @@ end
 
 describe "frame-memoized style" do
   it "returns the same resolved object within one frame" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     w = Widget::Box.new parent: s, width: 10, height: 3
     s.repaint
     w.style.should be w.style
@@ -98,7 +94,7 @@ describe "frame-memoized style" do
   end
 
   it "is re-resolved after a stylesheet cascade (css_styled= hook)" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     w = Widget::Box.new parent: s, width: 10, height: 3
     w.add_css_class "t"
     s.repaint
@@ -142,7 +138,7 @@ end
 
 describe "frame-memoized minimal rectangle" do
   it "shrink box resizes when its content changes between frames" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true,
       content: "ab"
     s.repaint
@@ -153,7 +149,7 @@ describe "frame-memoized minimal rectangle" do
   end
 
   it "shrink parent resizes when a child grows between frames" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     parent = Widget::Box.new parent: s, top: 0, left: 0, shrink_to_fit: true
     child = Widget::Box.new parent: parent, top: 0, left: 0, width: 4, height: 1
     s.repaint

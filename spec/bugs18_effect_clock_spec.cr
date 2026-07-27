@@ -13,12 +13,6 @@ include Crysterm
 # hidden or detached. This spec pins the mirrored fix: both drivers now
 # install one-time Hide/Detached pause + Show/Attached resume hooks.
 
-private def headless_screen(w = 20, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Exposes the pulse-fade internals for assertions (`@fade`/`@pulse_paused` are
 # private).
 private class PulseProbe < Crysterm::Widget::Box
@@ -34,7 +28,7 @@ end
 describe "BUGS18 B18-90 hidden/detached effect and pulse clocks stop ticking" do
   describe "Effect::Animated (Fire)" do
     it "stops the clock when the widget is hidden, and resumes on show" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       fire = Crysterm::Widget::Effect::Fire.new parent: s, top: 0, left: 0, width: 8, height: 4
       begin
         fire.start
@@ -56,7 +50,7 @@ describe "BUGS18 B18-90 hidden/detached effect and pulse clocks stop ticking" do
     end
 
     it "stops the clock when the widget is detached, and resumes on re-attach" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       fire = Crysterm::Widget::Effect::Fire.new parent: s, top: 0, left: 0, width: 8, height: 4
       begin
         fire.start
@@ -73,7 +67,7 @@ describe "BUGS18 B18-90 hidden/detached effect and pulse clocks stop ticking" do
     end
 
     it "does not resume on show if #stop was called explicitly while hidden" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       fire = Crysterm::Widget::Effect::Fire.new parent: s, top: 0, left: 0, width: 8, height: 4
       begin
         fire.start
@@ -91,7 +85,7 @@ describe "BUGS18 B18-90 hidden/detached effect and pulse clocks stop ticking" do
 
   describe "Widget#pulse" do
     it "stops the clock when the widget is hidden, and resumes on show" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       w = PulseProbe.new parent: s, top: 0, left: 0, width: 8, height: 4
       begin
         w.pulse
@@ -113,7 +107,7 @@ describe "BUGS18 B18-90 hidden/detached effect and pulse clocks stop ticking" do
     end
 
     it "stops the clock when the widget is detached, and resumes on re-attach" do
-      s = headless_screen
+      s = headless_screen(20, 10)
       w = PulseProbe.new parent: s, top: 0, left: 0, width: 8, height: 4
       begin
         w.pulse

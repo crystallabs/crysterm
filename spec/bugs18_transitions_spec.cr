@@ -19,15 +19,9 @@ include Crysterm
 #   the single-sided constant carry the opacity/tint channels have, so a color
 #   declared at a stop whose segment partner omits it was never rendered.
 
-private def sized_screen(w, h)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "B18-92 transition: tint eases the effective tint" do
   it "fades a tint in on enter and out on exit when declared only in the state rule" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "t92"
     s.stylesheet = ".t92 { transition: tint 0.2s linear; } " \
@@ -41,7 +35,7 @@ describe "B18-92 transition: tint eases the effective tint" do
     mid[0].should eq 0xff0000
     (0.05 <= mid[1] <= 0.75).should be_true # mid-fade, not snapped to 0.8
 
-    sleep 0.25.seconds
+    wait_until { b.style.tint? == {0xff0000, 0.8} }
     b.style.tint?.should eq({0xff0000, 0.8}) # landed on target
 
     b.state = Crysterm::WidgetState::Normal
@@ -50,12 +44,12 @@ describe "B18-92 transition: tint eases the effective tint" do
     out[0].should eq 0xff0000
     (0.1 <= out[1] <= 0.7).should be_true
 
-    sleep 0.25.seconds
+    wait_until { b.style.tint?.nil? }
     b.style.tint?.should be_nil # final tick lands on alpha 0.0: overlay inert again
   end
 
   it "cross-fades a tint-to-tint change with equal strengths but different colors" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "t92b"
     s.stylesheet = ".t92b { tint: #0000ff 0.5; transition: tint 0.2s linear; } " \
@@ -69,14 +63,14 @@ describe "B18-92 transition: tint eases the effective tint" do
     mid[0].should_not eq 0x0000ff
     mid[0].should_not eq 0xff0000 # mid-blend between blue and red
 
-    sleep 0.25.seconds
+    wait_until { b.style.tint? == {0xff0000, 0.5} }
     b.style.tint?.should eq({0xff0000, 0.5}) # landed exactly on target
   end
 end
 
 describe "B18-94 transition_color and the -1 terminal-default sentinel" do
   it "tweens toward `transparent` via the substitute RGB and restores raw -1 on completion" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "v94"
     s.stylesheet = ".v94 { color: #ffffff; transition: color 0.2s linear; } " \
@@ -91,20 +85,20 @@ describe "B18-94 transition_color and the -1 terminal-default sentinel" do
     # mid value is never pure white.
     b.style.fg.should_not eq 0xffffff
 
-    sleep 0.25.seconds
+    wait_until { b.style.fg == -1 }
     # Natural completion must restore the exact raw target — the sentinel -1 —
     # not permanently stamp the final mix product (pre-fix: literal 0xFFFFFF).
     b.style.fg.should eq(-1)
   end
 
   it "keyframe settle stamps the raw -1 endpoint, not white or the substitute" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "g94"
     s.stylesheet = "@keyframes ghost { from { color: #ff0000; } to { color: transparent; } } " \
                    ".g94 { color: #123456; animation: ghost 0.15s linear 1; }"
     s.repaint
-    sleep 0.35.seconds # past the single iteration: settle branch ran at frac 1.0
+    wait_until { b.style.fg == -1 } # past the single iteration: settle branch ran at frac 1.0
     # Pre-fix: lerp read -1's bits as 0xFFFFFF and stamped white permanently.
     b.style.fg.should eq(-1)
   end
@@ -112,13 +106,13 @@ end
 
 describe "B18-96 apply_keyframe carries a one-sided fg/bg constant" do
   it "applies a color declared only at the 0% stop across the cycle" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "k96"
     s.stylesheet = "@keyframes alert { 0% { color: #ff0000; } 100% { opacity: 1.0; } } " \
                    ".k96 { animation: alert 0.2s linear infinite; }"
     s.repaint
-    sleep 0.15.seconds
+    wait_until { b.style.fg == 0xff0000 }
     # One-sided color must be carried as a constant — same rule the identically
     # shaped opacity declaration already follows.
     b.style.fg.should eq 0xff0000
@@ -126,18 +120,18 @@ describe "B18-96 apply_keyframe carries a one-sided fg/bg constant" do
   end
 
   it "applies a background-color declared only at one stop" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "k96b"
     s.stylesheet = "@keyframes bgc { 0% { background-color: #00ff00; } 100% { opacity: 0.5; } } " \
                    ".k96b { animation: bgc 0.2s linear infinite; }"
     s.repaint
-    sleep 0.15.seconds
+    wait_until { b.style.bg == 0x00ff00 }
     b.style.bg.should eq 0x00ff00
   end
 
   it "carries a color declared at 0%/100% but not 50% across both segments" do
-    s = sized_screen 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "k96c"
     s.stylesheet = "@keyframes tri { 0% { color: #0000ff; } 50% { opacity: 0.3; } 100% { color: #0000ff; } } " \

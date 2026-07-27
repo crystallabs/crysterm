@@ -188,6 +188,18 @@ module Crysterm
       # `#items`/`#ritems`.
       getter nodes = [] of Node
 
+      # Reverse index of `#nodes`: the visible row each node sits on. Filled by
+      # `#flatten` and cleared by `#rebuild` alongside `@nodes`, so it is coherent
+      # with `#nodes` at every point a lookup can run. Without it every
+      # node → row resolution (the cursor restore in `#rebuild`, `#apply_expanded`'s
+      # pre-rebuild row, `#set_expanded_all`'s per-node emit, Left-to-parent) is a
+      # linear `Array#index` scan, which makes `#expand_all` O(n²).
+      #
+      # `Node` is a class that defines neither `#==` nor `#hash`, so the `Hash`
+      # keys by reference identity — exactly the semantics the `Array#index` /
+      # `Array#includes?` scans had.
+      @node_row = {} of Node => Int32
+
       # Spaces of indentation added per depth level.
       getter indent : Int32 = 2
 
@@ -213,26 +225,17 @@ module Crysterm
         @indent_cache[depth]
       end
 
-      # Markers drawn before a node's text. Unset (`nil`) resolves from the
+      # Marker drawn before an expanded node's text. Unset (`nil`) resolves from
+      # the `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      pinnable_registry_glyph expanded_char, TreeExpanded
+
+      # Marker drawn before a collapsed node's text. Unset (`nil`) resolves from
+      # the `Glyphs` registry at the effective tier; assigning a `Char` pins it.
+      pinnable_registry_glyph collapsed_char, TreeCollapsed
+
+      # Marker drawn before a leaf node's text. Unset (`nil`) resolves from the
       # `Glyphs` registry at the effective tier; assigning a `Char` pins it.
-      setter expanded_char : Char? = nil
-      setter collapsed_char : Char? = nil
-      setter leaf_char : Char? = nil
-
-      # :ditto:
-      def expanded_char : Char
-        @expanded_char || glyph(Glyphs::Role::TreeExpanded)
-      end
-
-      # :ditto:
-      def collapsed_char : Char
-        @collapsed_char || glyph(Glyphs::Role::TreeCollapsed)
-      end
-
-      # :ditto:
-      def leaf_char : Char
-        @leaf_char || glyph(Glyphs::Role::TreeLeaf)
-      end
+      pinnable_registry_glyph leaf_char, TreeLeaf
 
       # Depth of the active `begin_update`/`end_update` batch (nestable), and
       # whether a `rebuild` was requested while batching.
@@ -367,13 +370,14 @@ module Crysterm
 
         prev = selected_node
         @nodes.clear
+        @node_row.clear
         rows = [] of String
         @roots.each { |n| flatten n, rows, 0 }
         self.items = rows
         if prev
-          if i = @nodes.index prev
+          if i = @node_row[prev]?
             self.current_index = i
-          elsif (anc = nearest_visible_ancestor prev) && (j = @nodes.index anc)
+          elsif (anc = nearest_visible_ancestor prev) && (j = @node_row[anc]?)
             # Previously-selected node was hidden by a collapse; follow selection
             # up to its nearest still-visible ancestor, as Qt does, rather than
             # stranding it on row 0.
@@ -387,7 +391,7 @@ module Crysterm
       private def nearest_visible_ancestor(node : Node) : Node?
         p = node.parent
         while p
-          return p if @nodes.includes? p
+          return p if @node_row.has_key? p
           p = p.parent
         end
         nil
@@ -396,6 +400,7 @@ module Crysterm
       # *depth* is threaded down the recursion (top-level nodes at 0) rather than
       # recomputed per node via `Node#depth`, an O(depth) parent-chain walk.
       private def flatten(node : Node, rows : Array(String), depth : Int32) : Nil
+        @node_row[node] = @nodes.size
         @nodes << node
         rows << row_text node, depth
         if node.expanded?
@@ -433,7 +438,7 @@ module Crysterm
 
       # *event* carries the node's pre-rebuild row index.
       private def apply_expanded(node : Node, expanded : Bool, event) : Nil
-        i = @nodes.index node
+        i = @node_row[node]?
         node.expanded_flag = expanded
         rebuild
         emit event, (i || 0)
@@ -468,7 +473,7 @@ module Crysterm
         end
         return if changed.empty?
         rebuild
-        changed.each { |n| emit event, (@nodes.index(n) || 0) }
+        changed.each { |n| emit event, (@node_row[n]? || 0) }
       end
 
       # Yields every node in the hierarchy (not just the visible ones),
@@ -506,7 +511,7 @@ module Crysterm
           if node
             if !node.leaf? && node.expanded?
               collapse node
-            elsif (p = node.parent) && (i = @nodes.index p)
+            elsif (p = node.parent) && (i = @node_row[p]?)
               self.current_index = i
             end
             e.accept

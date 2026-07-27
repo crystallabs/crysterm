@@ -12,12 +12,6 @@ private def unicode_screen(w = 40, h = 20)
     width: w, height: h, full_unicode: true, force_unicode: true)
 end
 
-private def plain_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # Fix #1: `TableLayout#pad_cell` trims an overflowing cell by DISPLAY WIDTH
 # (per-grapheme `Unicode.display_width` under `full_unicode?`), not by character
 # count. A cell of wide CJK graphemes whose display width exceeds the column
@@ -78,7 +72,7 @@ describe "TableLayout#pad_cell wide-character trim (display-width)" do
   end
 
   it "contrasts with the non-full_unicode path (trim by char count)" do
-    s = plain_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["漢字漢字"]]
 
     s.full_unicode_effective?.should be_false
@@ -95,7 +89,7 @@ end
 # is 6, which `min_width` must lift back to 10.
 describe "Widget size auto-branch clamps the post-margin size" do
   it "applies min_width to the margin-reduced auto width" do
-    s = plain_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
       style: Style.new(margin: Margin.new(2, 0, 2, 0))
@@ -114,7 +108,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
   end
 
   it "applies min_height to the margin-reduced auto height" do
-    s = plain_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
       style: Style.new(margin: Margin.new(0, 2, 0, 2))
@@ -128,7 +122,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
   end
 
   it "still clamps the auto width down with max_width on the post-margin size" do
-    s = plain_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
       style: Style.new(margin: Margin.new(1, 0, 1, 0))

@@ -10,11 +10,6 @@ include Crysterm
 # `cursor!.shape=` path. They now record on the widget's own cursor while
 # detached; the setting takes effect once attached and focused.
 
-private def cursor_screen(w = 20, h = 6)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
 # A widget with no window: a parentless construction falls back to the global
 # window (`determine_window`), so build attached and then detach.
 private def detached_box(s)
@@ -26,7 +21,7 @@ end
 
 describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
   it "records shape and blink on the widget's own cursor" do
-    s = cursor_screen
+    s = headless_screen(20, 6)
     w = detached_box s
     w.cursor.should be_nil
 
@@ -41,7 +36,7 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
   end
 
   it "records color on the widget's own cursor" do
-    s = cursor_screen
+    s = headless_screen(20, 6)
     w = detached_box s
     w.cursor_color = "red"
     w.cursor.not_nil!.style.fg.should_not be_nil
@@ -50,7 +45,7 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
   end
 
   it "records show/hide on the widget's own cursor" do
-    s = cursor_screen
+    s = headless_screen(20, 6)
     w = detached_box s
     w.show_cursor
     w.cursor.not_nil!._hidden.should be_false
@@ -61,7 +56,7 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
   end
 
   it "the recorded settings survive attachment and drive the active cursor" do
-    s = cursor_screen
+    s = headless_screen(20, 6)
     w = detached_box s
     w.set_cursor Tput::CursorShape::Underline, blink: true
     w.cursor_color = "red"

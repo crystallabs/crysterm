@@ -3,13 +3,9 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-  end
-
   describe "Window#resolve_selector" do
     it "matches by id, class, type, and descendant combinator" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="outer" class="panel">) +
                     %(<w-button class="primary">A</w-button>) +
@@ -26,7 +22,7 @@ require "./spec_helper"
 
   describe "DOM::Actions (declarative)" do
     it "toggles a class on a selector with no handler" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="panel"></w-box>) +
                     %(<w-button id="b" onclick="toggle-class:#panel:open"></w-button>) +
@@ -41,7 +37,7 @@ require "./spec_helper"
     end
 
     it "fires a non-button widget's onclick on a real click (and makes it hit-testable)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="panel"></w-box>) +
                     %(<w-box id="trigger" onclick="toggle-class:#panel:open"></w-box>) +
@@ -58,7 +54,7 @@ require "./spec_helper"
     end
 
     it "sets content via a declarative action" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="out" content="before"></w-box>) +
                     %(<w-button id="b" onclick="set-content:#out:after"></w-button>) +
@@ -70,7 +66,7 @@ require "./spec_helper"
     end
 
     it "routes quit through the on_quit hook" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-button id="b" onclick="quit"></w-button></w-window>)
       quit_called = false
       s.wire_dom_actions(-> { quit_called = true; nil })

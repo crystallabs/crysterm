@@ -65,12 +65,6 @@ private class RaceProbe < Crysterm::Widget::Media::Ansi
   end
 end
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 # Installs a fake `ffmpeg` (first on PATH) that appends its pid to a file,
 # writes one frame and closes stdout, then lingers; yields
 # `{pid_file, empty_flag}` — touching *empty_flag* makes subsequent launches
@@ -119,7 +113,7 @@ end
 describe "Media::Base streaming restart vs stop race (BUGS12 #25)" do
   it "reaps the relaunched ffmpeg when stop disowns the stream mid-restart" do
     with_fake_ffmpeg do |pid_file, _empty|
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       begin
         probe = RaceProbe.new(parent: s, top: 0, left: 0, width: 8, height: 4)
         st = HookStream.new("dummy.mp4", 2, 2, 10.0)
@@ -149,7 +143,7 @@ describe "Media::Base streaming restart vs stop race (BUGS12 #25)" do
 
   it "closes only the disowned stream when a new stream replaced it mid-restart" do
     with_fake_ffmpeg do |pid_file, _empty|
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       st2 = nil
       begin
         probe = RaceProbe.new(parent: s, top: 0, left: 0, width: 8, height: 4)
@@ -178,7 +172,7 @@ describe "Media::Base streaming restart vs stop race (BUGS12 #25)" do
 
   it "does not latch load_failed when a disowned restart also fails" do
     with_fake_ffmpeg do |pid_file, empty_flag|
-      s = headless_screen
+      s = headless_screen(80, 24, default_quit_keys: true)
       begin
         probe = RaceProbe.new(parent: s, top: 0, left: 0, width: 8, height: 4)
         st = HookStream.new("dummy.mp4", 2, 2, 10.0)

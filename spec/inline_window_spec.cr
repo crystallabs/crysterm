@@ -14,20 +14,9 @@ private def inline_window
   )
 end
 
-private def alt_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 40,
-    height: 6,
-    default_quit_keys: false,
-  )
-end
-
 describe "inline (non-alt) Window" do
   it "does not switch to the alternate screen buffer" do
-    alt = alt_window
+    alt = headless_screen(40, 6)
     inline = inline_window
 
     # The full-screen window is in the alt buffer; the inline one never entered it.

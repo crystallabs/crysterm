@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def pmm_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def pmm_options
   [
     Crysterm::Widget::Pine::MenuOption.new("?", "HELP", "Get help"),
@@ -28,14 +18,14 @@ end
 # blank spacer rows, so the cursor always sits on a real option.
 describe "Pine::MainMenu spaced navigation" do
   it "has one item per option (no blank spacer rows)" do
-    s = pmm_screen
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s
     menu.item_texts.size.should eq 3
     menu.item_texts.none?(&.strip.empty?).should be_true
   end
 
   it "renders the options spaced apart via item_spacing" do
-    s = pmm_screen
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s, top: 0, left: 0, width: 60, height: 12
     s.repaint
     menu.item_spacing.should eq 1
@@ -43,7 +33,7 @@ describe "Pine::MainMenu spaced navigation" do
   end
 
   it "steps one option at a time, clamped at the ends" do
-    s = pmm_screen
+    s = headless_screen(80, 24)
     menu = Crysterm::Widget::Pine::MainMenu.new pmm_options, parent: s
 
     menu.current_index = 0

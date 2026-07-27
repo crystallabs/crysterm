@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def iiss_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `ItemView#insert_item` must keep the single-selection cursor on the same
 # logical item when a row is inserted at or before it: every row from the
 # insertion point onward (including the selected one) shifts down by one, and
@@ -21,7 +11,7 @@ end
 # insert before it left `@selected` pointing at the wrong item with `@value` stale.
 describe "ItemView#insert_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is inserted" do
-    s = iiss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c", "d"]
     list.current_index = 2 # "c"
     list.current_text.should eq "c"
@@ -33,7 +23,7 @@ describe "ItemView#insert_item single-selection cursor alignment" do
   end
 
   it "slides the cursor down when a row is inserted exactly at the cursor" do
-    s = iiss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 1 # "b"
 
@@ -43,7 +33,7 @@ describe "ItemView#insert_item single-selection cursor alignment" do
   end
 
   it "leaves the cursor untouched when a later row is inserted" do
-    s = iiss_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     list.current_index = 0 # "a"
 

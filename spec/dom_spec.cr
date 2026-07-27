@@ -8,13 +8,9 @@ require "./spec_helper"
   # document, these tests pin that construction state survives a
   # serialize -> load -> serialize round-trip.
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-  end
-
   describe "Layout DOM (#to_layout_html / DOM.load)" do
     it "serializes construction state as attributes (not computed values)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       box = Widget::Box.new parent: s, top: "center", left: 2, width: "50%", height: 5,
         content: "Hi", parse_tags: true
       box.css_id = "main"
@@ -33,7 +29,7 @@ require "./spec_helper"
     end
 
     it "rebuilds a widget tree from layout HTML" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       html = <<-HTML
       <w-window>
         <w-box id="outer" top="1" left="2" width="40" height="10">
@@ -60,7 +56,7 @@ require "./spec_helper"
     end
 
     it "round-trips a tree losslessly" do
-      s1 = headless_screen
+      s1 = headless_screen(default_quit_keys: true)
       outer = Widget::Box.new parent: s1, top: 1, left: 2, width: 40, height: 10
       outer.css_id = "outer"
       Widget::Button.new parent: outer, top: "center", left: "center",
@@ -68,7 +64,7 @@ require "./spec_helper"
 
       first = s1.to_layout_html
 
-      s2 = headless_screen
+      s2 = headless_screen(default_quit_keys: true)
       s2.load_layout(first)
       second = s2.to_layout_html
 
@@ -76,12 +72,12 @@ require "./spec_helper"
     end
 
     it "restores list items" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       list = Widget::List.new parent: s, items: ["a", "b", "c"]
       html = list.to_layout_html
       html.should contain %(items="a\nb\nc")
 
-      s2 = headless_screen
+      s2 = headless_screen(default_quit_keys: true)
       s2.load_layout(list.to_layout_html)
       s2.find_by_id(list.css_id || "").try(&.as(Widget::List))
       rebuilt = s2.children.first.as(Widget::List)
@@ -89,7 +85,7 @@ require "./spec_helper"
     end
 
     it "skips unknown tags instead of failing" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       built = s.load_layout %(<w-window><w-nonesuch></w-nonesuch><w-box></w-box></w-window>)
       built.size.should eq 1
       built.first.should be_a Widget::Box

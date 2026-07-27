@@ -18,12 +18,6 @@ include Crysterm
 #       `padding`/`cursor` to the replacement window: an inline window must
 #       not silently come back as a full-screen alt-buffer window.
 
-private def b15m_window(w = 30, h = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b15m_screen(w = 30, h = 8)
   Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -45,7 +39,7 @@ end
 
 describe "BUGS15 #72: screen= retires the old device's spawned window" do
   it "closes and clears @window; the stale watcher cannot disconnect the new device" do
-    a = b15m_window
+    a = headless_screen(30, 8)
     win, remote = b15m_fake_emulator
     begin
       a.adopt_window win
@@ -80,7 +74,7 @@ describe "BUGS15 #72: screen= retires the old device's spawned window" do
   end
 
   it "drops the old device's IO ownership so a later disconnect spares the new fds" do
-    a = b15m_window
+    a = headless_screen(30, 8)
     win, remote = b15m_fake_emulator
     begin
       # `adopt_window` marks the (old) device's IO as owned by this window.
@@ -157,7 +151,7 @@ describe "BUGS15 #80: switch_terminal keeps surface mode and chrome knobs" do
   end
 
   it "still defaults a full-screen window's replacement to alternate mode" do
-    w = b15m_window(30, 5)
+    w = headless_screen(30, 5)
     w2 = w.switch_terminal "xterm"
     begin
       w2.alternate?.should be_true
@@ -175,7 +169,7 @@ end
 # workaround) silently reverted to Unicode chrome.
 describe "BUGS15 #38 follow-up: switch_terminal carries the glyph-tier pin" do
   it "keeps a runtime glyph_tier pin on the replacement window" do
-    w = b15m_window(30, 5)
+    w = headless_screen(30, 5)
     w.glyph_tier = Glyphs::Tier::Ascii
     w2 = w.switch_terminal "xterm"
     begin
@@ -187,7 +181,7 @@ describe "BUGS15 #38 follow-up: switch_terminal carries the glyph-tier pin" do
   end
 
   it "leaves an unpinned tier to the replacement's own detection" do
-    w = b15m_window(30, 5)
+    w = headless_screen(30, 5)
     w.screen.glyph_tier_explicit?.should be_false # default config: unpinned
     w2 = w.switch_terminal "xterm"
     begin

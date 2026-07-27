@@ -99,15 +99,9 @@ module Crysterm
       # Assigns the fill color (accepting a color name/`"#rrggbb"` string) and
       # schedules a repaint.
       def fill_color=(c : Int32 | String?) : Int32?
-        @fill_color = to_color c
+        @fill_color = Colors.to_native c
         request_render
         @fill_color
-      end
-
-      # Converts a color spec to a native `0xRRGGBB` int (a name/`"#rrggbb"`
-      # string via the shared conversion path), or `nil`.
-      private def to_color(c : Int32 | String?) : Int32?
-        Colors.to_native c
       end
 
       # A slice/fill color as a `#rrggbb` tag string for `Graph::Scale.tagged_row`,
@@ -215,7 +209,7 @@ module Crysterm
         end
 
         # Every row shows the same bar; the label rides the middle row.
-        row = String.build { |io| Graph::Scale.tagged_row(io, cells, colors) }
+        row = Graph::Scale.tagged_row(cells, colors)
         mid = rows // 2
         Array.new(rows) { |r| r == mid ? with_labels(segs, cells, colors) : row }.join('\n')
       end
@@ -227,13 +221,7 @@ module Crysterm
         cols = cells.size
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(@value, @minimum, @maximum, cols)
-        fc = color_tag @fill_color
-        cols.times do |c|
-          glyph = Graph::Scale.ramp_glyph(ramp, eighths, c)
-          next if glyph == ' '
-          cells[c] = glyph
-          colors[c] = fc
-        end
+        Graph::Scale.fill_ramp cells, colors, ramp, eighths, color_tag(@fill_color), 0, cols
       end
 
       # Whole-cell `{start, width}` span occupied by each segment, clipped to
@@ -273,7 +261,7 @@ module Crysterm
       # caption centered within each segment). Overlaid characters drop their
       # color so the text stays legible against the fill.
       private def with_labels(segs, base_cells, base_colors) : String
-        return String.build { |io| Graph::Scale.tagged_row(io, base_cells, base_colors) } unless show_label?
+        return Graph::Scale.tagged_row(base_cells, base_colors) unless show_label?
 
         cells = base_cells.dup
         colors = base_colors.dup
@@ -297,7 +285,7 @@ module Crysterm
           Graph::Scale.overlay_text(cells, colors, 1, formatted_text, full_unicode?)
         end
 
-        String.build { |io| Graph::Scale.tagged_row(io, cells, colors) }
+        Graph::Scale.tagged_row(cells, colors)
       end
     end
   end

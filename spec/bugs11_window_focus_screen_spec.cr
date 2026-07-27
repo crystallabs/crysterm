@@ -14,16 +14,6 @@ include Crysterm
 #     deaf. It now captures the listening state before teardown and re-`listen`s
 #     on the new device, mirroring `Window#connect`.
 
-private def bugs11_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def bugs11_device
   Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -32,7 +22,7 @@ end
 
 describe "BUGS11 #4: focus_pop blurs the popped widget when the history empties" do
   it "resets the :focused state and emits Blur when popping the sole focused widget" do
-    win = bugs11_window
+    win = headless_screen(80, 24)
     a = Widget::Box.new parent: win, left: 0, top: 0, width: 10, height: 1
     win.repaint
 

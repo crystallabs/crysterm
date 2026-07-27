@@ -14,19 +14,13 @@ include Crysterm
 #   on `#destroy`.
 # * A page-less `Wizard` must not expose a working "Finish" (`advance` no-op).
 
-private def life_window(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def enter_key
   Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
 end
 
 describe "BUGS7 ColorDialog teardown outside accept/cancel" do
   it "fires the pick callback on a live Enter (control)" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     dlg = Widget::ColorDialog.new parent: s
     called = 0
     dlg.get_color { |_| called += 1 }
@@ -35,7 +29,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
   end
 
   it "does not fire the pick callback after the dialog is destroyed" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     dlg = Widget::ColorDialog.new parent: s
     called = 0
     dlg.get_color { |_| called += 1 }
@@ -49,7 +43,7 @@ end
 
 describe "BUGS7 item-view search box is not orphaned on destroy" do
   it "removes the window-docked search LineEdit when the list is destroyed" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 6,
       items: ["alpha", "beta", "gamma"]
     s.repaint
@@ -66,7 +60,7 @@ end
 
 describe "BUGS7 SplashScreen key-dismiss wiring/teardown" do
   it "wires the key-dismiss handler on Attach when constructed detached" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     splash = Widget::SplashScreen.new # no parent/window at construction
     completed = 0
     splash.on(Crysterm::Event::Completed) { completed += 1 }
@@ -77,7 +71,7 @@ describe "BUGS7 SplashScreen key-dismiss wiring/teardown" do
   end
 
   it "does not dismiss via a leaked handler after destroy" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     splash = Widget::SplashScreen.new parent: s
     completed = 0
     splash.on(Crysterm::Event::Completed) { completed += 1 }
@@ -90,7 +84,7 @@ end
 
 describe "BUGS7 page-less Wizard does not complete" do
   it "advance is a no-op with zero pages" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     wiz = Widget::Wizard.new parent: s
     wiz.page_count.should eq 0
     completes = 0
@@ -101,7 +95,7 @@ describe "BUGS7 page-less Wizard does not complete" do
   end
 
   it "completes normally once on the last real page (no regression)" do
-    s = life_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     wiz = Widget::Wizard.new parent: s
     wiz.add_page "one", Widget::Box.new
     completes = 0

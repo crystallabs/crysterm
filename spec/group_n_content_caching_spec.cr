@@ -9,16 +9,10 @@ include Crysterm
 # the caching: it is correct after the first render, identical after a redundant
 # second render, and updated after the relevant state change.
 
-private def n_screen(w = 40, h = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "Group N per-frame content caching" do
   describe Crysterm::Widget::CheckBox do
     it "renders the marker line, is stable across a redundant render, and updates on state change" do
-      s = n_screen
+      s = headless_screen(40, 12)
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
 
       cb.render
@@ -41,7 +35,7 @@ describe "Group N per-frame content caching" do
     end
 
     it "reflects the partially-checked marker" do
-      s = n_screen
+      s = headless_screen(40, 12)
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, tristate: true, content: "All"
       cb.render
       cb.content.should eq "[ ] All"
@@ -53,7 +47,7 @@ describe "Group N per-frame content caching" do
 
   describe Crysterm::Widget::RadioButton do
     it "renders the marker line, stable across redundant render, updates on check" do
-      s = n_screen
+      s = headless_screen(40, 12)
       rb = Crysterm::Widget::RadioButton.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "One"
       rb.render
       rb.content.should eq "( ) One"
@@ -67,7 +61,7 @@ describe "Group N per-frame content caching" do
 
   describe Crysterm::Widget::Loading do
     it "caches the compact line and refreshes it on a spinner step" do
-      s = n_screen
+      s = headless_screen(40, 12)
       l = Crysterm::Widget::Loading.new parent: s, compact: true,
         frames: ["a", "b", "c"], content: "Working"
       l.render
@@ -84,7 +78,7 @@ describe "Group N per-frame content caching" do
 
   describe Crysterm::Widget::BigText do
     it "caches grapheme clusters + shrink width, stable across renders, updated on set_content" do
-      s = n_screen
+      s = headless_screen(40, 12)
       bt = Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, content: "Hi"
       bt.render
       bt.@graphemes.should eq ["H", "i"]
@@ -105,7 +99,7 @@ describe "Group N per-frame content caching" do
 
   describe Crysterm::Widget::Splitter do
     it "fills even positions in place, stable across redundant renders" do
-      s = n_screen 60, 20
+      s = headless_screen(60, 20)
       sp = Crysterm::Widget::Splitter.new parent: s, width: 60, height: 20
       sp.add_widget Crysterm::Widget::Box.new content: "a"
       sp.add_widget Crysterm::Widget::Box.new content: "b"
@@ -130,7 +124,7 @@ describe "Group N per-frame content caching" do
 
   describe Crysterm::Widget::StatusBar do
     it "caches the left-truncated permanent tail, stable across renders, updated on change" do
-      s = n_screen 10, 3
+      s = headless_screen(10, 3)
       bar = Crysterm::Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: 10, height: 1
       bar.add_permanent "AAAA"
       bar.add_permanent "BBBB" # permanent_text "AAAA │ BBBB" (11) overflows width 10

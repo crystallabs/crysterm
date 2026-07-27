@@ -7,11 +7,6 @@ include Crysterm
 # `Mixin::Popup`, `Completer` and `Menu`. Serves both the grab-owner shape and
 # the non-grab (Completer) shape, with an idempotent `#close`.
 
-private def ds_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def down_at(s, x, y)
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test)
@@ -19,7 +14,7 @@ end
 
 describe Crysterm::Overlay::DismissSession do
   it "grabs on open and dismisses on a press outside the inside-region" do
-    s = ds_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
     s.repaint
 
@@ -41,7 +36,7 @@ describe Crysterm::Overlay::DismissSession do
   end
 
   it "releases the grab and detaches on close, idempotently" do
-    s = ds_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
     s.repaint
 
@@ -59,7 +54,7 @@ describe Crysterm::Overlay::DismissSession do
   end
 
   it "takes no grab when grab_owner is nil (the Completer shape)" do
-    s = ds_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
     s.repaint
 

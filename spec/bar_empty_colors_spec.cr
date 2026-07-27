@@ -8,19 +8,9 @@ include Crysterm
 # fell through to `i % 0` — a `DivisionByZeroError` that crashed the render.
 # An empty array now behaves like `nil` (no per-bar color).
 
-private def bec_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "Widget::Graph::Bar with an empty colors array" do
   it "renders without dividing by zero (treats empty colors like nil)" do
-    s = bec_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8, maximum: 100.0, colors: [] of String
     bar.values = [42, 88, 13, 64]

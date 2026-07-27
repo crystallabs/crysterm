@@ -9,20 +9,23 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 80, height: 24, default_quit_keys: false)
-  end
-
-  private def rgb(name)
-    Crysterm::Colors.convert(name).to_i32
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   # ---- B17-39: string-valued right/bottom anchors survive the round-trip ----
 
   describe "BUGS17 #39 dom_apply coerces string right/bottom anchors" do
     it "round-trips right: \"50%\" / bottom: \"center\" through to_layout_html -> load_layout" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       box = Widget::Box.new parent: s, right: "50%", bottom: "center", width: 10, height: 3
       box.css_id = "anchored"
 
@@ -32,7 +35,7 @@ require "http/client"
 
       # Before the fix, `"50%".to_i?` was nil so the assignment was skipped and
       # the anchor silently dropped on load.
-      s2 = headless_screen
+      s2 = headless_screen(80, 24)
       s2.load_layout html
       loaded = s2.find_by_id("anchored").not_nil!
       loaded.right.should eq "50%"
@@ -44,7 +47,7 @@ require "http/client"
     end
 
     it "still coerces a bare-integer right/bottom to Int32" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       box = Widget::Box.new parent: s, width: 4, height: 1
       box.dom_apply "right", "2"
       box.dom_apply "bottom", "3"
@@ -57,11 +60,11 @@ require "http/client"
 
   describe "BUGS17 #40 remove RPC destroys the widget" do
     it "destroys removed widgets (stops animations + fires Event::Destroy)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-box id="panel" content="v"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7470)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7470
       begin
         panel = s.find_by_id("panel").not_nil!
         anim = panel.pulse # a never-ending ticker, stopped only by #destroy
@@ -71,7 +74,7 @@ require "http/client"
 
         HTTP::Client.post("http://127.0.0.1:7470/rpc",
           body: %({"jsonrpc":"2.0","id":1,"method":"remove","params":{"selector":"#panel"}}))
-        sleep 100.milliseconds
+        wait_until { destroyed }
 
         # Before the fix, `remove` only detached: the animation fiber kept ticking
         # forever and Event::Destroy never fired.
@@ -88,7 +91,7 @@ require "http/client"
 
   describe "BUGS17 #41 removing an on* binding stops it firing" do
     it "deletes the dom_events entry on a nil (and empty) value" do
-      box = Widget::Box.new parent: headless_screen, width: 4, height: 1
+      box = Widget::Box.new parent: headless_screen(80, 24), width: 4, height: 1
       box.dom_apply "onclick", "save"
       box.dom_events["click"]?.should eq "save"
 
@@ -104,7 +107,7 @@ require "http/client"
     end
 
     it "prunes a removed binding on the next each_binding pass (no empty-action event)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       btn = Widget::Button.new window: s, width: 6, height: 1
       s.append btn
       btn.dom_events["click"] = "save"
@@ -128,11 +131,11 @@ require "http/client"
     end
 
     it "removes the binding over the HTTP bridge (no further events published)" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-button id="ok" onclick="save"></w-button></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7471)
       bridge.start
-      sleep 100.milliseconds
+      wait_for_bind 7471
       base = "http://127.0.0.1:7471"
       begin
         # Remove the onclick binding: setAttribute with no `value` param.
@@ -140,9 +143,11 @@ require "http/client"
           body: %({"jsonrpc":"2.0","id":1,"method":"setAttribute","params":{"selector":"#ok","name":"onclick"}}))
 
         events = Channel(String).new(1)
+        subscribed = false
         spawn do
           HTTP::Client.get("#{base}/events") do |response|
             while line = response.body_io.gets
+              subscribed = true # `: connected` is flushed after the subscriber is registered
               if line.starts_with?("data: ")
                 events.send line["data: ".size..]
                 break
@@ -151,7 +156,7 @@ require "http/client"
           end
         rescue
         end
-        sleep 100.milliseconds
+        wait_until { subscribed }
 
         s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
         select
@@ -170,7 +175,7 @@ require "http/client"
 
   describe "BUGS17 #43 to_layout_html serializes the inline <style>" do
     it "includes the inline stylesheet and is a snapshot -> load -> snapshot fixed point" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><style>#hdr { color: red }</style><w-box id="hdr"></w-box></w-window>)
 
       snap1 = s.to_layout_html
@@ -179,7 +184,7 @@ require "http/client"
 
       # Loading the snapshot and re-snapshotting is a fixed point for the styles:
       # the trailing newline collect_style_css adds on load is normalized away.
-      s2 = headless_screen
+      s2 = headless_screen(80, 24)
       s2.load_layout snap1
       snap2 = s2.to_layout_html
       snap2.should contain "<style>"
@@ -191,7 +196,7 @@ require "http/client"
     end
 
     it "emits no <style> when the layout has no inline CSS" do
-      s = headless_screen
+      s = headless_screen(80, 24)
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       s.to_layout_html.should_not contain "<style>"
     end

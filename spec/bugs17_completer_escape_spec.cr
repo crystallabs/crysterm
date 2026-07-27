@@ -10,15 +10,9 @@ include Crysterm
 # per-keystroke filter is never installed), this focuses the box so a real
 # FocusIn installs the filter — the only path on which the bug exists.
 
-private def esc_screen(w = 60, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS17 B17-42: Completer stays dismissed on non-modifying keys after Escape" do
   it "does not reopen on cursor keys but reopens on a text change" do
-    s = esc_screen
+    s = headless_screen(60, 20)
     other = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 8, height: 1, content: "Other"
     box = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 2, width: 20, height: 1
     comp = Crysterm::Completer.new %w[apple apricot banana]

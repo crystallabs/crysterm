@@ -9,12 +9,6 @@ include Crysterm
 # flag distinguishes "done" from "paused mid-stream" so `#play` rewinds only on
 # completion.
 
-private def headless_window(w = 10, h = 5)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def write_apng(path : String, nframes : Int32, num_plays : Int32,
                        w = 4, h = 4, delay = 20)
   frames = [] of Tuple(PNGGIF::Bitmap, Int32)
@@ -31,11 +25,11 @@ describe "Widget::Media::Base finite-animation replay (BUGS4)" do
     path = File.tempname("bugs4_replay", ".png")
     write_apng path, 3, 1 # 3 frames, play once
     begin
-      s = headless_window
+      s = headless_screen(10, 5, default_quit_keys: true)
       img = Crysterm::Widget::Media::Sixel.new file: path, parent: s, width: 4, height: 3
       img.play
       # Let the compose fiber build frames and the clock run to completion.
-      40.times { sleep 0.03.seconds }
+      wait_until { !img.playing? }
 
       img.playing?.should be_false   # finite loop finished
       img.anim_index.should eq 3 - 1 # holding the last frame (BUGS3 behavior)

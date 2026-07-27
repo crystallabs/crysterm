@@ -28,16 +28,6 @@ private def b17_window(dev)
     resize_interval: 10.milliseconds)
 end
 
-# Spins the event loop until *block* is truthy or the deadline passes (raising
-# so a never-satisfied condition fails loudly rather than hanging forever).
-private def b17_wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "b17_wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
 describe "BUGS17 B17-02: background window does not paint the shared device" do
   it "writes nothing when a non-active sibling's render loop is rung" do
     dev = b17_device
@@ -69,7 +59,7 @@ describe "BUGS17 B17-02: background window does not paint the shared device" do
       # Raising w1 repaints it in full, so the change deferred while it was
       # backgrounded now reaches the display.
       app.activate w1
-      b17_wait_until { out.to_s.includes? "W1CHANGED" }
+      wait_until { out.to_s.includes? "W1CHANGED" }
     ensure
       w1.destroy
       w2.destroy
@@ -84,7 +74,7 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
     begin
       # Prime one frame so the loop is idle and parked on the doorbell.
       win.render
-      b17_wait_until { win.renders > 0 }
+      wait_until { win.renders > 0 }
       baseline = win.renders
 
       # A `PreRender` handler runs on the render fiber while `@in_render` is
@@ -110,7 +100,7 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
       win.render # ring the doorbell -> frame -> PreRender -> cross-fiber request_frame
       # Fix produces two frames (this one plus the scheduled follow-up); pre-fix
       # only one, because the cross-fiber request_frame was suppressed.
-      b17_wait_until { win.renders >= baseline + 2 }
+      wait_until { win.renders >= baseline + 2 }
     ensure
       win.destroy
     end

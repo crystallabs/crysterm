@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Group L (ALLOCS.md): LineEdit#compute_display now snapshots its inputs and
 # reuses a cached display string across the once-per-frame redisplay driven by
 # Mixin::TextEditing#render (#refresh_value). These specs pin the displayed
@@ -19,7 +9,7 @@ end
 # an unchanged steady-state frame returns the *same* String object.
 describe "LineEdit display cache (ALLOCS Group L)" do
   it "displays a short value verbatim" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "hello"
     s.repaint
     box.@_value.should eq "hello"
@@ -27,7 +17,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "masks the value in censor mode" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "secret", echo_mode: :password
     s.repaint
     box.@_value.should eq "******"
@@ -35,7 +25,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "honors a custom password_character" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "abcd", echo_mode: :password
     box.password_character = '•'
     s.repaint
@@ -43,7 +33,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "shows the placeholder while empty and clears it once typed" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, placeholder_text: "type here"
     s.repaint
     box.@_value.should eq "type here"
@@ -53,7 +43,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "scrolls a long value so the caret (at the end) stays visible" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "abcdefghij"
     s.repaint
     # cols = awidth(6) - ihorizontal(0) - 1 = 5; caret at end (10) -> window is the tail.
@@ -63,7 +53,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "scrolls back to the head when the caret returns to the start" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "abcdefghij"
     box.read_input
     s.repaint
@@ -77,7 +67,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "reuses the same display String object across unchanged frames" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "steady"
     s.repaint
     first = box.@display_cache
@@ -92,7 +82,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "rebuilds the cache when the value changes" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 18, height: 1, content: "one"
     s.repaint
     before = box.@display_cache.object_id
@@ -103,7 +93,7 @@ describe "LineEdit display cache (ALLOCS Group L)" do
   end
 
   it "rebuilds the cache when the width changes" do
-    s = mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::LineEdit.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "abcdefghij"
     s.repaint
     box.@_value.should eq "fghij"

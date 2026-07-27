@@ -12,15 +12,6 @@ include Crysterm
 #    `drag_cancel` (Escape) already guarantee. This closes the
 #    rejection-on-release gap, for both the mouse and keyboard sensors.
 
-private def bugs9_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private def b9_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -43,7 +34,7 @@ end
 
 describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
   it "emits DragLeave when a mouse drag is released over a target that refuses" do
-    s = bugs9_screen
+    s = headless_screen(80, 24)
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
     source.drag_mode = :transfer; source.draggable = true
 
@@ -67,7 +58,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
   end
 
   it "does NOT emit a spurious DragLeave when the target accepts (only Drop)" do
-    s = bugs9_screen
+    s = headless_screen(80, 24)
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
     source.drag_mode = :transfer; source.draggable = true
     source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
@@ -89,7 +80,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
   end
 
   it "emits DragLeave when a keyboard drag is dropped on a target that refuses" do
-    s = bugs9_screen
+    s = headless_screen(80, 24)
     source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3,
       draggable: true, keys: true
     source.drag_mode = :transfer; source.draggable = true

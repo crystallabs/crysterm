@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS18 B18-11, B18-13, B18-14, B18-17, B18-18.
 # Headless harness mirrors spec/bugs15_scrolling_chrome_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # B18-11 — `_parse_tags` resolved attribute tags via the raising `#window`
 # accessor, so every fake-splicing line editor (through `parse_fake_line`)
 # crashed with NilAssertionError on a detached widget whenever the new line
@@ -20,7 +14,7 @@ end
 # `Event::Attached` reparse expands it.
 describe "BUGS18 11: tagged line edits on a detached widget do not raise" do
   it "no-ops through _parse_tags when detached, and converges on re-attach" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, width: 20, height: 5, parse_tags: true
     ref = Widget::Box.new parent: s, width: 20, height: 5, parse_tags: true
     s.repaint
@@ -54,7 +48,7 @@ end
 # labeled scrollable stuck showing blank space.
 describe "BUGS18 13: border label does not inflate scroll_extent_bottom" do
   it "reclamps a labeled scrollable to content after a shrink, like an unlabeled twin" do
-    s = headless_screen 40, 14
+    s = headless_screen(40, 14)
     content = (1..30).join "\n"
     labeled = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 12,
       scrollable: true, content: content
@@ -85,7 +79,7 @@ end
 # `fake`/`ftor`/`rtof` in `set_content` whenever the widget is detached.
 describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
   it "append_line after a detached set_content keeps the new content" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 20, height: 5, content: "A\nB"
     s.repaint
 
@@ -102,7 +96,7 @@ describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
   end
 
   it "delete_line and replace_line operate on the detached-set content" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 20, height: 5, content: "one\ntwo\nthree"
     s.repaint
     s.remove w
@@ -117,7 +111,7 @@ describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
   end
 
   it "a multi-line append on a detached widget lands at the end" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 20, height: 8, content: "A\nB"
     s.repaint
     s.remove w
@@ -130,7 +124,7 @@ describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
   end
 
   it "line edits on an empty detached widget behave like attached ones" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 20, height: 5, content: "seed"
     s.repaint
     s.remove w
@@ -148,7 +142,7 @@ end
 # aligned lines. The fix folds the three values into the cache key.
 describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
   it "re-expands tabs after style.tab_size changes with the update protocol" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 30, height: 3, content: "a\tb"
     s.repaint
     w._clines.lines[0].should eq "a    b" # default tab_size 4
@@ -160,7 +154,7 @@ describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
   end
 
   it "re-pads aligned lines after style.fill_char changes" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 10, height: 3, content: "ab"
     w.align = Tput::AlignFlag::HCenter
     s.repaint
@@ -182,7 +176,7 @@ end
 # `clamp_child_base_to_content`.
 describe "BUGS18 18: horizontal base reclamps when content narrows" do
   it "pulls child_base_x back into range and repaints non-empty rows" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       scrollable: true
     w.wrap_content = false

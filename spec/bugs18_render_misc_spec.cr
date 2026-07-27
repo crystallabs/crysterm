@@ -28,11 +28,6 @@ include Crysterm
 #   could ever deliver it, so a visible tooltip/hover highlight stayed stale
 #   forever. A synthetic leave at the last pointer position is now emitted.
 
-private def b18_window(width = 20, height = 10)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: width, height: height)
-end
-
 private def b18_move(s, x, y)
   s.dispatch_mouse ::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y, source: :test)
@@ -57,7 +52,7 @@ end
 
 describe "B18-03: Capture renders REVERSE video for terminal-default colors" do
   it "paints a reversed default-colors cell as default_fg background" do
-    s = b18_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     # No colors set: the cells carry REVERSE with both color sentinels — the
     # drag-ghost / unthemed-highlight case.
     Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 4,
@@ -78,7 +73,7 @@ describe "B18-03: Capture renders REVERSE video for terminal-default colors" do
   end
 
   it "covers an under-text (negative-z) graphics layer with the reversed background" do
-    s = b18_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 4,
       style: Crysterm::Style.new(reverse: true)
     # `fill: false` mirrors the real `background=` layer (layout-excluded
@@ -102,8 +97,8 @@ end
 describe "B18-06: first-device-anchors for the global CSS cell geometry" do
   it "lets only the claiming device write the global px anchor and aspect ratio" do
     Crysterm::CSS::Length.measured_source = nil
-    a = b18_window
-    b = b18_window
+    a = headless_screen(20, 10, default_quit_keys: true)
+    b = headless_screen(20, 10, default_quit_keys: true)
     begin
       # First device to report claims the anchor.
       a.screen.apply_cell_pixels 12, 24
@@ -135,8 +130,8 @@ describe "B18-06: first-device-anchors for the global CSS cell geometry" do
 
   it "releases the anchor on the claiming device's teardown so a survivor takes over" do
     Crysterm::CSS::Length.measured_source = nil
-    a = b18_window
-    b = b18_window
+    a = headless_screen(20, 10, default_quit_keys: true)
+    b = headless_screen(20, 10, default_quit_keys: true)
     begin
       a.screen.apply_cell_pixels 12, 24
       b.screen.apply_cell_pixels 8, 16
@@ -185,7 +180,7 @@ end
 
 describe "B18-09: Window#disable_mouse delivers MouseLeave to the hovered widget" do
   it "emits a synthetic MouseLeave at the last pointer position" do
-    s = b18_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
     leaves = 0
     lx = ly = -1
@@ -214,7 +209,7 @@ describe "B18-09: Window#disable_mouse delivers MouseLeave to the hovered widget
   end
 
   it "still emits no MouseLeave when the hovered widget is removed (dead-widget path)" do
-    s = b18_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 3
     leaves = 0
     box.on(Crysterm::Event::MouseLeave) { leaves += 1 }

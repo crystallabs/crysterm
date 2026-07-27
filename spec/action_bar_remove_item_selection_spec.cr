@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def abr_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Renders the screen once headlessly so the bar gets an `@lpos` (its `#current_index=`
 # scroll math, and thus the `selected` index, only updates once laid out).
 private def abr_render(s)
@@ -27,7 +17,7 @@ end
 # cursor pointing at the wrong command (or past the end).
 describe "Mixin::ActionBar#remove_item selection alignment" do
   it "slides the cursor down when an earlier command is removed" do
-    s = abr_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c", "d"]
     abr_render s
@@ -42,7 +32,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
   end
 
   it "keeps the last selected command valid after removing an earlier one" do
-    s = abr_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
@@ -56,7 +46,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
   end
 
   it "leaves the cursor untouched when a later command is removed" do
-    s = abr_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
@@ -69,7 +59,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
   end
 
   it "still selects the prior command when the selected one itself is removed" do
-    s = abr_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s

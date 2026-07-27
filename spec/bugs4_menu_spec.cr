@@ -8,19 +8,9 @@ include Crysterm
 # `#skip_separators` off the divider onto a neighbor, whose `ItemActivated` fired
 # `activate_index`. `Menu#activate_item(index)` now ignores separator rows.
 
-private def menu_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS4 Menu separator click (does not activate a neighbor)" do
   it "ignores a click on the separator row" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new(parent: s)
     fired = [] of String
     m.add_action("A") { fired << "A" }
@@ -35,7 +25,7 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
   end
 
   it "still activates a clicked action row (no regression)" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new(parent: s)
     fired = [] of String
     m.add_action("A") { fired << "A" }

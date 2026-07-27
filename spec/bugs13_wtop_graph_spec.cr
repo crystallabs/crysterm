@@ -18,15 +18,6 @@ include Crysterm
 #   beyond Int64 — and Infinity/NaN — format instead of raising
 #   OverflowError (reachable from a HeatMap fed `1e19`).
 
-private def graph_screen(w = 40, h = 15)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
-private def blank_bitmap(w, h) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
-end
-
 private def filled_count(bmp)
   bmp.sum { |row| row.count { |px| px.a > 0 } }
 end
@@ -144,7 +135,7 @@ describe "BUGS13 W13: Scale.fmt for values beyond Int64" do
   end
 
   it "a HeatMap fed values beyond Int64 renders without OverflowError" do
-    s = graph_screen
+    s = headless_screen(40, 15)
     Widget::Graph::HeatMap.new parent: s, top: 0, left: 0, width: 24, height: 10,
       values: [[1.0e19, 2.0e19], [3.0e18, 4.0e18]]
     s.repaint # the legend labels run Scale.fmt over the resolved bounds

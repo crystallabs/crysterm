@@ -9,16 +9,6 @@ include Crysterm
 # (`Row:nth-child(N) Cell`) recolored the wrong screen row. Screen row `r >= 1`
 # now maps to data row `r + @child_base` (screen row 0 is the pinned header).
 
-private def lt_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 30, height: 24)
-end
-
-private def cell_fg(screen, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
-end
-
 # The content-relative rows (screen row minus the table's content top) that
 # contain at least one cell painted *color*.
 private def content_rows_with_fg(screen, lt, color) : Array(Int32)
@@ -26,7 +16,7 @@ private def content_rows_with_fg(screen, lt, color) : Array(Int32)
   ys = [] of Int32
   (0...screen.height).each do |y|
     next unless screen.lines[y]?
-    if (0...screen.width).any? { |x| cell_fg(screen, y, x) == color }
+    if (0...screen.width).any? { |x| cell_fg(screen, x, y) == color }
       ys << y - base
     end
   end
@@ -35,7 +25,7 @@ end
 
 describe "BUGS4 ListTable per-cell CSS recolor honors scroll (child_base)" do
   it "recolors the scrolled screen row of the targeted data row" do
-    screen = lt_screen
+    screen = headless_screen(30, 24, default_quit_keys: true)
     rows = [["H0", "H1"]]
     (1..14).each { |i| rows << ["r#{i}a", "r#{i}b"] }
     lt = Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24, height: 10, rows: rows

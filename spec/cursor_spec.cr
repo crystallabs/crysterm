@@ -12,20 +12,10 @@ include Crysterm
 # shapes, matching blessed (`attr |= 7 << 9`).
 WHITE_FG = Attr.pack_color(Colors.palette_to_rgb(7))
 
-# A `Window` backed by in-memory IOs, so constructing one neither writes
-# `enter` escape sequences to the real test terminal nor reads from it. We
-# never call `exec`, so no terminal I/O loop is started.
-def mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 # Computes {attr, ch} for the given shape against a zeroed base attribute, so
 # the assertions below only see bits that the cursor logic itself sets.
 def cursor_attr(shape, &)
-  screen = mem_screen
+  screen = headless_screen(default_quit_keys: true)
   cursor = screen.cursor
   cursor.shape = shape
   yield cursor
@@ -91,7 +81,7 @@ describe "Window#_artificial_cursor_attr" do
 
   describe "#cursor_color=" do
     it "stores the color as the cursor's style.fg (native int)" do
-      screen = mem_screen
+      screen = headless_screen(default_quit_keys: true)
       screen.cursor.artificial = true # avoid hardware terminal I/O
       # A native int is stored as-is...
       screen.cursor_color = 0xff8800
@@ -109,7 +99,7 @@ describe "Window#_artificial_cursor_attr" do
   # `cursor.artificial` reset between them.
   describe "#apply_cursor hardware vs artificial decision" do
     it "chooses hardware or artificial based on shape and terminal support" do
-      screen = mem_screen
+      screen = headless_screen(default_quit_keys: true)
 
       reset = ->(supported : Bool, shape : Tput::Namespace::CursorShape, blink : Bool) do
         screen.tput.features.cursor_style = supported

@@ -6,13 +6,9 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-  end
-
   describe "BUGS8 item views don't double their rows on a layout-DOM round-trip" do
     it "serializes a List's rows only as items= (no phantom <w-box> children)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       list = Widget::List.new parent: s, width: 10, height: 5
       list.css_id = "l"
       %w[a b c].each { |i| list.add_item i }
@@ -25,7 +21,7 @@ require "./spec_helper"
     end
 
     it "rebuilds a 3-item List to 3 children (not 6) across a round-trip" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       html = %(<w-window><w-list id="l" width="10" height="5" items="a&#10;b&#10;c"></w-list></w-window>)
       s.load_layout html
 
@@ -35,13 +31,13 @@ require "./spec_helper"
     end
 
     it "is stable across a second serialize→load cycle" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       list = Widget::List.new parent: s, width: 10, height: 5
       list.css_id = "l"
       %w[x y].each { |i| list.add_item i }
 
       once = s.to_layout_html
-      s2 = headless_screen
+      s2 = headless_screen(default_quit_keys: true)
       s2.load_layout once
       twice = s2.to_layout_html
       # Idempotent: the same document comes back out.
@@ -55,7 +51,7 @@ require "./spec_helper"
     it "ignores stale serialized <w-box> children under an item view (defensive)" do
       # A layout written before the save-side skip would carry phantom item
       # boxes; the loader must not re-append them.
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       html = %(<w-window><w-list id="l" width="10" height="5" items="a&#10;b">) +
              %(<w-box content="a"></w-box><w-box content="b"></w-box></w-list></w-window>)
       s.load_layout html
@@ -67,7 +63,7 @@ require "./spec_helper"
 
   describe "BUGS8 List#dom_apply(\"items\") replaces rather than appends" do
     it "replaces the row set on a repeated apply (setAttribute semantics)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       list = Widget::List.new parent: s, width: 10, height: 5
       list.dom_apply "items", "a\nb\nc"
       list.item_texts.should eq %w[a b c]
@@ -82,7 +78,7 @@ require "./spec_helper"
 
   describe "BUGS8 on_widget_event returns a working detacher (unsubscribe)" do
     it "stops delivery once the detacher is called" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       btn = Widget::Button.new parent: s, width: 6, height: 3, content: "OK"
 
       seen = [] of String
@@ -98,7 +94,7 @@ require "./spec_helper"
     end
 
     it "returns nil for an unknown event name (nothing wired)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       btn = Widget::Button.new parent: s, width: 6, height: 3
       Crysterm::DOM.on_widget_event(btn, "nonsense") { |_, _| }.should be_nil
     end

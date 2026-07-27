@@ -13,12 +13,6 @@ include Crysterm
 #     glyph-resolution inputs `{style.glyphs, glyph_tier, Glyphs.generation}`,
 #     so a tier switch / `Glyphs.set` / CSS `glyphs:` change kept a stale ramp.
 
-private def sc_screen(w = 60, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def sc_text(s) : String
   String.build do |io|
     s.aheight.times do |y|
@@ -30,7 +24,7 @@ end
 
 describe "BUGS13 A4: LineChart tick labels refresh when label_format changes" do
   it "re-formats the tick labels on an Axis#label_format change" do
-    s = sc_screen
+    s = headless_screen(60, 20)
     chart = Widget::Graph::LineChart.new parent: s, top: 0, left: 0,
       width: 56, height: 18, show_legend: false
     chart.add_line "sig", [{0.0, 0.0}, {1.0, 1.0}]
@@ -48,7 +42,7 @@ end
 
 describe "BUGS13 A10: Gauge/GaugeList rebuild content when glyph inputs change" do
   it "re-resolves the Gauge fill ramp after a glyph tier switch" do
-    s = sc_screen
+    s = headless_screen(60, 20)
     Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1,
       value: 100, show_label: false
     s.repaint
@@ -60,7 +54,7 @@ describe "BUGS13 A10: Gauge/GaugeList rebuild content when glyph inputs change" 
   end
 
   it "re-resolves the GaugeList fill ramp after a glyph tier switch" do
-    s = sc_screen
+    s = headless_screen(60, 20)
     gl = Widget::GaugeList.new parent: s, top: 4, left: 0, width: 20, height: 2
     gl.add_item "x", 100
     s.repaint

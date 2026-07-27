@@ -5,22 +5,13 @@ include Crysterm
 # Regression specs for BUGS16 wave-3 widget-core findings:
 # B16-09, B16-12, B16-13, B16-14, B16-15.
 
-private def wave3_screen(w = 30, h = 8)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h, default_quit_keys: false)
-end
-
-private def w3_row_chars(s, y, x0, x1)
-  String.build { |io| (x0...x1).each { |x| io << s.lines[y][x].char } }
-end
-
 # B16-09 — `hide_cursor`/`show_cursor` on an ATTACHED but UNFOCUSED widget
 # forwarded straight to the window's global hardware-cursor toggle (hiding the
 # focused widget's cursor) and recorded nothing on the widget's own cursor.
 # They must record always and forward only while focused.
 describe "BUGS16 B16-09: widget cursor hide/show on an unfocused widget" do
   it "records on the widget's cursor without touching the global hardware cursor" do
-    s = wave3_screen
+    s = headless_screen(30, 8)
     a = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2
     b = Widget::Box.new parent: s, top: 2, left: 0, width: 5, height: 2
     a.focus
@@ -40,7 +31,7 @@ describe "BUGS16 B16-09: widget cursor hide/show on an unfocused widget" do
   end
 
   it "still forwards to the window while focused" do
-    s = wave3_screen
+    s = headless_screen(30, 8)
     a = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2
     a.focus
 
@@ -60,7 +51,7 @@ end
 # refreshing the TEXT of a right-side label silently moved it to the left.
 describe "BUGS16 B16-12: label= keeps the placed side" do
   it "updates the text of a right-side label without moving it" do
-    s = wave3_screen
+    s = headless_screen(30, 8)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 4,
       style: Style.new(border: true)
     w.set_label "Title", :right
@@ -83,7 +74,7 @@ end
 # widget's own background, leaving window-background holes.
 describe "BUGS16 B16-13: reserved horizontal-bar band gets the widget background" do
   it "paints the corner cell under the two bars in the widget's bg" do
-    s = wave3_screen w: 14, h: 6
+    s = headless_screen(14, 6)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false,
       style: Style.new(bg: "blue"),
@@ -93,7 +84,7 @@ describe "BUGS16 B16-13: reserved horizontal-bar band gets the widget background
 
     box.hscrollbar_rows.should eq 1
     # The corner (last cell of the bar row) is left to the widget's own fill.
-    w3_row_chars(s, 4, 11, 12).should eq " "
+    row_text(s, 4, 11...12).should eq " "
     corner_bg = Attr.bg(s.lines[4][11].attr)
     interior_bg = Attr.bg(s.lines[0][0].attr) # content cell carries the widget bg
     corner_bg.should eq interior_bg
@@ -107,7 +98,7 @@ end
 # `@lpos`: resolving the absolutes went through the raising `#window` accessor.
 describe "BUGS16 B16-14: last_rendered_position? on a detached widget" do
   it "returns nil instead of raising after the widget is removed" do
-    s = wave3_screen
+    s = headless_screen(30, 8)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2
     s.repaint
     box.lpos.should_not be_nil
@@ -125,7 +116,7 @@ end
 # early-return on a non-scrollable widget — no API could clear it.
 describe "BUGS16 B16-15: disabling scrollable resets the scroll state" do
   it "zeroes child_base so short replacement content is visible" do
-    s = wave3_screen w: 12, h: 5
+    s = headless_screen(12, 5)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false
     box.scrollable = true
@@ -139,7 +130,7 @@ describe "BUGS16 B16-15: disabling scrollable resets the scroll state" do
 
     box.set_content "one line"
     s.repaint
-    w3_row_chars(s, 0, 0, 8).should eq "one line"
+    row_text(s, 0, 0...8).should eq "one line"
   ensure
     s.try &.destroy
   end

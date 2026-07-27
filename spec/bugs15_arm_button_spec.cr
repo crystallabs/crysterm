@@ -10,12 +10,6 @@ include Crysterm
 # handle_mouse_captor), and refuses to let a different button's press clobber
 # a pending arm.
 
-private def ab_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    default_quit_keys: false)
-end
-
 private def ab_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
 end
@@ -34,7 +28,7 @@ end
 
 describe "BUGS15 #95: armed drag path gates on the arming button" do
   it "does not commit a Click (nor drop the arm) on a foreign button's release over the armed widget" do
-    s = ab_screen
+    s = headless_screen
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
@@ -55,7 +49,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
   end
 
   it "still emits a Click on the arming button's own release (no motion)" do
-    s = ab_screen
+    s = headless_screen
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
@@ -68,7 +62,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
   end
 
   it "treats a buttonless (legacy) release as the arming button's release" do
-    s = ab_screen
+    s = headless_screen
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }
@@ -80,7 +74,7 @@ describe "BUGS15 #95: armed drag path gates on the arming button" do
   end
 
   it "does not let a different button's press overwrite a pending arm" do
-    s = ab_screen
+    s = headless_screen
     w = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
     clicks = 0
     w.on(Crysterm::Event::Click) { clicks += 1 }

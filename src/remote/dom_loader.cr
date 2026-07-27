@@ -149,7 +149,12 @@ module Crysterm
         text = String.build do |io|
           each_child(node) { |child| io << child.data if child.text? }
         end
-        widget.dom_apply("content", text) unless text.empty?
+        # Whitespace-only inner text is the serializer's own pretty-printing
+        # (newlines + indentation around element children), not content —
+        # applying it would break the serialize -> load -> serialize
+        # round-trip. Deliberate whitespace content survives as the `content`
+        # attribute the serializer emits.
+        widget.dom_apply("content", text) unless text.blank?
       end
       # Model-owned widgets (item views, action bars) rebuild their rows/
       # commands from replayed state, so their children are *not* reconstructable

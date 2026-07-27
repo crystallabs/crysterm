@@ -17,20 +17,6 @@ include Crysterm
 #     bare month names; it now prefixes each with its zero-padded number
 #     ("01: January" … "12: December") to match the numeric day/year fields.
 
-private def cnd_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
-private def cnd_row_text(s, y, x0, x1) : String
-  String.build { |io| (x0...x1).each { |x| io << s.lines[y][x].char } }
-end
-
 private def cnd_open_calendar(s)
   cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
     date: Time.local(2024, 1, 15)
@@ -40,7 +26,7 @@ end
 
 describe "Calendar year drop-down visibility (bug A)" do
   it "renders the scrolled year rows instead of blank rows" do
-    s = cnd_screen
+    s = headless_screen(80, 24)
     cal = cnd_open_calendar s
     ax = cal.aleft + cal.ileft
     ay = cal.atop + cal.itop
@@ -58,7 +44,7 @@ describe "Calendar year drop-down visibility (bug A)" do
     # not swallowed by a wrapped/clipped item. (Before the fix every row was blank.)
     x0 = ym.aleft
     x1 = ym.aleft + ym.awidth
-    rows = (ym.atop...(ym.atop + ym.aheight)).map { |y| cnd_row_text s, y, x0, x1 }
+    rows = (ym.atop...(ym.atop + ym.aheight)).map { |y| row_text(s, y, x0...x1) }
     rows.any?(&.includes?("2024")).should be_true
     # A nearby year is present too, confirming the whole list renders (not just one).
     rows.any?(&.includes?("2023")).should be_true
@@ -67,7 +53,7 @@ end
 
 describe "Calendar month drop-down numbering (bug B)" do
   it "prefixes each month with its zero-padded number" do
-    s = cnd_screen
+    s = headless_screen(80, 24)
     cal = cnd_open_calendar s
     ax = cal.aleft + cal.ileft
     ay = cal.atop + cal.itop
@@ -85,12 +71,12 @@ describe "Calendar month drop-down numbering (bug B)" do
     # Selecting an entry still pages to the right month.
     x0 = mm.aleft
     x1 = mm.aleft + mm.awidth
-    rows = (mm.atop...(mm.atop + mm.aheight)).map { |y| cnd_row_text s, y, x0, x1 }
+    rows = (mm.atop...(mm.atop + mm.aheight)).map { |y| row_text(s, y, x0...x1) }
     rows.any?(&.includes?("03: March")).should be_true
   end
 
   it "still pages to the picked month when an entry is activated" do
-    s = cnd_screen
+    s = headless_screen(80, 24)
     cal = cnd_open_calendar s
     cal.month_shown.should eq 1
 

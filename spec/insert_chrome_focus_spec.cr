@@ -10,16 +10,9 @@ include Crysterm
 # `focus_next` did exactly that.
 #
 # Headless, no real terminal.
-private def chrome_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#insert auto-focus" do
   it "does not re-focus an unrelated keyable widget when inserting non-focusable chrome" do
-    s = chrome_screen
+    s = headless_screen(default_quit_keys: true)
     Widget::Box.new parent: s, keys: true # auto-focused as the first focusable
 
     # Clear to a no-focus state; `a` stays keyable and registered, just
@@ -34,13 +27,13 @@ describe "Window#insert auto-focus" do
   end
 
   it "still auto-focuses the inserted widget when it is itself focusable" do
-    s = chrome_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     s.focused.should eq a # first focusable widget gets focus on insert
   end
 
   it "does not disturb existing focus when inserting chrome" do
-    s = chrome_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     s.focused.should eq a
 
@@ -54,7 +47,7 @@ describe "Window#insert auto-focus" do
     # must register a `keys: true` widget, or it's absent from `@keyable` when
     # the gate's `focus_next` runs. Clear focus and confirm `focus_next` still
     # reaches it, confirming it's in the keyable set and not auto-focused by luck.
-    s = chrome_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
     s.@history.clear
     s.focused.should be_nil
@@ -66,7 +59,7 @@ describe "Window#insert auto-focus" do
   it "auto-focuses an input: true widget on insert too" do
     # `input: true` and `keys: true` both mean `@keys || @input`; the insert
     # gate must treat them identically.
-    s = chrome_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, input: true
     s.focused.should eq a
   end

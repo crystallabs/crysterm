@@ -196,6 +196,79 @@ module Crysterm
       off == b.size ? '\n' : b.text[off]
     end
 
+    # Walks the characters at positions `from, from + 1, …` — exactly what
+    # repeated `#char_at` would yield, block separators included as `'\n'` —
+    # stopping when the block returns false or the document end is reached.
+    #
+    # The point is that a scan pays the `#block_at` binary search (and the
+    # codepoint→byte index walk into the block's text) ONCE, then rides a
+    # `Char::Reader` over the block's cached `text` and hops to the next block
+    # without re-searching; `#char_at` per position is O(log blocks) plus
+    # O(offset) codepoint indexing on a non-ASCII block, i.e. quadratic over a
+    # word motion.
+    #
+    # Boundary cases: a *from* on a separator (`off == block size`, non-last
+    # block) yields that `'\n'` first; an empty block contributes only its
+    # trailing separator; `from >= size` yields nothing (there is no character
+    # at `size`, matching `#char_at`); the last block's end emits no separator.
+    def each_char_forward(from : Int32, & : Char -> Bool) : Nil
+      sz = size
+      from = from.clamp(0, sz)
+      return if from >= sz
+      bs = blocks
+      bi, off = block_at(from)
+      loop do
+        b = bs[bi]
+        if off < b.size
+          t = b.text
+          reader = Char::Reader.new(t, t.char_index_to_byte_index(off) || t.bytesize)
+          while reader.has_next?
+            return unless yield reader.current_char
+            reader.next_char
+          end
+        end
+        # Past the block's own text sits its separator, unless it is the last.
+        bi += 1
+        return if bi >= bs.size
+        return unless yield '\n'
+        off = 0
+      end
+    end
+
+    # Backward counterpart of `#each_char_forward`: walks the characters at
+    # positions `from - 1, from - 2, …` down to 0 (i.e. *from* is exclusive,
+    # the way a backward scan's cursor position is), stopping when the block
+    # returns false.
+    #
+    # Boundary cases: `from <= 0` yields nothing; `from == size` starts at the
+    # last block's last character; a *from* on a separator yields the preceding
+    # block's last character first (the separator itself sits AT *from*, which
+    # is excluded); the separator before block `bi` is emitted after that
+    # block's first character and before block `bi - 1`'s last one; an empty
+    # block contributes no character, only the separator that precedes it.
+    def each_char_backward(from : Int32, & : Char -> Bool) : Nil
+      from = from.clamp(0, size)
+      return if from <= 0
+      bs = blocks
+      bi, off = block_at(from)
+      loop do
+        b = bs[bi]
+        if off > 0
+          t = b.text
+          reader = Char::Reader.new(t, t.char_index_to_byte_index(off) || t.bytesize)
+          while reader.has_previous?
+            return unless yield reader.previous_char
+          end
+        end
+        # Before the block's own text sits the separator joining it to the
+        # previous block, unless it is the first.
+        return if bi == 0
+        return unless yield '\n'
+        bi -= 1
+        off = bs[bi].size
+      end
+    end
+
     # Format of the character preceding `pos`.
     def char_format_at(pos : Int32) : TextCharFormat
       bi, off = block_at(pos)

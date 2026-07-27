@@ -442,10 +442,7 @@ module Crysterm
 
         lines = window.lines
 
-        xi = coords.xi + ileft
-        xl = coords.xl - iright
-        yi = coords.yi + itop
-        yl = coords.yl - ibottom
+        xi, xl, yi, yl = content_edges coords
 
         # When an ancestor clips this widget, `coords` moves `coords.xi`/`coords.yi`
         # inward to the clip edge and folds the clipped-top row count into

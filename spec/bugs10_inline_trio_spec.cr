@@ -24,17 +24,6 @@ private def inline_window(width : Int32? = 40, height : Int32? = 6)
   )
 end
 
-private def alt_window(width = 40, height = 6)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height,
-    default_quit_keys: false,
-  )
-end
-
 describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
   it "scrolls from the bottom row when the region does not fit below the anchor (#1)" do
     win = inline_window(height: 6)
@@ -111,7 +100,7 @@ describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
   end
 
   it "keeps the full-screen clear (no per-row erase) on the alternate path (#3)" do
-    alt = alt_window
+    alt = headless_screen(40, 6)
     alt.output.as(IO::Memory).clear
     alt.alloc(dirty: true)
     alt.output.as(IO::Memory).to_s.should_not contain "\e[2K"

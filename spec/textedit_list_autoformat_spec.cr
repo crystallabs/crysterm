@@ -8,15 +8,6 @@ include Crysterm
 # keys (Enter on an empty item, Backspace at an item's start) take the
 # block back out of the list.
 
-private def te_screen(width = 40, height = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
 private def new_te(s, content = "")
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8, content: content
   s.repaint
@@ -31,16 +22,10 @@ private def key(te, k : ::Tput::Key)
   te._listener Crysterm::Event::KeyPress.new '\0', k
 end
 
-private def row_text(s, y, len)
-  String.build do |io|
-    len.times { |x| io << s.lines[y][x].char }
-  end
-end
-
 describe Widget::TextEdit do
   describe "auto_formatting" do
     it "is off by default (Qt AutoNone)" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       type te, "- one"
       te.document.blocks[0].block_format.list_format.should be_nil
@@ -48,7 +33,7 @@ describe Widget::TextEdit do
     end
 
     it "converts '- ' at block start into a disc list item" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- one"
@@ -57,11 +42,11 @@ describe Widget::TextEdit do
       lf.style.disc?.should be_true
       te.value.should eq "one"
       s.repaint
-      row_text(s, 0, 5).should eq "• one"
+      row_text(s, 0, 0...5).should eq "• one"
     end
 
     it "keeps the caret at the item text while typing through the conversion" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "* "
@@ -72,7 +57,7 @@ describe Widget::TextEdit do
     end
 
     it "converts 'N. ' into a decimal list starting at N when enabled" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::NumberedList
       type te, "3. three"
@@ -80,11 +65,11 @@ describe Widget::TextEdit do
       lf.style.decimal?.should be_true
       lf.start.should eq 3
       s.repaint
-      row_text(s, 0, 8).should eq "3. three"
+      row_text(s, 0, 0...8).should eq "3. three"
     end
 
     it "does not convert numbered markers when only BulletList is enabled" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "1. x"
@@ -93,7 +78,7 @@ describe Widget::TextEdit do
     end
 
     it "does not re-convert inside an existing list item" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- - x"
@@ -103,7 +88,7 @@ describe Widget::TextEdit do
     end
 
     it "one undo reverts the conversion, restoring the typed marker" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- "
@@ -114,7 +99,7 @@ describe Widget::TextEdit do
     end
 
     it "Enter at the end of an item continues the list" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- one"
@@ -124,13 +109,13 @@ describe Widget::TextEdit do
       list = TextList.new(te.document, lf)
       list.count.should eq 2
       s.repaint
-      row_text(s, 1, 5).should eq "• two"
+      row_text(s, 1, 0...5).should eq "• two"
     end
   end
 
   describe "list editing keys" do
     it "Enter on an empty item exits the list instead of adding a block" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- one"
@@ -143,7 +128,7 @@ describe Widget::TextEdit do
     end
 
     it "Backspace at the start of an item removes its bullet, keeping the text" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       type te, "- one"
@@ -155,7 +140,7 @@ describe Widget::TextEdit do
     end
 
     it "Backspace at item start does not join into the previous block" do
-      s = te_screen
+      s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "above"
       te.auto_formatting = Widget::TextEdit::AutoFormatting::BulletList
       te.cursor_pos = 5

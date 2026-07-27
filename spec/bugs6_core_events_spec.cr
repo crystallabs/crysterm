@@ -23,19 +23,9 @@ include Crysterm
 #     return (out-of-context press, disabled action, dropped auto-repeat), so the
 #     chord could complete spuriously later. Fixed to clear the pending prefix.
 
-private def bugs6_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS6 #1 ToolBar/MenuBar uninstall shortcuts on detach" do
   it "stops firing a ToolBar action's shortcut after the bar is detached" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Run", shortcut: Tput::Key::CtrlR
     fired = 0
@@ -52,7 +42,7 @@ describe "BUGS6 #1 ToolBar/MenuBar uninstall shortcuts on detach" do
   end
 
   it "stops firing a MenuBar menu action's shortcut after the bar is detached" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     copy = Action.new "Copy", shortcut: Tput::Key::CtrlC
     fired = 0
@@ -70,7 +60,7 @@ end
 
 describe "BUGS6 #2 hide/show propagate to descendants" do
   it "emits Event::Hide and Event::Show on descendants" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     parent = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10
     child = Crysterm::Widget::Box.new parent: parent, top: 0, left: 0, width: 5, height: 1
 
@@ -111,8 +101,8 @@ end
 
 describe "BUGS6 #3 shortcut_hosts filters by window (multi-window)" do
   it "does not fire a Widget-context shortcut because a host on another window is focused" do
-    s_a = bugs6_screen
-    s_b = bugs6_screen
+    s_a = headless_screen(80, 24)
+    s_b = headless_screen(80, 24)
     tb_a = Crysterm::Widget::ToolBar.new parent: s_a, top: 0, left: 0, width: "100%", height: 1
     tb_b = Crysterm::Widget::ToolBar.new parent: s_b, top: 0, left: 0, width: "100%", height: 1
     # A separate focusable widget on B so we can hold B's focus *off* tb_b while a
@@ -148,7 +138,7 @@ end
 
 describe "BUGS6 #4 feed_shortcut clears stale chord prefix on early return" do
   it "clears the pending prefix when the action is disabled mid-chord" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]]
     fired = 0
@@ -170,7 +160,7 @@ describe "BUGS6 #4 feed_shortcut clears stale chord prefix on early return" do
   end
 
   it "clears the pending prefix when focus leaves the host mid-chord (Widget context)" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
     other = Crysterm::Widget::Box.new parent: s, top: 2, left: 0, width: 5, height: 1, keys: true
     a = Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]],

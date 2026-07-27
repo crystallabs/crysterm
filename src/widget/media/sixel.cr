@@ -73,9 +73,7 @@ module Crysterm
         io << "\eP0;1;0q"                 # DCS sixel; P2=1 → leave 0-bits transparent
         io << "\"1;1;" << pw << ';' << ph # raster attrs: 1:1 aspect, pw×ph
 
-        PALETTE.each_with_index do |rgb, i|
-          io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
-        end
+        io << PALETTE_PREAMBLE
 
         # Scratch shared across all bands: one `pw`-wide sixel row per palette
         # color, `seen` = colors first touched this band (in first-touch order,
@@ -195,6 +193,17 @@ module Crysterm
           end
         end
         arr
+      end
+
+      # The `#encode`-preamble color-register definitions for the (constant)
+      # `PALETTE`, precomputed once instead of re-formatted (252 `io <<` runs
+      # of integer/division formatting) on every `#encode` call. Byte-identical
+      # to running the original `PALETTE.each_with_index` loop directly into
+      # `io`.
+      PALETTE_PREAMBLE = String.build do |io|
+        PALETTE.each_with_index do |rgb, i|
+          io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
+        end
       end
     end
   end

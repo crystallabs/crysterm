@@ -10,12 +10,6 @@ include Crysterm
 # margin (and `Center` mis-centered / overflowed) — the cross-axis analogue of
 # the already-fixed Stretch case. Same headless harness as `bugs8_layout_spec`.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def render_children(s, container)
   s.repaint
   container.children.map do |c|
@@ -26,7 +20,7 @@ end
 
 describe "Box non-stretch cross-axis align reserves child margins" do
   it "keeps an End-aligned child's margin box flush against the far edge" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     # Cross axis is height (HBox). Interior height 10; child height 4 with a
     # 2-cell top and bottom margin.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 10,
@@ -42,7 +36,7 @@ describe "Box non-stretch cross-axis align reserves child margins" do
   end
 
   it "centers a Center-aligned child's margin box symmetrically" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 10,
       layout: Layout::HBox.new(align: Layout::Box::Align::Center)
     Widget::Box.new parent: box, width: 6, height: 4,
@@ -56,7 +50,7 @@ describe "Box non-stretch cross-axis align reserves child margins" do
   end
 
   it "still places a Start-aligned margined child at its near margin" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 10,
       layout: Layout::HBox.new(align: Layout::Box::Align::Start)
     Widget::Box.new parent: box, width: 6, height: 4,

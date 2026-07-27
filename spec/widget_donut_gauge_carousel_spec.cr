@@ -2,17 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def hscreen(w = 40, h = 12)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
-end
-
 private def text_of(s) : String
   (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 describe Crysterm::Widget::Graph::Donut do
   it "draws a braille ring and a centered percent readout" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -31,7 +27,7 @@ describe Crysterm::Widget::Graph::Donut do
   end
 
   it "emits DoubleValueChanged on value change" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     d = Crysterm::Widget::Graph::Donut.new parent: s, width: 10, height: 6, value: 0,
       type: Crysterm::Widget::Media::Type::Glyph
     got = nil
@@ -41,7 +37,7 @@ describe Crysterm::Widget::Graph::Donut do
   end
 
   it "leaves the unfilled remainder empty (no track traces by default)" do
-    s = hscreen(20, 11)
+    s = headless_screen(20, 11, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -59,7 +55,7 @@ describe Crysterm::Widget::Graph::Donut do
   end
 
   it "show_track draws a full ring with the (dark) track distinct from the arc" do
-    s = hscreen(20, 11)
+    s = headless_screen(20, 11, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -87,7 +83,7 @@ describe Crysterm::Widget::Graph::Donut do
   end
 
   it "Canvas keys its glyph device on opacity (vector content)" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     cv = Crysterm::Widget::Graph::Canvas.new parent: s, width: 10, height: 4,
       type: Crysterm::Widget::Media::Type::Glyph
     cv.device.as(Crysterm::Widget::Media::Glyph).alpha_key?.should be_true
@@ -96,7 +92,7 @@ end
 
 describe Crysterm::Widget::GaugeList do
   it "renders one labeled bar per gauge with percentages" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -117,7 +113,7 @@ describe Crysterm::Widget::GaugeList do
   end
 
   it "updates a gauge value by label" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     gl = Crysterm::Widget::GaugeList.new parent: s, width: 20, height: 4
     gl.add_item "a", 10
     gl["a"] = 90
@@ -127,7 +123,7 @@ end
 
 describe "Carousel (TabWidget auto-advance)" do
   it "starts a timer when auto_advance is set, and stops it when cleared" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     c = Crysterm::Widget::TabWidget.new parent: s, width: 30, height: 8, auto_advance: 50.milliseconds
     c.add_tab "A", Crysterm::Widget::Box.new(content: "a")
     c.add_tab "B", Crysterm::Widget::Box.new(content: "b")
@@ -138,7 +134,7 @@ describe "Carousel (TabWidget auto-advance)" do
   end
 
   it "next_page cycles with wrap (the action the timer invokes)" do
-    s = hscreen
+    s = headless_screen(40, 12, default_quit_keys: true)
     c = Crysterm::Widget::TabWidget.new parent: s, width: 30, height: 8
     c.add_tab "A", Crysterm::Widget::Box.new(content: "a")
     c.add_tab "B", Crysterm::Widget::Box.new(content: "b")

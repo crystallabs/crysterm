@@ -8,16 +8,6 @@ include Crysterm
 # `Menu::separator`, …), and the composed/measured markers that replace the
 # fixed 3-cell `[x]` slot.
 
-private def gc_screen(width = 80, height = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
-private def gc_row(s, y, x0, len)
-  (x0...x0 + len).map { |x| s.lines[y][x].char }.join
-end
-
 private def apply(style, prop, value)
   Crysterm::CSS::Properties.apply(style, prop, value)
 end
@@ -102,7 +92,7 @@ end
 
 describe "Widget glyph accessors: cell reduce vs run grapheme" do
   it "keeps a multi-codepoint CSS glyph whole on a run role, reduces on a cell role" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1
     st = Style.new
     st.glyph = "⚠️"
@@ -118,7 +108,7 @@ describe "Widget glyph accessors: cell reduce vs run grapheme" do
   end
 
   it "honors CSS `glyph: none` in glyph_str? (omit) but registry-fills glyph_str" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1
     st = Style.new
     st.glyph = Glyphs::NONE_STR
@@ -146,7 +136,7 @@ end
 
 describe "CheckBox::indicator glyph theming" do
   it "restyles the delimiters and per-state mark" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     cb = Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
     s.stylesheet = <<-CSS
       CheckBox::indicator { glyph-open: "<"; glyph-close: ">"; glyph: "."; }
@@ -154,16 +144,16 @@ describe "CheckBox::indicator glyph theming" do
       CSS
     s.apply_stylesheet
     s.repaint
-    gc_row(s, 0, 0, 9).should eq "<.> Accep"
+    row_text(s, 0, 0...9).should eq "<.> Accep"
 
     cb.check
     s.repaint
     # The `[checked]`-gated rule outranks the stateless mark.
-    gc_row(s, 0, 0, 9).should eq "<*> Accep"
+    row_text(s, 0, 0...9).should eq "<*> Accep"
   end
 
   it "composes a single-glyph marker when the delimiters are none-d away" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     cb = Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept", checked: true
     s.stylesheet = <<-CSS
       CheckBox::indicator { glyph-open: none; glyph-close: none; glyph: "●"; }
@@ -171,12 +161,12 @@ describe "CheckBox::indicator glyph theming" do
     s.apply_stylesheet
     s.repaint
     # Marker shrinks from 3 cells to 1; the label follows after the gap.
-    gc_row(s, 0, 0, 8).should eq "● Accept"
+    row_text(s, 0, 0...8).should eq "● Accept"
     cb.checked?.should be_true
   end
 
   it "keeps the marker click hit-test in step with the measured width" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     cb = Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
     s.stylesheet = %(CheckBox::indicator { glyph-open: none; glyph-close: none; glyph: "●"; })
     s.apply_stylesheet
@@ -192,46 +182,46 @@ describe "CheckBox::indicator glyph theming" do
   end
 
   it "leaves the unstyled marker byte-identical with the classic [x]" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept", checked: true
     s.repaint
-    gc_row(s, 0, 0, 10).should eq "[x] Accept"
+    row_text(s, 0, 0...10).should eq "[x] Accept"
   end
 end
 
 describe "RadioButton::indicator glyph theming" do
   it "restyles the checked mark via :checked" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     rb = Widget::RadioButton.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "One"
     s.stylesheet = %(RadioButton::indicator:checked { glyph: "o"; })
     s.apply_stylesheet
     s.repaint
-    gc_row(s, 0, 0, 7).should eq "( ) One" # unchecked mark untouched
+    row_text(s, 0, 0...7).should eq "( ) One" # unchecked mark untouched
     rb.check
     s.repaint
-    gc_row(s, 0, 0, 7).should eq "(o) One"
+    row_text(s, 0, 0...7).should eq "(o) One"
   end
 end
 
 describe "ComboBox::drop-down glyph" do
   it "restyles the arrow and collapses it for `none`" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     Widget::ComboBox.new ["Apple"], parent: s, top: 0, left: 0, width: 12, height: 1
     s.stylesheet = %(ComboBox::drop-down { glyph: "↓"; })
     s.apply_stylesheet
     s.repaint
-    gc_row(s, 0, 0, 7).should eq "Apple ↓"
+    row_text(s, 0, 0...7).should eq "Apple ↓"
 
     s.stylesheet = %(ComboBox::drop-down { glyph: none; })
     s.apply_stylesheet
     s.repaint
-    gc_row(s, 0, 0, 7).should eq "Apple  "
+    row_text(s, 0, 0...7).should eq "Apple  "
   end
 end
 
 describe "Slider::handle / cell-role validation" do
   it "restyles the handle through the ::handle alias of ::indicator" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1, value: 0
     s.stylesheet = <<-CSS
       Slider::handle { glyph: "◆"; }
@@ -246,7 +236,7 @@ describe "Slider::handle / cell-role validation" do
   end
 
   it "rejects a wide character on a cell role (falls back to the registry)" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1, value: 0
     s.stylesheet = %(Slider::handle { glyph: "🚀"; })
     s.apply_stylesheet
@@ -257,28 +247,28 @@ end
 
 describe "Menu glyphs and measured columns" do
   it "drops the check gutter when no item is checkable" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 4
     menu.add_action "Open"
     s.repaint
     # Label starts flush at the content edge (border + theme padding = 2).
-    gc_row(s, 1, menu.aleft + 2, 5).should eq "Open " # no 4-cell gutter
+    row_text(s, 1, menu.aleft + 2...menu.aleft + 2 + 5).should eq "Open " # no 4-cell gutter
   end
 
   it "reserves a measured check column when any item is checkable" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 14, height: 5
     a = menu.add_action "Wrap"
     a.checkable = true
     a.checked = true
     menu.add_action "Open"
     s.repaint
-    gc_row(s, 1, menu.aleft + 2, 8).should eq "[x] Wrap"
-    gc_row(s, 2, menu.aleft + 2, 8).should eq "    Open"
+    row_text(s, 1, menu.aleft + 2...menu.aleft + 2 + 8).should eq "[x] Wrap"
+    row_text(s, 2, menu.aleft + 2...menu.aleft + 2 + 8).should eq "    Open"
   end
 
   it "restyles the separator rule via Menu::separator { glyph }" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 12, height: 5
     menu.add_action "One"
     menu.add_separator
@@ -287,23 +277,23 @@ describe "Menu glyphs and measured columns" do
     s.apply_stylesheet
     s.repaint
     sep_y = menu.atop + 2
-    gc_row(s, sep_y, menu.aleft + 1, 10).includes?("====").should be_true
+    row_text(s, sep_y, menu.aleft + 1...menu.aleft + 1 + 10).includes?("====").should be_true
   end
 
   it "restyles the submenu arrow via Menu::indicator, including none" do
-    s = gc_screen
+    s = headless_screen(80, 24)
     menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 14, height: 4
     menu.add_submenu "More", [Action.new("Child")]
     s.stylesheet = %(Menu::indicator { glyph: "»"; })
     s.apply_stylesheet
     s.repaint
-    row = gc_row(s, menu.atop + 1, menu.aleft + 1, 12)
+    row = row_text(s, menu.atop + 1, menu.aleft + 1...menu.aleft + 1 + 12)
     row.includes?("More").should be_true
     row.includes?("»").should be_true
 
     s.stylesheet = %(Menu::indicator { glyph: none; })
     s.apply_stylesheet
     s.repaint
-    gc_row(s, menu.atop + 1, menu.aleft + 1, 12).includes?("▶").should be_false
+    row_text(s, menu.atop + 1, menu.aleft + 1...menu.aleft + 1 + 12).includes?("▶").should be_false
   end
 end

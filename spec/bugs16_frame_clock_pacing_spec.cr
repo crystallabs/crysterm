@@ -48,7 +48,9 @@ describe "BUGS16 B16-02: FrameClock yields when behind schedule" do
     end
 
     clock.start
-    sleep 300.milliseconds
+    # The block self-stops at 20 ticks, so poll for that instead of burning the
+    # worst-case margin (20 ticks * ~3 ms of busy-wait) on every run.
+    wait_until { ticks >= 20 }
 
     ticks.should eq 20
     # With the yield, the competing fiber is scheduled during the 19 behind-schedule

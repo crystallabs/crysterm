@@ -15,12 +15,6 @@ include Crysterm
 #       back and STOPs the process; CONT resumes, then reallocs (invalidating
 #       `@flushed_lines`) and repaints so shell output can't persist as corruption.
 
-private def b13l_window(w = 20, h = 4)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b13l_wait_until(timeout = 2.seconds, &)
   deadline = Time.instant + timeout
   until yield
@@ -31,7 +25,7 @@ end
 
 describe "BUGS13 C11: animated capture samples on a wall-clock 1/fps grid" do
   it "accumulates frames over the duration with zero renders happening" do
-    w = b13l_window 6, 2
+    w = headless_screen(6, 2)
     begin
       io = IO::Memory.new
       # One frame's RGBA payload, to delimit frames in the accumulated stream.
@@ -76,7 +70,7 @@ describe "BUGS13 C20: SIGTSTP/SIGCONT suspend-resume" do
   end
 
   it "resume_terminals reallocs and repaints, so the post-suspend frame is re-emitted" do
-    w = b13l_window 30, 5
+    w = headless_screen(30, 5)
     begin
       Widget::Box.new parent: w, left: 0, top: 0, width: 12, height: 1, content: "SUSPEND20"
       w.repaint

@@ -11,17 +11,6 @@ include Crysterm
 #   M6 — TextBrowser: a click on empty space (right of a line / below the
 #        text) must not activate the nearest trailing link.
 
-private def paint_screen(width = 20, height = 6)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
-private def red_bitmap(w = 4, h = 4)
-  red = PNGGIF::Pixel.new(255, 0, 0, 255)
-  Array(Array(PNGGIF::Pixel)).new(h) { Array(PNGGIF::Pixel).new(w, red) }
-end
-
 private def click(s, x : Int32, y : Int32)
   s.dispatch_mouse(::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test))
@@ -29,7 +18,7 @@ end
 
 describe "BUGS13 M2: media backends clamp negative coordinates" do
   it "Ansi does not wrap rows for an image partially above the screen" do
-    s = paint_screen(20, 6)
+    s = headless_screen(20, 6, default_quit_keys: true)
     img = Widget::Media::Ansi.new parent: s, top: -2, left: 0, width: 4, height: 4,
       fit: Widget::Media::Fit::Stretch
     img.bitmap = red_bitmap(4, 4)
@@ -48,7 +37,7 @@ describe "BUGS13 M2: media backends clamp negative coordinates" do
   end
 
   it "Glyph does not wrap columns for an image partially left of the screen" do
-    s = paint_screen(20, 6)
+    s = headless_screen(20, 6, default_quit_keys: true)
     img = Widget::Media::Glyph.new parent: s, top: 0, left: -2, width: 4, height: 2,
       mode: Widget::Media::Glyph::Mode::Block, fit: Widget::Media::Fit::Stretch
     img.bitmap = red_bitmap(8, 4)
@@ -68,7 +57,7 @@ end
 
 describe "BUGS13 M4: paint_document clamps negative columns" do
   it "does not wrap left-clipped text to the right end of the row" do
-    s = paint_screen(20, 4)
+    s = headless_screen(20, 4, default_quit_keys: true)
     Widget::PlainTextEdit.new parent: s, top: 0, left: -3, width: 10, height: 2,
       content: "hello world"
     s.repaint
@@ -86,7 +75,7 @@ end
 
 describe "BUGS13 M6: TextBrowser click hit-testing is exact" do
   it "does not activate a trailing link from clicks on empty space" do
-    s = paint_screen(40, 8)
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
     tb.document = TextDocument.from_markdown("go [one](u://1) and [two](u://2)")
     s.repaint

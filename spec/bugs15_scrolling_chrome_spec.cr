@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS15 #20, #54, #55. Headless harness mirrors
 # spec/bugs12_layout_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS15 #20 — a border label (and a bound scroll bar) is internal chrome, but
 # any installed *arranging* layout engine treated it as a content slot: VBox
 # counted the title Box in its flex distribution and overwrote its
@@ -20,7 +14,7 @@ end
 # `Layout#render_chrome` at its own pinned coordinates.
 describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome" do
   it "keeps a VBox-container's title on the border row, not in a content slot" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       layout: Layout::VBox.new, style: Style.new(border: true)
     box.set_label "Settings"
@@ -54,7 +48,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
   end
 
   it "does not let a shown scroll bar starve content children under a VBox" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
       scrollable: true, layout: Layout::VBox.new
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
@@ -83,7 +77,7 @@ end
 # content and the viewport rendered blank. The custom setter now wires it once.
 describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
   it "clamps child_base when content shrinks after a runtime scrollable flip" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.scrollable = true # runtime flip
 
@@ -98,7 +92,7 @@ describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
   end
 
   it "matches a constructor-scrollable widget's clamp behavior" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, width: 10, height: 5, scrollable: true
 
     box.set_content(Array.new(20) { |i| "line #{i}" }.join("\n"))
@@ -108,7 +102,7 @@ describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
   end
 
   it "does not double-wire when set to the same value" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.scrollable = true
     n = box.handlers(Crysterm::Event::ContentParsed).size
@@ -124,7 +118,7 @@ end
 # corner (Qt's `QAbstractScrollArea` corner).
 describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
   it "shortens each bar by the other when both are shown" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
@@ -142,7 +136,7 @@ describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
   end
 
   it "uses full extent when only one bar is shown" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn

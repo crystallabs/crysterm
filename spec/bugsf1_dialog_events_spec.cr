@@ -23,12 +23,6 @@ include Crysterm
 #     Resize/Move BEFORE assigning the new ivar, so in-tree listeners recomputed
 #     against the OLD value. Setters now assign first, then emit.
 
-private def f1_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def enter_key
   Crysterm::Event::KeyPress.new '\r', ::Tput::Key::Enter
 end
@@ -65,7 +59,7 @@ end
 # ---------------------------------------------------------------- Finding 6
 describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
   it "a mouse-down in the saturation/value field updates saturation and value" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 56, height: 20
     cd.show
     # Hit-testing / geometry uses the painted lpos, so render once first.
@@ -94,7 +88,7 @@ end
 # --------------------------------------------------------------- Finding 17
 describe "BUGS-F1 finding 17: ColorDialog Enter with a focused button fires once" do
   it "emits exactly one of Accepted/Rejected when Cancel is focused and Enter pressed" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 56, height: 20
 
     accepted = 0
@@ -121,7 +115,7 @@ end
 # --------------------------------------------------------------- Finding 16
 describe "BUGS-F1 finding 16: Question callback fires once on Enter over a focused button" do
   it "invokes the user callback exactly once" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
 
     count = 0
@@ -142,7 +136,7 @@ end
 # --------------------------------------------------------------- Finding 15
 describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   it "width= : a Resize listener sees the NEW width" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Resize) { seen = box.width }
@@ -151,7 +145,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   end
 
   it "height= : a Resize listener sees the NEW height" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Resize) { seen = box.height }
@@ -160,7 +154,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   end
 
   it "min_width= : a Resize listener sees the NEW min_width" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32?)
     box.on(Crysterm::Event::Resize) { seen = box.min_width }
@@ -169,7 +163,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   end
 
   it "left= : a Move listener sees the NEW left" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Move) { seen = box.left }
@@ -178,7 +172,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
   end
 
   it "top= : a Move listener sees the NEW top" do
-    s = f1_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
     box.on(Crysterm::Event::Move) { seen = box.top }

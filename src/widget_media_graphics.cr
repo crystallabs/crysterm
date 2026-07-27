@@ -537,9 +537,8 @@ module Crysterm
       # Draw into the *content* area, inside any border/padding (the in-band
       # erase/track rectangle the shared `Media::ScreenOverlay` lifecycle uses).
       protected def overlay_rect(pos) : Tuple(Int32, Int32, Int32, Int32)
-        xi = pos.xi + ileft
-        yi = pos.yi + itop
-        {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
+        xi, xl, yi, yl = content_edges pos
+        {xi, yi, xl - xi, yl - yi}
       end
 
       # The graphic is only on window once an image is present — a loaded file

@@ -460,18 +460,29 @@ module Crysterm
       end
     end
 
-    # Whether the character at *i* is a word character. `char_at` is nilable
-    # only out of bounds, which every caller's index guard excludes; the
-    # unreachable nil reads as non-word rather than crashing.
-    private def word_char_at?(i : Int32) : Bool
-      (c = @document.char_at(i)) ? TextDocument.word_char?(c) : false
-    end
-
     # Start of the current/previous word: skip separators left, then word
     # chars. Block separators read as `'\n'` and count as non-word, so the
     # scan crosses them.
+    #
+    # Driven by `TextDocument#each_char_backward` rather than a per-position
+    # `char_at`, so the whole scan costs one block lookup instead of one per
+    # character (see the primitive's doc).
     private def word_left_from(from : Int32) : Int32
-      TextDocument.scan_word_left(from) { |i| !word_char_at?(i) }
+      p = from
+      in_sep = true
+      @document.each_char_backward(from) do |c|
+        w = TextDocument.word_char?(c)
+        in_sep = false if w
+        # Separator phase, then word phase; the first separator seen after a
+        # word char ends the scan.
+        if in_sep || w
+          p -= 1
+          true
+        else
+          false
+        end
+      end
+      p
     end
 
     # Start of the next word: skip the rest of the current word, then
@@ -480,12 +491,16 @@ module Crysterm
     # cannot reuse them without moving where the caret lands.
     private def word_right_from(from : Int32) : Int32
       p = from
-      sz = @document.size
-      while p < sz && word_char_at?(p)
-        p += 1
-      end
-      while p < sz && !word_char_at?(p)
-        p += 1
+      in_word = true
+      @document.each_char_forward(from) do |c|
+        w = TextDocument.word_char?(c)
+        in_word = false unless w
+        if in_word || !w
+          p += 1
+          true
+        else
+          false
+        end
       end
       p
     end
@@ -493,7 +508,14 @@ module Crysterm
     # {start, end} of the word around `pos`; the preceding word when between
     # words. Collapses to {pos, pos} in whitespace-only surroundings.
     private def word_bounds_at(pos : Int32) : {Int32, Int32}
-      s, e = TextDocument.word_run_at(pos, @document.size) { |i| word_char_at?(i) }
+      s = pos
+      @document.each_char_backward(pos) do |c|
+        TextDocument.word_char?(c) ? (s -= 1; true) : false
+      end
+      e = pos
+      @document.each_char_forward(pos) do |c|
+        TextDocument.word_char?(c) ? (e += 1; true) : false
+      end
       if s == e
         # Not inside a word: take the word ending at or before pos.
         prev = word_left_from(pos)

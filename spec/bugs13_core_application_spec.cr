@@ -27,29 +27,15 @@ include Crysterm
 #       sibling reallocs without rendering), so the activated window stays on
 #       top.
 
-private def b13_window(w = 40, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def b13_shared_screen(w = 40, h = 10)
   Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h)
 end
 
-private def wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
 describe "BUGS13 C1: exec_all quit honors accepted?/grab_keys" do
   it "does not quit on an accepted key, or while keys are grabbed; quits on a plain q" do
-    w = b13_window
+    w = headless_screen(40, 10)
     finished = false
     spawn do
       Application.exec_all [w]
@@ -81,8 +67,8 @@ end
 
 describe "BUGS13 C10: exec_all returns on programmatic destroy" do
   it "unblocks once every managed window is destroyed directly" do
-    w1 = b13_window
-    w2 = b13_window
+    w1 = headless_screen(40, 10)
+    w2 = headless_screen(40, 10)
     finished = false
     spawn do
       Application.exec_all [w1, w2]
@@ -100,8 +86,8 @@ describe "BUGS13 C10: exec_all returns on programmatic destroy" do
   end
 
   it "counts a window only once even when it closes via quit after a destroy" do
-    w1 = b13_window
-    w2 = b13_window
+    w1 = headless_screen(40, 10)
+    w2 = headless_screen(40, 10)
     finished = false
     spawn do
       Application.exec_all [w1, w2]
@@ -121,7 +107,7 @@ end
 
 describe "BUGS13 C5: activate re-emits the raised window's frame" do
   it "re-sends the window content even when its own frame is unchanged" do
-    w = b13_window
+    w = headless_screen(40, 10)
     Widget::Box.new parent: w, left: 0, top: 0, width: 10, height: 1, content: "HELLO13"
     app = Application.new
     app.add w
@@ -190,7 +176,7 @@ describe "BUGS13 C19/C24: per-window cursor/title re-asserted on a shared device
   end
 
   it "title = nil clears a previously-set title on the terminal" do
-    w = b13_window
+    w = headless_screen(40, 10)
     w.title = "GONE-SOON"
     out = w.output.as(IO::Memory)
     out.clear
@@ -207,8 +193,8 @@ end
 describe "BUGS13 C23: clipboard routes to the requesting window's device" do
   it "copy writes OSC-52 to the given window, not the app-active one" do
     app = Application.new
-    w1 = b13_window
-    w2 = b13_window
+    w1 = headless_screen(40, 10)
+    w2 = headless_screen(40, 10)
     app.add w1
     app.add w2 # active_window == w2
 
@@ -234,8 +220,8 @@ describe "BUGS13 C23: clipboard routes to the requesting window's device" do
 
   it "request queries the given window's device" do
     app = Application.new
-    w1 = b13_window
-    w2 = b13_window
+    w1 = headless_screen(40, 10)
+    w2 = headless_screen(40, 10)
     app.add w1
     app.add w2
 
@@ -254,8 +240,8 @@ describe "BUGS13 C23: clipboard routes to the requesting window's device" do
 
   it "copy_selection emits OSC-52 on the copying widget's own device" do
     app = Application.new
-    w1 = b13_window 60, 15
-    w2 = b13_window 60, 15
+    w1 = headless_screen(60, 15)
+    w2 = headless_screen(60, 15)
     app.add w1
     app.add w2 # active_window == w2 — NOT the window hosting the widget
 

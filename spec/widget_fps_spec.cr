@@ -2,18 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-private def fps_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24)
-end
-
 describe Crysterm::Widget::Fps do
   it "renders the default R/D/FPS line, throughput and total" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     fps = Crysterm::Widget::Fps.new parent: s
     s.repaint
 
@@ -34,14 +25,14 @@ describe Crysterm::Widget::Fps do
   end
 
   it "defaults to the bottom-left corner" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     fps = Crysterm::Widget::Fps.new parent: s
     fps.left.should eq 0
     fps.bottom.should eq 0
   end
 
   it "honors an explicit position instead of the default corner" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     fps = Crysterm::Widget::Fps.new parent: s, top: 2, left: 5
     fps.top.should eq 2
     fps.left.should eq 5
@@ -49,14 +40,14 @@ describe Crysterm::Widget::Fps do
   end
 
   it "lets the user pick the format and which metrics to print" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [Crysterm::Widget::Fps::Metric::Fps]
     s.repaint
     fps.content.should eq "0 fps"
   end
 
   it "surfaces a bad format/args combination instead of crashing the render" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # %d on a String arg raises inside String#%; the widget must catch it.
     fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [Crysterm::Widget::Fps::Metric::TotalH]
     s.repaint
@@ -64,7 +55,7 @@ describe Crysterm::Widget::Fps do
   end
 
   it "accumulates the cumulative byte total across frames" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [Crysterm::Widget::Fps::Metric::Total]
 
     # Frame 1 draws the overlay text, so the running total grows above 0.
@@ -82,7 +73,7 @@ end
 
 describe "Window performance measurements" do
   it "exposes per-frame rates and a growing byte total" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     # Something must be on screen for `draw` to emit output.
     Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
     s.repaint
@@ -94,7 +85,7 @@ describe "Window performance measurements" do
   end
 
   it "reports wall-clock throughput only once there is a prior frame" do
-    s = fps_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
 
     # First frame: no previous start to measure the real interval against.

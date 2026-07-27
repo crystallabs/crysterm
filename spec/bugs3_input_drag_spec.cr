@@ -14,14 +14,6 @@ include Crysterm
 #    swallowed by a two-click drag start (`#reset_click_count`), so a later
 #    normal click reads a fresh count.
 
-private def bugs3_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # Build a scrollable container nested inside a *bordered* outer box placed
 # below the window top. The nesting (outer `ibottom > 0`) is what makes the
 # pre-fix, window-based viewport formula
@@ -49,7 +41,7 @@ end
 
 describe "BUGS3 scroll-into-view uses the container's own viewport" do
   it "computes the viewport from the element, not the window (they differ when nested)" do
-    s = bugs3_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     container, _ = scroll_fixture s
     s.render
 
@@ -62,7 +54,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
   end
 
   it "scrolls an off-screen child into a below-top scrollable container's viewport" do
-    s = bugs3_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     container, children = scroll_fixture s
     s.render
 
@@ -85,7 +77,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
   end
 
   it "does not scroll when the focused child already fits the viewport" do
-    s = bugs3_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     container, children = scroll_fixture s
     s.render
     container.child_base.should eq 0
@@ -99,7 +91,7 @@ end
 
 describe "BUGS3 two-click drag does not inflate click_count" do
   it "starts fresh on a later normal click after a two-click drag press" do
-    s = bugs3_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     s.drag_two_click = true
 
     # A draggable widget the two-click drag will pick up.

@@ -2,10 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # Behavior lock for `TableLayout#pad_cell` and the `@maxes` column-width cache.
 #
 # `pad_cell` was rewritten from two allocate-per-iteration loops (pad then trim)
@@ -34,7 +30,7 @@ describe "TableLayout#pad_cell" do
   end
 
   it "matches the old pad/trim loops across alignments, cells and widths" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["x"]]
 
     aligns = [Tput::AlignFlag::Left, Tput::AlignFlag::Right, Tput::AlignFlag::Center]
@@ -53,7 +49,7 @@ end
 
 describe "TableLayout @maxes cache" do
   it "recomputes column widths when the data changes (cache is not stale)" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["a", "b"]]
     narrow = t.row_width
 
@@ -64,7 +60,7 @@ describe "TableLayout @maxes cache" do
   end
 
   it "returns a stable result when recomputed without changes" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["a", "bb"], ["ccc", "d"]]
 
     t.compute_column_widths
@@ -80,7 +76,7 @@ describe "TableLayout#col_for_x" do
   # cell between columns (`render_row`, `column_start_offsets`); previously the
   # mapping drifted left by one cell per preceding column.
   it "maps each column to its rendered start position" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["aa", "bbbb", "cc"], ["dd", "ee", "ff"]]
     t.compute_column_widths
 

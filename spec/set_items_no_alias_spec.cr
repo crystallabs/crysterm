@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def sina_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `ItemView#set_items` must take ownership of its row data rather than aliasing
 # the caller's array: `@ritems` is mutated in place on every
 # `add_item`/`insert_item`/`remove_item`, so a stored alias would leak those
@@ -19,7 +9,7 @@ end
 # `@ritems` from `@items`).
 describe "ItemView#set_items array ownership" do
   it "does not mutate the caller's array when items are appended afterwards" do
-    s = sina_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s
     data = ["a", "b", "c"]
 
@@ -32,7 +22,7 @@ describe "ItemView#set_items array ownership" do
   end
 
   it "is not disturbed by the caller mutating its array afterwards" do
-    s = sina_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s
     data = ["x", "y"]
 

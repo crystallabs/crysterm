@@ -143,6 +143,15 @@ module Crysterm
       # mode; all of them otherwise).
       @filtered : Array(String) = [] of String
 
+      # A case-folded (downcased) mirror of `@options`, indices aligned with it,
+      # used by `#refilter`'s case-insensitive substring match. Memoized and
+      # rebuilt lazily (on the next `#refilter`) rather than re-downcasing the
+      # whole option list on every keystroke; invalidated (set to `nil`) at
+      # every point `@options` is replaced or mutated — the `#options=` setter
+      # and `#refresh_options` (the funnel every `#add_item`/`#add_items`/
+      # `#insert_item`/`#remove_item`/`#clear` already calls).
+      @options_lc : Array(String)?
+
       @popup : Popup?
 
       # True once the open popup has been anchored against the combo's *painted*
@@ -234,12 +243,21 @@ module Crysterm
       end
 
       # Recomputes the popup's option subset: a case-insensitive substring filter
-      # on the typed text in editable mode, all options otherwise.
+      # on the typed text in editable mode, all options otherwise. The filter
+      # matches against `@options_lc`, a memoized case-folded mirror rebuilt
+      # here only when invalidated (`nil`), so a keystroke doesn't re-downcase
+      # every option — filtering by index keeps the displayed strings the
+      # originals rather than their downcased mirrors.
       private def refilter
         @filtered =
           if editable? && !@text.empty?
             q = @text.downcase
-            @options.select(&.downcase.includes?(q))
+            lc = @options_lc ||= @options.map &.downcase
+            result = [] of String
+            lc.each_with_index do |s, i|
+              result << @options[i] if s.includes?(q)
+            end
+            result
           else
             @options.dup
           end
@@ -249,6 +267,7 @@ module Crysterm
       def options=(opts : Enumerable(String))
         was = current_state
         @options = opts.to_a
+        @options_lc = nil
         @selected = @selected.clamp(0, Math.max(0, @options.size - 1))
         @value = @options[@selected]? || ""
         refresh_options was
@@ -361,6 +380,9 @@ module Crysterm
       private def refresh_options(was : Tuple(Int32, String)) : Nil
         # Keep edit buffer empty so the box shows the committed value.
         @text = ""
+        # `@options` was just mutated (push/insert/delete_at/clear) by the
+        # caller — the case-folded mirror `#refilter` uses is now stale.
+        @options_lc = nil
         refilter
         refresh_popup
         update_content

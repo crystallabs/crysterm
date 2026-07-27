@@ -12,19 +12,11 @@ include Crysterm
 # non-nil `frames`, so without the guard a still canvas on Sixel/Kitty would
 # spin a one-frame render loop forever.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def solid_bitmap(w = 3, h = 2) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(10, 20, 30, 255) } }
-end
-
 describe "Widget::Media::Base#play single-frame guard" do
   it "does not start playback for a bitmap-injected (single-frame) source" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new parent: s
-    img.bitmap = solid_bitmap
+    img.bitmap = solid_bitmap(3, 2)
 
     img.playing?.should be_false
     img.play # would spin a one-frame loop without the guard
@@ -39,7 +31,7 @@ describe "Widget::Media::Base#play single-frame guard" do
     # Positive control: a real animated GIF has >1 frame, so `#play` must engage.
     gif = "data/image/netscape.gif"
     pending! "no animated test fixture" unless File.exists?(gif)
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new file: gif, parent: s
     img.play
     img.playing?.should be_true

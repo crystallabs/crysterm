@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Renders `container` headlessly and returns each child's rendered rectangle as
 # `{xi, xl, yi, yl}` tuples (mirrors `spec/layout_spec.cr`).
 private def render_children(s, container)
@@ -25,7 +19,7 @@ end
 # child (min > s) or leave a gap and fall short of the far edge (max < s).
 describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
   it "does not overlap the next child when a flex child has min-width > its share" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 4,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, height: 2 # flex, share 15
@@ -43,7 +37,7 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
   end
 
   it "leaves no double-counted slot when a flex child has max-width < its share" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 4,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, height: 2 # flex, share 15
@@ -58,7 +52,7 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
   end
 
   it "keeps the remainder-exact fill for unconstrained flex children (BUGS3 §4)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     # Odd interior (11) split between two equal-grow children: the fix must not
     # regress the exact fill — an unconstrained child clamps back to its share.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 11, height: 4,
@@ -71,7 +65,7 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
   end
 
   it "clamps on the vertical (main) axis too in a VBox with min-height" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 20,
       layout: Layout::VBox.new
     a = Widget::Box.new parent: box, width: 6 # flex, share 10
@@ -93,7 +87,7 @@ end
 # symmetric with how `column_span: 99` spans to the last column.
 describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix #2)" do
   it "keeps sane row heights when a child spans to the end (rows nil)" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2, spacing: 1)
     # Spanning child in column 0, plus two ordinary children in column 1.
@@ -112,7 +106,7 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
   end
 
   it "does not drive cell heights to zero for the non-spanning siblings" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2, spacing: 1)
     Widget::Box.new parent: g,
@@ -126,7 +120,7 @@ describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix 
   end
 
   it "still honors a modest span that legitimately extends the grid" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2)
     Widget::Box.new parent: g,
@@ -147,7 +141,7 @@ end
 # no longer matches.
 describe "BUGS6 Box releases a flex child when the user sets an explicit size (fix #3)" do
   it "honors a width set on a previously-flex child on the next frame" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 4,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, height: 2 # flex, share 15
@@ -165,7 +159,7 @@ describe "BUGS6 Box releases a flex child when the user sets an explicit size (f
   end
 
   it "releases a stretched (cross-axis) child when an explicit cross size is set" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     # Default align is Stretch: the layout assigns the cross (height) size and
     # records it in `@filled`, exercising the latch that pre-fix never released.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,

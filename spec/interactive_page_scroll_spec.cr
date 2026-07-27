@@ -2,23 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def ips_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # `Mixin::Interactive`'s vi_keys page-scroll keys (Ctrl-U/D/B/F) used to be gated on
 # `height.is_a? Int`, so a scrollable widget with a percentage height (`"100%"`)
 # or no explicit height dropped every page-scroll key (line scrolling still
 # worked). The handler now sizes the page step off the resolved `aheight`.
 describe "Mixin::Interactive page scroll with non-Int height" do
   it "pages down with Ctrl-D when height is a percentage" do
-    s = ips_screen
+    s = headless_screen(80, 24)
     input = Crysterm::Widget::Input.new(
       parent: s,
       width: "100%",
@@ -42,7 +32,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
   end
 
   it "pages back up with Ctrl-U / Ctrl-B" do
-    s = ips_screen
+    s = headless_screen(80, 24)
     input = Crysterm::Widget::Input.new(
       parent: s,
       width: "100%",

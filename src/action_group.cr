@@ -48,7 +48,7 @@ module Crysterm
       if value
         @actions.each(&.checkable=(true))
         if first = @actions.find &.checked?
-          @actions.each { |a| a.checked = false unless a.same? first }
+          enforce_exclusivity first
         end
       end
       value

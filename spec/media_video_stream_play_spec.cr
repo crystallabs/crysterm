@@ -17,12 +17,6 @@ include Crysterm
 # Fix: also treat a non-nil `@stream` as animated, so the stream loop runs and
 # cell backends play streaming video too.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 describe "Media::Cells streaming video" do
   it "plays a streaming video on a cell-grid backend" do
     gif = "data/image/netscape.gif"
@@ -39,7 +33,7 @@ describe "Media::Cells streaming video" do
     prev = Crysterm::Config.media_video_decode
     Crysterm::Config.media_video_decode = Crysterm::Widget::Media::VideoDecode::Stream
 
-    s = headless_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Ansi.new(
       file: tmp.path, parent: s, top: 0, left: 0, width: 8, height: 4)
 

@@ -13,16 +13,6 @@ include Crysterm
 # Driven headlessly: the dial paints its pointer glyph into the center cell of
 # its interior, read back after one render.
 
-private def dp_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Pointer glyph at the center of the dial's interior, computed the same way as
 # `Dial#render` (`with_inner_coords` insets), so it's correct with a themed
 # border/padding too.
@@ -35,7 +25,7 @@ end
 
 describe "Widget::Dial#pointer" do
   it "points the maximum of a non-wrapping dial in a different direction than the minimum" do
-    s = dp_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
       minimum: 0, maximum: 7, value: 0, text_visible: false, wrapping: false
 
@@ -49,7 +39,7 @@ describe "Widget::Dial#pointer" do
   end
 
   it "shows every direction across a non-wrapping 8-value range (no skipped glyph)" do
-    s = dp_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
       minimum: 0, maximum: 7, value: 0, text_visible: false, wrapping: false
 
@@ -63,7 +53,7 @@ describe "Widget::Dial#pointer" do
   end
 
   it "still rolls a wrapping dial's maximum back onto the minimum's north (full circle preserved)" do
-    s = dp_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3,
       minimum: 0, maximum: 7, value: 0, text_visible: false, wrapping: true
 

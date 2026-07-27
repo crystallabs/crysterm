@@ -11,15 +11,9 @@ include Crysterm
 # `bugsf1_media_spec.cr` Finding 19). The codebase explicitly parallels the two
 # flags.
 
-private def hl_window(w = 20, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "Media::Overlay#load clears the @helper_failed latch" do
   it "resets helper_failed on a new load so the helper is retried" do
-    s = hl_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     img = Crysterm::Widget::Media::Overlay.new(
       file: "/nonexistent/typo-#{Process.pid}.png",
       parent: s, top: 0, left: 0, width: 8, height: 4)

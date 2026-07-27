@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def clip_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 # BUGS5 #1 — `Widget#coords` bottom scroll/overflow clip must trigger at the
 # clipping parent's BOTTOM border width, not its TOP border width.
 #
@@ -20,7 +14,7 @@ end
 # went nil). The fix uses a separate `bb = sp_border.bottom`.
 describe "BUGS5 coords bottom clip uses the parent's bottom border (fix #1)" do
   it "renders a child on the last visible row of a bottom-border-0 parent" do
-    s = clip_screen
+    s = headless_screen(80, 24)
     # Asymmetric border: top 1, bottom 0. `overflow: Hidden` makes the parent a
     # clipping ancestor (child_base == 0, so the scroll math is a pure clip).
     parent = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
@@ -59,7 +53,7 @@ end
 # horizontal triggers so they clip at the inner border edge like the vertical.
 describe "BUGS5 coords horizontal clip uses the parent's left/right border (fix #2)" do
   it "clips a child at left:-1 to the inner edge of a left-bordered parent" do
-    s = clip_screen
+    s = headless_screen(80, 24)
     parent = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       overflow: Overflow::Hidden,
       style: Style.new(border: Border.new(top: 0, bottom: 0, left: 1, right: 0))
@@ -93,7 +87,7 @@ end
 # vertical analogue of the documented explicit-width requirement).
 describe "BUGS5 nil-height flow children are not spuriously overflow-skipped (fix #3)" do
   it "renders nil-height Wrap children even under overflow: SkipWidget" do
-    s = clip_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 12,
       layout: Layout::Wrap.new, overflow: Overflow::SkipWidget
     # Explicit width, no (nil) height -> shrink_to_fit/auto height. Two 8-wide

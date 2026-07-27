@@ -23,6 +23,24 @@ module Crysterm
     # Computed per-column widths, filled in by `#compute_column_widths`.
     @maxes = [] of Int32
 
+    # Per-cell display widths, indexed in parallel with `@rows`
+    # (`@cell_widths[ri][ci]` is the width of `@rows[ri][ci]`). Filled in by the
+    # very pass `#compute_column_widths` already makes over every cell to build
+    # `@maxes`, so `#render_row` can hand each width to `#pad_cell_to` instead of
+    # having it re-derive one (a `clean_tags` PCRE2 pass plus a width walk) per
+    # cell. Without it `#rows=` measured every cell twice, and
+    # `ListTable#reslice_rows` re-measured all N×M cells on every
+    # horizontal-scroll tick even though `@maxes` was a cache hit.
+    #
+    # Lifetime is exactly `@maxes`'s: both are (re)built together in
+    # `#compute_column_widths` and by nothing else, so any input that
+    # invalidates one invalidates the other. The one extra dependency is the row
+    # *order*, which `Widget::ListTable#apply_sort` permutes behind
+    # `#compute_column_widths`'s back; it calls `#reorder_cell_widths` to keep
+    # the two in step. Mutating `@rows` in place (rather than through `#rows=`)
+    # was already unsupported — it leaves `@maxes` stale too.
+    @cell_widths = [] of Array(Int32)
+
     # Whether `@maxes` needs recomputing. `#compute_column_widths` runs every
     # `render` but depends only on `@rows`, `@width` and `@column_spacing`,
     # which change exclusively through `#rows=` and `#column_spacing=` — both
@@ -82,18 +100,24 @@ module Crysterm
       @maxes_key = key
 
       @maxes = [] of Int32
+      @cell_widths = [] of Array(Int32)
       return @maxes if @rows.empty?
 
       maxes = [] of Int32
+      cell_widths = Array(Array(Int32)).new @rows.size
       @rows.each do |row|
+        widths = Array(Int32).new row.size
         row.each_with_index do |cell, i|
           while maxes.size <= i
             maxes << 0
           end
           clen = cell_width cell
+          widths << clen
           maxes[i] = clen if maxes[i] < clen
         end
+        cell_widths << widths
       end
+      @cell_widths = cell_widths
       return @maxes if maxes.empty?
 
       # Minimum width of a rendered row: column contents, one separator
@@ -146,16 +170,41 @@ module Crysterm
     # paints the final content column, so without this spare column a last
     # cell filled to its full width would lose its last character.
     # `#row_width` accounts for this extra column.
-    protected def render_row(row : Array(String), first_col : Int32 = 0) : String
+    # *row_index* is *row*'s position in `@rows`; passing it lets the row reuse
+    # the per-cell widths `#compute_column_widths` already measured
+    # (`@cell_widths`) instead of re-measuring every cell. It is validated
+    # against the row's column count, so a cache built for different data is
+    # simply ignored rather than mis-padding the row.
+    protected def render_row(row : Array(String), first_col : Int32 = 0, row_index : Int32? = nil) : String
+      widths = row_index ? @cell_widths[row_index]? : nil
+      widths = nil if widths && widths.size != row.size
+
       String.build do |str|
         ci = first_col
         while ci < row.size
           str << ' ' unless ci == first_col
-          pad_cell_to(str, row[ci], @maxes[ci]? || cell_width(row[ci]))
+          clen = widths.try &.[ci]
+          pad_cell_to(str, row[ci], @maxes[ci]? || clen || cell_width(row[ci]), clen)
           ci += 1
         end
         str << ' '
       end
+    end
+
+    # Re-permutes `@cell_widths` so it stays parallel with `@rows` after the
+    # including widget reorders rows without going through
+    # `#compute_column_widths` (`Widget::ListTable#apply_sort`). *order* holds,
+    # for each new row position, the index the row previously sat at. A length
+    # mismatch means the cache no longer describes these rows at all, so it is
+    # dropped (callers then fall back to measuring).
+    protected def reorder_cell_widths(order : Array(Int32)) : Nil
+      widths = @cell_widths
+      return if widths.empty?
+      if order.size != widths.size
+        @cell_widths = [] of Array(Int32)
+        return
+      end
+      @cell_widths = order.map { |i| widths[i] }
     end
 
     # The display width of a rendered row (see `#render_row`), including the
@@ -230,8 +279,12 @@ module Crysterm
     # alignment, straight to *io* — no per-cell `String` (and, on the clip path,
     # no `graphemes` array / per-grapheme `String`) intermediates. The hot path:
     # called per cell per row rebuild, i.e. N×M times per `#rows=`.
-    protected def pad_cell_to(io : IO, cell : String, width : Int32) : Nil
-      clen = cell_width cell
+    #
+    # *clen* is *cell*'s display width when the caller already knows it (from
+    # `@cell_widths`); `nil` measures it here, keeping `#pad_cell`'s public path
+    # unchanged.
+    protected def pad_cell_to(io : IO, cell : String, width : Int32, clen : Int32? = nil) : Nil
+      clen ||= cell_width cell
       align = cell_align
 
       if clen < width

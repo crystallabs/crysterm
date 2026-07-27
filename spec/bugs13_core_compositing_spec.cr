@@ -34,10 +34,6 @@ private def b13cp_grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Cryst
   end
 end
 
-private def b13cp_bg(s, y, x)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.lines[y][x].attr))
-end
-
 describe "BUGS13 C13: DockContrast::Blend keeps the docked cell's own flags" do
   it "blends colors but does not transplant the neighbor's REVERSE onto the junction" do
     center = Attr.pack(Attr::BOLD, Attr.pack_color(0xff0000), Attr.pack_color(0x000000))
@@ -170,8 +166,8 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
     begin
       b13cp_build_scene s, oa_first: true
       s.repaint
-      b13cp_bg(s, 2, 5).should eq 0x7f007f  # red @ 0.5 over blue
-      b13cp_bg(s, 2, 18).should eq 0x00ff00 # opaque green, NOT dragged to 0.5
+      cell_bg(s, 5, 2).should eq 0x7f007f  # red @ 0.5 over blue
+      cell_bg(s, 18, 2).should eq 0x00ff00 # opaque green, NOT dragged to 0.5
     ensure
       s.destroy
     end
@@ -184,8 +180,8 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
       s.repaint
       # Pre-fix, collecting `ob` first pinned the whole z-10 plane at ITS
       # alpha (1.0), flipping the result with declaration order.
-      b13cp_bg(s, 2, 5).should eq 0x7f007f
-      b13cp_bg(s, 2, 18).should eq 0x00ff00
+      cell_bg(s, 5, 2).should eq 0x7f007f
+      cell_bg(s, 18, 2).should eq 0x00ff00
     ensure
       s.destroy
     end
@@ -197,16 +193,16 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
       b13cp_build_scene s, oa_first: true
       lbl = Widget::Box.new parent: s, top: 5, left: 0, width: 8, height: 1, content: "aa"
       s.repaint
-      b13cp_bg(s, 2, 5).should eq 0x7f007f
-      b13cp_bg(s, 2, 18).should eq 0x00ff00
+      cell_bg(s, 5, 2).should eq 0x7f007f
+      cell_bg(s, 18, 2).should eq 0x00ff00
 
       # Mutate a base widget and re-render: the damage path may only take its
       # single-plane fast path when every same-z root shares one alpha; with
       # differing alphas it must fall back and keep both regions exact.
       lbl.content = "bb"
       s.repaint
-      b13cp_bg(s, 2, 5).should eq 0x7f007f
-      b13cp_bg(s, 2, 18).should eq 0x00ff00
+      cell_bg(s, 5, 2).should eq 0x7f007f
+      cell_bg(s, 18, 2).should eq 0x00ff00
     ensure
       s.destroy
     end

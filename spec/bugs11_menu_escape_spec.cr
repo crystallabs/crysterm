@@ -10,19 +10,9 @@ include Crysterm
 # `activate_index`), so before the fix Escape fired the highlighted — possibly
 # destructive — action. `Menu#cancel_current` now emits only `ItemCancelled`.
 
-private def menu_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
   it "does not fire the highlighted action on Escape, and emits ItemCancelled" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new(parent: s)
     triggered = false
     m.add_action("Delete file") { triggered = true }
@@ -44,7 +34,7 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
   end
 
   it "still activates the highlighted action on Enter (no regression)" do
-    s = menu_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new(parent: s)
     triggered = false
     m.add_action("Delete file") { triggered = true }

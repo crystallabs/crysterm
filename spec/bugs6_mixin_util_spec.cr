@@ -35,22 +35,12 @@ private class BugsInteractiveBox < Crysterm::Widget::Box
   @always_scroll = true
 end
 
-private def bugs6_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def bugs6_long_content
   String.build { |s| 50.times { |i| s << "Line " << i << '\n' } }
 end
 
 private def bugs6_widget(vi_keys = false)
-  s = bugs6_screen
+  s = headless_screen(80, 24)
   w = BugsInteractiveBox.new(
     parent: s, content: bugs6_long_content,
     keys: true, vi_keys: vi_keys, top: 0, left: 0, width: 20, height: 10)
@@ -59,7 +49,7 @@ private def bugs6_widget(vi_keys = false)
 end
 
 private def press(w, ch : Char = '\0', key : Tput::Key? = nil)
-  w.emit Crysterm::Event::KeyPress.new(ch, key)
+  w.emit kp(ch, key)
 end
 
 # --- BUG 3 fixture ------------------------------------------------------------
@@ -167,7 +157,7 @@ describe "BUGS6 Children#insert on an existing child (bug 4 — not present at w
   # from its current parent first and then call `super`. So on an actual widget a
   # re-insert *does* reposition (remove-then-add) — there is no repositioning bug.
   it "repositions an existing child instead of no-op'ing, with no duplicate" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     parent = Crysterm::Widget::Box.new parent: s, width: 10, height: 10
     a = Crysterm::Widget::Box.new parent: parent
     b = Crysterm::Widget::Box.new parent: parent

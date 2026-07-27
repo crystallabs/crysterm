@@ -19,12 +19,6 @@ include Crysterm
 #     painted at raw absolute coords with no clip or negative guard, wrapping
 #     cells when the dialog is partially offscreen.
 
-private def neg_screen(w = 40, h = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Exposes the protected shared text-overlay primitive for direct testing.
 private class SpecTextRunBox < Crysterm::Widget::Box
   def spec_run(y, x, text, xl, attr = nil)
@@ -34,7 +28,7 @@ end
 
 describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
   it "drops a negative row instead of wrapping to the bottom screen row" do
-    s = neg_screen
+    s = headless_screen(40, 12)
     box = SpecTextRunBox.new parent: s, top: 0, left: 0, width: 20, height: 3
     s.repaint
 
@@ -47,7 +41,7 @@ describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
   end
 
   it "skips negative columns instead of wrapping to the right end of the row" do
-    s = neg_screen
+    s = headless_screen(40, 12)
     box = SpecTextRunBox.new parent: s, top: 0, left: 0, width: 20, height: 3
     s.repaint
 
@@ -63,7 +57,7 @@ end
 
 describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" do
   it "does not wrap glyph rows to the bottom of the screen for a negative top" do
-    s = neg_screen 60, 24
+    s = headless_screen(60, 24)
     bt = Crysterm::Widget::BigText.new parent: s, top: -6, left: 0,
       content: "A", foreground_char: '#'
     s.repaint
@@ -80,7 +74,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
   end
 
   it "does not wrap glyph columns to the right of the screen for a negative left" do
-    s = neg_screen 60, 24
+    s = headless_screen(60, 24)
     Crysterm::Widget::BigText.new parent: s, top: 0, left: -4,
       content: "A", foreground_char: '#'
     s.repaint
@@ -97,7 +91,7 @@ end
 
 describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
   it "does not wrap field/hue cells when the dialog is partially off the left edge" do
-    s = neg_screen 80, 24
+    s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new(
       parent: s, top: 0, left: -6, width: 56, height: 20)
     cd.show
@@ -116,7 +110,7 @@ describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
   end
 
   it "does not wrap field/hue rows when the dialog is partially off the top edge" do
-    s = neg_screen 80, 24
+    s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new(
       parent: s, top: -5, left: 0, width: 56, height: 20)
     cd.show

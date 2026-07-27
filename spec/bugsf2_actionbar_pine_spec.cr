@@ -10,21 +10,6 @@ include Crysterm
 #   30 — Mixin::Interactive scroll handler never `accept`ed handled keys
 #   43 — Pine::OptionList inline editing neither accepted nor stopped its keys
 
-private def f2_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
-# Build a KeyPress event (so the caller can inspect `accepted?` afterwards).
-private def kp(char : Char = '\0', key : Tput::Key? = nil)
-  Crysterm::Event::KeyPress.new(char, key)
-end
-
 # Dispatch a KeyPress to a widget's own `on_keypress`, returning the event.
 private def press(w, char : Char = '\0', key : Tput::Key? = nil)
   e = kp(char, key)
@@ -42,7 +27,7 @@ end
 
 describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   it "does not fire a hotkey a focused widget already consumed" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
@@ -57,7 +42,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   end
 
   it "fires the hotkey for an unconsumed matching character" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
@@ -68,7 +53,7 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   end
 
   it "uninstalls the hotkey on detach and reinstalls it on re-attach" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
@@ -91,7 +76,7 @@ end
 
 describe "BUGS-F2 #15 ActionBar#current_index= before first render moves the current index" do
   it "sets `selected` to the target index so Enter fires the right command" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     fired = [] of Int32
     bar = Crysterm::Widget::ListBar.new parent: s
     bar.add_item("zero", -> { fired << 0; nil })
@@ -110,7 +95,7 @@ end
 
 describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
   it "TextView fires its scroll handler once per key (not twice) and accepts it" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     body = (1..40).map { |i| "line #{i}" }.join('\n')
     view = Crysterm::Widget::Pine::TextView.new body,
       parent: s, top: 0, left: 0, width: 40, height: 10
@@ -131,7 +116,7 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
   end
 
   it "MessageView fires its scroll handler once per key (not twice) and accepts it" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     body = (1..40).map { |i| "line #{i}" }.join('\n')
     view = Crysterm::Widget::Pine::MessageView.new(
       parent: s, top: 0, left: 0, width: 40, height: 10, body: body)
@@ -151,7 +136,7 @@ end
 
 describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
   it "accepts a navigation key it consumed" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     input = Crysterm::Widget::Input.new(
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
@@ -164,7 +149,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
   end
 
   it "leaves an unrelated key unaccepted (propagates to ancestors)" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     input = Crysterm::Widget::Input.new(
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
@@ -189,7 +174,7 @@ end
 
 describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   it "OptionList accepts typed characters and Enter/Escape while editing" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
     ol.current_index = 1
     ol.activate # begin editing the Text option
@@ -201,7 +186,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   end
 
   it "OptionList accepts Escape while editing" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
     ol.current_index = 1
     ol.activate
@@ -210,14 +195,14 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   end
 
   it "OptionList accepts Space toggling a Toggle option" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     ol = Crysterm::Widget::Pine::OptionList.new pine_options, parent: s
     ol.current_index = 0
     press(ol, ' ').accepted?.should be_true
   end
 
   it "Setup accepts Space toggling the selected feature" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     setup = Crysterm::Widget::Pine::Setup.new(
       [Crysterm::Widget::Pine::Setup::Option.new("enable-x", "desc")],
       parent: s)
@@ -226,7 +211,7 @@ describe "BUGS-F2 #43 Pine inline editing / Space-toggle accept their keys" do
   end
 
   it "ListSelect (multi) accepts Space toggling the current row" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     picker = Crysterm::Widget::Pine::ListSelect(String).new(
       ["Apricot", "Banana"],
       label: ->(x : String) { x },

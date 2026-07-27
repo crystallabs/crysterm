@@ -2,10 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `#set_text` sets content with `no_tags: true`, so even a `parse_tags = true`
 # widget shows tags literally. Must survive a later cache-miss reparse (width
 # change, resize, scroll, attach), which calls `process_content` with the
@@ -13,7 +9,7 @@ end
 # across those reparses.
 describe "Widget#set_text keeps tags literal across reparse" do
   it "does not parse tags on a width-triggered reparse" do
-    box = Widget::Box.new parent: headless_screen, width: 20, height: 3
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 3
     box.parse_tags = true
     box.set_text("{bold}hi{/bold}")
 
@@ -34,7 +30,7 @@ describe "Widget#set_text keeps tags literal across reparse" do
 
   it "still parses tags for content set via set_content across reparse" do
     # Control: with the normal (tag-parsing) path, a width reparse keeps parsing.
-    box = Widget::Box.new parent: headless_screen, width: 20, height: 3
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 3
     box.parse_tags = true
     box.set_content("{bold}hi{/bold}")
 

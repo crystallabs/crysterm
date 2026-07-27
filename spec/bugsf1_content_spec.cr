@@ -4,12 +4,6 @@ include Crysterm
 
 # Regression coverage for BUGS-F1 findings 32-35 in `src/widget_content.cr`.
 
-private def sized_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "Widget#delete_line on content seeded before attach (finding 32)" do
   it "does not raise IndexError when `ftor` is still empty" do
     # Detached widget (no window): `append_line` fills `@_clines.fake` directly, but
@@ -32,7 +26,7 @@ end
 
 describe "Widget#append_content alignment-tag carry (finding 33)" do
   it "keeps alignment carried by an unclosed opener when pushing a line" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 6, parse_tags: true)
@@ -60,7 +54,7 @@ end
 
 describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding 34)" do
   it "insert_bottom targets the visible bottom, above the hscrollbar row" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 10, height: 5,
@@ -81,7 +75,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
   end
 
   it "delete_bottom removes the visible bottom row, above the hscrollbar row" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 10, height: 5,
@@ -100,7 +94,7 @@ end
 
 describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (finding 35)" do
   it "reparses when `align` changes on a rendered widget" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 3, content: "Hi")
@@ -117,7 +111,7 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
   end
 
   it "reparses when `parse_tags` is toggled on" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 3,
@@ -132,7 +126,7 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
   end
 
   it "reparses when `wrap_content` is toggled off" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 6, height: 5,

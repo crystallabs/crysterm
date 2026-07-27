@@ -28,16 +28,6 @@ private def b16sd_window(dev)
     resize_interval: 10.milliseconds)
 end
 
-# Spins the event loop until *block* is truthy or the deadline passes (raising
-# so a never-satisfied condition fails loudly rather than hanging forever).
-private def wait_until(timeout = 2.seconds, &)
-  deadline = Time.instant + timeout
-  until yield
-    raise "wait_until: condition not met within #{timeout}" if Time.instant > deadline
-    sleep 2.milliseconds
-  end
-end
-
 # Records, at each `stop_input`, how many `Window` instances existed — so a
 # spec can pin that `#switch_terminal` stops the old device's input BEFORE the
 # replacement window is constructed on the same tty (B16-04).

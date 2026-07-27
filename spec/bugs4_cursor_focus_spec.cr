@@ -47,19 +47,9 @@ describe "BUGS4 Window#reset_cursor clears the cursor color (fix #1)" do
   end
 end
 
-private def focus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS4 _focus scrolls a deep descendant into view (fix #2)" do
   it "reveals a focusable nested inside an intermediate container" do
-    s = focus_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0,
       width: 20, height: 8, style: Crysterm::Style.new(border: true),
       content: (1..60).map { |i| "line#{i}" }.join("\n")

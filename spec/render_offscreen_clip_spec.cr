@@ -13,15 +13,9 @@ include Crysterm
 # painted onto the opposite (right/bottom) edge instead of vanishing. The fix
 # consumes the off-screen edge (keeping the on-screen portion aligned) but never
 # writes it.
-private def screen(width = 12, height = 4)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe "Widget#base_render off-screen clipping" do
   it "clips a widget off the LEFT edge without wrapping onto the right edge" do
-    s = screen width: 12, height: 3
+    s = headless_screen(12, 3, default_quit_keys: true)
     s.alloc
     b = Crysterm::Widget::Box.new(left: -3, top: 0, width: 6, height: 1, content: "ABCDEF")
     s << b
@@ -38,7 +32,7 @@ describe "Widget#base_render off-screen clipping" do
   end
 
   it "clips a widget off the TOP edge without wrapping onto the bottom rows" do
-    s = screen width: 6, height: 5
+    s = headless_screen(6, 5, default_quit_keys: true)
     s.alloc
     # Four content rows ("aaaa".."dddd"); the top two rows sit above the screen.
     b = Crysterm::Widget::Box.new(left: 0, top: -2, width: 4, height: 4,
@@ -58,7 +52,7 @@ describe "Widget#base_render off-screen clipping" do
   end
 
   it "does not wrap a left-clipped border onto the right edge" do
-    s = screen width: 12, height: 3
+    s = headless_screen(12, 3, default_quit_keys: true)
     s.alloc
     b = Crysterm::Widget::Box.new(left: -2, top: 0, width: 6, height: 3, content: "")
     b.style.border = Crysterm::Border.new(type: Crysterm::BorderType::Solid)

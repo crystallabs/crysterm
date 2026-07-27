@@ -11,15 +11,9 @@ include Crysterm
 # top-right `┐` found no down-neighbor "pointing back" and was reduced to `─` —
 # dropping the corner while the overlay was up. `Docking.angle_at` now keeps a
 # cell's own arm toward any present line neighbor, so the corner survives.
-private def sized_screen(w, h)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "border docking with an overlapping popup" do
   it "keeps the parent's top-right corner cell above the popup's shared edge" do
-    s = sized_screen 40, 16
+    s = headless_screen(40, 16, default_quit_keys: true)
     s.dock_borders = true
 
     # Parent bordered box: a line border on all sides.

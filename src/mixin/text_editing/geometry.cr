@@ -461,7 +461,25 @@ module Crysterm
       # (`#unexpand_col`).
       private def unexpand_col_in(base : Int32, line_end : Int32, exp_col : Int32) : Int32
         return Math.min(exp_col, line_end - base) unless buf_range_includes_tab?(base, line_end)
-        unexpand_col(buf_slice(base, line_end), exp_col)
+        unexpand_col(buf_line_text_at(base, line_end), exp_col)
+      end
+
+      # The whole text of fake (logical) line *fake_line* — the buffer slice its
+      # `#buf_line_bounds` delimit. A `Buffer`-protocol hook (defined here, next
+      # to its callers, rather than in `Buffer` itself) because a document
+      # adapter already *holds* that String — one logical line is exactly one
+      # block, whose `text` is cached — so the whole-line reads below can borrow
+      # it instead of building a fresh copy per row per frame.
+      private def buf_line_text(fake_line : Int32) : String
+        buf_slice(*buf_line_bounds(fake_line))
+      end
+
+      # :ditto:, for a caller that already holds the line's bounds. *from* and
+      # *to* MUST be exactly one logical line's `#buf_line_bounds`: an adapter
+      # may answer from the line it finds at *from* and ignore *to*, so a
+      # sub-range would silently come back widened.
+      private def buf_line_text_at(from : Int32, to : Int32) : String
+        buf_slice(from, to)
       end
 
       # Whether the buffer range `[from, to)` (always a single logical line at the
@@ -486,9 +504,7 @@ module Crysterm
         if wrap_content?
           (@_clines[rl]? || "").size
         else
-          fake_line = @_clines.rtof[rl]? || 0
-          base, line_end = buf_line_bounds(fake_line)
-          expanded_width(buf_slice(base, line_end))
+          expanded_width(buf_line_text(@_clines.rtof[rl]? || 0))
         end
       end
 
@@ -526,8 +542,8 @@ module Crysterm
           # line's own (tab-expanded) text from the buffer instead, and undo the
           # `@child_base_x` scroll to land back in that line's own column space.
           fake_line = @_clines.rtof[rl]? || 0
-          base, line_end = buf_line_bounds(fake_line)
-          raw_line = buf_slice(base, line_end)
+          base = buf_line_bounds(fake_line)[0]
+          raw_line = buf_line_text(fake_line)
           expanded = expand_tabs(raw_line)
 
           target = (x - lpos.xi - ileft - row_text_x_offset(rl)).clamp(0, content_width) + @child_base_x

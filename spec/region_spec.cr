@@ -2,17 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # Behavior lock for the region writers, which share the `each_region_row` row
 # walk. A negative origin never wraps around to the opposite edge: `fill_region`
 # clamps it to 0, and `blend_region` skips whatever falls off the grid (which
 # over this region amounts to the same cells).
 describe "Window#fill_region / #blend_region" do
   it "fills the half-open region and marks the line dirty" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     s.fill_region 7_i64, 'X', 1, 4, 0, 1, force: true
 
     s.lines[0][0].char.should eq ' ' # left of region, untouched
@@ -24,7 +20,7 @@ describe "Window#fill_region / #blend_region" do
   end
 
   it "clamps a negative origin to 0 (fill_region)" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     s.fill_region 5_i64, 'Y', -3, 2, 0, 1, force: true
     # Clamped: only columns 0 and 1 are written, with no wrap to the far edge.
     s.lines[0][0].char.should eq 'Y'
@@ -34,7 +30,7 @@ describe "Window#fill_region / #blend_region" do
   end
 
   it "blends existing cell attributes toward black" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     s.fill_region 0x00FF00_i64, 'a', 0, 2, 0, 1, force: true
     before = s.lines[0][0].attr
 
@@ -50,7 +46,7 @@ describe "Window#fill_region / #blend_region" do
   # opposite (bottom/right) edge. Lock that a negative origin touches nothing off
   # the grid — only the in-bounds part of the region is blended.
   it "does not wrap a negative-origin blend to the far edge (blend_region)" do
-    s = headless_screen
+    s = headless_screen(default_quit_keys: true)
     h = s.aheight
     w = s.awidth
     base = s.lines[h - 1][w - 1].attr

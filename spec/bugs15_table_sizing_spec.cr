@@ -14,15 +14,9 @@ include Crysterm
 # unbounded. The fix clears the pinned width before each remeasure for
 # content-sized tables only; fixed-width tables keep distributing slack.
 
-private def headless_window(width = 40, height = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe "BUGS15 #85 content-sized table sizing" do
   it "shrinks a content-sized Table when its data gets narrower" do
-    s = headless_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["a very long header cell"]]
 
     wide = t.width
@@ -43,7 +37,7 @@ describe "BUGS15 #85 content-sized table sizing" do
   end
 
   it "keeps a scrolling content-sized ListTable's width constant across refreshes" do
-    s = headless_window
+    s = headless_screen(40, 20, default_quit_keys: true)
     data = (0...21).map { |i| ["row#{i}", "b"] }
     lt = Crysterm::Widget::ListTable.new parent: s, height: 5, rows: data
     # Force the vertical scroll bar so its reserve column is in play.
@@ -61,7 +55,7 @@ describe "BUGS15 #85 content-sized table sizing" do
   end
 
   it "keeps a fixed-width Table distributing slack (width stays fixed)" do
-    s = headless_window(width: 60)
+    s = headless_screen(60, 20, default_quit_keys: true)
     t = Crysterm::Widget::Table.new(
       parent: s,
       width: 30,

@@ -106,12 +106,8 @@ module Crysterm
             rh = clamped_size(Math.max(row_height(label), row_height(field)), interior.height)
             lc = margin_box lw, label.mhorizontal
             fc = margin_box fw, field.mhorizontal
-            place_child label, 0, y, lc, rh
-            place_child field, lw + hs, y, fc, rh
-            record_managed label, @assigned, rh
-            record_managed field, @assigned, rh
-            record_managed label, @assigned_width, lc
-            record_managed field, @assigned_width, fc
+            place_recorded label, 0, y, lc, rh, @assigned_width, @assigned
+            place_recorded field, lw + hs, y, fc, rh, @assigned_width, @assigned
             render_child label
             render_child field
             # Advance by the tallest margin box on the row so a margined child
@@ -122,9 +118,8 @@ module Crysterm
             # Trailing odd child spans the full width, less its margin box.
             rh = clamped_size(row_height(label), interior.height)
             lc = margin_box w, label.mhorizontal
-            place_and_render label, 0, y, lc, rh
-            record_managed label, @assigned, rh
-            record_managed label, @assigned_width, lc
+            place_recorded label, 0, y, lc, rh, @assigned_width, @assigned
+            render_child label
             y += rh + label.mvertical + vs
             i += 1
           end
@@ -136,7 +131,7 @@ module Crysterm
       # appends *label* and *field* as a fresh pair, and returns *field*. Raises
       # when the layout isn't installed on a container yet.
       def add_row(label : String, field : Widget) : Widget
-        c = require_container
+        c = require_container "Layout::Form#add_row"
         label_box = Widget::Box.new height: 1, content: label
         append_row c, label_box, field
         field
@@ -147,7 +142,7 @@ module Crysterm
       # custom label (an icon + text box, a styled heading, ...). Same
       # insert-before-trailing placement as the `String` overload.
       def add_row(label : Widget, field : Widget) : Widget
-        c = require_container
+        c = require_container "Layout::Form#add_row"
         append_row c, label, field
         field
       end
@@ -157,15 +152,9 @@ module Crysterm
       # insert-before-trailing placement, so a full-span row added after
       # another one doesn't get paired into a label/field row.
       def add_row(w : Widget) : Widget
-        c = require_container
+        c = require_container "Layout::Form#add_row"
         append_row c, w
         w
-      end
-
-      # `#container`, or raises when the layout isn't installed on one yet —
-      # shared guard for every `#add_row` overload.
-      private def require_container : Widget
-        container || raise ArgumentError.new "Layout::Form#add_row: layout not installed on a container"
       end
 
       # Appends *widgets* as a fresh trailing group. Pairing (and full-span

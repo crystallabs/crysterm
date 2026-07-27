@@ -75,29 +75,41 @@ module Crysterm
       # `#clear_image`.
       getter? helper_failed : Bool = false
 
-      # (Re)paints the loaded image at this widget's current position; skips
-      # while hidden or detached.
+      # (Re)paints the loaded image at this widget's current position, or erases
+      # it when that position no longer exists (hidden directly or via an
+      # ancestor — including a CSS restyle that emits no `Event::Hide` —
+      # detached, or degenerate). Runs post-render as the whole `Rendered` half
+      # of the `Media::ScreenOverlay` lifecycle, so this single geometry
+      # resolution both decides drawability and places the paint.
       private def redraw_image
+        image = @image || return
+        # `overlay_geometry` is the widget's full rect. For a bordered/padded
+        # image widget the correct target is the *content* rect (Qt draws a
+        # framed pixmap inside its contents rect). Deferred: insetting it by
+        # border+padding touches every image backend that shares
+        # `overlay_geometry`, so it wants a media-wide golden pass; border-less
+        # image widgets (the common case) are unaffected meanwhile.
+        #
+        # Nothing drawable ⇒ erase what was painted, mirroring
+        # `Media::Graphics#redraw_image`; the helper leaves pixels over the
+        # cells, so an un-erased one floats over the UI. `#clear_overlay` nils
+        # `@last_drawn`, so this can't loop.
+        rect = overlay_geometry
+        if rect.nil? || rect[2] <= 0 || rect[3] <= 0
+          clear_overlay if @last_drawn
+          return
+        end
         return if @helper_failed
-        @image.try do |image|
-          # `overlay_geometry` is the widget's full rect. For a bordered/padded
-          # image widget the correct target is the *content* rect (Qt draws a
-          # framed pixmap inside its contents rect). Deferred: insetting it by
-          # border+padding touches every image backend that shares
-          # `overlay_geometry`, so it wants a media-wide golden pass; border-less
-          # image widgets (the common case) are unaffected meanwhile.
-          rect = overlay_geometry || return
-          begin
-            # `Fit::None` draws at the source's native size, centered; every
-            # scaling mode becomes w3m's rect fill (it can't preserve aspect).
-            stretch = !@fit.none?
-            image.draw(rect[0], rect[1], rect[2], rect[3], stretch, !stretch).sync.sync_communication
-            @last_drawn = rect
-          rescue
-            # w3mimgdisplay missing/failed: degrade instead of crashing the
-            # render fiber.
-            @helper_failed = true
-          end
+        begin
+          # `Fit::None` draws at the source's native size, centered; every
+          # scaling mode becomes w3m's rect fill (it can't preserve aspect).
+          stretch = !@fit.none?
+          image.draw(rect[0], rect[1], rect[2], rect[3], stretch, !stretch).sync.sync_communication
+          @last_drawn = rect
+        rescue
+          # w3mimgdisplay missing/failed: degrade instead of crashing the
+          # render fiber.
+          @helper_failed = true
         end
       end
 

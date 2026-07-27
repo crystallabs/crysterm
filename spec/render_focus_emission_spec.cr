@@ -7,15 +7,9 @@ include Crysterm
 # `Event::FocusIn` — that denotes a focus *change*, fired once from
 # `window_focus.cr#_focus`. Emitting it every frame re-ran focus side effects
 # (PTY focus-in, `read_input` re-entry, menu/action-bar handlers) per frame.
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 6)
-end
-
 describe "Window#repaint focus emission" do
   it "does not emit Event::FocusIn on every render frame" do
-    screen = render_screen
+    screen = headless_screen(20, 6, default_quit_keys: true)
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 3
 
     # A real focus change legitimately emits Event::FocusIn once (before any

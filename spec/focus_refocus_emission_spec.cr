@@ -12,16 +12,9 @@ include Crysterm
 # `Event::FocusIn` used to still fire, re-running focus side effects on a widget
 # already focused (same family of defect `window_rendering.cr#repaint` guards
 # against per frame).
-private def refocus_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe "Window#_focus re-focus emission" do
   it "emits Event::FocusIn once on a real change but not on re-focus" do
-    s = refocus_screen
+    s = headless_screen(default_quit_keys: true)
     # First focusable widget auto-focuses on insert (see
     # `insert_chrome_focus_spec`), so `a` already holds focus. Add a second
     # to observe a genuine focus *move* onto it.
@@ -45,7 +38,7 @@ describe "Window#_focus re-focus emission" do
   end
 
   it "does not emit Event::FocusIn when Tab wraps onto the sole focusable widget" do
-    s = refocus_screen
+    s = headless_screen(default_quit_keys: true)
     a = Widget::Box.new parent: s, keys: true
 
     a.focus

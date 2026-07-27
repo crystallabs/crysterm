@@ -2,12 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def tab_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 60, height: 16)
-end
-
 private def screen_text(s) : String
   String.build do |io|
     s.lines.each do |line|
@@ -22,7 +16,7 @@ end
 
 describe "TabWidget switching (regression check)" do
   it "renders a switched-to page's content" do
-    s = tab_screen
+    s = headless_screen(60, 16, default_quit_keys: true)
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
       style: Style.new(border: true)
 
@@ -50,7 +44,7 @@ describe "TabWidget switching (regression check)" do
     # the current page. Bug: the shared pane object was assigned directly, so
     # hiding the old page flipped the shared object's `visible` to false and the
     # freshly-raised page rendered blank for a frame. Each page must get its own copy.
-    s = tab_screen
+    s = headless_screen(60, 16, default_quit_keys: true)
     s.stylesheet = "TabWidget::pane { background-color: #202020; }"
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
       style: Style.new(border: true)

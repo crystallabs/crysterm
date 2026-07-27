@@ -30,19 +30,9 @@ include Crysterm
 #     last day, so a click in blank/separator area could select an adjacent day.
 #     Fixed by rejecting separator columns (`rel % 3 == 2`).
 
-private def bugs6cd_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS6 Dial inverted range (bug 1)" do
   it "normalizes an inverted minimum/maximum and keeps stepping working" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, minimum: 50, maximum: 10
 
     # Bounds are ordered (never inverted); matches the SpinBox fix.
@@ -64,7 +54,7 @@ describe "BUGS6 Dial inverted range (bug 1)" do
   end
 
   it "keeps a normal (already-ordered) range untouched" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, minimum: 0, maximum: 100, value: 40
     dial.minimum.should eq 0
     dial.maximum.should eq 100
@@ -74,7 +64,7 @@ end
 
 describe "BUGS6 Slider inverted range (bug 2)" do
   it "normalizes an inverted minimum/maximum and keeps stepping working" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     sl = Crysterm::Widget::Slider.new parent: s, minimum: 50, maximum: 10
 
     (sl.minimum <= sl.maximum).should be_true
@@ -99,13 +89,9 @@ private def bugs6cd_pointer_row(s, y0, y1, x0, x1) : Int32?
   end
 end
 
-private def bugs6cd_row_text(s, y, x0, x1) : String
-  String.build { |io| (x0...x1).each { |x| io << s.lines[y][x].char } }
-end
-
 describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
   it "keeps the compass pointer visible when inner height is 2 (value on its own row)" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     # No border/padding: interior spans the whole 9x2 widget. Value shown.
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 2,
       minimum: 0, maximum: 100, value: 0, text_visible: true
@@ -120,13 +106,13 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
     prow.should_not be_nil
 
     # The value digits live on a different row, clear of the pointer.
-    value_row = (y0...y1).find { |y| bugs6cd_row_text(s, y, x0, x1).includes?("0") }
+    value_row = (y0...y1).find { |y| row_text(s, y, x0...x1).includes?("0") }
     value_row.should_not be_nil
     value_row.should_not eq prow
   end
 
   it "still separates pointer and value on a tall dial" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     dial = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 4,
       minimum: 0, maximum: 100, value: 0, text_visible: true
     s.repaint
@@ -136,7 +122,7 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
 
     prow = bugs6cd_pointer_row(s, y0, y1, x0, x1)
     prow.should_not be_nil
-    value_row = (y0...y1).find { |y| bugs6cd_row_text(s, y, x0, x1).includes?("0") }
+    value_row = (y0...y1).find { |y| row_text(s, y, x0...x1).includes?("0") }
     value_row.should_not be_nil
     value_row.should_not eq prow
   end
@@ -144,7 +130,7 @@ end
 
 describe "BUGS6 Calendar guarded date construction (bug 3)" do
   it "constructs and drives the key/setter paths without raising" do
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     # Plain construction reaches build_content -> local_date; must not raise.
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
     s.repaint
@@ -164,7 +150,7 @@ describe "BUGS6 Calendar#day_at separator hit-testing (bug 5)" do
     # Jan 2024 starts on a Monday; Sunday-first, so the second body row holds
     # days 7..13 in columns 0..6. Day cell c occupies content columns c*3 and
     # c*3+1; the separator sits at c*3+2.
-    s = bugs6cd_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 1, 15)
     cal.grid_visible = true

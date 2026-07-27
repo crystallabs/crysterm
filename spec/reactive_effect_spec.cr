@@ -159,4 +159,48 @@ describe Crysterm::Reactive::Computed do
     n.value = 4
     b.value.should eq 50
   end
+
+  it "propagates a first-run raise out of the constructor and leaves the upstream clean" do
+    n = Crysterm::Reactive::Signal.new 1
+    runs = 0
+    expect_raises(Exception, "boom") do
+      Crysterm::Reactive::Computed(Int32).new do
+        runs += 1
+        raise Exception.new("boom") if n.value < 100
+        n.value
+      end
+    end
+    runs.should eq 1
+    # `Effect#run`'s transactional rescue cancelled the subscriptions the
+    # failed first run added (on a first run, all of them), so the half-built
+    # computed is not left as a zombie dependent: a later upstream write must
+    # neither raise nor re-enter its block.
+    n.value = 2
+    runs.should eq 1
+  end
+
+  it "stops recomputing after dispose, idempotently" do
+    n = Crysterm::Reactive::Signal.new 1
+    c = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
+    c.value.should eq 2
+    c.dispose
+    c.disposed?.should be_true
+    n.value = 5
+    c.peek.should eq 2 # frozen at the last derived value
+    c.dispose          # second dispose is a no-op
+    c.disposed?.should be_true
+  end
+
+  it "peek reads without tracking and without forcing a recompute" do
+    n = Crysterm::Reactive::Signal.new 2
+    c = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
+    runs = 0
+    Crysterm::Reactive.effect { runs += 1; c.peek }
+    runs.should eq 1
+    # The internal eager effect keeps the value settled on the upstream write,
+    # but the peeking effect registered no dependency, so it does not re-run.
+    n.value = 5
+    c.peek.should eq 10
+    runs.should eq 1
+  end
 end

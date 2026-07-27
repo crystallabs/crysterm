@@ -2,27 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-# See `css_cascade_spec.cr`: empty the auto-installed default theme so its
-# `Widget { color: var(--text) }` base rule (folded into *every* materialized
-# state) doesn't itself supply the color and mask the inheritance gap under test.
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # An inherited value (`color`/`font-weight`/`font-style`) is stateless, so it
 # must reach every state a widget renders in, not only `normal`. A materialized
 # non-normal state (given its own `:focus`/`:selected` rule) that left an
@@ -30,7 +9,7 @@ end
 # moment the widget entered the state.
 describe "CSS inheritance into materialized states" do
   it "inherits color/weight/slant into a state materialized by a non-color rule" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new # styled only via inheritance + a bg-only :focus rule
     form.append inner
@@ -59,7 +38,7 @@ describe "CSS inheritance into materialized states" do
   end
 
   it "does not override a property the materialized state sets for itself" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new
     inner.css_id = "inner"
@@ -81,7 +60,7 @@ describe "CSS inheritance into materialized states" do
   end
 
   it "leaves a lazily-falling-back state untouched (still resolves to normal)" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     form = Widget::Form.new
     inner = Widget::Box.new
     form.append inner

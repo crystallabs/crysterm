@@ -8,20 +8,28 @@ require "http/client"
   # (memory-backed) screen over HTTP — commands in via POST /rpc, events out via
   # the SSE stream — in-process so it can assert.
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  # Polls the bridge's port instead of sleeping a fixed margin: `#start` binds
+  # (and listens) synchronously, so the very first probe normally succeeds, and
+  # a bridge that never came up fails loudly instead of passing late.
+  private def wait_for_bind(port : Int32)
+    wait_until do
+      TCPSocket.new("127.0.0.1", port).close
+      true
+    rescue
+      false
+    end
   end
 
   describe "HTTPBridge" do
     it "applies rpc commands and streams named-action events" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="status" content="hi"></w-box>) +
                     %(<w-button id="ok" onclick="save"></w-button>) +
                     %(</w-window>)
 
       Crysterm::HTTPBridge.new(s, port: 7099).start
-      sleep 100.milliseconds # let the server bind
+      wait_for_bind 7099
       base = "http://127.0.0.1:7099"
 
       # --- command + getter round-trip over POST /rpc ---
@@ -36,9 +44,13 @@ require "http/client"
 
       # --- event stream over GET /events ---
       events = Channel(String).new
+      subscribed = false
       spawn do
         HTTP::Client.get("#{base}/events") do |response|
           while line = response.body_io.gets
+            # The bridge registers the subscriber before flushing its opening
+            # `: connected` comment, so the first line read proves registration.
+            subscribed = true
             if line.starts_with?("data: ")
               events.send line["data: ".size..]
               break
@@ -46,7 +58,7 @@ require "http/client"
           end
         end
       end
-      sleep 100.milliseconds # ensure the SSE subscription is registered
+      wait_until { subscribed } # the SSE subscription is registered
 
       # Activating the button (here: emit its Press directly) must surface as a
       # JSON-RPC `event` notification carrying the declared action + target.
@@ -65,13 +77,13 @@ require "http/client"
     end
 
     it "applies a command to every match of a general selector" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-button id="a" class="primary"></w-button>) +
                     %(<w-button id="b" class="primary"></w-button>) +
                     %(</w-window>)
       Crysterm::HTTPBridge.new(s, port: 7100).start
-      sleep 100.milliseconds
+      wait_for_bind 7100
 
       HTTP::Client.post("http://127.0.0.1:7100/rpc",
         body: %({"jsonrpc":"2.0","method":"addClass","params":{"selector":".primary","class":"hot"}}))
@@ -82,10 +94,10 @@ require "http/client"
     end
 
     it "enforces a bearer token when configured" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7101, token: "s3cret").start
-      sleep 100.milliseconds
+      wait_for_bind 7101
       base = "http://127.0.0.1:7101/rpc"
       body = %({"jsonrpc":"2.0","method":"render"})
 
@@ -95,7 +107,7 @@ require "http/client"
     end
 
     it "hot-reloads the whole layout" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="status" content="v1"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7102)
       bridge.start
@@ -109,7 +121,7 @@ require "http/client"
       # A hot-reload must `destroy` the previous layout, not merely detach it:
       # `Window#remove` leaves animation fibers (and PTYs) running, so a
       # pulsing/keyframed widget would otherwise tick forever.
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="fx" content="v1"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7108)
       bridge.start
@@ -126,10 +138,10 @@ require "http/client"
     end
 
     it "returns a structured match count from mutating commands" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box class="x"></w-box><w-box class="x"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7103).start
-      sleep 100.milliseconds
+      wait_for_bind 7103
       base = "http://127.0.0.1:7103/rpc"
 
       hit = HTTP::Client.post(base, body: %({"jsonrpc":"2.0","id":1,"method":"addClass","params":{"selector":".x","class":"y"}}))
@@ -140,10 +152,10 @@ require "http/client"
     end
 
     it "does not append to the screen root when the parent selector matches nothing" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-box id="root" content="r"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7106).start
-      sleep 100.milliseconds
+      wait_for_bind 7106
       base = "http://127.0.0.1:7106/rpc"
 
       before = s.children.size
@@ -165,10 +177,10 @@ require "http/client"
     end
 
     it "lets a handler subscribe to events at runtime (no on* attribute)" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7104).start
-      sleep 100.milliseconds
+      wait_for_bind 7104
       base = "http://127.0.0.1:7104"
 
       sub = HTTP::Client.post("#{base}/rpc",
@@ -176,9 +188,11 @@ require "http/client"
       JSON.parse(sub.body)["result"].as_i.should eq 1
 
       events = Channel(String).new
+      subscribed = false
       spawn do
         HTTP::Client.get("#{base}/events") do |response|
           while line = response.body_io.gets
+            subscribed = true # `: connected` is flushed after the subscriber is registered
             if line.starts_with?("data: ")
               events.send line["data: ".size..]
               break
@@ -186,7 +200,7 @@ require "http/client"
           end
         end
       end
-      sleep 100.milliseconds
+      wait_until { subscribed }
       s.find_by_id("ok").not_nil!.emit Crysterm::Event::Pressed
 
       select
@@ -202,16 +216,18 @@ require "http/client"
     it "forwards a colon-bearing named action (unknown verb) to the handler" do
       # `navigate:home` looks declarative but names no built-in verb, so it must
       # reach the handler rather than being silently dropped.
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window><w-button id="go" onclick="navigate:home"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7105).start
-      sleep 100.milliseconds
+      wait_for_bind 7105
       base = "http://127.0.0.1:7105"
 
       events = Channel(String).new
+      subscribed = false
       spawn do
         HTTP::Client.get("#{base}/events") do |response|
           while line = response.body_io.gets
+            subscribed = true # `: connected` is flushed after the subscriber is registered
             if line.starts_with?("data: ")
               events.send line["data: ".size..]
               break
@@ -219,7 +235,7 @@ require "http/client"
           end
         end
       end
-      sleep 100.milliseconds
+      wait_until { subscribed }
       s.find_by_id("go").not_nil!.emit Crysterm::Event::Pressed
 
       select
@@ -237,12 +253,12 @@ require "http/client"
       # A top-level widget has no widget parent, so `remove` must detach it from
       # the screen. `remove_from_parent` was a silent no-op here: reported a
       # match but left the widget on screen.
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       s.load_layout %(<w-window>) +
                     %(<w-box id="top"><w-box id="nested"></w-box></w-box>) +
                     %(</w-window>)
       Crysterm::HTTPBridge.new(s, port: 7107).start
-      sleep 100.milliseconds
+      wait_for_bind 7107
       base = "http://127.0.0.1:7107/rpc"
 
       s.find_by_id("top").should_not be_nil

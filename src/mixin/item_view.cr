@@ -1006,9 +1006,24 @@ module Crysterm
         # list) — the first `items.size` were reused above via `set_content`.
         # Must be `remove_item`, not `remove`: `remove` only unlinks from the
         # children tree, leaving `@item_boxes`/`@ritems` with stale entries.
+        #
+        # Removed by *index*, from the end — not by widget, head-first. Passing
+        # the box would route through `#index_of(Widget)`, whose `@item_index`
+        # map `#remove_item` nils on every removal, so a wholesale replace
+        # rebuilt the whole O(n) identity map once per dropped row. The `Int`
+        # form validates in O(1) instead, and removing the *last* row leaves
+        # `#remove_item`'s tail re-place loop empty. End state is identical:
+        # `@selected_indices` was cleared above, `@nonselectable` ends up with
+        # exactly its sub-`items.size` entries either way (tail-first drops each
+        # leftover index in place; head-first slides them down onto `items.size`
+        # and drops them there), and with `@selected == 0` every `i >= items.size`
+        # skips both cursor branches — except an emptying replace, whose final
+        # `i == 0` removal takes the same branch today's first iteration does.
+        # Only `Event::ItemRemoved` now fires tail-first (no listener orders on
+        # it; wholesale-replace consumers watch the single `ItemsChanged`).
         if original.size > items.size
-          original[items.size..].each do |itm|
-            remove_item itm
+          (original.size - 1).downto(items.size) do |j|
+            remove_item j
           end
         end
 

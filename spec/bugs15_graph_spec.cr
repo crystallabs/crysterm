@@ -7,23 +7,9 @@ include Crysterm
 # raises `ArgumentError`) or, for the line-chart painter, draw a visible
 # stray ray plus iterate millions of rejected off-canvas pixels.
 
-private def g15_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
-private def blank_bitmap(w, h) : PNGGIF::Bitmap
-  Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(0, 0, 0, 0) } }
-end
-
 describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
   it "renders without raising when max is nil (auto-scale) and a value is NaN" do
-    s = g15_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [42.0, Float64::NAN, 13.0]
@@ -36,7 +22,7 @@ describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
   end
 
   it "renders empty content (no crash) when every value is NaN" do
-    s = g15_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     bar.values = [Float64::NAN, Float64::NAN]
@@ -47,7 +33,7 @@ end
 
 describe "Widget::Graph::StackedBar auto-scale with a NaN segment (#11)" do
   it "renders without raising when max is nil (auto-scale) and a segment sum is NaN" do
-    s = g15_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 8
     sb.values = [[60.0, 30.0], [20.0, Float64::NAN]]

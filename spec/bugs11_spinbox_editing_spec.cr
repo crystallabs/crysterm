@@ -15,23 +15,13 @@ include Crysterm
 #  key falls through un-accepted so the accelerators still fire; with an edit in
 #  progress, Enter commits and Escape cancels, both accepting the event.
 
-private def bugs11_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def bugs11_keypress(ch : Char, key : Tput::Key? = nil)
   Crysterm::Event::KeyPress.new ch, key
 end
 
 describe "BUGS11 #17 SpinBox does not starve dialog accelerators" do
   it "does NOT accept Escape when there is no edit in progress" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10
     sb.editing?.should be_false
 
@@ -42,7 +32,7 @@ describe "BUGS11 #17 SpinBox does not starve dialog accelerators" do
   end
 
   it "does NOT accept Enter when there is no edit in progress" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10
     sb.editing?.should be_false
 
@@ -52,7 +42,7 @@ describe "BUGS11 #17 SpinBox does not starve dialog accelerators" do
   end
 
   it "DOES accept Escape while editing and cancels the edit" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10
     sb.on_keypress bugs11_keypress('4') # start editing
     sb.on_keypress bugs11_keypress('2')
@@ -66,7 +56,7 @@ describe "BUGS11 #17 SpinBox does not starve dialog accelerators" do
   end
 
   it "DOES accept Enter while editing and commits the edit" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 10
     sb.on_keypress bugs11_keypress('4')
     sb.on_keypress bugs11_keypress('2')
@@ -82,7 +72,7 @@ end
 
 describe "BUGS11 #17 DoubleSpinBox does not starve dialog accelerators" do
   it "does NOT accept Escape when there is no edit in progress" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 10.0
     d.editing?.should be_false
 
@@ -92,7 +82,7 @@ describe "BUGS11 #17 DoubleSpinBox does not starve dialog accelerators" do
   end
 
   it "DOES accept Enter while editing and commits the edit" do
-    s = bugs11_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 10.0
     d.on_keypress bugs11_keypress('4')
     d.on_keypress bugs11_keypress('2')

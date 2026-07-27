@@ -12,12 +12,6 @@ include Crysterm
 # demo (`tests/misc/fd_plane.cr`), not here (mirroring how the Terminal PTY path
 # is demo-verified, not unit-tested).
 
-private def headless_window
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 # Build a plane over an already-drained IO so the reader fiber (started eagerly
 # because we pass a parent) finds EOF immediately and never races `#feed`.
 private def plane(win)
@@ -72,7 +66,7 @@ end
 
 describe "Widget::LogFd#feed" do
   it "appends complete lines to the log content" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = plane win
     fd.feed "one\ntwo\n"
     fd.rendered_content.should eq "one\ntwo"
@@ -82,7 +76,7 @@ describe "Widget::LogFd#feed" do
   end
 
   it "carries a partial line across feeds until its newline arrives" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = plane win
     fd.feed "par"
     fd.rendered_content.should eq "" # nothing complete yet
@@ -94,7 +88,7 @@ describe "Widget::LogFd#feed" do
   end
 
   it "reassembles a multibyte glyph fed in byte-sized pieces" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = plane win
     fd.feed Bytes[0xE4]
     fd.feed Bytes[0xB8, 0xAD, 0x0A]
@@ -105,7 +99,7 @@ describe "Widget::LogFd#feed" do
   end
 
   it "flush_carry emits a buffered partial line as a final line" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = plane win
     fd.feed "no newline here"
     fd.rendered_content.should eq ""
@@ -121,7 +115,7 @@ end
 
 describe "Widget::LogFd lifecycle" do
   it "wraps a caller IO with no subprocess" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = plane win
     fd.process.should be_nil
     fd.closed?.should be_false
@@ -131,7 +125,7 @@ describe "Widget::LogFd lifecycle" do
   end
 
   it "spawns a subprocess for the command form and reaps it on close" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     fd = Crysterm::Widget::LogFd.new("true", parent: win,
       top: 0, left: 0, width: 40, height: 10)
     fd.process.should_not be_nil
@@ -145,7 +139,7 @@ describe "Widget::LogFd lifecycle" do
   end
 
   it "propagates a spawn failure for a missing command" do
-    win = headless_window
+    win = headless_screen(80, 24, default_quit_keys: true)
     expect_raises(Exception) do
       Crysterm::Widget::LogFd.new("this-command-does-not-exist-xyz", parent: win)
     end

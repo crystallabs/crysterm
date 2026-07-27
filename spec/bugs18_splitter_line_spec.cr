@@ -21,19 +21,9 @@ include Crysterm
 # and an orphan draggable divider. A `remove` override (mirroring the `#<<`
 # override) plus an explicit `remove_widget` API now rebuild the dividers.
 
-private def b18_mem_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS18 B18-51: Splitter orientation change" do
   it "clears the stale width when switching horizontal -> vertical" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 62, height: 20
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -58,7 +48,7 @@ describe "BUGS18 B18-51: Splitter orientation change" do
   end
 
   it "clears the stale height when switching vertical -> horizontal" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s,
       orientation: Tput::Orientation::Vertical, width: 62, height: 20
     a = Crysterm::Widget::Box.new
@@ -80,7 +70,7 @@ describe "BUGS18 B18-51: Splitter orientation change" do
   end
 
   it "clears the divider's stale opposite anchor on a flip" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s,
       orientation: Tput::Orientation::Vertical, width: 40, height: 20
     sp.add_widget Crysterm::Widget::Box.new
@@ -97,7 +87,7 @@ end
 
 describe "BUGS18 B18-52: Line#orientation= axis swap" do
   it "moves a default horizontal line's length to the vertical axis and back" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     l = Crysterm::Widget::HLine.new parent: s, top: 5
     l.width.should eq "100%"
     l.height.should be_nil
@@ -117,7 +107,7 @@ describe "BUGS18 B18-52: Line#orientation= axis swap" do
   end
 
   it "carries an explicit thickness over to the new axis" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     l = Crysterm::Widget::Line.new parent: s, top: 2, left: 2, width: 20, height: 3
     l.orientation = Tput::Orientation::Vertical
     l.width.should eq 3
@@ -127,7 +117,7 @@ end
 
 describe "BUGS18 B18-55: Splitter pane removal bookkeeping" do
   it "unregisters a destroyed pane and rebuilds the dividers" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -154,7 +144,7 @@ describe "BUGS18 B18-55: Splitter pane removal bookkeeping" do
   end
 
   it "remove_widget detaches a pane and returns it; nil for a non-pane" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -176,7 +166,7 @@ describe "BUGS18 B18-55: Splitter pane removal bookkeeping" do
   end
 
   it "handles a generic remove() the same as remove_widget" do
-    s = b18_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new

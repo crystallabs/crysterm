@@ -13,12 +13,6 @@ include Crysterm
 # override clears that cache (and emit-tracking keys) so the next render
 # re-encodes the new bitmap.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
 private def solid(r, g, b, w = 4, h = 4) : PNGGIF::Bitmap
   Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(r, g, b, 255) } }
 end
@@ -32,7 +26,7 @@ end
 
 describe "Media::Graphics#reset_sample_cache (live bitmap= update)" do
   it "re-encodes the payload when the bitmap is replaced at the same size" do
-    s = render_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     img = Crysterm::Widget::Media::Sixel.new(
       parent: s, top: 0, left: 0, width: 10, height: 4)
 

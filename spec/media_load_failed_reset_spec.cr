@@ -13,15 +13,9 @@ include Crysterm
 # latch and `#source` returned `nil` immediately — the widget stayed stuck on
 # "could not load" even for a perfectly good new file.
 
-private def hl_window(w = 20, h = 10)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "Media#load clears the @load_failed latch (state-reset bug)" do
   it "recovers on a valid load after a prior failed load (Cells backend)" do
-    s = hl_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     img = Crysterm::Widget::Media::Ansi.new parent: s, top: 0, left: 0, width: 8, height: 4
 
     # First load fails: latches @load_failed, content shows the error.

@@ -15,15 +15,6 @@ include Crysterm
 #  48  (widget_table_layout/table/listtable) internal cell separators hardcoded
 #      a 1-column content inset instead of honoring `ileft`.
 
-private def f2_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private def f2_down(s, x, y)
   s.dispatch_mouse(::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test))
@@ -43,7 +34,7 @@ end
 
 describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
   it "renders a label on a scrollable bordered box" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true, label: "TITLE", style: Style.new(border: true)
     s.repaint
@@ -55,7 +46,7 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
   end
 
   it "marks the label box as a label and leaves ordinary widgets unmarked" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8,
       scrollable: true, label: "HDR", style: Style.new(border: true)
     box._is_label?.should be_false
@@ -63,7 +54,7 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
   end
 
   it "does not let a labeled child overdraw a scrolled container's border" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 24, height: 6,
       scrollable: true, style: Style.new(border: true)
     # A labeled child taller than the viewport, forcing a scroll.
@@ -84,7 +75,7 @@ end
 
 describe "BUGS-F2 finding 14: CheckMarker marker-click uses painted coords" do
   it "toggles a checkbox inside a scrolled container" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 5,
       scrollable: true
     boxes = (0...12).map do |i|
@@ -108,7 +99,7 @@ end
 
 describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords" do
   it "seeks a vertical slider correctly inside a scrolled container" do
-    s = f2_screen(30, 24)
+    s = headless_screen(30, 24)
     # Text content gives a reliable vertical scroll extent (`scroll_height`
     # uses `@_clines.size`); the slider is a child that moves with the scroll.
     content = (0...30).map { |i| "line#{i}" }.join("\n")
@@ -141,7 +132,7 @@ end
 
 describe "BUGS-F2 finding 48: table separators honor ileft, not a hardcoded 1" do
   it "still renders a plain bordered table's separators (ileft == 1)" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     t = Widget::Table.new parent: s, top: 0, left: 0,
       rows: [["AA", "BB"], ["CC", "DD"]],
       style: Style.new(border: true)
@@ -162,7 +153,7 @@ describe "BUGS-F2 finding 48: table separators honor ileft, not a hardcoded 1" d
   end
 
   it "shifts the separator right by the left inset when the table is padded" do
-    s = f2_screen
+    s = headless_screen(80, 24)
     t = Widget::Table.new parent: s, top: 0, left: 0,
       rows: [["AA", "BB"], ["CC", "DD"]],
       style: Style.new(border: true, padding: Padding.new(2, 0, 0, 0)) # left: 2

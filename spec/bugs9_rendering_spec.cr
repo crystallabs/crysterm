@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for the BUGS9 Rendering & Screen fixes. Headless harness,
 # same shape as `bugs8_layout_spec.cr`.
 
-private def headless_screen(w = 20, h = 6)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # A custom (`shape = None`) cursor renders "from the cursor's own style". Its
 # `_artificial_cursor_attr` adopts the cursor's style *flags* whenever the style
 # declares one — but the flag-adoption test omitted `italic` and `strike`, so a
@@ -18,7 +12,7 @@ end
 # that flag while bold/underline/blink/reverse worked. Fixed to check all flags.
 describe "BUGS9 artificial custom cursor keeps italic/strike style flags" do
   it "applies an italic-only custom cursor's italic flag" do
-    s = headless_screen
+    s = headless_screen(20, 6)
     cur = Crysterm::Cursor.new
     cur.shape = Tput::CursorShape::None
     cur.style.italic = true
@@ -27,7 +21,7 @@ describe "BUGS9 artificial custom cursor keeps italic/strike style flags" do
   end
 
   it "applies a strike-only custom cursor's strikethrough flag" do
-    s = headless_screen
+    s = headless_screen(20, 6)
     cur = Crysterm::Cursor.new
     cur.shape = Tput::CursorShape::None
     cur.style.strike = true
@@ -36,7 +30,7 @@ describe "BUGS9 artificial custom cursor keeps italic/strike style flags" do
   end
 
   it "still applies a bold-only custom cursor's bold flag (unregressed)" do
-    s = headless_screen
+    s = headless_screen(20, 6)
     cur = Crysterm::Cursor.new
     cur.shape = Tput::CursorShape::None
     cur.style.bold = true
@@ -45,7 +39,7 @@ describe "BUGS9 artificial custom cursor keeps italic/strike style flags" do
   end
 
   it "keeps the underlying cell flags when the custom cursor declares no flag" do
-    s = headless_screen
+    s = headless_screen(20, 6)
     cur = Crysterm::Cursor.new
     cur.shape = Tput::CursorShape::None
     # Base cell carries UNDERLINE; a flagless custom cursor must not clear it.

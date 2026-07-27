@@ -6,16 +6,9 @@ include Crysterm
 # per-cell logic is pure given the frame counter, so `#cell`/`#advance` are
 # exercised directly with no animation fiber or real terminal.
 
-private def plasma_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::Effect::Plasma do
   it "returns the configured glyph and an in-range 0xRRGGBB color per cell" do
-    s = plasma_screen
+    s = headless_screen(default_quit_keys: true)
     p = Crysterm::Widget::Effect::Plasma.new parent: s, width: 20, height: 10, glyph: '#'
 
     ch, color = p.cell(3, 4, 20, 10)
@@ -24,7 +17,7 @@ describe Crysterm::Widget::Effect::Plasma do
   end
 
   it "is a pure function of position and frame (same frame -> same color)" do
-    s = plasma_screen
+    s = headless_screen(default_quit_keys: true)
     p = Crysterm::Widget::Effect::Plasma.new parent: s, width: 20, height: 10
 
     first = p.cell(5, 5, 20, 10)
@@ -33,7 +26,7 @@ describe Crysterm::Widget::Effect::Plasma do
   end
 
   it "advances the field so a cell's color changes frame to frame" do
-    s = plasma_screen
+    s = headless_screen(default_quit_keys: true)
     p = Crysterm::Widget::Effect::Plasma.new parent: s, width: 20, height: 10
 
     before = p.cell(5, 5, 20, 10)[1]

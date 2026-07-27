@@ -2,15 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def cf_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h,
-    default_quit_keys: false)
-end
-
 private def cf_mouse_down(x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(
     Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y))
@@ -23,7 +14,7 @@ end
 # `atop`, and a body row scrolled up to `atop` would wrongly toggle instead.
 describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" do
   it "toggles on the visible (painted) title row, not the stale layout row" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       scrollable: true
     gb = Widget::GroupBox.new parent: box, title: "Opt", checkable: true,
@@ -50,7 +41,7 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
   end
 
   it "keeps unscrolled placement toggling exactly as before (no regression)" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     gb = Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
     s.repaint
@@ -61,7 +52,7 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
   end
 
   it "does not toggle when the title row itself is scrolled out of view" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 6,
       scrollable: true
     gb = Widget::GroupBox.new parent: box, title: "Opt", checkable: true,
@@ -89,7 +80,7 @@ end
 # check `#visible?`. Hiding a bar left a permanent blank strip.
 describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
   it "reclaims the top row for the central widget when the menu bar is hidden" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.menu_bar.hide
     central = Widget::Box.new content: "central"
@@ -100,7 +91,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
   end
 
   it "reclaims the bottom row for the central widget when the status bar is hidden" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.status_bar.hide
     central = Widget::Box.new content: "central"
@@ -112,7 +103,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
   end
 
   it "still reserves rows for a menu/status bar that stays visible (no regression)" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.menu_bar # constructs it, left visible
     win.status_bar
@@ -125,7 +116,7 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
   end
 
   it "restores the reserved row when a hidden bar is shown again" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.menu_bar.hide
     central = Widget::Box.new content: "central"
@@ -190,7 +181,7 @@ describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
   end
 
   it "does not double-act on an ancestor's bubbled-key handler" do
-    s = cf_screen
+    s = headless_screen(80, 24)
     pb = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1,
       value: 50, minimum: 0, maximum: 100, single_step: 5
     pb.focus

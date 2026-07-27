@@ -21,16 +21,6 @@ include Crysterm
 #     that could never run — Crystal's `%` with a positive divisor is never
 #     negative. Removed; cycling still wraps correctly in both directions.
 
-private def bugs6_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def keypress(ch : Char, key : Tput::Key? = nil)
   Crysterm::Event::KeyPress.new ch, key
 end
@@ -41,7 +31,7 @@ end
 
 describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
   it "a focus_on_click:false button does NOT steal focus when clicked" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     a = Crysterm::Widget::Button.new parent: s, top: 0, content: "A"
     b = Crysterm::Widget::Button.new parent: s, top: 1, content: "B", focus_on_click: false
 
@@ -56,7 +46,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
   end
 
   it "a normal (focus_on_click:true) button still takes focus when clicked" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     a = Crysterm::Widget::Button.new parent: s, top: 0, content: "A"
     c = Crysterm::Widget::Button.new parent: s, top: 1, content: "C" # default true
 
@@ -68,7 +58,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
   end
 
   it "clicking OK on a Prompt submits the typed text instead of cancelling" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     prompt = Crysterm::Widget::Prompt.new parent: s, content: "Name?"
 
     got_data : String? = nil
@@ -94,7 +84,7 @@ end
 
 describe "BUGS6 ToolButton#cycle_menu wrapping (bug 3)" do
   it "cycles forward past the end, wrapping to the first action" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new
     fired = [] of String
     m.add_action("One") { fired << "One" }
@@ -109,7 +99,7 @@ describe "BUGS6 ToolButton#cycle_menu wrapping (bug 3)" do
   end
 
   it "cycles backward from the start, wrapping to the last action" do
-    s = bugs6_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new
     fired = [] of String
     m.add_action("One") { fired << "One" }

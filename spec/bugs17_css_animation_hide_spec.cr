@@ -13,12 +13,6 @@ include Crysterm
 # marking the animation finished, so it resumes on the next render after
 # `show`/re-attach.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # Exposes the CSS-animation internals for assertions.
 private class AnimProbe < Crysterm::Widget::Box
   def anim_clock
@@ -37,7 +31,7 @@ private ANIM_CSS = <<-CSS
 
 describe "BUGS17 B17-37 hidden CSS animation stops its FrameClock" do
   it "stops the clock when the widget is hidden, and resumes on show" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = AnimProbe.new parent: screen, width: 5, height: 3
     box.add_css_class "anim"
     begin
@@ -68,7 +62,7 @@ describe "BUGS17 B17-37 hidden CSS animation stops its FrameClock" do
   end
 
   it "stops the clock when the widget is detached, and resumes on re-attach" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = AnimProbe.new parent: screen, width: 5, height: 3
     box.add_css_class "anim"
     begin

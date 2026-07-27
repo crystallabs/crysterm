@@ -15,12 +15,6 @@ include Crysterm
 #   M15 — ItemView's incremental-search box is rebuilt on the current window
 #         after a cross-window move.
 
-private def wdg_screen(width = 40, height = 15)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 private class SearchSpyList < Crysterm::Widget::List
   def spy_search_box
     ensure_search_box
@@ -29,7 +23,7 @@ end
 
 describe "BUGS13 M1: Pine Compose#reset clears the document" do
   it "resets the body's authoritative buffer, not just the display" do
-    s = wdg_screen(60, 20)
+    s = headless_screen(60, 20, default_quit_keys: true)
     compose = Widget::Pine::Compose.new parent: s, width: 60, height: 20
     compose.body.value = "old body text"
     compose.values["body"].should eq "old body text"
@@ -46,7 +40,7 @@ end
 
 describe "BUGS13 M5: TabWidget#remove_tab keeps the current page" do
   it "keeps the current page when removing a preceding tab" do
-    s = wdg_screen
+    s = headless_screen(40, 15, default_quit_keys: true)
     tw = Widget::TabWidget.new parent: s, width: 30, height: 8
     pa = Widget::Box.new(content: "a")
     pb = Widget::Box.new(content: "b")
@@ -68,7 +62,7 @@ describe "BUGS13 M5: TabWidget#remove_tab keeps the current page" do
   end
 
   it "falls back to a neighbor when removing the current tab itself" do
-    s = wdg_screen
+    s = headless_screen(40, 15, default_quit_keys: true)
     tw = Widget::TabWidget.new parent: s, width: 30, height: 8
     pa = Widget::Box.new(content: "a")
     pb = Widget::Box.new(content: "b")
@@ -88,7 +82,7 @@ end
 
 describe "BUGS13 M7: ToolTip sizes by display width" do
   it "sizes a CJK tooltip to its cell width" do
-    s = wdg_screen
+    s = headless_screen(40, 15, default_quit_keys: true)
     s.full_unicode = true
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     tt = Widget::ToolTip.new parent: s
@@ -103,7 +97,7 @@ end
 
 describe "BUGS13 M8: StatusBar permanent sections use display width" do
   it "right-aligns a wide-char section by cells" do
-    s = wdg_screen(20, 3)
+    s = headless_screen(20, 3, default_quit_keys: true)
     s.full_unicode = true
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 20, height: 1
@@ -116,7 +110,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
   end
 
   it "left-truncates an overflowing run by display cells" do
-    s = wdg_screen(6, 3)
+    s = headless_screen(6, 3, default_quit_keys: true)
     s.full_unicode = true
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 6, height: 1
@@ -132,7 +126,7 @@ end
 
 describe "BUGS13 M11: hidden Wizard stands down from Enter/Escape" do
   it "ignores window Enter/Escape while hidden, acts when visible" do
-    s = wdg_screen
+    s = headless_screen(40, 15, default_quit_keys: true)
     wiz = Widget::Wizard.new parent: s, width: 30, height: 10
     wiz.add_page "P1", Widget::Box.new(content: "one")
     wiz.add_page "P2", Widget::Box.new(content: "two")
@@ -159,7 +153,7 @@ end
 
 describe "BUGS13 M13: ToolBox#add_item while hidden" do
   it "creates a header that becomes visible when the toolbox is shown" do
-    s = wdg_screen
+    s = headless_screen(40, 15, default_quit_keys: true)
     tb = Widget::ToolBox.new parent: s, width: 20, height: 10
     tb.hide
     tb.add_item "General", Widget::Box.new(content: "x")
@@ -178,8 +172,8 @@ end
 
 describe "BUGS13 M15: search box re-homed after a window move" do
   it "rebuilds the memoized search box on the current window" do
-    s1 = wdg_screen
-    s2 = wdg_screen
+    s1 = headless_screen(40, 15, default_quit_keys: true)
+    s2 = headless_screen(40, 15, default_quit_keys: true)
     list = SearchSpyList.new parent: s1, top: 0, left: 0, width: 10, height: 5
     list.items = ["alpha", "beta"]
 

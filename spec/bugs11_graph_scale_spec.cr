@@ -16,16 +16,6 @@ include Crysterm
 # and, when true, measures/truncates by Unicode display width (mirroring
 # `TableLayout#pad_cell_to`); when false the legacy codepoint behavior is kept.
 
-private def bgs_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS11 #22 Scale.eighths guards non-finite values" do
   it "returns 0 for a NaN value instead of raising OverflowError" do
     rows = 6
@@ -42,7 +32,7 @@ describe "BUGS11 #22 Scale.eighths guards non-finite values" do
   end
 
   it "renders a Bar containing a NaN value without raising" do
-    s = bgs_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 20, height: 6, maximum: 100.0
     bar.values = [50.0, 0.0/0.0]
     # Without the #22 fix this render pass crashes with OverflowError.

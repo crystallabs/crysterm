@@ -23,12 +23,6 @@ include Crysterm
 # BUG 3 — Terminal.accept_with_timeout must not leak a socket accepted in the
 #   timeout race. Documented below (not runtime-asserted; see the note).
 
-private def headless_window(w = 12, h = 4)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # --------------------------------------------------------------------------
 # BUG 1: detached construction of window-owns-pixels media backends
 # --------------------------------------------------------------------------
@@ -38,7 +32,7 @@ describe "Media backends detached construction (BUGS6)" do
     # A headless window created first becomes the most-recent instance, so the
     # global-window fallback attaches these parentless widgets to it (rather
     # than spawning a real terminal window during the spec).
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
 
     sixel = Widget::Media::Sixel.new file: "pic.png", width: 4, height: 3
     kitty = Widget::Media::Kitty.new file: "pic.png", width: 4, height: 3
@@ -57,7 +51,7 @@ describe "Media backends detached construction (BUGS6)" do
   end
 
   it "constructs Tek, Ueberzug and Overlay backends without a parent (no raise)" do
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
 
     tek = Widget::Media::Tek.new file: "pic.png", width: 4, height: 3
     uz = Widget::Media::Ueberzug.new file: "pic.png", width: 4, height: 3
@@ -71,7 +65,7 @@ describe "Media backends detached construction (BUGS6)" do
   end
 
   it "renders a graphics backend attached to a window without raising" do
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
     img = Widget::Media::Sixel.new parent: s, width: 4, height: 3
     img.window?.should eq s
     s.repaint # exercises the registered Rendered listener (empty image: no-op)

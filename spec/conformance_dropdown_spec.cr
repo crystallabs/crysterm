@@ -22,11 +22,6 @@ include Crysterm
 # The universal invariants (opens/reports open?, dismisses on an outside press,
 # dismisses on Escape, wheeling never dismisses) hold for all three.
 
-private def dd_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def dd_kp(char : Char, key : ::Tput::Key? = nil)
   Crysterm::Event::KeyPress.new char, key
 end
@@ -123,7 +118,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
     name: "Menu",
     scroll_view: false,
     make: -> {
-      s = dd_screen
+      s = headless_screen(80, 24)
       menu = Crysterm::Widget::Menu.new parent: s, width: 14, height: 6
       %w[Open Save Close Quit Print Help].each { |l| menu.add_action l }
       DropdownAdapter.new(
@@ -145,7 +140,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
     name: "ComboBox",
     scroll_view: true,
     make: -> {
-      s = dd_screen
+      s = headless_screen(80, 24)
       cb = Crysterm::Widget::ComboBox.new parent: s, top: 3, left: 4, width: 16, height: 1,
         editable: false, options: %w[Red Green Blue Cyan Magenta Maroon Teal Olive]
       cb.focus
@@ -174,7 +169,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
     name: "Completer",
     scroll_view: true,
     make: -> {
-      s = dd_screen
+      s = headless_screen(80, 24)
       box = Crysterm::Widget::LineEdit.new parent: s, top: 3, left: 6, width: 18, height: 1
       completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
       completer.attach box

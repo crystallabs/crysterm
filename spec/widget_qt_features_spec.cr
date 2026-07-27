@@ -7,27 +7,13 @@ include Crysterm
 # `Button` checkable toggling, and `PlainTextEdit`/`LineEdit` `max_length` /
 # `read_only` / placeholder.
 
-private def qt_mem_screen
-  # `default_quit_keys: false`: the default handler calls `exit` on a `q`/Ctrl-Q
-  # keypress. These specs synthesize key events (e.g. ListBar tests `emit
-  # KeyPress, 'q'` for a `q` hotkey), which would otherwise kill the spec
-  # process mid-run.
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def keypress(ch : Char, key : Tput::Key? = nil)
   Crysterm::Event::KeyPress.new ch, key
 end
 
 describe Crysterm::Widget::ProgressBar do
   it "maps value within an arbitrary range onto a 0..100 fill" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     pb = Crysterm::Widget::ProgressBar.new parent: s, minimum: 0, maximum: 200
     pb.value = 100
     pb.percent.should eq 50
@@ -36,7 +22,7 @@ describe Crysterm::Widget::ProgressBar do
   end
 
   it "clamps the value into [minimum, maximum]" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     pb = Crysterm::Widget::ProgressBar.new parent: s, minimum: 10, maximum: 20
     pb.value = 5
     pb.value.should eq 10
@@ -45,7 +31,7 @@ describe Crysterm::Widget::ProgressBar do
   end
 
   it "drives the bar by percentage via #percent=" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     pb = Crysterm::Widget::ProgressBar.new parent: s, minimum: 0, maximum: 50
     pb.percent = 40
     pb.value.should eq 20
@@ -53,7 +39,7 @@ describe Crysterm::Widget::ProgressBar do
   end
 
   it "emits ValueChanged and Complete events" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     pb = Crysterm::Widget::ProgressBar.new parent: s
     changes = [] of Int32
     completed = false
@@ -68,7 +54,7 @@ end
 
 describe Crysterm::Widget::CheckBox do
   it "toggles checked/unchecked by default" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s
     cb.checked?.should be_false
     cb.toggle
@@ -78,7 +64,7 @@ describe Crysterm::Widget::CheckBox do
   end
 
   it "cycles unchecked -> partial -> checked when tri-state" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s, tristate: true
     cb.checked?.should be_false
     cb.partial?.should be_false
@@ -97,7 +83,7 @@ describe Crysterm::Widget::CheckBox do
   end
 
   it "does not enter the partial state when not tri-state" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::CheckBox.new parent: s
     cb.partial
     cb.partial?.should be_false
@@ -106,7 +92,7 @@ end
 
 describe Crysterm::Widget::Button do
   it "stays momentary by default" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s
     presses = 0
     b.on(Crysterm::Event::Pressed) { presses += 1 }
@@ -116,7 +102,7 @@ describe Crysterm::Widget::Button do
   end
 
   it "toggles a sticky state and emits StateChanged when checkable" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, checkable: true
     states = [] of Crysterm::CheckState
     b.on(Crysterm::Event::StateChanged) { |e| states << e.state }
@@ -128,7 +114,7 @@ describe Crysterm::Widget::Button do
   end
 
   it "settles #checked? through check/uncheck for checkable buttons and radios" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, checkable: true
     b.check
     b.checked?.should be_true
@@ -143,7 +129,7 @@ describe Crysterm::Widget::Button do
   end
 
   it "makes #checked= drive the same path as #check/#uncheck" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, checkable: true
     states = [] of Crysterm::CheckState
     b.on(Crysterm::Event::StateChanged) { |e| states << e.state }
@@ -156,21 +142,21 @@ describe Crysterm::Widget::Button do
   end
 
   it "ignores #checked= on a non-checkable button" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s
     b.checked = true
     b.checked?.should be_false
   end
 
   it "unchecks when checkability is withdrawn" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, checkable: true, checked: true
     b.checkable = false
     b.checked?.should be_false
   end
 
   it "makes #text the label the button renders" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Button.new parent: s, text: "OK"
     b.text.should eq "OK"
     b.content.should eq "OK"
@@ -180,7 +166,7 @@ describe Crysterm::Widget::Button do
   end
 
   it "reports the ButtonGroup a button was added to" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     a = Crysterm::Widget::Button.new parent: s
     g = Crysterm::ButtonGroup.new
     a.group.should be_nil
@@ -193,21 +179,21 @@ end
 
 describe Crysterm::Widget::PlainTextEdit do
   it "enforces max_length on interactive input" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, max_length: 3
     "abcdef".each_char { |c| ta._listener keypress(c) }
     ta.value.should eq "abc"
   end
 
   it "does not truncate programmatic value=" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, max_length: 3
     ta.value = "abcdef"
     ta.value.should eq "abcdef"
   end
 
   it "ignores edits when read_only" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, read_only: true
     ta.value = "hi"
     ta._listener keypress('x')
@@ -218,7 +204,7 @@ describe Crysterm::Widget::PlainTextEdit do
   # One scroll model (`@child_base`), caret tracked via `@cursor_pos`,
   # `@child_offset` ≡ 0, so the attached bar drives the viewport.
   it "defaults to AsNeeded and shows a working bar on overflow" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
@@ -232,7 +218,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "drags the bar to scroll the viewport, leaving the caret put" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0 # caret at the top
@@ -248,7 +234,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "follows the caret with the viewport, and the bar follows the view" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0
@@ -263,7 +249,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "shows the vertical bar only on real overflow, not for content that fits" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     short = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 4,
       content: "hi"
     s.repaint
@@ -277,7 +263,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "hides the vertical bar again after content shrinks (chrome is not content)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 6,
       content: "hi"
     s.repaint
@@ -292,7 +278,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "re-wraps to reserve the bar column after a height-only resize flips overflow" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # Short logical lines each fit on one wrapped row regardless of the reserved
     # margin, so the overflow decision depends only on viewport height.
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 12,
@@ -315,7 +301,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "scrolls horizontally for non-wrapped long lines, following the caret" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
@@ -330,7 +316,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "scrolls the last line into view when a horizontal bar reserves a row (both overflows)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     long = "X" * 40
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false, content: (1..20).map { |i| "#{long} L#{i}" }.join("\n")
@@ -349,7 +335,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "pages by visible content rows, not counting the horizontal bar's row" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # Long lines force a horizontal bar (reserving the bottom row); many lines
     # force vertical overflow. Fixed-width lines keep col 0 stable across Page Down.
     line = "X" * 40
@@ -374,7 +360,7 @@ describe Crysterm::Widget::PlainTextEdit do
   end
 
   it "drags the horizontal bar without moving the caret" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
@@ -391,7 +377,7 @@ end
 
 describe Crysterm::Widget::LineEdit do
   it "exposes a placeholder while empty without affecting the value" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::LineEdit.new parent: s, placeholder_text: "type here"
     tb.placeholder_text.should eq "type here"
     tb.value.should eq ""
@@ -400,7 +386,7 @@ end
 
 describe Crysterm::Widget::List do
   it "toggles multiple selections and reports their values" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "c", "d"]
     list.toggle_selection 1
@@ -412,7 +398,7 @@ describe Crysterm::Widget::List do
   end
 
   it "marks the cursor item and the multi-selected items as selected" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "c"]
     list.current_index = 0
@@ -423,7 +409,7 @@ describe Crysterm::Widget::List do
   end
 
   it "keeps selected indices aligned when an earlier row is removed" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, selection_mode: :multi_selection,
       items: ["a", "b", "c", "d"]
     list.add_to_selection 2             # "c"
@@ -434,7 +420,7 @@ describe Crysterm::Widget::List do
   end
 
   it "does not multi-select when the option is off" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b"]
     list.toggle_selection 1
     list.selected_indices.empty?.should be_true
@@ -443,7 +429,7 @@ describe Crysterm::Widget::List do
   it "does not raise when activating/cancelling an empty list" do
     # `activate_current`/`cancel_current` used to index `items[current_index]`
     # (`current_index == 0`, no rows) and raise `IndexError`.
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: [] of String
     list.activate_current
     list.cancel_current
@@ -452,7 +438,7 @@ end
 
 describe Crysterm::Widget::ListTable do
   it "sorts body rows by a column numerically, keeping the header pinned" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     lt = Crysterm::Widget::ListTable.new parent: s, sortable: true, rows: [
       ["Name", "Score"],
       ["Alice", "10"],
@@ -467,7 +453,7 @@ describe Crysterm::Widget::ListTable do
   end
 
   it "sorts textual columns lexicographically" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     lt = Crysterm::Widget::ListTable.new parent: s, rows: [
       ["Name"],
       ["Carol"],
@@ -479,7 +465,7 @@ describe Crysterm::Widget::ListTable do
   end
 
   it "sorts on tag-stripped cell values (numeric under markup)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # The precomputed sort key runs `clean_tags` once per row, so the `{...}`
     # colour markup must not affect ordering: these compare as 2 < 10 < 30,
     # not lexically ("10" < "2" < "30").
@@ -496,7 +482,7 @@ end
 
 describe Crysterm::Widget::Slider do
   it "clamps and steps the value, emitting ValueChanged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 10,
       value: 5, width: 20, height: 1
     changes = [] of Int32
@@ -513,7 +499,7 @@ end
 
 describe Crysterm::Widget::SpinBox do
   it "renders prefix/suffix and steps within range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 5,
       value: 4, prefix: "$", suffix: "%"
     sb.text.should eq "$4%"
@@ -524,7 +510,7 @@ describe Crysterm::Widget::SpinBox do
   end
 
   it "wraps around the bounds when wrap is enabled" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 3,
       value: 3, wrapping: true
     sb.step_up
@@ -534,7 +520,7 @@ describe Crysterm::Widget::SpinBox do
   end
 
   it "clamps (not wraps) the value when the range moves past it, even with wrap on" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100,
       value: 50, wrapping: true
     # Qt's setMaximum clamps the value to the new bound; with wrap enabled this
@@ -550,7 +536,7 @@ describe Crysterm::Widget::SpinBox do
   end
 
   it "respects Range exclusivity when assigned a Range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 0
 
     # Inclusive range: upper bound is `end`.
@@ -584,7 +570,7 @@ describe Crysterm::Widget::Loading do
   it "selects a built-in spinner by name" do
     Crysterm::Widget::Loading.spinner_frames(:braille).size.should be > 1
 
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     l = Crysterm::Widget::Loading.new parent: s, spinner: :dots
     l.frames.should eq Crysterm::Widget::Loading::SPINNERS[Crysterm::Widget::Loading::Spinner::Dots]
     l.spinner = :line
@@ -594,7 +580,7 @@ end
 
 describe Crysterm::Widget::Log do
   it "filters by min_level and tags each line with its level" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     log = Crysterm::Widget::Log.new parent: s, parse_tags: true, min_level: Crysterm::Widget::Log::Level::Warn
     log.debug "ignored"
     log.warn "shown"
@@ -606,7 +592,7 @@ describe Crysterm::Widget::Log do
   end
 
   it "bounds retained lines by max_lines" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     log = Crysterm::Widget::Log.new parent: s, max_lines: 5
     log.max_lines.should eq 5
     log.max_lines = 9
@@ -614,7 +600,7 @@ describe Crysterm::Widget::Log do
   end
 
   it "keeps the buffer bounded with a tiny max_lines" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # `max_lines // 3` is 0 for max_lines: 2, which used to `remove_first_line 0` (a
     # no-op) and let the buffer grow unbounded. Must still get trimmed.
     log = Crysterm::Widget::Log.new parent: s, max_lines: 2
@@ -625,7 +611,7 @@ end
 
 describe Crysterm::Widget::Menu do
   it "skips separators during navigation" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s
     m << Crysterm::Action.new "One"
     m.add_separator
@@ -637,7 +623,7 @@ describe Crysterm::Widget::Menu do
   end
 
   it "never rests the highlight on a boundary separator" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s
     m.add_separator # leading separator (index 0)
     m << Crysterm::Action.new "One"
@@ -660,7 +646,7 @@ describe Crysterm::Widget::Menu do
   end
 
   it "toggles checkable actions when activated" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s
     wrap = Crysterm::Action.new "Word Wrap"
     wrap.checkable = true
@@ -678,7 +664,7 @@ end
 
 describe Crysterm::Widget::ListBar do
   it "creates separators and skips them when moving" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true,
       top: 0, left: 0, width: 40, height: 1
     bar.add_item "a"
@@ -696,7 +682,7 @@ end
 
 describe Crysterm::Widget::TabWidget do
   it "stacks pages and switches the visible one" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
     p1 = Crysterm::Widget::Box.new content: "one"
     p2 = Crysterm::Widget::Box.new content: "two"
@@ -720,7 +706,7 @@ end
 
 describe Crysterm::Widget::ComboBox do
   it "exposes the selected value and cycles in place" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["red", "green", "blue"], current_index: 0
     cb.current_text.should eq "red"
     actions = [] of String
@@ -735,7 +721,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "commits a chosen index and emits Action" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"]
     chosen = nil.as(String?)
     cb.on(Crysterm::Event::Activated) { |e| chosen = e.value }
@@ -747,7 +733,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "keeps the selection in range when options are replaced" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], current_index: 2
     cb.options = ["x"]
     cb.current_index.should eq 0
@@ -759,7 +745,7 @@ describe Crysterm::Widget::ComboBox do
   # old option — while the combo's *own* popup got the real thing from
   # `Mixin::ItemView`. It is now the `setCurrentIndex` a caller assumes.
   it "carries the value (and clamps) when the index is assigned" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], width: 10
     seen = [] of Int32
     cb.on(Crysterm::Event::CurrentChanged) { |e| seen << e.index }
@@ -780,7 +766,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "separates the change signal from the activation signal" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"]
     changed = [] of Int32
     activated = [] of String
@@ -796,7 +782,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "adds, inserts, removes and clears options (QComboBox item API)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s
     cb.count.should eq 0
     cb.item_text(0).should be_nil
@@ -827,7 +813,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "keeps the current option current across a removal before it" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"]
     changed = [] of Int32
     cb.on(Crysterm::Event::CurrentChanged) { |e| changed << e.index }
@@ -847,7 +833,7 @@ describe Crysterm::Widget::ComboBox do
   end
 
   it "selects by text (setCurrentText)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.current_text = "b"
     cb.current_index.should eq 1
@@ -865,7 +851,7 @@ end
 
 describe Crysterm::Widget::GroupBox do
   it "carries a title and toggles its checked state" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Options", checkable: true, width: 30, height: 8
     child = Crysterm::Widget::CheckBox.new parent: gb, top: 0, content: "Wrap"
 
@@ -885,7 +871,7 @@ end
 
 describe Crysterm::Widget::Splitter do
   it "lays out two panes around the divider (horizontal)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -901,7 +887,7 @@ describe Crysterm::Widget::Splitter do
   end
 
   it "clamps the divider position into range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     sp.add_widget Crysterm::Widget::Box.new
     sp.add_widget Crysterm::Widget::Box.new
@@ -912,7 +898,7 @@ describe Crysterm::Widget::Splitter do
   end
 
   it "splits vertically by height" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, orientation: Tput::Orientation::Vertical,
       width: 40, height: 20
     a = Crysterm::Widget::Box.new
@@ -928,7 +914,7 @@ end
 
 describe "GroupBox child enabling" do
   it "disables a child added after construction when unchecked" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "G", checkable: true,
       checked: false, width: 20, height: 6
     child = Crysterm::Widget::CheckBox.new parent: gb, top: 0, content: "x"
@@ -941,7 +927,7 @@ end
 
 describe "ComboBox cleanup" do
   it "removes its popup from the screen when destroyed" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
     cb.show_popup
     pop = cb.@popup.not_nil!
@@ -953,7 +939,7 @@ end
 
 describe "ListBar auto_command_keys" do
   it "selects a tab by number through the focused bar's key handler" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     fired = [] of Int32
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true, auto_command_keys: true
     bar.add_item("one") { fired << 0 }
@@ -968,7 +954,7 @@ end
 
 describe "ListBar hotkey cleanup" do
   it "stops a removed command's global hotkey from firing" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true
     bar.add_item("keep") { }
@@ -983,7 +969,7 @@ describe "ListBar hotkey cleanup" do
   end
 
   it "detaches all hotkeys when the bar is destroyed" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     fired = 0
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true
     bar.add_item("quit", keys: ["q"]) { fired += 1 }
@@ -995,7 +981,7 @@ end
 
 describe Crysterm::Widget::StackedWidget do
   it "shows exactly one page at a time" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     st = Crysterm::Widget::StackedWidget.new parent: s, width: 30, height: 10
     p1 = Crysterm::Widget::Box.new content: "1"
     p2 = Crysterm::Widget::Box.new content: "2"
@@ -1016,7 +1002,7 @@ end
 
 describe Crysterm::Widget::Dial do
   it "clamps and steps the value, emitting ValueChanged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Dial.new parent: s, minimum: 0, maximum: 10, value: 5, width: 6, height: 4
     changes = [] of Int32
     d.on(Crysterm::Event::ValueChanged) { |e| changes << e.value }
@@ -1028,7 +1014,7 @@ describe Crysterm::Widget::Dial do
   end
 
   it "wraps around the bounds when enabled" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::Dial.new parent: s, minimum: 0, maximum: 3, value: 3, wrapping: true, width: 6, height: 4
     d.step_up
     d.value.should eq 0
@@ -1037,7 +1023,7 @@ end
 
 describe "ComboBox editable" do
   it "filters options by typed text and commits the highlighted match" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true,
       options: ["Apple", "Banana", "Cherry", "Avocado"]
     cb.on_keypress keypress('a')
@@ -1049,7 +1035,7 @@ describe "ComboBox editable" do
   end
 
   it "commits free text when nothing matches" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, options: ["X", "Y"]
     "zzz".each_char { |c| cb.on_keypress keypress(c) }
     cb.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
@@ -1059,7 +1045,7 @@ end
 
 describe "Splitter multi-pane" do
   it "lays out three panes with two dividers" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 31, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -1084,7 +1070,7 @@ describe "Splitter multi-pane" do
   # Qt's `QSplitter` talks in pane sizes; the divider offsets are its private
   # business. `#sizes`/`#sizes=` are the missing pane-side view of `#positions`.
   it "reports and sets pane sizes (Qt's sizes/setSizes)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 31, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -1108,7 +1094,7 @@ describe "Splitter multi-pane" do
   end
 
   it "answers empty for the dividers of a splitter that has none" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 31, height: 10
     sp.dividers.should be_empty
     sp.panes.should be_empty
@@ -1121,7 +1107,7 @@ describe "Splitter multi-pane" do
   end
 
   it "pulls pinned dividers back inside a shrunken span without inverting" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     a = Crysterm::Widget::Box.new
     b = Crysterm::Widget::Box.new
@@ -1148,7 +1134,7 @@ end
 
 describe Crysterm::Widget::Tree do
   it "flattens only expanded nodes into rows, indented by depth" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     src = tree.add "src"
     src.add "widget"
@@ -1169,7 +1155,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "emits Expand/Collapse and keeps the cursor on the same node" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     a = tree.add "a"
     a.add "a1"
@@ -1190,7 +1176,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "coalesces rebuilds inside begin_update/end_update" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
 
     tree.begin_update
@@ -1205,7 +1191,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "rebuilds immediately for a lone add (outside a batch)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     tree.add "a"
     tree.nodes.map(&.text).should eq ["a"]
@@ -1214,7 +1200,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "runs a single deferred rebuild for the batch_update block form" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     tree.batch_update do
       root = tree.add "root"
@@ -1226,7 +1212,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "navigates with Right/Left/Space" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     root = tree.add "root"
     child = root.add "child"
@@ -1243,7 +1229,7 @@ describe Crysterm::Widget::Tree do
   end
 
   it "expand_all / collapse_all walk the whole hierarchy" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
     a = tree.add "a"
     b = a.add "b"
@@ -1258,7 +1244,7 @@ end
 
 describe "ComboBox mouse wheel" do
   it "cycles the value when wheeled while closed" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 16, height: 1,
       options: ["Red", "Green", "Blue"]
     cb.current_text.should eq "Red"
@@ -1271,7 +1257,7 @@ end
 
 describe "SpinBox direct entry" do
   it "types a value and commits it on Enter" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 5
     sb.on_keypress keypress('4')
     sb.on_keypress keypress('2')
@@ -1283,7 +1269,7 @@ describe "SpinBox direct entry" do
   end
 
   it "clamps a typed value above maximum and discards on Escape" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 50, value: 5
     "999".each_char { |c| sb.on_keypress keypress(c) }
     sb.on_keypress keypress('\r', Tput::Key::Enter)
@@ -1296,7 +1282,7 @@ describe "SpinBox direct entry" do
   end
 
   it "edits the buffer with Backspace" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 0
     "45".each_char { |c| sb.on_keypress keypress(c) }
     sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
@@ -1306,7 +1292,7 @@ describe "SpinBox direct entry" do
   end
 
   it "re-accepts a leading minus after the buffer is backspaced to empty" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: -100, maximum: 100, value: 0
     # Type a digit, then backspace it away, leaving an empty (non-nil) buffer.
     sb.on_keypress keypress('5')
@@ -1324,7 +1310,7 @@ end
 
 describe Crysterm::Widget::DoubleSpinBox do
   it "formats to decimals and steps by a float step" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
       value: 1.5, step: 0.5, decimals: 2
     d.formatted_value.should eq "1.50"
@@ -1338,7 +1324,7 @@ describe Crysterm::Widget::DoubleSpinBox do
   end
 
   it "accepts typed decimals" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0, value: 0.0
     "2.5".each_char { |c| d.on_keypress keypress(c) }
     d.on_keypress keypress('\r', Tput::Key::Enter)
@@ -1346,7 +1332,7 @@ describe Crysterm::Widget::DoubleSpinBox do
   end
 
   it "clamps negative decimals to zero instead of crashing on the format string" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # A negative count would malform "%.*f" and raise; Qt clamps at 0.
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
       value: 3.5, decimals: -2
@@ -1359,7 +1345,7 @@ end
 
 describe "Slider tick marks" do
   it "carries tick configuration without affecting stepping" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 10, value: 5,
       width: 20, height: 3, tick_position: Crysterm::Widget::Slider::TickPosition::Below,
       tick_interval: 2
@@ -1372,7 +1358,7 @@ end
 
 describe "TabWidget closable / movable / position" do
   it "removes a tab and re-points the current index" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
     tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
     tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
@@ -1387,7 +1373,7 @@ describe "TabWidget closable / movable / position" do
   end
 
   it "reorders tabs with move_tab, keeping the same page current" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
     tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
     tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
@@ -1400,7 +1386,7 @@ describe "TabWidget closable / movable / position" do
   end
 
   it "lays the page below the bar when tab_position is bottom" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10,
       tab_position: Crysterm::Widget::TabWidget::Position::Bottom
     page = Crysterm::Widget::Box.new content: "x"
@@ -1412,7 +1398,7 @@ end
 
 describe Crysterm::Widget::ScrollBar do
   it "clamps and steps as a standalone control, emitting ValueChanged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
       width: 1, height: 5
     changes = [] of Int32
@@ -1427,7 +1413,7 @@ describe Crysterm::Widget::ScrollBar do
   end
 
   it "reflects and drives a bound scrollable widget" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     s.repaint # establish geometry + wrapped content lines
@@ -1444,7 +1430,7 @@ describe Crysterm::Widget::ScrollBar do
   end
 
   it "set_range re-clamps the value and emits RangeChanged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 100, value: 80,
       width: 1, height: 5
     ranges = [] of {Int32, Int32}
@@ -1464,7 +1450,7 @@ describe Crysterm::Widget::ScrollBar do
   end
 
   it "single_step aliases step" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
       step: 1, width: 1, height: 5
     sb.single_step.should eq 1
@@ -1475,7 +1461,7 @@ describe Crysterm::Widget::ScrollBar do
   end
 
   it "defers value to release when tracking is off (slider_position)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
       width: 1, height: 5
     sb.tracking = false
@@ -1493,7 +1479,7 @@ end
 
 describe "Widget::ScrollBarPolicy (auto show/hide)" do
   it "AsNeeded shows the bar only when content overflows" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     box.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
@@ -1505,7 +1491,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 
   it "AsNeeded keeps the bar hidden when content fits" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
       content: "a\nb\nc"
     s.repaint
@@ -1514,7 +1500,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 
   it "AlwaysOn shows the bar even without overflow" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
       content: "a\nb\nc", scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOn
     s.repaint
@@ -1523,7 +1509,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 
   it "AlwaysOff never shows the bar, even on overflow" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n"),
       scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOff
@@ -1533,7 +1519,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 
   it "legacy scrollbar: true/false maps to a policy" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     on = Crysterm::Widget::Box.new parent: s, scrollbar: true, width: 10, height: 5
     on.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
     on.scrollbar?.should be_true
@@ -1542,7 +1528,7 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 
   it "List defaults to AsNeeded and sizes the thumb to its item count" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5,
       items: (1..20).map { |i| "item#{i}" }
     list.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
@@ -1556,7 +1542,7 @@ end
 
 describe "Event::Scroll payload (delta / orientation)" do
   it "reports the signed delta and axis on each scroll" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     s.repaint
@@ -1584,7 +1570,7 @@ end
 
 describe "QAbstractScrollArea facade" do
   it "vertical_scrollbar returns (and lazily creates) the bound bar" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     box.scrollbar_widget.should be_nil
@@ -1601,7 +1587,7 @@ describe "QAbstractScrollArea facade" do
   end
 
   it "vertical_scrollbar_policy aliases scrollbar_policy" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, width: 10, height: 5
     box.vertical_scrollbar_policy.should eq box.scrollbar_policy
     box.vertical_scrollbar_policy = Crysterm::Widget::ScrollBarPolicy::AlwaysOn
@@ -1609,7 +1595,7 @@ describe "QAbstractScrollArea facade" do
   end
 
   it "ensure_visible scrolls an off-screen line into view, and no-ops when visible" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     s.repaint
@@ -1622,7 +1608,7 @@ describe "QAbstractScrollArea facade" do
   end
 
   it "scroll_contents_by maps dy onto scroll and drives the bound bar" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
     s.repaint
@@ -1633,7 +1619,7 @@ describe "QAbstractScrollArea facade" do
   end
 
   it "ensure_widget_visible scrolls a descendant into view" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     child = Crysterm::Widget::Box.new parent: box, top: 20, left: 0, width: 5, height: 1, content: "x"
@@ -1645,7 +1631,7 @@ end
 
 describe Crysterm::Widget::ToolBox do
   it "shows exactly one expanded section at a time" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBox.new parent: s, width: 30, height: 16
     p1 = Crysterm::Widget::Box.new content: "1"
     p2 = Crysterm::Widget::Box.new content: "2"
@@ -1667,7 +1653,7 @@ describe Crysterm::Widget::ToolBox do
   # and all) into its own field and answer to `current=`, so the third member of
   # the paged family spoke a third dialect. It now runs the shared core.
   it "speaks the shared paged-container vocabulary" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBox.new parent: s, width: 30, height: 16
     p1 = Crysterm::Widget::Box.new content: "1"
     p2 = Crysterm::Widget::Box.new content: "2"
@@ -1691,7 +1677,7 @@ describe Crysterm::Widget::ToolBox do
 
   # ItemSelected still carries the header box, which CurrentChanged has no room for.
   it "still reports the picked header via ItemSelected" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBox.new parent: s, width: 30, height: 16
     tb.add_item "A", Crysterm::Widget::Box.new(content: "1")
     tb.add_item "B", Crysterm::Widget::Box.new(content: "2")
@@ -1707,7 +1693,7 @@ end
 
 describe Crysterm::Widget::Wizard do
   it "navigates pages and finishes / cancels" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
     wiz.add_page "One", Crysterm::Widget::Box.new(content: "1")
     wiz.add_page "Two", Crysterm::Widget::Box.new(content: "2")
@@ -1736,7 +1722,7 @@ end
 
 describe Crysterm::Widget::Calendar do
   it "moves the selection by day/week/month and emits DateChanged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
     changes = [] of Time
     cal.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
@@ -1751,7 +1737,7 @@ describe Crysterm::Widget::Calendar do
   end
 
   it "clamps the day when stepping into a shorter month" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 31)
     cal.on_keypress keypress(' ', Tput::Key::PageDown) # Jan 31 -> Feb (29 in 2024)
     cal.date.month.should eq 2
@@ -1759,7 +1745,7 @@ describe Crysterm::Widget::Calendar do
   end
 
   it "labels ISO week rows by the row's week, not the previous one, when Sunday-first" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
     # Sunday is the default first day of week; enable ISO week-number gutter.
     cal.first_day_of_week = ::Time::DayOfWeek::Sunday
@@ -1776,7 +1762,7 @@ describe Crysterm::Widget::Calendar do
   end
 
   it "keeps the year and steppers in a stable column as the month cycles" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 5, 15) # May — a short month name
     may_nav = cal.content.split('\n').first
@@ -1793,7 +1779,7 @@ describe Crysterm::Widget::Calendar do
   end
 
   it "keeps the wheel paging the month after clicking the month opens its dropdown" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 5, 15)
     s.repaint
@@ -1817,7 +1803,7 @@ describe Crysterm::Widget::Calendar do
   end
 
   it "keeps the wheel paging the year after clicking the year, with a ±100 dropdown" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.local(2024, 5, 15)
     s.repaint
@@ -1846,7 +1832,7 @@ end
 
 describe Crysterm::Widget::DateEdit do
   it "steps the focused section (day/month/year)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(2024, 1, 15),
       calendar_popup: false
     de.on_keypress keypress(' ', Tput::Key::Up) # day section by default -> 16
@@ -1862,7 +1848,7 @@ end
 
 describe Crysterm::Widget::TimeEdit do
   it "steps each section within its own range, wrapping" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 10, 30, 45)
     changes = [] of Time
     te.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
@@ -1876,7 +1862,7 @@ describe Crysterm::Widget::TimeEdit do
   end
 
   it "wraps the hour at 23 without carrying" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 23, 0, 0)
     te.on_keypress keypress(' ', Tput::Key::Up) # 23 -> 0, day unchanged
     te.time.hour.should eq 0
@@ -1886,7 +1872,7 @@ end
 
 describe "Menu Qt conveniences" do
   it "adds actions by text and connects a block" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s
     m.add_action "One"
     fired = 0
@@ -1898,7 +1884,7 @@ describe "Menu Qt conveniences" do
   end
 
   it "adds a submenu via add_submenu" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s
     act = m.add_submenu "File", [Crysterm::Action.new("a"), Crysterm::Action.new("b")]
     act.menu?.should be_true
@@ -1906,7 +1892,7 @@ describe "Menu Qt conveniences" do
   end
 
   it "shows and dismisses as a context-menu popup" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     m = Crysterm::Widget::Menu.new parent: s, style: Style.new(border: true)
     m.add_action "Copy"
     m.add_action "Paste"
@@ -1921,7 +1907,7 @@ end
 
 describe Crysterm::Widget::DateTimeEdit do
   it "steps each of the six sections, wrapping within range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     dt = Crysterm::Widget::DateTimeEdit.new parent: s, date_time: Time.local(2024, 1, 31, 23, 59, 59)
     changes = [] of Time
     dt.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
@@ -1940,7 +1926,7 @@ end
 
 describe Crysterm::Widget::StatusBar do
   it "holds a temporary message and permanent sections" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
     bar.show_message "Hello"
     bar.message.should eq "Hello"
@@ -1954,7 +1940,7 @@ end
 
 describe Crysterm::Widget::DockWidget do
   it "sets a content widget and emits Close on close" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "Files",
       area: Crysterm::Widget::DockWidget::Area::Left
     inner = Crysterm::Widget::Box.new content: "x"
@@ -1969,7 +1955,7 @@ describe Crysterm::Widget::DockWidget do
   end
 
   it "toggles floating and emits Float, restoring the prior area" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "F",
       area: Crysterm::Widget::DockWidget::Area::Right
     states = [] of Bool
@@ -1983,7 +1969,7 @@ describe Crysterm::Widget::DockWidget do
   end
 
   it "shows the resize grip only while floating (Qt: no corner grip when docked)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "P",
       area: Crysterm::Widget::DockWidget::Area::Left
     grip = dock.size_grip.not_nil!
@@ -2003,7 +1989,7 @@ describe Crysterm::Widget::DockWidget do
     # Mimics a Qt theme styling the title bar solid but its buttons transparent
     # (for icon images). In a terminal that paints the screen default (`-1`),
     # rendering as a "black hole" — the widget must fall back to the bar's bg.
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     s.stylesheet = "DockWidget::title { background-color: #334455; color: #ffffff; } " \
                    "DockWidget::close-button, DockWidget::float-button { background-color: transparent; }"
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "Panes",
@@ -2024,7 +2010,7 @@ end
 
 describe Crysterm::Widget::MainWindow do
   it "arranges the bars, a left dock, and the central widget" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     menu = Crysterm::Widget::MenuBar.new
     status = Crysterm::Widget::StatusBar.new
@@ -2043,7 +2029,7 @@ describe Crysterm::Widget::MainWindow do
   end
 
   it "places the tool bar at the top when there is no menu bar" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     tool = Crysterm::Widget::ToolBar.new
     central = Crysterm::Widget::Box.new content: "central"
@@ -2058,7 +2044,7 @@ describe Crysterm::Widget::MainWindow do
   end
 
   it "stacks several tool bars below the menu bar, and drops one on removal" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.menu_bar = Crysterm::Widget::MenuBar.new
     t1 = win.add_tool_bar Crysterm::Widget::ToolBar.new
@@ -2080,7 +2066,7 @@ describe Crysterm::Widget::MainWindow do
   end
 
   it "constructs the menu/status bars on first access, and clears a slot on nil" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     win.menu_bar?.should be_nil # asking doesn't create
     bar = win.menu_bar          # Qt's `menuBar()` — never null
@@ -2095,7 +2081,7 @@ describe Crysterm::Widget::MainWindow do
   end
 
   it "adds a dock into an area with Qt's argument order" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     dock = Crysterm::Widget::DockWidget.new title: "D", dock_size: 12 # defaults to Left
     win.add_dock Crysterm::Widget::DockWidget::Area::Right, dock
@@ -2115,7 +2101,7 @@ end
 
 describe Crysterm::Widget::ToolTip do
   it "registers hover help and becomes hit-testable" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     b = Crysterm::Widget::Box.new parent: s, top: 2, left: 2, width: 10, height: 3
     b.wants_mouse?.should be_false
     b.tool_tip = "Help!"
@@ -2124,7 +2110,7 @@ describe Crysterm::Widget::ToolTip do
   end
 
   it "sizes and positions itself via show_at" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     # Force the unstyled floor: the default theme styles `ToolTip`, but this
     # asserts the floor-border path. Theme state is process-global, so
     # save/restore to keep "no theme" from leaking into later specs.
@@ -2151,7 +2137,7 @@ end
 
 describe Crysterm::Widget::MenuBar do
   it "shows plain titles, opens/switches menus, and tracks the highlight" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 60, height: 16
     bar = Crysterm::Widget::MenuBar.new
     win.menu_bar = bar
@@ -2181,7 +2167,7 @@ describe Crysterm::Widget::MenuBar do
   end
 
   it "activates an action from an open menu" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fired = 0
     fm = bar.add_menu "File"
@@ -2193,7 +2179,7 @@ describe Crysterm::Widget::MenuBar do
   end
 
   it "switches menus via a top-level menu's Left/Right navigation" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     bar.add_menu "File", [Crysterm::Action.new("New")]
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
@@ -2206,7 +2192,7 @@ describe Crysterm::Widget::MenuBar do
   end
 
   it "deactivates when focus leaves the bar's world, but not while diving into a submenu" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     other = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 6, height: 1, content: "X"
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fm = bar.add_menu "File"
@@ -2244,7 +2230,7 @@ end
 
 describe Crysterm::Widget::LCDNumber do
   it "renders a value as three seven-segment rows, right-aligned" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     lcd = Crysterm::Widget::LCDNumber.new parent: s, top: 0, left: 0, width: 24, height: 3, digit_count: 3
     lcd.display 42
     lcd.text.should eq "42"
@@ -2252,7 +2238,7 @@ describe Crysterm::Widget::LCDNumber do
   end
 
   it "formats integers per mode" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     lcd = Crysterm::Widget::LCDNumber.new parent: s, mode: Crysterm::Widget::LCDNumber::Mode::Hex
     lcd.display 255
     lcd.text.should eq "FF"
@@ -2264,7 +2250,7 @@ end
 
 describe Crysterm::Widget::SizeGrip do
   it "resizes its target when dragged" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 20, height: 6,
       style: Style.new(border: true)
     grip = Crysterm::Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1,
@@ -2284,7 +2270,7 @@ end
 
 describe Crysterm::Widget::ToolBar do
   it "shows plain labels, triggers buttons, and lights checked toggles" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fired = 0
     tb.add_button("New") { fired += 1 }
@@ -2309,7 +2295,7 @@ end
 
 describe Crysterm::Widget::SplashScreen do
   it "centers, shows a message, and finishes" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8,
       content: Crysterm::Widget::Box.new(content: "Loading")
     sp.content_widget.should_not be_nil
@@ -2326,7 +2312,7 @@ describe Crysterm::Widget::SplashScreen do
   end
 
   it "respects an explicit position" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     sp = Crysterm::Widget::SplashScreen.new parent: s, top: 1, left: 2, width: 20, height: 6
     s.repaint
     sp.aleft.should eq 2
@@ -2336,7 +2322,7 @@ end
 
 describe "MenuBar rendering (regression)" do
   it "appends its pop-up menus to the screen and keeps their rows visible" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fm = bar.add_menu "File"
     # Rows added after the menu is hidden must still be visible once shown —
@@ -2354,7 +2340,7 @@ end
 
 describe "Input grab (modal pop-ups)" do
   it "stops hover reaching other widgets while a menu is open, but keeps the bar live" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
     menubar = Crysterm::Widget::MenuBar.new
     win.menu_bar = menubar
@@ -2403,7 +2389,7 @@ end
 
 describe "Horizontal scroll API" do
   it "reports content width and clamps scroll_by_x into range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.scroll_width.should eq 20
@@ -2418,7 +2404,7 @@ describe "Horizontal scroll API" do
   end
 
   it "scroll_to_x seeks to an absolute column" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.scroll_to_x 6
@@ -2428,7 +2414,7 @@ describe "Horizontal scroll API" do
   end
 
   it "emits Scroll with a horizontal orientation and column delta" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     events = [] of {Int32, Tput::Orientation}
@@ -2442,7 +2428,7 @@ describe "Horizontal scroll API" do
   end
 
   it "shows the horizontal bar only on horizontal overflow (AsNeeded)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.show_horizontal_scrollbar?.should be_true
@@ -2458,7 +2444,7 @@ describe "Horizontal scroll API" do
   end
 
   it "scrolls horizontally with Left/Right keys" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.on_keypress keypress(' ', Tput::Key::Right)
@@ -2470,7 +2456,7 @@ describe "Horizontal scroll API" do
   end
 
   it "pages horizontally with Ctrl-Left/Ctrl-Right (one content width)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.content_width.should eq 10
@@ -2481,7 +2467,7 @@ describe "Horizontal scroll API" do
   end
 
   it "jumps to the first/last column with Shift-Home/Shift-End" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
     box.on_keypress keypress(' ', Tput::Key::ShiftEnd)
@@ -2491,7 +2477,7 @@ describe "Horizontal scroll API" do
   end
 
   it "jumps to the first/last column with vi_keys 0/$ keys" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false, vi_keys: true,
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
@@ -2504,7 +2490,7 @@ describe "Horizontal scroll API" do
   end
 
   it "scroll_contents_by moves both axes" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
       wrap_content: false,
       content: "ABCDEFGHIJKLMNOPQRST\nline2\nline3\nline4\nline5\nline6\nline7\nline8"
@@ -2524,7 +2510,7 @@ end
 
 describe "ProgressBar vertical mouse mapping" do
   it "maps a click near the top to a high fill (bottom-up bar)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     pb = Crysterm::Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 3, height: 6,
       orientation: Tput::Orientation::Vertical, mouse: true, minimum: 0, maximum: 100
     s.repaint
@@ -2538,7 +2524,7 @@ end
 
 describe "Form radio buttons" do
   it "includes radio buttons in submit and resets them" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new parent: s, width: 20, height: 10
     Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "A", checked: true
     Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "B"
@@ -2550,14 +2536,14 @@ end
 
 describe "ComboBox opening" do
   it "highlights the current selection when opened (non-editable)" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], current_index: 2
     cb.show_popup
     cb.@popup.not_nil!.current_index.should eq 2
   end
 
   it "leaves the edit buffer empty after replacing options" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, options: ["a", "b"]
     cb.options = ["xx", "yy"]
     cb.@text.should eq ""
@@ -2566,7 +2552,7 @@ end
 
 describe "DateEdit year clamping" do
   it "does not crash when stepping the year past Time's 1..9999 range" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(1, 1, 1), calendar_popup: false
     de.on_keypress keypress('\0', Tput::Key::Left) # day -> month
     de.on_keypress keypress('\0', Tput::Key::Left) # month -> year
@@ -2583,7 +2569,7 @@ end
 
 describe "TabWidget remove_tab" do
   it "keeps tab command callbacks pointing at the right page after a removal" do
-    s = qt_mem_screen
+    s = headless_screen(80, 24)
     tw = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 12
     pa = Crysterm::Widget::Box.new content: "A"
     pb = Crysterm::Widget::Box.new content: "B"

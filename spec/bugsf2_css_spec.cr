@@ -4,35 +4,11 @@ include Crysterm
 
 # Regression specs for the BUGS-F2 CSS findings (5, 22, 25, 49, 50, 51).
 
-private def headless_screen(width = 80, height = 24)
-  Crysterm::Window.new(
-    default_quit_keys: false,
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
-# Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it, so asserting on computed colors isn't foiled by the theme (which
-# would otherwise materialize extra base colors/state styles).
-private def without_default_theme(&)
-  saved = Crysterm::CSS.default_stylesheet
-  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
-  begin
-    yield
-  ensure
-    Crysterm::CSS.default_stylesheet = saved
-  end
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # --- Finding 5: sub-element state rule must not strip the parent's base rules -
 
 describe "BUGS-F2 #5 sub-element state rule keeps the parent's base rules" do
   it "keeps the base background/color in a state materialized by a sub-element :hover" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: screen
 
     without_default_theme do
@@ -55,7 +31,7 @@ describe "BUGS-F2 #5 sub-element state rule keeps the parent's base rules" do
   end
 
   it "keeps the base background when a sub-element :focus rule materializes focus" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: screen
 
     without_default_theme do
@@ -75,7 +51,7 @@ end
 
 describe "BUGS-F2 #22 no-rules early exit preserves structural invalidation" do
   it "styles a widget added during an unstyled period once a sheet is reassigned" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     a = Widget::Button.new parent: screen
 
     without_default_theme do
@@ -105,7 +81,7 @@ end
 
 describe "BUGS-F2 #25 table Row selectors" do
   it "applies a direct Row rule to every cell of every row" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
 
     without_default_theme do
@@ -119,7 +95,7 @@ describe "BUGS-F2 #25 table Row selectors" do
   end
 
   it "targets a single row by :nth-child position (rows emitted before sub-elements)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
 
     without_default_theme do
@@ -136,7 +112,7 @@ describe "BUGS-F2 #25 table Row selectors" do
   end
 
   it "layers a Cell rule on top of a Row rule (row is the base, cell wins)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
 
     without_default_theme do
@@ -242,7 +218,7 @@ describe "BUGS-F2 #51 !important on a custom property" do
   end
 
   it "resolves a var() consumer to the clean color, not `red !important`" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     button = Widget::Button.new parent: screen
 
     without_default_theme do

@@ -233,12 +233,10 @@ module Crysterm
       # the clock's phase-lock (`next_at` is computed from the start time
       # regardless).
       clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do
-        begin
-          bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
-          input.write Capture.rgba(bmp)
-        rescue
-          # Pipe closed / encoder gone: stop feeding it.
-        end
+        bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+        input.write Capture.rgba(bmp)
+      rescue
+        # Pipe closed / encoder gone: stop feeding it.
       end
       clock.start
       sleep duration

@@ -5,19 +5,13 @@ include Crysterm
 # Regression specs for the BUGS12 layout fixes. Headless harness mirrors
 # spec/bugs11_layout_margin_spec.cr / spec/bugs8_layout_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS12 #36 — Stack layout suppressed non-current pages with `skip el`, which
 # clears only the page's own `lpos`. A hidden page's descendants kept their stale
 # rects, so `Window#widget_at` still hit-tested them. The fix uses `skip_subtree`
 # (as the base collapsed-interior path and `Flow#arrange` already do).
 describe "BUGS12 stack layout clears hidden pages' descendants (fix #36)" do
   it "nils a hidden page's child lpos instead of leaving it stale/hittable" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     stack = Layout::Stack.new
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: stack
@@ -49,7 +43,7 @@ end
 # child's margin total in the placement, mirroring the advance.
 describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)" do
   it "keeps a top-margined bottom child within the container's interior" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Border.new
 
@@ -69,7 +63,7 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
   end
 
   it "keeps a left-margined right child within the container's interior" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::Border.new
 

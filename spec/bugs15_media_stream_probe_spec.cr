@@ -52,16 +52,11 @@ private class ProbeAnsi < Crysterm::Widget::Media::Ansi
   end
 end
 
-private def probe_window
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 40, height: 12)
-end
-
 describe "BUGS15 #21 stream-mode source memoizes its decode mode" do
   it "resolves the mode (ffprobe) at most once across many render-path calls" do
     prev = Crysterm::Config.media_video_decode
     Crysterm::Config.media_video_decode = Crysterm::Widget::Media::VideoDecode::Auto
-    s = probe_window
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = ProbeAnsi.new(parent: s)
     img.reload "clip.mp4" # stream-mode video (via the stubbed estimator); no decode yet
 

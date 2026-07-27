@@ -4,11 +4,6 @@ include Crysterm
 
 # BUGS12 #8, #24 (widget_label.cr) and #32 (widget/group_box.cr).
 
-private def label_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 20, height: 10)
-end
-
 # BUGS12 #8 — `remove_label` passed the nilable Scroll/Resize wrapper ivars
 # straight to `off`. The event_handler shard has no `off` overload for `Nil`,
 # so a nil wrapper fell through to the catch-all `off(type)` =
@@ -17,7 +12,7 @@ end
 # `set_label` (e.g. assigning `label_widget` directly).
 describe "BUGS12 8: remove_label keeps unrelated Scroll/Resize handlers" do
   it "does not wipe the widget's handlers when the label wrappers are nil" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, width: 10, height: 5
 
     # Assign the label directly: `@ev_label_scroll`/`@ev_label_resize` stay nil.
@@ -44,7 +39,7 @@ describe "BUGS12 8: remove_label keeps unrelated Scroll/Resize handlers" do
   end
 
   it "still detaches the wrappers when set_label created them" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.set_label "Title"
 
@@ -67,7 +62,7 @@ end
 # `place_label_side` when the horizontal inset drifts.
 describe "BUGS12 24: sync_label_position re-glues the label's horizontal inset" do
   it "re-glues a left label when a border cascades in after construction" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.set_label "Title" # side defaults to :left
     lbl = box.label_widget.not_nil!
@@ -87,7 +82,7 @@ describe "BUGS12 24: sync_label_position re-glues the label's horizontal inset" 
   end
 
   it "re-glues a right label too" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.set_label "T", side: :right
     lbl = box.label_widget.not_nil!
@@ -104,7 +99,7 @@ describe "BUGS12 24: sync_label_position re-glues the label's horizontal inset" 
   end
 
   it "leaves the label untouched when the inset has not moved" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, width: 10, height: 5
     box.set_label "Title"
     lbl = box.label_widget.not_nil!
@@ -120,7 +115,7 @@ end
 # leaving a stale border label after `title = ""` or `checkable = false`.
 describe "BUGS12 32: GroupBox#update_label clears the stale label" do
   it "removes the label when the title is cleared" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     gb = Widget::GroupBox.new parent: s, title: "Options", width: 20, height: 6
     gb.label_widget.should_not be_nil
 
@@ -129,7 +124,7 @@ describe "BUGS12 32: GroupBox#update_label clears the stale label" do
   end
 
   it "removes the label when checkability is turned off on an empty title" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     gb = Widget::GroupBox.new parent: s, title: "", checkable: true, width: 20, height: 6
     gb.label_widget.should_not be_nil # the [x] marker keeps a label
 
@@ -138,7 +133,7 @@ describe "BUGS12 32: GroupBox#update_label clears the stale label" do
   end
 
   it "still shows a label when there is something to show" do
-    s = label_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     gb = Widget::GroupBox.new parent: s, title: "Keep", width: 20, height: 6
     gb.title = "Renamed"
     gb.label_widget.should_not be_nil

@@ -9,10 +9,6 @@ require "./spec_helper"
   # any new `Crysterm::Widget::` is automatically checked — any asymmetry
   # between `#dom_attributes` and `#dom_apply` fails here.
 
-  private def headless_screen
-    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-  end
-
   describe "DOM::REGISTRY round-trip invariant" do
     it "discovered the expected core widgets" do
       %w[box label button checkbox radiobutton form list plaintextedit lineedit progressbar].each do |tag|
@@ -25,7 +21,7 @@ require "./spec_helper"
 
       Crysterm::DOM.registry.each do |tag, factory|
         begin
-          build = headless_screen
+          build = headless_screen(default_quit_keys: true)
           w = factory.call(build)
           build.append w
           w.css_id = "x"
@@ -37,7 +33,7 @@ require "./spec_helper"
 
           first = w.to_layout_html
 
-          reload = headless_screen
+          reload = headless_screen(default_quit_keys: true)
           reload.load_layout first
           second = reload.children.first.to_layout_html
 
@@ -55,14 +51,14 @@ require "./spec_helper"
     # The auto-serializer previously skipped empty strings, so a cleared value
     # silently reverted to the default on reload.
     it "round-trips a non-empty-default string option cleared to empty" do
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       pb = Crysterm::Widget::ProgressBar.new window: s
       s.append pb
       pb.css_id = "p"
       pb.format.should eq "%p%" # sanity: non-empty default
       pb.format = ""            # user clears it
 
-      reload = headless_screen
+      reload = headless_screen(default_quit_keys: true)
       reload.load_layout s.to_layout_html
       loaded = reload.find_by_id("p").as(Crysterm::Widget::ProgressBar)
       loaded.format.should eq ""

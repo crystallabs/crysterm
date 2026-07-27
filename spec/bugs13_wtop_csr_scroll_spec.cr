@@ -13,18 +13,13 @@ include Crysterm
 # desync). Off-screen rows can't be CSR-scrolled; the path must fall through
 # to a normal repaint.
 
-private def csr_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 40, height: 12)
-end
-
 private def row_chars(s, y)
   Array.new(s.lines[y].size) { |x| s.lines[y][x].char }
 end
 
 describe "BUGS13 W4: CSR scroll fast path bounds" do
   it "scrolling a full-width widget extending past the bottom edge does not corrupt the buffer" do
-    s = csr_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
@@ -42,7 +37,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
   end
 
   it "scrolling a full-width widget with a negative top does not evict bottom rows" do
-    s = csr_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: -3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
@@ -65,7 +60,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
   end
 
   it "scrolling back up (insert_line path) past the bottom edge is safe too" do
-    s = csr_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
@@ -82,7 +77,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
   end
 
   it "a fully on-screen full-width scrollable still scrolls (fast path or repaint)" do
-    s = csr_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 6,
       scrollable: true
     w.set_content((1..40).map { |i| "line #{i}" }.join('\n'))
@@ -96,7 +91,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
   end
 
   it "Widget#insert_line's render shift is safe on a widget extending past the bottom" do
-    s = csr_screen
+    s = headless_screen(40, 12, default_quit_keys: true)
     w = Widget::Box.new parent: s, top: 3, left: 0, width: "100%", height: "100%",
       scrollable: true
     w.set_content((1..20).map { |i| "line #{i}" }.join('\n'))

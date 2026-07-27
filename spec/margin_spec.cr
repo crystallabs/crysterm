@@ -9,16 +9,6 @@ include Crysterm
 # resolved rectangle (`coords`/`lpos`), content preservation, CSS parsing,
 # and sibling spacing.
 
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24)
-end
-
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 describe "margin" do
   describe "Margin struct" do
     it "parses from shorthand values like padding" do
@@ -62,7 +52,7 @@ describe "margin" do
     # Pre-cascade: `style` short-circuits to the inline `@style`, exercising the
     # inline constructor + `coords` inset directly, without CSS in between.
     it "shifts a fixed-size widget by its margin, keeping its size (inline)" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       plain = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
       boxed = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5,
         style: Style.new(margin: 1)
@@ -78,7 +68,7 @@ describe "margin" do
     end
 
     it "honors asymmetric per-side margins (inline)" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 20, height: 10,
         style: Style.new(margin: Margin.new(left: 1, top: 2, right: 3, bottom: 4))
 
@@ -91,7 +81,7 @@ describe "margin" do
     # Full pipeline: margin via CSS rule, folded by the cascade, applied at
     # render — `lpos` carries the same inset.
     it "applies a CSS margin at render time" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
       screen.stylesheet = "Box { margin: 1; }"
       screen.repaint
@@ -101,7 +91,7 @@ describe "margin" do
     end
 
     it "leaves the inner content offsets (border/padding) untouched" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 20, height: 10
       box.add_css_class "deco"
       screen.stylesheet = ".deco { border: solid; padding: 1; margin: 2; }"
@@ -118,7 +108,7 @@ describe "margin" do
 
   describe "shrink-to-content" do
     it "reserves room so a margin never clips a content-sized widget" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       plain = Widget::Box.new parent: screen, top: 0, left: 0, content: "hello"
       plain.shrink_to_fit = true
       boxed = Widget::Box.new parent: screen, top: 0, left: 0, content: "hello"
@@ -140,7 +130,7 @@ describe "margin" do
 
   describe "CSS" do
     it "parses the margin shorthand (TRBL) onto the style" do
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       box = Widget::Box.new
       screen.append box
 
@@ -152,7 +142,7 @@ describe "margin" do
     end
 
     it "parses per-side margin longhands" do
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       box = Widget::Box.new
       screen.append box
 
@@ -169,7 +159,7 @@ describe "margin" do
     end
 
     it "lets an inline margin switch off over a stylesheet via the cascade" do
-      screen = headless_screen
+      screen = headless_screen(default_quit_keys: true)
       box = Widget::Box.new parent: screen, style: Style.new(margin: 2)
       screen.stylesheet = "Box { color: white; }"
       screen.apply_stylesheet
@@ -181,7 +171,7 @@ describe "margin" do
 
   describe "layout spacing" do
     it "separates HBox children by their adjacent margins" do
-      screen = render_screen
+      screen = headless_screen(80, 24, default_quit_keys: true)
       box = Widget::Box.new parent: screen, top: 0, left: 0, width: 40, height: 6,
         layout: Layout::Box.new(orientation: Tput::Orientation::Horizontal)
       a = Widget::Box.new parent: box, width: 8, height: 4

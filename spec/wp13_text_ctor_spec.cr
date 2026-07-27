@@ -6,15 +6,9 @@ require "./spec_helper"
 # Label and LineEdit; GroupBox already had an untyped positional `title`
 # param and needed no change.
 
-private def wp13_window(width = 40, height = 15)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height)
-end
-
 describe "WP-13 text-first positional constructors" do
   it "Button.new(text) sets the label; explicit content: still wins" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     b = Crysterm::Widget::Button.new "Submit", parent: s
     b.text.should eq "Submit"
     b.content.should eq "Submit"
@@ -26,7 +20,7 @@ describe "WP-13 text-first positional constructors" do
   end
 
   it "CheckBox.new(text) sets the label via the marker content path" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     c = Crysterm::Widget::CheckBox.new "Wrap", parent: s
     c.text.should eq "Wrap"
 
@@ -37,7 +31,7 @@ describe "WP-13 text-first positional constructors" do
   end
 
   it "RadioButton.new(text) sets the label via the marker content path" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     r = Crysterm::Widget::RadioButton.new "Option A", parent: s
     r.text.should eq "Option A"
 
@@ -48,7 +42,7 @@ describe "WP-13 text-first positional constructors" do
   end
 
   it "Label.new(text) sets the label; keyword-only construction still works" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     l = Crysterm::Widget::Label.new "Hello", parent: s
     l.text.should eq "Hello"
 
@@ -62,7 +56,7 @@ describe "WP-13 text-first positional constructors" do
   end
 
   it "LineEdit.new(contents) sets the initial value; explicit content: still wins" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     le = Crysterm::Widget::LineEdit.new "seed", parent: s
     le.value.should eq "seed"
 
@@ -73,7 +67,7 @@ describe "WP-13 text-first positional constructors" do
   end
 
   it "GroupBox already accepts a positional title (untyped param, pre-existing)" do
-    s = wp13_window
+    s = headless_screen(40, 15, default_quit_keys: true)
     gb = Crysterm::Widget::GroupBox.new "Options", parent: s
     gb.title.should eq "Options"
   ensure

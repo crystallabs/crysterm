@@ -9,10 +9,6 @@ include Crysterm
 #   * `Application#route_input` — device->surface dispatch: forwards a parsed
 #     event to the active window on that device.
 
-private def routing_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private def press(char : Char, key : Tput::Key? = nil)
   Tput::InputEvent.new char, key
 end
@@ -24,7 +20,7 @@ end
 
 describe "Window#handle_input" do
   it "routes a paste to Event::Paste with the verbatim content" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     got = [] of String
     s.on(Crysterm::Event::Paste) { |e| got << e.content }
     s.handle_input Tput::InputEvent.new('\0', paste: "a\e[Bb")
@@ -32,7 +28,7 @@ describe "Window#handle_input" do
   end
 
   it "routes a key press to Event::KeyPress (not KeyRelease)" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     presses = [] of Tput::Key?
     releases = 0
     s.on(Crysterm::Event::KeyPress) { |e| presses << e.key }
@@ -43,7 +39,7 @@ describe "Window#handle_input" do
   end
 
   it "routes a key release to Event::KeyRelease (not KeyPress)" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     presses = 0
     releases = 0
     s.on(Crysterm::Event::KeyPress) { |_| presses += 1 }
@@ -54,7 +50,7 @@ describe "Window#handle_input" do
   end
 
   it "delivers both press and release to the Event::Key catch-all" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     seen = [] of String
     s.on(Crysterm::Event::Key) { |e| seen << e.class.name.split("::").last }
     s.handle_input press('a', Tput::Key::CtrlA)
@@ -63,7 +59,7 @@ describe "Window#handle_input" do
   end
 
   it "routes a color-scheme report to Event::ColorSchemeChanged" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     got = [] of Tput::ColorScheme
     s.on(Crysterm::Event::ColorSchemeChanged) { |e| got << e.scheme }
     s.handle_input Tput::InputEvent.new('\0', color_scheme: Tput::ColorScheme::Dark)
@@ -71,7 +67,7 @@ describe "Window#handle_input" do
   end
 
   it "routes an OSC-52 clipboard read reply to Event::ClipboardChanged (not Paste)" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     clips = [] of String
     pastes = 0
     s.on(Crysterm::Event::ClipboardChanged) { |e| clips << e.content }
@@ -82,7 +78,7 @@ describe "Window#handle_input" do
   end
 
   it "consumes an in-band resize without emitting a key or paste" do
-    s = routing_screen
+    s = headless_screen(default_quit_keys: true)
     other = 0
     s.on(Crysterm::Event::KeyPress) { |_| other += 1 }
     s.on(Crysterm::Event::Paste) { |_| other += 1 }
@@ -94,7 +90,7 @@ end
 describe "Application#route_input" do
   it "forwards a parsed event to the active window on that device" do
     app = Crysterm::Application.new
-    win = routing_screen
+    win = headless_screen(default_quit_keys: true)
     app.add win
 
     got = [] of Tput::Key?
@@ -106,8 +102,8 @@ describe "Application#route_input" do
 
   it "routes to the window that owns the originating device, not the global active one" do
     app = Crysterm::Application.new
-    win_a = routing_screen
-    win_b = routing_screen
+    win_a = headless_screen(default_quit_keys: true)
+    win_b = headless_screen(default_quit_keys: true)
     app.add win_a
     app.add win_b # win_b is now the globally active window
 
@@ -124,7 +120,7 @@ describe "Application#route_input" do
 
   it "drops input from a device with no window (no error)" do
     app = Crysterm::Application.new
-    orphan = routing_screen                                     # built but never added to the app
+    orphan = headless_screen(default_quit_keys: true)           # built but never added to the app
     app.route_input orphan.screen, press('a', Tput::Key::CtrlA) # no-op, not a raise
   end
 
@@ -159,7 +155,7 @@ describe "Application#route_input" do
   # forward — the piece testable without the blocking loop.
   it "lets default_quit_keys= flip a window out of the hard-exit path" do
     app = Crysterm::Application.new
-    win = routing_screen # defaults to default_quit_keys: true
+    win = headless_screen(default_quit_keys: true)
     app.add win
     win.default_quit_keys?.should be_true
 
@@ -175,7 +171,7 @@ describe "Application#route_input" do
 
   it "refreshes the app clipboard cache from an OSC-52 read reply" do
     app = Crysterm::Application.new
-    win = routing_screen
+    win = headless_screen(default_quit_keys: true)
     app.add win
 
     got = [] of String
@@ -190,8 +186,8 @@ end
 describe "Application registry consistency" do
   it "drops a destroyed window from the registry and active_window" do
     app = Crysterm::Application.new
-    a = routing_screen
-    b = routing_screen
+    a = headless_screen(default_quit_keys: true)
+    b = headless_screen(default_quit_keys: true)
     app.add a
     app.add b
     app.windows.should eq [a, b]
@@ -205,7 +201,7 @@ describe "Application registry consistency" do
 
   it "stops routing input to a destroyed window" do
     app = Crysterm::Application.new
-    win = routing_screen
+    win = headless_screen(default_quit_keys: true)
     app.add win
     dev = win.screen
     got = 0

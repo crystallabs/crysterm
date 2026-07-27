@@ -6,15 +6,6 @@ include Crysterm
 # (Tab-cycle + Enter) and pointer activation, and source navigation history
 # through the application-provided `loader`.
 
-private def tb_screen(width = 40, height = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
 private def new_tb(s)
   tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
   s.repaint
@@ -31,7 +22,7 @@ end
 
 describe Widget::TextBrowser do
   it "is read-only by default and enumerates links" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.read_only?.should be_true
     tb.document = linked_doc
@@ -43,7 +34,7 @@ describe Widget::TextBrowser do
   end
 
   it "cycles link focus with Tab and activates with Enter" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     clicked = [] of String
@@ -63,7 +54,7 @@ describe Widget::TextBrowser do
   end
 
   it "activates a link under a mouse click" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     s.repaint
@@ -82,7 +73,7 @@ describe Widget::TextBrowser do
   end
 
   it "navigates sources through the loader with history" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     pages = {
       "a" => "page a [next](b)",
@@ -119,7 +110,7 @@ describe Widget::TextBrowser do
   end
 
   it "renders the focused link inverse and keeps user extra selections" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = linked_doc
     s.repaint
@@ -136,7 +127,7 @@ describe Widget::TextBrowser do
   end
 
   it "documents without links refuse link focus" do
-    s = tb_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     tb = new_tb s
     tb.document = TextDocument.new("plain")
     tb.focus_link(1).should be_false

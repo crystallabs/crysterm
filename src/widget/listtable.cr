@@ -303,9 +303,9 @@ module Crysterm
         # Schwartzian transform: precompute one sort key per body row and sort the
         # keyed pairs, rather than re-stripping tags for both operands inside the
         # O(n log n) comparator.
-        keyed = @rows[1..].map do |r|
+        keyed = @rows[1..].map_with_index do |r, i|
           c = clean_tags(r[col]? || "")
-          {c.to_f?, c, r}
+          {c.to_f?, c, r, i + 1}
         end
         keyed.sort! do |a, b|
           cmp = compare_keys(a[0], a[1], b[0], b[1])
@@ -314,6 +314,16 @@ module Crysterm
 
         @rows = [head]
         keyed.each { |k| @rows << k[2] }
+
+        # `@cell_widths` is indexed in parallel with `@rows` and is rebuilt only
+        # by `#compute_column_widths` (already run, over the *pre*-sort order),
+        # so permute it with the same order the rows moved in. Otherwise
+        # `#render_row` would pad each row with its neighbour's cell widths.
+        # Each keyed tuple carries the row's old index for exactly this.
+        order = Array(Int32).new keyed.size + 1
+        order << 0
+        keyed.each { |k| order << k[3] }
+        reorder_cell_widths order
       end
 
       # Compares two precomputed cell keys. When both cells parse as numbers they
@@ -429,7 +439,7 @@ module Crysterm
       private def reslice_rows
         return if @maxes.empty?
         @rows.each_with_index do |row, i|
-          text = render_row row, @first_col
+          text = render_row row, @first_col, i
           if i == 0
             header.set_content text
           elsif @item_boxes[i]?
@@ -510,7 +520,7 @@ module Crysterm
         # Index 0 is a spacer that the pinned header overlays.
         items = [""]
         @rows.each_with_index do |row, i|
-          text = render_row row, @first_col
+          text = render_row row, @first_col, i
           if i == 0
             header.set_content text
           else

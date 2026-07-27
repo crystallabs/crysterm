@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for BUGS15 #90, #91, #92 (widget-core). Headless harness
 # mirrors spec/bugs15_scrolling_chrome_spec.cr / spec/bugs15_content_spec.cr.
 
-private def headless_screen(w = 40, h = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 # BUGS15 #90 — `insert_line(line : String)`'s no-index append overload
 # resolved its insert point off `@_clines.ftor.size`, which stays 0 for
 # content seeded while the widget is detached (`process_content` bails until
@@ -20,7 +14,7 @@ end
 # `delete_line`'s clamp.
 describe "BUGS15 90: insert_line's no-index overload appends after the last logical line" do
   it "appends after content seeded while detached, instead of inserting at the top" do
-    s = headless_screen
+    s = headless_screen(40, 12)
     w = Widget::Box.new parent: s, width: 30, height: 5
     # A parentless `Widget::Box.new` auto-attaches to the global fallback
     # window (see Widget#determine_window), so genuine detachment (window?
@@ -39,7 +33,7 @@ describe "BUGS15 90: insert_line's no-index overload appends after the last logi
   end
 
   it "still appends after the last line for an attached (parsed) widget" do
-    s = headless_screen
+    s = headless_screen(40, 12)
     w = Widget::Box.new parent: s, width: 30, height: 5
 
     w.replace_line 0, "a"
@@ -53,7 +47,7 @@ describe "BUGS15 90: insert_line's no-index overload appends after the last logi
 end
 
 private def backdrop_attr_at(y : Int32, x : Int32) : Int64
-  s = headless_screen
+  s = headless_screen(40, 12)
   Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 12,
     style: Crysterm::Style.new(bg: "red")
   s.repaint
@@ -61,7 +55,7 @@ private def backdrop_attr_at(y : Int32, x : Int32) : Int64
 end
 
 private def padding_ring_attr(fill : Bool)
-  s = headless_screen
+  s = headless_screen(40, 12)
   Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 12,
     style: Crysterm::Style.new(bg: "red")
 
@@ -111,7 +105,7 @@ end
 # per-frame reconcile (already change-guarded, so free when unchanged).
 describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollBar chrome in sync" do
   it "widens the vertical bar to match content_margin_x after scrollbar_width=" do
-    s = headless_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 8,
       scrollable: true
     box.scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn
@@ -134,7 +128,7 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
   end
 
   it "heightens the horizontal bar to match hscrollbar_rows after scrollbar_height=" do
-    s = headless_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 8,
       scrollable: true
     box.horizontal_scrollbar_policy = Widget::ScrollBarPolicy::AlwaysOn

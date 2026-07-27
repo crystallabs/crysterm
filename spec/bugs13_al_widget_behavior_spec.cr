@@ -14,15 +14,9 @@ include Crysterm
 #  A14 (src/widget/lcd_number.cr): `mode=`/`digit_count=` were inert until the
 #     next `display` call.
 
-private def wb_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS13 A11: DockWidget float geometry excludes the CSS margin" do
   it "does not drift by the margin across float toggles" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     dock = Widget::DockWidget.new parent: s, top: 2, left: 4, width: 20, height: 10,
       area: Widget::DockWidget::Area::Floating,
       style: Style.new(margin: Margin.new(left: 2, top: 1, right: 0, bottom: 0))
@@ -50,7 +44,7 @@ describe "BUGS13 A12: FileManager label and DirectoryChanged stay in sync" do
     Dir.mkdir_p dir_a
     Dir.mkdir_p dir_b
     begin
-      s = wb_screen
+      s = headless_screen(80, 24)
       fm = Widget::FileManager.new parent: s, top: 0, left: 0, width: 40, height: 15,
         cwd: dir_a, label: "dir"
 
@@ -82,7 +76,7 @@ end
 
 describe "BUGS13 A13: Form traversal skips disabled widgets" do
   it "does not focus a disabled child (which would wipe its Disabled state)" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     form = Widget::Form.new parent: s, keys: true, width: 30, height: 10
     a = Widget::Box.new parent: form, input: true, top: 0, left: 0, width: 5, height: 1
     b = Widget::Box.new parent: form, input: true, top: 2, left: 0, width: 5, height: 1
@@ -107,7 +101,7 @@ describe "BUGS13 A13: Form traversal skips disabled widgets" do
   end
 
   it "returns no candidate when every focusable child is disabled" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     form = Widget::Form.new parent: s, keys: true, width: 30, height: 10
     a = Widget::Box.new parent: form, input: true, top: 0, left: 0, width: 5, height: 1
     s.repaint
@@ -120,7 +114,7 @@ end
 
 describe "BUGS13 A14: LCDNumber mode=/digit_count= take effect immediately" do
   it "re-formats the retained integer when mode changes" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     lcd = Widget::LCDNumber.new parent: s, width: 24, height: 3
     lcd.display 255
     lcd.text.should eq "255"
@@ -136,7 +130,7 @@ describe "BUGS13 A14: LCDNumber mode=/digit_count= take effect immediately" do
   end
 
   it "keeps a Float/String display unchanged on a mode switch (no base applies)" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     lcd = Widget::LCDNumber.new parent: s, width: 24, height: 3
     lcd.display 1.5
     lcd.mode = Widget::LCDNumber::Mode::Hex
@@ -144,7 +138,7 @@ describe "BUGS13 A14: LCDNumber mode=/digit_count= take effect immediately" do
   end
 
   it "re-aligns the shown value when digit_count changes" do
-    s = wb_screen
+    s = headless_screen(80, 24)
     lcd = Widget::LCDNumber.new parent: s, width: 40, height: 3, digit_count: 5
     lcd.display 7
     before = lcd.content

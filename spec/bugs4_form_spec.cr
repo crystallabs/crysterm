@@ -11,19 +11,9 @@ include Crysterm
 #     selected) landed on the *second-to-last* field. The sentinel is now
 #     direction-aware.
 
-private def form_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 describe "BUGS4 Form focus wrap-around (fix #1)" do
   it "#previous_focusable with no selection returns the LAST field, not the second-to-last" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     fields = (0...5).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
@@ -41,7 +31,7 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
   end
 
   it "#next_focusable with no selection still returns the FIRST field (no regression)" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     fields = (0...5).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
@@ -53,7 +43,7 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
   end
 
   it "#focus_last focuses the last focusable field" do
-    s = form_screen
+    s = headless_screen(80, 24)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     fields = (0...4).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)

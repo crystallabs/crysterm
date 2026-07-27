@@ -16,10 +16,6 @@ include Crysterm
 #   background frame composite finished. Fix: fall back to the still (frame 1 via
 #   `png.bmp`) synchronously while the frames build, and re-compose it on resize.
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private def cells_window(w = 24, h = 12)
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h, optimization: Crysterm::OptimizationFlag::None)
@@ -62,7 +58,7 @@ describe "B16-53 Media::Tek animation must not hold Tek mode across frames" do
     path = File.tempname("bugs16_tek", ".png")
     write_frames_apng path
     begin
-      s = headless_screen
+      s = headless_screen(default_quit_keys: true)
       output = s.output.as(IO::Memory)
       tek = Crysterm::Widget::Media::Tek.new file: path, parent: s
 

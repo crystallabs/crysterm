@@ -14,21 +14,13 @@ include Crysterm
 # down `k` rows, so painted != layout; the unscrolled path stays byte-identical
 # (covered by the existing bugs12/bugs14/qt specs).
 
-private def pc_screen(w = 100, h = 50)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def pc_mouse(action : Tput::Mouse::Action, x : Int32, y : Int32)
   Tput::Mouse::Event.new(action, Tput::Mouse::Button::Left, x, y)
 end
 
 describe "BUGS17 B17-22: Splitter divider drag inside a scrolled container" do
   it "lands the divider under the painted pointer, not offset by the scroll base" do
-    s = pc_screen
+    s = headless_screen(100, 50)
     sc = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 40,
       height: 24, scrollable: true
     sp = Crysterm::Widget::Splitter.new parent: sc,
@@ -65,7 +57,7 @@ end
 
 describe "BUGS17 B17-23: SizeGrip drag-resize inside a scrolled container" do
   it "does not shrink the target on a no-move drag, and tracks pointer motion" do
-    s = pc_screen
+    s = headless_screen(100, 50)
     sc = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 60,
       height: 20, scrollable: true
     box = Crysterm::Widget::Box.new parent: sc, top: 5, left: 2,
@@ -111,7 +103,7 @@ end
 
 describe "BUGS17 B17-18: ColorDialog gradient hit-test inside a scrolled container" do
   it "picks a color from the painted field instead of falling through to begin_move" do
-    s = pc_screen
+    s = headless_screen(100, 50)
     sc = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 60,
       height: 24, scrollable: true
     cd = Crysterm::Widget::ColorDialog.new parent: sc, top: 5, left: 0,

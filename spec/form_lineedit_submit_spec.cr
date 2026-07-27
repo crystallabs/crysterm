@@ -8,16 +8,9 @@ include Crysterm
 # via the mixin. Keying `#field_value`/`#reset_children` off `PlainTextEdit`
 # therefore silently dropped `LineEdit` fields on submit/reset.
 
-private def form_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new)
-end
-
 describe Crysterm::Widget::Form do
   it "#submit collects a LineEdit field's value" do
-    s = form_screen
+    s = headless_screen(default_quit_keys: true)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     Crysterm::Widget::LineEdit.new(parent: form, name: "name", top: 0, height: 1, content: "Alice")
 
@@ -27,7 +20,7 @@ describe Crysterm::Widget::Form do
   end
 
   it "#reset clears a LineEdit field" do
-    s = form_screen
+    s = headless_screen(default_quit_keys: true)
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     le = Crysterm::Widget::LineEdit.new(parent: form, name: "name", top: 0, height: 1, content: "Alice")
 

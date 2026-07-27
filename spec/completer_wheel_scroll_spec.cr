@@ -12,12 +12,6 @@ include Crysterm
 # entry that lands under the cursor. Hover-select and the wheel now share one
 # rule ("selected == entry under the cursor"), so they agree instead of fighting.
 
-private def cws_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 80, height: 24, default_quit_keys: false)
-end
-
 private def cws_build(s)
   box = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 10, width: 18, height: 1
   completer = Crysterm::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
@@ -46,7 +40,7 @@ end
 
 describe "Completer drop-down wheel scrolling" do
   it "scrolls past the visible page under a stationary cursor and reaches the last entry" do
-    s = cws_screen
+    s = headless_screen(80, 24)
     _box, completer, pop = cws_build s
     completer.open?.should be_true
     pop.@item_boxes.size.should be > pop.visible_content_rows # must actually overflow
@@ -64,7 +58,7 @@ describe "Completer drop-down wheel scrolling" do
     # `child_base` never advanced — the list was stuck on page one no matter how
     # much you wheeled. Here the view must still scroll, and the selection tracks
     # the entry under the (drifting) cursor rather than snapping back.
-    s = cws_screen
+    s = headless_screen(80, 24)
     _box, _completer, pop = cws_build s
     x = pop.aleft + 2
     base = pop.atop + pop.itop
@@ -80,7 +74,7 @@ describe "Completer drop-down wheel scrolling" do
   it "tracks the entry under the pointer as the mouse moves (hover-select)" do
     # Moving the mouse over the open list must change which entry is highlighted,
     # both before and after the list has been scrolled.
-    s = cws_screen
+    s = headless_screen(80, 24)
     _box, _completer, pop = cws_build s
     x = pop.aleft + 2
     base = pop.atop + pop.itop
@@ -106,7 +100,7 @@ describe "Completer drop-down wheel scrolling" do
   end
 
   it "wheels back up to the first entry" do
-    s = cws_screen
+    s = headless_screen(80, 24)
     _box, completer, pop = cws_build s
     x = pop.aleft + 2
     base = pop.atop + pop.itop

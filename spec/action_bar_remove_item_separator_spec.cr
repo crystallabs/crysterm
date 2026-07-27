@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def abrs_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # Renders once so the bar gets an `@lpos` (`#current_index=` scroll math, and thus
 # `selected`, only updates once laid out).
 private def abrs_render(s)
@@ -24,7 +14,7 @@ end
 # land the highlight there — a dead cursor whose Enter does nothing.
 describe "Mixin::ActionBar#remove_item separator skipping" do
   it "skips back over a separator when the selected command is removed" do
-    s = abrs_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.add_item "a"
     bar.add_separator
@@ -44,7 +34,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
   end
 
   it "falls forward to the next selectable command when only separators precede" do
-    s = abrs_screen
+    s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.add_separator
     bar.add_item "a" # first selectable (auto-selected)

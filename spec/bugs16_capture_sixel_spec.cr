@@ -17,11 +17,6 @@ include Crysterm
 #   keyed on geometry only, not dither), so a runtime dither change silently
 #   kept re-emitting the stale cached bytes until an unrelated resize/move.
 
-private def cap_window
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: 20, height: 10)
-end
-
 # A small solid-green RGBA bitmap — a color that never occurs among the
 # capture defaults (black bg, silver fg) or the blue concrete background used
 # below, so its presence is unambiguous.
@@ -38,7 +33,7 @@ end
 
 describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
   it "hides a background (negative-z) layer under a cell with a concrete background color" do
-    s = cap_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 4,
       style: Crysterm::Style.new(bg: 0x0000ff)
     # `fill: false` mirrors the real `background=` layer: it is `layout_excluded`
@@ -61,7 +56,7 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
   end
 
   it "shows a background (negative-z) layer through a cell with the terminal-default background" do
-    s = cap_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     img = Widget::Media::Kitty.new parent: s, top: 0, left: 0, width: 8, height: 4
     img.z = -1
     img.bitmap = green_bitmap
@@ -74,7 +69,7 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
   end
 
   it "keeps an on-top (default z) layer visible over a cell with a concrete background" do
-    s = cap_window
+    s = headless_screen(20, 10, default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 8, height: 4,
       style: Crysterm::Style.new(bg: 0x0000ff)
     img = Widget::Media::Kitty.new parent: box, top: 0, left: 0, width: 8, height: 4
@@ -86,11 +81,6 @@ describe "B16-51: Capture stacks negative-z Kitty layers under the text" do
   ensure
     s.try &.destroy
   end
-end
-
-private def sixel_window(w = 40, h = 12)
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
-    error: IO::Memory.new, width: w, height: h)
 end
 
 # A left-to-right red gradient — sensitive enough to the dither mode
@@ -119,7 +109,7 @@ end
 
 describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
   it "drops the payload cache and emit key on a real dither change" do
-    s = sixel_window
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
     s.repaint
@@ -137,7 +127,7 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
   end
 
   it "leaves the cache intact on a no-op dither assignment" do
-    s = sixel_window
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
     s.repaint
@@ -150,7 +140,7 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
   end
 
   it "re-encodes with the new dither mode on the next render instead of replaying stale bytes" do
-    s = sixel_window
+    s = headless_screen(40, 12, default_quit_keys: true)
     img = SixelProbe.new parent: s, top: 0, left: 0, width: 4, height: 3
     img.bitmap = gradient_bitmap(40, 60)
     s.repaint

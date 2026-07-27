@@ -13,19 +13,13 @@ include Crysterm
 #   values so the render fiber can't crash (IndexError / clamp ArgumentError /
 #   division by zero).
 
-private def headless_window(w = 12, h = 4)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 # --------------------------------------------------------------------------
 # BUG 1: keyframe progress driven by real elapsed time
 # --------------------------------------------------------------------------
 
 describe "CSS @keyframes real-elapsed progress (BUGS5)" do
   it "interpolates a looping animation proportionally to wall-clock time" do
-    s = headless_window 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "grow"
     s.stylesheet = "@keyframes grow { from { opacity: 0.0; } to { opacity: 1.0; } } " \
@@ -45,13 +39,13 @@ describe "CSS @keyframes real-elapsed progress (BUGS5)" do
   end
 
   it "settles a finite (1-iteration) animation on its final frame" do
-    s = headless_window 10, 3
+    s = headless_screen(10, 3, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     b.add_css_class "once"
     s.stylesheet = "@keyframes go { from { opacity: 0.0; } to { opacity: 1.0; } } " \
                    ".once { opacity: 0.0; animation: go 0.15s linear 1; }"
     s.repaint
-    sleep 0.4.seconds # well past the single iteration
+    wait_until { b.style.opacity.not_nil! > 0.95 } # settles past the single iteration
     (b.style.opacity.not_nil! > 0.95).should be_true
   ensure
     s.try &.destroy
@@ -77,7 +71,7 @@ end
 
 describe "Media::Ueberzug URL temp-file cleanup (BUGS5)" do
   it "creates a temp file for a URL and deletes it on clear_image" do
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
     img = FakeUeberzug.new parent: s, width: 4, height: 3
     img.load "http://example.com/pic.png"
 
@@ -93,7 +87,7 @@ describe "Media::Ueberzug URL temp-file cleanup (BUGS5)" do
   end
 
   it "deletes the previous temp file when a new URL is loaded" do
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
     img = FakeUeberzug.new parent: s, width: 4, height: 3
     img.load "http://example.com/a.png"
     first = img.current_tmp_path.not_nil!
@@ -112,7 +106,7 @@ describe "Media::Ueberzug URL temp-file cleanup (BUGS5)" do
   end
 
   it "leaves a local file path untouched (no temp file created)" do
-    s = headless_window
+    s = headless_screen(12, 4, default_quit_keys: true)
     img = FakeUeberzug.new parent: s, width: 4, height: 3
     img.load "some/local/pic.png"
     img.current_tmp_path.should be_nil
@@ -127,7 +121,7 @@ end
 
 describe "Effect empty-collection guards (BUGS5)" do
   it "Fire falls back to the default ramp when assigned an empty ramp" do
-    s = headless_window 6, 6
+    s = headless_screen(6, 6, default_quit_keys: true)
     f = Widget::Effect::Fire.new ramp: [] of Char, parent: s, width: 6, height: 6
     f.ramp.should eq Widget::Effect::Fire::DEFAULT_RAMP
 
@@ -144,7 +138,7 @@ describe "Effect empty-collection guards (BUGS5)" do
   end
 
   it "Matrix falls back to the default pool when assigned an empty pool" do
-    s = headless_window 6, 6
+    s = headless_screen(6, 6, default_quit_keys: true)
     m = Widget::Effect::Matrix.new pool: [] of Char, parent: s, width: 6, height: 6
     m.pool.empty?.should be_false
 
@@ -160,7 +154,7 @@ describe "Effect empty-collection guards (BUGS5)" do
   end
 
   it "Spray guards pattern, grow and spark_colors against empties" do
-    s = headless_window 6, 5
+    s = headless_screen(6, 5, default_quit_keys: true)
     sp = Widget::Effect::Spray.new(
       pattern: "   ", grow: [] of String, parent: s, width: 6, height: 5)
     sp.grow.empty?.should be_false # empty grow -> default

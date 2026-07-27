@@ -18,16 +18,6 @@ require "./spec_helper"
 # owns its next stroke, and an already-consumed key still clears the pending
 # prefix without ever firing.
 
-private def headless_window
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 private def press(win, key : Tput::Key)
   win.emit Crysterm::Event::KeyPress.new('\0', key)
 end
@@ -44,7 +34,7 @@ end
 
 describe "BUGS18 B18-95/B18-98 shared window chord dispatch" do
   it "fires the chord, not the earlier-installed single-stroke action, when the prefix precedes (B18-95)" do
-    win = headless_window
+    win = headless_screen(80, 24)
     save, kb = save_and_chord win
     save_fired = 0
     kb_fired = 0
@@ -60,7 +50,7 @@ describe "BUGS18 B18-95/B18-98 shared window chord dispatch" do
   end
 
   it "still fires the single-stroke shortcut when no chord prefix is pending" do
-    win = headless_window
+    win = headless_screen(80, 24)
     save, kb = save_and_chord win
     save_fired = 0
     kb_fired = 0
@@ -82,7 +72,7 @@ describe "BUGS18 B18-95/B18-98 shared window chord dispatch" do
   end
 
   it "clears a pending chord prefix when an intervening key is consumed by another handler (B18-98)" do
-    win = headless_window
+    win = headless_screen(80, 24)
     # Registered before the accelerators, so it consumes Ctrl+P first —
     # standing in for the focused widget's key walk / any other handler.
     win.on_key(:ctrl_p) { }
@@ -106,7 +96,7 @@ describe "BUGS18 B18-95/B18-98 shared window chord dispatch" do
   end
 
   it "re-tries a chord-breaking stroke as a fresh first stroke instead of swallowing it" do
-    win = headless_window
+    win = headless_screen(80, 24)
     save = Crysterm::Action.new "Save", shortcut: Tput::Key::CtrlS
     bold = Crysterm::Action.new "Bold", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlB]]
     save.install_shortcut win

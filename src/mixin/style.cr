@@ -152,6 +152,25 @@ module Crysterm
         per_state_style
       end
 
+      # Yields `#state_style` for in-place mutation, then schedules a repaint —
+      # the one-call spelling of programmatic styling's "mutate, then update"
+      # idiom:
+      #
+      # ```
+      # gb.restyle &.title.fg = "#00ff00"
+      # ```
+      #
+      # Both halves matter. An in-place style write fires no widget setter, so
+      # it is invisible to damage tracking — without the `#update`, an
+      # optimized render skips the widget and the change never paints. And the
+      # yielded style is the persistent `#state_style`, never the resolved
+      # `#style`, so at the unstyled floor the write can't land on a transient
+      # highlight dup and be lost.
+      def restyle(& : ::Crysterm::Style ->) : Nil
+        yield state_style
+        update
+      end
+
       # The backing `Style` for the current `@state`, with no inline override and
       # no floor highlight fallbacks — the single source of the state→style map
       # shared by `#state_style` and `#style`.

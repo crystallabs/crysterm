@@ -8,15 +8,9 @@ include Crysterm
 # `element.remove_from_parent`, which can't detach a top-level widget (it has
 # no widget `@parent`, only a stored screen), so the move leaked.
 
-private def headless_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 10)
-end
-
 describe "Widget#insert reparenting a top-level widget" do
   it "removes it from the screen's children (no double-parenting)" do
-    s = headless_screen
+    s = headless_screen(20, 10, default_quit_keys: true)
     container = Widget::Box.new parent: s, width: 10, height: 5
     child = Widget::Box.new parent: s, width: 4, height: 2
 

@@ -15,15 +15,9 @@ include Crysterm
 #   deferred (z-indexed) above-child's CURRENT geometry, not its stale
 #   previous-frame `lpos`.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS17 B17-10 Box clamps extreme spacing" do
   it "does not raise OverflowError with Int32::MAX spacing and two children" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new(spacing: Int32::MAX)
     Widget::Box.new parent: box, width: 5, height: 1
@@ -32,7 +26,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
   end
 
   it "does not raise OverflowError with Int32::MAX spacing and three children" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new(spacing: Int32::MAX)
     Widget::Box.new parent: box, width: 5, height: 1
@@ -42,7 +36,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
   end
 
   it "does not raise (and does not over-allocate) with negative spacing" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new(spacing: -1000)
     a = Widget::Box.new parent: box
@@ -55,7 +49,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
   end
 
   it "keeps an ordinary spacing distribution intact (no regression)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 5,
       layout: Layout::HBox.new(spacing: 2)
     a = Widget::Box.new parent: box
@@ -69,7 +63,7 @@ end
 
 describe "BUGS17 B17-11 Form clamps extreme spacing" do
   it "does not raise OverflowError with Int32::MAX horizontal_spacing" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     form = Widget::Box.new parent: screen, left: 0, top: 0, width: 60, height: 30,
       layout: Layout::Form.new(horizontal_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
@@ -78,7 +72,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
   end
 
   it "does not raise OverflowError with Int32::MAX vertical_spacing" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     form = Widget::Box.new parent: screen, left: 0, top: 0, width: 60, height: 30,
       layout: Layout::Form.new(vertical_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
@@ -87,7 +81,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
   end
 
   it "does not raise with negative horizontal and vertical spacing" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     form = Widget::Box.new parent: screen, left: 0, top: 0, width: 60, height: 30,
       layout: Layout::Form.new(horizontal_spacing: -50, vertical_spacing: -50)
     Widget::Box.new parent: form, height: 1, content: "Name"
@@ -98,7 +92,7 @@ end
 
 describe "BUGS17 B17-09 Masonry gravitation uses a deferred child's current geometry" do
   it "anchors a gravitating child to the grown z-indexed child's new bottom edge" do
-    screen = headless_screen w: 20, h: 12
+    screen = headless_screen(20, 12)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 20, height: 12,
       layout: Layout::Masonry.new
     a = Widget::Box.new parent: box, width: 12, height: 3

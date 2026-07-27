@@ -15,14 +15,6 @@ include Crysterm
 #    click-count must be reset (as the two-click branch already does), so a
 #    later quick click on the same spot isn't read as a double-click.
 
-private def bugs7_screen(w = 40, h = 20)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def down_at(s, x, y)
   s.dispatch_mouse(::Tput::Mouse::Event.new(
     ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, x, y, source: :test))
@@ -40,7 +32,7 @@ end
 
 describe "BUGS7 disabled widget does not activate on a mouse click" do
   it "does not emit Event::Pressed for a disabled Button clicked" do
-    s = bugs7_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
     btn.state = WidgetState::Disabled
     s.repaint
@@ -53,7 +45,7 @@ describe "BUGS7 disabled widget does not activate on a mouse click" do
   end
 
   it "still emits Event::Pressed for an enabled Button (no regression)" do
-    s = bugs7_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     btn = Widget::Button.new parent: s, top: 2, left: 2, width: 10, height: 3
     s.repaint
 
@@ -65,7 +57,7 @@ describe "BUGS7 disabled widget does not activate on a mouse click" do
   end
 
   it "does not toggle a disabled CheckBox clicked" do
-    s = bugs7_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
     cb = Widget::CheckBox.new parent: s, top: 2, left: 2, width: 12, height: 1
     cb.state = WidgetState::Disabled
     s.repaint
@@ -78,7 +70,7 @@ end
 
 describe "BUGS7 click-count is not inflated by an arm→drag promotion" do
   it "reads a fresh count on a later click after a motion-promoted drag" do
-    s = bugs7_screen
+    s = headless_screen(40, 20, default_quit_keys: true)
 
     box = Widget::Box.new(
       parent: s, top: 2, left: 2, width: 12, height: 4,

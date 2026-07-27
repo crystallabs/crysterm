@@ -2,20 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
-private def rgb(name)
-  Crysterm::Colors.convert(name).to_i32
-end
-
 # Per the CSS cascade, `!important` reverses `@layer` priority: among important
 # declarations an earlier layer beats a later one, and unlayered important is
 # weakest of all — the opposite of normal declarations. See `Cascade#entry_key`.
 describe "CSS !important @layer ordering" do
   it "lets an important rule in an earlier layer beat a later layer" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 
@@ -31,7 +23,7 @@ describe "CSS !important @layer ordering" do
   end
 
   it "makes an unlayered important rule the weakest, beaten by any layered one" do
-    screen = headless_screen
+    screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
     screen.append box
 

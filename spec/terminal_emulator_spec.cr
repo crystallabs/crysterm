@@ -5,24 +5,12 @@ include Crysterm
 # Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. Pure (depends
 # only on `Attr` and `Screen.sgr_to_attr`), so exercised directly with no `Window`/PTY.
 
-private DFL = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
-
-private def emu(cols = 10, rows = 4)
-  Crysterm::TerminalEmulator.new(cols, rows, DFL)
-end
-
-# The visible text of row `y` (wide-glyph continuation NULs dropped, trailing
-# blanks stripped).
-private def row(em, y)
-  em.lines[em.ydisp + y].map(&.char).join.delete('\u0000').rstrip
-end
-
 describe Crysterm::TerminalEmulator do
   describe "printing & cursor" do
     it "prints text and advances the cursor" do
       em = emu
       em.feed "hi"
-      row(em, 0).should eq "hi"
+      emu_row(em, 0).should eq "hi"
       em.cursor_x.should eq 2
       em.cursor_y.should eq 0
     end
@@ -30,8 +18,8 @@ describe Crysterm::TerminalEmulator do
     it "handles CR and LF" do
       em = emu
       em.feed "ab\r\ncd"
-      row(em, 0).should eq "ab"
-      row(em, 1).should eq "cd"
+      emu_row(em, 0).should eq "ab"
+      emu_row(em, 1).should eq "cd"
       em.cursor_y.should eq 1
     end
 
@@ -40,7 +28,7 @@ describe Crysterm::TerminalEmulator do
       # advance the cursor (it's `>= 0x20`, so a naive printable test would leak it).
       em = emu
       em.feed "a\u{7f}b"
-      row(em, 0).should eq "ab"
+      emu_row(em, 0).should eq "ab"
       em.cursor_x.should eq 2
     end
 
@@ -49,8 +37,8 @@ describe Crysterm::TerminalEmulator do
       em.feed "abc" # fills row 0; cursor parked on last column
       em.cursor_y.should eq 0
       em.feed "d" # the pending wrap now moves to row 1
-      row(em, 0).should eq "abc"
-      row(em, 1).should eq "d"
+      emu_row(em, 0).should eq "abc"
+      emu_row(em, 1).should eq "d"
     end
 
     it "sticks at the last column without wrapping when autowrap (DECAWM ?7) is off" do
@@ -59,16 +47,16 @@ describe Crysterm::TerminalEmulator do
       em = emu(3, 2)
       em.feed "\e[?7l" # DECRST 7: autowrap off
       em.feed "abcd"   # 'a' 'b' 'c' fill row 0; 'd' overwrites the last column
-      row(em, 0).should eq "abd"
-      row(em, 1).should eq "" # nothing wrapped down
+      emu_row(em, 0).should eq "abd"
+      emu_row(em, 1).should eq "" # nothing wrapped down
       em.cursor_y.should eq 0
       em.cursor_x.should eq 2
 
       # Re-enabling autowrap restores the deferred-wrap behaviour.
       em.feed "\e[?7h"
       em.feed "ef" # 'e' overwrites col 2 (pending wrap was cleared); 'f' wraps
-      row(em, 0).should eq "abe"
-      row(em, 1).should eq "f"
+      emu_row(em, 0).should eq "abe"
+      emu_row(em, 1).should eq "f"
       em.cursor_y.should eq 1
     end
 
@@ -84,7 +72,7 @@ describe Crysterm::TerminalEmulator do
       # piled up at the left margin.
       em = emu
       em.feed "A\e[3aB" # A@0; HPR 3 → col 4; B@4
-      row(em, 0).should eq "A   B"
+      emu_row(em, 0).should eq "A   B"
       em.cursor_x.should eq 5
     end
 
@@ -117,7 +105,7 @@ describe Crysterm::TerminalEmulator do
       em = emu
       em.feed "\e[1\e[2;3HX" # incomplete "CSI 1", then a full CUP to row 2 col 3
       em.lines[1][2].char.should eq 'X'
-      row(em, 0).should eq "" # nothing leaked onto the first row
+      emu_row(em, 0).should eq "" # nothing leaked onto the first row
     end
 
     it "swallows the final byte of ESC #/SP/% intermediate escapes" do
@@ -126,15 +114,15 @@ describe Crysterm::TerminalEmulator do
       # must be consumed, not printed (e.g. `ESC # 6` would leak a spurious '6').
       em = emu
       em.feed "\e#6Z" # DECDWL select + print Z
-      row(em, 0).should eq "Z"
+      emu_row(em, 0).should eq "Z"
 
       em2 = emu
       em2.feed "\e GA" # ESC SP G (S8C1T) + print A
-      row(em2, 0).should eq "A"
+      emu_row(em2, 0).should eq "A"
 
       em3 = emu
       em3.feed "\e%GB" # ESC % G (select UTF-8) + print B
-      row(em3, 0).should eq "B"
+      emu_row(em3, 0).should eq "B"
     end
   end
 
@@ -185,14 +173,14 @@ describe Crysterm::TerminalEmulator do
     it "clears to end of line (EL 0)" do
       em = emu
       em.feed "abcdef\r\e[3C\e[0K" # cursor to col 3, erase to EOL
-      row(em, 0).should eq "abc"
+      emu_row(em, 0).should eq "abc"
     end
 
     it "clears the whole screen (ED 2)" do
       em = emu
       em.feed "x\r\ny\e[2J"
-      row(em, 0).should eq ""
-      row(em, 1).should eq ""
+      emu_row(em, 0).should eq ""
+      emu_row(em, 1).should eq ""
     end
 
     it "leaves scrollback intact when ED 2 blanks the visible rows in place" do
@@ -203,8 +191,8 @@ describe Crysterm::TerminalEmulator do
       em.feed "L0\r\nL1\r\nL2\r\nL3" # L0/L1 -> scrollback; L2/L3 visible
       em.ybase.should eq 2
       em.feed "\e[2J" # clear the visible window
-      row(em, 0).should eq ""
-      row(em, 1).should eq ""
+      emu_row(em, 0).should eq ""
+      emu_row(em, 1).should eq ""
       em.lines[0].map(&.char).join.delete('\u0000').rstrip.should eq "L0"
       em.lines[1].map(&.char).join.delete('\u0000').rstrip.should eq "L1"
     end
@@ -218,9 +206,9 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[3J"      # erase saved lines
       em.ybase.should eq 0 # scrollback gone
       em.ydisp.should eq 0
-      em.lines.size.should eq 2 # exactly the visible page retained
-      row(em, 0).should eq "L2" # visible content untouched
-      row(em, 1).should eq "L3"
+      em.lines.size.should eq 2     # exactly the visible page retained
+      emu_row(em, 0).should eq "L2" # visible content untouched
+      emu_row(em, 1).should eq "L3"
     end
   end
 
@@ -229,8 +217,8 @@ describe Crysterm::TerminalEmulator do
       em = emu(5, 2)
       em.feed "L0\r\nL1\r\nL2\r\nL3" # no trailing newline: L3 stays on the last row
       em.ybase.should eq 2
-      row(em, 0).should eq "L2"
-      row(em, 1).should eq "L3"
+      emu_row(em, 0).should eq "L2"
+      emu_row(em, 1).should eq "L3"
     end
 
     it "scroll_to / scroll move the display offset within history" do
@@ -238,7 +226,7 @@ describe Crysterm::TerminalEmulator do
       4.times { |i| em.feed "L#{i}\r\n" }
       em.scroll_to 0
       em.ydisp.should eq 0
-      row(em, 0).should eq "L0"
+      emu_row(em, 0).should eq "L0"
       em.reset_scroll
       em.ydisp.should eq em.ybase
     end
@@ -248,10 +236,10 @@ describe Crysterm::TerminalEmulator do
       4.times { |i| em.feed "L#{i}\r\n" }
       em.scroll_to 0
       em.ydisp.should eq 0
-      top = row(em, 0)
+      top = emu_row(em, 0)
       em.feed "L4\r\n" # fresh output scrolls the live screen; the view must hold
       em.ydisp.should eq 0
-      row(em, 0).should eq top
+      emu_row(em, 0).should eq top
       em.ybase.should be > em.ydisp # live bottom advanced past the held view
     end
 
@@ -277,13 +265,13 @@ describe Crysterm::TerminalEmulator do
     it "renders G0 line-drawing after ESC ( 0 and ASCII after ESC ( B" do
       em = emu
       em.feed "\e(0lqk\e(BX"
-      row(em, 0).should eq "┌─┐X"
+      emu_row(em, 0).should eq "┌─┐X"
     end
 
     it "switches sets with SO/SI when G1 is special" do
       em = emu
       em.feed "\e)0A\x0Eq\x0FB" # A=ascii, SO->G1(q=─), SI->G0(B)
-      row(em, 0).should eq "A─B"
+      emu_row(em, 0).should eq "A─B"
     end
 
     it "restores the charset across DECSC/DECRC (ESC 7 / ESC 8)" do
@@ -298,7 +286,7 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e(B" # G0 = ASCII
       em.feed "\e8"  # DECRC: restore cursor (col 1) + G0 special again
       em.feed "q"    # '─' at col 1 (would be ASCII 'q' without charset restore)
-      row(em, 0).should eq "──"
+      emu_row(em, 0).should eq "──"
     end
   end
 
@@ -309,12 +297,12 @@ describe Crysterm::TerminalEmulator do
       em.alt_active?.should be_false
       em.feed "\e[?1049h"
       em.alt_active?.should be_true
-      row(em, 0).should eq "" # fresh alt page
+      emu_row(em, 0).should eq "" # fresh alt page
       em.feed "\e[2J\e[HALT"
-      row(em, 0).should eq "ALT"
+      emu_row(em, 0).should eq "ALT"
       em.feed "\e[?1049l"
       em.alt_active?.should be_false
-      row(em, 0).should eq "MAIN"
+      emu_row(em, 0).should eq "MAIN"
     end
 
     it "resets the parked main scroll region when resized on the alt screen" do
@@ -329,7 +317,7 @@ describe Crysterm::TerminalEmulator do
       # stale region (0..3) it would scroll row 0 (the "X") off the top.
       em.feed "\e[4;1H\n"
       em.cursor_y.should eq 4
-      row(em, 0).should eq "X"
+      emu_row(em, 0).should eq "X"
     end
 
     it "1049 shares the per-buffer DECSC slot (xterm): ESC 8 after 1049l sees the 1049-saved cursor" do
@@ -403,7 +391,7 @@ describe Crysterm::TerminalEmulator do
     it "wraps a wide glyph that would overrun the last column" do
       em = emu(3, 2)
       em.feed "ab中" # 'ab' fill cols 0..1; 中 cannot fit in col 2 -> wraps
-      row(em, 1).should eq "中"
+      emu_row(em, 1).should eq "中"
     end
   end
 
@@ -412,15 +400,15 @@ describe Crysterm::TerminalEmulator do
       em = emu(4, 6)
       6.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L5 on rows 0..5
       em.resize(4, 3)                               # shrink: keep top 3 rows, drop L3..L5
-      row(em, 0).should eq "L0"
-      row(em, 1).should eq "L1"
-      row(em, 2).should eq "L2"
+      emu_row(em, 0).should eq "L0"
+      emu_row(em, 1).should eq "L1"
+      emu_row(em, 2).should eq "L2"
       # LF at the bottom row must bring up a fresh blank line, not the orphaned
       # L3 that fell off the bottom on the shrink.
       em.feed "\e[3;1H\n"
-      row(em, 0).should eq "L1"
-      row(em, 1).should eq "L2"
-      row(em, 2).should eq "" # scrolled-in blank, NOT "L3"
+      emu_row(em, 0).should eq "L1"
+      emu_row(em, 1).should eq "L2"
+      emu_row(em, 2).should eq "" # scrolled-in blank, NOT "L3"
     end
   end
 
@@ -429,20 +417,20 @@ describe Crysterm::TerminalEmulator do
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3 on rows 0..3
       em.feed "\e[2;1H\e[1L"                        # cursor row 2, insert 1 line
-      row(em, 0).should eq "L0"
-      row(em, 1).should eq "" # freshly inserted blank
-      row(em, 2).should eq "L1"
-      row(em, 3).should eq "L2" # L3 pushed off the bottom
+      emu_row(em, 0).should eq "L0"
+      emu_row(em, 1).should eq "" # freshly inserted blank
+      emu_row(em, 2).should eq "L1"
+      emu_row(em, 3).should eq "L2" # L3 pushed off the bottom
     end
 
     it "deletes lines at the cursor, pulling the rest up" do
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[2;1H\e[1M" # cursor row 2, delete 1 line
-      row(em, 0).should eq "L0"
-      row(em, 1).should eq "L2"
-      row(em, 2).should eq "L3"
-      row(em, 3).should eq "" # backfilled blank
+      emu_row(em, 0).should eq "L0"
+      emu_row(em, 1).should eq "L2"
+      emu_row(em, 2).should eq "L3"
+      emu_row(em, 3).should eq "" # backfilled blank
     end
 
     it "caps an adversarial huge count at the region size (IL)" do
@@ -452,10 +440,10 @@ describe Crysterm::TerminalEmulator do
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[2;1H\e[99999L"
       em.lines.size.should eq 4 # @lines did not grow
-      row(em, 0).should eq "L0"
-      row(em, 1).should eq ""
-      row(em, 2).should eq ""
-      row(em, 3).should eq ""
+      emu_row(em, 0).should eq "L0"
+      emu_row(em, 1).should eq ""
+      emu_row(em, 2).should eq ""
+      emu_row(em, 3).should eq ""
     end
 
     it "caps an adversarial huge count at the region size (DL)" do
@@ -463,10 +451,10 @@ describe Crysterm::TerminalEmulator do
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[2;1H\e[99999M"
       em.lines.size.should eq 4
-      row(em, 0).should eq "L0"
-      row(em, 1).should eq ""
-      row(em, 2).should eq ""
-      row(em, 3).should eq ""
+      emu_row(em, 0).should eq "L0"
+      emu_row(em, 1).should eq ""
+      emu_row(em, 2).should eq ""
+      emu_row(em, 3).should eq ""
     end
 
     it "moves the cursor to the left margin on IL and DL (ECMA-48 line home)" do
@@ -488,10 +476,10 @@ describe Crysterm::TerminalEmulator do
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3 on rows 0..3
       em.feed "\e[2S"                               # SU by 2
-      row(em, 0).should eq "L2"
-      row(em, 1).should eq "L3"
-      row(em, 2).should eq ""
-      row(em, 3).should eq ""
+      emu_row(em, 0).should eq "L2"
+      emu_row(em, 1).should eq "L3"
+      emu_row(em, 2).should eq ""
+      emu_row(em, 3).should eq ""
     end
 
     it "recycles the scrolled-off line as a full-width blank in a partial scroll region" do
@@ -503,10 +491,10 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[1;3r"                             # scroll region rows 1..3 (0-based 0..2); row 3 excluded
       em.feed "\e[3;1H"                             # cursor to the region bottom (0-based row 2)
       em.feed "\n"                                  # LF at the region bottom scrolls the region up
-      row(em, 0).should eq "L1"
-      row(em, 1).should eq "L2"
-      row(em, 2).should eq ""   # recycled blank line
-      row(em, 3).should eq "L3" # outside the region: untouched
+      emu_row(em, 0).should eq "L1"
+      emu_row(em, 1).should eq "L2"
+      emu_row(em, 2).should eq ""   # recycled blank line
+      emu_row(em, 3).should eq "L3" # outside the region: untouched
       recycled = em.lines[em.ydisp + 2]
       recycled.size.should eq 4
       recycled.all? { |c| c.char == ' ' }.should be_true
@@ -520,7 +508,7 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[99999999S"
       em.lines.size.should eq 8 # 4 visible + the 4 original lines in scrollback
       em.ybase.should eq 4
-      (0...4).each { |y| row(em, y).should eq "" } # visible screen fully blank
+      (0...4).each { |y| emu_row(em, y).should eq "" } # visible screen fully blank
     end
 
     it "caps an adversarial huge SD count at the region height" do
@@ -528,7 +516,7 @@ describe Crysterm::TerminalEmulator do
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[99999999T"    # SD: content moves down, blanks from the top
       em.lines.size.should eq 4 # SD never touches scrollback
-      (0...4).each { |y| row(em, y).should eq "" }
+      (0...4).each { |y| emu_row(em, y).should eq "" }
     end
   end
 
@@ -584,8 +572,8 @@ describe Crysterm::TerminalEmulator do
 
       em.feed "Q"             # must land at the cursor's actual column on row 0
       em.cursor_y.should eq 0 # NOT pushed down to row 1 by a spurious wrap
-      row(em, 0).should eq "  Q"
-      row(em, 1).should eq "XYZ" # row 1 untouched (Q did not wrap onto it)
+      emu_row(em, 0).should eq "  Q"
+      emu_row(em, 1).should eq "XYZ" # row 1 untouched (Q did not wrap onto it)
     end
   end
 
@@ -605,8 +593,8 @@ describe Crysterm::TerminalEmulator do
       # Cursor on the *old* region's bottom margin (row 1), then LF. Stale small
       # region scrolls (loses row 0's 'A'); full region just advances to row 2.
       em.feed "\e[2;1H\n"
-      em.cursor_y.should eq 2  # advanced, not scrolled (full region in effect)
-      row(em, 0).should eq "A" # row 0 untouched — no scroll happened
+      em.cursor_y.should eq 2      # advanced, not scrolled (full region in effect)
+      emu_row(em, 0).should eq "A" # row 0 untouched — no scroll happened
     end
   end
 
@@ -743,21 +731,21 @@ describe Crysterm::TerminalEmulator do
       # bytes. `CSI Pn b` must re-emit the preceding character Pn more times.
       em = emu
       em.feed "-\e[3b" # one '-' then REP 3 -> four dashes total
-      row(em, 0).should eq "----"
+      emu_row(em, 0).should eq "----"
       em.cursor_x.should eq 4
     end
 
     it "defaults to repeating once when the count is omitted" do
       em = emu
       em.feed "Q\e[b"
-      row(em, 0).should eq "QQ"
+      emu_row(em, 0).should eq "QQ"
       em.cursor_x.should eq 2
     end
 
     it "is a no-op before any graphic character has been printed" do
       em = emu
       em.feed "\e[5bZ" # REP with no preceding glyph: ignored; Z prints at col 0
-      row(em, 0).should eq "Z"
+      emu_row(em, 0).should eq "Z"
       em.cursor_x.should eq 1
     end
 
@@ -766,7 +754,7 @@ describe Crysterm::TerminalEmulator do
       # which the screen is already full.
       em = emu(4, 2)
       em.feed "x\e[99999999b"
-      row(em, 0).should eq "xxxx"
+      emu_row(em, 0).should eq "xxxx"
       em.cursor_x.should be < em.cols
       em.cursor_y.should be < em.rows
     end
@@ -805,13 +793,13 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[H"  # cursor home (row 0, col 0)
       em.feed "\e[4h" # IRM on
       em.feed "X"     # insert X at col 0: "ABC" shifts right
-      row(em, 0).should eq "XABC"
+      emu_row(em, 0).should eq "XABC"
       em.cursor_x.should eq 1
 
       # IRM off (CSI 4 l) returns to overwrite: the next glyph clobbers in place.
       em.feed "\e[4l"
       em.feed "Y" # overwrites the 'A' now at col 1
-      row(em, 0).should eq "XYBC"
+      emu_row(em, 0).should eq "XYBC"
     end
   end
 
@@ -822,7 +810,7 @@ describe Crysterm::TerminalEmulator do
       em = emu(4, 3)
       em.feed "\e[2;2Hx" # move off home, print, so the fill/home is observable
       em.feed "\e#8"
-      3.times { |y| row(em, y).should eq "EEEE" }
+      3.times { |y| emu_row(em, y).should eq "EEEE" }
       em.cursor_x.should eq 0
       em.cursor_y.should eq 0
     end
@@ -830,7 +818,7 @@ describe Crysterm::TerminalEmulator do
     it "swallows the double-size line selectors (ESC # 3/4/5/6) with no output" do
       em = emu(4, 2)
       em.feed "\e#3Z" # DECDHL top half (unimplemented) then print Z
-      row(em, 0).should eq "Z"
+      emu_row(em, 0).should eq "Z"
     end
   end
 
@@ -841,21 +829,21 @@ describe Crysterm::TerminalEmulator do
     it "executes an embedded BS then resumes the CSI (CSI 2 <BS> C)" do
       em = emu(10, 1)
       em.feed "A\e[2\bCB" # A@0; CSI 2, BS→col0, CUF 2→col2; B@2
-      row(em, 0).should eq "A B"
+      emu_row(em, 0).should eq "A B"
       em.cursor_x.should eq 3
     end
 
     it "executes an embedded CR then resumes the CSI (CSI <CR> 3 C)" do
       em = emu(10, 1)
       em.feed "AB\e[\r3CX" # AB; CSI, CR→col0, param 3, CUF 3→col3; X@3
-      row(em, 0).should eq "AB X"
+      emu_row(em, 0).should eq "AB X"
       em.cursor_x.should eq 4
     end
 
     it "aborts the CSI on CAN (0x18), printing the trailing byte as text" do
       em = emu(10, 1)
       em.feed "A\e[5\u{18}C" # A@0; CSI 5 aborted by CAN; 'C' printed literally @1
-      row(em, 0).should eq "AC"
+      emu_row(em, 0).should eq "AC"
       em.cursor_x.should eq 2
     end
   end

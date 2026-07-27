@@ -2,16 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def b17_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: 80,
-    height: 24,
-    default_quit_keys: false)
-end
-
 # B17-20: `ItemView#items=` used to start with an unconditional
 # `self.current_index = 0`, which on a *rendered* list with a non-zero selection
 # took the full setter path — scrolling to the top and emitting an
@@ -21,7 +11,7 @@ end
 # one `ItemSelected` fires, at the restored index.
 describe "ItemView#items= single ItemSelected emission" do
   it "emits exactly one ItemSelected (at the restored index) on unchanged items" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
     s.repaint # lay out so `@lpos` is set and `current_index=` reaches the emit
     list.current_index = 2
@@ -66,7 +56,7 @@ end
 # survives, close it only when the action was removed/hidden.
 describe "Menu submenu survives unrelated row rebuilds" do
   it "leaves an open submenu open when an unrelated action's label changes" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     m, _export, status = b17_menu s
     b17_open_sub s, m
     m.@submenu_open.should_not be_nil
@@ -79,7 +69,7 @@ describe "Menu submenu survives unrelated row rebuilds" do
   end
 
   it "leaves an open submenu open when the submenu action's own label changes" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     m, export, _status = b17_menu s
     b17_open_sub s, m
     m.@submenu_open.should_not be_nil
@@ -90,7 +80,7 @@ describe "Menu submenu survives unrelated row rebuilds" do
   end
 
   it "closes the submenu when its own action is removed" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     m, export, _status = b17_menu s
     b17_open_sub s, m
     m.@submenu_open.should_not be_nil
@@ -103,7 +93,7 @@ describe "Menu submenu survives unrelated row rebuilds" do
   end
 
   it "closes the submenu when its own action is hidden" do
-    s = b17_screen
+    s = headless_screen(80, 24)
     m, export, _status = b17_menu s
     b17_open_sub s, m
     m.@submenu_open.should_not be_nil

@@ -6,12 +6,8 @@ include Crysterm
 # and selections, and `FlatBuffer#value=` same-string external sets still
 # updating the display cursor. Headless widgets over in-memory IOs.
 
-private def t13_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 private def t13_lineedit(value : String, pos : Int32)
-  s = t13_screen
+  s = headless_screen(default_quit_keys: true)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
   s.render
@@ -84,7 +80,7 @@ end
 
 describe "BUGS13 T17 same-string external value= still updates the display cursor" do
   it "runs _update_cursor when an external set doesn't change the string" do
-    s = t13_screen
+    s = headless_screen(default_quit_keys: true)
     w = T13FlatEdit.new parent: s, left: 0, top: 0, width: 20, height: 3
     w.value = "hello"
     s.render
@@ -97,7 +93,7 @@ describe "BUGS13 T17 same-string external value= still updates the display curso
   end
 
   it "still dedups pure redisplays (nil value)" do
-    s = t13_screen
+    s = headless_screen(default_quit_keys: true)
     w = T13FlatEdit.new parent: s, left: 0, top: 0, width: 20, height: 3
     w.value = "hello"
     s.render

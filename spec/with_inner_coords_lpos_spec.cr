@@ -15,15 +15,9 @@ include Crysterm
 # every render, so readers of the cached position (hit-testing via
 # `last_rendered_position`, damage-tracking bounds, `clear_last_rendered_position`)
 # saw the widget as border-smaller than it actually painted.
-private def render_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 20, height: 8)
-end
-
 describe "Widget#with_inner_coords cached position" do
   it "leaves the widget's @lpos describing the full outer rect, not the border interior" do
-    screen = render_screen
+    screen = headless_screen(20, 8, default_quit_keys: true)
     g = Widget::Gradient.new(
       stops: ["#ff0000", "#00ff00"],
       parent: screen, top: 0, left: 0, width: 10, height: 5)

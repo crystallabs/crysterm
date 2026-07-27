@@ -6,19 +6,9 @@ include Crysterm
 # (`border-chars`, `border-top-left-char` …), the `shadow-char-*` family, and
 # the `@media (glyphs: …)` feature over the support-tier ordering.
 
-private def gmb_screen(width = 40, height = 12)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, default_quit_keys: false)
-end
-
-private def gmb_ch(s, y, x)
-  s.lines[y][x].char
-end
-
 describe "border-chars CSS (rounded corners)" do
   it "draws rounded corners via the per-corner longhands" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = <<-CSS
       Box { border: solid;
@@ -27,31 +17,31 @@ describe "border-chars CSS (rounded corners)" do
       CSS
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft).should eq '╭'
-    gmb_ch(s, box.atop, box.aleft + 9).should eq '╮'
-    gmb_ch(s, box.atop + 4, box.aleft).should eq '╰'
-    gmb_ch(s, box.atop + 4, box.aleft + 9).should eq '╯'
+    cell_char(s, box.aleft, box.atop).should eq '╭'
+    cell_char(s, box.aleft + 9, box.atop).should eq '╮'
+    cell_char(s, box.aleft, box.atop + 4).should eq '╰'
+    cell_char(s, box.aleft + 9, box.atop + 4).should eq '╯'
     # Runs keep the registry family glyphs.
-    gmb_ch(s, box.atop, box.aleft + 4).should eq '─'
-    gmb_ch(s, box.atop + 2, box.aleft).should eq '│'
+    cell_char(s, box.aleft + 4, box.atop).should eq '─'
+    cell_char(s, box.aleft, box.atop + 2).should eq '│'
   end
 
   it "applies the six-value border-chars shorthand" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: solid; border-chars: "1" "2" "3" "4" "h" "v"; })
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft).should eq '1'
-    gmb_ch(s, box.atop, box.aleft + 9).should eq '2'
-    gmb_ch(s, box.atop + 4, box.aleft).should eq '3'
-    gmb_ch(s, box.atop + 4, box.aleft + 9).should eq '4'
-    gmb_ch(s, box.atop, box.aleft + 4).should eq 'h'
-    gmb_ch(s, box.atop + 2, box.aleft).should eq 'v'
+    cell_char(s, box.aleft, box.atop).should eq '1'
+    cell_char(s, box.aleft + 9, box.atop).should eq '2'
+    cell_char(s, box.aleft, box.atop + 4).should eq '3'
+    cell_char(s, box.aleft + 9, box.atop + 4).should eq '4'
+    cell_char(s, box.aleft + 4, box.atop).should eq 'h'
+    cell_char(s, box.aleft, box.atop + 2).should eq 'v'
   end
 
   it "applies the three-value (corner h v) shorthand and none clears back" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = <<-CSS
       Box { border: solid; border-chars: "+" "-" "|"; }
@@ -60,10 +50,10 @@ describe "border-chars CSS (rounded corners)" do
     s.apply_stylesheet
     s.repaint
     # `none` cleared the TL position override; the corner *group* still holds.
-    gmb_ch(s, box.atop, box.aleft).should eq '+'
-    gmb_ch(s, box.atop, box.aleft + 9).should eq '+'
-    gmb_ch(s, box.atop, box.aleft + 4).should eq '-'
-    gmb_ch(s, box.atop + 2, box.aleft).should eq '|'
+    cell_char(s, box.aleft, box.atop).should eq '+'
+    cell_char(s, box.aleft + 9, box.atop).should eq '+'
+    cell_char(s, box.aleft + 4, box.atop).should eq '-'
+    cell_char(s, box.aleft, box.atop + 2).should eq '|'
   end
 
   it "drops a wide char on a border position (cells are one column)" do
@@ -82,7 +72,7 @@ describe "border-chars CSS (rounded corners)" do
   end
 
   it "gives each side its own run char via the per-side longhands" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = <<-CSS
       Box { border: solid;
@@ -91,25 +81,25 @@ describe "border-chars CSS (rounded corners)" do
       CSS
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft + 4).should eq 'T'
-    gmb_ch(s, box.atop + 4, box.aleft + 4).should eq 'B'
-    gmb_ch(s, box.atop + 2, box.aleft).should eq 'L'
-    gmb_ch(s, box.atop + 2, box.aleft + 9).should eq 'R'
+    cell_char(s, box.aleft + 4, box.atop).should eq 'T'
+    cell_char(s, box.aleft + 4, box.atop + 4).should eq 'B'
+    cell_char(s, box.aleft, box.atop + 2).should eq 'L'
+    cell_char(s, box.aleft + 9, box.atop + 2).should eq 'R'
     # Corners still come from the family — a side run is only the run.
-    gmb_ch(s, box.atop, box.aleft).should eq '┌'
+    cell_char(s, box.aleft, box.atop).should eq '┌'
   end
 
   it "falls a side back to its axis group, then to the family glyph" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = <<-CSS
       Box { border: dotted; border-horizontal-char: "="; border-top-char: "^"; }
       CSS
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft + 4).should eq '^'     # own override wins
-    gmb_ch(s, box.atop + 4, box.aleft + 4).should eq '=' # falls to the axis group
-    gmb_ch(s, box.atop + 2, box.aleft).should eq '┊'     # falls to the family
+    cell_char(s, box.aleft + 4, box.atop).should eq '^'     # own override wins
+    cell_char(s, box.aleft + 4, box.atop + 4).should eq '=' # falls to the axis group
+    cell_char(s, box.aleft, box.atop + 2).should eq '┊'     # falls to the family
   end
 
   it "resolves per-side chars on a Fill border through the same fallbacks" do
@@ -132,24 +122,24 @@ describe "BorderType::Rounded" do
   end
 
   it "is selected by the border-style keyword `rounded`" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: rounded; })
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft).should eq '╭'
-    gmb_ch(s, box.atop + 4, box.aleft + 9).should eq '╯'
-    gmb_ch(s, box.atop, box.aleft + 4).should eq '─'
+    cell_char(s, box.aleft, box.atop).should eq '╭'
+    cell_char(s, box.aleft + 9, box.atop + 4).should eq '╯'
+    cell_char(s, box.aleft + 4, box.atop).should eq '─'
   end
 
   it "maps a positive border-radius onto rounded corners (Qt themes)" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 5
     s.stylesheet = %(Box { border: solid red; border-radius: 4px; })
     s.apply_stylesheet
     s.repaint
-    gmb_ch(s, box.atop, box.aleft).should eq '╭'
-    gmb_ch(s, box.atop + 4, box.aleft).should eq '╰'
+    cell_char(s, box.aleft, box.atop).should eq '╭'
+    cell_char(s, box.aleft, box.atop + 4).should eq '╰'
   end
 
   it "squares back on radius 0 and leaves stronger families alone" do
@@ -219,7 +209,7 @@ describe "@media (glyphs: …)" do
   end
 
   it "applies tier-conditional rules and recascades on a tier switch" do
-    s = gmb_screen
+    s = headless_screen(40, 12)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 3
     s.stylesheet = <<-CSS
       Box { background-color: blue; }

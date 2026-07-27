@@ -5,12 +5,6 @@ include Crysterm
 # Regression coverage for BUGS12 findings 21-22 in `src/widget_content.cr`
 # (`append_content`'s fast path vs. a full reparse of the same content).
 
-private def sized_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 private def make_box(s, parse_tags = false, top = 0)
   Widget::Box.new(parent: s, top: top, left: 0, width: 40, height: 8, parse_tags: parse_tags)
 end
@@ -24,7 +18,7 @@ end
 
 describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
   it "renders identically before and after a full reparse when a closer pops a carried tag" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     # Two unclosed openers: a full reparse's fg stack is [red, blue] at the
     # append boundary. Before the fix, the fast path parsed the pushed line
@@ -41,7 +35,7 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
   end
 
   it "renders identically across a reparse when a balanced closer pops to a carried same-category tag" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     # `{/bold}` is balanced *within* the segment, but with `{bold}` still open
     # from existing content, a full reparse's pop restores `{bold}` (`\e[1m`)
@@ -57,7 +51,7 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
   end
 
   it "keeps a stray brace in an appended segment consistent with a full reparse" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     # Existing content has tags, so a full reparse tag-parses the whole string
     # and drops the appended stray `{` (drop-malformed policy). The fast path
@@ -76,7 +70,7 @@ end
 
 describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
   it "parses tags appended while parse_tags was off after a later parse_tags = true flip" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s)
     box.parse_tags?.should be_false
     box.set_content "hello"
@@ -102,7 +96,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
   end
 
   it "honors an align tag appended while parse_tags was off after a flip, like set_content" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s)
     box.set_content "hello"
     box.process_content
@@ -127,7 +121,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
   end
 
   it "appends an align-tagged line like set_content when parse_tags is on" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     box.set_content "hello"
     box.process_content
@@ -144,7 +138,7 @@ end
 
 describe "Widget#append_content fast path retention" do
   it "still takes the fast path for plain-text appends" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s)
     box.set_content "hello"
     box.process_content
@@ -156,7 +150,7 @@ describe "Widget#append_content fast path retention" do
   end
 
   it "still takes the fast path for balanced tagged appends (the tagged-log case)" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     box.set_content "{green-fg}[INFO]{/green-fg} start"
     box.process_content
@@ -171,7 +165,7 @@ describe "Widget#append_content fast path retention" do
   end
 
   it "stays fast for plain appends after an unclosed opener (attr carry, no tag parse)" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     box.set_content "{red-fg}opens red"
     box.process_content
@@ -186,7 +180,7 @@ describe "Widget#append_content fast path retention" do
   end
 
   it "stays fast when tags first arrive over brace-free content" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     box.set_content "plain"
     box.process_content
@@ -203,7 +197,7 @@ describe "Widget#append_content fast path retention" do
   end
 
   it "bails while a never-parsed stray brace sits in existing content" do
-    s = sized_screen
+    s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     # Matches no tag, so the gate stayed off and the brace rendered literally.
     box.set_content "a { b"

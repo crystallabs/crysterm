@@ -2,10 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-private def headless_screen
-  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
-
 # `Widget#delete_line` deletes via `n.times { fake.delete_at i }` with a fixed
 # `i`. It clamped `i` but not `n`, so deleting more lines than remain from `i`
 # (`remove_last_line 2`, `remove_first_line n` past the count, `delete_line(i, n)` with
@@ -16,28 +12,28 @@ describe "Widget#delete_line over-count" do
     # `remove_last_line(n)` is `delete_line(fake.size - 1, n)`, a *forward* delete from
     # the last index (Blessed `splice` semantics); it removes only the last
     # line regardless of `n`, but the over-count used to raise first.
-    box = Widget::Box.new parent: headless_screen
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true)
     box.set_content "one\ntwo\nthree"
     box.remove_last_line 2
     box.lines.should eq ["one", "two"]
   end
 
   it "remove_first_line n past the end clears all lines without raising" do
-    box = Widget::Box.new parent: headless_screen
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true)
     box.set_content "one\ntwo\nthree"
     box.remove_first_line 10
     box.lines.should eq [] of String
   end
 
   it "delete_line(i, n) with i + n beyond the end deletes only what remains" do
-    box = Widget::Box.new parent: headless_screen
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true)
     box.set_content "a\nb\nc\nd"
     box.delete_line 2, 9
     box.lines.should eq ["a", "b"]
   end
 
   it "an exact-count delete still removes precisely n lines" do
-    box = Widget::Box.new parent: headless_screen
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true)
     box.set_content "a\nb\nc\nd"
     box.delete_line 1, 2
     box.lines.should eq ["a", "d"]

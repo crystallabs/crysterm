@@ -9,12 +9,6 @@ include Crysterm
 # margined child overflowed (Stretch cross axis) or overlapped its siblings
 # (main axis). Same headless harness as `bugs6_layout_spec.cr`.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def render_children(s, container)
   s.repaint
   container.children.map do |c|
@@ -25,7 +19,7 @@ end
 
 describe "BUGS8 Box main-axis packing reserves child margins (fix #6)" do
   it "does not overlap the next child when a child carries a main-axis margin" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 40, height: 4,
       layout: Layout::HBox.new
     Widget::Box.new parent: box, width: 10, height: 2
@@ -46,7 +40,7 @@ end
 
 describe "BUGS8 Box Stretch align reserves cross-axis margins (fix #5)" do
   it "shrinks the stretched size so a margined child stays inside the interior" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::VBox.new # cross axis is width
     # No explicit width → stretched; margin 2 on every side.

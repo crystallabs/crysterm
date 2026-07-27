@@ -8,15 +8,9 @@ include Crysterm
 # parent-less widget, leaving the destroyed widget in `screen.children` —
 # still painted, keyable, possibly focused.
 
-private def sized_screen(w, h)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h)
-end
-
 describe "Widget#destroy (top-level)" do
   it "removes a destroyed top-level widget from the screen's children" do
-    s = sized_screen 20, 5
+    s = headless_screen(20, 5, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     s.children.includes?(b).should be_true
     b.destroy
@@ -24,7 +18,7 @@ describe "Widget#destroy (top-level)" do
   end
 
   it "does not leave keyboard focus stranded on a destroyed top-level widget" do
-    s = sized_screen 20, 5
+    s = headless_screen(20, 5, default_quit_keys: true)
     b = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5, input: true
     s.focus b
     s.focused.should eq b
@@ -33,7 +27,7 @@ describe "Widget#destroy (top-level)" do
   end
 
   it "still unlinks a nested widget on destroy" do
-    s = sized_screen 20, 5
+    s = headless_screen(20, 5, default_quit_keys: true)
     parent = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5
     child = Widget::Box.new parent: parent, top: 0, left: 0, width: 10, height: 2
     parent.children.includes?(child).should be_true

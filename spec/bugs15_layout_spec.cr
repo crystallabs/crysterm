@@ -5,12 +5,6 @@ include Crysterm
 # Regression specs for the BUGS15 layout-engine fixes (#3, #31, #33, #34, #4,
 # #32). Headless harness mirrors spec/bugs12_layout_spec.cr.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 private def rendered_height(el)
   l = el.lpos.not_nil!
   l.yl - l.yi
@@ -22,7 +16,7 @@ end
 # Layout::Box's @flex_size release bookkeeping.
 describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   it "re-resolves a top child's percent height against the live container" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 20,
       layout: Layout::Border.new
     top = Widget::Box.new parent: box, height: "50%",
@@ -40,7 +34,7 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   end
 
   it "does not make a transient clamp of an Int height sticky" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 20,
       layout: Layout::Border.new
     top = Widget::Box.new parent: box, height: 8,
@@ -66,7 +60,7 @@ end
 # shift, painted past the container. The fix subtracts the span-axis margins.
 describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
   it "keeps a left-margined top bar inside the container's right edge" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 10,
       layout: Layout::Border.new
     header = Widget::Box.new parent: box, height: 1,
@@ -90,7 +84,7 @@ end
 # the negative-col clamp to column 0).
 describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
   it "renders a col-beyond-grid child in the last column, not vanished" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 10,
       layout: Layout::Grid.new(columns: 3, spacing: 0)
     Widget::Box.new parent: box,
@@ -112,7 +106,7 @@ end
 # container's SkipWidget/StopRendering policy never engaged. The fix adds mtop.
 describe "BUGS15 flow overflow accounts for the child's top margin (fix #34)" do
   it "skips a bottom-overflowing child once its top margin is counted" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 5,
       layout: Layout::Wrap.new, overflow: :skip_widget
     child = Widget::Box.new parent: box, width: 4, height: 5,
@@ -133,7 +127,7 @@ end
 # geometry and advances the row cursor by its assigned height.
 describe "BUGS15 flow keeps scrolled rows visible (fix #4)" do
   it "shows the scrolled-into-view rows instead of re-piling at the origin" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 6,
       layout: Layout::Wrap.new, overflow: :ignore, scrollable: true
     20.times { Widget::Box.new parent: box, width: 3, height: 2 }
@@ -162,7 +156,7 @@ end
 # aheight and mirrors Border's release bookkeeping.
 describe "BUGS15 form resolves and preserves child heights (fix #32)" do
   it "resolves a field's percent height instead of collapsing it to 1" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     label = Widget::Box.new parent: form, height: 5
@@ -181,7 +175,7 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
   end
 
   it "un-sticks the paired-row max after the partner shrinks" do
-    s = headless_screen
+    s = headless_screen(80, 24)
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     label = Widget::Box.new parent: form, height: 5

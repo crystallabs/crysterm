@@ -12,15 +12,9 @@ include Crysterm
 #   frame (multi-second stall/hang), and `row: Int32::MAX` must not raise
 #   `OverflowError` in the row inference.
 
-private def headless_screen(w = 80, h = 24)
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: w, height: h, default_quit_keys: false)
-end
-
 describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
   it "clears lpos of the widget and its descendants on a false->true flip" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     parent = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20
     child = Widget::Box.new parent: parent, left: 0, top: 0, width: 10, height: 5
     grand = Widget::Box.new parent: child, left: 0, top: 0, width: 4, height: 2
@@ -39,7 +33,7 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
   end
 
   it "clears the rects under a layout engine too" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     box = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 10,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, height: 5
@@ -55,7 +49,7 @@ describe "BUGS13 S10 layout_excluded=true clears stale subtree rects" do
   end
 
   it "flipping back to false resumes rendering" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     parent = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20
     child = Widget::Box.new parent: parent, left: 0, top: 0, width: 10, height: 5
     screen.repaint
@@ -71,7 +65,7 @@ end
 
 describe "BUGS13 S16 Grid clamps extreme spans and rows" do
   it "arranges promptly with row_span/column_span Int32::MAX (no per-frame stall)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20,
       layout: Layout::Grid.new(columns: 3)
     a = Widget::Box.new parent: g,
@@ -90,7 +84,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
   end
 
   it "does not raise OverflowError for row: Int32::MAX" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 40, height: 20,
       layout: Layout::Grid.new(columns: 2)
     Widget::Box.new parent: g,
@@ -100,7 +94,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
   end
 
   it "keeps ordinary spans and occupancy intact (no regression)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 30, height: 20,
       layout: Layout::Grid.new(columns: 3)
     a = Widget::Box.new parent: g,
@@ -119,7 +113,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
   end
 
   it "still lets an over-large span mean 'span to the end' (BUGS6 semantics)" do
-    screen = headless_screen
+    screen = headless_screen(80, 24)
     g = Widget::Box.new parent: screen, left: 0, top: 0, width: 20, height: 20,
       layout: Layout::Grid.new(columns: 2, spacing: 1)
     a = Widget::Box.new parent: g,

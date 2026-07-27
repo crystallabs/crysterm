@@ -8,33 +8,13 @@ include Crysterm
 # `ExtraSelection` format overlays incl. the full-width current-line
 # highlight (TEXTEDIT.md Phase 2).
 
-private def te_screen(width = 40, height = 8)
-  Crysterm::Window.new(
-    input: IO::Memory.new,
-    output: IO::Memory.new,
-    error: IO::Memory.new,
-    width: width,
-    height: height)
-end
-
-private def mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
-  ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
-end
-
-private def press(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Down, x, y)
-end
-
+# A drag-to-select motion with the (left) button still held.
 private def drag_move(s, x, y)
-  s.dispatch_mouse mouse(::Tput::Mouse::Action::Move, x, y, ::Tput::Mouse::Button::Left)
-end
-
-private def key(char : Char, k : ::Tput::Key? = nil)
-  Crysterm::Event::KeyPress.new char, k
+  mouse_move(s, x, y, ::Tput::Mouse::Button::Left)
 end
 
 private def ctl(k : ::Tput::Key)
-  Crysterm::Event::KeyPress.new '\0', k
+  kp key: k
 end
 
 private def reversed?(s, x, y)
@@ -43,25 +23,25 @@ end
 
 describe Widget::TextEdit do
   it "positions the caret from a mouse click, across blocks" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo\nthree"
     s.repaint
 
-    press s, 2, 1
+    mouse_down s, 2, 1
     te.cursor_pos.should eq 6 # "one\n tw|o" -> block 1, offset 2
 
-    press s, 5, 2
+    mouse_down s, 5, 2
     te.cursor_pos.should eq 13 # past "three" -> end of the document
   end
 
   it "drag-selects and paints the selection reversed" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "hello world"
     s.repaint
 
-    press s, 0, 0
+    mouse_down s, 0, 0
     drag_move s, 5, 0
     te.selected_text.should eq "hello"
 
@@ -72,12 +52,12 @@ describe Widget::TextEdit do
   end
 
   it "a selection spanning blocks selects across the separator" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo"
     s.repaint
 
-    press s, 1, 0
+    mouse_down s, 1, 0
     drag_move s, 2, 1
     te.selected_text.should eq "ne\ntw"
 
@@ -88,14 +68,14 @@ describe Widget::TextEdit do
   end
 
   it "typing over a selection replaces it in one undo step" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "hello world"
     s.repaint
 
-    press s, 0, 0
+    mouse_down s, 0, 0
     drag_move s, 5, 0
-    te._listener key('H')
+    te._listener kp('H')
     te.value.should eq "H world"
 
     te._listener ctl(::Tput::Key::CtrlZ)
@@ -103,7 +83,7 @@ describe Widget::TextEdit do
   end
 
   it "shift-selection over the document highlights and collapses like the flat editors" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "abcdef"
     s.repaint
@@ -118,7 +98,7 @@ describe Widget::TextEdit do
   end
 
   it "applies a ranged ExtraSelection as a format overlay" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "overlay target"
     s.repaint
@@ -138,7 +118,7 @@ describe Widget::TextEdit do
   end
 
   it "a full-width ExtraSelection highlights the caret's whole row (current line)" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "one\ntwo\nthree"
     s.repaint
@@ -157,7 +137,7 @@ describe Widget::TextEdit do
   end
 
   it "extra selections merge over char formats without erasing them" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "bold"
     te.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
@@ -175,13 +155,13 @@ describe Widget::TextEdit do
   end
 
   it "double-click selects the word under the pointer" do
-    s = te_screen
+    s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "alpha beta gamma"
     s.repaint
 
-    press s, 7, 0
-    press s, 7, 0 # second click within the multi-click window
+    mouse_down s, 7, 0
+    mouse_down s, 7, 0 # second click within the multi-click window
     te.selected_text.should eq "beta"
   end
 end

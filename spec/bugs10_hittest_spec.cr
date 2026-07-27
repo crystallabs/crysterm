@@ -13,12 +13,6 @@ include Crysterm
 # last-rendered `lpos` intact — so `Window#widget_at` kept hitting them at
 # stale positions from the previous frame.
 
-private def b10_screen
-  Crysterm::Window.new(
-    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: 60, height: 24, default_quit_keys: false)
-end
-
 private def b10_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y, source: :test))
 end
@@ -28,7 +22,7 @@ end
 # bar is fully visible after the scroll here; the partially-clipped case
 # (painted track compressed into the clipped rect) is covered separately below.
 private def b10_scrolled_bar
-  s = b10_screen
+  s = headless_screen(60, 24)
   outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true
   # Tall spacer so the container has plenty to scroll (`child_base` moves only
   # once the offset exceeds the viewport).
@@ -49,7 +43,7 @@ end
 
 describe "BUGS10 16: ScrollBar pointer mapping uses painted coords" do
   it "seeks to the clicked cell when unscrolled (control)" do
-    s = b10_screen
+    s = headless_screen(60, 24)
     bar = Widget::ScrollBar.new parent: s, top: 4, left: 0, width: 1, height: 10,
       minimum: 0, maximum: 9
     s.repaint
@@ -83,7 +77,7 @@ describe "BUGS10 16 follow-up: clipped ScrollBar seeks over the painted track" d
   # math must use that same painted span — the layout-size span (`aheight -
   # ivertical`) made clicks on a clipped bar land proportionally short.
   it "seeking the last painted track cell reaches the maximum" do
-    s = b10_screen
+    s = headless_screen(60, 24)
     outer = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6, scrollable: true
     Widget::Box.new parent: outer, top: 0, left: 5, width: 1, height: 30
     bar = Widget::ScrollBar.new parent: outer, top: 8, left: 0, width: 1, height: 5,
@@ -113,7 +107,7 @@ end
 # a 30-wide `Wrap` (one per row), grandchildren under the 2nd and 3rd, then
 # shrunk so the second row overflows the interior.
 private def b10_flow_box(overflow)
-  s = b10_screen
+  s = headless_screen(60, 24)
   box = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 12,
     layout: Layout::Wrap.new
   box.overflow = overflow
@@ -155,7 +149,7 @@ end
 
 describe "BUGS10 24: collapsed container interior clears children's hit rects" do
   it "makes a child unclickable when the interior collapses" do
-    s = b10_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::VBox.new, style: Style.new(border: true)
     child = Widget::Box.new parent: box, width: 10, height: 3
@@ -172,7 +166,7 @@ describe "BUGS10 24: collapsed container interior clears children's hit rects" d
   end
 
   it "clears grandchildren too (widget_at hit-tests every widget independently)" do
-    s = b10_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::VBox.new, style: Style.new(border: true)
     child = Widget::Box.new parent: box, width: 14, height: 5
@@ -189,7 +183,7 @@ describe "BUGS10 24: collapsed container interior clears children's hit rects" d
   end
 
   it "children render again when the interior re-expands" do
-    s = b10_screen
+    s = headless_screen(60, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
       layout: Layout::VBox.new, style: Style.new(border: true)
     child = Widget::Box.new parent: box, width: 10, height: 3
