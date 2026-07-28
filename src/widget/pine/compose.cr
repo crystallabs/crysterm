@@ -16,13 +16,12 @@ module Crysterm
       # ```
       #
       # Move between fields with Tab / Shift-Tab, or Up / Down.
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![Compose screenshot](../../../tests/widget/pine/compose/compose.5s.apng)
-      # <!-- /widget-examples:capture -->
       # Excluded from the DOM-loader registry: self-populating composite
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
+      # <!-- widget-examples:capture v1 -->
+      # ![Compose screenshot](../../../tests/widget/pine/compose/compose.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Compose < Widget::Box
         # Header field names shown to the left of each input.
         FIELD_NAMES = ["To", "Cc", "Bcc", "Attchmnt", "Subject"]

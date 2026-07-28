@@ -19,10 +19,6 @@ module Crysterm
     # img = Widget::Media::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: window
     # img.mode = Widget::Media::Glyph::Mode::Octant # re-renders in another family
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![Glyph screenshot](../../../tests/widget/media/glyph/glyph.5s.apng)
-    # <!-- /widget-examples:capture -->
     class Media::Glyph < Media::Cells
       enum Mode
         Block
@@ -492,36 +488,24 @@ module Crysterm
     end
 
     module Media::Unicode
-      # <!-- widget-examples:capture v1 -->
-      # ![Half screenshot](../../../../tests/widget/media/glyph/half/half.5s.apng)
-      # <!-- /widget-examples:capture -->
       class Half < Glyph
         def initialize(**box)
           super **box.merge(mode: Glyph::Mode::Half)
         end
       end
 
-      # <!-- widget-examples:capture v1 -->
-      # ![Quadrant screenshot](../../../../tests/widget/media/glyph/quadrant/quadrant.5s.apng)
-      # <!-- /widget-examples:capture -->
       class Quadrant < Glyph
         def initialize(**box)
           super **box.merge(mode: Glyph::Mode::Quadrant)
         end
       end
 
-      # <!-- widget-examples:capture v1 -->
-      # ![Sextant screenshot](../../../../tests/widget/media/glyph/sextant/sextant.5s.apng)
-      # <!-- /widget-examples:capture -->
       class Sextant < Glyph
         def initialize(**box)
           super **box.merge(mode: Glyph::Mode::Sextant)
         end
       end
 
-      # <!-- widget-examples:capture v1 -->
-      # ![Octant screenshot](../../../../tests/widget/media/glyph/octant/octant.5s.apng)
-      # <!-- /widget-examples:capture -->
       class Octant < Glyph
         def initialize(**box)
           super **box.merge(mode: Glyph::Mode::Octant)

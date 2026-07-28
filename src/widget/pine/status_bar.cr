@@ -6,13 +6,12 @@ module Crysterm
       # displayed horizontally centered, matching Alpine.
       #
       # Update the text at runtime via `status_bar.status.content = "..."`.
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![StatusBar screenshot](../../../tests/widget/pine/status_bar/status_bar.5s.apng)
-      # <!-- /widget-examples:capture -->
       # Excluded from the DOM-loader registry: self-populating composite
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
+      # <!-- widget-examples:capture v1 -->
+      # ![StatusBar screenshot](../../../tests/widget/pine/status_bar/status_bar.5s.apng)
+      # <!-- /widget-examples:capture -->
       class StatusBar < Widget::Box
         getter status : Widget::Box
 

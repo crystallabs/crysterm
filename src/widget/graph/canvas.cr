@@ -36,13 +36,12 @@ module Crysterm
       # end
       # cv.refresh
       # ```
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![Canvas screenshot](../../../tests/widget/graph/canvas/canvas.5s.apng)
-      # <!-- /widget-examples:capture -->
       # Excluded from the DOM-loader registry: self-populating composite
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
+      # <!-- widget-examples:capture v1 -->
+      # ![Canvas screenshot](../../../tests/widget/graph/canvas/canvas.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Canvas < Box
         # The Media backend presenting the painted bitmap. Nilable only until
         # `#initialize` can reach the window for backend detection; never `nil`

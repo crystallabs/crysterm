@@ -35,13 +35,12 @@ module Crysterm
     #   width: 56, height: 20, style: Style.new(border: true)
     # dialog.get_color { |hex| theme.accent = hex if hex }
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![ColorDialog screenshot](../../tests/widget/color_dialog/color_dialog.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![ColorDialog screenshot](../../tests/widget/color_dialog/color_dialog.5s.apng)
+    # <!-- /widget-examples:capture -->
     class ColorDialog < Dialog
       # Inner-area layout (cells, relative to the content origin).
       FIELD_X =  0

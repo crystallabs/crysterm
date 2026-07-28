@@ -20,13 +20,12 @@ module Crysterm
     # wiz.add_page "Details", Widget::Form.new
     # wiz.on(Event::Completed) { finish! }
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Wizard < Dialog
       include Mixin::WindowLifecycle
 

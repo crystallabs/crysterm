@@ -22,13 +22,12 @@ module Crysterm
     #   ]
     # )
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![ListTable screenshot](../../tests/widget/listtable/listtable.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![ListTable screenshot](../../tests/widget/listtable/listtable.5s.apng)
+    # <!-- /widget-examples:capture -->
     class ListTable < AbstractItemView
       include Mixin::ItemView
       include TableLayout

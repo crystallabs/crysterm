@@ -32,13 +32,12 @@ module Crysterm
       # m.add_marker latitude: 35.68, longitude: 139.69, label: "Tokyo", color: 0x40E0D0
       # m.refresh
       # ```
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![Map screenshot](../../../tests/widget/graph/map/map.5s.apng)
-      # <!-- /widget-examples:capture -->
       # Excluded from the DOM-loader registry: self-populating composite
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
+      # <!-- widget-examples:capture v1 -->
+      # ![Map screenshot](../../../tests/widget/graph/map/map.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Map < Box
         include TextOverlay
         include InteriorCoords

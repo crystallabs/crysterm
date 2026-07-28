@@ -26,6 +26,10 @@ module Crysterm
     #
     # The document is settable and shareable between views (Qt semantics):
     # `TextEdit.new(document: doc)` or `edit.document = doc`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![TextEdit screenshot](../../tests/widget/textedit/textedit.5s.apng)
+    # <!-- /widget-examples:capture -->
     class TextEdit < AbstractScrollArea
       include Mixin::Interactive
       include Mixin::TextEditing

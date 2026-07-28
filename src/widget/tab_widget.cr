@@ -22,13 +22,12 @@ module Crysterm
     # tabs.add_tab "Edit", Widget::Box.new(content: "...")
     # tabs.tab_bar.focus # so the arrow keys switch tabs
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![TabWidget screenshot](../../tests/widget/tab_widget/tab_widget.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![TabWidget screenshot](../../tests/widget/tab_widget/tab_widget.5s.apng)
+    # <!-- /widget-examples:capture -->
     class TabWidget < Box
       include Mixin::PagedContainer
       include Mixin::SubStyle

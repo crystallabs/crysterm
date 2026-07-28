@@ -31,13 +31,12 @@ module Crysterm
       # chart.axis_y.maximum = 1.0
       # chart.refresh
       # ```
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![LineChart screenshot](../../../tests/widget/graph/line_chart/line_chart.5s.apng)
-      # <!-- /widget-examples:capture -->
       # Excluded from the DOM-loader registry: self-populating composite
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
+      # <!-- widget-examples:capture v1 -->
+      # ![LineChart screenshot](../../../tests/widget/graph/line_chart/line_chart.5s.apng)
+      # <!-- /widget-examples:capture -->
       class LineChart < Box
         include TextOverlay
         include InteriorCoords

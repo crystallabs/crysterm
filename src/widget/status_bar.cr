@@ -15,13 +15,12 @@ module Crysterm
     # bar.add_permanent "Ln 1, Col 1"
     # bar.show_message "Saved", 2.seconds
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![StatusBar screenshot](../../tests/widget/status_bar/status_bar.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![StatusBar screenshot](../../tests/widget/status_bar/status_bar.5s.apng)
+    # <!-- /widget-examples:capture -->
     class StatusBar < Box
       # Generation-guarded timed dismissal: a pending `#show_message` timeout only
       # clears *its own* message, not a newer one.

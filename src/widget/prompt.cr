@@ -2,12 +2,12 @@ require "./dialog"
 
 module Crysterm
   class Widget
-    # <!-- widget-examples:capture v1 -->
-    # ![Prompt screenshot](../../tests/widget/prompt/prompt.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![Prompt screenshot](../../tests/widget/prompt/prompt.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Prompt < Dialog
       include ::Crysterm::Mixin::OkCancelDialog
 

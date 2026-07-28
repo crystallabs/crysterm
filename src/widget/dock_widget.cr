@@ -17,13 +17,12 @@ module Crysterm
     # dock.widget = Widget::Tree.new
     # main_window.add_dock dock
     # ```
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![DockWidget screenshot](../../tests/widget/dock_widget/dock_widget.5s.apng)
-    # <!-- /widget-examples:capture -->
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
+    # <!-- widget-examples:capture v1 -->
+    # ![DockWidget screenshot](../../tests/widget/dock_widget/dock_widget.5s.apng)
+    # <!-- /widget-examples:capture -->
     class DockWidget < Box
       include Mixin::SubStyle
       # A floating dock is an overlay (structural border at the unstyled floor);
