@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Pine::StatusBar
 #
 # Minimal, self-contained example of a single StatusBar.
-# Run it:     crystal run examples/widget/pine/status_bar/status_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/status_bar/status_bar.cr
 require "../../example"
 
 include Crysterm

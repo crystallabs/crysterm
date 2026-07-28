@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Form
 #
 # Minimal, self-contained example of a single Form.
-# Run it:     crystal run examples/widget/form/form.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/form/form.cr
 require "../example"
 
 include Crysterm

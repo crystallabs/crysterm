@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ScrollBar
 #
 # Minimal, self-contained example of a single ScrollBar.
-# Run it:     crystal run examples/widget/scrollbar/scrollbar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/scrollbar/scrollbar.cr
 require "../example"
 
 include Crysterm

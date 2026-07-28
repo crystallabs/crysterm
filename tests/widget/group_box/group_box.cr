@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::GroupBox
 #
 # Minimal, self-contained example of a single GroupBox.
-# Run it:     crystal run examples/widget/group_box/group_box.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/group_box/group_box.cr
 require "../example"
 
 include Crysterm

@@ -43,8 +43,9 @@ INTERVAL =  1 # frames between successive letter launches
 TRAVEL   = 12 # frames a letter spends in flight
 HOLD     = 28 # frames the finished spiral is held before re-firing
 
-# Copper / raster bars live on rows 1 and 3 (rows 0/2 carry the fps and the
-# line scroller). Bar `i` is staggered `i*26°` around the color wheel and every
+# Copper / raster bars live on rows 1 and 3 (row 0 carries the top pattern, row
+# 2 the line scroller; the fps overlay sits on the bottom row). Bar `i` is
+# staggered `i*26°` around the color wheel and every
 # bar advances `9°` per frame — the exact hue math `Widget::Effect::CopperBar`
 # uses, replicated here so a landed letter can adopt the bar's background.
 COPPER_ROWS = [1, 3]
@@ -227,7 +228,7 @@ scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 # terminal bandwidth (TX: bytes/s actually written after diffing; Σ: running
 # total). Added last, so it paints on top of the scene.
 Widget::Fps.new \
-  parent: s, top: 0, left: 0,
+  parent: s, bottom: 0, left: 0,
   format: " FPS %s (avg %s)  R/D/F %s/%s/%s  TX %s/s  Σ %s ",
   args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,
          Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw,

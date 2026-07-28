@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Splitter
 #
 # Minimal, self-contained example of a single Splitter.
-# Run it:     crystal run examples/widget/splitter/splitter.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/splitter/splitter.cr
 require "../example"
 
 include Crysterm

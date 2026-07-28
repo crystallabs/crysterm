@@ -52,8 +52,11 @@ module Crysterm
       # If the hardware cursor can't satisfy the request, draw it ourselves.
       # Re-derived unconditionally every call: gating on the current
       # `c.artificial?` would make the decision monotonic, so a cursor once
-      # turned artificial could never go back to hardware.
-      c.artificial = c.shape.none? || (wants_cursor_styling?(c) && !hardware_cursor_styling?)
+      # turned artificial could never go back to hardware. A device with no
+      # hardware cursor at all (headless / redirected) always draws its own,
+      # so cursors show up in captures too.
+      c.artificial = c.shape.none? || !hardware_cursor? ||
+                     (wants_cursor_styling?(c) && !hardware_cursor_styling?)
 
       if c.artificial?
         # The active cursor is drawn by Crysterm, so the terminal's own cursor

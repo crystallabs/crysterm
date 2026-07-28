@@ -9,18 +9,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                 ada       Ada Lovelace            ada@example.co               |
-|                 linus     Linus Torvalds          linus@example.               |
-|                 grace     Grace Hopper            grace@example.               |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|               ┌─ Address Book ─────────────────────────────────┐               |
+|               │  ada       Ada Lovelace            ada@example.│               |
+|               │  linus     Linus Torvalds          linus@exampl│               |
+|               │  grace     Grace Hopper            grace@exampl│               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               └────────────────────────────────────────────────┘               |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -29,7 +29,17 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 15-64:#101010/#89b4fa
+y6: 17-30:#c0caf5/def
+y7: 16-63:#c0caf5/#89b4fa
+y8: 16-63:#c0caf5/def
+y9: 16-63:#c0caf5/def
+y10: 16-63:#c0caf5/def
+y11: 16-63:#c0caf5/def
+y12: 16-63:#c0caf5/def
+y13: 16-63:#c0caf5/def
+y14: 16-63:#c0caf5/def
+y15: 16-63:#c0caf5/def
+y16: 16-63:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -40,18 +50,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                 ada       Ada Lovelace            ada@example.co               |
-|                 linus     Linus Torvalds          linus@example.               |
-|                 grace     Grace Hopper            grace@example.               |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|               ┌─ Address Book ─────────────────────────────────┐               |
+|               │  ada       Ada Lovelace            ada@example.│               |
+|               │  linus     Linus Torvalds          linus@exampl│               |
+|               │  grace     Grace Hopper            grace@exampl│               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               │                                                │               |
+|               └────────────────────────────────────────────────┘               |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -60,4 +70,14 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 15-64:#101010/#89b4fa
+y6: 17-30:#c0caf5/def
+y7: 16-63:#c0caf5/#89b4fa
+y8: 16-63:#c0caf5/def
+y9: 16-63:#c0caf5/def
+y10: 16-63:#c0caf5/def
+y11: 16-63:#c0caf5/def
+y12: 16-63:#c0caf5/def
+y13: 16-63:#c0caf5/def
+y14: 16-63:#c0caf5/def
+y15: 16-63:#c0caf5/def
+y16: 16-63:#c0caf5/def

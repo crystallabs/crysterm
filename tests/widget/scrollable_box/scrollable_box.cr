@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ScrollableBox
 #
 # Minimal, self-contained example of a single ScrollableBox.
-# Run it:     crystal run examples/widget/scrollable_box/scrollable_box.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/scrollable_box/scrollable_box.cr
 require "../example"
 
 include Crysterm

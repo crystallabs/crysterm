@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::TimeEdit
 #
 # Minimal, self-contained example of a single TimeEdit.
-# Run it:     crystal run examples/widget/time_edit/time_edit.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/time_edit/time_edit.cr
 require "../example"
 
 include Crysterm

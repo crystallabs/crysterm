@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Manual
 #
 # Minimal, self-contained example of a single Manual.
-# Run it:     crystal run examples/layout/manual/manual.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/manual/manual.cr
 require "../../widget/example"
 
 include Crysterm

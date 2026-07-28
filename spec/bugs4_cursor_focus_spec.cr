@@ -20,8 +20,10 @@ private def cursor_screen
   io = IO::Memory.new
   screen = Crysterm::Window.new(
     input: IO::Memory.new, output: io, error: IO::Memory.new)
-  # Force determinism regardless of $TERM: pretend hardware cursor recoloring is
-  # supported, and keep the cursor non-artificial so the hardware path runs.
+  # Force determinism regardless of $TERM: pretend a recolorable hardware
+  # cursor exists (an in-memory device alone would force every cursor
+  # artificial), and keep the cursor non-artificial so the hardware path runs.
+  screen.screen.hardware_cursor = true
   screen.tput.features.cursor_color = true
   screen.cursor.artificial = false
   {screen, io}

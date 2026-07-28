@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Gradient
 #
 # Minimal, self-contained example of a single Gradient.
-# Run it:     crystal run examples/widget/gradient/gradient.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/gradient/gradient.cr
 require "../example"
 
 include Crysterm

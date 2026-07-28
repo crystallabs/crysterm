@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Question
 #
 # Minimal, self-contained example of a single Question.
-# Run it:     crystal run examples/widget/question/question.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/question/question.cr
 require "../example"
 
 include Crysterm

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Button
 #
 # Minimal, self-contained example of a single Button.
-# Run it:     crystal run examples/widget/button/button.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/button/button.cr
 require "../example"
 
 include Crysterm

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::HLine
 #
 # Minimal, self-contained example of a single HLine.
-# Run it:     crystal run examples/widget/hline/hline.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/hline/hline.cr
 require "../example"
 
 include Crysterm

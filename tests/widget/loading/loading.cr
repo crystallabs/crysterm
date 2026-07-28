@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Loading
 #
 # Minimal, self-contained example of a single Loading.
-# Run it:     crystal run examples/widget/loading/loading.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/loading/loading.cr
 require "../example"
 
 include Crysterm

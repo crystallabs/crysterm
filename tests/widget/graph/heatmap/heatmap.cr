@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::HeatMap
 #
 # Minimal, self-contained example of a single HeatMap.
-# Run it:     crystal run examples/widget/graph/heatmap/heatmap.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/heatmap/heatmap.cr
 require "../../example"
 
 include Crysterm

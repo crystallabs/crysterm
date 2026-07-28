@@ -17,15 +17,22 @@ include Crysterm
 # `show_cursor` dispatches on the active cursor and the artificial branch never
 # emits cnorm.
 private def cursor_window(output = IO::Memory.new, width = 10, height = 4, inline = false, cursor = nil)
-  if cursor
-    Crysterm::Window.new(
-      input: IO::Memory.new, output: output, error: IO::Memory.new,
-      width: width, height: height, inline: inline, cursor: cursor)
-  else
-    Crysterm::Window.new(
-      input: IO::Memory.new, output: output, error: IO::Memory.new,
-      width: width, height: height, inline: inline)
-  end
+  s = if cursor
+        Crysterm::Window.new(
+          input: IO::Memory.new, output: output, error: IO::Memory.new,
+          width: width, height: height, inline: inline, cursor: cursor)
+      else
+        Crysterm::Window.new(
+          input: IO::Memory.new, output: output, error: IO::Memory.new,
+          width: width, height: height, inline: inline)
+      end
+  # These examples exercise the artificial<->hardware *transition*, so the
+  # device must present a hardware cursor despite the in-memory IO (which
+  # alone would force every cursor artificial). Construction (`enter`) already
+  # applied the cursor under auto-detection, so re-derive the decision.
+  s.screen.hardware_cursor = true
+  s.apply_cursor
+  s
 end
 
 # Consumes any pending render request, so a later `doorbell_rung?` observes only

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::SplashScreen
 #
 # Minimal, self-contained example of a single SplashScreen.
-# Run it:     crystal run examples/widget/splash_screen/splash_screen.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/splash_screen/splash_screen.cr
 require "../example"
 
 include Crysterm

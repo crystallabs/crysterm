@@ -130,8 +130,15 @@ module Crysterm
       # frame 0 and stretch the clip by one frame period. This doesn't disturb
       # the clock's phase-lock (`next_at` is computed from the start time
       # regardless).
+      # Frames fed so far (frame 0 was written above). Drives the blink phase:
+      # `Attr::BLINK` cells hide on alternate half-second phases, so blinking
+      # text actually blinks in the clip (a still keeps it visible).
+      frame = 1
       clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do
-        bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+        hidden = (frame * 2 // fps).odd?
+        frame += 1
+        bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg,
+          blink_hidden: hidden)
         input.write Capture.rgba(bmp)
       rescue
         # Pipe closed / encoder gone: stop feeding it.

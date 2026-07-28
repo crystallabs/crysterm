@@ -32,30 +32,30 @@ s.load_layout <<-HTML
     <w-box class="strip" top="0" left="0" width="100%" height="1" parse-tags="true"
            content="{center}HTML layout DOM — this dashboard was built from an inline HTML string{/center}"></w-box>
 
-    <w-box id="services" class="panel" top="2" left="2" width="36" height="15" label=" services ">
+    <w-box id="services" class="panel" top="2" left="2" width="36" height="15" label=" Services ">
       <w-box class="row" top="1" left="2" width="30" height="1" parse-tags="true"
-             content="web        {#98c379-fg}● up{/}"></w-box>
+             content="Web        {#98c379-fg}● up{/}"></w-box>
       <w-box class="row" top="3" left="2" width="30" height="1" parse-tags="true"
-             content="database   {#98c379-fg}● up{/}"></w-box>
+             content="Database   {#98c379-fg}● up{/}"></w-box>
       <w-box class="row" top="5" left="2" width="30" height="1" parse-tags="true"
-             content="cache      {#e5c07b-fg}● warm{/}"></w-box>
+             content="Cache      {#e5c07b-fg}● warm{/}"></w-box>
       <w-box class="row" top="7" left="2" width="30" height="1" parse-tags="true"
-             content="queue      {#98c379-fg}● up{/}"></w-box>
+             content="Queue      {#98c379-fg}● up{/}"></w-box>
       <w-box id="ticker" class="row" top="10" left="2" width="30" height="3" parse-tags="true"
-             content="ticks: 0"></w-box>
+             content="Ticks: 0"></w-box>
     </w-box>
 
-    <w-box class="panel" top="2" left="42" width="36" height="15" label=" metrics ">
-      <w-box class="row" top="1" left="2" width="30" height="1" content="cpu"></w-box>
+    <w-box class="panel" top="2" left="42" width="36" height="15" label=" Metrics ">
+      <w-box class="row" top="1" left="2" width="30" height="1" content="CPU"></w-box>
       <w-progressbar id="cpu" top="2" left="2" width="31" height="3" value="35" text-visible="true"></w-progressbar>
-      <w-box class="row" top="6" left="2" width="30" height="1" content="memory"></w-box>
+      <w-box class="row" top="6" left="2" width="30" height="1" content="Memory"></w-box>
       <w-progressbar id="mem" top="7" left="2" width="31" height="3" value="55" text-visible="true"></w-progressbar>
       <w-box id="readout" class="row" top="11" left="2" width="31" height="2" parse-tags="true"
-             content="cpu {bold}35%{/bold}  ·  mem {bold}55%{/bold}"></w-box>
+             content="CPU {bold}35%{/bold}  ·  Mem {bold}55%{/bold}"></w-box>
     </w-box>
 
     <w-box id="status" top="18" left="2" width="76" height="1" parse-tags="true"
-           content=" status: nominal   (resolve_selector(&quot;#status&quot;) rewrites this line)"></w-box>
+           content=" Status: nominal   (resolve_selector(&quot;#status&quot;) rewrites this line)"></w-box>
 
     <w-box class="strip" top="20" left="0" width="100%" height="4" parse-tags="true"
            content="{center}Updated live via CSS queries: s.resolve_selector(&quot;#status&quot;), &quot;.row&quot;, ...{/center}
@@ -76,11 +76,11 @@ s.every(0.25.seconds) do
   s.resolve_selector("#cpu").each { |w| w.as(Widget::ProgressBar).value = cpu }
   s.resolve_selector("#mem").each { |w| w.as(Widget::ProgressBar).value = mem }
   s.resolve_selector("#readout").each do |w|
-    w.content = "cpu {bold}#{cpu}%{/bold}  ·  mem {bold}#{mem}%{/bold}"
+    w.content = "CPU {bold}#{cpu}%{/bold}  ·  Mem {bold}#{mem}%{/bold}"
   end
-  s.resolve_selector("#ticker").each { |w| w.content = "ticks: #{tick}" }
+  s.resolve_selector("#ticker").each { |w| w.content = "Ticks: #{tick}" }
   s.resolve_selector("#status").each do |w|
-    w.content = " status: #{PHASES[(tick // 8) % PHASES.size]}   (resolve_selector(\"#status\") rewrites this line)"
+    w.content = " Status: #{PHASES[(tick // 8) % PHASES.size]}   (resolve_selector(\"#status\") rewrites this line)"
   end
   tick += 1
 end

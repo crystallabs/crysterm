@@ -242,26 +242,11 @@ set_keys = ->(entries : Array(KeyMenu::Entry)) do
   nil
 end
 
-# Make the bottom command bar clickable: a click on a hint emits the hint's
-# key, turned into the matching keypress so it flows through the same
-# handlers as the physical key.
+# Make the bottom command bar clickable: a click on a hint replays the hint's
+# key as the matching keypress (`KeyPress.parse` understands the same labels
+# the bar displays), so it flows through the same handlers as the physical key.
 key_menu.on(Event::Activated) do |e|
-  kp = case k = e.value.to_s
-       when "Spc"   then Event::KeyPress.new(' ', nil)
-       when "Enter" then Event::KeyPress.new('\r', Tput::Key::Enter)
-       when "Tab"   then Event::KeyPress.new('\t', Tput::Key::Tab)
-       when "Up"    then Event::KeyPress.new('\0', Tput::Key::Up)
-       when "Dn"    then Event::KeyPress.new('\0', Tput::Key::Down)
-       when "PgDn"  then Event::KeyPress.new('\0', Tput::Key::PageDown)
-       when "^X"    then Event::KeyPress.new('\0', Tput::Key::CtrlX)
-       when "^C"    then Event::KeyPress.new('\0', Tput::Key::CtrlC)
-       when "^T"    then Event::KeyPress.new('\0', Tput::Key::CtrlT)
-       when "^O"    then Event::KeyPress.new('\0', Tput::Key::CtrlO)
-       when "^G"    then Event::KeyPress.new('\0', Tput::Key::CtrlG)
-       else
-         k.size == 1 ? Event::KeyPress.new(k[0], nil) : nil
-       end
-  kp.try { |k2| s.emit k2 }
+  Event::KeyPress.parse(e.value.to_s).try { |kp| s.emit kp }
 end
 
 # ----------------------------------------------------------------- the views
@@ -295,7 +280,6 @@ main_menu = MainMenu.new(
 index = MessageIndex.new(**body_opts, messages: messages, visible: false)
 # Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
 index.status_width = FLAG_CHARS.size + 1
-index.messages = messages
 view = Widget::Pine::MessageView.new(**body_opts, visible: false)
 compose = Widget::Pine::Compose.new(**body_opts, visible: false)
 help = TextView.new(**body_opts, visible: false, content: HELP_TEXT)
@@ -354,7 +338,7 @@ current = :main
 active_view : Widget = main_menu
 current_sort = "Arrival"
 prompt_active = false
-flag_target = nil.as(MessageIndex::Message?)
+flag_target : MessageIndex::Message? = nil
 
 show_only = ->(w : Widget) do
   status_line.call status
@@ -393,21 +377,20 @@ ask_yes_no = ->(question : String, on_yes : Proc(Nil)) do
   nil
 end
 
-# Show the percent-done bar and animate it to 100% (mocking a blocking task).
+# Show the percent-done bar and animate it to 100% (mocking a background
+# task): a timer steps the bar without ever blocking the event loop.
 run_progress = ->(label : String) do
   header.info.content = label
   progress.value = 0
   status_line.call progress
-  # Synchronous renders: this mocks a blocking task, stepping the bar from
-  # its own loop. The scheduled (coalescing) render would collapse every step
-  # into a single frame, so each step paints itself.
-  s.repaint
-  0.step(to: 100, by: 10) do |p|
-    progress.value = p
-    s.repaint
-    sleep 35.milliseconds
+  timer : FrameClock? = nil
+  timer = s.every(35.milliseconds) do
+    progress.value += 10
+    if progress.value >= 100
+      timer.try &.stop
+      status_line.call status
+    end
   end
-  status_line.call status
   nil
 end
 
@@ -903,8 +886,5 @@ s.on(Event::KeyPress) do |e|
   end
 end
 
-# One synchronous render so the Border frame is arranged before the first
-# view is shown and focused (see `show_only`).
-s.repaint
 goto_main.call
 s.exec

@@ -73,6 +73,8 @@ describe "TableLayout#pad_cell wide-character trim (display-width)" do
 
   it "contrasts with the non-full_unicode path (trim by char count)" do
     s = headless_screen(40, 20, default_quit_keys: true)
+    # The option defaults on; pin the legacy mode this contrast test covers.
+    s.full_unicode = false
     t = Crysterm::Widget::Table.new parent: s, rows: [["漢字漢字"]]
 
     s.full_unicode_effective?.should be_false

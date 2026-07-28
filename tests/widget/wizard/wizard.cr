@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Wizard
 #
 # Minimal, self-contained example of a single Wizard.
-# Run it:     crystal run examples/widget/wizard/wizard.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/wizard/wizard.cr
 require "../example"
 
 include Crysterm

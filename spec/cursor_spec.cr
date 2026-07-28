@@ -100,6 +100,9 @@ describe "Window#_artificial_cursor_attr" do
   describe "#apply_cursor hardware vs artificial decision" do
     it "chooses hardware or artificial based on shape and terminal support" do
       screen = headless_screen(default_quit_keys: true)
+      # Pretend a hardware cursor exists (the in-memory device alone would
+      # force every request artificial) so the decision under test is reached.
+      screen.screen.hardware_cursor = true
 
       reset = ->(supported : Bool, shape : Tput::Namespace::CursorShape, blink : Bool) do
         screen.tput.features.cursor_style = supported
@@ -122,6 +125,17 @@ describe "Window#_artificial_cursor_attr" do
       # The default steady block needs no styling, so stays on hardware
       # regardless of support.
       reset.call(false, Tput::Namespace::CursorShape::Block, false).should be_false
+    end
+
+    it "forces artificial on a device with no hardware cursor (headless)" do
+      screen = headless_screen(default_quit_keys: true)
+      # Auto-detection: an in-memory output is not a tty, so even a plain
+      # supported block cursor is drawn by Crysterm (and lands in captures).
+      screen.tput.features.cursor_style = true
+      screen.cursor.shape = Tput::Namespace::CursorShape::Block
+      screen.cursor.blink = false
+      screen.apply_cursor
+      screen.cursor.artificial?.should be_true
     end
   end
 

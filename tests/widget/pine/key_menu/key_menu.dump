@@ -29,8 +29,8 @@ w=80 h=24
 | C  Compose   R  Reply                                                          |
 +--------------------------------------------------------------------------------+
 attrs:
-y22: 0-2:def/def+r 13-15:def/def+r 26-28:def/def+r
-y23: 0-2:def/def+r 13-15:def/def+r
+y22: 0-2:#c0caf5/def+r 3-12:#c0caf5/def 13-15:#c0caf5/def+r 16-25:#c0caf5/def 26-28:#c0caf5/def+r 29-79:#c0caf5/def
+y23: 0-2:#c0caf5/def+r 3-12:#c0caf5/def 13-15:#c0caf5/def+r 16-79:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -61,5 +61,5 @@ w=80 h=24
 | C  Compose   R  Reply                                                          |
 +--------------------------------------------------------------------------------+
 attrs:
-y22: 0-2:def/def+r 13-15:def/def+r 26-28:def/def+r
-y23: 0-2:def/def+r 13-15:def/def+r
+y22: 0-2:#c0caf5/def+r 3-12:#c0caf5/def 13-15:#c0caf5/def+r 16-25:#c0caf5/def 26-28:#c0caf5/def+r 29-79:#c0caf5/def
+y23: 0-2:#c0caf5/def+r 3-12:#c0caf5/def 13-15:#c0caf5/def+r 16-79:#c0caf5/def

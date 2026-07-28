@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::Bar
 #
 # Minimal, self-contained example of a single Bar.
-# Run it:     crystal run examples/widget/graph/bar/bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/bar/bar.cr
 require "../../example"
 
 include Crysterm

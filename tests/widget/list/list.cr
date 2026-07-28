@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::List
 #
 # Minimal, self-contained example of a single List.
-# Run it:     crystal run examples/widget/list/list.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/list/list.cr
 require "../example"
 
 include Crysterm

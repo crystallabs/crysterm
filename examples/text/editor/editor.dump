@@ -1,31 +1,32 @@
 w=80 h=24
 +--------------------------------------------------------------------------------+
 | File  Edit  Help                                                               |
-| 📄  📂  💾  │  ↶  ↷                                                               |
-|                                                                               ░|
-|Scripts    — English, Ćirilica, Ελληνικά, 中文, 日本語, 한국어, हिन्दी                 █|
-|Emoji      — 🚀 🌍 🎨 ✅ ❤️ and ZWJ families: 👨‍👩‍👧‍👦                              █|
-|Combining  — e + ◌́ = é,  a + ◌̈ = ä,  ω + ◌̃ = ω̃                             █|
-|Wide cells — ｆｕｌｌｗｉｄｔｈ next to halfwidth                                       █|
-|Symbols    — ┌─┬─┐ ╭─╮ ▲ ► ◆ ● · § ¶ † ∞ ≠ ⊕ ⌘                                 █|
-|                                                                               █|
-|Every line above lays out on the exact cell grid the terminal uses:            █|
-|grapheme clusters stay whole, wide glyphs take two cells, combining            █|
-|marks take none — and the same rules drive the cursor, selections,             █|
-|kill-ring and undo below.                                                      █|
-|                                                                               █|
-|Try it: type anywhere; C-z / M-z undo and redo; C-k kills to end of            █|
-|line and C-y yanks it back (the kill-ring is shared process-wide);             █|
-|C-Left / C-Right jump words; Shift+arrows select; the wheel scrolls.           █|
-|                                                                               █|
-|  “Ćevapčići & smörgåsbord — 東京で書く, писати у Београду,                         █|
-|   γράφοντας στην Αθήνα — all in one buffer.”                                  █|
-|                                                                               █|
-|The status bar below tracks Ln/Col live, the toolbar buttons are               █|
-|plain Unicode glyphs, and everything you see is themable with CSS.             █|
-|                                             ⌖ Ln 22, Col 67 │ 🌐 UTF-8 │ ✔ saved|
+| 📄  📂  💾  │  ↶  ↷                                                            |
+|Crysterm speaks Unicode natively.                                               |
+|                                                                                |
+|Scripts    — Latin, Cyrillic (Кириллица), Greek (Ελληνικά), 中文, 日本語,       |
+|한국어                                                                          |
+|Emoji      — 🚀 🌍 🎨 ✅ ❤️ and ZWJ sequences: 👨‍👩‍👧‍👦                               |
+|Combining  — e + ◌́ = é,  a + ◌̈ = ä,  n + ◌̃ = ñ                                  |
+|Wide cells — ｆｕｌｌｗｉｄｔｈ next to halfwidth                               |
+|Symbols    — → ← ↑ ↓ ★ ☆ ♥ ♦ ✓ ✗ λ ∑ ∞ ┌─┬─┐ ╭─╮ ▲ ► ◆ ● § ¶ ⌘                  |
+|                                                                                |
+|Every line above lays out on the exact cell grid the terminal uses:             |
+|grapheme clusters stay whole, wide glyphs take two cells, combining             |
+|marks take none — and the same rules drive the cursor, selections,              |
+|kill-ring and undo below. Any mix of scripts — Latin, Greek and                 |
+|Cyrillic beside CJK — edits naturally in one buffer.                            |
+|                                                                                |
+|Try it: type anywhere; C-z / M-z undo and redo; C-k kills to end of             |
+|line and C-y yanks it back (the kill-ring is shared process-wide);              |
+|C-Left / C-Right jump words; Shift+arrows select; the wheel scrolls.            |
+|                                                                                |
+|The status bar below tracks Ln/Col live, the toolbar buttons are                |
+|plain Unicode glyphs, and everything you see is themable with CSS.              |
+|                                            ⌖ Ln 20, Col 67 │ 🌐 UTF-8 │ ✔ saved |
 +--------------------------------------------------------------------------------+
 attrs:
 y0: 0-17:#cdd6f4/def 18-79:#cdd6f4/#424453
-y1: 0-17:#cdd6f4/def 18-79:#cdd6f4/#424453
+y1: 0-20:#cdd6f4/def 21-79:#cdd6f4/#424453
+y2: 0-0:def/def+r
 y23: 0-79:#cdd6f4/#424453

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Prompt
 #
 # Minimal, self-contained example of a single Prompt.
-# Run it:     crystal run examples/widget/prompt/prompt.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/prompt/prompt.cr
 require "../example"
 
 include Crysterm

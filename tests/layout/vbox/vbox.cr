@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::VBox
 #
 # Minimal, self-contained example of a single VBox.
-# Run it:     crystal run examples/layout/vbox/vbox.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/vbox/vbox.cr
 require "../../widget/example"
 
 include Crysterm

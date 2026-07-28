@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::MenuBar
 #
 # Minimal, self-contained example of a single MenuBar.
-# Run it:     crystal run examples/widget/menu_bar/menu_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/menu_bar/menu_bar.cr
 require "../example"
 
 include Crysterm

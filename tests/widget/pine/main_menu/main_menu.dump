@@ -9,18 +9,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                  C     Compose          -  Compose and send a                  |
-|                                                                                |
-|                  I     Message Index    -  View messages in the                |
-|                                                                                |
-|                  L     Folder List      -  Select a folder to                  |
-|                                                                                |
-|                  A     Address Book     -  Update your address                 |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|              ┌─ Main Menu ──────────────────────────────────────┐              |
+|              │    C     Compose          -  Compose and send a  │              |
+|              │                                                  │              |
+|              │    I     Message Index    -  View messages in    │              |
+|              │                                                  │              |
+|              │    L     Folder List      -  Select a folder to  │              |
+|              │                                                  │              |
+|              │    A     Address Book     -  Update your address │              |
+|              │                                                  │              |
+|              │                                                  │              |
+|              │                                                  │              |
+|              └──────────────────────────────────────────────────┘              |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -29,7 +29,17 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 14-65:#101010/#89b4fa
+y6: 16-26:#c0caf5/def
+y7: 15-64:#c0caf5/#89b4fa
+y8: 15-64:#c0caf5/def
+y9: 15-64:#c0caf5/def
+y10: 15-64:#c0caf5/def
+y11: 15-64:#c0caf5/def
+y12: 15-64:#c0caf5/def
+y13: 15-64:#c0caf5/def
+y14: 15-64:#c0caf5/def
+y15: 15-64:#c0caf5/def
+y16: 15-64:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -40,18 +50,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                  C     Compose          -  Compose and send a                  |
-|                                                                                |
-|                  I     Message Index    -  View messages in the                |
-|                                                                                |
-|                  L     Folder List      -  Select a folder to                  |
-|                                                                                |
-|                  A     Address Book     -  Update your address                 |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|              ┌─ Main Menu ──────────────────────────────────────┐              |
+|              │    C     Compose          -  Compose and send a  │              |
+|              │                                                  │              |
+|              │    I     Message Index    -  View messages in    │              |
+|              │                                                  │              |
+|              │    L     Folder List      -  Select a folder to  │              |
+|              │                                                  │              |
+|              │    A     Address Book     -  Update your address │              |
+|              │                                                  │              |
+|              │                                                  │              |
+|              │                                                  │              |
+|              └──────────────────────────────────────────────────┘              |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -60,4 +70,14 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 14-65:#101010/#89b4fa
+y6: 16-26:#c0caf5/def
+y7: 15-64:#c0caf5/#89b4fa
+y8: 15-64:#c0caf5/def
+y9: 15-64:#c0caf5/def
+y10: 15-64:#c0caf5/def
+y11: 15-64:#c0caf5/def
+y12: 15-64:#c0caf5/def
+y13: 15-64:#c0caf5/def
+y14: 15-64:#c0caf5/def
+y15: 15-64:#c0caf5/def
+y16: 15-64:#c0caf5/def

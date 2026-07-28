@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Pine::MessageView
 #
 # Minimal, self-contained example of a single MessageView.
-# Run it:     crystal run examples/widget/pine/message_view/message_view.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/message_view/message_view.cr
 require "../../example"
 
 include Crysterm

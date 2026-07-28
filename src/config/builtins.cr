@@ -76,8 +76,8 @@ module Superconf
     description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|always|never): 'auto' decides from whether the app runs interactively (output is a TTY), 'always' forces headless, 'never' forces a real terminal"
   option "screen.force_unicode", false,
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
-  option "screen.full_unicode", false,
-    description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode)"
+  option "screen.full_unicode", true,
+    description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode); set false for legacy one-column-per-codepoint layout"
   option "screen.glyphs", Crysterm::Glyphs::Tier::Unicode,
     description: "Which chrome glyphs widgets draw (ascii|unicode|extended): 'unicode' (default) is the classic box-drawing/block set, 'ascii' restricts chrome to 7-bit characters, 'extended' uses glyphs that need a modern font. While left at the default, a Screen on a real tty auto-upgrades to 'extended' when the terminal is identified as one shipping a well-covered font (kitty, WezTerm, Ghostty, iTerm2); set any value explicitly to pin a tier and disable that detection. A glyph choice, not an encoding — draw-time ACS fallback still protects incapable terminals"
   option "window.overflow", Crysterm::Overflow::Ignore,

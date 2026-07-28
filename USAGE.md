@@ -1032,7 +1032,7 @@ window.resize_interval  0.5             env CRYSTERM_WINDOW_RESIZE_INTERVAL="0.5
 ...
 ```
 
-Any Crysterm app accepts these out of the box: `crystal examples/hello.cr -- --dump-config=pretty`.
+Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr -- --dump-config=pretty`.
 
 ## 12. Differences from Blessed
 

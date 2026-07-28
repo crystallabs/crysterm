@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Line
 #
 # Minimal, self-contained example of a single Line.
-# Run it:     crystal run examples/widget/line/line.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/line/line.cr
 require "../example"
 
 include Crysterm

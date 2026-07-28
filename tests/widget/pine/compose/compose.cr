@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Pine::Compose
 #
 # Minimal, self-contained example of a single Compose.
-# Run it:     crystal run examples/widget/pine/compose/compose.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/compose/compose.cr
 require "../../example"
 
 include Crysterm

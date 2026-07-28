@@ -2,23 +2,23 @@ w=80 h=24
 +--------------------------------------------------------------------------------+
 |     HTML layout DOM — this dashboard was built from an inline HTML string      |
 |                                                                                |
-|  ┌─ services ───────────────────────┐    ┌─ metrics ────────────────────────┐  |
+|  ┌─ Services ───────────────────────┐    ┌─ Metrics ────────────────────────┐  |
 |  │                                  │    │                                  │  |
-|  │  web        ● up                 │    │  cpu                             │  |
+|  │  Web        ● up                 │    │  CPU                             │  |
 |  │                                  │    │  ┌─────────────────────────────┐ │  |
-|  │  database   ● up                 │    │  │             35%             │ │  |
+|  │  Database   ● up                 │    │  │             35%             │ │  |
 |  │                                  │    │  └─────────────────────────────┘ │  |
-|  │  cache      ● warm               │    │                                  │  |
-|  │                                  │    │  memory                          │  |
-|  │  queue      ● up                 │    │  ┌─────────────────────────────┐ │  |
+|  │  Cache      ● warm               │    │                                  │  |
+|  │                                  │    │  Memory                          │  |
+|  │  Queue      ● up                 │    │  ┌─────────────────────────────┐ │  |
 |  │                                  │    │  │             55%             │ │  |
 |  │                                  │    │  └─────────────────────────────┘ │  |
-|  │  ticks: 0                        │    │                                  │  |
-|  │                                  │    │  cpu 35%  ·  mem 55%             │  |
+|  │  Ticks: 0                        │    │                                  │  |
+|  │                                  │    │  CPU 35%  ·  Mem 55%             │  |
 |  │                                  │    │                                  │  |
 |  └──────────────────────────────────┘    └──────────────────────────────────┘  |
 |                                                                                |
-|   status: nominal   (resolve_selector("#status") rewrites this line)           |
+|   Status: nominal   (resolve_selector("#status") rewrites this line)           |
 |                                                                                |
 |    Updated live via CSS queries: s.resolve_selector("#status"), ".row", ...    |
 |  Build with -Dremote and the same DOM is scriptable over HTTP/JSON-RPC + SSE:  |

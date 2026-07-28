@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ComboBox
 #
 # Minimal, self-contained example of a single ComboBox.
-# Run it:     crystal run examples/widget/combo_box/combo_box.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/combo_box/combo_box.cr
 require "../example"
 
 include Crysterm

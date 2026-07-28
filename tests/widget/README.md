@@ -1,39 +1,33 @@
-# Per-widget (and per-layout) examples
+# Per-widget examples
 
 This tree holds one directory per Crysterm widget, mirroring the source layout
 under `src/widget/`:
 
 ```
-src/widget/button.cr        ->  examples/widget/button/button.cr        (+ button-capture.png)
-src/widget/graph/bar.cr     ->  examples/widget/graph/bar/bar.cr        (+ bar-capture.png)
-src/widget/effect/matrix.cr ->  examples/widget/effect/matrix/matrix.cr (+ matrix-capture.png)
+src/widget/button.cr        ->  tests/widget/button/button.cr
+src/widget/graph/bar.cr     ->  tests/widget/graph/bar/bar.cr
+src/widget/effect/matrix.cr ->  tests/widget/effect/matrix/matrix.cr
 ```
 
-The same machinery also covers the **layout engines** under `src/layout/`, mirrored
-into `examples/layout/`. A layout isn't a standalone widget — it's installed on a
-container (`Box.new ..., layout: Layout::HBox.new`) and arranges the container's
-children — so each layout example builds a container and drops several labeled
-child boxes into it to show the arrangement:
+Each `<name>/<name>.cr` is a **minimal, self-contained example of a single
+widget**. Beside it sit its captures, produced headlessly by `tools/test.cr`:
 
 ```
-src/layout/hbox.cr   ->  examples/layout/hbox/hbox.cr   (+ hbox-capture.png)
-src/layout/grid.cr   ->  examples/layout/grid/grid.cr   (+ grid-capture.png)
+tests/widget/button/button.png      still screenshot
+tests/widget/button/button.5s.apng  animation of the script:-driven demo
+tests/widget/button/button.dump     text golden (one frame per scripted action)
 ```
 
-Each `*.cr` is a **minimal, self-contained example of a single widget**. A widget
-that genuinely needs alternative examples gets `name.cr`, `name2.cr`, `name3.cr`.
-Beside each example is its screenshot, named `<widget>-capture.png` for the first
-program, `<widget>-capture2.png`, `<widget>-capture3.png`, ... for any further ones.
-
-Everything here is generated and maintained by
-[`tools/widget-examples.cr`](../../tools/widget-examples.cr) — see its header for
-options. It never overwrites an existing example unless you pass `--force`, so
-hand-tuned examples are safe.
+The same machinery covers the **layout engines** under `src/layout/`, mirrored
+into `tests/layout/`. A layout isn't a standalone widget — it's installed on a
+container (`Box.new ..., layout: Layout::HBox.new`) and arranges the
+container's children — so each layout example builds a container and drops
+several labeled child boxes into it to show the arrangement.
 
 ## Running an example
 
 ```sh
-crystal run examples/widget/button/button.cr      # interactive — q / Ctrl-Q quits
+crystal run tests/widget/button/button.cr      # interactive — q / Ctrl-Q quits
 ```
 
 ## How the examples are structured
@@ -58,8 +52,7 @@ end
 * **interactive** (default) — a real terminal `Window` + `exec`.
 * **screenshot** — when `CRYSTERM_SHOT=<path>` is set, the block is built on a
   *headless* window (all I/O on `IO::Memory`), rendered once, and captured to
-  `<path>` via `Window#capture`. This is how the tool snapshots every widget
-  with no real terminal involved.
+  `<path>` via `Window#capture`.
 * **animation** / **dump** — `CRYSTERM_ANIM=<path>` records an APNG of the
   `script:`-driven demo; `CRYSTERM_DUMP=<path>` writes one text frame per
   scripted action (the textual golden). See `example.cr`'s header for details.
@@ -72,57 +65,17 @@ works — like CSS inline style it sits above author rules in the cascade (only
 `!important` and state-specific rules outrank it) — and either way it renders
 identically whether captured or run live.
 
-## Regenerating / screenshotting
+## Regenerating the captures
 
 ```sh
-# Fill in everything still missing, and screenshot it:
-crystal run tools/widget-examples.cr --
+# Everything under this tree (stale captures only; --force redoes all):
+crystal run tools/test.cr -- tests/widget
 
-# Just one or a few widgets:
-crystal run tools/widget-examples.cr -- button calendar
-
-# Rebuild a widget's example from its recipe:
-crystal run tools/widget-examples.cr -- --force calendar
-
-# See the plan without writing anything:
-crystal run tools/widget-examples.cr -- --list
+# Just one or a few examples:
+crystal run tools/test.cr -- tests/widget/button tests/widget/calendar
 ```
 
-Widgets without a tailored recipe fall back to a generic template (a plain box
-showing the widget's name). The tool reports those at the end so they can be
-groomed into real examples over time by adding a recipe to its `RECIPES` table.
-
-## Showing the captures in `crystal docs`
-
-Each widget's API documentation embeds its capture. The tool keeps a small
-managed block inside the widget's **class doc comment** (in `src/widget/*.cr`),
-fenced by HTML comments so it can be refreshed or migrated without touching
-hand-written prose. It prefers the **animation** (`<prog>-capture<secs>s.apng`,
-which browsers play inline) and falls back to the still (`<prog>-capture.png`)
-when there is no APNG:
-
-```crystal
-    # <!-- widget-examples:capture v1 -->
-    # ![List screenshot](../../examples/widget/list/list-capture5s.apng)
-    # <!-- /widget-examples:capture -->
-    class List < Widget
-```
-
-`crystal docs` emits that `<img src>` verbatim, resolved relative to the class's
-generated page (`docs/Crysterm/Widget/List.html`); the `../` prefix (one per
-namespace level) walks back to the docs root. So the doc steps are:
-
-```sh
-# 1. Record the animations (and stills) you want shown.
-crystal run tools/manage-examples.cr -- --anim          # APNGs for all examples
-# 2. Insert/refresh the capture block in every source doc comment (idempotent;
-#    migrates an older block; now points at the APNG where one exists).
-crystal run tools/manage-examples.cr -- --doc-comments
-# 3. Build the API docs and copy examples/ into the docs tree so the references
-#    resolve (runs `crystal docs`, then copies to docs/examples/).
-crystal run tools/manage-examples.cr -- --docs
-```
-
-Step 1 edits source files (commit those); step 2 only produces `docs/` (which is
-git-ignored). The set of trees copied into `docs/` is the `DOCS_ASSETS` constant
-in the tool.
+One run produces all three outputs (`.png`, `.5s.apng`, `.dump`); `--shot` /
+`--anim` / `--dump` scope it to a subset. See `tools/test.cr`'s header for the
+full option list, including the `--doc-comments` / `--docs` steps that embed
+each widget's capture into its class doc comment and build the API docs.

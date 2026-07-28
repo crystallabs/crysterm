@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::RadioSet
 #
 # Minimal, self-contained example of a single RadioSet.
-# Run it:     crystal run examples/widget/radioset/radioset.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/radioset/radioset.cr
 require "../example"
 
 include Crysterm

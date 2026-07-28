@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::Spray
 #
 # Minimal, self-contained example of a single Spray.
-# Run it:     crystal run examples/widget/effect/spray/spray.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/spray/spray.cr
 require "../../example"
 
 include Crysterm

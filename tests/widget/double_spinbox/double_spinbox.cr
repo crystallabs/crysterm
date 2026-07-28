@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::DoubleSpinBox
 #
 # Minimal, self-contained example of a single DoubleSpinBox.
-# Run it:     crystal run examples/widget/double_spinbox/double_spinbox.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/double_spinbox/double_spinbox.cr
 require "../example"
 
 include Crysterm

@@ -2,7 +2,6 @@
 #
 # Minimal, self-contained example of a single LineEdit.
 # Run it:     crystal run tests/widget/lineedit/lineedit.cr
-# Maintained by tools/manage-examples.cr
 require "../example"
 
 include Crysterm

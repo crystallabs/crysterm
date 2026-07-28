@@ -128,7 +128,7 @@ cursor_s = cursor.empty? ? "default only" : cursor.join(", ")
 rows = [
   {"terminal", ident, how},
 ]
-rows << {"multiplexer", emu.multiplexer.not_nil!, "running inside a multiplexer"} if emu.multiplexer
+emu.multiplexer.try { |m| rows << {"multiplexer", m, "running inside a multiplexer"} }
 rows.concat [
   {"TERM", tput.name, tput.aliases.empty? ? "" : "aliases: #{tput.aliases.join(", ")}"},
   {"size", size, screen.cell_pixel_width > 0 ? "ioctl / XTWINOPS" : "cells only (no pixel size reported)"},

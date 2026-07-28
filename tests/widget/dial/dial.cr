@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Dial
 #
 # Minimal, self-contained example of a single Dial.
-# Run it:     crystal run examples/widget/dial/dial.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/dial/dial.cr
 require "../example"
 
 include Crysterm

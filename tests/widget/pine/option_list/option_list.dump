@@ -9,18 +9,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|          [X] line-wrap                                   Wrap long             |
-|              username                crysterm            Name shown to         |
-|              tab-width               4                   Spaces per tab        |
-|              theme                   dark                Color theme           |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|        ┌─ Options ────────────────────────────────────────────────────┐        |
+|        │  [X] line-wrap                                   Wrap long   │        |
+|        │      username                crysterm            Name shown  │        |
+|        │      tab-width               4                   Spaces per  │        |
+|        │      theme                   dark                Color theme │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        └──────────────────────────────────────────────────────────────┘        |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -29,7 +29,17 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 8-71:#101010/#89b4fa
+y6: 10-18:#c0caf5/def
+y7: 9-70:#c0caf5/#89b4fa
+y8: 9-70:#c0caf5/def
+y9: 9-70:#c0caf5/def
+y10: 9-70:#c0caf5/def
+y11: 9-70:#c0caf5/def
+y12: 9-70:#c0caf5/def
+y13: 9-70:#c0caf5/def
+y14: 9-70:#c0caf5/def
+y15: 9-70:#c0caf5/def
+y16: 9-70:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -40,18 +50,18 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|          [X] line-wrap                                   Wrap long             |
-|              username                crysterm            Name shown to         |
-|              tab-width               4                   Spaces per tab        |
-|              theme                   dark                Color theme           |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
-|                                                                                |
+|        ┌─ Options ────────────────────────────────────────────────────┐        |
+|        │  [X] line-wrap                                   Wrap long   │        |
+|        │      username                crysterm            Name shown  │        |
+|        │      tab-width               4                   Spaces per  │        |
+|        │      theme                   dark                Color theme │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        └──────────────────────────────────────────────────────────────┘        |
 |                                                                                |
 |                                                                                |
 |                                                                                |
@@ -60,4 +70,14 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y6: 8-71:#101010/#89b4fa
+y6: 10-18:#c0caf5/def
+y7: 9-70:#c0caf5/#89b4fa
+y8: 9-70:#c0caf5/def
+y9: 9-70:#c0caf5/def
+y10: 9-70:#c0caf5/def
+y11: 9-70:#c0caf5/def
+y12: 9-70:#c0caf5/def
+y13: 9-70:#c0caf5/def
+y14: 9-70:#c0caf5/def
+y15: 9-70:#c0caf5/def
+y16: 9-70:#c0caf5/def

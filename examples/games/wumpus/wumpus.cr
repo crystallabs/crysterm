@@ -149,7 +149,11 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     frame = Box.new parent: @window, width: "100%", height: "100%",
       layout: Layout::Border.new
 
-    @transcript = PlainTextEdit.new \
+    # A `Log`: append-only output with sticky-bottom scrolling built in —
+    # `scroll_on_input` jumps back to the tail on new output even after a
+    # manual scroll-up, exactly the teletype behavior a transcript wants.
+    @transcript = Log.new \
+      scroll_on_input: true,
       layout_hint: :center,
       content: "",
       parse_tags: true,
@@ -232,13 +236,6 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   end
 
   def run
-    # Render once before the first game's prolog is printed. Under the `Border`
-    # layout the transcript learns its height only when the frame is arranged,
-    # and `say` immediately `scroll_to`s the bottom — with no height yet that
-    # scroll would run against a zero-row viewport and push every line printed
-    # here out of view. One synchronous render settles the layout first (the
-    # same render-before-use order the Mutt example relies on).
-    @window.repaint
     new_game
     @window.exec
   end
@@ -297,8 +294,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # ---- Output helpers --------------------------------------------------------
 
   private def say(line : String = "")
-    @transcript.append_line line
-    @transcript.scroll_to @transcript.rendered_content.lines.size
+    @transcript.add line
   end
 
   # A blank separator line — kept when the "gap" flag is on (teletype spacing),

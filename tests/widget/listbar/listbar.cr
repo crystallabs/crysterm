@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ListBar
 #
 # Minimal, self-contained example of a single ListBar.
-# Run it:     crystal run examples/widget/listbar/listbar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/listbar/listbar.cr
 require "../example"
 
 include Crysterm

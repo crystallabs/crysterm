@@ -35,7 +35,7 @@ Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
 panel = Widget::Box.new parent: s, top: 2, left: "center", width: 64, height: 19,
-  label: " one Signal, four subscribers ",
+  label: " One Signal, four subscribers ",
   style: Style.new(border: true, fg: "#c0caf5", bg: "#10141c")
 
 lcd = Widget::LCDNumber.new parent: panel, top: 1, left: "center", width: 16, height: 3,
@@ -67,10 +67,17 @@ Reactive.bind(lcd, level) { lcd.display level.value }
 # An effect auto-tracks what it reads — here the `status` computed.
 Reactive.effect(status_box) { status_box.content = "{center}#{status.value}{/center}" }
 
-# A second explicit binding drawing a tick meter from the same signal.
+# A second explicit binding drawing a tick meter from the same signal; its
+# color follows the value through the same thresholds as the status line.
 Reactive.bind(meter, level) do
   n = level.value * 56 // 100
-  meter.content = "▕#{"■" * n}#{"·" * (56 - n)}▏"
+  color = case level.value
+          when 0...25  then "#e06c75"
+          when 25...50 then "#e5c07b"
+          when 50...75 then "#98c379"
+          else              "#61afef"
+          end
+  meter.content = "{#{color}-fg}▕#{"■" * n}#{"·" * (56 - n)}▏{/}"
 end
 
 # --- driver: ONE assignment per tick; no widget is mentioned below ----------

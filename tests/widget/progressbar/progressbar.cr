@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ProgressBar
 #
 # Minimal, self-contained example of a single ProgressBar.
-# Run it:     crystal run examples/widget/progressbar/progressbar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/progressbar/progressbar.cr
 require "../example"
 
 include Crysterm

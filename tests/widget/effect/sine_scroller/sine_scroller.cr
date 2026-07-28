@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::SineScroller
 #
 # Minimal, self-contained example of a single SineScroller.
-# Run it:     crystal run examples/widget/effect/sine_scroller/sine_scroller.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/sine_scroller/sine_scroller.cr
 require "../../example"
 
 include Crysterm

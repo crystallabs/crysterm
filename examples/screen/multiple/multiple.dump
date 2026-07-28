@@ -1,13 +1,13 @@
 w=80 h=24
 +--------------------------------------------------------------------------------+
-|           Two windows, one app — synced by a shared Reactive::Signal           |
+|           Two screens, one app — synced by a shared Reactive::Signal           |
 |                                                                                |
-| ┌─ Window 1 ─────────────────────────┐  ┌─ Window 2 ─────────────────────────┐ |
+| ┌─ Screen 1 ─────────────────────────┐  ┌─ Screen 2 ─────────────────────────┐ |
 | │                                    │  │                                    │ |
-| │  Window 1 — sender                 │  │  Window 2 — receiver               │ |
-| │  A separate window (its own        │  │  Nothing here is set directly;     │ |
-| │  Screen/terminal). Drag or         │  │  it follows the shared             │ |
-| │  key the slider:                   │  │  signal:                           │ |
+| │  Screen 1 — sender                 │  │  Screen 2 — receiver               │ |
+| │  Its own terminal device,          │  │  Nothing here is set directly;     │ |
+| │  with its own window. Drag         │  │  it follows the shared             │ |
+| │  or key the slider:                │  │  signal:                           │ |
 | │                                    │  │                                    │ |
 | │  ────────────█──40───────────────  │  │                                    │ |
 | │  ·───────·───█───·──────·───────·  │  │                                    │ |

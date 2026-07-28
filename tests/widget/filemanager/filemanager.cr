@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::FileManager
 #
 # Minimal, self-contained example of a single FileManager.
-# Run it:     crystal run examples/widget/filemanager/filemanager.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/filemanager/filemanager.cr
 require "../example"
 
 include Crysterm

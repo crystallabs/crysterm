@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::DockWidget
 #
 # Minimal, self-contained example of a single DockWidget.
-# Run it:     crystal run examples/widget/dock_widget/dock_widget.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/dock_widget/dock_widget.cr
 require "../example"
 
 include Crysterm

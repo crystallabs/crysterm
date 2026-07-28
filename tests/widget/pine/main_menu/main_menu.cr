@@ -1,15 +1,14 @@
 # Example: Crysterm::Widget::Pine::MainMenu
 #
 # Minimal, self-contained example of a single MainMenu.
-# Run it:     crystal run examples/widget/pine/main_menu/main_menu.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/main_menu/main_menu.cr
 require "../../example"
 
 include Crysterm
 include Crysterm::Widgets
 
 Crysterm::WidgetExample.run "MainMenu" do |window|
-  window.stylesheet = "Pine::MainMenu { border: solid; color: #c0caf5; }"
+  window.stylesheet = "MainMenu { border: solid; color: #c0caf5; }"
   mm = PineMainMenu.new parent: window, top: "center", left: "center", width: 52, height: 12, label: " Main Menu "
   mm.options = ([
     PineMainMenu::Option.new("C", "Compose", "Compose and send a message"),

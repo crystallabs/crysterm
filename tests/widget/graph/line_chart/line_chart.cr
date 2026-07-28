@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::LineChart
 #
 # Minimal, self-contained example of a single LineChart.
-# Run it:     crystal run examples/widget/graph/line_chart/line_chart.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/line_chart/line_chart.cr
 require "../../example"
 
 include Crysterm

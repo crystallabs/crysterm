@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::Fire
 #
 # Minimal, self-contained example of a single Fire.
-# Run it:     crystal run examples/widget/effect/fire/fire.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/fire/fire.cr
 require "../../example"
 
 include Crysterm

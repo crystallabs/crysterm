@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Masonry
 #
 # Minimal, self-contained example of a single Masonry.
-# Run it:     crystal run examples/layout/masonry/masonry.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/masonry/masonry.cr
 require "../../widget/example"
 
 include Crysterm

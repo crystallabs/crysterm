@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::StackedWidget
 #
 # Minimal, self-contained example of a single StackedWidget.
-# Run it:     crystal run examples/widget/stacked_widget/stacked_widget.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/stacked_widget/stacked_widget.cr
 require "../example"
 
 include Crysterm

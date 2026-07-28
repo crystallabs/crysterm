@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::DateEdit
 #
 # Minimal, self-contained example of a single DateEdit.
-# Run it:     crystal run examples/widget/date_edit/date_edit.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/date_edit/date_edit.cr
 require "../example"
 
 include Crysterm

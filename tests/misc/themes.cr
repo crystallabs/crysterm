@@ -133,21 +133,24 @@ end
 
 # The same action is applied to every themed window on each beat: open the
 # File menu, close it, pop the completer on the Lang field, filter, commit.
+# The 2.5 s cycle divides the 5 s capture exactly, so the looping animation
+# wraps seamlessly whatever the recording's start phase.
 press = ->(w : Widget, char : Char, key : ::Tput::Key?) do
   w.emit Event::KeyPress, Event::KeyPress.new(char, key)
 end
 
 tick = 0
 s.every(0.25.seconds) do
-  case tick % 20
-  when  1 then children.each &.menubar.open(0)
-  when  7 then children.each &.menubar.close
-  when  8 then children.each &.lang.focus
-  when  9 then children.each { |c| press.call c.lang, '\0', ::Tput::Key::Down }
-  when 12 then children.each { |c| press.call c.lang, 'C', nil }
-  when 14 then children.each { |c| press.call c.lang, 'r', nil }
-  when 17 then children.each { |c| press.call c.lang, '\r', ::Tput::Key::Enter }
-  when 19 then children.each &.lang.value=("")
+  case tick % 10
+  when 1 then children.each &.menubar.open(0)
+  when 3
+    children.each &.menubar.close
+    children.each &.lang.focus
+  when 4 then children.each { |c| press.call c.lang, '\0', ::Tput::Key::Down }
+  when 5 then children.each { |c| press.call c.lang, 'C', nil }
+  when 6 then children.each { |c| press.call c.lang, 'r', nil }
+  when 7 then children.each { |c| press.call c.lang, '\r', ::Tput::Key::Enter }
+  when 9 then children.each &.lang.value=("")
   end
   tick += 1
 end

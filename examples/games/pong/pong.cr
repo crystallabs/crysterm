@@ -180,10 +180,7 @@ class Pong
     @moving = false
     @text.content = msg
     @message.show
-    spawn do
-      sleep 1.second
-      reset
-    end
+    @window.after(1.second) { reset }
   end
 
   private def tick

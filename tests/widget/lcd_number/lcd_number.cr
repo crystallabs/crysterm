@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::LCDNumber
 #
 # Minimal, self-contained example of a single LCDNumber.
-# Run it:     crystal run examples/widget/lcd_number/lcd_number.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/lcd_number/lcd_number.cr
 require "../example"
 
 include Crysterm

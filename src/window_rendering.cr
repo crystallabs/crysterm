@@ -704,6 +704,17 @@ module Crysterm
       # handlers re-running — none of which the cursor workaround needs.
       focused.try do |focused_widget|
         focused_widget._update_cursor(rendered: true)
+
+        # A focus change may have scrolled its ancestor against stale geometry
+        # (see `_focus`). Now that this frame resolved the real boxes, re-run
+        # the scroll-into-view once; on an actual correction the scheduled
+        # render paints it next frame. Steady-state frames skip this entirely.
+        if @focus_visibility_dirty
+          @focus_visibility_dirty = false
+          if el = focused_widget.parent.try &.first_self_or_ancestor &.scrollable?
+            schedule_render if el.ensure_widget_visible focused_widget
+          end
+        end
       end
 
       @renders += 1

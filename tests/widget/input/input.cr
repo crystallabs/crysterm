@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Input
 #
 # Minimal, self-contained example of a single Input.
-# Run it:     crystal run examples/widget/input/input.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/input/input.cr
 require "../example"
 
 include Crysterm

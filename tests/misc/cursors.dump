@@ -21,7 +21,7 @@ w=80 h=24
 |              │A custom-glyph artificial cursor▚                 │              |
 |              └──────────────────────────────────────────────────┘              |
 |                                                                                |
-|   focus (and with it the active cursor) moves to the next field every 1.2 s    |
+|   Focus (and with it the active cursor) moves to the next field every 1.2 s    |
 |                                                                                |
 |                                                                                |
 +--------------------------------------------------------------------------------+

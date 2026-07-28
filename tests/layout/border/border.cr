@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Border
 #
 # Minimal, self-contained example of a single Border.
-# Run it:     crystal run examples/layout/border/border.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/border/border.cr
 require "../../widget/example"
 
 include Crysterm

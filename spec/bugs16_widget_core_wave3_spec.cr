@@ -12,6 +12,10 @@ include Crysterm
 describe "BUGS16 B16-09: widget cursor hide/show on an unfocused widget" do
   it "records on the widget's cursor without touching the global hardware cursor" do
     s = headless_screen(30, 8)
+    # The subject is hide/show *forwarding*, which needs a hardware cursor to
+    # forward to — the in-memory device alone would force artificial cursors.
+    s.screen.hardware_cursor = true
+    s.apply_cursor
     a = Widget::Box.new parent: s, top: 0, left: 0, width: 5, height: 2
     b = Widget::Box.new parent: s, top: 2, left: 0, width: 5, height: 2
     a.focus

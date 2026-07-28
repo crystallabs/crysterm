@@ -93,6 +93,42 @@ module Crysterm
         @char == ' ' || @key == ::Tput::Key::Enter
       end
 
+      # Builds a `KeyPress` from a human-readable key label, as shown in
+      # command bars and menus: a single printable character (`"s"`), a caret
+      # chord (`"^X"` → `Tput::Key::CtrlX`), or a conventional key name —
+      # `"Spc"`/`"Space"`, `"Enter"`/`"Ret"`, `"Tab"`, `"Esc"`, `"Up"`,
+      # `"Dn"`/`"Down"`, `"Left"`, `"Right"`, `"PgUp"`, `"PgDn"`, `"Home"`,
+      # `"End"`, `"Del"`, `"F1"`…`"F12"`. Returns `nil` for anything it does
+      # not recognize. Lets a clickable key hint (e.g. `Pine::KeyMenu`) replay
+      # itself through the same handlers as the physical key.
+      def self.parse(label : String) : self?
+        case label
+        when "Spc", "Space" then new ' ', nil
+        when "Enter", "Ret" then new '\r', ::Tput::Key::Enter
+        when "Tab"          then new '\t', ::Tput::Key::Tab
+        when "Esc"          then new '\e', ::Tput::Key::Escape
+        when "Up"           then new '\0', ::Tput::Key::Up
+        when "Dn", "Down"   then new '\0', ::Tput::Key::Down
+        when "Left"         then new '\0', ::Tput::Key::Left
+        when "Right"        then new '\0', ::Tput::Key::Right
+        when "PgUp"         then new '\0', ::Tput::Key::PageUp
+        when "PgDn"         then new '\0', ::Tput::Key::PageDown
+        when "Home"         then new '\0', ::Tput::Key::Home
+        when "End"          then new '\0', ::Tput::Key::End
+        when "Del"          then new '\0', ::Tput::Key::Delete
+        else
+          if label.size == 1 && label[0].printable?
+            new label[0], nil
+          elsif label.size == 2 && label[0] == '^' && label[1].ascii_letter?
+            key = ::Tput::Key.parse? "Ctrl#{label[1].upcase}"
+            key.try { |k| new '\0', k }
+          elsif label =~ /\AF(\d{1,2})\z/
+            key = ::Tput::Key.parse? "F#{$1}"
+            key.try { |k| new '\0', k }
+          end
+        end
+      end
+
       # A `KeyPress::<member>` event per `Tput::Key` member (e.g.
       # `Event::KeyPress::CtrlQ`), so a listener can subscribe to one key rather
       # than to every keypress.

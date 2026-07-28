@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ColorDialog
 #
 # Minimal, self-contained example of a single ColorDialog.
-# Run it:     crystal run examples/widget/color_dialog/color_dialog.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/color_dialog/color_dialog.cr
 require "../example"
 
 include Crysterm

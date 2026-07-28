@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Tree
 #
 # Minimal, self-contained example of a single Tree.
-# Run it:     crystal run examples/widget/tree/tree.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/tree/tree.cr
 require "../example"
 
 include Crysterm

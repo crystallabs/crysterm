@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::TabWidget
 #
 # Minimal, self-contained example of a single TabWidget.
-# Run it:     crystal run examples/widget/tab_widget/tab_widget.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/tab_widget/tab_widget.cr
 require "../example"
 
 include Crysterm

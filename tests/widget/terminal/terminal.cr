@@ -2,7 +2,6 @@
 #
 # Minimal, self-contained example of a single Terminal.
 # Run it:     crystal run tests/widget/terminal/terminal.cr
-# Maintained by tools/manage-examples.cr
 require "../example"
 
 include Crysterm

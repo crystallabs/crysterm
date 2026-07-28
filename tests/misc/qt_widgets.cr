@@ -7,7 +7,6 @@
 #   * DockWidget       — a closable/floatable "Panes" dock (resize via its ◢ grip)
 #   * SizeGrip         — drag the dock's corner grip to resize it while floating
 #   * StatusBar        — live message (left) + permanent sections (right)
-#   * SplashScreen     — animated startup banner (auto-dismisses; click/key to skip)
 #   * TabWidget        — closable pages, the window's central widget
 #   * GroupBox         — checkable title disables/enables its contents
 #   * LCDNumber        — seven-segment readout mirroring the volume slider
@@ -30,7 +29,7 @@
 # theme via `--colors-stylesheet data/css/<name>.qss`). An inline
 # `Style.new(...)` would sit at the top cascade tier and override the theme.
 #
-# Try it: wait for the splash to clear; click File/Edit/Help for pop-up menus
+# Try it: click File/Edit/Help for pop-up menus
 # (clicking the open menu's title again closes it; with one open, hover another
 # to switch); use the tool-bar buttons; hover a control for a tooltip; drag the
 # floating "Panes" dock by its title bar to move it and its ◢ corner to resize
@@ -75,14 +74,14 @@ menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
 filemenu = menubar.add_menu "File"
-filemenu.add_action("New") { status.show_message " new file"; s.render }
-filemenu.add_action("Open") { status.show_message " open file"; s.render }
+filemenu.add_action("New") { status.show_message " new file" }
+filemenu.add_action("Open") { status.show_message " open file" }
 # Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
 bucket = Action.new "Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
 filemenu.add_submenu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
-filemenu.add_action("Quit") { s.destroy; exit }
+filemenu.add_action("Quit") { s.quit }
 
 editmenu = menubar.add_menu "Edit", [mk.call("Cut", "cut"), mk.call("Copy", "copy"), mk.call("Paste", "paste")]
 editmenu.add_separator
@@ -90,19 +89,19 @@ ed_wrap = Action.new "Word Wrap"
 ed_wrap.checkable = true
 editmenu << ed_wrap
 
-menubar.add_menu("Help").add_action("About") { status.show_message " Crysterm — Qt-inspired widgets"; s.render }
+menubar.add_menu("Help").add_action("About") { status.show_message " Crysterm — Qt-inspired widgets" }
 
 # --- Tool bar (action buttons) -----------------------------------------------
 
 toolbar = Widget::ToolBar.new
 win.add_tool_bar toolbar
-toolbar.add_button("New") { status.show_message " new file"; s.render }
-toolbar.add_button("Open") { status.show_message " open file"; s.render }
+toolbar.add_button("New") { status.show_message " new file" }
+toolbar.add_button("Open") { status.show_message " open file" }
 toolbar.add_separator
 tb_bold = Action.new "Bold"
 tb_bold.checkable = true
 tb_bold.tool_tip = "Toggle bold"
-tb_bold.on(Event::Triggered) { status.show_message " bold = #{tb_bold.checked?}"; s.render }
+tb_bold.on(Event::Triggered) { status.show_message " bold = #{tb_bold.checked?}" }
 toolbar.add_action tb_bold
 
 # --- Central tabbed area -----------------------------------------------------
@@ -191,9 +190,9 @@ docs.add "README.md"
 tree.add "shard.yml"
 tree.expand src
 
-tree.on(Event::ItemSelected) { status.show_message " tree: #{tree.selected_node.try(&.text)}"; s.render }
-tree.on(Event::Expanded) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}"; s.render }
-tree.on(Event::Collapsed) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::ItemSelected) { status.show_message " tree: #{tree.selected_node.try(&.text)}" }
+tree.on(Event::Expanded) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}" }
+tree.on(Event::Collapsed) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}" }
 
 Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right/Left or Space expand/collapse nodes."
@@ -216,10 +215,10 @@ dspin = Widget::DoubleSpinBox.new \
   parent: datespage, top: 7, left: 9, width: 10, height: 1,
   minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25
 
-dateedit.on(Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}"; s.render }
-timeedit.on(Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}"; s.render }
-dtedit.on(Event::DateChanged) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}"; s.render }
-dspin.on(Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value}"; s.render }
+dateedit.on(Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}" }
+timeedit.on(Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}" }
+dtedit.on(Event::DateChanged) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}" }
+dspin.on(Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value}" }
 
 # A standalone Calendar (QCalendarWidget): the nav bar pages months (‹/›),
 # pops up a month menu (click name) and year menu (click year), with ISO week
@@ -227,8 +226,8 @@ dspin.on(Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value
 cal = Widget::Calendar.new \
   parent: datespage, top: 1, left: 30, width: 25, height: 10
 cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
-cal.on(Event::DateChanged) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}"; s.render }
-cal.on(Event::CurrentPageChanged) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}"; s.render }
+cal.on(Event::DateChanged) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}" }
+cal.on(Event::CurrentPageChanged) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}" }
 
 Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
   content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it."
@@ -263,18 +262,17 @@ bgroup.on(Event::ButtonClick) do
     btn.content = btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i]
   end
   status.show_message " mode = #{bgroup.checked_id}"
-  s.render
 end
 
 # ToolButton with a default Action (Enter/Space applies it) and a popup Menu
 # (press Down to open it), like a Qt tool button with a drop-down.
 tb_menu = Widget::Menu.new parent: s, width: 16, height: 4
-tb_menu.add_action("Rename") { status.show_message " tool: rename"; s.render }
-tb_menu.add_action("Delete") { status.show_message " tool: delete"; s.render }
+tb_menu.add_action("Rename") { status.show_message " tool: rename" }
+tb_menu.add_action("Delete") { status.show_message " tool: delete" }
 tb_menu.hide # stays hidden until opened from the ToolButton (via Down)
 
 tool_action = Action.new "Apply"
-tool_action.on(Event::Triggered) { status.show_message " tool: apply"; s.render }
+tool_action.on(Event::Triggered) { status.show_message " tool: apply" }
 
 Widget::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
 toolbtn = Widget::ToolButton.new \
@@ -309,9 +307,7 @@ open_picker = -> do
     else
       status.show_message " color: cancelled"
     end
-    s.render
   end
-  s.render
 end
 # Both the "Pick" button and a click on the color swatch itself open the picker.
 pickbtn.on_click { open_picker.call }
@@ -323,10 +319,10 @@ dbb = Widget::DialogButtonBox.new \
   buttons: Widget::DialogButtonBox::StandardButton::Ok |
            Widget::DialogButtonBox::StandardButton::Apply |
            Widget::DialogButtonBox::StandardButton::Cancel
-dbb.on(Event::Accepted) { status.show_message " dialog: accepted"; s.render }
-dbb.on(Event::Rejected) { status.show_message " dialog: rejected"; s.render }
+dbb.on(Event::Accepted) { status.show_message " dialog: accepted" }
+dbb.on(Event::Rejected) { status.show_message " dialog: rejected" }
 dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Pressed) do
-  status.show_message " dialog: apply"; s.render
+  status.show_message " dialog: apply"
 end
 
 # --- Floating dock: a Splitter inside a DockWidget ---------------------------
@@ -356,7 +352,6 @@ Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min
 update = -> do
   status.show_message \
     " color=#{combo.current_text}   volume=#{slider.value}   count=#{spin.value}   angle=#{dial.value}"
-  s.render
 end
 
 combo.on(Event::Activated) { update.call }
@@ -370,18 +365,5 @@ stack.pages.each do |page|
 end
 
 tabs.tab_bar.focus
-
-# --- Splash screen (animated, auto-dismisses) --------------------------------
-
-# A centered overlay holding a scrolling rainbow banner (a `Marquee` drives its
-# own animation fiber via `#start`); clears itself after a couple seconds.
-splash_banner = Widget::Marquee.new text: "  ✦  Crysterm — Qt-inspired terminal widgets  ✦  ", rainbow: true
-splash = Widget::SplashScreen.new \
-  parent: s, width: 46, height: 7,
-  content: splash_banner
-splash.show_message "Loading…"
-splash_banner.start
-splash.on(Event::Completed) { splash_banner.stop }
-splash.finish_after 2.seconds
 
 s.exec

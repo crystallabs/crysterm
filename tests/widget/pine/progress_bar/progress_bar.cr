@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Pine::ProgressBar
 #
 # Minimal, self-contained example of a single Pine percent-done ProgressBar.
-# Run it:     crystal run examples/widget/pine/progress_bar/progress_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/progress_bar/progress_bar.cr
 require "../../example"
 
 include Crysterm

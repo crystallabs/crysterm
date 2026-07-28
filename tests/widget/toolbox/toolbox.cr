@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ToolBox
 #
 # Minimal, self-contained example of a single ToolBox.
-# Run it:     crystal run examples/widget/toolbox/toolbox.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/toolbox/toolbox.cr
 require "../example"
 
 include Crysterm

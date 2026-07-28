@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::Map
 #
 # Minimal, self-contained example of a single Map.
-# Run it:     crystal run examples/widget/graph/map/map.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/map/map.cr
 require "../../example"
 
 include Crysterm

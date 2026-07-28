@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::HBox
 #
 # Minimal, self-contained example of a single HBox.
-# Run it:     crystal run examples/layout/hbox/hbox.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/hbox/hbox.cr
 require "../../widget/example"
 
 include Crysterm

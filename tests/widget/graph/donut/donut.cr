@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::Donut
 #
 # Minimal, self-contained example of a single Donut.
-# Run it:     crystal run examples/widget/graph/donut/donut.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/donut/donut.cr
 require "../../example"
 
 include Crysterm

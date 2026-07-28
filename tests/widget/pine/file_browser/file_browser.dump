@@ -7,42 +7,43 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                 ../                                          █                 |
-|                 .claude/                                     █                 |
-|                 .git/                                        █                 |
-|                 .github/                                     █                 |
-|                 benchmarks/                                  █                 |
-|                 bin/                                         █                 |
-|                 data/                                        █                 |
-|                 examples/                                    █                 |
-|                 lib/                                         █                 |
-|                 screenshots/                                 ░                 |
-|                 spec/                                        ░                 |
-|                 src/                                         ░                 |
-|                 tests/                                       ░                 |
-|                 tools/                                       ░                 |
-|                 .ameba.yml                                   ░                 |
-|                 .editorconfig                                ░                 |
+|                 ┌─/Users/user/p/crysterm/crysterm2───────────┐                 |
+|                 │../                                        █│                 |
+|                 │.claude/                                   █│                 |
+|                 │.git/                                      █│                 |
+|                 │.github/                                   █│                 |
+|                 │benchmarks/                                █│                 |
+|                 │bin/                                       █│                 |
+|                 │data/                                      █│                 |
+|                 │docs/                                      ░│                 |
+|                 │examples/                                  ░│                 |
+|                 │lib/                                       ░│                 |
+|                 │misc/                                      ░│                 |
+|                 │plans/                                     ░│                 |
+|                 │spec/                                      ░│                 |
+|                 │src/                                       ░│                 |
+|                 └────────────────────────────────────────────┘                 |
 |                                                                                |
 |                                                                                |
 |                                                                                |
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y4: 17-61:#101010/#89b4fa
-y5: 17-23:#5c5cff/def
-y6: 17-20:#5c5cff/def
-y7: 17-23:#5c5cff/def
-y8: 17-26:#5c5cff/def
-y9: 17-19:#5c5cff/def
-y10: 17-20:#5c5cff/def
-y11: 17-24:#5c5cff/def
-y12: 17-19:#5c5cff/def
-y13: 17-27:#5c5cff/def
-y14: 17-20:#5c5cff/def
-y15: 17-19:#5c5cff/def
-y16: 17-21:#5c5cff/def
-y17: 17-21:#5c5cff/def
+y4: 19-50:#c0caf5/def
+y5: 18-60:#c0caf5/#89b4fa
+y6: 18-24:#5c5cff/def 25-60:#c0caf5/def
+y7: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y8: 18-24:#5c5cff/def 25-60:#c0caf5/def
+y9: 18-27:#5c5cff/def 28-60:#c0caf5/def
+y10: 18-20:#5c5cff/def 21-60:#c0caf5/def
+y11: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y12: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y13: 18-25:#5c5cff/def 26-60:#c0caf5/def
+y14: 18-20:#5c5cff/def 21-60:#c0caf5/def
+y15: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y16: 18-22:#5c5cff/def 23-60:#c0caf5/def
+y17: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y18: 18-20:#5c5cff/def 21-60:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -51,39 +52,40 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |                                                                                |
-|                 ../                                          █                 |
-|                 .claude/                                     █                 |
-|                 .git/                                        █                 |
-|                 .github/                                     █                 |
-|                 benchmarks/                                  █                 |
-|                 bin/                                         █                 |
-|                 data/                                        █                 |
-|                 examples/                                    █                 |
-|                 lib/                                         █                 |
-|                 screenshots/                                 ░                 |
-|                 spec/                                        ░                 |
-|                 src/                                         ░                 |
-|                 tests/                                       ░                 |
-|                 tools/                                       ░                 |
-|                 .ameba.yml                                   ░                 |
-|                 .editorconfig                                ░                 |
+|                 ┌─/Users/user/p/crysterm/crysterm2───────────┐                 |
+|                 │../                                        █│                 |
+|                 │.claude/                                   █│                 |
+|                 │.git/                                      █│                 |
+|                 │.github/                                   █│                 |
+|                 │benchmarks/                                █│                 |
+|                 │bin/                                       █│                 |
+|                 │data/                                      █│                 |
+|                 │docs/                                      ░│                 |
+|                 │examples/                                  ░│                 |
+|                 │lib/                                       ░│                 |
+|                 │misc/                                      ░│                 |
+|                 │plans/                                     ░│                 |
+|                 │spec/                                      ░│                 |
+|                 │src/                                       ░│                 |
+|                 └────────────────────────────────────────────┘                 |
 |                                                                                |
 |                                                                                |
 |                                                                                |
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y4: 17-61:#101010/#89b4fa
-y5: 17-23:#5c5cff/def
-y6: 17-20:#5c5cff/def
-y7: 17-23:#5c5cff/def
-y8: 17-26:#5c5cff/def
-y9: 17-19:#5c5cff/def
-y10: 17-20:#5c5cff/def
-y11: 17-24:#5c5cff/def
-y12: 17-19:#5c5cff/def
-y13: 17-27:#5c5cff/def
-y14: 17-20:#5c5cff/def
-y15: 17-19:#5c5cff/def
-y16: 17-21:#5c5cff/def
-y17: 17-21:#5c5cff/def
+y4: 19-50:#c0caf5/def
+y5: 18-60:#c0caf5/#89b4fa
+y6: 18-24:#5c5cff/def 25-60:#c0caf5/def
+y7: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y8: 18-24:#5c5cff/def 25-60:#c0caf5/def
+y9: 18-27:#5c5cff/def 28-60:#c0caf5/def
+y10: 18-20:#5c5cff/def 21-60:#c0caf5/def
+y11: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y12: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y13: 18-25:#5c5cff/def 26-60:#c0caf5/def
+y14: 18-20:#5c5cff/def 21-60:#c0caf5/def
+y15: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y16: 18-22:#5c5cff/def 23-60:#c0caf5/def
+y17: 18-21:#5c5cff/def 22-60:#c0caf5/def
+y18: 18-20:#5c5cff/def 21-60:#c0caf5/def

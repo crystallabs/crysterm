@@ -94,7 +94,36 @@ module Crysterm
     # The resolved grid (including a fallback) is cached under *grapheme*, so a
     # repeated miss is a single hash hit rather than a re-decode + fresh blank.
     def glyph(grapheme : String) : Array(Array(Int32))
-      @glyphs[grapheme] ||= (cached_or_decode(grapheme) || cached_or_decode("?") || blank)
+      @glyphs[grapheme] ||= (synth_braille(grapheme) || cached_or_decode(grapheme) || cached_or_decode("?") || blank)
+    end
+
+    # Braille patterns (U+2800..U+28FF) are synthesized instead of taken from
+    # the font: Unifont marks *unlit* dot positions with single-pixel specks,
+    # so a partially-lit cell (any braille-rendered edge) shows phantom dots
+    # where the background should be. Terminals draw only the lit dots, so
+    # captures must too. Each lit dot is a 2×2 block at Unifont's dot anchors.
+    private def synth_braille(grapheme : String) : Array(Array(Int32))?
+      return unless grapheme.size == 1
+      mask = grapheme[0].ord - 0x2800
+      return unless 0 <= mask <= 0xFF
+      grid = Array.new(@height) { Array.new(@width, 0) }
+      8.times do |bit|
+        next if mask.bit(bit) == 0
+        col = bit < 3 ? 0 : (bit < 6 ? 1 : bit - 6)
+        row = bit < 3 ? bit : (bit < 6 ? bit - 3 : 3)
+        x0 = col == 0 ? 2 : 6
+        y0 = {3, 6, 9, 12}[row]
+        2.times do |dy|
+          2.times do |dx|
+            y, x = y0 + dy, x0 + dx
+            next unless y < @height && x + (@bold ? 1 : 0) < @width
+            grid[y][x] = 1
+            # Match `decode_hex`'s synthetic bold (each row smeared 1 px right).
+            grid[y][x + 1] = 1 if @bold
+          end
+        end
+      end
+      grid
     end
 
     private def cached_or_decode(grapheme : String) : Array(Array(Int32))?

@@ -1,6 +1,6 @@
 require "../../../src/crysterm"
 
-# term — a minimal, real terminal emulator, the way xterm or kitty starts one.
+# emulator — a minimal, real terminal emulator, the way xterm or kitty starts one.
 #
 # Opens a full-screen window, runs your shell (`$SHELL`, or a command given on
 # the argv) inside a pseudo-terminal, and renders its live output. Everything a
@@ -20,9 +20,9 @@ require "../../../src/crysterm"
 # runs under the capture harness) and a program you'd actually use as a terminal.
 #
 # Usage:
-#   crystal run examples/terminal/term/term.cr            # runs $SHELL
-#   crystal run examples/terminal/term/term.cr -- htop    # runs a command
-#   crystal run examples/terminal/term/term.cr -- vim x   # ...with arguments
+#   crystal run examples/terminal/emulator/emulator.cr            # runs $SHELL
+#   crystal run examples/terminal/emulator/emulator.cr -- htop    # runs a command
+#   crystal run examples/terminal/emulator/emulator.cr -- vim x   # ...with arguments
 include Crysterm
 include Crysterm::Widgets
 include Tput::Namespace

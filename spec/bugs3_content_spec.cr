@@ -137,7 +137,10 @@ describe "widget_content SGR word-wrap (bugs3)" do
     end
 
     it "wraps by codepoint count without full_unicode" do
-      cl = wc_box._wrap_content("你好世界你好", 5)
+      b = wc_box
+      # The option defaults on; pin the legacy codepoint path under test.
+      b.window.full_unicode = false
+      cl = b._wrap_content("你好世界你好", 5)
       cl.lines.should eq ["你好世界你", "好"]
       cl.max_width.should eq 5
     end

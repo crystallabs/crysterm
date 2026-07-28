@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::MainWindow
 #
 # Minimal, self-contained example of a single MainWindow.
-# Run it:     crystal run examples/widget/main_window/main_window.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/main_window/main_window.cr
 require "../example"
 
 include Crysterm

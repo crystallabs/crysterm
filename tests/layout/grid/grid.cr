@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Grid
 #
 # Minimal, self-contained example of a single Grid.
-# Run it:     crystal run examples/layout/grid/grid.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/grid/grid.cr
 require "../../widget/example"
 
 include Crysterm

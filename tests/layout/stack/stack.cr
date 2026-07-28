@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Stack
 #
 # Minimal, self-contained example of a single Stack.
-# Run it:     crystal run examples/layout/stack/stack.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/stack/stack.cr
 require "../../widget/example"
 
 include Crysterm

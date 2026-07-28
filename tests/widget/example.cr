@@ -215,9 +215,9 @@ module Crysterm
     def self.run(title : String = "Crysterm example", *,
                  script : (Driver ->)? = nil, &build : Window ->)
       # Each capture mode is gated by its own dest env var, independently: with
-      # several set (e.g. by `manage-examples --all`) one process produces all
-      # of them instead of a build+run per output. With none set, fall through
-      # to interactive.
+      # several set (as `tools/test.cr` does) one process produces all of them
+      # instead of a build+run per output. With none set, fall through to
+      # interactive.
       ran = false
       if dest = ENV["CRYSTERM_SHOT"]?
         screenshot dest, &build

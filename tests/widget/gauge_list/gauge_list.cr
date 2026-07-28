@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::GaugeList
 #
 # Minimal, self-contained example of a single GaugeList.
-# Run it:     crystal run examples/widget/gauge_list/gauge_list.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/gauge_list/gauge_list.cr
 require "../example"
 
 include Crysterm

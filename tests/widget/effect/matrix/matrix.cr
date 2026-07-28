@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::Matrix
 #
 # Minimal, self-contained example of a single Matrix.
-# Run it:     crystal run examples/widget/effect/matrix/matrix.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/matrix/matrix.cr
 require "../../example"
 
 include Crysterm

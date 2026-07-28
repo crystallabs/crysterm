@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Box
 #
 # Minimal, self-contained example of a single Box.
-# Run it:     crystal run examples/widget/box/box.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/box/box.cr
 require "../example"
 
 include Crysterm

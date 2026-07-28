@@ -56,10 +56,10 @@ Widget::Box.new parent: s, top: 12, left: 1, width: 78, height: 9,
   label: " Alignment, the left/right separator & literals ", parse_tags: true,
   content: "{center}#{tag "center"} this heading is centered{/center}\n" \
            "{right}pushed flush right #{tag "right"}{/right}\n" \
-           "{#7dcfff-fg}F1{/#7dcfff-fg} Help  {#7dcfff-fg}F10{/#7dcfff-fg} Quit{|}" \
+           "The left part{|}" \
            "the {#7dcfff-fg}pipe{/#7dcfff-fg} tag splits a line left/right\n\n" \
-           "{#9ece6a-fg}literals:{/#9ece6a-fg} {open}open{close} and {open}close{close} print real braces — {bold}{open}like this{close}{/bold}\n" \
-           "{#9ece6a-fg}escape:{/#9ece6a-fg}   {escape}{bold}an escaped span{/bold} is passed through verbatim{/escape}",
+           "{#9ece6a-fg}Literals:{/#9ece6a-fg} {open}open{close} and {open}close{close} print real braces — {bold}{open}like this{close}{/bold}\n" \
+           "{#9ece6a-fg}Escape:{/#9ece6a-fg}   #{tag "escape"}{escape}{bold}this span{/bold} passes through verbatim{/escape}#{tag "/escape"}",
   style: Style.new(fg: "#c0caf5", bg: "#24283b", border: Border.new(fg: "#3b4261"))
 
 # Subtle animated accent: a hue-cycling gradient rule under the panels.

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::BigText
 #
 # Minimal, self-contained example of a single BigText.
-# Run it:     crystal run examples/widget/bigtext/bigtext.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/bigtext/bigtext.cr
 require "../example"
 
 include Crysterm

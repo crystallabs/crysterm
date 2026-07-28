@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::Wrap
 #
 # Minimal, self-contained example of a single Wrap.
-# Run it:     crystal run examples/layout/wrap/wrap.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/wrap/wrap.cr
 require "../../widget/example"
 
 include Crysterm

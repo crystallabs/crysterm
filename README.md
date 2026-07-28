@@ -41,10 +41,6 @@ Image-rendering backends:
 
 ![](tests/widget/media/glyph/half/half.png)
 
-![](tests/widget/media/glyph/block/block.png)
-
-![](tests/widget/media/glyph/ascii/ascii.png)
-
 ![](tests/widget/media/ansi/c256/c256.png)
 
 ![](tests/widget/media/ansi/c16/c16.png)
@@ -90,6 +86,7 @@ C::Widget::Box.new \
   parent: window,
   top: "center", left: "center", width: 20, height: 5,
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
+  parse_tags: true,
   style: C::Style.new(fg: "yellow", bg: "blue", border: true)
 
 # `q` / Ctrl-Q quit by default. Run the main loop:
@@ -103,8 +100,8 @@ git clone https://github.com/crystallabs/crysterm
 cd crysterm
 shards
 
-crystal examples/hello.cr          # the program above
-crystal examples/hello2.cr         # the Qt shape: MainWindow + a layout
+crystal tests/hellos/hello.cr          # the program above
+crystal tests/hellos/hello2.cr         # the Qt shape: MainWindow + a layout
 crystal tests/misc/qt_widgets.cr   # tour of the Qt-inspired widget set
 crystal tests/misc/widgets.cr      # tour of the general widget set
 ```

@@ -1,8 +1,7 @@
 # Example: Crysterm::Layout::UniformGrid
 #
 # Minimal, self-contained example of a single UniformGrid.
-# Run it:     crystal run examples/layout/uniform_grid/uniform_grid.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/layout/uniform_grid/uniform_grid.cr
 require "../../widget/example"
 
 include Crysterm

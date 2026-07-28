@@ -15,10 +15,10 @@ w=80 h=24
 | ┌─ Alignment, the left/right separator & literals ───────────────────────────┐ |
 | │                     {center} this heading is centered                      │ |
 | │                                                  pushed flush right {right}│ |
-| │F1 Help  F10 Quit                      the pipe tag splits a line left/right│ |
+| │The left part                          the pipe tag splits a line left/right│ |
 | │                                                                            │ |
-| │literals: {open} and {close} print real braces — {like this}                │ |
-| │escape:   {bold}an escaped span{/bold} is passed through verbatim           │ |
+| │Literals: {open} and {close} print real braces — {like this}                │ |
+| │Escape:   {escape}{bold}this span{/bold} passes through verbatim{/escape}   │ |
 | │                                                                            │ |
 | └────────────────────────────────────────────────────────────────────────────┘ |
 |                                                                                |
@@ -41,10 +41,10 @@ y11: 0-0:def/#1a1b26 1-39:#3b4261/#24283b 40-40:def/#1a1b26 41-78:#3b4261/#24283
 y12: 0-0:def/#1a1b26 1-2:#3b4261/#24283b 3-50:#c0caf5/def 51-78:#3b4261/#24283b 79-79:def/#1a1b26
 y13: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-22:#c0caf5/#24283b 23-30:#565f89/#24283b 31-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
 y14: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-70:#c0caf5/#24283b 71-77:#565f89/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
-y15: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-3:#7dcfff/#24283b 4-10:#c0caf5/#24283b 11-13:#7dcfff/#24283b 14-44:#c0caf5/#24283b 45-48:#7dcfff/#24283b 49-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
+y15: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-44:#c0caf5/#24283b 45-48:#7dcfff/#24283b 49-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
 y16: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
 y17: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-10:#9ece6a/#24283b 11-50:#c0caf5/#24283b 51-61:#c0caf5/#24283b+b 62-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
-y18: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-8:#9ece6a/#24283b 9-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
+y18: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-8:#9ece6a/#24283b 9-11:#c0caf5/#24283b 12-19:#565f89/#24283b 20-65:#c0caf5/#24283b 66-74:#565f89/#24283b 75-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
 y19: 0-0:def/#1a1b26 1-1:#3b4261/#24283b 2-77:#c0caf5/#24283b 78-78:#3b4261/#24283b 79-79:def/#1a1b26
 y20: 0-0:def/#1a1b26 1-78:#3b4261/#24283b 79-79:def/#1a1b26
 y21: 0-79:def/#1a1b26

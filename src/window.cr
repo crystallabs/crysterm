@@ -178,7 +178,7 @@ module Crysterm
     # reset primitives and capability probes. The artificial cursor and the
     # hardware-vs-artificial decision read surface state, so they stay on the
     # surface and drive the hardware path through these.
-    delegate hardware_cursor_styling?, hardware_cursor_color?,
+    delegate hardware_cursor?, hardware_cursor_styling?, hardware_cursor_color?,
       apply_hardware_cursor_shape,
       reset_hardware_cursor_color, show_hardware_cursor, hide_hardware_cursor,
       reset_hardware_cursor,

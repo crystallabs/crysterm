@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Table
 #
 # Minimal, self-contained example of a single Table.
-# Run it:     crystal run examples/widget/table/table.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/table/table.cr
 require "../example"
 
 include Crysterm

@@ -2,10 +2,10 @@
 #
 # Every image backend animates: an animated GIF or APNG plays automatically,
 # each frame shown for its own source delay. Here the classic Netscape
-# throbber plays simultaneously in four different backends — sub-cell glyph
-# octants and braille, 256-color ANSI cells, and Kitty pixel graphics —
-# all driven from one shared frame clock (`animate: <Timer>`), so the four
-# panels stay in exact lockstep.
+# throbber plays simultaneously in four different backends — Kitty pixel
+# graphics, then sub-cell glyph octants, sextants and braille — all driven
+# from one shared frame clock (`animate: <Timer>`), so the four panels stay
+# in exact lockstep.
 
 require "../../src/crysterm"
 
@@ -29,10 +29,10 @@ half = s.awidth // 2
 row_h = (s.aheight - 2) // 2
 
 [
-  {Widget::Media::Type::GlyphOctant, "glyph_octant"},
-  {Widget::Media::Type::GlyphBraille, "glyph_braille"},
-  {Widget::Media::Type::AnsiC256, "ansi_c256"},
   {Widget::Media::Type::Kitty, "kitty"},
+  {Widget::Media::Type::GlyphOctant, "glyph_octant"},
+  {Widget::Media::Type::GlyphSextant, "glyph_sextant"},
+  {Widget::Media::Type::GlyphBraille, "glyph_braille"},
 ].each_with_index do |(type, name), i|
   Widget::Media.new \
     parent: s, type: type, file: img, fit: Widget::Media::Fit::Contain,

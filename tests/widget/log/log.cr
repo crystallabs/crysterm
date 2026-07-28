@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Log
 #
 # Minimal, self-contained example of a single Log.
-# Run it:     crystal run examples/widget/log/log.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/log/log.cr
 require "../example"
 
 include Crysterm

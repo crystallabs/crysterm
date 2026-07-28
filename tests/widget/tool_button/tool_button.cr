@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ToolButton
 #
 # Minimal, self-contained example of a single ToolButton.
-# Run it:     crystal run examples/widget/tool_button/tool_button.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/tool_button/tool_button.cr
 require "../example"
 
 include Crysterm

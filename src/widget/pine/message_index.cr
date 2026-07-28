@@ -56,7 +56,16 @@ module Crysterm
         # Width of the leftmost status/flags column. Defaults to Alpine's compact
         # 3 (a marker, a space, and one status char); every row pads its status to
         # this width, so widening it keeps the other columns aligned.
-        property status_width : Int32 = 3
+        getter status_width : Int32 = 3
+
+        # :ditto: — reformats the already-loaded rows, so the column can be
+        # widened after construction without reassigning `messages`.
+        def status_width=(v : Int32)
+          return v if v == @status_width
+          @status_width = v
+          self.records = records
+          v
+        end
 
         def initialize(
           messages : Array(Message) = [] of Message,

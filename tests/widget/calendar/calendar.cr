@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Calendar
 #
 # Minimal, self-contained example of a single Calendar.
-# Run it:     crystal run examples/widget/calendar/calendar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/calendar/calendar.cr
 require "../example"
 
 include Crysterm

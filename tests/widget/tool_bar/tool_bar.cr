@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ToolBar
 #
 # Minimal, self-contained example of a single ToolBar.
-# Run it:     crystal run examples/widget/tool_bar/tool_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/tool_bar/tool_bar.cr
 require "../example"
 
 include Crysterm

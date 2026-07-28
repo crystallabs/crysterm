@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::CopperBar
 #
 # Minimal, self-contained example of a single CopperBar.
-# Run it:     crystal run examples/widget/effect/copper_bar/copper_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/copper_bar/copper_bar.cr
 require "../../example"
 
 include Crysterm

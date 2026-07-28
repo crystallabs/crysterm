@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Label
 #
 # Minimal, self-contained example of a single Label.
-# Run it:     crystal run examples/widget/label/label.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/label/label.cr
 require "../example"
 
 include Crysterm

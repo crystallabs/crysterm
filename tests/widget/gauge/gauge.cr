@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Gauge
 #
 # Minimal, self-contained example of a single Gauge.
-# Run it:     crystal run examples/widget/gauge/gauge.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/gauge/gauge.cr
 require "../example"
 
 include Crysterm

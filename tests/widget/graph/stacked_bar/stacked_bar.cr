@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::StackedBar
 #
 # Minimal, self-contained example of a single StackedBar.
-# Run it:     crystal run examples/widget/graph/stacked_bar/stacked_bar.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/stacked_bar/stacked_bar.cr
 require "../../example"
 
 include Crysterm

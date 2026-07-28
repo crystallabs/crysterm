@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::SizeGrip
 #
 # Minimal, self-contained example of a single SizeGrip.
-# Run it:     crystal run examples/widget/size_grip/size_grip.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/size_grip/size_grip.cr
 require "../example"
 
 include Crysterm

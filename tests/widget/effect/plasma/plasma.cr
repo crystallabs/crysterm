@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Effect::Plasma
 #
 # Minimal, self-contained example of a single Plasma.
-# Run it:     crystal run examples/widget/effect/plasma/plasma.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/effect/plasma/plasma.cr
 require "../../example"
 
 include Crysterm

@@ -1,15 +1,14 @@
 # Example: Crysterm::Widget::Pine::OptionList
 #
 # Minimal, self-contained example of a single OptionList.
-# Run it:     crystal run examples/widget/pine/option_list/option_list.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/option_list/option_list.cr
 require "../../example"
 
 include Crysterm
 include Crysterm::Widgets
 
 Crysterm::WidgetExample.run "OptionList" do |window|
-  window.stylesheet = "Pine::OptionList { border: solid; color: #c0caf5; }"
+  window.stylesheet = "OptionList { border: solid; color: #c0caf5; }"
   ol = PineOptionList.new parent: window, top: "center", left: "center", width: 64, height: 12, label: " Options "
   ol.options = ([
     PineOptionList::Option.new("line-wrap",

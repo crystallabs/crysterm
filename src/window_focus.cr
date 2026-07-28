@@ -19,6 +19,11 @@ module Crysterm
       @screen.enable_mouse(focus: value) if @screen.mouse_enabled?
     end
 
+    # Set by `_focus`, consumed at the end of the next render: the focus
+    # change's scroll-into-view ran against possibly-unresolved geometry, so
+    # the render loop re-asserts it once with the freshly-painted boxes.
+    @focus_visibility_dirty = false
+
     # Whether `Tab`/`Shift+Tab` move keyboard focus between focusable widgets by
     # default (the GUI-toolkit convention). Enabled out of the box; set to false
     # to take full control of `Tab` handling yourself.
@@ -268,6 +273,14 @@ module Crysterm
       if el && (elw = el.window?)
         elw.render if el.ensure_widget_visible cur
       end
+
+      # The scroll above (and the caret placement that follows a focus) ran
+      # against geometry that may not be resolved yet — a widget just shown, or
+      # placed by a layout that only assigns boxes during render (the classic
+      # "must repaint before focus" trap). Have the end of the next render
+      # re-assert visibility against the then-authoritative boxes, so callers
+      # can focus first and never need a synchronous repaint.
+      @focus_visibility_dirty = true
 
       if old
         old.emit Crysterm::Event::FocusOut, cur

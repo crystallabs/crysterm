@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::DialogButtonBox
 #
 # Minimal, self-contained example of a single DialogButtonBox.
-# Run it:     crystal run examples/widget/dialog_button_box/dialog_button_box.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/dialog_button_box/dialog_button_box.cr
 require "../example"
 
 include Crysterm

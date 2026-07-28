@@ -29,7 +29,7 @@ w=80 h=24
 |Save changes before exiting?  Y  Yes   N  No   C  Cancel                        |
 +--------------------------------------------------------------------------------+
 attrs:
-y23: 29-31:def/def+r 38-40:def/def+r 46-48:def/def+r
+y23: 0-28:#c0caf5/def 29-31:#c0caf5/def+r 32-37:#c0caf5/def 38-40:#c0caf5/def+r 41-45:#c0caf5/def 46-48:#c0caf5/def+r 49-79:#c0caf5/def
 
 === end ===
 w=80 h=24
@@ -60,4 +60,4 @@ w=80 h=24
 |Save changes before exiting?  Y  Yes   N  No   C  Cancel                        |
 +--------------------------------------------------------------------------------+
 attrs:
-y23: 29-31:def/def+r 38-40:def/def+r 46-48:def/def+r
+y23: 0-28:#c0caf5/def 29-31:#c0caf5/def+r 32-37:#c0caf5/def 38-40:#c0caf5/def+r 41-45:#c0caf5/def 46-48:#c0caf5/def+r 49-79:#c0caf5/def

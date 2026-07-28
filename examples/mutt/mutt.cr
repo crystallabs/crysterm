@@ -212,7 +212,7 @@ current = :index
 active_pane = :index # :index or :sidebar, on the index screen
 current_folder = "INBOX"
 prompt_active = false
-prompt_done = nil.as(Proc(String, Nil)?)
+prompt_done : Proc(String, Nil)? = nil
 quit_pending = false
 
 # The message being composed. These are the single source of truth; the
@@ -248,12 +248,12 @@ end
 
 set_help = ->(text : String) { helpline.content = text; nil }
 
-# Raise one center view and focus it. Render *before* focusing so the view
-# (notably the editor) is laid out visible before it takes the keyboard.
+# Raise one center view and focus it. Focus itself is safe against the
+# not-yet-arranged page: the render that follows re-asserts the focused
+# widget's visibility and caret against the freshly laid-out boxes.
 show_page = ->(name : Symbol, view : Widget) do
   current = name
   stack.current_index = PAGE[name]
-  s.repaint
   view.focus
   nil
 end
@@ -274,15 +274,10 @@ open_prompt = ->(label : String, initial : String, e : Event::KeyPress?, on_done
   cmd_label.width = label.size
   cmd_input.value = initial
   cmd_input.show
-  # Lay the command line out *before* focusing the field. `cmd_input` was
-  # hidden, so the enclosing HBox has not yet given it a column or a width —
-  # those are assigned during a render. Focusing first would run `read_input`
-  # → `_update_cursor` against unresolved geometry and park the caret at
-  # column 0, over the label. One synchronous render settles the layout so the
-  # caret lands in the field — the same render-before-focus order `show_page`
-  # relies on. (`focus` itself schedules the repaint that paints the field in
-  # its focused styling, so only this one render has to be explicit.)
-  s.repaint
+  # `cmd_input` was hidden, so the enclosing HBox has not yet given it a
+  # column or a width — those are assigned during the render that `focus`
+  # schedules, and the end of that render re-places the caret against the
+  # resolved geometry.
   cmd_input.focus
   e.try &.accept
   nil
@@ -448,18 +443,17 @@ start_compose = ->(e : Event::KeyPress?) do
   nil
 end
 
-# `r`: reply. To/Subject are pre-filled (the essential Mutt reply behavior),
-# then the body editor opens — empty, as Pine's composer does. (Seeding the
-# editor with a quoted original isn't shown: a pre-filled `PlainTextEdit`
-# entering `input_on_focus` read mode doesn't repaint its initial content.)
+# `r`: reply. To/Subject are pre-filled and the body editor opens seeded with
+# the `> `-quoted original — the essential Mutt reply behavior.
 reply_to = ->(m : Message) do
   draft_to = "#{m.from} <#{m.from.downcase.gsub(' ', '.')}@example.com>"
   draft_subject = m.subject.starts_with?("Re: ") ? m.subject : "Re: #{m.subject}"
   draft_cc = ""
   draft_bcc = ""
-  draft_body = ""
+  quoted = (body_of[m]? || "").lines.map { |l| "> #{l}" }.join('\n')
+  draft_body = "On #{m.date}, #{m.from} wrote:\n#{quoted}\n\n"
   draft_attachments = [] of Attachment
-  open_editor.call ""
+  open_editor.call draft_body
   nil
 end
 
@@ -643,8 +637,5 @@ s.on(Event::KeyPress) do |e|
   end
 end
 
-# One synchronous render so the Border/Stack frame is arranged before the
-# first page is shown and focused (see `show_page`).
-s.repaint
 goto_index.call
 s.exec

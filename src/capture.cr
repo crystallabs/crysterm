@@ -22,11 +22,15 @@ module Crysterm
     # Renders cells [*xi*,*xl*) × [*yi*,*yl*) of *window* into an RGBA
     # `PNGGIF::Bitmap`. *font*/*bold_font* set the glyphs (and the cell pixel
     # size); *default_fg*/*default_bg* fill terminal-default colors.
+    # *blink_hidden* renders `Attr::BLINK` cells in their hidden phase (glyph
+    # suppressed, background kept) — the animation recorder alternates it so
+    # blinking text actually blinks in an APNG/GIF; stills keep it visible.
     def self.render(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                     font : BitmapFont = BitmapFont.default_normal,
                     bold_font : BitmapFont = BitmapFont.default_bold,
                     default_fg : Int32 = DEFAULT_FG,
-                    default_bg : Int32 = DEFAULT_BG) : PNGGIF::Bitmap
+                    default_bg : Int32 = DEFAULT_BG,
+                    blink_hidden : Bool = false) : PNGGIF::Bitmap
       cw = font.width
       ch = font.height
       cols = xl - xi
@@ -53,7 +57,8 @@ module Crysterm
         ov = window.capture_cursor_overlay(rx + xi, ry + yi)
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width,
-          attr_override: ov.try(&.[0]), char_override: ov.try(&.[1])
+          attr_override: ov.try(&.[0]), char_override: ov.try(&.[1]),
+          blink_hidden: blink_hidden
       end
 
       composite_layers canvas, over, xi, yi, cw, ch
@@ -136,7 +141,8 @@ module Crysterm
     # can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
                                font : BitmapFont, bold_font : BitmapFont, default_fg : Int32, default_bg : Int32,
-                               cols : Int32 = 1, attr_override : Int64? = nil, char_override : Char? = nil)
+                               cols : Int32 = 1, attr_override : Int64? = nil, char_override : Char? = nil,
+                               blink_hidden : Bool = false)
       code = attr_override || cell.attr
       flags = Attr.flags(code)
       raw_fg = Attr.unpack_color(Attr.fg(code))
@@ -179,8 +185,10 @@ module Crysterm
 
       # INVISIBLE (concealed) must suppress every foreground mark, not just the
       # glyph: a drawn underline/strikethrough would reveal the hidden text's
-      # presence and width (e.g. a masked password field).
-      if (flags & Attr::INVISIBLE) == 0
+      # presence and width (e.g. a masked password field). A BLINK cell in its
+      # hidden phase suppresses the same set — background only, like a real
+      # terminal's blink off-phase.
+      if (flags & Attr::INVISIBLE) == 0 && !(blink_hidden && (flags & Attr::BLINK) != 0)
         glyph = ((flags & Attr::BOLD) != 0 ? bold_font : font).glyph((char_override || cell.char).to_s)
         gh = Math.min(ch, glyph.size)
         gh.times do |gy|

@@ -2,19 +2,24 @@ require "./spec_helper"
 
 include Crysterm
 
-# Covers the legacy path of `Widget#str_width` (no screen attached ->
-# `full_unicode?` false), which stays codepoint-counted, and confirms SGR
-# sequences are stripped before measuring. The full-unicode (column-width)
-# path needs an attached, Unicode-capable screen and is exercised by
-# `test/`-style runs instead, since constructing real `Window`s here
-# interferes with the spec runner's teardown.
+# Covers the legacy path of `Widget#str_width` (`full_unicode` off — the
+# option defaults on, so the mode is pinned off explicitly here), which stays
+# codepoint-counted, and confirms SGR sequences are stripped before measuring.
+# The full-unicode (column-width) path is exercised by the grapheme/wide-glyph
+# specs.
 describe "Widget#str_width (legacy / unattached)" do
   it "counts codepoints when full_unicode is not active" do
-    b = Widget::Box.new
-    b.full_unicode?.should be_false
-    b.str_width("abc").should eq 3
-    b.str_width("中").should eq 1   # one codepoint in legacy mode
-    b.str_width("a中b").should eq 3 # three codepoints
+    w = headless_screen
+    begin
+      w.full_unicode = false
+      b = Widget::Box.new parent: w
+      b.full_unicode?.should be_false
+      b.str_width("abc").should eq 3
+      b.str_width("中").should eq 1   # one codepoint in legacy mode
+      b.str_width("a中b").should eq 3 # three codepoints
+    ensure
+      w.destroy
+    end
   end
 
   it "strips SGR sequences before measuring" do

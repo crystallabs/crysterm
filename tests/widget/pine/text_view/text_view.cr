@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Pine::TextView
 #
 # Minimal, self-contained example of a single TextView (a generic Pine pager).
-# Run it:     crystal run examples/widget/pine/text_view/text_view.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/pine/text_view/text_view.cr
 require "../../example"
 
 include Crysterm

@@ -34,6 +34,8 @@ opts.on("-v", "--verbose", "Print each step") { config.verbose = true }
 | unit  | 214      | 0        | 1.9s |
 | e2e   | 37       | 0        | 4.2s |
 
+✅ All suites green — ⚠️ 2 deprecation warnings (non-blocking)
+
 > [!NOTE]
 > `spec/cli_spec.cr` now asserts the ~~old~~ **new** banner — see the
 > [CLI guide](https://example.org/cli) for the `--verbose` conventions. 🎉

@@ -58,7 +58,7 @@ d.set_cursor :none
 d.cursor!.style = Style.new(fill_char: '▚', fg: "#e0af68", bg: "#414868")
 
 Widget::Box.new parent: s, top: 21, left: 0, width: "100%", height: 1,
-  content: "{center}focus (and with it the active cursor) moves to the next field every 1.2 s{/center}",
+  content: "{center}Focus (and with it the active cursor) moves to the next field every 1.2 s{/center}",
   parse_tags: true, style: Style.new(fg: "#565f89", bg: "#1a1b26")
 
 # Start on the custom artificial cursor (it is composited into the cells,

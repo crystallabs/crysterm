@@ -19,23 +19,21 @@ include Crysterm
 SAMPLE = <<-TEXT
 Crysterm speaks Unicode natively.
 
-Scripts    — English, Ćirilica, Ελληνικά, 中文, 日本語, 한국어, हिन्दी
-Emoji      — 🚀 🌍 🎨 ✅ ❤️ and ZWJ families: 👨‍👩‍👧‍👦
-Combining  — e + ◌́ = é,  a + ◌̈ = ä,  ω + ◌̃ = ω̃
+Scripts    — Latin, Cyrillic (Кириллица), Greek (Ελληνικά), 中文, 日本語, 한국어
+Emoji      — 🚀 🌍 🎨 ✅ ❤️ and ZWJ sequences: 👨‍👩‍👧‍👦
+Combining  — e + ◌́ = é,  a + ◌̈ = ä,  n + ◌̃ = ñ
 Wide cells — ｆｕｌｌｗｉｄｔｈ next to halfwidth
-Symbols    — ┌─┬─┐ ╭─╮ ▲ ► ◆ ● · § ¶ † ∞ ≠ ⊕ ⌘
+Symbols    — → ← ↑ ↓ ★ ☆ ♥ ♦ ✓ ✗ λ ∑ ∞ ┌─┬─┐ ╭─╮ ▲ ► ◆ ● § ¶ ⌘
 
 Every line above lays out on the exact cell grid the terminal uses:
 grapheme clusters stay whole, wide glyphs take two cells, combining
 marks take none — and the same rules drive the cursor, selections,
-kill-ring and undo below.
+kill-ring and undo below. Any mix of scripts — Latin, Greek and
+Cyrillic beside CJK — edits naturally in one buffer.
 
 Try it: type anywhere; C-z / M-z undo and redo; C-k kills to end of
 line and C-y yanks it back (the kill-ring is shared process-wide);
 C-Left / C-Right jump words; Shift+arrows select; the wheel scrolls.
-
-  “Ćevapčići & smörgåsbord — 東京で書く, писати у Београду,
-   γράφοντας στην Αθήνα — all in one buffer.”
 
 The status bar below tracks Ln/Col live, the toolbar buttons are
 plain Unicode glyphs, and everything you see is themable with CSS.
@@ -59,14 +57,14 @@ win.central_widget = ed
 menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
-msg = ->(t : String) { status.show_message " #{t}"; s.render }
+msg = ->(t : String) { status.show_message " #{t}" }
 
 file = menubar.add_menu "File"
 file.add_action("📄 New") { ed.text = ""; msg.call "new buffer" }
 file.add_action("📂 Open") { ed.text = SAMPLE; msg.call "opened sample.txt" }
 file.add_action("💾 Save") { status.set_permanent mod_i, "✔ saved"; msg.call "saved sample.txt" }
 file.add_separator
-file.add_action("Quit") { s.destroy; exit }
+file.add_action("Quit") { s.quit }
 
 edit = menubar.add_menu "Edit"
 edit.add_action("↶ Undo") { ed.undo; msg.call "undo" }
@@ -114,7 +112,7 @@ tick = 0
 s.every(0.25.seconds) do
   case tick % 20
   when 1 then type.call "❯ edited with 🎉 — "
-  when 3 then type.call "Здраво, 世界! "
+  when 3 then type.call "Привет, 世界! "
   when 6 # click the File menu open, like a real pointer would
     mouse.call ::Tput::Mouse::Action::Down, 2, 0
     mouse.call ::Tput::Mouse::Action::Up, 2, 0

@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ListTable
 #
 # Minimal, self-contained example of a single ListTable.
-# Run it:     crystal run examples/widget/listtable/listtable.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/listtable/listtable.cr
 require "../example"
 
 include Crysterm

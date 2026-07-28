@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::ScrollableText
 #
 # Minimal, self-contained example of a single ScrollableText.
-# Run it:     crystal run examples/widget/scrollable_text/scrollable_text.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/scrollable_text/scrollable_text.cr
 require "../example"
 
 include Crysterm

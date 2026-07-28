@@ -7,6 +7,19 @@ module Crysterm
   # state, so they stay on `Window`, which drives the hardware path via the
   # primitives here.
   class Screen
+    # Whether the device has a terminal hardware cursor at all. By default a
+    # real tty has one, while a headless or redirected connection (in-memory
+    # IO, a pipe) has no terminal drawing a cursor — so any visible cursor
+    # there must be composited artificially, which is also what makes cursors
+    # appear in headless captures. Assign `true`/`false` to override the
+    # detection (`nil` restores it).
+    setter hardware_cursor : Bool? = nil
+
+    # :ditto:
+    def hardware_cursor? : Bool
+      (hc = @hardware_cursor).nil? ? output.tty? : hc
+    end
+
     # Whether the terminal can style its *hardware* cursor (shape/blink, via
     # DECSCUSR or iTerm2's OSC 50). Static, but confirmable at runtime by the
     # probe. When false, the surface falls back to an artificial cursor for

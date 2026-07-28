@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Graph::PieChart
 #
 # Minimal, self-contained example of a single PieChart.
-# Run it:     crystal run examples/widget/graph/pie_chart/pie_chart.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/graph/pie_chart/pie_chart.cr
 require "../../example"
 
 include Crysterm

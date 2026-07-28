@@ -1,0 +1,31 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|q:Quit ?:Help m:Mail r:Reply Enter:Read d:Del u:Undel $:Sync Tab:Sidebar        |
+|> INBOX                3│   1 N! Jul 13  Crysterm Demo    (    0) THIS IS A     |
+|  lists                 │   2 N  Jun 18  Mutt Team        ( 1.2K) Welcome to    |
+|    crystal           12│   3    Jun 19  John Smith       ( 5.7K) Project update|
+|    mutt                │   4 r  Jun 19  Jane Doe         (  842) ├─▶Re:        |
+|  Sent                  │   5 r  Jun 20  John Smith       ( 1.1K) │ └─▶Re:      |
+|  Drafts               1│   6 r  Jun 20  Jane Doe         (  990) └─▶Re:        |
+|  Trash                 │   7 *  Jun 21  Crystal Weekly   ( 9.0K) Issue #412:   |
+|  Archive               │   8 N! Jun 22  Security Team    ( 4.1K) Rotate your   |
+|                        │   9 D  Jun 20  Mailer Daemon    ( 3.4K) Undelivered   |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|                        │                                                       |
+|-*-Mutt: INBOX [Msgs:9 New:3 Del---------------------------(threads/date)-(all)-|
+|9 messages, 3 new                                                               |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:def/def+b+r 1-6:def/def+r 7-7:def/def+b+r 8-13:def/def+r 14-14:def/def+b+r 15-20:def/def+r 21-21:def/def+b+r 22-28:def/def+r 29-33:def/def+b+r 34-39:def/def+r 40-40:def/def+b+r 41-45:def/def+r 46-46:def/def+b+r 47-53:def/def+r 54-54:def/def+b+r 55-60:def/def+r 61-63:def/def+b+r 64-79:def/def+r
+y1: 0-23:#101010/#89b4fa 25-79:#101010/#89b4fa
+y22: 0-31:#cdd6f4/#424453+r 32-79:#cdd6f4/def+r

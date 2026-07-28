@@ -57,10 +57,11 @@ File menu, then filtering and committing a completion:
 
 ![](tests/misc/themes.5s.apng)
 
-*Source: [tests/misc/themes.cr](tests/misc/themes.cr) — CSS features:
-[tests/misc/styling.cr](tests/misc/styling.cr):*
+*Source: [tests/misc/themes.cr](tests/misc/themes.cr)*
 
 ![](tests/misc/styling.5s.apng)
+
+*Source: [tests/misc/styling.cr](tests/misc/styling.cr)*
 
 ## Rich text — Markdown with GFM
 
@@ -97,10 +98,7 @@ buttons, status bar with live Ln/Col — types and edits multilingual text:
 
 ![](examples/text/editor/editor.5s.apng)
 
-*Source: [examples/text/editor/editor.cr](examples/text/editor/editor.cr) —
-see also [tests/misc/unicode.cr](tests/misc/unicode.cr):*
-
-![](tests/misc/unicode.5s.apng)
+*Source: [examples/text/editor/editor.cr](examples/text/editor/editor.cr)*
 
 ## Native TrueColor
 
@@ -144,7 +142,7 @@ colors (`{red-fg}`, `{#57c7ff-bg}`), attributes (`{bold}`, `{underline}`,
 (`{center}`, `{right}`, and `{|}` for left/right split), `{open}`/`{close}`
 literals and `{escape}…{/escape}` for untrusted text:
 
-![](tests/misc/tags.png)
+![](tests/misc/tags.5s.apng)
 
 *Source: [tests/misc/tags.cr](tests/misc/tags.cr)*
 
@@ -252,7 +250,7 @@ One process can drive several terminal windows: `Application.open` spawns a
 real emulator window and returns a `Window` for it, `Application.run
 (window_count: N)` opens N, `Application.exec_all` runs any set under one
 shared loop, and windows migrate between devices with `connect`/`disconnect`.
-Below, a value assigned in the left window updates the right one through a
+Below, a value assigned on the left screen updates the right one through a
 shared reactive signal (run with `--spawn` for two real windows):
 
 ![](examples/screen/multiple/multiple.5s.apng)

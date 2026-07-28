@@ -1,8 +1,7 @@
 # Example: Crysterm::Widget::Message
 #
 # Minimal, self-contained example of a single Message.
-# Run it:     crystal run examples/widget/message/message.cr
-# Maintained by tools/manage-examples.cr
+# Run it:     crystal run tests/widget/message/message.cr
 require "../example"
 
 include Crysterm
