@@ -19,6 +19,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![StatusBar screenshot](../../tests/widget/status_bar/status_bar.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class StatusBar < Box
       # Generation-guarded timed dismissal: a pending `#show_message` timeout only
       # clears *its own* message, not a newer one.
@@ -163,7 +166,6 @@ module Crysterm
           draw_text_run yi, xl - tw, text, xl, style_to_attr(style)
         end
       end
-
     end
   end
 end

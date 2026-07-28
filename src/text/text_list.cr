@@ -17,27 +17,39 @@ module Crysterm
       block.block_format.list_format.same?(@format)
     end
 
+    # Memoized member list for `#item_number`/`#item`, both of which were
+    # O(document blocks) per call (hot when rendering every marker of a long
+    # list). Keyed on `document.revision` — documented as bumped by *every*
+    # mutation (content, format, undo/redo, replace), so equal readings
+    # guarantee identical membership — plus the `@format` instance, since
+    # `#format=` swaps list identity without necessarily touching a block
+    # (e.g. on an empty list).
+    @members_cache : Array(TextBlock)?
+    @members_revision : Int64 = -1
+    @members_format : TextListFormat?
+
+    private def members : Array(TextBlock)
+      cached = @members_cache
+      if cached && @members_revision == document.revision && @format.same?(@members_format)
+        return cached
+      end
+      @members_revision = document.revision
+      @members_format = @format
+      @members_cache = blocks
+    end
+
     # 0-based item index of *block* within the list (Qt `itemNumber`), -1
     # when it is not a member.
     def item_number(block : TextBlock) : Int32
-      n = 0
-      document.blocks.each do |b|
-        next unless member?(b)
-        return n if b.same?(block)
-        n += 1
-      end
-      -1
+      members.index(&.same?(block)) || -1
     end
 
     # The 0-based *index*-th item, or nil.
     def item(index : Int32) : TextBlock?
-      n = 0
-      document.blocks.each do |b|
-        next unless member?(b)
-        return b if n == index
-        n += 1
-      end
-      nil
+      # Negative indexes are "no such item", as in the scan this replaced —
+      # `Array#[]?` alone would resolve them from the end.
+      return if index < 0
+      members[index]?
     end
 
     # The rendered marker of *block* (`"• "`, `"3. "`, …), or nil when not a

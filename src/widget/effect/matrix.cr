@@ -34,7 +34,8 @@ module Crysterm
         # Default character pool; also the fallback if an empty pool is assigned.
         DEFAULT_POOL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=?<>/\\|".chars
 
-        # Characters rained down the window; one is sampled per lit cell per frame.
+        # Characters rained down the window; one is sampled per cell of the
+        # glyph field (see `@glyphs`), re-rolled as drop heads pass.
         #
         # An empty pool would crash the render fiber (`@pool.sample` raises), so an
         # empty assignment is rejected in favour of the default.
@@ -58,6 +59,21 @@ module Crysterm
         @speeds = [] of Float64
         @lengths = [] of Int32
 
+        # Per-cell glyph field, column-major (`x * h + y`), sized with the
+        # per-column state in `#resize`. Each cell shows a *stable* glyph:
+        # re-rolled only when a drop's head passes over the cell, plus an
+        # occasional per-column shimmer (`SHIMMER_CHANCE`). Sampling
+        # `@pool.sample` per lit cell per frame instead re-randomized every
+        # trail cell every frame, defeating damage tracking across the whole
+        # rain area (R-91); with the field, a frame's damage is only the
+        # trail edges, the head rows and the shimmered cells.
+        @glyphs = [] of Char
+
+        # Probability, per column per frame, of re-rolling one random cell
+        # inside the drop's trail — keeps the classic Matrix glyph flicker
+        # without touching more than a handful of cells per frame.
+        SHIMMER_CHANCE = 0.05
+
         def initialize(
           pool = DEFAULT_POOL,
           @interval = 0.07.seconds,
@@ -77,14 +93,35 @@ module Crysterm
           @heads = Array.new(w) { (rand(2 * h) - h).to_f }
           @speeds = Array.new(w) { 0.25 + rand * 0.7 }
           @lengths = Array.new(w) { 6 + rand(10) }
+          @glyphs = Array.new(w * h) { @pool.sample }
         end
 
-        # Advance every drop; recycle a drop to a fresh negative offset, speed, and
+        # Advance every drop, re-rolling the glyph field cells its head newly
+        # covers; recycle a drop to a fresh negative offset, speed, and
         # length once its tail has fully fallen past the bottom.
         def advance(w : Int32, h : Int32)
           return if @heads.size != w
           w.times do |x|
+            old_head = @heads[x].floor.to_i
             @heads[x] += @speeds[x]
+
+            # Fresh glyph under each row the head newly reached this frame, so
+            # the leading edge keeps its randomized look while cells behind it
+            # stay frame-stable.
+            new_head = @heads[x].floor.to_i
+            y = Math.max(old_head + 1, 0)
+            while y <= new_head && y < h
+              @glyphs[x * h + y] = @pool.sample
+              y += 1
+            end
+
+            # Occasional shimmer: rarely, re-roll one random cell inside the
+            # trail.
+            if rand < SHIMMER_CHANCE
+              ty = new_head - rand(@lengths[x])
+              @glyphs[x * h + ty] = @pool.sample if 0 <= ty < h
+            end
+
             if @heads[x] - @lengths[x] > h
               @heads[x] = -rand(0..h).to_f
               @speeds[x] = 0.25 + rand * 0.7
@@ -98,7 +135,9 @@ module Crysterm
         def cell(x : Int32, y : Int32, w : Int32, h : Int32) : {Char, Int32}
           dist = @heads[x] - y
           if dist >= 0 && dist < @lengths[x]
-            ch = @pool.sample
+            # Stable per-cell glyph (see `@glyphs`); the guarded fetch keeps a
+            # transient size mismatch from raising mid-frame.
+            ch = @glyphs[x * h + y]? || ' '
             if dist < 1
               {ch, head_color}
             else

@@ -37,7 +37,7 @@ module Crysterm
       # A tooltip is an overlay: at the unstyled floor it carries a structural
       # border so it separates from the content behind it (a theme otherwise
       # supplies a `ToolTip` background).
-      include Mixin::Overlay
+      include ::Crysterm::Overlay::Floor
 
       # Shows the tooltip displaying *text* with its top-left near (*x*, *y*),
       # sized to the text and clamped to stay on-window.

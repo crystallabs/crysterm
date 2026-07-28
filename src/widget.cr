@@ -1,8 +1,40 @@
+module Crysterm
+  module DOM
+    # Marks a concrete `Crysterm::Widget::*` class as **not** loadable from a
+    # layout DOM: `DOM.fill_registry`'s `macro finished` sweep skips annotated
+    # classes when building the tag -> factory registry. Apply it (with a
+    # reason) to a widget that must not be DOM-instantiated, for one of two
+    # reasons:
+    #
+    #   * self-populating composites — each builds its own internal child
+    #     subtree in its constructor, so re-appending serialized children on
+    #     load would double the subtree; and
+    #   * widgets with no window-only constructor — the registry factory calls
+    #     `.new(window: window)`, so a widget whose only initializers demand a
+    #     mandatory positional (e.g. `LogFd`, needing a live stream that isn't
+    #     reconstructable from markup) can't be built that way and fails to
+    #     compile.
+    #
+    # Per-class (replacing a hand-maintained central exclusion list, R-89) so
+    # the exclusion lives next to the constructor that motivates it. The
+    # `dom_registry_spec` round-trip invariant fails loudly when a new
+    # self-populating widget forgets the annotation. NOTE: annotations don't
+    # inherit — a subclass with its own leaf tag name is registered unless
+    # annotated itself.
+    #
+    # Declared here — not in `dom/dom_loader.cr` — because an annotation must
+    # already be defined when a file *applies* it, and the widget files are
+    # required long before the DOM loader.
+    annotation Skip
+    end
+  end
+end
+
 require "./event"
-require "./misc/util/helpers"
 
 require "./mixin/children"
 require "./mixin/pos"
+require "./overlay/floor"
 require "./mixin/uid"
 require "./mixin/data"
 require "./mixin/css"

@@ -298,7 +298,7 @@ describe "BUGS13 C14: resize repaints only the device-active window" do
       sleep 80.milliseconds
       out.clear
 
-      size = ::Tput::Namespace::Size.new(a.awidth - 5, a.aheight - 2)
+      size = ::Crysterm::Size.new(a.awidth - 5, a.aheight - 2)
 
       # The resize reaches every window on the device; creation order would
       # repaint b LAST (dropping the activated a behind it). Post-fix a

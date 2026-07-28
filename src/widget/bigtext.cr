@@ -20,7 +20,7 @@ module Crysterm
 
       # Glyph cell size (width×height). Read-only; derived once from the loaded
       # font. Public getter — read by callers to size around the glyph grid.
-      getter ratio : Tput::Size = Tput::Size.new 0, 0
+      getter ratio : Crysterm::Size = Crysterm::Size.new 0, 0
 
       # The big-font text.
       getter text = ""
@@ -72,7 +72,7 @@ module Crysterm
       )
         @normal = (f = @font) ? BitmapFont.load(f) : BitmapFont.default_normal
         @bold = (f = @font_bold) ? BitmapFont.load(f) : BitmapFont.default_bold
-        @ratio = Tput::Size.new @normal.width, @normal.height
+        @ratio = Crysterm::Size.new @normal.width, @normal.height
 
         box["content"]?.try do |c|
           @text = c

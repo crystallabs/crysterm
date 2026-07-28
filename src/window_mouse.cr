@@ -678,20 +678,6 @@ module Crysterm
     # layer-key semantics: `{0, 0}` base layer, `{1, z}` for a z-indexed subtree
     # where the OUTERMOST self-or-ancestor `z_index` wins.)
 
-    # Whether *el* and every ancestor are visible — i.e. actually on screen, not
-    # merely flagged visible while sitting in a hidden container.
-    #
-    # Forwards to `Widget#visible_in_tree?`, the one true predicate. The former
-    # hand-rolled walk read `style.visible?` rather than `#visible?`'s
-    # `state_style.visible?`; the two can never disagree on `visible` (the only
-    # divergence is `#style`'s reverse-video `#dup` for a floor-highlighted
-    # `:focused`/`:selected` widget, and a `dup` carries `visible` through
-    # unchanged), so the answer is identical — and `state_style` skips the
-    # resolution `#style` runs, which this per-event hit-test/focus path is on.
-    private def displayed_in_tree?(el : Widget) : Bool
-      el.visible_in_tree?
-    end
-
     # Registers *el* as a widget that wants mouse input. Mirrors
     # `#register_keyable`; lazily ensures terminal mouse reporting is on if
     # mouse listening is already active (blessed-style on-demand enabling).

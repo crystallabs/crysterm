@@ -42,4 +42,12 @@ module Crysterm
   def self.all_finite?(*vals : Float64) : Bool
     vals.all? &.finite?
   end
+
+  # Adds *delta* to *v* modulo *mod*, staying in `0...mod` — the no-carry step
+  # convention every section editor uses to wrap minutes/months/etc. within
+  # their own range.
+  def self.wrap_add(v : Int32, delta : Int32, mod : Int32) : Int32
+    r = (v + delta) % mod
+    r < 0 ? r + mod : r
+  end
 end

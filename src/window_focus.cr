@@ -65,8 +65,15 @@ module Crysterm
     # nor inside a hidden container, and not layout-suppressed). This is the
     # trailing-history prune predicate that `rewind_focus`/`focus_pop` share; it
     # deliberately omits any `disabled?` term.
+    #
+    # `visible_in_tree?` — whether *el* and every ancestor are visible — reads
+    # `state_style.visible?`, not `style.visible?`: the two can never disagree
+    # on `visible` (the only divergence is `#style`'s reverse-video `#dup` for a
+    # floor-highlighted `:focused`/`:selected` widget, and a `dup` carries
+    # `visible` through unchanged), and `state_style` skips the resolution
+    # `#style` runs, which this per-event hit-test/focus path is on.
     private def on_screen_here?(el)
-      el.window? == self && displayed_in_tree?(el) && !el.layout_suppressed?
+      el.window? == self && el.visible_in_tree? && !el.layout_suppressed?
     end
 
     # Whether `el` is a valid focus target on this screen right now: on screen
@@ -115,7 +122,7 @@ module Crysterm
     #
     # Per-entry validity (`#on_screen_here?`): `window? == self`, not the raising
     # `screen` (a destroyed/detached widget has none) nor a bare truthy `window?`
-    # (which accepts a widget moved to another screen). `displayed_in_tree?`, not
+    # (which accepts a widget moved to another screen). `visible_in_tree?`, not
     # `style.visible?`, so a widget whose own flag is visible inside a hidden
     # container is not re-focused.
     private def pop_and_refocus : {Widget?, Widget?}

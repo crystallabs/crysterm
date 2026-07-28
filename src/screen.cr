@@ -129,10 +129,26 @@ module Crysterm
     end
 
     # Device width, in cells.
-    property width = 1
+    getter width = 1
 
     # Device height, in cells.
-    property height = 1
+    getter height = 1
+
+    # Explicitly sets the device width, **pinning** the axis exactly like
+    # passing `width:` to the constructor does (`explicit_width?`): a pinned
+    # axis is no longer overwritten by the size probed/reported from the
+    # terminal (`#adopt_terminal_size`, `#resize`). Internal terminal-tracking
+    # updates write `@width` directly instead, so they honor the pin (R-84).
+    def width=(value : Int32)
+      @explicit_width = true
+      @width = value
+    end
+
+    # :ditto:
+    def height=(value : Int32)
+      @explicit_height = true
+      @height = value
+    end
 
     # Whether `width` / `height` were each given explicitly to the constructor.
     # A pinned axis must not be overwritten by the size probed from the terminal.
@@ -342,7 +358,8 @@ module Crysterm
       rescue
       end
       # Adopt honoring the pins carried above (a direct `s.width = ...`
-      # assignment would overwrite a pinned axis).
+      # assignment is wrong here: the setter *pins* the axis, so the new device
+      # would stop tracking its terminal).
       s.adopt_terminal_size
       # Carry a runtime `glyph_tier=` pin across too: the new device derives
       # `@glyph_tier_explicit` from config alone, so without this a runtime pin

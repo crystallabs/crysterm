@@ -214,7 +214,7 @@ describe "Media shared-clock stream termination (F2 #3)" do
   # `advance_stream`'s result — on false it stops playback and unsubscribes from
   # the clock, mirroring `stream_loop` (which does `break unless advance_stream`).
   it "tick_frame stops playback and unsubscribes when advance_stream returns false" do
-    src = read_src "widget_media_base.cr"
+    src = read_src "widget/media/base.cr"
     body_start = src.index!("private def tick_frame")
     body_end = src.index!("private def unsubscribe_clock", body_start)
     body = src[body_start...body_end]
@@ -227,7 +227,7 @@ describe "Media shared-clock stream termination (F2 #3)" do
   end
 
   it "advance_stream latches a permanently failed restart so ffmpeg isn't respawned" do
-    src = read_src "widget_media_base.cr"
+    src = read_src "widget/media/base.cr"
     body_start = src.index!("private def advance_stream")
     body_end = src.index!("protected def invalidate_frame", body_start)
     body = src[body_start...body_end]

@@ -26,6 +26,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ListTable screenshot](../../tests/widget/listtable/listtable.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class ListTable < AbstractItemView
       include Mixin::ItemView
       include TableLayout
@@ -658,60 +661,27 @@ module Crysterm
         lines = window.lines
         xi, yi, width, height = border_extent coords
         battr = style_to_attr border
-        last = @maxes.size - 1
-
-        # Junction glyphs at the effective tier, hoisted out of the per-cell
-        # loops (matches `Table#render`).
-        tier = glyph_tier
-        g_v = Glyphs[Glyphs::Role::LineVertical, tier]
-        g_tee_t = Glyphs[Glyphs::Role::JunctionTeeTop, tier]
-        g_tee_b = Glyphs[Glyphs::Role::JunctionTeeBottom, tier]
 
         # Separators are drawn between the visible columns (`@first_col..`),
-        # with `rx` accumulating from the left of the viewport — matching the
-        # rows, also re-rendered from `@first_col` — and clipped past the right edge.
+        # accumulating from the left of the viewport — matching the rows, also
+        # re-rendered from `@first_col` — and clipped past the right edge; see
+        # `TableLayout#each_junction_cell` for the walk/clip semantics.
 
-        # Top/bottom junctions per grid row.
-        ry = 0
-        while ry <= height
+        # Top/bottom junctions, on the two edge grid rows — the shared
+        # `TableLayout#draw_edge_junctions` body, matching `Table#draw_borders`.
+        {0, height}.each do |ry|
           row = yi + ry
           # Junction rows only exist on an actual border row: with no top border
           # `ry == 0` is the header text row, and with no bottom border
           # `ry == height` is `yl - ibottom == yl` — one row BELOW the widget.
           # A negative row (widget partly above the screen) is skipped too:
           # `lines[...]?` wraps negative indices to the far end of the buffer.
-          if row < 0 || (ry == 0 && border.top == 0) || (ry == height && border.bottom == 0)
-            ry += 1
-            next
-          end
+          next if row < 0 || (ry == 0 && border.top == 0) || (ry == height && border.bottom == 0)
           line = lines[row]?
-          break unless line
+          next unless line
 
-          # `rx` is the within-content column offset; the junction after column
-          # `mi` is painted at `xi + ileft + rx` (content begins at the left
-          # inset, not a hardcoded one column — matches
-          # `TableLayout#draw_vertical_separators`). Clipped against the content
-          # width (`width - ileft`, since `width` still includes the left inset)
-          # and skipped for columns left of the screen (negative wrap).
-          rx = 0
-          (@first_col...last).each do |mi|
-            rx += @maxes[mi]
-            break if rx >= width - ileft
-            if (ax = xi + ileft + rx) >= 0 && (cell = line[ax]?)
-              if ry == 0
-                cell.attr = battr
-                cell.char = border.top > 0 ? g_tee_t : g_v
-                line.dirty = true
-              elsif ry == height
-                cell.attr = battr
-                cell.char = border.bottom > 0 ? g_tee_b : g_v
-                line.dirty = true
-              end
-            end
-            rx += 1
-          end
-
-          ry += 1
+          draw_edge_junctions line, xi, battr, top: ry == 0,
+            start_col: @first_col, width: width
         end
 
         # Internal vertical separators. Rows scrolled above the screen are

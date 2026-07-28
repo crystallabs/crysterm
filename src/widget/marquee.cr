@@ -35,14 +35,9 @@ module Crysterm
     class Marquee < Box
       include Effect::TextScroll
 
-      # Scroll direction of the text.
-      enum Direction
-        # Text travels right-to-left (the classic marquee). The newest character
-        # enters at the right edge.
-        Left
-        # Text travels left-to-right; the newest character enters at the left edge.
-        Right
-      end
+      # Scroll direction of the text — the mixin's enum, aliased so existing
+      # `Marquee::Direction` call sites keep working.
+      alias Direction = Effect::TextScroll::Direction
 
       def initialize(
         @text = "",

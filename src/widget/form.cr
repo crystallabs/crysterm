@@ -33,77 +33,15 @@ module Crysterm
     # ![Form screenshot](../../tests/widget/form/form.5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Box
-      # The natively-typed value of one submitted field: text widgets and item
-      # views contribute a `String`, check/radio buttons a `Bool`, `SpinBox`
-      # an `Int32`, `DoubleSpinBox` a `Float64`, and the date/time editors a
-      # `Time`.
-      alias FieldValue = String | Bool | Int32 | Float64 | Time
+      # Nested-name aliases for the submission types, which live at the
+      # `Crysterm` level (in `event.cr`, beside the `Event::FormSubmitted`
+      # event that carries them) so the core event catalog does not reference
+      # a concrete widget type (R-82). `Widget::Form::FormData` remains the
+      # conventional spelling for form users.
+      alias FormData = ::Crysterm::FormData
 
-      # Typed result of a `#submit`: the collected fields in subtree order,
-      # with `Hash`-like access by field name. Several inputs may share one
-      # name (a radio/checkbox group); `#[]` returns the first such field's
-      # value and `#values_for` all of them.
-      class FormData
-        # One collected input: the contributing widget, its resolved name
-        # (the widget's `#name`, falling back to its type name) and its
-        # `FieldValue`.
-        record Field, widget : Widget, name : String, value : FieldValue
-
-        include Enumerable(Field)
-
-        # The collected fields, in subtree (submission) order.
-        getter fields = [] of Field
-
-        def each(& : Field ->)
-          @fields.each { |f| yield f }
-        end
-
-        protected def add(widget : Widget, name : String, value : FieldValue) : Nil
-          @fields << Field.new(widget, name, value)
-        end
-
-        # Value of the first field named *name*; raises `KeyError` when absent.
-        def [](name : String) : FieldValue
-          self[name]? || raise KeyError.new "Missing form field: #{name.inspect}"
-        end
-
-        # Value of the first field named *name*, or `nil`.
-        def []?(name : String) : FieldValue?
-          @fields.find(&.name.==(name)).try &.value
-        end
-
-        # Values of every field named *name*, in subtree order — a radio or
-        # checkbox group sharing one name arrives here as one `Bool` each.
-        def values_for(name : String) : Array(FieldValue)
-          @fields.select(&.name.==(name)).map &.value
-        end
-
-        def has_key?(name : String) : Bool
-          @fields.any? &.name.==(name)
-        end
-
-        # The distinct field names, in first-appearance order.
-        def names : Array(String)
-          seen = Set(String).new
-          @fields.compact_map { |f| f.name if seen.add?(f.name) }
-        end
-
-        def empty? : Bool
-          @fields.empty?
-        end
-
-        def size : Int32
-          @fields.size
-        end
-
-        # First-field-wins `name => value` view (matching `#[]`); duplicate
-        # names lose their later values — use `#values_for` for those.
-        def to_h : Hash(String, FieldValue)
-          h = {} of String => FieldValue
-          @fields.each { |f| h[f.name] = f.value unless h.has_key? f.name }
-          h
-        end
-      end
+      # :ditto:
+      alias FieldValue = ::Crysterm::FormData::FieldValue
 
       # When enabled, pressing `Enter` in a `LineEdit` child moves focus to the
       # next focusable child (instead of only submitting that field).

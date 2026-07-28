@@ -1,3 +1,5 @@
+require "./text_align"
+
 module Crysterm
   # Import/export between `TextDocument` content and the toolkit's native tag
   # markup (`{bold}…{/bold}`, `{red-fg}`, `{#rrggbb-bg}` — the vocabulary
@@ -32,8 +34,10 @@ module Crysterm
   # `{escape}…{/escape}` passes verbatim; `{/}` resets all char formats. `{|}`,
   # the right-align separator, has no document representation and is dropped.
   module TextTags
-    # Same shape as `Widget::TAG_REGEX`, duplicated so the document framework
-    # stands alone.
+    # The canonical tag regex. Owned here — `text/` is the potential future
+    # standalone shard, so it must not require widget files — and aliased by
+    # `Widget::TAG_REGEX` (the reverse direction, widget requiring text/, is
+    # already the require order), so the two spellings cannot drift (R-75).
     TAG_REGEX  = /\{(\/?)([\w\-,;!#]*)\}/
     LINK_REGEX = /\{link=([^}]*)\}/
 
@@ -80,7 +84,7 @@ module Crysterm
           io << '\n' if i > 0
           bf = b.block_format
           write_block_prefix(io, bf)
-          wrap = TextHtml.align_name(bf.alignment)
+          wrap = TextAlign.align_name(bf.alignment)
           io << '{' << wrap << '}' if wrap
           b.fragments.each { |f| write_fragment(io, f) }
           io << "{/" << wrap << '}' if wrap
@@ -267,7 +271,7 @@ module Crysterm
           if slash
             @aligns.pop?
           else
-            af = TextHtml.align_flag(param) || Tput::AlignFlag::Left
+            af = TextAlign.align_flag(param) || Tput::AlignFlag::Left
             @aligns << af
             @block_format = @block_format.merge(TextBlockFormat.new(alignment: af))
           end

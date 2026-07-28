@@ -241,7 +241,6 @@ module Crysterm
         return if !border.any? || !cell_borders?
 
         rows_n = @rows.size
-        last = @maxes.size - 1
 
         # Internal grid rows are addressed relative to the real content origin,
         # never a hardcoded `itop == 1`: with vertical padding the whole
@@ -254,12 +253,14 @@ module Crysterm
         # below: `#glyph` walks to the window, and once per render is enough.
         tier = glyph_tier
         g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
-        g_v = Glyphs[Glyphs::Role::LineVertical, tier]
         g_cross = Glyphs[Glyphs::Role::JunctionCross, tier]
         g_tee_l = Glyphs[Glyphs::Role::JunctionTeeLeft, tier]
         g_tee_r = Glyphs[Glyphs::Role::JunctionTeeRight, tier]
-        g_tee_t = Glyphs[Glyphs::Role::JunctionTeeTop, tier]
-        g_tee_b = Glyphs[Glyphs::Role::JunctionTeeBottom, tier]
+
+        # Within-content offset of the trailing spare column after the last
+        # cell (`sum(@maxes) + last` — the column contents plus the one-column
+        # separators between them; see `#row_width`).
+        rx_last = row_width - 1
 
         # Draw border junctions row by row (each table row spans two grid rows).
         ry = 0
@@ -290,63 +291,48 @@ module Crysterm
           line = lines[row]?
           break unless line
 
-          rx = 0
-          @maxes.each_with_index do |max, mi|
-            rx += max
+          internal = ry != 0 && !bottom
 
-            # First column draws the left edge on the box border, independent of
-            # the last-column handling below, so a single-column table gets both.
-            if mi == 0
-              if xi >= 0 && (cell = line[xi]?)
-                cell.attr = battr
-                if ry != 0 && !bottom
-                  cell.char = border.left > 0 ? g_tee_l : g_h
-                end
-                line.dirty = true
-              end
+          # Left edge on the box border, independent of the right-edge handling
+          # below, so a single-column table gets both.
+          if xi >= 0 && (cell = line[xi]?)
+            cell.attr = battr
+            if internal
+              cell.char = border.left > 0 ? g_tee_l : g_h
             end
+            line.dirty = true
+          end
 
-            if mi == last
-              # The last cell is followed by a trailing spare column, with the
-              # box's right border one column further. On an internal separator
-              # row, continue the rule across the spare column and place ┤ on the
-              # border itself; a naive `xi + rx` would leave a stray char short of
-              # it. Content begins at the left inset `ileft`, not a hardcoded one
-              # column, hence `xi + ileft + rx`.
-              internal = ry != 0 && !bottom
-              if 0 <= (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
-                rx += 1
-                cell.attr = battr
-                cell.char = g_h if internal
-                line.dirty = true
-              end
-              if internal && 0 <= (xi + ileft + rx) < coords.xl && (cell = line[xi + ileft + rx]?)
-                cell.attr = battr
-                cell.char = border.right > 0 ? g_tee_r : g_h
-                line.dirty = true
-              end
-              next
-            end
-
-            # Center junction between this column and the next; `rx += 1` steps
-            # past the separator. Stop once the junction would fall outside the
-            # visible right edge; columns left of the screen are skipped, not
-            # stamped wrapped at the buffer's right end.
-            break if (xi + ileft + rx) >= coords.xl
-            if (xi + ileft + rx) >= 0 && (cell = line[xi + ileft + rx]?)
-              if ry == 0
-                cell.attr = battr
-                cell.char = border.top > 0 ? g_tee_t : g_v
-              elsif bottom
-                cell.attr = battr
-                cell.char = border.bottom > 0 ? g_tee_b : g_v
-              else
-                cell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
-                cell.char = g_cross
-              end
+          # Center junctions between adjacent columns — the shared boundary
+          # walk (`TableLayout`), clipped at the visible right edge; columns
+          # left of the screen are skipped, not stamped wrapped at the
+          # buffer's right end.
+          if internal
+            each_junction_cell(line, xi, right_limit: coords.xl) do |jcell|
+              jcell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
+              jcell.char = g_cross
               line.dirty = true
             end
-            rx += 1
+          else
+            draw_edge_junctions line, xi, battr, top: ry == 0, right_limit: coords.xl
+          end
+
+          # The last cell is followed by a trailing spare column, with the
+          # box's right border one column further. On an internal separator
+          # row, continue the rule across the spare column and place ┤ on the
+          # border itself; a naive `xi + rx_last - 1` would leave a stray char
+          # short of it. Content begins at the left inset `ileft`, not a
+          # hardcoded one column, hence `xi + ileft + rx_last`.
+          edge = xi + ileft + rx_last
+          if 0 <= edge < coords.xl && (cell = line[edge]?)
+            cell.attr = battr
+            cell.char = g_h if internal
+            line.dirty = true
+            if internal && 0 <= edge + 1 < coords.xl && (border_cell = line[edge + 1]?)
+              border_cell.attr = battr
+              border_cell.char = border.right > 0 ? g_tee_r : g_h
+              line.dirty = true
+            end
           end
 
           ry += 2

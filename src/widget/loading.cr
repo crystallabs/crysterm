@@ -11,6 +11,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Loading screenshot](../../tests/widget/loading/loading.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class Loading < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
       # `#start`/`#stop` are overridden below to add the show/content/hide

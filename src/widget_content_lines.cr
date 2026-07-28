@@ -315,7 +315,7 @@ module Crysterm
       return [] of String if @_clines.fake.empty?
       lines = content.split(RAW_LINE_REGEX)
       if @parse_tags && !@_content_no_tags && !@_content_has_tags && @_content_has_braces
-        lines.map! { |l| Helpers.escape(l) }
+        lines.map! { |l| Widget.escape_tags(l) }
       end
       lines
     end
@@ -403,16 +403,14 @@ module Crysterm
 
       height = pos.yl - pos.yi - ivertical
       base = @child_base
-      visible = real >= base && real - base < height
+      return unless real >= base && real - base < height
 
-      top = pos.yi
-      bottom = pos.yl - ibottom - 1
-      # The vertical bounds check is load-bearing: `sides_uniform?`'s full-width
-      # shortcut skips vertical bounds, but the window line ops mutate buffer rows
-      # `top..bottom` directly, so out-of-buffer bounds raise mid-mutation (or wrap
-      # negative indices), corrupting the line buffers. A widget extending past the
-      # screen edge falls back to the normal repaint.
-      if visible && top >= 0 && bottom <= window.aheight - 1 && window.sides_uniform?(self)
+      # `csr_region_for` (widget_scrolling.cr) validates the region against
+      # the buffer-corruption hazards of the direct window line ops
+      # (out-of-buffer bounds, non-uniform sides); on nil the widget falls
+      # back to the normal repaint.
+      if region = csr_region_for(pos.yi, pos.yl - ibottom - 1)
+        top, bottom = region
         yield diff, pos.yi + itop + real - base, top, bottom
       end
     end

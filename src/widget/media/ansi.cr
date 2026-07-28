@@ -243,7 +243,6 @@ module Crysterm
         pal = @color_mode.c8? ? C8_PALETTE : (@color_mode.c16? ? C16_PALETTE : C256_PALETTE)
         pal[Media.nearest_index(pal, r, g, b)]
       end
-
     end
 
     # ---- single-colormode ASCII backends -------------------------------

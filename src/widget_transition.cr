@@ -126,7 +126,7 @@ module Crysterm
           start_tween(dur, easing) do |clock|
             v = clock.value
             s2 = state_style
-            s2.tint = lerp_color(cf, ct, v)
+            s2.tint = Colors.lerp(cf, ct, v)
             s2.tint_alpha = from_a + (to_a - from_a) * v
           end
         else
@@ -224,13 +224,6 @@ module Crysterm
       end
       (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       nil
-    end
-
-    # Per-channel linear interpolation `from + (to-from)*t` between two
-    # `0xRRGGBB` colors, via the shared `Colors.mix` (whose first arg is
-    # weighted by `alpha`, so weight-of-`to` = `t`).
-    private def lerp_color(from : Int32, to : Int32, t : Float64) : Int32
-      Colors.mix(to, from, t)
     end
   end
 end

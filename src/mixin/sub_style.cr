@@ -1,13 +1,4 @@
 module Crysterm
-  class Widget
-    # Identity of the sub-`Style` object last pushed onto this widget by an
-    # ancestor's `Mixin::SubStyle#apply_substyle`, letting that per-frame push
-    # skip re-`dup`ing an unchanged sub-style. The cascade *replaces* sub-`Style`
-    # objects on recompute rather than mutating them in place, so a `same?` hit
-    # means the pushed copy is still current.
-    property _substyle_src : ::Crysterm::Style? = nil
-  end
-
   module Mixin
     # Shared helper for the "push a computed CSS sub-style onto a child each
     # frame" idiom used by container widgets exposing Qt-style sub-controls.

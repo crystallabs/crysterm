@@ -35,6 +35,9 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![LineChart screenshot](../../../tests/widget/graph/line_chart/line_chart.5s.apng)
       # <!-- /widget-examples:capture -->
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class LineChart < Box
         include TextOverlay
         include InteriorCoords

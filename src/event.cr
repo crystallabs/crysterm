@@ -10,6 +10,83 @@ module Crysterm
     Checked
   end
 
+  # Typed result of a `Widget::Form#submit`: the collected fields in subtree
+  # order, with `Hash`-like access by field name. Several inputs may share one
+  # name (a radio/checkbox group); `#[]` returns the first such field's value
+  # and `#values_for` all of them.
+  #
+  # Declared here — beside the `Event::FormSubmitted` event that carries it —
+  # rather than inside `Widget::Form`, so the core event catalog references no
+  # concrete widget type (R-82). `Widget::Form::FormData`/`Widget::Form::
+  # FieldValue` alias these for the conventional form-side spelling.
+  class FormData
+    # The natively-typed value of one submitted field: text widgets and item
+    # views contribute a `String`, check/radio buttons a `Bool`, `SpinBox`
+    # an `Int32`, `DoubleSpinBox` a `Float64`, and the date/time editors a
+    # `Time`.
+    alias FieldValue = String | Bool | Int32 | Float64 | Time
+
+    # One collected input: the contributing widget, its resolved name
+    # (the widget's `#name`, falling back to its type name) and its
+    # `FieldValue`.
+    record Field, widget : Widget, name : String, value : FieldValue
+
+    include Enumerable(Field)
+
+    # The collected fields, in subtree (submission) order.
+    getter fields = [] of Field
+
+    def each(& : Field ->)
+      @fields.each { |f| yield f }
+    end
+
+    protected def add(widget : Widget, name : String, value : FieldValue) : Nil
+      @fields << Field.new(widget, name, value)
+    end
+
+    # Value of the first field named *name*; raises `KeyError` when absent.
+    def [](name : String) : FieldValue
+      self[name]? || raise KeyError.new "Missing form field: #{name.inspect}"
+    end
+
+    # Value of the first field named *name*, or `nil`.
+    def []?(name : String) : FieldValue?
+      @fields.find(&.name.==(name)).try &.value
+    end
+
+    # Values of every field named *name*, in subtree order — a radio or
+    # checkbox group sharing one name arrives here as one `Bool` each.
+    def values_for(name : String) : Array(FieldValue)
+      @fields.select(&.name.==(name)).map &.value
+    end
+
+    def has_key?(name : String) : Bool
+      @fields.any? &.name.==(name)
+    end
+
+    # The distinct field names, in first-appearance order.
+    def names : Array(String)
+      seen = Set(String).new
+      @fields.compact_map { |f| f.name if seen.add?(f.name) }
+    end
+
+    def empty? : Bool
+      @fields.empty?
+    end
+
+    def size : Int32
+      @fields.size
+    end
+
+    # First-field-wins `name => value` view (matching `#[]`); duplicate
+    # names lose their later values — use `#values_for` for those.
+    def to_h : Hash(String, FieldValue)
+      h = {} of String => FieldValue
+      @fields.each { |f| h[f.name] = f.value unless h.has_key? f.name }
+      h
+    end
+  end
+
   # Collection of all events used by Crysterm.
   #
   # ## Naming
@@ -111,8 +188,9 @@ module Crysterm
     # # Emitted on a warning event
     # event Warning, message : String
 
-    # Emitted when screen is resized.
-    event Resize, size : Tput::Namespace::Size? = nil
+    # Emitted when screen is resized. `size` is Crysterm's own `Size` record
+    # (the single geometry vocabulary — R-30), not tput's mutable class.
+    event Resize, size : Crysterm::Size? = nil
 
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
@@ -273,8 +351,9 @@ module Crysterm
     event Submitted, value : String
 
     # Emitted when a `Widget::Form` is submitted. Carries the collected
-    # name => value pairs of all input children.
-    event FormSubmitted, data : Widget::Form::FormData
+    # name => value pairs of all input children (a `Crysterm::FormData`,
+    # conventionally spelled `Widget::Form::FormData`).
+    event FormSubmitted, data : Crysterm::FormData
 
     # Emitted when a document link/anchor is activated, carrying the link's URL.
     # The analog of Qt's `QTextBrowser::anchorClicked`.
@@ -317,8 +396,13 @@ module Crysterm
     # Emitted on re-set/re-definition of list items
     event ItemsChanged
 
-    event ItemCancelled, item : Widget::Box, index : Int32
-    event ItemActivated, item : Widget::Box, index : Int32
+    # `item` is typed as the `Widget` base — emitters pass their item boxes
+    # (`Mixin::ItemView`/`Mixin::ActionBar` rows, a `ToolBox` header), but the
+    # core catalog must not reference concrete widget types (R-82), and
+    # handlers only need the identity/index.
+    event ItemCancelled, item : Widget, index : Int32
+    # :ditto:
+    event ItemActivated, item : Widget, index : Int32
 
     # Event emitted when a new log line intended for `Widget::Log` is issued
     event Log, text : String
@@ -332,8 +416,9 @@ module Crysterm
     # :ditto:
     event Collapsed, index : Int32
 
-    # Emitted on selection of an item in list
-    event ItemSelected, item : Widget::Box, index : Int32
+    # Emitted on selection of an item in list. `item` is the `Widget` base for
+    # the same reason as `ItemActivated` (R-82).
+    event ItemSelected, item : Widget, index : Int32
 
     # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).
     # `checked` is the action's state *after* activation; always `false` for a

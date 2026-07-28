@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression specs for BUGS15 findings #93 and #94
-# (src/widget_terminal_emulator.cr, handle_osc). The emulator is pure
+# (src/terminal/emulator.cr, handle_osc). The emulator is pure
 # (depends only on Attr), so it is exercised directly with no Window/PTY —
 # matching spec/terminal_emulator_spec.cr's "OSC title vs. DCS/PM/APC
 # strings" examples and spec/bugs15_emulator_spec.cr.

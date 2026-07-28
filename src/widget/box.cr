@@ -61,6 +61,24 @@ module Crysterm
         cx = xi + Math.max(0, (xl - xi - text.size) // 2)
         draw_text_run y, cx, text, xl, attr
       end
+
+      # Writes one glyph + packed attr directly into the window buffer at
+      # `(x, y)` and marks the row dirty — the single-cell sibling of
+      # `#draw_text_run`. Negative coordinates are dropped (`Indexable#[]?`
+      # would wrap them onto the far end of other rows), as is, when *clip* is
+      # given, any cell outside that rendered clip rectangle (a partially
+      # offscreen or ancestor-clipped widget).
+      protected def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry? = nil) : Nil
+        return if clip && !clip.contains?(x, y)
+        return if x < 0 || y < 0
+        window.lines[y]?.try do |line|
+          line[x]?.try do |cell|
+            cell.char = ch
+            cell.attr = attr
+          end
+          line.dirty = true
+        end
+      end
     end
   end
 end

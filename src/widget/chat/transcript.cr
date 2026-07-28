@@ -1,11 +1,11 @@
-require "./glyphs"
+require "../../chat/glyphs"
 require "../scrollable_text"
 
 module Crysterm
   class Widget
     # The chat widget family (CHATBOX.md): the pieces of a Claude-CLI-style
     # chat interface. Shared glyph/CSS vocabulary lives in
-    # `Crysterm::Chat::Glyphs` (`src/widget/chat/glyphs.cr`).
+    # `Crysterm::Chat::Glyphs` (`src/chat/glyphs.cr`).
     module Chat
       # The chat transcript (CHATBOX.md Phase 1): an append-only, scrollable
       # log of typed entries — prose, tool calls, tool results, diffs, todos,

@@ -11,8 +11,8 @@ module Crysterm
   # Raw `fork`/`forkpty` is unsafe in a GC'd, fibered runtime, and nothing here
   # may signal a raw PID — `#kill` only signals *this* `Process`.
   class Pty
-    # `openpty` lives in libutil; `ioctl` and `LibC::Winsize` are already bound
-    # by the term-window shard.
+    # `openpty` lives in libutil and must be bound here; `ioctl` and
+    # `LibC::Winsize` are already bound by Crystal's stdlib `LibC`.
     @[Link("util")]
     lib LibUtil
       # `int openpty(int *amaster, int *aslave, char *name,

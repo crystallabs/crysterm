@@ -822,7 +822,9 @@ module Crysterm
       if !tput.has?(&.change_scroll_region?) ||
          !tput.has?(&.delete_line?) ||
          (need_insert_line && !tput.has?(&.insert_line?))
-        STDERR.puts "Missing needed terminfo capabilities"
+        # `Log`, never a raw `STDERR.puts`: on a TUI stderr may be the very tty
+        # being painted, so a raw write would corrupt the frame.
+        ::Log.warn { "Crysterm: missing terminfo capabilities for CSR scrolling (change_scroll_region/delete_line/insert_line); falling back to a full repaint" }
         return false
       end
 

@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for OPT4 O4-16: `UniformGrid#before_flow` resolved each
 # occupying child's `awidth` in its widest-child scan, then `Flow#flow_place`'s
-# placement fit check (layout_flow.cr) resolved the very same child's `awidth`
+# placement fit check (layout/flow.cr) resolved the very same child's `awidth`
 # again. The fix caches the scan's per-child values in `UniformGrid` and reuses
 # them via `Flow#cached_awidth`, which the `Wrap`/`Masonry` siblings (no
 # `#before_flow` scan) never override, so they still resolve `el.awidth` fresh

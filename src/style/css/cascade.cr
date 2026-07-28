@@ -391,7 +391,7 @@ module Crysterm
         # the whole tree. Correctness rests on two properties of the scope:
         #
         # * it is subtree-closed (`Window#css_scope_widgets` expands every dirty
-        #   root with `collect_css_subtree`), so no out-of-scope widget has an
+        #   root with `self_and_each_descendant`), so no out-of-scope widget has an
         #   in-scope parent — i.e. `scoped_roots` covers every scoped widget,
         #   and each root's parent style is final for this cascade; and
         # * an out-of-scope widget's own style and its parent's are both
@@ -839,24 +839,22 @@ module Crysterm
         end
       end
 
-      # Walks the widget tree, mapping each `data-uid` key (and each sub-element
-      # `uid::slot` key) back to its `{widget, slot}`.
+      # Walks the widget tree (the shared pre-order `each_descendant` walker),
+      # mapping each `data-uid` key (and each sub-element `uid::slot` key) back
+      # to its `{widget, slot}`.
       private def self.index_tree(window : Window) : Hash(String, Tuple(Widget, String?))
         index = {} of String => Tuple(Widget, String?)
-        window.children.each { |child| index_widget child, index }
+        window.each_descendant do |widget|
+          uid = widget.uid_s
+          index[uid] = {widget, nil}
+          widget.css_sub_elements.each do |slot|
+            index["#{uid}::#{slot}"] = {widget, slot}
+          end
+          widget.css_extra_slots.each do |slot|
+            index["#{uid}::#{slot}"] = {widget, slot}
+          end
+        end
         index
-      end
-
-      private def self.index_widget(widget : Widget, index) : Nil
-        uid = widget.uid_s
-        index[uid] = {widget, nil}
-        widget.css_sub_elements.each do |slot|
-          index["#{uid}::#{slot}"] = {widget, slot}
-        end
-        widget.css_extra_slots.each do |slot|
-          index["#{uid}::#{slot}"] = {widget, slot}
-        end
-        widget.children.each { |child| index_widget child, index }
       end
 
       # Inherits the classically-inherited properties — `color` (fg),

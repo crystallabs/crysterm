@@ -111,6 +111,14 @@ module Crysterm
       Attr.pack_color(mix(a, b, alpha))
     end
 
+    # Per-channel linear interpolation `from + (to - from) * t` between two
+    # `0xRRGGBB` colors. The shard's `mix` with the argument order callers
+    # thinking in from→to progress expect: `mix`'s `alpha` weights its *first*
+    # argument, so weight-of-`to` = `t` means passing `to` first.
+    def self.lerp(from : Int32, to : Int32, t : Float64) : Int32
+      mix(to, from, t)
+    end
+
     # Mixes two *logical* colors (`-1` default, or `0xRRGGBB`) in RGB space
     # (`alpha` = weight of *a* over *b*), resolving defaults first and
     # short-circuiting the unknowns: both-default stays `-1`, a single
@@ -213,9 +221,7 @@ module Crysterm
         base == -1 ? top : Attr.pack_color(readable_on(base, 0x101010, 0xf5f5f5))
       end
     end
-
   end
-
 
   # NOTE: the packed cell-attribute word (`module Attr`) lives in src/attr.cr;
   # SGR encode/decode of it lives in src/sgr.cr.

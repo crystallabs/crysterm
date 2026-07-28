@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS12 #9 + #26 — `Media::ScreenOverlay` lifecycle (widget_media_screen_overlay.cr).
+# BUGS12 #9 + #26 — `Media::ScreenOverlay` lifecycle (widget/media/screen_overlay.cr).
 #
 # #9: a terminal-owned graphic (sixel/Kitty/w3m) scrolled or clipped out of a
 # scrollable ancestor's viewport made `coords` return nil, so

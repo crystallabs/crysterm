@@ -195,10 +195,14 @@ module Crysterm
       to: @screen
 
     # Setters forwarded explicitly (`delegate` doesn't accept assignment forms).
+    # An explicit size assignment **pins** that axis on the device
+    # (`Screen#width=`), so a later terminal resize no longer overwrites it —
+    # the same semantics as passing `width:`/`height:` at construction (R-84).
     def width=(value : Int32)
       @screen.width = value
     end
 
+    # :ditto:
     def height=(value : Int32)
       @screen.height = value
     end
@@ -325,9 +329,9 @@ module Crysterm
       # Build (or adopt) the physical device — owns IO, `Tput`, `draw_caps`,
       # color depth, and cell size, all delegated back to this window.
       @screen = screen || Screen.new(
-        input: input || (Crysterm.headless? ? IO::Memory.new : STDIN),
-        output: output || (Crysterm.headless? ? IO::Memory.new : STDOUT),
-        error: error || (Crysterm.headless? ? IO::Memory.new : STDERR),
+        input: input || Screen.default_input,
+        output: output || Screen.default_output,
+        error: error || Screen.default_error,
         force_unicode: force_unicode,
         full_unicode: full_unicode,
         width: width,
@@ -691,6 +695,13 @@ module Crysterm
       # launching screen this is the old `leave` plus line-discipline restore;
       # for screens bound to spawned windows it also closes the window.
       disconnect
+
+      # Uninstall every action shortcut installed on this window: the
+      # class-level `Action` shortcut registry (`@@shortcut_maps`) holds the
+      # window and its window-level `KeyPress` subscription, so without this a
+      # destroyed window with installed actions stays pinned forever (R-83).
+      # Idempotent — a no-op when nothing is (or is no longer) installed.
+      Action.uninstall_shortcuts self
 
       # Drop this surface from its `Application`'s registry so input is no
       # longer routed to it and it stops counting as an `active_window` (the

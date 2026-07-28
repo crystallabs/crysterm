@@ -11,7 +11,7 @@ include Crysterm
 #     Paging + PageUp/PageDown + Home/End are now bound unconditionally
 #     (matching ScrollableBox#on_keypress); only k/j/g/G stay vi_keys-gated.
 #
-#  BUG 2 (fixed in src/misc/util/unicode.cr): `display_width`'s ASCII fast path
+#  BUG 2 (fixed in src/unicode.cr): `display_width`'s ASCII fast path
 #     used `ascii_only?`, which is true for C0 controls (TAB/CR/ESC) and DEL —
 #     counting them as width 1, contradicting `codepoint_width` (0). The fast
 #     path now only fires for fully printable-ASCII strings (0x20..0x7E).

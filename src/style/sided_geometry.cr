@@ -1,17 +1,4 @@
 module Crysterm
-  # A logical side (or side-group) of a box — shared vocabulary for
-  # `SidedGeometry` (`Border`/`Padding`/`Margin`/`Shadow`) and any other API
-  # keyed by side name (e.g. `Border#set_width`/`#set_color`/`#width_of`).
-  enum Side
-    Left
-    Top
-    Right
-    Bottom
-    Horizontal
-    Vertical
-    All
-  end
-
   # Per-side (left/top/right/bottom) helpers shared by `Border`, `Padding` and
   # `Shadow`. Each including class declares its own `left`/`top`/`right`/`bottom`
   # properties, since the defaults differ; this module supplies the logic that

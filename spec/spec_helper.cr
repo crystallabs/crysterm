@@ -1,6 +1,5 @@
 require "spec"
 require "../src/crysterm"
-require "../src/misc/util/helpers"
 
 # Specs must NEVER touch the real terminal, however they are run.
 #

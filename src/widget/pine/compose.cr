@@ -20,6 +20,9 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![Compose screenshot](../../../tests/widget/pine/compose/compose.5s.apng)
       # <!-- /widget-examples:capture -->
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class Compose < Widget::Box
         # Header field names shown to the left of each input.
         FIELD_NAMES = ["To", "Cc", "Bcc", "Attchmnt", "Subject"]
@@ -64,7 +67,12 @@ module Crysterm
             # "submit-and-return". The body keeps Enter as a newline.
             input.rewind_on_done = false
             input.on(::Crysterm::Event::Submitted) do
-              window.emit ::Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Tab)
+              # The real focus-next API (+ repaint, matching the window's own
+              # Tab handling) — not a synthetic Tab `KeyPress`, which would
+              # ride the whole input-routing path and could be consumed before
+              # reaching focus navigation (R-88).
+              window.focus_next
+              window.render
             end
             # Up/Down move between fields rather than through input history.
             input.history_keys = false

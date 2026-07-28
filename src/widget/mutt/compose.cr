@@ -44,6 +44,9 @@ module Crysterm
       # The widget edits nothing itself: the host inspects `#selected_row` to
       # route Enter/clicks to the right edit, and pops its own prompt for header
       # edits.
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class Compose < Widget::Box
         # The header fields shown, in order. All are display-only except as the
         # host wires them; From is conventionally fixed.

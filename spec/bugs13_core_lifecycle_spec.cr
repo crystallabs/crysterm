@@ -58,7 +58,8 @@ describe "BUGS13 C20: SIGTSTP/SIGCONT suspend-resume" do
   # spec/bugs5_lifecycle_spec.cr does for the capture pipeline); the resume
   # half (`Crysterm.resume_terminals`) is exercised for real below.
   it "wires the TSTP trap to suspend_terminals + STOP, and CONT to resume_terminals" do
-    src = File.read(File.join(__DIR__, "..", "src", "crysterm.cr"))
+    # The signal traps live in src/lifecycle.cr since the crysterm.cr split.
+    src = File.read(File.join(__DIR__, "..", "src", "lifecycle.cr"))
 
     tstp = src.index!("Signal::TSTP.trap")
     tstp_body = src[tstp, 200]

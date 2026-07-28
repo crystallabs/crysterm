@@ -14,9 +14,9 @@ include Crysterm
 #                           complete spuriously.
 #  24 (window.cr)           `Window#screen=` emitted `ScreenAdded` unconditionally
 #                           and stranded the old device's terminal.
-#  46 (widget_terminal_emulator.cr) CSI intermediate bytes were swallowed but
+#  46 (terminal/emulator.cr) CSI intermediate bytes were swallowed but
 #                           ignored at dispatch, so e.g. `$ r` ran as DECSTBM.
-#  47 (widget_terminal_emulator.cr) discarded DCS/SOS/PM/APC payloads were still
+#  47 (terminal/emulator.cr) discarded DCS/SOS/PM/APC payloads were still
 #                           appended to the OSC buffer, retaining capacity.
 
 private DFL2 = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)

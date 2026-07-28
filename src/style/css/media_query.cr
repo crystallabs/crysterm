@@ -143,7 +143,12 @@ module Crysterm
             when "glyphs"     then glyphs == value
             when "min-glyphs" then glyphs >= value
             when "max-glyphs" then glyphs <= value
-            else                   true
+            else
+              # Unreachable today: `.parse` stores only `FEATURES` (plus the
+              # glyph tiers), all matched above. Fail *closed* — if the parser
+              # ever learns a feature this matcher doesn't, its rules must not
+              # silently apply everywhere (R-86).
+              false
             end
           end
         end

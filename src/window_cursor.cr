@@ -5,6 +5,15 @@ module Crysterm
   # (`Widget#cursor`) to override the window default while focused.
   class Cursor < Tput::Namespace::Cursor
     property style : Style = Style.new(fill_char: Config.cursor_glyph)
+
+    # Artificial (software-drawn) cursor state. These lived on
+    # `Tput::Namespace::Cursor` historically, but tput never reads them — the
+    # artificial cursor is a Crysterm *rendering* concern (composited into the
+    # cell buffer by `#draw`), so the fields moved down here (R-29).
+    property? artificial : Bool = false
+    property _state = 1
+    property _hidden = true
+    property char = '▮'
   end
 
   class Window

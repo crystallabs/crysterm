@@ -36,6 +36,9 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![Map screenshot](../../../tests/widget/graph/map/map.5s.apng)
       # <!-- /widget-examples:capture -->
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class Map < Box
         include TextOverlay
         include InteriorCoords

@@ -21,11 +21,14 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![DockWidget screenshot](../../tests/widget/dock_widget/dock_widget.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class DockWidget < Box
       include Mixin::SubStyle
       # A floating dock is an overlay (structural border at the unstyled floor);
       # `#floor_border_value` narrows which sides a docked pane draws.
-      include Mixin::Overlay
+      include ::Crysterm::Overlay::Floor
 
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
       enum Area
@@ -505,25 +508,23 @@ module Crysterm
         titlebar.drag_mode = :transfer
         titlebar.draggable = true
         titlebar.on(::Crysterm::Event::DragStart) do |e|
-          # `with_margin: false`: the offsets are replayed into `left`/`top` on
-          # Drag, which layout re-adds the CSS margin to — a margin-inclusive
-          # origin would make the dock jump by the margin on the first motion.
-          @drag_dx = e.x - aleft(with_margin: false)
-          @drag_dy = e.y - atop(with_margin: false)
+          # `Widget#drag_grab_offset` measures against the margin-less origin:
+          # the offsets are replayed into `left`/`top` on Drag, which layout
+          # re-adds the CSS margin to — a margin-inclusive origin would make
+          # the dock jump by the margin on the first motion.
+          @drag_dx, @drag_dy = drag_grab_offset e.x, e.y
           # Undock in place (`restore: false`) so `aleft`/`atop` — hence the
           # offsets just captured — stay valid and the drag continues smoothly.
           toggle_floating(restore: false) unless floating?
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
-          # `left`/`top` are content-origin-relative but the pointer is absolute,
-          # so subtract the parent's content origin — else the dock only tracks
-          # the pointer when its parent has no border/padding. The clamps are
-          # against the parent's *content* extent, so a floating dock can't be
-          # dragged out over the parent's border/padding.
-          ox, oy = drag_origin
-          self.left = (e.x - @drag_dx - ox).clamp(0, drag_max_left)
-          self.top = (e.y - @drag_dy - oy).clamp(0, drag_max_top)
+          # Shared offset/clamp/replay body of the base reposition drag
+          # (`Widget#drag_move_to`): the clamps are against the parent's
+          # *content* extent, so a floating dock can't be dragged out over the
+          # parent's border/padding. Only the undock-on-drag entry above is
+          # dock-specific.
+          drag_move_to e.x, e.y, @drag_dx, @drag_dy
           request_render
         end
       end

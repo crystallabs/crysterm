@@ -1,4 +1,6 @@
 require "html5"
+require "./html_node_util"
+require "./text_align"
 
 module Crysterm
   # HTML-subset import/export for `TextDocument` — the
@@ -127,7 +129,7 @@ module Crysterm
           io << '<' << tag
           # Column alignment rides on each cell, the shape both the importer and
           # browsers read back.
-          if name = align_name(als.try(&.[ci]?))
+          if name = TextAlign.align_name(als.try(&.[ci]?))
             io << %( style="text-align:) << name << '"'
           end
           io << '>' << escape_html(cell) << "</" << tag << '>'
@@ -135,30 +137,6 @@ module Crysterm
         io << "</tr>"
       end
       io << "</table>"
-    end
-
-    # Resolves a horizontal-alignment keyword (`"left"`/`"center"`/`"right"`,
-    # already case-folded) to a `Tput::AlignFlag` — horizontal center is
-    # `HCenter` — or `nil` for an unrecognized name. Callers apply their own
-    # default for the `nil` case.
-    def self.align_flag(name : String) : Tput::AlignFlag?
-      case name
-      when "left"   then Tput::AlignFlag::Left
-      when "center" then Tput::AlignFlag::HCenter
-      when "right"  then Tput::AlignFlag::Right
-      end
-    end
-
-    # The reverse of `align_flag`: a `Tput::AlignFlag` to its alignment
-    # keyword (`"left"`/`"center"`/`"right"`, horizontal center as `"center"`),
-    # or `nil` when it carries no horizontal alignment. Shared with `TextTags`,
-    # which inverts the same `align_flag` map.
-    def self.align_name(a : Tput::AlignFlag?) : String?
-      return unless a
-      return "center" if a.h_center?
-      return "right" if a.right?
-      return "left" if a.left?
-      nil
     end
 
     private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
@@ -205,7 +183,7 @@ module Crysterm
 
     private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
       props = [] of String
-      if (a = bf.alignment) && (name = align_name(a))
+      if (a = bf.alignment) && (name = TextAlign.align_name(a))
         props << "text-align:#{name}"
       end
       if (bg = bf.bg) && bg >= 0
@@ -350,33 +328,21 @@ module Crysterm
       def initialize(@theme : TextTheme)
       end
 
+      # Node traversal / attribute access (`each_child`, `find_element`,
+      # `attr_val`, ...) shared with the layout-DOM loader.
+      include ::Crysterm::HtmlNodeUtil
+
       def import(html : String) : Array(TextBlock)
         doc = HTML5.parse(html)
-        if body = find_body(doc)
+        if body = find_element(doc, "body")
           walk_children(body)
         end
         end_block
         finalize_blocks
       end
 
-      private def find_body(node : HTML5::Node) : HTML5::Node?
-        return node if node.type.element? && node.data == "body"
-        child = node.first_child
-        while child
-          if found = find_body(child)
-            return found
-          end
-          child = child.next_sibling
-        end
-        nil
-      end
-
       private def walk_children(node : HTML5::Node) : Nil
-        child = node.first_child
-        while child
-          walk(child)
-          child = child.next_sibling
-        end
+        each_child(node) { |child| walk child }
       end
 
       private def walk(node : HTML5::Node) : Nil
@@ -559,19 +525,16 @@ module Crysterm
         trs.each do |tr|
           cells = [] of String
           has_th = false
-          child = tr.first_child
-          while child
-            if child.type.element? && (child.data == "td" || child.data == "th")
-              has_th = true if child.data == "th"
-              if a = cell_align(child)
-                while aligns.size <= cells.size
-                  aligns << nil
-                end
-                aligns[cells.size] ||= a
+          each_element_child(tr) do |child|
+            next unless child.data == "td" || child.data == "th"
+            has_th = true if child.data == "th"
+            if a = cell_align(child)
+              while aligns.size <= cells.size
+                aligns << nil
               end
-              cells << plain_text_of(child).gsub(TextHtml::WS_RUN, " ").strip
+              aligns[cells.size] ||= a
             end
-            child = child.next_sibling
+            cells << plain_text_of(child).gsub(TextHtml::WS_RUN, " ").strip
           end
           unless cells.empty?
             if header.nil? && has_th
@@ -611,23 +574,18 @@ module Crysterm
       # Whether *list* (`<ul>`) is a GFM task list: some `<li>` holds an
       # `<input type="checkbox">` (as `to_html` and GitHub emit).
       private def html_task_list?(node : HTML5::Node) : Bool
-        li = node.first_child
-        while li
-          return true if li.type.element? && li.data == "li" && checkbox_input(li)
-          li = li.next_sibling
+        each_element_child(node) do |li|
+          return true if li.data == "li" && checkbox_input(li)
         end
         false
       end
 
       # The `<input type="checkbox">` directly inside *li*, if any.
       private def checkbox_input(li : HTML5::Node) : HTML5::Node?
-        child = li.first_child
-        while child
-          if child.type.element? && child.data == "input" &&
-             attr_val(child, "type").try(&.downcase) == "checkbox"
+        each_element_child(li) do |child|
+          if child.data == "input" && attr_val(child, "type").try(&.downcase) == "checkbox"
             return child
           end
-          child = child.next_sibling
         end
         nil
       end
@@ -638,16 +596,12 @@ module Crysterm
       end
 
       private def collect_trs(node : HTML5::Node, acc : Array(HTML5::Node)) : Nil
-        child = node.first_child
-        while child
-          if child.type.element?
-            if child.data == "tr"
-              acc << child
-            elsif child.data == "thead" || child.data == "tbody" || child.data == "tfoot"
-              collect_trs(child, acc)
-            end
+        each_element_child(node) do |child|
+          if child.data == "tr"
+            acc << child
+          elsif child.data == "thead" || child.data == "tbody" || child.data == "tfoot"
+            collect_trs(child, acc)
           end
-          child = child.next_sibling
         end
       end
 
@@ -764,11 +718,9 @@ module Crysterm
       # Whether an element holds nothing but (collapsible) whitespace — the
       # empty `<p></p>` spacing test.
       private def spacing_only?(node : HTML5::Node) : Bool
-        child = node.first_child
-        while child
+        each_child(node) do |child|
           return false if child.type.element?
           return false if child.type.text? && !child.data.gsub(TextHtml::WS_RUN, "").empty?
-          child = child.next_sibling
         end
         true
       end
@@ -783,18 +735,7 @@ module Crysterm
           io << '\n'
           return
         end
-        child = node.first_child
-        while child
-          collect_text(child, io)
-          child = child.next_sibling
-        end
-      end
-
-      private def attr_val(node : HTML5::Node, key : String) : String?
-        node.attr.each do |a|
-          return a.val if a.key == key
-        end
-        nil
+        each_child(node) { |child| collect_text child, io }
       end
 
       # {block format, collapse?} from a block element's `style`/`align`.
@@ -867,7 +808,7 @@ module Crysterm
       end
 
       private def align_flag(name : String) : Tput::AlignFlag?
-        TextHtml.align_flag(name)
+        TextAlign.align_flag(name)
       end
 
       # Yields each `key, value` inline-style declaration of *style*, with the

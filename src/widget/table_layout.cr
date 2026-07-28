@@ -374,39 +374,80 @@ module Crysterm
       Attr.pack Attr.flags(battr), Attr.fg(battr), Attr.bg(over)
     end
 
-    # Draws the internal `│` vertical cell separators on a single already-fetched
-    # grid `line`, accumulating display position `rx` across visible columns
-    # starting at *start_col* (`0` for `Table`, `@first_col` for `ListTable`'s
-    # scrolled viewport). When *width* is given, the run stops once a separator
-    # would fall at/past the right content edge (`ListTable`'s clip); nil draws
-    # every internal column (`Table` never clips). Each separator uses
-    # `junction_attr` so `fill_cell_borders` shows through. *xi* is the line's
-    # left content origin (`coords.xi`).
-    protected def draw_vertical_separators(line, xi : Int32, battr : Int64,
-                                           start_col : Int32 = 0, width : Int32? = nil) : Nil
-      # `rx` is the pure within-content column offset (0 == first content column);
-      # the separator after column `mi` sits at content offset `sum(maxes[..mi])`.
-      # Paint it at `xi + ileft + rx` — content begins at the left inset, so an
-      # `xi + rx + 1` form would assume `ileft == 1` and draw the separators of a
-      # bordered+padded table one cell short of the cells they divide.
+    # Walks the internal column boundaries (the junction cell after each
+    # visible column) on a single already-fetched grid *line*, accumulating
+    # display position `rx` across visible columns starting at *start_col*
+    # (`0` for `Table`, `@first_col` for `ListTable`'s scrolled viewport), and
+    # yields each boundary's in-buffer cell. The shared walking loop under
+    # `#draw_vertical_separators` and the tee/cross junction rows of
+    # `Table#draw_borders` / `ListTable#draw_borders`.
+    #
+    # `rx` is the pure within-content column offset (0 == first content
+    # column); the boundary after column `mi` sits at content offset
+    # `sum(maxes[..mi])`. It is addressed at `xi + ileft + rx` — content
+    # begins at the left inset, so an `xi + rx + 1` form would assume
+    # `ileft == 1` and hit the cells of a bordered+padded table one cell short
+    # of the boundaries they divide. *xi* is the line's left content origin
+    # (`coords.xi`).
+    #
+    # Two right-edge clips, matching the two callers' historical forms:
+    # when *width* is given, the walk stops once a boundary would fall at/past
+    # the right content edge — clipped against the *content* width (callers
+    # pass `width` as `coords.width - iright`, which still includes the left
+    # inset the boundary is painted past, so comparing bare `rx` would
+    # overshoot the content edge by `ileft` columns on a padded/bordered
+    # table). When *right_limit* is given, the walk stops at that absolute
+    # column (`Table`'s `coords.xl`). Nil for both walks every internal
+    # column.
+    #
+    # A boundary left of the screen (negative absolute column, table
+    # scrolled/positioned partly off the left edge) is skipped, not yielded —
+    # `Indexable#[]?` would wrap it to the row's right end.
+    protected def each_junction_cell(line, xi : Int32, start_col : Int32 = 0,
+                                     width : Int32? = nil, right_limit : Int32? = nil, &) : Nil
       rx = 0
-      g_v = glyph Glyphs::Role::LineVertical
       (start_col...(@maxes.size - 1)).each do |mi|
         rx += @maxes[mi]
-        # Clip against the *content* width: callers pass `width` as
-        # `coords.width - iright`, which still includes the left inset the separator is
-        # painted past (`xi + ileft + rx`), so comparing bare `rx` would overshoot
-        # the content edge by `ileft` columns on a padded/bordered table.
         break if width && rx >= width - ileft
-        # A separator left of the screen (negative absolute column, table
-        # scrolled/positioned partly off the left edge) is skipped —
-        # `Indexable#[]?` would wrap it to the row's right end.
-        if (ax = xi + ileft + rx) >= 0 && (cell = line[ax]?)
-          cell.attr = junction_attr(battr, cell.attr)
-          cell.char = g_v
-          line.dirty = true
+        ax = xi + ileft + rx
+        break if right_limit && ax >= right_limit
+        if ax >= 0 && (cell = line[ax]?)
+          yield cell
         end
         rx += 1
+      end
+    end
+
+    # Draws the internal `│` vertical cell separators on a single already-fetched
+    # grid `line` (see `#each_junction_cell` for the walk/clip semantics). Each
+    # separator uses `junction_attr` so `fill_cell_borders` shows through.
+    protected def draw_vertical_separators(line, xi : Int32, battr : Int64,
+                                           start_col : Int32 = 0, width : Int32? = nil) : Nil
+      g_v = glyph Glyphs::Role::LineVertical
+      each_junction_cell(line, xi, start_col, width) do |cell|
+        cell.attr = junction_attr(battr, cell.attr)
+        cell.char = g_v
+        line.dirty = true
+      end
+    end
+
+    # Stamps the top/bottom edge junctions — `┬` on the top border row, `┴` on
+    # the bottom, falling back to a `│` continuation when that border side is
+    # absent — at each internal column boundary of an edge grid *line*. The
+    # shared tee-row body of `Table#draw_borders` / `ListTable#draw_borders`;
+    # walk/clip semantics per `#each_junction_cell`.
+    protected def draw_edge_junctions(line, xi : Int32, battr : Int64, top : Bool,
+                                      start_col : Int32 = 0, width : Int32? = nil,
+                                      right_limit : Int32? = nil) : Nil
+      border = style.border
+      tier = glyph_tier
+      g_v = Glyphs[Glyphs::Role::LineVertical, tier]
+      g_tee = Glyphs[top ? Glyphs::Role::JunctionTeeTop : Glyphs::Role::JunctionTeeBottom, tier]
+      visible = top ? border.top > 0 : border.bottom > 0
+      each_junction_cell(line, xi, start_col, width, right_limit) do |cell|
+        cell.attr = battr
+        cell.char = visible ? g_tee : g_v
+        line.dirty = true
       end
     end
   end

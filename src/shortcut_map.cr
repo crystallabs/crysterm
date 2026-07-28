@@ -84,6 +84,21 @@ module Crysterm
       end
     end
 
+    # Uninstalls every action's shortcut for *window*, dropping the window's
+    # shared `ShortcutMap` (with its window-level `KeyPress` subscription) from
+    # the class-level registry. The `Window#destroy` teardown seam: without it a
+    # destroyed window with installed actions stays pinned by `@@shortcut_maps`
+    # forever (R-83). Idempotent — with no entry for *window* it is a no-op, so
+    # a repeated destroy (or a destroy after a manual `#uninstall_shortcut` of
+    # the last action) is safe.
+    def self.uninstall_shortcuts(window : ::Crysterm::Window) : Nil
+      map = @@shortcut_maps[window]? || return
+      # `#uninstall_shortcut` mutates `map.actions` (and the last action's
+      # uninstall drops the map itself and `off`s its subscription), so iterate
+      # a snapshot.
+      map.actions.dup.each &.uninstall_shortcut(window)
+    end
+
     # Feeds keypress *e* (on *window*) through the window's shared shortcut
     # state machine, supporting multi-keystroke chords (Qt's `QKeySequence`,
     # e.g. "Ctrl+K, Ctrl+B"). A single-stroke shortcut fires immediately; a

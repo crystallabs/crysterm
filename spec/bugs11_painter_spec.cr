@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression specs for BUGS11 findings #9 and #13, both in
-# src/widget_graph_painter.cr.
+# src/widget/graph/painter.cr.
 #
 #  #9 [HIGH]: Painter#dx/#dy (and draw_ellipse / fill_ring plot coords) did
 #     `.round.to_i` on a Float64 with no finiteness/range guard. In Crystal

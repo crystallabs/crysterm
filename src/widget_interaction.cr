@@ -473,33 +473,53 @@ module Crysterm
         @_drag_reposition_installed = true
 
         on(Crysterm::Event::DragStart) do |e|
-          # Grab against the margin-LESS origin: `aleft`/`atop` default to
-          # `with_margin: true`, but `coords` shifts the drawn box outward by
-          # the margin again — capturing the margin-inclusive origin here would
-          # double-count `margin.left`/`margin.top`, jumping the widget right/down
-          # by its own margin on the first motion. This also keeps the keyboard
-          # `drag_nudge` re-sync (window_drag.cr) exact.
-          @_drag_dx = e.x - aleft(with_margin: false)
-          @_drag_dy = e.y - atop(with_margin: false)
+          @_drag_dx, @_drag_dy = drag_grab_offset e.x, e.y
         end
 
         on(Crysterm::Event::Drag) do |e|
-          # `e.x`/`e.y` are absolute cell coordinates, but `left`/`top` are
-          # relative to the parent's content origin (`aleft = parent.aleft +
-          # parent.ileft + left`). Subtract that origin so a nested draggable
-          # widget tracks the pointer instead of jumping by its parent's absolute
-          # position. For a top-level widget with no insets, origin is (0, 0).
-          #
-          # Both axes go through the coalescing `#move` primitive rather than
-          # the two individual setters, so one drag-motion costs a single
-          # `mark_dirty` and a single `Move` emit instead of two of each.
-          ox, oy = drag_origin
-          move (e.x - @_drag_dx - ox).clamp(0, drag_max_left),
-            (e.y - @_drag_dy - oy).clamp(0, drag_max_top)
+          drag_move_to e.x, e.y, @_drag_dx, @_drag_dy
         end
       end
 
       @draggable
+    end
+
+    # Grab offset for a drag-to-move gesture: how far into the widget the
+    # pointer grabbed it, so the replay keeps the grabbed point under the
+    # pointer rather than snapping the corner to it.
+    #
+    # Measured against the margin-LESS origin: `aleft`/`atop` default to
+    # `with_margin: true`, but `coords` shifts the drawn box outward by
+    # the margin again — capturing the margin-inclusive origin here would
+    # double-count `margin.left`/`margin.top`, jumping the widget right/down
+    # by its own margin on the first motion. This also keeps the keyboard
+    # `drag_nudge` re-sync (window_drag.cr) exact.
+    #
+    # `protected` so subclasses with a custom drag entry (`ColorDialog`,
+    # `DockWidget`) capture the exact same offset the base reposition drag does.
+    protected def drag_grab_offset(x : Int32, y : Int32) : Tuple(Int32, Int32)
+      {x - aleft(with_margin: false), y - atop(with_margin: false)}
+    end
+
+    # Replays one drag motion: maps the absolute pointer (*x*, *y*) through the
+    # grab offset (*dx*, *dy*, from `#drag_grab_offset`) onto
+    # parent-content-relative `left`/`top`, clamped in-bounds, and moves the
+    # widget there.
+    #
+    # The pointer is absolute cell coordinates, but `left`/`top` are relative
+    # to the parent's content origin (`aleft = parent.aleft + parent.ileft +
+    # left`). `drag_origin` is subtracted so a nested draggable widget tracks
+    # the pointer instead of jumping by its parent's absolute position (for a
+    # top-level widget with no insets, origin is (0, 0));
+    # `drag_max_left`/`drag_max_top` clamp the result in-bounds.
+    #
+    # Both axes go through the coalescing `#move` primitive rather than
+    # the two individual setters, so one drag-motion costs a single
+    # `mark_dirty` and a single `Move` emit instead of two of each.
+    protected def drag_move_to(x : Int32, y : Int32, dx : Int32, dy : Int32) : Nil
+      ox, oy = drag_origin
+      move (x - dx - ox).clamp(0, drag_max_left),
+        (y - dy - oy).clamp(0, drag_max_top)
     end
 
     # Absolute origin of this widget's `left`/`top` coordinate space — where

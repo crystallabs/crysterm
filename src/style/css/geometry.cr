@@ -83,15 +83,6 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
-      # Alias for the unit→cell divisor table in `CSS::Length`.
-      def self.unit_divisors : Hash(String, Float64?)
-        Length.divisors
-      end
-
-      def self.unit_divisors=(table : Hash(String, Float64?))
-        Length.divisors = table
-      end
-
       # Applies a geometry declaration onto *widget*.
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
@@ -114,7 +105,7 @@ module Crysterm
         when "text-align"
           # CSS keyword values are case-insensitive, so fold before matching;
           # an unrecognized value leaves the alignment unchanged.
-          TextHtml.align_flag(Case.fold_keyword(value.strip)).try { |f| widget.align = f }
+          TextAlign.align_flag(Case.fold_keyword(value.strip)).try { |f| widget.align = f }
         when "spacing"
           # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
           # Engines that don't honor `gap` ignore the value; no-op with no layout.

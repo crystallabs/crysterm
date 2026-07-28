@@ -24,6 +24,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class Wizard < Dialog
       include Mixin::WindowLifecycle
 

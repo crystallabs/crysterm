@@ -107,7 +107,8 @@ module Crysterm
       #
       # ```
       # ol = Crysterm::Widget::Pine::OptionList.new parent: screen
-      # ol.options = [      #   Crysterm::Widget::Pine::OptionList::Option.new("line-wrap",
+      # ol.options = [
+      #   Crysterm::Widget::Pine::OptionList::Option.new("line-wrap",
       #     Crysterm::Widget::Pine::OptionKind::Toggle,
       #     "Wrap long lines", value: "true"),
       #   Crysterm::Widget::Pine::OptionList::Option.new("theme",

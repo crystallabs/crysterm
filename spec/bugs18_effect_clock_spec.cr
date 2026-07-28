@@ -7,7 +7,7 @@ include Crysterm
 # The B17-37 fix installed one-time Event::Hide/Event::Detached clock-stop
 # hooks (plus a resume-on-render) for CSS `@keyframes` animations only
 # (src/widget_animation.cr). Its two sibling self-driving clocks —
-# `Effect::Animated` (src/widget_effect_direct.cr, driving Fire/Matrix/Spray/
+# `Effect::Animated` (src/widget/effect/animated.cr, driving Fire/Matrix/Spray/
 # SineScroller/etc.) and `Widget#pulse` (src/widget_fade.cr) — kept ticking a
 # full FrameClock (request_render every frame) forever while their widget was
 # hidden or detached. This spec pins the mirrored fix: both drivers now

@@ -62,14 +62,17 @@ module Crysterm
         tput.screen.width = cols
         tput.screen.height = rows
         tput._ncoords
-        emit ::Crysterm::Event::Resize.new ::Tput::Namespace::Size.new(cols, rows)
+        emit ::Crysterm::Event::Resize.new ::Crysterm::Size.new(cols, rows)
       else
         tput.reset_screen_size
         # Pick up a changed cell pixel size (e.g. font/zoom change) via the
         # ioctl; safe here since it does no escape-sequence round-trip.
         @screen.refresh_cell_geometry
-        # NOTE Tput#screen should have been called `size` or `screen_size`
-        emit ::Crysterm::Event::Resize.new tput.screen
+        # NOTE Tput#screen should have been called `size` or `screen_size`.
+        # Converted to Crysterm's own `Size` record — the event's single
+        # geometry vocabulary (R-30).
+        s = tput.screen
+        emit ::Crysterm::Event::Resize.new ::Crysterm::Size.new(s.width, s.height)
       end
     end
 

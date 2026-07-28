@@ -1,3 +1,5 @@
+require "../text/html_node_util"
+
 module Crysterm
   # Loads a *layout DOM* back into a live widget tree.
   #
@@ -9,37 +11,32 @@ module Crysterm
   # Crystal has no runtime reflection, so the tag -> class map must be built at
   # compile time. Rather than a hand-maintained list, the registry is populated
   # by a `macro finished` sweep that auto-discovers widgets *by namespace*:
-  # every concrete `Crysterm::Widget::*` is loadable (minus the `SKIP`
-  # exclusions). The leaf type name (lowercased) is the key, matching the
-  # `w-<leaf>` tag `#to_layout_html` emits. A new widget under `Widget::` is
-  # loadable with no extra wiring.
+  # every concrete `Crysterm::Widget::*` is loadable (minus classes annotated
+  # `@[Crysterm::DOM::Skip]` — see the annotation's doc in `widget.cr`). The
+  # leaf type name (lowercased) is the key, matching the `w-<leaf>` tag
+  # `#to_layout_html` emits. A new widget under `Widget::` is loadable with no
+  # extra wiring.
   #
   #     window = Window.new
   #     window.load_layout_file "ui.html"
   #     window.find_by_id("ok").try &.on(Event::Click) { ... }
   #     window.exec
   module DOM
+    # Node traversal / attribute access (`each_child`, `each_element_child`,
+    # `find_element`, ...) shared with `TextHtml`'s importer. `extend`, since
+    # the loader is all module-level methods.
+    extend ::Crysterm::HtmlNodeUtil
+
     # Builds a widget already bound to the window it will live on. The widget is
     # created detached; the loader appends it into the tree afterwards.
     alias Factory = Proc(::Crysterm::Window, ::Crysterm::Widget)
 
-    # `Crysterm::Widget::*` widgets that namespace-based opt-in would otherwise
-    # register, but must NOT be, for one of two reasons:
-    #   * self-populating composites — each builds its own internal child subtree
-    #     in its constructor, so re-appending serialized children on load would
-    #     double the subtree; and
-    #   * widgets with no window-only constructor — the factory below calls
-    #     `.new(window: window)`, so a widget whose only initializers demand a
-    #     mandatory positional (e.g. `LogFd`, needing a live stream that isn't
-    #     reconstructable from markup) can't be built that way and fails to
-    #     compile.
-    # A round-trip invariant spec fails loudly if a new self-populating widget
-    # slips through.
-    SKIP = %w[
-      canvas colordialog compose dockwidget donut headerbar linechart
-      listtable loading logfd map prompt question splashscreen statusbar
-      tabwidget wizard
-    ]
+    # Widgets that namespace-based opt-in would otherwise register but must NOT
+    # be are excluded per class, via the `@[Crysterm::DOM::Skip]` annotation on
+    # the widget itself (declared in `widget.cr`; see its doc for the exclusion
+    # reasons) — self-maintaining, unlike the hand-kept central list it
+    # replaced (R-89). The `dom_registry_spec` round-trip invariant fails
+    # loudly if a new self-populating widget slips through unannotated.
 
     # Tag (leaf type name, lowercased) -> widget factory, built lazily on first
     # use so that top-level callers also see a full registry.
@@ -91,16 +88,6 @@ module Crysterm
         built << widget
       end
       built
-    end
-
-    # Yields each direct child of `node` — element, text or comment — in document
-    # order.
-    private def self.each_child(node : HTML5::Node, & : HTML5::Node ->) : Nil
-      child = node.first_child
-      while child
-        yield child
-        child = child.next_sibling
-      end
     end
 
     # Concatenates the text of every `<style>` element in the document (the
@@ -169,22 +156,6 @@ module Crysterm
       end
       widget
     end
-
-    # Depth-first search for the first element node named `name`.
-    private def self.find_element(node : HTML5::Node, name : String) : HTML5::Node?
-      return node if node.element? && node.data == name
-      each_child(node) do |child|
-        if found = find_element(child, name)
-          return found
-        end
-      end
-      nil
-    end
-
-    # Yields each element (non-text, non-comment) child of `node` in order.
-    private def self.each_element_child(node : HTML5::Node, & : HTML5::Node ->) : Nil
-      each_child(node) { |child| yield child if child.element? }
-    end
   end
 
   class Window
@@ -238,10 +209,11 @@ macro finished
       {% parts = t.name.split("::") %}
       {% leaf = parts.last.downcase %}
       # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is
-      # loadable, except the `SKIP` exclusions (self-populating composites) and
+      # loadable, except classes annotated `@[Crysterm::DOM::Skip]`
+      # (self-populating composites / no window-only constructor) and
       # generic widgets (e.g. `ListSelect(T)`), which can't be instantiated
       # without a type argument and have no stable tag name anyway.
-      {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && t.type_vars.empty? && !Crysterm::DOM::SKIP.includes?(leaf) %}
+      {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && t.type_vars.empty? && !t.annotation(Crysterm::DOM::Skip) %}
         # `parts.size` is the namespace depth (e.g. 3 for `Crysterm::Widget::X`,
         # 4 for `Crysterm::Widget::Pine::X`); keep the shallowest per leaf. Ties
         # (same depth, different module) keep the first seen — still deterministic.

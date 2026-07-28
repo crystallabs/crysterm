@@ -1,9 +1,10 @@
 module Crysterm
   class Widget
-    include Helpers
-
     # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
-    TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
+    # An alias of the canonical `TextTags::TAG_REGEX` (the document framework
+    # owns it, so `text/` can stand alone; widgets already require text/) —
+    # referenced, not duplicated, so the two cannot drift (R-75).
+    TAG_REGEX = TextTags::TAG_REGEX
 
     # Convenience regex for matching line-alignment tags (`{center}`, `{/right}`, ...).
     ALIGN_TAG_REGEX = /\{\/?(?:left|center|right)\}/

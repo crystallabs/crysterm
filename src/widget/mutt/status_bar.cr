@@ -16,6 +16,9 @@ module Crysterm
       # with a right-docked child for the right zone — no per-frame width
       # arithmetic. It serves both Mutt's index and pager status lines; only the
       # text differs.
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class StatusBar < Widget::Box
         # The right-aligned zone (e.g. `-(threads/date)-(all)-`).
         getter right_zone : Widget::Box

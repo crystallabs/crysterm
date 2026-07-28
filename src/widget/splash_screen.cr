@@ -21,6 +21,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![SplashScreen screenshot](../../tests/widget/splash_screen/splash_screen.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class SplashScreen < Box
       # A splash is a fixed-size overlay: honor the given `width`/`height` rather
       # than shrinking to content (which would also break the centering math).
@@ -28,7 +31,7 @@ module Crysterm
 
       # An overlay: at the unstyled floor it carries a structural border so it
       # separates from the content behind it; a theme can override or remove it.
-      include Mixin::Overlay
+      include ::Crysterm::Overlay::Floor
       include Mixin::WindowLifecycle
 
       # Whether any input event dismisses the splash: a mouse click or wheel

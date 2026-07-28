@@ -49,6 +49,36 @@ module Crysterm
           NavIntent::None
         end
       end
+
+      # The nearest *selectable* index to *from* within `0...size`, stepping in
+      # *dir* over separators (the block returns whether an index is a
+      # separator). When the step runs off the end while still on a separator, it
+      # rescans the opposite way, so the result is never a separator. Returns
+      # `nil` only when *size* is 0 or every index is a separator.
+      #
+      # Index-only navigation core, so the "never land the cursor on a separator"
+      # edge semantics live once. A module method so any widget — includer or
+      # not — can reuse it (`Mixin::ItemView`, `Mixin::ActionBar`, `Widget::Menu`).
+      def self.nearest_selectable(size : Int32, from : Int32, dir : Int32, & : Int32 -> Bool) : Int32?
+        return if size == 0
+        i = from.clamp(0, size - 1)
+        size.times do
+          break unless yield i
+          ni = i + dir
+          break if ni < 0 || ni >= size
+          i = ni
+        end
+        if yield i
+          # Landed on a separator at the array boundary: rescan the opposite way
+          # so the highlight never rests on one.
+          j = i
+          while (j -= dir) >= 0 && j < size
+            return j unless yield j
+          end
+          return
+        end
+        i
+      end
     end
   end
 end

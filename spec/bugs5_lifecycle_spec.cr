@@ -101,9 +101,11 @@ describe "BUGS5 capture_animation first-frame ordering (fix #2)" do
   # rather than a `Rendered` handler, so the invariant is now "first write
   # precedes `clock.start`".
   it "writes the first frame before starting the FrameClock sampler" do
+    # `feed_animation_frames` stayed in window_capture.cr; its former neighbor
+    # `run_ffmpeg` moved to capture.cr, so the slice now ends at the next def.
     src = File.read(File.join(__DIR__, "..", "src", "window_capture.cr"))
     body_start = src.index!("def feed_animation_frames")
-    body_end = src.index!("private def run_ffmpeg", body_start)
+    body_end = src.index!("def capture_cursor_overlay", body_start)
     body = src[body_start...body_end]
 
     first_write = body.index!("input.write Capture.rgba(first)")

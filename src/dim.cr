@@ -110,8 +110,10 @@ module Crysterm
       @kind.viewport?
     end
 
-    # Matches `CSS::Length::VIEWPORT` (`50vw`, `.5VMIN`, ...).
-    private VIEWPORT_RE = /\A(-?(?:\d+(?:\.\d+)?|\.\d+))(vw|vh|vmin|vmax)\z/i
+    # A viewport-relative length (`50vw`, `.5VMIN`, ...). The CSS engine's
+    # `CSS::Length::VIEWPORT` itself — referenced, not duplicated, so the two
+    # spellings cannot drift (R-76). Capture groups: 1 = number, 2 = unit.
+    private VIEWPORT_RE = CSS::Length::VIEWPORT
 
     # Normalizes any accepted property spelling to its stored form: a `Dim`
     # or `Int32` passes through, `nil` stays `nil` (auto), a `String` is

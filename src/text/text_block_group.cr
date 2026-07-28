@@ -20,7 +20,9 @@ module Crysterm
     end
 
     def empty? : Bool
-      count == 0
+      # Short-circuits at the first member, where a `count == 0` form walked
+      # the whole document.
+      document.blocks.none? { |b| member?(b) }
     end
   end
 end

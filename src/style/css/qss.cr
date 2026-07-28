@@ -125,8 +125,10 @@ module Crysterm
 
       # Matches exactly the Qt state pseudo-classes in `STATE_PSEUDOS` as whole
       # tokens (the trailing lookahead stops `:on` matching inside `:only-one`).
-      # Other `:pseudo` tokens are left for the parser.
-      STATE_PSEUDO = /:(unchecked|pressed|on|off|horizontal|vertical|editable|flat|default)(?![\w-])/
+      # Other `:pseudo` tokens are left for the parser. Built from
+      # `STATE_PSEUDOS.keys` so adding a mapping there cannot leave this regex
+      # stale (R-76).
+      STATE_PSEUDO = /:(#{STATE_PSEUDOS.keys.map { |k| Regex.escape k }.join('|')})(?![\w-])/
 
       # Rewrites *source* (a `.qss` file's contents) into Crysterm CSS:
       # `Q`-prefixed type selectors are renamed, Qt `::sub-control`

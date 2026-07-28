@@ -392,8 +392,6 @@ module Crysterm
       @child_base >= @last_scroll_max
     end
 
-    @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
-
     # Potentially use this wherever .scrollable? is used
     def overflows_y?
       return @scrollable if @shrink_to_fit
@@ -533,7 +531,6 @@ module Crysterm
 
       height = (pos.yl - pos.yi) - ivertical - hscrollbar_rows
       i = scroll_height
-      # p
 
       if height < i
         if @always_scroll
@@ -645,36 +642,47 @@ module Crysterm
 
       clamp_child_base_to_content
 
-      # Optimize scrolling with CSR + IL/DL.
+      # Optimize scrolling with CSR + IL/DL. `csr_region_for` validates the
+      # region against the buffer-corruption hazards of the direct line ops;
+      # on nil the scroll falls through to a normal repaint.
       p = @lpos
-      if p && (@child_base != base) && window.sides_uniform?(self)
-        t = p.yi + itop
-        b = p.yl - ibottom - 1
+      if p && (@child_base != base) && (region = csr_region_for(p.yi + itop, p.yl - ibottom - 1))
+        t, b = region
         d = @child_base - base
 
-        # The CSR path mutates window buffer rows `t..b` directly
-        # (`shift_lines` delete_at/insert), so both bounds must lie inside the
-        # buffer. `sides_uniform?`'s full-width shortcut returns true WITHOUT the
-        # vertical bounds check its fast-csr branch does, so a full-width
-        # scrollable extending past the screen edge (top: 3, height: "100%" →
-        # b > aheight-1; top: -3 → t < 0) reached here unclamped: a too-large
-        # `b` raised IndexError mid-mutation leaving `@lines` short, and a
-        # negative `t` wrapped `delete_at` around to evict BOTTOM rows,
-        # desyncing `@lines`/`@flushed_lines` from the terminal. Off-screen rows can't
-        # be CSR-scrolled anyway; fall through to a normal repaint instead.
-        if t >= 0 && b <= window.aheight - 1
-          if d > 0 && d < visible
-            # scrolled down
-            window.delete_line(d, t, t, b)
-          elsif d < 0 && -d < visible
-            # scrolled up
-            d = -d
-            window.insert_line(d, t, t, b)
-          end
+        if d > 0 && d < visible
+          # scrolled down
+          window.delete_line(d, t, t, b)
+        elsif d < 0 && -d < visible
+          # scrolled up
+          d = -d
+          window.insert_line(d, t, t, b)
         end
       end
 
       emit Crysterm::Event::Scroll, (@child_base + @child_offset) - before
+    end
+
+    # Validates the terminal-side CSR (change-scroll-region) fast path used by
+    # the line insert/delete optimizations: returns `{top, bottom}` when the
+    # window's IL/DL ops may safely mutate buffer rows `top..bottom`, else
+    # `nil` (callers fall back to a normal repaint).
+    #
+    # The vertical bounds check is load-bearing: the line ops mutate window
+    # buffer rows `top..bottom` directly (`shift_lines` delete_at/insert), so
+    # both bounds must lie inside the buffer. `sides_uniform?`'s full-width
+    # shortcut returns true WITHOUT the vertical bounds check its fast-csr
+    # branch does, so a full-width widget extending past the screen edge
+    # (top: 3, height: "100%" → `bottom > aheight - 1`; top: -3 → `top < 0`)
+    # previously reached the mutation unclamped: a too-large `bottom` raised
+    # IndexError mid-mutation leaving `@lines` short, and a negative `top`
+    # wrapped `delete_at` around to evict BOTTOM rows, desyncing
+    # `@lines`/`@flushed_lines` from the terminal. Off-screen rows can't be
+    # CSR-scrolled anyway. Shared by `#scroll` and `#render_line_shift`
+    # (widget_content_lines.cr), which face the identical hazard.
+    protected def csr_region_for(top : Int32, bottom : Int32) : {Int32, Int32}?
+      return unless top >= 0 && bottom <= window.aheight - 1 && window.sides_uniform?(self)
+      {top, bottom}
     end
 
     # Clamps `@child_base` into the valid `[0, @base_limit]` range. Kept as an

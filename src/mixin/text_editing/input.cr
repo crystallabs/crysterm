@@ -260,7 +260,7 @@ module Crysterm
           # character typed over a selection replaces it: drop the selection
           # first, then measure `max_length` against the freed-up length so a
           # replacement in a full field still works.
-          unless control_char?(c)
+          unless TextEditing.control_char?(c)
             edit_replacing_selection do
               at_limit = (ml = @max_length) ? buf_size >= ml : false
               insert_at_cursor c.to_s unless at_limit
@@ -302,8 +302,10 @@ module Crysterm
       # NOT TAB (0x09) / LF (0x0a) / CR (0x0d), which fall outside this class
       # and are kept. Shared with `Widget::TextEdit#table_guard`, whose
       # per-keystroke `typing` classification is the same rule (there
-      # applied to a synthesized event's `#char` to gate table-cell typing).
-      private def control_char?(c : Char) : Bool
+      # applied to a synthesized event's `#char` to gate table-cell typing) —
+      # a module method so both sites (and any non-includer) share the one
+      # predicate.
+      def self.control_char?(c : Char) : Bool
         o = c.ord
         o <= 0x08 || o == 0x0b || o == 0x0c || (0x0e <= o <= 0x1f) || o == 0x7f
       end

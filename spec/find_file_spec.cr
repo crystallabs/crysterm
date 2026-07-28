@@ -1,12 +1,12 @@
 require "./spec_helper"
 require "file_utils"
 
-# `Crysterm::Helpers.find_file` is a class method (no instance mixin needed).
-# It carried a latent nil-deref: `File.info` is wrapped in a `rescue`
+# `Crystallabs::Helpers::Files.find_file` is a class method (no instance mixin
+# needed). It carried a latent nil-deref: `File.info` is wrapped in a `rescue`
 # returning nil, so `stat : File::Info?`, and `stat.directory?` is a
 # `Nil`-method compile error. This never surfaced since nothing else calls
 # `find_file` (only its own recursion), so Crystal never compiled its body.
-describe Crysterm::Helpers do
+describe Crystallabs::Helpers::Files do
   describe ".find_file" do
     it "locates a file nested in a subdirectory" do
       root = File.join(Dir.tempdir, "crysterm_find_#{Random.rand(1_000_000)}")

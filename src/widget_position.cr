@@ -301,10 +301,6 @@ module Crysterm
       {lo, hi}
     end
 
-    # `width_hint`, when given, is this widget's already-resolved `awidth(rendered)`,
-    # computed by `#base_render` just before calling here, to skip re-resolving the
-    # identical `awidth`. Only the render path passes it.
-    # ameba:disable Metrics/CyclomaticComplexity
     # Nearest ancestor that clips this widget's rendering: a `scrollable?`
     # element or one with `overflow.hidden?`. `nil` when none clips up to the
     # root. `fixed` widgets (labels on a border, bound scroll bars) are exempt
@@ -334,6 +330,10 @@ module Crysterm
       @clip_ancestor_cache = el
     end
 
+    # `width_hint`, when given, is this widget's already-resolved `awidth(rendered)`,
+    # computed by `#base_render` just before calling here, to skip re-resolving the
+    # identical `awidth`. Only the render path passes it.
+    # ameba:disable Metrics/CyclomaticComplexity
     def coords(rendered = false, noscroll = false, into : RenderedGeometry? = nil, width_hint : Int32? = nil) : RenderedGeometry?
       unless style.visible?
         return

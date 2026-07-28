@@ -12,7 +12,7 @@ include Crysterm
 #      checkbox/radio inside a scrolled container never toggled by mouse.
 #  34  (mixin/track_geometry) vertical slider/progress-bar pointer offset used
 #      layout coords, seeking wrong inside a scrolled container.
-#  48  (widget_table_layout/table/listtable) internal cell separators hardcoded
+#  48  (widget/table_layout & table/listtable) internal cell separators hardcoded
 #      a 1-column content inset instead of honoring `ileft`.
 
 private def f2_down(s, x, y)

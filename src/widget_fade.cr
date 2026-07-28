@@ -147,7 +147,7 @@ module Crysterm
       # undercount every late tick and stretch the breathe cadence under load.
       start_at = Time.instant
       anim = FrameClock.new(interval) do |_clock|
-        elapsed = elapsed_since(start_at)
+        elapsed = FrameClock.elapsed_since(start_at)
         # Triangle phase 0→1→0 over `2*half`, eased by sine for a soft turnaround.
         phase = (elapsed % (2.0 * half)) / half  # 0..2
         tri = phase <= 1.0 ? phase : 2.0 - phase # 0..1..0

@@ -21,6 +21,17 @@ module Crysterm
         # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
         include Animated
 
+        # Scroll direction of the text. Owned by the mixin (not an includer)
+        # so every scroller shares one vocabulary; `Marquee::Direction` remains
+        # as an alias.
+        enum Direction
+          # Text travels right-to-left (the classic marquee). The newest character
+          # enters at the right edge.
+          Left
+          # Text travels left-to-right; the newest character enters at the left edge.
+          Right
+        end
+
         # The message scrolled across the widget. Reassigning it is safe at any
         # time — `#text=` rebuilds the decomposition (`@chars`/`@widths` and the
         # column tables) and marks the widget dirty.
@@ -58,7 +69,7 @@ module Crysterm
         @scroll_width : Int32 = 0
 
         # Direction the text travels.
-        property direction : Marquee::Direction = Marquee::Direction::Left
+        property direction : Direction = Direction::Left
 
         # When true, each non-space glyph is tinted with a cycling hue instead of
         # the widget's foreground color.

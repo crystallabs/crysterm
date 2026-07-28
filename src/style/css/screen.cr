@@ -553,7 +553,9 @@ module Crysterm
     # cascade styled widgets. Also drops `@css_last_document`, so a later
     # re-assigned stylesheet recascades from scratch.
     private def css_reset_styled_widgets : Nil
-      css_each_widget do |widget|
+      # `each_descendant` on the window is the whole widget tree, pre-order
+      # (the window itself is not a widget).
+      each_descendant do |widget|
         widget.styles = widget.css_base_styles.deep_dup
         widget.css_styled = false
         widget.css_reset_extra
@@ -564,17 +566,6 @@ module Crysterm
       end
       @css_widgets_styled = false
       @css_last_document = nil
-    end
-
-    # Yields every widget in this window's tree, pre-order. Cold path, so the
-    # block is captured (recursion can't inline a yielding block).
-    private def css_each_widget(&block : Widget ->) : Nil
-      children.each { |child| css_walk_widget child, &block }
-    end
-
-    private def css_walk_widget(widget : Widget, &block : Widget ->) : Nil
-      block.call widget
-      widget.children.each { |child| css_walk_widget child, &block }
     end
 
     # Clears only the dirty/scope flags, leaving the structural-change and
@@ -590,13 +581,10 @@ module Crysterm
     # Expands the dirty subtree roots into the full set of widgets to recompute.
     private def css_scope_widgets : Set(Widget)
       widgets = Set(Widget).new
-      @css_dirty_roots.each { |root| collect_css_subtree root, widgets }
+      @css_dirty_roots.each do |root|
+        root.self_and_each_descendant { |w| widgets << w }
+      end
       widgets
-    end
-
-    private def collect_css_subtree(widget : Widget, into : Set(Widget)) : Nil
-      into << widget
-      widget.children.each { |child| collect_css_subtree child, into }
     end
 
     # Whether any active sheet (author, or the default/theme) has `@media` rules,

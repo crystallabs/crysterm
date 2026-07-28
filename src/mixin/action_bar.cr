@@ -1,3 +1,6 @@
+require "./index_validation"
+require "./nav_keys"
+
 module Crysterm
   module Mixin
     # The "horizontal bar of selectable commands" concern: a command model,
@@ -12,6 +15,7 @@ module Crysterm
       # For the `#<<`/`#>>` operator aliases below. `Widget` includes this too, but
       # a standalone module doesn't inherit macros from its future includers.
       include Crystallabs::Helpers::Alias_Methods
+      include IndexValidation
 
       # A single command/tab shown in an action bar.
       class Command
@@ -440,14 +444,10 @@ module Crysterm
       end
 
       # Validated raw index for *child*: the `Int` itself when within
-      # `0...count`, else `nil` — like `Mixin::ItemView#index_of`. Validates
-      # rather than handing its argument back so a negative index (which
-      # `Array#[]?` would resolve from the end) is rejected up front, instead
-      # of removing/firing the *last* command while the raw value corrupts the
-      # index bookkeeping downstream.
+      # `0...count`, else `nil` — like `Mixin::ItemView#index_of`, through the
+      # shared `Mixin::IndexValidation` body.
       def index_of(child : Int) : Int32?
-        i = child.to_i
-        (0 <= i < @commands.size) ? i : nil
+        validated_index child, @commands.size
       end
 
       # Removes the command at *child* — a row index or the item/element widget —
@@ -584,41 +584,11 @@ module Crysterm
         super
       end
 
-      # The nearest *selectable* index to *from* within `0...size`, stepping in
-      # *dir* over separators (the block returns whether an index is a
-      # separator). When the step runs off the end while still on a separator, it
-      # rescans the opposite way, so the result is never a separator. Returns
-      # `nil` only when *size* is 0 or every index is a separator.
-      #
-      # Index-only navigation core, so the "never land the cursor on a separator"
-      # edge semantics live once. A class method so a widget that doesn't include
-      # this module can reuse it.
-      def self.nearest_selectable(size : Int32, from : Int32, dir : Int32, & : Int32 -> Bool) : Int32?
-        return if size == 0
-        i = from.clamp(0, size - 1)
-        size.times do
-          break unless yield i
-          ni = i + dir
-          break if ni < 0 || ni >= size
-          i = ni
-        end
-        if yield i
-          # Landed on a separator at the array boundary: rescan the opposite way
-          # so the highlight never rests on one.
-          j = i
-          while (j -= dir) >= 0 && j < size
-            return j unless yield j
-          end
-          return
-        end
-        i
-      end
-
       # The nearest selectable (non-separator) command index at or before
       # *from*, else the nearest one after it, or `nil` when the bar holds no
       # selectable command at all.
       private def nearest_selectable(from : Int32) : Int32?
-        ActionBar.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
+        NavKeys.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
       end
 
       # Moves the selection by *delta* (negative = left), stepping over any
@@ -630,7 +600,7 @@ module Crysterm
         dir = delta >= 0 ? 1 : -1
         idx = current_index
         delta.abs.times do
-          ni = ActionBar.nearest_selectable(n, idx + dir, dir) { |i| @commands[i].separator? }
+          ni = NavKeys.nearest_selectable(n, idx + dir, dir) { |i| @commands[i].separator? }
           break unless ni
           idx = ni
         end

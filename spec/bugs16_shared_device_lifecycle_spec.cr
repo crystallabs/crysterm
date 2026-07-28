@@ -62,7 +62,7 @@ describe "BUGS16 B16-03: non-active sibling realloc leaves the shared tty alone"
       # The non-active sibling's `on_resize` reallocs synchronously; pre-fix
       # `alloc` ended with `tput.clear` on the SHARED tty, erasing the active
       # window's frame behind its back. It must write nothing at all.
-      size = ::Tput::Namespace::Size.new(a.awidth - 4, a.aheight - 2)
+      size = ::Crysterm::Size.new(a.awidth - 4, a.aheight - 2)
       b.emit ::Crysterm::Event::Resize.new size
       sleep 80.milliseconds
       out.to_s.should eq ""

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression specs for BUGS15 findings #26, #56, #57 and #58
-# (src/widget_terminal_emulator.cr). The emulator is pure (depends only on
+# (src/terminal/emulator.cr). The emulator is pure (depends only on
 # Attr), so it is exercised directly with no Window/PTY — matching
 # spec/terminal_emulator_spec.cr and spec/bugs12_terminal_emulator_spec.cr.
 

@@ -379,6 +379,15 @@ describe Crysterm::TerminalEmulator do
   end
 
   describe "wide characters" do
+    # R-80: `TerminalEmulator::CONTINUATION` is documented as "must stay equal
+    # to `Window::Cell::CONTINUATION`" (the widget copies the wide-glyph
+    # continuation notion straight through to the window's cells) but is a
+    # separate constant, so the class doesn't depend on the widget tree. This
+    # pins the comment-enforced cross-file invariant.
+    it "shares the continuation sentinel with Window::Cell" do
+      Crysterm::TerminalEmulator::CONTINUATION.should eq Crysterm::Window::Cell::CONTINUATION
+    end
+
     it "lays a wide glyph across two cells with a continuation follower" do
       em = emu
       em.feed "中x"

@@ -1,7 +1,6 @@
 require "./spec_helper"
 
 include Crysterm
-include Crysterm::Helpers
 
 # Regression spec for the BUGS8 GaugeList fix: the label column was sized and
 # filled by codepoint count (`String#size`), so a wide (CJK) label — 1 codepoint
@@ -25,7 +24,7 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
     s.repaint
 
     cols = gl.awidth.not_nil! - gl.ihorizontal
-    line = clean_tags(gl.content) # single gauge → single content line
+    line = gl.clean_tags(gl.content) # single gauge → single content line
     # The row must be exactly the interior width. Pre-fix the label counted as 2
     # columns instead of 4, so the row came out 2 columns too wide (→ wrap).
     Crysterm::Unicode.display_width(line).should eq cols
@@ -37,6 +36,6 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
     gl.add_item "cpu", 64
     s.repaint
     cols = gl.awidth.not_nil! - gl.ihorizontal
-    Crysterm::Unicode.display_width(clean_tags(gl.content)).should eq cols
+    Crysterm::Unicode.display_width(gl.clean_tags(gl.content)).should eq cols
   end
 end

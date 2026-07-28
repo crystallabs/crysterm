@@ -1,7 +1,7 @@
 require "./spec_helper"
 require "http/client"
 
-# Regression spec for two BUGS13 findings in src/remote/:
+# Regression spec for two BUGS13 findings in src/dom/ and src/remote/:
 #
 #   R7 — layout-DOM load replayed attributes in initializer-arg order; the
 #        ranged widgets (Slider/SpinBox/Dial/ProgressBar/...) declare `value`

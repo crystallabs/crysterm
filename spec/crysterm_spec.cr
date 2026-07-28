@@ -1,17 +1,13 @@
 require "./spec_helper"
 
-class X
-  include Crysterm::Helpers
-end
-
-x = X.new
+x = Crysterm::Widget.new
 
 describe Crysterm do
-  describe "escape" do
+  describe "escape_tags" do
     it "wraps/escapes { and }" do
-      Crysterm::Helpers.escape("my").should eq "my"
-      Crysterm::Helpers.escape("my {").should eq "my {open}"
-      Crysterm::Helpers.escape("{ { term }").should eq "{open} {open} term {close}"
+      Crysterm::Widget.escape_tags("my").should eq "my"
+      Crysterm::Widget.escape_tags("my {").should eq "my {open}"
+      Crysterm::Widget.escape_tags("{ { term }").should eq "{open} {open} term {close}"
     end
   end
 

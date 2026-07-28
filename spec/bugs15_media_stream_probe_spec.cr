@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS15 #21 (src/widget_media_base.cr).
+# Regression spec for BUGS15 #21 (src/widget/media/base.cr).
 #
 # `Media::Base#source` is called unconditionally on the render path. For a
 # stream-mode video that is not currently open (e.g. after `#stop`, or before

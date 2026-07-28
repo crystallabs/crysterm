@@ -128,7 +128,7 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       private def table_guard(e) : Bool
         k = e.key
-        typing = k.nil? && (c0 = e.char) && !control_char?(c0)
+        typing = k.nil? && (c0 = e.char) && !Mixin::TextEditing.control_char?(c0)
         return false unless typing || (k && table_editing_key?(k))
 
         tbl = caret_table

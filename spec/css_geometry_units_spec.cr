@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# CSS length units → terminal cells via the settable `Geometry.unit_divisors`
+# CSS length units → terminal cells via the settable `Length.divisors`
 # table: `cells = round(value / divisor)`.
 describe "CSS geometry units" do
   it "converts a unit'd length to cells through the divisor table" do
@@ -303,9 +303,9 @@ describe "CSS geometry units" do
   end
 
   it "honors a retuned divisor" do
-    original = Crysterm::CSS::Geometry.unit_divisors["px"]
+    original = Crysterm::CSS::Length.divisors["px"]
     begin
-      Crysterm::CSS::Geometry.unit_divisors["px"] = 20.0
+      Crysterm::CSS::Length.divisors["px"] = 20.0
       s = headless_screen(80, 24, default_quit_keys: true)
       s.stylesheet = "Box#a { width: 200px; }"
       a = Widget::Box.new parent: s, content: "x"
@@ -313,7 +313,7 @@ describe "CSS geometry units" do
       s.repaint
       a.width.should eq 10 # 200 / 20
     ensure
-      Crysterm::CSS::Geometry.unit_divisors["px"] = original
+      Crysterm::CSS::Length.divisors["px"] = original
     end
   end
 end

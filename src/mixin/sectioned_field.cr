@@ -82,11 +82,11 @@ module Crysterm
         dim = nil
         case field
         when 0 then y = (y + delta).clamp(1, 9999)
-        when 1 then mo = wrap(mo - 1, delta, 12) + 1
-        when 2 then d = wrap(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
-        when 3 then h = wrap(h, delta, 24)
-        when 4 then mi = wrap(mi, delta, 60)
-        else        s = wrap(s, delta, 60)
+        when 1 then mo = Crysterm.wrap_add(mo - 1, delta, 12) + 1
+        when 2 then d = Crysterm.wrap_add(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
+        when 3 then h = Crysterm.wrap_add(h, delta, 24)
+        when 4 then mi = Crysterm.wrap_add(mi, delta, 60)
+        else        s = Crysterm.wrap_add(s, delta, 60)
         end
         # Year/month branches changed y/mo, so recompute days-in-month if unset.
         d = Math.min(d, dim || Time.days_in_month(y, mo))
@@ -131,14 +131,6 @@ module Crysterm
         e.accept
         request_render
         true
-      end
-
-      # Adds *delta* to *v* modulo *mod*, staying in `0...mod` — the no-carry step
-      # convention every section editor uses to wrap minutes/months/etc. within
-      # their own range.
-      private def wrap(v : Int32, delta : Int32, mod : Int32) : Int32
-        r = (v + delta) % mod
-        r < 0 ? r + mod : r
       end
 
       # Highlights the active section in place by wrapping `parts[@section]` in

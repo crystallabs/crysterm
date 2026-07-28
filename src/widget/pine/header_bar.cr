@@ -19,6 +19,9 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![HeaderBar screenshot](../../../tests/widget/pine/header_bar/header_bar.5s.apng)
       # <!-- /widget-examples:capture -->
+      # Excluded from the DOM-loader registry: self-populating composite
+      # (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
       class HeaderBar < Widget::Box
         getter title : Widget::Box
         getter section : Widget::Box

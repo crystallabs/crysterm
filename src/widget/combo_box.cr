@@ -42,7 +42,7 @@ module Crysterm
       # emitting list item events.
       class Popup < AbstractItemView
         include Mixin::ItemView
-        include Mixin::Overlay
+        include ::Crysterm::Overlay::Floor
 
         # A single click on any row commits it.
         @activate_on_click = true

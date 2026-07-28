@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS11 #12 (src/widget_media_base.cr `animate_loop`).
+# Regression spec for BUGS11 #12 (src/widget/media/base.cr `animate_loop`).
 #
 # The FrameClock tick used to render-then-advance: it flagged a render, read the
 # CURRENT frame's delay, advanced `@anim_index`, and set the next interval from

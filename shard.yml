@@ -8,9 +8,9 @@ crystal: ">= 1.21.0"
 
 license: AGPLv3
 
-# Note: the `crysterm` CLI (src/remote/bin/crysterm.cr) is intentionally NOT a
+# Note: the `crysterm` CLI (src/bin/crysterm.cr) is intentionally NOT a
 # build target — it only works with the remote subsystem. Build it explicitly:
-#   crystal build src/remote/bin/crysterm.cr -Dremote -o bin/crysterm
+#   crystal build src/bin/crysterm.cr -Dremote -o bin/crysterm
 
 dependencies:
   tput:

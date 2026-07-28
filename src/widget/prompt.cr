@@ -5,6 +5,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Prompt screenshot](../../tests/widget/prompt/prompt.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class Prompt < Dialog
       include ::Crysterm::Mixin::OkCancelDialog
 

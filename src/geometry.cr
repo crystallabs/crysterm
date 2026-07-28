@@ -1,4 +1,17 @@
 module Crysterm
+  # A logical side (or side-group) of a box — shared vocabulary for
+  # `SidedGeometry` (`Border`/`Padding`/`Margin`/`Shadow`) and any other API
+  # keyed by side name (e.g. `Border#set_width`/`#set_color`/`#width_of`).
+  enum Side
+    Left
+    Top
+    Right
+    Bottom
+    Horizontal
+    Vertical
+    All
+  end
+
   # A single cell position — Qt's `QPoint`.
   record Point, x : Int32, y : Int32 do
     # Componentwise sum — Qt's `QPoint::operator+`.

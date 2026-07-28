@@ -1,4 +1,5 @@
 require "./box"
+require "../mixin/check_marker"
 require "../mixin/sub_style"
 
 module Crysterm
@@ -20,6 +21,11 @@ module Crysterm
     # ![GroupBox screenshot](../../tests/widget/group_box/group_box.5s.apng)
     # <!-- /widget-examples:capture -->
     class GroupBox < Box
+      # The checkable title's `[x]` marker composes through the shared
+      # `#marker_line` builder (CSS-first `::indicator` glyph resolution,
+      # width-stabilized over both check states) — the same one `CheckBox`
+      # renders with — instead of a hand-built glyph string.
+      include Mixin::MarkerLine
       include Mixin::SubStyle
 
       getter title : String = ""
@@ -173,8 +179,14 @@ module Crysterm
 
       private def label_text : String
         if checkable?
-          mark = glyph(checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked)
-          "#{glyph(Glyphs::Role::CheckboxOpen)}#{mark}#{glyph(Glyphs::Role::CheckboxClose)} #{@title}".rstrip
+          # `#marker_line` composes from the `MarkerLine` `@text` ivar; keep it
+          # mirroring the title. `rstrip` preserves the historical bare-marker
+          # label for an empty title (the builder always emits the marker-label
+          # gap).
+          @text = @title
+          marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose,
+            checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked,
+            Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked).rstrip
         else
           @title
         end

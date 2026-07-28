@@ -54,6 +54,13 @@ module Crysterm
     @on_tick : FrameClock ->
     @on_stop : (->)?
 
+    # Seconds elapsed since *start_at* (a `Time.instant` reading), driving progress
+    # from real wall-clock time rather than a fixed per-tick step — `FrameClock`
+    # drops catch-up ticks when behind, so an accumulator would undercount them.
+    def self.elapsed_since(start_at : Time::Instant) : Float64
+      (Time.instant - start_at).total_seconds
+    end
+
     # Creates a clock ticking *block* every *interval*. With a *duration* it is a
     # tween: runs for *duration*, easing `#value` with *easing*, then stops
     # itself. Does not start until `#start`.

@@ -1,5 +1,5 @@
 require "../box"
-require "../marquee"
+require "./text_scroll"
 require "./animated"
 require "../../colors"
 
@@ -47,7 +47,7 @@ module Crysterm
         def initialize(
           @text = "",
           @interval = 0.07.seconds,
-          @direction : Marquee::Direction = :left,
+          @direction : TextScroll::Direction = :left,
           @wave_frequency = 0.32,
           @wave_speed = 0.22,
           @rainbow = true,

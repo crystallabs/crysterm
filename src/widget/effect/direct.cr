@@ -3,7 +3,6 @@ require "./animated"
 module Crysterm
   class Widget
     module Effect
-
       # Shared machinery for "direct" effects — those that paint their interior
       # straight into the window's cell buffer as packed `Int64` attrs (each fg
       # a direct `0xRRGGBB` value), bypassing the `content` -> tag-parse -> SGR

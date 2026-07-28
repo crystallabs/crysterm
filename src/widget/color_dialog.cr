@@ -39,6 +39,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ColorDialog screenshot](../../tests/widget/color_dialog/color_dialog.5s.apng)
     # <!-- /widget-examples:capture -->
+    # Excluded from the DOM-loader registry: self-populating composite
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class ColorDialog < Dialog
       # Inner-area layout (cells, relative to the content origin).
       FIELD_X =  0
@@ -414,7 +417,7 @@ module Crysterm
               false
             end
           if selected
-            sw.style.fg = luminance(cur) > 0.5 ? "black" : "white"
+            sw.style.fg = Colors.readable_on(cur, 0x000000, 0xffffff)
             sw.content = "<"
           else
             sw.content = ""
@@ -537,17 +540,15 @@ module Crysterm
       # Begins a window move: captures the grab offset and takes over the pointer
       # at the window level, so the drag keeps tracking off the dialog.
       private def begin_move(x : Int32, y : Int32) : Nil
-        @move_dx = x - aleft(with_margin: false)
-        @move_dy = y - atop(with_margin: false)
+        @move_dx, @move_dy = drag_grab_offset x, y
         return if @ev_move.active?
         w = window? || return
         @ev_move.on(w, Crysterm::Event::Mouse) do |e|
           if e.action.move?
-            # `drag_origin` maps the absolute pointer onto parent-content-relative
-            # `left`/`top`; `drag_max_left`/`drag_max_top` clamp it in-bounds.
-            ox, oy = drag_origin
-            self.left = (e.x - @move_dx - ox).clamp(0, drag_max_left)
-            self.top = (e.y - @move_dy - oy).clamp(0, drag_max_top)
+            # Shared offset/clamp/replay body of the base reposition drag
+            # (`Widget#drag_move_to`); only the press-region gating and the
+            # window-level pointer capture are dialog-specific.
+            drag_move_to e.x, e.y, @move_dx, @move_dy
             e.accept
             request_render
           elsif e.action.up?
@@ -685,9 +686,9 @@ module Crysterm
               # one bg (its position tracks saturation/value, not `@hue`).
               v = 1.0 - row / (FIELD_H - 1).to_f
               s = col / (FIELD_W - 1).to_f
-              put_cell x, y, '+', Colors.hsv_i(@hue, s, v), true, clip
+              put_marked_cell x, y, '+', Colors.hsv_i(@hue, s, v), clip
             else
-              put_cell_attr x, y, ' ', attrs[row * FIELD_W + col], clip
+              put_cell x, y, ' ', attrs[row * FIELD_W + col], clip
             end
           end
         end
@@ -707,44 +708,22 @@ module Crysterm
             if y == cur_hy && col == HUE_W - 1
               # Marker: recompute just this row's bg for the contrasting fg.
               h = row / (HUE_H - 1).to_f * 360.0
-              put_cell x, y, '<', Colors.hsv_i(h, 1.0, 1.0), true, clip
+              put_marked_cell x, y, '<', Colors.hsv_i(h, 1.0, 1.0), clip
             else
-              put_cell_attr x, y, ' ', attrs[row * HUE_W + col], clip
+              put_cell x, y, ' ', attrs[row * HUE_W + col], clip
             end
           end
         end
       end
 
-      # Writes one cell directly into the window buffer. When *marked*, the glyph
-      # is drawn in a contrasting fg over the swatch.
-      private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool, clip : RenderedGeometry) : Nil
-        fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
-        put_cell_attr x, y, ch, style_to_attr(style, fg, bg), clip
-      end
-
-      # Writes one cell with an already-packed attr, bypassing per-cell
-      # `Colors.hsv_i`/`style_to_attr`. Cells outside the clip (a partially offscreen or
-      # parent-clipped dialog) must be dropped: a negative index would wrap to
-      # the far side of the screen buffer.
-      private def put_cell_attr(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry) : Nil
-        return unless clip.contains? x, y
-        return if x < 0 || y < 0
-        window.lines[y]?.try do |line|
-          line[x]?.try do |cell|
-            cell.char = ch
-            cell.attr = attr
-          end
-          line.dirty = true
-        end
-      end
-
-      # ---------------------------------------------------- color helpers
-
-      private def luminance(rgb : Int32) : Float64
-        r = ((rgb >> 16) & 0xff) / 255.0
-        g = ((rgb >> 8) & 0xff) / 255.0
-        b = (rgb & 0xff) / 255.0
-        0.299 * r + 0.587 * g + 0.114 * b
+      # Writes one marker cell directly into the window buffer, the glyph drawn
+      # in a contrasting fg over the swatch. The plain-cell path goes straight
+      # through the shared `Box#put_cell` (clip- and negative-index-guarded)
+      # with an already-packed attr, bypassing per-cell
+      # `Colors.hsv_i`/`style_to_attr`.
+      private def put_marked_cell(x : Int32, y : Int32, ch : Char, bg : Int32, clip : RenderedGeometry) : Nil
+        fg = Colors.readable_on(bg, 0x000000, 0xffffff)
+        put_cell x, y, ch, style_to_attr(style, fg, bg), clip
       end
     end
   end

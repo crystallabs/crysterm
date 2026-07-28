@@ -10,13 +10,12 @@ require "./config"
 require "./cache"
 require "./attr"
 # Before "./sgr": `SGR` has `StringIndex`-restricted overloads.
-require "./misc/util/string_index"
+require "./string_index"
 require "./sgr"
-require "./misc/util/unicode"
+require "./unicode"
 require "./event"
 require "./event_input"
 require "./drag"
-require "./misc/util/helpers"
 require "./colors"
 require "./kill_ring"
 require "./glyphs"
@@ -76,9 +75,10 @@ require "./widget/**"
 require "./cursor_anchor"
 require "./capture"
 require "./dump"
-# `misc/control/*` subclass widgets (e.g. `Completer::Popup < Widget::List`), so
+# `control/*` subclass widgets (e.g. `Completer::Popup < Widget::List`), so
 # the widget types must already be defined.
-require "./misc/**"
+require "./control/button_group"
+require "./control/completer"
 require "./layout"
 require "./layout/**"
 require "./widgets"
@@ -96,19 +96,19 @@ require "./reactive/bind_items"
 
 require "./style/css/**"
 
-# Remote control: HTML layout DOM (serialize/load, CSS queries, declarative
-# actions) and the HTTP/JSON-RPC bridge. The in-process layout DOM —
+# HTML layout DOM (serialize/load, CSS queries, declarative actions) and the
+# remote-control HTTP/JSON-RPC bridge. The in-process layout DOM —
 # `#load_layout`, `#to_layout_html`, `#resolve_selector`, `#wire_dom_actions` —
 # is part of every build. Only the network surface (the HTTP server and its
 # runtime gate) is compiled in with `-Dremote`; even then, the server stays
 # closed until enabled at runtime.
-require "./remote/dom"
-require "./remote/dom_actions"
-require "./remote/dom_autoserialize"
-require "./remote/dom_loader"
-require "./remote/dom_query"
-require "./remote/dom_widgets"
-require "./remote/inline_css"
+require "./dom/dom"
+require "./dom/dom_actions"
+require "./dom/dom_autoserialize"
+require "./dom/dom_loader"
+require "./dom/dom_query"
+require "./dom/dom_widgets"
+require "./dom/inline_css"
 {% if flag?(:remote) %}
   require "./remote/dom_http"
   require "./remote/enabled"

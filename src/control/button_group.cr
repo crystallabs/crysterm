@@ -1,5 +1,5 @@
 require "event_handler"
-require "../../mixin/exclusive_group"
+require "../mixin/exclusive_group"
 
 module Crysterm
   # Logical, non-visual grouping of checkable buttons, modeled after Qt's

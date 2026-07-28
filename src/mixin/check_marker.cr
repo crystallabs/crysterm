@@ -1,82 +1,17 @@
 module Crysterm
   module Mixin
-    # Shared rendering and interaction for the marker-style checkable controls —
-    # `[x] label`, `(*) label`. Provides the marker-only click hit-test, the
-    # activate-key toggle, focus/blur cursor placement over the marker, and the
-    # `<open><glyph><close> text` line builder. The glyph set, tri-state and
-    # group exclusivity stay per-widget.
-    #
-    # The including type must derive `Widget::AbstractButton`.
-    module CheckMarker
-      # `repaint_property` (below) is a body-level macro call, so `Macros` must be
-      # in scope here — unlike the `handle` calls, which resolve through the
-      # including `Widget` because they sit inside method bodies. Harmless
-      # re-include: every includer is already a `Widget`, which includes `Macros`.
-      include ::Crysterm::Macros
-
+    # The `<open><mark><close> text` marker-line builder alone — the
+    # composition core of `CheckMarker`, split out so a widget that renders a
+    # checkbox marker without being a marker-style *button* (`GroupBox`'s
+    # checkable title) can reuse the exact CSS-first glyph resolution and
+    # width stabilization without the button interaction wiring. Any `Widget`
+    # can include it; set `@text` before calling `#marker_line`.
+    module MarkerLine
       # The label drawn after the marker glyph. A marker control renders the
       # composed `<open><mark><close> text` line as its `#content`, so it cannot
       # let `AbstractButton#text` read/write `#content` the way the push buttons
       # do — it keeps the label in its own ivar and `#marker_line` re-composes.
       @text : String = ""
-
-      # :ditto:
-      def text : String
-        @text
-      end
-
-      # :ditto: — a change only needs a repaint; `#render` re-composes the marker
-      # line from `@text`.
-      repaint_property text, String
-
-      # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
-      # `#text` from an explicit `content:`, and wires marker input via
-      # `#setup_check_marker`. Call from `initialize`, after `super`; the
-      # including widget handles its own extra constructor args around it.
-      private def setup_marker_control(checked, content) : Nil
-        @checkable = true # a marker control is inherently checkable
-        @checked = checked
-
-        # An explicit `content:` is the label for a marker control. `text:` is
-        # the preferred spelling and is already applied by the base
-        # `initialize`; the two are mutually exclusive at any one call site.
-        content.try do |c|
-          @text = c
-        end
-
-        setup_check_marker
-      end
-
-      # Wires the activate keys, focus/blur cursor handling, and the marker-click
-      # hit-test. Call from `initialize`, after `super`.
-      private def setup_check_marker : Nil
-        # `KeyPress` is already wired by the base `initialize`; only the
-        # marker-specific handlers are added here.
-        handle Crysterm::Event::FocusIn
-        handle Crysterm::Event::FocusOut
-
-        # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
-        # label. Uses `Mouse` (not `Click`) since only it carries coordinates;
-        # the marker is the composed-marker cells at the start of the first
-        # content row (`@_marker_width` — measured, since CSS can reshape it).
-        on(Crysterm::Event::Mouse) do |e|
-          next unless e.action.down?
-          # Compute the marker cell from the *painted* position (`@lpos`), not
-          # the layout coords: inside a scrolled container the two differ by the
-          # scroll base, and mouse dispatch hit-tests against `@lpos`.
-          next unless origin = painted_content_origin?
-          marker_start = origin[0]
-          # Row check needed because `Mouse` fires for clicks anywhere in the
-          # widget's rect — without it, a taller control (border/explicit
-          # height) would toggle on any row at the marker's column.
-          marker_row = origin[1]
-          if e.y == marker_row && e.x >= marker_start && e.x < marker_start + @_marker_width
-            toggle
-            request_render
-            e.accept
-          end
-        end
-      end
 
       # Cached last-built line and the inputs it was built from: `marker_line`
       # runs every frame, but the line changes only when a marker piece (check
@@ -156,6 +91,81 @@ module Crysterm
       # run role may legitimately be 2 cells wide — an emoji indicator).
       private def char_cells(s : String?) : Int32
         s ? Unicode.width(s) : 0
+      end
+    end
+
+    # Shared rendering and interaction for the marker-style checkable controls —
+    # `[x] label`, `(*) label`. Provides the marker-only click hit-test, the
+    # activate-key toggle, focus/blur cursor placement over the marker, and (via
+    # `MarkerLine`) the `<open><glyph><close> text` line builder. The glyph set,
+    # tri-state and group exclusivity stay per-widget.
+    #
+    # The including type must derive `Widget::AbstractButton`.
+    module CheckMarker
+      include MarkerLine
+
+      # `repaint_property` (below) is a body-level macro call, so `Macros` must be
+      # in scope here — unlike the `handle` calls, which resolve through the
+      # including `Widget` because they sit inside method bodies. Harmless
+      # re-include: every includer is already a `Widget`, which includes `Macros`.
+      include ::Crysterm::Macros
+
+      # The label drawn after the marker glyph (the `MarkerLine` `@text` ivar).
+      def text : String
+        @text
+      end
+
+      # :ditto: — a change only needs a repaint; `#render` re-composes the marker
+      # line from `@text`.
+      repaint_property text, String
+
+      # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
+      # `#text` from an explicit `content:`, and wires marker input via
+      # `#setup_check_marker`. Call from `initialize`, after `super`; the
+      # including widget handles its own extra constructor args around it.
+      private def setup_marker_control(checked, content) : Nil
+        @checkable = true # a marker control is inherently checkable
+        @checked = checked
+
+        # An explicit `content:` is the label for a marker control. `text:` is
+        # the preferred spelling and is already applied by the base
+        # `initialize`; the two are mutually exclusive at any one call site.
+        content.try do |c|
+          @text = c
+        end
+
+        setup_check_marker
+      end
+
+      # Wires the activate keys, focus/blur cursor handling, and the marker-click
+      # hit-test. Call from `initialize`, after `super`.
+      private def setup_check_marker : Nil
+        # `KeyPress` is already wired by the base `initialize`; only the
+        # marker-specific handlers are added here.
+        handle Crysterm::Event::FocusIn
+        handle Crysterm::Event::FocusOut
+
+        # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
+        # label. Uses `Mouse` (not `Click`) since only it carries coordinates;
+        # the marker is the composed-marker cells at the start of the first
+        # content row (`@_marker_width` — measured, since CSS can reshape it).
+        on(Crysterm::Event::Mouse) do |e|
+          next unless e.action.down?
+          # Compute the marker cell from the *painted* position (`@lpos`), not
+          # the layout coords: inside a scrolled container the two differ by the
+          # scroll base, and mouse dispatch hit-tests against `@lpos`.
+          next unless origin = painted_content_origin?
+          marker_start = origin[0]
+          # Row check needed because `Mouse` fires for clicks anywhere in the
+          # widget's rect — without it, a taller control (border/explicit
+          # height) would toggle on any row at the marker's column.
+          marker_row = origin[1]
+          if e.y == marker_row && e.x >= marker_start && e.x < marker_start + @_marker_width
+            toggle
+            request_render
+            e.accept
+          end
+        end
       end
 
       # The marker controls toggle, rather than push, on activation.

@@ -116,7 +116,7 @@ describe "SGR.to_attr" do
   end
 
   it "carries over the current attr when codes don't touch a field" do
-    base = apply.call("\e[31m")                          # red fg
+    base = apply.call("\e[31m")                   # red fg
     a = Crysterm::SGR.to_attr("\e[1m", base, dfl) # add bold, keep red fg
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
     Attr.unpack_color(Attr.fg(a)).should eq Colors.palette_to_rgb(1)

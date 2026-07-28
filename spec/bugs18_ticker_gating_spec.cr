@@ -11,7 +11,7 @@ include Crysterm
 #     src/widget/gradient.cr) — ticks `phase += speed` + `request_render`
 #     forever.
 #   * `Widget::Media::Base`'s animation frame clock (`#animate_loop`, driving
-#     `#play`'d GIF/APNG playback, src/widget_media_base.cr) — ticks
+#     `#play`'d GIF/APNG playback, src/widget/media/base.cr) — ticks
 #     `anim_index` + `request_render` forever.
 #
 # Both now install one-time Hide/Detached pause + Show/Attached resume hooks,

@@ -23,6 +23,9 @@ module Crysterm
     # Reading begins once the widget is attached to a window (`Event::Attached`), so
     # appended lines can be marshalled onto the render fiber. You can also drive it
     # yourself, headless, by calling `#feed` with bytes/strings.
+    # Excluded from the DOM-loader registry: no window-only constructor (needs a live IO/command)
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class LogFd < Log
       # The spawned child, when constructed from a command (the `ncsubproc` case);
       # `nil` when wrapping a caller-supplied `IO`. Signalling/reaping go through

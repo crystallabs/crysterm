@@ -1,4 +1,5 @@
 require "./abstract_slider"
+require "../mixin/track_geometry"
 
 module Crysterm
   class Widget
@@ -26,6 +27,8 @@ module Crysterm
     # ![ScrollBar screenshot](../../tests/widget/scrollbar/scrollbar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollBar < AbstractSlider
+      include Mixin::TrackGeometry
+
       property orientation : Tput::Orientation = :vertical
 
       # Size of one "page" (Qt's `pageStep`): the visible span, which also sizes
@@ -136,40 +139,12 @@ module Crysterm
           # a smaller value. A release commits an untracked drag.
           next unless drag_gesture? e, wheel_invert: true
 
-          # Resolve the pointer against the *painted* track when rendered. Mouse
-          # events are dispatched by painted geometry, which inside a scrolled
-          # container is shifted from the layout coords by the ancestor's scroll
-          # base, and an ancestor-clipped bar paints its whole track compressed
-          # into the clipped rect. Both the origin and the span must come from
-          # that same rect or a seek lands on the wrong value. Falls back to
-          # layout coords before the first render.
-          if lp = @lpos
-            txi, txl, tyi, tyl = lp.xi, lp.xl, lp.yi, lp.yl
-            if border = style.border
-              # Inset by the *visible* border remainder per edge: an ancestor
-              # clip may hide part of the border band (recorded in `lp.hidden_*`),
-              # so subtracting the full width would double-count the clipped
-              # cells and land a seek on the wrong value. Padding stays out of
-              # this branch (border-only, mirroring its original `border.adjust`).
-              txi += effective_edge_insets(border.left, 0, lp.hidden_left)[0]
-              txl -= effective_edge_insets(border.right, 0, lp.hidden_right)[0]
-              tyi += effective_edge_insets(border.top, 0, lp.hidden_top)[0]
-              tyl -= effective_edge_insets(border.bottom, 0, lp.hidden_bottom)[0]
-            end
-            if @orientation.horizontal?
-              raw = e.x - txi
-              inner = txl - txi
-            else
-              raw = e.y - tyi
-              inner = tyl - tyi
-            end
-          elsif @orientation.horizontal?
-            raw = e.x - aleft - ileft
-            inner = awidth - ihorizontal
-          else
-            raw = e.y - atop - itop
-            inner = aheight - ivertical
-          end
+          # Clip-aware painted-track resolution, shared with `Slider`/
+          # `ProgressBar` via `Mixin::TrackGeometry#pointer_track`. `pad:
+          # false`: the bar paints its track into the border-only interior
+          # (`with_inner_coords`), so padding stays out of the pointer math
+          # too.
+          raw, inner = pointer_track e, pad: false
           steppers = stepper_buttons? && inner >= 3
           # A click on a stepper-button cell steps by `#single_step` instead of seeking.
           if steppers && e.action.down? && (raw <= 0 || raw >= inner - 1)

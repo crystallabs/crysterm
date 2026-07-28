@@ -201,6 +201,14 @@ module Crysterm
       @_reverse_fallback_copy : ::Crysterm::Style?
       @_reverse_fallback_fp : ::Crysterm::Style::AttrFingerprint?
 
+      # Identity of the sub-`Style` object last pushed onto this widget by an
+      # ancestor's `Mixin::SubStyle#apply_substyle`, letting that per-frame push
+      # skip re-`dup`ing an unchanged sub-style. The cascade *replaces* sub-`Style`
+      # objects on recompute rather than mutating them in place, so a `same?` hit
+      # means the pushed copy is still current. Declared here with its sibling
+      # per-frame style memos rather than in `mixin/sub_style.cr`.
+      property _substyle_src : ::Crysterm::Style? = nil
+
       # Drops the frame-memoized style resolution and the insets derived from it.
       # Every same-frame-visible style change must call this; rendering is
       # single-fiber, so that plus the per-frame stamp covers all reachable

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS11 #22 and #23 (both in src/widget_graph_scale.cr).
+# Regression spec for BUGS11 #22 and #23 (both in src/widget/graph/scale.cr).
 #
 # #22 — `Scale.eighths` fed a non-finite value passed straight through `clamp`
 # (NaN survives, since all NaN comparisons are false) into `NaN.round.to_i`,
