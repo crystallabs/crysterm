@@ -14,6 +14,15 @@ module Crysterm
       end
     end
 
+    # `Tree` renders its rows through the same item view as `List` — and so
+    # honors the `item` sub-style already — but never declared the slot, so
+    # `Tree::item { ... }` matched nothing.
+    class Tree
+      def build_css_sub_elements : Array(String)
+        super + ["item"]
+      end
+    end
+
     class ListBar
       def build_css_sub_elements : Array(String)
         super + ["prefix"]

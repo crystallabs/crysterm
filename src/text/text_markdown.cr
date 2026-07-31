@@ -52,6 +52,28 @@ module Crysterm
       "[!#{kind.to_s.upcase}]"
     end
 
+    # The comment fence a `TextToc` exports as. GFM has no table-of-contents
+    # marker at all — github.com renders `[TOC]` as literal text — so the
+    # tooling around it settled on HTML comments, which are a valid CommonMark
+    # HTML block (type 2) and render as *nothing*. Because the pair brackets a
+    # region, the generated entries can live inside it: the saved file shows a
+    # real, working contents list in any CommonMark renderer, while re-import
+    # still recognizes the region. A bare marker would force a choice between
+    # the two.
+    FENCE_OPEN  = "<!-- toc -->"
+    FENCE_CLOSE = "<!-- tocstop -->"
+
+    # Bare markers accepted on *import* only. `[TOC]` is Python-Markdown's (and
+    # so PHP Markdown Extra's, Typora's, Doxygen's); `[[_TOC_]]` is GitLab's.
+    # Being liberal here costs nothing and is what a document written elsewhere
+    # will contain; export always normalizes to the fence.
+    BARE_MARKERS = {"[toc]", "[[toc]]", "[[_toc_]]"}
+
+    # Whether *text* is a bare TOC marker in any accepted spelling.
+    def self.toc_marker?(text : String) : Bool
+      BARE_MARKERS.includes?(text.strip.downcase)
+    end
+
     # Parses markdown into detached blocks.
     def self.parse(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
       # `source_pos` records each block's source line/column so the importer
@@ -59,12 +81,130 @@ module Crysterm
       # resolves the escape before the AST, so the text nodes are identical
       # (B17-31).
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
-      Importer.new(theme, text).import(doc)
+      fold_tocs(Importer.new(theme, text).import(doc))
     end
 
     # Serializes *blocks* to markdown.
     def self.generate(blocks : Array(TextBlock)) : String
-      Exporter.new.export(blocks)
+      Exporter.new.export(unfold_tocs(blocks))
+    end
+
+    # This block's TOC frame format, or nil — the innermost one, so a TOC
+    # nested inside another frame still resolves.
+    protected def self.toc_format_of(block : TextBlock) : TextTocFormat?
+      f = block.block_format.frame_formats.try(&.reverse_each.find(&.is_a?(TextTocFormat)))
+      f.as(TextTocFormat?)
+    end
+
+    # Import pass: turns a `<!-- toc -->` … `<!-- tocstop -->` pair — or a bare
+    # marker — into a `TextToc` frame, dropping the fence blocks themselves.
+    #
+    # The enclosed blocks are *kept*, not discarded: they are already valid
+    # entries, so a fragment paste and a document that is never refreshed both
+    # still show a contents list. They are derived data all the same, and the
+    # first `TextDocument#refresh_tocs` replaces them — which
+    # `TextDocument#set_markdown` runs, so a loaded document is always current.
+    #
+    # An unterminated open fence is left alone and exports as the literal HTML
+    # comment it is.
+    protected def self.fold_tocs(blocks : Array(TextBlock)) : Array(TextBlock)
+      return blocks unless blocks.any? { |b| fence_open?(b) || bare_marker?(b) }
+      res = [] of TextBlock
+      i = 0
+      while i < blocks.size
+        b = blocks[i]
+        if fence_open?(b)
+          close = (i + 1...blocks.size).find { |j| fence_close?(blocks[j]) }
+          unless close
+            res << b
+            i += 1
+            next
+          end
+          body = blocks[(i + 1)...close]
+          fmt = TextTocFormat.new(infer_options(body))
+          # An empty fence still needs a block, or the frame has nowhere to live
+          # and `TextToc#refresh` can never find it again.
+          body = [TextBlock.new("", TextCharFormat.default, TextToc.context_format(b.block_format))] if body.empty?
+          body.each { |x| x.block_format = stamp_toc(x.block_format, fmt) }
+          res.concat body
+          i = close + 1
+        elsif bare_marker?(b)
+          res << TextBlock.new("", TextCharFormat.default,
+            stamp_toc(TextToc.context_format(b.block_format), TextTocFormat.new))
+          i += 1
+        else
+          res << b
+          i += 1
+        end
+      end
+      res
+    end
+
+    # What can be read back out of a fenced region, which carries the entries
+    # but not the `TocOptions` that produced them.
+    #
+    # A leading heading is a `TocOptions#title` — that is the only thing that
+    # generates one — and it renders at `min_level` by construction, so the two
+    # recover together and a titled TOC round-trips exactly. Everything else
+    # (`numbering`, `links`, and `min_level` when there is no title) reverts to
+    # the defaults: the ecosystem's fence has nowhere to put configuration, and
+    # inventing an attribute syntax would forfeit the portability that made the
+    # fence the right export in the first place.
+    private def self.infer_options(body : Array(TextBlock)) : TocOptions
+      first = body.first?
+      return TocOptions.new unless first && first.block_format.heading?
+      TocOptions.new(title: first.text, min_level: first.block_format.heading_level)
+    end
+
+    # A bare marker only counts as one where a TOC could actually go: not
+    # inside a code block, where `[TOC]` is sample text rather than a
+    # directive, and not as a list item.
+    private def self.bare_marker?(block : TextBlock) : Bool
+      return false unless toc_marker?(block.text)
+      return false if block.block_format.list_format
+      !block.fragments.first?.try(&.format.code?)
+    end
+
+    # Export pass: brackets each TOC region with its fence blocks. The inverse
+    # of `.fold_tocs`, and deliberately a plain list transform — the fences then
+    # travel through the ordinary exporter as the HTML blocks they are, which is
+    # what gets their blank-line separation right for free.
+    #
+    # The *blocks* array is not mutated: only the returned list is new, and the
+    # fence blocks inherit the region's quote level so a quoted TOC keeps its
+    # `>` prefix.
+    protected def self.unfold_tocs(blocks : Array(TextBlock)) : Array(TextBlock)
+      return blocks unless blocks.any? { |b| toc_format_of(b) }
+      res = [] of TextBlock
+      i = 0
+      while i < blocks.size
+        fmt = toc_format_of(blocks[i])
+        unless fmt
+          res << blocks[i]
+          i += 1
+          next
+        end
+        outer = TextToc.context_format(blocks[i].block_format).with_frame_formats(nil)
+        res << TextBlock.new(FENCE_OPEN, TextCharFormat.default, outer)
+        while i < blocks.size && toc_format_of(blocks[i]).try(&.same?(fmt))
+          res << blocks[i]
+          i += 1
+        end
+        res << TextBlock.new(FENCE_CLOSE, TextCharFormat.default, outer)
+      end
+      res
+    end
+
+    private def self.fence_open?(block : TextBlock) : Bool
+      block.text.strip.downcase == FENCE_OPEN
+    end
+
+    private def self.fence_close?(block : TextBlock) : Bool
+      block.text.strip.downcase == FENCE_CLOSE
+    end
+
+    private def self.stamp_toc(bf : TextBlockFormat, fmt : TextTocFormat) : TextBlockFormat
+      bf.with_frame_formats((bf.frame_formats || [] of TextFrameFormat) + [fmt])
     end
 
     # Markd AST → blocks. Inline formatting is a stack of `TextCharFormat`
@@ -1055,8 +1195,13 @@ module Crysterm
 
     # Replaces the whole content from markdown (Qt `setMarkdown`). Same reset
     # semantics as `set_plain_text` (not undoable, cursors rewind).
+    #
+    # Any `<!-- toc -->` region the source carried is regenerated from the
+    # freshly imported outline — a load is the one moment there is no reader
+    # position to disturb, so it is safe to refresh without being asked.
     def set_markdown(text : String, theme : TextTheme = TextTheme.default) : Nil
       replace_content(TextMarkdown.parse(text, theme))
+      refresh_tocs(theme)
     end
 
     # `=`-setter spelling of `#set_markdown` (default theme; use `#set_markdown`

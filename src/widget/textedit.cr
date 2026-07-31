@@ -194,6 +194,18 @@ module Crysterm
         text
       end
 
+      # Regenerates every inline table of contents from the current headings,
+      # in this widget's `#theme`, returning whether any changed.
+      #
+      # Deliberately manual: a TOC that grew while the reader was below it would
+      # shift every row under them mid-read, so this is what an application
+      # binds to a re-render action or a key. `#set_markdown` already runs it —
+      # a load is the one moment with no reading position to disturb. The
+      # `TocView` sidebar needs none of this and tracks the document on its own.
+      def refresh_tocs : Bool
+        document.refresh_tocs @theme
+      end
+
       # Replaces the document's whole content from HTML (Qt
       # `QTextEdit#setHtml`); otherwise like `#set_markdown`.
       def set_html(html : String, theme : TextTheme = @theme) : Nil

@@ -1,3 +1,4 @@
+require "uri"
 require "./textedit"
 
 module Crysterm
@@ -12,9 +13,15 @@ module Crysterm
     # `Event::AnchorClick` — and, when a `#loader` is set and `#open_links?`
     # is true, follows the link through `#source=`.
     #
+    # Same-document anchors work too: a `#fragment` is split off the URL and
+    # resolved against `TextDocument#outline`, so `[Install](#install)` — and
+    # the links a `TextToc` generates — scroll to the matching heading without
+    # consulting the loader (`#goto_anchor`).
+    #
     # Navigation history: `#source=` records every successful load;
     # `Backspace` / `#backward` and `#forward` move through it (Qt's
-    # `backward()`/`forward()`). Loading is delegated to `#loader`, a
+    # `backward()`/`forward()`), each entry remembering the reading position it
+    # was left at. Loading is delegated to `#loader`, a
     # `String -> TextDocument?` — the toolkit has no resource system, so the
     # application decides what a URL means (Qt `loadResource` analog):
     #
@@ -39,8 +46,9 @@ module Crysterm
 
       getter source : String?
 
-      @history = [] of String
-      @future = [] of String
+      # Visited sources, each with the reading position it was left at.
+      @history = [] of {String, Int32}
+      @future = [] of {String, Int32}
       @links = [] of Link
       @links_revision = -1
       @focused_link = -1
@@ -73,23 +81,70 @@ module Crysterm
       # The 0-based index of the keyboard-focused link, -1 for none.
       getter focused_link : Int32
 
-      # Emits `Event::AnchorClick` for *url* and — with `#open_links?` and a
-      # `#loader` — navigates to it.
+      # Emits `Event::AnchorClick` for *url* and — with `#open_links?` —
+      # navigates to it.
+      #
+      # A cross-document URL needs a `#loader`, since the toolkit has no
+      # resource system. A bare `#fragment` does not: it resolves against the
+      # document already shown, so TOC and in-page links work in a browser that
+      # was handed a document directly.
       def activate_link(url : String) : Nil
         emit Crysterm::Event::AnchorClick, url
-        self.source = url if open_links? && @loader
+        return unless open_links?
+        self.source = url if @loader || TextBrowser.sanitize_location(url)[0].empty?
       end
 
-      # Navigates to *url*: loads it through `#loader`, replaces the
+      # Splits a location into its path and its `#`-fragment, either of which
+      # may be empty (Qt has no analogue; mirrors Textual's
+      # `Markdown.sanitize_location`). The fragment excludes the `#`.
+      #
+      # `"guide.md#install"` → `{"guide.md", "install"}`,
+      # `"#install"` → `{"", "install"}`, `"guide.md"` → `{"guide.md", ""}`.
+      def self.sanitize_location(url : String) : {String, String}
+        if i = url.index('#')
+          {url[0, i], url[(i + 1)..]}
+        else
+          {url, ""}
+        end
+      end
+
+      # Scrolls to the heading whose outline anchor is *name* (a leading `#` is
+      # accepted and ignored), returning whether one was found.
+      #
+      # Anchors come from `TextDocument#outline`, which derives and stores them
+      # once per revision — so a jump is a lookup, not a re-slug of the whole
+      # document.
+      def goto_anchor(name : String) : Bool
+        name = name.lchop('#')
+        return false if name.empty?
+        # A link written by another tool may percent-encode a non-ASCII anchor;
+        # ours are stored raw, so compare both ways.
+        decoded = name.includes?('%') ? URI.decode(name) : name
+        entry = document.outline.find { |e| e.anchor == name || e.anchor == decoded }
+        return false unless entry
+        @cursor_pos = document.block_position(entry.block)
+        clear_selection
+        ensure_cursor_visible
+        true
+      end
+
+      # Navigates to *url*: loads its path through `#loader`, replaces the
       # document, records history and emits `Event::SourceChanged`. A URL the
       # loader declines (nil) leaves everything unchanged.
+      #
+      # A `#fragment` is split off first and resolved against the loaded
+      # document. A URL with no path — a bare `"#install"` — or one whose path
+      # is already loaded is an in-document jump: the loader is not consulted
+      # and the document is not replaced.
       def source=(url : String?) : String?
         return @source = nil if url.nil?
         return url if url == @source
-        doc = @loader.try(&.call(url)) || return url
-        @source.try { |s| @history << s }
-        @future.clear
-        show_document(doc, url)
+        prev = @source
+        prev_pos = @cursor_pos
+        if navigate(url, nil)
+          prev.try { |s| @history << {s, prev_pos} }
+          @future.clear
+        end
         url
       end
 
@@ -103,22 +158,29 @@ module Crysterm
 
       # Navigates one step back in the visited-source history (Qt
       # `backward()`; the `Backspace` key). Returns whether it moved.
+      #
+      # History entries carry the reading position they were left at, so going
+      # back returns to the spot rather than to the top of the document — which
+      # matters now that following a same-document anchor is itself a history
+      # step.
       def backward : Bool
-        url = @history.last? || return false
-        doc = @loader.try(&.call(url)) || return false
+        entry = @history.last? || return false
+        here = @source
+        here_pos = @cursor_pos
+        return false unless navigate(entry[0], entry[1])
         @history.pop
-        @source.try { |s| @future << s }
-        show_document(doc, url)
+        here.try { |s| @future << {s, here_pos} }
         true
       end
 
       # Inverse of `#backward`. Returns whether it moved.
       def forward : Bool
-        url = @future.last? || return false
-        doc = @loader.try(&.call(url)) || return false
+        entry = @future.last? || return false
+        here = @source
+        here_pos = @cursor_pos
+        return false unless navigate(entry[0], entry[1])
         @future.pop
-        @source.try { |s| @history << s }
-        show_document(doc, url)
+        here.try { |s| @history << {s, here_pos} }
         true
       end
 
@@ -220,6 +282,31 @@ module Crysterm
         elsif off > 0
           b.char_format_at(off).anchor_href
         end
+      end
+
+      # Moves to *url*, loading it only when its path differs from the one
+      # already shown, then places the caret: at *restore* when replaying a
+      # history entry, otherwise at the URL's anchor. Returns whether it moved
+      # — false only when the loader declines, which leaves everything
+      # unchanged.
+      private def navigate(url : String, restore : Int32?) : Bool
+        path, anchor = TextBrowser.sanitize_location(url)
+        current = @source.try { |s| TextBrowser.sanitize_location(s)[0] }
+        if path.empty? || path == current
+          @source = url
+          emit Crysterm::Event::SourceChanged, url
+        else
+          doc = @loader.try(&.call(path)) || return false
+          show_document(doc, url)
+        end
+        if restore
+          @cursor_pos = restore.clamp(0, document.size)
+          clear_selection
+          ensure_cursor_visible
+        elsif !anchor.empty?
+          goto_anchor(anchor)
+        end
+        true
       end
 
       private def show_document(doc : TextDocument, url : String) : Nil
